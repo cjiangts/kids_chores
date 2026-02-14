@@ -8,7 +8,7 @@ import shutil
 
 backup_bp = Blueprint('backup', __name__)
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
 
 @backup_bp.route('/backup/download', methods=['GET'])
 def download_backup():
