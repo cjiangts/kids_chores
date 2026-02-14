@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Admin - Kids Learning App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>👨‍👩‍👧 Parent Admin</h1>
+            <p>Manage kids and settings</p>
+        </header>
+
+        <main>
+            <div class="actions">
+                <button id="newKidBtn" class="btn-primary">➕ Add New Kid</button>
+                <a href="index.html" class="btn-secondary" style="text-decoration: none; display: inline-block;">← Back to Home</a>
+            </div>
+
+            <div id="kidsList" class="kids-grid">
+                <!-- Kids will be loaded here -->
+            </div>
+
+            <!-- New Kid Form Modal -->
+            <div id="kidModal" class="modal hidden">
+                <div class="modal-content">
+                    <h2>Add New Kid</h2>
+                    <form id="kidForm">
+                        <div class="form-group">
+                            <label for="kidName">Name:</label>
+                            <input type="text" id="kidName" required placeholder="Enter kid's name">
+                        </div>
+                        <div class="form-group">
+                            <label for="kidBirthday">Birthday (YYYY-MM-DD):</label>
+                            <input type="text" id="kidBirthday" required placeholder="2015-06-15">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">Save</button>
+                            <button type="button" id="cancelBtn" class="btn-secondary">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div id="errorMessage" class="error hidden"></div>
+        </main>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

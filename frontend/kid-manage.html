@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kid Profile - Learning App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #5a6268;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .tab-nav .tab-link {
+            min-width: 180px;
+        }
+
+        .add-card-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .add-card-section h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .settings-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .settings-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .settings-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .settings-save-btn {
+            background: #007bff;
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            height: 44px;
+            white-space: nowrap;
+        }
+
+        .settings-save-btn:hover {
+            background: #0069d9;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-top: 0.9rem;
+        }
+
+        .checkbox-row label {
+            margin: 0;
+            color: #444;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .chinese-input {
+            font-size: 3rem !important;
+            text-align: center;
+            padding: 1.5rem !important;
+        }
+
+        .submit-btn {
+            background: #28a745;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .submit-btn:hover {
+            background: #218838;
+        }
+
+        .cards-section h2 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .cards-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        .sort-select {
+            min-width: 260px;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            background: #fff;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .card-item {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+        }
+
+        .card-front {
+            font-size: 5rem;
+            color: #333;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="kidName">Loading...</h1>
+            <a href="/" class="back-btn">← Back</a>
+        </div>
+
+        <div class="tab-nav">
+            <a id="charactersTab" class="tab-link primary" href="#">📝 Manage Characters</a>
+            <a id="mathTab" class="tab-link secondary" href="#">➗ Manage Math</a>
+        </div>
+
+        <div id="errorMessage" class="error hidden"></div>
+
+        <!-- Add New Character -->
+        <div class="add-card-section">
+            <h2>Add New Character</h2>
+            <form id="addCardForm">
+                <div class="form-group">
+                    <label for="chineseChar">Chinese Character(s)</label>
+                    <input
+                        type="text"
+                        id="chineseChar"
+                        class="chinese-input"
+                        placeholder="你"
+                        required
+                    >
+                </div>
+                <button type="submit" class="submit-btn">Add Character</button>
+            </form>
+        </div>
+
+        <!-- Session Settings -->
+        <div class="settings-section">
+            <h2>Practice Settings</h2>
+            <form id="sessionSettingsForm" class="settings-row">
+                <div class="form-group">
+                    <label for="sessionCardCount">Characters Per Session</label>
+                    <input
+                        type="number"
+                        id="sessionCardCount"
+                        min="1"
+                        max="200"
+                        step="1"
+                        required
+                    >
+                </div>
+                <button type="submit" class="settings-save-btn">Save</button>
+            </form>
+            <div class="checkbox-row">
+                <input type="checkbox" id="dailyPracticeChineseEnabled">
+                <label for="dailyPracticeChineseEnabled">Require Chinese daily practice</label>
+            </div>
+        </div>
+
+        <!-- Character Cards -->
+        <div class="cards-section">
+            <h2>Characters <span id="cardCount">(0)</span></h2>
+            <div class="cards-toolbar">
+                <select id="viewOrderSelect" class="sort-select">
+                    <option value="queue">Order: Next Session Queue</option>
+                    <option value="added_time">Order: Added Time</option>
+                    <option value="avg_green_desc">Order: Avg Green Time (Desc)</option>
+                </select>
+            </div>
+            <div id="cardsGrid" class="cards-grid">
+                <!-- Cards will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="practice-manage-common.js"></script>
+    <script src="kid-manage.js"></script>
+</body>
+</html>

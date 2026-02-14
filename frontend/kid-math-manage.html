@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kid Math Profile - Learning App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #5a6268;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .tab-nav .tab-link {
+            min-width: 180px;
+        }
+
+        .tab-nav .tab-link.primary {
+            background: #eef2ff;
+            color: #3b4cc0;
+        }
+
+        .tab-nav .tab-link.secondary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .settings-section,
+        .starter-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1.2rem;
+        }
+
+        .settings-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .settings-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .settings-save-btn,
+        .seed-btn {
+            background: #007bff;
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            height: 44px;
+            white-space: nowrap;
+        }
+
+        .settings-save-btn:hover,
+        .seed-btn:hover {
+            background: #0069d9;
+        }
+
+        .starter-help {
+            margin-top: 0.4rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .cards-section h2 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .cards-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        .sort-select {
+            min-width: 260px;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            background: #fff;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .card-item {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+        }
+
+        .card-front {
+            font-size: 2rem;
+            color: #333;
+            font-weight: 700;
+        }
+
+        .card-back {
+            margin-top: 0.4rem;
+            font-size: 1.25rem;
+            color: #1d7a35;
+            font-weight: 700;
+        }
+
+        .delete-card-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            line-height: 1;
+        }
+
+        .delete-card-btn:hover {
+            background: #c82333;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="kidName">Loading...</h1>
+            <a href="/admin.html" class="back-btn">← Back</a>
+        </div>
+
+        <div class="tab-nav">
+            <a id="charactersTab" class="tab-link primary" href="#">📝 Manage Characters</a>
+            <a id="mathTab" class="tab-link secondary" href="#">➗ Manage Math</a>
+        </div>
+
+        <div id="errorMessage" class="error hidden"></div>
+
+        <div class="settings-section">
+            <h2>Practice Settings</h2>
+            <form id="sessionSettingsForm" class="settings-row">
+                <div class="form-group">
+                    <label for="sessionCardCount">Questions Per Session</label>
+                    <input type="number" id="sessionCardCount" min="1" max="200" step="1" required>
+                </div>
+                <button type="submit" class="settings-save-btn">Save</button>
+            </form>
+        </div>
+
+        <div class="starter-section">
+            <h2>Starter Set</h2>
+            <button class="seed-btn" id="seedBtn">Insert Starter 20</button>
+            <p class="starter-help" id="seedStatus"></p>
+        </div>
+
+        <div class="cards-section">
+            <h2>Math Questions <span id="cardCount">(0)</span></h2>
+            <div class="cards-toolbar">
+                <select id="viewOrderSelect" class="sort-select">
+                    <option value="queue">Order: Next Session Queue</option>
+                    <option value="added_time">Order: Added Time</option>
+                    <option value="avg_green_desc">Order: Avg Green Time (Desc)</option>
+                </select>
+            </div>
+            <div id="cardsGrid" class="cards-grid"></div>
+        </div>
+    </div>
+
+    <script src="practice-manage-common.js"></script>
+    <script src="kid-math-manage.js"></script>
+</body>
+</html>

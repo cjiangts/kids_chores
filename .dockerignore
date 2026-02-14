@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/venv/
+backend/env/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Documentation (not needed in production)
+DEPLOYMENT.md
+QUICK-START.md
+README.md
+
+# Local data (will use Railway volume)
+data/
+*.db
+kids.json
+
+# Claude
+.claude/
+
+# Environment
+.env.local
