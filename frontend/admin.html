@@ -20,6 +20,21 @@
                 <a href="index.html" class="btn-secondary" style="text-decoration: none; display: inline-block;">← Back to Home</a>
             </div>
 
+            <!-- Backup/Restore Section -->
+            <div class="backup-section" style="margin: 2rem 0; padding: 1.5rem; background: #f8f9fa; border-radius: 8px;">
+                <h2 style="margin-top: 0; margin-bottom: 1rem; font-size: 1.2rem;">💾 Backup & Restore</h2>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <button id="downloadBackupBtn" class="btn-primary" style="background: #28a745;">
+                        ⬇️ Download Backup
+                    </button>
+                    <button id="restoreBackupBtn" class="btn-primary" style="background: #ffc107; color: #333;">
+                        ⬆️ Restore Backup
+                    </button>
+                    <input type="file" id="backupFileInput" accept=".zip" style="display: none;">
+                    <span id="backupInfo" style="align-self: center; color: #666; font-size: 0.9rem;"></span>
+                </div>
+            </div>
+
             <div id="kidsList" class="kids-grid">
                 <!-- Kids will be loaded here -->
             </div>

@@ -4,6 +4,7 @@ from flask_cors import CORS
 import os
 
 from src.routes.kids import kids_bp
+from src.routes.backup import backup_bp
 
 def create_app():
     app = Flask(__name__)
@@ -11,6 +12,7 @@ def create_app():
 
     # Register blueprints
     app.register_blueprint(kids_bp, url_prefix='/api')
+    app.register_blueprint(backup_bp, url_prefix='/api')
 
     @app.route('/health', methods=['GET'])
     def health():
