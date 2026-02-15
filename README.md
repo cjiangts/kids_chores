@@ -1,131 +1,190 @@
 # Kids Learning Web App
 
-A local-first educational web app for family use with flashcards, math practice, and Chinese writing sheets. Each kid gets their own profile with data stored in separate DuckDB files.
+Local-first educational web app for families, with multi-family accounts, multi-kid profiles, Chinese reading/writing practice, math practice, session tracking, and printable writing sheets.
 
 ## Tech Stack
 
-- **Backend**: Python + Flask + DuckDB
-- **Frontend**: React + TypeScript + Vite (coming soon)
-- **Database**: DuckDB (one file per kid)
+- Backend: Python + Flask + DuckDB
+- Frontend: Vanilla JavaScript + HTML/CSS (no build step)
+- Auth: Family login (hashed password) + Parent PIN for admin pages
+- Deployment: Railway (Docker)
+
+## Current Architecture
+
+- Multi-family, multi-kid data model
+- Family-scoped storage and APIs
+- One DuckDB file per kid
+- Family session auth for all API access
+- Parent PIN gate for admin/management pages
+
+Data layout:
+
+```text
+backend/data/
+  kids.json
+  families/
+    family_{id}/
+      kid_{id}.db
+      writing_audio/
+```
+
+## Quick Start (Local)
+
+1. Create/activate virtual environment and install deps:
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+2. Run backend:
+
+```bash
+cd backend
+source venv/bin/activate
+PYTHONPATH=. python src/app.py
+```
+
+3. Open app:
+
+- `http://localhost:5000`
+
+Or use helper scripts from project root:
+
+- `./start-local.sh`
+- `./stop-local.sh`
+
+## Authentication Model
+
+- Family account:
+  - Register/login with username + password
+  - Password stored as Werkzeug hash (not plaintext)
+  - Session cookie used for authenticated requests
+- Parent access:
+  - Separate parent PIN required for admin views (manage cards/settings/backup)
+
+## Core Features
+
+- Family home and kid selection
+- Chinese Character Reading practice:
+  - Session-based flashcards
+  - Right/Wrong flow
+  - Response-time logging
+  - Queue + hard-card selection
+- Math practice:
+  - Prompt/reveal/grade flow
+  - Session stats and card management
+- Chinese Character Writing practice:
+  - Parent voice recording + text answer
+  - Kid replay prompt, self-mark right/wrong
+  - Writing sheets generation/print workflow
+  - Sheet status lifecycle (pending/done)
+- Practice settings:
+  - Session size
+  - Hard-card percentage
+  - Per-practice daily enable/disable
+
+## Hardness Logic
+
+- All card decks track `hardness_score`.
+- Reading/Math hard selection: based on response-time driven hardness updates.
+- Writing hard selection: based on lifetime correctness behavior.
+- Parent sort options include hardness score descending.
+
+## Database Notes
+
+- Metadata file (`kids.json`) stores:
+  - Family accounts
+  - Kid profiles
+  - Family-to-kid scoping
+- Per-kid DuckDB stores:
+  - Cards/decks
+  - Session history
+  - Practice state/queue cursor
+  - Writing sheets and writing-related state
+
+## Deployment (Railway)
+
+- Primary path: push to `main` and let Railway build via `Dockerfile`
+- Helper:
+
+```bash
+./deploy.sh
+```
+
+Related config/docs:
+
+- `Dockerfile`
+- `railway.json`
+- `RAILWAY-DEPLOY.md`
 
 ## Project Structure
 
-```
+```text
 .
-├── backend/           # Python Flask API
-│   ├── src/
-│   │   ├── app.py              # Main Flask app
-│   │   ├── routes/
-│   │   │   └── kids.py         # Kid management endpoints
-│   │   └── db/
-│   │       ├── metadata.py     # kids.json handler
-│   │       ├── kid_db.py       # DuckDB connection manager
-│   │       └── schema.sql      # Database schema
-│   ├── data/                   # DuckDB files (git-ignored)
+├── backend/
 │   ├── requirements.txt
-│   └── run.sh                  # Startup script
-├── frontend/          # React app (coming soon)
-└── claude.me          # Learning notes
+│   ├── run.sh
+│   ├── data/
+│   │   ├── kids.json
+│   │   ├── debug.ipynb
+│   │   └── families/
+│   │       ├── family_1/
+│   │       │   ├── kid_1.db
+│   │       │   └── kid_2.db
+│   │       └── family_2/
+│   │           └── kid_3.db
+│   └── src/
+│       ├── app.py
+│       ├── db/
+│       │   ├── kid_db.py
+│       │   ├── metadata.py
+│       │   └── schema.sql
+│       └── routes/
+│           ├── backup.py
+│           └── kids.py
+├── frontend/
+│   ├── index.html
+│   ├── app.js
+│   ├── styles.css
+│   ├── family-home.html
+│   ├── family-login.js
+│   ├── family-register.html
+│   ├── family-register.js
+│   ├── parent-login.html
+│   ├── parent-login.js
+│   ├── admin.html
+│   ├── admin.js
+│   ├── kid.html
+│   ├── kid.js
+│   ├── kid-manage.html
+│   ├── kid-manage.js
+│   ├── kid-math.html
+│   ├── kid-math.js
+│   ├── kid-math-manage.html
+│   ├── kid-math-manage.js
+│   ├── kid-writing.html
+│   ├── kid-writing.js
+│   ├── kid-writing-manage.html
+│   ├── kid-writing-manage.js
+│   ├── kid-writing-sheets.html
+│   ├── kid-writing-sheets.js
+│   ├── writing-sheet-print.html
+│   ├── writing-sheet-print.js
+│   └── practice-manage-common.js
+├── Dockerfile
+├── railway.json
+├── RAILWAY-DEPLOY.md
+├── deploy.sh
+├── start-local.sh
+└── stop-local.sh
 ```
 
-## Quick Start
+## Development Notes
 
-### Backend Setup
-
-1. **Install dependencies** (first time only):
-   ```bash
-   cd backend
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-2. **Run the server**:
-   ```bash
-   cd backend
-   source venv/bin/activate
-   PYTHONPATH=. python src/app.py
-   ```
-
-   Server will start at: http://localhost:5000
-
-3. **Test the API**:
-   ```bash
-   # Health check
-   curl http://localhost:5000/health
-
-   # Get all kids
-   curl http://localhost:5000/api/kids
-
-   # Create a kid
-   curl -X POST http://localhost:5000/api/kids \
-     -H "Content-Type: application/json" \
-     -d '{"name": "Alice", "birthday": "2015-06-15"}'
-   ```
-
-### Frontend Setup
-
-*(Coming soon - React app with kid selection and flashcards)*
-
-## API Endpoints
-
-### Kids Management
-
-- `GET /api/kids` - List all kids
-- `POST /api/kids` - Create new kid (requires: name, birthday)
-- `GET /api/kids/:id` - Get kid details
-- `DELETE /api/kids/:id` - Delete kid and their database
-
-### Flashcards (Coming Soon)
-
-- `GET /api/kids/:kid_id/decks` - List kid's flashcard decks
-- `POST /api/kids/:kid_id/decks` - Create new deck
-- `GET /api/kids/:kid_id/decks/:deck_id/cards` - List cards in deck
-- `POST /api/kids/:kid_id/decks/:deck_id/cards` - Add card to deck
-
-## Git Aliases
-
-Useful shortcuts configured:
-- `git st` → `git status -s`
-
-Add more with:
-```bash
-git config --global alias.co checkout
-git config --global alias.br branch
-git config --global alias.ci commit
-```
-
-## Data Storage
-
-- **kids.json**: Metadata for all kids (name, birthday, DB file path)
-- **kid_{uuid}.db**: Individual DuckDB file for each kid containing:
-  - Flashcard decks and cards
-  - Quiz sessions and results
-  - Math practice configs
-  - Writing practice sheets
-
-## Development
-
-### Current Status
-
-✅ Python backend with Flask + DuckDB
-✅ Kid profile API
-✅ Database schema
-✅ Git configuration
-⏳ React frontend
-⏳ Flashcard feature
-⏳ Math practice
-⏳ Writing sheets
-
-### Next Steps
-
-1. Build React frontend with kid selection page
-2. Implement flashcard deck management
-3. Create quiz mode
-4. Add Chinese writing sheet generator
-
-## Notes
-
-- All data is stored locally (no cloud/accounts)
-- Each kid's data is isolated in their own DuckDB file
-- Easy to backup: just copy the `backend/data/` folder
+- `PYTHONPATH=.` is required when running Flask from `backend/`.
+- Keep family scoping strict for every data/backup API.
+- Prefer shared practice logic/utilities where behavior overlaps.
+- Keep frontend simple (static files served by Flask).
