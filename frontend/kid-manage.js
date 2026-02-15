@@ -161,21 +161,18 @@ async function addCard() {
             return;
         }
 
-        for (const chinese of newChars) {
-            const response = await fetch(`${API_BASE}/kids/${kidId}/cards`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    front: chinese,
-                    back: ''
-                }),
-            });
+        const response = await fetch(`${API_BASE}/kids/${kidId}/cards/bulk`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cards: newChars.map(chinese => ({ front: chinese, back: '' }))
+            }),
+        });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         // Clear form

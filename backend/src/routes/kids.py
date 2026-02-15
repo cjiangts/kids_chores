@@ -909,6 +909,42 @@ def add_card(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/cards/bulk', methods=['POST'])
+def add_cards_bulk(kid_id):
+    """Add multiple cards at once"""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        data = request.get_json()
+        items = data.get('cards', [])
+
+        if not items:
+            return jsonify({'error': 'No cards provided'}), 400
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_default_deck(conn)
+
+        created = []
+        for item in items:
+            front = (item.get('front') or '').strip()
+            if not front:
+                continue
+            card_id = conn.execute(
+                "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?) RETURNING id",
+                [deck_id, front, item.get('back', '')]
+            ).fetchone()[0]
+            created.append({'id': card_id, 'front': front})
+
+        conn.close()
+
+        return jsonify({'created': len(created), 'cards': created}), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>/cards/<card_id>', methods=['DELETE'])
 def delete_card(kid_id, card_id):
     """Delete a card"""
