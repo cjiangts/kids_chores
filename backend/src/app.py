@@ -137,8 +137,11 @@ def create_app():
             return {'error': 'Family login required'}, 401
         payload = request.get_json() or {}
         password = str(payload.get('password') or '')
-        configured = os.environ.get('PARENT_ADMIN_PASSWORD', '1234')
-        if password != configured:
+        family_id = session.get('family_id')
+        family = metadata.get_family_by_id(family_id) if family_id else None
+        if not family:
+            return {'error': 'Family not found'}, 401
+        if not metadata.authenticate_family(family.get('username', ''), password):
             return {'error': 'Invalid password'}, 401
 
         session['parent_authenticated'] = True
