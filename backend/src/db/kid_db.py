@@ -11,7 +11,7 @@ def _apply_migrations(conn: duckdb.DuckDBPyConnection):
     migration_sql = [
         "ALTER TABLE sessions ADD COLUMN planned_count INTEGER",
         "ALTER TABLE session_results ADD COLUMN response_time_ms INTEGER",
-        "ALTER TABLE practice_queue ADD COLUMN deck_id VARCHAR",
+        "ALTER TABLE cards ADD COLUMN hardness_score DOUBLE DEFAULT 0",
     ]
 
     for stmt in migration_sql:
@@ -21,27 +21,6 @@ def _apply_migrations(conn: duckdb.DuckDBPyConnection):
             # Ignore "already exists" style migration errors.
             if 'already exists' not in str(e).lower():
                 raise
-
-    # Backfill deck_id for existing queue rows.
-    try:
-        conn.execute("""
-            UPDATE practice_queue q
-            SET deck_id = c.deck_id
-            FROM cards c
-            WHERE q.card_id = c.id
-              AND q.deck_id IS NULL
-        """)
-    except Exception:
-        # Ignore if either table is not ready yet; schema execution handles creation.
-        pass
-
-    # Ensure deck-scoped cursor state table exists.
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS practice_state_by_deck (
-            deck_id VARCHAR PRIMARY KEY,
-            queue_cursor INTEGER NOT NULL DEFAULT 0
-        )
-    """)
 
 def ensure_schema(conn: duckdb.DuckDBPyConnection):
     """Ensure base schema and migrations are applied."""
@@ -55,6 +34,48 @@ def get_kid_db_path(kid_id: str) -> str:
     """Get the file path for a kid's database"""
     os.makedirs(DATA_DIR, exist_ok=True)
     return os.path.join(DATA_DIR, f'kid_{kid_id}.db')
+
+
+def get_absolute_db_path(db_file_path: str) -> str:
+    """Resolve a metadata dbFilePath (relative to backend/data) to absolute path."""
+    rel = str(db_file_path or '').strip()
+    if not rel:
+        raise ValueError('db_file_path is required')
+    if os.path.isabs(rel):
+        return rel
+    rel = rel.lstrip('/\\')
+    if rel.startswith('data/'):
+        rel = rel[5:]
+    return os.path.join(DATA_DIR, rel)
+
+
+def init_kid_database_by_path(db_file_path: str) -> str:
+    """Initialize a kid database at provided dbFilePath."""
+    db_path = get_absolute_db_path(db_file_path)
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    conn = duckdb.connect(db_path)
+    ensure_schema(conn)
+    conn.close()
+    return db_path
+
+
+def get_kid_connection_by_path(db_file_path: str) -> duckdb.DuckDBPyConnection:
+    """Get connection using dbFilePath metadata."""
+    db_path = get_absolute_db_path(db_file_path)
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Database not found at {db_file_path}")
+    conn = duckdb.connect(db_path)
+    ensure_schema(conn)
+    return conn
+
+
+def delete_kid_database_by_path(db_file_path: str) -> bool:
+    """Delete a kid database by dbFilePath."""
+    db_path = get_absolute_db_path(db_file_path)
+    if os.path.exists(db_path):
+        os.remove(db_path)
+        return True
+    return False
 
 def init_kid_database(kid_id: str) -> str:
     """Initialize a new database for a kid with schema"""

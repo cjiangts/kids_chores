@@ -13,6 +13,7 @@ const downloadBackupBtn = document.getElementById('downloadBackupBtn');
 const restoreBackupBtn = document.getElementById('restoreBackupBtn');
 const backupFileInput = document.getElementById('backupFileInput');
 const backupInfo = document.getElementById('backupInfo');
+const logoutBtn = document.getElementById('logoutBtn');
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,6 +33,10 @@ cancelBtn.addEventListener('click', () => {
 kidForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     await createKid();
+});
+
+logoutBtn.addEventListener('click', async () => {
+    await logoutParent();
 });
 
 // API Functions
@@ -111,6 +116,20 @@ async function deleteKid(kidId, kidName) {
     }
 }
 
+async function logoutParent() {
+    try {
+        await fetch(`${API_BASE}/parent-auth/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+    } catch (error) {
+        // ignore and continue redirect
+    } finally {
+        window.location.href = '/';
+    }
+}
+
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
@@ -132,28 +151,35 @@ function displayKids(kids) {
                 <p class="age">Birthday: ${formatDate(kid.birthday)}</p>
                 <div class="practice-config-list" onclick="event.stopPropagation()">
                     <div class="practice-config-row">
-                        <label class="daily-toggle-row">
-                            <input
-                                type="checkbox"
-                                ${kid.dailyPracticeChineseEnabled ? 'checked' : ''}
-                                onchange="toggleDailyPractice('${kid.id}', 'dailyPracticeChineseEnabled', this.checked)"
-                            >
-                            <span class="daily-toggle-title">Chinese</span>
-                            <span class="daily-toggle-subtitle">Daily character practice</span>
-                        </label>
-                        <a class="tab-link primary practice-manage-btn" href="/kid-manage.html?id=${kid.id}">📝 Manage Characters</a>
+                        <input
+                            class="daily-toggle-checkbox"
+                            type="checkbox"
+                            ${kid.dailyPracticeChineseEnabled ? 'checked' : ''}
+                            onchange="toggleDailyPractice('${kid.id}', 'dailyPracticeChineseEnabled', this.checked)"
+                            onclick="event.stopPropagation()"
+                        >
+                        <a class="tab-link secondary practice-manage-btn" href="/kid-manage.html?id=${kid.id}">📝 Manage Reading</a>
                     </div>
 
                     <div class="practice-config-row">
-                        <label class="daily-toggle-row">
-                            <input
-                                type="checkbox"
-                                ${kid.dailyPracticeMathEnabled ? 'checked' : ''}
-                                onchange="toggleDailyPractice('${kid.id}', 'dailyPracticeMathEnabled', this.checked)"
-                            >
-                            <span class="daily-toggle-title">Math</span>
-                            <span class="daily-toggle-subtitle">Daily math practice</span>
-                        </label>
+                        <input
+                            class="daily-toggle-checkbox"
+                            type="checkbox"
+                            ${kid.dailyPracticeWritingEnabled ? 'checked' : ''}
+                            onchange="toggleDailyPractice('${kid.id}', 'dailyPracticeWritingEnabled', this.checked)"
+                            onclick="event.stopPropagation()"
+                        >
+                        <a class="tab-link secondary practice-manage-btn" href="/kid-writing-manage.html?id=${kid.id}">✍️ Manage Writing</a>
+                    </div>
+
+                    <div class="practice-config-row">
+                        <input
+                            class="daily-toggle-checkbox"
+                            type="checkbox"
+                            ${kid.dailyPracticeMathEnabled ? 'checked' : ''}
+                            onchange="toggleDailyPractice('${kid.id}', 'dailyPracticeMathEnabled', this.checked)"
+                            onclick="event.stopPropagation()"
+                        >
                         <a class="tab-link secondary practice-manage-btn" href="/kid-math-manage.html?id=${kid.id}">➗ Manage Math</a>
                     </div>
                 </div>
@@ -189,7 +215,10 @@ async function toggleDailyPractice(kidId, field, enabled) {
 
 function calculateAge(birthday) {
     const today = new Date();
-    const birthDate = new Date(birthday);
+    const birthDate = parseDateOnly(birthday);
+    if (!birthDate) {
+        return 0;
+    }
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
 
@@ -201,12 +230,30 @@ function calculateAge(birthday) {
 }
 
 function formatDate(dateString) {
-    const date = new Date(dateString);
+    const date = parseDateOnly(dateString);
+    if (!date) {
+        return dateString || '-';
+    }
     return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
     });
+}
+
+function parseDateOnly(dateString) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateString || ''));
+    if (!match) {
+        return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        return null;
+    }
+    return date;
 }
 
 function validateBirthday(birthday) {

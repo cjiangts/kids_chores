@@ -10,18 +10,22 @@ const kidNameEl = document.getElementById('kidName');
 const addCardForm = document.getElementById('addCardForm');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
-const dailyPracticeChineseEnabledInput = document.getElementById('dailyPracticeChineseEnabled');
+const hardCardPercentageInput = document.getElementById('hardCardPercentage');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardCount = document.getElementById('cardCount');
 const errorMessage = document.getElementById('errorMessage');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const charactersTab = document.getElementById('charactersTab');
+const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
 
 let currentKid = null;
 let defaultDeckId = null;
 let existingCardFronts = new Set();
 let currentCards = [];
+let sortedCards = [];
+let visibleCardCount = 10;
+const CARD_PAGE_SIZE = 10;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -31,10 +35,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     charactersTab.href = `/kid-manage.html?id=${kidId}`;
+    writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
     mathTab.href = `/kid-math-manage.html?id=${kidId}`;
 
     await loadKidInfo();
     await loadCards();
+});
+
+window.addEventListener('scroll', () => {
+    maybeLoadMoreCards();
 });
 
 // Form submission
@@ -49,7 +58,7 @@ sessionSettingsForm.addEventListener('submit', async (e) => {
 });
 
 viewOrderSelect.addEventListener('change', () => {
-    displayCards(currentCards);
+    resetAndDisplayCards(currentCards);
 });
 
 // API Functions
@@ -60,9 +69,10 @@ async function loadKidInfo() {
             throw new Error('Kid not found');
         }
         currentKid = await response.json();
-        kidNameEl.textContent = `${currentKid.name}'s Characters`;
+        kidNameEl.textContent = `${currentKid.name}'s Chinese Character Reading`;
         sessionCardCountInput.value = currentKid.sessionCardCount || 10;
-        dailyPracticeChineseEnabledInput.checked = !!currentKid.dailyPracticeChineseEnabled;
+        const initialHardPct = Number.parseInt(currentKid.hardCardPercentage, 10);
+        hardCardPercentageInput.value = Number.isInteger(initialHardPct) ? initialHardPct : 20;
     } catch (error) {
         console.error('Error loading kid:', error);
         showError('Failed to load kid information');
@@ -73,8 +83,13 @@ async function loadKidInfo() {
 async function saveSessionSettings() {
     try {
         const value = Number.parseInt(sessionCardCountInput.value, 10);
+        const hardPct = Number.parseInt(hardCardPercentageInput.value, 10);
         if (!Number.isInteger(value) || value < 1 || value > 200) {
             showError('Session size must be between 1 and 200');
+            return;
+        }
+        if (!Number.isInteger(hardPct) || hardPct < 0 || hardPct > 100) {
+            showError('Hard cards % must be between 0 and 100');
             return;
         }
 
@@ -85,7 +100,7 @@ async function saveSessionSettings() {
             },
             body: JSON.stringify({
                 sessionCardCount: value,
-                dailyPracticeChineseEnabled: dailyPracticeChineseEnabledInput.checked
+                hardCardPercentage: hardPct
             }),
         });
 
@@ -96,7 +111,8 @@ async function saveSessionSettings() {
         const updatedKid = await response.json();
         currentKid = updatedKid;
         sessionCardCountInput.value = updatedKid.sessionCardCount || value;
-        dailyPracticeChineseEnabledInput.checked = !!updatedKid.dailyPracticeChineseEnabled;
+        const savedHardPct = Number.parseInt(updatedKid.hardCardPercentage, 10);
+        hardCardPercentageInput.value = Number.isInteger(savedHardPct) ? savedHardPct : hardPct;
         showError('');
     } catch (error) {
         console.error('Error saving session settings:', error);
@@ -117,7 +133,7 @@ async function loadCards() {
         const cards = data.cards || [];
         currentCards = cards;
         existingCardFronts = new Set(cards.map(card => card.front));
-        displayCards(cards);
+        resetAndDisplayCards(cards);
 
         // Store default deck ID if exists
         if (data.deck_id) {
@@ -136,7 +152,7 @@ async function addCard() {
         const newChars = chineseChars.filter(char => !existingCardFronts.has(char));
 
         if (chineseChars.length === 0) {
-            showError('Please enter at least one Chinese character');
+            showError('Please enter at least one Chinese reading character');
             return;
         }
 
@@ -153,9 +169,7 @@ async function addCard() {
                 },
                 body: JSON.stringify({
                     front: chinese,
-                    back: '',
-                    front_lang: 'zh',
-                    back_lang: 'en'
+                    back: ''
                 }),
             });
 
@@ -209,24 +223,25 @@ async function deleteCard(cardId) {
 
 // UI Functions
 function displayCards(cards) {
-    const sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
+    sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
     cardCount.textContent = `(${sortedCards.length})`;
 
     if (sortedCards.length === 0) {
         cardsGrid.innerHTML = `
             <div class="empty-state" style="grid-column: 1 / -1;">
-                <h3>No characters yet</h3>
-                <p>Add your first Chinese character above!</p>
+                <h3>No reading cards yet</h3>
+                <p>Add your first Chinese reading character above!</p>
             </div>
         `;
         return;
     }
 
-    cardsGrid.innerHTML = sortedCards.map(card => `
+    const visibleCards = sortedCards.slice(0, visibleCardCount);
+    cardsGrid.innerHTML = visibleCards.map(card => `
         <div class="card-item">
             <div class="card-front">${card.front}</div>
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">
-                Avg green: ${window.PracticeManageCommon.formatAvgGreen(card.avg_green_ms)}
+                Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}
             </div>
             <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">
                 Added: ${window.PracticeManageCommon.formatAddedDate(card.parent_added_at || card.created_at)}
@@ -239,6 +254,25 @@ function displayCards(cards) {
             </div>
         </div>
     `).join('');
+}
+
+function resetAndDisplayCards(cards) {
+    visibleCardCount = CARD_PAGE_SIZE;
+    displayCards(cards);
+}
+
+function maybeLoadMoreCards() {
+    if (sortedCards.length <= visibleCardCount) {
+        return;
+    }
+
+    const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+    if (!nearBottom) {
+        return;
+    }
+
+    visibleCardCount += CARD_PAGE_SIZE;
+    displayCards(currentCards);
 }
 
 function showError(message) {

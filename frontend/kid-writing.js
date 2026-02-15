@@ -6,6 +6,7 @@ const kidId = params.get('id');
 const kidNameEl = document.getElementById('kidName');
 const backToPractice = document.getElementById('backToPractice');
 const resultBackToPractice = document.getElementById('resultBackToPractice');
+const sheetsLink = document.getElementById('sheetsLink');
 const errorMessage = document.getElementById('errorMessage');
 const practiceSection = document.getElementById('practiceSection');
 const startScreen = document.getElementById('startScreen');
@@ -14,16 +15,16 @@ const resultScreen = document.getElementById('resultScreen');
 const sessionInfo = document.getElementById('sessionInfo');
 const progress = document.getElementById('progress');
 const flashcard = document.getElementById('flashcard');
-const cardQuestion = document.getElementById('cardQuestion');
 const cardAnswer = document.getElementById('cardAnswer');
-const pauseMask = document.getElementById('pauseMask');
-const knewBtn = document.getElementById('knewBtn');
+const doneRow = document.getElementById('doneRow');
+const doneBtn = document.getElementById('doneBtn');
 const judgeRow = document.getElementById('judgeRow');
 const wrongBtn = document.getElementById('wrongBtn');
 const rightBtn = document.getElementById('rightBtn');
 const resultSummary = document.getElementById('resultSummary');
 
 let currentKid = null;
+let availableCards = [];
 let sessionCards = [];
 let activeSessionId = null;
 let currentIndex = 0;
@@ -31,11 +32,8 @@ let rightCount = 0;
 let wrongCount = 0;
 let answerRevealed = false;
 let cardShownAtMs = 0;
-let pausedDurationMs = 0;
-let pauseStartedAtMs = 0;
-let isPaused = false;
 let sessionAnswers = [];
-
+let currentAudio = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -45,10 +43,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     backToPractice.href = `/kid.html?id=${kidId}`;
     resultBackToPractice.href = `/kid.html?id=${kidId}`;
+    sheetsLink.href = `/kid-writing-sheets.html?id=${kidId}`;
     await loadKidInfo();
-    await ensureMathSeedAndReady();
+    await loadWritingCards();
 });
-
 
 async function loadKidInfo() {
     try {
@@ -57,53 +55,40 @@ async function loadKidInfo() {
             throw new Error(`HTTP ${response.status}`);
         }
         currentKid = await response.json();
-        kidNameEl.textContent = `${currentKid.name}'s Math`;
+        kidNameEl.textContent = `${currentKid.name}'s Writing`;
     } catch (error) {
         console.error('Error loading kid info:', error);
         showError('Failed to load kid information');
     }
 }
 
-
-async function ensureMathSeedAndReady() {
+async function loadWritingCards() {
     try {
         showError('');
-        const seedResponse = await fetch(`${API_BASE}/kids/${kidId}/math/seed`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-
-        if (!seedResponse.ok) {
-            throw new Error(`HTTP ${seedResponse.status}`);
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
 
-        const cardsResponse = await fetch(`${API_BASE}/kids/${kidId}/math/cards`);
-        if (!cardsResponse.ok) {
-            throw new Error(`HTTP ${cardsResponse.status}`);
-        }
-
-        const data = await cardsResponse.json();
-        const totalCards = (data.cards || []).length;
-
-        if (totalCards === 0) {
+        const data = await response.json();
+        availableCards = (data.cards || []).filter((card) => card.available_for_practice !== false);
+        if (availableCards.length === 0) {
             practiceSection.classList.add('hidden');
-            showError('No math questions yet. Ask your parent to add starter math questions.');
+            showError('No Chinese writing cards yet. Ask your parent to add some first.');
             return;
         }
 
         practiceSection.classList.remove('hidden');
-        resetToStartScreen(totalCards);
+        resetToStartScreen();
     } catch (error) {
-        console.error('Error preparing math practice:', error);
-        showError('Failed to load math practice data');
+        console.error('Error loading writing cards:', error);
+        showError('Failed to load writing cards');
     }
 }
 
-
-function resetToStartScreen(totalCards) {
-    const target = Math.min(currentKid?.sessionCardCount || 10, totalCards);
-    sessionInfo.textContent = `Session: ${target} questions`;
+function resetToStartScreen() {
+    const target = Math.min(currentKid?.sessionCardCount || 10, availableCards.length);
+    sessionInfo.textContent = `Session: ${target} cards`;
 
     sessionCards = [];
     activeSessionId = null;
@@ -114,13 +99,13 @@ function resetToStartScreen(totalCards) {
     startScreen.classList.remove('hidden');
     sessionScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
+    stopAudioPlayback();
 }
-
 
 async function startSession() {
     try {
         showError('');
-        const response = await fetch(`${API_BASE}/kids/${kidId}/math/practice/start`, {
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/practice/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
@@ -135,7 +120,7 @@ async function startSession() {
         sessionCards = shuffleSessionCards(data.cards || []);
 
         if (!activeSessionId || sessionCards.length === 0) {
-            showError('No math questions available');
+            showError('No writing cards available');
             return;
         }
 
@@ -148,13 +133,12 @@ async function startSession() {
         resultScreen.classList.add('hidden');
         sessionScreen.classList.remove('hidden');
 
-        showCurrentQuestion();
+        showCurrentPrompt();
     } catch (error) {
-        console.error('Error starting math session:', error);
-        showError('Failed to start math session');
+        console.error('Error starting writing session:', error);
+        showError('Failed to start writing session');
     }
 }
-
 
 function shuffleSessionCards(cardsList) {
     const shuffled = [...cardsList];
@@ -165,95 +149,73 @@ function shuffleSessionCards(cardsList) {
     return shuffled;
 }
 
-function showCurrentQuestion() {
+function showCurrentPrompt() {
     if (sessionCards.length === 0) {
         return;
     }
 
     const card = sessionCards[currentIndex];
-    progress.textContent = `Question ${currentIndex + 1} of ${sessionCards.length}`;
-    cardQuestion.textContent = card.front;
-    cardAnswer.textContent = `= ${card.back}`;
-
-    answerRevealed = false;
+    progress.textContent = `Card ${currentIndex + 1} of ${sessionCards.length}`;
+    cardAnswer.textContent = card.back || card.front || '';
     cardAnswer.classList.add('hidden');
-    judgeRow.classList.add('hidden');
-    knewBtn.classList.remove('hidden');
     flashcard.classList.remove('revealed');
 
+    answerRevealed = false;
+    doneRow.classList.remove('hidden');
+    judgeRow.classList.add('hidden');
+    wrongBtn.disabled = false;
+    rightBtn.disabled = false;
+    doneBtn.disabled = false;
+
     cardShownAtMs = Date.now();
-    pausedDurationMs = 0;
-    pauseStartedAtMs = 0;
-    isPaused = false;
-    setPausedVisual(false);
+    playPrompt(card.audio_url);
 }
 
-
 function revealAnswer() {
-    if (answerRevealed || isPaused || sessionCards.length === 0) {
+    if (answerRevealed || !activeSessionId || sessionCards.length === 0) {
         return;
     }
 
     answerRevealed = true;
     cardAnswer.classList.remove('hidden');
     flashcard.classList.add('revealed');
-    knewBtn.classList.add('hidden');
+    doneRow.classList.add('hidden');
     judgeRow.classList.remove('hidden');
-
-    rightBtn.disabled = false;
-    wrongBtn.disabled = false;
 }
 
-
-function togglePauseFromCard() {
+function replayCurrentPrompt() {
     if (!activeSessionId || sessionCards.length === 0) {
         return;
     }
+    const card = sessionCards[currentIndex];
+    playPrompt(card.audio_url);
+}
 
-    if (!isPaused) {
-        isPaused = true;
-        pauseStartedAtMs = Date.now();
-        setPausedVisual(true);
+function playPrompt(url) {
+    if (!url) {
+        stopAudioPlayback();
         return;
     }
 
-    isPaused = false;
-    if (pauseStartedAtMs > 0) {
-        pausedDurationMs += Math.max(0, Date.now() - pauseStartedAtMs);
-    }
-    pauseStartedAtMs = 0;
-    setPausedVisual(false);
+    stopAudioPlayback();
+    currentAudio = new Audio(url);
+    currentAudio.play().catch((error) => {
+        console.error('Error playing prompt audio:', error);
+    });
 }
-
-
-function setPausedVisual(paused) {
-    cardQuestion.classList.toggle('hidden', paused);
-    cardAnswer.classList.toggle('hidden', paused || !answerRevealed);
-    pauseMask.classList.toggle('hidden', !paused);
-
-    knewBtn.disabled = paused;
-    if (answerRevealed) {
-        rightBtn.disabled = paused;
-        wrongBtn.disabled = paused;
-    } else {
-        rightBtn.disabled = true;
-        wrongBtn.disabled = true;
-    }
-}
-
 
 function answerCurrentCard(correct) {
-    if (!answerRevealed || isPaused || !activeSessionId) {
+    if (!answerRevealed || !activeSessionId) {
         return;
     }
 
     const card = sessionCards[currentIndex];
-    const responseTimeMs = Math.max(0, Date.now() - cardShownAtMs - pausedDurationMs);
+    const responseTimeMs = Math.max(0, Date.now() - cardShownAtMs);
 
     sessionAnswers.push({
         cardId: card.id,
         known: correct,
-        responseTimeMs,
+        responseTimeMs
     });
 
     if (correct) {
@@ -268,32 +230,40 @@ function answerCurrentCard(correct) {
     }
 
     currentIndex += 1;
-    showCurrentQuestion();
+    showCurrentPrompt();
 }
 
-
 async function endSession() {
+    stopAudioPlayback();
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
     resultSummary.textContent = `Right: ${rightCount} · Wrong: ${wrongCount}`;
 
     try {
-        await fetch(`${API_BASE}/kids/${kidId}/math/practice/complete`, {
+        await fetch(`${API_BASE}/kids/${kidId}/writing/practice/complete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 sessionId: activeSessionId,
-                answers: sessionAnswers,
-            }),
+                answers: sessionAnswers
+            })
         });
     } catch (error) {
-        console.error('Error completing math session:', error);
+        console.error('Error completing writing session:', error);
         showError('Failed to save session results');
     }
 
     await loadKidInfo();
 }
 
+function stopAudioPlayback() {
+    if (!currentAudio) {
+        return;
+    }
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+}
 
 function showError(message) {
     if (message) {

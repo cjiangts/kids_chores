@@ -8,7 +8,15 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs:*)",
+      "Bash(\"/Users/chen/Library/Mobile Documents/com~apple~CloudDocs/Project/backend/venv/bin/pip\" list)",
+      "Bash(\"/Users/chen/Library/Mobile Documents/com~apple~CloudDocs/Project/backend/venv/bin/python3\" -c \"import duckdb; print\\(duckdb.__version__\\)\")",
+      "Bash(./start-local.sh:*)",
+      "Bash(source:*)"
     ]
   }
 }

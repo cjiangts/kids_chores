@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Family - Kids Learning App</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .register-wrap {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .auth-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .auth-card h2 {
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-card p {
+            margin-bottom: 1rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏠 Family Register</h1>
+            <p>Create your family account</p>
+        </header>
+
+        <main>
+            <div class="register-wrap">
+                <section class="auth-card">
+                    <h2>Register New Family</h2>
+                    <p>Username + password (max 10 families total).</p>
+                    <form id="familyRegisterForm">
+                        <div class="form-group">
+                            <label for="registerUsername">Family Username</label>
+                            <input type="text" id="registerUsername" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Password</label>
+                            <input type="password" id="registerPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPasswordConfirm">Repeat Password</label>
+                            <input type="password" id="registerPasswordConfirm" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Register</button>
+                    </form>
+                    <p style="margin-top: 0.9rem;">
+                        Already have an account?
+                        <a href="/index.html">Back to login</a>
+                    </p>
+                </section>
+            </div>
+            <div id="errorMessage" class="error hidden"></div>
+        </main>
+    </div>
+    <script src="family-register.js"></script>
+</body>
+</html>

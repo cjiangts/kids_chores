@@ -1,6 +1,13 @@
+-- Sequences for auto-increment IDs
+CREATE SEQUENCE IF NOT EXISTS decks_id_seq;
+CREATE SEQUENCE IF NOT EXISTS cards_id_seq;
+CREATE SEQUENCE IF NOT EXISTS sessions_id_seq;
+CREATE SEQUENCE IF NOT EXISTS session_results_id_seq;
+CREATE SEQUENCE IF NOT EXISTS writing_sheets_id_seq;
+
 -- Flashcard decks
 CREATE TABLE IF NOT EXISTS decks (
-  id VARCHAR PRIMARY KEY,
+  id INTEGER PRIMARY KEY DEFAULT nextval('decks_id_seq'),
   name VARCHAR NOT NULL,
   description VARCHAR,
   tags VARCHAR[],
@@ -10,21 +17,29 @@ CREATE TABLE IF NOT EXISTS decks (
 
 -- Flashcards
 CREATE TABLE IF NOT EXISTS cards (
-  id VARCHAR PRIMARY KEY,
-  deck_id VARCHAR NOT NULL,
+  id INTEGER PRIMARY KEY DEFAULT nextval('cards_id_seq'),
+  deck_id INTEGER NOT NULL,
   front VARCHAR NOT NULL,
   back VARCHAR NOT NULL,
-  front_lang VARCHAR,  -- 'en' or 'zh'
-  back_lang VARCHAR,   -- 'en' or 'zh'
+  hardness_score DOUBLE NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (deck_id) REFERENCES decks(id)
 );
 
+-- Writing prompt audio metadata (actual audio files are stored on disk)
+CREATE TABLE IF NOT EXISTS writing_audio (
+  card_id INTEGER PRIMARY KEY,
+  file_name VARCHAR NOT NULL,
+  mime_type VARCHAR,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (card_id) REFERENCES cards(id)
+);
+
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
-  id VARCHAR PRIMARY KEY,
-  type VARCHAR NOT NULL,  -- 'flashcard' or 'math'
-  deck_id VARCHAR,
+  id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),
+  type VARCHAR NOT NULL,  -- 'flashcard', 'math', or 'writing'
+  deck_id INTEGER,
   planned_count INTEGER,
   started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP,
@@ -33,28 +48,33 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 -- Session results
 CREATE TABLE IF NOT EXISTS session_results (
-  id VARCHAR PRIMARY KEY,
-  session_id VARCHAR NOT NULL,
-  card_id VARCHAR,
-  question VARCHAR,
-  user_answer VARCHAR,
+  id INTEGER PRIMARY KEY DEFAULT nextval('session_results_id_seq'),
+  session_id INTEGER NOT NULL,
+  card_id INTEGER,
   correct BOOLEAN NOT NULL,
   response_time_ms INTEGER,
   timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
 
--- Persistent FIFO circular queue for practice order
-CREATE TABLE IF NOT EXISTS practice_queue (
-  deck_id VARCHAR NOT NULL,
-  card_id VARCHAR PRIMARY KEY,
-  queue_order BIGINT NOT NULL,
-  added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (card_id) REFERENCES cards(id)
+-- Cursor state for circular practice rotation by deck
+CREATE TABLE IF NOT EXISTS practice_state_by_deck (
+  deck_id INTEGER PRIMARY KEY,
+  queue_cursor INTEGER NOT NULL DEFAULT 0
 );
 
--- Queue cursor state by deck
-CREATE TABLE IF NOT EXISTS practice_state_by_deck (
-  deck_id VARCHAR PRIMARY KEY,
-  queue_cursor INTEGER NOT NULL DEFAULT 0
+-- Printable writing practice sheets
+CREATE TABLE IF NOT EXISTS writing_sheets (
+  id INTEGER PRIMARY KEY DEFAULT nextval('writing_sheets_id_seq'),
+  status VARCHAR NOT NULL DEFAULT 'pending', -- 'pending' or 'done'
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS writing_sheet_cards (
+  sheet_id INTEGER NOT NULL,
+  card_id INTEGER NOT NULL,
+  PRIMARY KEY (sheet_id, card_id),
+  FOREIGN KEY (sheet_id) REFERENCES writing_sheets(id),
+  FOREIGN KEY (card_id) REFERENCES cards(id)
 );

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kid Profile - Learning App</title>
+    <title>Kid Writing Profile - Learning App</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -24,7 +24,6 @@
             padding: 0.5rem 1rem;
             border: none;
             border-radius: 4px;
-            cursor: pointer;
             text-decoration: none;
             display: inline-block;
         }
@@ -43,26 +42,14 @@
             min-width: 180px;
         }
 
-        .add-card-section {
+        .settings-section,
+        .add-card-section,
+        .sheet-section {
             background: white;
             padding: 1.5rem;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-
-        .add-card-section h2 {
-            margin-top: 0;
-            margin-bottom: 1rem;
-            color: #333;
-        }
-
-        .settings-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+            margin-bottom: 1.2rem;
         }
 
         .settings-row {
@@ -76,7 +63,31 @@
             margin-bottom: 0;
         }
 
-        .settings-save-btn {
+        .sheet-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .sheet-row .form-group {
+            margin-bottom: 0;
+            max-width: 220px;
+        }
+
+        .sheet-view-btn {
+            background: #6c757d;
+        }
+
+        .sheet-view-btn:hover {
+            background: #5a6268;
+        }
+
+        .settings-save-btn,
+        .submit-btn,
+        .record-btn,
+        .stop-btn,
+        .replay-btn {
             background: #007bff;
             color: white;
             padding: 0.75rem 1.25rem;
@@ -84,12 +95,65 @@
             border-radius: 4px;
             font-size: 1rem;
             cursor: pointer;
-            height: 44px;
             white-space: nowrap;
         }
 
-        .settings-save-btn:hover {
+        .settings-save-btn:hover,
+        .submit-btn:hover,
+        .record-btn:hover,
+        .stop-btn:hover,
+        .replay-btn:hover {
             background: #0069d9;
+        }
+
+        .submit-btn {
+            width: 100%;
+            margin-top: 1rem;
+            background: #28a745;
+        }
+
+        .submit-btn:hover {
+            background: #218838;
+        }
+
+        .stop-btn {
+            background: #dc3545;
+        }
+
+        .stop-btn:hover {
+            background: #c82333;
+        }
+
+        .replay-btn {
+            background: #6c757d;
+        }
+
+        .replay-btn:hover {
+            background: #5a6268;
+        }
+
+        .record-controls {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .record-status {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #666;
+            min-height: 1.2rem;
+        }
+
+        .audio-player-wrap {
+            width: 100%;
+            max-width: 420px;
+            margin-top: 0.6rem;
+        }
+
+        .audio-player {
+            width: 100%;
         }
 
         .form-group {
@@ -138,7 +202,7 @@
             top: 24px;
             left: 0;
             z-index: 10;
-            width: 280px;
+            width: 300px;
             background: #fff;
             border: 1px solid #d9dee3;
             border-radius: 8px;
@@ -158,30 +222,10 @@
             box-sizing: border-box;
         }
 
-        .form-group input:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-
         .chinese-input {
-            font-size: 3rem !important;
+            font-size: 2.2rem !important;
             text-align: center;
-            padding: 1.5rem !important;
-        }
-
-        .submit-btn {
-            background: #28a745;
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 4px;
-            font-size: 1rem;
-            cursor: pointer;
-            width: 100%;
-        }
-
-        .submit-btn:hover {
-            background: #218838;
+            padding: 1.2rem !important;
         }
 
         .cards-section h2 {
@@ -206,13 +250,29 @@
 
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 1rem;
+        }
+
+        .cards-subsection {
+            margin-bottom: 1rem;
+        }
+
+        .cards-subsection h3 {
+            margin-bottom: 0.7rem;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .cards-subsection .empty-line {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 0.6rem;
         }
 
         .card-item {
             background: white;
-            padding: 1.5rem;
+            padding: 1.25rem;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             text-align: center;
@@ -220,8 +280,34 @@
         }
 
         .card-front {
-            font-size: 5rem;
+            font-size: 4.5rem;
             color: #333;
+            font-family: var(--font-kaiti);
+            line-height: 1.15;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.6rem;
+            justify-content: center;
+            margin-top: 0.6rem;
+        }
+
+        .card-action-btn {
+            border: none;
+            border-radius: 6px;
+            padding: 0.38rem 0.6rem;
+            cursor: pointer;
+            color: white;
+            font-size: 0.82rem;
+        }
+
+        .play-btn {
+            background: #2d7ef7;
+        }
+
+        .delete-btn {
+            background: #dc3545;
         }
 
         .empty-state {
@@ -235,31 +321,23 @@
     <div class="container">
         <div class="header">
             <h1 id="kidName">Loading...</h1>
-            <a href="/" class="back-btn">← Back</a>
+            <a href="/admin.html" class="back-btn">← Back</a>
         </div>
 
         <div class="tab-nav">
-            <a id="charactersTab" class="tab-link primary" href="#">📝 Manage Reading</a>
-            <a id="writingTab" class="tab-link secondary" href="#">✍️ Manage Writing</a>
+            <a id="charactersTab" class="tab-link secondary" href="#">📝 Manage Reading</a>
+            <a id="writingTab" class="tab-link primary" href="#">✍️ Manage Writing</a>
             <a id="mathTab" class="tab-link secondary" href="#">➗ Manage Math</a>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
 
-        <!-- Session Settings -->
         <div class="settings-section">
             <h2>Practice Settings</h2>
             <form id="sessionSettingsForm" class="settings-row">
                 <div class="form-group">
-                    <label for="sessionCardCount">Reading Cards Per Session</label>
-                    <input
-                        type="number"
-                        id="sessionCardCount"
-                        min="1"
-                        max="200"
-                        step="1"
-                        required
-                    >
+                    <label for="sessionCardCount">Writing Cards Per Session</label>
+                    <input type="number" id="sessionCardCount" min="1" max="200" step="1" required>
                 </div>
                 <div class="form-group">
                     <label for="hardCardPercentage" class="label-with-help">
@@ -267,44 +345,51 @@
                         <details class="help-details">
                             <summary title="What is hardness?">i</summary>
                             <div class="help-bubble">
-                                Reading hardness uses each card's latest response time. Higher score means slower and is treated as harder.
+                                Writing hardness uses lifetime correct percentage per card. Lower percentage means harder.
                             </div>
                         </details>
                     </label>
-                    <input
-                        type="number"
-                        id="hardCardPercentage"
-                        min="0"
-                        max="100"
-                        step="1"
-                        required
-                    >
+                    <input type="number" id="hardCardPercentage" min="0" max="100" step="1" required>
                 </div>
                 <button type="submit" class="settings-save-btn">Save</button>
             </form>
         </div>
 
-        <!-- Add New Reading Character -->
         <div class="add-card-section">
-            <h2>Add New Reading Character</h2>
+            <h2>Add New Writing Prompt</h2>
             <form id="addCardForm">
                 <div class="form-group">
-                    <label for="chineseChar">Chinese Reading Character(s)</label>
-                    <input
-                        type="text"
-                        id="chineseChar"
-                        class="chinese-input"
-                        placeholder="你"
-                        required
-                    >
+                    <label for="chineseChars">Chinese Character(s)</label>
+                    <input type="text" id="chineseChars" class="chinese-input" placeholder="你" required>
                 </div>
-                <button type="submit" class="submit-btn">Add Reading Character</button>
+                <div class="form-group">
+                    <label>Record Parent Voice Prompt</label>
+                    <div class="record-controls">
+                        <button type="button" id="recordBtn" class="record-btn">Start Recording</button>
+                        <button type="button" id="replayRecordBtn" class="replay-btn" disabled>Replay Recording</button>
+                    </div>
+                    <p id="recordStatus" class="record-status">No recording yet</p>
+                    <div class="audio-player-wrap">
+                        <audio id="audioPlayer" class="audio-player" controls preload="metadata"></audio>
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn">Add Writing Card(s)</button>
             </form>
         </div>
 
-        <!-- Reading Cards -->
         <div class="cards-section">
-            <h2>Chinese Character Reading Cards <span id="cardCount">(0)</span></h2>
+            <h2>Chinese Character Writing Cards <span id="cardCount">(0)</span></h2>
+            <div class="sheet-section">
+                <h2>Generate Practice Sheet</h2>
+                <div class="sheet-row">
+                    <div class="form-group">
+                        <label for="sheetCardCount">Cards Per Sheet</label>
+                        <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
+                    </div>
+                    <button type="button" id="createSheetBtn" class="settings-save-btn">Generate & Print</button>
+                    <button type="button" id="viewSheetsBtn" class="settings-save-btn sheet-view-btn">View Sheets</button>
+                </div>
+            </div>
             <div class="cards-toolbar">
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="queue">Order: Next Session Queue</option>
@@ -312,13 +397,11 @@
                     <option value="hardness_desc">Order: Hardness Score (Desc)</option>
                 </select>
             </div>
-            <div id="cardsGrid" class="cards-grid">
-                <!-- Cards will be loaded here -->
-            </div>
+            <div id="cardsGrid" class="cards-grid"></div>
         </div>
     </div>
 
     <script src="practice-manage-common.js"></script>
-    <script src="kid-manage.js"></script>
+    <script src="kid-writing-manage.js"></script>
 </body>
 </html>

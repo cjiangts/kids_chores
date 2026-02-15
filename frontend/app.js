@@ -5,11 +5,28 @@ const API_BASE = `${window.location.origin}/api`;
 // DOM Elements
 const kidsList = document.getElementById('kidsList');
 const errorMessage = document.getElementById('errorMessage');
+const familyLogoutLink = document.getElementById('familyLogoutLink');
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadKids();
 });
+
+if (familyLogoutLink) {
+    familyLogoutLink.addEventListener('click', async (event) => {
+        event.preventDefault();
+        try {
+            await fetch(`${API_BASE}/family-auth/logout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+        } catch (error) {
+            // ignore
+        }
+        window.location.href = '/index.html';
+    });
+}
 
 // API Functions
 async function loadKids() {
@@ -104,16 +121,20 @@ function displayKids(kids) {
         const age = calculateAge(kid.birthday);
         const chineseStars = Number.isInteger(kid.dailyCompletedChineseCountToday) ? kid.dailyCompletedChineseCountToday : 0;
         const mathStars = Number.isInteger(kid.dailyCompletedMathCountToday) ? kid.dailyCompletedMathCountToday : 0;
-        const dailyEnabled = !!kid.dailyPracticeChineseEnabled || !!kid.dailyPracticeMathEnabled;
+        const writingStars = Number.isInteger(kid.dailyCompletedWritingCountToday) ? kid.dailyCompletedWritingCountToday : 0;
+        const dailyEnabled = !!kid.dailyPracticeChineseEnabled || !!kid.dailyPracticeMathEnabled || !!kid.dailyPracticeWritingEnabled;
         let dailyPracticeBadge = `<p class="daily-stars disabled">No daily practices assigned</p>`;
         if (dailyEnabled) {
             const chineseLine = kid.dailyPracticeChineseEnabled
-                ? `Chinese: ${chineseStars > 0 ? '⭐'.repeat(chineseStars) : '-'}`
-                : 'Chinese: off';
+                ? `Chinese Reading: ${chineseStars > 0 ? '⭐'.repeat(chineseStars) : '-'}`
+                : 'Chinese Reading: off';
+            const writingLine = kid.dailyPracticeWritingEnabled
+                ? `Chinese Writing: ${writingStars > 0 ? '⭐'.repeat(writingStars) : '-'}`
+                : 'Chinese Writing: off';
             const mathLine = kid.dailyPracticeMathEnabled
                 ? `Math: ${mathStars > 0 ? '⭐'.repeat(mathStars) : '-'}`
                 : 'Math: off';
-            dailyPracticeBadge = `<p class="daily-stars">${chineseLine}<br>${mathLine}</p>`;
+            dailyPracticeBadge = `<p class="daily-stars">${chineseLine}<br>${writingLine}<br>${mathLine}</p>`;
         }
         return `
             <div class="kid-card" onclick="selectKid('${kid.id}', '${kid.name}')">
@@ -132,7 +153,10 @@ function selectKid(kidId, kidName) {
 
 function calculateAge(birthday) {
     const today = new Date();
-    const birthDate = new Date(birthday);
+    const birthDate = parseDateOnly(birthday);
+    if (!birthDate) {
+        return 0;
+    }
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
 
@@ -144,12 +168,30 @@ function calculateAge(birthday) {
 }
 
 function formatDate(dateString) {
-    const date = new Date(dateString);
+    const date = parseDateOnly(dateString);
+    if (!date) {
+        return dateString || '-';
+    }
     return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
     });
+}
+
+function parseDateOnly(dateString) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateString || ''));
+    if (!match) {
+        return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        return null;
+    }
+    return date;
 }
 
 function validateBirthday(birthday) {

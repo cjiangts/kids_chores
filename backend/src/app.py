@@ -1,18 +1,153 @@
 """Main Flask application"""
-from flask import Flask, send_from_directory
+from urllib.parse import quote
+from flask import Flask, send_from_directory, request, redirect, session, jsonify
 from flask_cors import CORS
 import os
 
 from src.routes.kids import kids_bp
 from src.routes.backup import backup_bp
+from src.db import metadata
 
 def create_app():
     app = Flask(__name__)
     CORS(app)  # Enable CORS for React frontend
+    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev-parent-auth-secret')
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+
+    def is_family_authenticated():
+        return bool(session.get('family_id'))
+
+    def is_parent_authenticated():
+        return bool(session.get('parent_authenticated'))
+
+    def is_parent_page(path):
+        protected = {
+            '/admin.html',
+            '/kid-manage.html',
+            '/kid-math-manage.html',
+            '/kid-writing-manage.html',
+        }
+        if path in protected:
+            return True
+        if path == '/kid-writing-sheets.html' and request.args.get('readonly') == '1':
+            return True
+        return False
+
+    @app.before_request
+    def enforce_parent_auth():
+        path = request.path
+        if path == '/health':
+            return None
+
+        if path.startswith('/api/family-auth/'):
+            return None
+
+        public_frontend_paths = {'/', '/index.html', '/family-login.html', '/family-register.html'}
+        public_assets = (
+            path.endswith('.css')
+            or path.endswith('.js')
+            or path.endswith('.png')
+            or path.endswith('.jpg')
+            or path.endswith('.jpeg')
+            or path.endswith('.svg')
+            or path.endswith('.ico')
+            or path.startswith('/fonts/')
+        )
+
+        if not is_family_authenticated():
+            if path.startswith('/api/'):
+                return jsonify({'error': 'Family login required'}), 401
+            if path in public_frontend_paths or public_assets:
+                return None
+            next_path = request.full_path if request.query_string else request.path
+            if next_path.endswith('?'):
+                next_path = next_path[:-1]
+            return redirect(f"/family-login.html?next={quote(next_path)}")
+
+        if path.startswith('/api/parent-auth/'):
+            return None
+
+        if path.startswith('/api/backup/') and not is_parent_authenticated():
+            return jsonify({'error': 'Parent login required'}), 401
+
+        if is_parent_page(path) and not is_parent_authenticated():
+            next_path = request.full_path if request.query_string else request.path
+            if next_path.endswith('?'):
+                next_path = next_path[:-1]
+            return redirect(f"/parent-login.html?next={quote(next_path)}")
+        return None
 
     # Register blueprints
     app.register_blueprint(kids_bp, url_prefix='/api')
     app.register_blueprint(backup_bp, url_prefix='/api')
+
+    @app.route('/api/family-auth/status', methods=['GET'])
+    def family_auth_status():
+        family_id = session.get('family_id')
+        family_name = session.get('family_username')
+        return {'authenticated': bool(family_id), 'familyId': family_id, 'familyUsername': family_name}, 200
+
+    @app.route('/api/family-auth/register', methods=['POST'])
+    def family_auth_register():
+        payload = request.get_json() or {}
+        username = str(payload.get('username') or '').strip()
+        password = str(payload.get('password') or '')
+        try:
+            family = metadata.register_family(username, password)
+        except ValueError as e:
+            return {'error': str(e)}, 400
+
+        session['family_id'] = str(family['id'])
+        session['family_username'] = family['username']
+        session.pop('parent_authenticated', None)
+        return {'authenticated': True, 'familyId': family['id'], 'familyUsername': family['username']}, 201
+
+    @app.route('/api/family-auth/login', methods=['POST'])
+    def family_auth_login():
+        payload = request.get_json() or {}
+        username = str(payload.get('username') or '').strip()
+        password = str(payload.get('password') or '')
+        family = metadata.authenticate_family(username, password)
+        if not family:
+            return {'error': 'Invalid username or password'}, 401
+
+        session['family_id'] = str(family['id'])
+        session['family_username'] = family['username']
+        session.pop('parent_authenticated', None)
+        return {'authenticated': True, 'familyId': family['id'], 'familyUsername': family['username']}, 200
+
+    @app.route('/api/family-auth/logout', methods=['POST'])
+    def family_auth_logout():
+        session.pop('family_id', None)
+        session.pop('family_username', None)
+        session.pop('parent_authenticated', None)
+        return {'authenticated': False}, 200
+
+    @app.route('/api/parent-auth/status', methods=['GET'])
+    def parent_auth_status():
+        if not is_family_authenticated():
+            return {'authenticated': False}, 200
+        return {'authenticated': is_parent_authenticated()}, 200
+
+    @app.route('/api/parent-auth/login', methods=['POST'])
+    def parent_auth_login():
+        if not is_family_authenticated():
+            return {'error': 'Family login required'}, 401
+        payload = request.get_json() or {}
+        password = str(payload.get('password') or '')
+        configured = os.environ.get('PARENT_ADMIN_PASSWORD', '1234')
+        if password != configured:
+            return {'error': 'Invalid password'}, 401
+
+        session['parent_authenticated'] = True
+        return {'authenticated': True}, 200
+
+    @app.route('/api/parent-auth/logout', methods=['POST'])
+    def parent_auth_logout():
+        session.pop('parent_authenticated', None)
+        return {'authenticated': False}, 200
 
     @app.route('/health', methods=['GET'])
     def health():
@@ -23,6 +158,8 @@ def create_app():
 
     @app.route('/')
     def index():
+        if is_family_authenticated():
+            return send_from_directory(frontend_dir, 'family-home.html')
         return send_from_directory(frontend_dir, 'index.html')
 
     @app.route('/<path:path>')

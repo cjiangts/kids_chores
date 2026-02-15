@@ -12,7 +12,7 @@
         }
 
         .chinese-text {
-            font-family: 'STKaiti', '华文楷体', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', 'LXGW WenKai', serif !important;
+            font-family: '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', 'LXGW WenKai', serif !important;
         }
         .header {
             display: flex;
@@ -110,7 +110,7 @@
 
         .card-content {
             font-size: 10rem;
-            font-family: 'STKaiti', '华文楷体', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', 'LXGW WenKai', serif;
+            font-family: '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', 'LXGW WenKai', serif;
             color: #333;
             line-height: 1.2;
         }
@@ -224,22 +224,13 @@
             margin-bottom: 1rem;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #999;
-        }
-
-        .empty-state h3 {
-            margin-bottom: 0.5rem;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1 id="kidName">Loading...</h1>
-            <a href="/" class="back-btn">← Back</a>
+            <a id="kidBackBtn" href="/" class="back-btn">← Back</a>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
@@ -249,13 +240,19 @@
             <div id="practiceSection" class="hidden">
                 <div id="practiceChooser" class="practice-chooser">
                     <button id="chinesePracticeOption" class="practice-option" onclick="chooseChinesePractice()">
-                        <h3>🈶 Chinese Characters</h3>
-                        <p>Flashcards with green/red self-checking.</p>
+                        <h3>🈶 Chinese Character Reading</h3>
                         <p id="chineseStarBadge" class="practice-star-badge"></p>
+                    </button>
+                    <button id="writingPracticeOption" class="practice-option" onclick="goWritingPractice()">
+                        <h3>✍️ Chinese Character Writing</h3>
+                        <p id="writingStarBadge" class="practice-star-badge"></p>
+                    </button>
+                    <button id="writingSheetsOption" class="practice-option" onclick="goWritingSheets()">
+                        <h3>📄 Writing Sheets</h3>
+                        <p id="writingSheetsBadge" class="practice-star-badge"></p>
                     </button>
                     <button id="mathPracticeOption" class="practice-option" onclick="goMathPractice()">
                         <h3>➗ Math</h3>
-                        <p>Practice number skills and arithmetic.</p>
                         <p id="mathStarBadge" class="practice-star-badge"></p>
                     </button>
                 </div>
@@ -263,7 +260,7 @@
                 <div id="startScreen" class="hidden">
                     <div class="flashcard">
                         <h2 class="session-title">Ready to start?</h2>
-                        <p id="sessionInfo" class="progress">Session: 10 characters</p>
+                        <p id="sessionInfo" class="progress">Session: 10 reading cards</p>
                         <button class="control-btn start-btn" onclick="startSession()">Start</button>
                     </div>
                 </div>
@@ -288,16 +285,11 @@
                     <div class="flashcard">
                         <h2 class="session-title">Session Complete</h2>
                         <p id="resultSummary" class="progress"></p>
-                        <a href="/" class="control-btn back-btn" style="text-decoration: none; display: inline-block;">← Back</a>
+                        <a id="resultBackBtn" href="/" class="control-btn back-btn" style="text-decoration: none; display: inline-block;">← Back</a>
                     </div>
                 </div>
             </div>
 
-            <!-- Empty State -->
-            <div id="emptyState" class="empty-state">
-                <h3>No characters yet</h3>
-                <p>Ask your parent to add some characters for you to practice!</p>
-            </div>
         </div>
     </div>
 

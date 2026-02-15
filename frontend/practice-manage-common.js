@@ -6,14 +6,14 @@ window.PracticeManageCommon = {
             return copy.sort((a, b) => this.parseTime(b.parent_added_at || b.created_at) - this.parseTime(a.parent_added_at || a.created_at));
         }
 
-        if (mode === 'avg_green_desc') {
+        if (mode === 'hardness_desc') {
             return copy.sort((a, b) => {
-                const aMs = a.avg_green_ms ?? -1;
-                const bMs = b.avg_green_ms ?? -1;
-                if (aMs === bMs) {
+                const aHard = Number.isFinite(a.hardness_score) ? a.hardness_score : -1;
+                const bHard = Number.isFinite(b.hardness_score) ? b.hardness_score : -1;
+                if (aHard === bHard) {
                     return this.compareQueueOrder(a, b);
                 }
-                return bMs - aMs;
+                return bHard - aHard;
             });
         }
 
@@ -21,9 +21,14 @@ window.PracticeManageCommon = {
     },
 
     compareQueueOrder(a, b) {
-        const aOrder = Number.isFinite(a.queue_order) ? a.queue_order : Number.MAX_SAFE_INTEGER;
-        const bOrder = Number.isFinite(b.queue_order) ? b.queue_order : Number.MAX_SAFE_INTEGER;
-        return aOrder - bOrder;
+        const aOrder = Number.isFinite(a.next_session_order) ? a.next_session_order : Number.MAX_SAFE_INTEGER;
+        const bOrder = Number.isFinite(b.next_session_order) ? b.next_session_order : Number.MAX_SAFE_INTEGER;
+
+        if (aOrder !== bOrder) {
+            return aOrder - bOrder;
+        }
+
+        return (a.id || 0) - (b.id || 0);
     },
 
     parseTime(value) {
@@ -34,11 +39,15 @@ window.PracticeManageCommon = {
         return Number.isNaN(parsed) ? 0 : parsed;
     },
 
-    formatAvgGreen(avgMs) {
-        if (avgMs === null || avgMs === undefined) {
+    formatHardnessScore(score) {
+        if (score === null || score === undefined) {
             return '-';
         }
-        return `${Math.round(avgMs)} ms`;
+        const value = Number(score);
+        if (Number.isNaN(value)) {
+            return '-';
+        }
+        return Number.isInteger(value) ? `${value}` : `${value.toFixed(1)}`;
     },
 
     formatAddedDate(dateStr) {

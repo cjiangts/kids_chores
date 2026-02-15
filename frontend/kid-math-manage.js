@@ -9,14 +9,19 @@ const seedBtn = document.getElementById('seedBtn');
 const seedStatus = document.getElementById('seedStatus');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
+const hardCardPercentageInput = document.getElementById('hardCardPercentage');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardCount = document.getElementById('cardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const charactersTab = document.getElementById('charactersTab');
+const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
 
 let currentKid = null;
 let currentCards = [];
+let sortedCards = [];
+let visibleCardCount = 10;
+const CARD_PAGE_SIZE = 10;
 
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -26,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     charactersTab.href = `/kid-manage.html?id=${kidId}`;
+    writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
     mathTab.href = `/kid-math-manage.html?id=${kidId}`;
 
     sessionSettingsForm.addEventListener('submit', async (e) => {
@@ -33,8 +39,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         await saveSessionSettings();
     });
 
-    viewOrderSelect.addEventListener('change', () => displayCards(currentCards));
+    viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
     seedBtn.addEventListener('click', async () => seedStarterSet());
+    window.addEventListener('scroll', () => {
+        maybeLoadMoreCards();
+    });
 
     await loadKidInfo();
     await loadMathCards();
@@ -51,6 +60,8 @@ async function loadKidInfo() {
         currentKid = await response.json();
         kidNameEl.textContent = `${currentKid.name}'s Math`;
         sessionCardCountInput.value = currentKid.sessionCardCount || 10;
+        const initialHardPct = Number.parseInt(currentKid.hardCardPercentage, 10);
+        hardCardPercentageInput.value = Number.isInteger(initialHardPct) ? initialHardPct : 20;
     } catch (error) {
         console.error('Error loading kid:', error);
         showError('Failed to load kid information');
@@ -61,15 +72,23 @@ async function loadKidInfo() {
 async function saveSessionSettings() {
     try {
         const value = Number.parseInt(sessionCardCountInput.value, 10);
+        const hardPct = Number.parseInt(hardCardPercentageInput.value, 10);
         if (!Number.isInteger(value) || value < 1 || value > 200) {
             showError('Session size must be between 1 and 200');
+            return;
+        }
+        if (!Number.isInteger(hardPct) || hardPct < 0 || hardPct > 100) {
+            showError('Hard cards % must be between 0 and 100');
             return;
         }
 
         const response = await fetch(`${API_BASE}/kids/${kidId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionCardCount: value })
+            body: JSON.stringify({
+                sessionCardCount: value,
+                hardCardPercentage: hardPct
+            })
         });
 
         if (!response.ok) {
@@ -78,6 +97,8 @@ async function saveSessionSettings() {
 
         currentKid = await response.json();
         sessionCardCountInput.value = currentKid.sessionCardCount || value;
+        const savedHardPct = Number.parseInt(currentKid.hardCardPercentage, 10);
+        hardCardPercentageInput.value = Number.isInteger(savedHardPct) ? savedHardPct : hardPct;
         showError('');
     } catch (error) {
         console.error('Error saving session settings:', error);
@@ -96,7 +117,7 @@ async function loadMathCards() {
 
         const data = await response.json();
         currentCards = data.cards || [];
-        displayCards(currentCards);
+        resetAndDisplayCards(currentCards);
     } catch (error) {
         console.error('Error loading math cards:', error);
         showError('Failed to load math cards');
@@ -153,7 +174,7 @@ async function deleteMathCard(cardId) {
 
 
 function displayCards(cards) {
-    const sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
+    sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
     cardCount.textContent = `(${sortedCards.length})`;
 
     if (sortedCards.length === 0) {
@@ -161,17 +182,37 @@ function displayCards(cards) {
         return;
     }
 
-    cardsGrid.innerHTML = sortedCards.map((card) => `
+    const visibleCards = sortedCards.slice(0, visibleCardCount);
+    cardsGrid.innerHTML = visibleCards.map((card) => `
         <div class="card-item">
             <button class="delete-card-btn" onclick="deleteMathCard('${card.id}')">×</button>
             <div class="card-front">${card.front}</div>
             <div class="card-back">= ${card.back}</div>
-            <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Avg green: ${window.PracticeManageCommon.formatAvgGreen(card.avg_green_ms)}</div>
+            <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
             <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.parent_added_at || card.created_at)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
         </div>
     `).join('');
+}
+
+function resetAndDisplayCards(cards) {
+    visibleCardCount = CARD_PAGE_SIZE;
+    displayCards(cards);
+}
+
+function maybeLoadMoreCards() {
+    if (sortedCards.length <= visibleCardCount) {
+        return;
+    }
+
+    const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+    if (!nearBottom) {
+        return;
+    }
+
+    visibleCardCount += CARD_PAGE_SIZE;
+    displayCards(currentCards);
 }
 
 

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Login - Kids Learning App</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .login-card {
+            max-width: 420px;
+            margin: 60px auto 0;
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.4rem;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+        }
+
+        .login-card h1 {
+            margin-bottom: 0.4rem;
+        }
+
+        .login-card p {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .login-actions {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+        }
+
+        .home-link {
+            color: #4f5bd5;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-card">
+            <h1>Parent Login</h1>
+            <p>Enter password to access admin pages.</p>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="parentPassword">Password</label>
+                    <input type="password" id="parentPassword" autocomplete="current-password" required>
+                </div>
+                <div class="login-actions">
+                    <button type="submit" class="btn-primary">Enter Admin</button>
+                    <a class="home-link" href="/">Back Home</a>
+                </div>
+            </form>
+            <div id="errorMessage" class="error hidden"></div>
+        </div>
+    </div>
+    <script src="parent-login.js"></script>
+</body>
+</html>

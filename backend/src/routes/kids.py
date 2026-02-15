@@ -1,8 +1,10 @@
 """Kid management API routes"""
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_from_directory, session
 from datetime import datetime, timedelta
+import os
+import shutil
 import uuid
-
+from werkzeug.utils import secure_filename
 from src.db import metadata, kid_db
 
 kids_bp = Blueprint('kids', __name__)
@@ -10,6 +12,57 @@ kids_bp = Blueprint('kids', __name__)
 DEFAULT_SESSION_CARD_COUNT = 10
 MIN_SESSION_CARD_COUNT = 1
 MAX_SESSION_CARD_COUNT = 200
+DEFAULT_HARD_CARD_PERCENTAGE = 20
+MIN_HARD_CARD_PERCENTAGE = 0
+MAX_HARD_CARD_PERCENTAGE = 100
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
+FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
+
+
+def get_family_root(family_id):
+    """Return filesystem root for one family."""
+    return os.path.join(FAMILIES_ROOT, f'family_{family_id}')
+
+
+def get_kid_scoped_db_relpath(kid):
+    """Return family-scoped dbFilePath for a kid."""
+    family_id = str(kid.get('familyId') or '')
+    kid_id = kid.get('id')
+    return f"data/families/family_{family_id}/kid_{kid_id}.db"
+
+
+def get_kid_writing_audio_dir(kid):
+    """Get filesystem directory for kid writing prompt audio files."""
+    family_id = str(kid.get('familyId') or '')
+    kid_id = kid.get('id')
+    return os.path.join(get_family_root(family_id), 'writing_audio', f'kid_{kid_id}')
+
+
+def ensure_writing_audio_dir(kid):
+    """Ensure kid writing audio directory exists."""
+    path = get_kid_writing_audio_dir(kid)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def current_family_id():
+    """Return authenticated family id from session."""
+    return str(session.get('family_id') or '')
+
+
+def get_kid_for_family(kid_id):
+    """Get kid scoped to currently logged-in family."""
+    family_id = current_family_id()
+    if not family_id:
+        return None
+    return metadata.get_kid_by_id(kid_id, family_id=family_id)
+
+
+def get_kid_connection_for(kid):
+    """Open kid database connection by scoped dbFilePath."""
+    rel = kid.get('dbFilePath')
+    return kid_db.get_kid_connection_by_path(rel)
 
 
 def normalize_session_card_count(kid):
@@ -27,12 +80,27 @@ def normalize_session_card_count(kid):
     return parsed
 
 
-def get_today_completed_session_counts(kid_id):
+def normalize_hard_card_percentage(kid):
+    """Get validated hard-card percentage for a kid."""
+    value = kid.get('hardCardPercentage', DEFAULT_HARD_CARD_PERCENTAGE)
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_HARD_CARD_PERCENTAGE
+
+    if parsed < MIN_HARD_CARD_PERCENTAGE:
+        return MIN_HARD_CARD_PERCENTAGE
+    if parsed > MAX_HARD_CARD_PERCENTAGE:
+        return MAX_HARD_CARD_PERCENTAGE
+    return parsed
+
+
+def get_today_completed_session_counts(kid):
     """Get number of completed practice sessions for today by type."""
     try:
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
     except Exception:
-        return {'total': 0, 'chinese': 0, 'math': 0}
+        return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0}
 
     try:
         day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -45,7 +113,7 @@ def get_today_completed_session_counts(kid_id):
             WHERE completed_at IS NOT NULL
               AND completed_at >= ?
               AND completed_at < ?
-              AND type IN ('flashcard', 'math')
+              AND type IN ('flashcard', 'math', 'writing')
             GROUP BY type
             """
             ,
@@ -54,6 +122,7 @@ def get_today_completed_session_counts(kid_id):
 
         chinese = 0
         math = 0
+        writing = 0
         for row in rows:
             session_type = row[0]
             count = int(row[1] or 0)
@@ -61,10 +130,12 @@ def get_today_completed_session_counts(kid_id):
                 chinese = count
             elif session_type == 'math':
                 math = count
+            elif session_type == 'writing':
+                writing = count
 
-        return {'total': chinese + math, 'chinese': chinese, 'math': math}
+        return {'total': chinese + math + writing, 'chinese': chinese, 'math': math, 'writing': writing}
     except Exception:
-        return {'total': 0, 'chinese': 0, 'math': 0}
+        return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0}
     finally:
         conn.close()
 
@@ -73,25 +144,20 @@ def get_today_completed_session_counts(kid_id):
 def get_kids():
     """Get all kids"""
     try:
-        kids = metadata.get_all_kids()
+        family_id = current_family_id()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
+        kids = metadata.get_all_kids(family_id=family_id)
 
         kids_with_progress = []
         for kid in kids:
-            if 'dailyPracticeChineseEnabled' not in kid:
-                if 'dailyPracticeEnabled' in kid:
-                    kid = {**kid, 'dailyPracticeChineseEnabled': bool(kid.get('dailyPracticeEnabled'))}
-                else:
-                    kid = {**kid, 'dailyPracticeChineseEnabled': True}
-
-            if 'dailyPracticeMathEnabled' not in kid:
-                kid = {**kid, 'dailyPracticeMathEnabled': False}
-
-            today_counts = get_today_completed_session_counts(kid['id'])
+            today_counts = get_today_completed_session_counts(kid)
             kid_with_progress = {
                 **kid,
                 'dailyCompletedCountToday': today_counts['total'],
                 'dailyCompletedChineseCountToday': today_counts['chinese'],
-                'dailyCompletedMathCountToday': today_counts['math']
+                'dailyCompletedMathCountToday': today_counts['math'],
+                'dailyCompletedWritingCountToday': today_counts['writing']
             }
             kids_with_progress.append(kid_with_progress)
 
@@ -113,21 +179,29 @@ def create_kid():
         if not data.get('birthday'):
             return jsonify({'error': 'Birthday is required'}), 400
 
-        # Create kid object
-        kid_id = str(uuid.uuid4())
+        family_id = current_family_id()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
+
+        # Generate next integer ID
+        kid_id = metadata.next_kid_id()
+        db_relpath = f"data/families/family_{family_id}/kid_{kid_id}.db"
         kid = {
             'id': kid_id,
+            'familyId': family_id,
             'name': data['name'],
             'birthday': data['birthday'],
             'sessionCardCount': DEFAULT_SESSION_CARD_COUNT,
+            'hardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
             'dailyPracticeChineseEnabled': True,
             'dailyPracticeMathEnabled': False,
-            'dbFilePath': f'data/kid_{kid_id}.db',
+            'dailyPracticeWritingEnabled': False,
+            'dbFilePath': db_relpath,
             'createdAt': datetime.now().isoformat()
         }
 
         # Initialize kid's database
-        kid_db.init_kid_database(kid_id)
+        kid_db.init_kid_database_by_path(db_relpath)
 
         # Save to metadata
         metadata.add_kid(kid)
@@ -142,30 +216,17 @@ def create_kid():
 def get_kid(kid_id):
     """Get a specific kid"""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        # Backfill defaults for older kid metadata.
-        backfill_updates = {}
-        if 'sessionCardCount' not in kid:
-            backfill_updates['sessionCardCount'] = DEFAULT_SESSION_CARD_COUNT
-        if 'dailyPracticeChineseEnabled' not in kid:
-            if 'dailyPracticeEnabled' in kid:
-                backfill_updates['dailyPracticeChineseEnabled'] = bool(kid.get('dailyPracticeEnabled'))
-            else:
-                backfill_updates['dailyPracticeChineseEnabled'] = True
-        if 'dailyPracticeMathEnabled' not in kid:
-            backfill_updates['dailyPracticeMathEnabled'] = False
-        if backfill_updates:
-            kid = metadata.update_kid(kid_id, backfill_updates)
-
-        today_counts = get_today_completed_session_counts(kid_id)
+        today_counts = get_today_completed_session_counts(kid)
         kid_with_progress = {
             **kid,
             'dailyCompletedCountToday': today_counts['total'],
             'dailyCompletedChineseCountToday': today_counts['chinese'],
-            'dailyCompletedMathCountToday': today_counts['math']
+            'dailyCompletedMathCountToday': today_counts['math'],
+            'dailyCompletedWritingCountToday': today_counts['writing']
         }
 
         return jsonify(kid_with_progress), 200
@@ -177,7 +238,10 @@ def get_kid(kid_id):
 def update_kid(kid_id):
     """Update a specific kid's metadata"""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        family_id = current_family_id()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
@@ -195,6 +259,17 @@ def update_kid(kid_id):
 
             updates['sessionCardCount'] = session_card_count
 
+        if 'hardCardPercentage' in data:
+            try:
+                hard_pct = int(data['hardCardPercentage'])
+            except (TypeError, ValueError):
+                return jsonify({'error': 'hardCardPercentage must be an integer'}), 400
+
+            if hard_pct < MIN_HARD_CARD_PERCENTAGE or hard_pct > MAX_HARD_CARD_PERCENTAGE:
+                return jsonify({'error': f'hardCardPercentage must be between {MIN_HARD_CARD_PERCENTAGE} and {MAX_HARD_CARD_PERCENTAGE}'}), 400
+
+            updates['hardCardPercentage'] = hard_pct
+
         if 'dailyPracticeChineseEnabled' in data:
             if not isinstance(data['dailyPracticeChineseEnabled'], bool):
                 return jsonify({'error': 'dailyPracticeChineseEnabled must be a boolean'}), 400
@@ -205,10 +280,15 @@ def update_kid(kid_id):
                 return jsonify({'error': 'dailyPracticeMathEnabled must be a boolean'}), 400
             updates['dailyPracticeMathEnabled'] = data['dailyPracticeMathEnabled']
 
+        if 'dailyPracticeWritingEnabled' in data:
+            if not isinstance(data['dailyPracticeWritingEnabled'], bool):
+                return jsonify({'error': 'dailyPracticeWritingEnabled must be a boolean'}), 400
+            updates['dailyPracticeWritingEnabled'] = data['dailyPracticeWritingEnabled']
+
         if not updates:
             return jsonify({'error': 'No supported fields to update'}), 400
 
-        updated_kid = metadata.update_kid(kid_id, updates)
+        updated_kid = metadata.update_kid(kid_id, updates, family_id=family_id)
         if not updated_kid:
             return jsonify({'error': 'Kid not found'}), 404
 
@@ -221,15 +301,21 @@ def update_kid(kid_id):
 def delete_kid(kid_id):
     """Delete a kid and their database"""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        family_id = current_family_id()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
         # Delete database file
-        kid_db.delete_kid_database(kid_id)
+        kid_db.delete_kid_database_by_path(kid.get('dbFilePath') or get_kid_scoped_db_relpath(kid))
+        audio_dir = get_kid_writing_audio_dir(kid)
+        if os.path.exists(audio_dir):
+            shutil.rmtree(audio_dir, ignore_errors=True)
 
         # Delete from metadata
-        metadata.delete_kid(kid_id)
+        metadata.delete_kid(kid_id, family_id=family_id)
 
         return jsonify({'message': 'Kid deleted successfully'}), 200
     except Exception as e:
@@ -245,16 +331,16 @@ def get_or_create_default_deck(conn):
     if result:
         return result[0]
 
-    deck_id = str(uuid.uuid4())
-    conn.execute(
+    row = conn.execute(
         """
-        INSERT INTO decks (id, name, description, tags)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO decks (name, description, tags)
+        VALUES (?, ?, ?)
+        RETURNING id
         """,
-        [deck_id, 'Chinese Characters', 'Default deck for Chinese characters', []]
-    )
+        ['Chinese Characters', 'Default deck for Chinese characters', []]
+    ).fetchone()
 
-    return deck_id
+    return row[0]
 
 
 def get_or_create_math_deck(conn):
@@ -263,15 +349,32 @@ def get_or_create_math_deck(conn):
     if result:
         return result[0]
 
-    deck_id = str(uuid.uuid4())
-    conn.execute(
+    row = conn.execute(
         """
-        INSERT INTO decks (id, name, description, tags)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO decks (name, description, tags)
+        VALUES (?, ?, ?)
+        RETURNING id
         """,
-        [deck_id, 'Math Practice', 'Default deck for math practice', ['math']]
-    )
-    return deck_id
+        ['Math Practice', 'Default deck for math practice', ['math']]
+    ).fetchone()
+    return row[0]
+
+
+def get_or_create_writing_deck(conn):
+    """Get or create the default writing deck for a kid."""
+    result = conn.execute("SELECT id FROM decks WHERE name = 'Chinese Character Writing'").fetchone()
+    if result:
+        return result[0]
+
+    row = conn.execute(
+        """
+        INSERT INTO decks (name, description, tags)
+        VALUES (?, ?, ?)
+        RETURNING id
+        """,
+        ['Chinese Character Writing', 'Default deck for Chinese character writing', ['writing']]
+    ).fetchone()
+    return row[0]
 
 
 def get_starter_math_pairs():
@@ -299,13 +402,12 @@ def seed_starter_math_cards(conn, deck_id):
         if front in existing_fronts:
             continue
 
-        card_id = str(uuid.uuid4())
         conn.execute(
             """
-            INSERT INTO cards (id, deck_id, front, back, front_lang, back_lang)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO cards (deck_id, front, back)
+            VALUES (?, ?, ?)
             """,
-            [card_id, deck_id, front, back, 'math', 'math']
+            [deck_id, front, back]
         )
         inserted += 1
         existing_fronts.add(front)
@@ -318,8 +420,8 @@ def seed_starter_math_cards(conn, deck_id):
     return {'inserted': inserted, 'total': int(total)}
 
 
-def ensure_practice_queue(conn, deck_id):
-    """Ensure queue/state tables are consistent with cards."""
+def ensure_practice_state(conn, deck_id):
+    """Ensure cursor state row exists for a deck."""
     conn.execute(
         """
         INSERT INTO practice_state_by_deck (deck_id, queue_cursor)
@@ -331,44 +433,12 @@ def ensure_practice_queue(conn, deck_id):
         [deck_id, deck_id]
     )
 
-    conn.execute(
-        """
-        DELETE FROM practice_queue
-        WHERE deck_id = ?
-          AND card_id NOT IN (SELECT id FROM cards WHERE deck_id = ?)
-        """,
-        [deck_id, deck_id]
-    )
-
-    max_order_row = conn.execute(
-        "SELECT COALESCE(MAX(queue_order), -1) FROM practice_queue WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()
-    next_order = int(max_order_row[0]) + 1
-
-    missing_cards = conn.execute(
-        """
-        SELECT c.id
-        FROM cards c
-        LEFT JOIN practice_queue q ON c.id = q.card_id AND q.deck_id = c.deck_id
-        WHERE c.deck_id = ? AND q.card_id IS NULL
-        ORDER BY c.created_at ASC
-        """,
-        [deck_id]
-    ).fetchall()
-
-    for row in missing_cards:
-        conn.execute(
-            "INSERT INTO practice_queue (deck_id, card_id, queue_order) VALUES (?, ?, ?)",
-            [deck_id, row[0], next_order]
-        )
-        next_order += 1
-
-    total_queue = conn.execute(
-        "SELECT COUNT(*) FROM practice_queue WHERE deck_id = ?",
+    # Normalize cursor if cards were deleted
+    total = conn.execute(
+        "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
         [deck_id]
     ).fetchone()[0]
-    if total_queue == 0:
+    if total == 0:
         conn.execute(
             "UPDATE practice_state_by_deck SET queue_cursor = 0 WHERE deck_id = ?",
             [deck_id]
@@ -379,52 +449,11 @@ def ensure_practice_queue(conn, deck_id):
         "SELECT queue_cursor FROM practice_state_by_deck WHERE deck_id = ?",
         [deck_id]
     ).fetchone()[0]
-    normalized_cursor = int(cursor) % int(total_queue)
-    if normalized_cursor != cursor:
+    normalized = int(cursor) % int(total)
+    if normalized != cursor:
         conn.execute(
             "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-            [normalized_cursor, deck_id]
-        )
-
-
-def insert_card_to_queue_front(conn, deck_id, card_id):
-    """Put newly-added card at front while preserving old FIFO pointer."""
-    cursor_row = conn.execute(
-        "SELECT queue_cursor FROM practice_state_by_deck WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()
-    current_cursor = int(cursor_row[0]) if cursor_row else 0
-    total_before = int(
-        conn.execute(
-            "SELECT COUNT(*) FROM practice_queue WHERE deck_id = ?",
-            [deck_id]
-        ).fetchone()[0]
-    )
-
-    min_order_row = conn.execute(
-        "SELECT MIN(queue_order) FROM practice_queue WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()
-    min_order = min_order_row[0]
-    new_order = 0 if min_order is None else int(min_order) - 1
-
-    conn.execute(
-        "INSERT INTO practice_queue (deck_id, card_id, queue_order) VALUES (?, ?, ?)",
-        [deck_id, card_id, new_order]
-    )
-
-    # Keep pointing to the same logical "next old card" after front insertion.
-    if total_before == 0:
-        conn.execute(
-            "UPDATE practice_state_by_deck SET queue_cursor = 0 WHERE deck_id = ?",
-            [deck_id]
-        )
-    else:
-        new_total = total_before + 1
-        new_cursor = (current_cursor + 1) % new_total
-        conn.execute(
-            "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-            [new_cursor, deck_id]
+            [normalized, deck_id]
         )
 
 
@@ -472,36 +501,74 @@ def get_last_completed_session(conn, session_type):
     return row[0], row[1]
 
 
-def start_deck_practice_session(conn, kid, deck_id, session_type):
-    """Shared queue-based session planner for a deck."""
-    ensure_practice_queue(conn, deck_id)
+def start_deck_practice_session(conn, kid, deck_id, session_type, excluded_card_ids=None):
+    """Start a session from the current deck plan and persist cursor/session."""
+    cards_by_id, selected_ids, queue_ids, cursor, queue_used = plan_deck_practice_selection(
+        conn, kid, deck_id, session_type, excluded_card_ids=excluded_card_ids
+    )
+
+    if len(selected_ids) == 0:
+        return None, []
+
+    next_cursor = (cursor + queue_used) % len(queue_ids)
+    conn.execute(
+        "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
+        [next_cursor, deck_id]
+    )
+
+    session_id = conn.execute(
+        """
+        INSERT INTO sessions (type, deck_id, planned_count)
+        VALUES (?, ?, ?)
+        RETURNING id
+        """,
+        [session_type, deck_id, len(selected_ids)]
+    ).fetchone()[0]
+
+    selected_cards = [cards_by_id[card_id] for card_id in selected_ids]
+    return session_id, selected_cards
+
+
+def preview_deck_practice_order(conn, kid, deck_id, session_type, excluded_card_ids=None):
+    """Preview exact next session card order without mutating cursor/session."""
+    _, selected_ids, _, _, _ = plan_deck_practice_selection(
+        conn, kid, deck_id, session_type, excluded_card_ids=excluded_card_ids
+    )
+    return selected_ids
+
+
+def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card_ids=None):
+    """Build deterministic card selection order used by session start/preview."""
+    ensure_practice_state(conn, deck_id)
+    excluded_set = set(excluded_card_ids or [])
 
     cards = conn.execute(
         """
-        SELECT c.id, c.front, c.back, c.front_lang, c.back_lang, c.created_at
-        FROM cards c
-        JOIN practice_queue q ON c.id = q.card_id AND q.deck_id = c.deck_id
-        WHERE c.deck_id = ?
-        ORDER BY q.queue_order ASC
+        SELECT id, front, back, created_at
+        FROM cards
+        WHERE deck_id = ?
+        ORDER BY id ASC
         """,
         [deck_id]
     ).fetchall()
 
     if len(cards) == 0:
-        return None, []
+        return {}, [], [], 0, 0
 
     cards_by_id = {
         row[0]: {
             'id': row[0],
             'front': row[1],
             'back': row[2],
-            'front_lang': row[3],
-            'back_lang': row[4],
-            'created_at': row[5].isoformat() if row[5] else None
+            'created_at': row[3].isoformat() if row[3] else None
         }
         for row in cards
+        if row[0] not in excluded_set
     }
-    queue_ids = [row[0] for row in cards]
+    queue_ids = [row[0] for row in cards if row[0] not in excluded_set]
+
+    if len(queue_ids) == 0:
+        return {}, [], [], 0, 0
 
     base_target_count = min(normalize_session_card_count(kid), len(queue_ids))
     last_session_id, last_completed_at = get_last_completed_session(conn, session_type)
@@ -513,11 +580,10 @@ def start_deck_practice_session(conn, kid, deck_id, session_type):
     if last_completed_at is not None:
         new_rows = conn.execute(
             """
-            SELECT c.id
-            FROM cards c
-            JOIN practice_queue q ON c.id = q.card_id AND q.deck_id = c.deck_id
-            WHERE c.deck_id = ? AND c.created_at > ?
-            ORDER BY q.queue_order ASC
+            SELECT id
+            FROM cards
+            WHERE deck_id = ? AND created_at > ?
+            ORDER BY id ASC
             """,
             [deck_id, last_completed_at]
         ).fetchall()
@@ -538,6 +604,34 @@ def start_deck_practice_session(conn, kid, deck_id, session_type):
 
     target_count = min(len(queue_ids), max(base_target_count, len(selected_ids)))
 
+    remaining_slots = max(0, target_count - len(selected_ids))
+    hard_pct = normalize_hard_card_percentage(kid)
+    hard_target = min(remaining_slots, int((remaining_slots * hard_pct) / 100))
+
+    if hard_target > 0:
+        placeholders = ','.join(['?'] * len(queue_ids))
+        hard_rows = conn.execute(
+            f"""
+            SELECT id, hardness_score
+            FROM cards
+            WHERE id IN ({placeholders})
+            ORDER BY hardness_score DESC, id ASC
+            """,
+            queue_ids
+        ).fetchall()
+
+        for row in hard_rows:
+            if len(selected_ids) >= target_count:
+                break
+            if hard_target <= 0:
+                break
+            card_id = row[0]
+            if card_id in selected_set:
+                continue
+            selected_ids.append(card_id)
+            selected_set.add(card_id)
+            hard_target -= 1
+
     cursor = conn.execute(
         "SELECT queue_cursor FROM practice_state_by_deck WHERE deck_id = ?",
         [deck_id]
@@ -554,55 +648,23 @@ def start_deck_practice_session(conn, kid, deck_id, session_type):
             queue_used += 1
         offset += 1
 
-    next_cursor = (cursor + queue_used) % len(queue_ids)
-    conn.execute(
-        "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-        [next_cursor, deck_id]
-    )
-
-    session_id = str(uuid.uuid4())
-    conn.execute(
-        """
-        INSERT INTO sessions (id, type, deck_id, planned_count)
-        VALUES (?, ?, ?, ?)
-        """,
-        [session_id, session_type, deck_id, len(selected_ids)]
-    )
-
-    selected_cards = [cards_by_id[card_id] for card_id in selected_ids]
-    return session_id, selected_cards
+    return cards_by_id, selected_ids, queue_ids, cursor, queue_used
 
 
-def submit_practice_answer_internal(kid_id, session_type, data):
-    """Shared answer logging for both chinese and math practice."""
+def complete_session_internal(kid, kid_id, session_type, data):
+    """Complete a session by saving all answers in one batch."""
     session_id = data.get('sessionId')
-    card_id = data.get('cardId')
-    known = data.get('known')
-    response_time_ms = data.get('responseTimeMs')
+    answers = data.get('answers')
 
     if not session_id:
         return {'error': 'sessionId is required'}, 400
-    if not card_id:
-        return {'error': 'cardId is required'}, 400
-    if not isinstance(known, bool):
-        return {'error': 'known must be a boolean'}, 400
+    if not isinstance(answers, list) or len(answers) == 0:
+        return {'error': 'answers must be a non-empty list'}, 400
 
-    try:
-        response_time_ms = int(response_time_ms)
-    except (TypeError, ValueError):
-        return {'error': 'responseTimeMs must be an integer'}, 400
-
-    if response_time_ms < 0 or response_time_ms > 600000:
-        return {'error': 'responseTimeMs must be between 0 and 600000'}, 400
-
-    conn = kid_db.get_kid_connection(kid_id)
+    conn = get_kid_connection_for(kid)
 
     session = conn.execute(
-        """
-        SELECT id, planned_count, completed_at
-        FROM sessions
-        WHERE id = ? AND type = ?
-        """,
+        "SELECT id, planned_count, completed_at FROM sessions WHERE id = ? AND type = ?",
         [session_id, session_type]
     ).fetchone()
 
@@ -613,68 +675,77 @@ def submit_practice_answer_internal(kid_id, session_type, data):
         conn.close()
         return {'error': 'Session already completed'}, 400
 
-    card = conn.execute(
-        "SELECT id, front FROM cards WHERE id = ?",
-        [card_id]
-    ).fetchone()
-    if not card:
-        conn.close()
-        return {'error': 'Card not found'}, 404
+    latest_response_by_card = {}
+    touched_card_ids = set()
 
-    existing_result = conn.execute(
-        "SELECT id FROM session_results WHERE session_id = ? AND card_id = ?",
-        [session_id, card_id]
-    ).fetchone()
-    if existing_result:
-        conn.close()
-        return {'error': 'Card already answered in this session'}, 409
+    for answer in answers:
+        card_id = answer.get('cardId')
+        known = answer.get('known')
+        response_time_ms = answer.get('responseTimeMs')
 
-    result_id = str(uuid.uuid4())
+        if not card_id or not isinstance(known, bool):
+            conn.close()
+            return {'error': 'Each answer needs cardId (int) and known (bool)'}, 400
+        try:
+            response_time_ms = int(response_time_ms)
+        except (TypeError, ValueError):
+            response_time_ms = 0
+
+        conn.execute(
+            "INSERT INTO session_results (session_id, card_id, correct, response_time_ms) VALUES (?, ?, ?, ?)",
+            [session_id, card_id, known, response_time_ms]
+        )
+        latest_response_by_card[card_id] = response_time_ms
+        touched_card_ids.add(card_id)
+
+    if session_type in ('flashcard', 'math'):
+        for card_id, latest_ms in latest_response_by_card.items():
+            conn.execute(
+                "UPDATE cards SET hardness_score = ? WHERE id = ?",
+                [float(latest_ms or 0), card_id]
+            )
+    elif session_type == 'writing' and len(touched_card_ids) > 0:
+        placeholders = ','.join(['?'] * len(touched_card_ids))
+        conn.execute(
+            f"""
+            UPDATE cards
+            SET hardness_score = stats.correct_pct
+            FROM (
+                SELECT
+                    sr.card_id,
+                    COALESCE(100.0 * AVG(CASE WHEN sr.correct = TRUE THEN 1.0 ELSE 0.0 END), 0) AS correct_pct
+                FROM session_results sr
+                JOIN sessions s ON s.id = sr.session_id
+                WHERE s.type = 'writing'
+                  AND sr.card_id IN ({placeholders})
+                GROUP BY sr.card_id
+            ) AS stats
+            WHERE cards.id = stats.card_id
+            """,
+            list(touched_card_ids)
+        )
+
     conn.execute(
-        """
-        INSERT INTO session_results (
-            id, session_id, card_id, question, user_answer, correct, response_time_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        [
-            result_id,
-            session_id,
-            card_id,
-            card[1],
-            'green' if known else 'red',
-            known,
-            response_time_ms
-        ]
+        "UPDATE sessions SET completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [session_id]
     )
 
-    answer_count = conn.execute(
-        "SELECT COUNT(*) FROM session_results WHERE session_id = ?",
-        [session_id]
-    ).fetchone()[0]
-
     planned_count = int(session[1] or 0)
-    completed = False
-    if planned_count > 0 and answer_count >= planned_count:
-        conn.execute(
-            "UPDATE sessions SET completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-            [session_id]
-        )
-        completed = True
-
     conn.close()
     return {
         'session_id': session_id,
-        'answer_count': int(answer_count),
+        'answer_count': len(answers),
         'planned_count': planned_count,
-        'completed': completed
+        'completed': True
     }, 200
 
 
 def delete_card_from_deck_internal(conn, deck_id, card_id):
-    """Shared queue-safe delete for a card in a specific deck."""
-    queue_ids_before = [
+    """Delete a card and adjust the practice cursor."""
+    # Find deleted card's position in id-ordered list
+    card_ids = [
         row[0] for row in conn.execute(
-            "SELECT card_id FROM practice_queue WHERE deck_id = ? ORDER BY queue_order ASC",
+            "SELECT id FROM cards WHERE deck_id = ? ORDER BY id ASC",
             [deck_id]
         ).fetchall()
     ]
@@ -684,20 +755,15 @@ def delete_card_from_deck_internal(conn, deck_id, card_id):
     ).fetchone()
     cursor = int(cursor_row[0]) if cursor_row else 0
 
-    deleted_index = -1
     try:
-        deleted_index = queue_ids_before.index(card_id)
+        deleted_index = card_ids.index(card_id)
     except ValueError:
         deleted_index = -1
 
-    conn.execute("DELETE FROM practice_queue WHERE deck_id = ? AND card_id = ?", [deck_id, card_id])
     conn.execute("DELETE FROM cards WHERE id = ?", [card_id])
 
-    queue_count = conn.execute(
-        "SELECT COUNT(*) FROM practice_queue WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()[0]
-    if queue_count == 0:
+    remaining = len(card_ids) - 1
+    if remaining == 0:
         conn.execute(
             "UPDATE practice_state_by_deck SET queue_cursor = 0 WHERE deck_id = ?",
             [deck_id]
@@ -705,66 +771,82 @@ def delete_card_from_deck_internal(conn, deck_id, card_id):
     else:
         if deleted_index != -1 and deleted_index < cursor:
             cursor -= 1
-        if cursor < 0:
-            cursor = 0
         conn.execute(
             "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-            [int(cursor) % int(queue_count), deck_id]
+            [max(0, cursor) % remaining, deck_id]
         )
+
+
+def get_cards_with_stats(conn, deck_id):
+    """Return cards with hardness / attempt / last-seen stats."""
+    return conn.execute(
+        """
+        SELECT
+            c.id,
+            c.deck_id,
+            c.front,
+            c.back,
+            c.hardness_score,
+            c.created_at,
+            COUNT(sr.id) AS lifetime_attempts,
+            MAX(sr.timestamp) AS last_seen_at
+        FROM cards c
+        LEFT JOIN session_results sr ON c.id = sr.card_id
+        WHERE c.deck_id = ?
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.hardness_score, c.created_at
+        ORDER BY c.id ASC
+        """,
+        [deck_id]
+    ).fetchall()
+
+
+def map_card_row(row, preview_order):
+    """Map raw card+stats row to API object."""
+    return {
+        'id': row[0],
+        'deck_id': row[1],
+        'front': row[2],
+        'back': row[3],
+        'hardness_score': float(row[4]) if row[4] is not None else 0,
+        'created_at': row[5].isoformat() if row[5] else None,
+        'parent_added_at': row[5].isoformat() if row[5] else None,
+        'next_session_order': preview_order.get(row[0]),
+        'lifetime_attempts': int(row[6]) if row[6] is not None else 0,
+        'last_seen_at': row[7].isoformat() if row[7] else None
+    }
+
+
+def get_pending_writing_card_ids(conn):
+    """Return card ids currently blocked by pending writing sheets."""
+    rows = conn.execute(
+        """
+        SELECT DISTINCT wsc.card_id
+        FROM writing_sheet_cards wsc
+        JOIN writing_sheets ws ON ws.id = wsc.sheet_id
+        WHERE ws.status = 'pending'
+        """
+    ).fetchall()
+    return [int(row[0]) for row in rows]
 
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
 def get_cards(kid_id):
     """Get all cards for a kid in practice queue order, with timing stats."""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
         deck_id = get_or_create_default_deck(conn)
-        ensure_practice_queue(conn, deck_id)
+        preview_ids = preview_deck_practice_order(conn, kid, deck_id, 'flashcard')
+        preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
-        cards = conn.execute(
-            """
-            SELECT
-                c.id,
-                c.deck_id,
-                c.front,
-                c.back,
-                c.front_lang,
-                c.back_lang,
-                c.created_at,
-                q.queue_order,
-                AVG(CASE WHEN sr.correct = TRUE AND sr.response_time_ms IS NOT NULL THEN sr.response_time_ms END) AS avg_green_ms,
-                COUNT(sr.id) AS lifetime_attempts,
-                MAX(sr.timestamp) AS last_seen_at
-            FROM cards c
-            LEFT JOIN practice_queue q ON c.id = q.card_id AND q.deck_id = c.deck_id
-            LEFT JOIN session_results sr ON c.id = sr.card_id
-            WHERE c.deck_id = ?
-            GROUP BY c.id, c.deck_id, c.front, c.back, c.front_lang, c.back_lang, c.created_at, q.queue_order
-            ORDER BY q.queue_order ASC, c.created_at DESC
-            """,
-            [deck_id]
-        ).fetchall()
+        cards = get_cards_with_stats(conn, deck_id)
 
         conn.close()
 
-        card_list = [{
-            'id': card[0],
-            'deck_id': card[1],
-            'front': card[2],
-            'back': card[3],
-            'front_lang': card[4],
-            'back_lang': card[5],
-            'created_at': card[6].isoformat() if card[6] else None,
-            'parent_added_at': card[6].isoformat() if card[6] else None,
-            'queue_order': int(card[7]) if card[7] is not None else None,
-            'avg_green_ms': float(card[8]) if card[8] is not None else None,
-            'lifetime_attempts': int(card[9]) if card[9] is not None else 0,
-            'last_seen_at': card[10].isoformat() if card[10] else None
-        } for card in cards]
+        card_list = [map_card_row(card, preview_order) for card in cards]
 
         return jsonify({'deck_id': deck_id, 'cards': card_list}), 200
 
@@ -776,7 +858,7 @@ def get_cards(kid_id):
 def add_card(kid_id):
     """Add a new card for a kid"""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
@@ -785,31 +867,25 @@ def add_card(kid_id):
         if not data.get('front'):
             return jsonify({'error': 'Front text is required'}), 400
 
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
         deck_id = get_or_create_default_deck(conn)
-        ensure_practice_queue(conn, deck_id)
 
-        card_id = str(uuid.uuid4())
-        conn.execute(
+        card_id = conn.execute(
             """
-            INSERT INTO cards (id, deck_id, front, back, front_lang, back_lang)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO cards (deck_id, front, back)
+            VALUES (?, ?, ?)
+            RETURNING id
             """,
             [
-                card_id,
                 deck_id,
                 data['front'],
-                data.get('back', ''),
-                data.get('front_lang', 'zh'),
-                data.get('back_lang', 'en')
+                data.get('back', '')
             ]
-        )
-
-        insert_card_to_queue_front(conn, deck_id, card_id)
+        ).fetchone()[0]
 
         card = conn.execute(
             """
-            SELECT id, deck_id, front, back, front_lang, back_lang, created_at
+            SELECT id, deck_id, front, back, created_at
             FROM cards
             WHERE id = ?
             """,
@@ -823,10 +899,8 @@ def add_card(kid_id):
             'deck_id': card[1],
             'front': card[2],
             'back': card[3],
-            'front_lang': card[4],
-            'back_lang': card[5],
-            'created_at': card[6].isoformat() if card[6] else None,
-            'parent_added_at': card[6].isoformat() if card[6] else None
+            'created_at': card[4].isoformat() if card[4] else None,
+            'parent_added_at': card[4].isoformat() if card[4] else None
         }
 
         return jsonify(card_obj), 201
@@ -839,11 +913,11 @@ def add_card(kid_id):
 def delete_card(kid_id, card_id):
     """Delete a card"""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
 
         card = conn.execute("SELECT id, deck_id FROM cards WHERE id = ?", [card_id]).fetchone()
         if not card:
@@ -864,11 +938,11 @@ def delete_card(kid_id, card_id):
 def start_practice_session(kid_id):
     """Start a practice session with last-session reds + queue-based FIFO rotation."""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
         deck_id = get_or_create_default_deck(conn)
         session_id, selected_cards = start_deck_practice_session(conn, kid, deck_id, 'flashcard')
 
@@ -890,52 +964,22 @@ def start_practice_session(kid_id):
 def get_math_cards(kid_id):
     """Get all math cards for a kid."""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
         deck_id = get_or_create_math_deck(conn)
-        ensure_practice_queue(conn, deck_id)
+        preview_ids = preview_deck_practice_order(conn, kid, deck_id, 'math')
+        preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
-        cards = conn.execute(
-            """
-            SELECT
-                c.id,
-                c.deck_id,
-                c.front,
-                c.back,
-                c.created_at,
-                q.queue_order,
-                AVG(CASE WHEN sr.correct = TRUE AND sr.response_time_ms IS NOT NULL THEN sr.response_time_ms END) AS avg_green_ms,
-                COUNT(sr.id) AS lifetime_attempts,
-                MAX(sr.timestamp) AS last_seen_at
-            FROM cards c
-            LEFT JOIN practice_queue q ON c.id = q.card_id AND q.deck_id = c.deck_id
-            LEFT JOIN session_results sr ON c.id = sr.card_id
-            WHERE c.deck_id = ?
-            GROUP BY c.id, c.deck_id, c.front, c.back, c.created_at, q.queue_order
-            ORDER BY q.queue_order ASC, c.created_at DESC
-            """,
-            [deck_id]
-        ).fetchall()
+        cards = get_cards_with_stats(conn, deck_id)
 
         conn.close()
 
         return jsonify({
             'deck_id': deck_id,
-            'cards': [{
-                'id': row[0],
-                'deck_id': row[1],
-                'front': row[2],
-                'back': row[3],
-                'created_at': row[4].isoformat() if row[4] else None,
-                'parent_added_at': row[4].isoformat() if row[4] else None,
-                'queue_order': int(row[5]) if row[5] is not None else None,
-                'avg_green_ms': float(row[6]) if row[6] is not None else None,
-                'lifetime_attempts': int(row[7]) if row[7] is not None else 0,
-                'last_seen_at': row[8].isoformat() if row[8] else None
-            } for row in cards]
+            'cards': [map_card_row(row, preview_order) for row in cards]
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -945,11 +989,11 @@ def get_math_cards(kid_id):
 def seed_math_cards(kid_id):
     """Insert starter 20 math cards for a kid."""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
         deck_id = get_or_create_math_deck(conn)
         seed_result = seed_starter_math_cards(conn, deck_id)
         conn.close()
@@ -967,11 +1011,11 @@ def seed_math_cards(kid_id):
 def delete_math_card(kid_id, card_id):
     """Delete a math card."""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
         deck_id = get_or_create_math_deck(conn)
 
         card = conn.execute(
@@ -989,15 +1033,550 @@ def delete_math_card(kid_id, card_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/writing/cards', methods=['GET'])
+def get_writing_cards(kid_id):
+    """Get all writing cards for a kid."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+        pending_card_ids = get_pending_writing_card_ids(conn)
+        pending_card_set = set(pending_card_ids)
+        preview_ids = preview_deck_practice_order(
+            conn, kid, deck_id, 'writing', excluded_card_ids=pending_card_ids
+        )
+        preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
+
+        rows = conn.execute(
+            """
+            SELECT
+                c.id,
+                c.deck_id,
+                c.front,
+                c.back,
+                c.hardness_score,
+                c.created_at,
+                COUNT(sr.id) AS lifetime_attempts,
+                MAX(sr.timestamp) AS last_seen_at,
+                wa.file_name,
+                wa.mime_type
+            FROM cards c
+            LEFT JOIN session_results sr ON c.id = sr.card_id
+            LEFT JOIN writing_audio wa ON c.id = wa.card_id
+            WHERE c.deck_id = ?
+            GROUP BY c.id, c.deck_id, c.front, c.back, c.hardness_score, c.created_at, wa.file_name, wa.mime_type
+            ORDER BY c.id ASC
+            """,
+            [deck_id]
+        ).fetchall()
+        conn.close()
+
+        cards = []
+        for row in rows:
+            card = map_card_row(row, preview_order)
+            if not card.get('front') and card.get('back'):
+                card['front'] = card['back']
+            card['pending_sheet'] = int(row[0]) in pending_card_set
+            card['available_for_practice'] = not card['pending_sheet']
+            card['audio_file_name'] = row[8]
+            card['audio_mime_type'] = row[9]
+            card['audio_url'] = f"/api/kids/{kid_id}/writing/audio/{row[8]}" if row[8] else None
+            cards.append(card)
+
+        return jsonify({'deck_id': deck_id, 'cards': cards}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/cards', methods=['POST'])
+def add_writing_cards(kid_id):
+    """Add one writing card from a voice prompt and raw answer text."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        answer_text = (request.form.get('characters') or '').strip()
+        if len(answer_text) == 0:
+            return jsonify({'error': 'Please provide answer text'}), 400
+
+        if 'audio' not in request.files:
+            return jsonify({'error': 'Audio recording is required'}), 400
+
+        audio_file = request.files['audio']
+        if not audio_file or audio_file.filename == '':
+            return jsonify({'error': 'Audio recording is required'}), 400
+
+        audio_bytes = audio_file.read()
+        if not audio_bytes:
+            return jsonify({'error': 'Uploaded audio is empty'}), 400
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+
+        safe_name = secure_filename(audio_file.filename or '')
+        _, original_ext = os.path.splitext(safe_name)
+        ext = original_ext if original_ext else '.webm'
+        mime_type = audio_file.mimetype or 'application/octet-stream'
+
+        audio_dir = ensure_writing_audio_dir(kid)
+        card_id = conn.execute(
+            """
+            INSERT INTO cards (deck_id, front, back)
+            VALUES (?, ?, ?)
+            RETURNING id
+            """,
+            [deck_id, answer_text, answer_text]
+        ).fetchone()[0]
+
+        file_name = f"{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join(audio_dir, file_name)
+        with open(file_path, 'wb') as f:
+            f.write(audio_bytes)
+
+        conn.execute(
+            """
+            INSERT INTO writing_audio (card_id, file_name, mime_type)
+            VALUES (?, ?, ?)
+            """,
+            [card_id, file_name, mime_type]
+        )
+
+        row = conn.execute(
+            """
+            SELECT id, deck_id, front, back, created_at
+            FROM cards
+            WHERE id = ?
+            """,
+            [card_id]
+        ).fetchone()
+
+        conn.close()
+        return jsonify({
+            'deck_id': deck_id,
+            'inserted_count': 1,
+            'cards': [{
+                'id': row[0],
+                'deck_id': row[1],
+                'front': row[2],
+                'back': row[3],
+                'created_at': row[4].isoformat() if row[4] else None,
+                'parent_added_at': row[4].isoformat() if row[4] else None,
+                'audio_file_name': file_name,
+                'audio_mime_type': mime_type,
+                'audio_url': f"/api/kids/{kid_id}/writing/audio/{file_name}"
+            }]
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/audio/<path:file_name>', methods=['GET'])
+def get_writing_audio(kid_id, file_name):
+    """Serve writing prompt audio file for a kid."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        if file_name != os.path.basename(file_name):
+            return jsonify({'error': 'Invalid file name'}), 400
+
+        audio_dir = get_kid_writing_audio_dir(kid)
+        if not os.path.exists(os.path.join(audio_dir, file_name)):
+            return jsonify({'error': 'Audio file not found'}), 404
+
+        return send_from_directory(audio_dir, file_name, as_attachment=False)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/cards/<card_id>', methods=['DELETE'])
+def delete_writing_card(kid_id, card_id):
+    """Delete a writing card and its associated audio file."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+
+        row = conn.execute(
+            """
+            SELECT c.id, wa.file_name
+            FROM cards c
+            LEFT JOIN writing_audio wa ON wa.card_id = c.id
+            WHERE c.id = ? AND c.deck_id = ?
+            """,
+            [card_id, deck_id]
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Writing card not found'}), 404
+
+        file_name = row[1]
+        if file_name:
+            audio_path = os.path.join(get_kid_writing_audio_dir(kid), file_name)
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+
+        conn.execute("DELETE FROM writing_audio WHERE card_id = ?", [card_id])
+        conn.execute("DELETE FROM writing_sheet_cards WHERE card_id = ?", [card_id])
+        delete_card_from_deck_internal(conn, deck_id, card_id)
+        conn.close()
+        return jsonify({'message': 'Writing card deleted successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/sheets', methods=['POST'])
+def create_writing_sheet(kid_id):
+    """Create a printable writing sheet from never-seen or latest-wrong cards."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        data = request.get_json() or {}
+        try:
+            requested_count = int(data.get('count', normalize_session_card_count(kid)))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'count must be an integer'}), 400
+
+        if requested_count < MIN_SESSION_CARD_COUNT or requested_count > MAX_SESSION_CARD_COUNT:
+            return jsonify({'error': f'count must be between {MIN_SESSION_CARD_COUNT} and {MAX_SESSION_CARD_COUNT}'}), 400
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+        pending_card_ids = get_pending_writing_card_ids(conn)
+        pending_placeholders = ','.join(['?'] * len(pending_card_ids)) if pending_card_ids else ''
+
+        exclude_clause = ''
+        params = [deck_id]
+        if pending_card_ids:
+            exclude_clause = f"AND c.id NOT IN ({pending_placeholders})"
+            params.extend(pending_card_ids)
+
+        candidates = conn.execute(
+            f"""
+            WITH latest AS (
+                SELECT
+                    sr.card_id,
+                    sr.correct,
+                    ROW_NUMBER() OVER (PARTITION BY sr.card_id ORDER BY sr.timestamp DESC, sr.id DESC) AS rn
+                FROM session_results sr
+                JOIN sessions s ON s.id = sr.session_id
+                WHERE s.type = 'writing'
+            ),
+            available AS (
+                SELECT
+                    c.id,
+                    c.front,
+                    c.back,
+                    l.correct,
+                    CASE
+                        WHEN l.card_id IS NULL OR l.correct = FALSE THEN 0
+                        ELSE 1
+                    END AS priority
+                FROM cards c
+                LEFT JOIN latest l ON l.card_id = c.id AND l.rn = 1
+                WHERE c.deck_id = ?
+                  {exclude_clause}
+            )
+            SELECT id, front, back, correct
+            FROM available
+            ORDER BY
+              priority ASC,
+              id ASC
+            LIMIT ?
+            """,
+            [*params, requested_count]
+        ).fetchall()
+
+        if len(candidates) == 0:
+            conn.close()
+            return jsonify({
+                'sheet_id': None,
+                'cards': [],
+                'created': False,
+                'message': 'No cards available to print right now. All writing cards may already be practicing.'
+            }), 200
+
+        sheet_id = conn.execute(
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM writing_sheets"
+        ).fetchone()[0]
+        conn.execute(
+            """
+            INSERT INTO writing_sheets (id, status)
+            VALUES (?, 'pending')
+            """,
+            [int(sheet_id)]
+        )
+
+        for row in candidates:
+            conn.execute(
+                """
+                INSERT INTO writing_sheet_cards (sheet_id, card_id)
+                VALUES (?, ?)
+                """,
+                [sheet_id, row[0]]
+            )
+
+        conn.close()
+        return jsonify({
+            'created': True,
+            'sheet_id': int(sheet_id),
+            'cards': [{
+                'id': int(row[0]),
+                'front': row[1],
+                'back': row[2]
+            } for row in candidates]
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/sheets', methods=['GET'])
+def get_writing_sheets(kid_id):
+    """List all writing sheets with cards."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        rows = conn.execute(
+            """
+            SELECT
+                ws.id,
+                ws.status,
+                ws.created_at,
+                ws.completed_at,
+                c.id,
+                c.front,
+                c.back
+            FROM writing_sheets ws
+            LEFT JOIN writing_sheet_cards wsc ON wsc.sheet_id = ws.id
+            LEFT JOIN cards c ON c.id = wsc.card_id
+            ORDER BY ws.created_at DESC, c.id ASC
+            """
+        ).fetchall()
+        conn.close()
+
+        sheets_by_id = {}
+        ordered_ids = []
+        for row in rows:
+            sheet_id = int(row[0])
+            if sheet_id not in sheets_by_id:
+                sheets_by_id[sheet_id] = {
+                    'id': sheet_id,
+                    'status': row[1],
+                    'created_at': row[2].isoformat() if row[2] else None,
+                    'completed_at': row[3].isoformat() if row[3] else None,
+                    'cards': []
+                }
+                ordered_ids.append(sheet_id)
+
+            if row[4] is not None:
+                sheets_by_id[sheet_id]['cards'].append({
+                    'id': int(row[4]),
+                    'front': row[5],
+                    'back': row[6]
+                })
+
+        return jsonify({'sheets': [sheets_by_id[sid] for sid in ordered_ids]}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/sheets/<sheet_id>', methods=['GET'])
+def get_writing_sheet_detail(kid_id, sheet_id):
+    """Get one writing sheet with cards."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        rows = conn.execute(
+            """
+            SELECT
+                ws.id,
+                ws.status,
+                ws.created_at,
+                ws.completed_at,
+                c.id,
+                c.front,
+                c.back
+            FROM writing_sheets ws
+            LEFT JOIN writing_sheet_cards wsc ON wsc.sheet_id = ws.id
+            LEFT JOIN cards c ON c.id = wsc.card_id
+            WHERE ws.id = ?
+            ORDER BY c.id ASC
+            """,
+            [sheet_id]
+        ).fetchall()
+        conn.close()
+
+        if len(rows) == 0:
+            return jsonify({'error': 'Sheet not found'}), 404
+
+        sheet = {
+            'id': int(rows[0][0]),
+            'status': rows[0][1],
+            'created_at': rows[0][2].isoformat() if rows[0][2] else None,
+            'completed_at': rows[0][3].isoformat() if rows[0][3] else None,
+            'cards': []
+        }
+        for row in rows:
+            if row[4] is None:
+                continue
+            sheet['cards'].append({
+                'id': int(row[4]),
+                'front': row[5],
+                'back': row[6]
+            })
+
+        return jsonify(sheet), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/sheets/<sheet_id>/complete', methods=['POST'])
+def complete_writing_sheet(kid_id, sheet_id):
+    """Mark a writing sheet as done."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        row = conn.execute(
+            "SELECT id, status FROM writing_sheets WHERE id = ?",
+            [sheet_id]
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Sheet not found'}), 404
+
+        if row[1] != 'done':
+            conn.execute(
+                """
+                UPDATE writing_sheets
+                SET status = 'done', completed_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                [sheet_id]
+            )
+        conn.close()
+        return jsonify({'sheet_id': int(sheet_id), 'status': 'done'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/sheets/<sheet_id>/withdraw', methods=['POST'])
+def withdraw_writing_sheet(kid_id, sheet_id):
+    """Withdraw a pending writing sheet by deleting it."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        row = conn.execute(
+            "SELECT id, status FROM writing_sheets WHERE id = ?",
+            [sheet_id]
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Sheet not found'}), 404
+
+        status = row[1]
+        if status != 'pending':
+            conn.close()
+            return jsonify({'error': 'Only practicing sheets can be withdrawn'}), 400
+
+        conn.execute(
+            "DELETE FROM writing_sheet_cards WHERE sheet_id = ?",
+            [sheet_id]
+        )
+        conn.execute(
+            """
+            DELETE FROM writing_sheets
+            WHERE id = ?
+            """,
+            [sheet_id]
+        )
+
+        conn.close()
+        return jsonify({'sheet_id': int(sheet_id), 'deleted': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/practice/start', methods=['POST'])
+def start_writing_practice_session(kid_id):
+    """Start a writing practice session."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+        pending_card_ids = get_pending_writing_card_ids(conn)
+        session_id, selected_cards = start_deck_practice_session(
+            conn, kid, deck_id, 'writing', excluded_card_ids=pending_card_ids
+        )
+        if not session_id:
+            conn.close()
+            return jsonify({'session_id': None, 'cards': [], 'planned_count': 0}), 200
+
+        card_ids = [card['id'] for card in selected_cards]
+        placeholders = ','.join(['?'] * len(card_ids))
+        audio_rows = conn.execute(
+            f"""
+            SELECT card_id, file_name, mime_type
+            FROM writing_audio
+            WHERE card_id IN ({placeholders})
+            """,
+            card_ids
+        ).fetchall()
+        conn.close()
+
+        audio_by_card = {row[0]: {'file_name': row[1], 'mime_type': row[2]} for row in audio_rows}
+        cards_with_audio = []
+        for card in selected_cards:
+            audio_meta = audio_by_card.get(card['id'])
+            cards_with_audio.append({
+                **card,
+                'audio_file_name': audio_meta['file_name'] if audio_meta else None,
+                'audio_mime_type': audio_meta['mime_type'] if audio_meta else None,
+                'audio_url': f"/api/kids/{kid_id}/writing/audio/{audio_meta['file_name']}" if audio_meta else None
+            })
+
+        return jsonify({
+            'session_id': session_id,
+            'planned_count': len(cards_with_audio),
+            'cards': cards_with_audio
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>/math/practice/start', methods=['POST'])
 def start_math_practice_session(kid_id):
     """Start a math practice session."""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        conn = kid_db.get_kid_connection(kid_id)
+        conn = get_kid_connection_for(kid)
         deck_id = get_or_create_math_deck(conn)
 
         # Ensure starter exists if math deck is empty.
@@ -1023,15 +1602,16 @@ def start_math_practice_session(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
-@kids_bp.route('/kids/<kid_id>/math/practice/answer', methods=['POST'])
-def submit_math_practice_answer(kid_id):
-    """Store math answer and response time for one card in a session."""
+@kids_bp.route('/kids/<kid_id>/math/practice/complete', methods=['POST'])
+def complete_math_practice_session(kid_id):
+    """Complete a math practice session with all answers."""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        payload, status_code = submit_practice_answer_internal(
+        payload, status_code = complete_session_internal(
+            kid,
             kid_id,
             'math',
             request.get_json() or {}
@@ -1041,15 +1621,35 @@ def submit_math_practice_answer(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
-@kids_bp.route('/kids/<kid_id>/practice/answer', methods=['POST'])
-def submit_practice_answer(kid_id):
-    """Store answer and response time for one card in a session."""
+@kids_bp.route('/kids/<kid_id>/writing/practice/complete', methods=['POST'])
+def complete_writing_practice_session(kid_id):
+    """Complete a writing practice session with all answers."""
     try:
-        kid = metadata.get_kid_by_id(kid_id)
+        kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        payload, status_code = submit_practice_answer_internal(
+        payload, status_code = complete_session_internal(
+            kid,
+            kid_id,
+            'writing',
+            request.get_json() or {}
+        )
+        return jsonify(payload), status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/practice/complete', methods=['POST'])
+def complete_practice_session(kid_id):
+    """Complete a Chinese practice session with all answers."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload, status_code = complete_session_internal(
+            kid,
             kid_id,
             'flashcard',
             request.get_json() or {}

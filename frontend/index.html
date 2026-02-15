@@ -3,30 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kids Learning App</title>
+    <title>Family Login - Kids Learning App</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .family-auth {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .auth-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .auth-card h2 {
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-card p {
+            margin-bottom: 1rem;
+            color: #666;
+        }
+
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🎓 Kids Learning App</h1>
-            <p>Who's learning today?</p>
+            <h1>🏠 Family Login</h1>
+            <p>Sign in to your family space</p>
         </header>
 
         <main>
-            <div id="kidsList" class="kids-grid">
-                <!-- Kids will be loaded here -->
+            <div class="family-auth">
+                <section class="auth-card">
+                    <h2>Sign In</h2>
+                    <p>Use your family username and password.</p>
+                    <form id="familyLoginForm">
+                        <div class="form-group">
+                            <label for="loginUsername">Family Username</label>
+                            <input type="text" id="loginUsername" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Password</label>
+                            <input type="password" id="loginPassword" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Login</button>
+                    </form>
+                    <p style="margin-top: 0.9rem;">
+                        Need a new account?
+                        <a href="/family-register.html">Register New Family</a>
+                    </p>
+                </section>
             </div>
 
             <div id="errorMessage" class="error hidden"></div>
         </main>
-
-        <footer>
-            <a href="admin.html" class="admin-link">👨‍👩‍👧 I'm a parent</a>
-        </footer>
     </div>
 
-    <script src="app.js"></script>
+    <script src="family-login.js"></script>
 </body>
 </html>

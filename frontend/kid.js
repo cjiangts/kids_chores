@@ -7,15 +7,20 @@ const kidId = urlParams.get('id');
 
 // DOM Elements
 const kidNameEl = document.getElementById('kidName');
+const kidBackBtn = document.getElementById('kidBackBtn');
+const resultBackBtn = document.getElementById('resultBackBtn');
 const practiceSection = document.getElementById('practiceSection');
-const emptyState = document.getElementById('emptyState');
 const cardContent = document.getElementById('cardContent');
 const progress = document.getElementById('progress');
 const errorMessage = document.getElementById('errorMessage');
 const practiceChooser = document.getElementById('practiceChooser');
 const chinesePracticeOption = document.getElementById('chinesePracticeOption');
+const writingPracticeOption = document.getElementById('writingPracticeOption');
+const writingSheetsOption = document.getElementById('writingSheetsOption');
 const mathPracticeOption = document.getElementById('mathPracticeOption');
 const chineseStarBadge = document.getElementById('chineseStarBadge');
+const writingStarBadge = document.getElementById('writingStarBadge');
+const writingSheetsBadge = document.getElementById('writingSheetsBadge');
 const mathStarBadge = document.getElementById('mathStarBadge');
 const startScreen = document.getElementById('startScreen');
 const sessionScreen = document.getElementById('sessionScreen');
@@ -28,14 +33,16 @@ const dontKnowBtn = document.querySelector('.dont-know-btn');
 
 let currentKid = null;
 let cards = [];
+let writingCards = [];
+let writingPendingSheetCount = 0;
 let sessionCards = [];
 let currentSessionIndex = 0;
 let knownCount = 0;
 let unknownCount = 0;
 let activeSessionId = null;
 let cardShownAtMs = 0;
-let isSubmittingAnswer = false;
 let isPaused = false;
+let sessionAnswers = [];
 let pauseStartedAtMs = 0;
 let pausedDurationMs = 0;
 
@@ -46,8 +53,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    kidBackBtn.href = `/`;
+    kidBackBtn.addEventListener('click', (event) => {
+        const inReadingFlow = !startScreen.classList.contains('hidden')
+            || !sessionScreen.classList.contains('hidden')
+            || !resultScreen.classList.contains('hidden');
+
+        if (inReadingFlow) {
+            event.preventDefault();
+            resetToStartScreen();
+            return;
+        }
+    });
+    resultBackBtn.href = `/kid.html?id=${kidId}`;
+
     await loadKidInfo();
     await loadCards();
+    await loadWritingCards();
+    await loadWritingSheetsSummary();
 });
 
 // API Functions
@@ -86,10 +109,43 @@ async function loadCards() {
     }
 }
 
+async function loadWritingCards() {
+    try {
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        writingCards = (data.cards || []).filter((card) => card.available_for_practice !== false);
+        resetToStartScreen();
+    } catch (error) {
+        console.error('Error loading writing cards:', error);
+        writingCards = [];
+    }
+}
+
+async function loadWritingSheetsSummary() {
+    try {
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        const sheets = data.sheets || [];
+        writingPendingSheetCount = sheets.filter((sheet) => sheet.status === 'pending').length;
+        renderPracticeStars();
+        resetToStartScreen();
+    } catch (error) {
+        console.error('Error loading writing sheets summary:', error);
+        writingPendingSheetCount = 0;
+        renderPracticeStars();
+    }
+}
+
 // Session Functions
 function resetToStartScreen() {
     const count = Math.min(currentKid?.sessionCardCount || 10, cards.length);
-    sessionInfo.textContent = `Session: ${count} characters`;
+    sessionInfo.textContent = `Session: ${count} reading cards`;
 
     activeSessionId = null;
     sessionCards = [];
@@ -98,20 +154,21 @@ function resetToStartScreen() {
     unknownCount = 0;
 
     const chineseEnabled = !!currentKid?.dailyPracticeChineseEnabled;
+    const writingEnabled = !!currentKid?.dailyPracticeWritingEnabled;
     const mathEnabled = !!currentKid?.dailyPracticeMathEnabled;
 
     chinesePracticeOption.classList.toggle('hidden', !chineseEnabled);
+    writingPracticeOption.classList.toggle('hidden', !writingEnabled);
+    writingSheetsOption.classList.toggle('hidden', !(writingEnabled || writingPendingSheetCount > 0));
     mathPracticeOption.classList.toggle('hidden', !mathEnabled);
 
-    emptyState.classList.add('hidden');
     practiceChooser.classList.remove('hidden');
     startScreen.classList.add('hidden');
     sessionScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
 
-    if (!chineseEnabled && !mathEnabled) {
-        emptyState.classList.remove('hidden');
-        showError('No daily practice is assigned. Ask your parent to enable Chinese or Math.');
+    if (!chineseEnabled && !writingEnabled && !mathEnabled) {
+        showError('No daily practice is assigned. Ask your parent to enable Reading, Writing, or Math.');
     } else {
         showError('');
     }
@@ -124,26 +181,43 @@ function renderPracticeStars() {
     const mathCount = Number.isInteger(currentKid?.dailyCompletedMathCountToday)
         ? currentKid.dailyCompletedMathCountToday
         : 0;
+    const writingCount = Number.isInteger(currentKid?.dailyCompletedWritingCountToday)
+        ? currentKid.dailyCompletedWritingCountToday
+        : 0;
 
     chineseStarBadge.textContent = chineseCount > 0 ? `Today: ${'⭐'.repeat(chineseCount)}` : 'Today: no stars yet';
+    writingStarBadge.textContent = writingCount > 0 ? `Today: ${'⭐'.repeat(writingCount)}` : 'Today: no stars yet';
+    writingSheetsBadge.textContent = writingPendingSheetCount > 0
+        ? `Pending: ${writingPendingSheetCount}`
+        : 'No pending sheets';
     mathStarBadge.textContent = mathCount > 0 ? `Today: ${'⭐'.repeat(mathCount)}` : 'Today: no stars yet';
 }
 
 function chooseChinesePractice() {
     if (cards.length === 0) {
-        emptyState.classList.remove('hidden');
-        showError('No Chinese characters yet. Ask your parent to add some first.');
+        showError('No Chinese reading cards yet. Ask your parent to add some first.');
         return;
     }
 
     showError('');
-    emptyState.classList.add('hidden');
     practiceChooser.classList.add('hidden');
     startScreen.classList.remove('hidden');
 }
 
 function goMathPractice() {
     window.location.href = `/kid-math.html?id=${kidId}`;
+}
+
+function goWritingPractice() {
+    if (writingCards.length === 0) {
+        showError('No Chinese writing cards yet. Ask your parent to add some first.');
+        return;
+    }
+    window.location.href = `/kid-writing.html?id=${kidId}`;
+}
+
+function goWritingSheets() {
+    window.location.href = `/kid-writing-sheets.html?id=${kidId}`;
 }
 
 async function startSession() {
@@ -168,7 +242,7 @@ async function startSession() {
 
         const data = await response.json();
         activeSessionId = data.session_id;
-        sessionCards = data.cards || [];
+        sessionCards = shuffleSessionCards(data.cards || []);
 
         if (!activeSessionId || sessionCards.length === 0) {
             await loadCards();
@@ -178,6 +252,7 @@ async function startSession() {
         currentSessionIndex = 0;
         knownCount = 0;
         unknownCount = 0;
+        sessionAnswers = [];
 
         startScreen.classList.add('hidden');
         practiceChooser.classList.add('hidden');
@@ -189,6 +264,15 @@ async function startSession() {
         console.error('Error starting session:', error);
         showError('Failed to start session');
     }
+}
+
+function shuffleSessionCards(cardsList) {
+    const shuffled = [...cardsList];
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
 }
 
 function displayCurrentCard() {
@@ -206,64 +290,38 @@ function displayCurrentCard() {
     setPausedVisual(false);
 }
 
-async function answerCurrentCard(known) {
-    if (sessionCards.length === 0 || !activeSessionId || isSubmittingAnswer || isPaused) {
+function answerCurrentCard(known) {
+    if (sessionCards.length === 0 || !activeSessionId || isPaused) {
         return;
     }
 
     const currentCard = sessionCards[currentSessionIndex];
     const responseTimeMs = Math.max(0, Date.now() - cardShownAtMs - pausedDurationMs);
 
-    try {
-        isSubmittingAnswer = true;
-        knowBtn.disabled = true;
-        dontKnowBtn.disabled = true;
+    sessionAnswers.push({
+        cardId: currentCard.id,
+        known,
+        responseTimeMs,
+    });
 
-        const response = await fetch(`${API_BASE}/kids/${kidId}/practice/answer`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                sessionId: activeSessionId,
-                cardId: currentCard.id,
-                known,
-                responseTimeMs,
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        if (known) {
-            knownCount += 1;
-        } else {
-            unknownCount += 1;
-        }
-
-        const isLastCard = currentSessionIndex >= sessionCards.length - 1;
-        if (isLastCard) {
-            endSession();
-            return;
-        }
-
-        currentSessionIndex += 1;
-        displayCurrentCard();
-    } catch (error) {
-        console.error('Error submitting answer:', error);
-        showError('Failed to save answer, please try again');
-    } finally {
-        isSubmittingAnswer = false;
-        if (!isPaused) {
-            knowBtn.disabled = false;
-            dontKnowBtn.disabled = false;
-        }
+    if (known) {
+        knownCount += 1;
+    } else {
+        unknownCount += 1;
     }
+
+    const isLastCard = currentSessionIndex >= sessionCards.length - 1;
+    if (isLastCard) {
+        endSession();
+        return;
+    }
+
+    currentSessionIndex += 1;
+    displayCurrentCard();
 }
 
 function togglePauseFromCard() {
-    if (!activeSessionId || sessionCards.length === 0 || isSubmittingAnswer) {
+    if (!activeSessionId || sessionCards.length === 0) {
         return;
     }
 
@@ -296,7 +354,20 @@ async function endSession() {
     resultScreen.classList.remove('hidden');
     resultSummary.textContent = `Known: ${knownCount} · Need practice: ${unknownCount}`;
 
-    // Refresh kid progress counters without resetting the current result view.
+    try {
+        await fetch(`${API_BASE}/kids/${kidId}/practice/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: activeSessionId,
+                answers: sessionAnswers,
+            }),
+        });
+    } catch (error) {
+        console.error('Error completing session:', error);
+        showError('Failed to save session results');
+    }
+
     await loadKidInfo();
 }
 

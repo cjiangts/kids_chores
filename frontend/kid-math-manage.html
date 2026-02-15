@@ -43,13 +43,13 @@
         }
 
         .tab-nav .tab-link.primary {
-            background: #eef2ff;
-            color: #3b4cc0;
+            background: #4CAF50;
+            color: white;
         }
 
         .tab-nav .tab-link.secondary {
-            background: #4CAF50;
-            color: white;
+            background: #eef2ff;
+            color: #3b4cc0;
         }
 
         .settings-section,
@@ -105,6 +105,52 @@
             margin-bottom: 0.5rem;
             font-weight: 500;
             color: #555;
+        }
+
+        .label-with-help {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .help-details {
+            position: relative;
+            display: inline-block;
+        }
+
+        .help-details summary {
+            list-style: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid #9aa0a6;
+            color: #5f6368;
+            font-size: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .help-details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .help-bubble {
+            position: absolute;
+            top: 24px;
+            left: 0;
+            z-index: 10;
+            width: 280px;
+            background: #fff;
+            border: 1px solid #d9dee3;
+            border-radius: 8px;
+            padding: 0.6rem 0.7rem;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+            font-size: 0.82rem;
+            line-height: 1.35;
+            color: #4a4f55;
         }
 
         .form-group input {
@@ -203,8 +249,9 @@
         </div>
 
         <div class="tab-nav">
-            <a id="charactersTab" class="tab-link primary" href="#">📝 Manage Characters</a>
-            <a id="mathTab" class="tab-link secondary" href="#">➗ Manage Math</a>
+            <a id="charactersTab" class="tab-link secondary" href="#">📝 Manage Reading</a>
+            <a id="writingTab" class="tab-link secondary" href="#">✍️ Manage Writing</a>
+            <a id="mathTab" class="tab-link primary" href="#">➗ Manage Math</a>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
@@ -215,6 +262,18 @@
                 <div class="form-group">
                     <label for="sessionCardCount">Questions Per Session</label>
                     <input type="number" id="sessionCardCount" min="1" max="200" step="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="hardCardPercentage" class="label-with-help">
+                        <span>Hard Cards %</span>
+                        <details class="help-details">
+                            <summary title="What is hardness?">i</summary>
+                            <div class="help-bubble">
+                                Math hardness uses each card's latest response time. Higher score means slower and is treated as harder.
+                            </div>
+                        </details>
+                    </label>
+                    <input type="number" id="hardCardPercentage" min="0" max="100" step="1" required>
                 </div>
                 <button type="submit" class="settings-save-btn">Save</button>
             </form>
@@ -232,7 +291,7 @@
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="queue">Order: Next Session Queue</option>
                     <option value="added_time">Order: Added Time</option>
-                    <option value="avg_green_desc">Order: Avg Green Time (Desc)</option>
+                    <option value="hardness_desc">Order: Hardness Score (Desc)</option>
                 </select>
             </div>
             <div id="cardsGrid" class="cards-grid"></div>
