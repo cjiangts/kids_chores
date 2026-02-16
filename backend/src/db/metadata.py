@@ -32,6 +32,8 @@ ALLOWED_KID_KEYS = {
     'hardCardPercentage',
     'mathDeckWithin10Count',
     'mathDeckWithin20Count',
+    'mathDeckSubWithin10Count',
+    'mathDeckSubWithin20Count',
     'dailyPracticeChineseEnabled',
     'dailyPracticeMathEnabled',
     'dailyPracticeWritingEnabled',

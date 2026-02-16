@@ -166,6 +166,7 @@
 
         .math-deck-tabs {
             display: flex;
+            flex-wrap: wrap;
             gap: 0.6rem;
             margin-bottom: 1rem;
         }
@@ -350,8 +351,10 @@
         <div class="cards-section">
             <h2>Math Questions <span id="mathSessionTotalInline"></span></h2>
             <div class="math-deck-tabs">
-                <button id="deckTabWithin10" class="math-deck-tab active" type="button">Deck 1: Addition Within 10</button>
-                <button id="deckTabWithin20" class="math-deck-tab" type="button">Deck 2: Addition Within 20</button>
+                <button id="deckTabWithin10" class="math-deck-tab active" type="button">Add ≤10</button>
+                <button id="deckTabWithin20" class="math-deck-tab" type="button">Add 11–20</button>
+                <button id="deckTabSubWithin10" class="math-deck-tab" type="button">Sub ≤10</button>
+                <button id="deckTabSubWithin20" class="math-deck-tab" type="button">Sub 11–20</button>
             </div>
             <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Total cards in this deck: 0</p>
             <div class="settings-section math-subtab-settings">

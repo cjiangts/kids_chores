@@ -15,20 +15,31 @@ const deckTotalInfo = document.getElementById('deckTotalInfo');
 const cardsGrid = document.getElementById('cardsGrid');
 const deckTabWithin10 = document.getElementById('deckTabWithin10');
 const deckTabWithin20 = document.getElementById('deckTabWithin20');
+const deckTabSubWithin10 = document.getElementById('deckTabSubWithin10');
+const deckTabSubWithin20 = document.getElementById('deckTabSubWithin20');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
+
+const DECK_META = {
+    within10: { label: 'Add ≤10', field: 'mathDeckWithin10Count', defaultCount: 5, tabEl: deckTabWithin10 },
+    within20: { label: 'Add 11–20', field: 'mathDeckWithin20Count', defaultCount: 5, tabEl: deckTabWithin20 },
+    subWithin10: { label: 'Sub ≤10', field: 'mathDeckSubWithin10Count', defaultCount: 0, tabEl: deckTabSubWithin10 },
+    subWithin20: { label: 'Sub 11–20', field: 'mathDeckSubWithin20Count', defaultCount: 0, tabEl: deckTabSubWithin20 },
+};
 
 let currentKid = null;
 let currentCards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
 let activeDeckKey = 'within10';
-let activeDeckLabel = 'Addition Within 10';
+let activeDeckLabel = 'Add ≤10';
 let activeDeckTotalCards = 0;
 let deckCounts = {
     within10: 5,
     within20: 5,
+    subWithin10: 0,
+    subWithin20: 0,
 };
 const CARD_PAGE_SIZE = 10;
 
@@ -50,17 +61,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
     cardsGrid.addEventListener('click', handleCardsGridClick);
-    deckTabWithin10.addEventListener('click', async () => {
-        if (activeDeckKey === 'within10') return;
-        activeDeckKey = 'within10';
-        renderDeckTabs();
-        await loadMathCards();
-    });
-    deckTabWithin20.addEventListener('click', async () => {
-        if (activeDeckKey === 'within20') return;
-        activeDeckKey = 'within20';
-        renderDeckTabs();
-        await loadMathCards();
+    Object.keys(DECK_META).forEach((deckKey) => {
+        const tabEl = DECK_META[deckKey].tabEl;
+        tabEl.addEventListener('click', async () => {
+            if (activeDeckKey === deckKey) return;
+            activeDeckKey = deckKey;
+            renderDeckTabs();
+            await loadMathCards();
+        });
     });
 
     activeDeckCountInput.addEventListener('input', () => {
@@ -81,21 +89,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 function renderDeckTabs() {
-    deckTabWithin10.classList.toggle('active', activeDeckKey === 'within10');
-    deckTabWithin20.classList.toggle('active', activeDeckKey === 'within20');
-    deckTabWithin10.textContent = `Deck 1: Addition Within 10 (${deckCounts.within10 || 0})`;
-    deckTabWithin20.textContent = `Deck 2: Addition Within 20 (${deckCounts.within20 || 0})`;
-    deckCountLabel.textContent = activeDeckKey === 'within20'
-        ? 'Deck 2 Selected Per Session'
-        : 'Deck 1 Selected Per Session';
+    Object.keys(DECK_META).forEach((deckKey) => {
+        const meta = DECK_META[deckKey];
+        meta.tabEl.classList.toggle('active', activeDeckKey === deckKey);
+        meta.tabEl.textContent = `${meta.label} (${deckCounts[deckKey] || 0})`;
+    });
+    deckCountLabel.textContent = `${DECK_META[activeDeckKey].label} Selected Per Session`;
     activeDeckCountInput.value = String(deckCounts[activeDeckKey] || 0);
 }
 
 
 function updateTotalSessionCount() {
-    const safeWithin10 = Number.isInteger(deckCounts.within10) ? Math.max(0, deckCounts.within10) : 0;
-    const safeWithin20 = Number.isInteger(deckCounts.within20) ? Math.max(0, deckCounts.within20) : 0;
-    const total = safeWithin10 + safeWithin20;
+    const total = Object.keys(DECK_META).reduce((sum, deckKey) => {
+        const count = Number.parseInt(deckCounts[deckKey], 10);
+        return sum + (Number.isInteger(count) ? Math.max(0, count) : 0);
+    }, 0);
     mathSessionTotalInline.textContent = `(${total})`;
 }
 
@@ -110,10 +118,11 @@ async function loadKidInfo() {
         currentKid = await response.json();
         kidNameEl.textContent = `${currentKid.name}'s Math`;
 
-        const within10Value = Number.parseInt(currentKid.mathDeckWithin10Count, 10);
-        const within20Value = Number.parseInt(currentKid.mathDeckWithin20Count, 10);
-        deckCounts.within10 = Number.isInteger(within10Value) ? within10Value : 5;
-        deckCounts.within20 = Number.isInteger(within20Value) ? within20Value : 5;
+        Object.keys(DECK_META).forEach((deckKey) => {
+            const meta = DECK_META[deckKey];
+            const value = Number.parseInt(currentKid[meta.field], 10);
+            deckCounts[deckKey] = Number.isInteger(value) ? value : meta.defaultCount;
+        });
         updateTotalSessionCount();
         renderDeckTabs();
     } catch (error) {
@@ -136,10 +145,13 @@ async function saveSessionSettings() {
         const response = await fetch(`${API_BASE}/kids/${kidId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                mathDeckWithin10Count: deckCounts.within10 || 0,
-                mathDeckWithin20Count: deckCounts.within20 || 0
-            })
+            body: JSON.stringify(
+                Object.keys(DECK_META).reduce((payload, deckKey) => {
+                    const meta = DECK_META[deckKey];
+                    payload[meta.field] = deckCounts[deckKey] || 0;
+                    return payload;
+                }, {})
+            )
         });
 
         if (!response.ok) {
@@ -167,7 +179,7 @@ async function loadMathCards() {
         }
 
         const data = await response.json();
-        activeDeckLabel = data.deck_label || (activeDeckKey === 'within20' ? 'Addition Within 20' : 'Addition Within 10');
+        activeDeckLabel = data.deck_label || DECK_META[activeDeckKey].label;
         currentCards = data.cards || [];
         const activeCount = Number.isInteger(Number.parseInt(data.active_card_count, 10))
             ? Number.parseInt(data.active_card_count, 10)

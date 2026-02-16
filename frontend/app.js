@@ -127,8 +127,12 @@ function displayKids(kids) {
         const writingSessionCount = Number.parseInt(kid.writingSessionCardCount, 10);
         const mathWithin10Count = Number.parseInt(kid.mathDeckWithin10Count, 10);
         const mathWithin20Count = Number.parseInt(kid.mathDeckWithin20Count, 10);
+        const mathSubWithin10Count = Number.parseInt(kid.mathDeckSubWithin10Count, 10);
+        const mathSubWithin20Count = Number.parseInt(kid.mathDeckSubWithin20Count, 10);
         const mathSessionCount = (Number.isInteger(mathWithin10Count) ? mathWithin10Count : 0)
-            + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0);
+            + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0)
+            + (Number.isInteger(mathSubWithin10Count) ? mathSubWithin10Count : 0)
+            + (Number.isInteger(mathSubWithin20Count) ? mathSubWithin20Count : 0);
 
         const enabledLines = [];
         if (Number.isInteger(readingSessionCount) && readingSessionCount > 0) {

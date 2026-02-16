@@ -23,26 +23,52 @@ DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
 DEFAULT_MATH_DECK_WITHIN_10_COUNT = 5
 DEFAULT_MATH_DECK_WITHIN_20_COUNT = 5
+DEFAULT_MATH_DECK_SUB_WITHIN_10_COUNT = 0
+DEFAULT_MATH_DECK_SUB_WITHIN_20_COUNT = 0
 MATH_DECK_CONFIGS = {
     'within10': {
         'name': 'Math Addition Within 10',
         'description': 'All ordered pairs where a + b is between 0 and 10',
         'tags': ['math', 'within10'],
-        'min_sum': 0,
-        'max_sum': 10,
+        'operation': '+',
+        'sum_min': 0,
+        'sum_max': 10,
         'kid_field': 'mathDeckWithin10Count',
         'default_count': DEFAULT_MATH_DECK_WITHIN_10_COUNT,
-        'label': 'Addition Within 10',
+        'label': 'Add ≤10',
     },
     'within20': {
         'name': 'Math Addition Within 20',
         'description': 'All ordered pairs where a + b is between 11 and 20',
         'tags': ['math', 'within20'],
-        'min_sum': 11,
-        'max_sum': 20,
+        'operation': '+',
+        'sum_min': 11,
+        'sum_max': 20,
         'kid_field': 'mathDeckWithin20Count',
         'default_count': DEFAULT_MATH_DECK_WITHIN_20_COUNT,
-        'label': 'Addition Within 20',
+        'label': 'Add 11–20',
+    },
+    'subWithin10': {
+        'name': 'Math Subtraction Within 10',
+        'description': 'All ordered pairs where a - b and a is between 0 and 10',
+        'tags': ['math', 'subtraction', 'within10'],
+        'operation': '-',
+        'minuend_min': 0,
+        'minuend_max': 10,
+        'kid_field': 'mathDeckSubWithin10Count',
+        'default_count': DEFAULT_MATH_DECK_SUB_WITHIN_10_COUNT,
+        'label': 'Sub ≤10',
+    },
+    'subWithin20': {
+        'name': 'Math Subtraction Within 20',
+        'description': 'All ordered pairs where a - b and a is between 11 and 20',
+        'tags': ['math', 'subtraction', 'within20'],
+        'operation': '-',
+        'minuend_min': 11,
+        'minuend_max': 20,
+        'kid_field': 'mathDeckSubWithin20Count',
+        'default_count': DEFAULT_MATH_DECK_SUB_WITHIN_20_COUNT,
+        'label': 'Sub 11–20',
     }
 }
 
@@ -245,8 +271,8 @@ def with_practice_count_fallbacks(kid):
             value = 0
         return max(0, min(MAX_SESSION_CARD_COUNT, value))
 
-    safe_kid['mathDeckWithin10Count'] = _normalized_math_count('mathDeckWithin10Count', DEFAULT_MATH_DECK_WITHIN_10_COUNT)
-    safe_kid['mathDeckWithin20Count'] = _normalized_math_count('mathDeckWithin20Count', DEFAULT_MATH_DECK_WITHIN_20_COUNT)
+    for cfg in MATH_DECK_CONFIGS.values():
+        safe_kid[cfg['kid_field']] = _normalized_math_count(cfg['kid_field'], cfg['default_count'])
 
     return safe_kid
 
@@ -308,6 +334,8 @@ def create_kid():
             'hardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
             'mathDeckWithin10Count': 0,
             'mathDeckWithin20Count': 0,
+            'mathDeckSubWithin10Count': 0,
+            'mathDeckSubWithin20Count': 0,
             'dailyPracticeChineseEnabled': True,
             'dailyPracticeMathEnabled': False,
             'dailyPracticeWritingEnabled': False,
@@ -400,27 +428,19 @@ def update_kid(kid_id):
 
             updates['hardCardPercentage'] = hard_pct
 
-        if 'mathDeckWithin10Count' in data:
+        for cfg in MATH_DECK_CONFIGS.values():
+            field_name = cfg['kid_field']
+            if field_name not in data:
+                continue
             try:
-                within_10_count = int(data['mathDeckWithin10Count'])
+                field_count = int(data[field_name])
             except (TypeError, ValueError):
-                return jsonify({'error': 'mathDeckWithin10Count must be an integer'}), 400
+                return jsonify({'error': f'{field_name} must be an integer'}), 400
 
-            if within_10_count < 0 or within_10_count > MAX_SESSION_CARD_COUNT:
-                return jsonify({'error': f'mathDeckWithin10Count must be between 0 and {MAX_SESSION_CARD_COUNT}'}), 400
+            if field_count < 0 or field_count > MAX_SESSION_CARD_COUNT:
+                return jsonify({'error': f'{field_name} must be between 0 and {MAX_SESSION_CARD_COUNT}'}), 400
 
-            updates['mathDeckWithin10Count'] = within_10_count
-
-        if 'mathDeckWithin20Count' in data:
-            try:
-                within_20_count = int(data['mathDeckWithin20Count'])
-            except (TypeError, ValueError):
-                return jsonify({'error': 'mathDeckWithin20Count must be an integer'}), 400
-
-            if within_20_count < 0 or within_20_count > MAX_SESSION_CARD_COUNT:
-                return jsonify({'error': f'mathDeckWithin20Count must be between 0 and {MAX_SESSION_CARD_COUNT}'}), 400
-
-            updates['mathDeckWithin20Count'] = within_20_count
+            updates[field_name] = field_count
 
         if 'dailyPracticeChineseEnabled' in data:
             if not isinstance(data['dailyPracticeChineseEnabled'], bool):
@@ -551,7 +571,26 @@ def get_math_pairs_for_sum_range(min_sum, max_sum):
     return pairs
 
 
-def seed_math_deck_cards(conn, deck_id, min_sum, max_sum):
+def get_math_pairs_for_minuend_range(minuend_min, minuend_max):
+    """Generate ordered subtraction pairs (a, b) for minuend range with non-negative answers."""
+    pairs = []
+    for a in range(int(minuend_min), int(minuend_max) + 1):
+        for b in range(0, a + 1):
+            pairs.append((a, b))
+    return pairs
+
+
+def build_math_pairs_for_deck(config):
+    """Build one deck's fixed ordered operand pairs from config."""
+    operation = config.get('operation')
+    if operation == '+':
+        return get_math_pairs_for_sum_range(config['sum_min'], config['sum_max'])
+    if operation == '-':
+        return get_math_pairs_for_minuend_range(config['minuend_min'], config['minuend_max'])
+    raise ValueError(f"Unsupported math operation in deck config: {operation}")
+
+
+def seed_math_deck_cards(conn, deck_id, config):
     """Insert fixed math cards for one deck if missing."""
     existing = conn.execute(
         "SELECT front FROM cards WHERE deck_id = ?",
@@ -560,9 +599,10 @@ def seed_math_deck_cards(conn, deck_id, min_sum, max_sum):
     existing_fronts = {row[0] for row in existing}
 
     inserted = 0
-    for a, b in get_math_pairs_for_sum_range(min_sum, max_sum):
-        front = f"{a} + {b}"
-        back = str(a + b)
+    operation = config.get('operation', '+')
+    for a, b in build_math_pairs_for_deck(config):
+        front = f"{a} {operation} {b}"
+        back = str(a + b) if operation == '+' else str(a - b)
         if front in existing_fronts:
             continue
 
@@ -590,7 +630,7 @@ def seed_all_math_decks(conn):
     results = {}
     for deck_key, deck_id in deck_ids.items():
         cfg = MATH_DECK_CONFIGS[deck_key]
-        seeded = seed_math_deck_cards(conn, deck_id, cfg['min_sum'], cfg['max_sum'])
+        seeded = seed_math_deck_cards(conn, deck_id, cfg)
         results[deck_key] = {'deck_id': deck_id, **seeded}
     return results
 

@@ -144,10 +144,14 @@ function displayKids(kids) {
         const writingCount = Number.parseInt(kid.writingSessionCardCount, 10);
         const mathWithin10Count = Number.parseInt(kid.mathDeckWithin10Count, 10);
         const mathWithin20Count = Number.parseInt(kid.mathDeckWithin20Count, 10);
+        const mathSubWithin10Count = Number.parseInt(kid.mathDeckSubWithin10Count, 10);
+        const mathSubWithin20Count = Number.parseInt(kid.mathDeckSubWithin20Count, 10);
         const safeReadingCount = Number.isInteger(readingCount) ? Math.max(0, readingCount) : 0;
         const safeWritingCount = Number.isInteger(writingCount) ? Math.max(0, writingCount) : 0;
         const safeMathCount = (Number.isInteger(mathWithin10Count) ? Math.max(0, mathWithin10Count) : 0)
-            + (Number.isInteger(mathWithin20Count) ? Math.max(0, mathWithin20Count) : 0);
+            + (Number.isInteger(mathWithin20Count) ? Math.max(0, mathWithin20Count) : 0)
+            + (Number.isInteger(mathSubWithin10Count) ? Math.max(0, mathSubWithin10Count) : 0)
+            + (Number.isInteger(mathSubWithin20Count) ? Math.max(0, mathSubWithin20Count) : 0);
 
         const readingLabel = `📖 Chinese Reading (${safeReadingCount}/day)`;
         const writingLabel = `✍️ Chinese Writing (${safeWritingCount}/day)`;

@@ -139,11 +139,15 @@ function resetToStartScreen() {
     const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
     const mathWithin10Count = Number.parseInt(currentKid?.mathDeckWithin10Count, 10);
     const mathWithin20Count = Number.parseInt(currentKid?.mathDeckWithin20Count, 10);
+    const mathSubWithin10Count = Number.parseInt(currentKid?.mathDeckSubWithin10Count, 10);
+    const mathSubWithin20Count = Number.parseInt(currentKid?.mathDeckSubWithin20Count, 10);
 
     const chineseEnabled = Number.isInteger(readingSessionCount) && readingSessionCount > 0;
     const writingEnabled = Number.isInteger(writingSessionCount) && writingSessionCount > 0;
     const mathEnabled = (Number.isInteger(mathWithin10Count) ? mathWithin10Count : 0)
-        + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0) > 0;
+        + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0)
+        + (Number.isInteger(mathSubWithin10Count) ? mathSubWithin10Count : 0)
+        + (Number.isInteger(mathSubWithin20Count) ? mathSubWithin20Count : 0) > 0;
 
     chinesePracticeOption.classList.toggle('hidden', !chineseEnabled);
     writingPracticeOption.classList.toggle('hidden', !writingEnabled);
