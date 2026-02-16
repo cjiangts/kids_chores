@@ -169,8 +169,14 @@ async function loadMathCards() {
         const data = await response.json();
         activeDeckLabel = data.deck_label || (activeDeckKey === 'within20' ? 'Addition Within 20' : 'Addition Within 10');
         currentCards = data.cards || [];
-        activeDeckTotalCards = currentCards.length;
-        deckTotalInfo.textContent = `Total cards in this deck: ${activeDeckTotalCards}`;
+        const activeCount = Number.isInteger(Number.parseInt(data.active_card_count, 10))
+            ? Number.parseInt(data.active_card_count, 10)
+            : currentCards.filter((card) => !card.skip_practice).length;
+        const skippedCount = Number.isInteger(Number.parseInt(data.skipped_card_count, 10))
+            ? Number.parseInt(data.skipped_card_count, 10)
+            : currentCards.filter((card) => !!card.skip_practice).length;
+        activeDeckTotalCards = activeCount;
+        deckTotalInfo.textContent = `Active cards in this deck: ${activeCount} (Skipped: ${skippedCount})`;
         resetAndDisplayCards(currentCards);
     } catch (error) {
         console.error('Error loading math cards:', error);
@@ -190,17 +196,19 @@ function displayCards(cards) {
 
     const visibleCards = sortedCards.slice(0, visibleCardCount);
     cardsGrid.innerHTML = visibleCards.map((card) => `
-        <div class="card-item">
+        <div class="card-item ${card.skip_practice ? 'skipped' : ''}">
             <button
                 type="button"
-                class="delete-card-btn"
-                data-action="delete-card"
+                class="skip-toggle-btn ${card.skip_practice ? 'on' : 'off'}"
+                data-action="toggle-skip"
                 data-card-id="${card.id}"
-                title="Delete this card from ${activeDeckLabel}"
-                aria-label="Delete this card"
-            >×</button>
+                data-skipped="${card.skip_practice ? 'true' : 'false'}"
+                title="${card.skip_practice ? 'Turn skip off for this card' : 'Mark this card as skipped'}"
+                aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
+            >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
             <div class="card-front">${card.front}</div>
             <div class="card-back">= ${card.back}</div>
+            ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
             <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.parent_added_at || card.created_at)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
@@ -232,46 +240,48 @@ function maybeLoadMoreCards() {
 
 
 async function handleCardsGridClick(event) {
-    const deleteBtn = event.target.closest('[data-action="delete-card"]');
-    if (!deleteBtn) {
+    const actionBtn = event.target.closest('[data-action]');
+    if (!actionBtn) {
         return;
     }
 
-    const cardId = deleteBtn.dataset.cardId;
+    const action = actionBtn.dataset.action;
+    if (action !== 'toggle-skip') {
+        return;
+    }
+
+    const cardId = actionBtn.dataset.cardId;
     if (!cardId) {
         return;
     }
 
-    const confirmed = window.confirm('Delete this math preset card for this kid?');
-    if (!confirmed) {
-        return;
-    }
+    const currentlySkipped = actionBtn.dataset.skipped === 'true';
+    const targetSkipped = !currentlySkipped;
 
     try {
-        deleteBtn.disabled = true;
-        await deleteMathCard(cardId);
+        actionBtn.disabled = true;
+        await updateMathCardSkip(cardId, targetSkipped);
     } catch (error) {
-        console.error('Error deleting math card:', error);
-        showError('Failed to delete math card');
+        console.error('Error updating math card skip:', error);
+        showError('Failed to update skip status');
     } finally {
-        deleteBtn.disabled = false;
+        actionBtn.disabled = false;
     }
 }
 
 
-async function deleteMathCard(cardId) {
-    const response = await fetch(`${API_BASE}/kids/${kidId}/math/cards/${cardId}`, {
-        method: 'DELETE'
+async function updateMathCardSkip(cardId, skipped) {
+    const response = await fetch(`${API_BASE}/kids/${kidId}/math/cards/${cardId}/skip`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skipped })
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(result.error || `HTTP ${response.status}`);
     }
 
-    currentCards = currentCards.filter((card) => String(card.id) !== String(cardId));
-    activeDeckTotalCards = currentCards.length;
-    deckTotalInfo.textContent = `Total cards in this deck: ${activeDeckTotalCards}`;
-    resetAndDisplayCards(currentCards);
+    await loadMathCards();
     showError('');
 }
 

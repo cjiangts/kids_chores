@@ -234,23 +234,49 @@
             font-weight: 700;
         }
 
-        .delete-card-btn {
+        .skip-toggle-btn {
             position: absolute;
             top: 0.5rem;
             right: 0.5rem;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            background: #e8edf7;
+            color: #355;
+            border: 1px solid #c7d2ea;
+            border-radius: 999px;
+            min-width: 68px;
+            height: 26px;
+            padding: 0 8px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.72rem;
+            font-weight: 700;
             line-height: 1;
         }
 
-        .delete-card-btn:hover {
-            background: #c82333;
+        .skip-toggle-btn.on {
+            background: #ffefd5;
+            color: #9a5a00;
+            border-color: #f3c483;
+        }
+
+        .skip-toggle-btn.off {
+            background: #e6f8ea;
+            color: #176b2e;
+            border-color: #a8dfb6;
+        }
+
+        .card-item.skipped {
+            opacity: 0.62;
+        }
+
+        .card-item.skipped .card-front,
+        .card-item.skipped .card-back {
+            text-decoration: line-through;
+        }
+
+        .skipped-note {
+            margin-top: 8px;
+            color: #9a5a00;
+            font-size: 0.8rem;
+            font-weight: 600;
         }
 
         .empty-state {

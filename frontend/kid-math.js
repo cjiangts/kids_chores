@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     await loadKidInfo();
-    await ensureMathSeedAndReady();
+    await loadMathPracticeReadyState();
 });
 
 function isSessionInProgress() {
@@ -81,19 +81,9 @@ async function loadKidInfo() {
 }
 
 
-async function ensureMathSeedAndReady() {
+async function loadMathPracticeReadyState() {
     try {
         showError('');
-        const seedResponse = await fetch(`${API_BASE}/kids/${kidId}/math/seed`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-
-        if (!seedResponse.ok) {
-            throw new Error(`HTTP ${seedResponse.status}`);
-        }
-
         const decksResponse = await fetch(`${API_BASE}/kids/${kidId}/math/decks`);
         if (!decksResponse.ok) {
             throw new Error(`HTTP ${decksResponse.status}`);

@@ -317,6 +317,9 @@ def create_kid():
 
         # Initialize kid's database
         kid_db.init_kid_database_by_path(db_relpath)
+        conn = kid_db.get_kid_connection_by_path(db_relpath)
+        seed_all_math_decks(conn)
+        conn.close()
 
         # Save to metadata
         metadata.add_kid(kid)
@@ -592,6 +595,29 @@ def seed_all_math_decks(conn):
     return results
 
 
+def seed_math_decks_for_all_kids():
+    """Ensure full fixed math decks are initialized for every kid at startup."""
+    seeded_kids = 0
+    total_inserted = 0
+    failed_kids = 0
+
+    for kid in metadata.get_all_kids():
+        try:
+            conn = get_kid_connection_for(kid)
+            seed_results = seed_all_math_decks(conn)
+            conn.close()
+            seeded_kids += 1
+            total_inserted += sum(int((item or {}).get('inserted', 0)) for item in seed_results.values())
+        except Exception:
+            failed_kids += 1
+
+    return {
+        'seededKids': seeded_kids,
+        'failedKids': failed_kids,
+        'insertedCards': total_inserted
+    }
+
+
 def ensure_practice_state(conn, deck_id):
     """Ensure cursor state row exists for a deck."""
     conn.execute(
@@ -728,7 +754,7 @@ def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card
         """
         SELECT id, front, back, created_at
         FROM cards
-        WHERE deck_id = ?
+        WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE
         ORDER BY id ASC
         """,
         [deck_id]
@@ -766,7 +792,7 @@ def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card
             """
             SELECT id
             FROM cards
-            WHERE deck_id = ? AND created_at > ?
+            WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE AND created_at > ?
             ORDER BY id ASC
             """,
             [deck_id, last_completed_at]
@@ -977,6 +1003,7 @@ def get_cards_with_stats(conn, deck_id):
             c.deck_id,
             c.front,
             c.back,
+            COALESCE(c.skip_practice, FALSE) AS skip_practice,
             c.hardness_score,
             c.created_at,
             COUNT(sr.id) AS lifetime_attempts,
@@ -984,7 +1011,7 @@ def get_cards_with_stats(conn, deck_id):
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.deck_id = ?
-        GROUP BY c.id, c.deck_id, c.front, c.back, c.hardness_score, c.created_at
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.hardness_score, c.created_at
         ORDER BY c.id ASC
         """,
         [deck_id]
@@ -998,12 +1025,13 @@ def map_card_row(row, preview_order):
         'deck_id': row[1],
         'front': row[2],
         'back': row[3],
-        'hardness_score': float(row[4]) if row[4] is not None else 0,
-        'created_at': row[5].isoformat() if row[5] else None,
-        'parent_added_at': row[5].isoformat() if row[5] else None,
+        'skip_practice': bool(row[4]),
+        'hardness_score': float(row[5]) if row[5] is not None else 0,
+        'created_at': row[6].isoformat() if row[6] else None,
+        'parent_added_at': row[6].isoformat() if row[6] else None,
         'next_session_order': preview_order.get(row[0]),
-        'lifetime_attempts': int(row[6]) if row[6] is not None else 0,
-        'last_seen_at': row[7].isoformat() if row[7] else None
+        'lifetime_attempts': int(row[7]) if row[7] is not None else 0,
+        'last_seen_at': row[8].isoformat() if row[8] else None
     }
 
 
@@ -1201,7 +1229,6 @@ def get_math_cards(kid_id):
 
         conn = get_kid_connection_for(kid)
         deck_ids = get_or_create_math_decks(conn)
-        seed_all_math_decks(conn)
         deck_id = deck_ids[requested_key]
 
         requested_count = normalize_math_deck_session_count(kid, requested_key)
@@ -1216,6 +1243,14 @@ def get_math_cards(kid_id):
         preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
         cards = get_cards_with_stats(conn, deck_id)
+        active_count = int(conn.execute(
+            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
+            [deck_id]
+        ).fetchone()[0] or 0)
+        skipped_count = int(conn.execute(
+            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = TRUE",
+            [deck_id]
+        ).fetchone()[0] or 0)
 
         conn.close()
 
@@ -1224,6 +1259,8 @@ def get_math_cards(kid_id):
             'deck_label': MATH_DECK_CONFIGS[requested_key]['label'],
             'deck_id': deck_id,
             'session_count': requested_count,
+            'active_card_count': active_count,
+            'skipped_card_count': skipped_count,
             'cards': [map_card_row(row, preview_order) for row in cards]
         }), 200
     except Exception as e:
@@ -1240,14 +1277,13 @@ def get_math_decks(kid_id):
 
         conn = get_kid_connection_for(kid)
         deck_ids = get_or_create_math_decks(conn)
-        seed_all_math_decks(conn)
 
         decks = []
         total_session_count = 0
         for deck_key, cfg in MATH_DECK_CONFIGS.items():
             deck_id = deck_ids[deck_key]
             total_cards = int(conn.execute(
-                "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
                 [deck_id]
             ).fetchone()[0] or 0)
             session_count = normalize_math_deck_session_count(kid, deck_key)
@@ -1290,11 +1326,28 @@ def seed_math_cards(kid_id):
 
 @kids_bp.route('/kids/<kid_id>/math/cards/<card_id>', methods=['DELETE'])
 def delete_math_card(kid_id, card_id):
-    """Delete a math card."""
+    """Legacy delete endpoint: map to skip-on behavior for math cards."""
+    payload, status = set_math_card_skip(kid_id, card_id, True)
+    return jsonify(payload), status
+
+
+@kids_bp.route('/kids/<kid_id>/math/cards/<card_id>/skip', methods=['PUT'])
+def update_math_card_skip(kid_id, card_id):
+    """Mark/unmark a math card as skipped for practice."""
+    body = request.get_json() or {}
+    skipped = body.get('skipped')
+    if not isinstance(skipped, bool):
+        return jsonify({'error': 'skipped must be a boolean'}), 400
+    payload, status = set_math_card_skip(kid_id, card_id, skipped)
+    return jsonify(payload), status
+
+
+def set_math_card_skip(kid_id, card_id, skipped):
+    """Helper to update math card skip flag."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
+            return {'error': 'Kid not found'}, 404
 
         conn = get_kid_connection_for(kid)
         deck_ids = set(get_or_create_math_decks(conn).values())
@@ -1305,18 +1358,25 @@ def delete_math_card(kid_id, card_id):
         ).fetchone()
         if not card:
             conn.close()
-            return jsonify({'error': 'Math card not found'}), 404
+            return {'error': 'Math card not found'}, 404
 
         deck_id = card[1]
         if deck_id not in deck_ids:
             conn.close()
-            return jsonify({'error': 'Math card not found'}), 404
+            return {'error': 'Math card not found'}, 404
 
-        delete_card_from_deck_internal(conn, deck_id, card_id)
+        conn.execute(
+            "UPDATE cards SET skip_practice = ? WHERE id = ?",
+            [bool(skipped), card_id]
+        )
         conn.close()
-        return jsonify({'message': 'Math card deleted successfully'}), 200
+        return {
+            'message': 'Math card updated successfully',
+            'card_id': card_id,
+            'skip_practice': bool(skipped)
+        }, 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, 500
 
 
 @kids_bp.route('/kids/<kid_id>/writing/cards', methods=['GET'])
