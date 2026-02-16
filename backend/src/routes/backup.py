@@ -110,7 +110,9 @@ def download_backup():
         manifest = {
             'family': {
                 'id': str(family.get('id')),
-                'username': family.get('username')
+                'username': family.get('username'),
+                'hardCardPercentage': family.get('hardCardPercentage'),
+                'familyTimezone': family.get('familyTimezone'),
             },
             'kids': kids,
             'files': sorted(set(files_to_include)),
@@ -172,6 +174,9 @@ def restore_backup():
             source_family_id = str(((manifest.get('family') or {}).get('id')) or '')
             if source_family_id != family_id:
                 return jsonify({'error': 'Backup belongs to a different family account'}), 400
+            family_meta = manifest.get('family') or {}
+            backup_hard_pct = family_meta.get('hardCardPercentage')
+            backup_timezone = family_meta.get('familyTimezone')
 
             kids_from_backup = manifest.get('kids') or []
             files_from_backup = manifest.get('files') or []
@@ -210,6 +215,18 @@ def restore_backup():
                 if not _is_family_scoped_db_path(restored.get('dbFilePath'), family_id):
                     restored['dbFilePath'] = _default_family_kid_db_path(family_id, kid_id)
                 metadata.add_kid(restored)
+
+            # Restore family-level settings when available.
+            if backup_hard_pct is not None:
+                try:
+                    metadata.update_family_hard_card_percentage(family_id, int(backup_hard_pct))
+                except Exception:
+                    pass
+            if backup_timezone:
+                try:
+                    metadata.update_family_timezone(family_id, str(backup_timezone))
+                except Exception:
+                    pass
 
         # Clean up temp files.
         shutil.rmtree(temp_dir)
