@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS practice_state_by_deck (
 CREATE TABLE IF NOT EXISTS writing_sheets (
   id INTEGER PRIMARY KEY DEFAULT nextval('writing_sheets_id_seq'),
   status VARCHAR NOT NULL DEFAULT 'pending', -- 'pending' or 'done'
+  practice_rows INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP
 );

@@ -12,6 +12,7 @@ def _apply_migrations(conn: duckdb.DuckDBPyConnection):
         "ALTER TABLE sessions ADD COLUMN planned_count INTEGER",
         "ALTER TABLE session_results ADD COLUMN response_time_ms INTEGER",
         "ALTER TABLE cards ADD COLUMN hardness_score DOUBLE DEFAULT 0",
+        "ALTER TABLE writing_sheets ADD COLUMN practice_rows INTEGER DEFAULT 1",
     ]
 
     for stmt in migration_sql:

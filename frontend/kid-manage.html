@@ -184,6 +184,22 @@
             background: #218838;
         }
 
+        .preset-btn {
+            margin-top: 0.6rem;
+            width: 100%;
+            background: #2d7ef7;
+            color: white;
+            padding: 0.7rem 1.1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .preset-btn:hover {
+            background: #1f6ce0;
+        }
+
         .cards-section h2 {
             margin-bottom: 1rem;
             color: #333;
@@ -286,7 +302,15 @@
 
         <!-- Add New Reading Character -->
         <div class="add-card-section">
-            <h2>Add New Reading Character</h2>
+            <h2 class="label-with-help">
+                <span>Add New Reading Character</span>
+                <details class="help-details">
+                    <summary title="Batch import tip">i</summary>
+                    <div class="help-bubble">
+                        Bulk adding is supported here. You can paste a long text block (single chars, words, or sentences). The system keeps only Chinese characters and automatically deduplicates characters already in the bank.
+                    </div>
+                </details>
+            </h2>
             <form id="addCardForm">
                 <div class="form-group">
                     <label for="chineseChar">Chinese Reading Character(s)</label>
@@ -298,7 +322,8 @@
                         required
                     >
                 </div>
-                <button type="submit" class="submit-btn">Add Reading Character</button>
+                <button type="submit" id="addReadingBtn" class="submit-btn">Add Reading Character</button>
+                <button type="button" id="addSiWuKuaiDuBtn" class="preset-btn">Add 四五快读</button>
             </form>
         </div>
 

@@ -8,6 +8,8 @@ const kidId = urlParams.get('id');
 // DOM Elements
 const kidNameEl = document.getElementById('kidName');
 const addCardForm = document.getElementById('addCardForm');
+const chineseCharInput = document.getElementById('chineseChar');
+const addReadingBtn = document.getElementById('addReadingBtn');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
 const hardCardPercentageInput = document.getElementById('hardCardPercentage');
@@ -15,6 +17,7 @@ const cardsGrid = document.getElementById('cardsGrid');
 const cardCount = document.getElementById('cardCount');
 const errorMessage = document.getElementById('errorMessage');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
+const addSiWuKuaiDuBtn = document.getElementById('addSiWuKuaiDuBtn');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
@@ -51,6 +54,9 @@ addCardForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     await addCard();
 });
+chineseCharInput.addEventListener('input', () => {
+    updateAddReadingButtonCount();
+});
 
 sessionSettingsForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -60,6 +66,19 @@ sessionSettingsForm.addEventListener('submit', async (e) => {
 viewOrderSelect.addEventListener('change', () => {
     resetAndDisplayCards(currentCards);
 });
+
+addSiWuKuaiDuBtn.addEventListener('click', () => {
+    window.open('/reading-preset-siwu-kuaidu.html', '_blank', 'noopener,noreferrer,width=920,height=840');
+});
+
+function updateAddReadingButtonCount() {
+    const totalChineseChars = countChineseCharsBeforeDbDedup(chineseCharInput.value);
+    if (totalChineseChars > 0) {
+        addReadingBtn.textContent = `Add Reading Character (${totalChineseChars})`;
+        return;
+    }
+    addReadingBtn.textContent = 'Add Reading Character';
+}
 
 // API Functions
 async function loadKidInfo() {
@@ -147,7 +166,7 @@ async function loadCards() {
 
 async function addCard() {
     try {
-        const input = document.getElementById('chineseChar').value.trim();
+        const input = chineseCharInput.value.trim();
         const chineseChars = extractChineseCharacters(input);
         const newChars = chineseChars.filter(char => !existingCardFronts.has(char));
 
@@ -177,6 +196,7 @@ async function addCard() {
 
         // Clear form
         addCardForm.reset();
+        updateAddReadingButtonCount();
 
         // Reload cards
         await loadCards();
@@ -195,6 +215,11 @@ function extractChineseCharacters(text) {
     }
 
     return [...new Set(matches)];
+}
+
+function countChineseCharsBeforeDbDedup(text) {
+    const matches = String(text || '').match(/\p{Script=Han}/gu);
+    return matches ? matches.length : 0;
 }
 
 async function deleteCard(cardId) {
@@ -280,3 +305,5 @@ function showError(message) {
         errorMessage.classList.add('hidden');
     }
 }
+
+updateAddReadingButtonCount();

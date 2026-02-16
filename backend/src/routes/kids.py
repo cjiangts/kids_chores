@@ -15,6 +15,7 @@ MAX_SESSION_CARD_COUNT = 200
 DEFAULT_HARD_CARD_PERCENTAGE = 20
 MIN_HARD_CARD_PERCENTAGE = 0
 MAX_HARD_CARD_PERCENTAGE = 100
+MAX_WRITING_SHEET_ROWS = 10
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
@@ -1269,6 +1270,205 @@ def delete_writing_card(kid_id, card_id):
         return jsonify({'error': str(e)}), 500
 
 
+def select_writing_sheet_candidates(conn, deck_id, requested_count, excluded_card_ids=None):
+    """Select candidate writing cards for sheet generation."""
+    excluded = excluded_card_ids or []
+    placeholders = ','.join(['?'] * len(excluded)) if excluded else ''
+    exclude_clause = ''
+    params = [deck_id]
+    if excluded:
+        exclude_clause = f"AND c.id NOT IN ({placeholders})"
+        params.extend(excluded)
+
+    return conn.execute(
+        f"""
+        WITH latest AS (
+            SELECT
+                sr.card_id,
+                sr.correct,
+                ROW_NUMBER() OVER (PARTITION BY sr.card_id ORDER BY sr.timestamp DESC, sr.id DESC) AS rn
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE s.type = 'writing'
+        ),
+        available AS (
+            SELECT
+                c.id,
+                c.front,
+                c.back,
+                l.correct,
+                CASE
+                    WHEN l.card_id IS NULL OR l.correct = FALSE THEN 0
+                    ELSE 1
+                END AS priority
+            FROM cards c
+            LEFT JOIN latest l ON l.card_id = c.id AND l.rn = 1
+            WHERE c.deck_id = ?
+              {exclude_clause}
+        )
+        SELECT id, front, back, correct
+        FROM available
+        ORDER BY
+          priority ASC,
+          id ASC
+        LIMIT ?
+        """,
+        [*params, requested_count]
+    ).fetchall()
+
+
+@kids_bp.route('/kids/<kid_id>/writing/sheets/preview', methods=['POST'])
+def preview_writing_sheet(kid_id):
+    """Preview writing sheet cards without persisting a sheet record."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        data = request.get_json() or {}
+        try:
+            requested_count = int(data.get('count', normalize_session_card_count(kid)))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'count must be an integer'}), 400
+        try:
+            requested_rows = int(data.get('rows_per_character', 1))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'rows_per_character must be an integer'}), 400
+
+        if requested_count < MIN_SESSION_CARD_COUNT or requested_count > MAX_SESSION_CARD_COUNT:
+            return jsonify({'error': f'count must be between {MIN_SESSION_CARD_COUNT} and {MAX_SESSION_CARD_COUNT}'}), 400
+        if requested_rows < 1 or requested_rows > 10:
+            return jsonify({'error': 'rows_per_character must be between 1 and 10'}), 400
+        if requested_count * requested_rows > MAX_WRITING_SHEET_ROWS:
+            max_cards = max(1, MAX_WRITING_SHEET_ROWS // requested_rows)
+            return jsonify({
+                'error': (
+                    f'Sheet exceeds one-page limit ({MAX_WRITING_SHEET_ROWS} rows). '
+                    f'With {requested_rows} row(s) per card, max cards is {max_cards}.'
+                )
+            }), 400
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+        pending_card_ids = get_pending_writing_card_ids(conn)
+        candidates = select_writing_sheet_candidates(conn, deck_id, requested_count, pending_card_ids)
+        conn.close()
+
+        if len(candidates) == 0:
+            return jsonify({
+                'preview': False,
+                'cards': [],
+                'message': 'No cards available to print right now. All writing cards may already be practicing.'
+            }), 200
+
+        return jsonify({
+            'preview': True,
+            'rows_per_character': requested_rows,
+            'cards': [{
+                'id': int(row[0]),
+                'front': row[1],
+                'back': row[2]
+            } for row in candidates]
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/sheets/finalize', methods=['POST'])
+def finalize_writing_sheet(kid_id):
+    """Persist a previously previewed writing sheet once parent confirms print."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        data = request.get_json() or {}
+        raw_ids = data.get('card_ids') or []
+        try:
+            requested_rows = int(data.get('rows_per_character', 1))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'rows_per_character must be an integer'}), 400
+
+        if not isinstance(raw_ids, list) or len(raw_ids) == 0:
+            return jsonify({'error': 'card_ids must be a non-empty list'}), 400
+        if requested_rows < 1 or requested_rows > 10:
+            return jsonify({'error': 'rows_per_character must be between 1 and 10'}), 400
+
+        normalized_ids = []
+        for cid in raw_ids:
+            try:
+                normalized_ids.append(int(cid))
+            except (TypeError, ValueError):
+                return jsonify({'error': 'card_ids must contain integers'}), 400
+        normalized_ids = list(dict.fromkeys(normalized_ids))
+
+        if len(normalized_ids) * requested_rows > MAX_WRITING_SHEET_ROWS:
+            max_cards = max(1, MAX_WRITING_SHEET_ROWS // requested_rows)
+            return jsonify({
+                'error': (
+                    f'Sheet exceeds one-page limit ({MAX_WRITING_SHEET_ROWS} rows). '
+                    f'With {requested_rows} row(s) per card, max cards is {max_cards}.'
+                )
+            }), 400
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+
+        pending_set = set(get_pending_writing_card_ids(conn))
+        if any(card_id in pending_set for card_id in normalized_ids):
+            conn.close()
+            return jsonify({'error': 'Some selected cards are already practicing in another sheet'}), 409
+
+        placeholders = ','.join(['?'] * len(normalized_ids))
+        rows = conn.execute(
+            f"""
+            SELECT id, front, back
+            FROM cards
+            WHERE deck_id = ?
+              AND id IN ({placeholders})
+            """,
+            [deck_id, *normalized_ids]
+        ).fetchall()
+        rows_by_id = {int(row[0]): row for row in rows}
+        if len(rows_by_id) != len(normalized_ids):
+            conn.close()
+            return jsonify({'error': 'Some selected cards are no longer available'}), 409
+
+        sheet_id = conn.execute(
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM writing_sheets"
+        ).fetchone()[0]
+        conn.execute(
+            """
+            INSERT INTO writing_sheets (id, status, practice_rows)
+            VALUES (?, 'pending', ?)
+            """,
+            [int(sheet_id), requested_rows]
+        )
+
+        for card_id in normalized_ids:
+            conn.execute(
+                """
+                INSERT INTO writing_sheet_cards (sheet_id, card_id)
+                VALUES (?, ?)
+                """,
+                [sheet_id, card_id]
+            )
+
+        conn.close()
+        return jsonify({
+            'created': True,
+            'sheet_id': int(sheet_id),
+            'rows_per_character': requested_rows,
+            'cards': [{
+                'id': card_id,
+                'front': rows_by_id[card_id][1],
+                'back': rows_by_id[card_id][2]
+            } for card_id in normalized_ids]
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>/writing/sheets', methods=['POST'])
 def create_writing_sheet(kid_id):
     """Create a printable writing sheet from never-seen or latest-wrong cards."""
@@ -1282,9 +1482,24 @@ def create_writing_sheet(kid_id):
             requested_count = int(data.get('count', normalize_session_card_count(kid)))
         except (TypeError, ValueError):
             return jsonify({'error': 'count must be an integer'}), 400
+        try:
+            requested_rows = int(data.get('rows_per_character', 1))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'rows_per_character must be an integer'}), 400
 
         if requested_count < MIN_SESSION_CARD_COUNT or requested_count > MAX_SESSION_CARD_COUNT:
             return jsonify({'error': f'count must be between {MIN_SESSION_CARD_COUNT} and {MAX_SESSION_CARD_COUNT}'}), 400
+        if requested_rows < 1 or requested_rows > 10:
+            return jsonify({'error': 'rows_per_character must be between 1 and 10'}), 400
+        total_rows_requested = requested_count * requested_rows
+        if total_rows_requested > MAX_WRITING_SHEET_ROWS:
+            max_cards = max(1, MAX_WRITING_SHEET_ROWS // requested_rows)
+            return jsonify({
+                'error': (
+                    f'Sheet exceeds one-page limit ({MAX_WRITING_SHEET_ROWS} rows). '
+                    f'With {requested_rows} row(s) per card, max cards is {max_cards}.'
+                )
+            }), 400
 
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_writing_deck(conn)
@@ -1347,10 +1562,10 @@ def create_writing_sheet(kid_id):
         ).fetchone()[0]
         conn.execute(
             """
-            INSERT INTO writing_sheets (id, status)
-            VALUES (?, 'pending')
+            INSERT INTO writing_sheets (id, status, practice_rows)
+            VALUES (?, 'pending', ?)
             """,
-            [int(sheet_id)]
+            [int(sheet_id), requested_rows]
         )
 
         for row in candidates:
@@ -1366,6 +1581,7 @@ def create_writing_sheet(kid_id):
         return jsonify({
             'created': True,
             'sheet_id': int(sheet_id),
+            'rows_per_character': requested_rows,
             'cards': [{
                 'id': int(row[0]),
                 'front': row[1],
@@ -1390,6 +1606,7 @@ def get_writing_sheets(kid_id):
             SELECT
                 ws.id,
                 ws.status,
+                ws.practice_rows,
                 ws.created_at,
                 ws.completed_at,
                 c.id,
@@ -1411,17 +1628,18 @@ def get_writing_sheets(kid_id):
                 sheets_by_id[sheet_id] = {
                     'id': sheet_id,
                     'status': row[1],
-                    'created_at': row[2].isoformat() if row[2] else None,
-                    'completed_at': row[3].isoformat() if row[3] else None,
+                    'practice_rows': int(row[2] or 1),
+                    'created_at': row[3].isoformat() if row[3] else None,
+                    'completed_at': row[4].isoformat() if row[4] else None,
                     'cards': []
                 }
                 ordered_ids.append(sheet_id)
 
-            if row[4] is not None:
+            if row[5] is not None:
                 sheets_by_id[sheet_id]['cards'].append({
-                    'id': int(row[4]),
-                    'front': row[5],
-                    'back': row[6]
+                    'id': int(row[5]),
+                    'front': row[6],
+                    'back': row[7]
                 })
 
         return jsonify({'sheets': [sheets_by_id[sid] for sid in ordered_ids]}), 200
@@ -1443,6 +1661,7 @@ def get_writing_sheet_detail(kid_id, sheet_id):
             SELECT
                 ws.id,
                 ws.status,
+                ws.practice_rows,
                 ws.created_at,
                 ws.completed_at,
                 c.id,
@@ -1464,17 +1683,18 @@ def get_writing_sheet_detail(kid_id, sheet_id):
         sheet = {
             'id': int(rows[0][0]),
             'status': rows[0][1],
-            'created_at': rows[0][2].isoformat() if rows[0][2] else None,
-            'completed_at': rows[0][3].isoformat() if rows[0][3] else None,
+            'practice_rows': int(rows[0][2] or 1),
+            'created_at': rows[0][3].isoformat() if rows[0][3] else None,
+            'completed_at': rows[0][4].isoformat() if rows[0][4] else None,
             'cards': []
         }
         for row in rows:
-            if row[4] is None:
+            if row[5] is None:
                 continue
             sheet['cards'].append({
-                'id': int(row[4]),
-                'front': row[5],
-                'back': row[6]
+                'id': int(row[5]),
+                'front': row[6],
+                'back': row[7]
             })
 
         return jsonify(sheet), 200

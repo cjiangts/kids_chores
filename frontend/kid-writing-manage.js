@@ -8,15 +8,17 @@ const errorMessage = document.getElementById('errorMessage');
 const addCardForm = document.getElementById('addCardForm');
 const chineseCharsInput = document.getElementById('chineseChars');
 const recordBtn = document.getElementById('recordBtn');
-const replayRecordBtn = document.getElementById('replayRecordBtn');
 const recordStatus = document.getElementById('recordStatus');
 const audioPlayer = document.getElementById('audioPlayer');
+const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
 const hardCardPercentageInput = document.getElementById('hardCardPercentage');
 const sheetCardCountInput = document.getElementById('sheetCardCount');
+const sheetRowsPerCharInput = document.getElementById('sheetRowsPerChar');
 const createSheetBtn = document.getElementById('createSheetBtn');
 const viewSheetsBtn = document.getElementById('viewSheetsBtn');
+const practicingSummary = document.getElementById('practicingSummary');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardCount = document.getElementById('cardCount');
 const cardsGrid = document.getElementById('cardsGrid');
@@ -58,7 +60,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('scroll', () => maybeLoadMoreCards());
 
     recordBtn.addEventListener('click', async () => toggleRecording());
-    replayRecordBtn.addEventListener('click', () => replayRecordedAudio());
     createSheetBtn.addEventListener('click', async () => createAndPrintSheet());
     viewSheetsBtn.addEventListener('click', () => viewSheets());
 
@@ -176,12 +177,9 @@ async function startRecording() {
         mediaRecorder.onstop = () => {
             recordedBlob = new Blob(recordChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
             recordedAudioUrl = URL.createObjectURL(recordedBlob);
-            replayRecordBtn.disabled = !recordedBlob || recordedBlob.size === 0;
-            setRecordStatus(
-                replayRecordBtn.disabled ? 'Recording failed, please try again' : 'Recording ready',
-                replayRecordBtn.disabled
-            );
-            if (!replayRecordBtn.disabled) {
+            const failed = !recordedBlob || recordedBlob.size === 0;
+            setRecordStatus(failed ? 'Recording failed, please try again' : 'Recording ready', failed);
+            if (!failed) {
                 playAudio(recordedAudioUrl);
             }
             setRecordingUI(false);
@@ -194,7 +192,6 @@ async function startRecording() {
 
         mediaRecorder.start();
         setRecordingUI(true);
-        replayRecordBtn.disabled = true;
         setRecordStatus('Recording...');
     } catch (error) {
         console.error('Error starting recording:', error);
@@ -217,7 +214,6 @@ function setRecordingUI(isRecording) {
         recordBtn.textContent = 'Stop Recording';
         recordBtn.classList.remove('record-btn');
         recordBtn.classList.add('stop-btn');
-        replayRecordBtn.disabled = true;
         return;
     }
 
@@ -229,13 +225,6 @@ function setRecordingUI(isRecording) {
 function setRecordStatus(message, isError = false) {
     recordStatus.textContent = message;
     recordStatus.style.color = isError ? '#dc3545' : '#666';
-}
-
-function replayRecordedAudio() {
-    if (!recordedAudioUrl) {
-        return;
-    }
-    playAudio(recordedAudioUrl);
 }
 
 async function addWritingCards() {
@@ -274,7 +263,6 @@ async function addWritingCards() {
         audioPlayer.pause();
         audioPlayer.removeAttribute('src');
         audioPlayer.load();
-        replayRecordBtn.disabled = true;
         setRecordStatus('No recording yet');
 
         await loadWritingCards();
@@ -288,16 +276,29 @@ async function addWritingCards() {
 async function createAndPrintSheet() {
     try {
         const count = Number.parseInt(sheetCardCountInput.value, 10);
+        const rowsPerCharacter = Number.parseInt(sheetRowsPerCharInput.value, 10);
+        showSheetError('');
         if (!Number.isInteger(count) || count < 1 || count > 200) {
-            showError('Cards per sheet must be between 1 and 200');
+            showSheetError('Cards per sheet must be between 1 and 200');
+            return;
+        }
+        if (!Number.isInteger(rowsPerCharacter) || rowsPerCharacter < 1 || rowsPerCharacter > 10) {
+            showSheetError('Rows per card must be between 1 and 10');
+            return;
+        }
+        if (count * rowsPerCharacter > 10) {
+            const maxCards = Math.max(1, Math.floor(10 / rowsPerCharacter));
+            showSheetError(`One page max is 10 rows. With ${rowsPerCharacter} row(s) per card, max cards is ${maxCards}.`);
             return;
         }
 
-        showError('');
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets`, {
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets/preview`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ count })
+            body: JSON.stringify({
+                count,
+                rows_per_character: rowsPerCharacter
+            })
         });
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
@@ -305,19 +306,38 @@ async function createAndPrintSheet() {
         }
 
         const result = await response.json();
-        if (!result.created || !result.sheet_id) {
+        if (!result.preview || !Array.isArray(result.cards) || result.cards.length === 0) {
             const msg = result.message || 'No eligible cards to print right now';
-            showError(msg);
-            alert(msg);
+            showSheetError(msg);
             return;
         }
 
-        await loadWritingCards();
-        const printUrl = `/writing-sheet-print.html?id=${kidId}&sheet=${result.sheet_id}`;
+        const previewKey = `writing_sheet_preview_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        const previewPayload = {
+            kidId: String(kidId),
+            rows_per_character: rowsPerCharacter,
+            cards: result.cards,
+            created_at: new Date().toISOString()
+        };
+        localStorage.setItem(previewKey, JSON.stringify(previewPayload));
+
+        const printUrl = `/writing-sheet-print.html?id=${kidId}&previewKey=${encodeURIComponent(previewKey)}`;
         window.open(printUrl, '_blank');
     } catch (error) {
         console.error('Error creating writing sheet:', error);
-        showError(error.message || 'Failed to create practice sheet');
+        showSheetError(error.message || 'Failed to generate practice sheet preview');
+    }
+}
+
+function showSheetError(message) {
+    if (!sheetErrorMessage) {
+        return;
+    }
+    if (message) {
+        sheetErrorMessage.textContent = message;
+        sheetErrorMessage.classList.remove('hidden');
+    } else {
+        sheetErrorMessage.classList.add('hidden');
     }
 }
 
@@ -364,6 +384,7 @@ function playAudio(url) {
 function displayCards(cards) {
     sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
     cardCount.textContent = `(${sortedCards.length})`;
+    updatePracticingSummary(sortedCards);
 
     if (sortedCards.length === 0) {
         cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No writing cards yet</h3><p>Record your first writing prompt above.</p></div>`;
@@ -371,21 +392,7 @@ function displayCards(cards) {
     }
 
     const visibleCards = sortedCards.slice(0, visibleCardCount);
-    const totalPracticing = sortedCards.filter((card) => !!card.pending_sheet).length;
-    const totalNotPracticing = sortedCards.length - totalPracticing;
-    const practicingCards = visibleCards.filter((card) => !!card.pending_sheet);
-    const notPracticingCards = visibleCards.filter((card) => !card.pending_sheet);
-
-    cardsGrid.innerHTML = `
-        ${renderCardSection('Testing', notPracticingCards, totalNotPracticing)}
-        ${renderCardSection('Practicing', practicingCards, totalPracticing)}
-    `;
-}
-
-function renderCardSection(title, cards, total) {
-    const listHtml = cards.length === 0
-        ? `<p class="empty-line">No cards in this section.</p>`
-        : `<div class="cards-grid">${cards.map((card) => `
+    const listHtml = `${visibleCards.map((card) => `
             <div class="card-item">
                 <div class="card-front">${card.back || card.front || ''}</div>
                 <div class="card-actions">
@@ -397,14 +404,20 @@ function renderCardSection(title, cards, total) {
                 <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
                 <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
             </div>
-        `).join('')}</div>`;
+        `).join('')}`;
 
-    return `
-        <section class="cards-subsection">
-            <h3>${title} (${total})</h3>
-            ${listHtml}
-        </section>
-    `;
+    cardsGrid.innerHTML = listHtml;
+}
+
+function updatePracticingSummary(cards) {
+    if (!practicingSummary) {
+        return;
+    }
+    const practicingCards = cards.filter((card) => !!card.pending_sheet);
+    const practicingLabels = practicingCards.map((card) => String(card.back || card.front || '').trim()).filter((v) => v.length > 0);
+    practicingSummary.textContent = practicingLabels.length > 0
+        ? `Currently practicing (${practicingLabels.length}): ${practicingLabels.join(' · ')}`
+        : 'Currently practicing: none';
 }
 
 function resetAndDisplayCards(cards) {

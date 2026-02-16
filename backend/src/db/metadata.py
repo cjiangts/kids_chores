@@ -196,3 +196,31 @@ def authenticate_family(username: str, password: str) -> Optional[Dict]:
         return None
 
     return family
+
+
+def update_family_password(family_id: str, current_password: str, new_password: str) -> bool:
+    """Update one family's password after validating current password."""
+    family_id = str(family_id or '')
+    current_password = str(current_password or '')
+    new_password = str(new_password or '')
+    if not family_id or not current_password or not new_password:
+        return False
+
+    metadata = load_metadata()
+    families = metadata.get('families', [])
+    for i, family in enumerate(families):
+        if str(family.get('id')) != family_id:
+            continue
+        stored_password = str(family.get('password') or '')
+        if not _is_password_hashed(stored_password):
+            return False
+        if not check_password_hash(stored_password, current_password):
+            return False
+        families[i] = {
+            **family,
+            'password': generate_password_hash(new_password, method=PASSWORD_HASH_METHOD)
+        }
+        metadata['families'] = families
+        save_metadata(metadata)
+        return True
+    return False

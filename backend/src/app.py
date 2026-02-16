@@ -25,6 +25,7 @@ def create_app():
     def is_parent_page(path):
         protected = {
             '/admin.html',
+            '/parent-settings.html',
             '/kid-manage.html',
             '/kid-math-manage.html',
             '/kid-writing-manage.html',
@@ -148,6 +149,25 @@ def create_app():
     def parent_auth_logout():
         session.pop('parent_authenticated', None)
         return {'authenticated': False}, 200
+
+    @app.route('/api/parent-auth/change-password', methods=['POST'])
+    def parent_auth_change_password():
+        if not is_family_authenticated():
+            return {'error': 'Family login required'}, 401
+        if not is_parent_authenticated():
+            return {'error': 'Parent login required'}, 401
+
+        payload = request.get_json() or {}
+        current_password = str(payload.get('currentPassword') or '')
+        new_password = str(payload.get('newPassword') or '')
+        if not current_password or not new_password:
+            return {'error': 'Current password and new password are required'}, 400
+
+        family_id = str(session.get('family_id') or '')
+        if not metadata.update_family_password(family_id, current_password, new_password):
+            return {'error': 'Current password is incorrect'}, 400
+
+        return {'success': True}, 200
 
     @app.route('/health', methods=['GET'])
     def health():

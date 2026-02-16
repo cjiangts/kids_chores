@@ -86,8 +86,7 @@
         .settings-save-btn,
         .submit-btn,
         .record-btn,
-        .stop-btn,
-        .replay-btn {
+        .stop-btn {
             background: #007bff;
             color: white;
             padding: 0.75rem 1.25rem;
@@ -101,8 +100,7 @@
         .settings-save-btn:hover,
         .submit-btn:hover,
         .record-btn:hover,
-        .stop-btn:hover,
-        .replay-btn:hover {
+        .stop-btn:hover {
             background: #0069d9;
         }
 
@@ -122,14 +120,6 @@
 
         .stop-btn:hover {
             background: #c82333;
-        }
-
-        .replay-btn {
-            background: #6c757d;
-        }
-
-        .replay-btn:hover {
-            background: #5a6268;
         }
 
         .record-controls {
@@ -356,7 +346,15 @@
         </div>
 
         <div class="add-card-section">
-            <h2>Add New Writing Prompt</h2>
+            <h2 class="label-with-help">
+                <span>Add New Writing Prompt</span>
+                <details class="help-details">
+                    <summary title="Batch import tip">i</summary>
+                    <div class="help-bubble">
+                        You can enter a single Chinese character or a full phrase/word here. Unlike Reading import, Writing keeps the full text as-is and does not auto-remove non-Chinese parts.
+                    </div>
+                </details>
+            </h2>
             <form id="addCardForm">
                 <div class="form-group">
                     <label for="chineseChars">Chinese Character(s)</label>
@@ -366,7 +364,6 @@
                     <label>Record Parent Voice Prompt</label>
                     <div class="record-controls">
                         <button type="button" id="recordBtn" class="record-btn">Start Recording</button>
-                        <button type="button" id="replayRecordBtn" class="replay-btn" disabled>Replay Recording</button>
                     </div>
                     <p id="recordStatus" class="record-status">No recording yet</p>
                     <div class="audio-player-wrap">
@@ -386,9 +383,17 @@
                         <label for="sheetCardCount">Cards Per Sheet</label>
                         <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
                     </div>
-                    <button type="button" id="createSheetBtn" class="settings-save-btn">Generate & Print</button>
-                    <button type="button" id="viewSheetsBtn" class="settings-save-btn sheet-view-btn">View Sheets</button>
+                    <div class="form-group">
+                        <label for="sheetRowsPerChar">Rows Per Card</label>
+                        <input type="number" id="sheetRowsPerChar" min="1" max="10" step="1" value="1" required>
+                    </div>
+                    <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
+                    <button type="button" id="viewSheetsBtn" class="settings-save-btn sheet-view-btn">Manage Sheets</button>
                 </div>
+                <div id="practicingSummary" style="margin-top: 0.65rem; padding: 0.6rem 0.75rem; border-radius: 8px; background: #fff7df; color: #6b5500; font-size: 0.9rem;">
+                    Currently practicing: none
+                </div>
+                <div id="sheetErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
             </div>
             <div class="cards-toolbar">
                 <select id="viewOrderSelect" class="sort-select">

@@ -61,12 +61,12 @@ function renderSheets(sheets) {
         const printedDay = formatDate(sheet.created_at);
         const finishedDay = isDone ? formatDate(sheet.completed_at) : '-';
         const finishedIn = isDone ? formatDuration(sheet.created_at, sheet.completed_at) : '-';
+        const printBtn = `<button class="print-btn" onclick="printSheet(${sheet.id})">Print</button>`;
         const doneBtn = isPending
             ? `<button class="done-btn" onclick="markDone(${sheet.id})">Mark Done</button>`
             : '';
-        const printBtn = `<button class="print-btn" onclick="printSheet(${sheet.id})">Print</button>`;
-        const withdrawBtn = isPending
-            ? `<button class="withdraw-btn" onclick="withdrawSheet(${sheet.id})">Withdraw</button>`
+        const deleteBtn = isPending
+            ? `<button class="delete-btn" onclick="deleteSheet(${sheet.id})">Delete</button>`
             : '';
 
         return `
@@ -81,9 +81,9 @@ function renderSheets(sheets) {
                     Time to finish: ${finishedIn}
                 </div>
                 <div class="sheet-cards">${answers || '(no cards)'}</div>
-                ${doneBtn}
                 ${printBtn}
-                ${withdrawBtn}
+                ${doneBtn}
+                ${deleteBtn}
             </article>
         `;
     }).join('');
@@ -106,8 +106,8 @@ async function markDone(sheetId) {
     }
 }
 
-async function withdrawSheet(sheetId) {
-    if (!confirm('Withdraw this practicing sheet? Its cards will return to testing.')) {
+async function deleteSheet(sheetId) {
+    if (!confirm('Delete this practicing sheet? Its cards will return to testing.')) {
         return;
     }
 
@@ -122,8 +122,8 @@ async function withdrawSheet(sheetId) {
         }
         await loadSheets();
     } catch (error) {
-        console.error('Error withdrawing sheet:', error);
-        showError('Failed to withdraw sheet');
+        console.error('Error deleting sheet:', error);
+        showError('Failed to delete sheet');
     }
 }
 
@@ -142,7 +142,7 @@ function showError(message) {
 }
 
 window.markDone = markDone;
-window.withdrawSheet = withdrawSheet;
+window.deleteSheet = deleteSheet;
 window.printSheet = printSheet;
 
 function formatDate(value) {
