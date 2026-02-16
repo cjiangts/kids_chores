@@ -34,7 +34,6 @@ let answerRevealed = false;
 let cardShownAtMs = 0;
 let sessionAnswers = [];
 let currentAudio = null;
-const audioCache = new Map();
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -101,7 +100,6 @@ function resetToStartScreen() {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
     stopAudioPlayback();
-    clearAudioCache();
 }
 
 async function startSession() {
@@ -201,7 +199,7 @@ function playPrompt(url) {
     }
 
     stopAudioPlayback();
-    currentAudio = getOrCreateAudio(url);
+    currentAudio = new Audio(url);
     currentAudio.currentTime = 0;
     currentAudio.play().catch((error) => {
         console.error('Error playing prompt audio:', error);
@@ -220,22 +218,9 @@ function prefetchNextPrompt() {
     if (!nextCard || !nextCard.audio_url) {
         return;
     }
-    const nextAudio = getOrCreateAudio(nextCard.audio_url);
-    try {
-        nextAudio.load();
-    } catch (error) {
-        // Ignore preload issues and let normal playback path handle it.
-    }
-}
-
-function getOrCreateAudio(url) {
-    if (audioCache.has(url)) {
-        return audioCache.get(url);
-    }
-    const audio = new Audio(url);
-    audio.preload = 'auto';
-    audioCache.set(url, audio);
-    return audio;
+    fetch(nextCard.audio_url, { method: 'GET', credentials: 'same-origin' }).catch(() => {
+        // Best-effort warmup only.
+    });
 }
 
 function answerCurrentCard(correct) {
@@ -297,20 +282,6 @@ function stopAudioPlayback() {
     currentAudio.pause();
     currentAudio.currentTime = 0;
     currentAudio = null;
-}
-
-function clearAudioCache() {
-    for (const audio of audioCache.values()) {
-        try {
-            audio.pause();
-            audio.currentTime = 0;
-            audio.removeAttribute('src');
-            audio.load();
-        } catch (error) {
-            // Best-effort cleanup.
-        }
-    }
-    audioCache.clear();
 }
 
 function showError(message) {
