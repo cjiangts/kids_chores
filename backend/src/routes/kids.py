@@ -658,6 +658,34 @@ def seed_math_decks_for_all_kids():
     }
 
 
+def refresh_writing_hardness_for_all_kids():
+    """One-time startup backfill: recompute writing hardness for every kid."""
+    refreshed_kids = 0
+    failed_kids = 0
+
+    for kid in metadata.get_all_kids():
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            deck_id = get_or_create_writing_deck(conn)
+            refresh_writing_hardness_scores(conn, deck_id)
+            conn.close()
+            conn = None
+            refreshed_kids += 1
+        except Exception:
+            failed_kids += 1
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    return {
+        'refreshedKids': refreshed_kids,
+        'failedKids': failed_kids,
+    }
+
+
 def ensure_practice_state(conn, deck_id):
     """Ensure cursor state row exists for a deck."""
     conn.execute(
@@ -966,11 +994,11 @@ def complete_session_internal(kid, kid_id, session_type, data):
         conn.execute(
             f"""
             UPDATE cards
-            SET hardness_score = stats.correct_pct
+            SET hardness_score = stats.hardness_score
             FROM (
                 SELECT
                     sr.card_id,
-                    COALESCE(100.0 * AVG(CASE WHEN sr.correct = TRUE THEN 1.0 ELSE 0.0 END), 0) AS correct_pct
+                    COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct = TRUE THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
                 FROM session_results sr
                 JOIN sessions s ON s.id = sr.session_id
                 WHERE s.type = 'writing'
@@ -1086,6 +1114,33 @@ def get_pending_writing_card_ids(conn):
         """
     ).fetchall()
     return [int(row[0]) for row in rows]
+
+
+def refresh_writing_hardness_scores(conn, deck_id):
+    """Recompute writing hardness for one deck as 100 - lifetime correct%."""
+    conn.execute(
+        "UPDATE cards SET hardness_score = 0 WHERE deck_id = ?",
+        [deck_id]
+    )
+    conn.execute(
+        """
+        UPDATE cards
+        SET hardness_score = stats.hardness_score
+        FROM (
+            SELECT
+                sr.card_id,
+                COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct = TRUE THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            JOIN cards c2 ON c2.id = sr.card_id
+            WHERE s.type = 'writing'
+              AND c2.deck_id = ?
+            GROUP BY sr.card_id
+        ) AS stats
+        WHERE cards.id = stats.card_id
+        """,
+        [deck_id]
+    )
 
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])

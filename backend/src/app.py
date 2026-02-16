@@ -4,7 +4,7 @@ from flask import Flask, send_from_directory, request, redirect, session, jsonif
 from flask_cors import CORS
 import os
 
-from src.routes.kids import kids_bp, seed_math_decks_for_all_kids
+from src.routes.kids import kids_bp, seed_math_decks_for_all_kids, refresh_writing_hardness_for_all_kids
 from src.routes.backup import backup_bp
 from src.db import metadata
 
@@ -31,6 +31,12 @@ def create_app():
         math_seed_result.get('seededKids', 0),
         math_seed_result.get('failedKids', 0),
         math_seed_result.get('insertedCards', 0),
+    )
+    writing_hardness_backfill = refresh_writing_hardness_for_all_kids()
+    app.logger.info(
+        'Writing hardness backfill at startup: refreshedKids=%s, failedKids=%s',
+        writing_hardness_backfill.get('refreshedKids', 0),
+        writing_hardness_backfill.get('failedKids', 0),
     )
 
     def is_family_authenticated():
