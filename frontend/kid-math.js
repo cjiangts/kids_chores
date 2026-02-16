@@ -47,9 +47,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     backToPractice.href = `/kid.html?id=${kidId}`;
     resultBackToPractice.href = `/kid.html?id=${kidId}`;
+    backToPractice.addEventListener('click', (event) => {
+        if (isSessionInProgress()) {
+            const confirmed = window.confirm('Go back now? Your current session progress will be lost.');
+            if (!confirmed) {
+                event.preventDefault();
+            }
+        }
+    });
     await loadKidInfo();
     await ensureMathSeedAndReady();
 });
+
+function isSessionInProgress() {
+    return !sessionScreen.classList.contains('hidden')
+        && !!activeSessionId
+        && sessionCards.length > 0;
+}
 
 
 async function loadKidInfo() {

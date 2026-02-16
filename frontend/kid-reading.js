@@ -53,14 +53,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     kidBackBtn.href = `/`;
     kidBackBtn.addEventListener('click', (event) => {
-        const inReadingFlow = !startScreen.classList.contains('hidden')
-            || !sessionScreen.classList.contains('hidden')
-            || !resultScreen.classList.contains('hidden');
-
-        if (inReadingFlow) {
-            event.preventDefault();
-            resetToStartScreen();
-            return;
+        if (isSessionInProgress()) {
+            const confirmed = window.confirm('Go back now? Your current session progress will be lost.');
+            if (!confirmed) {
+                event.preventDefault();
+            }
         }
     });
     resultBackBtn.href = `/kid.html?id=${kidId}`;
@@ -69,6 +66,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadCards();
     await loadWritingCards();
 });
+
+function isSessionInProgress() {
+    return !sessionScreen.classList.contains('hidden')
+        && !!activeSessionId
+        && sessionCards.length > 0;
+}
 
 // API Functions
 async function loadKidInfo() {

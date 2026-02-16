@@ -33,7 +33,11 @@ let wrongCount = 0;
 let answerRevealed = false;
 let cardShownAtMs = 0;
 let sessionAnswers = [];
-let currentAudio = null;
+const promptAudio = new Audio();
+promptAudio.preload = 'auto';
+promptAudio.playsInline = true;
+let currentAudioUrl = '';
+let audioPrimed = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -43,9 +47,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     backToPractice.href = `/kid.html?id=${kidId}`;
     resultBackToPractice.href = `/kid.html?id=${kidId}`;
+    backToPractice.addEventListener('click', (event) => {
+        if (isSessionInProgress()) {
+            const confirmed = window.confirm('Go back now? Your current session progress will be lost.');
+            if (!confirmed) {
+                event.preventDefault();
+                return;
+            }
+            stopAudioPlayback();
+        }
+    });
     await loadKidInfo();
     await loadWritingCards();
 });
+
+function isSessionInProgress() {
+    return !sessionScreen.classList.contains('hidden')
+        && !!activeSessionId
+        && sessionCards.length > 0;
+}
 
 async function loadKidInfo() {
     try {
@@ -105,6 +125,7 @@ function resetToStartScreen() {
 async function startSession() {
     try {
         showError('');
+        primeAudioForAutoplay();
         const response = await fetch(`${API_BASE}/kids/${kidId}/writing/practice/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -199,11 +220,36 @@ function playPrompt(url) {
     }
 
     stopAudioPlayback();
-    currentAudio = new Audio(url);
-    currentAudio.currentTime = 0;
-    currentAudio.play().catch((error) => {
+    if (currentAudioUrl !== url) {
+        promptAudio.src = url;
+        currentAudioUrl = url;
+    }
+    promptAudio.currentTime = 0;
+    promptAudio.play().catch((error) => {
         console.error('Error playing prompt audio:', error);
     });
+}
+
+function primeAudioForAutoplay() {
+    if (audioPrimed) {
+        return;
+    }
+    try {
+        const unlockAudio = new Audio(
+            'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='
+        );
+        unlockAudio.play()
+            .then(() => {
+                unlockAudio.pause();
+                unlockAudio.currentTime = 0;
+                audioPrimed = true;
+            })
+            .catch(() => {
+                // Ignore; browser may still allow normal prompt playback.
+            });
+    } catch (error) {
+        // Best-effort unlock only.
+    }
 }
 
 function prefetchNextPrompt() {
@@ -276,12 +322,11 @@ async function endSession() {
 }
 
 function stopAudioPlayback() {
-    if (!currentAudio) {
+    if (!promptAudio) {
         return;
     }
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio = null;
+    promptAudio.pause();
+    promptAudio.currentTime = 0;
 }
 
 function showError(message) {
