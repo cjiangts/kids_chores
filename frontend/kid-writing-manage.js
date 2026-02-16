@@ -374,21 +374,37 @@ async function addWritingCards() {
 }
 
 async function createAndPrintSheet() {
+    let previewWindow = null;
     try {
+        // Open a placeholder tab immediately (before async work) to avoid popup blockers.
+        previewWindow = window.open('about:blank', '_blank');
+        if (!previewWindow) {
+            showSheetError('Popup blocked. Please allow popups for this site to preview the sheet.');
+            return;
+        }
+        try {
+            previewWindow.document.write('<!doctype html><title>Loading…</title><p style="font-family: sans-serif; padding: 1rem;">Preparing sheet preview…</p>');
+        } catch (error) {
+            // If writing to the placeholder fails, continue and just set location later.
+        }
+
         const count = Number.parseInt(sheetCardCountInput.value, 10);
         const rowsPerCharacter = Number.parseInt(sheetRowsPerCharInput.value, 10);
         showSheetError('');
         if (!Number.isInteger(count) || count < 1 || count > 200) {
             showSheetError('Cards per sheet must be between 1 and 200');
+            previewWindow.close();
             return;
         }
         if (!Number.isInteger(rowsPerCharacter) || rowsPerCharacter < 1 || rowsPerCharacter > 10) {
             showSheetError('Rows per card must be between 1 and 10');
+            previewWindow.close();
             return;
         }
         if (count * rowsPerCharacter > 10) {
             const maxCards = Math.max(1, Math.floor(10 / rowsPerCharacter));
             showSheetError(`One page max is 10 rows. With ${rowsPerCharacter} row(s) per card, max cards is ${maxCards}.`);
+            previewWindow.close();
             return;
         }
 
@@ -422,9 +438,12 @@ async function createAndPrintSheet() {
         localStorage.setItem(previewKey, JSON.stringify(previewPayload));
 
         const printUrl = `/writing-sheet-print.html?id=${kidId}&previewKey=${encodeURIComponent(previewKey)}`;
-        window.open(printUrl, '_blank');
+        previewWindow.location.href = printUrl;
     } catch (error) {
         console.error('Error creating writing sheet:', error);
+        if (previewWindow && !previewWindow.closed) {
+            previewWindow.close();
+        }
         showSheetError(error.message || 'Failed to generate practice sheet preview');
     }
 }
