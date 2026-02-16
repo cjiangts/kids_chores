@@ -38,6 +38,7 @@ promptAudio.preload = 'auto';
 promptAudio.playsInline = true;
 let currentAudioUrl = '';
 let audioPrimed = false;
+const audioBlobCache = new Map();
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -120,6 +121,7 @@ function resetToStartScreen() {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
     stopAudioPlayback();
+    clearAudioBlobCache();
 }
 
 async function startSession() {
@@ -220,14 +222,52 @@ function playPrompt(url) {
     }
 
     stopAudioPlayback();
-    if (currentAudioUrl !== url) {
-        promptAudio.src = url;
-        currentAudioUrl = url;
+    playPromptWithRetry(url);
+}
+
+function playPromptWithRetry(url) {
+    const baseUrl = String(url || '');
+    if (!baseUrl) {
+        return;
+    }
+    showError('');
+    playAudioSource(baseUrl).catch((error) => {
+        console.error('Error playing prompt audio:', error);
+        ensureCachedAudioSource(baseUrl)
+            .then((cachedSource) => playAudioSource(cachedSource))
+            .catch((fallbackError) => {
+                console.error('Fallback cached audio play failed:', fallbackError);
+                showError('Failed to play voice prompt. Tap the card to retry.');
+            });
+    });
+}
+
+function playAudioSource(src) {
+    if (!src) {
+        return Promise.reject(new Error('Missing audio source'));
+    }
+    if (currentAudioUrl !== src) {
+        promptAudio.src = src;
+        currentAudioUrl = src;
+        promptAudio.load();
     }
     promptAudio.currentTime = 0;
-    promptAudio.play().catch((error) => {
-        console.error('Error playing prompt audio:', error);
-    });
+    return promptAudio.play();
+}
+
+async function ensureCachedAudioSource(url) {
+    if (audioBlobCache.has(url)) {
+        return audioBlobCache.get(url);
+    }
+
+    const response = await fetch(url, { method: 'GET', credentials: 'same-origin' });
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    audioBlobCache.set(url, blobUrl);
+    return blobUrl;
 }
 
 function primeAudioForAutoplay() {
@@ -264,7 +304,7 @@ function prefetchNextPrompt() {
     if (!nextCard || !nextCard.audio_url) {
         return;
     }
-    fetch(nextCard.audio_url, { method: 'GET', credentials: 'same-origin' }).catch(() => {
+    ensureCachedAudioSource(nextCard.audio_url).catch(() => {
         // Best-effort warmup only.
     });
 }
@@ -319,6 +359,7 @@ async function endSession() {
     }
 
     await loadKidInfo();
+    clearAudioBlobCache();
 }
 
 function stopAudioPlayback() {
@@ -327,6 +368,17 @@ function stopAudioPlayback() {
     }
     promptAudio.pause();
     promptAudio.currentTime = 0;
+}
+
+function clearAudioBlobCache() {
+    audioBlobCache.forEach((blobUrl) => {
+        try {
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            // ignore cleanup errors
+        }
+    });
+    audioBlobCache.clear();
 }
 
 function showError(message) {
