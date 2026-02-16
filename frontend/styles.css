@@ -25,6 +25,15 @@ body {
     margin: 0 auto;
 }
 
+.practice-page .header h1 {
+    color: #fff;
+}
+
+.practice-page .cards-title,
+.practice-page .cards-title span {
+    color: #fff;
+}
+
 header {
     text-align: center;
     color: white;

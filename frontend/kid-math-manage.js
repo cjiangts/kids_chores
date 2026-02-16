@@ -10,7 +10,6 @@ const deckCountLabel = document.getElementById('deckCountLabel');
 const activeDeckCountInput = document.getElementById('activeDeckCount');
 const mathSessionTotalInline = document.getElementById('mathSessionTotalInline');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
-const cardCount = document.getElementById('cardCount');
 const deckTotalInfo = document.getElementById('deckTotalInfo');
 const cardsGrid = document.getElementById('cardsGrid');
 const deckTabWithin10 = document.getElementById('deckTabWithin10');
@@ -104,7 +103,7 @@ function updateTotalSessionCount() {
         const count = Number.parseInt(deckCounts[deckKey], 10);
         return sum + (Number.isInteger(count) ? Math.max(0, count) : 0);
     }, 0);
-    mathSessionTotalInline.textContent = `(${total})`;
+    mathSessionTotalInline.textContent = `(Total per session: ${total})`;
 }
 
 
@@ -199,7 +198,6 @@ async function loadMathCards() {
 
 function displayCards(cards) {
     sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
-    cardCount.textContent = `${sortedCards.length} shown`;
 
     if (sortedCards.length === 0) {
         cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in ${activeDeckLabel}</h3></div>`;
