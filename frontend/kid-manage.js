@@ -252,6 +252,13 @@ function displayCards(cards) {
     const visibleCards = sortedCards.slice(0, visibleCardCount);
     cardsGrid.innerHTML = visibleCards.map(card => `
         <div class="card-item">
+            <button
+                type="button"
+                class="delete-card-btn"
+                onclick="deleteCard('${card.id}')"
+                title="Delete this reading card"
+                aria-label="Delete this card"
+            >×</button>
             <div class="card-front">${card.front}</div>
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">
                 Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}

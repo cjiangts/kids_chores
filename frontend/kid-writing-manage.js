@@ -390,10 +390,16 @@ function displayCards(cards) {
     const visibleCards = sortedCards.slice(0, visibleCardCount);
     const listHtml = `${visibleCards.map((card) => `
             <div class="card-item">
+                <button
+                    type="button"
+                    class="delete-card-btn"
+                    onclick="deleteWritingCard('${card.id}')"
+                    title="Delete this writing card"
+                    aria-label="Delete this card"
+                >×</button>
                 <div class="card-front">${card.back || card.front || ''}</div>
                 <div class="card-actions">
                     <button class="card-action-btn play-btn" onclick="playPrompt('${card.audio_url || ''}')">Replay</button>
-                    <button class="card-action-btn delete-btn" onclick="deleteWritingCard('${card.id}')">Delete</button>
                 </div>
                 <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
                 <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.parent_added_at || card.created_at)}</div>

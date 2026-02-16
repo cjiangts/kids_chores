@@ -6,7 +6,7 @@ Local-first educational web app for families, with multi-family accounts, multi-
 
 - Backend: Python + Flask + DuckDB
 - Frontend: Vanilla JavaScript + HTML/CSS (no build step)
-- Auth: Family login (hashed password) + Parent PIN for admin pages
+- Auth: Family login (hashed password) + parent-admin gate using the same family password
 - Deployment: Railway (Docker)
 
 ## Current Architecture
@@ -15,7 +15,8 @@ Local-first educational web app for families, with multi-family accounts, multi-
 - Family-scoped storage and APIs
 - One DuckDB file per kid
 - Family session auth for all API access
-- Parent PIN gate for admin/management pages
+- Parent-admin gate for admin/management pages
+- Shared metadata file with file-lock + atomic write protection
 
 Data layout:
 
@@ -27,6 +28,12 @@ backend/data/
       kid_{id}.db
       writing_audio/
 ```
+
+Important:
+
+- `backend/data/kids.json` is shared metadata only (families + kids + lightweight settings).
+- Per-kid learning data is isolated in each kid DuckDB file under the owning family folder.
+- Backup/restore endpoints are family-scoped (cannot restore another family backup).
 
 ## Quick Start (Local)
 
@@ -63,7 +70,9 @@ Or use helper scripts from project root:
   - Password stored as Werkzeug hash (not plaintext)
   - Session cookie used for authenticated requests
 - Parent access:
-  - Separate parent PIN required for admin views (manage cards/settings/backup)
+  - Parent login is required for admin views (manage cards/settings/backup)
+  - Parent login validates against the current family account password
+  - Family registration is capped at 10 total families
 
 ## Core Features
 
@@ -74,17 +83,18 @@ Or use helper scripts from project root:
   - Response-time logging
   - Queue + hard-card selection
 - Math practice:
-  - Prompt/reveal/grade flow
-  - Session stats and card management
+  - Fixed decks (Addition Within 10, Addition Within 20)
+  - Parent sets per-deck question count
+  - Prompt/reveal/grade flow for kid sessions
 - Chinese Character Writing practice:
   - Parent voice recording + text answer
   - Kid replay prompt, self-mark right/wrong
   - Writing sheets generation/print workflow
   - Sheet status lifecycle (pending/done)
 - Practice settings:
-  - Session size
-  - Hard-card percentage
-  - Per-practice daily enable/disable
+  - Per-practice session size/count
+  - Global hard-card percentage (in Parent Settings)
+  - Practice visibility in kid view is inferred from configured per-session counts
 
 ## Hardness Logic
 
@@ -99,6 +109,8 @@ Or use helper scripts from project root:
   - Family accounts
   - Kid profiles
   - Family-to-kid scoping
+- Metadata writes are protected with lock + atomic replace to avoid concurrent lost updates
+- Startup runs metadata cleanup to remove deprecated/unknown config keys
 - Per-kid DuckDB stores:
   - Cards/decks
   - Session history

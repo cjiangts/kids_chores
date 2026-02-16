@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
+    cardsGrid.addEventListener('click', handleCardsGridClick);
     deckTabWithin10.addEventListener('click', async () => {
         if (activeDeckKey === 'within10') return;
         activeDeckKey = 'within10';
@@ -190,6 +191,14 @@ function displayCards(cards) {
     const visibleCards = sortedCards.slice(0, visibleCardCount);
     cardsGrid.innerHTML = visibleCards.map((card) => `
         <div class="card-item">
+            <button
+                type="button"
+                class="delete-card-btn"
+                data-action="delete-card"
+                data-card-id="${card.id}"
+                title="Delete this card from ${activeDeckLabel}"
+                aria-label="Delete this card"
+            >×</button>
             <div class="card-front">${card.front}</div>
             <div class="card-back">= ${card.back}</div>
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
@@ -219,6 +228,51 @@ function maybeLoadMoreCards() {
 
     visibleCardCount += CARD_PAGE_SIZE;
     displayCards(currentCards);
+}
+
+
+async function handleCardsGridClick(event) {
+    const deleteBtn = event.target.closest('[data-action="delete-card"]');
+    if (!deleteBtn) {
+        return;
+    }
+
+    const cardId = deleteBtn.dataset.cardId;
+    if (!cardId) {
+        return;
+    }
+
+    const confirmed = window.confirm('Delete this math preset card for this kid?');
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        deleteBtn.disabled = true;
+        await deleteMathCard(cardId);
+    } catch (error) {
+        console.error('Error deleting math card:', error);
+        showError('Failed to delete math card');
+    } finally {
+        deleteBtn.disabled = false;
+    }
+}
+
+
+async function deleteMathCard(cardId) {
+    const response = await fetch(`${API_BASE}/kids/${kidId}/math/cards/${cardId}`, {
+        method: 'DELETE'
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+    }
+
+    currentCards = currentCards.filter((card) => String(card.id) !== String(cardId));
+    activeDeckTotalCards = currentCards.length;
+    deckTotalInfo.textContent = `Total cards in this deck: ${activeDeckTotalCards}`;
+    resetAndDisplayCards(currentCards);
+    showError('');
 }
 
 
