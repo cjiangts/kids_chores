@@ -31,9 +31,9 @@ let visibleCardCount = 10;
 const CARD_PAGE_SIZE = 10;
 let mediaRecorder = null;
 let mediaStream = null;
-let recordChunks = [];
 let recordedBlob = null;
 let recordedAudioUrl = null;
+let isRecordTransitioning = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -146,15 +146,26 @@ async function toggleRecording() {
 
 async function startRecording() {
     try {
+        if (isRecordTransitioning) {
+            setRecordStatus('Please wait, finishing previous recording...');
+            return;
+        }
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            setRecordStatus('Recorder is busy, please wait...');
+            return;
+        }
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showError('Recording is not supported in this browser');
             return;
         }
 
+        isRecordTransitioning = true;
         showError('');
-        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(mediaStream);
-        recordChunks = [];
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
+        mediaStream = stream;
+        mediaRecorder = recorder;
         recordedBlob = null;
         audioPlayer.pause();
         audioPlayer.removeAttribute('src');
@@ -164,34 +175,58 @@ async function startRecording() {
             recordedAudioUrl = null;
         }
 
-        mediaRecorder.ondataavailable = (event) => {
+        recorder.ondataavailable = (event) => {
             if (event.data && event.data.size > 0) {
-                recordChunks.push(event.data);
+                chunks.push(event.data);
             }
         };
 
-        mediaRecorder.onstop = () => {
-            recordedBlob = new Blob(recordChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-            recordedAudioUrl = URL.createObjectURL(recordedBlob);
+        recorder.onstop = () => {
+            recordedBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
             const failed = !recordedBlob || recordedBlob.size === 0;
             setRecordStatus(failed ? 'Recording failed, please try again' : 'Recording ready', failed);
             if (!failed) {
+                recordedAudioUrl = URL.createObjectURL(recordedBlob);
                 playAudio(recordedAudioUrl);
             }
             setRecordingUI(false);
 
-            if (mediaStream) {
+            if (mediaStream === stream) {
                 mediaStream.getTracks().forEach((track) => track.stop());
                 mediaStream = null;
             }
+            if (mediaRecorder === recorder) {
+                mediaRecorder = null;
+            }
+            isRecordTransitioning = false;
         };
 
-        mediaRecorder.start();
+        recorder.onerror = () => {
+            setRecordStatus('Recording failed, please try again', true);
+            setRecordingUI(false);
+            if (mediaStream === stream) {
+                mediaStream.getTracks().forEach((track) => track.stop());
+                mediaStream = null;
+            }
+            if (mediaRecorder === recorder) {
+                mediaRecorder = null;
+            }
+            isRecordTransitioning = false;
+        };
+
+        recorder.start(200);
         setRecordingUI(true);
         setRecordStatus('Recording...');
+        isRecordTransitioning = false;
     } catch (error) {
         console.error('Error starting recording:', error);
         setRecordingUI(false);
+        if (mediaStream) {
+            mediaStream.getTracks().forEach((track) => track.stop());
+            mediaStream = null;
+        }
+        mediaRecorder = null;
+        isRecordTransitioning = false;
         showError('Failed to start recording. Please allow microphone access.');
     }
 }
@@ -201,8 +236,15 @@ function stopRecording() {
         return;
     }
 
+    isRecordTransitioning = true;
+    try {
+        mediaRecorder.requestData();
+    } catch (error) {
+        // requestData is best-effort; continue to stop.
+    }
     mediaRecorder.stop();
     setRecordingUI(false);
+    setRecordStatus('Processing recording...');
 }
 
 function setRecordingUI(isRecording) {
@@ -225,6 +267,14 @@ function setRecordStatus(message, isError = false) {
 
 async function addWritingCards() {
     try {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            showError('Please stop recording first');
+            return;
+        }
+        if (isRecordTransitioning) {
+            showError('Recording is still processing. Please wait a moment.');
+            return;
+        }
         const rawText = chineseCharsInput.value.trim();
         if (rawText.length === 0) {
             showError('Please enter answer text');
