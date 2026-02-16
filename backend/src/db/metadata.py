@@ -6,6 +6,7 @@ import threading
 from datetime import datetime
 from typing import List, Dict, Optional
 import fcntl
+from zoneinfo import ZoneInfo
 from werkzeug.security import generate_password_hash, check_password_hash
 
 METADATA_FILE = os.path.join(os.path.dirname(__file__), '../../data/kids.json')
@@ -15,9 +16,10 @@ PASSWORD_HASH_METHOD = 'pbkdf2:sha256'
 DEFAULT_HARD_CARD_PERCENTAGE = 20
 MIN_HARD_CARD_PERCENTAGE = 0
 MAX_HARD_CARD_PERCENTAGE = 100
+DEFAULT_FAMILY_TIMEZONE = 'America/New_York'
 _METADATA_THREAD_LOCK = threading.RLock()
 ALLOWED_TOP_LEVEL_KEYS = {'families', 'kids', 'lastUpdated'}
-ALLOWED_FAMILY_KEYS = {'id', 'username', 'password', 'hardCardPercentage', 'createdAt'}
+ALLOWED_FAMILY_KEYS = {'id', 'username', 'password', 'hardCardPercentage', 'familyTimezone', 'createdAt'}
 ALLOWED_KID_KEYS = {
     'id',
     'name',
@@ -54,7 +56,12 @@ def _normalize(data: Dict) -> Dict:
             pct = MIN_HARD_CARD_PERCENTAGE
         if pct > MAX_HARD_CARD_PERCENTAGE:
             pct = MAX_HARD_CARD_PERCENTAGE
-        data['families'][i] = {**family, 'hardCardPercentage': pct}
+        timezone_name = _normalize_family_timezone(family.get('familyTimezone'))
+        data['families'][i] = {
+            **family,
+            'hardCardPercentage': pct,
+            'familyTimezone': timezone_name
+        }
     if 'lastUpdated' not in data:
         data['lastUpdated'] = datetime.now().isoformat()
     return data
@@ -64,6 +71,16 @@ def _is_password_hashed(value: str) -> bool:
     """Best-effort check for werkzeug password hash formats."""
     text = str(value or '')
     return text.startswith('pbkdf2:') or text.startswith('scrypt:')
+
+
+def _normalize_family_timezone(value) -> str:
+    """Validate timezone string; fallback to default when invalid/missing."""
+    candidate = str(value or '').strip() or DEFAULT_FAMILY_TIMEZONE
+    try:
+        ZoneInfo(candidate)
+        return candidate
+    except Exception:
+        return DEFAULT_FAMILY_TIMEZONE
 
 def ensure_metadata_file():
     """Create metadata file if it doesn't exist"""
@@ -254,6 +271,7 @@ def register_family(username: str, password: str) -> Dict:
             'username': username,
             'password': generate_password_hash(password, method=PASSWORD_HASH_METHOD),
             'hardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
+            'familyTimezone': DEFAULT_FAMILY_TIMEZONE,
             'createdAt': datetime.now().isoformat()
         }
         families.append(family)
@@ -346,6 +364,34 @@ def update_family_hard_card_percentage(family_id: str, hard_card_percentage: int
             data['families'] = families
             return True
         return False
+    return _mutate_metadata(_op)
+
+
+def get_family_timezone(family_id: str) -> str:
+    """Get family-level timezone with safe default."""
+    family = get_family_by_id(str(family_id or ''))
+    if not family:
+        return DEFAULT_FAMILY_TIMEZONE
+    return _normalize_family_timezone(family.get('familyTimezone'))
+
+
+def update_family_timezone(family_id: str, family_timezone: str) -> bool:
+    """Update family-level timezone."""
+    family_id = str(family_id or '')
+    timezone_name = _normalize_family_timezone(family_timezone)
+    if not family_id:
+        return False
+
+    def _op(data: Dict):
+        families = data.get('families', [])
+        for i, family in enumerate(families):
+            if str(family.get('id')) != family_id:
+                continue
+            families[i] = {**family, 'familyTimezone': timezone_name}
+            data['families'] = families
+            return True
+        return False
+
     return _mutate_metadata(_op)
 
 

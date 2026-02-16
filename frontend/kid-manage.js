@@ -73,10 +73,10 @@ addSiWuKuaiDuBtn.addEventListener('click', () => {
 function updateAddReadingButtonCount() {
     const totalChineseChars = countChineseCharsBeforeDbDedup(chineseCharInput.value);
     if (totalChineseChars > 0) {
-        addReadingBtn.textContent = `Add Reading Character (${totalChineseChars})`;
+        addReadingBtn.textContent = `Add Chinese Reading Character (${totalChineseChars})`;
         return;
     }
-    addReadingBtn.textContent = 'Add Reading Character';
+    addReadingBtn.textContent = 'Add Chinese Reading Character';
 }
 
 // API Functions
@@ -242,7 +242,7 @@ function displayCards(cards) {
     if (sortedCards.length === 0) {
         cardsGrid.innerHTML = `
             <div class="empty-state" style="grid-column: 1 / -1;">
-                <h3>No reading cards yet</h3>
+                <h3>No Chinese reading cards yet</h3>
                 <p>Add your first Chinese reading character above!</p>
             </div>
         `;
@@ -256,7 +256,7 @@ function displayCards(cards) {
                 type="button"
                 class="delete-card-btn"
                 onclick="deleteCard('${card.id}')"
-                title="Delete this reading card"
+                title="Delete this Chinese reading card"
                 aria-label="Delete this card"
             >×</button>
             <div class="card-front">${card.front}</div>

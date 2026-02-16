@@ -14,6 +14,50 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
 
 
+def _normalize_rel_path(path_value):
+    """Normalize a relative path to forward-slash form without leading slash."""
+    normalized = os.path.normpath(str(path_value or '')).replace('\\', '/')
+    while normalized.startswith('./'):
+        normalized = normalized[2:]
+    return normalized.lstrip('/')
+
+
+def _family_rel_prefix(family_id):
+    return f'families/family_{family_id}'
+
+
+def _is_family_scoped_rel_path(rel_path, family_id):
+    """Check path stays within one family's data subtree."""
+    normalized = _normalize_rel_path(rel_path)
+    prefix = _family_rel_prefix(family_id)
+    return normalized == prefix or normalized.startswith(f'{prefix}/')
+
+
+def _safe_rel_to_data(abs_path):
+    """Convert absolute path under DATA_DIR to safe normalized relative path."""
+    data_root = os.path.realpath(DATA_DIR)
+    abs_real = os.path.realpath(abs_path)
+    if not (abs_real == data_root or abs_real.startswith(f'{data_root}{os.sep}')):
+        return None
+    return _normalize_rel_path(os.path.relpath(abs_real, data_root))
+
+
+def _is_family_scoped_db_path(db_file_path, family_id):
+    """Validate metadata dbFilePath belongs to current family subtree."""
+    rel = str(db_file_path or '').strip()
+    if not rel or os.path.isabs(rel):
+        return False
+    rel = rel.lstrip('/\\')
+    if rel.startswith('data/'):
+        rel = rel[5:]
+    return _is_family_scoped_rel_path(rel, family_id)
+
+
+def _default_family_kid_db_path(family_id, kid_id):
+    """Build canonical scoped db path for one kid."""
+    return f'data/families/family_{family_id}/kid_{kid_id}.db'
+
+
 def _current_family_id():
     return str(session.get('family_id') or '')
 
@@ -50,15 +94,18 @@ def download_backup():
             db_rel = str(kid.get('dbFilePath') or '')
             if db_rel:
                 db_abs = kid_db.get_absolute_db_path(db_rel)
-                if os.path.exists(db_abs):
-                    files_to_include.append(_rel_to_data(db_abs))
+                rel_path = _safe_rel_to_data(db_abs)
+                if rel_path and _is_family_scoped_rel_path(rel_path, family_id) and os.path.exists(db_abs):
+                    files_to_include.append(rel_path)
 
             audio_dir = _family_audio_dir(kid)
             if os.path.exists(audio_dir):
                 for root, _, files in os.walk(audio_dir):
                     for file_name in files:
                         abs_path = os.path.join(root, file_name)
-                        files_to_include.append(_rel_to_data(abs_path))
+                        rel_path = _safe_rel_to_data(abs_path)
+                        if rel_path and _is_family_scoped_rel_path(rel_path, family_id):
+                            files_to_include.append(rel_path)
 
         manifest = {
             'family': {
@@ -74,6 +121,8 @@ def download_backup():
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             zipf.writestr('family_manifest.json', json.dumps(manifest, ensure_ascii=False, indent=2))
             for rel_path in manifest['files']:
+                if not _is_family_scoped_rel_path(rel_path, family_id):
+                    continue
                 abs_path = os.path.join(DATA_DIR, rel_path)
                 if os.path.exists(abs_path):
                     zipf.write(abs_path, rel_path)
@@ -145,6 +194,8 @@ def restore_backup():
                     continue
                 if rel_path.startswith('/') or '..' in rel_path.split('/'):
                     continue
+                if not _is_family_scoped_rel_path(rel_path, family_id):
+                    continue
                 if rel_path not in zipf.namelist():
                     continue
                 target_abs = os.path.join(DATA_DIR, rel_path)
@@ -155,6 +206,9 @@ def restore_backup():
             # Restore kids metadata for this family only.
             for kid in kids_from_backup:
                 restored = {**kid, 'familyId': family_id}
+                kid_id = restored.get('id')
+                if not _is_family_scoped_db_path(restored.get('dbFilePath'), family_id):
+                    restored['dbFilePath'] = _default_family_kid_db_path(family_id, kid_id)
                 metadata.add_kid(restored)
 
         # Clean up temp files.

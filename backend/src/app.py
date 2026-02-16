@@ -212,6 +212,38 @@ def create_app():
 
         return {'hardCardPercentage': hard_pct, 'updated': True}, 200
 
+    @app.route('/api/parent-settings/timezone', methods=['GET'])
+    def get_parent_timezone():
+        if not is_family_authenticated():
+            return {'error': 'Family login required'}, 401
+        if not is_parent_authenticated():
+            return {'error': 'Parent login required'}, 401
+        family_id = str(session.get('family_id') or '')
+        return {
+            'familyTimezone': metadata.get_family_timezone(family_id)
+        }, 200
+
+    @app.route('/api/parent-settings/timezone', methods=['PUT'])
+    def update_parent_timezone():
+        if not is_family_authenticated():
+            return {'error': 'Family login required'}, 401
+        if not is_parent_authenticated():
+            return {'error': 'Parent login required'}, 401
+
+        payload = request.get_json() or {}
+        timezone_name = str(payload.get('familyTimezone') or '').strip()
+        if not timezone_name:
+            return {'error': 'familyTimezone is required'}, 400
+
+        family_id = str(session.get('family_id') or '')
+        if not metadata.update_family_timezone(family_id, timezone_name):
+            return {'error': 'Failed to update family timezone'}, 400
+
+        return {
+            'familyTimezone': metadata.get_family_timezone(family_id),
+            'updated': True
+        }, 200
+
     @app.route('/health', methods=['GET'])
     def health():
         return {'status': 'healthy'}, 200

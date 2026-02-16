@@ -1,6 +1,6 @@
-# Kids Learning Web App
+# Kids Daily Chores
 
-Local-first educational web app for families, with multi-family accounts, multi-kid profiles, Chinese reading/writing practice, math practice, session tracking, and printable writing sheets.
+Kids Daily Chores is a family learning tool designed for ages 4+, with daily Chinese reading, Chinese writing, and math practice, printable worksheets, and progress tracking.
 
 ## Tech Stack
 
@@ -89,7 +89,7 @@ Or use helper scripts from project root:
 - Chinese Character Writing practice:
   - Parent voice recording + text answer
   - Kid replay prompt, self-mark right/wrong
-  - Writing sheets generation/print workflow
+  - Chinese writing sheets generation/print workflow
   - Sheet status lifecycle (pending/done)
 - Practice settings:
   - Per-practice session size/count
@@ -99,8 +99,8 @@ Or use helper scripts from project root:
 ## Hardness Logic
 
 - All card decks track `hardness_score`.
-- Reading/Math hard selection: based on response-time driven hardness updates.
-- Writing hard selection: based on lifetime correctness behavior.
+- Chinese Reading/Math hard selection: based on response-time driven hardness updates.
+- Chinese Writing hard selection: based on lifetime correctness behavior.
 - Parent sort options include hardness score descending.
 
 ## Database Notes
@@ -115,7 +115,7 @@ Or use helper scripts from project root:
   - Cards/decks
   - Session history
   - Practice state/queue cursor
-  - Writing sheets and writing-related state
+  - Chinese writing sheets and Chinese writing-related state
 
 ## Deployment (Railway)
 

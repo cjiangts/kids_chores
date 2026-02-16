@@ -9,6 +9,10 @@ const hardCardPercentageInput = document.getElementById('hardCardPercentage');
 const saveHardCardBtn = document.getElementById('saveHardCardBtn');
 const hardCardError = document.getElementById('hardCardError');
 const hardCardSuccess = document.getElementById('hardCardSuccess');
+const familyTimezoneSelect = document.getElementById('familyTimezone');
+const saveTimezoneBtn = document.getElementById('saveTimezoneBtn');
+const timezoneError = document.getElementById('timezoneError');
+const timezoneSuccess = document.getElementById('timezoneSuccess');
 const downloadBackupBtn = document.getElementById('downloadBackupBtn');
 const restoreBackupBtn = document.getElementById('restoreBackupBtn');
 const backupFileInput = document.getElementById('backupFileInput');
@@ -17,9 +21,27 @@ const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const passwordError = document.getElementById('passwordError');
 const passwordSuccess = document.getElementById('passwordSuccess');
+const DEFAULT_FAMILY_TIMEZONE = 'America/New_York';
+const COMMON_TIMEZONES = [
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+    'America/Phoenix',
+    'America/Anchorage',
+    'Pacific/Honolulu',
+    'UTC',
+    'Europe/London',
+    'Europe/Paris',
+    'Asia/Shanghai',
+    'Asia/Tokyo',
+    'Australia/Sydney'
+];
 
 document.addEventListener('DOMContentLoaded', () => {
+    initializeTimezoneOptions();
     loadHardCardSettings();
+    loadTimezoneSettings();
     loadBackupInfo();
 });
 
@@ -40,6 +62,10 @@ restoreBackupBtn.addEventListener('click', () => {
 
 saveHardCardBtn.addEventListener('click', async () => {
     await saveHardCardSettings();
+});
+
+saveTimezoneBtn.addEventListener('click', async () => {
+    await saveTimezoneSettings();
 });
 
 backupFileInput.addEventListener('change', async (event) => {
@@ -97,6 +123,77 @@ async function saveHardCardSettings() {
     } finally {
         saveHardCardBtn.disabled = false;
         saveHardCardBtn.textContent = 'Save';
+    }
+}
+
+function initializeTimezoneOptions() {
+    if (!familyTimezoneSelect) {
+        return;
+    }
+
+    const supported = typeof Intl.supportedValuesOf === 'function'
+        ? Intl.supportedValuesOf('timeZone')
+        : [];
+    const options = supported.length > 0
+        ? supported
+        : COMMON_TIMEZONES;
+    const unique = Array.from(new Set([DEFAULT_FAMILY_TIMEZONE, ...COMMON_TIMEZONES, ...options]));
+    const list = unique.sort((a, b) => a.localeCompare(b));
+
+    familyTimezoneSelect.innerHTML = list.map((tz) => `<option value="${tz}">${tz}</option>`).join('');
+}
+
+async function loadTimezoneSettings() {
+    try {
+        showTimezoneError('');
+        showTimezoneSuccess('');
+        const response = await fetch(`${API_BASE}/parent-settings/timezone`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        const value = String(data.familyTimezone || DEFAULT_FAMILY_TIMEZONE);
+        if (![...familyTimezoneSelect.options].some((opt) => opt.value === value)) {
+            familyTimezoneSelect.insertAdjacentHTML('beforeend', `<option value="${value}">${value}</option>`);
+        }
+        familyTimezoneSelect.value = value;
+    } catch (error) {
+        console.error('Error loading timezone settings:', error);
+        showTimezoneError('Failed to load family timezone.');
+    }
+}
+
+async function saveTimezoneSettings() {
+    try {
+        showTimezoneError('');
+        showTimezoneSuccess('');
+        const timezoneName = String(familyTimezoneSelect.value || '').trim();
+        if (!timezoneName) {
+            showTimezoneError('Please select a timezone.');
+            return;
+        }
+
+        saveTimezoneBtn.disabled = true;
+        saveTimezoneBtn.textContent = 'Saving...';
+        const response = await fetch(`${API_BASE}/parent-settings/timezone`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ familyTimezone: timezoneName })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showTimezoneError(result.error || 'Failed to save family timezone.');
+            return;
+        }
+
+        familyTimezoneSelect.value = String(result.familyTimezone || timezoneName);
+        showTimezoneSuccess('Family timezone saved.');
+    } catch (error) {
+        console.error('Error saving timezone settings:', error);
+        showTimezoneError('Failed to save family timezone.');
+    } finally {
+        saveTimezoneBtn.disabled = false;
+        saveTimezoneBtn.textContent = 'Save';
     }
 }
 
@@ -296,5 +393,23 @@ function showHardCardSuccess(message) {
         hardCardSuccess.classList.remove('hidden');
     } else {
         hardCardSuccess.classList.add('hidden');
+    }
+}
+
+function showTimezoneError(message) {
+    if (message) {
+        timezoneError.textContent = message;
+        timezoneError.classList.remove('hidden');
+    } else {
+        timezoneError.classList.add('hidden');
+    }
+}
+
+function showTimezoneSuccess(message) {
+    if (message) {
+        timezoneSuccess.textContent = message;
+        timezoneSuccess.classList.remove('hidden');
+    } else {
+        timezoneSuccess.classList.add('hidden');
     }
 }

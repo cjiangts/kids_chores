@@ -54,7 +54,7 @@ async function loadKidInfo() {
             throw new Error(`HTTP ${response.status}`);
         }
         currentKid = await response.json();
-        kidNameEl.textContent = `${currentKid.name}'s Writing`;
+        kidNameEl.textContent = `${currentKid.name}'s Chinese Writing`;
     } catch (error) {
         console.error('Error loading kid info:', error);
         showError('Failed to load kid information');
@@ -81,7 +81,7 @@ async function loadWritingCards() {
         resetToStartScreen();
     } catch (error) {
         console.error('Error loading writing cards:', error);
-        showError('Failed to load writing cards');
+        showError('Failed to load Chinese writing cards');
     }
 }
 
@@ -120,7 +120,7 @@ async function startSession() {
         sessionCards = shuffleSessionCards(data.cards || []);
 
         if (!activeSessionId || sessionCards.length === 0) {
-            showError('No writing cards available');
+            showError('No Chinese writing cards available');
             return;
         }
 
@@ -136,7 +136,7 @@ async function startSession() {
         showCurrentPrompt();
     } catch (error) {
         console.error('Error starting writing session:', error);
-        showError('Failed to start writing session');
+        showError('Failed to start Chinese writing session');
     }
 }
 

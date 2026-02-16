@@ -149,8 +149,8 @@ function displayKids(kids) {
         const safeMathCount = (Number.isInteger(mathWithin10Count) ? Math.max(0, mathWithin10Count) : 0)
             + (Number.isInteger(mathWithin20Count) ? Math.max(0, mathWithin20Count) : 0);
 
-        const readingLabel = `📝 Reading (${safeReadingCount}/day)`;
-        const writingLabel = `✍️ Writing (${safeWritingCount}/day)`;
+        const readingLabel = `📖 Chinese Reading (${safeReadingCount}/day)`;
+        const writingLabel = `✍️ Chinese Writing (${safeWritingCount}/day)`;
         const mathLabel = `➗ Math (${safeMathCount}/day)`;
         return `
             <div class="kid-card">

@@ -132,7 +132,7 @@ async function loadWritingCards() {
         resetAndDisplayCards(currentCards);
     } catch (error) {
         console.error('Error loading writing cards:', error);
-        showError('Failed to load writing cards');
+        showError('Failed to load Chinese writing cards');
     }
 }
 
@@ -265,7 +265,7 @@ async function addWritingCards() {
         showError('');
     } catch (error) {
         console.error('Error adding writing cards:', error);
-        showError(error.message || 'Failed to add writing cards');
+        showError(error.message || 'Failed to add Chinese writing cards');
     }
 }
 
@@ -342,7 +342,7 @@ function viewSheets() {
 }
 
 async function deleteWritingCard(cardId) {
-    if (!confirm('Are you sure you want to delete this writing card?')) {
+    if (!confirm('Are you sure you want to delete this Chinese writing card?')) {
         return;
     }
 
@@ -358,7 +358,7 @@ async function deleteWritingCard(cardId) {
         await loadWritingCards();
     } catch (error) {
         console.error('Error deleting writing card:', error);
-        showError('Failed to delete writing card');
+        showError('Failed to delete Chinese writing card');
     }
 }
 
@@ -383,7 +383,7 @@ function displayCards(cards) {
     updatePracticingSummary(sortedCards);
 
     if (sortedCards.length === 0) {
-        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No writing cards yet</h3><p>Record your first writing prompt above.</p></div>`;
+        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No Chinese writing cards yet</h3><p>Record your first Chinese writing prompt above.</p></div>`;
         return;
     }
 
@@ -394,7 +394,7 @@ function displayCards(cards) {
                     type="button"
                     class="delete-card-btn"
                     onclick="deleteWritingCard('${card.id}')"
-                    title="Delete this writing card"
+                    title="Delete this Chinese writing card"
                     aria-label="Delete this card"
                 >×</button>
                 <div class="card-front">${card.back || card.front || ''}</div>

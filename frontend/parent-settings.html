@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parent Settings - Kids Learning App</title>
+    <title>Parent Settings - Kids Daily Chores</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -135,7 +135,7 @@
                                     <summary title="What is this?">?</summary>
                                     <div class="help-bubble">
                                         Hard Cards % controls how many cards in each session are pulled from the hardest group.
-                                        Hardness is based on each practice type's score (for reading/math: slower response tends to be harder; for writing: lower accuracy tends to be harder).
+                                        Hardness is based on each practice type's score (for Chinese reading/math: slower response tends to be harder; for Chinese writing: lower accuracy tends to be harder).
                                         Example: if a session uses 20 cards and hard cards is 20%, about 4 cards are selected from the hard group, and the remaining 16 cards come from normal rotation so easier cards still get reviewed.
                                     </div>
                                 </details>
@@ -146,6 +146,16 @@
                     </div>
                     <div id="hardCardError" class="error hidden"></div>
                     <div id="hardCardSuccess" class="success hidden"></div>
+                    <div class="inline-row" style="margin-top: 0.8rem;">
+                        <div class="form-group">
+                            <label for="familyTimezone">Family Time Zone</label>
+                            <select id="familyTimezone"></select>
+                        </div>
+                        <button type="button" id="saveTimezoneBtn" class="btn-primary">Save</button>
+                    </div>
+                    <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
+                    <div id="timezoneError" class="error hidden"></div>
+                    <div id="timezoneSuccess" class="success hidden"></div>
                 </section>
 
                 <section class="settings-card">
@@ -170,7 +180,16 @@
                 </section>
 
                 <section class="settings-card">
-                    <h2>Backup & Restore</h2>
+                    <h2 class="label-with-help">
+                        Backup & Restore
+                        <details class="help-details">
+                            <summary title="What is included?">?</summary>
+                            <div class="help-bubble">
+                                Backup downloads your full family raw data, including each kid's DuckDB database files and Chinese writing audio tracks.
+                                It is family-scoped only, so it does not include other families' data or settings.
+                            </div>
+                        </details>
+                    </h2>
                     <div class="settings-row">
                         <button id="downloadBackupBtn" class="btn-secondary">⬇️ Download Backup</button>
                         <button id="restoreBackupBtn" class="btn-secondary">⬆️ Restore Backup</button>

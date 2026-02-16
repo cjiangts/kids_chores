@@ -125,7 +125,7 @@ async function loadWritingCards() {
 function resetToStartScreen() {
     const readingSessionCount = Number.parseInt(currentKid?.sessionCardCount, 10);
     const count = Math.min(Number.isInteger(readingSessionCount) ? readingSessionCount : 10, cards.length);
-    sessionInfo.textContent = `Session: ${count} reading cards`;
+    sessionInfo.textContent = `Session: ${count} Chinese reading cards`;
 
     activeSessionId = null;
     sessionCards = [];

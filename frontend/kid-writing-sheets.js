@@ -25,7 +25,7 @@ async function loadKid() {
             throw new Error(`HTTP ${response.status}`);
         }
         const kid = await response.json();
-        kidNameEl.textContent = `${kid.name}'s Writing Sheets (Parent View)`;
+        kidNameEl.textContent = `${kid.name}'s Chinese Writing Sheets (Parent View)`;
     } catch (error) {
         console.error('Error loading kid:', error);
     }

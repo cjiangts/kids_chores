@@ -1,9 +1,10 @@
 """Kid management API routes"""
 from flask import Blueprint, request, jsonify, send_from_directory, session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import shutil
 import uuid
+from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.db import metadata, kid_db
 
@@ -170,8 +171,13 @@ def get_today_completed_session_counts(kid):
         return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0}
 
     try:
-        day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day_start + timedelta(days=1)
+        family_id = str(kid.get('familyId') or '')
+        family_timezone = metadata.get_family_timezone(family_id)
+        tzinfo = ZoneInfo(family_timezone)
+        day_start_local = datetime.now(tzinfo).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end_local = day_start_local + timedelta(days=1)
+        day_start_utc = day_start_local.astimezone(timezone.utc).replace(tzinfo=None)
+        day_end_utc = day_end_local.astimezone(timezone.utc).replace(tzinfo=None)
 
         rows = conn.execute(
             """
@@ -184,7 +190,7 @@ def get_today_completed_session_counts(kid):
             GROUP BY type
             """
             ,
-            [day_start, day_end]
+            [day_start_utc, day_end_utc]
         ).fetchall()
 
         chinese = 0
