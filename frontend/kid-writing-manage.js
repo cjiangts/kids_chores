@@ -33,6 +33,7 @@ let mediaRecorder = null;
 let mediaStream = null;
 let recordedBlob = null;
 let recordedAudioUrl = null;
+let recordedUploadFileName = 'prompt.webm';
 let isRecordTransitioning = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -56,6 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
+    cardsGrid.addEventListener('click', handleCardsGridClick);
     window.addEventListener('scroll', () => maybeLoadMoreCards());
 
     recordBtn.addEventListener('click', async () => toggleRecording());
@@ -162,11 +164,16 @@ async function startRecording() {
         isRecordTransitioning = true;
         showError('');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
+        const preferredMimeType = getPreferredRecordingMimeType();
+        const recorder = preferredMimeType
+            ? new MediaRecorder(stream, { mimeType: preferredMimeType })
+            : new MediaRecorder(stream);
         const chunks = [];
+        const startedAt = Date.now();
         mediaStream = stream;
         mediaRecorder = recorder;
         recordedBlob = null;
+        recordedUploadFileName = `prompt.${guessAudioExtension(preferredMimeType || recorder.mimeType || 'audio/webm')}`;
         audioPlayer.pause();
         audioPlayer.removeAttribute('src');
         audioPlayer.load();
@@ -182,12 +189,22 @@ async function startRecording() {
         };
 
         recorder.onstop = () => {
-            recordedBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+            const finalMimeType = recorder.mimeType || preferredMimeType || 'audio/webm';
+            recordedBlob = new Blob(chunks, { type: finalMimeType });
+            recordedUploadFileName = `prompt.${guessAudioExtension(finalMimeType)}`;
             const failed = !recordedBlob || recordedBlob.size === 0;
-            setRecordStatus(failed ? 'Recording failed, please try again' : 'Recording ready', failed);
-            if (!failed) {
+            const elapsedMs = Date.now() - startedAt;
+            const tooShort = elapsedMs < 300;
+            const invalid = failed || tooShort;
+            setRecordStatus(
+                invalid ? 'Recording failed (too short or empty), please try again' : 'Recording ready',
+                invalid
+            );
+            if (!invalid) {
                 recordedAudioUrl = URL.createObjectURL(recordedBlob);
                 playAudio(recordedAudioUrl);
+            } else {
+                recordedBlob = null;
             }
             setRecordingUI(false);
 
@@ -265,6 +282,40 @@ function setRecordStatus(message, isError = false) {
     recordStatus.style.color = isError ? '#dc3545' : '#666';
 }
 
+function getPreferredRecordingMimeType() {
+    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+        return '';
+    }
+    const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/aac'
+    ];
+    for (const candidate of candidates) {
+        if (MediaRecorder.isTypeSupported(candidate)) {
+            return candidate;
+        }
+    }
+    return '';
+}
+
+function guessAudioExtension(mimeType) {
+    const value = String(mimeType || '').toLowerCase();
+    if (value.includes('mp4') || value.includes('m4a')) {
+        return 'm4a';
+    }
+    if (value.includes('ogg')) {
+        return 'ogg';
+    }
+    if (value.includes('aac')) {
+        return 'aac';
+    }
+    return 'webm';
+}
+
 async function addWritingCards() {
     try {
         if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -289,7 +340,7 @@ async function addWritingCards() {
 
         const formData = new FormData();
         formData.append('characters', rawText);
-        formData.append('audio', recordedBlob, 'prompt.webm');
+        formData.append('audio', recordedBlob, recordedUploadFileName || 'prompt.webm');
 
         const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards`, {
             method: 'POST',
@@ -302,6 +353,7 @@ async function addWritingCards() {
 
         addCardForm.reset();
         recordedBlob = null;
+        recordedUploadFileName = 'prompt.webm';
         if (recordedAudioUrl) {
             URL.revokeObjectURL(recordedAudioUrl);
             recordedAudioUrl = null;
@@ -414,6 +466,7 @@ async function deleteWritingCard(cardId) {
 
 function playPrompt(url) {
     if (!url) {
+        showError('No audio found for this Chinese writing card.');
         return;
     }
     playAudio(url);
@@ -438,18 +491,29 @@ function displayCards(cards) {
     }
 
     const visibleCards = sortedCards.slice(0, visibleCardCount);
+    const escapeAttr = (value) => String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     const listHtml = `${visibleCards.map((card) => `
             <div class="card-item">
                 <button
                     type="button"
                     class="delete-card-btn"
-                    onclick="deleteWritingCard('${card.id}')"
+                    data-action="delete-card"
+                    data-card-id="${escapeAttr(card.id)}"
                     title="Delete this Chinese writing card"
                     aria-label="Delete this card"
                 >×</button>
                 <div class="card-front">${card.back || card.front || ''}</div>
                 <div class="card-actions">
-                    <button class="card-action-btn play-btn" onclick="playPrompt('${card.audio_url || ''}')">Replay</button>
+                    <button
+                        type="button"
+                        class="card-action-btn play-btn"
+                        data-action="replay-audio"
+                        data-audio-url="${escapeAttr(card.audio_url || '')}"
+                    >Replay</button>
                 </div>
                 <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
                 <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.parent_added_at || card.created_at)}</div>
@@ -497,6 +561,27 @@ function showError(message) {
         errorMessage.classList.remove('hidden');
     } else {
         errorMessage.classList.add('hidden');
+    }
+}
+
+async function handleCardsGridClick(event) {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) {
+        return;
+    }
+
+    const action = actionEl.dataset.action;
+    if (action === 'delete-card') {
+        const cardId = actionEl.dataset.cardId;
+        if (cardId) {
+            await deleteWritingCard(cardId);
+        }
+        return;
+    }
+
+    if (action === 'replay-audio') {
+        const audioUrl = actionEl.dataset.audioUrl || '';
+        playPrompt(audioUrl);
     }
 }
 

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import os
 import shutil
 import uuid
+import mimetypes
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.db import metadata, kid_db
@@ -1404,8 +1405,11 @@ def add_writing_cards(kid_id):
 
         safe_name = secure_filename(audio_file.filename or '')
         _, original_ext = os.path.splitext(safe_name)
-        ext = original_ext if original_ext else '.webm'
         mime_type = audio_file.mimetype or 'application/octet-stream'
+        guessed_ext = mimetypes.guess_extension(mime_type) or ''
+        ext = original_ext if original_ext else guessed_ext
+        if not ext:
+            ext = '.webm'
 
         audio_dir = ensure_writing_audio_dir(kid)
         card_id = conn.execute(
@@ -1471,10 +1475,26 @@ def get_writing_audio(kid_id, file_name):
             return jsonify({'error': 'Invalid file name'}), 400
 
         audio_dir = get_kid_writing_audio_dir(kid)
-        if not os.path.exists(os.path.join(audio_dir, file_name)):
+        audio_path = os.path.join(audio_dir, file_name)
+        if not os.path.exists(audio_path):
             return jsonify({'error': 'Audio file not found'}), 404
 
-        return send_from_directory(audio_dir, file_name, as_attachment=False)
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+        row = conn.execute(
+            """
+            SELECT wa.mime_type
+            FROM writing_audio wa
+            JOIN cards c ON c.id = wa.card_id
+            WHERE wa.file_name = ? AND c.deck_id = ?
+            LIMIT 1
+            """,
+            [file_name, deck_id]
+        ).fetchone()
+        conn.close()
+
+        mime_type = row[0] if row and row[0] else None
+        return send_from_directory(audio_dir, file_name, as_attachment=False, mimetype=mime_type)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
