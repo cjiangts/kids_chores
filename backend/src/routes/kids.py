@@ -1403,6 +1403,7 @@ def get_writing_cards(kid_id):
                 c.deck_id,
                 c.front,
                 c.back,
+                COALESCE(c.skip_practice, FALSE) AS skip_practice,
                 c.hardness_score,
                 c.created_at,
                 COUNT(sr.id) AS lifetime_attempts,
@@ -1413,7 +1414,7 @@ def get_writing_cards(kid_id):
             LEFT JOIN session_results sr ON c.id = sr.card_id
             LEFT JOIN writing_audio wa ON c.id = wa.card_id
             WHERE c.deck_id = ?
-            GROUP BY c.id, c.deck_id, c.front, c.back, c.hardness_score, c.created_at, wa.file_name, wa.mime_type
+            GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.hardness_score, c.created_at, wa.file_name, wa.mime_type
             ORDER BY c.id ASC
             """,
             [deck_id]
@@ -1427,9 +1428,9 @@ def get_writing_cards(kid_id):
                 card['front'] = card['back']
             card['pending_sheet'] = int(row[0]) in pending_card_set
             card['available_for_practice'] = not card['pending_sheet']
-            card['audio_file_name'] = row[8]
-            card['audio_mime_type'] = row[9]
-            card['audio_url'] = f"/api/kids/{kid_id}/writing/audio/{row[8]}" if row[8] else None
+            card['audio_file_name'] = row[9]
+            card['audio_mime_type'] = row[10]
+            card['audio_url'] = f"/api/kids/{kid_id}/writing/audio/{row[9]}" if row[9] else None
             cards.append(card)
 
         return jsonify({'deck_id': deck_id, 'cards': cards}), 200
