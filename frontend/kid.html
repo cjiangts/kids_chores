@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Practice - Learning App</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css">
+    <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
         * {
@@ -12,7 +12,7 @@
         }
 
         .chinese-text {
-            font-family: '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', 'LXGW WenKai', serif !important;
+            font-family: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif !important;
         }
         .header {
             display: flex;
@@ -110,7 +110,7 @@
 
         .card-content {
             font-size: 10rem;
-            font-family: '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', 'LXGW WenKai', serif;
+            font-family: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
             color: #333;
             line-height: 1.2;
         }
@@ -246,10 +246,6 @@
                     <button id="writingPracticeOption" class="practice-option" onclick="goWritingPractice()">
                         <h3>✍️ Chinese Character Writing</h3>
                         <p id="writingStarBadge" class="practice-star-badge"></p>
-                    </button>
-                    <button id="writingSheetsOption" class="practice-option" onclick="goWritingSheets()">
-                        <h3>📄 Writing Sheets</h3>
-                        <p id="writingSheetsBadge" class="practice-star-badge"></p>
                     </button>
                     <button id="mathPracticeOption" class="practice-option" onclick="goMathPractice()">
                         <h3>➗ Math</h3>

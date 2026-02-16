@@ -2,7 +2,6 @@ const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
-const isReadonly = params.get('readonly') === '1';
 
 const kidNameEl = document.getElementById('kidName');
 const backBtn = document.getElementById('backBtn');
@@ -14,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/';
         return;
     }
-    backBtn.href = isReadonly ? `/kid-writing-manage.html?id=${kidId}` : `/kid.html?id=${kidId}`;
+    backBtn.href = `/kid-writing-manage.html?id=${kidId}`;
     await loadKid();
     await loadSheets();
 });
@@ -26,7 +25,7 @@ async function loadKid() {
             throw new Error(`HTTP ${response.status}`);
         }
         const kid = await response.json();
-        kidNameEl.textContent = isReadonly ? `${kid.name}'s Writing Sheets (Parent View)` : `${kid.name}'s Writing Sheets`;
+        kidNameEl.textContent = `${kid.name}'s Writing Sheets (Parent View)`;
     } catch (error) {
         console.error('Error loading kid:', error);
     }
@@ -62,13 +61,11 @@ function renderSheets(sheets) {
         const printedDay = formatDate(sheet.created_at);
         const finishedDay = isDone ? formatDate(sheet.completed_at) : '-';
         const finishedIn = isDone ? formatDuration(sheet.created_at, sheet.completed_at) : '-';
-        const doneBtn = !isReadonly && isPending
+        const doneBtn = isPending
             ? `<button class="done-btn" onclick="markDone(${sheet.id})">Mark Done</button>`
             : '';
-        const printBtn = isReadonly
-            ? `<button class="print-btn" onclick="printSheet(${sheet.id})">Print</button>`
-            : '';
-        const withdrawBtn = isReadonly && isPending
+        const printBtn = `<button class="print-btn" onclick="printSheet(${sheet.id})">Print</button>`;
+        const withdrawBtn = isPending
             ? `<button class="withdraw-btn" onclick="withdrawSheet(${sheet.id})">Withdraw</button>`
             : '';
 

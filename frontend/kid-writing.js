@@ -6,7 +6,6 @@ const kidId = params.get('id');
 const kidNameEl = document.getElementById('kidName');
 const backToPractice = document.getElementById('backToPractice');
 const resultBackToPractice = document.getElementById('resultBackToPractice');
-const sheetsLink = document.getElementById('sheetsLink');
 const errorMessage = document.getElementById('errorMessage');
 const practiceSection = document.getElementById('practiceSection');
 const startScreen = document.getElementById('startScreen');
@@ -44,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     backToPractice.href = `/kid.html?id=${kidId}`;
     resultBackToPractice.href = `/kid.html?id=${kidId}`;
-    sheetsLink.href = `/kid-writing-sheets.html?id=${kidId}`;
     await loadKidInfo();
     await loadWritingCards();
 });

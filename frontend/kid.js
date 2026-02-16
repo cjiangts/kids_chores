@@ -17,11 +17,9 @@ const errorMessage = document.getElementById('errorMessage');
 const practiceChooser = document.getElementById('practiceChooser');
 const chinesePracticeOption = document.getElementById('chinesePracticeOption');
 const writingPracticeOption = document.getElementById('writingPracticeOption');
-const writingSheetsOption = document.getElementById('writingSheetsOption');
 const mathPracticeOption = document.getElementById('mathPracticeOption');
 const chineseStarBadge = document.getElementById('chineseStarBadge');
 const writingStarBadge = document.getElementById('writingStarBadge');
-const writingSheetsBadge = document.getElementById('writingSheetsBadge');
 const mathStarBadge = document.getElementById('mathStarBadge');
 const startScreen = document.getElementById('startScreen');
 const sessionScreen = document.getElementById('sessionScreen');
@@ -35,7 +33,6 @@ const dontKnowBtn = document.querySelector('.dont-know-btn');
 let currentKid = null;
 let cards = [];
 let writingCards = [];
-let writingPendingSheetCount = 0;
 let sessionCards = [];
 let currentSessionIndex = 0;
 let knownCount = 0;
@@ -71,7 +68,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadKidInfo();
     await loadCards();
     await loadWritingCards();
-    await loadWritingSheetsSummary();
 });
 
 // API Functions
@@ -125,24 +121,6 @@ async function loadWritingCards() {
     }
 }
 
-async function loadWritingSheetsSummary() {
-    try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        const sheets = data.sheets || [];
-        writingPendingSheetCount = sheets.filter((sheet) => sheet.status === 'pending').length;
-        renderPracticeStars();
-        resetToStartScreen();
-    } catch (error) {
-        console.error('Error loading writing sheets summary:', error);
-        writingPendingSheetCount = 0;
-        renderPracticeStars();
-    }
-}
-
 // Session Functions
 function resetToStartScreen() {
     const count = Math.min(currentKid?.sessionCardCount || 10, cards.length);
@@ -160,7 +138,6 @@ function resetToStartScreen() {
 
     chinesePracticeOption.classList.toggle('hidden', !chineseEnabled);
     writingPracticeOption.classList.toggle('hidden', !writingEnabled);
-    writingSheetsOption.classList.toggle('hidden', !(writingEnabled || writingPendingSheetCount > 0));
     mathPracticeOption.classList.toggle('hidden', !mathEnabled);
 
     practiceChooser.classList.remove('hidden');
@@ -188,9 +165,6 @@ function renderPracticeStars() {
 
     chineseStarBadge.textContent = chineseCount > 0 ? `Today: ${'⭐'.repeat(chineseCount)}` : 'Today: no stars yet';
     writingStarBadge.textContent = writingCount > 0 ? `Today: ${'⭐'.repeat(writingCount)}` : 'Today: no stars yet';
-    writingSheetsBadge.textContent = writingPendingSheetCount > 0
-        ? `Pending: ${writingPendingSheetCount}`
-        : 'No pending sheets';
     mathStarBadge.textContent = mathCount > 0 ? `Today: ${'⭐'.repeat(mathCount)}` : 'Today: no stars yet';
 }
 
@@ -215,10 +189,6 @@ function goWritingPractice() {
         return;
     }
     window.location.href = `/kid-writing.html?id=${kidId}`;
-}
-
-function goWritingSheets() {
-    window.location.href = `/kid-writing-sheets.html?id=${kidId}`;
 }
 
 async function startSession() {

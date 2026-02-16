@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     recordBtn.addEventListener('click', async () => toggleRecording());
     replayRecordBtn.addEventListener('click', () => replayRecordedAudio());
     createSheetBtn.addEventListener('click', async () => createAndPrintSheet());
-    viewSheetsBtn.addEventListener('click', () => viewSheetsReadonly());
+    viewSheetsBtn.addEventListener('click', () => viewSheets());
 
     await loadKidInfo();
     await loadWritingCards();
@@ -321,8 +321,8 @@ async function createAndPrintSheet() {
     }
 }
 
-function viewSheetsReadonly() {
-    window.location.href = `/kid-writing-sheets.html?id=${kidId}&readonly=1`;
+function viewSheets() {
+    window.location.href = `/kid-writing-sheets.html?id=${kidId}`;
 }
 
 async function deleteWritingCard(cardId) {
@@ -377,7 +377,7 @@ function displayCards(cards) {
     const notPracticingCards = visibleCards.filter((card) => !card.pending_sheet);
 
     cardsGrid.innerHTML = `
-        ${renderCardSection('Not Practicing', notPracticingCards, totalNotPracticing)}
+        ${renderCardSection('Testing', notPracticingCards, totalNotPracticing)}
         ${renderCardSection('Practicing', practicingCards, totalPracticing)}
     `;
 }

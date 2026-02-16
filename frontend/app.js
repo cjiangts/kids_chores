@@ -122,20 +122,20 @@ function displayKids(kids) {
         const chineseStars = Number.isInteger(kid.dailyCompletedChineseCountToday) ? kid.dailyCompletedChineseCountToday : 0;
         const mathStars = Number.isInteger(kid.dailyCompletedMathCountToday) ? kid.dailyCompletedMathCountToday : 0;
         const writingStars = Number.isInteger(kid.dailyCompletedWritingCountToday) ? kid.dailyCompletedWritingCountToday : 0;
-        const dailyEnabled = !!kid.dailyPracticeChineseEnabled || !!kid.dailyPracticeMathEnabled || !!kid.dailyPracticeWritingEnabled;
-        let dailyPracticeBadge = `<p class="daily-stars disabled">No daily practices assigned</p>`;
-        if (dailyEnabled) {
-            const chineseLine = kid.dailyPracticeChineseEnabled
-                ? `Chinese Reading: ${chineseStars > 0 ? '⭐'.repeat(chineseStars) : '-'}`
-                : 'Chinese Reading: off';
-            const writingLine = kid.dailyPracticeWritingEnabled
-                ? `Chinese Writing: ${writingStars > 0 ? '⭐'.repeat(writingStars) : '-'}`
-                : 'Chinese Writing: off';
-            const mathLine = kid.dailyPracticeMathEnabled
-                ? `Math: ${mathStars > 0 ? '⭐'.repeat(mathStars) : '-'}`
-                : 'Math: off';
-            dailyPracticeBadge = `<p class="daily-stars">${chineseLine}<br>${writingLine}<br>${mathLine}</p>`;
+        const enabledLines = [];
+        if (kid.dailyPracticeChineseEnabled) {
+            enabledLines.push(`Chinese Reading: ${chineseStars > 0 ? '⭐'.repeat(chineseStars) : '-'}`);
         }
+        if (kid.dailyPracticeWritingEnabled) {
+            enabledLines.push(`Chinese Writing: ${writingStars > 0 ? '⭐'.repeat(writingStars) : '-'}`);
+        }
+        if (kid.dailyPracticeMathEnabled) {
+            enabledLines.push(`Math: ${mathStars > 0 ? '⭐'.repeat(mathStars) : '-'}`);
+        }
+
+        const dailyPracticeBadge = enabledLines.length > 0
+            ? `<p class="daily-stars">${enabledLines.join('<br>')}</p>`
+            : `<p class="daily-stars disabled">No daily practices assigned</p>`;
         return `
             <div class="kid-card" onclick="selectKid('${kid.id}', '${kid.name}')">
                 <h3>${kid.name}</h3>

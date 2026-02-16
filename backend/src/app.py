@@ -28,12 +28,9 @@ def create_app():
             '/kid-manage.html',
             '/kid-math-manage.html',
             '/kid-writing-manage.html',
+            '/kid-writing-sheets.html',
         }
-        if path in protected:
-            return True
-        if path == '/kid-writing-sheets.html' and request.args.get('readonly') == '1':
-            return True
-        return False
+        return path in protected
 
     @app.before_request
     def enforce_parent_auth():
