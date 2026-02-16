@@ -266,7 +266,12 @@
                 </div>
 
                 <div id="sessionScreen" class="hidden">
-                    <div class="progress" id="progress">Card 1 of 10</div>
+                    <div class="practice-progress">
+                        <div class="practice-progress-text" id="progress">Card 1 of 10</div>
+                        <div class="practice-progress-track">
+                            <div class="practice-progress-fill" id="progressFill"></div>
+                        </div>
+                    </div>
 
                     <div id="flashcard" class="flashcard" onclick="togglePauseFromCard()">
                         <div class="card-content" id="cardContent">你</div>
@@ -293,6 +298,7 @@
         </div>
     </div>
 
+    <script src="practice-progress.js"></script>
     <script src="kid.js"></script>
 </body>
 </html>

@@ -14,6 +14,7 @@ const sessionScreen = document.getElementById('sessionScreen');
 const resultScreen = document.getElementById('resultScreen');
 const sessionInfo = document.getElementById('sessionInfo');
 const progress = document.getElementById('progress');
+const progressFill = document.getElementById('progressFill');
 const flashcard = document.getElementById('flashcard');
 const cardAnswer = document.getElementById('cardAnswer');
 const doneRow = document.getElementById('doneRow');
@@ -155,7 +156,7 @@ function showCurrentPrompt() {
     }
 
     const card = sessionCards[currentIndex];
-    progress.textContent = `Card ${currentIndex + 1} of ${sessionCards.length}`;
+    renderPracticeProgress(progress, progressFill, currentIndex + 1, sessionCards.length, 'Card');
     cardAnswer.textContent = card.back || card.front || '';
     cardAnswer.classList.add('hidden');
     flashcard.classList.remove('revealed');

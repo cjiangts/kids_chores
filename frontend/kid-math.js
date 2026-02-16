@@ -13,6 +13,7 @@ const sessionScreen = document.getElementById('sessionScreen');
 const resultScreen = document.getElementById('resultScreen');
 const sessionInfo = document.getElementById('sessionInfo');
 const progress = document.getElementById('progress');
+const progressFill = document.getElementById('progressFill');
 const flashcard = document.getElementById('flashcard');
 const cardQuestion = document.getElementById('cardQuestion');
 const cardAnswer = document.getElementById('cardAnswer');
@@ -171,7 +172,7 @@ function showCurrentQuestion() {
     }
 
     const card = sessionCards[currentIndex];
-    progress.textContent = `Question ${currentIndex + 1} of ${sessionCards.length}`;
+    renderPracticeProgress(progress, progressFill, currentIndex + 1, sessionCards.length, 'Question');
     cardQuestion.textContent = card.front;
     cardAnswer.textContent = `= ${card.back}`;
 

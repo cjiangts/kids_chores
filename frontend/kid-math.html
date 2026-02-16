@@ -199,7 +199,12 @@
                 </div>
 
                 <div id="sessionScreen" class="hidden">
-                    <div id="progress" class="progress">Question 1 of 10</div>
+                    <div class="practice-progress">
+                        <div id="progress" class="practice-progress-text">Question 1 of 10</div>
+                        <div class="practice-progress-track">
+                            <div id="progressFill" class="practice-progress-fill"></div>
+                        </div>
+                    </div>
 
                     <div id="flashcard" class="flashcard" onclick="togglePauseFromCard()">
                         <div class="card-question" id="cardQuestion">3 + 4</div>
@@ -230,6 +235,7 @@
         </div>
     </div>
 
+    <script src="practice-progress.js"></script>
     <script src="kid-math.js"></script>
 </body>
 </html>

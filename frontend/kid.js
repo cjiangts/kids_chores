@@ -12,6 +12,7 @@ const resultBackBtn = document.getElementById('resultBackBtn');
 const practiceSection = document.getElementById('practiceSection');
 const cardContent = document.getElementById('cardContent');
 const progress = document.getElementById('progress');
+const progressFill = document.getElementById('progressFill');
 const errorMessage = document.getElementById('errorMessage');
 const practiceChooser = document.getElementById('practiceChooser');
 const chinesePracticeOption = document.getElementById('chinesePracticeOption');
@@ -282,7 +283,7 @@ function displayCurrentCard() {
 
     const card = sessionCards[currentSessionIndex];
     cardContent.textContent = card.front;
-    progress.textContent = `Card ${currentSessionIndex + 1} of ${sessionCards.length}`;
+    renderPracticeProgress(progress, progressFill, currentSessionIndex + 1, sessionCards.length, 'Card');
     cardShownAtMs = Date.now();
     isPaused = false;
     pauseStartedAtMs = 0;

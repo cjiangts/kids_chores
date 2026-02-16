@@ -209,7 +209,12 @@
                 </div>
 
                 <div id="sessionScreen" class="hidden">
-                    <div id="progress" class="progress">Card 1 of 10</div>
+                    <div class="practice-progress">
+                        <div id="progress" class="practice-progress-text">Card 1 of 10</div>
+                        <div class="practice-progress-track">
+                            <div id="progressFill" class="practice-progress-fill"></div>
+                        </div>
+                    </div>
 
                     <div id="flashcard" class="flashcard" onclick="replayCurrentPrompt()">
                         <div class="prompt-text">🔊 Listen and write</div>
@@ -240,6 +245,7 @@
         </div>
     </div>
 
+    <script src="practice-progress.js"></script>
     <script src="kid-writing.js"></script>
 </body>
 </html>

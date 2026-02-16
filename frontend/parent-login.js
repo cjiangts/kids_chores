@@ -3,12 +3,17 @@ const API_BASE = `${window.location.origin}/api`;
 const form = document.getElementById('loginForm');
 const passwordInput = document.getElementById('parentPassword');
 const errorMessage = document.getElementById('errorMessage');
+const loginCard = document.getElementById('loginCard');
 
 const params = new URLSearchParams(window.location.search);
 const next = params.get('next') || '/admin.html';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await maybeRedirectIfAuthed();
+    const redirected = await maybeRedirectIfAuthed();
+    if (!redirected) {
+        loginCard.classList.remove('hidden');
+        passwordInput.focus();
+    }
 });
 
 form.addEventListener('submit', async (event) => {
@@ -20,15 +25,17 @@ async function maybeRedirectIfAuthed() {
     try {
         const response = await fetch(`${API_BASE}/parent-auth/status`);
         if (!response.ok) {
-            return;
+            return false;
         }
         const data = await response.json();
         if (data.authenticated) {
             window.location.href = next;
+            return true;
         }
     } catch (error) {
         // no-op
     }
+    return false;
 }
 
 async function login() {
