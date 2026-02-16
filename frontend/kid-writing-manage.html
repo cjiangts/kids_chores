@@ -305,6 +305,47 @@
             padding: 3rem;
             color: #999;
         }
+
+        @media (max-width: 760px) {
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+
+            .header h1 {
+                font-size: 1.45rem;
+                line-height: 1.25;
+            }
+
+            .back-btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .tab-nav {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.55rem;
+            }
+
+            .tab-nav .tab-link {
+                min-width: 0;
+                width: 100%;
+            }
+
+            .help-details summary {
+                width: 28px;
+                height: 28px;
+                font-size: 0.9rem;
+            }
+
+            .help-bubble {
+                width: min(92vw, 340px);
+                left: 50%;
+                transform: translateX(-50%);
+            }
+        }
     </style>
 </head>
 <body>
@@ -327,19 +368,7 @@
             <form id="sessionSettingsForm" class="settings-row">
                 <div class="form-group">
                     <label for="sessionCardCount">Writing Cards Per Session</label>
-                    <input type="number" id="sessionCardCount" min="1" max="200" step="1" required>
-                </div>
-                <div class="form-group">
-                    <label for="hardCardPercentage" class="label-with-help">
-                        <span>Hard Cards %</span>
-                        <details class="help-details">
-                            <summary title="What is hardness?">i</summary>
-                            <div class="help-bubble">
-                                Writing hardness uses lifetime correct percentage per card. Lower percentage means harder.
-                            </div>
-                        </details>
-                    </label>
-                    <input type="number" id="hardCardPercentage" min="0" max="100" step="1" required>
+                    <input type="number" id="sessionCardCount" min="0" max="200" step="1" required>
                 </div>
                 <button type="submit" class="settings-save-btn">Save</button>
             </form>

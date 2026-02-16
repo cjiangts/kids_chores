@@ -75,6 +75,36 @@ header p {
     background: #f0f0f0;
 }
 
+.admin-actions {
+    flex-wrap: wrap;
+}
+
+.admin-actions > a.btn-secondary {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 760px) {
+    .admin-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .admin-actions > * {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 460px) {
+    .admin-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
 .kids-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));

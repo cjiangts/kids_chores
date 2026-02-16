@@ -86,7 +86,8 @@ async function loadWritingCards() {
 }
 
 function resetToStartScreen() {
-    const target = Math.min(currentKid?.sessionCardCount || 10, availableCards.length);
+    const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
+    const target = Math.min(Number.isInteger(writingSessionCount) ? writingSessionCount : 0, availableCards.length);
     sessionInfo.textContent = `Session: ${target} cards`;
 
     sessionCards = [];

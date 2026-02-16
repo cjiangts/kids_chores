@@ -36,6 +36,7 @@ let pausedDurationMs = 0;
 let pauseStartedAtMs = 0;
 let isPaused = false;
 let sessionAnswers = [];
+let configuredSessionCount = 0;
 
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -79,22 +80,30 @@ async function ensureMathSeedAndReady() {
             throw new Error(`HTTP ${seedResponse.status}`);
         }
 
-        const cardsResponse = await fetch(`${API_BASE}/kids/${kidId}/math/cards`);
-        if (!cardsResponse.ok) {
-            throw new Error(`HTTP ${cardsResponse.status}`);
+        const decksResponse = await fetch(`${API_BASE}/kids/${kidId}/math/decks`);
+        if (!decksResponse.ok) {
+            throw new Error(`HTTP ${decksResponse.status}`);
         }
 
-        const data = await cardsResponse.json();
-        const totalCards = (data.cards || []).length;
+        const decksData = await decksResponse.json();
+        configuredSessionCount = Number.parseInt(decksData.total_session_count, 10) || 0;
+        const deckList = Array.isArray(decksData.decks) ? decksData.decks : [];
+        const availableWithConfig = deckList.some((deck) => (Number(deck.total_cards || 0) > 0) && (Number(deck.session_count || 0) > 0));
 
-        if (totalCards === 0) {
+        if (configuredSessionCount <= 0) {
             practiceSection.classList.add('hidden');
-            showError('No math questions yet. Ask your parent to add starter math questions.');
+            showError('Math practice is off. Ask your parent to set per-deck counts in Manage Math.');
+            return;
+        }
+
+        if (!availableWithConfig) {
+            practiceSection.classList.add('hidden');
+            showError('No math questions available for current deck settings.');
             return;
         }
 
         practiceSection.classList.remove('hidden');
-        resetToStartScreen(totalCards);
+        resetToStartScreen(configuredSessionCount);
     } catch (error) {
         console.error('Error preparing math practice:', error);
         showError('Failed to load math practice data');
@@ -103,7 +112,7 @@ async function ensureMathSeedAndReady() {
 
 
 function resetToStartScreen(totalCards) {
-    const target = Math.min(currentKid?.sessionCardCount || 10, totalCards);
+    const target = Math.max(0, Number.parseInt(totalCards, 10) || 0);
     sessionInfo.textContent = `Session: ${target} questions`;
 
     sessionCards = [];

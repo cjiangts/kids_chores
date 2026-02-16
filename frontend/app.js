@@ -122,14 +122,22 @@ function displayKids(kids) {
         const chineseStars = Number.isInteger(kid.dailyCompletedChineseCountToday) ? kid.dailyCompletedChineseCountToday : 0;
         const mathStars = Number.isInteger(kid.dailyCompletedMathCountToday) ? kid.dailyCompletedMathCountToday : 0;
         const writingStars = Number.isInteger(kid.dailyCompletedWritingCountToday) ? kid.dailyCompletedWritingCountToday : 0;
+
+        const readingSessionCount = Number.parseInt(kid.sessionCardCount, 10);
+        const writingSessionCount = Number.parseInt(kid.writingSessionCardCount, 10);
+        const mathWithin10Count = Number.parseInt(kid.mathDeckWithin10Count, 10);
+        const mathWithin20Count = Number.parseInt(kid.mathDeckWithin20Count, 10);
+        const mathSessionCount = (Number.isInteger(mathWithin10Count) ? mathWithin10Count : 0)
+            + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0);
+
         const enabledLines = [];
-        if (kid.dailyPracticeChineseEnabled) {
+        if (Number.isInteger(readingSessionCount) && readingSessionCount > 0) {
             enabledLines.push(`Chinese Reading: ${chineseStars > 0 ? '⭐'.repeat(chineseStars) : '-'}`);
         }
-        if (kid.dailyPracticeWritingEnabled) {
+        if (Number.isInteger(writingSessionCount) && writingSessionCount > 0) {
             enabledLines.push(`Chinese Writing: ${writingStars > 0 ? '⭐'.repeat(writingStars) : '-'}`);
         }
-        if (kid.dailyPracticeMathEnabled) {
+        if (mathSessionCount > 0) {
             enabledLines.push(`Math: ${mathStars > 0 ? '⭐'.repeat(mathStars) : '-'}`);
         }
 

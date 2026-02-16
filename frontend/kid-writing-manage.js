@@ -13,7 +13,6 @@ const audioPlayer = document.getElementById('audioPlayer');
 const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
-const hardCardPercentageInput = document.getElementById('hardCardPercentage');
 const sheetCardCountInput = document.getElementById('sheetCardCount');
 const sheetRowsPerCharInput = document.getElementById('sheetRowsPerChar');
 const createSheetBtn = document.getElementById('createSheetBtn');
@@ -76,10 +75,11 @@ async function loadKidInfo() {
 
         const kid = await response.json();
         kidNameEl.textContent = `${kid.name}'s Chinese Character Writing`;
-        sessionCardCountInput.value = kid.sessionCardCount || 10;
-        const initialHardPct = Number.parseInt(kid.hardCardPercentage, 10);
-        hardCardPercentageInput.value = Number.isInteger(initialHardPct) ? initialHardPct : 20;
-        sheetCardCountInput.value = kid.sessionCardCount || 10;
+        const writingCount = Number.isInteger(Number.parseInt(kid.writingSessionCardCount, 10))
+            ? Number.parseInt(kid.writingSessionCardCount, 10)
+            : 0;
+        sessionCardCountInput.value = writingCount;
+        sheetCardCountInput.value = writingCount;
     } catch (error) {
         console.error('Error loading kid:', error);
         showError('Failed to load kid information');
@@ -89,13 +89,8 @@ async function loadKidInfo() {
 async function saveSessionSettings() {
     try {
         const value = Number.parseInt(sessionCardCountInput.value, 10);
-        const hardPct = Number.parseInt(hardCardPercentageInput.value, 10);
-        if (!Number.isInteger(value) || value < 1 || value > 200) {
-            showError('Session size must be between 1 and 200');
-            return;
-        }
-        if (!Number.isInteger(hardPct) || hardPct < 0 || hardPct > 100) {
-            showError('Hard cards % must be between 0 and 100');
+        if (!Number.isInteger(value) || value < 0 || value > 200) {
+            showError('Session size must be between 0 and 200');
             return;
         }
 
@@ -103,8 +98,7 @@ async function saveSessionSettings() {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                sessionCardCount: value,
-                hardCardPercentage: hardPct
+                writingSessionCardCount: value
             })
         });
 
@@ -113,9 +107,11 @@ async function saveSessionSettings() {
         }
 
         const updatedKid = await response.json();
-        sessionCardCountInput.value = updatedKid.sessionCardCount || value;
-        const savedHardPct = Number.parseInt(updatedKid.hardCardPercentage, 10);
-        hardCardPercentageInput.value = Number.isInteger(savedHardPct) ? savedHardPct : hardPct;
+        const updatedWritingCount = Number.isInteger(Number.parseInt(updatedKid.writingSessionCardCount, 10))
+            ? Number.parseInt(updatedKid.writingSessionCardCount, 10)
+            : value;
+        sessionCardCountInput.value = updatedWritingCount;
+        sheetCardCountInput.value = updatedWritingCount;
         showError('');
     } catch (error) {
         console.error('Error saving session settings:', error);

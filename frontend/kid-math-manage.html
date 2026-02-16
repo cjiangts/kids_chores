@@ -53,7 +53,7 @@
         }
 
         .settings-section,
-        .starter-section {
+        .cards-section {
             background: white;
             padding: 1.5rem;
             border-radius: 8px;
@@ -72,8 +72,7 @@
             margin-bottom: 0;
         }
 
-        .settings-save-btn,
-        .seed-btn {
+        .settings-save-btn {
             background: #007bff;
             color: white;
             padding: 0.75rem 1.25rem;
@@ -85,15 +84,8 @@
             white-space: nowrap;
         }
 
-        .settings-save-btn:hover,
-        .seed-btn:hover {
+        .settings-save-btn:hover {
             background: #0069d9;
-        }
-
-        .starter-help {
-            margin-top: 0.4rem;
-            color: #666;
-            font-size: 0.9rem;
         }
 
         .form-group {
@@ -172,6 +164,33 @@
             color: #333;
         }
 
+        .math-deck-tabs {
+            display: flex;
+            gap: 0.6rem;
+            margin-bottom: 1rem;
+        }
+
+        .math-deck-tab {
+            border: none;
+            border-radius: 8px;
+            background: #eef2ff;
+            color: #3b4cc0;
+            font-size: 0.95rem;
+            padding: 0.55rem 0.9rem;
+            cursor: pointer;
+        }
+
+        .math-deck-tab.active {
+            background: #4CAF50;
+            color: #fff;
+        }
+
+        .math-subtab-settings {
+            margin-bottom: 1rem;
+            border: 1px solid #e7ebff;
+            background: #f8faff;
+        }
+
         .cards-toolbar {
             display: flex;
             justify-content: flex-end;
@@ -239,6 +258,52 @@
             padding: 3rem;
             color: #999;
         }
+
+        @media (max-width: 760px) {
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+
+            .header h1 {
+                font-size: 1.45rem;
+                line-height: 1.25;
+            }
+
+            .back-btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .tab-nav {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.55rem;
+            }
+
+            .tab-nav .tab-link {
+                min-width: 0;
+                width: 100%;
+            }
+
+            .math-deck-tabs {
+                display: grid;
+                grid-template-columns: 1fr;
+            }
+
+            .help-details summary {
+                width: 28px;
+                height: 28px;
+                font-size: 0.9rem;
+            }
+
+            .help-bubble {
+                width: min(92vw, 340px);
+                left: 50%;
+                transform: translateX(-50%);
+            }
+        }
     </style>
 </head>
 <body>
@@ -256,38 +321,25 @@
 
         <div id="errorMessage" class="error hidden"></div>
 
-        <div class="settings-section">
-            <h2>Practice Settings</h2>
-            <form id="sessionSettingsForm" class="settings-row">
-                <div class="form-group">
-                    <label for="sessionCardCount">Questions Per Session</label>
-                    <input type="number" id="sessionCardCount" min="1" max="200" step="1" required>
-                </div>
-                <div class="form-group">
-                    <label for="hardCardPercentage" class="label-with-help">
-                        <span>Hard Cards %</span>
-                        <details class="help-details">
-                            <summary title="What is hardness?">i</summary>
-                            <div class="help-bubble">
-                                Math hardness uses each card's latest response time. Higher score means slower and is treated as harder.
-                            </div>
-                        </details>
-                    </label>
-                    <input type="number" id="hardCardPercentage" min="0" max="100" step="1" required>
-                </div>
-                <button type="submit" class="settings-save-btn">Save</button>
-            </form>
-        </div>
-
-        <div class="starter-section">
-            <h2>Starter Set</h2>
-            <button class="seed-btn" id="seedBtn">Insert Starter 20</button>
-            <p class="starter-help" id="seedStatus"></p>
-        </div>
-
         <div class="cards-section">
-            <h2>Math Questions <span id="cardCount">(0)</span></h2>
+            <h2>Math Questions <span id="mathSessionTotalInline"></span></h2>
+            <div class="math-deck-tabs">
+                <button id="deckTabWithin10" class="math-deck-tab active" type="button">Deck 1: Addition Within 10</button>
+                <button id="deckTabWithin20" class="math-deck-tab" type="button">Deck 2: Addition Within 20</button>
+            </div>
+            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Total cards in this deck: 0</p>
+            <div class="settings-section math-subtab-settings">
+                <h2>Practice Settings</h2>
+                <form id="sessionSettingsForm" class="settings-row">
+                    <div class="form-group">
+                        <label id="deckCountLabel" for="activeDeckCount">Selected Per Session</label>
+                        <input type="number" id="activeDeckCount" min="0" max="200" step="1" required>
+                    </div>
+                    <button type="submit" class="settings-save-btn">Save</button>
+                </form>
+            </div>
             <div class="cards-toolbar">
+                <span id="cardCount" style="align-self: center; color: #666; font-size: 0.92rem;">(0)</span>
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="queue">Order: Next Session Queue</option>
                     <option value="added_time">Order: Added Time</option>

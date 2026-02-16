@@ -140,6 +140,18 @@ function displayKids(kids) {
 
     kidsList.innerHTML = kids.map(kid => {
         const age = calculateAge(kid.birthday);
+        const readingCount = Number.parseInt(kid.sessionCardCount, 10);
+        const writingCount = Number.parseInt(kid.writingSessionCardCount, 10);
+        const mathWithin10Count = Number.parseInt(kid.mathDeckWithin10Count, 10);
+        const mathWithin20Count = Number.parseInt(kid.mathDeckWithin20Count, 10);
+        const safeReadingCount = Number.isInteger(readingCount) ? Math.max(0, readingCount) : 0;
+        const safeWritingCount = Number.isInteger(writingCount) ? Math.max(0, writingCount) : 0;
+        const safeMathCount = (Number.isInteger(mathWithin10Count) ? Math.max(0, mathWithin10Count) : 0)
+            + (Number.isInteger(mathWithin20Count) ? Math.max(0, mathWithin20Count) : 0);
+
+        const readingLabel = `📝 Reading (${safeReadingCount}/day)`;
+        const writingLabel = `✍️ Writing (${safeWritingCount}/day)`;
+        const mathLabel = `➗ Math (${safeMathCount}/day)`;
         return `
             <div class="kid-card">
                 <h3>${kid.name}</h3>
@@ -147,36 +159,15 @@ function displayKids(kids) {
                 <p class="age">Birthday: ${formatDate(kid.birthday)}</p>
                 <div class="practice-config-list" onclick="event.stopPropagation()">
                     <div class="practice-config-row">
-                        <input
-                            class="daily-toggle-checkbox"
-                            type="checkbox"
-                            ${kid.dailyPracticeChineseEnabled ? 'checked' : ''}
-                            onchange="toggleDailyPractice('${kid.id}', 'dailyPracticeChineseEnabled', this.checked)"
-                            onclick="event.stopPropagation()"
-                        >
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-manage.html?id=${kid.id}">📝 Manage Reading</a>
+                        <a class="tab-link secondary practice-manage-btn" href="/kid-manage.html?id=${kid.id}">${readingLabel}</a>
                     </div>
 
                     <div class="practice-config-row">
-                        <input
-                            class="daily-toggle-checkbox"
-                            type="checkbox"
-                            ${kid.dailyPracticeWritingEnabled ? 'checked' : ''}
-                            onchange="toggleDailyPractice('${kid.id}', 'dailyPracticeWritingEnabled', this.checked)"
-                            onclick="event.stopPropagation()"
-                        >
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-writing-manage.html?id=${kid.id}">✍️ Manage Writing</a>
+                        <a class="tab-link secondary practice-manage-btn" href="/kid-writing-manage.html?id=${kid.id}">${writingLabel}</a>
                     </div>
 
                     <div class="practice-config-row">
-                        <input
-                            class="daily-toggle-checkbox"
-                            type="checkbox"
-                            ${kid.dailyPracticeMathEnabled ? 'checked' : ''}
-                            onchange="toggleDailyPractice('${kid.id}', 'dailyPracticeMathEnabled', this.checked)"
-                            onclick="event.stopPropagation()"
-                        >
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-math-manage.html?id=${kid.id}">➗ Manage Math</a>
+                        <a class="tab-link secondary practice-manage-btn" href="/kid-math-manage.html?id=${kid.id}">${mathLabel}</a>
                     </div>
                 </div>
                 <button class="delete-btn" onclick="deleteKid('${kid.id}', '${kid.name}')">
@@ -185,28 +176,6 @@ function displayKids(kids) {
             </div>
         `;
     }).join('');
-}
-
-async function toggleDailyPractice(kidId, field, enabled) {
-    try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                [field]: enabled
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-    } catch (error) {
-        console.error('Error updating daily practice setting:', error);
-        showError('Failed to update daily practice setting. Please try again.');
-        await loadKids();
-    }
 }
 
 function calculateAge(birthday) {

@@ -123,7 +123,8 @@ async function loadWritingCards() {
 
 // Session Functions
 function resetToStartScreen() {
-    const count = Math.min(currentKid?.sessionCardCount || 10, cards.length);
+    const readingSessionCount = Number.parseInt(currentKid?.sessionCardCount, 10);
+    const count = Math.min(Number.isInteger(readingSessionCount) ? readingSessionCount : 10, cards.length);
     sessionInfo.textContent = `Session: ${count} reading cards`;
 
     activeSessionId = null;
@@ -132,9 +133,14 @@ function resetToStartScreen() {
     knownCount = 0;
     unknownCount = 0;
 
-    const chineseEnabled = !!currentKid?.dailyPracticeChineseEnabled;
-    const writingEnabled = !!currentKid?.dailyPracticeWritingEnabled;
-    const mathEnabled = !!currentKid?.dailyPracticeMathEnabled;
+    const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
+    const mathWithin10Count = Number.parseInt(currentKid?.mathDeckWithin10Count, 10);
+    const mathWithin20Count = Number.parseInt(currentKid?.mathDeckWithin20Count, 10);
+
+    const chineseEnabled = Number.isInteger(readingSessionCount) && readingSessionCount > 0;
+    const writingEnabled = Number.isInteger(writingSessionCount) && writingSessionCount > 0;
+    const mathEnabled = (Number.isInteger(mathWithin10Count) ? mathWithin10Count : 0)
+        + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0) > 0;
 
     chinesePracticeOption.classList.toggle('hidden', !chineseEnabled);
     writingPracticeOption.classList.toggle('hidden', !writingEnabled);
@@ -146,7 +152,7 @@ function resetToStartScreen() {
     resultScreen.classList.add('hidden');
 
     if (!chineseEnabled && !writingEnabled && !mathEnabled) {
-        showError('No daily practice is assigned. Ask your parent to enable Reading, Writing, or Math.');
+        showError('No daily practice is assigned. Ask your parent to set per-session counts above 0.');
     } else {
         showError('');
     }

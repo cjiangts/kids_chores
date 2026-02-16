@@ -5,6 +5,10 @@ const currentPasswordInput = document.getElementById('currentPassword');
 const newPasswordInput = document.getElementById('newPassword');
 const confirmPasswordInput = document.getElementById('confirmPassword');
 const changePasswordBtn = document.getElementById('changePasswordBtn');
+const hardCardPercentageInput = document.getElementById('hardCardPercentage');
+const saveHardCardBtn = document.getElementById('saveHardCardBtn');
+const hardCardError = document.getElementById('hardCardError');
+const hardCardSuccess = document.getElementById('hardCardSuccess');
 const downloadBackupBtn = document.getElementById('downloadBackupBtn');
 const restoreBackupBtn = document.getElementById('restoreBackupBtn');
 const backupFileInput = document.getElementById('backupFileInput');
@@ -15,6 +19,7 @@ const passwordError = document.getElementById('passwordError');
 const passwordSuccess = document.getElementById('passwordSuccess');
 
 document.addEventListener('DOMContentLoaded', () => {
+    loadHardCardSettings();
     loadBackupInfo();
 });
 
@@ -33,6 +38,10 @@ restoreBackupBtn.addEventListener('click', () => {
     }
 });
 
+saveHardCardBtn.addEventListener('click', async () => {
+    await saveHardCardSettings();
+});
+
 backupFileInput.addEventListener('change', async (event) => {
     const file = event.target.files[0];
     if (!file) {
@@ -40,6 +49,56 @@ backupFileInput.addEventListener('change', async (event) => {
     }
     await restoreBackup(file);
 });
+
+async function loadHardCardSettings() {
+    try {
+        showHardCardError('');
+        showHardCardSuccess('');
+        const response = await fetch(`${API_BASE}/parent-settings/hard-card-percentage`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        const value = Number.parseInt(data.hardCardPercentage, 10);
+        hardCardPercentageInput.value = Number.isInteger(value) ? value : 20;
+    } catch (error) {
+        console.error('Error loading hard-card settings:', error);
+        showHardCardError('Failed to load global hard-card setting.');
+    }
+}
+
+async function saveHardCardSettings() {
+    try {
+        showHardCardError('');
+        showHardCardSuccess('');
+        const value = Number.parseInt(hardCardPercentageInput.value, 10);
+        if (!Number.isInteger(value) || value < 0 || value > 100) {
+            showHardCardError('Hard cards % must be between 0 and 100.');
+            return;
+        }
+
+        saveHardCardBtn.disabled = true;
+        saveHardCardBtn.textContent = 'Saving...';
+        const response = await fetch(`${API_BASE}/parent-settings/hard-card-percentage`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hardCardPercentage: value })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showHardCardError(result.error || 'Failed to save global hard-card setting.');
+            return;
+        }
+
+        showHardCardSuccess('Global hard-card setting saved.');
+    } catch (error) {
+        console.error('Error saving hard-card settings:', error);
+        showHardCardError('Failed to save global hard-card setting.');
+    } finally {
+        saveHardCardBtn.disabled = false;
+        saveHardCardBtn.textContent = 'Save';
+    }
+}
 
 async function changePassword() {
     const currentPassword = currentPasswordInput.value || '';
@@ -219,5 +278,23 @@ function showPasswordSuccess(message) {
         passwordSuccess.classList.remove('hidden');
     } else {
         passwordSuccess.classList.add('hidden');
+    }
+}
+
+function showHardCardError(message) {
+    if (message) {
+        hardCardError.textContent = message;
+        hardCardError.classList.remove('hidden');
+    } else {
+        hardCardError.classList.add('hidden');
+    }
+}
+
+function showHardCardSuccess(message) {
+    if (message) {
+        hardCardSuccess.textContent = message;
+        hardCardSuccess.classList.remove('hidden');
+    } else {
+        hardCardSuccess.classList.add('hidden');
     }
 }

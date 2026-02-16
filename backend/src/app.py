@@ -15,6 +15,16 @@ def create_app():
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+    min_hard_pct = 0
+    max_hard_pct = 100
+    cleanup_result = metadata.cleanup_deprecated_metadata_config()
+    app.logger.info(
+        'Metadata cleanup at startup: updated=%s, removedTopLevelKeys=%s, removedFamilyKeys=%s, removedKidKeys=%s',
+        cleanup_result.get('updated'),
+        cleanup_result.get('removedTopLevelKeys', 0),
+        cleanup_result.get('removedFamilyKeys', 0),
+        cleanup_result.get('removedKidKeys', 0),
+    )
 
     def is_family_authenticated():
         return bool(session.get('family_id'))
@@ -168,6 +178,39 @@ def create_app():
             return {'error': 'Current password is incorrect'}, 400
 
         return {'success': True}, 200
+
+    @app.route('/api/parent-settings/hard-card-percentage', methods=['GET'])
+    def get_parent_hard_card_percentage():
+        if not is_family_authenticated():
+            return {'error': 'Family login required'}, 401
+        if not is_parent_authenticated():
+            return {'error': 'Parent login required'}, 401
+        family_id = str(session.get('family_id') or '')
+        return {
+            'hardCardPercentage': metadata.get_family_hard_card_percentage(family_id)
+        }, 200
+
+    @app.route('/api/parent-settings/hard-card-percentage', methods=['PUT'])
+    def update_parent_hard_card_percentage():
+        if not is_family_authenticated():
+            return {'error': 'Family login required'}, 401
+        if not is_parent_authenticated():
+            return {'error': 'Parent login required'}, 401
+
+        payload = request.get_json() or {}
+        try:
+            hard_pct = int(payload.get('hardCardPercentage'))
+        except (TypeError, ValueError):
+            return {'error': 'hardCardPercentage must be an integer'}, 400
+
+        if hard_pct < min_hard_pct or hard_pct > max_hard_pct:
+            return {'error': f'hardCardPercentage must be between {min_hard_pct} and {max_hard_pct}'}, 400
+
+        family_id = str(session.get('family_id') or '')
+        if not metadata.update_family_hard_card_percentage(family_id, hard_pct):
+            return {'error': 'Failed to update hard-card setting'}, 400
+
+        return {'hardCardPercentage': hard_pct, 'updated': True}, 200
 
     @app.route('/health', methods=['GET'])
     def health():

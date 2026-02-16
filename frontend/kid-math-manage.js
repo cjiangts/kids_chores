@@ -5,14 +5,16 @@ const kidId = params.get('id');
 
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
-const seedBtn = document.getElementById('seedBtn');
-const seedStatus = document.getElementById('seedStatus');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
-const sessionCardCountInput = document.getElementById('sessionCardCount');
-const hardCardPercentageInput = document.getElementById('hardCardPercentage');
+const deckCountLabel = document.getElementById('deckCountLabel');
+const activeDeckCountInput = document.getElementById('activeDeckCount');
+const mathSessionTotalInline = document.getElementById('mathSessionTotalInline');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardCount = document.getElementById('cardCount');
+const deckTotalInfo = document.getElementById('deckTotalInfo');
 const cardsGrid = document.getElementById('cardsGrid');
+const deckTabWithin10 = document.getElementById('deckTabWithin10');
+const deckTabWithin20 = document.getElementById('deckTabWithin20');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
@@ -21,6 +23,13 @@ let currentKid = null;
 let currentCards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
+let activeDeckKey = 'within10';
+let activeDeckLabel = 'Addition Within 10';
+let activeDeckTotalCards = 0;
+let deckCounts = {
+    within10: 5,
+    within20: 5,
+};
 const CARD_PAGE_SIZE = 10;
 
 
@@ -40,14 +49,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
-    seedBtn.addEventListener('click', async () => seedStarterSet());
+    deckTabWithin10.addEventListener('click', async () => {
+        if (activeDeckKey === 'within10') return;
+        activeDeckKey = 'within10';
+        renderDeckTabs();
+        await loadMathCards();
+    });
+    deckTabWithin20.addEventListener('click', async () => {
+        if (activeDeckKey === 'within20') return;
+        activeDeckKey = 'within20';
+        renderDeckTabs();
+        await loadMathCards();
+    });
+
+    activeDeckCountInput.addEventListener('input', () => {
+        const value = Number.parseInt(activeDeckCountInput.value, 10);
+        deckCounts[activeDeckKey] = Number.isInteger(value) ? Math.max(0, value) : 0;
+        updateTotalSessionCount();
+        renderDeckTabs();
+    });
+
     window.addEventListener('scroll', () => {
         maybeLoadMoreCards();
     });
 
+    renderDeckTabs();
     await loadKidInfo();
     await loadMathCards();
 });
+
+
+function renderDeckTabs() {
+    deckTabWithin10.classList.toggle('active', activeDeckKey === 'within10');
+    deckTabWithin20.classList.toggle('active', activeDeckKey === 'within20');
+    deckTabWithin10.textContent = `Deck 1: Addition Within 10 (${deckCounts.within10 || 0})`;
+    deckTabWithin20.textContent = `Deck 2: Addition Within 20 (${deckCounts.within20 || 0})`;
+    deckCountLabel.textContent = activeDeckKey === 'within20'
+        ? 'Deck 2 Selected Per Session'
+        : 'Deck 1 Selected Per Session';
+    activeDeckCountInput.value = String(deckCounts[activeDeckKey] || 0);
+}
+
+
+function updateTotalSessionCount() {
+    const safeWithin10 = Number.isInteger(deckCounts.within10) ? Math.max(0, deckCounts.within10) : 0;
+    const safeWithin20 = Number.isInteger(deckCounts.within20) ? Math.max(0, deckCounts.within20) : 0;
+    const total = safeWithin10 + safeWithin20;
+    mathSessionTotalInline.textContent = `(${total})`;
+}
 
 
 async function loadKidInfo() {
@@ -59,9 +108,13 @@ async function loadKidInfo() {
 
         currentKid = await response.json();
         kidNameEl.textContent = `${currentKid.name}'s Math`;
-        sessionCardCountInput.value = currentKid.sessionCardCount || 10;
-        const initialHardPct = Number.parseInt(currentKid.hardCardPercentage, 10);
-        hardCardPercentageInput.value = Number.isInteger(initialHardPct) ? initialHardPct : 20;
+
+        const within10Value = Number.parseInt(currentKid.mathDeckWithin10Count, 10);
+        const within20Value = Number.parseInt(currentKid.mathDeckWithin20Count, 10);
+        deckCounts.within10 = Number.isInteger(within10Value) ? within10Value : 5;
+        deckCounts.within20 = Number.isInteger(within20Value) ? within20Value : 5;
+        updateTotalSessionCount();
+        renderDeckTabs();
     } catch (error) {
         console.error('Error loading kid:', error);
         showError('Failed to load kid information');
@@ -71,23 +124,20 @@ async function loadKidInfo() {
 
 async function saveSessionSettings() {
     try {
-        const value = Number.parseInt(sessionCardCountInput.value, 10);
-        const hardPct = Number.parseInt(hardCardPercentageInput.value, 10);
-        if (!Number.isInteger(value) || value < 1 || value > 200) {
-            showError('Session size must be between 1 and 200');
+        const activeCount = Number.parseInt(activeDeckCountInput.value, 10);
+
+        if (!Number.isInteger(activeCount) || activeCount < 0 || activeCount > 200) {
+            showError('Selected deck count must be between 0 and 200');
             return;
         }
-        if (!Number.isInteger(hardPct) || hardPct < 0 || hardPct > 100) {
-            showError('Hard cards % must be between 0 and 100');
-            return;
-        }
+        deckCounts[activeDeckKey] = activeCount;
 
         const response = await fetch(`${API_BASE}/kids/${kidId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                sessionCardCount: value,
-                hardCardPercentage: hardPct
+                mathDeckWithin10Count: deckCounts.within10 || 0,
+                mathDeckWithin20Count: deckCounts.within20 || 0
             })
         });
 
@@ -96,10 +146,10 @@ async function saveSessionSettings() {
         }
 
         currentKid = await response.json();
-        sessionCardCountInput.value = currentKid.sessionCardCount || value;
-        const savedHardPct = Number.parseInt(currentKid.hardCardPercentage, 10);
-        hardCardPercentageInput.value = Number.isInteger(savedHardPct) ? savedHardPct : hardPct;
         showError('');
+        updateTotalSessionCount();
+        renderDeckTabs();
+        await loadMathCards();
     } catch (error) {
         console.error('Error saving session settings:', error);
         showError('Failed to save practice settings');
@@ -110,13 +160,16 @@ async function saveSessionSettings() {
 async function loadMathCards() {
     try {
         showError('');
-        const response = await fetch(`${API_BASE}/kids/${kidId}/math/cards`);
+        const response = await fetch(`${API_BASE}/kids/${kidId}/math/cards?deck=${encodeURIComponent(activeDeckKey)}`);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
 
         const data = await response.json();
+        activeDeckLabel = data.deck_label || (activeDeckKey === 'within20' ? 'Addition Within 20' : 'Addition Within 10');
         currentCards = data.cards || [];
+        activeDeckTotalCards = currentCards.length;
+        deckTotalInfo.textContent = `Total cards in this deck: ${activeDeckTotalCards}`;
         resetAndDisplayCards(currentCards);
     } catch (error) {
         console.error('Error loading math cards:', error);
@@ -125,67 +178,18 @@ async function loadMathCards() {
 }
 
 
-async function seedStarterSet() {
-    try {
-        showError('');
-        seedStatus.textContent = 'Inserting starter set...';
-
-        const response = await fetch(`${API_BASE}/kids/${kidId}/math/seed`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const result = await response.json();
-        seedStatus.textContent = `Inserted ${result.inserted} new items. Total: ${result.total}.`;
-        await loadMathCards();
-    } catch (error) {
-        console.error('Error seeding starter math set:', error);
-        showError('Failed to insert starter set');
-        seedStatus.textContent = '';
-    }
-}
-
-
-async function deleteMathCard(cardId) {
-    if (!confirm('Are you sure you want to delete this math card?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/math/cards/${cardId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        await loadMathCards();
-    } catch (error) {
-        console.error('Error deleting math card:', error);
-        showError('Failed to delete math card');
-    }
-}
-
-
 function displayCards(cards) {
     sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
-    cardCount.textContent = `(${sortedCards.length})`;
+    cardCount.textContent = `${sortedCards.length} shown`;
 
     if (sortedCards.length === 0) {
-        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No math questions yet</h3><p>Click \"Insert Starter 20\" above.</p></div>`;
+        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in ${activeDeckLabel}</h3></div>`;
         return;
     }
 
     const visibleCards = sortedCards.slice(0, visibleCardCount);
     cardsGrid.innerHTML = visibleCards.map((card) => `
         <div class="card-item">
-            <button class="delete-card-btn" onclick="deleteMathCard('${card.id}')">×</button>
             <div class="card-front">${card.front}</div>
             <div class="card-back">= ${card.back}</div>
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
@@ -196,10 +200,12 @@ function displayCards(cards) {
     `).join('');
 }
 
+
 function resetAndDisplayCards(cards) {
     visibleCardCount = CARD_PAGE_SIZE;
     displayCards(cards);
 }
+
 
 function maybeLoadMoreCards() {
     if (sortedCards.length <= visibleCardCount) {
