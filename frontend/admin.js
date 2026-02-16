@@ -159,7 +159,7 @@ function displayKids(kids) {
                 <p class="age">Birthday: ${formatDate(kid.birthday)}</p>
                 <div class="practice-config-list" onclick="event.stopPropagation()">
                     <div class="practice-config-row">
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-manage.html?id=${kid.id}">${readingLabel}</a>
+                        <a class="tab-link secondary practice-manage-btn" href="/kid-reading-manage.html?id=${kid.id}">${readingLabel}</a>
                     </div>
 
                     <div class="practice-config-row">

@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    charactersTab.href = `/kid-manage.html?id=${kidId}`;
+    charactersTab.href = `/kid-reading-manage.html?id=${kidId}`;
     writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
     mathTab.href = `/kid-math-manage.html?id=${kidId}`;
 

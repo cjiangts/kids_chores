@@ -43,7 +43,7 @@ def create_app():
         protected = {
             '/admin.html',
             '/parent-settings.html',
-            '/kid-manage.html',
+            '/kid-reading-manage.html',
             '/kid-math-manage.html',
             '/kid-writing-manage.html',
             '/kid-writing-sheets.html',
