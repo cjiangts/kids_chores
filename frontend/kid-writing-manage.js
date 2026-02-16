@@ -10,6 +10,7 @@ const chineseCharsInput = document.getElementById('chineseChars');
 const recordBtn = document.getElementById('recordBtn');
 const recordStatus = document.getElementById('recordStatus');
 const audioPlayer = document.getElementById('audioPlayer');
+const addCardErrorMessage = document.getElementById('addCardErrorMessage');
 const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
@@ -318,22 +319,23 @@ function guessAudioExtension(mimeType) {
 
 async function addWritingCards() {
     try {
+        showAddCardError('');
         if (mediaRecorder && mediaRecorder.state === 'recording') {
-            showError('Please stop recording first');
+            showAddCardError('Please stop recording first');
             return;
         }
         if (isRecordTransitioning) {
-            showError('Recording is still processing. Please wait a moment.');
+            showAddCardError('Recording is still processing. Please wait a moment.');
             return;
         }
         const rawText = chineseCharsInput.value.trim();
         if (rawText.length === 0) {
-            showError('Please enter answer text');
+            showAddCardError('Please enter answer text');
             return;
         }
 
         if (!recordedBlob || recordedBlob.size === 0) {
-            showError('Please record a voice prompt first');
+            showAddCardError('Please record a voice prompt first');
             setRecordStatus('Please record a voice prompt first', true);
             return;
         }
@@ -364,10 +366,10 @@ async function addWritingCards() {
         setRecordStatus('No recording yet');
 
         await loadWritingCards();
-        showError('');
+        showAddCardError('');
     } catch (error) {
         console.error('Error adding writing cards:', error);
-        showError(error.message || 'Failed to add Chinese writing cards');
+        showAddCardError(error.message || 'Failed to add Chinese writing cards');
     }
 }
 
@@ -436,6 +438,18 @@ function showSheetError(message) {
         sheetErrorMessage.classList.remove('hidden');
     } else {
         sheetErrorMessage.classList.add('hidden');
+    }
+}
+
+function showAddCardError(message) {
+    if (!addCardErrorMessage) {
+        return;
+    }
+    if (message) {
+        addCardErrorMessage.textContent = message;
+        addCardErrorMessage.classList.remove('hidden');
+    } else {
+        addCardErrorMessage.classList.add('hidden');
     }
 }
 

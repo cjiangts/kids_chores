@@ -1403,6 +1403,19 @@ def add_writing_cards(kid_id):
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_writing_deck(conn)
 
+        existing = conn.execute(
+            """
+            SELECT id
+            FROM cards
+            WHERE deck_id = ? AND back = ?
+            LIMIT 1
+            """,
+            [deck_id, answer_text]
+        ).fetchone()
+        if existing:
+            conn.close()
+            return jsonify({'error': 'This Chinese writing answer already exists in the card bank'}), 400
+
         safe_name = secure_filename(audio_file.filename or '')
         _, original_ext = os.path.splitext(safe_name)
         mime_type = audio_file.mimetype or 'application/octet-stream'
