@@ -80,7 +80,7 @@ function renderSummary(sessions) {
 
     summaryGrid.innerHTML = `
         <div class="summary-card"><div class="label">Total Sessions</div><div class="value">${total}</div><div class="label">${totalMinutes.toFixed(2)} min</div></div>
-        <div class="summary-card"><div class="label">Chinese Reading</div><div class="value">${reading}</div><div class="label">${readingMinutes.toFixed(2)} min</div></div>
+        <div class="summary-card"><div class="label">Chinese Characters</div><div class="value">${reading}</div><div class="label">${readingMinutes.toFixed(2)} min</div></div>
         <div class="summary-card"><div class="label">Math</div><div class="value">${math}</div><div class="label">${mathMinutes.toFixed(2)} min</div></div>
         <div class="summary-card"><div class="label">Chinese Writing</div><div class="value">${writing}</div><div class="label">${writingMinutes.toFixed(2)} min</div></div>
     `;
@@ -154,7 +154,7 @@ function renderDailyMinutesChart(sessions) {
 
 function renderType(type) {
     if (type === 'flashcard') {
-        return '<span class="type-pill type-reading">Chinese Reading</span>';
+        return '<span class="type-pill type-reading">Chinese Characters</span>';
     }
     if (type === 'math') {
         return '<span class="type-pill type-math">Math</span>';

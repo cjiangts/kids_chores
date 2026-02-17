@@ -136,7 +136,7 @@ function displayKids(kids) {
 
         const enabledLines = [];
         if (Number.isInteger(readingSessionCount) && readingSessionCount > 0) {
-            enabledLines.push(`Chinese Reading: ${chineseStars > 0 ? '⭐'.repeat(chineseStars) : '-'}`);
+            enabledLines.push(`Chinese Characters: ${chineseStars > 0 ? '⭐'.repeat(chineseStars) : '-'}`);
         }
         if (Number.isInteger(writingSessionCount) && writingSessionCount > 0) {
             enabledLines.push(`Chinese Writing: ${writingStars > 0 ? '⭐'.repeat(writingStars) : '-'}`);

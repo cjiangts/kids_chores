@@ -84,10 +84,10 @@ if (addMaLiPingBtn) {
 function updateAddReadingButtonCount() {
     const totalChineseChars = countChineseCharsBeforeDbDedup(chineseCharInput.value);
     if (totalChineseChars > 0) {
-        addReadingBtn.textContent = `Add Chinese Reading Character (${totalChineseChars})`;
+        addReadingBtn.textContent = `Add Chinese Characters (${totalChineseChars})`;
         return;
     }
-    addReadingBtn.textContent = 'Add Chinese Reading Character';
+    addReadingBtn.textContent = 'Add Chinese Characters';
 }
 
 // API Functions
@@ -98,7 +98,7 @@ async function loadKidInfo() {
             throw new Error('Kid not found');
         }
         currentKid = await response.json();
-        kidNameEl.textContent = `${currentKid.name}'s Chinese Character Reading`;
+        kidNameEl.textContent = `${currentKid.name}'s Chinese Characters`;
         const readingCount = Number.parseInt(currentKid.sessionCardCount, 10);
         sessionCardCountInput.value = Number.isInteger(readingCount) ? readingCount : 10;
     } catch (error) {
@@ -173,7 +173,7 @@ async function addCard() {
         const newChars = chineseChars.filter(char => !existingCardFronts.has(char));
 
         if (chineseChars.length === 0) {
-            showError('Please enter at least one Chinese reading character');
+            showError('Please enter at least one Chinese characters');
             return;
         }
 
@@ -254,8 +254,8 @@ function displayCards(cards) {
     if (sortedCards.length === 0) {
         cardsGrid.innerHTML = `
             <div class="empty-state" style="grid-column: 1 / -1;">
-                <h3>No Chinese reading cards yet</h3>
-                <p>Add your first Chinese reading character above!</p>
+                <h3>No Chinese character cards yet</h3>
+                <p>Add your first Chinese characters above!</p>
             </div>
         `;
         return;
@@ -268,7 +268,7 @@ function displayCards(cards) {
                 type="button"
                 class="delete-card-btn"
                 onclick="deleteCard('${card.id}')"
-                title="Delete this Chinese reading card"
+                title="Delete this Chinese characters card"
                 aria-label="Delete this card"
             >×</button>
             <div class="card-front">${escapeHtml(card.front)}</div>

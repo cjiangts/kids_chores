@@ -1,6 +1,6 @@
 # Kids Daily Chores
 
-Kids Daily Chores is a family learning tool designed for ages 4+, with daily Chinese reading, Chinese writing, and math practice, printable worksheets, and progress tracking.
+Kids Daily Chores is a family learning tool designed for ages 4+, with daily Chinese characters, Chinese writing, and math practice, printable worksheets, and progress tracking.
 
 ## Tech Stack
 
@@ -82,7 +82,7 @@ Or use helper scripts from project root:
 ## Core Features
 
 - Family home and kid selection
-- Chinese Character Reading practice:
+- Chinese Characters practice:
   - Session-based flashcards
   - Right/Wrong flow
   - Response-time logging
@@ -101,12 +101,12 @@ Or use helper scripts from project root:
   - Global hard-card percentage (in Parent Settings)
   - Practice visibility in kid view is inferred from configured per-session counts
 - Bulk card addition:
-  - Chinese reading cards: paste/type many characters at once, added in a single API call
+  - Chinese character cards: paste/type many characters at once, added in a single API call
 
 ## Hardness Logic
 
 - All card decks track `hardness_score`.
-- Chinese Reading/Math hard selection: based on response-time driven hardness updates.
+- Chinese Characters/Math hard selection: based on response-time driven hardness updates.
 - Chinese Writing hard selection: based on lifetime correctness behavior.
 - Parent sort options include hardness score descending.
 

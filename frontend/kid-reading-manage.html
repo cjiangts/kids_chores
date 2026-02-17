@@ -101,7 +101,7 @@
         </div>
 
         <div class="tab-nav">
-            <a id="charactersTab" class="tab-link primary" href="#">📖 Manage Chinese Reading</a>
+            <a id="charactersTab" class="tab-link primary" href="#">📖 Manage Chinese Characters</a>
             <a id="writingTab" class="tab-link secondary" href="#">✍️ Manage Chinese Writing</a>
             <a id="mathTab" class="tab-link secondary" href="#">➗ Manage Math</a>
         </div>
@@ -113,7 +113,7 @@
             <h2>Practice Settings</h2>
             <form id="sessionSettingsForm" class="settings-row">
                 <div class="form-group">
-                    <label for="sessionCardCount">Chinese Reading Cards Per Session</label>
+                    <label for="sessionCardCount">Chinese Character Cards Per Session</label>
                     <input
                         type="number"
                         id="sessionCardCount"
@@ -130,7 +130,7 @@
         <!-- Add New Reading Character -->
         <div class="add-card-section">
             <h2 class="label-with-help">
-                <span>Add New Chinese Reading Character</span>
+                <span>Add New Chinese Characters</span>
                 <details class="help-details">
                     <summary title="Batch import tip">i</summary>
                     <div class="help-bubble">
@@ -140,7 +140,7 @@
             </h2>
             <form id="addCardForm">
                 <div class="form-group">
-                    <label for="chineseChar">Chinese Reading Character(s)</label>
+                    <label for="chineseChar">Chinese Characters</label>
                     <input
                         type="text"
                         id="chineseChar"
@@ -149,7 +149,7 @@
                         required
                     >
                 </div>
-                <button type="submit" id="addReadingBtn" class="submit-btn">Add Chinese Reading Character</button>
+                <button type="submit" id="addReadingBtn" class="submit-btn">Add Chinese Characters</button>
                 <button type="button" id="addSiWuKuaiDuBtn" class="preset-btn">Add 四五快读</button>
                 <button type="button" id="addMaLiPingBtn" class="preset-btn">Add 马立平</button>
             </form>
@@ -157,14 +157,14 @@
 
         <!-- Reading Cards -->
         <div class="cards-section">
-            <h2 class="cards-title">Chinese Character Reading Cards <span id="cardCount">(0)</span></h2>
+            <h2 class="cards-title">Chinese Character Cards <span id="cardCount">(0)</span></h2>
             <div class="cards-toolbar">
                 <input
                     type="text"
                     id="cardSearchInput"
                     class="cards-search-input"
                     placeholder="Search cards..."
-                    aria-label="Search Chinese reading cards"
+                    aria-label="Search Chinese character cards"
                 >
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="added_time" selected>Order: Added Time (Recent to Oldest)</option>

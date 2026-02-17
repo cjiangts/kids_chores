@@ -148,7 +148,7 @@ function renderHistory(attempts) {
 }
 
 function formatType(type) {
-    if (type === 'flashcard') return 'Chinese Reading';
+    if (type === 'flashcard') return 'Chinese Characters';
     if (type === 'math') return 'Math';
     if (type === 'writing') return 'Chinese Writing';
     return String(type || '-');

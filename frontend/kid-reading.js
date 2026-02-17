@@ -128,7 +128,7 @@ async function loadWritingCards() {
 function resetToStartScreen() {
     const readingSessionCount = Number.parseInt(currentKid?.sessionCardCount, 10);
     const count = Math.min(Number.isInteger(readingSessionCount) ? readingSessionCount : 10, cards.length);
-    sessionInfo.textContent = `Session: ${count} Chinese reading cards`;
+    sessionInfo.textContent = `Session: ${count} Chinese character cards`;
 
     activePendingSessionId = null;
     sessionCards = [];
@@ -183,7 +183,7 @@ function renderPracticeStars() {
 
 function chooseChinesePractice() {
     if (cards.length === 0) {
-        showError('No Chinese reading cards yet. Ask your parent to add some first.');
+        showError('No Chinese character cards yet. Ask your parent to add some first.');
         return;
     }
 
