@@ -186,6 +186,24 @@ header p {
     padding: 8px 10px;
 }
 
+.kid-card .report-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-width: 165px;
+    padding: 8px 10px;
+    background: #fff2cc;
+    color: #8a4f00;
+    border: 1px solid #e2b95f;
+    font-weight: 700;
+}
+
+.kid-card .report-btn:hover {
+    background: #ffe8ad;
+    color: #7a4400;
+}
+
 @media (max-width: 680px) {
     .kid-card .practice-config-row {
         gap: 8px;

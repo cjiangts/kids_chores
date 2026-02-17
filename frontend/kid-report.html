@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kid Practice Report - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .report-page .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .report-page .header h1 {
+            color: #fff;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #5a6268;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 0.8rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-card .label {
+            color: #666;
+            font-size: 0.88rem;
+        }
+
+        .summary-card .value {
+            margin-top: 0.25rem;
+            color: #2d3e7c;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .report-table-wrap {
+            background: #fff;
+            border-radius: 10px;
+            padding: 0.8rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        .report-table th,
+        .report-table td {
+            text-align: left;
+            border-bottom: 1px solid #eceff6;
+            padding: 0.55rem 0.4rem;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .report-table th {
+            color: #45528c;
+            font-weight: 700;
+            background: #f7f9ff;
+        }
+
+        .type-pill {
+            border-radius: 999px;
+            padding: 0.15rem 0.55rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        .type-reading {
+            background: #e7f0ff;
+            color: #2f5aa8;
+        }
+
+        .type-math {
+            background: #e9f7ef;
+            color: #206c46;
+        }
+
+        .type-writing {
+            background: #fff3e8;
+            color: #9a5b00;
+        }
+    </style>
+</head>
+<body class="report-page">
+    <div class="container">
+        <div class="header">
+            <h1 id="reportTitle">Practice Report</h1>
+            <a href="/admin.html" class="back-btn">← Back to Admin</a>
+        </div>
+
+        <div id="errorMessage" class="error hidden"></div>
+
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="report-table-wrap">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Session</th>
+                        <th>Type</th>
+                        <th>Started</th>
+                        <th>Completed</th>
+                        <th>Planned</th>
+                        <th>Answered</th>
+                        <th>Right</th>
+                        <th>Wrong</th>
+                        <th>Avg Time (ms)</th>
+                    </tr>
+                </thead>
+                <tbody id="reportBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="kid-report.js"></script>
+</body>
+</html>

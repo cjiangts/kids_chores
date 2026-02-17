@@ -4,7 +4,12 @@ from flask import Flask, send_from_directory, request, redirect, session, jsonif
 from flask_cors import CORS
 import os
 
-from src.routes.kids import kids_bp, seed_math_decks_for_all_kids, refresh_writing_hardness_for_all_kids
+from src.routes.kids import (
+    kids_bp,
+    seed_math_decks_for_all_kids,
+    refresh_writing_hardness_for_all_kids,
+    cleanup_incomplete_sessions_for_all_kids,
+)
 from src.routes.backup import backup_bp
 from src.db import metadata
 
@@ -38,6 +43,14 @@ def create_app():
         writing_hardness_backfill.get('refreshedKids', 0),
         writing_hardness_backfill.get('failedKids', 0),
     )
+    incomplete_cleanup = cleanup_incomplete_sessions_for_all_kids()
+    app.logger.info(
+        'Incomplete session cleanup at startup: cleanedKids=%s, failedKids=%s, deletedSessions=%s, deletedResults=%s',
+        incomplete_cleanup.get('cleanedKids', 0),
+        incomplete_cleanup.get('failedKids', 0),
+        incomplete_cleanup.get('deletedSessions', 0),
+        incomplete_cleanup.get('deletedResults', 0),
+    )
 
     def is_family_authenticated():
         return bool(session.get('family_id'))
@@ -49,6 +62,7 @@ def create_app():
         protected = {
             '/admin.html',
             '/parent-settings.html',
+            '/kid-report.html',
             '/kid-reading-manage.html',
             '/kid-math-manage.html',
             '/kid-writing-manage.html',

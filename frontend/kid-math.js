@@ -26,7 +26,7 @@ const resultSummary = document.getElementById('resultSummary');
 
 let currentKid = null;
 let sessionCards = [];
-let activeSessionId = null;
+let activePendingSessionId = null;
 let currentIndex = 0;
 let rightCount = 0;
 let wrongCount = 0;
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function isSessionInProgress() {
     return !sessionScreen.classList.contains('hidden')
-        && !!activeSessionId
+        && window.PracticeSession.hasActiveSession(activePendingSessionId)
         && sessionCards.length > 0;
 }
 
@@ -120,7 +120,7 @@ function resetToStartScreen(totalCards) {
     sessionInfo.textContent = `Session: ${target} questions`;
 
     sessionCards = [];
-    activeSessionId = null;
+    activePendingSessionId = null;
     currentIndex = 0;
     rightCount = 0;
     wrongCount = 0;
@@ -145,10 +145,10 @@ async function startSession() {
         }
 
         const data = await response.json();
-        activeSessionId = data.session_id;
+        activePendingSessionId = data.pending_session_id || null;
         sessionCards = shuffleSessionCards(data.cards || []);
 
-        if (!activeSessionId || sessionCards.length === 0) {
+        if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
             showError('No math questions available');
             return;
         }
@@ -220,7 +220,7 @@ function revealAnswer() {
 
 
 function togglePauseFromCard() {
-    if (!activeSessionId || sessionCards.length === 0) {
+    if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
         return;
     }
 
@@ -257,7 +257,7 @@ function setPausedVisual(paused) {
 
 
 function answerCurrentCard(correct) {
-    if (!answerRevealed || isPaused || !activeSessionId) {
+    if (!answerRevealed || isPaused || !window.PracticeSession.hasActiveSession(activePendingSessionId)) {
         return;
     }
 
@@ -292,13 +292,11 @@ async function endSession() {
     resultSummary.textContent = `Right: ${rightCount} · Wrong: ${wrongCount}`;
 
     try {
+        const payload = window.PracticeSession.buildCompletePayload(activePendingSessionId, sessionAnswers);
         await fetch(`${API_BASE}/kids/${kidId}/math/practice/complete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: activeSessionId,
-                answers: sessionAnswers,
-            }),
+            body: JSON.stringify(payload),
         });
     } catch (error) {
         console.error('Error completing math session:', error);

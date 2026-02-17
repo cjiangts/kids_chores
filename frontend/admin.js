@@ -173,6 +173,9 @@ function displayKids(kids) {
                     <div class="practice-config-row">
                         <a class="tab-link secondary practice-manage-btn" href="/kid-math-manage.html?id=${kid.id}">${mathLabel}</a>
                     </div>
+                    <div class="practice-config-row">
+                        <a class="tab-link report-btn" href="/kid-report.html?id=${kid.id}">📊 Report</a>
+                    </div>
                 </div>
                 <button class="delete-btn" onclick="deleteKid('${kid.id}', '${kid.name}')">
                     🗑️ Delete

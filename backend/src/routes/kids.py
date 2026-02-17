@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 import os
 import shutil
 import uuid
+import time
+import threading
 import mimetypes
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
@@ -71,6 +73,9 @@ MATH_DECK_CONFIGS = {
         'label': 'Sub 11–20',
     }
 }
+PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
+_PENDING_SESSIONS = {}
+_PENDING_SESSIONS_LOCK = threading.Lock()
 
 
 def get_family_root(family_id):
@@ -381,6 +386,60 @@ def get_kid(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/report', methods=['GET'])
+def get_kid_report(kid_id):
+    """Get one kid's practice history report for parent view."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        rows = conn.execute(
+            """
+            SELECT
+                s.id,
+                s.type,
+                s.started_at,
+                s.completed_at,
+                COALESCE(s.planned_count, 0) AS planned_count,
+                COUNT(sr.id) AS answer_count,
+                COALESCE(SUM(CASE WHEN sr.correct = TRUE THEN 1 ELSE 0 END), 0) AS right_count,
+                COALESCE(SUM(CASE WHEN sr.correct = FALSE THEN 1 ELSE 0 END), 0) AS wrong_count,
+                COALESCE(AVG(sr.response_time_ms), 0) AS avg_response_ms
+            FROM sessions s
+            LEFT JOIN session_results sr ON sr.session_id = s.id
+            GROUP BY s.id, s.type, s.started_at, s.completed_at, s.planned_count
+            ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
+            """
+        ).fetchall()
+        conn.close()
+
+        sessions = []
+        for row in rows:
+            sessions.append({
+                'id': int(row[0]),
+                'type': row[1],
+                'started_at': row[2].isoformat() if row[2] else None,
+                'completed_at': row[3].isoformat() if row[3] else None,
+                'planned_count': int(row[4] or 0),
+                'answer_count': int(row[5] or 0),
+                'right_count': int(row[6] or 0),
+                'wrong_count': int(row[7] or 0),
+                'avg_response_ms': float(row[8] or 0),
+            })
+
+        return jsonify({
+            'kid': {
+                'id': kid.get('id'),
+                'name': kid.get('name'),
+            },
+            'sessions': sessions
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>', methods=['PUT'])
 def update_kid(kid_id):
     """Update a specific kid's metadata"""
@@ -686,6 +745,59 @@ def refresh_writing_hardness_for_all_kids():
     }
 
 
+def cleanup_incomplete_sessions_for_all_kids():
+    """Delete incomplete sessions (completed_at IS NULL) across all kid DBs at startup."""
+    cleaned_kids = 0
+    failed_kids = 0
+    deleted_sessions = 0
+    deleted_results = 0
+
+    for kid in metadata.get_all_kids():
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            incomplete_ids = [
+                int(row[0]) for row in conn.execute(
+                    "SELECT id FROM sessions WHERE completed_at IS NULL"
+                ).fetchall()
+            ]
+            if len(incomplete_ids) == 0:
+                cleaned_kids += 1
+                conn.close()
+                conn = None
+                continue
+
+            placeholders = ','.join(['?'] * len(incomplete_ids))
+            removed_results = conn.execute(
+                f"DELETE FROM session_results WHERE session_id IN ({placeholders}) RETURNING id",
+                incomplete_ids
+            ).fetchall()
+            removed_sessions = conn.execute(
+                f"DELETE FROM sessions WHERE id IN ({placeholders}) RETURNING id",
+                incomplete_ids
+            ).fetchall()
+
+            deleted_results += len(removed_results)
+            deleted_sessions += len(removed_sessions)
+            cleaned_kids += 1
+            conn.close()
+            conn = None
+        except Exception:
+            failed_kids += 1
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    return {
+        'cleanedKids': cleaned_kids,
+        'failedKids': failed_kids,
+        'deletedSessions': deleted_sessions,
+        'deletedResults': deleted_results,
+    }
+
+
 def ensure_practice_state(conn, deck_id):
     """Ensure cursor state row exists for a deck."""
     conn.execute(
@@ -767,8 +879,49 @@ def get_last_completed_session(conn, session_type):
     return row[0], row[1]
 
 
-def start_deck_practice_session(conn, kid, deck_id, session_type, excluded_card_ids=None, enforce_exact_target=False):
-    """Start a session from the current deck plan and persist cursor/session."""
+def _cleanup_expired_pending_sessions():
+    now = time.time()
+    expired_keys = [
+        key for key, payload in _PENDING_SESSIONS.items()
+        if now - float(payload.get('created_at_ts', 0)) > PENDING_SESSION_TTL_SECONDS
+    ]
+    for key in expired_keys:
+        _PENDING_SESSIONS.pop(key, None)
+
+
+def create_pending_session(kid_id, session_type, payload):
+    """Store one in-memory pending session and return its token."""
+    token = uuid.uuid4().hex
+    record = {
+        **(payload or {}),
+        'kid_id': str(kid_id),
+        'session_type': str(session_type),
+        'created_at_ts': time.time(),
+    }
+    with _PENDING_SESSIONS_LOCK:
+        _cleanup_expired_pending_sessions()
+        _PENDING_SESSIONS[token] = record
+    return token
+
+
+def pop_pending_session(token, kid_id, session_type):
+    """Pop one pending session token if it matches kid/type."""
+    if not token:
+        return None
+    with _PENDING_SESSIONS_LOCK:
+        _cleanup_expired_pending_sessions()
+        payload = _PENDING_SESSIONS.pop(str(token), None)
+    if not payload:
+        return None
+    if str(payload.get('kid_id')) != str(kid_id):
+        return None
+    if str(payload.get('session_type')) != str(session_type):
+        return None
+    return payload
+
+
+def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded_card_ids=None, enforce_exact_target=False):
+    """Plan one pending deck session without mutating DB state."""
     cards_by_id, selected_ids, queue_ids, cursor, queue_used = plan_deck_practice_selection(
         conn,
         kid,
@@ -777,27 +930,22 @@ def start_deck_practice_session(conn, kid, deck_id, session_type, excluded_card_
         excluded_card_ids=excluded_card_ids,
         enforce_exact_target=enforce_exact_target,
     )
-
     if len(selected_ids) == 0:
         return None, []
 
     next_cursor = (cursor + queue_used) % len(queue_ids)
-    conn.execute(
-        "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-        [next_cursor, deck_id]
+    pending_token = create_pending_session(
+        kid_id,
+        session_type,
+        {
+            'kind': 'deck',
+            'deck_id': int(deck_id),
+            'planned_count': len(selected_ids),
+            'next_cursor': int(next_cursor),
+        }
     )
-
-    session_id = conn.execute(
-        """
-        INSERT INTO sessions (type, deck_id, planned_count)
-        VALUES (?, ?, ?)
-        RETURNING id
-        """,
-        [session_type, deck_id, len(selected_ids)]
-    ).fetchone()[0]
-
     selected_cards = [cards_by_id[card_id] for card_id in selected_ids]
-    return session_id, selected_cards
+    return pending_token, selected_cards
 
 
 def preview_deck_practice_order(conn, kid, deck_id, session_type, excluded_card_ids=None, enforce_exact_target=False):
@@ -938,31 +1086,32 @@ def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card
 
 def complete_session_internal(kid, kid_id, session_type, data):
     """Complete a session by saving all answers in one batch."""
-    session_id = data.get('sessionId')
+    pending_session_id = data.get('pendingSessionId')
+    if not pending_session_id:
+        return {'error': 'pendingSessionId is required'}, 400
     answers = data.get('answers')
-
-    if not session_id:
-        return {'error': 'sessionId is required'}, 400
     if not isinstance(answers, list) or len(answers) == 0:
         return {'error': 'answers must be a non-empty list'}, 400
 
+    pending = pop_pending_session(pending_session_id, kid_id, session_type)
+    if not pending:
+        return {'error': 'Pending session not found or expired'}, 404
+
     conn = get_kid_connection_for(kid)
+    deck_id = pending.get('deck_id') if pending.get('kind') == 'deck' else None
+    planned_count = int(pending.get('planned_count') or 0)
 
-    session = conn.execute(
-        "SELECT id, planned_count, completed_at FROM sessions WHERE id = ? AND type = ?",
-        [session_id, session_type]
-    ).fetchone()
-
-    if not session:
-        conn.close()
-        return {'error': 'Session not found'}, 404
-    if session[2] is not None:
-        conn.close()
-        return {'error': 'Session already completed'}, 400
+    session_id = conn.execute(
+        """
+        INSERT INTO sessions (type, deck_id, planned_count)
+        VALUES (?, ?, ?)
+        RETURNING id
+        """,
+        [session_type, deck_id, planned_count]
+    ).fetchone()[0]
 
     latest_response_by_card = {}
     touched_card_ids = set()
-
     for answer in answers:
         card_id = answer.get('cardId')
         known = answer.get('known')
@@ -1010,12 +1159,22 @@ def complete_session_internal(kid, kid_id, session_type, data):
             list(touched_card_ids)
         )
 
+    if pending.get('kind') == 'deck':
+        conn.execute(
+            "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
+            [int(pending.get('next_cursor') or 0), int(pending.get('deck_id'))]
+        )
+    elif pending.get('kind') == 'math':
+        for item in pending.get('deck_cursor_updates', []):
+            conn.execute(
+                "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
+                [int(item.get('next_cursor') or 0), int(item.get('deck_id'))]
+            )
+
     conn.execute(
         "UPDATE sessions SET completed_at = CURRENT_TIMESTAMP WHERE id = ?",
         [session_id]
     )
-
-    planned_count = int(session[1] or 0)
     conn.close()
     return {
         'session_id': session_id,
@@ -1294,14 +1453,16 @@ def start_practice_session(kid_id):
 
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_default_deck(conn)
-        session_id, selected_cards = start_deck_practice_session(conn, kid, deck_id, 'flashcard')
+        pending_session_id, selected_cards = plan_deck_pending_session(
+            conn, kid, kid_id, deck_id, 'flashcard'
+        )
 
         conn.close()
-        if not session_id:
-            return jsonify({'session_id': None, 'cards': [], 'planned_count': 0}), 200
+        if not pending_session_id:
+            return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
 
         return jsonify({
-            'session_id': session_id,
+            'pending_session_id': pending_session_id,
             'cards': selected_cards,
             'planned_count': len(selected_cards)
         }), 200
@@ -2225,14 +2386,14 @@ def start_writing_practice_session(kid_id):
         writing_session_count = normalize_writing_session_card_count(kid)
         if writing_session_count <= 0:
             conn.close()
-            return jsonify({'session_id': None, 'cards': [], 'planned_count': 0}), 200
+            return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
         preview_kid = {**kid, 'sessionCardCount': writing_session_count}
-        session_id, selected_cards = start_deck_practice_session(
-            conn, preview_kid, deck_id, 'writing', excluded_card_ids=pending_card_ids
+        pending_session_id, selected_cards = plan_deck_pending_session(
+            conn, preview_kid, kid_id, deck_id, 'writing', excluded_card_ids=pending_card_ids
         )
-        if not session_id:
+        if not pending_session_id:
             conn.close()
-            return jsonify({'session_id': None, 'cards': [], 'planned_count': 0}), 200
+            return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
 
         card_ids = [card['id'] for card in selected_cards]
         placeholders = ','.join(['?'] * len(card_ids))
@@ -2258,7 +2419,7 @@ def start_writing_practice_session(kid_id):
             })
 
         return jsonify({
-            'session_id': session_id,
+            'pending_session_id': pending_session_id,
             'planned_count': len(cards_with_audio),
             'cards': cards_with_audio
         }), 200
@@ -2279,6 +2440,7 @@ def start_math_practice_session(kid_id):
         seed_all_math_decks(conn)
 
         selected_cards = []
+        deck_cursor_updates = []
         for deck_key in MATH_DECK_CONFIGS.keys():
             per_deck_count = normalize_math_deck_session_count(kid, deck_key)
             if per_deck_count <= 0:
@@ -2296,12 +2458,12 @@ def start_math_practice_session(kid_id):
             if len(selected_ids) == 0:
                 continue
 
-            if len(queue_ids) > 0 and queue_used > 0:
+            if len(queue_ids) > 0:
                 next_cursor = (cursor + queue_used) % len(queue_ids)
-                conn.execute(
-                    "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-                    [next_cursor, deck_ids[deck_key]]
-                )
+                deck_cursor_updates.append({
+                    'deck_id': int(deck_ids[deck_key]),
+                    'next_cursor': int(next_cursor),
+                })
 
             for card_id in selected_ids:
                 selected_cards.append({
@@ -2311,20 +2473,21 @@ def start_math_practice_session(kid_id):
 
         if len(selected_cards) == 0:
             conn.close()
-            return jsonify({'session_id': None, 'cards': [], 'planned_count': 0}), 200
+            return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
 
-        session_id = conn.execute(
-            """
-            INSERT INTO sessions (type, deck_id, planned_count)
-            VALUES (?, ?, ?)
-            RETURNING id
-            """,
-            ['math', None, len(selected_cards)]
-        ).fetchone()[0]
+        pending_session_id = create_pending_session(
+            kid_id,
+            'math',
+            {
+                'kind': 'math',
+                'planned_count': len(selected_cards),
+                'deck_cursor_updates': deck_cursor_updates,
+            }
+        )
         conn.close()
 
         return jsonify({
-            'session_id': session_id,
+            'pending_session_id': pending_session_id,
             'planned_count': len(selected_cards),
             'cards': selected_cards
         }), 200

@@ -37,7 +37,7 @@ let sessionCards = [];
 let currentSessionIndex = 0;
 let knownCount = 0;
 let unknownCount = 0;
-let activeSessionId = null;
+let activePendingSessionId = null;
 let cardShownAtMs = 0;
 let isPaused = false;
 let sessionAnswers = [];
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function isSessionInProgress() {
     return !sessionScreen.classList.contains('hidden')
-        && !!activeSessionId
+        && window.PracticeSession.hasActiveSession(activePendingSessionId)
         && sessionCards.length > 0;
 }
 
@@ -130,7 +130,7 @@ function resetToStartScreen() {
     const count = Math.min(Number.isInteger(readingSessionCount) ? readingSessionCount : 10, cards.length);
     sessionInfo.textContent = `Session: ${count} Chinese reading cards`;
 
-    activeSessionId = null;
+    activePendingSessionId = null;
     sessionCards = [];
     currentSessionIndex = 0;
     knownCount = 0;
@@ -225,10 +225,10 @@ async function startSession() {
         }
 
         const data = await response.json();
-        activeSessionId = data.session_id;
+        activePendingSessionId = data.pending_session_id || null;
         sessionCards = shuffleSessionCards(data.cards || []);
 
-        if (!activeSessionId || sessionCards.length === 0) {
+        if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
             await loadCards();
             return;
         }
@@ -275,7 +275,7 @@ function displayCurrentCard() {
 }
 
 function answerCurrentCard(known) {
-    if (sessionCards.length === 0 || !activeSessionId || isPaused) {
+    if (sessionCards.length === 0 || !window.PracticeSession.hasActiveSession(activePendingSessionId) || isPaused) {
         return;
     }
 
@@ -305,7 +305,7 @@ function answerCurrentCard(known) {
 }
 
 function togglePauseFromCard() {
-    if (!activeSessionId || sessionCards.length === 0) {
+    if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
         return;
     }
 
@@ -339,13 +339,11 @@ async function endSession() {
     resultSummary.textContent = `Known: ${knownCount} · Need practice: ${unknownCount}`;
 
     try {
+        const payload = window.PracticeSession.buildCompletePayload(activePendingSessionId, sessionAnswers);
         await fetch(`${API_BASE}/kids/${kidId}/practice/complete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: activeSessionId,
-                answers: sessionAnswers,
-            }),
+            body: JSON.stringify(payload),
         });
     } catch (error) {
         console.error('Error completing session:', error);
