@@ -527,6 +527,114 @@ def get_kid_report_session_detail(kid_id, session_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/report/cards/<card_id>', methods=['GET'])
+def get_kid_report_card_detail(kid_id, card_id):
+    """Get full practice history for one card in parent report view."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        try:
+            card_id_int = int(card_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid card id'}), 400
+
+        conn = get_kid_connection_for(kid)
+        card_row = conn.execute(
+            """
+            SELECT
+                c.id,
+                c.front,
+                c.back,
+                c.created_at,
+                COALESCE(c.hardness_score, 0) AS hardness_score,
+                d.id,
+                d.name
+            FROM cards c
+            JOIN decks d ON d.id = c.deck_id
+            WHERE c.id = ?
+            """,
+            [card_id_int]
+        ).fetchone()
+        if not card_row:
+            conn.close()
+            return jsonify({'error': 'Card not found'}), 404
+
+        attempts_rows = conn.execute(
+            """
+            SELECT
+                sr.id,
+                sr.correct,
+                COALESCE(sr.response_time_ms, 0) AS response_time_ms,
+                sr.timestamp,
+                s.id AS session_id,
+                s.type AS session_type,
+                s.started_at,
+                s.completed_at
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE sr.card_id = ?
+            ORDER BY COALESCE(s.completed_at, s.started_at, sr.timestamp) ASC, sr.id ASC
+            """,
+            [card_id_int]
+        ).fetchall()
+        conn.close()
+
+        attempts = []
+        right_count = 0
+        wrong_count = 0
+        response_sum_ms = 0
+        for row in attempts_rows:
+            is_correct = bool(row[1])
+            response_ms = int(row[2] or 0)
+            attempts.append({
+                'result_id': int(row[0]),
+                'correct': is_correct,
+                'response_time_ms': response_ms,
+                'timestamp': row[3].isoformat() if row[3] else None,
+                'session_id': int(row[4]) if row[4] is not None else None,
+                'session_type': row[5],
+                'session_started_at': row[6].isoformat() if row[6] else None,
+                'session_completed_at': row[7].isoformat() if row[7] else None,
+            })
+            response_sum_ms += response_ms
+            if is_correct:
+                right_count += 1
+            else:
+                wrong_count += 1
+
+        attempts_count = len(attempts)
+        avg_response_ms = (response_sum_ms / attempts_count) if attempts_count > 0 else 0
+        accuracy_pct = ((right_count * 100.0) / attempts_count) if attempts_count > 0 else 0
+
+        return jsonify({
+            'kid': {
+                'id': kid.get('id'),
+                'name': kid.get('name'),
+            },
+            'card': {
+                'id': int(card_row[0]),
+                'front': card_row[1] or '',
+                'back': card_row[2] or '',
+                'created_at': card_row[3].isoformat() if card_row[3] else None,
+                'hardness_score': float(card_row[4] or 0),
+                'deck_id': int(card_row[5]) if card_row[5] is not None else None,
+                'deck_name': card_row[6] or '',
+            },
+            'summary': {
+                'attempt_count': attempts_count,
+                'right_count': right_count,
+                'wrong_count': wrong_count,
+                'accuracy_pct': accuracy_pct,
+                'avg_response_ms': avg_response_ms,
+            },
+            'attempts': attempts,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>', methods=['PUT'])
 def update_kid(kid_id):
     """Update a specific kid's metadata"""

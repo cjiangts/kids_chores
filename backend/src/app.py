@@ -64,6 +64,7 @@ def create_app():
             '/parent-settings.html',
             '/kid-report.html',
             '/kid-session-report.html',
+            '/kid-card-report.html',
             '/kid-reading-manage.html',
             '/kid-math-manage.html',
             '/kid-writing-manage.html',

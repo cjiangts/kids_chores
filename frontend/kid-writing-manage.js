@@ -20,6 +20,7 @@ const createSheetBtn = document.getElementById('createSheetBtn');
 const viewSheetsBtn = document.getElementById('viewSheetsBtn');
 const practicingSummary = document.getElementById('practicingSummary');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
+const cardSearchInput = document.getElementById('cardSearchInput');
 const cardCount = document.getElementById('cardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const charactersTab = document.getElementById('charactersTab');
@@ -58,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
+    cardSearchInput.addEventListener('input', () => resetAndDisplayCards(currentCards));
     cardsGrid.addEventListener('click', handleCardsGridClick);
     window.addEventListener('scroll', () => maybeLoadMoreCards());
 
@@ -514,9 +516,10 @@ function playAudio(url) {
 }
 
 function displayCards(cards) {
-    sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
+    const filteredCards = filterCardsByQuery(cards, cardSearchInput.value);
+    sortedCards = window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
     cardCount.textContent = `(${sortedCards.length})`;
-    updatePracticingSummary(sortedCards);
+    updatePracticingSummary(cards);
 
     if (sortedCards.length === 0) {
         cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No Chinese writing cards yet</h3><p>Record your first Chinese writing prompt above.</p></div>`;
@@ -547,6 +550,10 @@ function displayCards(cards) {
                         data-action="replay-audio"
                         data-audio-url="${escapeAttr(card.audio_url || '')}"
                     >Replay</button>
+                    <a
+                        class="card-report-link"
+                        href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(card.id)}&from=writing"
+                    >Report</a>
                 </div>
                 <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
                 <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.parent_added_at || card.created_at)}</div>
@@ -556,6 +563,19 @@ function displayCards(cards) {
         `).join('')}`;
 
     cardsGrid.innerHTML = listHtml;
+}
+
+function filterCardsByQuery(cards, rawQuery) {
+    const query = String(rawQuery || '').trim();
+    if (!query) {
+        return cards;
+    }
+
+    return cards.filter((card) => {
+        const front = String(card.front || '');
+        const back = String(card.back || '');
+        return front.includes(query) || back.includes(query);
+    });
 }
 
 function updatePracticingSummary(cards) {

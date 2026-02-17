@@ -126,6 +126,9 @@ body {
 .manage-page .cards-toolbar {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
     margin-bottom: 1rem;
 }
 
@@ -136,6 +139,16 @@ body {
     border-radius: 6px;
     font-size: 0.95rem;
     background: #fff;
+}
+
+.manage-page .cards-search-input {
+    min-width: 220px;
+    max-width: 340px;
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
 }
 
 .manage-page .delete-card-btn {
@@ -161,6 +174,29 @@ body {
     text-align: center;
     padding: 3rem;
     color: #999;
+}
+
+.manage-page .card-report-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.55rem;
+    padding: 0.35rem 0.62rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #24468f;
+    background: #eef3ff;
+    border: 1px solid #cfdcfb;
+    text-decoration: none;
+}
+
+.manage-page .card-report-link:hover {
+    background: #e2ebff;
+}
+
+.manage-page .card-actions .card-report-link {
+    margin-top: 0;
 }
 
 .label-with-help {
@@ -296,6 +332,17 @@ header p {
     .manage-page .tab-nav .tab-link {
         min-width: 0;
         width: 100%;
+    }
+
+    .manage-page .cards-toolbar {
+        justify-content: stretch;
+    }
+
+    .manage-page .cards-search-input,
+    .manage-page .sort-select {
+        min-width: 0;
+        width: 100%;
+        max-width: none;
     }
 
     .admin-actions {

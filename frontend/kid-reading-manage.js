@@ -16,6 +16,7 @@ const cardsGrid = document.getElementById('cardsGrid');
 const cardCount = document.getElementById('cardCount');
 const errorMessage = document.getElementById('errorMessage');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
+const cardSearchInput = document.getElementById('cardSearchInput');
 const addSiWuKuaiDuBtn = document.getElementById('addSiWuKuaiDuBtn');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
@@ -63,6 +64,9 @@ sessionSettingsForm.addEventListener('submit', async (e) => {
 });
 
 viewOrderSelect.addEventListener('change', () => {
+    resetAndDisplayCards(currentCards);
+});
+cardSearchInput.addEventListener('input', () => {
     resetAndDisplayCards(currentCards);
 });
 
@@ -236,7 +240,8 @@ async function deleteCard(cardId) {
 
 // UI Functions
 function displayCards(cards) {
-    sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
+    const filteredCards = filterCardsByQuery(cards, cardSearchInput.value);
+    sortedCards = window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
     cardCount.textContent = `(${sortedCards.length})`;
 
     if (sortedCards.length === 0) {
@@ -272,8 +277,25 @@ function displayCards(cards) {
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">
                 Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}
             </div>
+            <a
+                class="card-report-link"
+                href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(card.id)}&from=reading"
+            >Report</a>
         </div>
     `).join('');
+}
+
+function filterCardsByQuery(cards, rawQuery) {
+    const query = String(rawQuery || '').trim();
+    if (!query) {
+        return cards;
+    }
+
+    return cards.filter((card) => {
+        const front = String(card.front || '');
+        const back = String(card.back || '');
+        return front.includes(query) || back.includes(query);
+    });
 }
 
 function resetAndDisplayCards(cards) {
