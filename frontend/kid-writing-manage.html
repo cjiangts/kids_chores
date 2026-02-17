@@ -11,37 +11,6 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .back-btn {
-            background: #6c757d;
-            color: white;
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 4px;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .back-btn:hover {
-            background: #5a6268;
-        }
-
-        .tab-nav {
-            display: flex;
-            gap: 0.75rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .tab-nav .tab-link {
-            min-width: 180px;
-        }
-
         .settings-section,
         .add-card-section,
         .sheet-section {
@@ -50,17 +19,6 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 1.2rem;
-        }
-
-        .settings-row {
-            display: flex;
-            gap: 1rem;
-            align-items: end;
-        }
-
-        .settings-row .form-group {
-            flex: 1;
-            margin-bottom: 0;
         }
 
         .sheet-row {
@@ -83,7 +41,6 @@
             background: #5a6268;
         }
 
-        .settings-save-btn,
         .submit-btn,
         .record-btn,
         .stop-btn {
@@ -97,7 +54,6 @@
             white-space: nowrap;
         }
 
-        .settings-save-btn:hover,
         .submit-btn:hover,
         .record-btn:hover,
         .stop-btn:hover {
@@ -146,96 +102,9 @@
             width: 100%;
         }
 
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #555;
-        }
-
-        .label-with-help {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .help-details {
-            position: relative;
-            display: inline-block;
-        }
-
-        .help-details summary {
-            list-style: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: 1px solid #9aa0a6;
-            color: #5f6368;
-            font-size: 0.75rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .help-details summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .help-bubble {
-            position: absolute;
-            top: 24px;
-            left: 0;
-            z-index: 10;
-            width: 300px;
-            background: #fff;
-            border: 1px solid #d9dee3;
-            border-radius: 8px;
-            padding: 0.6rem 0.7rem;
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-            font-size: 0.82rem;
-            line-height: 1.35;
-            color: #4a4f55;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-
-        .chinese-input {
-            font-size: 2.2rem !important;
-            text-align: center;
-            padding: 1.2rem !important;
-        }
-
         .cards-section h2 {
             margin-bottom: 1rem;
             color: #333;
-        }
-
-        .cards-toolbar {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 1rem;
-        }
-
-        .sort-select {
-            min-width: 260px;
-            padding: 0.5rem 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            background: #fff;
         }
 
         .cards-grid {
@@ -296,74 +165,9 @@
             background: #2d7ef7;
         }
 
-        .delete-card-btn {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            line-height: 1;
-        }
-
-        .delete-card-btn:hover {
-            background: #c82333;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #999;
-        }
-
-        @media (max-width: 760px) {
-            .header {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.75rem;
-            }
-
-            .header h1 {
-                font-size: 1.45rem;
-                line-height: 1.25;
-            }
-
-            .back-btn {
-                width: 100%;
-                text-align: center;
-            }
-
-            .tab-nav {
-                display: grid;
-                grid-template-columns: 1fr;
-                gap: 0.55rem;
-            }
-
-            .tab-nav .tab-link {
-                min-width: 0;
-                width: 100%;
-            }
-
-            .help-details summary {
-                width: 28px;
-                height: 28px;
-                font-size: 0.9rem;
-            }
-
-            .help-bubble {
-                width: min(92vw, 340px);
-                left: 50%;
-                transform: translateX(-50%);
-            }
-        }
     </style>
 </head>
-<body class="practice-page">
+<body class="practice-page manage-page">
     <div class="container">
         <div class="header">
             <h1 id="kidName">Loading...</h1>
@@ -419,27 +223,38 @@
             </form>
         </div>
 
+        <div class="sheet-section">
+            <h2 class="label-with-help">
+                <span>Generate Practice Sheet</span>
+                <details class="help-details">
+                    <summary title="Sheet generation tip">i</summary>
+                    <div class="help-bubble">
+                        Layout: each row has 10 Tianzige boxes. The first row for each card includes demo text; repeat rows focus on copying practice. Rows Per Card controls how many rows each card gets.
+                        <br><br>
+                        Card selection: we only pick cards that are not currently practicing on another sheet. Priority goes to cards the kid got wrong most recently (or never practiced yet), then fills from the normal pool.
+                    </div>
+                </details>
+            </h2>
+            <div class="sheet-row">
+                <div class="form-group">
+                    <label for="sheetCardCount">Cards Per Sheet</label>
+                    <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
+                </div>
+                <div class="form-group">
+                    <label for="sheetRowsPerChar">Rows Per Card</label>
+                    <input type="number" id="sheetRowsPerChar" min="1" max="10" step="1" value="1" required>
+                </div>
+                <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
+                <button type="button" id="viewSheetsBtn" class="settings-save-btn sheet-view-btn">Manage Sheets</button>
+            </div>
+            <div id="practicingSummary" style="margin-top: 0.65rem; padding: 0.6rem 0.75rem; border-radius: 8px; background: #fff7df; color: #6b5500; font-size: 0.9rem;">
+                Currently practicing: none
+            </div>
+            <div id="sheetErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
+        </div>
+
         <div class="cards-section">
             <h2 class="cards-title">Chinese Character Writing Cards <span id="cardCount">(0)</span></h2>
-            <div class="sheet-section">
-                <h2>Generate Practice Sheet</h2>
-                <div class="sheet-row">
-                    <div class="form-group">
-                        <label for="sheetCardCount">Cards Per Sheet</label>
-                        <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="sheetRowsPerChar">Rows Per Card</label>
-                        <input type="number" id="sheetRowsPerChar" min="1" max="10" step="1" value="1" required>
-                    </div>
-                    <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
-                    <button type="button" id="viewSheetsBtn" class="settings-save-btn sheet-view-btn">Manage Sheets</button>
-                </div>
-                <div id="practicingSummary" style="margin-top: 0.65rem; padding: 0.6rem 0.75rem; border-radius: 8px; background: #fff7df; color: #6b5500; font-size: 0.9rem;">
-                    Currently practicing: none
-                </div>
-                <div id="sheetErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
-            </div>
             <div class="cards-toolbar">
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="added_time" selected>Order: Added Time (Recent to Oldest)</option>

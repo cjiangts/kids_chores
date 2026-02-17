@@ -11,38 +11,6 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .back-btn {
-            background: #6c757d;
-            color: white;
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .back-btn:hover {
-            background: #5a6268;
-        }
-
-        .tab-nav {
-            display: flex;
-            gap: 0.75rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .tab-nav .tab-link {
-            min-width: 180px;
-        }
-
         .add-card-section {
             background: white;
             padding: 1.5rem;
@@ -63,110 +31,6 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 2rem;
-        }
-
-        .settings-row {
-            display: flex;
-            gap: 1rem;
-            align-items: end;
-        }
-
-        .settings-row .form-group {
-            flex: 1;
-            margin-bottom: 0;
-        }
-
-        .settings-save-btn {
-            background: #007bff;
-            color: white;
-            padding: 0.75rem 1.25rem;
-            border: none;
-            border-radius: 4px;
-            font-size: 1rem;
-            cursor: pointer;
-            height: 44px;
-            white-space: nowrap;
-        }
-
-        .settings-save-btn:hover {
-            background: #0069d9;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #555;
-        }
-
-        .label-with-help {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .help-details {
-            position: relative;
-            display: inline-block;
-        }
-
-        .help-details summary {
-            list-style: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: 1px solid #9aa0a6;
-            color: #5f6368;
-            font-size: 0.75rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .help-details summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .help-bubble {
-            position: absolute;
-            top: 24px;
-            left: 0;
-            z-index: 10;
-            width: 280px;
-            background: #fff;
-            border: 1px solid #d9dee3;
-            border-radius: 8px;
-            padding: 0.6rem 0.7rem;
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-            font-size: 0.82rem;
-            line-height: 1.35;
-            color: #4a4f55;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-
-        .chinese-input {
-            font-size: 3rem !important;
-            text-align: center;
-            padding: 1.5rem !important;
         }
 
         .submit-btn {
@@ -205,21 +69,6 @@
             color: #333;
         }
 
-        .cards-toolbar {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 1rem;
-        }
-
-        .sort-select {
-            min-width: 260px;
-            padding: 0.5rem 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            background: #fff;
-        }
-
         .cards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -236,78 +85,15 @@
         }
 
         .card-front {
-            font-size: 5rem;
+            font-size: 4.5rem;
             color: #333;
+            font-family: var(--font-kaiti);
+            line-height: 1.15;
         }
 
-        .delete-card-btn {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            line-height: 1;
-        }
-
-        .delete-card-btn:hover {
-            background: #c82333;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #999;
-        }
-
-        @media (max-width: 760px) {
-            .header {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.75rem;
-            }
-
-            .header h1 {
-                font-size: 1.45rem;
-                line-height: 1.25;
-            }
-
-            .back-btn {
-                width: 100%;
-                text-align: center;
-            }
-
-            .tab-nav {
-                display: grid;
-                grid-template-columns: 1fr;
-                gap: 0.55rem;
-            }
-
-            .tab-nav .tab-link {
-                min-width: 0;
-                width: 100%;
-            }
-
-            .help-details summary {
-                width: 28px;
-                height: 28px;
-                font-size: 0.9rem;
-            }
-
-            .help-bubble {
-                width: min(92vw, 340px);
-                left: 50%;
-                transform: translateX(-50%);
-            }
-        }
     </style>
 </head>
-<body class="practice-page">
+<body class="practice-page manage-page">
     <div class="container">
         <div class="header">
             <h1 id="kidName">Loading...</h1>

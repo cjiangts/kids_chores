@@ -440,6 +440,93 @@ def get_kid_report(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/report/sessions/<session_id>', methods=['GET'])
+def get_kid_report_session_detail(kid_id, session_id):
+    """Get detailed card-level results for one session in parent report view."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        try:
+            session_id_int = int(session_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid session id'}), 400
+
+        conn = get_kid_connection_for(kid)
+        session_row = conn.execute(
+            """
+            SELECT id, type, started_at, completed_at, COALESCE(planned_count, 0)
+            FROM sessions
+            WHERE id = ?
+            """,
+            [session_id_int]
+        ).fetchone()
+        if not session_row:
+            conn.close()
+            return jsonify({'error': 'Session not found'}), 404
+
+        result_rows = conn.execute(
+            """
+            SELECT
+                sr.id,
+                sr.card_id,
+                sr.correct,
+                COALESCE(sr.response_time_ms, 0) AS response_time_ms,
+                sr.timestamp,
+                c.front,
+                c.back
+            FROM session_results sr
+            LEFT JOIN cards c ON c.id = sr.card_id
+            WHERE sr.session_id = ?
+            ORDER BY sr.id ASC
+            """,
+            [session_id_int]
+        ).fetchall()
+        conn.close()
+
+        answers = []
+        right_cards = []
+        wrong_cards = []
+        for row in result_rows:
+            item = {
+                'result_id': int(row[0]),
+                'card_id': int(row[1]) if row[1] is not None else None,
+                'correct': bool(row[2]),
+                'response_time_ms': int(row[3] or 0),
+                'timestamp': row[4].isoformat() if row[4] else None,
+                'front': row[5] or '',
+                'back': row[6] or '',
+            }
+            answers.append(item)
+            if item['correct']:
+                right_cards.append(item)
+            else:
+                wrong_cards.append(item)
+
+        return jsonify({
+            'kid': {
+                'id': kid.get('id'),
+                'name': kid.get('name'),
+            },
+            'session': {
+                'id': int(session_row[0]),
+                'type': session_row[1],
+                'started_at': session_row[2].isoformat() if session_row[2] else None,
+                'completed_at': session_row[3].isoformat() if session_row[3] else None,
+                'planned_count': int(session_row[4] or 0),
+                'answer_count': len(answers),
+                'right_count': len(right_cards),
+                'wrong_count': len(wrong_cards),
+            },
+            'right_cards': right_cards,
+            'wrong_cards': wrong_cards,
+            'answers': answers,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>', methods=['PUT'])
 def update_kid(kid_id):
     """Update a specific kid's metadata"""

@@ -70,6 +70,86 @@
             overflow-x: auto;
         }
 
+        .daily-chart-wrap {
+            background: #fff;
+            border-radius: 10px;
+            padding: 0.8rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+        }
+
+        .daily-chart-wrap h2 {
+            margin-bottom: 0.6rem;
+            color: #2f3c7e;
+            font-size: 1.05rem;
+        }
+
+        .daily-legend {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.6rem;
+            color: #555;
+            font-size: 0.82rem;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.35rem;
+        }
+
+        .dot-reading { background: #4f83ff; }
+        .dot-math { background: #48b87a; }
+        .dot-writing { background: #f0aa41; }
+
+        .daily-row {
+            display: grid;
+            grid-template-columns: 90px 1fr 210px;
+            gap: 0.6rem;
+            align-items: center;
+            margin-bottom: 0.45rem;
+        }
+
+        .daily-date {
+            color: #34406f;
+            font-size: 0.84rem;
+            font-weight: 600;
+        }
+
+        .daily-bar-track {
+            width: 100%;
+            height: 12px;
+            border-radius: 999px;
+            background: #eef2fb;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .daily-seg-reading { background: #4f83ff; }
+        .daily-seg-math { background: #48b87a; }
+        .daily-seg-writing { background: #f0aa41; }
+
+        .daily-values {
+            color: #555;
+            font-size: 0.8rem;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 760px) {
+            .daily-row {
+                grid-template-columns: 1fr;
+                gap: 0.25rem;
+            }
+
+            .daily-values {
+                text-align: left;
+            }
+        }
+
         .report-table {
             width: 100%;
             border-collapse: collapse;
@@ -126,19 +206,28 @@
 
         <div class="summary-grid" id="summaryGrid"></div>
 
+        <div class="daily-chart-wrap">
+            <h2>Daily Practice Minutes</h2>
+            <div class="daily-legend">
+                <span><span class="legend-dot dot-reading"></span>Reading</span>
+                <span><span class="legend-dot dot-math"></span>Math</span>
+                <span><span class="legend-dot dot-writing"></span>Writing</span>
+            </div>
+            <div id="dailyChartBody"></div>
+        </div>
+
         <div class="report-table-wrap">
             <table class="report-table">
                 <thead>
                     <tr>
                         <th>Session</th>
                         <th>Type</th>
-                        <th>Started</th>
-                        <th>Completed</th>
-                        <th>Planned</th>
+                        <th>Started (Family TZ)</th>
+                        <th>Total Minutes</th>
                         <th>Answered</th>
                         <th>Right</th>
                         <th>Wrong</th>
-                        <th>Avg Time (ms)</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody id="reportBody"></tbody>
