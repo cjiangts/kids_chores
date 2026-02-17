@@ -8,6 +8,7 @@ const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
 const dailyChartBody = document.getElementById('dailyChartBody');
 const reportBody = document.getElementById('reportBody');
+const startedHeader = document.getElementById('startedHeader');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -43,6 +44,9 @@ async function loadReportTimezone() {
     try {
         const response = await fetch(`${API_BASE}/parent-settings/timezone`);
         if (!response.ok) {
+            if (startedHeader) {
+                startedHeader.textContent = `Started (${reportTimezone})`;
+            }
             return;
         }
         const data = await response.json().catch(() => ({}));
@@ -50,8 +54,14 @@ async function loadReportTimezone() {
         if (tz) {
             reportTimezone = tz;
         }
+        if (startedHeader) {
+            startedHeader.textContent = `Started (${reportTimezone})`;
+        }
     } catch (error) {
         // Keep browser timezone fallback.
+        if (startedHeader) {
+            startedHeader.textContent = `Started (${reportTimezone})`;
+        }
     }
 }
 
