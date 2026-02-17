@@ -5,12 +5,10 @@ const kidId = params.get('id');
 
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
-const addCardForm = document.getElementById('addCardForm');
-const chineseCharsInput = document.getElementById('chineseChars');
-const recordBtn = document.getElementById('recordBtn');
-const recordStatus = document.getElementById('recordStatus');
-const audioPlayer = document.getElementById('audioPlayer');
-const addCardErrorMessage = document.getElementById('addCardErrorMessage');
+const bulkImportForm = document.getElementById('bulkImportForm');
+const bulkWritingText = document.getElementById('bulkWritingText');
+const bulkAddBtn = document.getElementById('bulkAddBtn');
+const bulkImportErrorMessage = document.getElementById('bulkImportErrorMessage');
 const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
@@ -31,12 +29,24 @@ let currentCards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
 const CARD_PAGE_SIZE = 10;
+
 let mediaRecorder = null;
 let mediaStream = null;
-let recordedBlob = null;
-let recordedAudioUrl = null;
-let recordedUploadFileName = 'prompt.webm';
 let isRecordTransitioning = false;
+let recordingCardId = null;
+let recordedForCardId = null;
+let recordedBlob = null;
+let recordedUploadFileName = 'prompt.webm';
+let recordedPreviewUrl = null;
+let autoPlayRecordedCardId = null;
+
+function escapeAttr(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -53,9 +63,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         await saveSessionSettings();
     });
 
-    addCardForm.addEventListener('submit', async (e) => {
+    bulkImportForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        await addWritingCards();
+        await bulkImportWritingCards();
+    });
+    bulkWritingText.addEventListener('input', () => {
+        updateBulkAddButtonCount();
     });
 
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
@@ -63,12 +76,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     cardsGrid.addEventListener('click', handleCardsGridClick);
     window.addEventListener('scroll', () => maybeLoadMoreCards());
 
-    recordBtn.addEventListener('click', async () => toggleRecording());
     createSheetBtn.addEventListener('click', async () => createAndPrintSheet());
     viewSheetsBtn.addEventListener('click', () => viewSheets());
 
     await loadKidInfo();
     await loadWritingCards();
+    updateBulkAddButtonCount();
 });
 
 async function loadKidInfo() {
@@ -102,9 +115,7 @@ async function saveSessionSettings() {
         const response = await fetch(`${API_BASE}/kids/${kidId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                writingSessionCardCount: value
-            })
+            body: JSON.stringify({ writingSessionCardCount: value })
         });
 
         if (!response.ok) {
@@ -141,148 +152,49 @@ async function loadWritingCards() {
     }
 }
 
-async function toggleRecording() {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        stopRecording();
-        return;
-    }
-    await startRecording();
-}
-
-async function startRecording() {
+async function bulkImportWritingCards() {
     try {
-        if (isRecordTransitioning) {
-            setRecordStatus('Please wait, finishing previous recording...');
-            return;
-        }
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            setRecordStatus('Recorder is busy, please wait...');
-            return;
-        }
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            showError('Recording is not supported in this browser');
+        showBulkImportError('');
+        const rawText = String(bulkWritingText.value || '').trim();
+        if (!rawText) {
+            showBulkImportError('Please paste Chinese words/phrases first');
             return;
         }
 
-        isRecordTransitioning = true;
-        showError('');
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const preferredMimeType = getPreferredRecordingMimeType();
-        const recorder = preferredMimeType
-            ? new MediaRecorder(stream, { mimeType: preferredMimeType })
-            : new MediaRecorder(stream);
-        const chunks = [];
-        const startedAt = Date.now();
-        mediaStream = stream;
-        mediaRecorder = recorder;
-        recordedBlob = null;
-        recordedUploadFileName = `prompt.${guessAudioExtension(preferredMimeType || recorder.mimeType || 'audio/webm')}`;
-        audioPlayer.pause();
-        audioPlayer.removeAttribute('src');
-        audioPlayer.load();
-        if (recordedAudioUrl) {
-            URL.revokeObjectURL(recordedAudioUrl);
-            recordedAudioUrl = null;
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards/bulk`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: rawText })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
         }
 
-        recorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) {
-                chunks.push(event.data);
-            }
-        };
-
-        recorder.onstop = () => {
-            const finalMimeType = recorder.mimeType || preferredMimeType || 'audio/webm';
-            recordedBlob = new Blob(chunks, { type: finalMimeType });
-            recordedUploadFileName = `prompt.${guessAudioExtension(finalMimeType)}`;
-            const failed = !recordedBlob || recordedBlob.size === 0;
-            const elapsedMs = Date.now() - startedAt;
-            const tooShort = elapsedMs < 300;
-            const invalid = failed || tooShort;
-            setRecordStatus(
-                invalid ? 'Recording failed (too short or empty), please try again' : 'Recording ready',
-                invalid
-            );
-            if (!invalid) {
-                recordedAudioUrl = URL.createObjectURL(recordedBlob);
-                playAudio(recordedAudioUrl);
-            } else {
-                recordedBlob = null;
-            }
-            setRecordingUI(false);
-
-            if (mediaStream === stream) {
-                mediaStream.getTracks().forEach((track) => track.stop());
-                mediaStream = null;
-            }
-            if (mediaRecorder === recorder) {
-                mediaRecorder = null;
-            }
-            isRecordTransitioning = false;
-        };
-
-        recorder.onerror = () => {
-            setRecordStatus('Recording failed, please try again', true);
-            setRecordingUI(false);
-            if (mediaStream === stream) {
-                mediaStream.getTracks().forEach((track) => track.stop());
-                mediaStream = null;
-            }
-            if (mediaRecorder === recorder) {
-                mediaRecorder = null;
-            }
-            isRecordTransitioning = false;
-        };
-
-        recorder.start(200);
-        setRecordingUI(true);
-        setRecordStatus('Recording...');
-        isRecordTransitioning = false;
+        const inserted = Number(payload.inserted_count || 0);
+        const skipped = Number(payload.skipped_existing_count || 0);
+        bulkWritingText.value = '';
+        updateBulkAddButtonCount();
+        await loadWritingCards();
+        showBulkImportError(`Added ${inserted} new card(s). Skipped ${skipped} existing card(s).`, false);
     } catch (error) {
-        console.error('Error starting recording:', error);
-        setRecordingUI(false);
-        if (mediaStream) {
-            mediaStream.getTracks().forEach((track) => track.stop());
-            mediaStream = null;
-        }
-        mediaRecorder = null;
-        isRecordTransitioning = false;
-        showError('Failed to start recording. Please allow microphone access.');
+        console.error('Error bulk importing writing cards:', error);
+        showBulkImportError(error.message || 'Failed to bulk import writing cards');
     }
 }
 
-function stopRecording() {
-    if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+function updateBulkAddButtonCount() {
+    const totalTokens = countWritingTokensBeforeDbDedup(bulkWritingText.value);
+    if (totalTokens > 0) {
+        bulkAddBtn.textContent = `Bulk Add Chinese Writing Prompt (${totalTokens})`;
         return;
     }
-
-    isRecordTransitioning = true;
-    try {
-        mediaRecorder.requestData();
-    } catch (error) {
-        // requestData is best-effort; continue to stop.
-    }
-    mediaRecorder.stop();
-    setRecordingUI(false);
-    setRecordStatus('Processing recording...');
+    bulkAddBtn.textContent = 'Bulk Add Chinese Writing Prompt';
 }
 
-function setRecordingUI(isRecording) {
-    if (isRecording) {
-        recordBtn.textContent = 'Stop Recording';
-        recordBtn.classList.remove('record-btn');
-        recordBtn.classList.add('stop-btn');
-        return;
-    }
-
-    recordBtn.textContent = 'Start Recording';
-    recordBtn.classList.remove('stop-btn');
-    recordBtn.classList.add('record-btn');
-}
-
-function setRecordStatus(message, isError = false) {
-    recordStatus.textContent = message;
-    recordStatus.style.color = isError ? '#dc3545' : '#666';
+function countWritingTokensBeforeDbDedup(text) {
+    const matches = String(text || '').match(/[\u3400-\u9FFF\uF900-\uFAFF]+/g);
+    return matches ? matches.length : 0;
 }
 
 function getPreferredRecordingMimeType() {
@@ -307,78 +219,209 @@ function getPreferredRecordingMimeType() {
 
 function guessAudioExtension(mimeType) {
     const value = String(mimeType || '').toLowerCase();
-    if (value.includes('mp4') || value.includes('m4a')) {
-        return 'm4a';
-    }
-    if (value.includes('ogg')) {
-        return 'ogg';
-    }
-    if (value.includes('aac')) {
-        return 'aac';
-    }
+    if (value.includes('mp4') || value.includes('m4a')) return 'm4a';
+    if (value.includes('ogg')) return 'ogg';
+    if (value.includes('aac')) return 'aac';
     return 'webm';
 }
 
-async function addWritingCards() {
+async function startRecordingForCard(cardId) {
     try {
-        showAddCardError('');
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            showAddCardError('Please stop recording first');
-            return;
-        }
         if (isRecordTransitioning) {
-            showAddCardError('Recording is still processing. Please wait a moment.');
             return;
         }
-        const rawText = chineseCharsInput.value.trim();
-        if (rawText.length === 0) {
-            showAddCardError('Please enter answer text');
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showError('Recording is not supported in this browser');
             return;
         }
 
-        if (!recordedBlob || recordedBlob.size === 0) {
-            showAddCardError('Please record a voice prompt first');
-            setRecordStatus('Please record a voice prompt first', true);
+        isRecordTransitioning = true;
+        recordingCardId = String(cardId);
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const preferredMimeType = getPreferredRecordingMimeType();
+        const recorder = preferredMimeType
+            ? new MediaRecorder(stream, { mimeType: preferredMimeType })
+            : new MediaRecorder(stream);
+        const chunks = [];
+        const startedAt = Date.now();
+
+        mediaStream = stream;
+        mediaRecorder = recorder;
+        recordedBlob = null;
+        if (recordedPreviewUrl) {
+            URL.revokeObjectURL(recordedPreviewUrl);
+            recordedPreviewUrl = null;
+        }
+
+        recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                chunks.push(event.data);
+            }
+        };
+
+        recorder.onstart = () => {
+            displayCards(currentCards);
+        };
+
+        recorder.onstop = () => {
+            const finalMimeType = recorder.mimeType || preferredMimeType || 'audio/webm';
+            const blob = new Blob(chunks, { type: finalMimeType });
+            const failed = !blob || blob.size === 0;
+            const elapsedMs = Date.now() - startedAt;
+            const tooShort = elapsedMs < 300;
+            const invalid = failed || tooShort;
+
+            if (!invalid) {
+                recordedBlob = blob;
+                recordedUploadFileName = `prompt.${guessAudioExtension(finalMimeType)}`;
+                recordedForCardId = String(cardId);
+                recordedPreviewUrl = URL.createObjectURL(blob);
+                autoPlayRecordedCardId = String(cardId);
+            } else {
+                recordedBlob = null;
+                recordedForCardId = null;
+                if (recordedPreviewUrl) {
+                    URL.revokeObjectURL(recordedPreviewUrl);
+                    recordedPreviewUrl = null;
+                }
+                showError('Recording failed (too short or empty), please try again');
+            }
+
+            isRecordTransitioning = false;
+            mediaRecorder = null;
+            recordingCardId = null;
+            if (mediaStream === stream) {
+                mediaStream.getTracks().forEach((track) => track.stop());
+                mediaStream = null;
+            }
+            displayCards(currentCards);
+        };
+
+        recorder.onerror = () => {
+            isRecordTransitioning = false;
+            mediaRecorder = null;
+            recordingCardId = null;
+            if (mediaStream === stream) {
+                mediaStream.getTracks().forEach((track) => track.stop());
+                mediaStream = null;
+            }
+            showError('Recording failed, please try again');
+            displayCards(currentCards);
+        };
+
+        recorder.start(200);
+        isRecordTransitioning = false;
+        displayCards(currentCards);
+    } catch (error) {
+        console.error('Error starting recording:', error);
+        isRecordTransitioning = false;
+        recordingCardId = null;
+        mediaRecorder = null;
+        if (mediaStream) {
+            mediaStream.getTracks().forEach((track) => track.stop());
+            mediaStream = null;
+        }
+        showError('Failed to start recording. Please allow microphone access.');
+        displayCards(currentCards);
+    }
+}
+
+function stopRecording() {
+    if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+        return;
+    }
+    isRecordTransitioning = true;
+    try {
+        mediaRecorder.requestData();
+    } catch (error) {
+        // best effort
+    }
+    mediaRecorder.stop();
+}
+
+async function saveRecordingToCard(cardId) {
+    try {
+        showError('');
+        const targetId = String(cardId || '');
+        if (!targetId) {
+            showError('Invalid card');
+            return;
+        }
+        if (!recordedBlob || recordedBlob.size === 0 || String(recordedForCardId || '') !== targetId) {
+            showError('Please record audio for this card first');
+            return;
+        }
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            showError('Please stop recording first');
             return;
         }
 
         const formData = new FormData();
-        formData.append('characters', rawText);
         formData.append('audio', recordedBlob, recordedUploadFileName || 'prompt.webm');
-
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards`, {
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards/${encodeURIComponent(targetId)}/audio`, {
             method: 'POST',
             body: formData
         });
+        const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-            const errorPayload = await response.json().catch(() => ({}));
-            throw new Error(errorPayload.error || `HTTP ${response.status}`);
+            throw new Error(payload.error || `HTTP ${response.status}`);
         }
 
-        addCardForm.reset();
         recordedBlob = null;
-        recordedUploadFileName = 'prompt.webm';
-        if (recordedAudioUrl) {
-            URL.revokeObjectURL(recordedAudioUrl);
-            recordedAudioUrl = null;
+        recordedForCardId = null;
+        if (recordedPreviewUrl) {
+            URL.revokeObjectURL(recordedPreviewUrl);
+            recordedPreviewUrl = null;
         }
-        audioPlayer.pause();
-        audioPlayer.removeAttribute('src');
-        audioPlayer.load();
-        setRecordStatus('No recording yet');
-
         await loadWritingCards();
-        showAddCardError('');
     } catch (error) {
-        console.error('Error adding writing cards:', error);
-        showAddCardError(error.message || 'Failed to add Chinese writing cards');
+        console.error('Error saving recording:', error);
+        showError(error.message || 'Failed to save recording');
     }
+}
+
+async function clearSavedAudioForCard(cardId) {
+    try {
+        showError('');
+        const targetId = String(cardId || '');
+        if (!targetId) {
+            return;
+        }
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards/${encodeURIComponent(targetId)}/audio`, {
+            method: 'DELETE'
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        await loadWritingCards();
+    } catch (error) {
+        console.error('Error clearing writing audio:', error);
+        showError(error.message || 'Failed to clear audio');
+    }
+}
+
+function clearRecordedForCard(cardId) {
+    const targetId = String(cardId || '');
+    if (String(recordedForCardId || '') !== targetId) {
+        return;
+    }
+    recordedBlob = null;
+    recordedForCardId = null;
+    if (recordedPreviewUrl) {
+        URL.revokeObjectURL(recordedPreviewUrl);
+        recordedPreviewUrl = null;
+    }
+    displayCards(currentCards);
 }
 
 async function createAndPrintSheet() {
     let previewWindow = null;
     try {
-        // Open a placeholder tab immediately (before async work) to avoid popup blockers.
         previewWindow = window.open('about:blank', '_blank');
         if (!previewWindow) {
             showSheetError('Popup blocked. Please allow popups for this site to preview the sheet.');
@@ -387,7 +430,7 @@ async function createAndPrintSheet() {
         try {
             previewWindow.document.write('<!doctype html><title>Loading…</title><p style="font-family: sans-serif; padding: 1rem;">Preparing sheet preview…</p>');
         } catch (error) {
-            // If writing to the placeholder fails, continue and just set location later.
+            // continue
         }
 
         const count = Number.parseInt(sheetCardCountInput.value, 10);
@@ -413,10 +456,7 @@ async function createAndPrintSheet() {
         const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets/preview`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                count,
-                rows_per_character: rowsPerCharacter
-            })
+            body: JSON.stringify({ count, rows_per_character: rowsPerCharacter })
         });
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
@@ -450,30 +490,6 @@ async function createAndPrintSheet() {
     }
 }
 
-function showSheetError(message) {
-    if (!sheetErrorMessage) {
-        return;
-    }
-    if (message) {
-        sheetErrorMessage.textContent = message;
-        sheetErrorMessage.classList.remove('hidden');
-    } else {
-        sheetErrorMessage.classList.add('hidden');
-    }
-}
-
-function showAddCardError(message) {
-    if (!addCardErrorMessage) {
-        return;
-    }
-    if (message) {
-        addCardErrorMessage.textContent = message;
-        addCardErrorMessage.classList.remove('hidden');
-    } else {
-        addCardErrorMessage.classList.add('hidden');
-    }
-}
-
 function viewSheets() {
     window.location.href = `/kid-writing-sheets.html?id=${kidId}`;
 }
@@ -492,6 +508,9 @@ async function deleteWritingCard(cardId) {
             throw new Error(`HTTP ${response.status}`);
         }
 
+        if (String(recordedForCardId || '') === String(cardId)) {
+            clearRecordedForCard(cardId);
+        }
         await loadWritingCards();
     } catch (error) {
         console.error('Error deleting writing card:', error);
@@ -499,41 +518,33 @@ async function deleteWritingCard(cardId) {
     }
 }
 
-function playPrompt(url) {
-    if (!url) {
-        showError('No audio found for this Chinese writing card.');
-        return;
-    }
-    playAudio(url);
-}
-
-function playAudio(url) {
-    audioPlayer.src = url;
-    audioPlayer.currentTime = 0;
-    audioPlayer.play().catch((err) => {
-        console.error('Error playing audio:', err);
-    });
-}
-
 function displayCards(cards) {
     const filteredCards = filterCardsByQuery(cards, cardSearchInput.value);
-    sortedCards = window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
+    const sortMode = viewOrderSelect.value;
+    const baseSorted = window.PracticeManageCommon.sortCardsForView(filteredCards, sortMode);
+    sortedCards = sortMode === 'queue' ? baseSorted : prioritizeMissingAudioFirst(baseSorted);
     cardCount.textContent = `(${sortedCards.length})`;
     updatePracticingSummary(cards);
 
     if (sortedCards.length === 0) {
-        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No Chinese writing cards yet</h3><p>Record your first Chinese writing prompt above.</p></div>`;
+        cardsGrid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><h3>No Chinese writing cards yet</h3><p>Bulk add cards above first.</p></div>';
         return;
     }
 
     const visibleCards = sortedCards.slice(0, visibleCardCount);
-    const escapeAttr = (value) => String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    const listHtml = `${visibleCards.map((card) => `
-            <div class="card-item">
+    const isRecording = !!recordingCardId || !!(mediaRecorder && mediaRecorder.state === 'recording');
+
+    cardsGrid.innerHTML = visibleCards.map((card) => {
+        const cardId = String(card.id);
+        const isCardRecording = String(recordingCardId || '') === cardId;
+        const hasPendingForCard = String(recordedForCardId || '') === cardId && !!recordedBlob;
+        const previewAudio = hasPendingForCard && recordedPreviewUrl ? recordedPreviewUrl : '';
+        const savedAudioUrl = card.audio_url || '';
+        const hasSavedAudio = !!savedAudioUrl;
+        const selectedClass = (isCardRecording || hasPendingForCard) ? 'selected-audio-target' : '';
+
+        return `
+            <div class="card-item ${selectedClass}">
                 <button
                     type="button"
                     class="delete-card-btn"
@@ -543,26 +554,95 @@ function displayCards(cards) {
                     aria-label="Delete this card"
                 >×</button>
                 <div class="card-front">${card.back || card.front || ''}</div>
+                <div class="selected-audio-bar">
+                    <div class="selected-audio-title">Audio</div>
+                    <div class="card-audio-slot" data-audio-slot data-audio-url="${escapeAttr(savedAudioUrl)}">
+                        ${previewAudio ? `
+                            <audio
+                                class="card-audio-player"
+                                controls
+                                preload="metadata"
+                                src="${escapeAttr(previewAudio)}"
+                            ></audio>
+                        ` : ''}
+                    </div>
+                    <div class="selected-audio-actions">
+                        ${hasSavedAudio ? `
+                            <button
+                                type="button"
+                                class="selected-audio-btn record"
+                                data-action="load-play-audio"
+                                data-card-id="${escapeAttr(card.id)}"
+                            >Load/Play</button>
+                            <button
+                                type="button"
+                                class="selected-audio-btn clear"
+                                data-action="clear-saved-audio"
+                                data-card-id="${escapeAttr(card.id)}"
+                            >Clear</button>
+                        ` : `
+                            <button
+                                type="button"
+                                class="selected-audio-btn ${isCardRecording ? 'stop' : 'record'}"
+                                data-action="toggle-recording"
+                                data-card-id="${escapeAttr(card.id)}"
+                                ${isRecordTransitioning ? 'disabled' : ''}
+                            >${isCardRecording ? 'Stop' : 'Record'}</button>
+                            <button
+                                type="button"
+                                class="selected-audio-btn save"
+                                data-action="save-recording"
+                                data-card-id="${escapeAttr(card.id)}"
+                                ${(hasPendingForCard && !isCardRecording && !isRecordTransitioning) ? '' : 'disabled'}
+                            >Save</button>
+                        `}
+                    </div>
+                </div>
+                ${card.audio_url ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">No audio yet</div>'}
+                <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
+                <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>
+                <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
+                <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
                 <div class="card-actions">
-                    <button
-                        type="button"
-                        class="card-action-btn play-btn"
-                        data-action="replay-audio"
-                        data-audio-url="${escapeAttr(card.audio_url || '')}"
-                    >Replay</button>
                     <a
                         class="card-report-link"
                         href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(card.id)}&from=writing"
                     >Report</a>
                 </div>
-                <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
-                <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>
-                <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
-                <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
             </div>
-        `).join('')}`;
+        `;
+    }).join('');
 
-    cardsGrid.innerHTML = listHtml;
+    if (autoPlayRecordedCardId) {
+        const targetId = String(autoPlayRecordedCardId);
+        autoPlayRecordedCardId = null;
+        const cardEl = cardsGrid.querySelector(`.delete-card-btn[data-card-id="${targetId}"]`)?.closest('.card-item');
+        let audioEl = cardEl ? cardEl.querySelector('.card-audio-player') : null;
+        if (!audioEl && cardEl) {
+            const slot = cardEl.querySelector('[data-audio-slot]');
+            if (slot && recordedPreviewUrl) {
+                slot.innerHTML = `<audio class="card-audio-player" controls preload="metadata" src="${escapeAttr(recordedPreviewUrl)}"></audio>`;
+                audioEl = slot.querySelector('.card-audio-player');
+            }
+        }
+        if (audioEl) {
+            audioEl.play().catch(() => {});
+        }
+    }
+}
+
+function prioritizeMissingAudioFirst(cards) {
+    const missingAudio = [];
+    const withAudio = [];
+    cards.forEach((card) => {
+        const hasAudio = !!(card.audio_url || card.audio_file_name);
+        if (hasAudio) {
+            withAudio.push(card);
+        } else {
+            missingAudio.push(card);
+        }
+    });
+    return [...missingAudio, ...withAudio];
 }
 
 function filterCardsByQuery(cards, rawQuery) {
@@ -617,6 +697,33 @@ function showError(message) {
     }
 }
 
+function showSheetError(message) {
+    if (!sheetErrorMessage) {
+        return;
+    }
+    if (message) {
+        sheetErrorMessage.textContent = message;
+        sheetErrorMessage.classList.remove('hidden');
+    } else {
+        sheetErrorMessage.classList.add('hidden');
+    }
+}
+
+function showBulkImportError(message, isError = true) {
+    if (!bulkImportErrorMessage) {
+        return;
+    }
+    if (message) {
+        bulkImportErrorMessage.textContent = message;
+        bulkImportErrorMessage.classList.remove('hidden');
+        bulkImportErrorMessage.style.background = isError ? '#f8d7da' : '#d4edda';
+        bulkImportErrorMessage.style.color = isError ? '#721c24' : '#155724';
+        bulkImportErrorMessage.style.border = isError ? '1px solid #f5c6cb' : '1px solid #c3e6cb';
+    } else {
+        bulkImportErrorMessage.classList.add('hidden');
+    }
+}
+
 async function handleCardsGridClick(event) {
     const actionEl = event.target.closest('[data-action]');
     if (!actionEl) {
@@ -624,19 +731,64 @@ async function handleCardsGridClick(event) {
     }
 
     const action = actionEl.dataset.action;
+    const cardId = actionEl.dataset.cardId || '';
+
     if (action === 'delete-card') {
-        const cardId = actionEl.dataset.cardId;
         if (cardId) {
             await deleteWritingCard(cardId);
         }
         return;
     }
 
-    if (action === 'replay-audio') {
-        const audioUrl = actionEl.dataset.audioUrl || '';
-        playPrompt(audioUrl);
+    if (action === 'toggle-recording') {
+        if (mediaRecorder && mediaRecorder.state === 'recording' && String(recordingCardId || '') === String(cardId)) {
+            stopRecording();
+            return;
+        }
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            showError('Please stop current recording first');
+            return;
+        }
+        await startRecordingForCard(cardId);
+        return;
+    }
+
+    if (action === 'load-play-audio') {
+        const barEl = actionEl.closest('.selected-audio-bar');
+        if (!barEl) {
+            return;
+        }
+        const slotEl = barEl.querySelector('[data-audio-slot]');
+        if (!slotEl) {
+            return;
+        }
+        let audioEl = slotEl.querySelector('.card-audio-player');
+        if (!audioEl) {
+            const savedUrl = slotEl.dataset.audioUrl || '';
+            if (!savedUrl) {
+                showError('No audio found for this Chinese writing card.');
+                return;
+            }
+            slotEl.innerHTML = `<audio class="card-audio-player" controls preload="metadata" src="${escapeAttr(savedUrl)}"></audio>`;
+            audioEl = slotEl.querySelector('.card-audio-player');
+        }
+        if (audioEl) {
+            audioEl.play().catch(() => {});
+        }
+        return;
+    }
+
+    if (action === 'save-recording') {
+        await saveRecordingToCard(cardId);
+        return;
+    }
+
+    if (action === 'clear-recording') {
+        clearRecordedForCard(cardId);
+        return;
+    }
+
+    if (action === 'clear-saved-audio') {
+        await clearSavedAudioForCard(cardId);
     }
 }
-
-window.deleteWritingCard = deleteWritingCard;
-window.playPrompt = playPrompt;

@@ -41,65 +41,34 @@
             background: #5a6268;
         }
 
-        .submit-btn,
-        .record-btn,
-        .stop-btn {
-            background: #007bff;
+        .submit-btn {
+            background: #28a745;
             color: white;
-            padding: 0.75rem 1.25rem;
+            padding: 0.75rem 1.5rem;
             border: none;
             border-radius: 4px;
             font-size: 1rem;
             cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .submit-btn:hover,
-        .record-btn:hover,
-        .stop-btn:hover {
-            background: #0069d9;
-        }
-
-        .submit-btn {
             width: 100%;
-            margin-top: 1rem;
-            background: #28a745;
         }
 
         .submit-btn:hover {
             background: #218838;
         }
 
-        .stop-btn {
-            background: #dc3545;
+        .bulk-import-wrap {
+            margin-top: 0.4rem;
         }
 
-        .stop-btn:hover {
-            background: #c82333;
-        }
-
-        .record-controls {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-top: 0.5rem;
-        }
-
-        .record-status {
-            margin-top: 0.5rem;
-            font-size: 0.9rem;
-            color: #666;
-            min-height: 1.2rem;
-        }
-
-        .audio-player-wrap {
+        .bulk-import-wrap textarea {
             width: 100%;
-            max-width: 420px;
-            margin-top: 0.6rem;
-        }
-
-        .audio-player {
-            width: 100%;
+            min-height: 110px;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            resize: vertical;
+            box-sizing: border-box;
         }
 
         .cards-section h2 {
@@ -138,6 +107,11 @@
             position: relative;
         }
 
+        .card-item.selected-audio-target {
+            border: 2px solid #2d7ef7;
+            box-shadow: 0 0 0 3px rgba(45, 126, 247, 0.14);
+        }
+
         .card-front {
             font-size: 4.5rem;
             color: #333;
@@ -163,6 +137,63 @@
 
         .play-btn {
             background: #2d7ef7;
+        }
+
+        .selected-audio-bar {
+            margin-top: 0.55rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            background: #eef4ff;
+            border: 1px solid #cfdcfb;
+            text-align: left;
+        }
+
+        .selected-audio-title {
+            font-size: 0.8rem;
+            color: #24468f;
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+        }
+
+        .selected-audio-actions {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        .selected-audio-btn {
+            border: none;
+            border-radius: 6px;
+            padding: 0.3rem 0.5rem;
+            color: white;
+            cursor: pointer;
+            font-size: 0.78rem;
+        }
+
+        .selected-audio-btn.record {
+            background: #2d7ef7;
+        }
+
+        .selected-audio-btn.stop {
+            background: #dc3545;
+        }
+
+        .selected-audio-btn.save {
+            background: #1f8e43;
+        }
+
+        .selected-audio-btn.clear {
+            background: #6c757d;
+        }
+
+        .selected-audio-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .card-audio-player {
+            width: 100%;
+            margin-top: 0.35rem;
         }
 
     </style>
@@ -199,28 +230,20 @@
                 <details class="help-details">
                     <summary title="Batch import tip">i</summary>
                     <div class="help-bubble">
-                        You can enter a single Chinese character or a full phrase/word here. Unlike Chinese reading import, Chinese writing keeps the full text as-is and does not auto-remove non-Chinese parts.
+                        Bulk adding is supported here. You can paste a long text block (single chars, words, or sentences). The system splits by non-Chinese separators, keeps Chinese chunks as prompts, and automatically deduplicates prompts already in the bank.
                     </div>
                 </details>
             </h2>
-            <form id="addCardForm">
-                <div class="form-group">
-                    <label for="chineseChars">Chinese Character(s)</label>
-                    <input type="text" id="chineseChars" class="chinese-input" placeholder="你" required>
-                </div>
-                <div class="form-group">
-                    <label>Record Parent Voice Prompt</label>
-                    <div class="record-controls">
-                        <button type="button" id="recordBtn" class="record-btn">Start Recording</button>
+            <div class="bulk-import-wrap">
+                <form id="bulkImportForm">
+                    <div class="form-group">
+                        <label for="bulkWritingText">Chinese words/phrases</label>
+                        <textarea id="bulkWritingText" placeholder="比如：今天，天气很好。爸爸妈妈去公园。"></textarea>
                     </div>
-                    <p id="recordStatus" class="record-status">No recording yet</p>
-                    <div class="audio-player-wrap">
-                        <audio id="audioPlayer" class="audio-player" controls preload="metadata"></audio>
-                    </div>
-                </div>
-                <button type="submit" class="submit-btn">Add Chinese Writing Card(s)</button>
-                <div id="addCardErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
-            </form>
+                    <button type="submit" id="bulkAddBtn" class="submit-btn">Bulk Add Chinese Writing Prompt</button>
+                    <div id="bulkImportErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
+                </form>
+            </div>
         </div>
 
         <div class="sheet-section">

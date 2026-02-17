@@ -7,6 +7,7 @@ import uuid
 import time
 import threading
 import mimetypes
+import re
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.db import metadata, kid_db
@@ -809,6 +810,22 @@ def get_or_create_writing_deck(conn):
         ['Chinese Character Writing', 'Default deck for Chinese character writing', ['writing']]
     ).fetchone()
     return row[0]
+
+
+def split_writing_bulk_text(raw_text):
+    """Split bulk writing input by non-Chinese chars, preserving Chinese phrase chunks."""
+    text = str(raw_text or '')
+    # Match contiguous Chinese runs; separators are any non-Chinese chars.
+    chunks = re.findall(r'[\u3400-\u9FFF\uF900-\uFAFF]+', text)
+    deduped = []
+    seen = set()
+    for chunk in chunks:
+        token = chunk.strip()
+        if not token or token in seen:
+            continue
+        deduped.append(token)
+        seen.add(token)
+    return deduped
 
 
 def get_math_pairs_for_sum_range(min_sum, max_sum):
@@ -1847,9 +1864,24 @@ def get_writing_cards(kid_id):
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_writing_deck(conn)
         pending_card_ids = get_pending_writing_card_ids(conn)
+        missing_audio_rows = conn.execute(
+            """
+            SELECT c.id
+            FROM cards c
+            LEFT JOIN writing_audio wa ON wa.card_id = c.id
+            WHERE c.deck_id = ?
+              AND wa.card_id IS NULL
+            """,
+            [deck_id]
+        ).fetchall()
+        missing_audio_card_ids = [int(row[0]) for row in missing_audio_rows]
+        missing_audio_set = set(missing_audio_card_ids)
         pending_card_set = set(pending_card_ids)
+        preview_excluded_ids = list(set(pending_card_ids + missing_audio_card_ids))
+        writing_session_count = normalize_writing_session_card_count(kid)
+        preview_kid = {**kid, 'sessionCardCount': writing_session_count}
         preview_ids = preview_deck_practice_order(
-            conn, kid, deck_id, 'writing', excluded_card_ids=pending_card_ids
+            conn, preview_kid, deck_id, 'writing', excluded_card_ids=preview_excluded_ids
         )
         preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
@@ -1884,10 +1916,12 @@ def get_writing_cards(kid_id):
             if not card.get('front') and card.get('back'):
                 card['front'] = card['back']
             card['pending_sheet'] = int(row[0]) in pending_card_set
-            card['available_for_practice'] = not card['pending_sheet']
+            has_audio = row[9] is not None
+            card['available_for_practice'] = (not card['pending_sheet']) and has_audio
             card['audio_file_name'] = row[9]
             card['audio_mime_type'] = row[10]
             card['audio_url'] = f"/api/kids/{kid_id}/writing/audio/{row[9]}" if row[9] else None
+            card['missing_audio'] = int(row[0]) in missing_audio_set
             cards.append(card)
 
         return jsonify({'deck_id': deck_id, 'cards': cards}), 200
@@ -1993,6 +2027,145 @@ def add_writing_cards(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/writing/cards/bulk', methods=['POST'])
+def add_writing_cards_bulk(kid_id):
+    """Bulk-add writing cards without audio by splitting text on non-Chinese separators."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload = request.get_json() or {}
+        raw_text = payload.get('text', '')
+        tokens = split_writing_bulk_text(raw_text)
+        if len(tokens) == 0:
+            return jsonify({'error': 'Please paste at least one Chinese word/phrase'}), 400
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+
+        existing_rows = conn.execute(
+            "SELECT back FROM cards WHERE deck_id = ?",
+            [deck_id]
+        ).fetchall()
+        existing_set = {str(row[0]) for row in existing_rows}
+
+        created = []
+        skipped_existing = 0
+        for token in tokens:
+            if token in existing_set:
+                skipped_existing += 1
+                continue
+
+            row = conn.execute(
+                """
+                INSERT INTO cards (deck_id, front, back)
+                VALUES (?, ?, ?)
+                RETURNING id, deck_id, front, back, created_at
+                """,
+                [deck_id, token, token]
+            ).fetchone()
+            existing_set.add(token)
+            created.append({
+                'id': int(row[0]),
+                'deck_id': int(row[1]),
+                'front': row[2],
+                'back': row[3],
+                'created_at': row[4].isoformat() if row[4] else None,
+                'audio_file_name': None,
+                'audio_mime_type': None,
+                'audio_url': None,
+            })
+
+        conn.close()
+        return jsonify({
+            'deck_id': deck_id,
+            'input_token_count': len(tokens),
+            'inserted_count': len(created),
+            'skipped_existing_count': skipped_existing,
+            'cards': created
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/cards/<card_id>/audio', methods=['POST'])
+def upsert_writing_card_audio(kid_id, card_id):
+    """Attach or replace audio for an existing writing card."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        if 'audio' not in request.files:
+            return jsonify({'error': 'Audio recording is required'}), 400
+        audio_file = request.files['audio']
+        if not audio_file or audio_file.filename == '':
+            return jsonify({'error': 'Audio recording is required'}), 400
+        audio_bytes = audio_file.read()
+        if not audio_bytes:
+            return jsonify({'error': 'Uploaded audio is empty'}), 400
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+        card_row = conn.execute(
+            "SELECT id, back FROM cards WHERE id = ? AND deck_id = ?",
+            [card_id, deck_id]
+        ).fetchone()
+        if not card_row:
+            conn.close()
+            return jsonify({'error': 'Writing card not found'}), 404
+
+        existing_audio_row = conn.execute(
+            "SELECT file_name FROM writing_audio WHERE card_id = ?",
+            [card_id]
+        ).fetchone()
+        old_file_name = existing_audio_row[0] if existing_audio_row else None
+
+        safe_name = secure_filename(audio_file.filename or '')
+        _, original_ext = os.path.splitext(safe_name)
+        mime_type = audio_file.mimetype or 'application/octet-stream'
+        guessed_ext = mimetypes.guess_extension(mime_type) or ''
+        ext = original_ext if original_ext else guessed_ext
+        if not ext:
+            ext = '.webm'
+
+        audio_dir = ensure_writing_audio_dir(kid)
+        file_name = f"{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join(audio_dir, file_name)
+        with open(file_path, 'wb') as f:
+            f.write(audio_bytes)
+
+        conn.execute(
+            """
+            INSERT INTO writing_audio (card_id, file_name, mime_type)
+            VALUES (?, ?, ?)
+            ON CONFLICT (card_id) DO UPDATE
+            SET file_name = EXCLUDED.file_name, mime_type = EXCLUDED.mime_type
+            """,
+            [card_id, file_name, mime_type]
+        )
+        conn.close()
+
+        if old_file_name:
+            old_path = os.path.join(audio_dir, old_file_name)
+            if old_file_name != file_name and os.path.exists(old_path):
+                try:
+                    os.remove(old_path)
+                except OSError:
+                    pass
+
+        return jsonify({
+            'card_id': int(card_row[0]),
+            'back': card_row[1],
+            'audio_file_name': file_name,
+            'audio_mime_type': mime_type,
+            'audio_url': f"/api/kids/{kid_id}/writing/audio/{file_name}"
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>/writing/audio/<path:file_name>', methods=['GET'])
 def get_writing_audio(kid_id, file_name):
     """Serve writing prompt audio file for a kid."""
@@ -2025,6 +2198,52 @@ def get_writing_audio(kid_id, file_name):
 
         mime_type = row[0] if row and row[0] else None
         return send_from_directory(audio_dir, file_name, as_attachment=False, mimetype=mime_type)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/cards/<card_id>/audio', methods=['DELETE'])
+def delete_writing_card_audio(kid_id, card_id):
+    """Delete audio for an existing writing card."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        deck_id = get_or_create_writing_deck(conn)
+        card_row = conn.execute(
+            "SELECT id FROM cards WHERE id = ? AND deck_id = ?",
+            [card_id, deck_id]
+        ).fetchone()
+        if not card_row:
+            conn.close()
+            return jsonify({'error': 'Writing card not found'}), 404
+
+        audio_row = conn.execute(
+            "SELECT file_name FROM writing_audio WHERE card_id = ?",
+            [card_id]
+        ).fetchone()
+        if not audio_row:
+            conn.close()
+            return jsonify({'error': 'No audio found for this writing card'}), 404
+
+        file_name = audio_row[0]
+        conn.execute(
+            "DELETE FROM writing_audio WHERE card_id = ?",
+            [card_id]
+        )
+        conn.close()
+
+        if file_name:
+            audio_path = os.path.join(get_kid_writing_audio_dir(kid), file_name)
+            if os.path.exists(audio_path):
+                try:
+                    os.remove(audio_path)
+                except OSError:
+                    pass
+
+        return jsonify({'deleted': True, 'card_id': int(card_row[0])}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2530,19 +2749,34 @@ def start_writing_practice_session(kid_id):
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_writing_deck(conn)
         pending_card_ids = get_pending_writing_card_ids(conn)
+        missing_audio_rows = conn.execute(
+            """
+            SELECT c.id
+            FROM cards c
+            LEFT JOIN writing_audio wa ON wa.card_id = c.id
+            WHERE c.deck_id = ?
+              AND wa.card_id IS NULL
+            """,
+            [deck_id]
+        ).fetchall()
+        missing_audio_card_ids = [int(row[0]) for row in missing_audio_rows]
+        excluded_card_ids = pending_card_ids + missing_audio_card_ids
         writing_session_count = normalize_writing_session_card_count(kid)
         if writing_session_count <= 0:
             conn.close()
             return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
         preview_kid = {**kid, 'sessionCardCount': writing_session_count}
         pending_session_id, selected_cards = plan_deck_pending_session(
-            conn, preview_kid, kid_id, deck_id, 'writing', excluded_card_ids=pending_card_ids
+            conn, preview_kid, kid_id, deck_id, 'writing', excluded_card_ids=excluded_card_ids
         )
         if not pending_session_id:
             conn.close()
             return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
 
         card_ids = [card['id'] for card in selected_cards]
+        if not card_ids:
+            conn.close()
+            return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
         placeholders = ','.join(['?'] * len(card_ids))
         audio_rows = conn.execute(
             f"""
