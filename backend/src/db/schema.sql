@@ -58,6 +58,15 @@ CREATE TABLE IF NOT EXISTS session_results (
   FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
 
+-- Lesson-reading recording audio metadata (actual audio files are stored on disk)
+CREATE TABLE IF NOT EXISTS lesson_reading_audio (
+  result_id INTEGER PRIMARY KEY,
+  file_name VARCHAR NOT NULL,
+  mime_type VARCHAR,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (result_id) REFERENCES session_results(id)
+);
+
 -- Cursor state for circular practice rotation by deck
 CREATE TABLE IF NOT EXISTS practice_state_by_deck (
   deck_id INTEGER PRIMARY KEY,

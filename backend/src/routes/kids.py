@@ -160,6 +160,51 @@ def ensure_writing_audio_dir(kid):
     return path
 
 
+def get_kid_lesson_reading_audio_dir(kid):
+    """Get filesystem directory for kid lesson-reading recording files."""
+    family_id = str(kid.get('familyId') or '')
+    kid_id = kid.get('id')
+    return os.path.join(get_family_root(family_id), 'lesson_reading_audio', f'kid_{kid_id}')
+
+
+def ensure_lesson_reading_audio_dir(kid):
+    """Ensure kid lesson-reading audio directory exists."""
+    path = get_kid_lesson_reading_audio_dir(kid)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def cleanup_lesson_reading_pending_audio_files_by_payload(pending_payload):
+    """Delete uploaded lesson-reading files for one pending session payload."""
+    if not pending_payload:
+        return
+    lesson_audio_by_card = pending_payload.get('lesson_audio_by_card')
+    if not isinstance(lesson_audio_by_card, dict) or len(lesson_audio_by_card) == 0:
+        return
+    audio_dir = str(pending_payload.get('lesson_audio_dir') or '').strip()
+    if not audio_dir:
+        return
+    for item in lesson_audio_by_card.values():
+        if not isinstance(item, dict):
+            continue
+        file_name = str(item.get('file_name') or '').strip()
+        if not file_name:
+            continue
+        audio_path = os.path.join(audio_dir, file_name)
+        if os.path.exists(audio_path):
+            try:
+                os.remove(audio_path)
+            except Exception:
+                pass
+
+
+def cleanup_lesson_reading_pending_audio_files(kid, pending_payload):
+    """Backwards-compatible wrapper for pending lesson-reading cleanup."""
+    if pending_payload and not pending_payload.get('lesson_audio_dir') and kid:
+        pending_payload = {**pending_payload, 'lesson_audio_dir': get_kid_lesson_reading_audio_dir(kid)}
+    cleanup_lesson_reading_pending_audio_files_by_payload(pending_payload)
+
+
 def current_family_id():
     """Return authenticated family id from session."""
     return str(session.get('family_id') or '')
@@ -563,9 +608,12 @@ def get_kid_report_session_detail(kid_id, session_id):
                 COALESCE(sr.response_time_ms, 0) AS response_time_ms,
                 sr.timestamp,
                 c.front,
-                c.back
+                c.back,
+                lra.file_name,
+                lra.mime_type
             FROM session_results sr
             LEFT JOIN cards c ON c.id = sr.card_id
+            LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
             WHERE sr.session_id = ?
             ORDER BY sr.id ASC
             """,
@@ -585,6 +633,9 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'timestamp': row[4].isoformat() if row[4] else None,
                 'front': row[5] or '',
                 'back': row[6] or '',
+                'audio_file_name': row[7] or None,
+                'audio_mime_type': row[8] or None,
+                'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[7]}" if row[7] else None,
             }
             answers.append(item)
             if item['correct']:
@@ -659,9 +710,12 @@ def get_kid_report_card_detail(kid_id, card_id):
                 s.id AS session_id,
                 s.type AS session_type,
                 s.started_at,
-                s.completed_at
+                s.completed_at,
+                lra.file_name,
+                lra.mime_type
             FROM session_results sr
             JOIN sessions s ON s.id = sr.session_id
+            LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
             WHERE sr.card_id = ?
             ORDER BY COALESCE(s.completed_at, s.started_at, sr.timestamp) ASC, sr.id ASC
             """,
@@ -685,6 +739,9 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'session_type': row[5],
                 'session_started_at': row[6].isoformat() if row[6] else None,
                 'session_completed_at': row[7].isoformat() if row[7] else None,
+                'audio_file_name': row[8] or None,
+                'audio_mime_type': row[9] or None,
+                'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[8]}" if row[8] else None,
             })
             response_sum_ms += response_ms
             if is_correct:
@@ -841,6 +898,9 @@ def delete_kid(kid_id):
         audio_dir = get_kid_writing_audio_dir(kid)
         if os.path.exists(audio_dir):
             shutil.rmtree(audio_dir, ignore_errors=True)
+        lesson_audio_dir = get_kid_lesson_reading_audio_dir(kid)
+        if os.path.exists(lesson_audio_dir):
+            shutil.rmtree(lesson_audio_dir, ignore_errors=True)
 
         # Delete from metadata
         metadata.delete_kid(kid_id, family_id=family_id)
@@ -1304,7 +1364,12 @@ def _cleanup_expired_pending_sessions():
         if now - float(payload.get('created_at_ts', 0)) > PENDING_SESSION_TTL_SECONDS
     ]
     for key in expired_keys:
-        _PENDING_SESSIONS.pop(key, None)
+        payload = _PENDING_SESSIONS.pop(key, None)
+        if not payload:
+            continue
+        if str(payload.get('session_type')) != 'lesson_reading':
+            continue
+        cleanup_lesson_reading_pending_audio_files_by_payload(payload)
 
 
 def create_pending_session(kid_id, session_type, payload):
@@ -1332,10 +1397,30 @@ def pop_pending_session(token, kid_id, session_type):
     if not payload:
         return None
     if str(payload.get('kid_id')) != str(kid_id):
+        if str(payload.get('session_type')) == 'lesson_reading':
+            cleanup_lesson_reading_pending_audio_files_by_payload(payload)
         return None
     if str(payload.get('session_type')) != str(session_type):
+        if str(payload.get('session_type')) == 'lesson_reading':
+            cleanup_lesson_reading_pending_audio_files_by_payload(payload)
         return None
     return payload
+
+
+def get_pending_session(token, kid_id, session_type):
+    """Get one pending session token without removing it."""
+    if not token:
+        return None
+    with _PENDING_SESSIONS_LOCK:
+        _cleanup_expired_pending_sessions()
+        payload = _PENDING_SESSIONS.get(str(token))
+        if not payload:
+            return None
+        if str(payload.get('kid_id')) != str(kid_id):
+            return None
+        if str(payload.get('session_type')) != str(session_type):
+            return None
+        return payload
 
 
 def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded_card_ids=None, enforce_exact_target=False):
@@ -1518,6 +1603,9 @@ def complete_session_internal(kid, kid_id, session_type, data):
     conn = get_kid_connection_for(kid)
     deck_id = pending.get('deck_id') if pending.get('kind') == 'deck' else None
     planned_count = int(pending.get('planned_count') or 0)
+    pending_lesson_audio = pending.get('lesson_audio_by_card') if session_type == 'lesson_reading' else {}
+    if not isinstance(pending_lesson_audio, dict):
+        pending_lesson_audio = {}
 
     # Validate answers before starting transaction
     for answer in answers:
@@ -1525,6 +1613,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
         known = answer.get('known')
         if not card_id or not isinstance(known, bool):
             conn.close()
+            if session_type == 'lesson_reading':
+                cleanup_lesson_reading_pending_audio_files(kid, pending)
             return {'error': 'Each answer needs cardId (int) and known (bool)'}, 400
 
     try:
@@ -1541,6 +1631,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
         latest_response_by_card = {}
         touched_card_ids = set()
+        consumed_lesson_audio_files = set()
         for answer in answers:
             card_id = answer.get('cardId')
             known = answer.get('known')
@@ -1549,12 +1640,32 @@ def complete_session_internal(kid, kid_id, session_type, data):
             except (TypeError, ValueError):
                 response_time_ms = 0
 
-            conn.execute(
-                "INSERT INTO session_results (session_id, card_id, correct, response_time_ms) VALUES (?, ?, ?, ?)",
+            result_row = conn.execute(
+                """
+                INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
+                VALUES (?, ?, ?, ?)
+                RETURNING id
+                """,
                 [session_id, card_id, known, response_time_ms]
-            )
+            ).fetchone()
+            result_id = int(result_row[0])
             latest_response_by_card[card_id] = response_time_ms
             touched_card_ids.add(card_id)
+
+            if session_type == 'lesson_reading':
+                audio_meta = pending_lesson_audio.get(str(card_id))
+                if isinstance(audio_meta, dict):
+                    file_name = str(audio_meta.get('file_name') or '').strip()
+                    mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
+                    if file_name:
+                        conn.execute(
+                            """
+                            INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                            VALUES (?, ?, ?)
+                            """,
+                            [result_id, file_name, mime_type]
+                        )
+                        consumed_lesson_audio_files.add(file_name)
 
         if session_type in ('flashcard', 'math', 'lesson_reading'):
             for card_id, latest_ms in latest_response_by_card.items():
@@ -1603,9 +1714,27 @@ def complete_session_internal(kid, kid_id, session_type, data):
     except Exception:
         conn.execute("ROLLBACK")
         conn.close()
+        if session_type == 'lesson_reading':
+            cleanup_lesson_reading_pending_audio_files(kid, pending)
         raise
 
     conn.close()
+    if session_type == 'lesson_reading' and isinstance(pending_lesson_audio, dict):
+        leftovers = {}
+        for item in pending_lesson_audio.values():
+            if not isinstance(item, dict):
+                continue
+            file_name = str(item.get('file_name') or '').strip()
+            if file_name and file_name not in consumed_lesson_audio_files:
+                leftovers[file_name] = item
+        if len(leftovers) > 0:
+            cleanup_lesson_reading_pending_audio_files(
+                kid,
+                {
+                    'lesson_audio_dir': pending.get('lesson_audio_dir'),
+                    'lesson_audio_by_card': {name: meta for name, meta in leftovers.items()},
+                }
+            )
     return {
         'session_id': session_id,
         'answer_count': len(answers),
@@ -2551,6 +2680,46 @@ def get_writing_audio(kid_id, file_name):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/lesson-reading/audio/<path:file_name>', methods=['GET'])
+def get_lesson_reading_audio(kid_id, file_name):
+    """Serve lesson-reading recording audio file for one kid."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        if file_name != os.path.basename(file_name):
+            return jsonify({'error': 'Invalid file name'}), 400
+
+        audio_dir = get_kid_lesson_reading_audio_dir(kid)
+        audio_path = os.path.join(audio_dir, file_name)
+        if not os.path.exists(audio_path):
+            return jsonify({'error': 'Audio file not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        row = conn.execute(
+            """
+            SELECT lra.mime_type
+            FROM lesson_reading_audio lra
+            JOIN session_results sr ON sr.id = lra.result_id
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE lra.file_name = ?
+              AND s.type = 'lesson_reading'
+            LIMIT 1
+            """,
+            [file_name]
+        ).fetchone()
+        conn.close()
+
+        if not row:
+            return jsonify({'error': 'Audio file not found'}), 404
+
+        mime_type = row[0] if row and row[0] else None
+        return send_from_directory(audio_dir, file_name, as_attachment=False, mimetype=mime_type)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>/writing/cards/<card_id>/audio', methods=['DELETE'])
 def delete_writing_card_audio(kid_id, card_id):
     """Delete audio for an existing writing card."""
@@ -3279,6 +3448,8 @@ def start_lesson_reading_practice_session(kid_id):
                 'kind': 'lesson_reading',
                 'planned_count': len(selected_cards),
                 'deck_cursor_updates': deck_cursor_updates,
+                'cards': [{'id': int(card['id'])} for card in selected_cards],
+                'lesson_audio_dir': ensure_lesson_reading_audio_dir(kid),
             }
         )
         conn.close()
@@ -3287,6 +3458,106 @@ def start_lesson_reading_practice_session(kid_id):
             'pending_session_id': pending_session_id,
             'planned_count': len(selected_cards),
             'cards': selected_cards
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/lesson-reading/practice/upload-audio', methods=['POST'])
+def upload_lesson_reading_practice_audio(kid_id):
+    """Upload one lesson-reading recording clip for an active pending session."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        pending_session_id = str(request.form.get('pendingSessionId') or '').strip()
+        card_id_raw = request.form.get('cardId')
+        if not pending_session_id:
+            return jsonify({'error': 'pendingSessionId is required'}), 400
+        try:
+            card_id = int(card_id_raw)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'cardId must be an integer'}), 400
+        if 'audio' not in request.files:
+            return jsonify({'error': 'Audio recording is required'}), 400
+
+        pending = get_pending_session(pending_session_id, kid_id, 'lesson_reading')
+        if not pending:
+            return jsonify({'error': 'Pending session not found or expired'}), 404
+
+        planned_ids = set()
+        for card in pending.get('cards', []) if isinstance(pending.get('cards'), list) else []:
+            try:
+                planned_ids.add(int(card.get('id')))
+            except Exception:
+                continue
+        if len(planned_ids) > 0 and card_id not in planned_ids:
+            return jsonify({'error': 'cardId is not in this pending session'}), 400
+
+        audio_file = request.files['audio']
+        if not audio_file or audio_file.filename == '':
+            return jsonify({'error': 'Audio recording is required'}), 400
+        audio_bytes = audio_file.read()
+        if not audio_bytes:
+            return jsonify({'error': 'Uploaded audio is empty'}), 400
+
+        safe_name = secure_filename(audio_file.filename or '')
+        ext = os.path.splitext(safe_name)[1].lower()
+        if not ext:
+            ext = '.webm'
+        mime_type = audio_file.mimetype or 'application/octet-stream'
+
+        audio_dir = ensure_lesson_reading_audio_dir(kid)
+        file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join(audio_dir, file_name)
+        with open(file_path, 'wb') as f:
+            f.write(audio_bytes)
+
+        old_file_name = None
+        with _PENDING_SESSIONS_LOCK:
+            live = _PENDING_SESSIONS.get(pending_session_id)
+            if (
+                not live
+                or str(live.get('kid_id')) != str(kid_id)
+                or str(live.get('session_type')) != 'lesson_reading'
+            ):
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                return jsonify({'error': 'Pending session not found or expired'}), 404
+
+            lesson_audio_by_card = live.get('lesson_audio_by_card')
+            if not isinstance(lesson_audio_by_card, dict):
+                lesson_audio_by_card = {}
+                live['lesson_audio_by_card'] = lesson_audio_by_card
+            if not str(live.get('lesson_audio_dir') or '').strip():
+                live['lesson_audio_dir'] = audio_dir
+
+            old_meta = lesson_audio_by_card.get(str(card_id))
+            if isinstance(old_meta, dict):
+                old_file_name = str(old_meta.get('file_name') or '').strip() or None
+
+            lesson_audio_by_card[str(card_id)] = {
+                'file_name': file_name,
+                'mime_type': mime_type,
+            }
+
+        if old_file_name:
+            old_path = os.path.join(audio_dir, old_file_name)
+            if os.path.exists(old_path):
+                try:
+                    os.remove(old_path)
+                except Exception:
+                    pass
+
+        return jsonify({
+            'pending_session_id': pending_session_id,
+            'card_id': card_id,
+            'file_name': file_name,
+            'mime_type': mime_type,
+            'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{file_name}",
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

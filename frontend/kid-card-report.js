@@ -145,6 +145,7 @@ function renderHistory(attempts) {
                     ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
                     · Session #${safeNum(item.session_id)}
                 </div>
+                ${item.audio_url ? `<audio class="attempt-audio" controls preload="none" src="${escapeHtml(item.audio_url)}"></audio>` : ''}
             </div>
         `;
     }).join('');

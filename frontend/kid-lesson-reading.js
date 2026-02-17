@@ -29,7 +29,10 @@ let completedCount = 0;
 let mediaRecorder = null;
 let mediaStream = null;
 let isRecording = false;
+let isUploadingRecording = false;
 let recordingStartedAtMs = 0;
+let recordingChunks = [];
+let recordingMimeType = '';
 let cardShownAtMs = 0;
 
 
@@ -151,6 +154,11 @@ async function startSession() {
         currentIndex = 0;
         completedCount = 0;
         sessionAnswers = [];
+        recordingChunks = [];
+        recordingMimeType = '';
+        isRecording = false;
+        isUploadingRecording = false;
+        recordingStartedAtMs = 0;
 
         startScreen.classList.add('hidden');
         resultScreen.classList.add('hidden');
@@ -185,6 +193,7 @@ function showCurrentCard() {
     cardPage.textContent = `Page ${card.back || ''}`;
     cardShownAtMs = Date.now();
 
+    recordBtn.disabled = false;
     setRecordingVisual(false);
 }
 
@@ -193,9 +202,12 @@ async function toggleRecord() {
     if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
         return;
     }
+    if (isUploadingRecording) {
+        return;
+    }
 
     if (isRecording) {
-        stopRecordingAndAdvance();
+        await stopRecordingAndAdvance();
         return;
     }
 
@@ -206,19 +218,19 @@ async function toggleRecord() {
         }
 
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(mediaStream);
-        mediaRecorder.ondataavailable = () => {
-            // Recording is currently used for live practice flow; clips are not persisted yet.
-        };
-        mediaRecorder.onstop = () => {
-            if (mediaStream) {
-                mediaStream.getTracks().forEach((track) => track.stop());
-                mediaStream = null;
+        const preferredMimeType = getPreferredRecordingMimeType();
+        mediaRecorder = preferredMimeType
+            ? new MediaRecorder(mediaStream, { mimeType: preferredMimeType })
+            : new MediaRecorder(mediaStream);
+        recordingChunks = [];
+        recordingMimeType = mediaRecorder.mimeType || preferredMimeType || '';
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                recordingChunks.push(event.data);
             }
-            mediaRecorder = null;
         };
 
-        mediaRecorder.start();
+        mediaRecorder.start(200);
         recordingStartedAtMs = Date.now();
         isRecording = true;
         setRecordingVisual(true);
@@ -231,24 +243,55 @@ async function toggleRecord() {
 }
 
 
-function stopRecordingAndAdvance() {
+async function stopRecordingAndAdvance() {
     const card = sessionCards[currentIndex];
     const now = Date.now();
     const responseTimeMs = Math.max(0, now - cardShownAtMs);
-
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        try {
-            mediaRecorder.stop();
-        } catch (error) {
-            // best effort
-        }
-    }
-    if (mediaStream) {
-        mediaStream.getTracks().forEach((track) => track.stop());
-        mediaStream = null;
-    }
-
     const recordingDurationMs = Math.max(0, now - recordingStartedAtMs);
+    const previousBtnText = recordBtn.textContent;
+    isUploadingRecording = true;
+    recordBtn.disabled = true;
+    recordBtn.textContent = 'Saving...';
+
+    let blob = null;
+    let mimeType = 'audio/webm';
+    try {
+        const recorded = await stopAndCaptureRecording();
+        if (recorded) {
+            blob = recorded.blob;
+            mimeType = recorded.mimeType || mimeType;
+        }
+    } catch (error) {
+        console.error('Error finishing recording:', error);
+        showError('Failed to finish recording');
+        resetRecordingState();
+        isUploadingRecording = false;
+        recordBtn.disabled = false;
+        recordBtn.textContent = previousBtnText;
+        return;
+    }
+
+    if (!blob || blob.size === 0) {
+        showError('Recording is empty. Please record again.');
+        resetRecordingState();
+        isUploadingRecording = false;
+        recordBtn.disabled = false;
+        setRecordingVisual(false);
+        return;
+    }
+
+    try {
+        await uploadLessonReadingAudio(card.id, blob, mimeType);
+    } catch (error) {
+        console.error('Error uploading lesson-reading recording:', error);
+        showError(error.message || 'Failed to save recording');
+        resetRecordingState();
+        isUploadingRecording = false;
+        recordBtn.disabled = false;
+        setRecordingVisual(false);
+        return;
+    }
+
     sessionAnswers.push({
         cardId: card.id,
         known: true,
@@ -256,8 +299,9 @@ function stopRecordingAndAdvance() {
     });
     completedCount += 1;
 
-    isRecording = false;
-    recordingStartedAtMs = 0;
+    resetRecordingState();
+    isUploadingRecording = false;
+    recordBtn.disabled = false;
     setRecordingVisual(false);
 
     if (currentIndex >= sessionCards.length - 1) {
@@ -273,6 +317,111 @@ function stopRecordingAndAdvance() {
 function setRecordingVisual(recording) {
     recordBtn.classList.toggle('recording', recording);
     recordBtn.textContent = recording ? 'Stop Recording & Next' : 'Start Recording';
+}
+
+
+function getPreferredRecordingMimeType() {
+    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+        return '';
+    }
+    const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/aac'
+    ];
+    for (const candidate of candidates) {
+        if (MediaRecorder.isTypeSupported(candidate)) {
+            return candidate;
+        }
+    }
+    return '';
+}
+
+
+function guessAudioExtension(mimeType) {
+    const type = String(mimeType || '').toLowerCase();
+    if (type.includes('webm')) return 'webm';
+    if (type.includes('ogg')) return 'ogg';
+    if (type.includes('mp4') || type.includes('m4a') || type.includes('aac')) return 'm4a';
+    if (type.includes('mpeg') || type.includes('mp3')) return 'mp3';
+    return 'webm';
+}
+
+
+async function stopAndCaptureRecording() {
+    return new Promise((resolve, reject) => {
+        if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+            resolve(null);
+            return;
+        }
+
+        let resolved = false;
+        mediaRecorder.onstop = () => {
+            if (resolved) return;
+            resolved = true;
+            const finalMimeType = mediaRecorder.mimeType || recordingMimeType || 'audio/webm';
+            const blob = recordingChunks.length > 0 ? new Blob(recordingChunks, { type: finalMimeType }) : null;
+            if (mediaStream) {
+                mediaStream.getTracks().forEach((track) => track.stop());
+            }
+            mediaStream = null;
+            mediaRecorder = null;
+            resolve({
+                blob,
+                mimeType: finalMimeType,
+            });
+        };
+        mediaRecorder.onerror = () => {
+            if (resolved) return;
+            resolved = true;
+            if (mediaStream) {
+                mediaStream.getTracks().forEach((track) => track.stop());
+            }
+            mediaStream = null;
+            mediaRecorder = null;
+            reject(new Error('recording failed'));
+        };
+
+        try {
+            mediaRecorder.stop();
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+
+async function uploadLessonReadingAudio(cardId, blob, mimeType) {
+    const extension = guessAudioExtension(mimeType);
+    const formData = new FormData();
+    formData.append('pendingSessionId', String(activePendingSessionId || ''));
+    formData.append('cardId', String(cardId));
+    formData.append('audio', blob, `lesson-reading.${extension}`);
+
+    const response = await fetch(`${API_BASE}/kids/${kidId}/lesson-reading/practice/upload-audio`, {
+        method: 'POST',
+        body: formData
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+    }
+}
+
+
+function resetRecordingState() {
+    isRecording = false;
+    recordingStartedAtMs = 0;
+    recordingChunks = [];
+    recordingMimeType = '';
+    if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+    }
+    mediaStream = null;
+    mediaRecorder = null;
 }
 
 

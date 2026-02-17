@@ -74,6 +74,9 @@ function renderAnswerList(container, cards, isRight) {
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
         const seconds = (rawMs / 1000).toFixed(2);
         const pct = Math.max(0, Math.min(100, (rawMs / maxMs) * 100));
+        const audioHtml = item.audio_url
+            ? `<audio class="attempt-audio" controls preload="none" src="${escapeHtml(item.audio_url)}"></audio>`
+            : '';
         return `
             <div class="answer-item">
                 <div>${escapeHtml(label)}</div>
@@ -81,6 +84,7 @@ function renderAnswerList(container, cards, isRight) {
                     <div class="answer-bar-fill ${isRight ? 'right' : 'wrong'}" style="width:${pct.toFixed(2)}%"></div>
                 </div>
                 <div class="meta">Card #${safeNum(item.card_id)} · ${seconds}s</div>
+                ${audioHtml}
             </div>
         `;
     }).join('');
@@ -113,4 +117,13 @@ function showError(message) {
     } else {
         errorMessage.classList.add('hidden');
     }
+}
+
+function escapeHtml(raw) {
+    return String(raw || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }

@@ -68,6 +68,12 @@ def _family_audio_dir(kid):
     return os.path.join(FAMILIES_ROOT, f'family_{family_id}', 'writing_audio', f'kid_{kid_id}')
 
 
+def _family_lesson_audio_dir(kid):
+    family_id = str(kid.get('familyId') or '')
+    kid_id = kid.get('id')
+    return os.path.join(FAMILIES_ROOT, f'family_{family_id}', 'lesson_reading_audio', f'kid_{kid_id}')
+
+
 def _rel_to_data(abs_path):
     return os.path.relpath(abs_path, DATA_DIR)
 
@@ -101,6 +107,15 @@ def download_backup():
             audio_dir = _family_audio_dir(kid)
             if os.path.exists(audio_dir):
                 for root, _, files in os.walk(audio_dir):
+                    for file_name in files:
+                        abs_path = os.path.join(root, file_name)
+                        rel_path = _safe_rel_to_data(abs_path)
+                        if rel_path and _is_family_scoped_rel_path(rel_path, family_id):
+                            files_to_include.append(rel_path)
+
+            lesson_audio_dir = _family_lesson_audio_dir(kid)
+            if os.path.exists(lesson_audio_dir):
+                for root, _, files in os.walk(lesson_audio_dir):
                     for file_name in files:
                         abs_path = os.path.join(root, file_name)
                         rel_path = _safe_rel_to_data(abs_path)
@@ -191,6 +206,9 @@ def restore_backup():
                 audio_dir = _family_audio_dir(kid)
                 if os.path.exists(audio_dir):
                     shutil.rmtree(audio_dir, ignore_errors=True)
+                lesson_audio_dir = _family_lesson_audio_dir(kid)
+                if os.path.exists(lesson_audio_dir):
+                    shutil.rmtree(lesson_audio_dir, ignore_errors=True)
                 metadata.delete_kid(kid.get('id'), family_id=family_id)
 
             # Restore files listed in manifest.
@@ -265,6 +283,11 @@ def backup_info():
             audio_dir = _family_audio_dir(kid)
             if os.path.exists(audio_dir):
                 for root, _, files in os.walk(audio_dir):
+                    for file_name in files:
+                        files_seen.add(os.path.join(root, file_name))
+            lesson_audio_dir = _family_lesson_audio_dir(kid)
+            if os.path.exists(lesson_audio_dir):
+                for root, _, files in os.walk(lesson_audio_dir):
                     for file_name in files:
                         files_seen.add(os.path.join(root, file_name))
 
