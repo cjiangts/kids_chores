@@ -88,7 +88,7 @@ LESSON_READING_DECK_CONFIGS = {
             ('斧子和皮大衣', '6'), ('借笔', '7'), ('爬到屋顶上去', '8'),
             ('夸孩子', '15'), ('萤火虫找朋友', '16'),
             ('盘古开天地', '21'), ('画蛇添足', '22'), ('还好没有抓住鼻子', '23'),
-            ('夸父追日', '29'), ('小河流呀流', '30'), ('汉语拼音总结', '31'),
+            ('夸父追日', '29'), ('小河流呀流', '30'),
             ('称象', '32'), ('盲人摸象', '34'), ('称鼻子', '35'),
             ('锯是怎样发明的', '36'), ('曾子杀猪', '38'), ('汤的汤', '39'),
             ('狐假虎威', '40'), ('狐狸请客', '42'), ('三个和尚没水喝', '43'),
@@ -125,6 +125,9 @@ LESSON_READING_DECK_CONFIGS = {
             ('愚公移山', '130'), ('精卫填海', '134'), ('挤奶姑娘', '135'), ('下雨天', '136'), ('井底的青蛙', '137'), ('折筷子的故事', '138'), ('香味和声音', '139'), ('蜗牛的家', '140'), ('葡萄是酸的', '141'),
         ],
     },
+}
+LESSON_READING_REMOVED_CARDS = {
+    ('汉语拼音总结', '31'),
 }
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
 _PENDING_SESSIONS = {}
@@ -1056,6 +1059,16 @@ def seed_math_decks_for_all_kids():
 
 def seed_lesson_reading_deck_cards(conn, deck_id, config):
     """Insert preset lesson-reading cards for one deck if missing."""
+    removed = 0
+    for front, back in LESSON_READING_REMOVED_CARDS:
+        removed += conn.execute(
+            """
+            DELETE FROM cards
+            WHERE deck_id = ? AND front = ? AND back = ?
+            """,
+            [deck_id, front, back]
+        ).rowcount
+
     existing = conn.execute(
         "SELECT front, back FROM cards WHERE deck_id = ?",
         [deck_id]
@@ -1085,7 +1098,7 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
         "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
         [deck_id]
     ).fetchone()[0]
-    return {'inserted': inserted, 'total': int(total)}
+    return {'inserted': inserted, 'removed': int(removed), 'total': int(total)}
 
 
 def seed_all_lesson_reading_decks(conn):
