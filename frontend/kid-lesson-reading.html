@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson Reading Practice - Learning App</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+
+        .back-btn:hover { background: #5a6268; }
+
+        .practice-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .flashcard {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 2rem 1.5rem;
+            text-align: center;
+            min-height: 340px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1.4rem;
+            position: relative;
+        }
+
+        .session-title {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #222;
+            line-height: 1.28;
+        }
+
+        .card-page {
+            margin-top: 0.8rem;
+            font-size: 1.2rem;
+            color: #1f8f3f;
+            font-weight: 700;
+        }
+
+        .session-info {
+            text-align: center;
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .controls {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .control-btn {
+            color: white;
+            border: none;
+            padding: 0.9rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover { transform: translateY(-1px); }
+        .control-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+
+        .start-btn { background: #007bff; }
+        .start-btn:hover { background: #0069d9; }
+
+        .record-btn {
+            background: #2d7ef7;
+            min-width: 210px;
+            font-size: 1.06rem;
+            font-weight: 700;
+        }
+
+        .record-btn:hover { background: #1f6ce0; }
+
+        .record-btn.recording {
+            background: #dc3545;
+        }
+
+        .record-btn.recording:hover {
+            background: #c82333;
+        }
+
+        .result-note {
+            margin-top: 0.75rem;
+            color: #555;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body class="practice-page">
+    <div class="container">
+        <div class="header">
+            <h1 id="kidName">Lesson Reading Practice</h1>
+            <a id="backToPractice" href="/kid.html" class="back-btn">← Back</a>
+        </div>
+
+        <div id="errorMessage" class="error hidden"></div>
+
+        <div class="practice-container">
+            <div id="practiceSection" class="hidden">
+                <div id="startScreen">
+                    <div class="flashcard" style="cursor: default;">
+                        <h2 class="session-title">Ready for lesson reading?</h2>
+                        <p id="sessionInfo" class="session-info">Session: 0 cards</p>
+                        <button class="control-btn start-btn" onclick="startSession()">Start</button>
+                    </div>
+                </div>
+
+                <div id="sessionScreen" class="hidden">
+                    <div class="practice-progress">
+                        <div id="progress" class="practice-progress-text">Card 1 of 10</div>
+                        <div class="practice-progress-track">
+                            <div id="progressFill" class="practice-progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div id="flashcard" class="flashcard">
+                        <div class="card-title" id="cardTitle">课文标题</div>
+                        <div class="card-page" id="cardPage">Page 1</div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="control-btn record-btn" id="recordBtn" onclick="toggleRecord()">Start Recording</button>
+                    </div>
+                </div>
+
+                <div id="resultScreen" class="hidden">
+                    <div class="flashcard" style="cursor: default;">
+                        <h2 class="session-title">Session Complete</h2>
+                        <p id="resultSummary" class="session-info"></p>
+                        <p class="result-note">Great practice. You can start another session any time.</p>
+                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn" style="text-decoration: none; display: inline-block;">← Go Back</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="practice-progress.js"></script>
+    <script src="practice-session.js"></script>
+    <script src="kid-lesson-reading.js"></script>
+</body>
+</html>

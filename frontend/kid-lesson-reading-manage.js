@@ -6,38 +6,34 @@ const kidId = params.get('id');
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
-const mathSessionTotalInline = document.getElementById('mathSessionTotalInline');
+const sessionTotalInline = document.getElementById('sessionTotalInline');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const deckTotalInfo = document.getElementById('deckTotalInfo');
 const cardsGrid = document.getElementById('cardsGrid');
-const deckTabWithin10 = document.getElementById('deckTabWithin10');
-const deckTabWithin20 = document.getElementById('deckTabWithin20');
-const deckTabSubWithin10 = document.getElementById('deckTabSubWithin10');
-const deckTabSubWithin20 = document.getElementById('deckTabSubWithin20');
+const deckTabMa3Unit1 = document.getElementById('deckTabMa3Unit1');
+const deckTabMa3Unit2 = document.getElementById('deckTabMa3Unit2');
+const deckTabMa3Unit3 = document.getElementById('deckTabMa3Unit3');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
 const lessonReadingTab = document.getElementById('lessonReadingTab');
 
 const DECK_META = {
-    within10: { label: 'Add ≤10', field: 'mathDeckWithin10Count', defaultCount: 5, tabEl: deckTabWithin10, inputEl: document.getElementById('deckCountWithin10') },
-    within20: { label: 'Add 11–20', field: 'mathDeckWithin20Count', defaultCount: 5, tabEl: deckTabWithin20, inputEl: document.getElementById('deckCountWithin20') },
-    subWithin10: { label: 'Sub ≤10', field: 'mathDeckSubWithin10Count', defaultCount: 0, tabEl: deckTabSubWithin10, inputEl: document.getElementById('deckCountSubWithin10') },
-    subWithin20: { label: 'Sub 11–20', field: 'mathDeckSubWithin20Count', defaultCount: 0, tabEl: deckTabSubWithin20, inputEl: document.getElementById('deckCountSubWithin20') },
+    ma3Unit1: { label: '马三 一单元', field: 'lessonReadingDeckMa3Unit1Count', defaultCount: 0, tabEl: deckTabMa3Unit1, inputEl: document.getElementById('deckCountMa3Unit1') },
+    ma3Unit2: { label: '马三 二单元', field: 'lessonReadingDeckMa3Unit2Count', defaultCount: 0, tabEl: deckTabMa3Unit2, inputEl: document.getElementById('deckCountMa3Unit2') },
+    ma3Unit3: { label: '马三 三单元', field: 'lessonReadingDeckMa3Unit3Count', defaultCount: 0, tabEl: deckTabMa3Unit3, inputEl: document.getElementById('deckCountMa3Unit3') },
 };
 
 let currentKid = null;
 let currentCards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
-let activeDeckKey = 'within10';
-let activeDeckLabel = 'Add ≤10';
-let activeDeckTotalCards = 0;
+let activeDeckKey = 'ma3Unit1';
+let activeDeckLabel = DECK_META.ma3Unit1.label;
 let deckCounts = {
-    within10: 5,
-    within20: 5,
-    subWithin10: 0,
-    subWithin20: 0,
+    ma3Unit1: 0,
+    ma3Unit2: 0,
+    ma3Unit3: 0,
 };
 const CARD_PAGE_SIZE = 10;
 
@@ -60,13 +56,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
     cardsGrid.addEventListener('click', handleCardsGridClick);
+
     Object.keys(DECK_META).forEach((deckKey) => {
         const meta = DECK_META[deckKey];
         meta.tabEl.addEventListener('click', async () => {
             if (activeDeckKey === deckKey) return;
             activeDeckKey = deckKey;
             renderDeckTabs();
-            await loadMathCards();
+            await loadCards();
         });
         meta.inputEl.addEventListener('input', () => {
             const value = Number.parseInt(meta.inputEl.value, 10);
@@ -81,7 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderDeckTabs();
     await loadKidInfo();
-    await loadMathCards();
+    await loadCards();
 });
 
 
@@ -98,7 +95,7 @@ function updateTotalSessionCount() {
         const count = Number.parseInt(deckCounts[deckKey], 10);
         return sum + (Number.isInteger(count) ? Math.max(0, count) : 0);
     }, 0);
-    mathSessionTotalInline.textContent = `Total per session: ${total}`;
+    sessionTotalInline.textContent = `Total per session: ${total}`;
 }
 
 
@@ -110,7 +107,7 @@ async function loadKidInfo() {
         }
 
         currentKid = await response.json();
-        kidNameEl.textContent = `${currentKid.name}'s Math`;
+        kidNameEl.textContent = `${currentKid.name}'s Lesson Reading`;
 
         Object.keys(DECK_META).forEach((deckKey) => {
             const meta = DECK_META[deckKey];
@@ -159,18 +156,18 @@ async function saveSessionSettings() {
         showError('');
         updateTotalSessionCount();
         renderDeckTabs();
-        await loadMathCards();
+        await loadCards();
     } catch (error) {
-        console.error('Error saving session settings:', error);
+        console.error('Error saving lesson reading settings:', error);
         showError('Failed to save practice settings');
     }
 }
 
 
-async function loadMathCards() {
+async function loadCards() {
     try {
         showError('');
-        const response = await fetch(`${API_BASE}/kids/${kidId}/math/cards?deck=${encodeURIComponent(activeDeckKey)}`);
+        const response = await fetch(`${API_BASE}/kids/${kidId}/lesson-reading/cards?deck=${encodeURIComponent(activeDeckKey)}`);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -184,12 +181,11 @@ async function loadMathCards() {
         const skippedCount = Number.isInteger(Number.parseInt(data.skipped_card_count, 10))
             ? Number.parseInt(data.skipped_card_count, 10)
             : currentCards.filter((card) => !!card.skip_practice).length;
-        activeDeckTotalCards = activeCount;
         deckTotalInfo.textContent = `Active cards in this deck: ${activeCount} (Skipped: ${skippedCount})`;
         resetAndDisplayCards(currentCards);
     } catch (error) {
-        console.error('Error loading math cards:', error);
-        showError('Failed to load math cards');
+        console.error('Error loading lesson reading cards:', error);
+        showError('Failed to load lesson reading cards');
     }
 }
 
@@ -215,7 +211,7 @@ function displayCards(cards) {
                 aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
             >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
             <div class="card-front">${escapeHtml(card.front)}</div>
-            <div class="card-back">= ${escapeHtml(card.back)}</div>
+            <div class="card-back">Page ${escapeHtml(card.back)}</div>
             ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
             <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>
@@ -223,7 +219,7 @@ function displayCards(cards) {
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
             <a
                 class="card-report-link"
-                href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(card.id)}&from=math"
+                href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(card.id)}&from=lesson-reading"
             >Report</a>
         </div>
     `).join('');
@@ -272,9 +268,9 @@ async function handleCardsGridClick(event) {
 
     try {
         actionBtn.disabled = true;
-        await updateMathCardSkip(cardId, targetSkipped);
+        await updateCardSkip(cardId, targetSkipped);
     } catch (error) {
-        console.error('Error updating math card skip:', error);
+        console.error('Error updating lesson reading card skip:', error);
         showError('Failed to update skip status');
     } finally {
         actionBtn.disabled = false;
@@ -282,8 +278,8 @@ async function handleCardsGridClick(event) {
 }
 
 
-async function updateMathCardSkip(cardId, skipped) {
-    const response = await fetch(`${API_BASE}/kids/${kidId}/math/cards/${cardId}/skip`, {
+async function updateCardSkip(cardId, skipped) {
+    const response = await fetch(`${API_BASE}/kids/${kidId}/lesson-reading/cards/${cardId}/skip`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ skipped })
@@ -293,7 +289,7 @@ async function updateMathCardSkip(cardId, skipped) {
         throw new Error(result.error || `HTTP ${response.status}`);
     }
 
-    await loadMathCards();
+    await loadCards();
     showError('');
 }
 
@@ -305,4 +301,13 @@ function showError(message) {
     } else {
         errorMessage.classList.add('hidden');
     }
+}
+
+function escapeHtml(raw) {
+    return String(raw || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }

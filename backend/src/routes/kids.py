@@ -28,6 +28,7 @@ DEFAULT_MATH_DECK_WITHIN_10_COUNT = 5
 DEFAULT_MATH_DECK_WITHIN_20_COUNT = 5
 DEFAULT_MATH_DECK_SUB_WITHIN_10_COUNT = 0
 DEFAULT_MATH_DECK_SUB_WITHIN_20_COUNT = 0
+DEFAULT_LESSON_READING_DECK_COUNT = 0
 MATH_DECK_CONFIGS = {
     'within10': {
         'name': 'Math Addition Within 10',
@@ -73,6 +74,57 @@ MATH_DECK_CONFIGS = {
         'default_count': DEFAULT_MATH_DECK_SUB_WITHIN_20_COUNT,
         'label': 'Sub 11–20',
     }
+}
+
+LESSON_READING_DECK_CONFIGS = {
+    'ma3Unit1': {
+        'name': 'Lesson Reading Ma3 Unit 1',
+        'description': '马三 第一单元 课文读诵',
+        'tags': ['lesson_reading', 'maliping', 'ma3', 'unit1'],
+        'kid_field': 'lessonReadingDeckMa3Unit1Count',
+        'default_count': DEFAULT_LESSON_READING_DECK_COUNT,
+        'label': '马三 一单元',
+        'cards': [
+            ('斧子和皮大衣', '6'), ('借笔', '7'), ('爬到屋顶上去', '8'),
+            ('夸孩子', '15'), ('萤火虫找朋友', '16'),
+            ('盘古开天地', '21'), ('画蛇添足', '22'), ('还好没有抓住鼻子', '23'),
+            ('夸父追日', '29'), ('小河流呀流', '30'), ('汉语拼音总结', '31'),
+            ('称象', '32'), ('盲人摸象', '34'), ('称鼻子', '35'),
+            ('锯是怎样发明的', '36'), ('曾子杀猪', '38'), ('汤的汤', '39'),
+            ('狐假虎威', '40'), ('狐狸请客', '42'), ('三个和尚没水喝', '43'),
+            ('小马过河', '44'), ('谁也骗不了我', '46'), ('女娲补天', '47'),
+        ],
+    },
+    'ma3Unit2': {
+        'name': 'Lesson Reading Ma3 Unit 2',
+        'description': '马三 第二单元 课文读诵',
+        'tags': ['lesson_reading', 'maliping', 'ma3', 'unit2'],
+        'kid_field': 'lessonReadingDeckMa3Unit2Count',
+        'default_count': DEFAULT_LESSON_READING_DECK_COUNT,
+        'label': '马三 二单元',
+        'cards': [
+            ('公鸡蛋', '50'), ('女娲造人', '54'), ('叶公好龙', '55'), ('让水流走', '56'), ('狐狸分饼', '57'), ('能干的猫和母鸡', '58'), ('钱包的用处', '59'),
+            ('穷和尚和富和尚', '60'), ('太阳山', '64'), ('斧头和锯子', '65'), ('第三个包子', '66'), ('阿凡提借锅', '67'), ('曹冲救人（上）', '68'), ('曹冲救人（下）', '69'),
+            ('要是你在野外迷了路', '70'), ('自己害自己', '73'), ('方向不对', '74'), ('蘑菇长在哪里', '75'),
+            ('找骆驼', '76'), ('青蛙搬家', '79'), ('瞎子和跛子', '80'), ('什么叫做丢了东西', '81'),
+            ('岳飞学写字', '82'), ('猴子学样（上）', '86'), ('猴子学样（下）', '87'), ('“一”字长大了', '88'), ('后羿射日（上）', '89'), ('后羿射日（下）', '90'), ('五十步笑一百步', '91'),
+        ],
+    },
+    'ma3Unit3': {
+        'name': 'Lesson Reading Ma3 Unit 3',
+        'description': '马三 第三单元 课文读诵',
+        'tags': ['lesson_reading', 'maliping', 'ma3', 'unit3'],
+        'kid_field': 'lessonReadingDeckMa3Unit3Count',
+        'default_count': DEFAULT_LESSON_READING_DECK_COUNT,
+        'label': '马三 三单元',
+        'cards': [
+            ('光阴一去不复返', '94'), ('我有两颗心', '98'), ('勇敢的心', '99'), ('借钥匙', '100'), ('一粒种子', '101'), ('太阳神炎帝（上）', '102'), ('太阳神炎帝（下）', '103'), ('爱惜雨伞／小闹钟', '104'), ('猴子和桃子', '105'),
+            ('爸爸的老师', '106'), ('时间老人的好办法', '110'), ('青蛙和牛', '111'), ('太阳和彩虹', '112'), ('捞月亮', '113'), ('西瓜在哪里', '114'), ('小花猫找汗', '115'), ('站起来跑得更快', '116'), ('小蝌蚪找妈妈（上）', '117'),
+            ('等一会儿再说', '118'), ('蚊子、狮子和蜘蛛', '120'), ('金银盾', '121'), ('前面也在下雨', '122'), ('小蝌蚪找妈妈（下）', '123'),
+            ('让我们荡起双桨', '124'), ('会动脑筋的孩子', '126'), ('自相矛盾', '127'), ('比光明', '128'), ('美丽的公鸡', '129'),
+            ('愚公移山', '130'), ('精卫填海', '134'), ('挤奶姑娘', '135'), ('下雨天', '136'), ('井底的青蛙', '137'), ('折筷子的故事', '138'), ('香味和声音', '139'), ('蜗牛的家', '140'), ('葡萄是酸的', '141'),
+        ],
+    },
 }
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
 _PENDING_SESSIONS = {}
@@ -196,12 +248,29 @@ def normalize_math_deck_session_count(kid, deck_key):
     return parsed
 
 
+def normalize_lesson_reading_deck_session_count(kid, deck_key):
+    """Get validated per-session count for one lesson-reading preset deck."""
+    config = LESSON_READING_DECK_CONFIGS.get(deck_key)
+    if not config:
+        return 0
+    raw = kid.get(config['kid_field'], config['default_count'])
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        return int(config['default_count'])
+    if parsed < 0:
+        return 0
+    if parsed > MAX_SESSION_CARD_COUNT:
+        return MAX_SESSION_CARD_COUNT
+    return parsed
+
+
 def get_today_completed_session_counts(kid):
     """Get number of completed practice sessions for today by type."""
     try:
         conn = get_kid_connection_for(kid)
     except Exception:
-        return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0}
+        return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0, 'lesson_reading': 0}
 
     try:
         family_id = str(kid.get('familyId') or '')
@@ -219,7 +288,7 @@ def get_today_completed_session_counts(kid):
             WHERE completed_at IS NOT NULL
               AND completed_at >= ?
               AND completed_at < ?
-              AND type IN ('flashcard', 'math', 'writing')
+              AND type IN ('flashcard', 'math', 'writing', 'lesson_reading')
             GROUP BY type
             """
             ,
@@ -229,6 +298,7 @@ def get_today_completed_session_counts(kid):
         chinese = 0
         math = 0
         writing = 0
+        lesson_reading = 0
         for row in rows:
             session_type = row[0]
             count = int(row[1] or 0)
@@ -238,10 +308,18 @@ def get_today_completed_session_counts(kid):
                 math = count
             elif session_type == 'writing':
                 writing = count
+            elif session_type == 'lesson_reading':
+                lesson_reading = count
 
-        return {'total': chinese + math + writing, 'chinese': chinese, 'math': math, 'writing': writing}
+        return {
+            'total': chinese + math + writing + lesson_reading,
+            'chinese': chinese,
+            'math': math,
+            'writing': writing,
+            'lesson_reading': lesson_reading,
+        }
     except Exception:
-        return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0}
+        return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0, 'lesson_reading': 0}
     finally:
         conn.close()
 
@@ -279,6 +357,8 @@ def with_practice_count_fallbacks(kid):
 
     for cfg in MATH_DECK_CONFIGS.values():
         safe_kid[cfg['kid_field']] = _normalized_math_count(cfg['kid_field'], cfg['default_count'])
+    for cfg in LESSON_READING_DECK_CONFIGS.values():
+        safe_kid[cfg['kid_field']] = _normalized_math_count(cfg['kid_field'], cfg['default_count'])
 
     return safe_kid
 
@@ -301,7 +381,8 @@ def get_kids():
                 'dailyCompletedCountToday': today_counts['total'],
                 'dailyCompletedChineseCountToday': today_counts['chinese'],
                 'dailyCompletedMathCountToday': today_counts['math'],
-                'dailyCompletedWritingCountToday': today_counts['writing']
+                'dailyCompletedWritingCountToday': today_counts['writing'],
+                'dailyCompletedLessonReadingCountToday': today_counts.get('lesson_reading', 0),
             }
             kids_with_progress.append(kid_with_progress)
 
@@ -339,6 +420,9 @@ def create_kid():
             'mathDeckWithin20Count': 0,
             'mathDeckSubWithin10Count': 0,
             'mathDeckSubWithin20Count': 0,
+            'lessonReadingDeckMa3Unit1Count': 0,
+            'lessonReadingDeckMa3Unit2Count': 0,
+            'lessonReadingDeckMa3Unit3Count': 0,
             'dailyPracticeChineseEnabled': True,
             'dailyPracticeMathEnabled': False,
             'dailyPracticeWritingEnabled': False,
@@ -352,6 +436,7 @@ def create_kid():
         kid_db.init_kid_database_by_path(db_relpath)
         conn = kid_db.get_kid_connection_by_path(db_relpath)
         seed_all_math_decks(conn)
+        seed_all_lesson_reading_decks(conn)
         conn.close()
 
         return jsonify(kid), 201
@@ -375,7 +460,8 @@ def get_kid(kid_id):
             'dailyCompletedCountToday': today_counts['total'],
             'dailyCompletedChineseCountToday': today_counts['chinese'],
             'dailyCompletedMathCountToday': today_counts['math'],
-            'dailyCompletedWritingCountToday': today_counts['writing']
+            'dailyCompletedWritingCountToday': today_counts['writing'],
+            'dailyCompletedLessonReadingCountToday': today_counts.get('lesson_reading', 0),
         }
 
         return jsonify(kid_with_progress), 200
@@ -695,6 +781,20 @@ def update_kid(kid_id):
 
             updates[field_name] = field_count
 
+        for cfg in LESSON_READING_DECK_CONFIGS.values():
+            field_name = cfg['kid_field']
+            if field_name not in data:
+                continue
+            try:
+                field_count = int(data[field_name])
+            except (TypeError, ValueError):
+                return jsonify({'error': f'{field_name} must be an integer'}), 400
+
+            if field_count < 0 or field_count > MAX_SESSION_CARD_COUNT:
+                return jsonify({'error': f'{field_name} must be between 0 and {MAX_SESSION_CARD_COUNT}'}), 400
+
+            updates[field_name] = field_count
+
         if 'dailyPracticeChineseEnabled' in data:
             if not isinstance(data['dailyPracticeChineseEnabled'], bool):
                 return jsonify({'error': 'dailyPracticeChineseEnabled must be a boolean'}), 400
@@ -814,6 +914,33 @@ def get_or_create_writing_deck(conn):
     return row[0]
 
 
+def get_or_create_lesson_reading_deck(conn, deck_key):
+    """Get or create one preset lesson-reading deck by key."""
+    config = LESSON_READING_DECK_CONFIGS.get(deck_key)
+    if not config:
+        raise ValueError(f'Unsupported lesson-reading deck key: {deck_key}')
+    result = conn.execute("SELECT id FROM decks WHERE name = ?", [config['name']]).fetchone()
+    if result:
+        return result[0]
+    row = conn.execute(
+        """
+        INSERT INTO decks (name, description, tags)
+        VALUES (?, ?, ?)
+        RETURNING id
+        """,
+        [config['name'], config['description'], config['tags']]
+    ).fetchone()
+    return row[0]
+
+
+def get_or_create_lesson_reading_decks(conn):
+    """Ensure lesson-reading preset decks exist and return ids keyed by deck key."""
+    return {
+        deck_key: get_or_create_lesson_reading_deck(conn, deck_key)
+        for deck_key in LESSON_READING_DECK_CONFIGS.keys()
+    }
+
+
 def split_writing_bulk_text(raw_text):
     """Split bulk writing input by non-Chinese chars, preserving Chinese phrase chunks."""
     text = str(raw_text or '')
@@ -914,6 +1041,74 @@ def seed_math_decks_for_all_kids():
         try:
             conn = get_kid_connection_for(kid)
             seed_results = seed_all_math_decks(conn)
+            conn.close()
+            seeded_kids += 1
+            total_inserted += sum(int((item or {}).get('inserted', 0)) for item in seed_results.values())
+        except Exception:
+            failed_kids += 1
+
+    return {
+        'seededKids': seeded_kids,
+        'failedKids': failed_kids,
+        'insertedCards': total_inserted
+    }
+
+
+def seed_lesson_reading_deck_cards(conn, deck_id, config):
+    """Insert preset lesson-reading cards for one deck if missing."""
+    existing = conn.execute(
+        "SELECT front, back FROM cards WHERE deck_id = ?",
+        [deck_id]
+    ).fetchall()
+    existing_keys = {(str(row[0] or ''), str(row[1] or '')) for row in existing}
+
+    inserted = 0
+    for title, page in config.get('cards', []):
+        front = str(title or '').strip()
+        back = str(page or '').strip()
+        if not front or not back:
+            continue
+        key = (front, back)
+        if key in existing_keys:
+            continue
+        conn.execute(
+            """
+            INSERT INTO cards (deck_id, front, back)
+            VALUES (?, ?, ?)
+            """,
+            [deck_id, front, back]
+        )
+        inserted += 1
+        existing_keys.add(key)
+
+    total = conn.execute(
+        "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
+        [deck_id]
+    ).fetchone()[0]
+    return {'inserted': inserted, 'total': int(total)}
+
+
+def seed_all_lesson_reading_decks(conn):
+    """Ensure preset lesson-reading cards exist for all lesson-reading decks."""
+    deck_ids = get_or_create_lesson_reading_decks(conn)
+    results = {}
+    for deck_key, deck_id in deck_ids.items():
+        cfg = LESSON_READING_DECK_CONFIGS[deck_key]
+        seeded = seed_lesson_reading_deck_cards(conn, deck_id, cfg)
+        results[deck_key] = {'deck_id': deck_id, **seeded}
+    return results
+
+
+def seed_lesson_reading_decks_for_all_kids():
+    """Ensure lesson-reading preset decks are initialized for every kid at startup."""
+    seeded_kids = 0
+    total_inserted = 0
+    failed_kids = 0
+
+    for kid in metadata.get_all_kids():
+        try:
+            conn = get_kid_connection_for(kid)
+            seed_results = seed_all_lesson_reading_decks(conn)
             conn.close()
             seeded_kids += 1
             total_inserted += sum(int((item or {}).get('inserted', 0)) for item in seed_results.values())
@@ -1348,7 +1543,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
             latest_response_by_card[card_id] = response_time_ms
             touched_card_ids.add(card_id)
 
-        if session_type in ('flashcard', 'math'):
+        if session_type in ('flashcard', 'math', 'lesson_reading'):
             for card_id, latest_ms in latest_response_by_card.items():
                 conn.execute(
                     "UPDATE cards SET hardness_score = ? WHERE id = ?",
@@ -1779,6 +1974,145 @@ def get_math_decks(kid_id):
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/lesson-reading/cards', methods=['GET'])
+def get_lesson_reading_cards(kid_id):
+    """Get preset lesson-reading cards for a kid (one selected deck at a time)."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        requested_key = (request.args.get('deck') or 'ma3Unit1').strip()
+        if requested_key not in LESSON_READING_DECK_CONFIGS:
+            return jsonify({'error': f'Unsupported lesson-reading deck: {requested_key}'}), 400
+
+        conn = get_kid_connection_for(kid)
+        deck_ids = get_or_create_lesson_reading_decks(conn)
+        seed_all_lesson_reading_decks(conn)
+        deck_id = deck_ids[requested_key]
+
+        requested_count = normalize_lesson_reading_deck_session_count(kid, requested_key)
+        preview_kid = {**kid, 'sessionCardCount': requested_count}
+        preview_ids = preview_deck_practice_order(
+            conn,
+            preview_kid,
+            deck_id,
+            'lesson_reading',
+            enforce_exact_target=True
+        )
+        preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
+
+        cards = get_cards_with_stats(conn, deck_id)
+        active_count = int(conn.execute(
+            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
+            [deck_id]
+        ).fetchone()[0] or 0)
+        skipped_count = int(conn.execute(
+            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = TRUE",
+            [deck_id]
+        ).fetchone()[0] or 0)
+        conn.close()
+
+        return jsonify({
+            'deck_key': requested_key,
+            'deck_label': LESSON_READING_DECK_CONFIGS[requested_key]['label'],
+            'deck_id': deck_id,
+            'session_count': requested_count,
+            'active_card_count': active_count,
+            'skipped_card_count': skipped_count,
+            'cards': [map_card_row(row, preview_order) for row in cards]
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/lesson-reading/decks', methods=['GET'])
+def get_lesson_reading_decks(kid_id):
+    """Get preset lesson-reading deck metadata and configured per-session counts."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        deck_ids = get_or_create_lesson_reading_decks(conn)
+        seed_all_lesson_reading_decks(conn)
+
+        decks = []
+        total_session_count = 0
+        for deck_key, cfg in LESSON_READING_DECK_CONFIGS.items():
+            deck_id = deck_ids[deck_key]
+            total_cards = int(conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
+                [deck_id]
+            ).fetchone()[0] or 0)
+            session_count = normalize_lesson_reading_deck_session_count(kid, deck_key)
+            total_session_count += session_count
+            decks.append({
+                'key': deck_key,
+                'label': cfg['label'],
+                'deck_id': deck_id,
+                'total_cards': total_cards,
+                'session_count': session_count
+            })
+
+        conn.close()
+        return jsonify({
+            'decks': decks,
+            'total_session_count': total_session_count
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/lesson-reading/cards/<card_id>/skip', methods=['PUT'])
+def update_lesson_reading_card_skip(kid_id, card_id):
+    """Mark/unmark one lesson-reading card as skipped for practice."""
+    body = request.get_json() or {}
+    skipped = body.get('skipped')
+    if not isinstance(skipped, bool):
+        return jsonify({'error': 'skipped must be a boolean'}), 400
+    payload, status = set_lesson_reading_card_skip(kid_id, card_id, skipped)
+    return jsonify(payload), status
+
+
+def set_lesson_reading_card_skip(kid_id, card_id, skipped):
+    """Helper to update lesson-reading card skip flag."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return {'error': 'Kid not found'}, 404
+
+        conn = get_kid_connection_for(kid)
+        deck_ids = set(get_or_create_lesson_reading_decks(conn).values())
+
+        card = conn.execute(
+            "SELECT id, deck_id FROM cards WHERE id = ?",
+            [card_id]
+        ).fetchone()
+        if not card:
+            conn.close()
+            return {'error': 'Lesson-reading card not found'}, 404
+
+        deck_id = card[1]
+        if deck_id not in deck_ids:
+            conn.close()
+            return {'error': 'Lesson-reading card not found'}, 404
+
+        conn.execute(
+            "UPDATE cards SET skip_practice = ? WHERE id = ?",
+            [bool(skipped), card_id]
+        )
+        conn.close()
+        return {
+            'message': 'Lesson-reading card updated successfully',
+            'card_id': card_id,
+            'skip_practice': bool(skipped)
+        }, 200
+    except Exception as e:
+        return {'error': str(e)}, 500
 
 
 @kids_bp.route('/kids/<kid_id>/math/seed', methods=['POST'])
@@ -2878,6 +3212,73 @@ def start_math_practice_session(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/lesson-reading/practice/start', methods=['POST'])
+def start_lesson_reading_practice_session(kid_id):
+    """Start a lesson-reading session composed from configured preset decks."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        deck_ids = get_or_create_lesson_reading_decks(conn)
+        seed_all_lesson_reading_decks(conn)
+
+        selected_cards = []
+        deck_cursor_updates = []
+        for deck_key in LESSON_READING_DECK_CONFIGS.keys():
+            per_deck_count = normalize_lesson_reading_deck_session_count(kid, deck_key)
+            if per_deck_count <= 0:
+                continue
+
+            preview_kid = {**kid, 'sessionCardCount': per_deck_count}
+            cards_by_id, selected_ids, queue_ids, cursor, queue_used = plan_deck_practice_selection(
+                conn,
+                preview_kid,
+                deck_ids[deck_key],
+                'lesson_reading',
+                enforce_exact_target=True
+            )
+            if len(selected_ids) == 0:
+                continue
+
+            if len(queue_ids) > 0:
+                next_cursor = (cursor + queue_used) % len(queue_ids)
+                deck_cursor_updates.append({
+                    'deck_id': int(deck_ids[deck_key]),
+                    'next_cursor': int(next_cursor),
+                })
+
+            for card_id in selected_ids:
+                selected_cards.append({
+                    **cards_by_id[card_id],
+                    'lesson_deck_key': deck_key
+                })
+
+        if len(selected_cards) == 0:
+            conn.close()
+            return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
+
+        pending_session_id = create_pending_session(
+            kid_id,
+            'lesson_reading',
+            {
+                'kind': 'lesson_reading',
+                'planned_count': len(selected_cards),
+                'deck_cursor_updates': deck_cursor_updates,
+            }
+        )
+        conn.close()
+
+        return jsonify({
+            'pending_session_id': pending_session_id,
+            'planned_count': len(selected_cards),
+            'cards': selected_cards
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>/math/practice/complete', methods=['POST'])
 def complete_math_practice_session(kid_id):
     """Complete a math practice session with all answers."""
@@ -2890,6 +3291,25 @@ def complete_math_practice_session(kid_id):
             kid,
             kid_id,
             'math',
+            request.get_json() or {}
+        )
+        return jsonify(payload), status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/lesson-reading/practice/complete', methods=['POST'])
+def complete_lesson_reading_practice_session(kid_id):
+    """Complete a lesson-reading practice session with all answers."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload, status_code = complete_session_internal(
+            kid,
+            kid_id,
+            'lesson_reading',
             request.get_json() or {}
         )
         return jsonify(payload), status_code

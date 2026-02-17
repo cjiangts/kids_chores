@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS writing_audio (
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),
-  type VARCHAR NOT NULL,  -- 'flashcard', 'math', or 'writing'
+  type VARCHAR NOT NULL,  -- 'flashcard', 'math', 'writing', or 'lesson_reading'
   deck_id INTEGER,
   planned_count INTEGER,
   started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

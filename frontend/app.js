@@ -122,6 +122,7 @@ function displayKids(kids) {
         const chineseStars = Number.isInteger(kid.dailyCompletedChineseCountToday) ? kid.dailyCompletedChineseCountToday : 0;
         const mathStars = Number.isInteger(kid.dailyCompletedMathCountToday) ? kid.dailyCompletedMathCountToday : 0;
         const writingStars = Number.isInteger(kid.dailyCompletedWritingCountToday) ? kid.dailyCompletedWritingCountToday : 0;
+        const lessonReadingStars = Number.isInteger(kid.dailyCompletedLessonReadingCountToday) ? kid.dailyCompletedLessonReadingCountToday : 0;
 
         const readingSessionCount = Number.parseInt(kid.sessionCardCount, 10);
         const writingSessionCount = Number.parseInt(kid.writingSessionCardCount, 10);
@@ -129,10 +130,16 @@ function displayKids(kids) {
         const mathWithin20Count = Number.parseInt(kid.mathDeckWithin20Count, 10);
         const mathSubWithin10Count = Number.parseInt(kid.mathDeckSubWithin10Count, 10);
         const mathSubWithin20Count = Number.parseInt(kid.mathDeckSubWithin20Count, 10);
+        const lessonMa3Unit1Count = Number.parseInt(kid.lessonReadingDeckMa3Unit1Count, 10);
+        const lessonMa3Unit2Count = Number.parseInt(kid.lessonReadingDeckMa3Unit2Count, 10);
+        const lessonMa3Unit3Count = Number.parseInt(kid.lessonReadingDeckMa3Unit3Count, 10);
         const mathSessionCount = (Number.isInteger(mathWithin10Count) ? mathWithin10Count : 0)
             + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0)
             + (Number.isInteger(mathSubWithin10Count) ? mathSubWithin10Count : 0)
             + (Number.isInteger(mathSubWithin20Count) ? mathSubWithin20Count : 0);
+        const lessonReadingSessionCount = (Number.isInteger(lessonMa3Unit1Count) ? lessonMa3Unit1Count : 0)
+            + (Number.isInteger(lessonMa3Unit2Count) ? lessonMa3Unit2Count : 0)
+            + (Number.isInteger(lessonMa3Unit3Count) ? lessonMa3Unit3Count : 0);
 
         const enabledLines = [];
         if (Number.isInteger(readingSessionCount) && readingSessionCount > 0) {
@@ -143,6 +150,9 @@ function displayKids(kids) {
         }
         if (mathSessionCount > 0) {
             enabledLines.push(`Math: ${mathStars > 0 ? '⭐'.repeat(mathStars) : '-'}`);
+        }
+        if (lessonReadingSessionCount > 0) {
+            enabledLines.push(`Lesson Reading: ${lessonReadingStars > 0 ? '⭐'.repeat(lessonReadingStars) : '-'}`);
         }
 
         const dailyPracticeBadge = enabledLines.length > 0

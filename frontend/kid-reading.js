@@ -18,9 +18,11 @@ const practiceChooser = document.getElementById('practiceChooser');
 const chinesePracticeOption = document.getElementById('chinesePracticeOption');
 const writingPracticeOption = document.getElementById('writingPracticeOption');
 const mathPracticeOption = document.getElementById('mathPracticeOption');
+const lessonReadingPracticeOption = document.getElementById('lessonReadingPracticeOption');
 const chineseStarBadge = document.getElementById('chineseStarBadge');
 const writingStarBadge = document.getElementById('writingStarBadge');
 const mathStarBadge = document.getElementById('mathStarBadge');
+const lessonReadingStarBadge = document.getElementById('lessonReadingStarBadge');
 const startScreen = document.getElementById('startScreen');
 const sessionScreen = document.getElementById('sessionScreen');
 const resultScreen = document.getElementById('resultScreen');
@@ -141,6 +143,9 @@ function resetToStartScreen() {
     const mathWithin20Count = Number.parseInt(currentKid?.mathDeckWithin20Count, 10);
     const mathSubWithin10Count = Number.parseInt(currentKid?.mathDeckSubWithin10Count, 10);
     const mathSubWithin20Count = Number.parseInt(currentKid?.mathDeckSubWithin20Count, 10);
+    const lessonMa3Unit1Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit1Count, 10);
+    const lessonMa3Unit2Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit2Count, 10);
+    const lessonMa3Unit3Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit3Count, 10);
 
     const chineseEnabled = Number.isInteger(readingSessionCount) && readingSessionCount > 0;
     const writingEnabled = Number.isInteger(writingSessionCount) && writingSessionCount > 0;
@@ -148,17 +153,21 @@ function resetToStartScreen() {
         + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0)
         + (Number.isInteger(mathSubWithin10Count) ? mathSubWithin10Count : 0)
         + (Number.isInteger(mathSubWithin20Count) ? mathSubWithin20Count : 0) > 0;
+    const lessonReadingEnabled = (Number.isInteger(lessonMa3Unit1Count) ? lessonMa3Unit1Count : 0)
+        + (Number.isInteger(lessonMa3Unit2Count) ? lessonMa3Unit2Count : 0)
+        + (Number.isInteger(lessonMa3Unit3Count) ? lessonMa3Unit3Count : 0) > 0;
 
     chinesePracticeOption.classList.toggle('hidden', !chineseEnabled);
     writingPracticeOption.classList.toggle('hidden', !writingEnabled);
     mathPracticeOption.classList.toggle('hidden', !mathEnabled);
+    lessonReadingPracticeOption.classList.toggle('hidden', !lessonReadingEnabled);
 
     practiceChooser.classList.remove('hidden');
     startScreen.classList.add('hidden');
     sessionScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
 
-    if (!chineseEnabled && !writingEnabled && !mathEnabled) {
+    if (!chineseEnabled && !writingEnabled && !mathEnabled && !lessonReadingEnabled) {
         showError('No daily practice is assigned. Ask your parent to set per-session counts above 0.');
     } else {
         showError('');
@@ -175,10 +184,14 @@ function renderPracticeStars() {
     const writingCount = Number.isInteger(currentKid?.dailyCompletedWritingCountToday)
         ? currentKid.dailyCompletedWritingCountToday
         : 0;
+    const lessonReadingCount = Number.isInteger(currentKid?.dailyCompletedLessonReadingCountToday)
+        ? currentKid.dailyCompletedLessonReadingCountToday
+        : 0;
 
     chineseStarBadge.textContent = chineseCount > 0 ? `Today: ${'⭐'.repeat(chineseCount)}` : 'Today: no stars yet';
     writingStarBadge.textContent = writingCount > 0 ? `Today: ${'⭐'.repeat(writingCount)}` : 'Today: no stars yet';
     mathStarBadge.textContent = mathCount > 0 ? `Today: ${'⭐'.repeat(mathCount)}` : 'Today: no stars yet';
+    lessonReadingStarBadge.textContent = lessonReadingCount > 0 ? `Today: ${'⭐'.repeat(lessonReadingCount)}` : 'Today: no stars yet';
 }
 
 function chooseChinesePractice() {
@@ -202,6 +215,10 @@ function goWritingPractice() {
         return;
     }
     window.location.href = `/kid-writing.html?id=${kidId}`;
+}
+
+function goLessonReadingPractice() {
+    window.location.href = `/kid-lesson-reading.html?id=${kidId}`;
 }
 
 async function startSession() {

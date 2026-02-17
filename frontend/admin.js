@@ -146,16 +146,23 @@ function displayKids(kids) {
         const mathWithin20Count = Number.parseInt(kid.mathDeckWithin20Count, 10);
         const mathSubWithin10Count = Number.parseInt(kid.mathDeckSubWithin10Count, 10);
         const mathSubWithin20Count = Number.parseInt(kid.mathDeckSubWithin20Count, 10);
+        const lessonMa3Unit1Count = Number.parseInt(kid.lessonReadingDeckMa3Unit1Count, 10);
+        const lessonMa3Unit2Count = Number.parseInt(kid.lessonReadingDeckMa3Unit2Count, 10);
+        const lessonMa3Unit3Count = Number.parseInt(kid.lessonReadingDeckMa3Unit3Count, 10);
         const safeReadingCount = Number.isInteger(readingCount) ? Math.max(0, readingCount) : 0;
         const safeWritingCount = Number.isInteger(writingCount) ? Math.max(0, writingCount) : 0;
         const safeMathCount = (Number.isInteger(mathWithin10Count) ? Math.max(0, mathWithin10Count) : 0)
             + (Number.isInteger(mathWithin20Count) ? Math.max(0, mathWithin20Count) : 0)
             + (Number.isInteger(mathSubWithin10Count) ? Math.max(0, mathSubWithin10Count) : 0)
             + (Number.isInteger(mathSubWithin20Count) ? Math.max(0, mathSubWithin20Count) : 0);
+        const safeLessonReadingCount = (Number.isInteger(lessonMa3Unit1Count) ? Math.max(0, lessonMa3Unit1Count) : 0)
+            + (Number.isInteger(lessonMa3Unit2Count) ? Math.max(0, lessonMa3Unit2Count) : 0)
+            + (Number.isInteger(lessonMa3Unit3Count) ? Math.max(0, lessonMa3Unit3Count) : 0);
 
         const readingLabel = `📖 Chinese Characters (${safeReadingCount}/day)`;
         const writingLabel = `✍️ Chinese Writing (${safeWritingCount}/day)`;
         const mathLabel = `➗ Math (${safeMathCount}/day)`;
+        const lessonReadingLabel = `📚 Lesson Reading (${safeLessonReadingCount}/day)`;
         return `
             <div class="kid-card">
                 <h3>${escapeHtml(kid.name)}</h3>
@@ -172,6 +179,9 @@ function displayKids(kids) {
 
                     <div class="practice-config-row">
                         <a class="tab-link secondary practice-manage-btn" href="/kid-math-manage.html?id=${kid.id}">${mathLabel}</a>
+                    </div>
+                    <div class="practice-config-row">
+                        <a class="tab-link secondary practice-manage-btn" href="/kid-lesson-reading-manage.html?id=${kid.id}">${lessonReadingLabel}</a>
                     </div>
                     <div class="practice-config-row">
                         <a class="tab-link report-btn" href="/kid-report.html?id=${kid.id}">📊 Report</a>

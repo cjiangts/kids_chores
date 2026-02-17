@@ -33,6 +33,9 @@ function resolveBackHref() {
     if (from === 'math') {
         return `/kid-math-manage.html?id=${encodeURIComponent(kidId)}`;
     }
+    if (from === 'lesson-reading') {
+        return `/kid-lesson-reading-manage.html?id=${encodeURIComponent(kidId)}`;
+    }
     return `/admin.html`;
 }
 
@@ -151,6 +154,7 @@ function formatType(type) {
     if (type === 'flashcard') return 'Chinese Characters';
     if (type === 'math') return 'Math';
     if (type === 'writing') return 'Chinese Writing';
+    if (type === 'lesson_reading') return 'Lesson Reading';
     return String(type || '-');
 }
 

@@ -25,6 +25,7 @@ const cardsGrid = document.getElementById('cardsGrid');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
+const lessonReadingTab = document.getElementById('lessonReadingTab');
 
 let currentCards = [];
 let sortedCards = [];
@@ -58,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     charactersTab.href = `/kid-reading-manage.html?id=${kidId}`;
     writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
     mathTab.href = `/kid-math-manage.html?id=${kidId}`;
+    lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
 
     sessionSettingsForm.addEventListener('submit', async (e) => {
         e.preventDefault();

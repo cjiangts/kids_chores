@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kid Math Profile - Learning App</title>
+    <title>Kid Lesson Reading Profile - Learning App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        * {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
         .settings-section,
         .cards-section {
@@ -25,14 +23,14 @@
             color: #333;
         }
 
-        .math-deck-tabs {
+        .deck-tabs {
             display: flex;
             flex-wrap: wrap;
             gap: 0.6rem;
             margin-bottom: 1rem;
         }
 
-        .math-deck-tab {
+        .deck-tab {
             border: none;
             border-radius: 8px;
             background: #eef2ff;
@@ -42,15 +40,15 @@
             cursor: pointer;
         }
 
-        .math-deck-tab.active {
+        .deck-tab.active {
             background: #4CAF50;
             color: #fff;
         }
 
         .deck-counts-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem 1.5rem;
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
             margin-bottom: 0.8rem;
         }
 
@@ -68,7 +66,7 @@
         }
 
         .deck-count-row input {
-            width: 60px;
+            width: 64px;
             padding: 0.3rem 0.4rem;
             border: 1px solid #ccc;
             border-radius: 6px;
@@ -89,21 +87,15 @@
             font-weight: 600;
         }
 
-        @media (max-width: 760px) {
-            .deck-counts-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
             gap: 1rem;
         }
 
         .card-item {
             background: white;
-            padding: 1.5rem;
+            padding: 1.2rem;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             text-align: center;
@@ -111,14 +103,15 @@
         }
 
         .card-front {
-            font-size: 2rem;
-            color: #333;
+            font-size: 1.15rem;
+            color: #222;
             font-weight: 700;
+            line-height: 1.35;
         }
 
         .card-back {
-            margin-top: 0.4rem;
-            font-size: 1.25rem;
+            margin-top: 0.42rem;
+            font-size: 0.95rem;
             color: #1d7a35;
             font-weight: 700;
         }
@@ -169,11 +162,10 @@
         }
 
         @media (max-width: 760px) {
-            .math-deck-tabs {
+            .deck-tabs {
                 display: grid;
                 grid-template-columns: 1fr;
             }
-
         }
     </style>
 </head>
@@ -187,8 +179,8 @@
         <div class="tab-nav">
             <a id="charactersTab" class="tab-link secondary" href="#">📖 Manage Chinese Characters</a>
             <a id="writingTab" class="tab-link secondary" href="#">✍️ Manage Chinese Writing</a>
-            <a id="mathTab" class="tab-link primary" href="#">➗ Manage Math</a>
-            <a id="lessonReadingTab" class="tab-link secondary" href="#">📚 Manage Lesson Reading</a>
+            <a id="mathTab" class="tab-link secondary" href="#">➗ Manage Math</a>
+            <a id="lessonReadingTab" class="tab-link primary" href="#">📚 Manage Lesson Reading</a>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
@@ -198,35 +190,30 @@
             <form id="sessionSettingsForm">
                 <div class="deck-counts-grid">
                     <div class="deck-count-row">
-                        <label for="deckCountWithin10">Add ≤10</label>
-                        <input type="number" id="deckCountWithin10" min="0" max="200" step="1">
+                        <label for="deckCountMa3Unit1">马三 第一单元</label>
+                        <input type="number" id="deckCountMa3Unit1" min="0" max="200" step="1">
                     </div>
                     <div class="deck-count-row">
-                        <label for="deckCountWithin20">Add 11–20</label>
-                        <input type="number" id="deckCountWithin20" min="0" max="200" step="1">
+                        <label for="deckCountMa3Unit2">马三 第二单元</label>
+                        <input type="number" id="deckCountMa3Unit2" min="0" max="200" step="1">
                     </div>
                     <div class="deck-count-row">
-                        <label for="deckCountSubWithin10">Sub ≤10</label>
-                        <input type="number" id="deckCountSubWithin10" min="0" max="200" step="1">
-                    </div>
-                    <div class="deck-count-row">
-                        <label for="deckCountSubWithin20">Sub 11–20</label>
-                        <input type="number" id="deckCountSubWithin20" min="0" max="200" step="1">
+                        <label for="deckCountMa3Unit3">马三 第三单元</label>
+                        <input type="number" id="deckCountMa3Unit3" min="0" max="200" step="1">
                     </div>
                 </div>
                 <div class="deck-counts-footer">
-                    <span id="mathSessionTotalInline" class="deck-counts-total">Total per session: 0</span>
+                    <span id="sessionTotalInline" class="deck-counts-total">Total per session: 0</span>
                     <button type="submit" class="settings-save-btn">Save</button>
                 </div>
             </form>
         </div>
 
         <div class="cards-section">
-            <div class="math-deck-tabs">
-                <button id="deckTabWithin10" class="math-deck-tab active" type="button">Add ≤10</button>
-                <button id="deckTabWithin20" class="math-deck-tab" type="button">Add 11–20</button>
-                <button id="deckTabSubWithin10" class="math-deck-tab" type="button">Sub ≤10</button>
-                <button id="deckTabSubWithin20" class="math-deck-tab" type="button">Sub 11–20</button>
+            <div class="deck-tabs">
+                <button id="deckTabMa3Unit1" class="deck-tab active" type="button">马三 一单元</button>
+                <button id="deckTabMa3Unit2" class="deck-tab" type="button">马三 二单元</button>
+                <button id="deckTabMa3Unit3" class="deck-tab" type="button">马三 三单元</button>
             </div>
             <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in this deck: 0</p>
             <div class="cards-toolbar">
@@ -241,6 +228,6 @@
     </div>
 
     <script src="practice-manage-common.js"></script>
-    <script src="kid-math-manage.js"></script>
+    <script src="kid-lesson-reading-manage.js"></script>
 </body>
 </html>

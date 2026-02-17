@@ -70,19 +70,23 @@ function renderSummary(sessions) {
     const readingSessions = sessions.filter((s) => s.type === 'flashcard');
     const mathSessions = sessions.filter((s) => s.type === 'math');
     const writingSessions = sessions.filter((s) => s.type === 'writing');
+    const lessonReadingSessions = sessions.filter((s) => s.type === 'lesson_reading');
     const reading = readingSessions.length;
     const math = mathSessions.length;
     const writing = writingSessions.length;
+    const lessonReading = lessonReadingSessions.length;
     const totalMinutes = sessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
     const readingMinutes = readingSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
     const mathMinutes = mathSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
     const writingMinutes = writingSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
+    const lessonReadingMinutes = lessonReadingSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
 
     summaryGrid.innerHTML = `
         <div class="summary-card"><div class="label">Total Sessions</div><div class="value">${total}</div><div class="label">${totalMinutes.toFixed(2)} min</div></div>
         <div class="summary-card"><div class="label">Chinese Characters</div><div class="value">${reading}</div><div class="label">${readingMinutes.toFixed(2)} min</div></div>
         <div class="summary-card"><div class="label">Math</div><div class="value">${math}</div><div class="label">${mathMinutes.toFixed(2)} min</div></div>
         <div class="summary-card"><div class="label">Chinese Writing</div><div class="value">${writing}</div><div class="label">${writingMinutes.toFixed(2)} min</div></div>
+        <div class="summary-card"><div class="label">Lesson Reading</div><div class="value">${lessonReading}</div><div class="label">${lessonReadingMinutes.toFixed(2)} min</div></div>
     `;
 }
 
@@ -115,12 +119,13 @@ function renderDailyMinutesChart(sessions) {
         if (!dayKey) return;
 
         if (!dailyMap.has(dayKey)) {
-            dailyMap.set(dayKey, { reading: 0, math: 0, writing: 0, total: 0 });
+            dailyMap.set(dayKey, { reading: 0, math: 0, writing: 0, lessonReading: 0, total: 0 });
         }
         const row = dailyMap.get(dayKey);
         if (session.type === 'flashcard') row.reading += minutes;
         if (session.type === 'math') row.math += minutes;
         if (session.type === 'writing') row.writing += minutes;
+        if (session.type === 'lesson_reading') row.lessonReading += minutes;
         row.total += minutes;
     });
 
@@ -138,6 +143,7 @@ function renderDailyMinutesChart(sessions) {
         const readingPct = (row.reading / maxTotal) * 100;
         const mathPct = (row.math / maxTotal) * 100;
         const writingPct = (row.writing / maxTotal) * 100;
+        const lessonReadingPct = (row.lessonReading / maxTotal) * 100;
         return `
             <div class="daily-row">
                 <div class="daily-date">${row.date}</div>
@@ -145,8 +151,9 @@ function renderDailyMinutesChart(sessions) {
                     <div class="daily-seg-reading" style="width:${readingPct.toFixed(2)}%"></div>
                     <div class="daily-seg-math" style="width:${mathPct.toFixed(2)}%"></div>
                     <div class="daily-seg-writing" style="width:${writingPct.toFixed(2)}%"></div>
+                    <div class="daily-seg-lesson-reading" style="width:${lessonReadingPct.toFixed(2)}%"></div>
                 </div>
-                <div class="daily-values">R ${row.reading.toFixed(2)} · M ${row.math.toFixed(2)} · W ${row.writing.toFixed(2)} · T ${row.total.toFixed(2)}</div>
+                <div class="daily-values">R ${row.reading.toFixed(2)} · M ${row.math.toFixed(2)} · W ${row.writing.toFixed(2)} · L ${row.lessonReading.toFixed(2)} · T ${row.total.toFixed(2)}</div>
             </div>
         `;
     }).join('');
@@ -161,6 +168,9 @@ function renderType(type) {
     }
     if (type === 'writing') {
         return '<span class="type-pill type-writing">Chinese Writing</span>';
+    }
+    if (type === 'lesson_reading') {
+        return '<span class="type-pill type-reading">Lesson Reading</span>';
     }
     return '<span class="type-pill">Unknown</span>';
 }

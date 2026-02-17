@@ -90,6 +90,7 @@ function formatType(type) {
     if (type === 'flashcard') return 'Chinese Characters';
     if (type === 'math') return 'Math';
     if (type === 'writing') return 'Chinese Writing';
+    if (type === 'lesson_reading') return 'Lesson Reading';
     return String(type || '-');
 }
 
