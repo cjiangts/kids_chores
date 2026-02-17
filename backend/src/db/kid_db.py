@@ -6,6 +6,17 @@ from typing import Optional
 DATA_DIR = os.path.join(os.path.dirname(__file__), '../../data')
 SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'schema.sql')
 
+_schema_sql_cache: Optional[str] = None
+_initialized_dbs: set = set()
+
+def _get_schema_sql() -> str:
+    """Read and cache schema.sql contents."""
+    global _schema_sql_cache
+    if _schema_sql_cache is None:
+        with open(SCHEMA_FILE, 'r') as f:
+            _schema_sql_cache = f.read()
+    return _schema_sql_cache
+
 def _apply_migrations(conn: duckdb.DuckDBPyConnection):
     """Apply safe schema migrations for existing kid databases."""
     migration_sql = [
@@ -24,19 +35,14 @@ def _apply_migrations(conn: duckdb.DuckDBPyConnection):
             if 'already exists' not in str(e).lower():
                 raise
 
-def ensure_schema(conn: duckdb.DuckDBPyConnection):
-    """Ensure base schema and migrations are applied."""
-    with open(SCHEMA_FILE, 'r') as f:
-        schema_sql = f.read()
-
-    conn.execute(schema_sql)
+def ensure_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
+    """Ensure base schema and migrations are applied. Skips if already done for this db_path."""
+    if db_path and db_path in _initialized_dbs:
+        return
+    conn.execute(_get_schema_sql())
     _apply_migrations(conn)
-
-def get_kid_db_path(kid_id: str) -> str:
-    """Get the file path for a kid's database"""
-    os.makedirs(DATA_DIR, exist_ok=True)
-    return os.path.join(DATA_DIR, f'kid_{kid_id}.db')
-
+    if db_path:
+        _initialized_dbs.add(db_path)
 
 def get_absolute_db_path(db_file_path: str) -> str:
     """Resolve a metadata dbFilePath (relative to backend/data) to absolute path."""
@@ -56,7 +62,7 @@ def init_kid_database_by_path(db_file_path: str) -> str:
     db_path = get_absolute_db_path(db_file_path)
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = duckdb.connect(db_path)
-    ensure_schema(conn)
+    ensure_schema(conn, db_path)
     conn.close()
     return db_path
 
@@ -67,7 +73,7 @@ def get_kid_connection_by_path(db_file_path: str) -> duckdb.DuckDBPyConnection:
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database not found at {db_file_path}")
     conn = duckdb.connect(db_path)
-    ensure_schema(conn)
+    ensure_schema(conn, db_path)
     return conn
 
 
@@ -76,37 +82,6 @@ def delete_kid_database_by_path(db_file_path: str) -> bool:
     db_path = get_absolute_db_path(db_file_path)
     if os.path.exists(db_path):
         os.remove(db_path)
-        return True
-    return False
-
-def init_kid_database(kid_id: str) -> str:
-    """Initialize a new database for a kid with schema"""
-    db_path = get_kid_db_path(kid_id)
-
-    # Connect and create schema
-    conn = duckdb.connect(db_path)
-
-    ensure_schema(conn)
-    conn.close()
-
-    return db_path
-
-def get_kid_connection(kid_id: str) -> duckdb.DuckDBPyConnection:
-    """Get a connection to a kid's database"""
-    db_path = get_kid_db_path(kid_id)
-
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database not found for kid {kid_id}")
-
-    conn = duckdb.connect(db_path)
-    ensure_schema(conn)
-    return conn
-
-def delete_kid_database(kid_id: str) -> bool:
-    """Delete a kid's database file"""
-    db_path = get_kid_db_path(kid_id)
-
-    if os.path.exists(db_path):
-        os.remove(db_path)
+        _initialized_dbs.discard(db_path)
         return True
     return False

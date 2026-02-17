@@ -163,13 +163,6 @@ def get_all_kids(family_id: Optional[str] = None) -> List[Dict]:
     family_id = str(family_id)
     return [k for k in kids if str(k.get('familyId')) == family_id]
 
-def next_kid_id() -> int:
-    """Generate the next integer kid ID."""
-    kids = get_all_kids(None)
-    if not kids:
-        return 1
-    max_id = max(int(k['id']) for k in kids)
-    return max_id + 1
 
 def get_kid_by_id(kid_id, family_id: Optional[str] = None) -> Optional[Dict]:
     """Get a specific kid by ID, optionally constrained to one family."""
@@ -179,9 +172,11 @@ def get_kid_by_id(kid_id, family_id: Optional[str] = None) -> Optional[Dict]:
     return next((k for k in kids if str(k['id']) == kid_id_str), None)
 
 def add_kid(kid: Dict) -> Dict:
-    """Add a new kid."""
+    """Add a new kid. If 'id' is not set, assigns the next available ID atomically."""
     def _op(data: Dict):
         kids = data.get('kids', [])
+        if kid.get('id') is None:
+            kid['id'] = (max((int(k['id']) for k in kids), default=0) + 1)
         kids.append(kid)
         data['kids'] = kids
         return kid

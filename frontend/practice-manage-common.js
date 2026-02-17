@@ -1,9 +1,58 @@
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = String(text ?? '');
+    return div.innerHTML;
+}
+
+function parseDateOnly(dateString) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateString || ''));
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date;
+}
+
+function calculateAge(birthday) {
+    const today = new Date();
+    const birthDate = parseDateOnly(birthday);
+    if (!birthDate) return 0;
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+    return age;
+}
+
+function formatDate(dateString) {
+    const date = parseDateOnly(dateString);
+    if (!date) return dateString || '-';
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function validateBirthday(birthday) {
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(birthday)) return false;
+    const [year, month, day] = birthday.split('-').map(Number);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date > today) return false;
+    const minDate = new Date();
+    minDate.setFullYear(minDate.getFullYear() - 150);
+    if (date < minDate) return false;
+    return true;
+}
+
 window.PracticeManageCommon = {
     sortCardsForView(cards, mode) {
         const copy = [...cards];
 
         if (mode === 'added_time') {
-            return copy.sort((a, b) => this.parseTime(b.parent_added_at || b.created_at) - this.parseTime(a.parent_added_at || a.created_at));
+            return copy.sort((a, b) => this.parseTime(b.created_at) - this.parseTime(a.created_at));
         }
 
         if (mode === 'hardness_desc') {

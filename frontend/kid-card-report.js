@@ -182,15 +182,6 @@ function safeNum(value) {
     return Number.isFinite(num) ? num : 0;
 }
 
-function escapeHtml(text) {
-    return String(text || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
 function showError(message) {
     if (message) {
         errorMessage.textContent = message;

@@ -3,6 +3,7 @@ from urllib.parse import quote
 from flask import Flask, send_from_directory, request, redirect, session, jsonify
 from flask_cors import CORS
 import os
+import secrets
 
 from src.routes.kids import (
     kids_bp,
@@ -15,8 +16,8 @@ from src.db import metadata
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)  # Enable CORS for React frontend
-    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev-parent-auth-secret')
+    CORS(app, origins=os.environ.get('CORS_ORIGINS', 'http://localhost:5001').split(','))
+    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
@@ -57,6 +58,12 @@ def create_app():
 
     def is_parent_authenticated():
         return bool(session.get('parent_authenticated'))
+
+    def require_parent_auth():
+        auth_err = require_parent_auth()
+        if auth_err:
+            return auth_err
+        return None
 
     def is_parent_page(path):
         protected = {
@@ -191,10 +198,9 @@ def create_app():
 
     @app.route('/api/parent-auth/change-password', methods=['POST'])
     def parent_auth_change_password():
-        if not is_family_authenticated():
-            return {'error': 'Family login required'}, 401
-        if not is_parent_authenticated():
-            return {'error': 'Parent login required'}, 401
+        auth_err = require_parent_auth()
+        if auth_err:
+            return auth_err
 
         payload = request.get_json() or {}
         current_password = str(payload.get('currentPassword') or '')
@@ -210,10 +216,9 @@ def create_app():
 
     @app.route('/api/parent-settings/hard-card-percentage', methods=['GET'])
     def get_parent_hard_card_percentage():
-        if not is_family_authenticated():
-            return {'error': 'Family login required'}, 401
-        if not is_parent_authenticated():
-            return {'error': 'Parent login required'}, 401
+        auth_err = require_parent_auth()
+        if auth_err:
+            return auth_err
         family_id = str(session.get('family_id') or '')
         return {
             'hardCardPercentage': metadata.get_family_hard_card_percentage(family_id)
@@ -221,10 +226,9 @@ def create_app():
 
     @app.route('/api/parent-settings/hard-card-percentage', methods=['PUT'])
     def update_parent_hard_card_percentage():
-        if not is_family_authenticated():
-            return {'error': 'Family login required'}, 401
-        if not is_parent_authenticated():
-            return {'error': 'Parent login required'}, 401
+        auth_err = require_parent_auth()
+        if auth_err:
+            return auth_err
 
         payload = request.get_json() or {}
         try:
@@ -243,10 +247,9 @@ def create_app():
 
     @app.route('/api/parent-settings/timezone', methods=['GET'])
     def get_parent_timezone():
-        if not is_family_authenticated():
-            return {'error': 'Family login required'}, 401
-        if not is_parent_authenticated():
-            return {'error': 'Parent login required'}, 401
+        auth_err = require_parent_auth()
+        if auth_err:
+            return auth_err
         family_id = str(session.get('family_id') or '')
         return {
             'familyTimezone': metadata.get_family_timezone(family_id)
@@ -254,10 +257,9 @@ def create_app():
 
     @app.route('/api/parent-settings/timezone', methods=['PUT'])
     def update_parent_timezone():
-        if not is_family_authenticated():
-            return {'error': 'Family login required'}, 401
-        if not is_parent_authenticated():
-            return {'error': 'Parent login required'}, 401
+        auth_err = require_parent_auth()
+        if auth_err:
+            return auth_err
 
         payload = request.get_json() or {}
         timezone_name = str(payload.get('familyTimezone') or '').strip()

@@ -149,8 +149,8 @@ function displayKids(kids) {
             ? `<p class="daily-stars">${enabledLines.join('<br>')}</p>`
             : `<p class="daily-stars disabled">No daily practices assigned</p>`;
         return `
-            <div class="kid-card" onclick="selectKid('${kid.id}', '${kid.name}')">
-                <h3>${kid.name}</h3>
+            <div class="kid-card" onclick="selectKid('${kid.id}', '${escapeHtml(kid.name)}')">
+                <h3>${escapeHtml(kid.name)}</h3>
                 <p class="age">${age} years old</p>
                 ${dailyPracticeBadge}
             </div>
@@ -161,104 +161,6 @@ function displayKids(kids) {
 function selectKid(kidId, kidName) {
     // Navigate to kid's profile page
     window.location.href = `/kid.html?id=${kidId}`;
-}
-
-function calculateAge(birthday) {
-    const today = new Date();
-    const birthDate = parseDateOnly(birthday);
-    if (!birthDate) {
-        return 0;
-    }
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-    }
-
-    return age;
-}
-
-function formatDate(dateString) {
-    const date = parseDateOnly(dateString);
-    if (!date) {
-        return dateString || '-';
-    }
-    return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-}
-
-function parseDateOnly(dateString) {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateString || ''));
-    if (!match) {
-        return null;
-    }
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const date = new Date(year, month - 1, day);
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-        return null;
-    }
-    return date;
-}
-
-function validateBirthday(birthday) {
-    console.log('Validating birthday:', birthday);
-
-    // Check format YYYY-MM-DD
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!datePattern.test(birthday)) {
-        console.log('Failed: Invalid format');
-        return false;
-    }
-
-    // Parse the date components
-    const [year, month, day] = birthday.split('-').map(Number);
-    console.log('Parsed:', { year, month, day });
-
-    // Check if month and day are in valid ranges
-    if (month < 1 || month > 12 || day < 1 || day > 31) {
-        console.log('Failed: Month or day out of range');
-        return false;
-    }
-
-    // Create date in local timezone to avoid UTC issues
-    const date = new Date(year, month - 1, day);
-    console.log('Created date:', date);
-    console.log('Date components:', date.getFullYear(), date.getMonth() + 1, date.getDate());
-
-    // Verify the date is valid (catches Feb 30, etc.)
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-        console.log('Failed: Date mismatch', {
-            expected: { year, month, day },
-            actual: { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() }
-        });
-        return false;
-    }
-
-    // Check if birthday is not in the future
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    console.log('Today:', today, 'Birthday:', date);
-    if (date > today) {
-        console.log('Failed: Future date');
-        return false;
-    }
-
-    // Check if birthday is reasonable (not more than 150 years ago)
-    const minDate = new Date();
-    minDate.setFullYear(minDate.getFullYear() - 150);
-    if (date < minDate) {
-        console.log('Failed: Too old');
-        return false;
-    }
-
-    console.log('Validation passed!');
-    return true;
 }
 
 function showError(message) {

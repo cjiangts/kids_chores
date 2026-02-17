@@ -326,11 +326,8 @@ def create_kid():
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
 
-        # Generate next integer ID
-        kid_id = metadata.next_kid_id()
-        db_relpath = f"data/families/family_{family_id}/kid_{kid_id}.db"
-        kid = {
-            'id': kid_id,
+        # Save to metadata (ID assigned atomically inside the lock)
+        kid = metadata.add_kid({
             'familyId': family_id,
             'name': data['name'],
             'birthday': data['birthday'],
@@ -344,18 +341,17 @@ def create_kid():
             'dailyPracticeChineseEnabled': True,
             'dailyPracticeMathEnabled': False,
             'dailyPracticeWritingEnabled': False,
-            'dbFilePath': db_relpath,
             'createdAt': datetime.now().isoformat()
-        }
+        })
+        kid_id = kid['id']
+        db_relpath = f"data/families/family_{family_id}/kid_{kid_id}.db"
+        metadata.update_kid(kid_id, {'dbFilePath': db_relpath}, family_id)
 
         # Initialize kid's database
         kid_db.init_kid_database_by_path(db_relpath)
         conn = kid_db.get_kid_connection_by_path(db_relpath)
         seed_all_math_decks(conn)
         conn.close()
-
-        # Save to metadata
-        metadata.add_kid(kid)
 
         return jsonify(kid), 201
 
@@ -1296,80 +1292,92 @@ def complete_session_internal(kid, kid_id, session_type, data):
     deck_id = pending.get('deck_id') if pending.get('kind') == 'deck' else None
     planned_count = int(pending.get('planned_count') or 0)
 
-    session_id = conn.execute(
-        """
-        INSERT INTO sessions (type, deck_id, planned_count)
-        VALUES (?, ?, ?)
-        RETURNING id
-        """,
-        [session_type, deck_id, planned_count]
-    ).fetchone()[0]
-
-    latest_response_by_card = {}
-    touched_card_ids = set()
+    # Validate answers before starting transaction
     for answer in answers:
         card_id = answer.get('cardId')
         known = answer.get('known')
-        response_time_ms = answer.get('responseTimeMs')
-
         if not card_id or not isinstance(known, bool):
             conn.close()
             return {'error': 'Each answer needs cardId (int) and known (bool)'}, 400
-        try:
-            response_time_ms = int(response_time_ms)
-        except (TypeError, ValueError):
-            response_time_ms = 0
 
-        conn.execute(
-            "INSERT INTO session_results (session_id, card_id, correct, response_time_ms) VALUES (?, ?, ?, ?)",
-            [session_id, card_id, known, response_time_ms]
-        )
-        latest_response_by_card[card_id] = response_time_ms
-        touched_card_ids.add(card_id)
+    try:
+        conn.execute("BEGIN TRANSACTION")
 
-    if session_type in ('flashcard', 'math'):
-        for card_id, latest_ms in latest_response_by_card.items():
-            conn.execute(
-                "UPDATE cards SET hardness_score = ? WHERE id = ?",
-                [float(latest_ms or 0), card_id]
-            )
-    elif session_type == 'writing' and len(touched_card_ids) > 0:
-        placeholders = ','.join(['?'] * len(touched_card_ids))
-        conn.execute(
-            f"""
-            UPDATE cards
-            SET hardness_score = stats.hardness_score
-            FROM (
-                SELECT
-                    sr.card_id,
-                    COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct = TRUE THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
-                FROM session_results sr
-                JOIN sessions s ON s.id = sr.session_id
-                WHERE s.type = 'writing'
-                  AND sr.card_id IN ({placeholders})
-                GROUP BY sr.card_id
-            ) AS stats
-            WHERE cards.id = stats.card_id
+        session_id = conn.execute(
+            """
+            INSERT INTO sessions (type, deck_id, planned_count)
+            VALUES (?, ?, ?)
+            RETURNING id
             """,
-            list(touched_card_ids)
-        )
+            [session_type, deck_id, planned_count]
+        ).fetchone()[0]
 
-    if pending.get('kind') == 'deck':
-        conn.execute(
-            "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-            [int(pending.get('next_cursor') or 0), int(pending.get('deck_id'))]
-        )
-    elif pending.get('kind') == 'math':
-        for item in pending.get('deck_cursor_updates', []):
+        latest_response_by_card = {}
+        touched_card_ids = set()
+        for answer in answers:
+            card_id = answer.get('cardId')
+            known = answer.get('known')
+            try:
+                response_time_ms = int(answer.get('responseTimeMs'))
+            except (TypeError, ValueError):
+                response_time_ms = 0
+
+            conn.execute(
+                "INSERT INTO session_results (session_id, card_id, correct, response_time_ms) VALUES (?, ?, ?, ?)",
+                [session_id, card_id, known, response_time_ms]
+            )
+            latest_response_by_card[card_id] = response_time_ms
+            touched_card_ids.add(card_id)
+
+        if session_type in ('flashcard', 'math'):
+            for card_id, latest_ms in latest_response_by_card.items():
+                conn.execute(
+                    "UPDATE cards SET hardness_score = ? WHERE id = ?",
+                    [float(latest_ms or 0), card_id]
+                )
+        elif session_type == 'writing' and len(touched_card_ids) > 0:
+            placeholders = ','.join(['?'] * len(touched_card_ids))
+            conn.execute(
+                f"""
+                UPDATE cards
+                SET hardness_score = stats.hardness_score
+                FROM (
+                    SELECT
+                        sr.card_id,
+                        COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct = TRUE THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
+                    FROM session_results sr
+                    JOIN sessions s ON s.id = sr.session_id
+                    WHERE s.type = 'writing'
+                      AND sr.card_id IN ({placeholders})
+                    GROUP BY sr.card_id
+                ) AS stats
+                WHERE cards.id = stats.card_id
+                """,
+                list(touched_card_ids)
+            )
+
+        if pending.get('kind') == 'deck':
             conn.execute(
                 "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-                [int(item.get('next_cursor') or 0), int(item.get('deck_id'))]
+                [int(pending.get('next_cursor') or 0), int(pending.get('deck_id'))]
             )
+        elif pending.get('kind') == 'math':
+            for item in pending.get('deck_cursor_updates', []):
+                conn.execute(
+                    "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
+                    [int(item.get('next_cursor') or 0), int(item.get('deck_id'))]
+                )
 
-    conn.execute(
-        "UPDATE sessions SET completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-        [session_id]
-    )
+        conn.execute(
+            "UPDATE sessions SET completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            [session_id]
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        conn.close()
+        raise
+
     conn.close()
     return {
         'session_id': session_id,
@@ -1450,7 +1458,6 @@ def map_card_row(row, preview_order):
         'skip_practice': bool(row[4]),
         'hardness_score': float(row[5]) if row[5] is not None else 0,
         'created_at': row[6].isoformat() if row[6] else None,
-        'parent_added_at': row[6].isoformat() if row[6] else None,
         'next_session_order': preview_order.get(row[0]),
         'lifetime_attempts': int(row[7]) if row[7] is not None else 0,
         'last_seen_at': row[8].isoformat() if row[8] else None
@@ -1567,8 +1574,7 @@ def add_card(kid_id):
             'deck_id': card[1],
             'front': card[2],
             'back': card[3],
-            'created_at': card[4].isoformat() if card[4] else None,
-            'parent_added_at': card[4].isoformat() if card[4] else None
+            'created_at': card[4].isoformat() if card[4] else None
         }
 
         return jsonify(card_obj), 201
@@ -1978,7 +1984,6 @@ def add_writing_cards(kid_id):
                 'front': row[2],
                 'back': row[3],
                 'created_at': row[4].isoformat() if row[4] else None,
-                'parent_added_at': row[4].isoformat() if row[4] else None,
                 'audio_file_name': file_name,
                 'audio_mime_type': mime_type,
                 'audio_url': f"/api/kids/{kid_id}/writing/audio/{file_name}"
@@ -2228,15 +2233,9 @@ def finalize_writing_sheet(kid_id):
             return jsonify({'error': 'Some selected cards are no longer available'}), 409
 
         sheet_id = conn.execute(
-            "SELECT COALESCE(MAX(id), 0) + 1 FROM writing_sheets"
+            "INSERT INTO writing_sheets (status, practice_rows) VALUES ('pending', ?) RETURNING id",
+            [requested_rows]
         ).fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO writing_sheets (id, status, practice_rows)
-            VALUES (?, 'pending', ?)
-            """,
-            [int(sheet_id), requested_rows]
-        )
 
         for card_id in normalized_ids:
             conn.execute(
@@ -2297,49 +2296,8 @@ def create_writing_sheet(kid_id):
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_writing_deck(conn)
         pending_card_ids = get_pending_writing_card_ids(conn)
-        pending_placeholders = ','.join(['?'] * len(pending_card_ids)) if pending_card_ids else ''
 
-        exclude_clause = ''
-        params = [deck_id]
-        if pending_card_ids:
-            exclude_clause = f"AND c.id NOT IN ({pending_placeholders})"
-            params.extend(pending_card_ids)
-
-        candidates = conn.execute(
-            f"""
-            WITH latest AS (
-                SELECT
-                    sr.card_id,
-                    sr.correct,
-                    ROW_NUMBER() OVER (PARTITION BY sr.card_id ORDER BY sr.timestamp DESC, sr.id DESC) AS rn
-                FROM session_results sr
-                JOIN sessions s ON s.id = sr.session_id
-                WHERE s.type = 'writing'
-            ),
-            available AS (
-                SELECT
-                    c.id,
-                    c.front,
-                    c.back,
-                    l.correct,
-                    CASE
-                        WHEN l.card_id IS NULL OR l.correct = FALSE THEN 0
-                        ELSE 1
-                    END AS priority
-                FROM cards c
-                LEFT JOIN latest l ON l.card_id = c.id AND l.rn = 1
-                WHERE c.deck_id = ?
-                  {exclude_clause}
-            )
-            SELECT id, front, back, correct
-            FROM available
-            ORDER BY
-              priority ASC,
-              id ASC
-            LIMIT ?
-            """,
-            [*params, requested_count]
-        ).fetchall()
+        candidates = select_writing_sheet_candidates(conn, deck_id, requested_count, pending_card_ids)
 
         if len(candidates) == 0:
             conn.close()
@@ -2351,15 +2309,9 @@ def create_writing_sheet(kid_id):
             }), 200
 
         sheet_id = conn.execute(
-            "SELECT COALESCE(MAX(id), 0) + 1 FROM writing_sheets"
+            "INSERT INTO writing_sheets (status, practice_rows) VALUES ('pending', ?) RETURNING id",
+            [requested_rows]
         ).fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO writing_sheets (id, status, practice_rows)
-            VALUES (?, 'pending', ?)
-            """,
-            [int(sheet_id), requested_rows]
-        )
 
         for row in candidates:
             conn.execute(
