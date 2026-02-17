@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>马立平 生字预设</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <style>
+        :root {
+            --bg: #f6f8fc;
+            --card: #ffffff;
+            --text: #1f2a37;
+            --muted: #556170;
+            --line: #d9e1ec;
+            --accent: #2d7ef7;
+            --font-kaiti: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .wrap { max-width: 1060px; margin: 0 auto; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        h1, h2, h3, h4 { margin: 0; }
+
+        .desc {
+            margin: 0.55rem 0;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        .steps {
+            margin: 0.35rem 0 0;
+            padding-left: 1.2rem;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        .steps li { margin: 0.25rem 0; }
+
+        .tip {
+            color: #1f4f99;
+            background: #e9f1ff;
+            border: 1px solid #bfd7ff;
+            border-radius: 8px;
+            padding: 0.65rem 0.75rem;
+            margin-top: 0.7rem;
+            font-size: 0.94rem;
+        }
+
+        .copy-actions,
+        .book-actions,
+        .unit-actions,
+        .lesson-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .copy-actions { margin-top: 0.75rem; }
+
+        .copy-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .copy-btn:hover { background: #1f6ce0; }
+
+        .fold-btn {
+            background: #eef4ff;
+            color: #1f4f99;
+            border: 1px solid #bfd7ff;
+            border-radius: 8px;
+            padding: 0.45rem 0.8rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        .fold-btn:hover { background: #e3eeff; }
+
+        .copy-status {
+            font-size: 0.86rem;
+            color: #5f6e80;
+        }
+
+        .book-section,
+        .unit-section,
+        .lesson-section {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfdff;
+        }
+
+        .book-section,
+        .unit-section {
+            overflow: hidden;
+        }
+
+        .book-section { padding: 0.9rem; margin-top: 0.9rem; }
+        .unit-section { padding: 0.8rem; margin-top: 0.7rem; }
+        .lesson-section { padding: 0.7rem; margin-top: 0.55rem; }
+
+        .book-header,
+        .unit-header,
+        .lesson-header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.7rem;
+            margin-bottom: 0;
+            flex-wrap: wrap;
+            text-align: left;
+        }
+
+        .book-title { font-size: 1.22rem; font-weight: 700; }
+        .unit-title { font-size: 1.06rem; color: #2c3f57; font-weight: 700; }
+        .lesson-header h4 { font-size: 0.98rem; color: #334a66; }
+        .book-actions,
+        .unit-actions,
+        .lesson-actions {
+            margin-left: auto;
+        }
+
+        .fold-summary {
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .fold-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .fold-summary::before {
+            content: '▸';
+            color: #4f6b8d;
+            margin-right: 0.4rem;
+            font-size: 1.18rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        details[open] > .fold-summary::before {
+            content: '▾';
+        }
+
+        .book-content,
+        .unit-content {
+            margin-top: 0;
+            text-align: left;
+        }
+
+        .book-section[open] > .book-header,
+        .unit-section[open] > .unit-header {
+            margin-bottom: 0.55rem;
+        }
+
+        .book-section[open] > .book-content,
+        .unit-section[open] > .unit-content {
+            margin-top: 0.55rem;
+        }
+
+        .book-section:not([open]) .book-content,
+        .unit-section:not([open]) .unit-content {
+            display: none;
+        }
+
+        .meta {
+            font-size: 0.84rem;
+            color: #66768a;
+            white-space: nowrap;
+        }
+
+        pre {
+            margin: 0;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--line);
+            background: #fff;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 1.24rem;
+            line-height: 1.58;
+            font-family: var(--font-kaiti);
+            color: #263445;
+            user-select: text;
+            text-align: left;
+        }
+
+        .footer-note {
+            font-size: 0.9rem;
+            color: #66768a;
+            margin-top: 0.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="card">
+            <h1>马立平 生字预设（马一~马三）</h1>
+            <p class="desc">回到 <strong>Manage Chinese Reading</strong> 页面，把复制内容粘贴进 “Chinese Reading Character(s)” 输入框，点击 <strong>Add Chinese Reading Character</strong> 即可批量导入。</p>
+            <ol class="steps">
+                <li>可按“课 / 单元 / 整本 / 全部”任意粒度复制。</li>
+                <li>系统会自动提取中文字符，忽略数字/标点/空格/换行。</li>
+                <li>系统会自动去重，已在卡库中的字不会重复添加。</li>
+            </ol>
+            <div class="tip">建议按册或按单元导入，家长更容易控制每日增量。</div>
+        </section>
+
+        <section id="bookContainer" class="card"></section>
+
+        <p class="footer-note">注：本页仅做家长导入参考，孩子页面不会显示该内容。</p>
+    </div>
+
+    <script>
+        const MA_LI_PING_DATA = [
+            {
+                id: 'ma1',
+                title: '马一',
+                units: [
+                    {
+                        title: '第一单元',
+                        lessons: [
+                            { title: '一、《眼睛》', chars: '眼 睛 上 下 边 毛 中 间 一 颗 黑 葡 萄 口 嘴 鼻 子 日' },
+                            { title: '二、《耳朵》', chars: '耳 朵 左 右 片 座 山 两 看 不 见 前 后' },
+                            { title: '三、《手》', chars: '手 十 个 小 朋 友 你 我 大 家 都 有 五 在 只 会 做 事 开 头 脚 男 女' },
+                            { title: '四、《萝卜》', chars: '萝 卜 红 绿 公 鸡 尾 巴 钻 到 地 底 黄 蓝' },
+                            { title: '五、《花生》', chars: '花 生 麻 屋 帐 里 面 睡 白 胖 坐 立 走' },
+                            { title: '六、《一去二三里》', chars: '二 三 四 六 七 八 九 去 路 门 树 多 少' },
+                            { title: '七、《算一算》', chars: '算 棵 共 鸟 飞 还 剩 几 加 减 比' }
+                        ]
+                    },
+                    {
+                        title: '第二单元',
+                        lessons: [
+                            { title: '一、《雨》', chars: '雨 千 万 条 线 掉 进 水 风 云 雪' },
+                            { title: '二、《镜子》', chars: '镜 他 也 哭 笑 脸 脏 就 知 道 爸 妈 爱' },
+                            { title: '三、《袋鼠》', chars: '袋 鼠 奇 怪 好 胸 挂 放 果 菜 娃 爬 来 米 田 石 木 土' },
+                            { title: '四、《画》', chars: '画 远 色 近 听 无 声 春 人' },
+                            { title: '五、《小蝌蚪》', chars: '蝌 蚪 细 身 脑 长 着 变 啦 了 腿 脱 衣 服 换 裤 袄 噜 成 青 蛙' },
+                            { title: '六、《弯弯的月亮》', chars: '弯 的 月 亮 船 尖 闪 星 天 日 火' },
+                            { title: '七、《一头牛》', chars: '牛 匹 马 件 羊 群 鸭 桃 百 鱼 虫 草' }
+                        ]
+                    },
+                    {
+                        title: '第三单元',
+                        lessons: [
+                            { title: '一、《小山羊》', chars: '和 请 吃 说 谢 猫 狗 骨 同' },
+                            { title: '二、《种鱼》', chars: '种 阿 姨 把 玉 秋 收 很 叔 它 想 呢' },
+                            { title: '三、《落叶》', chars: '落 叶 吹 气 凉 从 枝 躲 当 作 沟 蚂 蚁 河 游 过 藏 伞 顶 燕 低 信 们 要 南 方' },
+                            { title: '四、《下雪的时候》', chars: '时 候 冬 飘 起 出 玩 跑 留 印 对 这 是 那 梅 竹' },
+                            { title: '五、《乌鸦喝水》', chars: '乌 鸦 喝 渴 处 找 瓶 可 高 又 着 怎 么 办 法 慢 升' },
+                            { title: '六、《小猴子下山》', chars: '猴 非 常 兴 摘 往 拿 满 扔 西 瓜 圆 抱 回 兔 蹦 跳 真 追 啊 林 空' }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'ma2',
+                title: '马二',
+                units: [
+                    {
+                        title: '第一单元',
+                        lessons: [
+                            { title: '一、《捞月亮》', chars: '捞 夜 晚 井 急 得 叫 糟 连 忙 跟 老 快 倒 拉 住 另 接 越 长 直 最 伸 刚 碰 拾 嘴 用' },
+                            { title: '二、《白菜的故事》', chars: '故 友 帮 完 车 送 给 您 伯 包 吗 翻 松 以 洗 拔 提 什 饿 些 再 没 点 吧 挑 担 问 哪 自 己 才 能' },
+                            { title: '三、《小猫钓鱼》', chars: '钓 早 晨 太 阳 东 弟 哥 静 等 话 蜻 蜓 竿 已 经 蝴 蝶 漂 但 咳 为 专 心 儿 停 像 步 动 力' },
+                            { title: '四、《狐狸和乌鸦》', chars: '狐 狸 窝 洞 她 孩 块 肉 叼 站 旁 乐 肚 馋 流 亲 羽 雀 差 嗓 谁 唱 歌 句 意 极 哇 张' }
+                        ]
+                    },
+                    {
+                        title: '第二单元',
+                        lessons: [
+                            { title: '一、《一粒种子》', chars: '粒 种 泥 醒 觉 暖 挺 舒 轻 蛏 蛹 现 外 音 告 诉 样 答 让 热 闹 喜 欢 赶 突 然 光 明 世 界' },
+                            { title: '二、《谜语》', chars: '谜 语 皮 球 宝 拍 重 铅 笔 肠 图 写 字 矮 怕 冷 汗 滴' },
+                            { title: '三、《美丽的公鸡》', chars: '美 丽 为 整 洋 冠 油 脖 金 第 饱 咳 病 治 医 摇 摆 园 蜜 蜂 鼓 米 稻 害 伤 理 因 表 惭 愧 此 每 喔 遍 催' },
+                            { title: '四、《埋蛇的孩子》', chars: '埋 蛇 孙 鼓 次 久 死 打 挖 擦 泪 别 令 所 难' },
+                            { title: '五、《骆驼和羊》', chars: '骆 驼 夏 散 错 情 证 俩 围 墙 许 举 执 肯 认 输 向 窄 模 距 评 各 短 如 既 争 论 休' }
+                        ]
+                    },
+                    {
+                        title: '第三单元',
+                        lessons: [
+                            { title: '一、《小弟和小猫》', chars: '聪 淘 洗 澡 装 照 闭 咯 姐 爪 舔 眯 喵 胡 翘 妙 哈 皱 眉 瞪 干 净 床 穿 饭 戏 讲 觉 桌 椅 窗 电 灯 冰 箱 视 机 汽' },
+                            { title: '二、《小壁虎借尾巴》', chars: '壁 虎 借 正 角 蚊 咬 挣 断 逃 先 呼 池 塘 行 拔 瓜 蛇 橙 掌 握 累 息 眨 傻 转 哎 趣 丢 旧 新' },
+                            { title: '三、《植物妈妈有办法》', chars: '植 物 海 翅 膀 靠 蒲 英 准 备 降 微 纷 发 苍 带 刺 榴 胆 豌 豆 更 英 晒 拍 炸 离 仔 观 察 识 粗 却 得' },
+                            { title: '四、《铁棒磨成针》', chars: '铁 棒 磨 针 名 李 学 习 困 读 书 课 教 室 渔 根 发 奶 位 千 硬 定 总 决 始 伟 诗 念 首 疑 霜 望 思 乡' }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'ma3',
+                title: '马三',
+                units: [
+                    {
+                        title: '第一单元',
+                        lessons: [
+                            { title: '一、汉语拼音第1课', chars: '汉 骂 婆 猪 饿 数 破 布 补 锯 舌 牙 齿 试' },
+                            { title: '二、汉语拼音第2课', chars: '买 妹 背 悲 饱 吵 棚 拾' },
+                            { title: '三、汉语拼音第3课', chars: '桥 题 龟 吓' },
+                            { title: '四、汉语拼音第4课', chars: '清 狼 撞 敢 龙 王 神 鬼 睛 工 绳 分 划 抓 鹿 客 容 易 浪 费 烟 江 舞 蹈 波 姑 娘 篮 虾' },
+                            { title: '五、《曹冲称象》', chars: '称 象 将 军 曹 操 运 杀 切 冲 父 沉 沿 岸 斤 量' },
+                            { title: '六、《锯是怎样发明的》', chars: '鲁 班 国 古 匠 造 房 需 料 派 砍 斧 够 缺 野 指 被 血 具 忘 疼 痛 省' },
+                            { title: '七、《狐假虎威》', chars: '假 威 森 寻 食 扑 狡 猾 珠 命 反 管 兽 趟 活 半 平 凶 恶 骗' },
+                            { title: '八、《小马过河》', chars: '麦 挡 应 该 浅 泡 惊 深 昨 伙 伴 愿 危 险 关 原' }
+                        ]
+                    },
+                    {
+                        title: '第二单元',
+                        lessons: [
+                            { title: '一、《公鸡蛋》', chars: '蛋 甘 罗 茂 皇 帝 官 爷 香 助 摸 肩 叹 苦 令 午 之 内 实 虫 改 主 恭 敬 替 假 慌 响 楚 求 勇 感 刻 救' },
+                            { title: '二、《穷和尚和富和尚》', chars: '穷 尚 富 部 川 瘦 拜 佛 碗 钱 岭 化 缘 庙 相 年 辛 终 于 达 访 惜 本 志 者 竟' },
+                            { title: '三、《要是你在野外迷了路》', chars: '迷 确 忠 导 引 影 北 阴 密 稀 盏 永 乱 闯 特 融 积' },
+                            { title: '四、《找骆驼》', chars: '商 迎 跛 驼 紧 详 较 迹 至 究 必 须 顺 继 续' },
+                            { title: '五、《岳飞学写字》', chars: '岳 战 胜 母 织 养 校 教 岁 师 莫 纸 街 般 集 沙 插 双 捧 全 交 铺 而 且 历 史' }
+                        ]
+                    },
+                    {
+                        title: '第三单元',
+                        lessons: [
+                            { title: '一、《光明一去不复返》', chars: '复 返 注 匆 船 悄 便 场 钟 嘀 嗒 秒 或 限 使 验 似 乎 善 利 获 功 寸 壮 努 徒 悲 懂' },
+                            { title: '二、《爸爸的老师》', chars: '嗨 副 严 肃 鲜 嗯 临 叮 咛 强 结 猜 鞠 躬 中 希 念 级 赞 骄 傲 劳 曾' },
+                            { title: '三、《等一会儿再说》', chars: '镇 市 筐 瓷 器 驴 店 架 歪 简 系 坡 哐 啷 摔 粉 碎' },
+                            { title: '四、《让我们荡起双桨》', chars: '荡 桨 推 映 塔 周 环 绕 夕 洒 愉 尽 爽 院 馆 品 超 厕' },
+                            { title: '五、《愚公移山》', chars: '愚 移 代 附 妻 犹 豫 堆 抢 填 领 邻 居 参 消 渐 传 智 叟 嘲 策 糊 涂 团 坚 持 顾 仍 止 仙' }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        function countUniqueHanChars(text) {
+            const matches = String(text || '').match(/\p{Script=Han}/gu) || [];
+            return new Set(matches).size;
+        }
+
+        function joinLessonTexts(lessons) {
+            return lessons.map((lesson) => lesson.chars.trim()).filter(Boolean).join('\n');
+        }
+
+        function joinUnitTexts(units) {
+            return units
+                .map((unit) => joinLessonTexts(unit.lessons || []))
+                .filter(Boolean)
+                .join('\n');
+        }
+
+        async function copyTextToClipboard(text) {
+            const content = String(text || '');
+            if (!content) return false;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(content);
+                return true;
+            }
+
+            const temp = document.createElement('textarea');
+            temp.value = content;
+            temp.setAttribute('readonly', '');
+            temp.style.position = 'fixed';
+            temp.style.opacity = '0';
+            document.body.appendChild(temp);
+            temp.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(temp);
+            return ok;
+        }
+
+        function setStatus(el, message) {
+            if (el) {
+                el.textContent = message;
+            }
+        }
+
+        async function handleCopy(content, statusEl, successText) {
+            setStatus(statusEl, '');
+            try {
+                const ok = await copyTextToClipboard(content);
+                setStatus(statusEl, ok ? successText : '复制失败');
+            } catch (error) {
+                setStatus(statusEl, '复制失败');
+            }
+        }
+
+        function render() {
+            const container = document.getElementById('bookContainer');
+            if (!container) return;
+
+            const html = MA_LI_PING_DATA.map((book, bookIndex) => {
+                const bookText = joinUnitTexts(book.units || []);
+                const bookCount = countUniqueHanChars(bookText);
+                return `
+                    <details class="book-section book-fold" data-book-id="${book.id}">
+                        <summary class="book-header fold-summary">
+                            <span class="book-title">${book.title}</span>
+                            <div class="book-actions">
+                                <span class="meta">共 ${bookCount} 字</span>
+                                <button class="copy-btn" type="button" data-copy-scope="book" data-book-index="${bookIndex}">复制${book.title}</button>
+                                <span class="copy-status" data-status-scope="book" data-book-index="${bookIndex}"></span>
+                            </div>
+                        </summary>
+                        <div class="book-content">
+                        ${(book.units || []).map((unit, unitIndex) => {
+                            const unitText = joinLessonTexts(unit.lessons || []);
+                            const unitCount = countUniqueHanChars(unitText);
+                            return `
+                                <details class="unit-section unit-fold">
+                                    <summary class="unit-header fold-summary">
+                                        <span class="unit-title">${unit.title}</span>
+                                        <div class="unit-actions">
+                                            <span class="meta">共 ${unitCount} 字</span>
+                                            <button class="copy-btn" type="button" data-copy-scope="unit" data-book-index="${bookIndex}" data-unit-index="${unitIndex}">复制${unit.title}</button>
+                                            <span class="copy-status" data-status-scope="unit" data-book-index="${bookIndex}" data-unit-index="${unitIndex}"></span>
+                                        </div>
+                                    </summary>
+                                    <div class="unit-content">
+                                    ${(unit.lessons || []).map((lesson, lessonIndex) => {
+                                        const lessonCount = countUniqueHanChars(lesson.chars);
+                                        return `
+                                            <section class="lesson-section">
+                                                <div class="lesson-header">
+                                                    <h4>${lesson.title}</h4>
+                                                    <div class="lesson-actions">
+                                                        <span class="meta">共 ${lessonCount} 字</span>
+                                                        <button class="copy-btn" type="button" data-copy-scope="lesson" data-book-index="${bookIndex}" data-unit-index="${unitIndex}" data-lesson-index="${lessonIndex}">复制本课</button>
+                                                        <span class="copy-status" data-status-scope="lesson" data-book-index="${bookIndex}" data-unit-index="${unitIndex}" data-lesson-index="${lessonIndex}"></span>
+                                                    </div>
+                                                </div>
+                                                <pre>${lesson.chars}</pre>
+                                            </section>
+                                        `;
+                                    }).join('')}
+                                    </div>
+                                </details>
+                            `;
+                        }).join('')}
+                        </div>
+                    </details>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+            document.querySelectorAll('.book-fold').forEach((el) => { el.open = false; });
+            document.querySelectorAll('.unit-fold').forEach((el) => { el.open = false; });
+        }
+
+        function getStatusEl(scope, bookIndex, unitIndex, lessonIndex) {
+            const selectorParts = [
+                `[data-status-scope="${scope}"]`,
+                `[data-book-index="${bookIndex}"]`
+            ];
+            if (typeof unitIndex === 'number') selectorParts.push(`[data-unit-index="${unitIndex}"]`);
+            if (typeof lessonIndex === 'number') selectorParts.push(`[data-lesson-index="${lessonIndex}"]`);
+            return document.querySelector(selectorParts.join(''));
+        }
+
+        function bindEvents() {
+            document.querySelectorAll('button[data-copy-scope]').forEach((button) => {
+                button.addEventListener('click', async (event) => {
+                    // Keep copy clicks from toggling the details fold state.
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const scope = button.getAttribute('data-copy-scope');
+                    const bookIndex = Number.parseInt(button.getAttribute('data-book-index'), 10);
+                    const unitIndex = Number.parseInt(button.getAttribute('data-unit-index'), 10);
+                    const lessonIndex = Number.parseInt(button.getAttribute('data-lesson-index'), 10);
+
+                    const book = MA_LI_PING_DATA[bookIndex];
+                    if (!book) return;
+
+                    if (scope === 'book') {
+                        const text = joinUnitTexts(book.units || []);
+                        const statusEl = getStatusEl('book', bookIndex);
+                        await handleCopy(text, statusEl, `已复制${book.title}`);
+                        return;
+                    }
+
+                    const unit = (book.units || [])[unitIndex];
+                    if (!unit) return;
+
+                    if (scope === 'unit') {
+                        const text = joinLessonTexts(unit.lessons || []);
+                        const statusEl = getStatusEl('unit', bookIndex, unitIndex);
+                        await handleCopy(text, statusEl, `已复制${unit.title}`);
+                        return;
+                    }
+
+                    const lesson = (unit.lessons || [])[lessonIndex];
+                    if (!lesson) return;
+                    const statusEl = getStatusEl('lesson', bookIndex, unitIndex, lessonIndex);
+                    await handleCopy(lesson.chars.trim(), statusEl, '已复制本课');
+                });
+            });
+        }
+
+        render();
+        bindEvents();
+    </script>
+</body>
+</html>

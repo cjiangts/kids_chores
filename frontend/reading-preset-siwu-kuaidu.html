@@ -72,6 +72,33 @@
             font-size: 0.94rem;
         }
 
+        .copy-actions {
+            margin-top: 0.75rem;
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .copy-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.92rem;
+            cursor: pointer;
+        }
+
+        .copy-btn:hover {
+            background: #1f6ce0;
+        }
+
+        .copy-status {
+            font-size: 0.88rem;
+            color: #5f6e80;
+        }
+
         .preset-title {
             display: flex;
             align-items: baseline;
@@ -80,9 +107,38 @@
             margin-bottom: 0.5rem;
         }
 
+        .preset-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
         .preset-title small {
             color: #6a7788;
             font-weight: 500;
+        }
+
+        .book-copy-status {
+            font-size: 0.8rem;
+            color: #5f6e80;
+            min-width: 7.2rem;
+            text-align: right;
+        }
+
+        .copy-book-btn {
+            background: #eef4ff;
+            color: #1f4f99;
+            border: 1px solid #bfd7ff;
+            border-radius: 6px;
+            padding: 0.28rem 0.55rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .copy-book-btn:hover {
+            background: #e3eeff;
         }
 
         pre {
@@ -117,13 +173,21 @@
                 <li>系统会自动提取中文字符，忽略数字/标点/空格/换行。</li>
                 <li>系统会自动去重：已在卡库中的字不会重复添加。</li>
             </ol>
+            <div class="copy-actions">
+                <button id="copyAllBtn" class="copy-btn" type="button">复制前 6 册全文</button>
+                <span id="copyStatus" class="copy-status"></span>
+            </div>
             <div class="tip">建议先按册导入，再开始练习。这样更容易观察孩子每册掌握情况。</div>
         </section>
 
         <section class="card">
             <div class="preset-title">
                 <h2>第 1 册</h2>
-                <small><span id="count-book-1">计算中...</span> · 可直接全选复制</small>
+                <div class="preset-meta">
+                    <small><span id="count-book-1">计算中...</span></small>
+                    <button class="copy-book-btn" type="button" data-copy-book="1">复制第1册</button>
+                    <span class="book-copy-status" id="copy-book-status-1"></span>
+                </div>
             </div>
             <pre data-book-count-target="count-book-1">人 口 大 中 小 哭 笑 一 上 下 爸 妈 天 太 月 二 地 阳 亮 星 云 火 水 三 土 山 石 木 我 好 有 田 牛 羊 聪 耳 目 心 和 四 明 头 眉 鼻 手 花 树 五 草 叶 日 风 雨 的 孩 六 白 红 是 家 多 唱 子 七 爱 爷 奶 少 歌 不 朋 八 宝 在 学 书 游 友 儿 九 贝 生 习 看 气 字 戏 十</pre>
         </section>
@@ -131,7 +195,11 @@
         <section class="card">
             <div class="preset-title">
                 <h2>第 2 册</h2>
-                <small><span id="count-book-2">计算中...</span> · 可直接全选复制</small>
+                <div class="preset-meta">
+                    <small><span id="count-book-2">计算中...</span></small>
+                    <button class="copy-book-btn" type="button" data-copy-book="2">复制第2册</button>
+                    <span class="book-copy-status" id="copy-book-status-2"></span>
+                </div>
             </div>
             <pre data-book-count-target="count-book-2">会 见 早 雪 鸡 绿 黄 青 鱼 做 飞 跑 要 吃 鸟 他 们 春 夏 秋 冬 季 都 个 狗 猫 蓝 落 真 开 说 也 马 米 哥 姐 来 黑 去 出 跳 着 了 你 又 弟 妹 东 就 还 快 得 西 乐 到 起 玩 捉 迷 球 很 高 鸭 哈 方 爬 藏 兴 向 对 能 叫 变 问 成 再 急 教 门 只 回 公 打 兔 请 过 吗 泳</pre>
         </section>
@@ -139,7 +207,11 @@
         <section class="card">
             <div class="preset-title">
                 <h2>第 3 册</h2>
-                <small><span id="count-book-3">计算中...</span> · 可直接全选复制</small>
+                <div class="preset-meta">
+                    <small><span id="count-book-3">计算中...</span></small>
+                    <button class="copy-book-btn" type="button" data-copy-book="3">复制第3册</button>
+                    <span class="book-copy-status" id="copy-book-status-3"></span>
+                </div>
             </div>
             <pre data-book-count-target="count-book-3">虫 把 驮 鹅 河 礼 背 拿 里 后 谢 边 貌 班 幼 园 照 婆 甜 梦 老 盒 尺 刀 时 正 文 具 笔 画 长 放 用 总 尾 巴 玉 尖 竹 苗 听 话 猴 猩 给 进 告 电 诉 念 饭 乖 想 面 住 前 从 同 没 送 果 工 厂 动 关 找 按 年 节 桃 荷 菊 梅 冷 它 怕 躲 勇 敢 堆 仗 柳 农 民 伯 种 最 产</pre>
         </section>
@@ -147,7 +219,11 @@
         <section class="card">
             <div class="preset-title">
                 <h2>第 4 册</h2>
-                <small><span id="count-book-4">计算中...</span> · 可直接全选复制</small>
+                <div class="preset-meta">
+                    <small><span id="count-book-4">计算中...</span></small>
+                    <button class="copy-book-btn" type="button" data-copy-book="4">复制第4册</button>
+                    <span class="book-copy-status" id="copy-book-status-4"></span>
+                </div>
             </div>
             <pre data-book-count-target="count-book-4">片 吹 浇 燕 睡 醒 蛙 呱 南 椅 坐 身 吧 桌 布 抱 摔 声 谁 呢 认 原 痛 喊 狼 啦 敢 救 假 掉 路 碰 哪 两 逃 走 她 点 音 可 伸 缝 夹 根 棍 丢 灰 萝 卜 熟 拔 拉 鼠 咕 咚 倒 抬 晚 左 右 怎 么 办 知 道 午 这 座 洞 什 害 付 顶 角 死 扑 期 带 分 清 今 昨 光 阴 错 指 拇 呀</pre>
         </section>
@@ -155,7 +231,11 @@
         <section class="card">
             <div class="preset-title">
                 <h2>第 5 册</h2>
-                <small><span id="count-book-5">计算中...</span> · 可直接全选复制</small>
+                <div class="preset-meta">
+                    <small><span id="count-book-5">计算中...</span></small>
+                    <button class="copy-book-btn" type="button" data-copy-book="5">复制第5册</button>
+                    <span class="book-copy-status" id="copy-book-status-5"></span>
+                </div>
             </div>
             <pre data-book-count-target="count-book-5">食 无 名 加 共 事 帮 饿 肚 狮 觉 毛 求 等 香 肉 张 网 咬 力 啊 牙 嘴 漂 胡 虎 贴 才 数 更 朵 纸 圆 圈 亲 脸 眼 睛 接 外 笨 以 自 己 慢 难 练 每 颗 样 因 为 离 近 象 船 闪 金 美 丽 当 扇 满 干 朝 熊 娃 汽 车 北 京 往 呜 鹿 森 林 采 蘑 菇 篮 直 摸 苔 所 科 灯 应 该 题</pre>
         </section>
@@ -163,7 +243,11 @@
         <section class="card">
             <div class="preset-title">
                 <h2>第 6 册</h2>
-                <small><span id="count-book-6">计算中...</span> · 可直接全选复制</small>
+                <div class="preset-meta">
+                    <small><span id="count-book-6">计算中...</span></small>
+                    <button class="copy-book-btn" type="button" data-copy-book="6">复制第6册</button>
+                    <span class="book-copy-status" id="copy-book-status-6"></span>
+                </div>
             </div>
             <pre data-book-count-target="count-book-6">停 而 窗 刚 撞 笔 记 串 被 够 命 颈 定 吓 啄 破 湖 棵 瓜 透 腿 狐 粗 竿 狸 跟 钓 甩 钩 忘 装 饵 算 桶 坏 忙 洗 忽 然 全 条 怪 物 猪 影 信 呼 结 冰 枝 发 抖 暖 屋 法 件 于 松 帽 戴 热 候 劳 流 汗 凉 别 整 盖 怜 窝 病 受 羽 望 骑 行 远 经 旁 婶 呵 稀 奇 祝 贺 哟 脑 呆 床 闹 钟 拨 准 备 其 实 轻 响 迟 已 叠 包 碗 写 冒 您</pre>
         </section>
@@ -183,6 +267,64 @@
             if (!target) return;
             const count = countUniqueHanChars(pre.textContent);
             target.textContent = `共 ${count} 字`;
+        });
+
+        async function copyTextToClipboard(text) {
+            const content = String(text || '');
+            if (!content) return false;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(content);
+                return true;
+            }
+
+            const temp = document.createElement('textarea');
+            temp.value = content;
+            temp.setAttribute('readonly', '');
+            temp.style.position = 'fixed';
+            temp.style.opacity = '0';
+            document.body.appendChild(temp);
+            temp.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(temp);
+            return ok;
+        }
+
+        const copyAllBtn = document.getElementById('copyAllBtn');
+        const copyStatus = document.getElementById('copyStatus');
+        if (copyAllBtn) {
+            copyAllBtn.addEventListener('click', async () => {
+                const allText = Array.from(document.querySelectorAll('pre[data-book-count-target]'))
+                    .map((pre) => pre.textContent.trim())
+                    .filter((part) => part.length > 0)
+                    .join('\n');
+
+                copyStatus.textContent = '';
+                try {
+                    const ok = await copyTextToClipboard(allText);
+                    copyStatus.textContent = ok ? '已复制到剪贴板' : '复制失败，请手动全选复制';
+                } catch (error) {
+                    copyStatus.textContent = '复制失败，请手动全选复制';
+                }
+            });
+        }
+
+        document.querySelectorAll('.copy-book-btn[data-copy-book]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const bookNo = btn.getAttribute('data-copy-book');
+                const pre = btn.closest('.card')?.querySelector('pre[data-book-count-target]');
+                const statusEl = document.getElementById(`copy-book-status-${bookNo}`);
+                if (!pre) {
+                    if (statusEl) statusEl.textContent = '复制失败';
+                    return;
+                }
+                try {
+                    const ok = await copyTextToClipboard(pre.textContent.trim());
+                    if (statusEl) statusEl.textContent = ok ? '已复制' : '复制失败';
+                } catch (error) {
+                    if (statusEl) statusEl.textContent = '复制失败';
+                }
+            });
         });
     </script>
 </body>

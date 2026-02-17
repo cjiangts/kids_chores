@@ -18,6 +18,7 @@ const errorMessage = document.getElementById('errorMessage');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
 const addSiWuKuaiDuBtn = document.getElementById('addSiWuKuaiDuBtn');
+const addMaLiPingBtn = document.getElementById('addMaLiPingBtn');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
@@ -73,6 +74,12 @@ cardSearchInput.addEventListener('input', () => {
 addSiWuKuaiDuBtn.addEventListener('click', () => {
     window.open('/reading-preset-siwu-kuaidu.html', '_blank', 'noopener,noreferrer,width=920,height=840');
 });
+
+if (addMaLiPingBtn) {
+    addMaLiPingBtn.addEventListener('click', () => {
+        window.open('/reading-preset-maliping.html', '_blank', 'noopener,noreferrer,width=980,height=860');
+    });
+}
 
 function updateAddReadingButtonCount() {
     const totalChineseChars = countChineseCharsBeforeDbDedup(chineseCharInput.value);
