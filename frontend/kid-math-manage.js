@@ -6,8 +6,6 @@ const kidId = params.get('id');
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
-const deckCountLabel = document.getElementById('deckCountLabel');
-const activeDeckCountInput = document.getElementById('activeDeckCount');
 const mathSessionTotalInline = document.getElementById('mathSessionTotalInline');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const deckTotalInfo = document.getElementById('deckTotalInfo');
@@ -21,10 +19,10 @@ const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
 
 const DECK_META = {
-    within10: { label: 'Add ≤10', field: 'mathDeckWithin10Count', defaultCount: 5, tabEl: deckTabWithin10 },
-    within20: { label: 'Add 11–20', field: 'mathDeckWithin20Count', defaultCount: 5, tabEl: deckTabWithin20 },
-    subWithin10: { label: 'Sub ≤10', field: 'mathDeckSubWithin10Count', defaultCount: 0, tabEl: deckTabSubWithin10 },
-    subWithin20: { label: 'Sub 11–20', field: 'mathDeckSubWithin20Count', defaultCount: 0, tabEl: deckTabSubWithin20 },
+    within10: { label: 'Add ≤10', field: 'mathDeckWithin10Count', defaultCount: 5, tabEl: deckTabWithin10, inputEl: document.getElementById('deckCountWithin10') },
+    within20: { label: 'Add 11–20', field: 'mathDeckWithin20Count', defaultCount: 5, tabEl: deckTabWithin20, inputEl: document.getElementById('deckCountWithin20') },
+    subWithin10: { label: 'Sub ≤10', field: 'mathDeckSubWithin10Count', defaultCount: 0, tabEl: deckTabSubWithin10, inputEl: document.getElementById('deckCountSubWithin10') },
+    subWithin20: { label: 'Sub 11–20', field: 'mathDeckSubWithin20Count', defaultCount: 0, tabEl: deckTabSubWithin20, inputEl: document.getElementById('deckCountSubWithin20') },
 };
 
 let currentKid = null;
@@ -61,20 +59,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
     cardsGrid.addEventListener('click', handleCardsGridClick);
     Object.keys(DECK_META).forEach((deckKey) => {
-        const tabEl = DECK_META[deckKey].tabEl;
-        tabEl.addEventListener('click', async () => {
+        const meta = DECK_META[deckKey];
+        meta.tabEl.addEventListener('click', async () => {
             if (activeDeckKey === deckKey) return;
             activeDeckKey = deckKey;
             renderDeckTabs();
             await loadMathCards();
         });
-    });
-
-    activeDeckCountInput.addEventListener('input', () => {
-        const value = Number.parseInt(activeDeckCountInput.value, 10);
-        deckCounts[activeDeckKey] = Number.isInteger(value) ? Math.max(0, value) : 0;
-        updateTotalSessionCount();
-        renderDeckTabs();
+        meta.inputEl.addEventListener('input', () => {
+            const value = Number.parseInt(meta.inputEl.value, 10);
+            deckCounts[deckKey] = Number.isInteger(value) ? Math.max(0, value) : 0;
+            updateTotalSessionCount();
+        });
     });
 
     window.addEventListener('scroll', () => {
@@ -91,10 +87,7 @@ function renderDeckTabs() {
     Object.keys(DECK_META).forEach((deckKey) => {
         const meta = DECK_META[deckKey];
         meta.tabEl.classList.toggle('active', activeDeckKey === deckKey);
-        meta.tabEl.textContent = `${meta.label} (${deckCounts[deckKey] || 0})`;
     });
-    deckCountLabel.textContent = `${DECK_META[activeDeckKey].label} Selected Per Session`;
-    activeDeckCountInput.value = String(deckCounts[activeDeckKey] || 0);
 }
 
 
@@ -103,7 +96,7 @@ function updateTotalSessionCount() {
         const count = Number.parseInt(deckCounts[deckKey], 10);
         return sum + (Number.isInteger(count) ? Math.max(0, count) : 0);
     }, 0);
-    mathSessionTotalInline.textContent = `(Total per session: ${total})`;
+    mathSessionTotalInline.textContent = `Total per session: ${total}`;
 }
 
 
@@ -121,6 +114,7 @@ async function loadKidInfo() {
             const meta = DECK_META[deckKey];
             const value = Number.parseInt(currentKid[meta.field], 10);
             deckCounts[deckKey] = Number.isInteger(value) ? value : meta.defaultCount;
+            meta.inputEl.value = String(deckCounts[deckKey]);
         });
         updateTotalSessionCount();
         renderDeckTabs();
@@ -133,13 +127,15 @@ async function loadKidInfo() {
 
 async function saveSessionSettings() {
     try {
-        const activeCount = Number.parseInt(activeDeckCountInput.value, 10);
-
-        if (!Number.isInteger(activeCount) || activeCount < 0 || activeCount > 200) {
-            showError('Selected deck count must be between 0 and 200');
-            return;
+        for (const deckKey of Object.keys(DECK_META)) {
+            const meta = DECK_META[deckKey];
+            const value = Number.parseInt(meta.inputEl.value, 10);
+            if (!Number.isInteger(value) || value < 0 || value > 200) {
+                showError(`${meta.label} count must be between 0 and 200`);
+                return;
+            }
+            deckCounts[deckKey] = value;
         }
-        deckCounts[activeDeckKey] = activeCount;
 
         const response = await fetch(`${API_BASE}/kids/${kidId}`, {
             method: 'PUT',

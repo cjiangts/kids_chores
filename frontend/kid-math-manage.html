@@ -47,10 +47,52 @@
             color: #fff;
         }
 
-        .math-subtab-settings {
-            margin-bottom: 1rem;
-            border: 1px solid #e7ebff;
-            background: #f8faff;
+        .deck-counts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem 1.5rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .deck-count-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .deck-count-row label {
+            font-size: 0.92rem;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .deck-count-row input {
+            width: 60px;
+            padding: 0.3rem 0.4rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        .deck-counts-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+        }
+
+        .deck-counts-total {
+            font-size: 0.95rem;
+            color: #555;
+            font-weight: 600;
+        }
+
+        @media (max-width: 760px) {
+            .deck-counts-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .cards-grid {
@@ -150,7 +192,33 @@
 
         <div id="errorMessage" class="error hidden"></div>
 
-        <h2 class="cards-title">Math Questions <span id="mathSessionTotalInline"></span></h2>
+        <div class="settings-section">
+            <h2>Practice Settings</h2>
+            <form id="sessionSettingsForm">
+                <div class="deck-counts-grid">
+                    <div class="deck-count-row">
+                        <label for="deckCountWithin10">Add ≤10</label>
+                        <input type="number" id="deckCountWithin10" min="0" max="200" step="1">
+                    </div>
+                    <div class="deck-count-row">
+                        <label for="deckCountWithin20">Add 11–20</label>
+                        <input type="number" id="deckCountWithin20" min="0" max="200" step="1">
+                    </div>
+                    <div class="deck-count-row">
+                        <label for="deckCountSubWithin10">Sub ≤10</label>
+                        <input type="number" id="deckCountSubWithin10" min="0" max="200" step="1">
+                    </div>
+                    <div class="deck-count-row">
+                        <label for="deckCountSubWithin20">Sub 11–20</label>
+                        <input type="number" id="deckCountSubWithin20" min="0" max="200" step="1">
+                    </div>
+                </div>
+                <div class="deck-counts-footer">
+                    <span id="mathSessionTotalInline" class="deck-counts-total">Total per session: 0</span>
+                    <button type="submit" class="settings-save-btn">Save</button>
+                </div>
+            </form>
+        </div>
 
         <div class="cards-section">
             <div class="math-deck-tabs">
@@ -159,17 +227,7 @@
                 <button id="deckTabSubWithin10" class="math-deck-tab" type="button">Sub ≤10</button>
                 <button id="deckTabSubWithin20" class="math-deck-tab" type="button">Sub 11–20</button>
             </div>
-            <div class="settings-section math-subtab-settings">
-                <h2>Practice Settings</h2>
-                <form id="sessionSettingsForm" class="settings-row">
-                    <div class="form-group">
-                        <label id="deckCountLabel" for="activeDeckCount">Selected Per Session</label>
-                        <input type="number" id="activeDeckCount" min="0" max="200" step="1" required>
-                    </div>
-                    <button type="submit" class="settings-save-btn">Save</button>
-                </form>
-            </div>
-            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Total cards in this deck: 0</p>
+            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in this deck: 0</p>
             <div class="cards-toolbar">
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="added_time" selected>Order: Added Time (Recent to Oldest)</option>
