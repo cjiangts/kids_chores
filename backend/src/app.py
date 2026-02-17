@@ -60,9 +60,10 @@ def create_app():
         return bool(session.get('parent_authenticated'))
 
     def require_parent_auth():
-        auth_err = require_parent_auth()
-        if auth_err:
-            return auth_err
+        if not is_family_authenticated():
+            return {'error': 'Family login required'}, 401
+        if not is_parent_authenticated():
+            return {'error': 'Parent login required'}, 401
         return None
 
     def is_parent_page(path):
