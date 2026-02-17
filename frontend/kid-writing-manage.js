@@ -8,6 +8,7 @@ const errorMessage = document.getElementById('errorMessage');
 const bulkImportForm = document.getElementById('bulkImportForm');
 const bulkWritingText = document.getElementById('bulkWritingText');
 const bulkAddBtn = document.getElementById('bulkAddBtn');
+const addMaLiPingWritingBtn = document.getElementById('addMaLiPingWritingBtn');
 const bulkImportErrorMessage = document.getElementById('bulkImportErrorMessage');
 const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
@@ -67,6 +68,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
         await bulkImportWritingCards();
     });
+    if (addMaLiPingWritingBtn) {
+        addMaLiPingWritingBtn.addEventListener('click', () => {
+            window.open('/writing-preset-maliping.html', '_blank', 'noopener,noreferrer,width=980,height=860');
+        });
+    }
     bulkWritingText.addEventListener('input', () => {
         updateBulkAddButtonCount();
     });

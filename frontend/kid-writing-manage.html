@@ -56,6 +56,22 @@
             background: #218838;
         }
 
+        .preset-btn {
+            margin-top: 0.6rem;
+            width: 100%;
+            background: #2d7ef7;
+            color: white;
+            padding: 0.7rem 1.1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .preset-btn:hover {
+            background: #1f6ce0;
+        }
+
         .bulk-import-wrap {
             margin-top: 0.4rem;
         }
@@ -241,6 +257,7 @@
                         <textarea id="bulkWritingText" placeholder="比如：今天，天气很好。爸爸妈妈去公园。"></textarea>
                     </div>
                     <button type="submit" id="bulkAddBtn" class="submit-btn">Bulk Add Chinese Writing Prompt</button>
+                    <button type="button" id="addMaLiPingWritingBtn" class="preset-btn">Add 马立平</button>
                     <div id="bulkImportErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
                 </form>
             </div>

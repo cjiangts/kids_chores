@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>马立平 写字预设</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="reading-preset-common.css">
+    <style>
+        .wrap { max-width: 1060px; margin: 0 auto; }
+
+        .book-actions,
+        .unit-actions,
+        .lesson-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            margin-left: auto;
+        }
+
+        .book-section,
+        .unit-section,
+        .lesson-section {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfdff;
+        }
+
+        .book-section,
+        .unit-section {
+            overflow: hidden;
+        }
+
+        .book-section { padding: 0.9rem; margin-top: 0.9rem; }
+        .unit-section { padding: 0.8rem; margin-top: 0.7rem; }
+        .lesson-section { padding: 0.7rem; margin-top: 0.55rem; }
+
+        .book-header,
+        .unit-header,
+        .lesson-header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.7rem;
+            margin-bottom: 0;
+            flex-wrap: wrap;
+            text-align: left;
+        }
+
+        .book-title { font-size: 1.22rem; font-weight: 700; }
+        .unit-title { font-size: 1.06rem; color: #2c3f57; font-weight: 700; }
+        .lesson-header h4 { font-size: 0.98rem; color: #334a66; }
+
+        .fold-summary {
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .fold-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .fold-summary::before {
+            content: '▸';
+            color: #4f6b8d;
+            margin-right: 0.4rem;
+            font-size: 1.18rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        details[open] > .fold-summary::before {
+            content: '▾';
+        }
+
+        .book-content,
+        .unit-content {
+            margin-top: 0;
+            text-align: left;
+        }
+
+        .book-section[open] > .book-header,
+        .unit-section[open] > .unit-header {
+            margin-bottom: 0.55rem;
+        }
+
+        .book-section[open] > .book-content,
+        .unit-section[open] > .unit-content {
+            margin-top: 0.55rem;
+        }
+
+        .book-section:not([open]) .book-content,
+        .unit-section:not([open]) .unit-content {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="card">
+            <h1>马立平 写字预设（学前班 + 马一 + 马二）</h1>
+            <p class="desc">回到 <strong>Manage Chinese Writing</strong> 页面，把复制内容粘贴到 “Chinese words/phrases” 输入框，点击 <strong>Bulk Add Chinese Writing Prompt</strong> 即可批量导入。</p>
+            <ol class="steps">
+                <li>可按“课 / 单元 / 整本 / 全部”任意粒度复制。</li>
+                <li>系统会按非中文分隔符切分（逗号、顿号、空格、换行等），保留中文词/短语作为写字卡片。</li>
+                <li>系统会自动去重，已在卡库中的词/短语不会重复添加。</li>
+            </ol>
+            <div class="tip">建议先按单元导入，观察孩子对词语写字的掌握情况后再加量。</div>
+        </section>
+
+        <section id="bookContainer" class="card"></section>
+
+        <p class="footer-note">注：本页仅做家长导入参考，孩子页面不会显示该内容。</p>
+    </div>
+
+    <script>
+        const DATA = [
+            {
+                id: 'preschool',
+                title: '学前班',
+                units: [
+                    {
+                        title: '第一单元',
+                        entries: ['门', '个', '头', '小', '又', '斗', '大', '米']
+                    },
+                    {
+                        title: '第二单元',
+                        entries: ['太', '也', '米', '口', '干', '会', '么', '毛', '木']
+                    },
+                    {
+                        title: '第三单元',
+                        entries: ['早', '了', '十', '年', '子', '手', '在', '下']
+                    },
+                    {
+                        title: '第四单元',
+                        entries: ['上', '不', '走', '飞', '天', '叫']
+                    }
+                ]
+            },
+            {
+                id: 'ma1',
+                title: '马一',
+                units: [
+                    {
+                        title: '第一单元',
+                        lessons: [
+                            { title: '第1课', entries: ['上', '下', '口', '目'] },
+                            { title: '第2课', entries: ['中', '山', '左', '右'] },
+                            { title: '第3课', entries: ['个', '小', '大', '手'] },
+                            { title: '第4课', entries: ['五', '不', '只', '女'] },
+                            { title: '第5课', entries: ['卜', '公', '巴', '头'] },
+                            { title: '第6课', entries: ['子', '生', '白', '立'] },
+                            { title: '第7课', entries: ['四', '去', '九', '门'] },
+                            { title: '第8课', entries: ['共', '走', '加', '比'] }
+                        ]
+                    },
+                    {
+                        title: '第二单元',
+                        lessons: [
+                            { title: '第1课', entries: ['千', '见', '雨', '云'] },
+                            { title: '第2课', entries: ['也', '哭', '爸', '妈'] },
+                            { title: '第3课', entries: ['石', '田', '土', '木'] },
+                            { title: '第4课', entries: ['无', '人', '鸟', '飞'] },
+                            { title: '第5课', entries: ['细', '生', '水', '里'] },
+                            { title: '第6课', entries: ['多', '少', '了', '四'] },
+                            { title: '第7课', entries: ['日', '月', '尖', '天', '火', '的'] },
+                            { title: '第8课', entries: ['牛', '件', '马', '百', '羊', '虫'] }
+                        ]
+                    },
+                    {
+                        title: '第三单元',
+                        lessons: [
+                            { title: '第1课', entries: ['草', '和', '青', '请', '朋', '同', '吃', '鱼'] },
+                            { title: '第2课', entries: ['玉', '里', '到', '花', '种', '很', '把', '地'] },
+                            { title: '第3课', entries: ['叶', '从', '风', '气', '虫', '坐', '在', '它'] },
+                            { title: '第4课', entries: ['过', '河', '来', '去', '伞', '当', '要', '飞'] },
+                            { title: '第5课', entries: ['冬', '雪', '对', '玩', '看', '这', '画', '花'] },
+                            { title: '第6课', entries: ['是', '到', '找', '可', '水', '高', '办', '出'] },
+                            { title: '第7课', entries: ['有', '走', '又', '拿', '兴', '桃', '树', '红'] },
+                            { title: '第8课', entries: ['西', '瓜', '回', '好', '蹦', '跳', '抱', '空'] }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'ma2',
+                title: '马二',
+                units: [
+                    {
+                        title: '第一单元',
+                        lessons: [
+                            { title: '第1课', entries: ['在', '井', '往', '跑', '来', '叫', '快', '听'] },
+                            { title: '第2课', entries: ['树', '拉', '住', '直', '月', '亮', '用', '挂'] },
+                            { title: '第3课', entries: ['菜', '说', '包', '车', '要', '后', '的', '和'] },
+                            { title: '第4课', entries: ['家', '没', '什', '么', '自', '己', '送', '问'] },
+                            { title: '第5课', entries: ['早', '太', '阳', '方', '哥', '弟', '钓', '捉'] },
+                            { title: '第6课', entries: ['我', '你', '心', '儿', '边', '竿', '力', '动'] },
+                            { title: '第7课', entries: ['狐', '狸', '窝', '洞', '东', '西', '快', '乐'] },
+                            { title: '第8课', entries: ['想', '笑', '还', '真', '羽', '毛', '几', '钻'] }
+                        ]
+                    },
+                    {
+                        title: '第二单元',
+                        lessons: [
+                            { title: '第一周', entries: ['一粒', '睡在', '春风', '种子', '现在', '我们', '渴', '喝', '问', '音'] },
+                            { title: '第二周', entries: ['外面', '这么', '一边', '回答', '松土', '听了', '心里', '光明'] },
+                            { title: '第三周', entries: ['皮球', '帮你', '坐在', '宝宝', '写字', '怕冷', '拍', '矮', '娃', '胖'] },
+                            { title: '第四周', entries: ['外衣', '医生', '看见', '眼睛', '第一', '走了', '对不起', '生病'] },
+                            { title: '第五周', entries: ['青蛙', '捉虫', '只好', '回家', '可是', '还要', '因为', '为什么'] },
+                            { title: '第六周', entries: ['从前', '去玩', '告诉', '对的', '做了', '好事', '打死', '哭'] },
+                            { title: '第七周', entries: ['一起', '很高', '事情', '羊说', '树上', '许多', '不肯', '就'] },
+                            { title: '第八周', entries: ['向前', '到底', '你们', '不会', '各有', '如果', '争论不休'] }
+                        ]
+                    },
+                    {
+                        title: '第三单元',
+                        lessons: [
+                            { title: '第一周', entries: ['弟弟', '每天', '妈妈', '听见', '爸爸', '姐姐', '谁', '低', '洗澡'] },
+                            { title: '第二周', entries: ['太胖', '不要', '起床', '穿衣', '吃饭', '睡觉', '桌子', '电灯'] },
+                            { title: '第三周', entries: ['正在', '用力', '逃走', '请把', '不行', '告别', '没有', '让', '爬'] },
+                            { title: '第四周', entries: ['飞来飞去', '到处', '方向', '累了', '休息', '家里', '旧', '新'] },
+                            { title: '第五周', entries: ['办法', '植物', '已经', '长大', '牛马', '准备', '送给', '出发'] },
+                            { title: '第六周', entries: ['不怕', '吃掉', '只要', '出来', '就会', '新家', '很多', '粗心'] },
+                            { title: '第七周', entries: ['碰到', '孩子', '名字', '学习', '不想', '所以', '觉得', '更加'] },
+                            { title: '第八周', entries: ['一定', '今天', '明天', '总有', '是不是', '认真', '什么', '开始'] }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        function joinLessonEntries(entries) {
+            return (entries || []).map((item) => String(item || '').trim()).filter(Boolean).join(' ');
+        }
+
+        function joinLessonTexts(lessons) {
+            return lessons.map((lesson) => joinLessonEntries(lesson.entries || [])).filter(Boolean).join('\n');
+        }
+
+        function joinUnitTexts(units) {
+            return units.map((unit) => {
+                if (Array.isArray(unit.lessons) && unit.lessons.length > 0) {
+                    return joinLessonTexts(unit.lessons);
+                }
+                return joinLessonEntries(unit.entries || []);
+            }).filter(Boolean).join('\n');
+        }
+
+        function countChineseChunks(text) {
+            const matches = String(text || '').match(/[\u3400-\u9FFF\uF900-\uFAFF]+/g) || [];
+            return matches.length;
+        }
+
+        async function copyTextToClipboard(text) {
+            const content = String(text || '');
+            if (!content) return false;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(content);
+                return true;
+            }
+            const temp = document.createElement('textarea');
+            temp.value = content;
+            temp.setAttribute('readonly', '');
+            temp.style.position = 'fixed';
+            temp.style.opacity = '0';
+            document.body.appendChild(temp);
+            temp.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(temp);
+            return ok;
+        }
+
+        function setStatus(el, message) {
+            if (el) el.textContent = message;
+        }
+
+        async function handleCopy(content, statusEl, successText) {
+            setStatus(statusEl, '');
+            try {
+                const ok = await copyTextToClipboard(content);
+                setStatus(statusEl, ok ? successText : '复制失败');
+            } catch (error) {
+                setStatus(statusEl, '复制失败');
+            }
+        }
+
+        function render() {
+            const container = document.getElementById('bookContainer');
+            if (!container) return;
+
+            container.innerHTML = DATA.map((book, bookIndex) => {
+                const bookText = joinUnitTexts(book.units || []);
+                const bookCount = countChineseChunks(bookText);
+                return `
+                    <details class="book-section book-fold" data-book-id="${book.id}">
+                        <summary class="book-header fold-summary">
+                            <span class="book-title">${book.title}</span>
+                            <div class="book-actions">
+                                <span class="meta">共 ${bookCount} 条</span>
+                                <button class="copy-btn" type="button" data-copy-scope="book" data-book-index="${bookIndex}">复制${book.title}</button>
+                                <span class="copy-status" data-status-scope="book" data-book-index="${bookIndex}"></span>
+                            </div>
+                        </summary>
+                        <div class="book-content">
+                            ${(book.units || []).map((unit, unitIndex) => {
+                                const hasLessons = Array.isArray(unit.lessons) && unit.lessons.length > 0;
+                                const unitText = hasLessons
+                                    ? joinLessonTexts(unit.lessons)
+                                    : joinLessonEntries(unit.entries || []);
+                                const unitCount = countChineseChunks(unitText);
+                                return `
+                                    <details class="unit-section unit-fold">
+                                        <summary class="unit-header fold-summary">
+                                            <span class="unit-title">${unit.title}</span>
+                                            <div class="unit-actions">
+                                                <span class="meta">共 ${unitCount} 条</span>
+                                                <button class="copy-btn" type="button" data-copy-scope="unit" data-book-index="${bookIndex}" data-unit-index="${unitIndex}">复制${unit.title}</button>
+                                                <span class="copy-status" data-status-scope="unit" data-book-index="${bookIndex}" data-unit-index="${unitIndex}"></span>
+                                            </div>
+                                        </summary>
+                                        <div class="unit-content">
+                                            ${hasLessons ? (unit.lessons || []).map((lesson, lessonIndex) => {
+                                                const lessonText = joinLessonEntries(lesson.entries || []);
+                                                const lessonCount = countChineseChunks(lessonText);
+                                                return `
+                                                    <section class="lesson-section">
+                                                        <div class="lesson-header">
+                                                            <h4>${lesson.title}</h4>
+                                                            <div class="lesson-actions">
+                                                                <span class="meta">共 ${lessonCount} 条</span>
+                                                                <button class="copy-btn" type="button" data-copy-scope="lesson" data-book-index="${bookIndex}" data-unit-index="${unitIndex}" data-lesson-index="${lessonIndex}">复制本课</button>
+                                                                <span class="copy-status" data-status-scope="lesson" data-book-index="${bookIndex}" data-unit-index="${unitIndex}" data-lesson-index="${lessonIndex}"></span>
+                                                            </div>
+                                                        </div>
+                                                        <pre>${lessonText}</pre>
+                                                    </section>
+                                                `;
+                                            }).join('') : `
+                                                <section class="lesson-section">
+                                                    <div class="lesson-header">
+                                                        <h4>${unit.title}</h4>
+                                                    </div>
+                                                    <pre>${joinLessonEntries(unit.entries || [])}</pre>
+                                                </section>
+                                            `}
+                                        </div>
+                                    </details>
+                                `;
+                            }).join('')}
+                        </div>
+                    </details>
+                `;
+            }).join('');
+
+            document.querySelectorAll('.book-fold').forEach((el) => { el.open = false; });
+            document.querySelectorAll('.unit-fold').forEach((el) => { el.open = false; });
+        }
+
+        function getStatusEl(scope, bookIndex, unitIndex, lessonIndex) {
+            const selectorParts = [
+                `[data-status-scope="${scope}"]`,
+                `[data-book-index="${bookIndex}"]`
+            ];
+            if (typeof unitIndex === 'number') selectorParts.push(`[data-unit-index="${unitIndex}"]`);
+            if (typeof lessonIndex === 'number') selectorParts.push(`[data-lesson-index="${lessonIndex}"]`);
+            return document.querySelector(selectorParts.join(''));
+        }
+
+        function bindEvents() {
+            document.querySelectorAll('button[data-copy-scope]').forEach((button) => {
+                button.addEventListener('click', async (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const scope = button.getAttribute('data-copy-scope');
+                    const bookIndex = Number.parseInt(button.getAttribute('data-book-index'), 10);
+                    const unitIndex = Number.parseInt(button.getAttribute('data-unit-index'), 10);
+                    const lessonIndex = Number.parseInt(button.getAttribute('data-lesson-index'), 10);
+
+                    const book = DATA[bookIndex];
+                    if (!book) return;
+
+                    if (scope === 'book') {
+                        const text = joinUnitTexts(book.units || []);
+                        const statusEl = getStatusEl('book', bookIndex);
+                        await handleCopy(text, statusEl, `已复制${book.title}`);
+                        return;
+                    }
+
+                    const unit = (book.units || [])[unitIndex];
+                    if (!unit) return;
+
+                    if (scope === 'unit') {
+                        const text = (Array.isArray(unit.lessons) && unit.lessons.length > 0)
+                            ? joinLessonTexts(unit.lessons || [])
+                            : joinLessonEntries(unit.entries || []);
+                        const statusEl = getStatusEl('unit', bookIndex, unitIndex);
+                        await handleCopy(text, statusEl, `已复制${unit.title}`);
+                        return;
+                    }
+
+                    if (!Array.isArray(unit.lessons) || unit.lessons.length === 0) {
+                        return;
+                    }
+                    const lesson = (unit.lessons || [])[lessonIndex];
+                    if (!lesson) return;
+                    const statusEl = getStatusEl('lesson', bookIndex, unitIndex, lessonIndex);
+                    await handleCopy(joinLessonEntries(lesson.entries || []), statusEl, '已复制本课');
+                });
+            });
+        }
+
+        render();
+        bindEvents();
+    </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+:root {
+    --bg: #f6f8fc;
+    --card: #ffffff;
+    --text: #1f2a37;
+    --muted: #556170;
+    --line: #d9e1ec;
+    --accent: #2d7ef7;
+    --font-kaiti: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 20px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.wrap {
+    margin: 0 auto;
+}
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    margin: 0;
+}
+
+p,
+.desc {
+    margin: 0.5rem 0;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.steps {
+    margin: 0.35rem 0 0;
+    padding-left: 1.2rem;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.steps li {
+    margin: 0.25rem 0;
+}
+
+.tip {
+    color: #1f4f99;
+    background: #e9f1ff;
+    border: 1px solid #bfd7ff;
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    margin-top: 0.7rem;
+    font-size: 0.94rem;
+}
+
+.copy-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.copy-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.copy-btn:hover {
+    background: #1f6ce0;
+}
+
+.copy-status {
+    font-size: 0.86rem;
+    color: #5f6e80;
+}
+
+.meta {
+    font-size: 0.84rem;
+    color: #66768a;
+    white-space: nowrap;
+}
+
+pre {
+    margin: 0;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 1.24rem;
+    line-height: 1.58;
+    font-family: var(--font-kaiti);
+    color: #263445;
+    user-select: text;
+    text-align: left;
+}
+
+.footer-note {
+    font-size: 0.9rem;
+    color: #66768a;
+    margin-top: 0.2rem;
+}
