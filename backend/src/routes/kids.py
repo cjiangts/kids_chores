@@ -403,6 +403,7 @@ def get_kid_report(kid_id):
                 COUNT(sr.id) AS answer_count,
                 COALESCE(SUM(CASE WHEN sr.correct = TRUE THEN 1 ELSE 0 END), 0) AS right_count,
                 COALESCE(SUM(CASE WHEN sr.correct = FALSE THEN 1 ELSE 0 END), 0) AS wrong_count,
+                COALESCE(SUM(CASE WHEN sr.response_time_ms IS NULL THEN 0 ELSE sr.response_time_ms END), 0) AS total_response_ms,
                 COALESCE(AVG(sr.response_time_ms), 0) AS avg_response_ms
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
@@ -423,7 +424,8 @@ def get_kid_report(kid_id):
                 'answer_count': int(row[5] or 0),
                 'right_count': int(row[6] or 0),
                 'wrong_count': int(row[7] or 0),
-                'avg_response_ms': float(row[8] or 0),
+                'total_response_ms': int(row[8] or 0),
+                'avg_response_ms': float(row[9] or 0),
             })
 
         return jsonify({

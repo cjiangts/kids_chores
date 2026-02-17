@@ -87,7 +87,7 @@ function renderTable(sessions) {
             <td>#${safeNum(session.id)}</td>
             <td>${renderType(session.type)}</td>
             <td>${formatDateTime(session.started_at)}</td>
-            <td>${formatDurationMinutes(session.started_at, session.completed_at)}</td>
+            <td>${formatDurationMinutes(session)}</td>
             <td>${safeNum(session.answer_count)}</td>
             <td>${safeNum(session.right_count)}</td>
             <td>${safeNum(session.wrong_count)}</td>
@@ -101,7 +101,6 @@ function renderDailyMinutesChart(sessions) {
 
     sessions.forEach((session) => {
         const minutes = getSessionDurationMinutes(session);
-        if (minutes <= 0) return;
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
 
@@ -171,11 +170,8 @@ function formatDateTime(iso) {
     });
 }
 
-function formatDurationMinutes(startIso, endIso) {
-    const start = parseUtcTimestamp(startIso);
-    const end = parseUtcTimestamp(endIso);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-';
-    const minutes = Math.max(0, (end.getTime() - start.getTime()) / 60000);
+function formatDurationMinutes(session) {
+    const minutes = getSessionDurationMinutes(session);
     return minutes.toFixed(2);
 }
 
@@ -214,10 +210,15 @@ function formatDateKey(iso) {
 }
 
 function getSessionDurationMinutes(session) {
+    if (!session || typeof session !== 'object') return 0;
     const start = parseUtcTimestamp(session.started_at);
     const end = parseUtcTimestamp(session.completed_at);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
-    return Math.max(0, (end.getTime() - start.getTime()) / 60000);
+    const wallClockMinutes = (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()))
+        ? Math.max(0, (end.getTime() - start.getTime()) / 60000)
+        : 0;
+    const responseMs = Math.max(0, Number(session.total_response_ms) || 0);
+    const responseMinutes = responseMs / 60000;
+    return Math.max(wallClockMinutes, responseMinutes);
 }
 
 function showError(message) {
