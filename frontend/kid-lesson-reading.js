@@ -515,11 +515,12 @@ async function stopAndCaptureRecording() {
             return;
         }
 
+        const recorder = mediaRecorder;
         let resolved = false;
-        mediaRecorder.onstop = () => {
+        recorder.onstop = () => {
             if (resolved) return;
             resolved = true;
-            const finalMimeType = mediaRecorder.mimeType || recordingMimeType || 'audio/webm';
+            const finalMimeType = recorder.mimeType || recordingMimeType || 'audio/webm';
             const blob = recordingChunks.length > 0 ? new Blob(recordingChunks, { type: finalMimeType }) : null;
             if (mediaStream) {
                 mediaStream.getTracks().forEach((track) => track.stop());
@@ -531,7 +532,7 @@ async function stopAndCaptureRecording() {
                 mimeType: finalMimeType,
             });
         };
-        mediaRecorder.onerror = () => {
+        recorder.onerror = () => {
             if (resolved) return;
             resolved = true;
             if (mediaStream) {
@@ -542,11 +543,29 @@ async function stopAndCaptureRecording() {
             reject(new Error('recording failed'));
         };
 
-        try {
-            mediaRecorder.stop();
-        } catch (error) {
-            reject(error);
-        }
+        const graceMs = Math.max(0, Number(window.AudioCommon?.STOP_GRACE_MS) || 280);
+        window.setTimeout(() => {
+            if (!recorder || recorder.state !== 'recording') {
+                if (!resolved) {
+                    resolved = true;
+                    resolve(null);
+                }
+                return;
+            }
+            try {
+                recorder.requestData();
+            } catch (error) {
+                // best effort
+            }
+            try {
+                recorder.stop();
+            } catch (error) {
+                if (!resolved) {
+                    resolved = true;
+                    reject(error);
+                }
+            }
+        }, graceMs);
     });
 }
 

@@ -368,12 +368,23 @@ function stopRecording() {
         return;
     }
     isRecordTransitioning = true;
-    try {
-        mediaRecorder.requestData();
-    } catch (error) {
-        // best effort
-    }
-    mediaRecorder.stop();
+    const recorder = mediaRecorder;
+    const graceMs = Math.max(0, Number(window.AudioCommon?.STOP_GRACE_MS) || 280);
+    window.setTimeout(() => {
+        if (!recorder || recorder.state !== 'recording') {
+            return;
+        }
+        try {
+            recorder.requestData();
+        } catch (error) {
+            // best effort
+        }
+        try {
+            recorder.stop();
+        } catch (error) {
+            isRecordTransitioning = false;
+        }
+    }, graceMs);
 }
 
 function startRecordingVisualizer(stream, cardId) {

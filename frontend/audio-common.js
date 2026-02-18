@@ -82,4 +82,7 @@ window.AudioCommon = {
 
     /** Recommended timeslice (ms) for MediaRecorder.start(). */
     TIMESLICE_MS: 1000,
+
+    /** Small stop delay to reduce tail clipping when user stops right after speaking. */
+    STOP_GRACE_MS: 280,
 };
