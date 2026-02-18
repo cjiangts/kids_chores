@@ -1309,30 +1309,28 @@ def seed_math_deck_cards(conn, deck_id, config):
     ).fetchall()
     existing_fronts = {row[0] for row in existing}
 
-    inserted = 0
     operation = config.get('operation', '+')
+    new_rows = []
     for a, b in build_math_pairs_for_deck(config):
         front = f"{a} {operation} {b}"
         back = str(a + b) if operation == '+' else str(a - b)
         if front in existing_fronts:
             continue
-
-        conn.execute(
-            """
-            INSERT INTO cards (deck_id, front, back)
-            VALUES (?, ?, ?)
-            """,
-            [deck_id, front, back]
-        )
-        inserted += 1
+        new_rows.append((deck_id, front, back))
         existing_fronts.add(front)
+
+    if new_rows:
+        conn.executemany(
+            "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
+            new_rows
+        )
 
     total = conn.execute(
         "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
         [deck_id]
     ).fetchone()[0]
 
-    return {'inserted': inserted, 'total': int(total)}
+    return {'inserted': len(new_rows), 'total': int(total)}
 
 
 def seed_all_math_decks(conn):
@@ -1371,6 +1369,30 @@ def seed_math_decks_for_all_kids():
 
 def seed_lesson_reading_deck_cards(conn, deck_id, config):
     """Insert preset lesson-reading cards for one deck if missing."""
+    existing_rows = conn.execute(
+        "SELECT id, front, back FROM cards WHERE deck_id = ?",
+        [deck_id]
+    ).fetchall()
+
+    # Fast path for fresh DBs: batch-insert all cards at once, skip reconciliation.
+    if len(existing_rows) == 0:
+        new_rows = []
+        for title, page in config.get('cards', []):
+            front = str(title or '').strip()
+            back = str(page or '').strip()
+            if front and back:
+                new_rows.append((deck_id, front, back))
+        if new_rows:
+            conn.executemany(
+                "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
+                new_rows
+            )
+        return {
+            'inserted': len(new_rows), 'updated': 0, 'swapped': 0,
+            'removed': 0, 'deduped': 0, 'total': len(new_rows)
+        }
+
+    # Existing DB: full reconciliation (swap detection, dedup, rename matching).
     removed = 0
     for front, back in LESSON_READING_REMOVED_CARDS:
         removed += conn.execute(
@@ -1381,10 +1403,11 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
             [deck_id, front, back]
         ).rowcount
 
-    existing_rows = conn.execute(
-        "SELECT id, front, back FROM cards WHERE deck_id = ?",
-        [deck_id]
-    ).fetchall()
+    if removed > 0:
+        existing_rows = conn.execute(
+            "SELECT id, front, back FROM cards WHERE deck_id = ?",
+            [deck_id]
+        ).fetchall()
     desired_front_by_back = {}
     desired_back_by_front = {}
     for title, page in config.get('cards', []):
@@ -1564,34 +1587,6 @@ def seed_lesson_reading_decks_for_all_kids():
     }
 
 
-def refresh_writing_hardness_for_all_kids():
-    """One-time startup backfill: recompute writing hardness for every kid."""
-    refreshed_kids = 0
-    failed_kids = 0
-
-    for kid in metadata.get_all_kids():
-        conn = None
-        try:
-            conn = get_kid_connection_for(kid)
-            deck_id = get_or_create_writing_deck(conn)
-            refresh_writing_hardness_scores(conn, deck_id)
-            conn.close()
-            conn = None
-            refreshed_kids += 1
-        except Exception:
-            failed_kids += 1
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-    return {
-        'refreshedKids': refreshed_kids,
-        'failedKids': failed_kids,
-    }
-
-
 def cleanup_incomplete_sessions_for_all_kids():
     """Delete incomplete sessions (completed_at IS NULL) across all kid DBs at startup."""
     cleaned_kids = 0
@@ -1655,334 +1650,6 @@ def cleanup_incomplete_sessions_for_all_kids():
         'deletedSessions': deleted_sessions,
         'deletedResults': deleted_results,
         'deletedLessonReadingAudio': deleted_lesson_audio,
-    }
-
-
-def backfill_session_started_at_from_response_totals_for_all_kids():
-    """Startup repair: fix legacy sessions with too-short wall time using response totals."""
-    fixed_kids = 0
-    failed_kids = 0
-    updated_sessions = 0
-
-    for kid in metadata.get_all_kids():
-        conn = None
-        try:
-            conn = get_kid_connection_for(kid)
-            candidates = conn.execute(
-                """
-                SELECT
-                    s.id,
-                    s.completed_at,
-                    COALESCE(SUM(COALESCE(sr.response_time_ms, 0)), 0) AS total_response_ms
-                FROM sessions s
-                LEFT JOIN session_results sr ON sr.session_id = s.id
-                WHERE s.completed_at IS NOT NULL
-                GROUP BY s.id, s.started_at, s.completed_at
-                HAVING COALESCE(SUM(COALESCE(sr.response_time_ms, 0)), 0) > 0
-                   AND date_diff('millisecond', s.started_at, s.completed_at) < COALESCE(SUM(COALESCE(sr.response_time_ms, 0)), 0)
-                """
-            ).fetchall()
-
-            for row in candidates:
-                session_id = int(row[0])
-                completed_at = row[1]
-                total_response_ms = int(row[2] or 0)
-                if not completed_at or total_response_ms <= 0:
-                    continue
-                fixed_started_at = completed_at - timedelta(milliseconds=total_response_ms)
-                conn.execute(
-                    "UPDATE sessions SET started_at = ? WHERE id = ?",
-                    [fixed_started_at, session_id]
-                )
-                updated_sessions += 1
-
-            conn.close()
-            conn = None
-            fixed_kids += 1
-        except Exception:
-            failed_kids += 1
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-    return {
-        'fixedKids': fixed_kids,
-        'failedKids': failed_kids,
-        'updatedSessions': updated_sessions,
-    }
-
-
-def ensure_session_results_correct_int_for_all_kids():
-    """Startup migration: convert session_results.correct to int scoring and fold legacy grades."""
-    updated_kids = 0
-    failed_kids = 0
-
-    for kid in metadata.get_all_kids():
-        conn = None
-        try:
-            conn = get_kid_connection_for(kid)
-
-            table_info = conn.execute("PRAGMA table_info('session_results')").fetchall()
-            correct_type = ''
-            for row in table_info:
-                if str(row[1]) == 'correct':
-                    correct_type = str(row[2] or '').upper()
-                    break
-
-            needs_rebuild = 'INT' not in correct_type
-            if needs_rebuild:
-                has_lesson_audio = conn.execute(
-                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'lesson_reading_audio'"
-                ).fetchone()[0] > 0
-                has_legacy_grades = conn.execute(
-                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'session_result_grades'"
-                ).fetchone()[0] > 0
-
-                if has_lesson_audio:
-                    conn.execute(
-                        """
-                        CREATE TEMP TABLE _tmp_lesson_reading_audio AS
-                        SELECT result_id, file_name, mime_type, created_at
-                        FROM lesson_reading_audio
-                        """
-                    )
-                    conn.execute("DROP TABLE lesson_reading_audio")
-
-                if has_legacy_grades:
-                    conn.execute(
-                        """
-                        CREATE TEMP TABLE _tmp_session_result_grades AS
-                        SELECT result_id, review_grade
-                        FROM session_result_grades
-                        """
-                    )
-                    conn.execute("DROP TABLE session_result_grades")
-
-                conn.execute("ALTER TABLE session_results RENAME TO session_results_old")
-                conn.execute(
-                    """
-                    CREATE TABLE session_results (
-                      id INTEGER PRIMARY KEY DEFAULT nextval('session_results_id_seq'),
-                      session_id INTEGER NOT NULL,
-                      card_id INTEGER,
-                      correct INTEGER NOT NULL,
-                      response_time_ms INTEGER,
-                      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                      FOREIGN KEY (session_id) REFERENCES sessions(id)
-                    )
-                    """
-                )
-                conn.execute(
-                    """
-                    INSERT INTO session_results (id, session_id, card_id, correct, response_time_ms, timestamp)
-                    SELECT
-                      id,
-                      session_id,
-                      card_id,
-                      CASE
-                        WHEN correct IS NULL THEN 0
-                        WHEN correct = TRUE THEN 1
-                        ELSE -1
-                      END AS correct,
-                      response_time_ms,
-                      timestamp
-                    FROM session_results_old
-                    """
-                )
-                conn.execute("DROP TABLE session_results_old")
-
-                if has_lesson_audio:
-                    conn.execute(
-                        """
-                        CREATE TABLE lesson_reading_audio (
-                          result_id INTEGER PRIMARY KEY,
-                          file_name VARCHAR NOT NULL,
-                          mime_type VARCHAR,
-                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                          FOREIGN KEY (result_id) REFERENCES session_results(id)
-                        )
-                        """
-                    )
-                    conn.execute(
-                        """
-                        INSERT INTO lesson_reading_audio (result_id, file_name, mime_type, created_at)
-                        SELECT result_id, file_name, mime_type, created_at
-                        FROM _tmp_lesson_reading_audio
-                        """
-                    )
-                    conn.execute("DROP TABLE _tmp_lesson_reading_audio")
-
-            has_legacy_grades_after = conn.execute(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'session_result_grades'"
-            ).fetchone()[0] > 0
-            has_tmp_legacy_grades = conn.execute(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '_tmp_session_result_grades'"
-            ).fetchone()[0] > 0
-            should_reset_lesson_results = needs_rebuild or has_legacy_grades_after or has_tmp_legacy_grades
-            if should_reset_lesson_results:
-                # Reading grading model: unknown=0, pass=1, fail=-1
-                conn.execute(
-                    """
-                    UPDATE session_results sr
-                    SET correct = 0
-                    FROM sessions s
-                    WHERE s.id = sr.session_id
-                      AND s.type = 'lesson_reading'
-                    """
-                )
-
-            if has_legacy_grades_after:
-                conn.execute(
-                    """
-                    UPDATE session_results sr
-                    SET correct = CASE
-                        WHEN LOWER(TRIM(srg.review_grade)) = 'pass' THEN 1
-                        WHEN LOWER(TRIM(srg.review_grade)) = 'fail' THEN -1
-                        ELSE sr.correct
-                    END
-                    FROM session_result_grades srg
-                    WHERE srg.result_id = sr.id
-                    """
-                )
-                conn.execute("DROP TABLE session_result_grades")
-            elif has_tmp_legacy_grades:
-                conn.execute(
-                    """
-                    UPDATE session_results sr
-                    SET correct = CASE
-                        WHEN LOWER(TRIM(srg.review_grade)) = 'pass' THEN 1
-                        WHEN LOWER(TRIM(srg.review_grade)) = 'fail' THEN -1
-                        ELSE sr.correct
-                    END
-                    FROM _tmp_session_result_grades srg
-                    WHERE srg.result_id = sr.id
-                    """
-                )
-                conn.execute("DROP TABLE _tmp_session_result_grades")
-
-            conn.close()
-            conn = None
-            updated_kids += 1
-        except Exception:
-            failed_kids += 1
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-    return {
-        'updatedKids': updated_kids,
-        'failedKids': failed_kids,
-    }
-
-
-def _sync_sequence_to_table_max(conn, sequence_name, table_name):
-    """Set one sequence to max(table.id)+1 so inserts never reuse existing IDs."""
-    next_value = int(conn.execute(
-        f"SELECT COALESCE(MAX(id), 0) + 1 FROM {table_name}"
-    ).fetchone()[0] or 1)
-    if next_value < 1:
-        next_value = 1
-    conn.execute(f"ALTER SEQUENCE {sequence_name} RESTART WITH {next_value}")
-
-
-def ensure_id_sequences_synced_for_all_kids():
-    """Startup safety: sync auto-id sequences against existing table max ids."""
-    updated_kids = 0
-    failed_kids = 0
-
-    sequence_map = [
-        ('decks_id_seq', 'decks'),
-        ('cards_id_seq', 'cards'),
-        ('sessions_id_seq', 'sessions'),
-        ('session_results_id_seq', 'session_results'),
-        ('writing_sheets_id_seq', 'writing_sheets'),
-    ]
-
-    for kid in metadata.get_all_kids():
-        conn = None
-        try:
-            conn = get_kid_connection_for(kid)
-            for sequence_name, table_name in sequence_map:
-                _sync_sequence_to_table_max(conn, sequence_name, table_name)
-            conn.close()
-            conn = None
-            updated_kids += 1
-        except Exception:
-            failed_kids += 1
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-    return {
-        'updatedKids': updated_kids,
-        'failedKids': failed_kids,
-    }
-
-
-def ensure_lesson_reading_audio_table_no_fk_for_all_kids():
-    """Startup compatibility migration: rebuild lesson_reading_audio without FK constraint."""
-    updated_kids = 0
-    failed_kids = 0
-
-    for kid in metadata.get_all_kids():
-        conn = None
-        try:
-            conn = get_kid_connection_for(kid)
-            has_table = conn.execute(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'lesson_reading_audio'"
-            ).fetchone()[0] > 0
-            if not has_table:
-                conn.close()
-                conn = None
-                updated_kids += 1
-                continue
-
-            conn.execute(
-                """
-                CREATE TEMP TABLE _tmp_lesson_reading_audio_rebuild AS
-                SELECT result_id, file_name, mime_type, created_at
-                FROM lesson_reading_audio
-                """
-            )
-            conn.execute("DROP TABLE lesson_reading_audio")
-            conn.execute(
-                """
-                CREATE TABLE lesson_reading_audio (
-                  result_id INTEGER PRIMARY KEY,
-                  file_name VARCHAR NOT NULL,
-                  mime_type VARCHAR,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """
-            )
-            conn.execute(
-                """
-                INSERT INTO lesson_reading_audio (result_id, file_name, mime_type, created_at)
-                SELECT result_id, file_name, mime_type, created_at
-                FROM _tmp_lesson_reading_audio_rebuild
-                """
-            )
-            conn.execute("DROP TABLE _tmp_lesson_reading_audio_rebuild")
-            conn.close()
-            conn = None
-            updated_kids += 1
-        except Exception:
-            failed_kids += 1
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-    return {
-        'updatedKids': updated_kids,
-        'failedKids': failed_kids,
     }
 
 
