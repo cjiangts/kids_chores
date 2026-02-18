@@ -193,6 +193,21 @@ body {
     font-size: 0.95rem;
 }
 
+.manage-page .bulk-import-wrap {
+    margin-top: 0.4rem;
+}
+
+.manage-page .bulk-import-wrap textarea {
+    width: 100%;
+    min-height: 110px;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
 .manage-page .delete-card-btn {
     position: absolute;
     top: 0.5rem;

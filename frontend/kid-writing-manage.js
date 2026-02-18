@@ -22,6 +22,9 @@ const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
 const cardCount = document.getElementById('cardCount');
 const cardsGrid = document.getElementById('cardsGrid');
+const audioFilterAllBtn = document.getElementById('audioFilterAll');
+const audioFilterReadyBtn = document.getElementById('audioFilterReady');
+const audioFilterTodoBtn = document.getElementById('audioFilterTodo');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
@@ -31,6 +34,7 @@ let currentCards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
 const CARD_PAGE_SIZE = 10;
+let activeAudioFilter = 'all';
 
 let mediaRecorder = null;
 let mediaStream = null;
@@ -89,6 +93,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
     cardSearchInput.addEventListener('input', () => resetAndDisplayCards(currentCards));
+    if (audioFilterAllBtn) {
+        audioFilterAllBtn.addEventListener('click', () => setAudioFilter('all'));
+    }
+    if (audioFilterReadyBtn) {
+        audioFilterReadyBtn.addEventListener('click', () => setAudioFilter('ready'));
+    }
+    if (audioFilterTodoBtn) {
+        audioFilterTodoBtn.addEventListener('click', () => setAudioFilter('todo'));
+    }
+    syncAudioFilterButtons();
     cardsGrid.addEventListener('click', handleCardsGridClick);
     window.addEventListener('scroll', () => maybeLoadMoreCards());
     window.addEventListener('resize', () => fitRecordingCanvas());
@@ -712,7 +726,8 @@ async function deleteWritingCard(cardId) {
 }
 
 function displayCards(cards) {
-    const filteredCards = filterCardsByQuery(cards, cardSearchInput.value);
+    const queryFilteredCards = filterCardsByQuery(cards, cardSearchInput.value);
+    const filteredCards = filterCardsByAudioState(queryFilteredCards, activeAudioFilter);
     const sortMode = viewOrderSelect.value;
     const baseSorted = window.PracticeManageCommon.sortCardsForView(filteredCards, sortMode);
     sortedCards = sortMode === 'queue' ? baseSorted : prioritizeMissingAudioFirst(baseSorted);
@@ -833,6 +848,45 @@ function displayCards(cards) {
     }
 }
 
+function filterCardsByAudioState(cards, filterMode) {
+    const mode = String(filterMode || 'all');
+    if (mode === 'all') {
+        return cards;
+    }
+    return cards.filter((card) => {
+        const hasAudio = !!(card.audio_url || card.audio_file_name);
+        if (mode === 'ready') {
+            return hasAudio;
+        }
+        if (mode === 'todo') {
+            return !hasAudio;
+        }
+        return true;
+    });
+}
+
+function setAudioFilter(nextFilter) {
+    const normalized = String(nextFilter || 'all');
+    if (!['all', 'ready', 'todo'].includes(normalized)) {
+        return;
+    }
+    activeAudioFilter = normalized;
+    syncAudioFilterButtons();
+    resetAndDisplayCards(currentCards);
+}
+
+function syncAudioFilterButtons() {
+    if (audioFilterAllBtn) {
+        audioFilterAllBtn.classList.toggle('active', activeAudioFilter === 'all');
+    }
+    if (audioFilterReadyBtn) {
+        audioFilterReadyBtn.classList.toggle('active', activeAudioFilter === 'ready');
+    }
+    if (audioFilterTodoBtn) {
+        audioFilterTodoBtn.classList.toggle('active', activeAudioFilter === 'todo');
+    }
+}
+
 function prioritizeMissingAudioFirst(cards) {
     const missingAudio = [];
     const withAudio = [];
@@ -892,10 +946,20 @@ function maybeLoadMoreCards() {
 
 function showError(message) {
     if (message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.remove('hidden');
+        const text = String(message);
+        if (errorMessage) {
+            errorMessage.textContent = '';
+            errorMessage.classList.add('hidden');
+        }
+        if (showError._lastMessage !== text) {
+            window.alert(text);
+            showError._lastMessage = text;
+        }
     } else {
-        errorMessage.classList.add('hidden');
+        showError._lastMessage = '';
+        if (errorMessage) {
+            errorMessage.classList.add('hidden');
+        }
     }
 }
 
@@ -904,9 +968,15 @@ function showSheetError(message) {
         return;
     }
     if (message) {
-        sheetErrorMessage.textContent = message;
-        sheetErrorMessage.classList.remove('hidden');
+        const text = String(message);
+        sheetErrorMessage.textContent = '';
+        sheetErrorMessage.classList.add('hidden');
+        if (showSheetError._lastMessage !== text) {
+            window.alert(text);
+            showSheetError._lastMessage = text;
+        }
     } else {
+        showSheetError._lastMessage = '';
         sheetErrorMessage.classList.add('hidden');
     }
 }
@@ -916,12 +986,23 @@ function showBulkImportError(message, isError = true) {
         return;
     }
     if (message) {
-        bulkImportErrorMessage.textContent = message;
-        bulkImportErrorMessage.classList.remove('hidden');
-        bulkImportErrorMessage.style.background = isError ? '#f8d7da' : '#d4edda';
-        bulkImportErrorMessage.style.color = isError ? '#721c24' : '#155724';
-        bulkImportErrorMessage.style.border = isError ? '1px solid #f5c6cb' : '1px solid #c3e6cb';
+        const text = String(message);
+        if (isError) {
+            bulkImportErrorMessage.textContent = '';
+            bulkImportErrorMessage.classList.add('hidden');
+            if (showBulkImportError._lastMessage !== text) {
+                window.alert(text);
+                showBulkImportError._lastMessage = text;
+            }
+        } else {
+            bulkImportErrorMessage.textContent = text;
+            bulkImportErrorMessage.classList.remove('hidden');
+            bulkImportErrorMessage.style.background = '#d4edda';
+            bulkImportErrorMessage.style.color = '#155724';
+            bulkImportErrorMessage.style.border = '1px solid #c3e6cb';
+        }
     } else {
+        showBulkImportError._lastMessage = '';
         bulkImportErrorMessage.classList.add('hidden');
     }
 }

@@ -15,6 +15,7 @@ const sessionCardCountInput = document.getElementById('sessionCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardCount = document.getElementById('cardCount');
 const errorMessage = document.getElementById('errorMessage');
+const addCardStatusMessage = document.getElementById('addCardStatusMessage');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
 const addSiWuKuaiDuBtn = document.getElementById('addSiWuKuaiDuBtn');
@@ -86,10 +87,10 @@ if (addMaLiPingBtn) {
 function updateAddReadingButtonCount() {
     const totalChineseChars = countChineseCharsBeforeDbDedup(chineseCharInput.value);
     if (totalChineseChars > 0) {
-        addReadingBtn.textContent = `Add Chinese Characters (${totalChineseChars})`;
+        addReadingBtn.textContent = `Bulk Add Chinese Characters (${totalChineseChars})`;
         return;
     }
-    addReadingBtn.textContent = 'Add Chinese Characters';
+    addReadingBtn.textContent = 'Bulk Add Chinese Characters';
 }
 
 // API Functions
@@ -170,9 +171,11 @@ async function loadCards() {
 
 async function addCard() {
     try {
+        showStatusMessage('');
         const input = chineseCharInput.value.trim();
         const chineseChars = extractChineseCharacters(input);
         const newChars = chineseChars.filter(char => !existingCardFronts.has(char));
+        const skippedExistingCount = Math.max(0, chineseChars.length - newChars.length);
 
         if (chineseChars.length === 0) {
             showError('Please enter at least one Chinese characters');
@@ -197,6 +200,8 @@ async function addCard() {
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+        const result = await response.json().catch(() => ({}));
+        const inserted = Math.max(0, Number(result.created) || 0);
 
         // Clear form
         addCardForm.reset();
@@ -205,9 +210,10 @@ async function addCard() {
         // Reload cards
         await loadCards();
 
-        showError('');
+        showStatusMessage(`Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s).`, false);
     } catch (error) {
         console.error('Error adding card:', error);
+        showStatusMessage('');
         showError('Failed to add card. Please try again.');
     }
 }
@@ -330,10 +336,42 @@ function maybeLoadMoreCards() {
 
 function showError(message) {
     if (message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.remove('hidden');
+        const text = String(message);
+        if (errorMessage) {
+            errorMessage.textContent = '';
+            errorMessage.classList.add('hidden');
+        }
+        if (showError._lastMessage !== text) {
+            window.alert(text);
+            showError._lastMessage = text;
+        }
     } else {
-        errorMessage.classList.add('hidden');
+        showError._lastMessage = '';
+        if (errorMessage) {
+            errorMessage.classList.add('hidden');
+        }
+    }
+}
+
+function showStatusMessage(message, isError = true) {
+    if (!addCardStatusMessage) {
+        return;
+    }
+    if (!message) {
+        addCardStatusMessage.textContent = '';
+        addCardStatusMessage.classList.add('hidden');
+        return;
+    }
+    addCardStatusMessage.textContent = String(message);
+    addCardStatusMessage.classList.remove('hidden');
+    if (isError) {
+        addCardStatusMessage.style.background = '#f8d7da';
+        addCardStatusMessage.style.color = '#721c24';
+        addCardStatusMessage.style.border = '1px solid #f5c6cb';
+    } else {
+        addCardStatusMessage.style.background = '#d4edda';
+        addCardStatusMessage.style.color = '#155724';
+        addCardStatusMessage.style.border = '1px solid #c3e6cb';
     }
 }
 

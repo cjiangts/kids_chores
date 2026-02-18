@@ -386,10 +386,20 @@ async function loadBackupInfo() {
 
 function showError(message) {
     if (message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.remove('hidden');
+        const text = String(message);
+        if (errorMessage) {
+            errorMessage.textContent = '';
+            errorMessage.classList.add('hidden');
+        }
+        if (showError._lastMessage !== text) {
+            window.alert(text);
+            showError._lastMessage = text;
+        }
     } else {
-        errorMessage.classList.add('hidden');
+        showError._lastMessage = '';
+        if (errorMessage) {
+            errorMessage.classList.add('hidden');
+        }
     }
 }
 
@@ -404,10 +414,20 @@ function showSuccess(message) {
 
 function showPasswordError(message) {
     if (message) {
-        passwordError.textContent = message;
-        passwordError.classList.remove('hidden');
+        const text = String(message);
+        if (passwordError) {
+            passwordError.textContent = '';
+            passwordError.classList.add('hidden');
+        }
+        if (showPasswordError._lastMessage !== text) {
+            window.alert(text);
+            showPasswordError._lastMessage = text;
+        }
     } else {
-        passwordError.classList.add('hidden');
+        showPasswordError._lastMessage = '';
+        if (passwordError) {
+            passwordError.classList.add('hidden');
+        }
     }
 }
 
@@ -422,10 +442,20 @@ function showPasswordSuccess(message) {
 
 function showHardCardError(message) {
     if (message) {
-        hardCardError.textContent = message;
-        hardCardError.classList.remove('hidden');
+        const text = String(message);
+        if (hardCardError) {
+            hardCardError.textContent = '';
+            hardCardError.classList.add('hidden');
+        }
+        if (showHardCardError._lastMessage !== text) {
+            window.alert(text);
+            showHardCardError._lastMessage = text;
+        }
     } else {
-        hardCardError.classList.add('hidden');
+        showHardCardError._lastMessage = '';
+        if (hardCardError) {
+            hardCardError.classList.add('hidden');
+        }
     }
 }
 
@@ -440,10 +470,20 @@ function showHardCardSuccess(message) {
 
 function showTimezoneError(message) {
     if (message) {
-        timezoneError.textContent = message;
-        timezoneError.classList.remove('hidden');
+        const text = String(message);
+        if (timezoneError) {
+            timezoneError.textContent = '';
+            timezoneError.classList.add('hidden');
+        }
+        if (showTimezoneError._lastMessage !== text) {
+            window.alert(text);
+            showTimezoneError._lastMessage = text;
+        }
     } else {
-        timezoneError.classList.add('hidden');
+        showTimezoneError._lastMessage = '';
+        if (timezoneError) {
+            timezoneError.classList.add('hidden');
+        }
     }
 }
 

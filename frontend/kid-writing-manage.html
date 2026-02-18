@@ -72,21 +72,6 @@
             background: #1f6ce0;
         }
 
-        .bulk-import-wrap {
-            margin-top: 0.4rem;
-        }
-
-        .bulk-import-wrap textarea {
-            width: 100%;
-            min-height: 110px;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.95rem;
-            resize: vertical;
-            box-sizing: border-box;
-        }
-
         .cards-section h2 {
             margin-bottom: 1rem;
             color: #333;
@@ -212,6 +197,33 @@
             margin-top: 0.35rem;
         }
 
+        .audio-filter-group {
+            display: inline-flex;
+            border: 1px solid #d7deee;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .audio-filter-btn {
+            border: none;
+            background: #fff;
+            color: #445;
+            padding: 0.42rem 0.72rem;
+            font-size: 0.82rem;
+            cursor: pointer;
+            border-right: 1px solid #e6ebf6;
+        }
+
+        .audio-filter-btn:last-child {
+            border-right: none;
+        }
+
+        .audio-filter-btn.active {
+            background: #2f3c7e;
+            color: #fff;
+        }
+
         .recording-viz {
             margin-top: 0.42rem;
             padding: 0.45rem 0.5rem 0.55rem;
@@ -296,7 +308,10 @@
                 <form id="bulkImportForm">
                     <div class="form-group">
                         <label for="bulkWritingText">Chinese words/phrases</label>
-                        <textarea id="bulkWritingText" placeholder="比如：今天，天气很好。爸爸妈妈去公园。"></textarea>
+                        <textarea id="bulkWritingText" placeholder="比如:
+DAY1:好像 香 菜 为难 关心 事情 很重 虽然 但是 改变 昨天 放心 更好
+DAY2:答应 病了 知道 从来 勇敢 感动 高山 一起 可是 找人 怎么 远 路
+DAY3:够 碗 现在 带着 和尚 不停 累了 休息 经过 相信 一定 迷路 千万"></textarea>
                     </div>
                     <button type="submit" id="bulkAddBtn" class="submit-btn">Bulk Add Chinese Writing Prompt</button>
                     <button type="button" id="addMaLiPingWritingBtn" class="preset-btn">Add 马立平</button>
@@ -345,6 +360,11 @@
                     placeholder="Search cards..."
                     aria-label="Search Chinese writing cards"
                 >
+                <div class="audio-filter-group" aria-label="Filter by audio status">
+                    <button type="button" id="audioFilterAll" class="audio-filter-btn active" data-filter="all">All</button>
+                    <button type="button" id="audioFilterReady" class="audio-filter-btn" data-filter="ready">Audio Ready</button>
+                    <button type="button" id="audioFilterTodo" class="audio-filter-btn" data-filter="todo">Audio TODO</button>
+                </div>
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="added_time" selected>Order: Added Time (Recent to Oldest)</option>
                     <option value="queue">Order: Next Session Queue</option>

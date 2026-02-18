@@ -131,10 +131,20 @@ function printSheet(sheetId) {
 
 function showError(message) {
     if (message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.remove('hidden');
+        const text = String(message);
+        if (errorMessage) {
+            errorMessage.textContent = '';
+            errorMessage.classList.add('hidden');
+        }
+        if (showError._lastMessage !== text) {
+            window.alert(text);
+            showError._lastMessage = text;
+        }
     } else {
-        errorMessage.classList.add('hidden');
+        showError._lastMessage = '';
+        if (errorMessage) {
+            errorMessage.classList.add('hidden');
+        }
     }
 }
 

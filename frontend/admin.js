@@ -9,10 +9,12 @@ const kidModal = document.getElementById('kidModal');
 const kidForm = document.getElementById('kidForm');
 const cancelBtn = document.getElementById('cancelBtn');
 const errorMessage = document.getElementById('errorMessage');
+const kidBirthdayInput = document.getElementById('kidBirthday');
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadKids();
+    bindBirthdayAutoFormat();
 });
 
 // Event Listeners
@@ -58,7 +60,11 @@ async function createKid() {
         // Validate birthday format (YYYY-MM-DD)
         const validationResult = validateBirthday(birthday);
         if (!validationResult) {
-            showError('Invalid birthday format! Please use YYYY-MM-DD (e.g., 2015-06-15)');
+            showError('');
+            window.alert('Invalid birthday format! Please use YYYY-MM-DD (e.g., 2015-06-15)');
+            if (kidBirthdayInput) {
+                kidBirthdayInput.focus();
+            }
             return;
         }
 
@@ -220,9 +226,36 @@ function displayKids(kids) {
 
 function showError(message) {
     if (message) {
-        errorMessage.textContent = message;
-        errorMessage.classList.remove('hidden');
+        const text = String(message);
+        if (errorMessage) {
+            errorMessage.textContent = '';
+            errorMessage.classList.add('hidden');
+        }
+        if (showError._lastMessage !== text) {
+            window.alert(text);
+            showError._lastMessage = text;
+        }
     } else {
-        errorMessage.classList.add('hidden');
+        showError._lastMessage = '';
+        if (errorMessage) {
+            errorMessage.classList.add('hidden');
+        }
     }
+}
+
+function bindBirthdayAutoFormat() {
+    if (!kidBirthdayInput) {
+        return;
+    }
+    kidBirthdayInput.addEventListener('input', () => {
+        const digits = String(kidBirthdayInput.value || '').replace(/\D/g, '').slice(0, 8);
+        let formatted = digits;
+        if (digits.length > 4) {
+            formatted = `${digits.slice(0, 4)}-${digits.slice(4)}`;
+        }
+        if (digits.length > 6) {
+            formatted = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+        }
+        kidBirthdayInput.value = formatted;
+    });
 }

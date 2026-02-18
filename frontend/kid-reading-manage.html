@@ -142,17 +142,21 @@
             <form id="addCardForm">
                 <div class="form-group">
                     <label for="chineseChar">Chinese Characters</label>
-                    <input
-                        type="text"
-                        id="chineseChar"
-                        class="chinese-input"
-                        placeholder="你"
-                        required
-                    >
+                    <div class="bulk-import-wrap">
+                        <textarea
+                            id="chineseChar"
+                            placeholder="比如:
+DAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 
+DAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀 
+DAY3:两天之内 苦笑 下午 命令 主意 高挂 打算 木棒 捧着 不慌不忙"
+                            required
+                        ></textarea>
+                    </div>
                 </div>
-                <button type="submit" id="addReadingBtn" class="submit-btn">Add Chinese Characters</button>
+                <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add Chinese Characters</button>
                 <button type="button" id="addSiWuKuaiDuBtn" class="preset-btn">Add 四五快读</button>
                 <button type="button" id="addMaLiPingBtn" class="preset-btn">Add 马立平</button>
+                <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
             </form>
         </div>
 
