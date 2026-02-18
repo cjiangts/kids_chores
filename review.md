@@ -64,3 +64,19 @@ Projected data per kid after 10 years of daily use:
 - **Metadata race condition**: file-lock prevents concurrent writes, single-process Flask.
 - **In-memory pending sessions**: by design — abandoned sessions cleaned up at startup.
 - **P3 indexes revisit**: DuckDB columnar engine still handles projected scale without indexes (see 10-year analysis above).
+
+# Refactor Plan (2026-02-18)
+
+- [x] **R1 - Extract shared practice UI helpers** — Added `practice-ui-common.js` for shared `shuffleCards`, `formatElapsed`, and alert-style error handling helper.
+- [x] **R2 - Migrate session pages to shared helpers** — Updated kid Chinese Characters, Writing, Math, and Chinese Reading session scripts to use `practice-ui-common.js` helpers and removed duplicated local shuffle/elapsed/error logic.
+- [x] **R3 - Ensure shared script wiring** — Loaded `practice-ui-common.js` in all relevant session HTML pages before page-specific scripts.
+- [x] **R4 - Verify duplication reduction** — Re-scanned migrated session files; duplicate local `shuffleSessionCards`, local lesson `formatElapsed`, and alert-logic duplication were removed.
+
+### Phase 2
+
+- [x] **R5 - Extract shared recording visualizer module** — Added `recording-visualizer.js` and switched both `kid-writing-manage.js` and `kid-lesson-reading.js` to shared start/stop/resize waveform rendering.
+- [x] **R6 - Simplify session controller scaffolding** — Added `practice-session-flow.js` with shared start/complete helpers and migrated session start flow in all four kid practice scripts (plus complete flow in reading/writing/math).
+- [x] **R7 - Consolidate duplicated inline session CSS** — Moved shared practice-page header/back/button/start/session-title styles into `styles.css` and removed duplicated inline blocks from `kid.html`, `kid-writing.html`, `kid-math.html`, and `kid-lesson-reading.html`.
+- [x] **R8 - Move backend legacy row fixups out of request path** — Completed in two steps:
+  1) moved legacy repair to startup-only flow;
+  2) after confirming pre-release/single-family usage, removed the startup legacy-repair hook and deleted related legacy repair helpers/constants from backend.

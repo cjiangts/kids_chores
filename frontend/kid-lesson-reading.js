@@ -43,16 +43,35 @@ let isUploadingRecording = false;
 let recordingStartedAtMs = 0;
 let recordingChunks = [];
 let recordingMimeType = '';
-let recordingAudioContext = null;
-let recordingSourceNode = null;
-let recordingAnalyserNode = null;
-let recordingWaveBuffer = null;
-let recordingFrameId = null;
-let recordingLastWaveDrawMs = 0;
 let pendingRecordedBlob = null;
 let pendingRecordedMimeType = '';
 let pendingRecordedResponseTimeMs = 0;
 let pendingRecordedUrl = '';
+const errorState = { lastMessage: '' };
+const recordingVisualizer = new window.RecordingVisualizer({
+    fftSize: 512,
+    smoothingTimeConstant: 0.88,
+    minFrameIntervalMs: 66,
+    baselineWidthRatio: 0.02,
+    waveWidthRatio: 0.04,
+    amplitudeRatio: 0.36,
+    getCanvas: () => recordingWave,
+    getStatusElement: () => recordingStatusText,
+    formatStatus: (elapsedMs) => `Recording... ${window.PracticeUiCommon.formatElapsed(elapsedMs)}`,
+    onStart: () => {
+        if (recordingViz) {
+            recordingViz.classList.remove('hidden');
+        }
+    },
+    onStop: () => {
+        if (recordingViz) {
+            recordingViz.classList.add('hidden');
+        }
+        if (recordingStatusText) {
+            recordingStatusText.textContent = 'Recording...';
+        }
+    },
+});
 
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -154,20 +173,12 @@ function resetToStartScreen(totalCards) {
 async function startSession() {
     try {
         showError('');
-        const clientSessionStartMs = Date.now();
-        const response = await fetch(`${API_BASE}/kids/${kidId}/lesson-reading/practice/start`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        activePendingSessionId = data.pending_session_id || null;
-        window.PracticeSession.markSessionStarted(activePendingSessionId, clientSessionStartMs);
-        sessionCards = shuffleSessionCards(data.cards || []);
+        const started = await window.PracticeSessionFlow.startShuffledSession(
+            `${API_BASE}/kids/${kidId}/lesson-reading/practice/start`,
+            {}
+        );
+        activePendingSessionId = started.pendingSessionId;
+        sessionCards = started.cards;
 
         if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
             showError('No Chinese reading cards available');
@@ -194,16 +205,6 @@ async function startSession() {
         console.error('Error starting Chinese reading session:', error);
         showError('Failed to start Chinese reading session');
     }
-}
-
-
-function shuffleSessionCards(cardsList) {
-    const shuffled = [...cardsList];
-    for (let i = shuffled.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
 }
 
 
@@ -373,147 +374,23 @@ function setRecordingVisual(recording) {
 
 
 function startRecordingVisualizer(stream) {
-    stopRecordingVisualizer();
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx || !stream || !recordingWave || !recordingViz) {
+    if (!stream || !recordingWave || !recordingViz) {
         return;
     }
-
-    try {
-        recordingAudioContext = new AudioCtx();
-        recordingSourceNode = recordingAudioContext.createMediaStreamSource(stream);
-        recordingAnalyserNode = recordingAudioContext.createAnalyser();
-        recordingAnalyserNode.fftSize = 512;
-        recordingAnalyserNode.smoothingTimeConstant = 0.88;
-        recordingWaveBuffer = new Uint8Array(recordingAnalyserNode.fftSize);
-        recordingSourceNode.connect(recordingAnalyserNode);
-        recordingLastWaveDrawMs = 0;
-        recordingViz.classList.remove('hidden');
-        drawRecordingWave();
-    } catch (error) {
-        stopRecordingVisualizer();
-    }
+    recordingVisualizer.start(stream, {
+        startedAtMs: recordingStartedAtMs,
+        isActive: () => isRecording,
+    });
 }
 
 
 function stopRecordingVisualizer() {
-    if (recordingFrameId) {
-        cancelAnimationFrame(recordingFrameId);
-        recordingFrameId = null;
-    }
-    if (recordingSourceNode) {
-        try {
-            recordingSourceNode.disconnect();
-        } catch (error) {
-            // no-op
-        }
-        recordingSourceNode = null;
-    }
-    if (recordingAnalyserNode) {
-        try {
-            recordingAnalyserNode.disconnect();
-        } catch (error) {
-            // no-op
-        }
-        recordingAnalyserNode = null;
-    }
-    if (recordingAudioContext) {
-        recordingAudioContext.close().catch(() => {});
-        recordingAudioContext = null;
-    }
-    recordingWaveBuffer = null;
-    recordingLastWaveDrawMs = 0;
-    if (recordingViz) {
-        recordingViz.classList.add('hidden');
-    }
-    if (recordingStatusText) {
-        recordingStatusText.textContent = 'Recording...';
-    }
+    recordingVisualizer.stop();
 }
 
 
 function fitRecordingCanvas() {
-    if (!recordingWave) {
-        return;
-    }
-    const rect = recordingWave.getBoundingClientRect();
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const targetWidth = Math.max(1, Math.round(rect.width * dpr));
-    const targetHeight = Math.max(1, Math.round(rect.height * dpr));
-    if (recordingWave.width !== targetWidth || recordingWave.height !== targetHeight) {
-        recordingWave.width = targetWidth;
-        recordingWave.height = targetHeight;
-    }
-}
-
-
-function drawRecordingWave() {
-    if (!recordingWave || !recordingAnalyserNode || !recordingWaveBuffer) {
-        return;
-    }
-
-    const nowMs = Date.now();
-    if (recordingLastWaveDrawMs > 0 && (nowMs - recordingLastWaveDrawMs) < 66) {
-        if (isRecording) {
-            recordingFrameId = requestAnimationFrame(drawRecordingWave);
-        }
-        return;
-    }
-    recordingLastWaveDrawMs = nowMs;
-
-    fitRecordingCanvas();
-    recordingAnalyserNode.getByteTimeDomainData(recordingWaveBuffer);
-
-    const ctx = recordingWave.getContext('2d');
-    const width = recordingWave.width;
-    const height = recordingWave.height;
-    const centerY = height / 2;
-
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.strokeStyle = '#f2b9b9';
-    ctx.lineWidth = Math.max(1, Math.round(height * 0.02));
-    ctx.beginPath();
-    ctx.moveTo(0, centerY);
-    ctx.lineTo(width, centerY);
-    ctx.stroke();
-
-    ctx.strokeStyle = '#d63636';
-    ctx.lineWidth = Math.max(1.5, Math.round(height * 0.04));
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-
-    const sliceWidth = width / Math.max(1, recordingWaveBuffer.length - 1);
-    for (let i = 0; i < recordingWaveBuffer.length; i += 1) {
-        const normalized = (recordingWaveBuffer[i] - 128) / 128;
-        const y = centerY + normalized * (height * 0.36);
-        const x = i * sliceWidth;
-        if (i === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    }
-    ctx.stroke();
-
-    if (recordingStatusText && recordingStartedAtMs > 0) {
-        recordingStatusText.textContent = `Recording... ${formatElapsed(Date.now() - recordingStartedAtMs)}`;
-    }
-
-    if (isRecording) {
-        recordingFrameId = requestAnimationFrame(drawRecordingWave);
-    }
-}
-
-
-function formatElapsed(ms) {
-    const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(minutes)}:${String(seconds).padStart(2, '0')}`;
+    recordingVisualizer.handleResize();
 }
 
 
@@ -722,22 +599,7 @@ async function endSession() {
 
 
 function showError(message) {
-    if (message) {
-        const text = String(message);
-        if (errorMessage) {
-            errorMessage.textContent = '';
-            errorMessage.classList.add('hidden');
-        }
-        if (showError._lastMessage !== text) {
-            window.alert(text);
-            showError._lastMessage = text;
-        }
-    } else {
-        showError._lastMessage = '';
-        if (errorMessage) {
-            errorMessage.classList.add('hidden');
-        }
-    }
+    window.PracticeUiCommon.showAlertError(errorState, errorMessage, message);
 }
 
 window.replayRecording = replayRecording;

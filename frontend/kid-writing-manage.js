@@ -46,14 +46,19 @@ let recordedUploadFileName = 'prompt.webm';
 let recordedPreviewUrl = null;
 let autoPlayRecordedCardId = null;
 let recordingStartedAtMs = 0;
-let recordingAudioContext = null;
-let recordingSourceNode = null;
-let recordingAnalyserNode = null;
-let recordingWaveBuffer = null;
-let recordingFrameId = null;
 let recordingWaveCardId = null;
-let recordingLastWaveDrawMs = 0;
 let isWritingBulkAdding = false;
+const recordingVisualizer = new window.RecordingVisualizer({
+    fftSize: 512,
+    smoothingTimeConstant: 0.88,
+    minFrameIntervalMs: 66,
+    baselineWidthRatio: 0.025,
+    waveWidthRatio: 0.05,
+    amplitudeRatio: 0.34,
+    getCanvas: (cardId) => (cardId ? cardsGrid.querySelector(`[data-recording-wave="${cardId}"]`) : null),
+    getStatusElement: (cardId) => (cardId ? cardsGrid.querySelector(`[data-recording-status="${cardId}"]`) : null),
+    formatStatus: (elapsedMs) => `Recording... ${formatElapsed(elapsedMs)}`,
+});
 
 function escapeAttr(value) {
     return String(value || '')
@@ -376,142 +381,27 @@ function stopRecording() {
 }
 
 function startRecordingVisualizer(stream, cardId) {
-    stopRecordingVisualizer();
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx || !stream || !cardId) {
+    if (!stream || !cardId) {
         return;
     }
-
-    try {
-        recordingAudioContext = new AudioCtx();
-        recordingSourceNode = recordingAudioContext.createMediaStreamSource(stream);
-        recordingAnalyserNode = recordingAudioContext.createAnalyser();
-        recordingAnalyserNode.fftSize = 512;
-        recordingAnalyserNode.smoothingTimeConstant = 0.88;
-        recordingWaveBuffer = new Uint8Array(recordingAnalyserNode.fftSize);
-        recordingSourceNode.connect(recordingAnalyserNode);
-        recordingWaveCardId = String(cardId);
-        recordingLastWaveDrawMs = 0;
-        drawRecordingWave();
-    } catch (error) {
-        stopRecordingVisualizer();
-    }
+    recordingWaveCardId = String(cardId);
+    recordingVisualizer.start(stream, {
+        key: recordingWaveCardId,
+        startedAtMs: recordingStartedAtMs,
+        isActive: () => !!(mediaRecorder && mediaRecorder.state === 'recording'),
+    });
 }
 
 function stopRecordingVisualizer() {
-    if (recordingFrameId) {
-        cancelAnimationFrame(recordingFrameId);
-        recordingFrameId = null;
-    }
-    if (recordingSourceNode) {
-        try {
-            recordingSourceNode.disconnect();
-        } catch (error) {
-            // no-op
-        }
-        recordingSourceNode = null;
-    }
-    if (recordingAnalyserNode) {
-        try {
-            recordingAnalyserNode.disconnect();
-        } catch (error) {
-            // no-op
-        }
-        recordingAnalyserNode = null;
-    }
-    if (recordingAudioContext) {
-        recordingAudioContext.close().catch(() => {});
-        recordingAudioContext = null;
-    }
-    recordingWaveBuffer = null;
+    recordingVisualizer.stop();
     recordingWaveCardId = null;
-    recordingLastWaveDrawMs = 0;
 }
 
 function fitRecordingCanvas(canvasEl) {
     if (canvasEl && typeof canvasEl.getBoundingClientRect !== 'function') {
-        canvasEl = null;
-    }
-    const target = canvasEl || (recordingWaveCardId ? cardsGrid.querySelector(`[data-recording-wave="${recordingWaveCardId}"]`) : null);
-    if (!target) {
         return;
     }
-    const rect = target.getBoundingClientRect();
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const targetWidth = Math.max(1, Math.round(rect.width * dpr));
-    const targetHeight = Math.max(1, Math.round(rect.height * dpr));
-    if (target.width !== targetWidth || target.height !== targetHeight) {
-        target.width = targetWidth;
-        target.height = targetHeight;
-    }
-}
-
-function drawRecordingWave() {
-    if (!recordingAnalyserNode || !recordingWaveBuffer || !recordingWaveCardId) {
-        return;
-    }
-
-    const canvas = cardsGrid.querySelector(`[data-recording-wave="${recordingWaveCardId}"]`);
-    if (!canvas) {
-        recordingFrameId = requestAnimationFrame(drawRecordingWave);
-        return;
-    }
-    const nowMs = Date.now();
-    if (recordingLastWaveDrawMs > 0 && (nowMs - recordingLastWaveDrawMs) < 66) {
-        const stillRecordingFast = !!(mediaRecorder && mediaRecorder.state === 'recording');
-        if (stillRecordingFast) {
-            recordingFrameId = requestAnimationFrame(drawRecordingWave);
-        }
-        return;
-    }
-    recordingLastWaveDrawMs = nowMs;
-    fitRecordingCanvas(canvas);
-    recordingAnalyserNode.getByteTimeDomainData(recordingWaveBuffer);
-
-    const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
-    const centerY = height / 2;
-
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.strokeStyle = '#f2b9b9';
-    ctx.lineWidth = Math.max(1, Math.round(height * 0.025));
-    ctx.beginPath();
-    ctx.moveTo(0, centerY);
-    ctx.lineTo(width, centerY);
-    ctx.stroke();
-
-    ctx.strokeStyle = '#d63636';
-    ctx.lineWidth = Math.max(1.5, Math.round(height * 0.05));
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-
-    const sliceWidth = width / Math.max(1, recordingWaveBuffer.length - 1);
-    for (let i = 0; i < recordingWaveBuffer.length; i += 1) {
-        const normalized = (recordingWaveBuffer[i] - 128) / 128;
-        const y = centerY + normalized * (height * 0.34);
-        const x = i * sliceWidth;
-        if (i === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    }
-    ctx.stroke();
-
-    const statusEl = cardsGrid.querySelector(`[data-recording-status="${recordingWaveCardId}"]`);
-    if (statusEl && recordingStartedAtMs > 0) {
-        statusEl.textContent = `Recording... ${formatElapsed(Date.now() - recordingStartedAtMs)}`;
-    }
-
-    const stillRecording = !!(mediaRecorder && mediaRecorder.state === 'recording');
-    if (stillRecording) {
-        recordingFrameId = requestAnimationFrame(drawRecordingWave);
-    }
+    recordingVisualizer.handleResize();
 }
 
 function formatElapsed(ms) {

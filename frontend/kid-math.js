@@ -38,6 +38,7 @@ let pauseStartedAtMs = 0;
 let isPaused = false;
 let sessionAnswers = [];
 let configuredSessionCount = 0;
+const errorState = { lastMessage: '' };
 
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -136,21 +137,12 @@ function resetToStartScreen(totalCards) {
 async function startSession() {
     try {
         showError('');
-        const clientSessionStartMs = Date.now();
-        const response = await fetch(`${API_BASE}/kids/${kidId}/math/practice/start`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        activePendingSessionId = data.pending_session_id || null;
-        window.PracticeSession.markSessionStarted(activePendingSessionId, clientSessionStartMs);
-        sessionCards = shuffleSessionCards(data.cards || []);
+        const started = await window.PracticeSessionFlow.startShuffledSession(
+            `${API_BASE}/kids/${kidId}/math/practice/start`,
+            {}
+        );
+        activePendingSessionId = started.pendingSessionId;
+        sessionCards = started.cards;
 
         if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
             showError('No math questions available');
@@ -173,15 +165,6 @@ async function startSession() {
     }
 }
 
-
-function shuffleSessionCards(cardsList) {
-    const shuffled = [...cardsList];
-    for (let i = shuffled.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-}
 
 function showCurrentQuestion() {
     if (sessionCards.length === 0) {
@@ -296,12 +279,11 @@ async function endSession() {
     resultSummary.textContent = `Right: ${rightCount} · Wrong: ${wrongCount}`;
 
     try {
-        const payload = window.PracticeSession.buildCompletePayload(activePendingSessionId, sessionAnswers);
-        await fetch(`${API_BASE}/kids/${kidId}/math/practice/complete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
+        await window.PracticeSessionFlow.postCompleteSession(
+            `${API_BASE}/kids/${kidId}/math/practice/complete`,
+            activePendingSessionId,
+            sessionAnswers
+        );
     } catch (error) {
         console.error('Error completing math session:', error);
         showError('Failed to save session results');
@@ -313,20 +295,5 @@ async function endSession() {
 
 
 function showError(message) {
-    if (message) {
-        const text = String(message);
-        if (errorMessage) {
-            errorMessage.textContent = '';
-            errorMessage.classList.add('hidden');
-        }
-        if (showError._lastMessage !== text) {
-            window.alert(text);
-            showError._lastMessage = text;
-        }
-    } else {
-        showError._lastMessage = '';
-        if (errorMessage) {
-            errorMessage.classList.add('hidden');
-        }
-    }
+    window.PracticeUiCommon.showAlertError(errorState, errorMessage, message);
 }

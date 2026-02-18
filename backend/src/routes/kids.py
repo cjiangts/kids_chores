@@ -1196,46 +1196,15 @@ def get_or_create_writing_deck(conn):
     return row[0]
 
 
-_LESSON_READING_OLD_DECK_NAMES = {
-    'ma3Unit1': 'Lesson Reading Ma3 Unit 1',
-    'ma3Unit2': 'Lesson Reading Ma3 Unit 2',
-    'ma3Unit3': 'Lesson Reading Ma3 Unit 3',
-}
-
-
 def get_or_create_lesson_reading_deck(conn, deck_key):
     """Get or create one preset lesson-reading deck by key."""
     config = LESSON_READING_DECK_CONFIGS.get(deck_key)
     if not config:
         raise ValueError(f'Unsupported lesson-reading deck key: {deck_key}')
     current_name = config['name']
-    old_name = _LESSON_READING_OLD_DECK_NAMES.get(deck_key)
     current_row = conn.execute("SELECT id FROM decks WHERE name = ?", [current_name]).fetchone()
-    old_row = conn.execute("SELECT id FROM decks WHERE name = ?", [old_name]).fetchone() if old_name else None
-
-    if current_row and old_row:
-        # Both exist — keep the old deck (has session history), delete duplicate new deck
-        old_id = old_row[0]
-        new_id = current_row[0]
-        conn.execute("DELETE FROM cards WHERE deck_id = ?", [new_id])
-        conn.execute("DELETE FROM practice_state_by_deck WHERE deck_id = ?", [new_id])
-        conn.execute("DELETE FROM decks WHERE id = ?", [new_id])
-        conn.execute(
-            "UPDATE decks SET name = ?, description = ? WHERE id = ?",
-            [current_name, config['description'], old_id]
-        )
-        return old_id
-
     if current_row:
         return current_row[0]
-
-    # Check for legacy deck name and rename it instead of creating a duplicate
-    if old_row:
-        conn.execute(
-            "UPDATE decks SET name = ?, description = ? WHERE id = ?",
-            [current_name, config['description'], old_row[0]]
-        )
-        return old_row[0]
 
     row = conn.execute(
         """
@@ -1392,7 +1361,7 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
             'removed': 0, 'deduped': 0, 'total': len(new_rows)
         }
 
-    # Existing DB: full reconciliation (swap detection, dedup, rename matching).
+    # Existing DB: reconcile against preset definitions (dedup + title/page matching).
     removed = 0
     for front, back in LESSON_READING_REMOVED_CARDS:
         removed += conn.execute(
@@ -1418,36 +1387,6 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
             desired_back_by_front[front] = back
 
     swapped = 0
-
-    def _is_page_value(text):
-        return bool(re.fullmatch(r'\d+', str(text or '').strip()))
-
-    def _looks_like_lesson_title(text):
-        value = str(text or '').strip()
-        if not value:
-            return False
-        # Typical preset titles include week + 《title》, but tolerate variants.
-        return ('《' in value and '》' in value) or ('周' in value) or (not _is_page_value(value))
-
-    for row in existing_rows:
-        card_id = int(row[0])
-        front = str(row[1] or '').strip()
-        back = str(row[2] or '').strip()
-        # Auto-fix legacy rows where title/page were accidentally stored reversed.
-        should_swap_by_mapping = front in desired_front_by_back and desired_back_by_front.get(back) == front
-        should_swap_by_shape = _is_page_value(front) and _looks_like_lesson_title(back)
-        if should_swap_by_mapping or should_swap_by_shape:
-            conn.execute(
-                "UPDATE cards SET front = ?, back = ? WHERE id = ?",
-                [back, front, card_id]
-            )
-            swapped += 1
-
-    if swapped > 0:
-        existing_rows = conn.execute(
-            "SELECT id, front, back FROM cards WHERE deck_id = ?",
-            [deck_id]
-        ).fetchall()
 
     updated = 0
     deduped = 0

@@ -7,32 +7,8 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        * {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .back-btn {
-            background: #6c757d;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            text-decoration: none;
-        }
-
-        .back-btn:hover {
-            background: #5a6268;
-        }
-
         .practice-container {
             max-width: 680px;
-            margin: 0 auto;
         }
 
         .flashcard {
@@ -53,13 +29,6 @@
 
         .flashcard.revealed {
             border: 3px solid #4CAF50;
-        }
-
-        .session-title {
-            text-align: center;
-            margin-bottom: 1rem;
-            color: #333;
-            font-size: 1.5rem;
         }
 
         .card-question {
@@ -83,10 +52,6 @@
             margin-bottom: 1rem;
         }
 
-        .controls {
-            margin-bottom: 1rem;
-        }
-
         .pause-row {
             display: flex;
             justify-content: center;
@@ -98,34 +63,6 @@
             gap: 1rem;
             justify-content: center;
             align-items: center;
-        }
-
-        .control-btn {
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .control-btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .control-btn:disabled {
-            opacity: 0.65;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .start-btn {
-            background: #007bff;
-        }
-
-        .start-btn:hover {
-            background: #0069d9;
         }
 
         .know-btn {
@@ -239,6 +176,8 @@
 
     <script src="practice-progress.js"></script>
     <script src="practice-session.js"></script>
+    <script src="practice-ui-common.js"></script>
+    <script src="practice-session-flow.js"></script>
     <script src="kid-math.js"></script>
 </body>
 </html>
