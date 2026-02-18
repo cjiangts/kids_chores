@@ -88,3 +88,9 @@ CREATE TABLE IF NOT EXISTS writing_sheet_cards (
   FOREIGN KEY (sheet_id) REFERENCES writing_sheets(id),
   FOREIGN KEY (card_id) REFERENCES cards(id)
 );
+
+-- Indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_type_completed ON sessions(type, completed_at);
+CREATE INDEX IF NOT EXISTS idx_session_results_session_id ON session_results(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_results_card_id ON session_results(card_id);

@@ -26,8 +26,8 @@ def create_app():
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
-    min_hard_pct = 0
-    max_hard_pct = 100
+    MIN_HARD_PCT = 0
+    MAX_HARD_PCT = 100
     cleanup_result = metadata.cleanup_deprecated_metadata_config()
     app.logger.info(
         'Metadata cleanup at startup: updated=%s, removedTopLevelKeys=%s, removedFamilyKeys=%s, removedKidKeys=%s',
@@ -94,31 +94,13 @@ def create_app():
     def is_family_authenticated():
         return bool(session.get('family_id'))
 
-    def is_parent_authenticated():
-        return bool(session.get('parent_authenticated'))
-
-    def require_parent_auth():
+    def require_family_auth():
         if not is_family_authenticated():
             return {'error': 'Family login required'}, 401
         return None
 
-    def is_parent_page(path):
-        protected = {
-            '/admin.html',
-            '/parent-settings.html',
-            '/kid-report.html',
-            '/kid-session-report.html',
-            '/kid-card-report.html',
-            '/kid-reading-manage.html',
-            '/kid-math-manage.html',
-            '/kid-lesson-reading-manage.html',
-            '/kid-writing-manage.html',
-            '/kid-writing-sheets.html',
-        }
-        return path in protected
-
     @app.before_request
-    def enforce_parent_auth():
+    def enforce_family_auth():
         path = request.path
         if path == '/health':
             return None
@@ -148,11 +130,6 @@ def create_app():
                 next_path = next_path[:-1]
             return redirect(f"/family-login.html?next={quote(next_path)}")
 
-        if path.startswith('/api/parent-auth/'):
-            return None
-
-        if is_parent_page(path):
-            return None
         return None
 
     # Register blueprints
@@ -219,7 +196,7 @@ def create_app():
 
     @app.route('/api/parent-auth/change-password', methods=['POST'])
     def parent_auth_change_password():
-        auth_err = require_parent_auth()
+        auth_err = require_family_auth()
         if auth_err:
             return auth_err
 
@@ -237,7 +214,7 @@ def create_app():
 
     @app.route('/api/parent-settings/hard-card-percentage', methods=['GET'])
     def get_parent_hard_card_percentage():
-        auth_err = require_parent_auth()
+        auth_err = require_family_auth()
         if auth_err:
             return auth_err
         family_id = str(session.get('family_id') or '')
@@ -247,7 +224,7 @@ def create_app():
 
     @app.route('/api/parent-settings/hard-card-percentage', methods=['PUT'])
     def update_parent_hard_card_percentage():
-        auth_err = require_parent_auth()
+        auth_err = require_family_auth()
         if auth_err:
             return auth_err
 
@@ -257,8 +234,8 @@ def create_app():
         except (TypeError, ValueError):
             return {'error': 'hardCardPercentage must be an integer'}, 400
 
-        if hard_pct < min_hard_pct or hard_pct > max_hard_pct:
-            return {'error': f'hardCardPercentage must be between {min_hard_pct} and {max_hard_pct}'}, 400
+        if hard_pct < MIN_HARD_PCT or hard_pct > MAX_HARD_PCT:
+            return {'error': f'hardCardPercentage must be between {MIN_HARD_PCT} and {MAX_HARD_PCT}'}, 400
 
         family_id = str(session.get('family_id') or '')
         if not metadata.update_family_hard_card_percentage(family_id, hard_pct):
@@ -268,7 +245,7 @@ def create_app():
 
     @app.route('/api/parent-settings/timezone', methods=['GET'])
     def get_parent_timezone():
-        auth_err = require_parent_auth()
+        auth_err = require_family_auth()
         if auth_err:
             return auth_err
         family_id = str(session.get('family_id') or '')
@@ -278,7 +255,7 @@ def create_app():
 
     @app.route('/api/parent-settings/timezone', methods=['PUT'])
     def update_parent_timezone():
-        auth_err = require_parent_auth()
+        auth_err = require_family_auth()
         if auth_err:
             return auth_err
 

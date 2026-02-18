@@ -37,3 +37,30 @@ Projected data per kid after 10 years of daily use:
 **No performance concerns.** DuckDB handles this scale trivially. No refactoring needed for foreseeable future.
 
 **Data persistence:** Railway Volume is required for data to survive across deploys (container filesystem is ephemeral without it).
+
+---
+
+# Codebase Review - 2026-02-18
+
+## Bugs
+
+- [x] **B4 - Unsafe `.fetchone()[0]` without null check** — Added null-safe pattern on cursor reads in `ensure_practice_state()` and `plan_deck_practice_selection()`.
+
+- [x] **B5 - Redundant deck seeding on every GET request** — Removed `seed_all_lesson_reading_decks(conn)` and `seed_all_math_decks(conn)` calls from card-list GET and practice-start endpoints. Seeding only runs at startup and on explicit seed endpoints.
+
+## Performance
+
+- [x] **P4 - N+1 queries in `get_kids` endpoint** — Combined `get_today_completed_session_counts()` and `has_ungraded_lesson_reading_results()` into single `get_kid_dashboard_stats()` function sharing one DB connection per kid (halves connection count).
+
+- [x] **P5 - Missing indexes on frequently queried columns** — Added indexes: `cards(deck_id)`, `sessions(type, completed_at)`, `session_results(session_id)`, `session_results(card_id)`.
+
+## Code Cleanup
+
+- [x] **Q6 - Dead code in app.py** — Promoted `min_hard_pct`/`max_hard_pct` to `MIN_HARD_PCT`/`MAX_HARD_PCT` constants. Removed unused `is_parent_authenticated()`, `is_parent_page()`, and dead `enforce_parent_auth` branches. Renamed `require_parent_auth` → `require_family_auth`, `enforce_parent_auth` → `enforce_family_auth`.
+
+## Skipped (Not Issues)
+
+- **SQL injection via f-string**: false positive — only used for `','.join(['?'] * len(ids))` placeholder generation, not user input.
+- **Metadata race condition**: file-lock prevents concurrent writes, single-process Flask.
+- **In-memory pending sessions**: by design — abandoned sessions cleaned up at startup.
+- **P3 indexes revisit**: DuckDB columnar engine still handles projected scale without indexes (see 10-year analysis above).

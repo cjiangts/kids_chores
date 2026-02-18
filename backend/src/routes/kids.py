@@ -404,12 +404,13 @@ def normalize_lesson_reading_deck_session_count(kid, deck_key):
     return parsed
 
 
-def get_today_completed_session_counts(kid):
-    """Get number of completed practice sessions for today by type."""
+def get_kid_dashboard_stats(kid):
+    """Get today's completed session counts and ungraded Chinese Reading flag in one connection."""
+    default_counts = {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0, 'lesson_reading': 0}
     try:
         conn = get_kid_connection_for(kid)
     except Exception:
-        return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0, 'lesson_reading': 0}
+        return default_counts, False
 
     try:
         family_id = str(kid.get('familyId') or '')
@@ -429,8 +430,7 @@ def get_today_completed_session_counts(kid):
               AND completed_at < ?
               AND type IN ('flashcard', 'math', 'writing', 'lesson_reading')
             GROUP BY type
-            """
-            ,
+            """,
             [day_start_utc, day_end_utc]
         ).fetchall()
 
@@ -450,28 +450,15 @@ def get_today_completed_session_counts(kid):
             elif session_type == 'lesson_reading':
                 lesson_reading = count
 
-        return {
+        today_counts = {
             'total': chinese + math + writing + lesson_reading,
             'chinese': chinese,
             'math': math,
             'writing': writing,
             'lesson_reading': lesson_reading,
         }
-    except Exception:
-        return {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0, 'lesson_reading': 0}
-    finally:
-        conn.close()
 
-
-def has_ungraded_lesson_reading_results(kid):
-    """Return True if kid has any Chinese Reading result still ungraded (correct=0)."""
-    try:
-        conn = get_kid_connection_for(kid)
-    except Exception:
-        return False
-
-    try:
-        row = conn.execute(
+        ungraded_row = conn.execute(
             """
             SELECT 1
             FROM sessions s
@@ -482,9 +469,11 @@ def has_ungraded_lesson_reading_results(kid):
             LIMIT 1
             """,
         ).fetchone()
-        return bool(row)
+        has_ungraded = bool(ungraded_row)
+
+        return today_counts, has_ungraded
     except Exception:
-        return False
+        return default_counts, False
     finally:
         conn.close()
 
@@ -540,7 +529,7 @@ def get_kids():
         kids_with_progress = []
         for kid in kids:
             normalized_kid = with_practice_count_fallbacks(kid)
-            today_counts = get_today_completed_session_counts(kid)
+            today_counts, has_ungraded = get_kid_dashboard_stats(kid)
             kid_with_progress = {
                 **normalized_kid,
                 'dailyCompletedCountToday': today_counts['total'],
@@ -548,7 +537,7 @@ def get_kids():
                 'dailyCompletedMathCountToday': today_counts['math'],
                 'dailyCompletedWritingCountToday': today_counts['writing'],
                 'dailyCompletedLessonReadingCountToday': today_counts.get('lesson_reading', 0),
-                'hasChineseReadingToReview': has_ungraded_lesson_reading_results(kid),
+                'hasChineseReadingToReview': has_ungraded,
             }
             kids_with_progress.append(kid_with_progress)
 
@@ -620,7 +609,7 @@ def get_kid(kid_id):
             return jsonify({'error': 'Kid not found'}), 404
 
         normalized_kid = with_practice_count_fallbacks(kid)
-        today_counts = get_today_completed_session_counts(kid)
+        today_counts, has_ungraded = get_kid_dashboard_stats(kid)
         kid_with_progress = {
             **normalized_kid,
             'dailyCompletedCountToday': today_counts['total'],
@@ -628,7 +617,7 @@ def get_kid(kid_id):
             'dailyCompletedMathCountToday': today_counts['math'],
             'dailyCompletedWritingCountToday': today_counts['writing'],
             'dailyCompletedLessonReadingCountToday': today_counts.get('lesson_reading', 0),
-            'hasChineseReadingToReview': has_ungraded_lesson_reading_results(kid),
+            'hasChineseReadingToReview': has_ungraded,
         }
 
         return jsonify(kid_with_progress), 200
@@ -1974,11 +1963,12 @@ def ensure_practice_state(conn, deck_id):
         )
         return
 
-    cursor = conn.execute(
+    cursor_row = conn.execute(
         "SELECT queue_cursor FROM practice_state_by_deck WHERE deck_id = ?",
         [deck_id]
-    ).fetchone()[0]
-    normalized = int(cursor) % int(total)
+    ).fetchone()
+    cursor = int(cursor_row[0]) if cursor_row else 0
+    normalized = cursor % int(total)
     if normalized != cursor:
         conn.execute(
             "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
@@ -2280,11 +2270,11 @@ def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card
             selected_set.add(card_id)
             hard_target -= 1
 
-    cursor = conn.execute(
+    cursor_row = conn.execute(
         "SELECT queue_cursor FROM practice_state_by_deck WHERE deck_id = ?",
         [deck_id]
-    ).fetchone()[0]
-    cursor = int(cursor) % len(queue_ids)
+    ).fetchone()
+    cursor = int(cursor_row[0]) % len(queue_ids) if cursor_row else 0
     queue_used = 0
 
     offset = 0
@@ -2891,7 +2881,6 @@ def get_lesson_reading_cards(kid_id):
 
         conn = get_kid_connection_for(kid)
         deck_ids = get_or_create_lesson_reading_decks(conn)
-        seed_all_lesson_reading_decks(conn)
         deck_id = deck_ids[requested_key]
 
         requested_count = normalize_lesson_reading_deck_session_count(kid, requested_key)
@@ -2939,7 +2928,6 @@ def get_lesson_reading_decks(kid_id):
 
         conn = get_kid_connection_for(kid)
         deck_ids = get_or_create_lesson_reading_decks(conn)
-        seed_all_lesson_reading_decks(conn)
 
         decks = []
         total_session_count = 0
@@ -4101,7 +4089,6 @@ def start_math_practice_session(kid_id):
 
         conn = get_kid_connection_for(kid)
         deck_ids = get_or_create_math_decks(conn)
-        seed_all_math_decks(conn)
 
         selected_cards = []
         deck_cursor_updates = []
@@ -4169,7 +4156,6 @@ def start_lesson_reading_practice_session(kid_id):
 
         conn = get_kid_connection_for(kid)
         deck_ids = get_or_create_lesson_reading_decks(conn)
-        seed_all_lesson_reading_decks(conn)
 
         selected_cards = []
         deck_cursor_updates = []
