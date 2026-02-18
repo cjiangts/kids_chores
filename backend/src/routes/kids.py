@@ -86,9 +86,9 @@ LESSON_READING_DECK_CONFIGS = {
         'default_count': DEFAULT_LESSON_READING_DECK_COUNT,
         'label': '马三 一单元',
         'cards': [
-            ('第1周 《斧子和皮大衣》', '6'),
-            ('第1周 《借笔》', '7'),
-            ('第1周 《爬到屋顶上去》', '8'),
+            ('第1周 《斧子和皮大衣》', '7'),
+            ('第1周 《借笔》', '8'),
+            ('第1周 《爬到屋顶上去》', '9'),
             ('第2周 《夸孩子》', '15'),
             ('第2周 《萤火虫找朋友》', '16'),
             ('第3周 《盘古开天地》', '21'),
@@ -1426,6 +1426,48 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
             [deck_id]
         ).fetchall()
 
+    updated = 0
+    deduped = 0
+    # Reconcile by front title first: keep one row per title, enforce desired page.
+    rows_by_front = {}
+    for row in existing_rows:
+        card_id = int(row[0])
+        front = str(row[1] or '').strip()
+        back = str(row[2] or '').strip()
+        if front not in rows_by_front:
+            rows_by_front[front] = []
+        rows_by_front[front].append((card_id, back))
+
+    for desired_front, desired_back in desired_back_by_front.items():
+        candidates = rows_by_front.get(desired_front, [])
+        if len(candidates) == 0:
+            continue
+
+        keep_id = None
+        for card_id, back in candidates:
+            if back == desired_back:
+                keep_id = card_id
+                break
+        if keep_id is None:
+            keep_id = candidates[0][0]
+            conn.execute(
+                "UPDATE cards SET back = ? WHERE id = ?",
+                [desired_back, keep_id]
+            )
+            updated += 1
+
+        for card_id, _ in candidates:
+            if card_id == keep_id:
+                continue
+            conn.execute("DELETE FROM cards WHERE id = ?", [card_id])
+            deduped += 1
+
+    if updated > 0 or deduped > 0:
+        existing_rows = conn.execute(
+            "SELECT id, front, back FROM cards WHERE deck_id = ?",
+            [deck_id]
+        ).fetchall()
+
     existing_keys = set()
     existing_back_to_id = {}
     for row in existing_rows:
@@ -1436,7 +1478,6 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
         if back:
             existing_back_to_id[back] = card_id
 
-    updated = 0
     for back, desired_front in desired_front_by_back.items():
         card_id = existing_back_to_id.get(back)
         if not card_id:
@@ -1479,7 +1520,14 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
         "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
         [deck_id]
     ).fetchone()[0]
-    return {'inserted': inserted, 'updated': int(updated), 'swapped': int(swapped), 'removed': int(removed), 'total': int(total)}
+    return {
+        'inserted': inserted,
+        'updated': int(updated),
+        'swapped': int(swapped),
+        'removed': int(removed),
+        'deduped': int(deduped),
+        'total': int(total)
+    }
 
 
 def seed_all_lesson_reading_decks(conn):
