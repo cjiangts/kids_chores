@@ -21,7 +21,7 @@ window.AudioCommon = {
     },
 
     /** Gain boost for voice recording. Compensates for quiet mic input on iOS Safari. */
-    MIC_GAIN: 1.8,
+    MIC_GAIN: 3.5,
 
     /**
      * Request microphone access and route through a GainNode for consistent volume.
@@ -37,6 +37,10 @@ window.AudioCommon = {
 
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // Resume context — iOS Safari requires this after creation
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
             const source = audioCtx.createMediaStreamSource(rawStream);
             const gain = audioCtx.createGain();
             gain.gain.value = this.MIC_GAIN;
@@ -44,18 +48,15 @@ window.AudioCommon = {
             source.connect(gain);
             gain.connect(dest);
 
-            // Boosted stream for MediaRecorder
             const boostedStream = dest.stream;
-
-            // Attach cleanup so callers can tear down the pipeline
             boostedStream._audioCleanup = () => {
                 rawStream.getTracks().forEach((t) => t.stop());
                 try { audioCtx.close(); } catch (_e) { /* already closed */ }
             };
-
+            console.log('[AudioCommon] Gain pipeline active, gain=' + this.MIC_GAIN + ', ctx.state=' + audioCtx.state);
             return boostedStream;
-        } catch (_audioCtxError) {
-            // AudioContext not available — return raw stream as fallback
+        } catch (audioCtxError) {
+            console.warn('[AudioCommon] Gain pipeline failed, using raw stream:', audioCtxError);
             return rawStream;
         }
     },
@@ -97,10 +98,15 @@ window.AudioCommon = {
 
     /**
      * Build MediaRecorder options with preferred MIME type and voice-appropriate bitrate.
+     * Skips audioBitsPerSecond on Safari — its AAC encoder produces quieter output at constrained bitrates.
      */
     getRecorderOptions() {
         const mimeType = this.getPreferredMimeType();
-        const opts = { audioBitsPerSecond: 96000 };
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const opts = {};
+        if (!isSafari) {
+            opts.audioBitsPerSecond = 96000;
+        }
         if (mimeType) {
             opts.mimeType = mimeType;
         }
