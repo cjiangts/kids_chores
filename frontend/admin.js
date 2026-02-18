@@ -34,6 +34,7 @@ kidForm.addEventListener('submit', async (e) => {
 async function loadKids() {
     try {
         showError('');
+        kidsList.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
         const response = await fetch(`${API_BASE}/kids`);
 
         if (!response.ok) {
@@ -49,17 +50,20 @@ async function loadKids() {
 }
 
 async function createKid() {
+    const submitBtn = kidForm.querySelector('button[type="submit"]');
     try {
         const name = document.getElementById('kidName').value;
         const birthday = document.getElementById('kidBirthday').value;
 
         // Validate birthday format (YYYY-MM-DD)
         const validationResult = validateBirthday(birthday);
-        console.log('Validation result for', birthday, ':', validationResult);
         if (!validationResult) {
             showError('Invalid birthday format! Please use YYYY-MM-DD (e.g., 2015-06-15)');
             return;
         }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating...';
 
         const response = await fetch(`${API_BASE}/kids`, {
             method: 'POST',
@@ -83,6 +87,9 @@ async function createKid() {
     } catch (error) {
         console.error('Error creating kid:', error);
         showError('Failed to create kid. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save';
     }
 }
 
