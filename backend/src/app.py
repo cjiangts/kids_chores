@@ -28,6 +28,7 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
     MIN_HARD_PCT = 0
     MAX_HARD_PCT = 100
+    # KEEP: Safe metadata cleanup and normalization on every startup.
     cleanup_result = metadata.cleanup_deprecated_metadata_config()
     app.logger.info(
         'Metadata cleanup at startup: updated=%s, removedTopLevelKeys=%s, removedFamilyKeys=%s, removedKidKeys=%s',
@@ -36,6 +37,7 @@ def create_app():
         cleanup_result.get('removedFamilyKeys', 0),
         cleanup_result.get('removedKidKeys', 0),
     )
+    # KEEP: Ensures fixed preset math decks exist for all kids.
     math_seed_result = seed_math_decks_for_all_kids()
     app.logger.info(
         'Math preset init at startup: seededKids=%s, failedKids=%s, insertedCards=%s',
@@ -43,6 +45,7 @@ def create_app():
         math_seed_result.get('failedKids', 0),
         math_seed_result.get('insertedCards', 0),
     )
+    # KEEP: Ensures fixed preset Chinese Reading decks exist for all kids.
     lesson_seed_result = seed_lesson_reading_decks_for_all_kids()
     app.logger.info(
         'Lesson-reading preset init at startup: seededKids=%s, failedKids=%s, insertedCards=%s',
@@ -50,12 +53,15 @@ def create_app():
         lesson_seed_result.get('failedKids', 0),
         lesson_seed_result.get('insertedCards', 0),
     )
+    # ONE-TIME MIGRATION: Legacy writing hardness backfill.
+    # Delete after one successful deployment where logs show failedKids=0.
     writing_hardness_backfill = refresh_writing_hardness_for_all_kids()
     app.logger.info(
         'Writing hardness backfill at startup: refreshedKids=%s, failedKids=%s',
         writing_hardness_backfill.get('refreshedKids', 0),
         writing_hardness_backfill.get('failedKids', 0),
     )
+    # KEEP: Removes incomplete sessions that should never persist.
     incomplete_cleanup = cleanup_incomplete_sessions_for_all_kids()
     app.logger.info(
         'Incomplete session cleanup at startup: cleanedKids=%s, failedKids=%s, deletedSessions=%s, deletedResults=%s, deletedLessonReadingAudio=%s',
@@ -65,6 +71,8 @@ def create_app():
         incomplete_cleanup.get('deletedResults', 0),
         incomplete_cleanup.get('deletedLessonReadingAudio', 0),
     )
+    # ONE-TIME MIGRATION: Repairs legacy bad started_at values.
+    # Delete after one successful deployment where logs show updatedSessions=0.
     started_at_backfill = backfill_session_started_at_from_response_totals_for_all_kids()
     app.logger.info(
         'Session started_at backfill at startup: fixedKids=%s, failedKids=%s, updatedSessions=%s',
@@ -72,18 +80,24 @@ def create_app():
         started_at_backfill.get('failedKids', 0),
         started_at_backfill.get('updatedSessions', 0),
     )
+    # ONE-TIME MIGRATION: Converts session_results.correct to int scoring model.
+    # Delete after one successful deployment where logs show failedKids=0.
     grading_columns_migration = ensure_session_results_correct_int_for_all_kids()
     app.logger.info(
         'Session correct-int migration at startup: updatedKids=%s, failedKids=%s',
         grading_columns_migration.get('updatedKids', 0),
         grading_columns_migration.get('failedKids', 0),
     )
+    # ONE-TIME MIGRATION: Rebuilds lesson_reading_audio without FK constraint.
+    # Delete after one successful deployment where logs show failedKids=0.
     lesson_audio_fk_migration = ensure_lesson_reading_audio_table_no_fk_for_all_kids()
     app.logger.info(
         'Lesson-reading-audio FK migration at startup: updatedKids=%s, failedKids=%s',
         lesson_audio_fk_migration.get('updatedKids', 0),
         lesson_audio_fk_migration.get('failedKids', 0),
     )
+    # ONE-TIME MIGRATION (can be kept temporarily): sequence resync after id-table rebuilds.
+    # Safe to delete after one successful deployment where failedKids=0 and no duplicate id errors.
     sequence_sync = ensure_id_sequences_synced_for_all_kids()
     app.logger.info(
         'ID sequence sync at startup: updatedKids=%s, failedKids=%s',
