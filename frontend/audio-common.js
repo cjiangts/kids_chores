@@ -85,4 +85,53 @@ window.AudioCommon = {
 
     /** Small stop delay to reduce tail clipping when user stops right after speaking. */
     STOP_GRACE_MS: 280,
+
+    /**
+     * Shared graceful stop for MediaRecorder.
+     * Waits a short grace period, requests final chunk, then stops recorder.
+     */
+    gracefulStopRecorder(recorder, graceMs = 280) {
+        return new Promise((resolve, reject) => {
+            if (!recorder || recorder.state !== 'recording') {
+                resolve();
+                return;
+            }
+
+            let settled = false;
+            const finishResolve = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+            const finishReject = (error) => {
+                if (settled) return;
+                settled = true;
+                reject(error instanceof Error ? error : new Error('Recorder stop failed'));
+            };
+
+            recorder.addEventListener('stop', finishResolve, { once: true });
+            recorder.addEventListener('error', (event) => {
+                const maybeError = event && event.error ? event.error : new Error('Recorder error');
+                finishReject(maybeError);
+            }, { once: true });
+
+            const waitMs = Math.max(0, Number(graceMs) || 280);
+            window.setTimeout(() => {
+                if (recorder.state !== 'recording') {
+                    finishResolve();
+                    return;
+                }
+                try {
+                    recorder.requestData();
+                } catch (error) {
+                    // best effort
+                }
+                try {
+                    recorder.stop();
+                } catch (error) {
+                    finishReject(error);
+                }
+            }, waitMs);
+        });
+    },
 };

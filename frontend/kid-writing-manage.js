@@ -370,21 +370,9 @@ function stopRecording() {
     isRecordTransitioning = true;
     const recorder = mediaRecorder;
     const graceMs = Math.max(0, Number(window.AudioCommon?.STOP_GRACE_MS) || 280);
-    window.setTimeout(() => {
-        if (!recorder || recorder.state !== 'recording') {
-            return;
-        }
-        try {
-            recorder.requestData();
-        } catch (error) {
-            // best effort
-        }
-        try {
-            recorder.stop();
-        } catch (error) {
-            isRecordTransitioning = false;
-        }
-    }, graceMs);
+    window.AudioCommon.gracefulStopRecorder(recorder, graceMs).catch(() => {
+        isRecordTransitioning = false;
+    });
 }
 
 function startRecordingVisualizer(stream, cardId) {

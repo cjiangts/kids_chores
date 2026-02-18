@@ -48,6 +48,7 @@ let recordingSourceNode = null;
 let recordingAnalyserNode = null;
 let recordingWaveBuffer = null;
 let recordingFrameId = null;
+let recordingLastWaveDrawMs = 0;
 let pendingRecordedBlob = null;
 let pendingRecordedMimeType = '';
 let pendingRecordedResponseTimeMs = 0;
@@ -382,10 +383,11 @@ function startRecordingVisualizer(stream) {
         recordingAudioContext = new AudioCtx();
         recordingSourceNode = recordingAudioContext.createMediaStreamSource(stream);
         recordingAnalyserNode = recordingAudioContext.createAnalyser();
-        recordingAnalyserNode.fftSize = 1024;
-        recordingAnalyserNode.smoothingTimeConstant = 0.86;
+        recordingAnalyserNode.fftSize = 512;
+        recordingAnalyserNode.smoothingTimeConstant = 0.88;
         recordingWaveBuffer = new Uint8Array(recordingAnalyserNode.fftSize);
         recordingSourceNode.connect(recordingAnalyserNode);
+        recordingLastWaveDrawMs = 0;
         recordingViz.classList.remove('hidden');
         drawRecordingWave();
     } catch (error) {
@@ -420,6 +422,7 @@ function stopRecordingVisualizer() {
         recordingAudioContext = null;
     }
     recordingWaveBuffer = null;
+    recordingLastWaveDrawMs = 0;
     if (recordingViz) {
         recordingViz.classList.add('hidden');
     }
@@ -448,6 +451,15 @@ function drawRecordingWave() {
     if (!recordingWave || !recordingAnalyserNode || !recordingWaveBuffer) {
         return;
     }
+
+    const nowMs = Date.now();
+    if (recordingLastWaveDrawMs > 0 && (nowMs - recordingLastWaveDrawMs) < 66) {
+        if (isRecording) {
+            recordingFrameId = requestAnimationFrame(drawRecordingWave);
+        }
+        return;
+    }
+    recordingLastWaveDrawMs = nowMs;
 
     fitRecordingCanvas();
     recordingAnalyserNode.getByteTimeDomainData(recordingWaveBuffer);
@@ -544,28 +556,12 @@ async function stopAndCaptureRecording() {
         };
 
         const graceMs = Math.max(0, Number(window.AudioCommon?.STOP_GRACE_MS) || 280);
-        window.setTimeout(() => {
-            if (!recorder || recorder.state !== 'recording') {
-                if (!resolved) {
-                    resolved = true;
-                    resolve(null);
-                }
-                return;
+        window.AudioCommon.gracefulStopRecorder(recorder, graceMs).catch((error) => {
+            if (!resolved) {
+                resolved = true;
+                reject(error);
             }
-            try {
-                recorder.requestData();
-            } catch (error) {
-                // best effort
-            }
-            try {
-                recorder.stop();
-            } catch (error) {
-                if (!resolved) {
-                    resolved = true;
-                    reject(error);
-                }
-            }
-        }, graceMs);
+        });
     });
 }
 
