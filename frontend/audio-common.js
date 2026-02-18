@@ -33,14 +33,6 @@ window.AudioCommon = {
     },
 
     /**
-     * Stop all tracks on a stream.
-     */
-    stopStream(stream) {
-        if (!stream) return;
-        stream.getTracks().forEach((t) => t.stop());
-    },
-
-    /**
      * Pick the best supported recording MIME type.
      * Prefers Opus in WebM (smallest, best quality for voice).
      */
@@ -81,7 +73,6 @@ window.AudioCommon = {
      */
     guessExtension(mimeType) {
         const type = String(mimeType || '').toLowerCase();
-        if (type.includes('wav')) return 'wav';
         if (type.includes('webm')) return 'webm';
         if (type.includes('ogg')) return 'ogg';
         if (type.includes('mp4') || type.includes('m4a') || type.includes('aac')) return 'm4a';
@@ -94,99 +85,6 @@ window.AudioCommon = {
 
     /** Small stop delay to reduce tail clipping when user stops right after speaking. */
     STOP_GRACE_MS: 280,
-
-    /**
-     * Post-process a recorded audio blob: decode, amplify, re-encode as WAV.
-     * This is the reliable way to boost volume — works on all browsers including iOS Safari
-     * where the GainNode-before-MediaRecorder approach is silently ignored.
-     *
-     * @param {Blob} blob - recorded audio blob (any format the browser can decode)
-     * @param {number} gain - multiplier (e.g. 2.0 = double volume)
-     * @returns {Promise<{blob: Blob, mimeType: string}>} amplified WAV blob
-     */
-    async amplifyBlob(blob, gain) {
-        if (!blob || blob.size === 0 || !gain || gain <= 0) {
-            return { blob, mimeType: blob?.type || 'audio/webm' };
-        }
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        try {
-            const arrayBuffer = await blob.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-            // Amplify PCM samples with clipping protection
-            for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
-                const samples = audioBuffer.getChannelData(ch);
-                for (let i = 0; i < samples.length; i++) {
-                    samples[i] = Math.max(-1, Math.min(1, samples[i] * gain));
-                }
-            }
-
-            // Encode to WAV
-            const wavBlob = this._encodeWav(audioBuffer);
-            return { blob: wavBlob, mimeType: 'audio/wav' };
-        } finally {
-            try { audioCtx.close(); } catch (_e) { /* already closed */ }
-        }
-    },
-
-    /**
-     * Encode an AudioBuffer to a WAV Blob (PCM 16-bit).
-     */
-    _encodeWav(audioBuffer) {
-        const numChannels = audioBuffer.numberOfChannels;
-        const sampleRate = audioBuffer.sampleRate;
-        const format = 1; // PCM
-        const bitDepth = 16;
-
-        // Interleave channels
-        const length = audioBuffer.length;
-        const interleaved = new Float32Array(length * numChannels);
-        for (let ch = 0; ch < numChannels; ch++) {
-            const channelData = audioBuffer.getChannelData(ch);
-            for (let i = 0; i < length; i++) {
-                interleaved[i * numChannels + ch] = channelData[i];
-            }
-        }
-
-        // Convert to 16-bit PCM
-        const dataLength = interleaved.length * (bitDepth / 8);
-        const headerLength = 44;
-        const buffer = new ArrayBuffer(headerLength + dataLength);
-        const view = new DataView(buffer);
-
-        // WAV header
-        const writeString = (offset, str) => {
-            for (let i = 0; i < str.length; i++) {
-                view.setUint8(offset + i, str.charCodeAt(i));
-            }
-        };
-        writeString(0, 'RIFF');
-        view.setUint32(4, 36 + dataLength, true);
-        writeString(8, 'WAVE');
-        writeString(12, 'fmt ');
-        view.setUint32(16, 16, true); // fmt chunk size
-        view.setUint16(20, format, true);
-        view.setUint16(22, numChannels, true);
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
-        view.setUint16(32, numChannels * (bitDepth / 8), true);
-        view.setUint16(34, bitDepth, true);
-        writeString(36, 'data');
-        view.setUint32(40, dataLength, true);
-
-        // Write PCM samples
-        let offset = 44;
-        for (let i = 0; i < interleaved.length; i++) {
-            const sample = Math.max(-1, Math.min(1, interleaved[i]));
-            view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-            offset += 2;
-        }
-
-        return new Blob([buffer], { type: 'audio/wav' });
-    },
-
-    /** Default amplification gain for post-processing. */
-    POST_GAIN: 2.5,
 
     /**
      * Shared graceful stop for MediaRecorder.

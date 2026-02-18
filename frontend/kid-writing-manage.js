@@ -298,26 +298,17 @@ async function startRecordingForCard(cardId) {
             displayCards(currentCards);
         };
 
-        recorder.onstop = async () => {
+        recorder.onstop = () => {
             const finalMimeType = recorder.mimeType || preferredMimeType || 'audio/webm';
-            let blob = new Blob(chunks, { type: finalMimeType });
+            const blob = new Blob(chunks, { type: finalMimeType });
             const failed = !blob || blob.size === 0;
             const elapsedMs = Date.now() - startedAt;
             const tooShort = elapsedMs < 300;
             const invalid = failed || tooShort;
 
             if (!invalid) {
-                // Amplify recording for consistent volume across browsers
-                let uploadMimeType = finalMimeType;
-                try {
-                    const amplified = await AudioCommon.amplifyBlob(blob, AudioCommon.POST_GAIN);
-                    blob = amplified.blob;
-                    uploadMimeType = amplified.mimeType;
-                } catch (ampError) {
-                    console.warn('Audio amplification failed, using original:', ampError);
-                }
                 recordedBlob = blob;
-                recordedUploadFileName = `prompt.${AudioCommon.guessExtension(uploadMimeType)}`;
+                recordedUploadFileName = `prompt.${AudioCommon.guessExtension(finalMimeType)}`;
                 recordedForCardId = String(cardId);
                 recordedPreviewUrl = URL.createObjectURL(blob);
                 autoPlayRecordedCardId = String(cardId);
@@ -337,7 +328,7 @@ async function startRecordingForCard(cardId) {
             recordingCardId = null;
             recordingStartedAtMs = 0;
             if (mediaStream === stream) {
-                AudioCommon.stopStream(mediaStream);
+                mediaStream.getTracks().forEach((track) => track.stop());
                 mediaStream = null;
             }
             displayCards(currentCards);
@@ -350,7 +341,7 @@ async function startRecordingForCard(cardId) {
             recordingCardId = null;
             recordingStartedAtMs = 0;
             if (mediaStream === stream) {
-                AudioCommon.stopStream(mediaStream);
+                mediaStream.getTracks().forEach((track) => track.stop());
                 mediaStream = null;
             }
             showError('Recording failed, please try again');
@@ -368,8 +359,10 @@ async function startRecordingForCard(cardId) {
         recordingCardId = null;
         recordingStartedAtMs = 0;
         mediaRecorder = null;
-        AudioCommon.stopStream(mediaStream);
-        mediaStream = null;
+        if (mediaStream) {
+            mediaStream.getTracks().forEach((track) => track.stop());
+            mediaStream = null;
+        }
         showError('Failed to start recording. Please allow microphone access.');
         displayCards(currentCards);
     }

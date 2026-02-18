@@ -307,15 +307,6 @@ async function stopRecordingForReview() {
         return;
     }
 
-    // Amplify recording for consistent volume across browsers (especially iOS Safari)
-    try {
-        const amplified = await AudioCommon.amplifyBlob(blob, AudioCommon.POST_GAIN);
-        blob = amplified.blob;
-        mimeType = amplified.mimeType;
-    } catch (ampError) {
-        console.warn('Audio amplification failed, using original:', ampError);
-    }
-
     resetRecordingState();
     pendingRecordedBlob = blob;
     pendingRecordedMimeType = mimeType;
@@ -420,7 +411,9 @@ async function stopAndCaptureRecording() {
             resolved = true;
             const finalMimeType = recorder.mimeType || recordingMimeType || 'audio/webm';
             const blob = recordingChunks.length > 0 ? new Blob(recordingChunks, { type: finalMimeType }) : null;
-            AudioCommon.stopStream(mediaStream);
+            if (mediaStream) {
+                mediaStream.getTracks().forEach((track) => track.stop());
+            }
             mediaStream = null;
             mediaRecorder = null;
             resolve({
@@ -431,7 +424,9 @@ async function stopAndCaptureRecording() {
         recorder.onerror = () => {
             if (resolved) return;
             resolved = true;
-            AudioCommon.stopStream(mediaStream);
+            if (mediaStream) {
+                mediaStream.getTracks().forEach((track) => track.stop());
+            }
             mediaStream = null;
             mediaRecorder = null;
             reject(new Error('recording failed'));
@@ -455,7 +450,9 @@ function resetRecordingState() {
     recordingMimeType = '';
     stopRecordingVisualizer();
     setRecordingVisual(false);
-    AudioCommon.stopStream(mediaStream);
+    if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+    }
     mediaStream = null;
     mediaRecorder = null;
 }
