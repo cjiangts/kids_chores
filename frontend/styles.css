@@ -34,6 +34,48 @@ body {
     color: #fff;
 }
 
+.practice-page .session-action-slot {
+    position: relative;
+    min-height: 64px;
+    width: 100%;
+    max-width: 460px;
+    margin: 0 auto;
+}
+
+.practice-page .session-action-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+}
+
+.practice-page .session-action-btn {
+    height: 56px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 1.12rem;
+    font-weight: 700;
+    padding: 0 1.2rem;
+}
+
+.practice-page .session-single-btn {
+    min-width: 220px;
+}
+
+.practice-page .session-judge-btn {
+    min-width: 180px;
+}
+
+.practice-page .result-back-btn {
+    margin-top: 0.9rem;
+    text-decoration: none;
+    display: inline-block;
+}
+
 .practice-page .chinese-input {
     font-size: 2.2rem !important;
     text-align: center;
@@ -465,6 +507,24 @@ header p {
 .kid-card .report-btn:hover {
     background: #ffe8ad;
     color: #7a4400;
+}
+
+.kid-card .review-reading-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-width: 165px;
+    padding: 8px 10px;
+    background: #eaf7ff;
+    color: #0f4f82;
+    border: 1px solid #9dcff5;
+    font-weight: 700;
+}
+
+.kid-card .review-reading-btn:hover {
+    background: #ddf0ff;
+    color: #0b436f;
 }
 
 @media (max-width: 680px) {

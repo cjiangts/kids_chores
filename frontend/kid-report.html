@@ -108,8 +108,8 @@
 
         .daily-row {
             display: grid;
-            grid-template-columns: 90px 1fr 210px;
-            gap: 0.6rem;
+            grid-template-columns: 90px minmax(120px, 1fr) minmax(195px, 236px);
+            gap: 0.45rem;
             align-items: center;
             margin-bottom: 0.45rem;
         }
@@ -136,9 +136,10 @@
 
         .daily-values {
             color: #555;
-            font-size: 0.8rem;
-            text-align: right;
+            font-size: 0.78rem;
+            text-align: left;
             white-space: nowrap;
+            min-width: 0;
         }
 
         @media (max-width: 760px) {
@@ -195,6 +196,11 @@
             background: #fff3e8;
             color: #9a5b00;
         }
+
+        .type-lesson-reading {
+            background: #efe8ff;
+            color: #5f3aa6;
+        }
     </style>
 </head>
 <body class="report-page">
@@ -211,10 +217,10 @@
         <div class="daily-chart-wrap">
             <h2>Daily Practice Minutes</h2>
             <div class="daily-legend">
-                <span><span class="legend-dot dot-reading"></span>Reading</span>
+                <span><span class="legend-dot dot-reading"></span>Characters</span>
                 <span><span class="legend-dot dot-math"></span>Math</span>
                 <span><span class="legend-dot dot-writing"></span>Writing</span>
-                <span><span class="legend-dot dot-lesson-reading"></span>Lesson Reading</span>
+                <span><span class="legend-dot dot-lesson-reading"></span>Reading</span>
             </div>
             <div id="dailyChartBody"></div>
         </div>

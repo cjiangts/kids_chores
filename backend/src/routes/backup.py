@@ -62,6 +62,26 @@ def _current_family_id():
     return str(session.get('family_id') or '')
 
 
+def _require_critical_password():
+    """Require family password confirmation for critical backup operations."""
+    family_id = _current_family_id()
+    if not family_id:
+        return jsonify({'error': 'Family login required'}), 401
+
+    password = str(request.headers.get('X-Confirm-Password') or '')
+    if not password:
+        password = str(request.form.get('confirmPassword') or '')
+    if not password:
+        json_data = request.get_json(silent=True)
+        if isinstance(json_data, dict):
+            password = str(json_data.get('confirmPassword') or '')
+    if not password:
+        return jsonify({'error': 'Password confirmation required'}), 400
+    if not metadata.verify_family_password(family_id, password):
+        return jsonify({'error': 'Invalid password'}), 403
+    return None
+
+
 def _family_audio_dir(kid):
     family_id = str(kid.get('familyId') or '')
     kid_id = kid.get('id')
@@ -158,6 +178,9 @@ def download_backup():
 def restore_backup():
     """Restore current family data from family-scoped backup zip."""
     try:
+        auth_err = _require_critical_password()
+        if auth_err:
+            return auth_err
         family_id = _current_family_id()
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401

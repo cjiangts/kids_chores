@@ -41,6 +41,13 @@ let recordedBlob = null;
 let recordedUploadFileName = 'prompt.webm';
 let recordedPreviewUrl = null;
 let autoPlayRecordedCardId = null;
+let recordingStartedAtMs = 0;
+let recordingAudioContext = null;
+let recordingSourceNode = null;
+let recordingAnalyserNode = null;
+let recordingWaveBuffer = null;
+let recordingFrameId = null;
+let recordingWaveCardId = null;
 
 function escapeAttr(value) {
     return String(value || '')
@@ -83,6 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     cardSearchInput.addEventListener('input', () => resetAndDisplayCards(currentCards));
     cardsGrid.addEventListener('click', handleCardsGridClick);
     window.addEventListener('scroll', () => maybeLoadMoreCards());
+    window.addEventListener('resize', () => fitRecordingCanvas());
 
     createSheetBtn.addEventListener('click', async () => createAndPrintSheet());
     viewSheetsBtn.addEventListener('click', () => viewSheets());
@@ -259,6 +267,7 @@ async function startRecordingForCard(cardId) {
 
         mediaStream = stream;
         mediaRecorder = recorder;
+        recordingStartedAtMs = startedAt;
         recordedBlob = null;
         if (recordedPreviewUrl) {
             URL.revokeObjectURL(recordedPreviewUrl);
@@ -300,8 +309,10 @@ async function startRecordingForCard(cardId) {
             }
 
             isRecordTransitioning = false;
+            stopRecordingVisualizer();
             mediaRecorder = null;
             recordingCardId = null;
+            recordingStartedAtMs = 0;
             if (mediaStream === stream) {
                 mediaStream.getTracks().forEach((track) => track.stop());
                 mediaStream = null;
@@ -311,8 +322,10 @@ async function startRecordingForCard(cardId) {
 
         recorder.onerror = () => {
             isRecordTransitioning = false;
+            stopRecordingVisualizer();
             mediaRecorder = null;
             recordingCardId = null;
+            recordingStartedAtMs = 0;
             if (mediaStream === stream) {
                 mediaStream.getTracks().forEach((track) => track.stop());
                 mediaStream = null;
@@ -322,12 +335,15 @@ async function startRecordingForCard(cardId) {
         };
 
         recorder.start(200);
+        startRecordingVisualizer(stream, String(cardId));
         isRecordTransitioning = false;
         displayCards(currentCards);
     } catch (error) {
         console.error('Error starting recording:', error);
         isRecordTransitioning = false;
+        stopRecordingVisualizer();
         recordingCardId = null;
+        recordingStartedAtMs = 0;
         mediaRecorder = null;
         if (mediaStream) {
             mediaStream.getTracks().forEach((track) => track.stop());
@@ -349,6 +365,141 @@ function stopRecording() {
         // best effort
     }
     mediaRecorder.stop();
+}
+
+function startRecordingVisualizer(stream, cardId) {
+    stopRecordingVisualizer();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx || !stream || !cardId) {
+        return;
+    }
+
+    try {
+        recordingAudioContext = new AudioCtx();
+        recordingSourceNode = recordingAudioContext.createMediaStreamSource(stream);
+        recordingAnalyserNode = recordingAudioContext.createAnalyser();
+        recordingAnalyserNode.fftSize = 1024;
+        recordingAnalyserNode.smoothingTimeConstant = 0.86;
+        recordingWaveBuffer = new Uint8Array(recordingAnalyserNode.fftSize);
+        recordingSourceNode.connect(recordingAnalyserNode);
+        recordingWaveCardId = String(cardId);
+        drawRecordingWave();
+    } catch (error) {
+        stopRecordingVisualizer();
+    }
+}
+
+function stopRecordingVisualizer() {
+    if (recordingFrameId) {
+        cancelAnimationFrame(recordingFrameId);
+        recordingFrameId = null;
+    }
+    if (recordingSourceNode) {
+        try {
+            recordingSourceNode.disconnect();
+        } catch (error) {
+            // no-op
+        }
+        recordingSourceNode = null;
+    }
+    if (recordingAnalyserNode) {
+        try {
+            recordingAnalyserNode.disconnect();
+        } catch (error) {
+            // no-op
+        }
+        recordingAnalyserNode = null;
+    }
+    if (recordingAudioContext) {
+        recordingAudioContext.close().catch(() => {});
+        recordingAudioContext = null;
+    }
+    recordingWaveBuffer = null;
+    recordingWaveCardId = null;
+}
+
+function fitRecordingCanvas(canvasEl) {
+    if (canvasEl && typeof canvasEl.getBoundingClientRect !== 'function') {
+        canvasEl = null;
+    }
+    const target = canvasEl || (recordingWaveCardId ? cardsGrid.querySelector(`[data-recording-wave="${recordingWaveCardId}"]`) : null);
+    if (!target) {
+        return;
+    }
+    const rect = target.getBoundingClientRect();
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const targetWidth = Math.max(1, Math.round(rect.width * dpr));
+    const targetHeight = Math.max(1, Math.round(rect.height * dpr));
+    if (target.width !== targetWidth || target.height !== targetHeight) {
+        target.width = targetWidth;
+        target.height = targetHeight;
+    }
+}
+
+function drawRecordingWave() {
+    if (!recordingAnalyserNode || !recordingWaveBuffer || !recordingWaveCardId) {
+        return;
+    }
+
+    const canvas = cardsGrid.querySelector(`[data-recording-wave="${recordingWaveCardId}"]`);
+    if (!canvas) {
+        recordingFrameId = requestAnimationFrame(drawRecordingWave);
+        return;
+    }
+    fitRecordingCanvas(canvas);
+    recordingAnalyserNode.getByteTimeDomainData(recordingWaveBuffer);
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerY = height / 2;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = '#f2b9b9';
+    ctx.lineWidth = Math.max(1, Math.round(height * 0.025));
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(width, centerY);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#d63636';
+    ctx.lineWidth = Math.max(1.5, Math.round(height * 0.05));
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+
+    const sliceWidth = width / Math.max(1, recordingWaveBuffer.length - 1);
+    for (let i = 0; i < recordingWaveBuffer.length; i += 1) {
+        const normalized = (recordingWaveBuffer[i] - 128) / 128;
+        const y = centerY + normalized * (height * 0.34);
+        const x = i * sliceWidth;
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    }
+    ctx.stroke();
+
+    const statusEl = cardsGrid.querySelector(`[data-recording-status="${recordingWaveCardId}"]`);
+    if (statusEl && recordingStartedAtMs > 0) {
+        statusEl.textContent = `Recording... ${formatElapsed(Date.now() - recordingStartedAtMs)}`;
+    }
+
+    const stillRecording = !!(mediaRecorder && mediaRecorder.state === 'recording');
+    if (stillRecording) {
+        recordingFrameId = requestAnimationFrame(drawRecordingWave);
+    }
+}
+
+function formatElapsed(ms) {
+    const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes)}:${String(seconds).padStart(2, '0')}`;
 }
 
 async function saveRecordingToCard(cardId) {
@@ -503,17 +654,19 @@ function viewSheets() {
 }
 
 async function deleteWritingCard(cardId) {
-    if (!confirm('Are you sure you want to delete this Chinese writing card?')) {
-        return;
-    }
-
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards/${cardId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            'deleting this Chinese writing card',
+            (password) => fetch(`${API_BASE}/kids/${kidId}/writing/cards/${cardId}`, {
+                method: 'DELETE',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+            })
+        );
+        if (result.cancelled) {
+            return;
+        }
+        if (!result.ok) {
+            throw new Error(result.error || 'Failed to delete Chinese writing card.');
         }
 
         if (String(recordedForCardId || '') === String(cardId)) {
@@ -522,7 +675,7 @@ async function deleteWritingCard(cardId) {
         await loadWritingCards();
     } catch (error) {
         console.error('Error deleting writing card:', error);
-        showError('Failed to delete Chinese writing card');
+        showError(error.message || 'Failed to delete Chinese writing card');
     }
 }
 
@@ -605,6 +758,15 @@ function displayCards(cards) {
                             >Save</button>
                         `}
                     </div>
+                    ${isCardRecording ? `
+                        <div class="recording-viz">
+                            <div class="recording-viz-header">
+                                <span class="recording-dot"></span>
+                                <span data-recording-status="${escapeAttr(card.id)}">Recording...</span>
+                            </div>
+                            <canvas class="recording-wave" data-recording-wave="${escapeAttr(card.id)}"></canvas>
+                        </div>
+                    ` : ''}
                 </div>
                 ${card.audio_url ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">No audio yet</div>'}
                 <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>

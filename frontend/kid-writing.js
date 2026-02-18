@@ -112,6 +112,7 @@ function resetToStartScreen() {
     sessionInfo.textContent = `Session: ${target} cards`;
 
     sessionCards = [];
+    window.PracticeSession.clearSessionStart(activePendingSessionId);
     activePendingSessionId = null;
     currentIndex = 0;
     rightCount = 0;
@@ -128,6 +129,7 @@ async function startSession() {
     try {
         showError('');
         primeAudioForAutoplay();
+        const clientSessionStartMs = Date.now();
         const response = await fetch(`${API_BASE}/kids/${kidId}/writing/practice/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -140,6 +142,7 @@ async function startSession() {
 
         const data = await response.json();
         activePendingSessionId = data.pending_session_id || null;
+        window.PracticeSession.markSessionStarted(activePendingSessionId, clientSessionStartMs);
         sessionCards = shuffleSessionCards(data.cards || []);
 
         if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
@@ -355,6 +358,7 @@ async function endSession() {
         console.error('Error completing writing session:', error);
         showError('Failed to save session results');
     }
+    window.PracticeSession.clearSessionStart(activePendingSessionId);
 
     await loadKidInfo();
     clearAudioBlobCache();

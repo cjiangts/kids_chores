@@ -49,7 +49,7 @@
 
         .detail-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 0.9rem;
         }
 
@@ -110,6 +110,58 @@
             height: 30px;
         }
 
+        .grade-row {
+            margin-top: 0.45rem;
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        .grade-btn {
+            border: 1px solid #d5dcee;
+            border-radius: 999px;
+            background: #fff;
+            color: #2f3c7e;
+            font-size: 0.76rem;
+            padding: 0.2rem 0.62rem;
+            cursor: pointer;
+        }
+
+        .grade-btn.active-pass {
+            background: #4cb780;
+            border-color: #4cb780;
+            color: #fff;
+        }
+
+        .grade-btn.active-fail {
+            background: #d95b5b;
+            border-color: #d95b5b;
+            color: #fff;
+        }
+
+        .grade-note {
+            font-size: 0.74rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+
+        .grade-status {
+            margin-top: 0.45rem;
+            display: inline-block;
+            font-size: 0.76rem;
+            border-radius: 999px;
+            padding: 0.2rem 0.62rem;
+            color: #fff;
+        }
+
+        .grade-status.pass {
+            background: #4cb780;
+        }
+
+        .grade-status.fail {
+            background: #d95b5b;
+        }
+
         @media (max-width: 760px) {
             .detail-grid { grid-template-columns: 1fr; }
         }
@@ -127,11 +179,6 @@
 
         <div class="detail-grid">
             <section class="detail-card">
-                <h2 id="wrongTitle">Wrong Cards</h2>
-                <div id="wrongList"></div>
-            </section>
-            <section class="detail-card">
-                <h2 id="rightTitle">Right Cards</h2>
                 <div id="rightList"></div>
             </section>
         </div>

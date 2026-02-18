@@ -213,12 +213,14 @@
                     </div>
 
                     <div class="controls">
-                        <div class="pause-row">
-                            <button class="control-btn knew-btn" onclick="revealAnswer()" id="knewBtn">I knew it</button>
-                        </div>
-                        <div class="answer-row hidden" id="judgeRow">
-                            <button class="control-btn dont-know-btn" onclick="answerCurrentCard(false)" id="wrongBtn" disabled>Wrong</button>
-                            <button class="control-btn know-btn" onclick="answerCurrentCard(true)" id="rightBtn" disabled>Right</button>
+                        <div class="session-action-slot">
+                            <div class="session-action-layer" id="knewRow">
+                                <button class="control-btn knew-btn session-action-btn session-single-btn" onclick="revealAnswer()" id="knewBtn">I knew it</button>
+                            </div>
+                            <div class="session-action-layer hidden" id="judgeRow">
+                                <button class="control-btn dont-know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(false)" id="wrongBtn" disabled>Wrong</button>
+                                <button class="control-btn know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(true)" id="rightBtn" disabled>Right</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -227,7 +229,7 @@
                     <div class="flashcard" style="cursor: default;">
                         <h2 class="session-title">Session Complete</h2>
                         <p id="resultSummary" class="progress"></p>
-                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn" style="text-decoration: none; display: inline-block;">← Go Back</a>
+                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn result-back-btn">Back to my chores</a>
                     </div>
                 </div>
             </div>

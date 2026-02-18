@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lesson Reading Practice - Learning App</title>
+    <title>Chinese Reading Practice - Learning App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -113,17 +113,93 @@
             background: #c82333;
         }
 
+        .review-controls {
+            gap: 0.65rem;
+        }
+
+        .replay-btn {
+            background: #2d7ef7;
+        }
+
+        .replay-btn:hover { background: #1f6ce0; }
+
+        .rerecord-btn {
+            background: #6c757d;
+        }
+
+        .rerecord-btn:hover { background: #5a6268; }
+
+        .continue-btn {
+            background: #2f9e44;
+        }
+
+        .continue-btn:hover { background: #248337; }
+
+        .review-audio {
+            width: 100%;
+            max-width: 520px;
+            margin: 0.75rem auto 0.9rem;
+            display: block;
+        }
+
+        .reading-review-btn {
+            min-width: 130px;
+        }
+
         .result-note {
             margin-top: 0.75rem;
             color: #555;
             font-size: 0.95rem;
+        }
+
+        .recording-viz {
+            margin: 1rem auto 0;
+            max-width: 520px;
+            width: 100%;
+            background: #fff6f6;
+            border: 1px solid #ffd7d7;
+            border-radius: 12px;
+            padding: 0.55rem 0.75rem 0.7rem;
+        }
+
+        .recording-viz-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #b12a2a;
+            font-size: 0.92rem;
+            font-weight: 700;
+            margin-bottom: 0.45rem;
+        }
+
+        .recording-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e53935;
+            animation: recPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes recPulse {
+            0% { transform: scale(0.85); opacity: 0.55; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(0.85); opacity: 0.55; }
+        }
+
+        .recording-wave {
+            display: block;
+            width: 100%;
+            height: 70px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #ffdede;
         }
     </style>
 </head>
 <body class="practice-page">
     <div class="container">
         <div class="header">
-            <h1 id="kidName">Lesson Reading Practice</h1>
+            <h1 id="kidName">Chinese Reading Practice</h1>
             <a id="backToPractice" href="/kid.html" class="back-btn">← Back</a>
         </div>
 
@@ -133,7 +209,7 @@
             <div id="practiceSection" class="hidden">
                 <div id="startScreen">
                     <div class="flashcard" style="cursor: default;">
-                        <h2 class="session-title">Ready for lesson reading?</h2>
+                        <h2 class="session-title">Ready for chinese reading?</h2>
                         <p id="sessionInfo" class="session-info">Session: 0 cards</p>
                         <button class="control-btn start-btn" onclick="startSession()">Start</button>
                     </div>
@@ -150,11 +226,28 @@
                     <div id="flashcard" class="flashcard">
                         <div class="card-title" id="cardTitle">课文标题</div>
                         <div class="card-page" id="cardPage">Page 1</div>
+                        <div id="recordingViz" class="recording-viz hidden" aria-live="polite">
+                            <div class="recording-viz-header">
+                                <span class="recording-dot"></span>
+                                <span id="recordingStatusText">Recording...</span>
+                            </div>
+                            <canvas id="recordingWave" class="recording-wave"></canvas>
+                        </div>
                     </div>
 
                     <div class="controls">
-                        <button class="control-btn record-btn" id="recordBtn" onclick="toggleRecord()">Start Recording</button>
+                        <div class="session-action-slot">
+                            <div class="session-action-layer" id="recordRow">
+                                <button class="control-btn record-btn session-action-btn session-single-btn" id="recordBtn" onclick="toggleRecord()">Start Recording</button>
+                            </div>
+                            <div id="reviewControls" class="session-action-layer review-controls hidden">
+                                <button class="control-btn replay-btn session-action-btn reading-review-btn" id="replayBtn" onclick="replayRecording()">Replay</button>
+                                <button class="control-btn rerecord-btn session-action-btn reading-review-btn" id="rerecordBtn" onclick="reRecordCurrentCard()">Re-record</button>
+                                <button class="control-btn continue-btn session-action-btn reading-review-btn" id="continueBtn" onclick="confirmAndNext()">Continue</button>
+                            </div>
+                        </div>
                     </div>
+                    <audio id="reviewAudio" class="review-audio hidden" controls preload="none"></audio>
                 </div>
 
                 <div id="resultScreen" class="hidden">
@@ -162,7 +255,7 @@
                         <h2 class="session-title">Session Complete</h2>
                         <p id="resultSummary" class="session-info"></p>
                         <p class="result-note">Great practice. You can start another session any time.</p>
-                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn" style="text-decoration: none; display: inline-block;">← Go Back</a>
+                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn result-back-btn">Back to my chores</a>
                     </div>
                 </div>
             </div>

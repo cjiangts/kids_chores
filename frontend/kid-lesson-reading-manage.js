@@ -107,7 +107,7 @@ async function loadKidInfo() {
         }
 
         currentKid = await response.json();
-        kidNameEl.textContent = `${currentKid.name}'s Lesson Reading`;
+        kidNameEl.textContent = `${currentKid.name}'s Chinese Reading`;
 
         Object.keys(DECK_META).forEach((deckKey) => {
             const meta = DECK_META[deckKey];
@@ -158,7 +158,7 @@ async function saveSessionSettings() {
         renderDeckTabs();
         await loadCards();
     } catch (error) {
-        console.error('Error saving lesson reading settings:', error);
+        console.error('Error saving chinese reading settings:', error);
         showError('Failed to save practice settings');
     }
 }
@@ -184,8 +184,8 @@ async function loadCards() {
         deckTotalInfo.textContent = `Active cards in this deck: ${activeCount} (Skipped: ${skippedCount})`;
         resetAndDisplayCards(currentCards);
     } catch (error) {
-        console.error('Error loading lesson reading cards:', error);
-        showError('Failed to load lesson reading cards');
+        console.error('Error loading chinese reading cards:', error);
+        showError('Failed to load chinese reading cards');
     }
 }
 
@@ -199,7 +199,9 @@ function displayCards(cards) {
     }
 
     const visibleCards = sortedCards.slice(0, visibleCardCount);
-    cardsGrid.innerHTML = visibleCards.map((card) => `
+    cardsGrid.innerHTML = visibleCards.map((card) => {
+        const frontParts = splitLessonFront(card.front);
+        return `
         <div class="card-item ${card.skip_practice ? 'skipped' : ''}">
             <button
                 type="button"
@@ -210,11 +212,10 @@ function displayCards(cards) {
                 title="${card.skip_practice ? 'Turn skip off for this card' : 'Mark this card as skipped'}"
                 aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
             >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
-            <div class="card-front">${escapeHtml(card.front)}</div>
+            ${frontParts.week ? `<div style="margin-bottom: 4px; color: #888; font-size: 0.8rem;">${escapeHtml(frontParts.week)}</div>` : ''}
+            <div class="card-front">${escapeHtml(frontParts.title)}</div>
             <div class="card-back">Page ${escapeHtml(card.back)}</div>
             ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
-            <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
-            <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
             <a
@@ -222,7 +223,23 @@ function displayCards(cards) {
                 href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(card.id)}&from=lesson-reading"
             >Report</a>
         </div>
-    `).join('');
+    `;
+    }).join('');
+}
+
+function splitLessonFront(rawFront) {
+    const text = String(rawFront || '').trim();
+    if (!text) {
+        return { week: '', title: '' };
+    }
+    const tokens = text.split(/\s+/).map((v) => v.trim()).filter(Boolean);
+    if (tokens.length >= 2) {
+        const week = tokens[0].replace(/[：:、，,]+$/g, '');
+        if (/^第[一二三四五六七八九十百千0-9]+周$/.test(week)) {
+            return { week, title: tokens.slice(1).join(' ') };
+        }
+    }
+    return { week: '', title: text };
 }
 
 
@@ -270,7 +287,7 @@ async function handleCardsGridClick(event) {
         actionBtn.disabled = true;
         await updateCardSkip(cardId, targetSkipped);
     } catch (error) {
-        console.error('Error updating lesson reading card skip:', error);
+        console.error('Error updating chinese reading card skip:', error);
         showError('Failed to update skip status');
     } finally {
         actionBtn.disabled = false;

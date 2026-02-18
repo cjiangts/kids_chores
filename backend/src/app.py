@@ -11,6 +11,10 @@ from src.routes.kids import (
     seed_lesson_reading_decks_for_all_kids,
     refresh_writing_hardness_for_all_kids,
     cleanup_incomplete_sessions_for_all_kids,
+    backfill_session_started_at_from_response_totals_for_all_kids,
+    ensure_session_results_correct_int_for_all_kids,
+    ensure_lesson_reading_audio_table_no_fk_for_all_kids,
+    ensure_id_sequences_synced_for_all_kids,
 )
 from src.routes.backup import backup_bp
 from src.db import metadata
@@ -54,11 +58,37 @@ def create_app():
     )
     incomplete_cleanup = cleanup_incomplete_sessions_for_all_kids()
     app.logger.info(
-        'Incomplete session cleanup at startup: cleanedKids=%s, failedKids=%s, deletedSessions=%s, deletedResults=%s',
+        'Incomplete session cleanup at startup: cleanedKids=%s, failedKids=%s, deletedSessions=%s, deletedResults=%s, deletedLessonReadingAudio=%s',
         incomplete_cleanup.get('cleanedKids', 0),
         incomplete_cleanup.get('failedKids', 0),
         incomplete_cleanup.get('deletedSessions', 0),
         incomplete_cleanup.get('deletedResults', 0),
+        incomplete_cleanup.get('deletedLessonReadingAudio', 0),
+    )
+    started_at_backfill = backfill_session_started_at_from_response_totals_for_all_kids()
+    app.logger.info(
+        'Session started_at backfill at startup: fixedKids=%s, failedKids=%s, updatedSessions=%s',
+        started_at_backfill.get('fixedKids', 0),
+        started_at_backfill.get('failedKids', 0),
+        started_at_backfill.get('updatedSessions', 0),
+    )
+    grading_columns_migration = ensure_session_results_correct_int_for_all_kids()
+    app.logger.info(
+        'Session correct-int migration at startup: updatedKids=%s, failedKids=%s',
+        grading_columns_migration.get('updatedKids', 0),
+        grading_columns_migration.get('failedKids', 0),
+    )
+    lesson_audio_fk_migration = ensure_lesson_reading_audio_table_no_fk_for_all_kids()
+    app.logger.info(
+        'Lesson-reading-audio FK migration at startup: updatedKids=%s, failedKids=%s',
+        lesson_audio_fk_migration.get('updatedKids', 0),
+        lesson_audio_fk_migration.get('failedKids', 0),
+    )
+    sequence_sync = ensure_id_sequences_synced_for_all_kids()
+    app.logger.info(
+        'ID sequence sync at startup: updatedKids=%s, failedKids=%s',
+        sequence_sync.get('updatedKids', 0),
+        sequence_sync.get('failedKids', 0),
     )
 
     def is_family_authenticated():
@@ -70,8 +100,6 @@ def create_app():
     def require_parent_auth():
         if not is_family_authenticated():
             return {'error': 'Family login required'}, 401
-        if not is_parent_authenticated():
-            return {'error': 'Parent login required'}, 401
         return None
 
     def is_parent_page(path):
@@ -123,14 +151,8 @@ def create_app():
         if path.startswith('/api/parent-auth/'):
             return None
 
-        if path.startswith('/api/backup/') and not is_parent_authenticated():
-            return jsonify({'error': 'Parent login required'}), 401
-
-        if is_parent_page(path) and not is_parent_authenticated():
-            next_path = request.full_path if request.query_string else request.path
-            if next_path.endswith('?'):
-                next_path = next_path[:-1]
-            return redirect(f"/parent-login.html?next={quote(next_path)}")
+        if is_parent_page(path):
+            return None
         return None
 
     # Register blueprints
@@ -183,27 +205,16 @@ def create_app():
     def parent_auth_status():
         if not is_family_authenticated():
             return {'authenticated': False}, 200
-        return {'authenticated': is_parent_authenticated()}, 200
+        return {'authenticated': True}, 200
 
     @app.route('/api/parent-auth/login', methods=['POST'])
     def parent_auth_login():
         if not is_family_authenticated():
             return {'error': 'Family login required'}, 401
-        payload = request.get_json() or {}
-        password = str(payload.get('password') or '')
-        family_id = session.get('family_id')
-        family = metadata.get_family_by_id(family_id) if family_id else None
-        if not family:
-            return {'error': 'Family not found'}, 401
-        if not metadata.authenticate_family(family.get('username', ''), password):
-            return {'error': 'Invalid password'}, 401
-
-        session['parent_authenticated'] = True
         return {'authenticated': True}, 200
 
     @app.route('/api/parent-auth/logout', methods=['POST'])
     def parent_auth_logout():
-        session.pop('parent_authenticated', None)
         return {'authenticated': False}, 200
 
     @app.route('/api/parent-auth/change-password', methods=['POST'])

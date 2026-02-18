@@ -21,6 +21,7 @@ const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const passwordError = document.getElementById('passwordError');
 const passwordSuccess = document.getElementById('passwordSuccess');
+let pendingRestorePassword = null;
 const DEFAULT_FAMILY_TIMEZONE = 'America/New_York';
 const COMMON_TIMEZONES = [
     'America/New_York',
@@ -54,10 +55,16 @@ downloadBackupBtn.addEventListener('click', async () => {
     await downloadBackup();
 });
 
-restoreBackupBtn.addEventListener('click', () => {
-    if (confirm('Warning: Restoring a backup will replace ALL current family data. Continue?')) {
-        backupFileInput.click();
+restoreBackupBtn.addEventListener('click', async () => {
+    const password = await promptPasswordOnce(
+        'restoring backup',
+        'Warning: Restoring a backup will replace ALL current family data.'
+    );
+    if (!password) {
+        return;
     }
+    pendingRestorePassword = password;
+    backupFileInput.click();
 });
 
 saveHardCardBtn.addEventListener('click', async () => {
@@ -71,9 +78,17 @@ saveTimezoneBtn.addEventListener('click', async () => {
 backupFileInput.addEventListener('change', async (event) => {
     const file = event.target.files[0];
     if (!file) {
+        pendingRestorePassword = null;
         return;
     }
-    await restoreBackup(file);
+    const password = pendingRestorePassword;
+    pendingRestorePassword = null;
+    if (!password) {
+        showError('Password confirmation required.');
+        backupFileInput.value = '';
+        return;
+    }
+    await restoreBackup(file, password);
 });
 
 async function loadHardCardSettings() {
@@ -288,24 +303,30 @@ async function downloadBackup() {
     }
 }
 
-async function restoreBackup(file) {
+async function restoreBackup(file, password) {
     try {
         showError('');
         showSuccess('');
         restoreBackupBtn.disabled = true;
         restoreBackupBtn.textContent = 'Restoring...';
-
         const formData = new FormData();
         formData.append('backup', file);
-
+        formData.append('confirmPassword', password);
         const response = await fetch(`${API_BASE}/backup/restore`, {
             method: 'POST',
             body: formData,
         });
-
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
-            showError(result.error || 'Failed to restore backup.');
+            if (response.status === 400 || response.status === 403) {
+                if (window.PracticeManageCommon && typeof window.PracticeManageCommon._showPasswordMessageDialog === 'function') {
+                    await window.PracticeManageCommon._showPasswordMessageDialog('restoring backup', result.error || 'Invalid password');
+                } else {
+                    showError(result.error || 'Invalid password');
+                }
+            } else {
+                showError(result.error || 'Failed to restore backup.');
+            }
             backupFileInput.value = '';
             return;
         }
@@ -323,6 +344,27 @@ async function restoreBackup(file) {
         restoreBackupBtn.disabled = false;
         restoreBackupBtn.textContent = '⬆️ Restore Backup';
     }
+}
+
+async function promptPasswordOnce(actionLabel, warningMessage = '') {
+    if (!window.PracticeManageCommon || typeof window.PracticeManageCommon._showPasswordInputDialog !== 'function') {
+        showError('Password dialog is unavailable');
+        return null;
+    }
+    const inputResult = await window.PracticeManageCommon._showPasswordInputDialog(actionLabel, { warningMessage });
+    if (!inputResult || inputResult.cancelled) {
+        return null;
+    }
+    const password = String(inputResult.password || '').trim();
+    if (!password) {
+        if (typeof window.PracticeManageCommon._showPasswordMessageDialog === 'function') {
+            await window.PracticeManageCommon._showPasswordMessageDialog(actionLabel, 'Password is required.');
+        } else {
+            showError('Password is required.');
+        }
+        return null;
+    }
+    return password;
 }
 
 async function loadBackupInfo() {

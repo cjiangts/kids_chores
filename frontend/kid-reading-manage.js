@@ -227,23 +227,25 @@ function countChineseCharsBeforeDbDedup(text) {
 }
 
 async function deleteCard(cardId) {
-    if (!confirm('Are you sure you want to delete this card?')) {
-        return;
-    }
-
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/cards/${cardId}`, {
-            method: 'DELETE',
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            'deleting this card',
+            (password) => fetch(`${API_BASE}/kids/${kidId}/cards/${cardId}`, {
+                method: 'DELETE',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+            })
+        );
+        if (result.cancelled) {
+            return;
+        }
+        if (!result.ok) {
+            throw new Error(result.error || 'Failed to delete card.');
         }
 
         await loadCards();
     } catch (error) {
         console.error('Error deleting card:', error);
-        showError('Failed to delete card. Please try again.');
+        showError(error.message || 'Failed to delete card. Please try again.');
     }
 }
 

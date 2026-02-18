@@ -132,6 +132,7 @@ function resetToStartScreen() {
     const count = Math.min(Number.isInteger(readingSessionCount) ? readingSessionCount : 10, cards.length);
     sessionInfo.textContent = `Session: ${count} Chinese character cards`;
 
+    window.PracticeSession.clearSessionStart(activePendingSessionId);
     activePendingSessionId = null;
     sessionCards = [];
     currentSessionIndex = 0;
@@ -228,6 +229,7 @@ async function startSession() {
 
     try {
         showError('');
+        const clientSessionStartMs = Date.now();
 
         const response = await fetch(`${API_BASE}/kids/${kidId}/practice/start`, {
             method: 'POST',
@@ -243,6 +245,7 @@ async function startSession() {
 
         const data = await response.json();
         activePendingSessionId = data.pending_session_id || null;
+        window.PracticeSession.markSessionStarted(activePendingSessionId, clientSessionStartMs);
         sessionCards = shuffleSessionCards(data.cards || []);
 
         if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
@@ -366,6 +369,7 @@ async function endSession() {
         console.error('Error completing session:', error);
         showError('Failed to save session results');
     }
+    window.PracticeSession.clearSessionStart(activePendingSessionId);
 
     await loadKidInfo();
 }

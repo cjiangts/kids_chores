@@ -19,6 +19,7 @@ const cardQuestion = document.getElementById('cardQuestion');
 const cardAnswer = document.getElementById('cardAnswer');
 const pauseMask = document.getElementById('pauseMask');
 const knewBtn = document.getElementById('knewBtn');
+const knewRow = document.getElementById('knewRow');
 const judgeRow = document.getElementById('judgeRow');
 const wrongBtn = document.getElementById('wrongBtn');
 const rightBtn = document.getElementById('rightBtn');
@@ -120,6 +121,7 @@ function resetToStartScreen(totalCards) {
     sessionInfo.textContent = `Session: ${target} questions`;
 
     sessionCards = [];
+    window.PracticeSession.clearSessionStart(activePendingSessionId);
     activePendingSessionId = null;
     currentIndex = 0;
     rightCount = 0;
@@ -134,6 +136,7 @@ function resetToStartScreen(totalCards) {
 async function startSession() {
     try {
         showError('');
+        const clientSessionStartMs = Date.now();
         const response = await fetch(`${API_BASE}/kids/${kidId}/math/practice/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -146,6 +149,7 @@ async function startSession() {
 
         const data = await response.json();
         activePendingSessionId = data.pending_session_id || null;
+        window.PracticeSession.markSessionStarted(activePendingSessionId, clientSessionStartMs);
         sessionCards = shuffleSessionCards(data.cards || []);
 
         if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
@@ -192,7 +196,7 @@ function showCurrentQuestion() {
     answerRevealed = false;
     cardAnswer.classList.add('hidden');
     judgeRow.classList.add('hidden');
-    knewBtn.classList.remove('hidden');
+    knewRow.classList.remove('hidden');
     flashcard.classList.remove('revealed');
 
     cardShownAtMs = Date.now();
@@ -211,7 +215,7 @@ function revealAnswer() {
     answerRevealed = true;
     cardAnswer.classList.remove('hidden');
     flashcard.classList.add('revealed');
-    knewBtn.classList.add('hidden');
+    knewRow.classList.add('hidden');
     judgeRow.classList.remove('hidden');
 
     rightBtn.disabled = false;
@@ -302,6 +306,7 @@ async function endSession() {
         console.error('Error completing math session:', error);
         showError('Failed to save session results');
     }
+    window.PracticeSession.clearSessionStart(activePendingSessionId);
 
     await loadKidInfo();
 }

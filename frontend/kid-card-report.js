@@ -54,10 +54,10 @@ async function loadCardReport() {
         const attempts = Array.isArray(data.attempts) ? data.attempts : [];
         const summary = data.summary || {};
 
-        const cardLabel = String(card.back || card.front || `#${card.id || cardId}`).trim();
+        const cardLabel = getCardDisplayLabel(card.front, card.back, from) || `#${card.id || cardId}`;
         pageTitle.textContent = `${kidName} · Card ${cardLabel}`;
 
-        renderSummary(card, summary);
+        renderSummary(card, summary, attempts);
         renderTrend(attempts);
         renderHistory(attempts);
     } catch (error) {
@@ -82,20 +82,23 @@ async function loadReportTimezone() {
     }
 }
 
-function renderSummary(card, summary) {
-    const attempts = safeNum(summary.attempt_count);
+function renderSummary(card, summary, attempts) {
+    const attemptsCount = safeNum(summary.attempt_count);
     const right = safeNum(summary.right_count);
     const wrong = safeNum(summary.wrong_count);
-    const avgSeconds = Math.max(0, Number(summary.avg_response_ms) || 0) / 1000;
-    const accuracy = Math.max(0, Number(summary.accuracy_pct) || 0);
+    const bestMs = Array.isArray(attempts) && attempts.length > 0
+        ? attempts.reduce((best, item) => {
+            const value = Math.max(0, Number(item?.response_time_ms) || 0);
+            return value < best ? value : best;
+        }, Number.POSITIVE_INFINITY)
+        : Number.POSITIVE_INFINITY;
+    const bestTimeLabel = Number.isFinite(bestMs) ? formatResponseTime(bestMs) : '-';
 
     summaryGrid.innerHTML = `
-        <div class="summary-card"><div class="label">Card</div><div class="value">${escapeHtml(card.back || card.front || '-')}</div></div>
-        <div class="summary-card"><div class="label">Attempts</div><div class="value">${attempts}</div></div>
+        <div class="summary-card"><div class="label">Card</div><div class="value">${escapeHtml(getCardDisplayLabel(card.front, card.back, from) || '-')}</div></div>
+        <div class="summary-card"><div class="label">Attempts</div><div class="value">${attemptsCount}</div></div>
         <div class="summary-card"><div class="label">Right / Wrong</div><div class="value">${right} / ${wrong}</div></div>
-        <div class="summary-card"><div class="label">Accuracy</div><div class="value">${accuracy.toFixed(1)}%</div></div>
-        <div class="summary-card"><div class="label">Avg Time</div><div class="value">${avgSeconds.toFixed(2)}s</div></div>
-        <div class="summary-card"><div class="label">Hardness</div><div class="value">${Number(card.hardness_score || 0).toFixed(2)}</div></div>
+        <div class="summary-card"><div class="label">Best Time</div><div class="value">${bestTimeLabel}</div></div>
     `;
 }
 
@@ -110,7 +113,7 @@ function renderTrend(attempts) {
     const bars = attempts.map((item, index) => {
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
         const scaled = Math.max(minHeight, Math.round((rawMs / maxMs) * 170));
-        const label = `${(rawMs / 1000).toFixed(2)}s · ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}`;
+        const label = `${formatResponseTime(rawMs)} · ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}`;
         return `<div class="trend-bar ${item.correct ? 'right' : 'wrong'}" title="${escapeHtml(`#${index + 1} ${label}`)}" style="height:${scaled}px"></div>`;
     }).join('');
 
@@ -134,12 +137,12 @@ function renderHistory(attempts) {
 
     historyList.innerHTML = sorted.map((item) => {
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
-        const seconds = (rawMs / 1000).toFixed(2);
+        const responseTimeLabel = formatResponseTime(rawMs);
         const statusClass = item.correct ? 'right' : 'wrong';
         const statusText = item.correct ? 'Right' : 'Wrong';
         return `
             <div class="history-item">
-                ${formatType(item.session_type)} · ${seconds}s
+                ${formatType(item.session_type)} · ${responseTimeLabel}
                 <span class="pill ${statusClass}">${statusText}</span>
                 <div class="meta">
                     ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
@@ -151,12 +154,43 @@ function renderHistory(attempts) {
     }).join('');
 }
 
+function formatResponseTime(ms) {
+    const rawMs = Math.max(0, Number(ms) || 0);
+    if (from === 'lesson-reading') {
+        const totalSeconds = Math.floor(rawMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    }
+    return `${(rawMs / 1000).toFixed(2)}s`;
+}
+
 function formatType(type) {
     if (type === 'flashcard') return 'Chinese Characters';
     if (type === 'math') return 'Math';
     if (type === 'writing') return 'Chinese Writing';
-    if (type === 'lesson_reading') return 'Lesson Reading';
+    if (type === 'lesson_reading') return 'Chinese Reading';
     return String(type || '-');
+}
+
+function getCardDisplayLabel(front, back, source) {
+    const frontText = String(front || '').trim();
+    const backText = String(back || '').trim();
+
+    if (source === 'math') {
+        return frontText || backText;
+    }
+    if (source === 'lesson-reading') {
+        return frontText || backText;
+    }
+    if (source === 'reading') {
+        return frontText || backText;
+    }
+    if (source === 'writing') {
+        return backText || frontText;
+    }
+
+    return backText || frontText;
 }
 
 function formatDateTime(iso) {

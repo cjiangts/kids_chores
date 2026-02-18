@@ -85,23 +85,26 @@ async function createKid() {
 }
 
 async function deleteKid(kidId, kidName) {
-    if (!confirm(`Are you sure you want to delete ${kidName}? This will delete all their data.`)) {
-        return;
-    }
-
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}`, {
-            method: 'DELETE',
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            `deleting ${kidName}`,
+            (password) => fetch(`${API_BASE}/kids/${kidId}`, {
+                method: 'DELETE',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+            }),
+            { warningMessage: 'This will permanently delete this kid and all practice data.' }
+        );
+        if (result.cancelled) {
+            return;
+        }
+        if (!result.ok) {
+            throw new Error(result.error || 'Failed to delete kid.');
         }
 
         await loadKids();
     } catch (error) {
         console.error('Error deleting kid:', error);
-        showError('Failed to delete kid. Please try again.');
+        showError(error.message || 'Failed to delete kid. Please try again.');
     }
 }
 
@@ -152,7 +155,7 @@ function displayKids(kids) {
             enabledLines.push(`Math: ${mathStars > 0 ? '⭐'.repeat(mathStars) : '-'}`);
         }
         if (lessonReadingSessionCount > 0) {
-            enabledLines.push(`Lesson Reading: ${lessonReadingStars > 0 ? '⭐'.repeat(lessonReadingStars) : '-'}`);
+            enabledLines.push(`Chinese Reading: ${lessonReadingStars > 0 ? '⭐'.repeat(lessonReadingStars) : '-'}`);
         }
 
         const dailyPracticeBadge = enabledLines.length > 0

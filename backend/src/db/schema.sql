@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS session_results (
   id INTEGER PRIMARY KEY DEFAULT nextval('session_results_id_seq'),
   session_id INTEGER NOT NULL,
   card_id INTEGER,
-  correct BOOLEAN NOT NULL,
+  correct INTEGER NOT NULL,
   response_time_ms INTEGER,
   timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (session_id) REFERENCES sessions(id)
@@ -63,8 +63,7 @@ CREATE TABLE IF NOT EXISTS lesson_reading_audio (
   result_id INTEGER PRIMARY KEY,
   file_name VARCHAR NOT NULL,
   mime_type VARCHAR,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (result_id) REFERENCES session_results(id)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Cursor state for circular practice rotation by deck

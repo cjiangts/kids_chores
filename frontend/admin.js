@@ -9,7 +9,6 @@ const kidModal = document.getElementById('kidModal');
 const kidForm = document.getElementById('kidForm');
 const cancelBtn = document.getElementById('cancelBtn');
 const errorMessage = document.getElementById('errorMessage');
-const logoutBtn = document.getElementById('logoutBtn');
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -29,10 +28,6 @@ cancelBtn.addEventListener('click', () => {
 kidForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     await createKid();
-});
-
-logoutBtn.addEventListener('click', async () => {
-    await logoutParent();
 });
 
 // API Functions
@@ -92,37 +87,51 @@ async function createKid() {
 }
 
 async function deleteKid(kidId, kidName) {
-    if (!confirm(`Are you sure you want to delete ${kidName}? This will delete all their data.`)) {
-        return;
-    }
-
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}`, {
-            method: 'DELETE',
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            `deleting ${kidName}`,
+            (password) => fetch(`${API_BASE}/kids/${kidId}`, {
+                method: 'DELETE',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+            }),
+            { warningMessage: 'This will permanently delete this kid and all practice data.' }
+        );
+        if (result.cancelled) {
+            return;
+        }
+        if (!result.ok) {
+            throw new Error(result.error || 'Failed to delete kid.');
         }
 
         await loadKids();
     } catch (error) {
         console.error('Error deleting kid:', error);
-        showError('Failed to delete kid. Please try again.');
+        showError(error.message || 'Failed to delete kid. Please try again.');
     }
 }
 
-async function logoutParent() {
+async function goToLatestLessonReadingSession(kidId) {
     try {
-        await fetch(`${API_BASE}/parent-auth/logout`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
+        showError('');
+        const response = await fetch(`${API_BASE}/kids/${kidId}/report/lesson-reading/next-to-grade`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json().catch(() => ({}));
+        const targetSessionId = Number(data.session_id);
+        if (!Number.isFinite(targetSessionId) || targetSessionId <= 0) {
+            const latestSessionId = Number(data.latest_session_id);
+            if (Number.isFinite(latestSessionId) && latestSessionId > 0) {
+                showError('No Chinese Reading cards need grading right now.');
+            } else {
+                showError('No Chinese Reading session found yet for this kid.');
+            }
+            return;
+        }
+        window.location.href = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(targetSessionId)}`;
     } catch (error) {
-        // ignore and continue redirect
-    } finally {
-        window.location.href = '/';
+        console.error('Error opening latest Chinese Reading session:', error);
+        showError('Failed to open latest Chinese Reading session.');
     }
 }
 
@@ -162,7 +171,13 @@ function displayKids(kids) {
         const readingLabel = `📖 Chinese Characters (${safeReadingCount}/day)`;
         const writingLabel = `✍️ Chinese Writing (${safeWritingCount}/day)`;
         const mathLabel = `➗ Math (${safeMathCount}/day)`;
-        const lessonReadingLabel = `📚 Lesson Reading (${safeLessonReadingCount}/day)`;
+        const lessonReadingLabel = `📚 Chinese Reading (${safeLessonReadingCount}/day)`;
+        const showChineseReadingReviewBtn = Boolean(kid.hasChineseReadingToReview);
+        const reviewChineseReadingRow = showChineseReadingReviewBtn
+            ? `<div class="practice-config-row">
+                        <button class="tab-link review-reading-btn" onclick="goToLatestLessonReadingSession('${kid.id}')">🎧 Review Chinese Reading</button>
+                    </div>`
+            : '';
         return `
             <div class="kid-card">
                 <h3>${escapeHtml(kid.name)}</h3>
@@ -186,6 +201,7 @@ function displayKids(kids) {
                     <div class="practice-config-row">
                         <a class="tab-link report-btn" href="/kid-report.html?id=${kid.id}">📊 Report</a>
                     </div>
+                    ${reviewChineseReadingRow}
                 </div>
                 <button class="delete-btn" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">
                     🗑️ Delete

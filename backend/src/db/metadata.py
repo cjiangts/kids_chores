@@ -298,6 +298,20 @@ def authenticate_family(username: str, password: str) -> Optional[Dict]:
     return family
 
 
+def verify_family_password(family_id: str, password: str) -> bool:
+    """Verify a family's password by family id."""
+    family = get_family_by_id(str(family_id or ''))
+    if not family:
+        return False
+    stored_password = str(family.get('password') or '')
+    plain_input = str(password or '')
+    if not stored_password or not plain_input:
+        return False
+    if not _is_password_hashed(stored_password):
+        return False
+    return check_password_hash(stored_password, plain_input)
+
+
 def update_family_password(family_id: str, current_password: str, new_password: str) -> bool:
     """Update one family's password after validating current password."""
     family_id = str(family_id or '')

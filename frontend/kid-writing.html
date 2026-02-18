@@ -201,12 +201,14 @@
                     </div>
 
                     <div class="controls">
-                        <div class="answer-row" id="doneRow">
-                            <button class="control-btn done-btn" onclick="revealAnswer()" id="doneBtn">I'm done</button>
-                        </div>
-                        <div class="answer-row hidden" id="judgeRow">
-                            <button class="control-btn wrong-btn" onclick="answerCurrentCard(false)" id="wrongBtn">Wrong</button>
-                            <button class="control-btn right-btn" onclick="answerCurrentCard(true)" id="rightBtn">Right</button>
+                        <div class="session-action-slot">
+                            <div class="session-action-layer" id="doneRow">
+                                <button class="control-btn done-btn session-action-btn session-single-btn" onclick="revealAnswer()" id="doneBtn">I'm done</button>
+                            </div>
+                            <div class="session-action-layer hidden" id="judgeRow">
+                                <button class="control-btn wrong-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(false)" id="wrongBtn">Wrong</button>
+                                <button class="control-btn right-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(true)" id="rightBtn">Right</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -215,7 +217,7 @@
                     <div class="flashcard" style="cursor: default;">
                         <h2 class="session-title">Session Complete</h2>
                         <p id="resultSummary" class="progress"></p>
-                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn" style="text-decoration: none; display: inline-block;">← Go Back</a>
+                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn result-back-btn">Back to my chores</a>
                     </div>
                 </div>
             </div>

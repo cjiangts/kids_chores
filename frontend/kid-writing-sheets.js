@@ -25,7 +25,7 @@ async function loadKid() {
             throw new Error(`HTTP ${response.status}`);
         }
         const kid = await response.json();
-        kidNameEl.textContent = `${kid.name}'s Chinese Writing Sheets (Parent View)`;
+        kidNameEl.textContent = `${kid.name}'s Chinese Writing Sheets`;
     } catch (error) {
         console.error('Error loading kid:', error);
     }
@@ -107,23 +107,20 @@ async function markDone(sheetId) {
 }
 
 async function deleteSheet(sheetId) {
-    if (!confirm('Delete this practicing sheet? Its cards will return to testing.')) {
-        return;
-    }
-
     try {
         const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets/${sheetId}/withdraw`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
         });
+        const result = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            throw new Error(result.error || `HTTP ${response.status}`);
         }
         await loadSheets();
     } catch (error) {
         console.error('Error deleting sheet:', error);
-        showError('Failed to delete sheet');
+        showError(error.message || 'Failed to delete sheet');
     }
 }
 

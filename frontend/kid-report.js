@@ -86,13 +86,13 @@ function renderSummary(sessions) {
         <div class="summary-card"><div class="label">Chinese Characters</div><div class="value">${reading}</div><div class="label">${readingMinutes.toFixed(2)} min</div></div>
         <div class="summary-card"><div class="label">Math</div><div class="value">${math}</div><div class="label">${mathMinutes.toFixed(2)} min</div></div>
         <div class="summary-card"><div class="label">Chinese Writing</div><div class="value">${writing}</div><div class="label">${writingMinutes.toFixed(2)} min</div></div>
-        <div class="summary-card"><div class="label">Lesson Reading</div><div class="value">${lessonReading}</div><div class="label">${lessonReadingMinutes.toFixed(2)} min</div></div>
+        <div class="summary-card"><div class="label">Chinese Reading</div><div class="value">${lessonReading}</div><div class="label">${lessonReadingMinutes.toFixed(2)} min</div></div>
     `;
 }
 
 function renderTable(sessions) {
     if (sessions.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="10" style="color:#666;">No practice sessions yet.</td></tr>`;
+        reportBody.innerHTML = `<tr><td colspan="8" style="color:#666;">No practice sessions yet.</td></tr>`;
         return;
     }
 
@@ -153,7 +153,7 @@ function renderDailyMinutesChart(sessions) {
                     <div class="daily-seg-writing" style="width:${writingPct.toFixed(2)}%"></div>
                     <div class="daily-seg-lesson-reading" style="width:${lessonReadingPct.toFixed(2)}%"></div>
                 </div>
-                <div class="daily-values">R ${row.reading.toFixed(2)} · M ${row.math.toFixed(2)} · W ${row.writing.toFixed(2)} · L ${row.lessonReading.toFixed(2)} · T ${row.total.toFixed(2)}</div>
+                <div class="daily-values">C ${row.reading.toFixed(2)} · M ${row.math.toFixed(2)} · W ${row.writing.toFixed(2)} · R ${row.lessonReading.toFixed(2)} · T ${row.total.toFixed(2)}</div>
             </div>
         `;
     }).join('');
@@ -170,7 +170,7 @@ function renderType(type) {
         return '<span class="type-pill type-writing">Chinese Writing</span>';
     }
     if (type === 'lesson_reading') {
-        return '<span class="type-pill type-reading">Lesson Reading</span>';
+        return '<span class="type-pill type-lesson-reading">Chinese Reading</span>';
     }
     return '<span class="type-pill">Unknown</span>';
 }
@@ -233,12 +233,10 @@ function getSessionDurationMinutes(session) {
     if (!session || typeof session !== 'object') return 0;
     const start = parseUtcTimestamp(session.started_at);
     const end = parseUtcTimestamp(session.completed_at);
-    const wallClockMinutes = (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()))
-        ? Math.max(0, (end.getTime() - start.getTime()) / 60000)
-        : 0;
-    const responseMs = Math.max(0, Number(session.total_response_ms) || 0);
-    const responseMinutes = responseMs / 60000;
-    return Math.max(wallClockMinutes, responseMinutes);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return 0;
+    }
+    return Math.max(0, (end.getTime() - start.getTime()) / 60000);
 }
 
 function showError(message) {

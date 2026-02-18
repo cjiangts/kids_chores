@@ -1,6 +1,7 @@
 """Kid management API routes"""
 from flask import Blueprint, request, jsonify, send_from_directory, session
 from datetime import datetime, timedelta, timezone
+import json
 import os
 import shutil
 import uuid
@@ -78,51 +79,121 @@ MATH_DECK_CONFIGS = {
 
 LESSON_READING_DECK_CONFIGS = {
     'ma3Unit1': {
-        'name': 'Lesson Reading Ma3 Unit 1',
+        'name': 'Chinese Reading Ma3 Unit 1',
         'description': '马三 第一单元 课文读诵',
         'tags': ['lesson_reading', 'maliping', 'ma3', 'unit1'],
         'kid_field': 'lessonReadingDeckMa3Unit1Count',
         'default_count': DEFAULT_LESSON_READING_DECK_COUNT,
         'label': '马三 一单元',
         'cards': [
-            ('斧子和皮大衣', '6'), ('借笔', '7'), ('爬到屋顶上去', '8'),
-            ('夸孩子', '15'), ('萤火虫找朋友', '16'),
-            ('盘古开天地', '21'), ('画蛇添足', '22'), ('还好没有抓住鼻子', '23'),
-            ('夸父追日', '29'), ('小河流呀流', '30'),
-            ('称象', '32'), ('盲人摸象', '34'), ('称鼻子', '35'),
-            ('锯是怎样发明的', '36'), ('曾子杀猪', '38'), ('汤的汤', '39'),
-            ('狐假虎威', '40'), ('狐狸请客', '42'), ('三个和尚没水喝', '43'),
-            ('小马过河', '44'), ('谁也骗不了我', '46'), ('女娲补天', '47'),
+            ('第1周 《斧子和皮大衣》', '6'),
+            ('第1周 《借笔》', '7'),
+            ('第1周 《爬到屋顶上去》', '8'),
+            ('第2周 《夸孩子》', '15'),
+            ('第2周 《萤火虫找朋友》', '16'),
+            ('第3周 《盘古开天地》', '21'),
+            ('第3周 《画蛇添足》', '22'),
+            ('第3周 《还好没有抓住鼻子》', '23'),
+            ('第4周 《夸父追日》', '29'),
+            ('第4周 《小河流呀流》', '30'),
+            ('第5周 《称象》', '32'),
+            ('第5周 《盲人摸象》', '34'),
+            ('第5周 《称鼻子》', '35'),
+            ('第6周 《锯是怎样发明的》', '36'),
+            ('第6周 《曾子杀猪》', '38'),
+            ('第6周 《汤的汤》', '39'),
+            ('第7周 《狐假虎威》', '40'),
+            ('第7周 《狐狸请客》', '42'),
+            ('第7周 《三个和尚没水喝》', '43'),
+            ('第8周 《小马过河》', '44'),
+            ('第8周 《谁也骗不了我》', '46'),
+            ('第8周 《女娲补天》', '47'),
         ],
     },
     'ma3Unit2': {
-        'name': 'Lesson Reading Ma3 Unit 2',
+        'name': 'Chinese Reading Ma3 Unit 2',
         'description': '马三 第二单元 课文读诵',
         'tags': ['lesson_reading', 'maliping', 'ma3', 'unit2'],
         'kid_field': 'lessonReadingDeckMa3Unit2Count',
         'default_count': DEFAULT_LESSON_READING_DECK_COUNT,
         'label': '马三 二单元',
         'cards': [
-            ('公鸡蛋', '50'), ('女娲造人', '54'), ('叶公好龙', '55'), ('让水流走', '56'), ('狐狸分饼', '57'), ('能干的猫和母鸡', '58'), ('钱包的用处', '59'),
-            ('穷和尚和富和尚', '60'), ('太阳山', '64'), ('斧头和锯子', '65'), ('第三个包子', '66'), ('阿凡提借锅', '67'), ('曹冲救人（上）', '68'), ('曹冲救人（下）', '69'),
-            ('要是你在野外迷了路', '70'), ('自己害自己', '73'), ('方向不对', '74'), ('蘑菇长在哪里', '75'),
-            ('找骆驼', '76'), ('青蛙搬家', '79'), ('瞎子和跛子', '80'), ('什么叫做丢了东西', '81'),
-            ('岳飞学写字', '82'), ('猴子学样（上）', '86'), ('猴子学样（下）', '87'), ('“一”字长大了', '88'), ('后羿射日（上）', '89'), ('后羿射日（下）', '90'), ('五十步笑一百步', '91'),
+            ('第1周 《公鸡蛋》', '50'),
+            ('第1周 《女娲造人》', '54'),
+            ('第1周 《叶公好龙》', '55'),
+            ('第1周 《让水流走》', '56'),
+            ('第1周 《狐狸分饼》', '57'),
+            ('第1周 《能干的猫和母鸡》', '58'),
+            ('第1周 《钱包的用处》', '59'),
+            ('第2周 《穷和尚和富和尚》', '60'),
+            ('第2周 《太阳山》', '64'),
+            ('第2周 《斧头和锯子》', '65'),
+            ('第2周 《第三个包子》', '66'),
+            ('第2周 《阿凡提借锅》', '67'),
+            ('第2周 《曹冲救人（上）》', '68'),
+            ('第2周 《曹冲救人（下）》', '69'),
+            ('第3周 《要是你在野外迷了路》', '70'),
+            ('第3周 《自己害自己》', '73'),
+            ('第3周 《方向不对》', '74'),
+            ('第3周 《蘑菇长在哪里》', '75'),
+            ('第4周 《找骆驼》', '76'),
+            ('第4周 《青蛙搬家》', '79'),
+            ('第4周 《瞎子和跛子》', '80'),
+            ('第4周 《什么叫做丢了东西》', '81'),
+            ('第5周 《岳飞学写字》', '82'),
+            ('第5周 《猴子学样（上）》', '86'),
+            ('第5周 《猴子学样（下）》', '87'),
+            ('第5周 《“一”字长大了》', '88'),
+            ('第5周 《后羿射日（上）》', '89'),
+            ('第5周 《后羿射日（下）》', '90'),
+            ('第5周 《五十步笑一百步》', '91'),
         ],
     },
     'ma3Unit3': {
-        'name': 'Lesson Reading Ma3 Unit 3',
+        'name': 'Chinese Reading Ma3 Unit 3',
         'description': '马三 第三单元 课文读诵',
         'tags': ['lesson_reading', 'maliping', 'ma3', 'unit3'],
         'kid_field': 'lessonReadingDeckMa3Unit3Count',
         'default_count': DEFAULT_LESSON_READING_DECK_COUNT,
         'label': '马三 三单元',
         'cards': [
-            ('光阴一去不复返', '94'), ('我有两颗心', '98'), ('勇敢的心', '99'), ('借钥匙', '100'), ('一粒种子', '101'), ('太阳神炎帝（上）', '102'), ('太阳神炎帝（下）', '103'), ('爱惜雨伞／小闹钟', '104'), ('猴子和桃子', '105'),
-            ('爸爸的老师', '106'), ('时间老人的好办法', '110'), ('青蛙和牛', '111'), ('太阳和彩虹', '112'), ('捞月亮', '113'), ('西瓜在哪里', '114'), ('小花猫找汗', '115'), ('站起来跑得更快', '116'), ('小蝌蚪找妈妈（上）', '117'),
-            ('等一会儿再说', '118'), ('蚊子、狮子和蜘蛛', '120'), ('金银盾', '121'), ('前面也在下雨', '122'), ('小蝌蚪找妈妈（下）', '123'),
-            ('让我们荡起双桨', '124'), ('会动脑筋的孩子', '126'), ('自相矛盾', '127'), ('比光明', '128'), ('美丽的公鸡', '129'),
-            ('愚公移山', '130'), ('精卫填海', '134'), ('挤奶姑娘', '135'), ('下雨天', '136'), ('井底的青蛙', '137'), ('折筷子的故事', '138'), ('香味和声音', '139'), ('蜗牛的家', '140'), ('葡萄是酸的', '141'),
+            ('第1周 《光阴一去不复返》', '94'),
+            ('第1周 《我有两颗心》', '98'),
+            ('第1周 《勇敢的心》', '99'),
+            ('第1周 《借钥匙》', '100'),
+            ('第1周 《一粒种子》', '101'),
+            ('第1周 《太阳神炎帝（上）》', '102'),
+            ('第1周 《太阳神炎帝（下）》', '103'),
+            ('第1周 《爱惜雨伞／小闹钟》', '104'),
+            ('第1周 《猴子和桃子》', '105'),
+            ('第2周 《爸爸的老师》', '106'),
+            ('第2周 《时间老人的好办法》', '110'),
+            ('第2周 《青蛙和牛》', '111'),
+            ('第2周 《太阳和彩虹》', '112'),
+            ('第2周 《捞月亮》', '113'),
+            ('第2周 《西瓜在哪里》', '114'),
+            ('第2周 《小花猫找汗》', '115'),
+            ('第2周 《站起来跑得更快》', '116'),
+            ('第2周 《小蝌蚪找妈妈（上）》', '117'),
+            ('第3周 《等一会儿再说》', '118'),
+            ('第3周 《蚊子、狮子和蜘蛛》', '120'),
+            ('第3周 《金银盾》', '121'),
+            ('第3周 《前面也在下雨》', '122'),
+            ('第3周 《小蝌蚪找妈妈（下）》', '123'),
+            ('第4周 《让我们荡起双桨》', '124'),
+            ('第4周 《会动脑筋的孩子》', '126'),
+            ('第4周 《自相矛盾》', '127'),
+            ('第4周 《比光明》', '128'),
+            ('第4周 《美丽的公鸡》', '129'),
+            ('第5周 《愚公移山》', '130'),
+            ('第5周 《精卫填海》', '134'),
+            ('第5周 《挤奶姑娘》', '135'),
+            ('第5周 《下雨天》', '136'),
+            ('第5周 《井底的青蛙》', '137'),
+            ('第5周 《折筷子的故事》', '138'),
+            ('第5周 《香味和声音》', '139'),
+            ('第5周 《蜗牛的家》', '140'),
+            ('第5周 《葡萄是酸的》', '141'),
         ],
     },
 }
@@ -222,6 +293,26 @@ def get_kid_connection_for(kid):
     """Open kid database connection by scoped dbFilePath."""
     rel = kid.get('dbFilePath')
     return kid_db.get_kid_connection_by_path(rel)
+
+
+def require_critical_password():
+    """Require current family password for destructive/critical operations."""
+    family_id = current_family_id()
+    if not family_id:
+        return jsonify({'error': 'Family login required'}), 401
+
+    password = str(request.headers.get('X-Confirm-Password') or '')
+    if not password:
+        json_data = request.get_json(silent=True)
+        if isinstance(json_data, dict):
+            password = str(json_data.get('confirmPassword') or '')
+    if not password:
+        password = str(request.form.get('confirmPassword') or '')
+    if not password:
+        return jsonify({'error': 'Password confirmation required'}), 400
+    if not metadata.verify_family_password(family_id, password):
+        return jsonify({'error': 'Invalid password'}), 403
+    return None
 
 
 def normalize_session_card_count(kid):
@@ -372,6 +463,32 @@ def get_today_completed_session_counts(kid):
         conn.close()
 
 
+def has_ungraded_lesson_reading_results(kid):
+    """Return True if kid has any Chinese Reading result still ungraded (correct=0)."""
+    try:
+        conn = get_kid_connection_for(kid)
+    except Exception:
+        return False
+
+    try:
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM sessions s
+            JOIN session_results sr ON sr.session_id = s.id
+            WHERE s.type = 'lesson_reading'
+              AND s.completed_at IS NOT NULL
+              AND sr.correct = 0
+            LIMIT 1
+            """,
+        ).fetchone()
+        return bool(row)
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+
 def with_practice_count_fallbacks(kid):
     """Return kid object with safe count fields for count-based practice visibility."""
     safe_kid = {**kid}
@@ -431,6 +548,7 @@ def get_kids():
                 'dailyCompletedMathCountToday': today_counts['math'],
                 'dailyCompletedWritingCountToday': today_counts['writing'],
                 'dailyCompletedLessonReadingCountToday': today_counts.get('lesson_reading', 0),
+                'hasChineseReadingToReview': has_ungraded_lesson_reading_results(kid),
             }
             kids_with_progress.append(kid_with_progress)
 
@@ -510,6 +628,7 @@ def get_kid(kid_id):
             'dailyCompletedMathCountToday': today_counts['math'],
             'dailyCompletedWritingCountToday': today_counts['writing'],
             'dailyCompletedLessonReadingCountToday': today_counts.get('lesson_reading', 0),
+            'hasChineseReadingToReview': has_ungraded_lesson_reading_results(kid),
         }
 
         return jsonify(kid_with_progress), 200
@@ -535,8 +654,8 @@ def get_kid_report(kid_id):
                 s.completed_at,
                 COALESCE(s.planned_count, 0) AS planned_count,
                 COUNT(sr.id) AS answer_count,
-                COALESCE(SUM(CASE WHEN sr.correct = TRUE THEN 1 ELSE 0 END), 0) AS right_count,
-                COALESCE(SUM(CASE WHEN sr.correct = FALSE THEN 1 ELSE 0 END), 0) AS wrong_count,
+                COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
+                COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
                 COALESCE(SUM(CASE WHEN sr.response_time_ms IS NULL THEN 0 ELSE sr.response_time_ms END), 0) AS total_response_ms,
                 COALESCE(AVG(sr.response_time_ms), 0) AS avg_response_ms
             FROM sessions s
@@ -628,19 +747,21 @@ def get_kid_report_session_detail(kid_id, session_id):
             item = {
                 'result_id': int(row[0]),
                 'card_id': int(row[1]) if row[1] is not None else None,
-                'correct': bool(row[2]),
+                'correct_score': int(row[2] or 0),
+                'correct': int(row[2] or 0) > 0,
                 'response_time_ms': int(row[3] or 0),
                 'timestamp': row[4].isoformat() if row[4] else None,
                 'front': row[5] or '',
                 'back': row[6] or '',
+                'grade_status': ('pass' if int(row[2] or 0) > 0 else ('fail' if int(row[2] or 0) < 0 else 'unknown')),
                 'audio_file_name': row[7] or None,
                 'audio_mime_type': row[8] or None,
                 'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[7]}" if row[7] else None,
             }
             answers.append(item)
-            if item['correct']:
+            if item['correct_score'] > 0:
                 right_cards.append(item)
-            else:
+            elif item['correct_score'] < 0:
                 wrong_cards.append(item)
 
         return jsonify({
@@ -661,6 +782,51 @@ def get_kid_report_session_detail(kid_id, session_id):
             'right_cards': right_cards,
             'wrong_cards': wrong_cards,
             'answers': answers,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/report/lesson-reading/next-to-grade', methods=['GET'])
+def get_kid_lesson_reading_next_to_grade(kid_id):
+    """Return the latest Chinese Reading session that still has ungraded cards."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+
+        ungraded_row = conn.execute(
+            """
+            SELECT s.id
+            FROM sessions s
+            JOIN session_results sr ON sr.session_id = s.id
+            WHERE s.type = 'lesson_reading'
+              AND s.completed_at IS NOT NULL
+              AND sr.correct = 0
+            GROUP BY s.id, s.completed_at
+            ORDER BY s.completed_at DESC, s.id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        latest_row = conn.execute(
+            """
+            SELECT s.id
+            FROM sessions s
+            WHERE s.type = 'lesson_reading'
+              AND s.completed_at IS NOT NULL
+            ORDER BY s.completed_at DESC, s.id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        conn.close()
+
+        return jsonify({
+            'session_id': int(ungraded_row[0]) if ungraded_row else None,
+            'latest_session_id': int(latest_row[0]) if latest_row else None,
+            'has_ungraded': bool(ungraded_row),
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -728,7 +894,7 @@ def get_kid_report_card_detail(kid_id, card_id):
         wrong_count = 0
         response_sum_ms = 0
         for row in attempts_rows:
-            is_correct = bool(row[1])
+            is_correct = int(row[1] or 0) > 0
             response_ms = int(row[2] or 0)
             attempts.append({
                 'result_id': int(row[0]),
@@ -775,6 +941,67 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'avg_response_ms': avg_response_ms,
             },
             'attempts': attempts,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/report/sessions/<session_id>/results/<result_id>/grade', methods=['PUT'])
+def grade_kid_report_session_result(kid_id, session_id, result_id):
+    """Persist parent pass/fail grade for one session result row."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        try:
+            session_id_int = int(session_id)
+            result_id_int = int(result_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid session id or result id'}), 400
+
+        data = request.get_json() or {}
+        review_grade_raw = str(data.get('reviewGrade') or '').strip().lower()
+        if review_grade_raw not in ('pass', 'fail'):
+            return jsonify({'error': 'reviewGrade must be "pass" or "fail"'}), 400
+
+        conn = get_kid_connection_for(kid)
+        target = conn.execute(
+            """
+            SELECT sr.id, sr.correct
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE sr.id = ? AND sr.session_id = ?
+              AND s.type = 'lesson_reading'
+            LIMIT 1
+            """,
+            [result_id_int, session_id_int]
+        ).fetchone()
+        if not target:
+            conn.close()
+            return jsonify({'error': 'Session result not found'}), 404
+
+        current_correct = int(target[1] or 0)
+        if current_correct != 0:
+            status = 'pass' if current_correct > 0 else 'fail'
+            conn.close()
+            return jsonify({
+                'error': 'This card has already been graded and cannot be changed.',
+                'result_id': result_id_int,
+                'grade_status': status,
+            }), 409
+
+        mapped_correct = 1 if review_grade_raw == 'pass' else -1
+        conn.execute(
+            "UPDATE session_results SET correct = ? WHERE id = ?",
+            [mapped_correct, result_id_int]
+        )
+        conn.close()
+
+        return jsonify({
+            'result_id': result_id_int,
+            'correct_score': mapped_correct,
+            'grade_status': review_grade_raw,
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -886,6 +1113,9 @@ def update_kid(kid_id):
 def delete_kid(kid_id):
     """Delete a kid and their database"""
     try:
+        auth_err = require_critical_password()
+        if auth_err:
+            return auth_err
         family_id = current_family_id()
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
@@ -977,14 +1207,47 @@ def get_or_create_writing_deck(conn):
     return row[0]
 
 
+_LESSON_READING_OLD_DECK_NAMES = {
+    'ma3Unit1': 'Lesson Reading Ma3 Unit 1',
+    'ma3Unit2': 'Lesson Reading Ma3 Unit 2',
+    'ma3Unit3': 'Lesson Reading Ma3 Unit 3',
+}
+
+
 def get_or_create_lesson_reading_deck(conn, deck_key):
     """Get or create one preset lesson-reading deck by key."""
     config = LESSON_READING_DECK_CONFIGS.get(deck_key)
     if not config:
         raise ValueError(f'Unsupported lesson-reading deck key: {deck_key}')
-    result = conn.execute("SELECT id FROM decks WHERE name = ?", [config['name']]).fetchone()
-    if result:
-        return result[0]
+    current_name = config['name']
+    old_name = _LESSON_READING_OLD_DECK_NAMES.get(deck_key)
+    current_row = conn.execute("SELECT id FROM decks WHERE name = ?", [current_name]).fetchone()
+    old_row = conn.execute("SELECT id FROM decks WHERE name = ?", [old_name]).fetchone() if old_name else None
+
+    if current_row and old_row:
+        # Both exist — keep the old deck (has session history), delete duplicate new deck
+        old_id = old_row[0]
+        new_id = current_row[0]
+        conn.execute("DELETE FROM cards WHERE deck_id = ?", [new_id])
+        conn.execute("DELETE FROM practice_state_by_deck WHERE deck_id = ?", [new_id])
+        conn.execute("DELETE FROM decks WHERE id = ?", [new_id])
+        conn.execute(
+            "UPDATE decks SET name = ?, description = ? WHERE id = ?",
+            [current_name, config['description'], old_id]
+        )
+        return old_id
+
+    if current_row:
+        return current_row[0]
+
+    # Check for legacy deck name and rename it instead of creating a duplicate
+    if old_row:
+        conn.execute(
+            "UPDATE decks SET name = ?, description = ? WHERE id = ?",
+            [current_name, config['description'], old_row[0]]
+        )
+        return old_row[0]
+
     row = conn.execute(
         """
         INSERT INTO decks (name, description, tags)
@@ -1129,11 +1392,80 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
             [deck_id, front, back]
         ).rowcount
 
-    existing = conn.execute(
-        "SELECT front, back FROM cards WHERE deck_id = ?",
+    existing_rows = conn.execute(
+        "SELECT id, front, back FROM cards WHERE deck_id = ?",
         [deck_id]
     ).fetchall()
-    existing_keys = {(str(row[0] or ''), str(row[1] or '')) for row in existing}
+    desired_front_by_back = {}
+    desired_back_by_front = {}
+    for title, page in config.get('cards', []):
+        front = str(title or '').strip()
+        back = str(page or '').strip()
+        if front and back:
+            desired_front_by_back[back] = front
+            desired_back_by_front[front] = back
+
+    swapped = 0
+
+    def _is_page_value(text):
+        return bool(re.fullmatch(r'\d+', str(text or '').strip()))
+
+    def _looks_like_lesson_title(text):
+        value = str(text or '').strip()
+        if not value:
+            return False
+        # Typical preset titles include week + 《title》, but tolerate variants.
+        return ('《' in value and '》' in value) or ('周' in value) or (not _is_page_value(value))
+
+    for row in existing_rows:
+        card_id = int(row[0])
+        front = str(row[1] or '').strip()
+        back = str(row[2] or '').strip()
+        # Auto-fix legacy rows where title/page were accidentally stored reversed.
+        should_swap_by_mapping = front in desired_front_by_back and desired_back_by_front.get(back) == front
+        should_swap_by_shape = _is_page_value(front) and _looks_like_lesson_title(back)
+        if should_swap_by_mapping or should_swap_by_shape:
+            conn.execute(
+                "UPDATE cards SET front = ?, back = ? WHERE id = ?",
+                [back, front, card_id]
+            )
+            swapped += 1
+
+    if swapped > 0:
+        existing_rows = conn.execute(
+            "SELECT id, front, back FROM cards WHERE deck_id = ?",
+            [deck_id]
+        ).fetchall()
+
+    existing_keys = set()
+    existing_back_to_id = {}
+    for row in existing_rows:
+        card_id = int(row[0])
+        front = str(row[1] or '')
+        back = str(row[2] or '')
+        existing_keys.add((front, back))
+        if back:
+            existing_back_to_id[back] = card_id
+
+    updated = 0
+    for back, desired_front in desired_front_by_back.items():
+        card_id = existing_back_to_id.get(back)
+        if not card_id:
+            continue
+        current_front_row = conn.execute(
+            "SELECT front FROM cards WHERE id = ?",
+            [card_id]
+        ).fetchone()
+        current_front = str((current_front_row[0] if current_front_row else '') or '')
+        if current_front == desired_front:
+            continue
+        conn.execute(
+            "UPDATE cards SET front = ? WHERE id = ?",
+            [desired_front, card_id]
+        )
+        updated += 1
+        existing_keys.discard((current_front, back))
+        existing_keys.add((desired_front, back))
 
     inserted = 0
     for title, page in config.get('cards', []):
@@ -1158,7 +1490,7 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
         "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
         [deck_id]
     ).fetchone()[0]
-    return {'inserted': inserted, 'removed': int(removed), 'total': int(total)}
+    return {'inserted': inserted, 'updated': int(updated), 'swapped': int(swapped), 'removed': int(removed), 'total': int(total)}
 
 
 def seed_all_lesson_reading_decks(conn):
@@ -1229,6 +1561,7 @@ def cleanup_incomplete_sessions_for_all_kids():
     failed_kids = 0
     deleted_sessions = 0
     deleted_results = 0
+    deleted_lesson_audio = 0
 
     for kid in metadata.get_all_kids():
         conn = None
@@ -1246,6 +1579,16 @@ def cleanup_incomplete_sessions_for_all_kids():
                 continue
 
             placeholders = ','.join(['?'] * len(incomplete_ids))
+            removed_lesson_audio = conn.execute(
+                f"""
+                DELETE FROM lesson_reading_audio
+                WHERE result_id IN (
+                    SELECT id FROM session_results WHERE session_id IN ({placeholders})
+                )
+                RETURNING result_id
+                """,
+                incomplete_ids
+            ).fetchall()
             removed_results = conn.execute(
                 f"DELETE FROM session_results WHERE session_id IN ({placeholders}) RETURNING id",
                 incomplete_ids
@@ -1255,6 +1598,7 @@ def cleanup_incomplete_sessions_for_all_kids():
                 incomplete_ids
             ).fetchall()
 
+            deleted_lesson_audio += len(removed_lesson_audio)
             deleted_results += len(removed_results)
             deleted_sessions += len(removed_sessions)
             cleaned_kids += 1
@@ -1273,6 +1617,335 @@ def cleanup_incomplete_sessions_for_all_kids():
         'failedKids': failed_kids,
         'deletedSessions': deleted_sessions,
         'deletedResults': deleted_results,
+        'deletedLessonReadingAudio': deleted_lesson_audio,
+    }
+
+
+def backfill_session_started_at_from_response_totals_for_all_kids():
+    """Startup repair: fix legacy sessions with too-short wall time using response totals."""
+    fixed_kids = 0
+    failed_kids = 0
+    updated_sessions = 0
+
+    for kid in metadata.get_all_kids():
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            candidates = conn.execute(
+                """
+                SELECT
+                    s.id,
+                    s.completed_at,
+                    COALESCE(SUM(COALESCE(sr.response_time_ms, 0)), 0) AS total_response_ms
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.completed_at IS NOT NULL
+                GROUP BY s.id, s.started_at, s.completed_at
+                HAVING COALESCE(SUM(COALESCE(sr.response_time_ms, 0)), 0) > 0
+                   AND date_diff('millisecond', s.started_at, s.completed_at) < COALESCE(SUM(COALESCE(sr.response_time_ms, 0)), 0)
+                """
+            ).fetchall()
+
+            for row in candidates:
+                session_id = int(row[0])
+                completed_at = row[1]
+                total_response_ms = int(row[2] or 0)
+                if not completed_at or total_response_ms <= 0:
+                    continue
+                fixed_started_at = completed_at - timedelta(milliseconds=total_response_ms)
+                conn.execute(
+                    "UPDATE sessions SET started_at = ? WHERE id = ?",
+                    [fixed_started_at, session_id]
+                )
+                updated_sessions += 1
+
+            conn.close()
+            conn = None
+            fixed_kids += 1
+        except Exception:
+            failed_kids += 1
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    return {
+        'fixedKids': fixed_kids,
+        'failedKids': failed_kids,
+        'updatedSessions': updated_sessions,
+    }
+
+
+def ensure_session_results_correct_int_for_all_kids():
+    """Startup migration: convert session_results.correct to int scoring and fold legacy grades."""
+    updated_kids = 0
+    failed_kids = 0
+
+    for kid in metadata.get_all_kids():
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+
+            table_info = conn.execute("PRAGMA table_info('session_results')").fetchall()
+            correct_type = ''
+            for row in table_info:
+                if str(row[1]) == 'correct':
+                    correct_type = str(row[2] or '').upper()
+                    break
+
+            needs_rebuild = 'INT' not in correct_type
+            if needs_rebuild:
+                has_lesson_audio = conn.execute(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'lesson_reading_audio'"
+                ).fetchone()[0] > 0
+                has_legacy_grades = conn.execute(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'session_result_grades'"
+                ).fetchone()[0] > 0
+
+                if has_lesson_audio:
+                    conn.execute(
+                        """
+                        CREATE TEMP TABLE _tmp_lesson_reading_audio AS
+                        SELECT result_id, file_name, mime_type, created_at
+                        FROM lesson_reading_audio
+                        """
+                    )
+                    conn.execute("DROP TABLE lesson_reading_audio")
+
+                if has_legacy_grades:
+                    conn.execute(
+                        """
+                        CREATE TEMP TABLE _tmp_session_result_grades AS
+                        SELECT result_id, review_grade
+                        FROM session_result_grades
+                        """
+                    )
+                    conn.execute("DROP TABLE session_result_grades")
+
+                conn.execute("ALTER TABLE session_results RENAME TO session_results_old")
+                conn.execute(
+                    """
+                    CREATE TABLE session_results (
+                      id INTEGER PRIMARY KEY DEFAULT nextval('session_results_id_seq'),
+                      session_id INTEGER NOT NULL,
+                      card_id INTEGER,
+                      correct INTEGER NOT NULL,
+                      response_time_ms INTEGER,
+                      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      FOREIGN KEY (session_id) REFERENCES sessions(id)
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO session_results (id, session_id, card_id, correct, response_time_ms, timestamp)
+                    SELECT
+                      id,
+                      session_id,
+                      card_id,
+                      CASE
+                        WHEN correct IS NULL THEN 0
+                        WHEN correct = TRUE THEN 1
+                        ELSE -1
+                      END AS correct,
+                      response_time_ms,
+                      timestamp
+                    FROM session_results_old
+                    """
+                )
+                conn.execute("DROP TABLE session_results_old")
+
+                if has_lesson_audio:
+                    conn.execute(
+                        """
+                        CREATE TABLE lesson_reading_audio (
+                          result_id INTEGER PRIMARY KEY,
+                          file_name VARCHAR NOT NULL,
+                          mime_type VARCHAR,
+                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          FOREIGN KEY (result_id) REFERENCES session_results(id)
+                        )
+                        """
+                    )
+                    conn.execute(
+                        """
+                        INSERT INTO lesson_reading_audio (result_id, file_name, mime_type, created_at)
+                        SELECT result_id, file_name, mime_type, created_at
+                        FROM _tmp_lesson_reading_audio
+                        """
+                    )
+                    conn.execute("DROP TABLE _tmp_lesson_reading_audio")
+
+            has_legacy_grades_after = conn.execute(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'session_result_grades'"
+            ).fetchone()[0] > 0
+            has_tmp_legacy_grades = conn.execute(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '_tmp_session_result_grades'"
+            ).fetchone()[0] > 0
+            should_reset_lesson_results = needs_rebuild or has_legacy_grades_after or has_tmp_legacy_grades
+            if should_reset_lesson_results:
+                # Reading grading model: unknown=0, pass=1, fail=-1
+                conn.execute(
+                    """
+                    UPDATE session_results sr
+                    SET correct = 0
+                    FROM sessions s
+                    WHERE s.id = sr.session_id
+                      AND s.type = 'lesson_reading'
+                    """
+                )
+
+            if has_legacy_grades_after:
+                conn.execute(
+                    """
+                    UPDATE session_results sr
+                    SET correct = CASE
+                        WHEN LOWER(TRIM(srg.review_grade)) = 'pass' THEN 1
+                        WHEN LOWER(TRIM(srg.review_grade)) = 'fail' THEN -1
+                        ELSE sr.correct
+                    END
+                    FROM session_result_grades srg
+                    WHERE srg.result_id = sr.id
+                    """
+                )
+                conn.execute("DROP TABLE session_result_grades")
+            elif has_tmp_legacy_grades:
+                conn.execute(
+                    """
+                    UPDATE session_results sr
+                    SET correct = CASE
+                        WHEN LOWER(TRIM(srg.review_grade)) = 'pass' THEN 1
+                        WHEN LOWER(TRIM(srg.review_grade)) = 'fail' THEN -1
+                        ELSE sr.correct
+                    END
+                    FROM _tmp_session_result_grades srg
+                    WHERE srg.result_id = sr.id
+                    """
+                )
+                conn.execute("DROP TABLE _tmp_session_result_grades")
+
+            conn.close()
+            conn = None
+            updated_kids += 1
+        except Exception:
+            failed_kids += 1
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    return {
+        'updatedKids': updated_kids,
+        'failedKids': failed_kids,
+    }
+
+
+def _sync_sequence_to_table_max(conn, sequence_name, table_name):
+    """Set one sequence to max(table.id)+1 so inserts never reuse existing IDs."""
+    next_value = int(conn.execute(
+        f"SELECT COALESCE(MAX(id), 0) + 1 FROM {table_name}"
+    ).fetchone()[0] or 1)
+    if next_value < 1:
+        next_value = 1
+    conn.execute(f"ALTER SEQUENCE {sequence_name} RESTART WITH {next_value}")
+
+
+def ensure_id_sequences_synced_for_all_kids():
+    """Startup safety: sync auto-id sequences against existing table max ids."""
+    updated_kids = 0
+    failed_kids = 0
+
+    sequence_map = [
+        ('decks_id_seq', 'decks'),
+        ('cards_id_seq', 'cards'),
+        ('sessions_id_seq', 'sessions'),
+        ('session_results_id_seq', 'session_results'),
+        ('writing_sheets_id_seq', 'writing_sheets'),
+    ]
+
+    for kid in metadata.get_all_kids():
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            for sequence_name, table_name in sequence_map:
+                _sync_sequence_to_table_max(conn, sequence_name, table_name)
+            conn.close()
+            conn = None
+            updated_kids += 1
+        except Exception:
+            failed_kids += 1
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    return {
+        'updatedKids': updated_kids,
+        'failedKids': failed_kids,
+    }
+
+
+def ensure_lesson_reading_audio_table_no_fk_for_all_kids():
+    """Startup compatibility migration: rebuild lesson_reading_audio without FK constraint."""
+    updated_kids = 0
+    failed_kids = 0
+
+    for kid in metadata.get_all_kids():
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            has_table = conn.execute(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'lesson_reading_audio'"
+            ).fetchone()[0] > 0
+            if not has_table:
+                conn.close()
+                conn = None
+                updated_kids += 1
+                continue
+
+            conn.execute(
+                """
+                CREATE TEMP TABLE _tmp_lesson_reading_audio_rebuild AS
+                SELECT result_id, file_name, mime_type, created_at
+                FROM lesson_reading_audio
+                """
+            )
+            conn.execute("DROP TABLE lesson_reading_audio")
+            conn.execute(
+                """
+                CREATE TABLE lesson_reading_audio (
+                  result_id INTEGER PRIMARY KEY,
+                  file_name VARCHAR NOT NULL,
+                  mime_type VARCHAR,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO lesson_reading_audio (result_id, file_name, mime_type, created_at)
+                SELECT result_id, file_name, mime_type, created_at
+                FROM _tmp_lesson_reading_audio_rebuild
+                """
+            )
+            conn.execute("DROP TABLE _tmp_lesson_reading_audio_rebuild")
+            conn.close()
+            conn = None
+            updated_kids += 1
+        except Exception:
+            failed_kids += 1
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    return {
+        'updatedKids': updated_kids,
+        'failedKids': failed_kids,
     }
 
 
@@ -1322,7 +1995,7 @@ def get_session_red_cards(conn, session_id):
         """
         SELECT card_id
         FROM session_results
-        WHERE session_id = ? AND correct = FALSE AND card_id IS NOT NULL
+        WHERE session_id = ? AND correct < 0 AND card_id IS NOT NULL
         ORDER BY timestamp ASC
         """,
         [session_id]
@@ -1421,6 +2094,45 @@ def get_pending_session(token, kid_id, session_type):
         if str(payload.get('session_type')) != str(session_type):
             return None
         return payload
+
+
+def parse_client_started_at(raw_started_at, pending=None):
+    """Parse client-provided session start time into naive UTC datetime."""
+    dt = None
+
+    if isinstance(raw_started_at, (int, float)):
+        try:
+            dt = datetime.fromtimestamp(float(raw_started_at) / 1000.0, tz=timezone.utc)
+        except Exception:
+            dt = None
+    elif isinstance(raw_started_at, str):
+        text = raw_started_at.strip()
+        if text:
+            try:
+                if re.fullmatch(r'\d+(\.\d+)?', text):
+                    dt = datetime.fromtimestamp(float(text) / 1000.0, tz=timezone.utc)
+                else:
+                    normalized = text.replace('Z', '+00:00')
+                    parsed = datetime.fromisoformat(normalized)
+                    if parsed.tzinfo is None:
+                        dt = parsed.replace(tzinfo=timezone.utc)
+                    else:
+                        dt = parsed.astimezone(timezone.utc)
+            except Exception:
+                dt = None
+
+    if dt is None and isinstance(pending, dict):
+        created_at_ts = pending.get('created_at_ts')
+        try:
+            if created_at_ts is not None:
+                dt = datetime.fromtimestamp(float(created_at_ts), tz=timezone.utc)
+        except Exception:
+            dt = None
+
+    if dt is None:
+        dt = datetime.now(timezone.utc)
+
+    return dt.replace(tzinfo=None)
 
 
 def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded_card_ids=None, enforce_exact_target=False):
@@ -1599,13 +2311,18 @@ def complete_session_internal(kid, kid_id, session_type, data):
     pending = pop_pending_session(pending_session_id, kid_id, session_type)
     if not pending:
         return {'error': 'Pending session not found or expired'}, 404
+    started_at_utc = parse_client_started_at(data.get('startedAt'), pending)
 
     conn = get_kid_connection_for(kid)
     deck_id = pending.get('deck_id') if pending.get('kind') == 'deck' else None
     planned_count = int(pending.get('planned_count') or 0)
+    uploaded_lesson_audio = data.get('_uploaded_lesson_audio_by_card') if session_type == 'lesson_reading' else {}
+    if not isinstance(uploaded_lesson_audio, dict):
+        uploaded_lesson_audio = {}
     pending_lesson_audio = pending.get('lesson_audio_by_card') if session_type == 'lesson_reading' else {}
     if not isinstance(pending_lesson_audio, dict):
         pending_lesson_audio = {}
+    written_lesson_audio_paths = []
 
     # Validate answers before starting transaction
     for answer in answers:
@@ -1622,11 +2339,11 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
         session_id = conn.execute(
             """
-            INSERT INTO sessions (type, deck_id, planned_count)
-            VALUES (?, ?, ?)
+            INSERT INTO sessions (type, deck_id, planned_count, started_at)
+            VALUES (?, ?, ?, ?)
             RETURNING id
             """,
-            [session_type, deck_id, planned_count]
+            [session_type, deck_id, planned_count, started_at_utc]
         ).fetchone()[0]
 
         latest_response_by_card = {}
@@ -1639,6 +2356,10 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 response_time_ms = int(answer.get('responseTimeMs'))
             except (TypeError, ValueError):
                 response_time_ms = 0
+            if session_type == 'lesson_reading':
+                correct_value = 0
+            else:
+                correct_value = 1 if bool(known) else -1
 
             result_row = conn.execute(
                 """
@@ -1646,26 +2367,55 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 VALUES (?, ?, ?, ?)
                 RETURNING id
                 """,
-                [session_id, card_id, known, response_time_ms]
+                [session_id, card_id, correct_value, response_time_ms]
             ).fetchone()
             result_id = int(result_row[0])
             latest_response_by_card[card_id] = response_time_ms
             touched_card_ids.add(card_id)
 
             if session_type == 'lesson_reading':
-                audio_meta = pending_lesson_audio.get(str(card_id))
-                if isinstance(audio_meta, dict):
-                    file_name = str(audio_meta.get('file_name') or '').strip()
-                    mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
-                    if file_name:
-                        conn.execute(
-                            """
-                            INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
-                            VALUES (?, ?, ?)
-                            """,
-                            [result_id, file_name, mime_type]
-                        )
-                        consumed_lesson_audio_files.add(file_name)
+                uploaded_audio = uploaded_lesson_audio.get(card_id)
+                if uploaded_audio is None:
+                    uploaded_audio = uploaded_lesson_audio.get(str(card_id))
+                if isinstance(uploaded_audio, dict):
+                    audio_bytes = uploaded_audio.get('bytes')
+                    if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) == 0:
+                        raise ValueError(f'Uploaded audio for card {card_id} is empty')
+                    mime_type = str(uploaded_audio.get('mime_type') or 'application/octet-stream').strip()
+                    original_filename = str(uploaded_audio.get('filename') or '').strip()
+                    safe_name = secure_filename(original_filename)
+                    ext = os.path.splitext(safe_name)[1].lower()
+                    if not ext:
+                        guessed_ext = mimetypes.guess_extension(mime_type) or ''
+                        ext = guessed_ext.lower() if guessed_ext else '.webm'
+                    audio_dir = ensure_lesson_reading_audio_dir(kid)
+                    file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
+                    file_path = os.path.join(audio_dir, file_name)
+                    with open(file_path, 'wb') as f:
+                        f.write(bytes(audio_bytes))
+                    written_lesson_audio_paths.append(file_path)
+                    conn.execute(
+                        """
+                        INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                        VALUES (?, ?, ?)
+                        """,
+                        [result_id, file_name, mime_type]
+                    )
+                    consumed_lesson_audio_files.add(file_name)
+                else:
+                    audio_meta = pending_lesson_audio.get(str(card_id))
+                    if isinstance(audio_meta, dict):
+                        file_name = str(audio_meta.get('file_name') or '').strip()
+                        mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
+                        if file_name:
+                            conn.execute(
+                                """
+                                INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                                VALUES (?, ?, ?)
+                                """,
+                                [result_id, file_name, mime_type]
+                            )
+                            consumed_lesson_audio_files.add(file_name)
 
         if session_type in ('flashcard', 'math', 'lesson_reading'):
             for card_id, latest_ms in latest_response_by_card.items():
@@ -1682,7 +2432,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 FROM (
                     SELECT
                         sr.card_id,
-                        COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct = TRUE THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
+                        COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct > 0 THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
                     FROM session_results sr
                     JOIN sessions s ON s.id = sr.session_id
                     WHERE s.type = 'writing'
@@ -1699,7 +2449,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
                 [int(pending.get('next_cursor') or 0), int(pending.get('deck_id'))]
             )
-        elif pending.get('kind') == 'math':
+        elif pending.get('kind') in ('math', 'lesson_reading'):
             for item in pending.get('deck_cursor_updates', []):
                 conn.execute(
                     "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
@@ -1714,6 +2464,12 @@ def complete_session_internal(kid, kid_id, session_type, data):
     except Exception:
         conn.execute("ROLLBACK")
         conn.close()
+        for file_path in written_lesson_audio_paths:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception:
+                pass
         if session_type == 'lesson_reading':
             cleanup_lesson_reading_pending_audio_files(kid, pending)
         raise
@@ -1846,7 +2602,7 @@ def refresh_writing_hardness_scores(conn, deck_id):
         FROM (
             SELECT
                 sr.card_id,
-                COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct = TRUE THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
+                COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct > 0 THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
             FROM session_results sr
             JOIN sessions s ON s.id = sr.session_id
             JOIN cards c2 ON c2.id = sr.card_id
@@ -1979,6 +2735,9 @@ def add_cards_bulk(kid_id):
 def delete_card(kid_id, card_id):
     """Delete a card"""
     try:
+        auth_err = require_critical_password()
+        if auth_err:
+            return auth_err
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
@@ -2279,6 +3038,9 @@ def seed_math_cards(kid_id):
 @kids_bp.route('/kids/<kid_id>/math/cards/<card_id>', methods=['DELETE'])
 def delete_math_card(kid_id, card_id):
     """Legacy delete endpoint: map to skip-on behavior for math cards."""
+    auth_err = require_critical_password()
+    if auth_err:
+        return auth_err
     payload, status = set_math_card_skip(kid_id, card_id, True)
     return jsonify(payload), status
 
@@ -2770,6 +3532,9 @@ def delete_writing_card_audio(kid_id, card_id):
 def delete_writing_card(kid_id, card_id):
     """Delete a writing card and its associated audio file."""
     try:
+        auth_err = require_critical_password()
+        if auth_err:
+            return auth_err
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
@@ -2833,7 +3598,7 @@ def select_writing_sheet_candidates(conn, deck_id, requested_count, excluded_car
                 c.back,
                 l.correct,
                 CASE
-                    WHEN l.card_id IS NULL OR l.correct = FALSE THEN 0
+                    WHEN l.card_id IS NULL OR l.correct < 0 THEN 0
                     ELSE 1
                 END AS priority
             FROM cards c
@@ -3590,11 +4355,53 @@ def complete_lesson_reading_practice_session(kid_id):
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
+        payload_data = None
+        content_type = str(request.content_type or '')
+        if content_type.startswith('multipart/form-data'):
+            pending_session_id = str(request.form.get('pendingSessionId') or '').strip()
+            answers_raw = request.form.get('answers')
+            started_at = str(request.form.get('startedAt') or '').strip()
+            if not pending_session_id:
+                return jsonify({'error': 'pendingSessionId is required'}), 400
+            if not answers_raw:
+                return jsonify({'error': 'answers is required'}), 400
+            try:
+                answers = json.loads(answers_raw)
+            except Exception:
+                return jsonify({'error': 'answers must be valid JSON'}), 400
+
+            uploaded_audio_by_card = {}
+            for field_name, audio_file in request.files.items():
+                if not str(field_name).startswith('audio_'):
+                    continue
+                card_id_raw = str(field_name).split('_', 1)[1]
+                try:
+                    card_id = int(card_id_raw)
+                except (TypeError, ValueError):
+                    continue
+                audio_bytes = audio_file.read()
+                if not audio_bytes:
+                    return jsonify({'error': f'Uploaded audio for card {card_id} is empty'}), 400
+                uploaded_audio_by_card[card_id] = {
+                    'bytes': audio_bytes,
+                    'mime_type': audio_file.mimetype or 'application/octet-stream',
+                    'filename': audio_file.filename or '',
+                }
+
+            payload_data = {
+                'pendingSessionId': pending_session_id,
+                'answers': answers,
+                'startedAt': started_at or None,
+                '_uploaded_lesson_audio_by_card': uploaded_audio_by_card,
+            }
+        else:
+            payload_data = request.get_json() or {}
+
         payload, status_code = complete_session_internal(
             kid,
             kid_id,
             'lesson_reading',
-            request.get_json() or {}
+            payload_data
         )
         return jsonify(payload), status_code
     except Exception as e:
