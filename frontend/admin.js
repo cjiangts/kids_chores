@@ -10,6 +10,8 @@ const kidForm = document.getElementById('kidForm');
 const cancelBtn = document.getElementById('cancelBtn');
 const errorMessage = document.getElementById('errorMessage');
 const kidBirthdayInput = document.getElementById('kidBirthday');
+const kidNameInput = document.getElementById('kidName');
+let isCreatingKid = false;
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -52,8 +54,12 @@ async function loadKids() {
 }
 
 async function createKid() {
+    if (isCreatingKid) {
+        return;
+    }
     const submitBtn = kidForm.querySelector('button[type="submit"]');
     try {
+        isCreatingKid = true;
         const name = document.getElementById('kidName').value;
         const birthday = document.getElementById('kidBirthday').value;
 
@@ -70,6 +76,12 @@ async function createKid() {
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Creating...';
+        if (kidNameInput) {
+            kidNameInput.disabled = true;
+        }
+        if (kidBirthdayInput) {
+            kidBirthdayInput.disabled = true;
+        }
 
         const response = await fetch(`${API_BASE}/kids`, {
             method: 'POST',
@@ -94,8 +106,15 @@ async function createKid() {
         console.error('Error creating kid:', error);
         showError('Failed to create kid. Please try again.');
     } finally {
+        isCreatingKid = false;
         submitBtn.disabled = false;
         submitBtn.textContent = 'Save';
+        if (kidNameInput) {
+            kidNameInput.disabled = false;
+        }
+        if (kidBirthdayInput) {
+            kidBirthdayInput.disabled = false;
+        }
     }
 }
 

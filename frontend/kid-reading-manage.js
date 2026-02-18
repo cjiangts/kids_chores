@@ -32,6 +32,7 @@ let currentCards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
 const CARD_PAGE_SIZE = 10;
+let isReadingBulkAdding = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -85,12 +86,27 @@ if (addMaLiPingBtn) {
 }
 
 function updateAddReadingButtonCount() {
+    if (isReadingBulkAdding) {
+        addReadingBtn.textContent = 'Adding...';
+        return;
+    }
     const totalChineseChars = countChineseCharsBeforeDbDedup(chineseCharInput.value);
     if (totalChineseChars > 0) {
         addReadingBtn.textContent = `Bulk Add Chinese Characters (${totalChineseChars})`;
         return;
     }
     addReadingBtn.textContent = 'Bulk Add Chinese Characters';
+}
+
+function setReadingBulkAddBusy(isBusy) {
+    isReadingBulkAdding = !!isBusy;
+    if (addReadingBtn) {
+        addReadingBtn.disabled = isReadingBulkAdding;
+    }
+    if (chineseCharInput) {
+        chineseCharInput.disabled = isReadingBulkAdding;
+    }
+    updateAddReadingButtonCount();
 }
 
 // API Functions
@@ -170,7 +186,11 @@ async function loadCards() {
 }
 
 async function addCard() {
+    if (isReadingBulkAdding) {
+        return;
+    }
     try {
+        setReadingBulkAddBusy(true);
         showStatusMessage('');
         const input = chineseCharInput.value.trim();
         const chineseChars = extractChineseCharacters(input);
@@ -215,6 +235,8 @@ async function addCard() {
         console.error('Error adding card:', error);
         showStatusMessage('');
         showError('Failed to add card. Please try again.');
+    } finally {
+        setReadingBulkAddBusy(false);
     }
 }
 

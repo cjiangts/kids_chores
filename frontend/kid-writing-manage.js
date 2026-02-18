@@ -53,6 +53,7 @@ let recordingWaveBuffer = null;
 let recordingFrameId = null;
 let recordingWaveCardId = null;
 let recordingLastWaveDrawMs = 0;
+let isWritingBulkAdding = false;
 
 function escapeAttr(value) {
     return String(value || '')
@@ -184,7 +185,11 @@ async function loadWritingCards() {
 }
 
 async function bulkImportWritingCards() {
+    if (isWritingBulkAdding) {
+        return;
+    }
     try {
+        setWritingBulkAddBusy(true);
         showBulkImportError('');
         const rawText = String(bulkWritingText.value || '').trim();
         if (!rawText) {
@@ -211,16 +216,33 @@ async function bulkImportWritingCards() {
     } catch (error) {
         console.error('Error bulk importing writing cards:', error);
         showBulkImportError(error.message || 'Failed to bulk import writing cards');
+    } finally {
+        setWritingBulkAddBusy(false);
     }
 }
 
 function updateBulkAddButtonCount() {
+    if (isWritingBulkAdding) {
+        bulkAddBtn.textContent = 'Adding...';
+        return;
+    }
     const totalTokens = countWritingTokensBeforeDbDedup(bulkWritingText.value);
     if (totalTokens > 0) {
         bulkAddBtn.textContent = `Bulk Add Chinese Writing Prompt (${totalTokens})`;
         return;
     }
     bulkAddBtn.textContent = 'Bulk Add Chinese Writing Prompt';
+}
+
+function setWritingBulkAddBusy(isBusy) {
+    isWritingBulkAdding = !!isBusy;
+    if (bulkAddBtn) {
+        bulkAddBtn.disabled = isWritingBulkAdding;
+    }
+    if (bulkWritingText) {
+        bulkWritingText.disabled = isWritingBulkAdding;
+    }
+    updateBulkAddButtonCount();
 }
 
 function countWritingTokensBeforeDbDedup(text) {
