@@ -48,6 +48,7 @@ let recordingAnalyserNode = null;
 let recordingWaveBuffer = null;
 let recordingFrameId = null;
 let recordingWaveCardId = null;
+let recordingLastWaveDrawMs = 0;
 
 function escapeAttr(value) {
     return String(value || '')
@@ -233,6 +234,18 @@ function getPreferredRecordingMimeType() {
     return '';
 }
 
+function getPreferredAudioConstraints() {
+    return {
+        audio: {
+            channelCount: { ideal: 1 },
+            sampleRate: { ideal: 48000 },
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+        }
+    };
+}
+
 function guessAudioExtension(mimeType) {
     const value = String(mimeType || '').toLowerCase();
     if (value.includes('mp4') || value.includes('m4a')) return 'm4a';
@@ -257,11 +270,18 @@ async function startRecordingForCard(cardId) {
         isRecordTransitioning = true;
         recordingCardId = String(cardId);
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        let stream = null;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(getPreferredAudioConstraints());
+        } catch (constraintError) {
+            // Some browsers/devices reject fine-grained constraints; fallback to default mic request.
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
         const preferredMimeType = getPreferredRecordingMimeType();
-        const recorder = preferredMimeType
-            ? new MediaRecorder(stream, { mimeType: preferredMimeType })
-            : new MediaRecorder(stream);
+        const recorderOptions = preferredMimeType
+            ? { mimeType: preferredMimeType, audioBitsPerSecond: 96000 }
+            : { audioBitsPerSecond: 96000 };
+        const recorder = new MediaRecorder(stream, recorderOptions);
         const chunks = [];
         const startedAt = Date.now();
 
@@ -334,7 +354,8 @@ async function startRecordingForCard(cardId) {
             displayCards(currentCards);
         };
 
-        recorder.start(200);
+        // Use larger timeslice to reduce callback pressure and avoid choppy capture on mobile.
+        recorder.start(1000);
         startRecordingVisualizer(stream, String(cardId));
         isRecordTransitioning = false;
         displayCards(currentCards);
@@ -378,11 +399,12 @@ function startRecordingVisualizer(stream, cardId) {
         recordingAudioContext = new AudioCtx();
         recordingSourceNode = recordingAudioContext.createMediaStreamSource(stream);
         recordingAnalyserNode = recordingAudioContext.createAnalyser();
-        recordingAnalyserNode.fftSize = 1024;
-        recordingAnalyserNode.smoothingTimeConstant = 0.86;
+        recordingAnalyserNode.fftSize = 512;
+        recordingAnalyserNode.smoothingTimeConstant = 0.88;
         recordingWaveBuffer = new Uint8Array(recordingAnalyserNode.fftSize);
         recordingSourceNode.connect(recordingAnalyserNode);
         recordingWaveCardId = String(cardId);
+        recordingLastWaveDrawMs = 0;
         drawRecordingWave();
     } catch (error) {
         stopRecordingVisualizer();
@@ -416,6 +438,7 @@ function stopRecordingVisualizer() {
     }
     recordingWaveBuffer = null;
     recordingWaveCardId = null;
+    recordingLastWaveDrawMs = 0;
 }
 
 function fitRecordingCanvas(canvasEl) {
@@ -446,6 +469,15 @@ function drawRecordingWave() {
         recordingFrameId = requestAnimationFrame(drawRecordingWave);
         return;
     }
+    const nowMs = Date.now();
+    if (recordingLastWaveDrawMs > 0 && (nowMs - recordingLastWaveDrawMs) < 66) {
+        const stillRecordingFast = !!(mediaRecorder && mediaRecorder.state === 'recording');
+        if (stillRecordingFast) {
+            recordingFrameId = requestAnimationFrame(drawRecordingWave);
+        }
+        return;
+    }
+    recordingLastWaveDrawMs = nowMs;
     fitRecordingCanvas(canvas);
     recordingAnalyserNode.getByteTimeDomainData(recordingWaveBuffer);
 
