@@ -248,20 +248,17 @@ async function toggleRecord() {
             return;
         }
 
-        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const preferredMimeType = getPreferredRecordingMimeType();
-        mediaRecorder = preferredMimeType
-            ? new MediaRecorder(mediaStream, { mimeType: preferredMimeType })
-            : new MediaRecorder(mediaStream);
+        mediaStream = await AudioCommon.getMicStream();
+        mediaRecorder = new MediaRecorder(mediaStream, AudioCommon.getRecorderOptions());
         recordingChunks = [];
-        recordingMimeType = mediaRecorder.mimeType || preferredMimeType || '';
+        recordingMimeType = mediaRecorder.mimeType || '';
         mediaRecorder.ondataavailable = (event) => {
             if (event.data && event.data.size > 0) {
                 recordingChunks.push(event.data);
             }
         };
 
-        mediaRecorder.start(200);
+        mediaRecorder.start(AudioCommon.TIMESLICE_MS);
         recordingStartedAtMs = Date.now();
         isRecording = true;
         startRecordingVisualizer(mediaStream);
@@ -508,35 +505,7 @@ function formatElapsed(ms) {
 }
 
 
-function getPreferredRecordingMimeType() {
-    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
-        return '';
-    }
-    const candidates = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/mp4',
-        'audio/ogg;codecs=opus',
-        'audio/ogg',
-        'audio/aac'
-    ];
-    for (const candidate of candidates) {
-        if (MediaRecorder.isTypeSupported(candidate)) {
-            return candidate;
-        }
-    }
-    return '';
-}
-
-
-function guessAudioExtension(mimeType) {
-    const type = String(mimeType || '').toLowerCase();
-    if (type.includes('webm')) return 'webm';
-    if (type.includes('ogg')) return 'ogg';
-    if (type.includes('mp4') || type.includes('m4a') || type.includes('aac')) return 'm4a';
-    if (type.includes('mpeg') || type.includes('mp3')) return 'mp3';
-    return 'webm';
-}
+// Audio utilities provided by audio-common.js (AudioCommon)
 
 
 async function stopAndCaptureRecording() {
@@ -702,7 +671,7 @@ async function endSession() {
                 continue;
             }
             const mimeType = String(audio.mimeType || 'audio/webm');
-            const ext = guessAudioExtension(mimeType);
+            const ext = AudioCommon.guessExtension(mimeType);
             const formData = new FormData();
             formData.append('pendingSessionId', pendingSessionId);
             formData.append('cardId', String(cardId));

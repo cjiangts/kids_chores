@@ -250,45 +250,7 @@ function countWritingTokensBeforeDbDedup(text) {
     return matches ? matches.length : 0;
 }
 
-function getPreferredRecordingMimeType() {
-    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
-        return '';
-    }
-    const candidates = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/mp4',
-        'audio/ogg;codecs=opus',
-        'audio/ogg',
-        'audio/aac'
-    ];
-    for (const candidate of candidates) {
-        if (MediaRecorder.isTypeSupported(candidate)) {
-            return candidate;
-        }
-    }
-    return '';
-}
-
-function getPreferredAudioConstraints() {
-    return {
-        audio: {
-            channelCount: { ideal: 1 },
-            sampleRate: { ideal: 48000 },
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-        }
-    };
-}
-
-function guessAudioExtension(mimeType) {
-    const value = String(mimeType || '').toLowerCase();
-    if (value.includes('mp4') || value.includes('m4a')) return 'm4a';
-    if (value.includes('ogg')) return 'ogg';
-    if (value.includes('aac')) return 'aac';
-    return 'webm';
-}
+// Audio utilities provided by audio-common.js (AudioCommon)
 
 async function startRecordingForCard(cardId) {
     try {
@@ -307,17 +269,8 @@ async function startRecordingForCard(cardId) {
         recordingCardId = String(cardId);
 
         let stream = null;
-        try {
-            stream = await navigator.mediaDevices.getUserMedia(getPreferredAudioConstraints());
-        } catch (constraintError) {
-            // Some browsers/devices reject fine-grained constraints; fallback to default mic request.
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        }
-        const preferredMimeType = getPreferredRecordingMimeType();
-        const recorderOptions = preferredMimeType
-            ? { mimeType: preferredMimeType, audioBitsPerSecond: 96000 }
-            : { audioBitsPerSecond: 96000 };
-        const recorder = new MediaRecorder(stream, recorderOptions);
+        stream = await AudioCommon.getMicStream();
+        const recorder = new MediaRecorder(stream, AudioCommon.getRecorderOptions());
         const chunks = [];
         const startedAt = Date.now();
 
@@ -350,7 +303,7 @@ async function startRecordingForCard(cardId) {
 
             if (!invalid) {
                 recordedBlob = blob;
-                recordedUploadFileName = `prompt.${guessAudioExtension(finalMimeType)}`;
+                recordedUploadFileName = `prompt.${AudioCommon.guessExtension(finalMimeType)}`;
                 recordedForCardId = String(cardId);
                 recordedPreviewUrl = URL.createObjectURL(blob);
                 autoPlayRecordedCardId = String(cardId);
@@ -390,8 +343,7 @@ async function startRecordingForCard(cardId) {
             displayCards(currentCards);
         };
 
-        // Use larger timeslice to reduce callback pressure and avoid choppy capture on mobile.
-        recorder.start(1000);
+        recorder.start(AudioCommon.TIMESLICE_MS);
         startRecordingVisualizer(stream, String(cardId));
         isRecordTransitioning = false;
         displayCards(currentCards);
