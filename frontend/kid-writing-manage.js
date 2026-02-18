@@ -328,7 +328,7 @@ async function startRecordingForCard(cardId) {
             recordingCardId = null;
             recordingStartedAtMs = 0;
             if (mediaStream === stream) {
-                mediaStream.getTracks().forEach((track) => track.stop());
+                AudioCommon.stopStream(mediaStream);
                 mediaStream = null;
             }
             displayCards(currentCards);
@@ -341,7 +341,7 @@ async function startRecordingForCard(cardId) {
             recordingCardId = null;
             recordingStartedAtMs = 0;
             if (mediaStream === stream) {
-                mediaStream.getTracks().forEach((track) => track.stop());
+                AudioCommon.stopStream(mediaStream);
                 mediaStream = null;
             }
             showError('Recording failed, please try again');
@@ -359,10 +359,8 @@ async function startRecordingForCard(cardId) {
         recordingCardId = null;
         recordingStartedAtMs = 0;
         mediaRecorder = null;
-        if (mediaStream) {
-            mediaStream.getTracks().forEach((track) => track.stop());
-            mediaStream = null;
-        }
+        AudioCommon.stopStream(mediaStream);
+        mediaStream = null;
         showError('Failed to start recording. Please allow microphone access.');
         displayCards(currentCards);
     }

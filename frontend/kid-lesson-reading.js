@@ -411,9 +411,7 @@ async function stopAndCaptureRecording() {
             resolved = true;
             const finalMimeType = recorder.mimeType || recordingMimeType || 'audio/webm';
             const blob = recordingChunks.length > 0 ? new Blob(recordingChunks, { type: finalMimeType }) : null;
-            if (mediaStream) {
-                mediaStream.getTracks().forEach((track) => track.stop());
-            }
+            AudioCommon.stopStream(mediaStream);
             mediaStream = null;
             mediaRecorder = null;
             resolve({
@@ -424,9 +422,7 @@ async function stopAndCaptureRecording() {
         recorder.onerror = () => {
             if (resolved) return;
             resolved = true;
-            if (mediaStream) {
-                mediaStream.getTracks().forEach((track) => track.stop());
-            }
+            AudioCommon.stopStream(mediaStream);
             mediaStream = null;
             mediaRecorder = null;
             reject(new Error('recording failed'));
@@ -450,9 +446,7 @@ function resetRecordingState() {
     recordingMimeType = '';
     stopRecordingVisualizer();
     setRecordingVisual(false);
-    if (mediaStream) {
-        mediaStream.getTracks().forEach((track) => track.stop());
-    }
+    AudioCommon.stopStream(mediaStream);
     mediaStream = null;
     mediaRecorder = null;
 }

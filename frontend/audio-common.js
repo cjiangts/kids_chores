@@ -20,16 +20,55 @@ window.AudioCommon = {
         };
     },
 
+    /** Gain boost for voice recording. Compensates for quiet mic input on iOS Safari. */
+    MIC_GAIN: 1.8,
+
     /**
-     * Request microphone access with preferred constraints, falling back to bare {audio: true}.
-     * @returns {Promise<MediaStream>}
+     * Request microphone access and route through a GainNode for consistent volume.
+     * Returns a boosted MediaStream. Use AudioCommon.stopStream() to clean up.
      */
     async getMicStream() {
+        let rawStream;
         try {
-            return await navigator.mediaDevices.getUserMedia(this.getAudioConstraints());
+            rawStream = await navigator.mediaDevices.getUserMedia(this.getAudioConstraints());
         } catch (_constraintError) {
-            return await navigator.mediaDevices.getUserMedia({ audio: true });
+            rawStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
+
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioCtx.createMediaStreamSource(rawStream);
+            const gain = audioCtx.createGain();
+            gain.gain.value = this.MIC_GAIN;
+            const dest = audioCtx.createMediaStreamDestination();
+            source.connect(gain);
+            gain.connect(dest);
+
+            // Boosted stream for MediaRecorder
+            const boostedStream = dest.stream;
+
+            // Attach cleanup so callers can tear down the pipeline
+            boostedStream._audioCleanup = () => {
+                rawStream.getTracks().forEach((t) => t.stop());
+                try { audioCtx.close(); } catch (_e) { /* already closed */ }
+            };
+
+            return boostedStream;
+        } catch (_audioCtxError) {
+            // AudioContext not available — return raw stream as fallback
+            return rawStream;
+        }
+    },
+
+    /**
+     * Stop all tracks on a stream and clean up any AudioContext pipeline.
+     */
+    stopStream(stream) {
+        if (!stream) return;
+        if (typeof stream._audioCleanup === 'function') {
+            stream._audioCleanup();
+        }
+        stream.getTracks().forEach((t) => t.stop());
     },
 
     /**
