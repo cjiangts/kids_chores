@@ -691,24 +691,36 @@ async function endSession() {
 
     try {
         const payload = window.PracticeSession.buildCompletePayload(activePendingSessionId, sessionAnswers);
-        const formData = new FormData();
-        formData.append('pendingSessionId', String(payload.pendingSessionId || ''));
-        formData.append('answers', JSON.stringify(payload.answers || []));
-        if (payload.startedAt) {
-            formData.append('startedAt', String(payload.startedAt));
-        }
-        Object.entries(sessionRecordings).forEach(([cardId, audio]) => {
+        const pendingSessionId = String(payload.pendingSessionId || '');
+
+        for (const [cardIdRaw, audio] of Object.entries(sessionRecordings)) {
             if (!audio || !audio.blob) {
-                return;
+                continue;
+            }
+            const cardId = Number.parseInt(cardIdRaw, 10);
+            if (!Number.isFinite(cardId)) {
+                continue;
             }
             const mimeType = String(audio.mimeType || 'audio/webm');
             const ext = guessAudioExtension(mimeType);
-            formData.append(`audio_${cardId}`, audio.blob, `lesson-reading-${cardId}.${ext}`);
-        });
+            const formData = new FormData();
+            formData.append('pendingSessionId', pendingSessionId);
+            formData.append('cardId', String(cardId));
+            formData.append('audio', audio.blob, `lesson-reading-${cardId}.${ext}`);
+            const uploadRes = await fetch(`${API_BASE}/kids/${kidId}/lesson-reading/practice/upload-audio`, {
+                method: 'POST',
+                body: formData,
+            });
+            const uploadPayload = await uploadRes.json().catch(() => ({}));
+            if (!uploadRes.ok) {
+                throw new Error(uploadPayload.error || `Audio upload failed (HTTP ${uploadRes.status})`);
+            }
+        }
 
         const response = await fetch(`${API_BASE}/kids/${kidId}/lesson-reading/practice/complete`, {
             method: 'POST',
-            body: formData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -716,7 +728,7 @@ async function endSession() {
         }
     } catch (error) {
         console.error('Error completing lesson-reading session:', error);
-        showError('Failed to save session results');
+        showError(error.message || 'Failed to save session results');
     }
     window.PracticeSession.clearSessionStart(activePendingSessionId);
 
