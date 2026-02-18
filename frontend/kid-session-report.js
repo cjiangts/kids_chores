@@ -8,6 +8,10 @@ const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
+const wrongSection = document.getElementById('wrongSection');
+const rightSection = document.getElementById('rightSection');
+const rightSectionTitle = document.getElementById('rightSectionTitle');
+const wrongList = document.getElementById('wrongList');
 const rightList = document.getElementById('rightList');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
@@ -53,10 +57,21 @@ async function loadSessionDetail() {
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
 
         renderSummary(session);
-        const cardsToRender = currentSessionType === 'lesson_reading'
-            ? (Array.isArray(data.answers) ? data.answers : [])
-            : (data.right_cards || []);
-        renderAnswerList(rightList, cardsToRender, true);
+        const answers = Array.isArray(data.answers) ? data.answers : [];
+        if (currentSessionType === 'lesson_reading') {
+            wrongSection.style.display = 'none';
+            rightSection.style.display = '';
+            rightSectionTitle.textContent = 'Cards';
+            renderAnswerList(rightList, answers, false);
+        } else {
+            wrongSection.style.display = '';
+            rightSection.style.display = '';
+            rightSectionTitle.textContent = 'Right Cards';
+            const wrongCards = answers.filter((item) => Number(item?.correct_score) < 0);
+            const rightCards = answers.filter((item) => Number(item?.correct_score) > 0);
+            renderAnswerList(wrongList, wrongCards, true);
+            renderAnswerList(rightList, rightCards, true);
+        }
     } catch (error) {
         console.error('Error loading session detail:', error);
         showError('Failed to load session detail.');
@@ -71,13 +86,20 @@ function renderSummary(session) {
     `;
 }
 
-function renderAnswerList(container, cards, isRight) {
+function renderAnswerList(container, cards, keepSingleGroupOrder) {
     if (!Array.isArray(cards) || cards.length === 0) {
-        container.innerHTML = `<div style="color:#666;font-size:0.86rem;">No ${isRight ? 'right' : 'wrong'} cards.</div>`;
+        container.innerHTML = `<div style="color:#666;font-size:0.86rem;">No cards.</div>`;
         return;
     }
 
     const sorted = [...cards].sort((a, b) => {
+        if (!keepSingleGroupOrder) {
+            const aCorrect = Number(a?.correct_score) > 0 ? 1 : (Number(a?.correct_score) < 0 ? -1 : 0);
+            const bCorrect = Number(b?.correct_score) > 0 ? 1 : (Number(b?.correct_score) < 0 ? -1 : 0);
+            if (aCorrect !== bCorrect) {
+                return aCorrect - bCorrect;
+            }
+        }
         const aMs = Math.max(0, Number(a?.response_time_ms) || 0);
         const bMs = Math.max(0, Number(b?.response_time_ms) || 0);
         return bMs - aMs;
@@ -85,6 +107,7 @@ function renderAnswerList(container, cards, isRight) {
     const maxMs = Math.max(...sorted.map((item) => Math.max(0, Number(item?.response_time_ms) || 0)), 1);
 
     container.innerHTML = sorted.map((item) => {
+        const isRight = Number(item?.correct_score) > 0;
         const front = String(item.front || '').trim();
         const back = String(item.back || '').trim();
         const label = getCardDisplayLabel(front, back, currentSessionType) || '(blank)';
@@ -169,7 +192,7 @@ async function saveGrade(resultId, reviewGrade) {
     return payload;
 }
 
-rightList.addEventListener('click', async (event) => {
+document.addEventListener('click', async (event) => {
     const btn = event.target && event.target.closest ? event.target.closest('.grade-btn') : null;
     if (!btn) {
         return;
@@ -180,7 +203,7 @@ rightList.addEventListener('click', async (event) => {
         return;
     }
 
-    const buttons = rightList.querySelectorAll(`.grade-btn[data-result-id="${resultId}"]`);
+    const buttons = document.querySelectorAll(`.grade-btn[data-result-id="${resultId}"]`);
     buttons.forEach((node) => { node.disabled = true; });
     showError('');
     try {

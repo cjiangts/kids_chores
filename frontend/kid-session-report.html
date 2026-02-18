@@ -65,6 +65,11 @@
             font-size: 1.02rem;
             color: #2f3c7e;
         }
+        .section-title {
+            margin: 0 0 0.6rem 0;
+            font-size: 1.02rem;
+            color: #2f3c7e;
+        }
 
         .answer-item {
             border: 1px solid #eceff6;
@@ -178,7 +183,12 @@
         <div class="summary-grid" id="summaryGrid"></div>
 
         <div class="detail-grid">
-            <section class="detail-card">
+            <section class="detail-card" id="wrongSection">
+                <h2 class="section-title">Wrong Cards</h2>
+                <div id="wrongList"></div>
+            </section>
+            <section class="detail-card" id="rightSection">
+                <h2 class="section-title" id="rightSectionTitle">Right Cards</h2>
                 <div id="rightList"></div>
             </section>
         </div>
