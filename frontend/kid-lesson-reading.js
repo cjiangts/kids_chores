@@ -307,6 +307,15 @@ async function stopRecordingForReview() {
         return;
     }
 
+    // Amplify recording for consistent volume across browsers (especially iOS Safari)
+    try {
+        const amplified = await AudioCommon.amplifyBlob(blob, AudioCommon.POST_GAIN);
+        blob = amplified.blob;
+        mimeType = amplified.mimeType;
+    } catch (ampError) {
+        console.warn('Audio amplification failed, using original:', ampError);
+    }
+
     resetRecordingState();
     pendingRecordedBlob = blob;
     pendingRecordedMimeType = mimeType;

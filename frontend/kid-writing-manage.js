@@ -298,17 +298,26 @@ async function startRecordingForCard(cardId) {
             displayCards(currentCards);
         };
 
-        recorder.onstop = () => {
+        recorder.onstop = async () => {
             const finalMimeType = recorder.mimeType || preferredMimeType || 'audio/webm';
-            const blob = new Blob(chunks, { type: finalMimeType });
+            let blob = new Blob(chunks, { type: finalMimeType });
             const failed = !blob || blob.size === 0;
             const elapsedMs = Date.now() - startedAt;
             const tooShort = elapsedMs < 300;
             const invalid = failed || tooShort;
 
             if (!invalid) {
+                // Amplify recording for consistent volume across browsers
+                let uploadMimeType = finalMimeType;
+                try {
+                    const amplified = await AudioCommon.amplifyBlob(blob, AudioCommon.POST_GAIN);
+                    blob = amplified.blob;
+                    uploadMimeType = amplified.mimeType;
+                } catch (ampError) {
+                    console.warn('Audio amplification failed, using original:', ampError);
+                }
                 recordedBlob = blob;
-                recordedUploadFileName = `prompt.${AudioCommon.guessExtension(finalMimeType)}`;
+                recordedUploadFileName = `prompt.${AudioCommon.guessExtension(uploadMimeType)}`;
                 recordedForCardId = String(cardId);
                 recordedPreviewUrl = URL.createObjectURL(blob);
                 autoPlayRecordedCardId = String(cardId);
