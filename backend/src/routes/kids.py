@@ -2350,6 +2350,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
     if not pending:
         return {'error': 'Pending session not found or expired'}, 404
     started_at_utc = parse_client_started_at(data.get('startedAt'), pending)
+    completed_at_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
     conn = get_kid_connection_for(kid)
     deck_id = pending.get('deck_id') if pending.get('kind') == 'deck' else None
@@ -2377,11 +2378,11 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
         session_id = conn.execute(
             """
-            INSERT INTO sessions (type, deck_id, planned_count, started_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO sessions (type, deck_id, planned_count, started_at, completed_at)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING id
             """,
-            [session_type, deck_id, planned_count, started_at_utc]
+            [session_type, deck_id, planned_count, started_at_utc, completed_at_utc]
         ).fetchone()[0]
 
         latest_response_by_card = {}
@@ -2494,10 +2495,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
                     [int(item.get('next_cursor') or 0), int(item.get('deck_id'))]
                 )
 
-        conn.execute(
-            "UPDATE sessions SET completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-            [session_id]
-        )
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
