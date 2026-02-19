@@ -2760,7 +2760,12 @@ def get_writing_cards(kid_id):
         writing_session_count = normalize_writing_session_card_count(kid)
         preview_kid = {**kid, 'sessionCardCount': writing_session_count}
         preview_ids = preview_deck_practice_order(
-            conn, preview_kid, deck_id, 'writing', excluded_card_ids=preview_excluded_ids
+            conn,
+            preview_kid,
+            deck_id,
+            'writing',
+            excluded_card_ids=preview_excluded_ids,
+            enforce_exact_target=True
         )
         preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
@@ -3689,7 +3694,13 @@ def start_writing_practice_session(kid_id):
             return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
         preview_kid = {**kid, 'sessionCardCount': writing_session_count}
         pending_session_id, selected_cards = plan_deck_pending_session(
-            conn, preview_kid, kid_id, deck_id, 'writing', excluded_card_ids=excluded_card_ids
+            conn,
+            preview_kid,
+            kid_id,
+            deck_id,
+            'writing',
+            excluded_card_ids=excluded_card_ids,
+            enforce_exact_target=True
         )
         if not pending_session_id:
             conn.close()
