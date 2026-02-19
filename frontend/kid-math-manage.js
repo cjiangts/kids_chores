@@ -7,6 +7,7 @@ const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const mathSessionTotalInline = document.getElementById('mathSessionTotalInline');
+const mathCardCount = document.getElementById('mathCardCount');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const deckTotalInfo = document.getElementById('deckTotalInfo');
 const cardsGrid = document.getElementById('cardsGrid');
@@ -185,6 +186,9 @@ async function loadMathCards() {
             ? Number.parseInt(data.skipped_card_count, 10)
             : currentCards.filter((card) => !!card.skip_practice).length;
         activeDeckTotalCards = activeCount;
+        if (mathCardCount) {
+            mathCardCount.textContent = `(${currentCards.length})`;
+        }
         deckTotalInfo.textContent = `Active cards in this deck: ${activeCount} (Skipped: ${skippedCount})`;
         resetAndDisplayCards(currentCards);
     } catch (error) {

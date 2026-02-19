@@ -25,6 +25,11 @@
             color: #333;
         }
 
+        .cards-section .cards-title,
+        .cards-section .cards-title span {
+            color: #333;
+        }
+
         .math-deck-tabs {
             display: flex;
             flex-wrap: wrap;
@@ -222,6 +227,16 @@
         </div>
 
         <div class="cards-section">
+            <h2 class="cards-title label-with-help">
+                <span>Math Questions <span id="mathCardCount">(0)</span></span>
+                <details class="help-details">
+                    <summary title="Hardness tip">i</summary>
+                    <div class="help-bubble">
+                        Hardness score for Math is based on the card's most recent response time.
+                        Slower response means higher hardness.
+                    </div>
+                </details>
+            </h2>
             <div class="math-deck-tabs">
                 <button id="deckTabWithin10" class="math-deck-tab active" type="button">Add ≤10</button>
                 <button id="deckTabWithin20" class="math-deck-tab" type="button">Add 11–20</button>
