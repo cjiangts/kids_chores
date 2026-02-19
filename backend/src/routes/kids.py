@@ -197,9 +197,6 @@ LESSON_READING_DECK_CONFIGS = {
         ],
     },
 }
-LESSON_READING_REMOVED_CARDS = {
-    ('汉语拼音总结', '31'),
-}
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
 _PENDING_SESSIONS = {}
 _PENDING_SESSIONS_LOCK = threading.Lock()
@@ -1362,21 +1359,6 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
         }
 
     # Existing DB: reconcile against preset definitions (dedup + title/page matching).
-    removed = 0
-    for front, back in LESSON_READING_REMOVED_CARDS:
-        removed += conn.execute(
-            """
-            DELETE FROM cards
-            WHERE deck_id = ? AND front = ? AND back = ?
-            """,
-            [deck_id, front, back]
-        ).rowcount
-
-    if removed > 0:
-        existing_rows = conn.execute(
-            "SELECT id, front, back FROM cards WHERE deck_id = ?",
-            [deck_id]
-        ).fetchall()
     desired_front_by_back = {}
     desired_back_by_front = {}
     for title, page in config.get('cards', []):
@@ -1486,7 +1468,7 @@ def seed_lesson_reading_deck_cards(conn, deck_id, config):
         'inserted': inserted,
         'updated': int(updated),
         'swapped': int(swapped),
-        'removed': int(removed),
+        'removed': 0,
         'deduped': int(deduped),
         'total': int(total)
     }
@@ -2230,33 +2212,6 @@ def get_pending_writing_card_ids(conn):
     return [int(row[0]) for row in rows]
 
 
-def refresh_writing_hardness_scores(conn, deck_id):
-    """Recompute writing hardness for one deck as 100 - lifetime correct%."""
-    conn.execute(
-        "UPDATE cards SET hardness_score = 0 WHERE deck_id = ?",
-        [deck_id]
-    )
-    conn.execute(
-        """
-        UPDATE cards
-        SET hardness_score = stats.hardness_score
-        FROM (
-            SELECT
-                sr.card_id,
-                COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct > 0 THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
-            FROM session_results sr
-            JOIN sessions s ON s.id = sr.session_id
-            JOIN cards c2 ON c2.id = sr.card_id
-            WHERE s.type = 'writing'
-              AND c2.deck_id = ?
-            GROUP BY sr.card_id
-        ) AS stats
-        WHERE cards.id = stats.card_id
-        """,
-        [deck_id]
-    )
-
-
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
 def get_cards(kid_id):
     """Get all cards for a kid in practice queue order, with timing stats."""
@@ -2653,25 +2608,6 @@ def set_lesson_reading_card_skip(kid_id, card_id, skipped):
         }, 200
     except Exception as e:
         return {'error': str(e)}, 500
-
-
-@kids_bp.route('/kids/<kid_id>/math/seed', methods=['POST'])
-def seed_math_cards(kid_id):
-    """Seed all fixed math decks for a kid."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-
-        conn = get_kid_connection_for(kid)
-        seed_results = seed_all_math_decks(conn)
-        conn.close()
-
-        return jsonify({
-            'seeded': seed_results
-        }), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 @kids_bp.route('/kids/<kid_id>/math/cards/<card_id>', methods=['DELETE'])
