@@ -1,6 +1,7 @@
 """Kid management API routes"""
 from flask import Blueprint, request, jsonify, send_from_directory, session
 from datetime import datetime, timedelta, timezone
+import math
 import json
 import os
 import shutil
@@ -1574,88 +1575,6 @@ def cleanup_incomplete_sessions_for_all_kids():
     }
 
 
-def ensure_practice_state(conn, deck_id):
-    """Ensure cursor state row exists for a deck."""
-    conn.execute(
-        """
-        INSERT INTO practice_state_by_deck (deck_id, queue_cursor)
-        SELECT ?, 0
-        WHERE NOT EXISTS (
-            SELECT 1 FROM practice_state_by_deck WHERE deck_id = ?
-        )
-        """,
-        [deck_id, deck_id]
-    )
-
-    # Normalize cursor if cards were deleted
-    total = conn.execute(
-        "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()[0]
-    if total == 0:
-        conn.execute(
-            "UPDATE practice_state_by_deck SET queue_cursor = 0 WHERE deck_id = ?",
-            [deck_id]
-        )
-        return
-
-    cursor_row = conn.execute(
-        "SELECT queue_cursor FROM practice_state_by_deck WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()
-    cursor = int(cursor_row[0]) if cursor_row else 0
-    normalized = cursor % int(total)
-    if normalized != cursor:
-        conn.execute(
-            "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-            [normalized, deck_id]
-        )
-
-
-def get_session_red_cards(conn, session_id):
-    """Get red cards from a specific session."""
-    if not session_id:
-        return []
-
-    rows = conn.execute(
-        """
-        SELECT card_id
-        FROM session_results
-        WHERE session_id = ? AND correct < 0 AND card_id IS NOT NULL
-        ORDER BY timestamp ASC
-        """,
-        [session_id]
-    ).fetchall()
-
-    red_cards = []
-    seen = set()
-    for row in rows:
-        card_id = row[0]
-        if card_id and card_id not in seen:
-            red_cards.append(card_id)
-            seen.add(card_id)
-
-    return red_cards
-
-
-def get_last_completed_session(conn, session_type):
-    """Return latest completed session id and completed timestamp by type."""
-    row = conn.execute(
-        """
-        SELECT id, completed_at
-        FROM sessions
-        WHERE type = ? AND completed_at IS NOT NULL
-        ORDER BY completed_at DESC
-        LIMIT 1
-        """,
-        [session_type]
-    ).fetchone()
-
-    if not row:
-        return None, None
-    return row[0], row[1]
-
-
 def _cleanup_expired_pending_sessions():
     now = time.time()
     expired_keys = [
@@ -1761,20 +1680,60 @@ def parse_client_started_at(raw_started_at, pending=None):
     return dt.replace(tzinfo=None)
 
 
-def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded_card_ids=None, enforce_exact_target=False):
+def filter_answers_to_pending_cards(answers, pending):
+    """Keep only one answer per planned pending card; ignore extras/unplanned cards."""
+    if not isinstance(answers, list):
+        return []
+    if not isinstance(pending, dict):
+        return []
+
+    planned_cards = pending.get('cards')
+    if not isinstance(planned_cards, list) or len(planned_cards) == 0:
+        return []
+
+    allowed_ids = set()
+    for item in planned_cards:
+        if not isinstance(item, dict):
+            continue
+        try:
+            card_id = int(item.get('id'))
+        except (TypeError, ValueError):
+            continue
+        if card_id > 0:
+            allowed_ids.add(card_id)
+    if len(allowed_ids) == 0:
+        return []
+
+    filtered = []
+    seen = set()
+    for answer in answers:
+        if not isinstance(answer, dict):
+            continue
+        try:
+            card_id = int(answer.get('cardId'))
+        except (TypeError, ValueError):
+            continue
+        if card_id <= 0 or card_id in seen:
+            continue
+        if card_id not in allowed_ids:
+            continue
+        filtered.append({**answer, 'cardId': card_id})
+        seen.add(card_id)
+    return filtered
+
+
+def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded_card_ids=None):
     """Plan one pending deck session without mutating DB state."""
-    cards_by_id, selected_ids, queue_ids, cursor, queue_used = plan_deck_practice_selection(
+    cards_by_id, selected_ids = plan_deck_practice_selection(
         conn,
         kid,
         deck_id,
         session_type,
         excluded_card_ids=excluded_card_ids,
-        enforce_exact_target=enforce_exact_target,
     )
     if len(selected_ids) == 0:
         return None, []
 
-    next_cursor = (cursor + queue_used) % len(queue_ids)
     pending_token = create_pending_session(
         kid_id,
         session_type,
@@ -1782,43 +1741,65 @@ def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded
             'kind': 'deck',
             'deck_id': int(deck_id),
             'planned_count': len(selected_ids),
-            'next_cursor': int(next_cursor),
+            'cards': [{'id': int(card_id)} for card_id in selected_ids],
         }
     )
     selected_cards = [cards_by_id[card_id] for card_id in selected_ids]
     return pending_token, selected_cards
 
 
-def preview_deck_practice_order(conn, kid, deck_id, session_type, excluded_card_ids=None, enforce_exact_target=False):
-    """Preview exact next session card order without mutating cursor/session."""
-    _, selected_ids, _, _, _ = plan_deck_practice_selection(
-        conn,
-        kid,
-        deck_id,
-        session_type,
-        excluded_card_ids=excluded_card_ids,
-        enforce_exact_target=enforce_exact_target,
-    )
-    return selected_ids
-
-
-def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card_ids=None, enforce_exact_target=False):
-    """Build deterministic card selection order used by session start/preview."""
-    ensure_practice_state(conn, deck_id)
+def _get_deck_practice_rankings(conn, deck_id, session_type, excluded_card_ids=None):
+    """Return candidate ids and deterministic ranking inputs for one deck."""
     excluded_set = set(excluded_card_ids or [])
+    excluded_ids = sorted(excluded_set)
+    exclude_clause = ""
+    params = [session_type, deck_id]
+    if len(excluded_ids) > 0:
+        placeholders = ','.join(['?'] * len(excluded_ids))
+        exclude_clause = f" AND c.id NOT IN ({placeholders})"
+        params.extend(excluded_ids)
 
-    cards = conn.execute(
-        """
-        SELECT id, front, back, created_at
-        FROM cards
-        WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE
-        ORDER BY id ASC
+    rows = conn.execute(
+        f"""
+        WITH last_session AS (
+            SELECT id
+            FROM sessions
+            WHERE type = ? AND completed_at IS NOT NULL
+            ORDER BY completed_at DESC
+            LIMIT 1
+        ),
+        attempts AS (
+            SELECT sr.card_id, COUNT(sr.id) AS lifetime_attempts
+            FROM session_results sr
+            GROUP BY sr.card_id
+        ),
+        red AS (
+            SELECT sr.card_id, MIN(sr.timestamp) AS first_red_at
+            FROM session_results sr
+            JOIN last_session ls ON ls.id = sr.session_id
+            WHERE sr.correct < 0 AND sr.card_id IS NOT NULL
+            GROUP BY sr.card_id
+        )
+        SELECT
+            c.id,
+            c.front,
+            c.back,
+            c.created_at,
+            c.hardness_score,
+            COALESCE(a.lifetime_attempts, 0) AS lifetime_attempts,
+            r.first_red_at
+        FROM cards c
+        LEFT JOIN attempts a ON a.card_id = c.id
+        LEFT JOIN red r ON r.card_id = c.id
+        WHERE c.deck_id = ? AND COALESCE(c.skip_practice, FALSE) = FALSE
+        {exclude_clause}
+        ORDER BY c.id ASC
         """,
-        [deck_id]
+        params
     ).fetchall()
 
-    if len(cards) == 0:
-        return {}, [], [], 0, 0
+    if len(rows) == 0:
+        return {}, [], [], [], []
 
     cards_by_id = {
         row[0]: {
@@ -1827,34 +1808,37 @@ def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card
             'back': row[2],
             'created_at': row[3].isoformat() if row[3] else None
         }
-        for row in cards
-        if row[0] not in excluded_set
+        for row in rows
     }
-    queue_ids = [row[0] for row in cards if row[0] not in excluded_set]
+    candidate_ids = [row[0] for row in rows]
 
-    if len(queue_ids) == 0:
-        return {}, [], [], 0, 0
+    red_rows = [row for row in rows if row[6] is not None]
+    red_rows.sort(key=lambda row: (row[6], row[0]))
+    red_card_ids = [row[0] for row in red_rows]
 
-    base_target_count = min(normalize_session_card_count(kid), len(queue_ids))
+    hard_ranked_ids = [
+        row[0]
+        for row in sorted(
+            rows,
+            key=lambda row: (-float(row[4] if row[4] is not None else 0), row[0])
+        )
+    ]
+    attempt_ranked_ids = [
+        row[0]
+        for row in sorted(
+            rows,
+            key=lambda row: (int(row[5] if row[5] is not None else 0), row[0])
+        )
+    ]
+
+    return cards_by_id, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids
+
+
+def _select_session_card_ids(kid, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids):
+    """Select one session-sized card list from ranking inputs."""
+    base_target_count = min(normalize_session_card_count(kid), len(candidate_ids))
     if base_target_count <= 0:
-        return cards_by_id, [], queue_ids, 0, 0
-    last_session_id, last_completed_at = get_last_completed_session(conn, session_type)
-    red_card_ids = []
-    if last_session_id:
-        red_card_ids = [card_id for card_id in get_session_red_cards(conn, last_session_id) if card_id in cards_by_id]
-
-    new_card_ids = []
-    if last_completed_at is not None:
-        new_rows = conn.execute(
-            """
-            SELECT id
-            FROM cards
-            WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE AND created_at > ?
-            ORDER BY id ASC
-            """,
-            [deck_id, last_completed_at]
-        ).fetchall()
-        new_card_ids = [row[0] for row in new_rows]
+        return []
 
     selected_ids = []
     selected_set = set()
@@ -1864,65 +1848,94 @@ def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card
             selected_ids.append(card_id)
             selected_set.add(card_id)
 
-    for card_id in new_card_ids:
-        if card_id in cards_by_id and card_id not in selected_set:
-            selected_ids.append(card_id)
-            selected_set.add(card_id)
-
-    if enforce_exact_target:
-        target_count = min(len(queue_ids), base_target_count)
-    else:
-        target_count = min(len(queue_ids), max(base_target_count, len(selected_ids)))
-
+    target_count = base_target_count
     if len(selected_ids) > target_count:
         selected_ids = selected_ids[:target_count]
         selected_set = set(selected_ids)
 
     remaining_slots = max(0, target_count - len(selected_ids))
     hard_pct = normalize_hard_card_percentage(kid)
-    hard_target = min(remaining_slots, int((remaining_slots * hard_pct) / 100))
+    if hard_pct <= 0 or remaining_slots <= 0:
+        hard_target = 0
+    else:
+        hard_target = min(remaining_slots, int(math.ceil((remaining_slots * hard_pct) / 100.0)))
 
     if hard_target > 0:
-        placeholders = ','.join(['?'] * len(queue_ids))
-        hard_rows = conn.execute(
-            f"""
-            SELECT id, hardness_score
-            FROM cards
-            WHERE id IN ({placeholders})
-            ORDER BY hardness_score DESC, id ASC
-            """,
-            queue_ids
-        ).fetchall()
-
-        for row in hard_rows:
+        for card_id in hard_ranked_ids:
             if len(selected_ids) >= target_count:
                 break
             if hard_target <= 0:
                 break
-            card_id = row[0]
             if card_id in selected_set:
                 continue
             selected_ids.append(card_id)
             selected_set.add(card_id)
             hard_target -= 1
 
-    cursor_row = conn.execute(
-        "SELECT queue_cursor FROM practice_state_by_deck WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()
-    cursor = int(cursor_row[0]) % len(queue_ids) if cursor_row else 0
-    queue_used = 0
-
-    offset = 0
-    while len(selected_ids) < target_count and offset < len(queue_ids):
-        card_id = queue_ids[(cursor + offset) % len(queue_ids)]
-        if card_id not in selected_set:
+    if len(selected_ids) < target_count:
+        for card_id in attempt_ranked_ids:
+            if len(selected_ids) >= target_count:
+                break
+            if card_id in selected_set:
+                continue
             selected_ids.append(card_id)
             selected_set.add(card_id)
-            queue_used += 1
-        offset += 1
+    return selected_ids
 
-    return cards_by_id, selected_ids, queue_ids, cursor, queue_used
+
+def preview_deck_practice_order(conn, kid, deck_id, session_type, excluded_card_ids=None):
+    """Preview full deck order for next-session priority (not just first session size)."""
+    _, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_deck_practice_rankings(
+        conn,
+        deck_id,
+        session_type,
+        excluded_card_ids=excluded_card_ids,
+    )
+    if len(candidate_ids) == 0:
+        return []
+
+    first_session_ids = _select_session_card_ids(
+        kid,
+        candidate_ids,
+        red_card_ids,
+        hard_ranked_ids,
+        attempt_ranked_ids,
+    )
+    ordered_ids = []
+    seen = set()
+    for card_id in first_session_ids:
+        if card_id not in seen:
+            ordered_ids.append(card_id)
+            seen.add(card_id)
+    for card_id in attempt_ranked_ids:
+        if card_id not in seen:
+            ordered_ids.append(card_id)
+            seen.add(card_id)
+    for card_id in candidate_ids:
+        if card_id not in seen:
+            ordered_ids.append(card_id)
+            seen.add(card_id)
+    return ordered_ids
+
+
+def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card_ids=None):
+    """Build deterministic session card selection: red -> hard -> least lifetime attempts."""
+    cards_by_id, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_deck_practice_rankings(
+        conn,
+        deck_id,
+        session_type,
+        excluded_card_ids=excluded_card_ids,
+    )
+    if len(candidate_ids) == 0:
+        return cards_by_id, []
+    selected_ids = _select_session_card_ids(
+        kid,
+        candidate_ids,
+        red_card_ids,
+        hard_ranked_ids,
+        attempt_ranked_ids,
+    )
+    return cards_by_id, selected_ids
 
 
 def complete_session_internal(kid, kid_id, session_type, data):
@@ -1937,6 +1950,9 @@ def complete_session_internal(kid, kid_id, session_type, data):
     pending = pop_pending_session(pending_session_id, kid_id, session_type)
     if not pending:
         return {'error': 'Pending session not found or expired'}, 404
+    answers = filter_answers_to_pending_cards(answers, pending)
+    if len(answers) == 0:
+        return {'error': 'answers do not match this pending session'}, 400
     started_at_utc = parse_client_started_at(data.get('startedAt'), pending)
     completed_at_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -2071,18 +2087,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 list(touched_card_ids)
             )
 
-        if pending.get('kind') == 'deck':
-            conn.execute(
-                "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-                [int(pending.get('next_cursor') or 0), int(pending.get('deck_id'))]
-            )
-        elif pending.get('kind') in ('math', 'lesson_reading'):
-            for item in pending.get('deck_cursor_updates', []):
-                conn.execute(
-                    "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-                    [int(item.get('next_cursor') or 0), int(item.get('deck_id'))]
-                )
-
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -2122,41 +2126,9 @@ def complete_session_internal(kid, kid_id, session_type, data):
     }, 200
 
 
-def delete_card_from_deck_internal(conn, deck_id, card_id):
-    """Delete a card and adjust the practice cursor."""
-    # Find deleted card's position in id-ordered list
-    card_ids = [
-        row[0] for row in conn.execute(
-            "SELECT id FROM cards WHERE deck_id = ? ORDER BY id ASC",
-            [deck_id]
-        ).fetchall()
-    ]
-    cursor_row = conn.execute(
-        "SELECT queue_cursor FROM practice_state_by_deck WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()
-    cursor = int(cursor_row[0]) if cursor_row else 0
-
-    try:
-        deleted_index = card_ids.index(card_id)
-    except ValueError:
-        deleted_index = -1
-
+def delete_card_from_deck_internal(conn, card_id):
+    """Delete one card from a deck."""
     conn.execute("DELETE FROM cards WHERE id = ?", [card_id])
-
-    remaining = len(card_ids) - 1
-    if remaining == 0:
-        conn.execute(
-            "UPDATE practice_state_by_deck SET queue_cursor = 0 WHERE deck_id = ?",
-            [deck_id]
-        )
-    else:
-        if deleted_index != -1 and deleted_index < cursor:
-            cursor -= 1
-        conn.execute(
-            "UPDATE practice_state_by_deck SET queue_cursor = ? WHERE deck_id = ?",
-            [max(0, cursor) % remaining, deck_id]
-        )
 
 
 def get_cards_with_stats(conn, deck_id):
@@ -2214,7 +2186,7 @@ def get_pending_writing_card_ids(conn):
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
 def get_cards(kid_id):
-    """Get all cards for a kid in practice queue order, with timing stats."""
+    """Get all cards for a kid, with timing stats and next-session preview order."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
@@ -2340,12 +2312,11 @@ def delete_card(kid_id, card_id):
 
         conn = get_kid_connection_for(kid)
 
-        card = conn.execute("SELECT id, deck_id FROM cards WHERE id = ?", [card_id]).fetchone()
+        card = conn.execute("SELECT id FROM cards WHERE id = ?", [card_id]).fetchone()
         if not card:
             conn.close()
             return jsonify({'error': 'Card not found'}), 404
-        deck_id = card[1]
-        delete_card_from_deck_internal(conn, deck_id, card_id)
+        delete_card_from_deck_internal(conn, card_id)
 
         conn.close()
 
@@ -2357,7 +2328,7 @@ def delete_card(kid_id, card_id):
 
 @kids_bp.route('/kids/<kid_id>/practice/start', methods=['POST'])
 def start_practice_session(kid_id):
-    """Start a practice session with last-session reds + queue-based FIFO rotation."""
+    """Start a practice session using red-first + hard + least-attempt selection."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
@@ -2405,8 +2376,7 @@ def get_math_cards(kid_id):
             conn,
             preview_kid,
             deck_id,
-            'math',
-            enforce_exact_target=True
+            'math'
         )
         preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
@@ -2495,8 +2465,7 @@ def get_lesson_reading_cards(kid_id):
             conn,
             preview_kid,
             deck_id,
-            'lesson_reading',
-            enforce_exact_target=True
+            'lesson_reading'
         )
         preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
@@ -2700,8 +2669,7 @@ def get_writing_cards(kid_id):
             preview_kid,
             deck_id,
             'writing',
-            excluded_card_ids=preview_excluded_ids,
-            enforce_exact_target=True
+            excluded_card_ids=preview_excluded_ids
         )
         preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
@@ -3143,7 +3111,7 @@ def delete_writing_card(kid_id, card_id):
 
         conn.execute("DELETE FROM writing_audio WHERE card_id = ?", [card_id])
         conn.execute("DELETE FROM writing_sheet_cards WHERE card_id = ?", [card_id])
-        delete_card_from_deck_internal(conn, deck_id, card_id)
+        delete_card_from_deck_internal(conn, card_id)
         conn.close()
         return jsonify({'message': 'Writing card deleted successfully'}), 200
     except Exception as e:
@@ -3635,8 +3603,7 @@ def start_writing_practice_session(kid_id):
             kid_id,
             deck_id,
             'writing',
-            excluded_card_ids=excluded_card_ids,
-            enforce_exact_target=True
+            excluded_card_ids=excluded_card_ids
         )
         if not pending_session_id:
             conn.close()
@@ -3689,30 +3656,21 @@ def start_math_practice_session(kid_id):
         deck_ids = get_or_create_math_decks(conn)
 
         selected_cards = []
-        deck_cursor_updates = []
         for deck_key in MATH_DECK_CONFIGS.keys():
             per_deck_count = normalize_math_deck_session_count(kid, deck_key)
             if per_deck_count <= 0:
                 continue
 
             preview_kid = {**kid, 'sessionCardCount': per_deck_count}
-            cards_by_id, selected_ids, queue_ids, cursor, queue_used = plan_deck_practice_selection(
+            cards_by_id, selected_ids = plan_deck_practice_selection(
                 conn,
                 preview_kid,
                 deck_ids[deck_key],
-                'math',
-                enforce_exact_target=True
+                'math'
             )
 
             if len(selected_ids) == 0:
                 continue
-
-            if len(queue_ids) > 0:
-                next_cursor = (cursor + queue_used) % len(queue_ids)
-                deck_cursor_updates.append({
-                    'deck_id': int(deck_ids[deck_key]),
-                    'next_cursor': int(next_cursor),
-                })
 
             for card_id in selected_ids:
                 selected_cards.append({
@@ -3730,7 +3688,7 @@ def start_math_practice_session(kid_id):
             {
                 'kind': 'math',
                 'planned_count': len(selected_cards),
-                'deck_cursor_updates': deck_cursor_updates,
+                'cards': [{'id': int(card['id'])} for card in selected_cards],
             }
         )
         conn.close()
@@ -3756,29 +3714,20 @@ def start_lesson_reading_practice_session(kid_id):
         deck_ids = get_or_create_lesson_reading_decks(conn)
 
         selected_cards = []
-        deck_cursor_updates = []
         for deck_key in LESSON_READING_DECK_CONFIGS.keys():
             per_deck_count = normalize_lesson_reading_deck_session_count(kid, deck_key)
             if per_deck_count <= 0:
                 continue
 
             preview_kid = {**kid, 'sessionCardCount': per_deck_count}
-            cards_by_id, selected_ids, queue_ids, cursor, queue_used = plan_deck_practice_selection(
+            cards_by_id, selected_ids = plan_deck_practice_selection(
                 conn,
                 preview_kid,
                 deck_ids[deck_key],
-                'lesson_reading',
-                enforce_exact_target=True
+                'lesson_reading'
             )
             if len(selected_ids) == 0:
                 continue
-
-            if len(queue_ids) > 0:
-                next_cursor = (cursor + queue_used) % len(queue_ids)
-                deck_cursor_updates.append({
-                    'deck_id': int(deck_ids[deck_key]),
-                    'next_cursor': int(next_cursor),
-                })
 
             for card_id in selected_ids:
                 selected_cards.append({
@@ -3796,7 +3745,6 @@ def start_lesson_reading_practice_session(kid_id):
             {
                 'kind': 'lesson_reading',
                 'planned_count': len(selected_cards),
-                'deck_cursor_updates': deck_cursor_updates,
                 'cards': [{'id': int(card['id'])} for card in selected_cards],
                 'lesson_audio_dir': ensure_lesson_reading_audio_dir(kid),
             }

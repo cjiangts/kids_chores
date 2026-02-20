@@ -66,12 +66,6 @@ CREATE TABLE IF NOT EXISTS lesson_reading_audio (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Cursor state for circular practice rotation by deck
-CREATE TABLE IF NOT EXISTS practice_state_by_deck (
-  deck_id INTEGER PRIMARY KEY,
-  queue_cursor INTEGER NOT NULL DEFAULT 0
-);
-
 -- Printable writing practice sheets
 CREATE TABLE IF NOT EXISTS writing_sheets (
   id INTEGER PRIMARY KEY DEFAULT nextval('writing_sheets_id_seq'),

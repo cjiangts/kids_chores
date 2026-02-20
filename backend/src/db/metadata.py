@@ -153,10 +153,6 @@ def load_metadata() -> Dict:
         return _normalize(data)
     return _with_file_lock(False, _op)
 
-def save_metadata(data: Dict):
-    """Save metadata to JSON file."""
-    _with_file_lock(True, lambda: _write_metadata_atomic(data))
-
 def get_all_kids(family_id: Optional[str] = None) -> List[Dict]:
     """Get kids, optionally filtered by family id."""
     metadata = load_metadata()

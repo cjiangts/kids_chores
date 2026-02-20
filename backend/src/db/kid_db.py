@@ -25,6 +25,7 @@ def _apply_migrations(conn: duckdb.DuckDBPyConnection):
         "ALTER TABLE cards ADD COLUMN hardness_score DOUBLE DEFAULT 0",
         "ALTER TABLE cards ADD COLUMN skip_practice BOOLEAN DEFAULT FALSE",
         "ALTER TABLE writing_sheets ADD COLUMN practice_rows INTEGER DEFAULT 1",
+        "DROP TABLE IF EXISTS practice_state_by_deck",
     ]
 
     for stmt in migration_sql:

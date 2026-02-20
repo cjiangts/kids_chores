@@ -13,6 +13,7 @@ from src.routes.kids import (
 )
 from src.routes.backup import backup_bp
 from src.db import metadata
+from src.db.shared_math_deck_db import init_shared_math_decks_database
 
 def create_app():
     app = Flask(__name__)
@@ -32,6 +33,9 @@ def create_app():
         cleanup_result.get('removedFamilyKeys', 0),
         cleanup_result.get('removedKidKeys', 0),
     )
+    # Shared user-created math decks live in a single DB shared by all families.
+    shared_math_db_path = init_shared_math_decks_database()
+    app.logger.info('Shared math deck DB initialized at startup: path=%s', shared_math_db_path)
     # KEEP: Ensures fixed preset math decks exist for all kids.
     math_seed_result = seed_math_decks_for_all_kids()
     app.logger.info(
