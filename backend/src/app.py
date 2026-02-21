@@ -29,15 +29,6 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
     MIN_HARD_PCT = 0
     MAX_HARD_PCT = 100
-    # KEEP: Safe metadata cleanup and normalization on every startup.
-    cleanup_result = metadata.cleanup_deprecated_metadata_config()
-    app.logger.info(
-        'Metadata cleanup at startup: updated=%s, removedTopLevelKeys=%s, removedFamilyKeys=%s, removedKidKeys=%s',
-        cleanup_result.get('updated'),
-        cleanup_result.get('removedTopLevelKeys', 0),
-        cleanup_result.get('removedFamilyKeys', 0),
-        cleanup_result.get('removedKidKeys', 0),
-    )
     # Shared user-created decks live in a single DB shared by all families.
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)

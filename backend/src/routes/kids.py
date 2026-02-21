@@ -1024,7 +1024,7 @@ def normalize_shared_math_session_card_count(kid):
     """Get validated total math cards per session for shared (opted-in) decks."""
     raw = kid.get('sharedMathSessionCardCount')
     if raw is None:
-        raw = DEFAULT_SHARED_MATH_SESSION_CARD_COUNT if bool(kid.get('dailyPracticeMathEnabled')) else 0
+        raw = DEFAULT_SHARED_MATH_SESSION_CARD_COUNT
     try:
         parsed = int(raw)
     except (TypeError, ValueError):
@@ -1141,7 +1141,7 @@ def with_practice_count_fallbacks(kid):
 
     writing_raw = safe_kid.get('writingSessionCardCount')
     if writing_raw is None:
-        writing_count = reading_count if bool(safe_kid.get('dailyPracticeWritingEnabled')) else 0
+        writing_count = 0
     else:
         try:
             writing_count = int(writing_raw)
@@ -1149,18 +1149,13 @@ def with_practice_count_fallbacks(kid):
             writing_count = 0
     safe_kid['writingSessionCardCount'] = max(0, min(MAX_SESSION_CARD_COUNT, writing_count))
 
-    def _normalized_math_count(field_name, fallback_value):
-        raw = safe_kid.get(field_name)
-        if raw is None:
-            return fallback_value if bool(safe_kid.get('dailyPracticeMathEnabled')) else 0
+    for cfg in LESSON_READING_DECK_CONFIGS.values():
+        raw = safe_kid.get(cfg['kid_field'], cfg['default_count'])
         try:
             value = int(raw)
         except (TypeError, ValueError):
-            value = 0
-        return max(0, min(MAX_SESSION_CARD_COUNT, value))
-
-    for cfg in LESSON_READING_DECK_CONFIGS.values():
-        safe_kid[cfg['kid_field']] = _normalized_math_count(cfg['kid_field'], cfg['default_count'])
+            value = int(cfg['default_count'])
+        safe_kid[cfg['kid_field']] = max(0, min(MAX_SESSION_CARD_COUNT, value))
     safe_kid['sharedMathSessionCardCount'] = normalize_shared_math_session_card_count(safe_kid)
     safe_kid['sharedMathDeckMix'] = normalize_shared_math_deck_mix(safe_kid.get('sharedMathDeckMix'))
 
@@ -1226,9 +1221,6 @@ def create_kid():
             'lessonReadingDeckMa3Unit1Count': 0,
             'lessonReadingDeckMa3Unit2Count': 0,
             'lessonReadingDeckMa3Unit3Count': 0,
-            'dailyPracticeChineseEnabled': False,
-            'dailyPracticeMathEnabled': True,
-            'dailyPracticeWritingEnabled': False,
             'createdAt': datetime.now().isoformat()
         })
         kid_id = kid['id']
@@ -1719,21 +1711,6 @@ def update_kid(kid_id):
                 return jsonify({'error': f'{field_name} must be between 0 and {MAX_SESSION_CARD_COUNT}'}), 400
 
             updates[field_name] = field_count
-
-        if 'dailyPracticeChineseEnabled' in data:
-            if not isinstance(data['dailyPracticeChineseEnabled'], bool):
-                return jsonify({'error': 'dailyPracticeChineseEnabled must be a boolean'}), 400
-            updates['dailyPracticeChineseEnabled'] = data['dailyPracticeChineseEnabled']
-
-        if 'dailyPracticeMathEnabled' in data:
-            if not isinstance(data['dailyPracticeMathEnabled'], bool):
-                return jsonify({'error': 'dailyPracticeMathEnabled must be a boolean'}), 400
-            updates['dailyPracticeMathEnabled'] = data['dailyPracticeMathEnabled']
-
-        if 'dailyPracticeWritingEnabled' in data:
-            if not isinstance(data['dailyPracticeWritingEnabled'], bool):
-                return jsonify({'error': 'dailyPracticeWritingEnabled must be a boolean'}), 400
-            updates['dailyPracticeWritingEnabled'] = data['dailyPracticeWritingEnabled']
 
         if not updates:
             return jsonify({'error': 'No supported fields to update'}), 400

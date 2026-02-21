@@ -18,27 +18,6 @@ MIN_HARD_CARD_PERCENTAGE = 0
 MAX_HARD_CARD_PERCENTAGE = 100
 DEFAULT_FAMILY_TIMEZONE = 'America/New_York'
 _METADATA_THREAD_LOCK = threading.RLock()
-ALLOWED_TOP_LEVEL_KEYS = {'families', 'kids', 'lastUpdated'}
-ALLOWED_FAMILY_KEYS = {'id', 'username', 'password', 'hardCardPercentage', 'familyTimezone', 'superFamily', 'createdAt'}
-ALLOWED_KID_KEYS = {
-    'id',
-    'name',
-    'birthday',
-    'dbFilePath',
-    'createdAt',
-    'familyId',
-    'sessionCardCount',
-    'writingSessionCardCount',
-    'hardCardPercentage',
-    'sharedMathSessionCardCount',
-    'sharedMathDeckMix',
-    'lessonReadingDeckMa3Unit1Count',
-    'lessonReadingDeckMa3Unit2Count',
-    'lessonReadingDeckMa3Unit3Count',
-    'dailyPracticeChineseEnabled',
-    'dailyPracticeMathEnabled',
-    'dailyPracticeWritingEnabled',
-}
 
 
 def _normalize(data: Dict) -> Dict:
@@ -472,58 +451,3 @@ def update_family_timezone(family_id: str, family_timezone: str) -> bool:
 
     return _mutate_metadata(_op)
 
-
-def cleanup_deprecated_metadata_config() -> Dict:
-    """Remove deprecated metadata keys and keep only known config fields."""
-    def _op(data: Dict):
-        removed_top = 0
-        removed_family = 0
-        removed_kid = 0
-
-        for key in list(data.keys()):
-            if key not in ALLOWED_TOP_LEVEL_KEYS:
-                data.pop(key, None)
-                removed_top += 1
-
-        families = []
-        has_super_family = False
-        for family in data.get('families', []):
-            if not isinstance(family, dict):
-                continue
-            cleaned_family = {k: v for k, v in family.items() if k in ALLOWED_FAMILY_KEYS}
-            removed_family += len(family) - len(cleaned_family)
-            cleaned_family['superFamily'] = _normalize_super_family_flag(cleaned_family.get('superFamily'))
-            if cleaned_family['superFamily']:
-                has_super_family = True
-            families.append(cleaned_family)
-        if families and not has_super_family:
-            promoted_idx = 0
-            promoted_id = None
-            for idx, family in enumerate(families):
-                try:
-                    family_id = int(family.get('id'))
-                except (TypeError, ValueError):
-                    continue
-                if promoted_id is None or family_id < promoted_id:
-                    promoted_id = family_id
-                    promoted_idx = idx
-            families[promoted_idx]['superFamily'] = True
-        data['families'] = families
-
-        kids = []
-        for kid in data.get('kids', []):
-            if not isinstance(kid, dict):
-                continue
-            cleaned_kid = {k: v for k, v in kid.items() if k in ALLOWED_KID_KEYS}
-            removed_kid += len(kid) - len(cleaned_kid)
-            kids.append(cleaned_kid)
-        data['kids'] = kids
-
-        return {
-            'removedTopLevelKeys': removed_top,
-            'removedFamilyKeys': removed_family,
-            'removedKidKeys': removed_kid,
-            'updated': (removed_top + removed_family + removed_kid) > 0
-        }
-
-    return _mutate_metadata(_op)
