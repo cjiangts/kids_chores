@@ -29,6 +29,7 @@ PROJECT_DIR = BACKEND_DIR.parent
 DEFAULT_KIDS_JSON = BACKEND_DIR / "data" / "kids.json"
 SCHEMA_SQL_PATH = BACKEND_DIR / "src" / "db" / "schema.sql"
 DEFAULT_MARKER_PATH = BACKEND_DIR / "data" / ".drop_fk_migration_done.json"
+MATH_ORPHAN_DECK_NAME = "math_orphan"
 
 # Stable copy order for predictable rebuilds.
 TABLE_COPY_ORDER = [
@@ -273,6 +274,68 @@ def verify_no_foreign_keys(conn: duckdb.DuckDBPyConnection) -> None:
         raise RuntimeError(f"migrated database still has {fk_count} foreign key constraint(s)")
 
 
+def fill_math_session_deck_ids(conn: duckdb.DuckDBPyConnection) -> int:
+    """Assign NULL math session deck_id values to the math_orphan deck."""
+    orphan_row = conn.execute(
+        "SELECT id FROM decks WHERE name = ? ORDER BY id ASC LIMIT 1",
+        [MATH_ORPHAN_DECK_NAME],
+    ).fetchone()
+    if orphan_row:
+        orphan_deck_id = int(orphan_row[0])
+    else:
+        orphan_deck_id = int(
+            conn.execute(
+                """
+                INSERT INTO decks (name, description, tags)
+                VALUES (?, ?, ?)
+                RETURNING id
+                """,
+                [
+                    MATH_ORPHAN_DECK_NAME,
+                    "Reserved deck for orphaned math cards",
+                    ["math", "orphan"],
+                ],
+            ).fetchone()[0]
+        )
+
+    pending_count = int(
+        conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM sessions
+            WHERE deck_id IS NULL
+              AND LOWER(COALESCE(type, '')) = 'math'
+            """
+        ).fetchone()[0]
+        or 0
+    )
+    if pending_count > 0:
+        conn.execute(
+            """
+            UPDATE sessions
+            SET deck_id = ?
+            WHERE deck_id IS NULL
+              AND LOWER(COALESCE(type, '')) = 'math'
+            """,
+            [orphan_deck_id],
+        )
+
+    remaining = int(
+        conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM sessions
+            WHERE deck_id IS NULL
+              AND LOWER(COALESCE(type, '')) = 'math'
+            """
+        ).fetchone()[0]
+        or 0
+    )
+    if remaining != 0:
+        raise RuntimeError("failed to fill all NULL deck_id values for math sessions")
+    return pending_count
+
+
 def migrate_one_db(db_path: Path, schema_sql: str, dry_run: bool, no_backup: bool) -> MigrationResult:
     if not db_path.exists():
         return MigrationResult(db_path=db_path, status="missing", detail="file not found")
@@ -377,6 +440,7 @@ def migrate_one_db(db_path: Path, schema_sql: str, dry_run: bool, no_backup: boo
                     )
                 )
 
+        filled_math_sessions = fill_math_session_deck_ids(target_conn)
         reset_sequences(target_conn)
         verify_deck_id_nullable(target_conn)
         verify_session_results_card_id_not_nullable(target_conn)
@@ -392,7 +456,7 @@ def migrate_one_db(db_path: Path, schema_sql: str, dry_run: bool, no_backup: boo
     return MigrationResult(
         db_path=db_path,
         status="migrated",
-        detail="migration completed",
+        detail=f"migration completed; filled_math_session_deck_id={filled_math_sessions}",
         backup_path=None if no_backup else backup_path,
     )
 
