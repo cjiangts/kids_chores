@@ -27,10 +27,6 @@ MAX_WRITING_SHEET_ROWS = 10
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
-DEFAULT_MATH_DECK_WITHIN_10_COUNT = 5
-DEFAULT_MATH_DECK_WITHIN_20_COUNT = 5
-DEFAULT_MATH_DECK_SUB_WITHIN_10_COUNT = 0
-DEFAULT_MATH_DECK_SUB_WITHIN_20_COUNT = 0
 DEFAULT_SHARED_MATH_SESSION_CARD_COUNT = 10
 DEFAULT_LESSON_READING_DECK_COUNT = 0
 ALLOWED_SHARED_DECK_FIRST_TAGS = {'math', 'chinese_reading'}
@@ -40,52 +36,6 @@ MAX_SHARED_TAG_LENGTH = 64
 MAX_SHARED_DECK_OPTIN_BATCH = 200
 MATERIALIZED_SHARED_DECK_NAME_PREFIX = 'shared_deck_'
 MATH_ORPHAN_DECK_NAME = 'math_orphan'
-MATH_DECK_CONFIGS = {
-    'within10': {
-        'name': 'Math Addition Within 10',
-        'description': 'All ordered pairs where a + b is between 0 and 10',
-        'tags': ['math', 'within10'],
-        'operation': '+',
-        'sum_min': 0,
-        'sum_max': 10,
-        'kid_field': 'mathDeckWithin10Count',
-        'default_count': DEFAULT_MATH_DECK_WITHIN_10_COUNT,
-        'label': 'Add ≤10',
-    },
-    'within20': {
-        'name': 'Math Addition Within 20',
-        'description': 'All ordered pairs where a + b is between 11 and 20',
-        'tags': ['math', 'within20'],
-        'operation': '+',
-        'sum_min': 11,
-        'sum_max': 20,
-        'kid_field': 'mathDeckWithin20Count',
-        'default_count': DEFAULT_MATH_DECK_WITHIN_20_COUNT,
-        'label': 'Add 11–20',
-    },
-    'subWithin10': {
-        'name': 'Math Subtraction Within 10',
-        'description': 'All ordered pairs where a - b and a is between 0 and 10',
-        'tags': ['math', 'subtraction', 'within10'],
-        'operation': '-',
-        'minuend_min': 0,
-        'minuend_max': 10,
-        'kid_field': 'mathDeckSubWithin10Count',
-        'default_count': DEFAULT_MATH_DECK_SUB_WITHIN_10_COUNT,
-        'label': 'Sub ≤10',
-    },
-    'subWithin20': {
-        'name': 'Math Subtraction Within 20',
-        'description': 'All ordered pairs where a - b and a is between 11 and 20',
-        'tags': ['math', 'subtraction', 'within20'],
-        'operation': '-',
-        'minuend_min': 11,
-        'minuend_max': 20,
-        'kid_field': 'mathDeckSubWithin20Count',
-        'default_count': DEFAULT_MATH_DECK_SUB_WITHIN_20_COUNT,
-        'label': 'Sub 11–20',
-    }
-}
 
 LESSON_READING_DECK_CONFIGS = {
     'ma3Unit1': {
@@ -1070,31 +1020,11 @@ def normalize_hard_card_percentage(kid):
     return parsed
 
 
-def normalize_math_deck_session_count(kid, deck_key):
-    """Get validated per-session count for a specific fixed math deck."""
-    config = MATH_DECK_CONFIGS.get(deck_key)
-    if not config:
-        return 0
-    raw = kid.get(config['kid_field'], config['default_count'])
-    try:
-        parsed = int(raw)
-    except (TypeError, ValueError):
-        return int(config['default_count'])
-    if parsed < 0:
-        return 0
-    if parsed > MAX_SESSION_CARD_COUNT:
-        return MAX_SESSION_CARD_COUNT
-    return parsed
-
-
 def normalize_shared_math_session_card_count(kid):
     """Get validated total math cards per session for shared (opted-in) decks."""
     raw = kid.get('sharedMathSessionCardCount')
     if raw is None:
-        fallback = sum(normalize_math_deck_session_count(kid, deck_key) for deck_key in MATH_DECK_CONFIGS.keys())
-        if fallback <= 0:
-            fallback = DEFAULT_SHARED_MATH_SESSION_CARD_COUNT if bool(kid.get('dailyPracticeMathEnabled')) else 0
-        raw = fallback
+        raw = DEFAULT_SHARED_MATH_SESSION_CARD_COUNT if bool(kid.get('dailyPracticeMathEnabled')) else 0
     try:
         parsed = int(raw)
     except (TypeError, ValueError):
@@ -1229,8 +1159,6 @@ def with_practice_count_fallbacks(kid):
             value = 0
         return max(0, min(MAX_SESSION_CARD_COUNT, value))
 
-    for cfg in MATH_DECK_CONFIGS.values():
-        safe_kid[cfg['kid_field']] = _normalized_math_count(cfg['kid_field'], cfg['default_count'])
     for cfg in LESSON_READING_DECK_CONFIGS.values():
         safe_kid[cfg['kid_field']] = _normalized_math_count(cfg['kid_field'], cfg['default_count'])
     safe_kid['sharedMathSessionCardCount'] = normalize_shared_math_session_card_count(safe_kid)
@@ -1293,10 +1221,6 @@ def create_kid():
             'sessionCardCount': 0,
             'writingSessionCardCount': 0,
             'hardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
-            'mathDeckWithin10Count': 10,
-            'mathDeckWithin20Count': 0,
-            'mathDeckSubWithin10Count': 0,
-            'mathDeckSubWithin20Count': 0,
             'sharedMathSessionCardCount': DEFAULT_SHARED_MATH_SESSION_CARD_COUNT,
             'sharedMathDeckMix': {},
             'lessonReadingDeckMa3Unit1Count': 0,
@@ -1314,7 +1238,6 @@ def create_kid():
         # Initialize kid's database
         kid_db.init_kid_database_by_path(db_relpath)
         conn = kid_db.get_kid_connection_by_path(db_relpath)
-        seed_all_math_decks(conn)
         seed_all_lesson_reading_decks(conn)
         conn.close()
 
@@ -1783,20 +1706,6 @@ def update_kid(kid_id):
                 return jsonify({'error': 'sharedMathDeckMix must be an object'}), 400
             updates['sharedMathDeckMix'] = normalize_shared_math_deck_mix(data['sharedMathDeckMix'])
 
-        for cfg in MATH_DECK_CONFIGS.values():
-            field_name = cfg['kid_field']
-            if field_name not in data:
-                continue
-            try:
-                field_count = int(data[field_name])
-            except (TypeError, ValueError):
-                return jsonify({'error': f'{field_name} must be an integer'}), 400
-
-            if field_count < 0 or field_count > MAX_SESSION_CARD_COUNT:
-                return jsonify({'error': f'{field_name} must be between 0 and {MAX_SESSION_CARD_COUNT}'}), 400
-
-            updates[field_name] = field_count
-
         for cfg in LESSON_READING_DECK_CONFIGS.values():
             field_name = cfg['kid_field']
             if field_name not in data:
@@ -1890,37 +1799,6 @@ def get_or_create_default_deck(conn):
     return row[0]
 
 
-def get_or_create_math_deck(conn, deck_key):
-    """Get or create one fixed math deck by key."""
-    config = MATH_DECK_CONFIGS.get(deck_key)
-    if not config:
-        raise ValueError(f'Unsupported math deck key: {deck_key}')
-
-    result = conn.execute("SELECT id FROM decks WHERE name = ?", [config['name']]).fetchone()
-    if result:
-        return result[0]
-
-    row = conn.execute(
-        """
-        INSERT INTO decks (name, description, tags)
-        VALUES (?, ?, ?)
-        RETURNING id
-        """,
-        [config['name'], config['description'], config['tags']]
-    ).fetchone()
-    return row[0]
-
-
-def get_or_create_math_decks(conn):
-    """Ensure all fixed math decks exist and return deck ids keyed by deck key."""
-    deck_ids = {
-        deck_key: get_or_create_math_deck(conn, deck_key)
-        for deck_key in MATH_DECK_CONFIGS.keys()
-    }
-    get_or_create_math_orphan_deck(conn)
-    return deck_ids
-
-
 def get_or_create_math_orphan_deck(conn):
     """Get or create the reserved orphan deck for detached math cards."""
     result = conn.execute(
@@ -2001,101 +1879,6 @@ def split_writing_bulk_text(raw_text):
         deduped.append(token)
         seen.add(token)
     return deduped
-
-
-def get_math_pairs_for_sum_range(min_sum, max_sum):
-    """Generate ordered pairs (a, b) where a+b is within [min_sum, max_sum]."""
-    pairs = []
-    for total in range(int(min_sum), int(max_sum) + 1):
-        for a in range(0, total + 1):
-            b = total - a
-            pairs.append((a, b))
-    return pairs
-
-
-def get_math_pairs_for_minuend_range(minuend_min, minuend_max):
-    """Generate ordered subtraction pairs (a, b) for minuend range with non-negative answers."""
-    pairs = []
-    for a in range(int(minuend_min), int(minuend_max) + 1):
-        for b in range(0, a + 1):
-            pairs.append((a, b))
-    return pairs
-
-
-def build_math_pairs_for_deck(config):
-    """Build one deck's fixed ordered operand pairs from config."""
-    operation = config.get('operation')
-    if operation == '+':
-        return get_math_pairs_for_sum_range(config['sum_min'], config['sum_max'])
-    if operation == '-':
-        return get_math_pairs_for_minuend_range(config['minuend_min'], config['minuend_max'])
-    raise ValueError(f"Unsupported math operation in deck config: {operation}")
-
-
-def seed_math_deck_cards(conn, deck_id, config):
-    """Insert fixed math cards for one deck if missing."""
-    existing = conn.execute(
-        "SELECT front FROM cards WHERE deck_id = ?",
-        [deck_id]
-    ).fetchall()
-    existing_fronts = {row[0] for row in existing}
-
-    operation = config.get('operation', '+')
-    new_rows = []
-    for a, b in build_math_pairs_for_deck(config):
-        front = f"{a} {operation} {b}"
-        back = str(a + b) if operation == '+' else str(a - b)
-        if front in existing_fronts:
-            continue
-        new_rows.append((deck_id, front, back))
-        existing_fronts.add(front)
-
-    if new_rows:
-        conn.executemany(
-            "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
-            new_rows
-        )
-
-    total = conn.execute(
-        "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
-        [deck_id]
-    ).fetchone()[0]
-
-    return {'inserted': len(new_rows), 'total': int(total)}
-
-
-def seed_all_math_decks(conn):
-    """Ensure fixed cards exist for all math decks."""
-    deck_ids = get_or_create_math_decks(conn)
-    results = {}
-    for deck_key, deck_id in deck_ids.items():
-        cfg = MATH_DECK_CONFIGS[deck_key]
-        seeded = seed_math_deck_cards(conn, deck_id, cfg)
-        results[deck_key] = {'deck_id': deck_id, **seeded}
-    return results
-
-
-def seed_math_decks_for_all_kids():
-    """Ensure full fixed math decks are initialized for every kid at startup."""
-    seeded_kids = 0
-    total_inserted = 0
-    failed_kids = 0
-
-    for kid in metadata.get_all_kids():
-        try:
-            conn = get_kid_connection_for(kid)
-            seed_results = seed_all_math_decks(conn)
-            conn.close()
-            seeded_kids += 1
-            total_inserted += sum(int((item or {}).get('inserted', 0)) for item in seed_results.values())
-        except Exception:
-            failed_kids += 1
-
-    return {
-        'seededKids': seeded_kids,
-        'failedKids': failed_kids,
-        'insertedCards': total_inserted
-    }
 
 
 def seed_lesson_reading_deck_cards(conn, deck_id, config):
@@ -3118,57 +2901,6 @@ def start_practice_session(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
-@kids_bp.route('/kids/<kid_id>/math/cards', methods=['GET'])
-def get_math_cards(kid_id):
-    """Get fixed-deck math cards for a kid (one selected deck at a time)."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-
-        requested_key = (request.args.get('deck') or 'within10').strip()
-        if requested_key not in MATH_DECK_CONFIGS:
-            return jsonify({'error': f'Unsupported math deck: {requested_key}'}), 400
-
-        conn = get_kid_connection_for(kid)
-        deck_ids = get_or_create_math_decks(conn)
-        deck_id = deck_ids[requested_key]
-
-        requested_count = normalize_math_deck_session_count(kid, requested_key)
-        preview_kid = {**kid, 'sessionCardCount': requested_count}
-        preview_ids = preview_deck_practice_order(
-            conn,
-            preview_kid,
-            deck_id,
-            'math'
-        )
-        preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
-
-        cards = get_cards_with_stats(conn, deck_id)
-        active_count = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
-            [deck_id]
-        ).fetchone()[0] or 0)
-        skipped_count = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = TRUE",
-            [deck_id]
-        ).fetchone()[0] or 0)
-
-        conn.close()
-
-        return jsonify({
-            'deck_key': requested_key,
-            'deck_label': MATH_DECK_CONFIGS[requested_key]['label'],
-            'deck_id': deck_id,
-            'session_count': requested_count,
-            'active_card_count': active_count,
-            'skipped_card_count': skipped_count,
-            'cards': [map_card_row(row, preview_order) for row in cards]
-        }), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 @kids_bp.route('/kids/<kid_id>/math/shared-decks', methods=['GET'])
 def get_kid_math_shared_decks(kid_id):
     """List global shared math decks and whether this kid already opted into each."""
@@ -3983,64 +3715,6 @@ def set_lesson_reading_card_skip(kid_id, card_id, skipped):
         conn.close()
         return {
             'message': 'Lesson-reading card updated successfully',
-            'card_id': card_id,
-            'skip_practice': bool(skipped)
-        }, 200
-    except Exception as e:
-        return {'error': str(e)}, 500
-
-
-@kids_bp.route('/kids/<kid_id>/math/cards/<card_id>', methods=['DELETE'])
-def delete_math_card(kid_id, card_id):
-    """Legacy delete endpoint: map to skip-on behavior for math cards."""
-    auth_err = require_critical_password()
-    if auth_err:
-        return auth_err
-    payload, status = set_math_card_skip(kid_id, card_id, True)
-    return jsonify(payload), status
-
-
-@kids_bp.route('/kids/<kid_id>/math/cards/<card_id>/skip', methods=['PUT'])
-def update_math_card_skip(kid_id, card_id):
-    """Mark/unmark a math card as skipped for practice."""
-    body = request.get_json() or {}
-    skipped = body.get('skipped')
-    if not isinstance(skipped, bool):
-        return jsonify({'error': 'skipped must be a boolean'}), 400
-    payload, status = set_math_card_skip(kid_id, card_id, skipped)
-    return jsonify(payload), status
-
-
-def set_math_card_skip(kid_id, card_id, skipped):
-    """Helper to update math card skip flag."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return {'error': 'Kid not found'}, 404
-
-        conn = get_kid_connection_for(kid)
-        deck_ids = set(get_or_create_math_decks(conn).values())
-
-        card = conn.execute(
-            "SELECT id, deck_id FROM cards WHERE id = ?",
-            [card_id]
-        ).fetchone()
-        if not card:
-            conn.close()
-            return {'error': 'Math card not found'}, 404
-
-        deck_id = card[1]
-        if deck_id not in deck_ids:
-            conn.close()
-            return {'error': 'Math card not found'}, 404
-
-        conn.execute(
-            "UPDATE cards SET skip_practice = ? WHERE id = ?",
-            [bool(skipped), card_id]
-        )
-        conn.close()
-        return {
-            'message': 'Math card updated successfully',
             'card_id': card_id,
             'skip_practice': bool(skipped)
         }, 200

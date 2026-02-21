@@ -188,18 +188,7 @@ async function goToLatestLessonReadingSession(kidId) {
 
 function getMathSessionCount(kid) {
     const sharedMathSessionCount = Number.parseInt(kid?.sharedMathSessionCardCount, 10);
-    if (Number.isInteger(sharedMathSessionCount)) {
-        return Math.max(0, sharedMathSessionCount);
-    }
-
-    const mathWithin10Count = Number.parseInt(kid?.mathDeckWithin10Count, 10);
-    const mathWithin20Count = Number.parseInt(kid?.mathDeckWithin20Count, 10);
-    const mathSubWithin10Count = Number.parseInt(kid?.mathDeckSubWithin10Count, 10);
-    const mathSubWithin20Count = Number.parseInt(kid?.mathDeckSubWithin20Count, 10);
-    return (Number.isInteger(mathWithin10Count) ? Math.max(0, mathWithin10Count) : 0)
-        + (Number.isInteger(mathWithin20Count) ? Math.max(0, mathWithin20Count) : 0)
-        + (Number.isInteger(mathSubWithin10Count) ? Math.max(0, mathSubWithin10Count) : 0)
-        + (Number.isInteger(mathSubWithin20Count) ? Math.max(0, mathSubWithin20Count) : 0);
+    return Number.isInteger(sharedMathSessionCount) ? Math.max(0, sharedMathSessionCount) : 0;
 }
 
 // UI Functions
@@ -253,7 +242,7 @@ function displayKids(kids) {
                     </div>
 
                     <div class="practice-config-row">
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-math-manage-v2.html?id=${kid.id}">${mathLabel}</a>
+                        <a class="tab-link secondary practice-manage-btn" href="/kid-math-manage.html?id=${kid.id}">${mathLabel}</a>
                     </div>
                     <div class="practice-config-row">
                         <a class="tab-link secondary practice-manage-btn" href="/kid-lesson-reading-manage.html?id=${kid.id}">${lessonReadingLabel}</a>
