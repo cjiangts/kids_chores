@@ -127,6 +127,22 @@ async function loadWritingCards() {
     }
 }
 
+function getMathSessionCount(kid) {
+    const sharedMathSessionCount = Number.parseInt(kid?.sharedMathSessionCardCount, 10);
+    if (Number.isInteger(sharedMathSessionCount)) {
+        return Math.max(0, sharedMathSessionCount);
+    }
+
+    const mathWithin10Count = Number.parseInt(kid?.mathDeckWithin10Count, 10);
+    const mathWithin20Count = Number.parseInt(kid?.mathDeckWithin20Count, 10);
+    const mathSubWithin10Count = Number.parseInt(kid?.mathDeckSubWithin10Count, 10);
+    const mathSubWithin20Count = Number.parseInt(kid?.mathDeckSubWithin20Count, 10);
+    return (Number.isInteger(mathWithin10Count) ? Math.max(0, mathWithin10Count) : 0)
+        + (Number.isInteger(mathWithin20Count) ? Math.max(0, mathWithin20Count) : 0)
+        + (Number.isInteger(mathSubWithin10Count) ? Math.max(0, mathSubWithin10Count) : 0)
+        + (Number.isInteger(mathSubWithin20Count) ? Math.max(0, mathSubWithin20Count) : 0);
+}
+
 // Session Functions
 function resetToStartScreen() {
     const readingSessionCount = Number.parseInt(currentKid?.sessionCardCount, 10);
@@ -141,20 +157,13 @@ function resetToStartScreen() {
     unknownCount = 0;
 
     const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
-    const mathWithin10Count = Number.parseInt(currentKid?.mathDeckWithin10Count, 10);
-    const mathWithin20Count = Number.parseInt(currentKid?.mathDeckWithin20Count, 10);
-    const mathSubWithin10Count = Number.parseInt(currentKid?.mathDeckSubWithin10Count, 10);
-    const mathSubWithin20Count = Number.parseInt(currentKid?.mathDeckSubWithin20Count, 10);
     const lessonMa3Unit1Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit1Count, 10);
     const lessonMa3Unit2Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit2Count, 10);
     const lessonMa3Unit3Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit3Count, 10);
 
     const chineseEnabled = Number.isInteger(readingSessionCount) && readingSessionCount > 0;
     const writingEnabled = Number.isInteger(writingSessionCount) && writingSessionCount > 0;
-    const mathEnabled = (Number.isInteger(mathWithin10Count) ? mathWithin10Count : 0)
-        + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0)
-        + (Number.isInteger(mathSubWithin10Count) ? mathSubWithin10Count : 0)
-        + (Number.isInteger(mathSubWithin20Count) ? mathSubWithin20Count : 0) > 0;
+    const mathEnabled = getMathSessionCount(currentKid) > 0;
     const lessonReadingEnabled = (Number.isInteger(lessonMa3Unit1Count) ? lessonMa3Unit1Count : 0)
         + (Number.isInteger(lessonMa3Unit2Count) ? lessonMa3Unit2Count : 0)
         + (Number.isInteger(lessonMa3Unit3Count) ? lessonMa3Unit3Count : 0) > 0;

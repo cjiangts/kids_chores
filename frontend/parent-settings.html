@@ -130,14 +130,13 @@
                     </form>
                 </section>
 
-                <section class="settings-card">
+                <section id="backupSettingsCard" class="settings-card">
                     <h2 class="label-with-help">
                         Backup & Restore
                         <details class="help-details">
                             <summary title="What is included?">?</summary>
                             <div class="help-bubble">
-                                Backup downloads your full family raw data, including each kid's DuckDB database files and Chinese writing audio tracks.
-                                It is family-scoped only, so it does not include other families' data or settings.
+                                Super-family accounts can back up and restore the entire app data directory, including all families, kid DB files, audio files, metadata, and shared decks.
                             </div>
                         </details>
                     </h2>
@@ -147,6 +146,15 @@
                         <input type="file" id="backupFileInput" accept=".zip" class="hidden">
                         <span id="backupInfo" class="settings-note"></span>
                     </div>
+                </section>
+
+                <section id="familyAdminCard" class="settings-card hidden">
+                    <h2>Manage Families</h2>
+                    <p class="settings-note">Super-family can delete non-super families.</p>
+                    <div id="familyAccountsEmpty" class="settings-note hidden">No family accounts found.</div>
+                    <div id="familyAccountsList"></div>
+                    <div id="familyAdminError" class="error hidden"></div>
+                    <div id="familyAdminSuccess" class="success hidden"></div>
                 </section>
             </div>
 

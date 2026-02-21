@@ -17,6 +17,12 @@ const downloadBackupBtn = document.getElementById('downloadBackupBtn');
 const restoreBackupBtn = document.getElementById('restoreBackupBtn');
 const backupFileInput = document.getElementById('backupFileInput');
 const backupInfo = document.getElementById('backupInfo');
+const backupSettingsCard = document.getElementById('backupSettingsCard');
+const familyAdminCard = document.getElementById('familyAdminCard');
+const familyAccountsList = document.getElementById('familyAccountsList');
+const familyAccountsEmpty = document.getElementById('familyAccountsEmpty');
+const familyAdminError = document.getElementById('familyAdminError');
+const familyAdminSuccess = document.getElementById('familyAdminSuccess');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const passwordError = document.getElementById('passwordError');
@@ -38,12 +44,17 @@ const COMMON_TIMEZONES = [
     'Asia/Tokyo',
     'Australia/Sydney'
 ];
+let isSuperFamily = false;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadFamilyRole();
     initializeTimezoneOptions();
     loadHardCardSettings();
     loadTimezoneSettings();
-    loadBackupInfo();
+    if (isSuperFamily) {
+        loadBackupInfo();
+        loadFamilyAccounts();
+    }
 });
 
 passwordForm.addEventListener('submit', async (event) => {
@@ -56,9 +67,13 @@ downloadBackupBtn.addEventListener('click', async () => {
 });
 
 restoreBackupBtn.addEventListener('click', async () => {
+    if (!isSuperFamily) {
+        showError('Only super family can restore backups.');
+        return;
+    }
     const password = await promptPasswordOnce(
         'restoring backup',
-        'Warning: Restoring a backup will replace ALL current family data.'
+        'Warning: Restoring a backup will replace ALL app data for all families.'
     );
     if (!password) {
         return;
@@ -90,6 +105,21 @@ backupFileInput.addEventListener('change', async (event) => {
     }
     await restoreBackup(file, password);
 });
+
+if (familyAccountsList) {
+    familyAccountsList.addEventListener('click', async (event) => {
+        const target = event.target.closest('button[data-action="delete-family"][data-family-id]');
+        if (!target) {
+            return;
+        }
+        const familyId = String(target.getAttribute('data-family-id') || '').trim();
+        const familyUsername = String(target.getAttribute('data-family-username') || '').trim();
+        if (!familyId) {
+            return;
+        }
+        await deleteFamilyAccount(familyId, familyUsername);
+    });
+}
 
 async function loadHardCardSettings() {
     try {
@@ -263,6 +293,10 @@ async function changePassword() {
 }
 
 async function downloadBackup() {
+    if (!isSuperFamily) {
+        showError('Only super family can download backups.');
+        return;
+    }
     try {
         showError('');
         showSuccess('');
@@ -304,6 +338,10 @@ async function downloadBackup() {
 }
 
 async function restoreBackup(file, password) {
+    if (!isSuperFamily) {
+        showError('Only super family can restore backups.');
+        return;
+    }
     try {
         showError('');
         showSuccess('');
@@ -368,6 +406,10 @@ async function promptPasswordOnce(actionLabel, warningMessage = '') {
 }
 
 async function loadBackupInfo() {
+    if (!isSuperFamily) {
+        backupInfo.textContent = '';
+        return;
+    }
     try {
         const response = await fetch(`${API_BASE}/backup/info`);
         if (!response.ok) {
@@ -382,6 +424,158 @@ async function loadBackupInfo() {
     } catch (error) {
         console.error('Error loading backup info:', error);
     }
+}
+
+async function loadFamilyRole() {
+    try {
+        const response = await fetch(`${API_BASE}/family-auth/status`);
+        if (response.ok) {
+            const auth = await response.json().catch(() => ({}));
+            isSuperFamily = Boolean(auth.isSuperFamily);
+        } else {
+            isSuperFamily = false;
+        }
+    } catch (error) {
+        isSuperFamily = false;
+    }
+
+    if (backupSettingsCard) {
+        backupSettingsCard.classList.toggle('hidden', !isSuperFamily);
+    }
+    if (familyAdminCard) {
+        familyAdminCard.classList.toggle('hidden', !isSuperFamily);
+    }
+    if (!isSuperFamily) {
+        if (familyAccountsList) {
+            familyAccountsList.innerHTML = '';
+        }
+        if (familyAccountsEmpty) {
+            familyAccountsEmpty.classList.add('hidden');
+        }
+        showFamilyAdminError('');
+        showFamilyAdminSuccess('');
+    }
+}
+
+async function loadFamilyAccounts() {
+    if (!isSuperFamily) {
+        return;
+    }
+    showFamilyAdminError('');
+    showFamilyAdminSuccess('');
+    try {
+        const response = await fetch(`${API_BASE}/parent-settings/families`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showFamilyAdminError(result.error || `Failed to load families (HTTP ${response.status})`);
+            return;
+        }
+        renderFamilyAccounts(Array.isArray(result.families) ? result.families : []);
+    } catch (error) {
+        console.error('Error loading family accounts:', error);
+        showFamilyAdminError('Failed to load family accounts.');
+    }
+}
+
+function renderFamilyAccounts(families) {
+    if (!familyAccountsList || !familyAccountsEmpty) {
+        return;
+    }
+    if (!Array.isArray(families) || families.length === 0) {
+        familyAccountsList.innerHTML = '';
+        familyAccountsEmpty.classList.remove('hidden');
+        return;
+    }
+    familyAccountsEmpty.classList.add('hidden');
+    familyAccountsList.innerHTML = families.map((family) => {
+        const familyId = String(family.id || '');
+        const username = String(family.username || '');
+        const badgeParts = [];
+        if (family.superFamily) {
+            badgeParts.push('super');
+        }
+        if (family.isCurrent) {
+            badgeParts.push('current');
+        }
+        const badgeText = badgeParts.length > 0 ? ` (${badgeParts.join(', ')})` : '';
+        const kidCount = Number.isInteger(Number(family.kidCount)) ? Number(family.kidCount) : 0;
+        const kidDbFileCount = Number.isInteger(Number(family.kidDbFileCount)) ? Number(family.kidDbFileCount) : 0;
+        const kidDbTotalMb = Number.isFinite(Number(family.kidDbTotalMb)) ? Number(family.kidDbTotalMb) : 0;
+        const canDelete = Boolean(family.canDelete);
+        const deleteButton = canDelete
+            ? `<button type="button" class="btn-secondary" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}">Delete</button>`
+            : '<span class="settings-note">Protected</span>';
+        return `
+            <div class="settings-row" style="justify-content: space-between; border-top: 1px solid #eef1f8; padding: 0.55rem 0;">
+                <div>
+                    <strong>${escapeHtml(username)}</strong> <code>#${escapeHtml(familyId)}</code>${escapeHtml(badgeText)}
+                    <div class="settings-note">${kidCount} kid(s)</div>
+                    <div class="settings-note">Kid DB files: ${kidDbFileCount}, total ${kidDbTotalMb.toFixed(2)} MB</div>
+                </div>
+                <div>${deleteButton}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function deleteFamilyAccount(familyId, familyUsername) {
+    if (!isSuperFamily) {
+        showFamilyAdminError('Only super family can delete family accounts.');
+        return;
+    }
+    if (!window.PracticeManageCommon || typeof window.PracticeManageCommon.requestWithPasswordDialog !== 'function') {
+        showFamilyAdminError('Password dialog is unavailable.');
+        return;
+    }
+
+    showFamilyAdminError('');
+    showFamilyAdminSuccess('');
+    const actionLabel = `deleting family "${familyUsername || familyId}"`;
+    const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+        actionLabel,
+        (password) => fetch(`${API_BASE}/parent-settings/families/${encodeURIComponent(String(familyId))}`, {
+            method: 'DELETE',
+            headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+        }),
+        { warningMessage: 'This will permanently delete this family account and all of its kid data.' }
+    );
+    if (result.cancelled) {
+        return;
+    }
+    if (!result.ok) {
+        showFamilyAdminError(result.error || 'Failed to delete family account.');
+        return;
+    }
+    showFamilyAdminSuccess(`Deleted family "${familyUsername || familyId}".`);
+    await loadFamilyAccounts();
+}
+
+function showFamilyAdminError(message) {
+    if (!familyAdminError) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        familyAdminError.textContent = '';
+        familyAdminError.classList.add('hidden');
+        return;
+    }
+    familyAdminError.textContent = text;
+    familyAdminError.classList.remove('hidden');
+}
+
+function showFamilyAdminSuccess(message) {
+    if (!familyAdminSuccess) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        familyAdminSuccess.textContent = '';
+        familyAdminSuccess.classList.add('hidden');
+        return;
+    }
+    familyAdminSuccess.textContent = text;
+    familyAdminSuccess.classList.remove('hidden');
 }
 
 function showError(message) {

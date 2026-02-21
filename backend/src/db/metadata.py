@@ -19,7 +19,7 @@ MAX_HARD_CARD_PERCENTAGE = 100
 DEFAULT_FAMILY_TIMEZONE = 'America/New_York'
 _METADATA_THREAD_LOCK = threading.RLock()
 ALLOWED_TOP_LEVEL_KEYS = {'families', 'kids', 'lastUpdated'}
-ALLOWED_FAMILY_KEYS = {'id', 'username', 'password', 'hardCardPercentage', 'familyTimezone', 'createdAt'}
+ALLOWED_FAMILY_KEYS = {'id', 'username', 'password', 'hardCardPercentage', 'familyTimezone', 'superFamily', 'createdAt'}
 ALLOWED_KID_KEYS = {
     'id',
     'name',
@@ -49,6 +49,7 @@ def _normalize(data: Dict) -> Dict:
         data['families'] = []
     if 'kids' not in data or not isinstance(data.get('kids'), list):
         data['kids'] = []
+    has_super_family = False
     for i, family in enumerate(data['families']):
         if not isinstance(family, dict):
             continue
@@ -62,11 +63,29 @@ def _normalize(data: Dict) -> Dict:
         if pct > MAX_HARD_CARD_PERCENTAGE:
             pct = MAX_HARD_CARD_PERCENTAGE
         timezone_name = _normalize_family_timezone(family.get('familyTimezone'))
+        super_family = _normalize_super_family_flag(family.get('superFamily'))
+        if super_family:
+            has_super_family = True
         data['families'][i] = {
             **family,
             'hardCardPercentage': pct,
-            'familyTimezone': timezone_name
+            'familyTimezone': timezone_name,
+            'superFamily': super_family,
         }
+    # Backward-compatible bootstrap: if legacy metadata has no super family,
+    # promote the oldest family (smallest id) to avoid locking out admin actions.
+    if data['families'] and not has_super_family:
+        promoted_idx = 0
+        promoted_id = None
+        for idx, family in enumerate(data['families']):
+            try:
+                family_id = int(family.get('id'))
+            except (TypeError, ValueError):
+                continue
+            if promoted_id is None or family_id < promoted_id:
+                promoted_id = family_id
+                promoted_idx = idx
+        data['families'][promoted_idx]['superFamily'] = True
     if 'lastUpdated' not in data:
         data['lastUpdated'] = datetime.now().isoformat()
     return data
@@ -86,6 +105,18 @@ def _normalize_family_timezone(value) -> str:
         return candidate
     except Exception:
         return DEFAULT_FAMILY_TIMEZONE
+
+
+def _normalize_super_family_flag(value) -> bool:
+    """Normalize stored super-family flag to bool."""
+    if isinstance(value, bool):
+        return value
+    text = str(value or '').strip().lower()
+    if text in {'1', 'true', 'yes', 'y', 'on'}:
+        return True
+    if text in {'0', 'false', 'no', 'n', 'off'}:
+        return False
+    return False
 
 def ensure_metadata_file():
     """Create metadata file if it doesn't exist"""
@@ -134,9 +165,10 @@ def _mutate_metadata(mutator):
     """Safely perform read-modify-write metadata updates under one lock."""
     def _op():
         with open(METADATA_FILE, 'r', encoding='utf-8') as f:
-            data = _normalize(json.load(f))
+            raw_data = json.load(f)
+        data = _normalize(raw_data)
 
-        before = json.dumps(data, sort_keys=True, ensure_ascii=False)
+        before = json.dumps(raw_data, sort_keys=True, ensure_ascii=False)
         result = mutator(data)
         after = json.dumps(data, sort_keys=True, ensure_ascii=False)
         if before != after:
@@ -268,6 +300,7 @@ def register_family(username: str, password: str) -> Dict:
             'password': generate_password_hash(password, method=PASSWORD_HASH_METHOD),
             'hardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
             'familyTimezone': DEFAULT_FAMILY_TIMEZONE,
+            'superFamily': len(families) == 0,
             'createdAt': datetime.now().isoformat()
         }
         families.append(family)
@@ -306,6 +339,43 @@ def verify_family_password(family_id: str, password: str) -> bool:
     if not _is_password_hashed(stored_password):
         return False
     return check_password_hash(stored_password, plain_input)
+
+
+def is_super_family(family_id: str) -> bool:
+    """Return whether one family account is marked as super."""
+    family = get_family_by_id(str(family_id or ''))
+    if not family:
+        return False
+    return _normalize_super_family_flag(family.get('superFamily'))
+
+
+def delete_family(family_id: str) -> Dict:
+    """Delete one family and all of its kids from metadata."""
+    family_id = str(family_id or '')
+    if not family_id:
+        return {'deleted': False, 'family': None, 'kids': []}
+
+    def _op(data: Dict):
+        families = data.get('families', [])
+        target_family = None
+        next_families = []
+        for family in families:
+            if str(family.get('id')) == family_id:
+                target_family = family
+                continue
+            next_families.append(family)
+        if target_family is None:
+            return {'deleted': False, 'family': None, 'kids': []}
+
+        kids = data.get('kids', [])
+        deleted_kids = [kid for kid in kids if str(kid.get('familyId')) == family_id]
+        next_kids = [kid for kid in kids if str(kid.get('familyId')) != family_id]
+
+        data['families'] = next_families
+        data['kids'] = next_kids
+        return {'deleted': True, 'family': target_family, 'kids': deleted_kids}
+
+    return _mutate_metadata(_op)
 
 
 def update_family_password(family_id: str, current_password: str, new_password: str) -> bool:
@@ -418,12 +488,28 @@ def cleanup_deprecated_metadata_config() -> Dict:
                 removed_top += 1
 
         families = []
+        has_super_family = False
         for family in data.get('families', []):
             if not isinstance(family, dict):
                 continue
             cleaned_family = {k: v for k, v in family.items() if k in ALLOWED_FAMILY_KEYS}
             removed_family += len(family) - len(cleaned_family)
+            cleaned_family['superFamily'] = _normalize_super_family_flag(cleaned_family.get('superFamily'))
+            if cleaned_family['superFamily']:
+                has_super_family = True
             families.append(cleaned_family)
+        if families and not has_super_family:
+            promoted_idx = 0
+            promoted_id = None
+            for idx, family in enumerate(families):
+                try:
+                    family_id = int(family.get('id'))
+                except (TypeError, ValueError):
+                    continue
+                if promoted_id is None or family_id < promoted_id:
+                    promoted_id = family_id
+                    promoted_idx = idx
+            families[promoted_idx]['superFamily'] = True
         data['families'] = families
 
         kids = []

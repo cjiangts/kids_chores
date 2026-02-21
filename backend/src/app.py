@@ -4,6 +4,7 @@ from flask import Flask, send_from_directory, request, redirect, session, jsonif
 from flask_cors import CORS
 import os
 import secrets
+import shutil
 
 from src.routes.kids import (
     kids_bp,
@@ -12,8 +13,13 @@ from src.routes.kids import (
     cleanup_incomplete_sessions_for_all_kids,
 )
 from src.routes.backup import backup_bp
-from src.db import metadata
-from src.db.shared_math_deck_db import init_shared_math_decks_database
+from src.db import metadata, kid_db
+from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection
+
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
+FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
+
 
 def create_app():
     app = Flask(__name__)
@@ -33,9 +39,9 @@ def create_app():
         cleanup_result.get('removedFamilyKeys', 0),
         cleanup_result.get('removedKidKeys', 0),
     )
-    # Shared user-created math decks live in a single DB shared by all families.
-    shared_math_db_path = init_shared_math_decks_database()
-    app.logger.info('Shared math deck DB initialized at startup: path=%s', shared_math_db_path)
+    # Shared user-created decks live in a single DB shared by all families.
+    shared_deck_db_path = init_shared_decks_database()
+    app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
     # KEEP: Ensures fixed preset math decks exist for all kids.
     math_seed_result = seed_math_decks_for_all_kids()
     app.logger.info(
@@ -69,6 +75,33 @@ def create_app():
     def require_family_auth():
         if not is_family_authenticated():
             return {'error': 'Family login required'}, 401
+        return None
+
+    def require_super_family_auth():
+        auth_err = require_family_auth()
+        if auth_err:
+            return auth_err
+        family_id = str(session.get('family_id') or '')
+        if not metadata.is_super_family(family_id):
+            return {'error': 'Super family access required'}, 403
+        return None
+
+    def require_critical_password():
+        auth_err = require_family_auth()
+        if auth_err:
+            return auth_err
+        family_id = str(session.get('family_id') or '')
+        password = str(request.headers.get('X-Confirm-Password') or '')
+        if not password:
+            password = str(request.form.get('confirmPassword') or '')
+        if not password:
+            json_data = request.get_json(silent=True)
+            if isinstance(json_data, dict):
+                password = str(json_data.get('confirmPassword') or '')
+        if not password:
+            return {'error': 'Password confirmation required'}, 400
+        if not metadata.verify_family_password(family_id, password):
+            return {'error': 'Invalid password'}, 403
         return None
 
     @app.before_request
@@ -112,7 +145,13 @@ def create_app():
     def family_auth_status():
         family_id = session.get('family_id')
         family_name = session.get('family_username')
-        return {'authenticated': bool(family_id), 'familyId': family_id, 'familyUsername': family_name}, 200
+        is_super_family = metadata.is_super_family(str(family_id)) if family_id else False
+        return {
+            'authenticated': bool(family_id),
+            'familyId': family_id,
+            'familyUsername': family_name,
+            'isSuperFamily': bool(is_super_family),
+        }, 200
 
     @app.route('/api/family-auth/register', methods=['POST'])
     def family_auth_register():
@@ -127,7 +166,12 @@ def create_app():
         session['family_id'] = str(family['id'])
         session['family_username'] = family['username']
         session.pop('parent_authenticated', None)
-        return {'authenticated': True, 'familyId': family['id'], 'familyUsername': family['username']}, 201
+        return {
+            'authenticated': True,
+            'familyId': family['id'],
+            'familyUsername': family['username'],
+            'isSuperFamily': bool(family.get('superFamily')),
+        }, 201
 
     @app.route('/api/family-auth/login', methods=['POST'])
     def family_auth_login():
@@ -141,7 +185,12 @@ def create_app():
         session['family_id'] = str(family['id'])
         session['family_username'] = family['username']
         session.pop('parent_authenticated', None)
-        return {'authenticated': True, 'familyId': family['id'], 'familyUsername': family['username']}, 200
+        return {
+            'authenticated': True,
+            'familyId': family['id'],
+            'familyUsername': family['username'],
+            'isSuperFamily': bool(family.get('superFamily')),
+        }, 200
 
     @app.route('/api/family-auth/logout', methods=['POST'])
     def family_auth_logout():
@@ -245,12 +294,144 @@ def create_app():
             'updated': True
         }, 200
 
+    @app.route('/api/parent-settings/families', methods=['GET'])
+    def list_family_accounts():
+        auth_err = require_super_family_auth()
+        if auth_err:
+            return auth_err
+
+        current_family_id = str(session.get('family_id') or '')
+        kids = metadata.get_all_kids()
+        kid_count_by_family_id = {}
+        kid_db_file_count_by_family_id = {}
+        kid_db_total_bytes_by_family_id = {}
+        for kid in kids:
+            family_id = str(kid.get('familyId') or '')
+            if not family_id:
+                continue
+            kid_count_by_family_id[family_id] = int(kid_count_by_family_id.get(family_id, 0)) + 1
+            db_file_path = str(kid.get('dbFilePath') or '').strip()
+            if not db_file_path:
+                continue
+            try:
+                db_abs_path = kid_db.get_absolute_db_path(db_file_path)
+            except Exception:
+                continue
+            if not os.path.exists(db_abs_path):
+                continue
+            try:
+                size_bytes = int(os.path.getsize(db_abs_path))
+            except Exception:
+                continue
+            kid_db_file_count_by_family_id[family_id] = int(kid_db_file_count_by_family_id.get(family_id, 0)) + 1
+            kid_db_total_bytes_by_family_id[family_id] = int(kid_db_total_bytes_by_family_id.get(family_id, 0)) + size_bytes
+
+        def _sort_key(family):
+            try:
+                return int(family.get('id'))
+            except (TypeError, ValueError):
+                return 10**9
+
+        families = []
+        for family in sorted(metadata.get_all_families(), key=_sort_key):
+            family_id = str(family.get('id') or '')
+            is_super = bool(family.get('superFamily'))
+            is_current = family_id == current_family_id
+            families.append({
+                'id': family_id,
+                'username': str(family.get('username') or ''),
+                'createdAt': family.get('createdAt'),
+                'superFamily': is_super,
+                'kidCount': int(kid_count_by_family_id.get(family_id, 0)),
+                'kidDbFileCount': int(kid_db_file_count_by_family_id.get(family_id, 0)),
+                'kidDbTotalBytes': int(kid_db_total_bytes_by_family_id.get(family_id, 0)),
+                'kidDbTotalMb': round(int(kid_db_total_bytes_by_family_id.get(family_id, 0)) / (1024 * 1024), 2),
+                'isCurrent': is_current,
+                'canDelete': (not is_current) and (not is_super),
+            })
+
+        return {'families': families}, 200
+
+    @app.route('/api/parent-settings/families/<family_id>', methods=['DELETE'])
+    def delete_family_account(family_id):
+        auth_err = require_super_family_auth()
+        if auth_err:
+            return auth_err
+
+        target_family_id = str(family_id or '').strip()
+        if not target_family_id:
+            return {'error': 'family_id is required'}, 400
+
+        current_family_id = str(session.get('family_id') or '')
+        if target_family_id == current_family_id:
+            return {'error': 'Cannot delete current logged-in family'}, 400
+
+        target_family = metadata.get_family_by_id(target_family_id)
+        if not target_family:
+            return {'error': 'Family not found'}, 404
+        if bool(target_family.get('superFamily')):
+            return {'error': 'Cannot delete a super family account'}, 403
+
+        password_err = require_critical_password()
+        if password_err:
+            return password_err
+
+        deleted_shared_decks = 0
+        try:
+            target_family_id_int = int(target_family_id)
+            shared_conn = get_shared_decks_connection()
+            try:
+                shared_rows = shared_conn.execute(
+                    "SELECT deck_id FROM deck WHERE creator_family_id = ?",
+                    [target_family_id_int]
+                ).fetchall()
+                shared_deck_ids = [int(row[0]) for row in shared_rows]
+                if shared_deck_ids:
+                    placeholders = ','.join(['?'] * len(shared_deck_ids))
+                    shared_conn.execute(
+                        f"DELETE FROM cards WHERE deck_id IN ({placeholders})",
+                        shared_deck_ids
+                    )
+                    shared_conn.execute(
+                        f"DELETE FROM deck WHERE deck_id IN ({placeholders})",
+                        shared_deck_ids
+                    )
+                deleted_shared_decks = len(shared_deck_ids)
+            finally:
+                shared_conn.close()
+        except ValueError:
+            deleted_shared_decks = 0
+
+        delete_result = metadata.delete_family(target_family_id)
+        if not delete_result.get('deleted'):
+            return {'error': 'Family not found'}, 404
+
+        deleted_kids = list(delete_result.get('kids') or [])
+        for kid in deleted_kids:
+            db_path = str(kid.get('dbFilePath') or '').strip()
+            if db_path:
+                try:
+                    kid_db.delete_kid_database_by_path(db_path)
+                except Exception:
+                    pass
+
+        family_root = os.path.join(FAMILIES_ROOT, f'family_{target_family_id}')
+        if os.path.exists(family_root):
+            shutil.rmtree(family_root, ignore_errors=True)
+
+        return {
+            'deleted': True,
+            'family_id': target_family_id,
+            'deleted_kids': len(deleted_kids),
+            'deleted_shared_decks': int(deleted_shared_decks),
+        }, 200
+
     @app.route('/health', methods=['GET'])
     def health():
         return {'status': 'healthy'}, 200
 
     # Serve frontend files
-    frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'frontend')
+    frontend_dir = os.path.join(BACKEND_ROOT, 'frontend')
 
     @app.route('/')
     def index():

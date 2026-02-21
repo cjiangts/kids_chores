@@ -98,7 +98,7 @@ async function loadMathPracticeReadyState() {
 
         if (configuredSessionCount <= 0) {
             practiceSection.classList.add('hidden');
-            showError('Math practice is off. Ask your parent to set per-deck counts in Manage Math.');
+            showError('Math practice is off. Ask your parent to set total cards and deck mix in Manage Math.');
             return;
         }
 

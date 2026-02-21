@@ -182,6 +182,20 @@ body {
     min-width: 180px;
 }
 
+.manage-page .settings-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.2rem;
+}
+
+.manage-page .settings-section h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #333;
+}
+
 .manage-page .settings-row {
     display: flex;
     gap: 1rem;
@@ -220,16 +234,19 @@ body {
     color: #555;
 }
 
-.manage-page .form-group input {
+.manage-page .form-group input,
+.manage-page .form-group select {
     width: 100%;
     padding: 0.75rem;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
     box-sizing: border-box;
+    background: #fff;
 }
 
-.manage-page .form-group input:focus {
+.manage-page .form-group input:focus,
+.manage-page .form-group select:focus {
     outline: none;
     border-color: #007bff;
 }
@@ -667,6 +684,33 @@ header p {
     background: #e4e9ff;
 }
 
+.audio-filter-group {
+    display: inline-flex;
+    border: 1px solid #d7deee;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.audio-filter-btn {
+    border: none;
+    background: #fff;
+    color: #445;
+    padding: 0.42rem 0.72rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+    border-right: 1px solid #e6ebf6;
+}
+
+.audio-filter-btn:last-child {
+    border-right: none;
+}
+
+.audio-filter-btn.active {
+    background: #2f3c7e;
+    color: #fff;
+}
+
 .modal {
     position: fixed;
     top: 0;
@@ -708,15 +752,18 @@ header p {
     font-weight: 500;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 10px;
     border: 2px solid #ddd;
     border-radius: 6px;
     font-size: 16px;
+    background: #fff;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
     border-color: #667eea;
 }

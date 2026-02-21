@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Deck - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .deck-page {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .deck-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .deck-meta-row {
+            margin: 0.35rem 0;
+            color: #333;
+        }
+
+        .deck-tags {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .deck-tag {
+            background: #eef3ff;
+            color: #2f3c7e;
+            border-radius: 999px;
+            padding: 0.2rem 0.55rem;
+            font-size: 0.82rem;
+        }
+
+        .deck-table-wrap {
+            border: 1px solid #e0e5eb;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 600px;
+        }
+
+        .deck-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+            background: #fff;
+        }
+
+        .deck-table th,
+        .deck-table td {
+            border-bottom: 1px solid #eef1f4;
+            padding: 0.55rem;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .deck-table thead th {
+            background: #f7f9fc;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .deck-empty {
+            color: #666;
+            font-size: 0.95rem;
+            padding: 0.4rem 0;
+        }
+    </style>
+</head>
+<body class="manage-page">
+    <div class="container deck-page">
+        <header>
+            <h1>📖 View Deck</h1>
+            <p>Read-only deck details and card list.</p>
+        </header>
+
+        <main>
+            <div class="actions admin-actions">
+                <a href="/deck-manage.html" class="btn-secondary">← Back to Decks</a>
+            </div>
+
+            <section class="deck-panel">
+                <h2 style="margin: 0 0 0.8rem 0; color: #2f3c7e;">Deck Metadata</h2>
+                <div id="deckMeta" class="hidden">
+                    <div class="deck-meta-row"><strong>Deck ID:</strong> <span id="deckIdText"></span></div>
+                    <div class="deck-meta-row"><strong>Name:</strong> <code id="deckNameText"></code></div>
+                    <div class="deck-meta-row"><strong>Tags:</strong> <span id="deckTagsText"></span></div>
+                    <div class="deck-meta-row"><strong>Created:</strong> <span id="deckCreatedAtText"></span></div>
+                    <div class="deck-meta-row"><strong>Cards:</strong> <span id="cardCountText"></span></div>
+                </div>
+            </section>
+
+            <section class="deck-panel">
+                <h2 style="margin: 0 0 0.8rem 0; color: #2f3c7e;">Cards</h2>
+                <div id="emptyState" class="deck-empty hidden">No cards in this deck.</div>
+                <div id="tableWrap" class="deck-table-wrap hidden">
+                    <table class="deck-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">#</th>
+                                <th>Front</th>
+                                <th>Back</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cardsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div id="errorMessage" class="error hidden"></div>
+        </main>
+    </div>
+
+    <script src="practice-manage-common.js"></script>
+    <script src="deck-view.js"></script>
+</body>
+</html>

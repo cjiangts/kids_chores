@@ -1,4 +1,4 @@
-"""Backup and restore routes (family-scoped)."""
+"""Backup and restore routes (super-family scoped, full-data)."""
 from flask import Blueprint, send_file, request, jsonify, session
 import os
 import zipfile
@@ -6,12 +6,12 @@ import tempfile
 from datetime import datetime
 import shutil
 import json
-from src.db import metadata, kid_db
+from src.db import metadata
 
 backup_bp = Blueprint('backup', __name__)
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
-FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
+FULL_BACKUP_MANIFEST = 'full_manifest.json'
 
 
 def _normalize_rel_path(path_value):
@@ -19,47 +19,23 @@ def _normalize_rel_path(path_value):
     normalized = os.path.normpath(str(path_value or '')).replace('\\', '/')
     while normalized.startswith('./'):
         normalized = normalized[2:]
+    if normalized == '.':
+        return ''
     return normalized.lstrip('/')
-
-
-def _family_rel_prefix(family_id):
-    return f'families/family_{family_id}'
-
-
-def _is_family_scoped_rel_path(rel_path, family_id):
-    """Check path stays within one family's data subtree."""
-    normalized = _normalize_rel_path(rel_path)
-    prefix = _family_rel_prefix(family_id)
-    return normalized == prefix or normalized.startswith(f'{prefix}/')
-
-
-def _safe_rel_to_data(abs_path):
-    """Convert absolute path under DATA_DIR to safe normalized relative path."""
-    data_root = os.path.realpath(DATA_DIR)
-    abs_real = os.path.realpath(abs_path)
-    if not (abs_real == data_root or abs_real.startswith(f'{data_root}{os.sep}')):
-        return None
-    return _normalize_rel_path(os.path.relpath(abs_real, data_root))
-
-
-def _is_family_scoped_db_path(db_file_path, family_id):
-    """Validate metadata dbFilePath belongs to current family subtree."""
-    rel = str(db_file_path or '').strip()
-    if not rel or os.path.isabs(rel):
-        return False
-    rel = rel.lstrip('/\\')
-    if rel.startswith('data/'):
-        rel = rel[5:]
-    return _is_family_scoped_rel_path(rel, family_id)
-
-
-def _default_family_kid_db_path(family_id, kid_id):
-    """Build canonical scoped db path for one kid."""
-    return f'data/families/family_{family_id}/kid_{kid_id}.db'
 
 
 def _current_family_id():
     return str(session.get('family_id') or '')
+
+
+def _require_super_family():
+    """Require authenticated super family."""
+    family_id = _current_family_id()
+    if not family_id:
+        return jsonify({'error': 'Family login required'}), 401
+    if not metadata.is_super_family(family_id):
+        return jsonify({'error': 'Super family access required'}), 403
+    return None
 
 
 def _require_critical_password():
@@ -82,84 +58,73 @@ def _require_critical_password():
     return None
 
 
-def _family_audio_dir(kid):
-    family_id = str(kid.get('familyId') or '')
-    kid_id = kid.get('id')
-    return os.path.join(FAMILIES_ROOT, f'family_{family_id}', 'writing_audio', f'kid_{kid_id}')
+def _is_safe_backup_rel_path(path_value):
+    """Validate zip member path for safe extraction inside DATA_DIR."""
+    normalized = _normalize_rel_path(path_value)
+    if not normalized:
+        return False
+    if normalized.startswith('../') or normalized == '..':
+        return False
+    if normalized.startswith('/'):
+        return False
+    return True
 
 
-def _family_lesson_audio_dir(kid):
-    family_id = str(kid.get('familyId') or '')
-    kid_id = kid.get('id')
-    return os.path.join(FAMILIES_ROOT, f'family_{family_id}', 'lesson_reading_audio', f'kid_{kid_id}')
+def _iter_data_files():
+    """Yield normalized file paths relative to DATA_DIR."""
+    if not os.path.exists(DATA_DIR):
+        return []
+    files = []
+    for root, _, names in os.walk(DATA_DIR):
+        for name in names:
+            abs_path = os.path.join(root, name)
+            rel_path = _normalize_rel_path(os.path.relpath(abs_path, DATA_DIR))
+            if _is_safe_backup_rel_path(rel_path):
+                files.append(rel_path)
+    return sorted(set(files))
 
 
-def _rel_to_data(abs_path):
-    return os.path.relpath(abs_path, DATA_DIR)
+def _clear_directory_contents(target_dir):
+    """Delete all children in one directory while keeping the directory."""
+    if not os.path.isdir(target_dir):
+        os.makedirs(target_dir, exist_ok=True)
+        return
+    for entry in os.listdir(target_dir):
+        entry_path = os.path.join(target_dir, entry)
+        if os.path.isdir(entry_path):
+            shutil.rmtree(entry_path, ignore_errors=True)
+        else:
+            try:
+                os.remove(entry_path)
+            except FileNotFoundError:
+                pass
 
 @backup_bp.route('/backup/download', methods=['GET'])
 def download_backup():
-    """Create a zip backup for current family only."""
+    """Create a full data backup zip (super family only)."""
     try:
-        family_id = _current_family_id()
-        if not family_id:
-            return jsonify({'error': 'Family login required'}), 401
-
-        family = metadata.get_family_by_id(family_id)
-        if not family:
-            return jsonify({'error': 'Family not found'}), 404
-        kids = metadata.get_all_kids(family_id=family_id)
+        auth_err = _require_super_family()
+        if auth_err:
+            return auth_err
 
         # Create temporary zip file
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         temp_dir = tempfile.mkdtemp()
-        zip_path = os.path.join(temp_dir, f'kids_learning_family_{family_id}_backup_{timestamp}.zip')
-
-        files_to_include = []
-        for kid in kids:
-            db_rel = str(kid.get('dbFilePath') or '')
-            if db_rel:
-                db_abs = kid_db.get_absolute_db_path(db_rel)
-                rel_path = _safe_rel_to_data(db_abs)
-                if rel_path and _is_family_scoped_rel_path(rel_path, family_id) and os.path.exists(db_abs):
-                    files_to_include.append(rel_path)
-
-            audio_dir = _family_audio_dir(kid)
-            if os.path.exists(audio_dir):
-                for root, _, files in os.walk(audio_dir):
-                    for file_name in files:
-                        abs_path = os.path.join(root, file_name)
-                        rel_path = _safe_rel_to_data(abs_path)
-                        if rel_path and _is_family_scoped_rel_path(rel_path, family_id):
-                            files_to_include.append(rel_path)
-
-            lesson_audio_dir = _family_lesson_audio_dir(kid)
-            if os.path.exists(lesson_audio_dir):
-                for root, _, files in os.walk(lesson_audio_dir):
-                    for file_name in files:
-                        abs_path = os.path.join(root, file_name)
-                        rel_path = _safe_rel_to_data(abs_path)
-                        if rel_path and _is_family_scoped_rel_path(rel_path, family_id):
-                            files_to_include.append(rel_path)
+        zip_path = os.path.join(temp_dir, f'kids_learning_full_backup_{timestamp}.zip')
+        files_to_include = _iter_data_files()
 
         manifest = {
-            'family': {
-                'id': str(family.get('id')),
-                'username': family.get('username'),
-                'hardCardPercentage': family.get('hardCardPercentage'),
-                'familyTimezone': family.get('familyTimezone'),
-            },
-            'kids': kids,
-            'files': sorted(set(files_to_include)),
-            'exportedAt': datetime.now().isoformat()
+            'scope': 'full_data',
+            'manifest_version': 1,
+            'created_by_family_id': _current_family_id(),
+            'files': files_to_include,
+            'exported_at': datetime.now().isoformat(),
         }
 
         # Create zip file
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            zipf.writestr('family_manifest.json', json.dumps(manifest, ensure_ascii=False, indent=2))
+            zipf.writestr(FULL_BACKUP_MANIFEST, json.dumps(manifest, ensure_ascii=False, indent=2))
             for rel_path in manifest['files']:
-                if not _is_family_scoped_rel_path(rel_path, family_id):
-                    continue
                 abs_path = os.path.join(DATA_DIR, rel_path)
                 if os.path.exists(abs_path):
                     zipf.write(abs_path, rel_path)
@@ -169,21 +134,22 @@ def download_backup():
             zip_path,
             mimetype='application/zip',
             as_attachment=True,
-            download_name=f'kids_learning_family_{family_id}_backup_{timestamp}.zip'
+            download_name=f'kids_learning_full_backup_{timestamp}.zip'
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @backup_bp.route('/backup/restore', methods=['POST'])
 def restore_backup():
-    """Restore current family data from family-scoped backup zip."""
+    """Restore full data directory from a super backup zip."""
+    temp_dir = None
     try:
+        super_err = _require_super_family()
+        if super_err:
+            return super_err
         auth_err = _require_critical_password()
         if auth_err:
             return auth_err
-        family_id = _current_family_id()
-        if not family_id:
-            return jsonify({'error': 'Family login required'}), 401
 
         # Check if file was uploaded
         if 'backup' not in request.files:
@@ -198,7 +164,7 @@ def restore_backup():
             return jsonify({'error': 'File must be a zip file'}), 400
 
         # Save uploaded file temporarily.
-        temp_dir = tempfile.mkdtemp()
+        temp_dir = tempfile.mkdtemp(prefix='full_restore_')
         zip_path = os.path.join(temp_dir, 'backup.zip')
         file.save(zip_path)
 
@@ -206,118 +172,72 @@ def restore_backup():
         os.makedirs(DATA_DIR, exist_ok=True)
 
         with zipfile.ZipFile(zip_path, 'r') as zipf:
-            if 'family_manifest.json' not in zipf.namelist():
-                return jsonify({'error': 'Invalid family backup format'}), 400
-            manifest = json.loads(zipf.read('family_manifest.json').decode('utf-8'))
-            source_family_id = str(((manifest.get('family') or {}).get('id')) or '')
-            if source_family_id != family_id:
-                return jsonify({'error': 'Backup belongs to a different family account'}), 400
-            family_meta = manifest.get('family') or {}
-            backup_hard_pct = family_meta.get('hardCardPercentage')
-            backup_timezone = family_meta.get('familyTimezone')
+            if FULL_BACKUP_MANIFEST not in zipf.namelist():
+                return jsonify({'error': 'Invalid backup format: missing full manifest'}), 400
+            manifest = json.loads(zipf.read(FULL_BACKUP_MANIFEST).decode('utf-8'))
+            if str(manifest.get('scope') or '') != 'full_data':
+                return jsonify({'error': 'Invalid backup format: not a full-data backup'}), 400
 
-            kids_from_backup = manifest.get('kids') or []
             files_from_backup = manifest.get('files') or []
+            if not isinstance(files_from_backup, list):
+                return jsonify({'error': 'Invalid backup format: files must be a list'}), 400
 
-            # Remove current family's kid files and metadata entries first.
-            existing_kids = metadata.get_all_kids(family_id=family_id)
-            for kid in existing_kids:
-                try:
-                    kid_db.delete_kid_database_by_path(kid.get('dbFilePath') or '')
-                except Exception:
-                    pass
-                audio_dir = _family_audio_dir(kid)
-                if os.path.exists(audio_dir):
-                    shutil.rmtree(audio_dir, ignore_errors=True)
-                lesson_audio_dir = _family_lesson_audio_dir(kid)
-                if os.path.exists(lesson_audio_dir):
-                    shutil.rmtree(lesson_audio_dir, ignore_errors=True)
-                metadata.delete_kid(kid.get('id'), family_id=family_id)
+            stage_data_dir = os.path.join(temp_dir, 'stage_data')
+            os.makedirs(stage_data_dir, exist_ok=True)
 
-            # Restore files listed in manifest.
-            for rel_path in files_from_backup:
-                if rel_path == 'family_manifest.json':
-                    continue
-                if rel_path.startswith('/') or '..' in rel_path.split('/'):
-                    continue
-                if not _is_family_scoped_rel_path(rel_path, family_id):
-                    continue
+            for raw_path in files_from_backup:
+                rel_path = _normalize_rel_path(raw_path)
+                if not _is_safe_backup_rel_path(rel_path):
+                    return jsonify({'error': f'Invalid backup path: {raw_path}'}), 400
                 if rel_path not in zipf.namelist():
-                    continue
-                target_abs = os.path.join(DATA_DIR, rel_path)
+                    return jsonify({'error': f'Backup is missing file: {rel_path}'}), 400
+                target_abs = os.path.join(stage_data_dir, rel_path)
                 os.makedirs(os.path.dirname(target_abs), exist_ok=True)
                 with zipf.open(rel_path) as src, open(target_abs, 'wb') as dst:
                     shutil.copyfileobj(src, dst)
 
-            # Restore kids metadata for this family only.
-            for kid in kids_from_backup:
-                restored = {**kid, 'familyId': family_id}
-                kid_id = restored.get('id')
-                if not _is_family_scoped_db_path(restored.get('dbFilePath'), family_id):
-                    restored['dbFilePath'] = _default_family_kid_db_path(family_id, kid_id)
-                metadata.add_kid(restored)
+        _clear_directory_contents(DATA_DIR)
+        for root, _, files in os.walk(stage_data_dir):
+            for file_name in files:
+                src_abs = os.path.join(root, file_name)
+                rel_path = os.path.relpath(src_abs, stage_data_dir)
+                target_abs = os.path.join(DATA_DIR, rel_path)
+                os.makedirs(os.path.dirname(target_abs), exist_ok=True)
+                shutil.copy2(src_abs, target_abs)
 
-            # Restore family-level settings when available.
-            if backup_hard_pct is not None:
-                try:
-                    metadata.update_family_hard_card_percentage(family_id, int(backup_hard_pct))
-                except Exception:
-                    pass
-            if backup_timezone:
-                try:
-                    metadata.update_family_timezone(family_id, str(backup_timezone))
-                except Exception:
-                    pass
-
-        # Clean up temp files.
-        shutil.rmtree(temp_dir)
+        metadata.ensure_metadata_file()
 
         return jsonify({
             'success': True,
-            'message': 'Family backup restored successfully'
+            'message': 'Full backup restored successfully'
         }), 200
 
     except Exception as e:
         return jsonify({'error': f'Restore failed: {str(e)}'}), 500
+    finally:
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 @backup_bp.route('/backup/info', methods=['GET'])
 def backup_info():
-    """Get backup information for current family only."""
+    """Get full backup information for super family."""
     try:
-        family_id = _current_family_id()
-        if not family_id:
-            return jsonify({'error': 'Family login required'}), 401
-        kids = metadata.get_all_kids(family_id=family_id)
+        auth_err = _require_super_family()
+        if auth_err:
+            return auth_err
 
         info = {
-            'family_id': family_id,
+            'scope': 'full_data',
             'data_dir_exists': os.path.exists(DATA_DIR),
             'files': [],
-            'kids_count': len(kids)
+            'family_id': _current_family_id(),
         }
 
-        files_seen = set()
-        for kid in kids:
-            db_rel = str(kid.get('dbFilePath') or '')
-            if db_rel:
-                db_abs = kid_db.get_absolute_db_path(db_rel)
-                if os.path.exists(db_abs):
-                    files_seen.add(db_abs)
-            audio_dir = _family_audio_dir(kid)
-            if os.path.exists(audio_dir):
-                for root, _, files in os.walk(audio_dir):
-                    for file_name in files:
-                        files_seen.add(os.path.join(root, file_name))
-            lesson_audio_dir = _family_lesson_audio_dir(kid)
-            if os.path.exists(lesson_audio_dir):
-                for root, _, files in os.walk(lesson_audio_dir):
-                    for file_name in files:
-                        files_seen.add(os.path.join(root, file_name))
-
-        for file_path in sorted(files_seen):
-            file_size = os.path.getsize(file_path)
+        for rel_path in _iter_data_files():
+            file_path = os.path.join(DATA_DIR, rel_path)
+            file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
             info['files'].append({
-                'name': _rel_to_data(file_path),
+                'name': rel_path,
                 'size': file_size,
                 'size_mb': round(file_size / (1024 * 1024), 2)
             })

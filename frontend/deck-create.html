@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Deck - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .deck-page {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .deck-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .deck-panel h2 {
+            margin-bottom: 0.8rem;
+            color: #2f3c7e;
+            font-size: 1.15rem;
+        }
+
+        .deck-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 0.8rem;
+        }
+
+        .deck-row {
+            display: flex;
+            gap: 0.6rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .deck-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .deck-row .btn-secondary,
+        .deck-row .btn-primary {
+            white-space: nowrap;
+        }
+
+        .deck-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+        }
+
+        .deck-tag {
+            background: #eef3ff;
+            color: #2f3c7e;
+            border-radius: 999px;
+            padding: 0.35rem 0.7rem;
+            font-size: 0.88rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .deck-tag button {
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            color: #2f3c7e;
+            font-size: 0.92rem;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .deck-meta-name {
+            margin-top: 0.8rem;
+            font-size: 0.95rem;
+            color: #555;
+        }
+
+        .deck-meta-name code {
+            background: #f1f3f5;
+            padding: 0.15rem 0.35rem;
+            border-radius: 5px;
+        }
+
+        .deck-name-status {
+            margin-top: 0.45rem;
+            font-size: 0.9rem;
+        }
+
+        .deck-name-status.ok {
+            color: #2b8a3e;
+        }
+
+        .deck-name-status.error {
+            color: #c92a2a;
+        }
+
+        .deck-name-status.note {
+            color: #555;
+        }
+
+        #cardsCsv {
+            width: 100%;
+            min-height: 240px;
+            resize: vertical;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.93rem;
+            line-height: 1.35;
+            padding: 0.7rem;
+            border: 1px solid #d0d7de;
+            border-radius: 8px;
+        }
+
+        .deck-review-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.7rem;
+        }
+
+        .deck-review-table-wrap {
+            max-height: 380px;
+            overflow: auto;
+            border: 1px solid #e0e5eb;
+            border-radius: 8px;
+        }
+
+        .deck-review-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+            background: #fff;
+        }
+
+        .deck-review-table th,
+        .deck-review-table td {
+            border-bottom: 1px solid #eef1f4;
+            padding: 0.5rem 0.55rem;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .deck-review-table thead th {
+            position: sticky;
+            top: 0;
+            background: #f7f9fc;
+            z-index: 1;
+        }
+
+        .deck-dedupe {
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            color: #444;
+            line-height: 1.35;
+        }
+
+        .deck-dedupe h3 {
+            font-size: 0.95rem;
+            color: #2f3c7e;
+            margin: 0 0 0.35rem 0;
+        }
+
+        .deck-dedupe p {
+            margin: 0.2rem 0;
+        }
+
+        .deck-row-status-ok {
+            color: #2b8a3e;
+            font-weight: 600;
+        }
+
+        .deck-row-status-warn {
+            color: #c92a2a;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="manage-page">
+    <div class="container deck-page">
+        <header>
+            <h1>➕ Create Deck</h1>
+            <p>Create a shared deck from CSV and publish it for all families.</p>
+        </header>
+
+        <main>
+            <div class="actions admin-actions">
+                <a href="/deck-manage.html" class="btn-secondary">← Back to Decks</a>
+            </div>
+
+            <section class="deck-panel">
+                <h2>1) Deck Metadata</h2>
+                <div class="deck-grid">
+                    <div class="form-group">
+                        <label>First tag (required)</label>
+                        <div id="firstTagToggle" class="audio-filter-group" aria-label="First tag">
+                            <button type="button" class="audio-filter-btn active" data-first-tag="math" aria-pressed="true">math</button>
+                            <button type="button" class="audio-filter-btn" data-first-tag="chinese_reading" aria-pressed="false">chinese_reading</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="newTagInput">Add tag</label>
+                        <div class="deck-row">
+                            <input type="text" id="newTagInput" list="existingTagOptions" placeholder="e.g. grade3, unit1, maliping">
+                            <datalist id="existingTagOptions"></datalist>
+                            <button type="button" id="addTagBtn" class="btn-secondary">Add Tag</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="tagsContainer" class="deck-tags"></div>
+                <div class="deck-meta-name">Generated name: <code id="generatedName">math</code></div>
+                <div id="nameStatus" class="deck-name-status note">Checking name availability...</div>
+            </section>
+
+            <section class="deck-panel">
+                <h2>2) Paste Cards CSV</h2>
+                <p style="margin-bottom: 0.6rem; color: #555;">Format: one card per line as <code>front,back</code></p>
+                <textarea id="cardsCsv" placeholder="1+1,2&#10;2+3,5"></textarea>
+                <div class="deck-row" style="margin-top: 0.7rem;">
+                    <button type="button" id="previewBtn" class="btn-primary">Preview Deck</button>
+                    <button type="button" id="clearCsvBtn" class="btn-secondary">Clear</button>
+                </div>
+            </section>
+
+            <section id="reviewSection" class="deck-panel hidden">
+                <h2>3) Review & Confirm</h2>
+                <div class="deck-review-head">
+                    <div id="reviewMeta"></div>
+                    <button type="button" id="createDeckBtn" class="btn-primary">Confirm & Create Deck</button>
+                </div>
+                <div id="dedupeSummary" class="deck-dedupe hidden"></div>
+                <div class="deck-review-table-wrap">
+                    <table class="deck-review-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">Line</th>
+                                <th>Front</th>
+                                <th>Back</th>
+                                <th style="width: 320px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reviewTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div id="successMessage" class="success hidden"></div>
+            <div id="errorMessage" class="error hidden"></div>
+        </main>
+    </div>
+
+    <script src="practice-manage-common.js"></script>
+    <script src="deck-create.js"></script>
+</body>
+</html>

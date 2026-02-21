@@ -31,7 +31,7 @@ function resolveBackHref() {
         return `/kid-writing-manage.html?id=${encodeURIComponent(kidId)}`;
     }
     if (from === 'math') {
-        return `/kid-math-manage.html?id=${encodeURIComponent(kidId)}`;
+        return `/kid-math-manage-v2.html?id=${encodeURIComponent(kidId)}`;
     }
     if (from === 'lesson-reading') {
         return `/kid-lesson-reading-manage.html?id=${encodeURIComponent(kidId)}`;

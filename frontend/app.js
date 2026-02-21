@@ -108,6 +108,22 @@ async function deleteKid(kidId, kidName) {
     }
 }
 
+function getMathSessionCount(kid) {
+    const sharedMathSessionCount = Number.parseInt(kid?.sharedMathSessionCardCount, 10);
+    if (Number.isInteger(sharedMathSessionCount)) {
+        return Math.max(0, sharedMathSessionCount);
+    }
+
+    const mathWithin10Count = Number.parseInt(kid?.mathDeckWithin10Count, 10);
+    const mathWithin20Count = Number.parseInt(kid?.mathDeckWithin20Count, 10);
+    const mathSubWithin10Count = Number.parseInt(kid?.mathDeckSubWithin10Count, 10);
+    const mathSubWithin20Count = Number.parseInt(kid?.mathDeckSubWithin20Count, 10);
+    return (Number.isInteger(mathWithin10Count) ? Math.max(0, mathWithin10Count) : 0)
+        + (Number.isInteger(mathWithin20Count) ? Math.max(0, mathWithin20Count) : 0)
+        + (Number.isInteger(mathSubWithin10Count) ? Math.max(0, mathSubWithin10Count) : 0)
+        + (Number.isInteger(mathSubWithin20Count) ? Math.max(0, mathSubWithin20Count) : 0);
+}
+
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
@@ -129,17 +145,10 @@ function displayKids(kids) {
 
         const readingSessionCount = Number.parseInt(kid.sessionCardCount, 10);
         const writingSessionCount = Number.parseInt(kid.writingSessionCardCount, 10);
-        const mathWithin10Count = Number.parseInt(kid.mathDeckWithin10Count, 10);
-        const mathWithin20Count = Number.parseInt(kid.mathDeckWithin20Count, 10);
-        const mathSubWithin10Count = Number.parseInt(kid.mathDeckSubWithin10Count, 10);
-        const mathSubWithin20Count = Number.parseInt(kid.mathDeckSubWithin20Count, 10);
+        const mathSessionCount = getMathSessionCount(kid);
         const lessonMa3Unit1Count = Number.parseInt(kid.lessonReadingDeckMa3Unit1Count, 10);
         const lessonMa3Unit2Count = Number.parseInt(kid.lessonReadingDeckMa3Unit2Count, 10);
         const lessonMa3Unit3Count = Number.parseInt(kid.lessonReadingDeckMa3Unit3Count, 10);
-        const mathSessionCount = (Number.isInteger(mathWithin10Count) ? mathWithin10Count : 0)
-            + (Number.isInteger(mathWithin20Count) ? mathWithin20Count : 0)
-            + (Number.isInteger(mathSubWithin10Count) ? mathSubWithin10Count : 0)
-            + (Number.isInteger(mathSubWithin20Count) ? mathSubWithin20Count : 0);
         const lessonReadingSessionCount = (Number.isInteger(lessonMa3Unit1Count) ? lessonMa3Unit1Count : 0)
             + (Number.isInteger(lessonMa3Unit2Count) ? lessonMa3Unit2Count : 0)
             + (Number.isInteger(lessonMa3Unit3Count) ? lessonMa3Unit3Count : 0);

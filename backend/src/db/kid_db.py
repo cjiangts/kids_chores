@@ -17,31 +17,11 @@ def _get_schema_sql() -> str:
             _schema_sql_cache = f.read()
     return _schema_sql_cache
 
-def _apply_migrations(conn: duckdb.DuckDBPyConnection):
-    """Apply safe schema migrations for existing kid databases."""
-    migration_sql = [
-        "ALTER TABLE sessions ADD COLUMN planned_count INTEGER",
-        "ALTER TABLE session_results ADD COLUMN response_time_ms INTEGER",
-        "ALTER TABLE cards ADD COLUMN hardness_score DOUBLE DEFAULT 0",
-        "ALTER TABLE cards ADD COLUMN skip_practice BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE writing_sheets ADD COLUMN practice_rows INTEGER DEFAULT 1",
-        "DROP TABLE IF EXISTS practice_state_by_deck",
-    ]
-
-    for stmt in migration_sql:
-        try:
-            conn.execute(stmt)
-        except Exception as e:
-            # Ignore "already exists" style migration errors.
-            if 'already exists' not in str(e).lower():
-                raise
-
 def ensure_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
-    """Ensure base schema and migrations are applied. Skips if already done for this db_path."""
+    """Ensure base schema is applied. Skips if already done for this db_path."""
     if db_path and db_path in _initialized_dbs:
         return
     conn.execute(_get_schema_sql())
-    _apply_migrations(conn)
     if db_path:
         _initialized_dbs.add(db_path)
 
