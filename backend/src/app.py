@@ -8,7 +8,6 @@ import shutil
 
 from src.routes.kids import (
     kids_bp,
-    cleanup_incomplete_sessions_for_all_kids,
 )
 from src.routes.backup import backup_bp
 from src.db import metadata, kid_db
@@ -31,16 +30,6 @@ def create_app():
     # Shared user-created decks live in a single DB shared by all families.
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
-    # KEEP: Removes incomplete sessions that should never persist.
-    incomplete_cleanup = cleanup_incomplete_sessions_for_all_kids()
-    app.logger.info(
-        'Incomplete session cleanup at startup: cleanedKids=%s, failedKids=%s, deletedSessions=%s, deletedResults=%s, deletedLessonReadingAudio=%s',
-        incomplete_cleanup.get('cleanedKids', 0),
-        incomplete_cleanup.get('failedKids', 0),
-        incomplete_cleanup.get('deletedSessions', 0),
-        incomplete_cleanup.get('deletedResults', 0),
-        incomplete_cleanup.get('deletedLessonReadingAudio', 0),
-    )
 
     def is_family_authenticated():
         return bool(session.get('family_id'))
