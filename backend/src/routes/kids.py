@@ -168,37 +168,54 @@ def synthesize_shared_writing_audio(front_text, overwrite=False, spoken_text=Non
     if (not overwrite) and os.path.exists(audio_path):
         return file_name, False
 
-    try:
-        import edge_tts
-    except ImportError as exc:
-        raise RuntimeError(
-            'Auto TTS dependency missing. Install backend requirements to enable writing audio generation.'
-        ) from exc
-
     temp_path = f"{audio_path}.{uuid.uuid4().hex}.tmp"
-    loop = asyncio.new_event_loop()
+    errors = []
     try:
-        communicator = edge_tts.Communicate(
-            text=normalized_spoken,
-            voice=WRITING_AUDIO_TTS_VOICE,
-            rate=WRITING_AUDIO_TTS_RATE,
-        )
-        loop.run_until_complete(communicator.save(temp_path))
-        if (not os.path.exists(temp_path)) or os.path.getsize(temp_path) == 0:
-            raise RuntimeError('TTS generator produced an empty audio file')
-        os.replace(temp_path, audio_path)
-    finally:
         try:
-            loop.close()
-        except Exception:
-            pass
+            import edge_tts
+            loop = asyncio.new_event_loop()
+            try:
+                communicator = edge_tts.Communicate(
+                    text=normalized_spoken,
+                    voice=WRITING_AUDIO_TTS_VOICE,
+                    rate=WRITING_AUDIO_TTS_RATE,
+                )
+                loop.run_until_complete(communicator.save(temp_path))
+            finally:
+                try:
+                    loop.close()
+                except Exception:
+                    pass
+
+            if (not os.path.exists(temp_path)) or os.path.getsize(temp_path) == 0:
+                raise RuntimeError('edge_tts produced an empty audio file')
+            os.replace(temp_path, audio_path)
+            return file_name, True
+        except Exception as edge_exc:
+            errors.append(f"edge_tts: {edge_exc}")
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+
+        try:
+            from gtts import gTTS
+            tts = gTTS(text=normalized_spoken, lang='zh-CN', slow=False)
+            tts.save(temp_path)
+            if (not os.path.exists(temp_path)) or os.path.getsize(temp_path) == 0:
+                raise RuntimeError('gTTS produced an empty audio file')
+            os.replace(temp_path, audio_path)
+            return file_name, True
+        except Exception as gtts_exc:
+            errors.append(f"gTTS: {gtts_exc}")
+            raise RuntimeError('Auto TTS failed: ' + ' | '.join(errors)) from gtts_exc
+    finally:
         if os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
             except OSError:
                 pass
-
-    return file_name, True
 
 
 def get_kid_lesson_reading_audio_dir(kid):
