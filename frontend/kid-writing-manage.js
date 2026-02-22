@@ -36,7 +36,8 @@ const previewPlayer = window.WritingAudioSequence.createPlayer({
     preload: 'auto',
     onError: (error) => {
         console.error('Error playing writing preview audio:', error);
-        showError('Failed to play voice prompt');
+        const detail = String(error?.message || '').trim();
+        showError(detail ? `Failed to play voice prompt: ${detail}` : 'Failed to play voice prompt');
     }
 });
 

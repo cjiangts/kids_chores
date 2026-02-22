@@ -55,7 +55,19 @@
 
             const response = await fetch(url, fetchOptions);
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                let detail = '';
+                try {
+                    const payload = await response.clone().json();
+                    detail = String(payload?.error || '').trim();
+                } catch (error) {
+                    try {
+                        detail = String(await response.text() || '').trim();
+                    } catch (error2) {
+                        detail = '';
+                    }
+                }
+                const suffix = detail ? `: ${detail}` : '';
+                throw new Error(`HTTP ${response.status}${suffix}`);
             }
             const blob = await response.blob();
             const blobUrl = URL.createObjectURL(blob);
