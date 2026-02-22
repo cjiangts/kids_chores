@@ -1,7 +1,6 @@
 """Kid management API routes"""
 from flask import Blueprint, request, jsonify, send_from_directory, session
 from datetime import datetime, timedelta, timezone
-import asyncio
 import hashlib
 import math
 import json
@@ -40,8 +39,6 @@ MATERIALIZED_SHARED_DECK_NAME_PREFIX = 'shared_deck_'
 MATH_ORPHAN_DECK_NAME = 'math_orphan'
 LESSON_READING_ORPHAN_DECK_NAME = 'chinese_reading_orphan'
 WRITING_AUDIO_EXTENSION = '.mp3'
-WRITING_AUDIO_TTS_VOICE = 'zh-CN-XiaoxiaoNeural'
-WRITING_AUDIO_TTS_RATE = '-35%'
 WRITING_AUDIO_FILE_NAME_MAX_BYTES = 220
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
 _PENDING_SESSIONS = {}
@@ -169,47 +166,16 @@ def synthesize_shared_writing_audio(front_text, overwrite=False, spoken_text=Non
         return file_name, False
 
     temp_path = f"{audio_path}.{uuid.uuid4().hex}.tmp"
-    errors = []
     try:
-        try:
-            import edge_tts
-            loop = asyncio.new_event_loop()
-            try:
-                communicator = edge_tts.Communicate(
-                    text=normalized_spoken,
-                    voice=WRITING_AUDIO_TTS_VOICE,
-                    rate=WRITING_AUDIO_TTS_RATE,
-                )
-                loop.run_until_complete(communicator.save(temp_path))
-            finally:
-                try:
-                    loop.close()
-                except Exception:
-                    pass
-
-            if (not os.path.exists(temp_path)) or os.path.getsize(temp_path) == 0:
-                raise RuntimeError('edge_tts produced an empty audio file')
-            os.replace(temp_path, audio_path)
-            return file_name, True
-        except Exception as edge_exc:
-            errors.append(f"edge_tts: {edge_exc}")
-            if os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                except OSError:
-                    pass
-
-        try:
-            from gtts import gTTS
-            tts = gTTS(text=normalized_spoken, lang='zh-CN', slow=False)
-            tts.save(temp_path)
-            if (not os.path.exists(temp_path)) or os.path.getsize(temp_path) == 0:
-                raise RuntimeError('gTTS produced an empty audio file')
-            os.replace(temp_path, audio_path)
-            return file_name, True
-        except Exception as gtts_exc:
-            errors.append(f"gTTS: {gtts_exc}")
-            raise RuntimeError('Auto TTS failed: ' + ' | '.join(errors)) from gtts_exc
+        from gtts import gTTS
+        tts = gTTS(text=normalized_spoken, lang='zh-CN', slow=False)
+        tts.save(temp_path)
+        if (not os.path.exists(temp_path)) or os.path.getsize(temp_path) == 0:
+            raise RuntimeError('gTTS produced an empty audio file')
+        os.replace(temp_path, audio_path)
+        return file_name, True
+    except Exception as gtts_exc:
+        raise RuntimeError(f'Auto TTS failed (gTTS): {gtts_exc}') from gtts_exc
     finally:
         if os.path.exists(temp_path):
             try:
