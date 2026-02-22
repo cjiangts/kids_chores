@@ -113,6 +113,11 @@ function getMathSessionCount(kid) {
     return Number.isInteger(sharedMathSessionCount) ? Math.max(0, sharedMathSessionCount) : 0;
 }
 
+function getLessonReadingSessionCount(kid) {
+    const sharedLessonReadingSessionCount = Number.parseInt(kid?.sharedLessonReadingSessionCardCount, 10);
+    return Number.isInteger(sharedLessonReadingSessionCount) ? Math.max(0, sharedLessonReadingSessionCount) : 0;
+}
+
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
@@ -135,12 +140,7 @@ function displayKids(kids) {
         const readingSessionCount = Number.parseInt(kid.sessionCardCount, 10);
         const writingSessionCount = Number.parseInt(kid.writingSessionCardCount, 10);
         const mathSessionCount = getMathSessionCount(kid);
-        const lessonMa3Unit1Count = Number.parseInt(kid.lessonReadingDeckMa3Unit1Count, 10);
-        const lessonMa3Unit2Count = Number.parseInt(kid.lessonReadingDeckMa3Unit2Count, 10);
-        const lessonMa3Unit3Count = Number.parseInt(kid.lessonReadingDeckMa3Unit3Count, 10);
-        const lessonReadingSessionCount = (Number.isInteger(lessonMa3Unit1Count) ? lessonMa3Unit1Count : 0)
-            + (Number.isInteger(lessonMa3Unit2Count) ? lessonMa3Unit2Count : 0)
-            + (Number.isInteger(lessonMa3Unit3Count) ? lessonMa3Unit3Count : 0);
+        const lessonReadingSessionCount = getLessonReadingSessionCount(kid);
 
         const enabledLines = [];
         if (Number.isInteger(readingSessionCount) && readingSessionCount > 0) {

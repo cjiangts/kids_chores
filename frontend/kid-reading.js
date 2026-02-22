@@ -132,6 +132,11 @@ function getMathSessionCount(kid) {
     return Number.isInteger(sharedMathSessionCount) ? Math.max(0, sharedMathSessionCount) : 0;
 }
 
+function getLessonReadingSessionCount(kid) {
+    const sharedLessonReadingSessionCount = Number.parseInt(kid?.sharedLessonReadingSessionCardCount, 10);
+    return Number.isInteger(sharedLessonReadingSessionCount) ? Math.max(0, sharedLessonReadingSessionCount) : 0;
+}
+
 // Session Functions
 function resetToStartScreen() {
     const readingSessionCount = Number.parseInt(currentKid?.sessionCardCount, 10);
@@ -146,16 +151,10 @@ function resetToStartScreen() {
     unknownCount = 0;
 
     const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
-    const lessonMa3Unit1Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit1Count, 10);
-    const lessonMa3Unit2Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit2Count, 10);
-    const lessonMa3Unit3Count = Number.parseInt(currentKid?.lessonReadingDeckMa3Unit3Count, 10);
-
     const chineseEnabled = Number.isInteger(readingSessionCount) && readingSessionCount > 0;
     const writingEnabled = Number.isInteger(writingSessionCount) && writingSessionCount > 0;
     const mathEnabled = getMathSessionCount(currentKid) > 0;
-    const lessonReadingEnabled = (Number.isInteger(lessonMa3Unit1Count) ? lessonMa3Unit1Count : 0)
-        + (Number.isInteger(lessonMa3Unit2Count) ? lessonMa3Unit2Count : 0)
-        + (Number.isInteger(lessonMa3Unit3Count) ? lessonMa3Unit3Count : 0) > 0;
+    const lessonReadingEnabled = getLessonReadingSessionCount(currentKid) > 0;
 
     chinesePracticeOption.classList.toggle('hidden', !chineseEnabled);
     writingPracticeOption.classList.toggle('hidden', !writingEnabled);

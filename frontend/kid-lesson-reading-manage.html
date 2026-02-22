@@ -7,15 +7,165 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .math-v2-panel h2 {
+            margin: 0 0 0.45rem 0;
+            color: #2f3c7e;
+        }
 
-        .settings-section,
-        .cards-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 1.2rem;
+        .math-v2-note {
+            color: #555;
+            margin-bottom: 1rem;
+            line-height: 1.35;
+        }
+
+        .success {
+            margin-bottom: 1rem;
+            color: #2b8a3e;
+            background: #ebfbee;
+            border: 1px solid #b2f2bb;
+            border-radius: 6px;
+            padding: 0.7rem 0.8rem;
+        }
+
+        .math-v2-mix {
+            margin-top: 0.9rem;
+            border-top: 1px solid #e9ecef;
+            padding-top: 0.8rem;
+        }
+
+        .math-v2-mix h3 {
+            margin: 0 0 0.55rem 0;
+            color: #334;
+            font-size: 1rem;
+        }
+
+        .mix-bar {
+            width: 100%;
+            height: 18px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: #f1f3f5;
+            display: flex;
+            margin-bottom: 0.75rem;
+            border: 1px solid #d5d9de;
+            position: relative;
+        }
+
+        .mix-segment {
+            height: 100%;
+            min-width: 0;
+        }
+
+        .mix-handle {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 26px;
+            border: 1px solid #adb5bd;
+            border-radius: 999px;
+            background: #fff;
+            cursor: ew-resize;
+            z-index: 2;
+        }
+
+        .mix-row {
+            display: grid;
+            grid-template-columns: minmax(160px, 1fr) 64px 74px;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.45rem;
+        }
+
+        .mix-row-label {
+            font-size: 0.9rem;
+            color: #334;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mix-row .mix-pct,
+        .mix-row .mix-cards {
+            font-size: 0.88rem;
+            color: #495057;
+            text-align: right;
+        }
+
+        .math-v2-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .math-v2-column {
+            background: #f8f9ff;
+            border: 1px solid #dbe1ff;
+            border-radius: 10px;
+            padding: 0.9rem;
+            min-height: 280px;
+        }
+
+        .math-v2-column h3 {
+            margin: 0 0 0.7rem 0;
+            color: #334;
+            font-size: 1rem;
+        }
+
+        .deck-bubble-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+        }
+
+        .deck-bubble {
+            border: 1px solid #b8c5ff;
+            background: #edf2ff;
+            color: #2f3c7e;
+            border-radius: 999px;
+            padding: 0.42rem 0.8rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+            user-select: none;
+            line-height: 1.15;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .deck-bubble.selected {
+            border-color: #0b8a24;
+            background: #e6f9ea;
+            color: #176b2e;
+        }
+
+        .math-v2-actions {
+            margin-top: 0.9rem;
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+        }
+
+        .math-v2-empty {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .available-filter {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.7rem;
+        }
+
+        .available-filter .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .available-filter .form-group input {
+            min-width: 0;
         }
 
         .cards-section h2 {
@@ -23,14 +173,19 @@
             color: #333;
         }
 
-        .deck-tabs {
+        .cards-section .cards-title,
+        .cards-section .cards-title span {
+            color: #333;
+        }
+
+        .math-deck-tabs {
             display: flex;
             flex-wrap: wrap;
             gap: 0.6rem;
             margin-bottom: 1rem;
         }
 
-        .deck-tab {
+        .math-deck-tab {
             border: none;
             border-radius: 8px;
             background: #eef2ff;
@@ -40,51 +195,9 @@
             cursor: pointer;
         }
 
-        .deck-tab.active {
+        .math-deck-tab.active {
             background: #4CAF50;
             color: #fff;
-        }
-
-        .deck-counts-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 0.5rem;
-            margin-bottom: 0.8rem;
-        }
-
-        .deck-count-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-        }
-
-        .deck-count-row label {
-            font-size: 0.92rem;
-            color: #333;
-            white-space: nowrap;
-        }
-
-        .deck-count-row input {
-            width: 64px;
-            padding: 0.3rem 0.4rem;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            text-align: center;
-        }
-
-        .deck-counts-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 0.5rem;
-        }
-
-        .deck-counts-total {
-            font-size: 0.95rem;
-            color: #555;
-            font-weight: 600;
         }
 
         .cards-grid {
@@ -161,10 +274,25 @@
             font-weight: 600;
         }
 
-        @media (max-width: 760px) {
-            .deck-tabs {
+        @media (max-width: 880px) {
+            .math-v2-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .math-deck-tabs {
                 display: grid;
                 grid-template-columns: 1fr;
+            }
+
+            .mix-row {
+                grid-template-columns: 1fr;
+                gap: 0.2rem;
+                margin-bottom: 0.7rem;
+            }
+
+            .mix-row .mix-pct,
+            .mix-row .mix-cards {
+                text-align: left;
             }
         }
     </style>
@@ -184,45 +312,82 @@
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
+        <div id="successMessage" class="success hidden"></div>
 
-        <div class="settings-section">
+        <section class="settings-section">
             <h2>Practice Settings</h2>
-            <form id="sessionSettingsForm">
-                <div class="deck-counts-grid">
-                    <div class="deck-count-row">
-                        <label for="deckCountMa3Unit1">马三 第一单元</label>
-                        <input type="number" id="deckCountMa3Unit1" min="0" max="200" step="1">
-                    </div>
-                    <div class="deck-count-row">
-                        <label for="deckCountMa3Unit2">马三 第二单元</label>
-                        <input type="number" id="deckCountMa3Unit2" min="0" max="200" step="1">
-                    </div>
-                    <div class="deck-count-row">
-                        <label for="deckCountMa3Unit3">马三 第三单元</label>
-                        <input type="number" id="deckCountMa3Unit3" min="0" max="200" step="1">
-                    </div>
+            <form id="sessionSettingsForm" class="settings-row">
+                <div class="form-group">
+                    <label for="sharedLessonReadingSessionCardCount">Chinese Reading Cards Per Session (Total Across Opted-in Decks)</label>
+                    <input
+                        type="number"
+                        id="sharedLessonReadingSessionCardCount"
+                        min="0"
+                        max="200"
+                        step="1"
+                        required
+                    >
                 </div>
-                <div class="deck-counts-footer">
-                    <span id="sessionTotalInline" class="deck-counts-total">Total per session: 0</span>
-                    <button type="submit" class="settings-save-btn">Save</button>
-                </div>
+                <button type="submit" class="settings-save-btn">Save</button>
             </form>
-        </div>
 
-        <div class="cards-section">
-            <div class="deck-tabs">
-                <button id="deckTabMa3Unit1" class="deck-tab active" type="button">马三 一单元</button>
-                <button id="deckTabMa3Unit2" class="deck-tab" type="button">马三 二单元</button>
-                <button id="deckTabMa3Unit3" class="deck-tab" type="button">马三 三单元</button>
+            <div class="math-v2-mix">
+                <h3>Deck Mix Allocation</h3>
+                <div id="mixBar" class="mix-bar"></div>
+                <p class="math-v2-note" style="margin-top:-0.2rem;">Drag the dividers on the bar to adjust deck percentages.</p>
+                <div id="mixRows"></div>
+                <p id="mixEmpty" class="math-v2-empty">Opt in at least one deck to configure mix.</p>
             </div>
-            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in this deck: 0</p>
+        </section>
+
+        <section class="settings-section math-v2-panel">
+            <h2>Opt-in Shared Chinese Reading Decks</h2>
+            <p class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes.</p>
+
+            <div class="math-v2-grid">
+                <div class="math-v2-column">
+                    <h3>Available Shared Decks</h3>
+                    <div class="available-filter">
+                        <div class="form-group">
+                            <input
+                                type="text"
+                                id="availableTagFilter"
+                                list="availableTagOptions"
+                                placeholder="Search by tag"
+                            >
+                            <datalist id="availableTagOptions"></datalist>
+                        </div>
+                        <button id="clearTagFilterBtn" type="button" class="btn-secondary">Clear</button>
+                    </div>
+                    <div id="availableDecks" class="deck-bubble-wrap"></div>
+                    <p id="availableEmpty" class="math-v2-empty hidden">No shared Chinese Reading decks available yet.</p>
+                </div>
+
+                <div class="math-v2-column">
+                    <h3>Opted-in Decks</h3>
+                    <div id="selectedDecks" class="deck-bubble-wrap"></div>
+                    <p id="selectedEmpty" class="math-v2-empty">No deck opted in.</p>
+                </div>
+            </div>
+            <div class="math-v2-actions">
+                <span id="deckPendingInfo" class="math-v2-note" style="margin:0;">No pending deck changes.</span>
+                <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes</button>
+            </div>
+        </section>
+
+        <section class="settings-section cards-section">
+            <h2 class="cards-title">
+                <span>Chinese Reading Questions <span id="lessonReadingCardCount">(0)</span></span>
+            </h2>
+            <div id="sharedDeckTabs" class="math-deck-tabs"></div>
             <div class="cards-toolbar">
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="queue" selected>Order: Next Session Queue</option>
                 </select>
             </div>
+            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in this deck: 0</p>
             <div id="cardsGrid" class="cards-grid"></div>
-        </div>
+        </section>
     </div>
 
     <script src="practice-manage-common.js"></script>

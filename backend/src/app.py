@@ -8,7 +8,6 @@ import shutil
 
 from src.routes.kids import (
     kids_bp,
-    seed_lesson_reading_decks_for_all_kids,
     cleanup_incomplete_sessions_for_all_kids,
 )
 from src.routes.backup import backup_bp
@@ -32,14 +31,6 @@ def create_app():
     # Shared user-created decks live in a single DB shared by all families.
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
-    # KEEP: Ensures fixed preset Chinese Reading decks exist for all kids.
-    lesson_seed_result = seed_lesson_reading_decks_for_all_kids()
-    app.logger.info(
-        'Lesson-reading preset init at startup: seededKids=%s, failedKids=%s, insertedCards=%s',
-        lesson_seed_result.get('seededKids', 0),
-        lesson_seed_result.get('failedKids', 0),
-        lesson_seed_result.get('insertedCards', 0),
-    )
     # KEEP: Removes incomplete sessions that should never persist.
     incomplete_cleanup = cleanup_incomplete_sessions_for_all_kids()
     app.logger.info(

@@ -134,7 +134,7 @@ async function loadReadyState() {
 
         if (total <= 0) {
             practiceSection.classList.add('hidden');
-            showError('Chinese Reading practice is off. Ask your parent to set per-deck counts in Manage Chinese Reading.');
+            showError('Chinese Reading practice is off. Ask your parent to set a session count in Manage Chinese Reading.');
             return;
         }
 

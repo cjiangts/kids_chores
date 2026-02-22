@@ -191,6 +191,11 @@ function getMathSessionCount(kid) {
     return Number.isInteger(sharedMathSessionCount) ? Math.max(0, sharedMathSessionCount) : 0;
 }
 
+function getLessonReadingSessionCount(kid) {
+    const sharedLessonReadingSessionCount = Number.parseInt(kid?.sharedLessonReadingSessionCardCount, 10);
+    return Number.isInteger(sharedLessonReadingSessionCount) ? Math.max(0, sharedLessonReadingSessionCount) : 0;
+}
+
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
@@ -207,15 +212,10 @@ function displayKids(kids) {
         const age = calculateAge(kid.birthday);
         const readingCount = Number.parseInt(kid.sessionCardCount, 10);
         const writingCount = Number.parseInt(kid.writingSessionCardCount, 10);
-        const lessonMa3Unit1Count = Number.parseInt(kid.lessonReadingDeckMa3Unit1Count, 10);
-        const lessonMa3Unit2Count = Number.parseInt(kid.lessonReadingDeckMa3Unit2Count, 10);
-        const lessonMa3Unit3Count = Number.parseInt(kid.lessonReadingDeckMa3Unit3Count, 10);
         const safeReadingCount = Number.isInteger(readingCount) ? Math.max(0, readingCount) : 0;
         const safeWritingCount = Number.isInteger(writingCount) ? Math.max(0, writingCount) : 0;
         const safeMathCount = getMathSessionCount(kid);
-        const safeLessonReadingCount = (Number.isInteger(lessonMa3Unit1Count) ? Math.max(0, lessonMa3Unit1Count) : 0)
-            + (Number.isInteger(lessonMa3Unit2Count) ? Math.max(0, lessonMa3Unit2Count) : 0)
-            + (Number.isInteger(lessonMa3Unit3Count) ? Math.max(0, lessonMa3Unit3Count) : 0);
+        const safeLessonReadingCount = getLessonReadingSessionCount(kid);
 
         const readingLabel = `📖 Chinese Characters (${safeReadingCount}/day)`;
         const writingLabel = `✍️ Chinese Writing (${safeWritingCount}/day)`;
