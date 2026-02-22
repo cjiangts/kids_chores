@@ -33,13 +33,15 @@ let wrongCount = 0;
 let answerRevealed = false;
 let cardShownAtMs = 0;
 let sessionAnswers = [];
-const promptAudio = new Audio();
-promptAudio.preload = 'auto';
-promptAudio.playsInline = true;
-let currentAudioUrl = '';
 let audioPrimed = false;
 const errorState = { lastMessage: '' };
-const audioBlobCache = new Map();
+const promptPlayer = window.WritingAudioSequence.createPlayer({
+    preload: 'auto',
+    onError: (error) => {
+        console.error('Error playing prompt audio:', error);
+        showError('Failed to play voice prompt. Tap the card to retry.');
+    }
+});
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -165,7 +167,7 @@ function showCurrentPrompt() {
 
     const card = sessionCards[currentIndex];
     renderPracticeProgress(progress, progressFill, currentIndex + 1, sessionCards.length, 'Card');
-    cardAnswer.textContent = card.back || card.front || '';
+    cardAnswer.textContent = card.back || '';
     cardAnswer.classList.add('hidden');
     flashcard.classList.remove('revealed');
 
@@ -177,7 +179,7 @@ function showCurrentPrompt() {
     doneBtn.disabled = false;
 
     cardShownAtMs = Date.now();
-    playPrompt(card.audio_url);
+    playPromptForCard(card);
     prefetchNextPrompt();
 }
 
@@ -198,62 +200,17 @@ function replayCurrentPrompt() {
         return;
     }
     const card = sessionCards[currentIndex];
-    playPrompt(card.audio_url);
+    playPromptForCard(card);
 }
 
-function playPrompt(url) {
-    if (!url) {
+function playPromptForCard(card) {
+    const urls = promptPlayer.buildPromptUrls(card);
+    if (urls.length === 0) {
         stopAudioPlayback();
         return;
     }
-
-    stopAudioPlayback();
-    playPromptWithRetry(url);
-}
-
-function playPromptWithRetry(url) {
-    const baseUrl = String(url || '');
-    if (!baseUrl) {
-        return;
-    }
     showError('');
-    playAudioSource(baseUrl).catch((error) => {
-        console.error('Error playing prompt audio:', error);
-        ensureCachedAudioSource(baseUrl)
-            .then((cachedSource) => playAudioSource(cachedSource))
-            .catch((fallbackError) => {
-                console.error('Fallback cached audio play failed:', fallbackError);
-                showError('Failed to play voice prompt. Tap the card to retry.');
-            });
-    });
-}
-
-function playAudioSource(src) {
-    if (!src) {
-        return Promise.reject(new Error('Missing audio source'));
-    }
-    if (currentAudioUrl !== src) {
-        promptAudio.src = src;
-        currentAudioUrl = src;
-        promptAudio.load();
-    }
-    promptAudio.currentTime = 0;
-    return promptAudio.play();
-}
-
-async function ensureCachedAudioSource(url) {
-    if (audioBlobCache.has(url)) {
-        return audioBlobCache.get(url);
-    }
-
-    const response = await fetch(url, { method: 'GET', credentials: 'same-origin' });
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-    }
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    audioBlobCache.set(url, blobUrl);
-    return blobUrl;
+    promptPlayer.playUrls(urls);
 }
 
 function primeAudioForAutoplay() {
@@ -287,12 +244,7 @@ function prefetchNextPrompt() {
         return;
     }
     const nextCard = sessionCards[nextIndex];
-    if (!nextCard || !nextCard.audio_url) {
-        return;
-    }
-    ensureCachedAudioSource(nextCard.audio_url).catch(() => {
-        // Best-effort warmup only.
-    });
+    promptPlayer.prefetchCard(nextCard);
 }
 
 function answerCurrentCard(correct) {
@@ -347,22 +299,11 @@ async function endSession() {
 }
 
 function stopAudioPlayback() {
-    if (!promptAudio) {
-        return;
-    }
-    promptAudio.pause();
-    promptAudio.currentTime = 0;
+    promptPlayer.stop();
 }
 
 function clearAudioBlobCache() {
-    audioBlobCache.forEach((blobUrl) => {
-        try {
-            URL.revokeObjectURL(blobUrl);
-        } catch (error) {
-            // ignore cleanup errors
-        }
-    });
-    audioBlobCache.clear();
+    promptPlayer.clearCache();
 }
 
 function showError(message) {

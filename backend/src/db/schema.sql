@@ -26,14 +26,6 @@ CREATE TABLE IF NOT EXISTS cards (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Writing prompt audio metadata (actual audio files are stored on disk)
-CREATE TABLE IF NOT EXISTS writing_audio (
-  card_id INTEGER PRIMARY KEY,
-  file_name VARCHAR NOT NULL,
-  mime_type VARCHAR,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),

@@ -171,19 +171,11 @@
             font-size: 0.78rem;
         }
 
-        .selected-audio-btn.record {
-            background: #2d7ef7;
-        }
-
-        .selected-audio-btn.stop {
-            background: #dc3545;
-        }
-
         .selected-audio-btn.save {
             background: #1f8e43;
         }
 
-        .selected-audio-btn.clear {
+        .selected-audio-btn.edit {
             background: #6c757d;
         }
 
@@ -195,74 +187,6 @@
         .card-audio-player {
             width: 100%;
             margin-top: 0.35rem;
-        }
-
-        .audio-filter-group {
-            display: inline-flex;
-            border: 1px solid #d7deee;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #fff;
-        }
-
-        .audio-filter-btn {
-            border: none;
-            background: #fff;
-            color: #445;
-            padding: 0.42rem 0.72rem;
-            font-size: 0.82rem;
-            cursor: pointer;
-            border-right: 1px solid #e6ebf6;
-        }
-
-        .audio-filter-btn:last-child {
-            border-right: none;
-        }
-
-        .audio-filter-btn.active {
-            background: #2f3c7e;
-            color: #fff;
-        }
-
-        .recording-viz {
-            margin-top: 0.42rem;
-            padding: 0.45rem 0.5rem 0.55rem;
-            border-radius: 8px;
-            background: #fff6f6;
-            border: 1px solid #ffd6d6;
-        }
-
-        .recording-viz-header {
-            display: flex;
-            align-items: center;
-            gap: 0.45rem;
-            color: #b12a2a;
-            font-size: 0.78rem;
-            font-weight: 700;
-            margin-bottom: 0.35rem;
-        }
-
-        .recording-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #e53935;
-            animation: recPulse 1s ease-in-out infinite;
-        }
-
-        @keyframes recPulse {
-            0% { transform: scale(0.85); opacity: 0.55; }
-            50% { transform: scale(1.15); opacity: 1; }
-            100% { transform: scale(0.85); opacity: 0.55; }
-        }
-
-        .recording-wave {
-            display: block;
-            width: 100%;
-            height: 56px;
-            border-radius: 6px;
-            background: #fff;
-            border: 1px solid #ffdede;
         }
 
     </style>
@@ -370,11 +294,6 @@ DAY3:够 碗 现在 带着 和尚 不停 累了 休息 经过 相信 一定 迷�
                     placeholder="Search cards..."
                     aria-label="Search Chinese writing cards"
                 >
-                <div class="audio-filter-group" aria-label="Filter by audio status">
-                    <button type="button" id="audioFilterAll" class="audio-filter-btn active" data-filter="all">All</button>
-                    <button type="button" id="audioFilterReady" class="audio-filter-btn" data-filter="ready">Audio Ready</button>
-                    <button type="button" id="audioFilterTodo" class="audio-filter-btn" data-filter="todo">Audio TODO</button>
-                </div>
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="added_time" selected>Order: Added Time (Recent to Oldest)</option>
                     <option value="queue">Order: Next Session Queue</option>
@@ -386,8 +305,7 @@ DAY3:够 碗 现在 带着 和尚 不停 累了 休息 经过 相信 一定 迷�
     </div>
 
     <script src="practice-manage-common.js"></script>
-    <script src="audio-common.js"></script>
-    <script src="recording-visualizer.js"></script>
+    <script src="writing-audio-sequence.js"></script>
     <script src="kid-writing-manage.js"></script>
 </body>
 </html>
