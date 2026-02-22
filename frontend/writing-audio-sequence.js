@@ -100,30 +100,33 @@
             audio.pause();
             audio.currentTime = 0;
 
-            let source = url;
-            try {
-                source = await ensureCachedAudioSource(url);
-            } catch (error) {
-                source = url;
-            }
-
-            if (playbackToken !== token) {
-                return false;
-            }
-
-            if (currentSrc !== source) {
-                audio.src = source;
-                currentSrc = source;
-                audio.load();
-            }
-            audio.currentTime = 0;
-
-            try {
+            const playSource = async (source) => {
+                if (playbackToken !== token) {
+                    return false;
+                }
+                if (currentSrc !== source) {
+                    audio.src = source;
+                    currentSrc = source;
+                    audio.load();
+                }
+                audio.currentTime = 0;
                 await audio.play();
                 return true;
-            } catch (error) {
-                onError(error);
-                return false;
+            };
+
+            try {
+                // Prefer direct URL for maximum browser compatibility.
+                await playSource(url);
+                return true;
+            } catch (directError) {
+                try {
+                    const cachedSource = await ensureCachedAudioSource(url);
+                    await playSource(cachedSource);
+                    return true;
+                } catch (fallbackError) {
+                    onError(fallbackError);
+                    return false;
+                }
             }
         }
 
