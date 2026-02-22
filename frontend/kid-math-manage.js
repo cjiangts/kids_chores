@@ -249,22 +249,13 @@ function renderMixEditor() {
     const countByDeckId = getCountByDeckId(totalCards, optedDecks);
     const percents = optedDecks.map((deck) => Number.parseInt(mixByDeckId[String(Number(deck.deck_id))] || 0, 10));
 
-    let cumulative = 0;
-    const segmentHtml = optedDecks
-        .map((deck, index) => {
-            const percent = percents[index];
-            const color = MIX_COLORS[index % MIX_COLORS.length];
-            return `<div class="mix-segment" style="width:${percent}%;background:${color};" title="${escapeHtml(deck.name || '')}: ${percent}%"></div>`;
-        })
-        .join('');
-    const handleHtml = optedDecks
-        .slice(0, -1)
-        .map((_, index) => {
-            cumulative += percents[index];
-            return `<button type="button" class="mix-handle" data-handle-index="${index}" style="left:${cumulative}%;" aria-label="Adjust mix divider ${index + 1}"></button>`;
-        })
-        .join('');
-    mixBarEl.innerHTML = `${segmentHtml}${handleHtml}`;
+    window.SharedDeckMix.renderMixBar({
+        mixBarEl,
+        optedDecks,
+        percents,
+        mixColors: MIX_COLORS,
+        escapeHtml,
+    });
 
     mixRowsEl.innerHTML = optedDecks
         .map((deck, index) => {
@@ -284,69 +275,15 @@ function renderMixEditor() {
         .join('');
 }
 
-function getPointerClientX(event) {
-    if (Number.isFinite(event.clientX)) {
-        return Number(event.clientX);
-    }
-    return null;
-}
-
 function onMixBarPointerDown(event) {
-    const handle = event.target.closest('[data-handle-index]');
-    if (!handle) {
-        return;
-    }
-    const handleIndex = Number(handle.getAttribute('data-handle-index') || -1);
-    if (!(handleIndex >= 0)) {
-        return;
-    }
-
-    const optedDecks = getOptedDecks();
-    if (optedDecks.length < 2 || handleIndex >= optedDecks.length - 1) {
-        return;
-    }
-    normalizeMixForOptedDecks();
-
-    const startX = getPointerClientX(event);
-    const rect = mixBarEl.getBoundingClientRect();
-    if (!Number.isFinite(startX) || rect.width <= 0) {
-        return;
-    }
-
-    const startPercents = optedDecks.map((deck) => Number.parseInt(mixByDeckId[String(Number(deck.deck_id))] || 0, 10));
-    const pairTotal = startPercents[handleIndex] + startPercents[handleIndex + 1];
-
-    const onMove = (moveEvent) => {
-        const moveX = getPointerClientX(moveEvent);
-        if (!Number.isFinite(moveX)) {
-            return;
-        }
-        const deltaPercent = ((moveX - startX) / rect.width) * 100;
-        let nextLeft = startPercents[handleIndex] + deltaPercent;
-        if (nextLeft < 0) {
-            nextLeft = 0;
-        }
-        if (nextLeft > pairTotal) {
-            nextLeft = pairTotal;
-        }
-
-        const next = [...startPercents];
-        next[handleIndex] = Math.round(nextLeft);
-        next[handleIndex + 1] = pairTotal - next[handleIndex];
-        setMixByDeckFromPercentArray(optedDecks, next);
-        renderMixEditor();
-    };
-
-    const onUp = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onUp);
-    };
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    event.preventDefault();
+    window.SharedDeckMix.onMixBarPointerDown(event, {
+        mixBarEl,
+        getOptedDecks,
+        normalizeMix: normalizeMixForOptedDecks,
+        getPercentForDeck: (deck) => Number.parseInt(mixByDeckId[String(Number(deck.deck_id))] || 0, 10),
+        setMixByDeckFromPercentArray,
+        renderMixEditor,
+    });
 }
 
 function rebalanceAfterOptInChanges() {
