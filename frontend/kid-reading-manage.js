@@ -56,7 +56,7 @@ let activeDeckIsOrphan = false;
 let isDeckMoveInFlight = false;
 let baselineOptedDeckIdSet = new Set();
 let stagedOptedDeckIdSet = new Set();
-let availableTagFilter = '';
+let availableTagFilterController = null;
 let isReadingBulkAdding = false;
 const CARD_PAGE_SIZE = 10;
 const ORPHAN_MIX_KEY = 'orphan';
@@ -370,39 +370,35 @@ function getDeckTags(deck) {
         : [];
 }
 
-function normalizeTagSearchToken(rawToken) {
-    return String(rawToken || '').trim().toLowerCase().replace(/\s+/g, '_');
+function getAvailableDeckCandidatesForTagFilter() {
+    return (Array.isArray(allDecks) ? allDecks : []).filter(
+        (deck) => !stagedOptedDeckIdSet.has(Number(deck.deck_id))
+    );
 }
 
-function getAvailableTagTokens() {
-    return String(availableTagFilter || '')
-        .split(/[,\s]+/)
-        .map(normalizeTagSearchToken)
-        .filter(Boolean);
+function ensureAvailableTagFilterController() {
+    if (availableTagFilterController) {
+        return availableTagFilterController;
+    }
+    availableTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
+        inputEl: availableTagFilterInput,
+        optionsEl: availableTagOptions,
+        clearBtn: clearTagFilterBtn,
+        getDecks: getAvailableDeckCandidatesForTagFilter,
+        getDeckTags,
+        onFilterChanged: () => {
+            renderAvailableDecks();
+        },
+    });
+    return availableTagFilterController;
 }
 
 function matchesAvailableTagFilter(deck) {
-    const tokens = getAvailableTagTokens();
-    if (tokens.length === 0) {
-        return true;
-    }
-    const tags = getDeckTags(deck);
-    if (tags.length === 0) {
-        return false;
-    }
-    return tokens.every((token) => tags.some((tag) => tag.includes(token)));
-}
-
-function renderAvailableTagSuggestions() {
-    const tags = new Set();
-    (Array.isArray(allDecks) ? allDecks : []).forEach((deck) => {
-        getDeckTags(deck).forEach((tag) => tags.add(tag));
-    });
-    const ordered = Array.from(tags).sort((a, b) => a.localeCompare(b));
-    availableTagOptions.innerHTML = ordered.map((tag) => `<option value="${escapeHtml(tag)}"></option>`).join('');
+    return ensureAvailableTagFilterController().matchesDeck(deck);
 }
 
 function renderAvailableDecks() {
+    ensureAvailableTagFilterController().sync();
     const allAvailableDecks = (Array.isArray(allDecks) ? allDecks : []).filter(
         (deck) => !stagedOptedDeckIdSet.has(Number(deck.deck_id))
     );
@@ -415,8 +411,9 @@ function renderAvailableDecks() {
     }
     if (deckList.length === 0) {
         availableDecksEl.innerHTML = '';
-        availableEmptyEl.textContent = availableTagFilter
-            ? `No available deck matches tag "${availableTagFilter}".`
+        const filterLabel = ensureAvailableTagFilterController().getDisplayLabel();
+        availableEmptyEl.textContent = filterLabel
+            ? `No available deck matches tag "${filterLabel}".`
             : 'No shared Chinese Character decks available yet.';
         availableEmptyEl.classList.remove('hidden');
         return;
@@ -580,11 +577,6 @@ function maybeLoadMoreCards() {
     displayCards(currentCards);
 }
 
-function onAvailableTagFilterInput() {
-    availableTagFilter = String(availableTagFilterInput.value || '').trim().toLowerCase();
-    renderAvailableDecks();
-}
-
 function updateAddReadingButtonCount() {
     if (isReadingBulkAdding) {
         addReadingBtn.textContent = 'Adding...';
@@ -646,7 +638,7 @@ async function loadSharedChineseCharacterDecks() {
     );
     stagedOptedDeckIdSet = new Set(baselineOptedDeckIdSet);
     orphanDeck = result && typeof result.orphan_deck === 'object' && result.orphan_deck ? result.orphan_deck : null;
-    renderAvailableTagSuggestions();
+    ensureAvailableTagFilterController().sync();
     renderOrphanSummary();
 
     const responseTotal = Number.parseInt(result.session_card_count, 10);
@@ -1033,13 +1025,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     availableDecksEl.addEventListener('click', async (event) => {
         await onAvailableDeckClick(event);
     });
-    availableTagFilterInput.addEventListener('input', onAvailableTagFilterInput);
-    clearTagFilterBtn.addEventListener('click', () => {
-        availableTagFilter = '';
-        availableTagFilterInput.value = '';
-        renderAvailableDecks();
-        availableTagFilterInput.focus();
-    });
+    ensureAvailableTagFilterController();
     selectedDecksEl.addEventListener('click', async (event) => {
         await onSelectedDeckClick(event);
     });

@@ -335,5 +335,317 @@ window.PracticeManageCommon = {
             return '1 day ago';
         }
         return `${dayDiff} days ago`;
+    },
+
+    createHierarchicalTagFilterController(config = {}) {
+        const inputEl = config.inputEl || null;
+        const optionsEl = config.optionsEl || null;
+        const clearBtn = config.clearBtn || null;
+        const getDecks = typeof config.getDecks === 'function' ? config.getDecks : () => [];
+        const getDeckTags = typeof config.getDeckTags === 'function'
+            ? config.getDeckTags
+            : (deck) => (Array.isArray(deck?.tags) ? deck.tags : []);
+        const onFilterChanged = typeof config.onFilterChanged === 'function' ? config.onFilterChanged : null;
+
+        let selectedTags = [];
+        let draftText = '';
+        let filteredDeckIdSet = null;
+        let currentSuggestions = [];
+        let chipsEl = null;
+        let isApplyingProgrammaticInput = false;
+
+        const normalizeTag = (raw) => String(raw || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_+|_+$/g, '');
+
+        const getDeckId = (deck) => Number(deck && deck.deck_id);
+
+        const ensureChipsContainer = () => {
+            if (chipsEl) {
+                return chipsEl;
+            }
+            if (!inputEl || !inputEl.parentElement) {
+                return null;
+            }
+            chipsEl = document.createElement('div');
+            chipsEl.className = 'shared-tag-filter-chips hidden';
+            chipsEl.addEventListener('click', (event) => {
+                const btn = event.target.closest('button[data-filter-tag-index]');
+                if (!btn) {
+                    return;
+                }
+                const index = Number.parseInt(btn.getAttribute('data-filter-tag-index') || '', 10);
+                if (!Number.isInteger(index) || index < 0 || index >= selectedTags.length) {
+                    return;
+                }
+                selectedTags = selectedTags.filter((_, i) => i !== index);
+                sync();
+                if (onFilterChanged) {
+                    onFilterChanged();
+                }
+            });
+
+            const parent = inputEl.closest('.available-filter');
+            if (parent && parent.parentElement) {
+                parent.insertAdjacentElement('afterend', chipsEl);
+            } else {
+                inputEl.parentElement.insertAdjacentElement('afterend', chipsEl);
+            }
+            return chipsEl;
+        };
+
+        const getCandidateEntries = () => {
+            const decks = Array.isArray(getDecks()) ? getDecks() : [];
+            return decks
+                .map((deck) => {
+                    const rawTags = Array.isArray(getDeckTags(deck)) ? getDeckTags(deck) : [];
+                    const tags = rawTags.map(normalizeTag).filter(Boolean);
+                    const deckId = getDeckId(deck);
+                    if (!Number.isFinite(deckId) || deckId <= 0 || tags.length === 0) {
+                        return null;
+                    }
+                    return { deck, deckId, tags };
+                })
+                .filter(Boolean);
+        };
+
+        const getUniqueTagsAtLevel = (entries, levelIndex) => {
+            const tags = new Set();
+            entries.forEach((entry) => {
+                const tag = String(entry.tags[levelIndex] || '').trim();
+                if (tag) {
+                    tags.add(tag);
+                }
+            });
+            return Array.from(tags).sort((a, b) => a.localeCompare(b));
+        };
+
+        const findNextBranchLevel = (entries, startLevel) => {
+            let level = Math.max(0, Number.parseInt(startLevel, 10) || 0);
+            while (level < 64) {
+                const uniqueTags = getUniqueTagsAtLevel(entries, level);
+                if (uniqueTags.length === 0) {
+                    return -1;
+                }
+                if (uniqueTags.length > 1) {
+                    return level;
+                }
+                level += 1;
+            }
+            return -1;
+        };
+
+        const applySelectedPath = (entries) => {
+            let candidates = [...entries];
+            let nextLevelStart = 0;
+            const normalizedSelected = [];
+
+            for (let i = 0; i < selectedTags.length; i += 1) {
+                const selected = normalizeTag(selectedTags[i]);
+                if (!selected) {
+                    continue;
+                }
+                const branchLevel = findNextBranchLevel(candidates, nextLevelStart);
+                if (branchLevel < 0) {
+                    break;
+                }
+                const choices = getUniqueTagsAtLevel(candidates, branchLevel);
+                if (!choices.includes(selected)) {
+                    break;
+                }
+                candidates = candidates.filter((entry) => entry.tags[branchLevel] === selected);
+                normalizedSelected.push(selected);
+                nextLevelStart = branchLevel + 1;
+            }
+
+            if (normalizedSelected.length !== selectedTags.length) {
+                selectedTags = normalizedSelected;
+            }
+
+            return { candidates, nextLevelStart };
+        };
+
+        const recompute = () => {
+            const entries = getCandidateEntries();
+            const { candidates, nextLevelStart } = applySelectedPath(entries);
+
+            filteredDeckIdSet = new Set(candidates.map((entry) => entry.deckId));
+
+            const nextBranchLevel = findNextBranchLevel(candidates, nextLevelStart);
+            let suggestions = nextBranchLevel < 0 ? [] : getUniqueTagsAtLevel(candidates, nextBranchLevel);
+            const draft = normalizeTag(draftText);
+            if (draft) {
+                suggestions = suggestions.filter((tag) => tag.includes(draft));
+            }
+            currentSuggestions = suggestions;
+        };
+
+        const renderChips = () => {
+            const container = ensureChipsContainer();
+            if (!container) {
+                return;
+            }
+            if (selectedTags.length === 0) {
+                container.classList.add('hidden');
+                container.innerHTML = '';
+                return;
+            }
+            container.classList.remove('hidden');
+            container.innerHTML = selectedTags.map((tag, index) => `
+                <span class="shared-tag-filter-chip">
+                    ${escapeHtml(tag)}
+                    <button type="button" class="shared-tag-filter-chip-remove" data-filter-tag-index="${index}" aria-label="Remove ${escapeHtml(tag)}">×</button>
+                </span>
+            `).join('');
+        };
+
+        const renderSuggestions = () => {
+            if (!optionsEl) {
+                return;
+            }
+            optionsEl.innerHTML = currentSuggestions
+                .map((tag) => `<option value="${escapeHtml(tag)}"></option>`)
+                .join('');
+        };
+
+        const commitInputAsTag = () => {
+            if (!inputEl) {
+                return false;
+            }
+            const next = normalizeTag(inputEl.value);
+            if (!next) {
+                return false;
+            }
+            if (!currentSuggestions.includes(next) || selectedTags.includes(next)) {
+                return false;
+            }
+            selectedTags = [...selectedTags, next];
+            draftText = '';
+            isApplyingProgrammaticInput = true;
+            inputEl.value = '';
+            isApplyingProgrammaticInput = false;
+            return true;
+        };
+
+        const sync = () => {
+            recompute();
+            renderChips();
+            renderSuggestions();
+        };
+
+        const matchesDeck = (deck) => {
+            if (!(filteredDeckIdSet instanceof Set)) {
+                recompute();
+            }
+            const deckId = getDeckId(deck);
+            if (!Number.isFinite(deckId) || deckId <= 0) {
+                return false;
+            }
+            if (!filteredDeckIdSet.has(deckId)) {
+                return false;
+            }
+            const draft = normalizeTag(draftText);
+            if (!draft) {
+                return true;
+            }
+            const tags = (Array.isArray(getDeckTags(deck)) ? getDeckTags(deck) : [])
+                .map(normalizeTag)
+                .filter(Boolean);
+            return tags.some((tag) => tag.includes(draft));
+        };
+
+        const getDisplayLabel = () => {
+            const parts = [...selectedTags];
+            const draft = normalizeTag(draftText);
+            if (draft) {
+                parts.push(draft);
+            }
+            return parts.join(', ');
+        };
+
+        const clear = () => {
+            selectedTags = [];
+            draftText = '';
+            if (inputEl) {
+                isApplyingProgrammaticInput = true;
+                inputEl.value = '';
+                isApplyingProgrammaticInput = false;
+                inputEl.focus();
+            }
+            sync();
+            if (onFilterChanged) {
+                onFilterChanged();
+            }
+        };
+
+        const handleInput = () => {
+            if (!inputEl || isApplyingProgrammaticInput) {
+                return;
+            }
+            draftText = String(inputEl.value || '');
+            sync();
+            if (onFilterChanged) {
+                onFilterChanged();
+            }
+        };
+
+        const handleChange = () => {
+            const committed = commitInputAsTag();
+            sync();
+            if (onFilterChanged) {
+                onFilterChanged();
+            }
+            if (committed && inputEl) {
+                inputEl.focus();
+            }
+        };
+
+        const handleKeydown = (event) => {
+            if (!event) {
+                return;
+            }
+            if (event.key === 'Enter' || event.key === ',') {
+                event.preventDefault();
+                const committed = commitInputAsTag();
+                sync();
+                if (onFilterChanged) {
+                    onFilterChanged();
+                }
+                if (!committed && inputEl) {
+                    inputEl.select?.();
+                }
+                return;
+            }
+            if (event.key === 'Backspace' && inputEl && !String(inputEl.value || '').trim() && selectedTags.length > 0) {
+                selectedTags = selectedTags.slice(0, -1);
+                sync();
+                if (onFilterChanged) {
+                    onFilterChanged();
+                }
+            }
+        };
+
+        if (inputEl) {
+            inputEl.addEventListener('input', handleInput);
+            inputEl.addEventListener('change', handleChange);
+            inputEl.addEventListener('keydown', handleKeydown);
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', clear);
+        }
+
+        sync();
+
+        return {
+            sync,
+            clear,
+            matchesDeck,
+            getDisplayLabel,
+            getSelectedTags: () => [...selectedTags],
+            getDraftText: () => String(draftText || ''),
+        };
     }
 };
