@@ -30,6 +30,8 @@ let nameCheckToken = 0;
 let nameCheckTimer = null;
 let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupAcrossDecks: [] };
 let currentFirstTag = 'math';
+let autocompleteTagPaths = [];
+const RESERVED_FIRST_TAGS = new Set(['math', 'chinese_reading', 'chinese_characters', 'chinese_writing']);
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -41,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateCardsInputModeUi();
     updateGeneratedName();
     void loadAutocompleteTags();
+    updateAutocompleteSuggestions();
 });
 
 if (firstTagToggle) {
@@ -136,6 +139,7 @@ function setCurrentFirstTag(tag) {
     renderFirstTagToggle();
     updateCardsInputModeUi();
     updateGeneratedName();
+    updateAutocompleteSuggestions();
 }
 
 function getAllTags() {
@@ -196,12 +200,14 @@ function addExtraTagFromInput() {
     newTagInput.value = '';
     renderTags();
     updateGeneratedName();
+    updateAutocompleteSuggestions();
 }
 
 function removeExtraTag(tag) {
     extraTags = extraTags.filter((item) => item !== tag);
     renderTags();
     updateGeneratedName();
+    updateAutocompleteSuggestions();
 }
 
 function renderTags() {
@@ -683,12 +689,59 @@ async function loadAutocompleteTags() {
         if (!response.ok) {
             throw new Error(result.error || `Failed to load tags (HTTP ${response.status})`);
         }
-        const tags = Array.isArray(result.tags) ? result.tags : [];
-        existingTagOptions.innerHTML = tags.map((tag) => `<option value="${escapeHtml(tag)}"></option>`).join('');
+        autocompleteTagPaths = Array.isArray(result.tag_paths)
+            ? result.tag_paths
+                .map((path) => Array.isArray(path) ? path.map((tag) => normalizeTag(tag)).filter(Boolean) : [])
+                .filter((path) => path.length > 0)
+            : [];
+        updateAutocompleteSuggestions();
     } catch (error) {
         console.error('Error loading autocomplete tags:', error);
+        autocompleteTagPaths = [];
         existingTagOptions.innerHTML = '';
     }
+}
+
+function getContextualAutocompleteTags() {
+    const currentPath = getAllTags().map((tag) => normalizeTag(tag)).filter(Boolean);
+    if (currentPath.length === 0) {
+        return [];
+    }
+
+    const suggestions = new Set();
+    autocompleteTagPaths.forEach((path) => {
+        if (!Array.isArray(path) || path.length <= currentPath.length) {
+            return;
+        }
+        if (path[0] !== currentPath[0]) {
+            return;
+        }
+        for (let i = 0; i < currentPath.length; i += 1) {
+            if (path[i] !== currentPath[i]) {
+                return;
+            }
+        }
+        const nextTag = normalizeTag(path[currentPath.length]);
+        if (!nextTag || RESERVED_FIRST_TAGS.has(nextTag)) {
+            return;
+        }
+        if (currentPath.includes(nextTag)) {
+            return;
+        }
+        suggestions.add(nextTag);
+    });
+
+    return Array.from(suggestions).sort();
+}
+
+function updateAutocompleteSuggestions() {
+    if (!existingTagOptions) {
+        return;
+    }
+    const suggestions = getContextualAutocompleteTags();
+    existingTagOptions.innerHTML = suggestions
+        .map((tag) => `<option value="${escapeHtml(tag)}"></option>`)
+        .join('');
 }
 
 async function fetchFrontConflicts(fronts) {

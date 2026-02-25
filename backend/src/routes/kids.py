@@ -844,16 +844,27 @@ def get_current_family_id_int():
         return None
 
 
-def get_all_shared_deck_tags(conn):
-    """Return globally unique shared-deck tags."""
+def get_all_shared_deck_tag_paths(conn):
+    """Return globally unique ordered shared-deck tag paths."""
     rows = conn.execute("SELECT tags FROM deck").fetchall()
-    tags = set()
+    seen_paths = set()
+    ordered_paths = []
     for row in rows:
-        for tag in list(row[0] or []):
+        raw_tags = list(row[0] or [])
+        path = []
+        for tag in raw_tags:
             value = str(tag or '').strip()
             if value:
-                tags.add(value)
-    return sorted(tags)
+                path.append(value)
+        if not path:
+            continue
+        key = tuple(path)
+        if key in seen_paths:
+            continue
+        seen_paths.add(key)
+        ordered_paths.append(path)
+    ordered_paths.sort(key=lambda items: (items[0], len(items), items))
+    return ordered_paths
 
 
 def build_chinese_pinyin_text(text):
@@ -961,7 +972,7 @@ def shared_deck_front_conflicts():
 
 @kids_bp.route('/shared-decks/tags', methods=['GET'])
 def shared_deck_tags():
-    """Return all existing shared deck tags for autocomplete."""
+    """Return shared-deck ordered tag paths for autocomplete."""
     try:
         auth_err = require_super_family()
         if auth_err:
@@ -969,11 +980,11 @@ def shared_deck_tags():
 
         conn = get_shared_decks_connection()
         try:
-            tags = get_all_shared_deck_tags(conn)
+            tag_paths = get_all_shared_deck_tag_paths(conn)
         finally:
             conn.close()
 
-        return jsonify({'tags': tags}), 200
+        return jsonify({'tag_paths': tag_paths}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
