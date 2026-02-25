@@ -108,7 +108,7 @@
     <div class="container">
         <div class="header">
             <h1 id="kidName">Chinese Writing Practice</h1>
-            <a id="backToPractice" href="/kid.html" class="back-btn">← Back</a>
+            <a id="backToPractice" href="/kid-practice-home.html" class="back-btn">← Back</a>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
@@ -148,13 +148,16 @@
                             </div>
                         </div>
                     </div>
+                    <div class="early-finish-row">
+                        <button class="control-btn early-finish-btn" id="finishEarlyBtn" onclick="requestEarlyFinish()" disabled>Finish Early</button>
+                    </div>
                 </div>
 
                 <div id="resultScreen" class="hidden">
                     <div class="flashcard" style="cursor: default;">
                         <h2 class="session-title">Session Complete</h2>
                         <p id="resultSummary" class="progress"></p>
-                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn result-back-btn">Back to my chores</a>
+                        <a id="resultBackToPractice" href="/kid-practice-home.html" class="control-btn back-btn result-back-btn">Back to my chores</a>
                     </div>
                 </div>
             </div>

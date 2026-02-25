@@ -171,7 +171,7 @@ function displayKids(kids) {
 
 function selectKid(kidId, kidName) {
     // Navigate to kid's profile page
-    window.location.href = `/kid.html?id=${kidId}`;
+    window.location.href = `/kid-practice-home.html?id=${kidId}`;
 }
 
 function showError(message) {

@@ -75,6 +75,12 @@ body {
     margin-bottom: 1rem;
 }
 
+.practice-page .early-finish-row {
+    margin-top: 0.8rem;
+    display: flex;
+    justify-content: center;
+}
+
 .practice-page .control-btn {
     color: white;
     border: none;
@@ -100,6 +106,16 @@ body {
     opacity: 0.65;
     cursor: not-allowed;
     transform: none;
+}
+
+.practice-page .early-finish-btn {
+    background: #6c757d;
+    min-width: 180px;
+    font-weight: 700;
+}
+
+.practice-page .early-finish-btn:hover {
+    background: #5a6268;
 }
 
 .practice-page .start-btn {

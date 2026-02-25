@@ -23,6 +23,7 @@ const reviewControls = document.getElementById('reviewControls');
 const replayBtn = document.getElementById('replayBtn');
 const rerecordBtn = document.getElementById('rerecordBtn');
 const continueBtn = document.getElementById('continueBtn');
+const finishEarlyBtn = document.getElementById('finishEarlyBtn');
 const recordingViz = document.getElementById('recordingViz');
 const recordingWave = document.getElementById('recordingWave');
 const recordingStatusText = document.getElementById('recordingStatusText');
@@ -48,6 +49,22 @@ let pendingRecordedMimeType = '';
 let pendingRecordedResponseTimeMs = 0;
 let pendingRecordedUrl = '';
 const errorState = { lastMessage: '' };
+const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
+    button: finishEarlyBtn,
+    getHasActiveSession: () => (
+        window.PracticeSession.hasActiveSession(activePendingSessionId)
+        && sessionCards.length > 0
+        && !isRecording
+        && !isUploadingRecording
+    ),
+    getTotalCount: () => sessionCards.length,
+    getRecordedCount: () => sessionAnswers.length,
+    emptyAnswerMessage: 'Complete at least one card before finishing early.',
+    showError: (message) => showError(message),
+    onConfirmFinish: () => {
+        void endSession(true);
+    },
+});
 const recordingVisualizer = new window.RecordingVisualizer({
     fftSize: 512,
     smoothingTimeConstant: 0.88,
@@ -80,8 +97,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    backToPractice.href = `/kid.html?id=${kidId}`;
-    resultBackToPractice.href = `/kid.html?id=${kidId}`;
+    backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+    resultBackToPractice.href = `/kid-practice-home.html?id=${kidId}`;
     backToPractice.addEventListener('click', (event) => {
         if (isSessionInProgress()) {
             const confirmed = window.confirm('Go back now? Your current session progress will be lost.');
@@ -167,6 +184,7 @@ function resetToStartScreen(totalCards) {
     startScreen.classList.remove('hidden');
     sessionScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
+    updateFinishEarlyButtonState();
 }
 
 
@@ -201,6 +219,7 @@ async function startSession() {
         sessionScreen.classList.remove('hidden');
 
         showCurrentCard();
+        updateFinishEarlyButtonState();
     } catch (error) {
         console.error('Error starting Chinese reading session:', error);
         showError('Failed to start Chinese reading session');
@@ -224,6 +243,7 @@ function showCurrentCard() {
     }
     recordBtn.disabled = false;
     setRecordingVisual(false);
+    updateFinishEarlyButtonState();
 }
 
 
@@ -266,11 +286,13 @@ async function toggleRecord() {
         startRecordingVisualizer(mediaStream);
         setRecordingVisual(true);
         showError('');
+        updateFinishEarlyButtonState();
     } catch (error) {
         console.error('Error starting recording:', error);
         showError('Failed to start recording. Please allow microphone access.');
         stopRecordingVisualizer();
         setRecordingVisual(false);
+        updateFinishEarlyButtonState();
     }
 }
 
@@ -296,6 +318,7 @@ async function stopRecordingForReview() {
         resetRecordingState();
         recordBtn.disabled = false;
         recordBtn.textContent = previousBtnText;
+        updateFinishEarlyButtonState();
         return;
     }
 
@@ -304,6 +327,7 @@ async function stopRecordingForReview() {
         resetRecordingState();
         recordBtn.disabled = false;
         setRecordingVisual(false);
+        updateFinishEarlyButtonState();
         return;
     }
 
@@ -327,6 +351,7 @@ async function stopRecordingForReview() {
     }
     recordBtn.disabled = false;
     showError('');
+    updateFinishEarlyButtonState();
 }
 
 
@@ -370,6 +395,7 @@ async function estimateAudioDurationMs(blob, fallbackMs) {
 function setRecordingVisual(recording) {
     recordBtn.classList.toggle('recording', recording);
     recordBtn.textContent = recording ? 'Stop Recording' : 'Start Recording';
+    updateFinishEarlyButtonState();
 }
 
 
@@ -455,6 +481,7 @@ function resetRecordingState() {
     }
     mediaStream = null;
     mediaRecorder = null;
+    updateFinishEarlyButtonState();
 }
 
 function clearPendingRecordingPreview() {
@@ -484,6 +511,7 @@ function clearPendingRecordingPreview() {
         URL.revokeObjectURL(pendingRecordedUrl);
         pendingRecordedUrl = '';
     }
+    updateFinishEarlyButtonState();
 }
 
 function replayRecording() {
@@ -509,6 +537,7 @@ async function confirmAndNext() {
 
     const card = sessionCards[currentIndex];
     isUploadingRecording = true;
+    updateFinishEarlyButtonState();
     if (continueBtn) continueBtn.disabled = true;
     if (replayBtn) replayBtn.disabled = true;
     if (rerecordBtn) rerecordBtn.disabled = true;
@@ -524,6 +553,7 @@ async function confirmAndNext() {
             responseTimeMs: Math.max(0, Number(pendingRecordedResponseTimeMs) || 0),
         });
         completedCount += 1;
+        updateFinishEarlyButtonState();
 
         clearPendingRecordingPreview();
 
@@ -538,6 +568,7 @@ async function confirmAndNext() {
         showError(error.message || 'Failed to save recording');
     } finally {
         isUploadingRecording = false;
+        updateFinishEarlyButtonState();
         if (continueBtn) continueBtn.disabled = false;
         if (replayBtn) replayBtn.disabled = false;
         if (rerecordBtn) rerecordBtn.disabled = false;
@@ -545,10 +576,20 @@ async function confirmAndNext() {
 }
 
 
-async function endSession() {
+function updateFinishEarlyButtonState() {
+    earlyFinishController.updateButtonState();
+}
+
+function requestEarlyFinish() {
+    earlyFinishController.requestFinish();
+}
+
+async function endSession(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
-    resultSummary.textContent = `Completed: ${completedCount} cards`;
+    resultSummary.textContent = endedEarly
+        ? `Ended early · Completed: ${completedCount} cards`
+        : `Completed: ${completedCount} cards`;
 
     try {
         const payload = window.PracticeSession.buildCompletePayload(activePendingSessionId, sessionAnswers);
@@ -592,6 +633,7 @@ async function endSession() {
         showError(error.message || 'Failed to save session results');
     }
     window.PracticeSession.clearSessionStart(activePendingSessionId);
+    updateFinishEarlyButtonState();
 
     sessionRecordings = {};
     await loadKidInfo();

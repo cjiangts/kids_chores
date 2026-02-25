@@ -23,6 +23,7 @@ const knewRow = document.getElementById('knewRow');
 const judgeRow = document.getElementById('judgeRow');
 const wrongBtn = document.getElementById('wrongBtn');
 const rightBtn = document.getElementById('rightBtn');
+const finishEarlyBtn = document.getElementById('finishEarlyBtn');
 const resultSummary = document.getElementById('resultSummary');
 const judgeModeToggleStart = document.getElementById('judgeModeToggleStart');
 
@@ -42,6 +43,20 @@ let configuredSessionCount = 0;
 let judgeMode = 'self';
 const JUDGE_MODE_STORAGE_KEY = 'practice_judge_mode_math';
 const errorState = { lastMessage: '' };
+const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
+    button: finishEarlyBtn,
+    getHasActiveSession: () => (
+        window.PracticeSession.hasActiveSession(activePendingSessionId)
+        && sessionCards.length > 0
+    ),
+    getTotalCount: () => sessionCards.length,
+    getRecordedCount: () => sessionAnswers.length,
+    emptyAnswerMessage: 'Answer at least one question before finishing early.',
+    showError: (message) => showError(message),
+    onConfirmFinish: () => {
+        void endSession(true);
+    },
+});
 
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -50,8 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    backToPractice.href = `/kid.html?id=${kidId}`;
-    resultBackToPractice.href = `/kid.html?id=${kidId}`;
+    backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+    resultBackToPractice.href = `/kid-practice-home.html?id=${kidId}`;
     backToPractice.addEventListener('click', (event) => {
         if (isSessionInProgress()) {
             const confirmed = window.confirm('Go back now? Your current session progress will be lost.');
@@ -131,10 +146,12 @@ function resetToStartScreen(totalCards) {
     currentIndex = 0;
     rightCount = 0;
     wrongCount = 0;
+    answerRevealed = false;
 
     startScreen.classList.remove('hidden');
     sessionScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
+    updateFinishEarlyButtonState();
 }
 
 function initJudgeMode() {
@@ -197,6 +214,7 @@ async function startSession() {
         sessionScreen.classList.remove('hidden');
 
         showCurrentQuestion();
+        updateFinishEarlyButtonState();
     } catch (error) {
         console.error('Error starting math session:', error);
         showError('Failed to start math session');
@@ -282,6 +300,7 @@ function answerCurrentCard(correct) {
         known: correct,
         responseTimeMs,
     });
+    updateFinishEarlyButtonState();
 
     if (correct) {
         rightCount += 1;
@@ -298,6 +317,14 @@ function answerCurrentCard(correct) {
     showCurrentQuestion();
 }
 
+function updateFinishEarlyButtonState() {
+    earlyFinishController.updateButtonState();
+}
+
+function requestEarlyFinish() {
+    earlyFinishController.requestFinish();
+}
+
 function applyJudgeModeUi() {
     const state = getJudgeModeUiState();
     knewRow.classList.toggle('hidden', !state.showRevealAction);
@@ -309,13 +336,16 @@ function applyJudgeModeUi() {
     knewBtn.disabled = isPaused || !state.showRevealAction;
     rightBtn.disabled = isPaused || !state.showJudgeActions;
     wrongBtn.disabled = isPaused || !state.showJudgeActions;
+    updateFinishEarlyButtonState();
 }
 
 
-async function endSession() {
+async function endSession(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
-    resultSummary.textContent = `Right: ${rightCount} · Wrong: ${wrongCount}`;
+    resultSummary.textContent = endedEarly
+        ? `Ended early · Right: ${rightCount} · Wrong: ${wrongCount}`
+        : `Right: ${rightCount} · Wrong: ${wrongCount}`;
 
     try {
         await window.PracticeSessionFlow.postCompleteSession(
@@ -328,6 +358,7 @@ async function endSession() {
         showError('Failed to save session results');
     }
     window.PracticeSession.clearSessionStart(activePendingSessionId);
+    updateFinishEarlyButtonState();
 
     await loadKidInfo();
 }

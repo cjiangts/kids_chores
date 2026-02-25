@@ -21,6 +21,7 @@ const doneBtn = document.getElementById('doneBtn');
 const judgeRow = document.getElementById('judgeRow');
 const wrongBtn = document.getElementById('wrongBtn');
 const rightBtn = document.getElementById('rightBtn');
+const finishEarlyBtn = document.getElementById('finishEarlyBtn');
 const resultSummary = document.getElementById('resultSummary');
 
 let currentKid = null;
@@ -35,6 +36,20 @@ let cardShownAtMs = 0;
 let sessionAnswers = [];
 let audioPrimed = false;
 const errorState = { lastMessage: '' };
+const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
+    button: finishEarlyBtn,
+    getHasActiveSession: () => (
+        window.PracticeSession.hasActiveSession(activePendingSessionId)
+        && sessionCards.length > 0
+    ),
+    getTotalCount: () => sessionCards.length,
+    getRecordedCount: () => sessionAnswers.length,
+    emptyAnswerMessage: 'Answer at least one card before finishing early.',
+    showError: (message) => showError(message),
+    onConfirmFinish: () => {
+        void endSession(true);
+    },
+});
 const promptPlayer = window.WritingAudioSequence.createPlayer({
     preload: 'auto',
     onError: (error) => {
@@ -50,8 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    backToPractice.href = `/kid.html?id=${kidId}`;
-    resultBackToPractice.href = `/kid.html?id=${kidId}`;
+    backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+    resultBackToPractice.href = `/kid-practice-home.html?id=${kidId}`;
     backToPractice.addEventListener('click', (event) => {
         if (isSessionInProgress()) {
             const confirmed = window.confirm('Go back now? Your current session progress will be lost.');
@@ -127,6 +142,7 @@ function resetToStartScreen() {
     resultScreen.classList.add('hidden');
     stopAudioPlayback();
     clearAudioBlobCache();
+    updateFinishEarlyButtonState();
 }
 
 async function startSession() {
@@ -155,6 +171,7 @@ async function startSession() {
         sessionScreen.classList.remove('hidden');
 
         showCurrentPrompt();
+        updateFinishEarlyButtonState();
     } catch (error) {
         console.error('Error starting writing session:', error);
         showError('Failed to start Chinese writing session');
@@ -261,6 +278,7 @@ function answerCurrentCard(correct) {
         known: correct,
         responseTimeMs
     });
+    updateFinishEarlyButtonState();
 
     if (correct) {
         rightCount += 1;
@@ -277,11 +295,21 @@ function answerCurrentCard(correct) {
     showCurrentPrompt();
 }
 
-async function endSession() {
+function updateFinishEarlyButtonState() {
+    earlyFinishController.updateButtonState();
+}
+
+function requestEarlyFinish() {
+    earlyFinishController.requestFinish();
+}
+
+async function endSession(endedEarly = false) {
     stopAudioPlayback();
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
-    resultSummary.textContent = `Right: ${rightCount} · Wrong: ${wrongCount}`;
+    resultSummary.textContent = endedEarly
+        ? `Ended early · Right: ${rightCount} · Wrong: ${wrongCount}`
+        : `Right: ${rightCount} · Wrong: ${wrongCount}`;
 
     try {
         await window.PracticeSessionFlow.postCompleteSession(
@@ -294,6 +322,7 @@ async function endSession() {
         showError('Failed to save session results');
     }
     window.PracticeSession.clearSessionStart(activePendingSessionId);
+    updateFinishEarlyButtonState();
 
     await loadKidInfo();
     clearAudioBlobCache();

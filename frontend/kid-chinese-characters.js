@@ -36,6 +36,7 @@ const judgeRow = document.getElementById('judgeRow');
 const revealBtn = document.getElementById('revealBtn');
 const rightBtn = document.getElementById('rightBtn');
 const wrongBtn = document.getElementById('wrongBtn');
+const finishEarlyBtn = document.getElementById('finishEarlyBtn');
 const judgeModeToggleStart = document.getElementById('judgeModeToggleStart');
 
 let currentKid = null;
@@ -55,6 +56,20 @@ let pausedDurationMs = 0;
 let answerRevealed = false;
 let judgeMode = 'self';
 const JUDGE_MODE_STORAGE_KEY = 'practice_judge_mode_flashcard';
+const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
+    button: finishEarlyBtn,
+    getHasActiveSession: () => (
+        window.PracticeSession.hasActiveSession(activePendingSessionId)
+        && sessionCards.length > 0
+    ),
+    getTotalCount: () => sessionCards.length,
+    getRecordedCount: () => sessionAnswers.length,
+    emptyAnswerMessage: 'Answer at least one card before finishing early.',
+    showError: (message) => showError(message),
+    onConfirmFinish: () => {
+        void endSession(true);
+    },
+});
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -72,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     });
-    resultBackBtn.href = `/kid.html?id=${kidId}`;
+    resultBackBtn.href = `/kid-practice-home.html?id=${kidId}`;
 
     await loadKidInfo();
     await loadCards();
@@ -159,6 +174,7 @@ function resetToStartScreen() {
     currentSessionIndex = 0;
     knownCount = 0;
     unknownCount = 0;
+    answerRevealed = false;
 
     const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
     const chineseEnabled = Number.isInteger(readingSessionCount) && readingSessionCount > 0;
@@ -181,6 +197,7 @@ function resetToStartScreen() {
     } else {
         showError('');
     }
+    updateFinishEarlyButtonState();
 }
 
 function initJudgeMode() {
@@ -294,6 +311,7 @@ async function startSession() {
         sessionScreen.classList.remove('hidden');
 
         displayCurrentCard();
+        updateFinishEarlyButtonState();
     } catch (error) {
         console.error('Error starting session:', error);
         showError('Failed to start session');
@@ -346,6 +364,7 @@ function answerCurrentCard(known) {
         known,
         responseTimeMs,
     });
+    updateFinishEarlyButtonState();
 
     if (known) {
         knownCount += 1;
@@ -361,6 +380,14 @@ function answerCurrentCard(known) {
 
     currentSessionIndex += 1;
     displayCurrentCard();
+}
+
+function updateFinishEarlyButtonState() {
+    earlyFinishController.updateButtonState();
+}
+
+function requestEarlyFinish() {
+    earlyFinishController.requestFinish();
 }
 
 function togglePauseFromCard() {
@@ -426,14 +453,17 @@ function applyJudgeModeUi() {
     if (wrongBtn) {
         wrongBtn.disabled = isPaused || !state.showJudgeActions;
     }
+    updateFinishEarlyButtonState();
 }
 
-async function endSession() {
+async function endSession(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     practiceChooser.classList.add('hidden');
     startScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
-    resultSummary.textContent = `Known: ${knownCount} · Need practice: ${unknownCount}`;
+    resultSummary.textContent = endedEarly
+        ? `Ended early · Known: ${knownCount} · Need practice: ${unknownCount}`
+        : `Known: ${knownCount} · Need practice: ${unknownCount}`;
 
     try {
         await window.PracticeSessionFlow.postCompleteSession(
@@ -446,6 +476,7 @@ async function endSession() {
         showError('Failed to save session results');
     }
     window.PracticeSession.clearSessionStart(activePendingSessionId);
+    updateFinishEarlyButtonState();
 
     await loadKidInfo();
 }

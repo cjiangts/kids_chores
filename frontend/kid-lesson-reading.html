@@ -156,7 +156,7 @@
     <div class="container">
         <div class="header">
             <h1 id="kidName">Chinese Reading Practice</h1>
-            <a id="backToPractice" href="/kid.html" class="back-btn">← Back</a>
+            <a id="backToPractice" href="/kid-practice-home.html" class="back-btn">← Back</a>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
@@ -203,6 +203,9 @@
                             </div>
                         </div>
                     </div>
+                    <div class="early-finish-row">
+                        <button class="control-btn early-finish-btn" id="finishEarlyBtn" onclick="requestEarlyFinish()" disabled>Finish Early</button>
+                    </div>
                     <audio id="reviewAudio" class="review-audio hidden" controls preload="none"></audio>
                 </div>
 
@@ -211,7 +214,7 @@
                         <h2 class="session-title">Session Complete</h2>
                         <p id="resultSummary" class="session-info"></p>
                         <p class="result-note">Great practice. You can start another session any time.</p>
-                        <a id="resultBackToPractice" href="/kid.html" class="control-btn back-btn result-back-btn">Back to my chores</a>
+                        <a id="resultBackToPractice" href="/kid-practice-home.html" class="control-btn back-btn result-back-btn">Back to my chores</a>
                     </div>
                 </div>
             </div>
