@@ -29,8 +29,14 @@ const resultScreen = document.getElementById('resultScreen');
 const sessionInfo = document.getElementById('sessionInfo');
 const resultSummary = document.getElementById('resultSummary');
 const pauseMask = document.getElementById('pauseMask');
-const knowBtn = document.querySelector('.know-btn');
-const dontKnowBtn = document.querySelector('.dont-know-btn');
+const flashcard = document.getElementById('flashcard');
+const cardBackContent = document.getElementById('cardBackContent');
+const revealRow = document.getElementById('revealRow');
+const judgeRow = document.getElementById('judgeRow');
+const revealBtn = document.getElementById('revealBtn');
+const rightBtn = document.getElementById('rightBtn');
+const wrongBtn = document.getElementById('wrongBtn');
+const judgeModeToggleStart = document.getElementById('judgeModeToggleStart');
 
 let currentKid = null;
 let cards = [];
@@ -46,6 +52,9 @@ let sessionAnswers = [];
 const errorState = { lastMessage: '' };
 let pauseStartedAtMs = 0;
 let pausedDurationMs = 0;
+let answerRevealed = false;
+let judgeMode = 'self';
+const JUDGE_MODE_STORAGE_KEY = 'practice_judge_mode_flashcard';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -68,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadKidInfo();
     await loadCards();
     await loadWritingCards();
+    initJudgeMode();
 });
 
 function isSessionInProgress() {
@@ -173,6 +183,40 @@ function resetToStartScreen() {
     }
 }
 
+function initJudgeMode() {
+    if (!window.PracticeJudgeMode) {
+        return;
+    }
+    judgeMode = window.PracticeJudgeMode.loadMode(JUDGE_MODE_STORAGE_KEY, window.PracticeJudgeMode.SELF);
+    const setMode = (nextMode) => {
+        judgeMode = window.PracticeJudgeMode.saveMode(JUDGE_MODE_STORAGE_KEY, nextMode);
+        syncJudgeModeToggles();
+        applyJudgeModeUi();
+    };
+    const getMode = () => judgeMode;
+    window.PracticeJudgeMode.bindToggleGroup(judgeModeToggleStart, { getMode, setMode });
+    syncJudgeModeToggles();
+}
+
+function syncJudgeModeToggles() {
+    if (!window.PracticeJudgeMode) {
+        return;
+    }
+    window.PracticeJudgeMode.renderToggleGroup(judgeModeToggleStart, judgeMode);
+}
+
+function getJudgeModeUiState() {
+    if (!window.PracticeJudgeMode) {
+        return {
+            isSelfMode: true,
+            showRevealAction: false,
+            showJudgeActions: true,
+            showBackAnswer: false,
+        };
+    }
+    return window.PracticeJudgeMode.getRevealJudgeUiState(judgeMode, answerRevealed);
+}
+
 function renderPracticeStars() {
     const chineseCount = Number.isInteger(currentKid?.dailyCompletedChineseCountToday)
         ? currentKid.dailyCompletedChineseCountToday
@@ -263,7 +307,9 @@ function displayCurrentCard() {
 
     const card = sessionCards[currentSessionIndex];
     cardContent.textContent = card.front;
+    cardBackContent.textContent = String(card.back || '').trim();
     renderPracticeProgress(progress, progressFill, currentSessionIndex + 1, sessionCards.length, 'Card');
+    answerRevealed = false;
     cardShownAtMs = Date.now();
     isPaused = false;
     pauseStartedAtMs = 0;
@@ -271,8 +317,24 @@ function displayCurrentCard() {
     setPausedVisual(false);
 }
 
+function revealAnswer() {
+    if (sessionCards.length === 0 || isPaused) {
+        return;
+    }
+    const state = getJudgeModeUiState();
+    if (!state.isSelfMode || answerRevealed) {
+        return;
+    }
+    answerRevealed = true;
+    applyJudgeModeUi();
+}
+
 function answerCurrentCard(known) {
     if (sessionCards.length === 0 || !window.PracticeSession.hasActiveSession(activePendingSessionId) || isPaused) {
+        return;
+    }
+    const state = getJudgeModeUiState();
+    if (state.isSelfMode && !answerRevealed) {
         return;
     }
 
@@ -322,10 +384,48 @@ function togglePauseFromCard() {
 }
 
 function setPausedVisual(paused) {
-    knowBtn.disabled = paused;
-    dontKnowBtn.disabled = paused;
+    const state = getJudgeModeUiState();
+    if (revealBtn) {
+        revealBtn.disabled = paused || !state.showRevealAction;
+    }
+    if (rightBtn) {
+        rightBtn.disabled = paused || !state.showJudgeActions;
+    }
+    if (wrongBtn) {
+        wrongBtn.disabled = paused || !state.showJudgeActions;
+    }
     cardContent.classList.toggle('hidden', paused);
+    cardBackContent.classList.toggle('hidden', paused || !state.showBackAnswer || !String(cardBackContent.textContent || '').trim());
     pauseMask.classList.toggle('hidden', !paused);
+    if (flashcard) {
+        flashcard.classList.toggle('revealed', state.showBackAnswer);
+    }
+    applyJudgeModeUi();
+}
+
+function applyJudgeModeUi() {
+    const state = getJudgeModeUiState();
+    if (revealRow) {
+        revealRow.classList.toggle('hidden', !state.showRevealAction);
+    }
+    if (judgeRow) {
+        judgeRow.classList.toggle('hidden', !state.showJudgeActions);
+    }
+    if (!isPaused && cardBackContent) {
+        cardBackContent.classList.toggle('hidden', !state.showBackAnswer || !String(cardBackContent.textContent || '').trim());
+    }
+    if (flashcard) {
+        flashcard.classList.toggle('revealed', state.showBackAnswer);
+    }
+    if (revealBtn) {
+        revealBtn.disabled = isPaused || !state.showRevealAction;
+    }
+    if (rightBtn) {
+        rightBtn.disabled = isPaused || !state.showJudgeActions;
+    }
+    if (wrongBtn) {
+        wrongBtn.disabled = isPaused || !state.showJudgeActions;
+    }
 }
 
 async function endSession() {

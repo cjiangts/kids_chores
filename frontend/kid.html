@@ -166,6 +166,29 @@
             margin-bottom: 1rem;
         }
 
+        .practice-mode-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.9rem;
+        }
+
+        .practice-mode-label {
+            color: #555;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .card-back-content {
+            margin-top: 0.9rem;
+            font-size: 2.2rem;
+            color: #1f8f3f;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+
     </style>
 </head>
 <body class="practice-page">
@@ -203,6 +226,13 @@
                     <div class="flashcard">
                         <h2 class="session-title">Ready to start?</h2>
                         <p id="sessionInfo" class="progress">Session: 10 Chinese character cards</p>
+                        <div class="practice-mode-row">
+                            <span class="practice-mode-label">Mode</span>
+                            <div id="judgeModeToggleStart" class="audio-filter-group" aria-label="Practice mode">
+                                <button type="button" class="audio-filter-btn active" data-judge-mode="self" aria-pressed="true">Kids Self</button>
+                                <button type="button" class="audio-filter-btn" data-judge-mode="parent" aria-pressed="false">Parent Assisted</button>
+                            </div>
+                        </div>
                         <button class="control-btn start-btn" onclick="startSession()">Start</button>
                     </div>
                 </div>
@@ -217,13 +247,19 @@
 
                     <div id="flashcard" class="flashcard" onclick="togglePauseFromCard()">
                         <div class="card-content" id="cardContent">你</div>
+                        <div class="card-back-content hidden" id="cardBackContent"></div>
                         <div id="pauseMask" class="pause-mask hidden">Paused</div>
                     </div>
 
                     <div class="controls">
-                        <div class="answer-row">
-                            <button class="control-btn dont-know-btn" onclick="answerCurrentCard(false)">Wrong</button>
-                            <button class="control-btn know-btn" onclick="answerCurrentCard(true)">Right</button>
+                        <div class="session-action-slot">
+                            <div class="session-action-layer" id="revealRow">
+                                <button class="control-btn start-btn session-action-btn session-single-btn" onclick="revealAnswer()" id="revealBtn">I'm done</button>
+                            </div>
+                            <div class="session-action-layer hidden" id="judgeRow">
+                                <button class="control-btn dont-know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(false)" id="wrongBtn">Wrong</button>
+                                <button class="control-btn know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(true)" id="rightBtn">Right</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -243,6 +279,7 @@
     <script src="practice-progress.js"></script>
     <script src="practice-session.js"></script>
     <script src="practice-ui-common.js"></script>
+    <script src="practice-judge-mode.js"></script>
     <script src="practice-session-flow.js"></script>
     <script src="kid-reading.js"></script>
 </body>

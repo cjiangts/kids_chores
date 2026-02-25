@@ -24,6 +24,7 @@ const judgeRow = document.getElementById('judgeRow');
 const wrongBtn = document.getElementById('wrongBtn');
 const rightBtn = document.getElementById('rightBtn');
 const resultSummary = document.getElementById('resultSummary');
+const judgeModeToggleStart = document.getElementById('judgeModeToggleStart');
 
 let currentKid = null;
 let sessionCards = [];
@@ -38,6 +39,8 @@ let pauseStartedAtMs = 0;
 let isPaused = false;
 let sessionAnswers = [];
 let configuredSessionCount = 0;
+let judgeMode = 'self';
+const JUDGE_MODE_STORAGE_KEY = 'practice_judge_mode_math';
 const errorState = { lastMessage: '' };
 
 
@@ -58,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     await loadKidInfo();
+    initJudgeMode();
     await loadMathPracticeReadyState();
 });
 
@@ -133,6 +137,40 @@ function resetToStartScreen(totalCards) {
     resultScreen.classList.add('hidden');
 }
 
+function initJudgeMode() {
+    if (!window.PracticeJudgeMode) {
+        return;
+    }
+    judgeMode = window.PracticeJudgeMode.loadMode(JUDGE_MODE_STORAGE_KEY, window.PracticeJudgeMode.SELF);
+    const setMode = (nextMode) => {
+        judgeMode = window.PracticeJudgeMode.saveMode(JUDGE_MODE_STORAGE_KEY, nextMode);
+        syncJudgeModeToggles();
+        applyJudgeModeUi();
+    };
+    const getMode = () => judgeMode;
+    window.PracticeJudgeMode.bindToggleGroup(judgeModeToggleStart, { getMode, setMode });
+    syncJudgeModeToggles();
+}
+
+function syncJudgeModeToggles() {
+    if (!window.PracticeJudgeMode) {
+        return;
+    }
+    window.PracticeJudgeMode.renderToggleGroup(judgeModeToggleStart, judgeMode);
+}
+
+function getJudgeModeUiState() {
+    if (!window.PracticeJudgeMode) {
+        return {
+            isSelfMode: true,
+            showRevealAction: true,
+            showJudgeActions: false,
+            showBackAnswer: false,
+        };
+    }
+    return window.PracticeJudgeMode.getRevealJudgeUiState(judgeMode, answerRevealed);
+}
+
 
 async function startSession() {
     try {
@@ -177,10 +215,6 @@ function showCurrentQuestion() {
     cardAnswer.textContent = `= ${card.back}`;
 
     answerRevealed = false;
-    cardAnswer.classList.add('hidden');
-    judgeRow.classList.add('hidden');
-    knewRow.classList.remove('hidden');
-    flashcard.classList.remove('revealed');
 
     cardShownAtMs = Date.now();
     pausedDurationMs = 0;
@@ -194,15 +228,13 @@ function revealAnswer() {
     if (answerRevealed || isPaused || sessionCards.length === 0) {
         return;
     }
+    const state = getJudgeModeUiState();
+    if (!state.isSelfMode) {
+        return;
+    }
 
     answerRevealed = true;
-    cardAnswer.classList.remove('hidden');
-    flashcard.classList.add('revealed');
-    knewRow.classList.add('hidden');
-    judgeRow.classList.remove('hidden');
-
-    rightBtn.disabled = false;
-    wrongBtn.disabled = false;
+    applyJudgeModeUi();
 }
 
 
@@ -228,23 +260,17 @@ function togglePauseFromCard() {
 
 
 function setPausedVisual(paused) {
+    const state = getJudgeModeUiState();
     cardQuestion.classList.toggle('hidden', paused);
-    cardAnswer.classList.toggle('hidden', paused || !answerRevealed);
+    cardAnswer.classList.toggle('hidden', paused || !state.showBackAnswer);
     pauseMask.classList.toggle('hidden', !paused);
-
-    knewBtn.disabled = paused;
-    if (answerRevealed) {
-        rightBtn.disabled = paused;
-        wrongBtn.disabled = paused;
-    } else {
-        rightBtn.disabled = true;
-        wrongBtn.disabled = true;
-    }
+    applyJudgeModeUi();
 }
 
 
 function answerCurrentCard(correct) {
-    if (!answerRevealed || isPaused || !window.PracticeSession.hasActiveSession(activePendingSessionId)) {
+    const state = getJudgeModeUiState();
+    if ((state.isSelfMode && !answerRevealed) || isPaused || !window.PracticeSession.hasActiveSession(activePendingSessionId)) {
         return;
     }
 
@@ -270,6 +296,19 @@ function answerCurrentCard(correct) {
 
     currentIndex += 1;
     showCurrentQuestion();
+}
+
+function applyJudgeModeUi() {
+    const state = getJudgeModeUiState();
+    knewRow.classList.toggle('hidden', !state.showRevealAction);
+    judgeRow.classList.toggle('hidden', !state.showJudgeActions);
+    if (!isPaused) {
+        cardAnswer.classList.toggle('hidden', !state.showBackAnswer);
+    }
+    flashcard.classList.toggle('revealed', state.showBackAnswer);
+    knewBtn.disabled = isPaused || !state.showRevealAction;
+    rightBtn.disabled = isPaused || !state.showJudgeActions;
+    wrongBtn.disabled = isPaused || !state.showJudgeActions;
 }
 
 

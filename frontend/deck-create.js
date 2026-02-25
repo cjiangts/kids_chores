@@ -8,6 +8,8 @@ const existingTagOptions = document.getElementById('existingTagOptions');
 const generatedNameEl = document.getElementById('generatedName');
 const nameStatus = document.getElementById('nameStatus');
 const cardsCsvInput = document.getElementById('cardsCsv');
+const cardsInputSectionTitle = document.getElementById('cardsInputSectionTitle');
+const cardsInputHelpText = document.getElementById('cardsInputHelpText');
 const previewBtn = document.getElementById('previewBtn');
 const clearCsvBtn = document.getElementById('clearCsvBtn');
 const reviewSection = document.getElementById('reviewSection');
@@ -36,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     renderTags();
     renderFirstTagToggle();
+    updateCardsInputModeUi();
     updateGeneratedName();
     void loadAutocompleteTags();
 });
@@ -121,7 +124,7 @@ function renderFirstTagToggle() {
 
 function setCurrentFirstTag(tag) {
     const next = normalizeTag(tag);
-    if (next !== 'math' && next !== 'chinese_reading') {
+    if (next !== 'math' && next !== 'chinese_reading' && next !== 'chinese_characters') {
         return;
     }
     if (next === currentFirstTag) {
@@ -131,6 +134,7 @@ function setCurrentFirstTag(tag) {
     extraTags = extraTags.filter((item) => item !== currentFirstTag);
     renderTags();
     renderFirstTagToggle();
+    updateCardsInputModeUi();
     updateGeneratedName();
 }
 
@@ -146,6 +150,33 @@ function updateGeneratedName() {
     const name = getGeneratedName();
     generatedNameEl.textContent = name;
     scheduleNameAvailabilityCheck();
+}
+
+function isChineseCharactersDeckMode() {
+    return currentFirstTag === 'chinese_characters';
+}
+
+function updateCardsInputModeUi() {
+    if (!cardsCsvInput) {
+        return;
+    }
+    if (isChineseCharactersDeckMode()) {
+        if (cardsInputSectionTitle) {
+            cardsInputSectionTitle.textContent = '2) Paste Chinese Text';
+        }
+        if (cardsInputHelpText) {
+            cardsInputHelpText.innerHTML = 'Paste Chinese text. The system will tokenize into individual Chinese characters as <code>front</code> and auto-generate pinyin as <code>back</code>.';
+        }
+        cardsCsvInput.placeholder = '比如：春眠不觉晓，处处闻啼鸟。';
+        return;
+    }
+    if (cardsInputSectionTitle) {
+        cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
+    }
+    if (cardsInputHelpText) {
+        cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>';
+    }
+    cardsCsvInput.placeholder = '1+1,2\n2+3,5';
 }
 
 function addExtraTag(rawTag) {
@@ -280,6 +311,69 @@ function parseCardsCsv(csvText) {
     return cards;
 }
 
+function parseChineseCharacterText(rawText) {
+    const text = String(rawText || '');
+    const lines = text.split(/\r\n|\r|\n/);
+    const cards = [];
+
+    lines.forEach((lineText, index) => {
+        const line = index + 1;
+        const chars = String(lineText || '').match(/\p{Script=Han}/gu);
+        if (!chars) {
+            return;
+        }
+        chars.forEach((char) => {
+            cards.push({ front: String(char), back: '', line });
+        });
+    });
+
+    if (cards.length === 0) {
+        throw new Error('No Chinese characters found. Paste text that contains Chinese characters.');
+    }
+    return cards;
+}
+
+async function fetchChineseCharacterPinyinMap(texts) {
+    if (!Array.isArray(texts) || texts.length === 0) {
+        return {};
+    }
+    const response = await fetch(`${API_BASE}/shared-decks/chinese-characters/pinyin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to generate pinyin (HTTP ${response.status})`);
+    }
+    return result && typeof result.pinyin_by_text === 'object' && result.pinyin_by_text
+        ? result.pinyin_by_text
+        : {};
+}
+
+async function parseCardsForCurrentMode() {
+    if (!isChineseCharactersDeckMode()) {
+        return parseCardsCsv(cardsCsvInput.value);
+    }
+
+    const cards = parseChineseCharacterText(cardsCsvInput.value);
+    const uniqueTexts = [];
+    const seen = new Set();
+    cards.forEach((card) => {
+        if (seen.has(card.front)) {
+            return;
+        }
+        seen.add(card.front);
+        uniqueTexts.push(card.front);
+    });
+
+    const pinyinByText = await fetchChineseCharacterPinyinMap(uniqueTexts);
+    return cards.map((card) => ({
+        ...card,
+        back: String(pinyinByText[card.front] || '').trim() || card.front,
+    }));
+}
+
 function dedupeCardsByFront(cards) {
     const deduped = [];
     const seen = new Set();
@@ -304,9 +398,9 @@ async function previewDeckFromCsv() {
 
     let cards;
     try {
-        cards = parseCardsCsv(cardsCsvInput.value);
+        cards = await parseCardsForCurrentMode();
     } catch (error) {
-        showError(error.message || 'Failed to parse CSV.');
+        showError(error.message || 'Failed to parse input.');
         return;
     }
 

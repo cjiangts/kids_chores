@@ -3,45 +3,211 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kid Profile - Learning App</title>
+    <title>Kid Chinese Characters Profile - Learning App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        * {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        .math-v2-panel h2 {
+            margin: 0 0 0.45rem 0;
+            color: #2f3c7e;
         }
 
-        .add-card-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-
-        .add-card-section h2 {
-            margin-top: 0;
+        .math-v2-note {
+            color: #555;
             margin-bottom: 1rem;
-            color: #333;
+            line-height: 1.35;
         }
 
-        .settings-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+        .success {
+            margin-bottom: 1rem;
+            color: #2b8a3e;
+            background: #ebfbee;
+            border: 1px solid #b2f2bb;
+            border-radius: 6px;
+            padding: 0.7rem 0.8rem;
+        }
+
+        .math-v2-mix {
+            margin-top: 0.9rem;
+            border-top: 1px solid #e9ecef;
+            padding-top: 0.8rem;
+        }
+
+        .math-v2-mix h3 {
+            margin: 0 0 0.55rem 0;
+            color: #334;
+            font-size: 1rem;
+        }
+
+        .mix-bar {
+            width: 100%;
+            height: 18px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: #f1f3f5;
+            display: flex;
+            margin-bottom: 0.75rem;
+            border: 1px solid #d5d9de;
+            position: relative;
+        }
+
+        .mix-segment {
+            height: 100%;
+            min-width: 0;
+        }
+
+        .mix-handle {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 26px;
+            border: 1px solid #adb5bd;
+            border-radius: 999px;
+            background: #fff;
+            cursor: ew-resize;
+            z-index: 2;
+        }
+
+        .mix-handle.mix-handle-disabled {
+            cursor: default;
+        }
+
+        .mix-row {
+            display: grid;
+            grid-template-columns: minmax(160px, 1fr) 64px 74px;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.45rem;
+        }
+
+        .mix-row-label {
+            font-size: 0.9rem;
+            color: #334;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mix-row .mix-pct,
+        .mix-row .mix-cards {
+            font-size: 0.88rem;
+            color: #495057;
+            text-align: right;
+        }
+
+        .math-v2-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .math-v2-column {
+            background: #f8f9ff;
+            border: 1px solid #dbe1ff;
+            border-radius: 10px;
+            padding: 0.9rem;
+            min-height: 220px;
+        }
+
+        .math-v2-column h3 {
+            margin: 0 0 0.7rem 0;
+            color: #334;
+            font-size: 1rem;
+        }
+
+        .deck-bubble-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+        }
+
+        .deck-bubble {
+            border: 1px solid #b8c5ff;
+            background: #edf2ff;
+            color: #2f3c7e;
+            border-radius: 999px;
+            padding: 0.42rem 0.8rem;
+            font-size: 0.88rem;
+            cursor: pointer;
+            user-select: none;
+            line-height: 1.15;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .deck-bubble.selected {
+            border-color: #0b8a24;
+            background: #e6f9ea;
+            color: #176b2e;
+        }
+
+        .math-v2-actions {
+            margin-top: 0.9rem;
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .math-v2-empty {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .available-filter {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.7rem;
+        }
+
+        .available-filter .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .available-filter .form-group input {
+            min-width: 0;
+        }
+
+        .orphan-editor-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 1rem;
+        }
+
+        .orphan-editor-panel {
+            background: #f8f9ff;
+            border: 1px solid #dbe1ff;
+            border-radius: 10px;
+            padding: 0.9rem;
+        }
+
+        .orphan-editor-panel h3 {
+            margin: 0 0 0.7rem 0;
+            color: #334;
+            font-size: 1rem;
+        }
+
+        .bulk-import-wrap textarea {
+            width: 100%;
+            min-height: 180px;
+            resize: vertical;
         }
 
         .submit-btn {
             background: #28a745;
             color: white;
-            padding: 0.75rem 1.5rem;
+            padding: 0.75rem 1rem;
             border: none;
             border-radius: 4px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             cursor: pointer;
             width: 100%;
+            margin-top: 0.55rem;
         }
 
         .submit-btn:hover {
@@ -49,14 +215,14 @@
         }
 
         .preset-btn {
-            margin-top: 0.6rem;
+            margin-top: 0.55rem;
             width: 100%;
             background: #2d7ef7;
             color: white;
-            padding: 0.7rem 1.1rem;
+            padding: 0.65rem 0.95rem;
             border: none;
             border-radius: 4px;
-            font-size: 0.95rem;
+            font-size: 0.92rem;
             cursor: pointer;
         }
 
@@ -69,15 +235,42 @@
             color: #333;
         }
 
+        .cards-section .cards-title,
+        .cards-section .cards-title span {
+            color: #333;
+        }
+
+        .math-deck-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-bottom: 1rem;
+        }
+
+        .math-deck-tab {
+            border: none;
+            border-radius: 8px;
+            background: #eef2ff;
+            color: #3b4cc0;
+            font-size: 0.95rem;
+            padding: 0.55rem 0.9rem;
+            cursor: pointer;
+        }
+
+        .math-deck-tab.active {
+            background: #4CAF50;
+            color: #fff;
+        }
+
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
             gap: 1rem;
         }
 
         .card-item {
             background: white;
-            padding: 1.5rem;
+            padding: 1.2rem;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             text-align: center;
@@ -85,19 +278,67 @@
         }
 
         .card-front {
-            font-size: 4.5rem;
+            font-size: 4rem;
             color: #333;
             font-family: var(--font-kaiti);
-            line-height: 1.15;
+            line-height: 1.12;
         }
 
+        .delete-card-btn {
+            position: absolute;
+            top: 0.45rem;
+            right: 0.45rem;
+            width: 26px;
+            height: 26px;
+            border-radius: 999px;
+            border: 1px solid #f1b0b7;
+            background: #fff5f5;
+            color: #c92a2a;
+            cursor: pointer;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .delete-card-btn:hover {
+            background: #ffe3e3;
+        }
+
+        .orphan-hint {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 980px) {
+            .math-v2-grid,
+            .orphan-editor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 880px) {
+            .math-deck-tabs {
+                display: grid;
+                grid-template-columns: 1fr;
+            }
+
+            .mix-row {
+                grid-template-columns: 1fr;
+                gap: 0.2rem;
+                margin-bottom: 0.7rem;
+            }
+
+            .mix-row .mix-pct,
+            .mix-row .mix-cards {
+                text-align: left;
+            }
+        }
     </style>
 </head>
 <body class="practice-page manage-page">
     <div class="container">
         <div class="header">
             <h1 id="kidName">Loading...</h1>
-            <a href="/" class="back-btn">← Back</a>
+            <a href="/admin.html" class="back-btn">← Back</a>
         </div>
 
         <div class="tab-nav">
@@ -108,70 +349,93 @@
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
+        <div id="successMessage" class="success hidden"></div>
 
-        <!-- Session Settings -->
-        <div class="settings-section">
+        <section class="settings-section">
             <h2>Practice Settings</h2>
             <form id="sessionSettingsForm" class="settings-row">
                 <div class="form-group">
-                    <label for="sessionCardCount">Chinese Character Cards Per Session</label>
-                    <input
-                        type="number"
-                        id="sessionCardCount"
-                        min="0"
-                        max="200"
-                        step="1"
-                        required
-                    >
+                    <label for="sessionCardCount">Chinese Character Cards Per Session (Total Across Opted-in Decks + Orphan)</label>
+                    <input type="number" id="sessionCardCount" min="0" max="200" step="1" required>
                 </div>
                 <button type="submit" class="settings-save-btn">Save</button>
             </form>
-        </div>
 
-        <!-- Add New Reading Character -->
-        <div class="add-card-section">
-            <h2 class="label-with-help">
-                <span>Add New Chinese Characters</span>
-                <details class="help-details">
-                    <summary title="Batch import tip">i</summary>
-                    <div class="help-bubble">
-                        Bulk adding is supported here. You can paste a long text block (single chars, words, or sentences). The system keeps only Chinese characters and automatically deduplicates characters already in the bank.
+            <div class="math-v2-mix">
+                <h3>Shared Deck Mix Allocation</h3>
+                <div id="mixBar" class="mix-bar"></div>
+                <p class="math-v2-note" style="margin-top:-0.2rem;">Drag dividers to split the full session across opted-in shared decks and the orphan deck.</p>
+                <div id="mixRows"></div>
+                <p id="mixEmpty" class="math-v2-empty">Opt in at least one shared deck to configure mix.</p>
+            </div>
+        </section>
+
+        <section class="settings-section math-v2-panel">
+            <h2>Opt-in Shared Chinese Character Decks</h2>
+            <p class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes.</p>
+
+            <div class="math-v2-grid">
+                <div class="math-v2-column">
+                    <h3>Available Shared Decks</h3>
+                    <div class="available-filter">
+                        <div class="form-group">
+                            <input type="text" id="availableTagFilter" list="availableTagOptions" placeholder="Search by tag">
+                            <datalist id="availableTagOptions"></datalist>
+                        </div>
+                        <button id="clearTagFilterBtn" type="button" class="btn-secondary">Clear</button>
                     </div>
-                </details>
-            </h2>
-            <form id="addCardForm">
-                <div class="form-group">
-                    <label for="chineseChar">Chinese Characters</label>
-                    <div class="bulk-import-wrap">
-                        <textarea
-                            id="chineseChar"
-                            placeholder="比如:
-DAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 
-DAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀 
-DAY3:两天之内 苦笑 下午 命令 主意 高挂 打算 木棒 捧着 不慌不忙"
-                            required
-                        ></textarea>
-                    </div>
+                    <div id="availableDecks" class="deck-bubble-wrap"></div>
+                    <p id="availableEmpty" class="math-v2-empty hidden">No shared Chinese Character decks available yet.</p>
                 </div>
-                <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add Chinese Characters</button>
-                <button type="button" id="addSiWuKuaiDuBtn" class="preset-btn">Add 四五快读</button>
-                <button type="button" id="addMaLiPingBtn" class="preset-btn">Add 马立平</button>
-                <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
-            </form>
-        </div>
 
-        <!-- Reading Cards -->
-        <div class="cards-section">
-            <h2 class="cards-title label-with-help">
-                <span>Chinese Character Cards <span id="cardCount">(0)</span></span>
-                <details class="help-details">
-                    <summary title="Hardness tip">i</summary>
-                    <div class="help-bubble">
-                        Hardness score for Chinese Characters is based on the card's most recent response time.
-                        Slower response means higher hardness.
-                    </div>
-                </details>
+                <div class="math-v2-column">
+                    <h3>Opted-in Decks</h3>
+                    <div id="selectedDecks" class="deck-bubble-wrap"></div>
+                    <p id="selectedEmpty" class="math-v2-empty">No deck opted in.</p>
+                </div>
+            </div>
+            <div class="math-v2-actions">
+                <span id="deckPendingInfo" class="math-v2-note" style="margin:0;">No pending deck changes.</span>
+                <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes</button>
+            </div>
+        </section>
+
+        <section class="settings-section">
+            <h2>Orphan Deck Editor</h2>
+            <p class="math-v2-note">Manual custom Chinese characters live in the orphan deck. Bulk import and delete are allowed only there.</p>
+            <div class="orphan-editor-grid">
+                <div class="orphan-editor-panel">
+                    <h3>Bulk Add Chinese Characters</h3>
+                    <form id="addCardForm">
+                        <div class="form-group">
+                            <label for="chineseChar">Chinese Characters</label>
+                            <div class="bulk-import-wrap">
+                                <textarea
+                                    id="chineseChar"
+                                    placeholder="比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀"
+                                    required
+                                ></textarea>
+                            </div>
+                        </div>
+                        <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add Chinese Characters</button>
+                        <button type="button" id="addSiWuKuaiDuBtn" class="preset-btn">Add 四五快读</button>
+                        <button type="button" id="addMaLiPingBtn" class="preset-btn">Add 马立平</button>
+                        <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
+                    </form>
+                </div>
+                <div class="orphan-editor-panel">
+                    <h3>Orphan Deck Summary</h3>
+                    <p id="orphanSummary" class="orphan-hint">Loading orphan deck...</p>
+                    <p class="orphan-hint">Use the deck tabs below to inspect cards. Delete buttons appear only when the orphan deck tab is selected.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="settings-section cards-section">
+            <h2 class="cards-title">
+                <span>Chinese Character Questions <span id="cardCount">(0)</span></span>
             </h2>
+            <div id="sharedDeckTabs" class="math-deck-tabs"></div>
             <div class="cards-toolbar">
                 <input
                     type="text"
@@ -181,18 +445,18 @@ DAY3:两天之内 苦笑 下午 命令 主意 高挂 打算 木棒 捧着 不慌
                     aria-label="Search Chinese character cards"
                 >
                 <select id="viewOrderSelect" class="sort-select">
-                    <option value="added_time" selected>Order: Added Time (Recent to Oldest)</option>
-                    <option value="queue">Order: Next Session Queue</option>
+                    <option value="queue" selected>Order: Next Session Queue</option>
+                    <option value="added_time">Order: Added Time (Recent to Oldest)</option>
                     <option value="hardness_desc">Order: Hardness Score (Desc)</option>
                 </select>
             </div>
-            <div id="cardsGrid" class="cards-grid">
-                <!-- Cards will be loaded here -->
-            </div>
-        </div>
+            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in this deck: 0</p>
+            <div id="cardsGrid" class="cards-grid"></div>
+        </section>
     </div>
 
     <script src="practice-manage-common.js"></script>
+    <script src="deck-mix-common.js"></script>
     <script src="kid-reading-manage.js"></script>
 </body>
 </html>

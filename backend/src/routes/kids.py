@@ -30,7 +30,7 @@ DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
 DEFAULT_SHARED_MATH_SESSION_CARD_COUNT = 10
 DEFAULT_SHARED_LESSON_READING_SESSION_CARD_COUNT = 0
-ALLOWED_SHARED_DECK_FIRST_TAGS = {'math', 'chinese_reading'}
+ALLOWED_SHARED_DECK_FIRST_TAGS = {'math', 'chinese_reading', 'chinese_characters'}
 MAX_SHARED_DECK_TAGS = 20
 MAX_SHARED_DECK_CARDS = 10000
 MAX_SHARED_TAG_LENGTH = 64
@@ -38,6 +38,8 @@ MAX_SHARED_DECK_OPTIN_BATCH = 200
 MATERIALIZED_SHARED_DECK_NAME_PREFIX = 'shared_deck_'
 MATH_ORPHAN_DECK_NAME = 'math_orphan'
 LESSON_READING_ORPHAN_DECK_NAME = 'chinese_reading_orphan'
+CHINESE_CHARACTERS_ORPHAN_DECK_NAME = 'chinese_characters_orphan'
+CHINESE_CHARACTERS_ORPHAN_MIX_KEY = 'orphan'
 WRITING_AUDIO_EXTENSION = '.mp3'
 WRITING_AUDIO_FILE_NAME_MAX_BYTES = 220
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
@@ -495,6 +497,11 @@ def get_shared_math_deck_rows(conn):
     return get_shared_deck_rows_by_first_tag(conn, 'math')
 
 
+def get_shared_chinese_characters_deck_rows(conn):
+    """Return all shared decks tagged as chinese_characters with card counts."""
+    return get_shared_deck_rows_by_first_tag(conn, 'chinese_characters')
+
+
 def get_shared_lesson_reading_deck_rows(conn):
     """Return all shared decks tagged as chinese_reading with card counts."""
     return get_shared_deck_rows_by_first_tag(conn, 'chinese_reading')
@@ -560,6 +567,50 @@ def build_shared_lesson_reading_counts_for_opted_decks(total_cards, mix_map, opt
     return build_shared_math_counts_for_opted_decks(total_cards, mix_map, opted_deck_ids)
 
 
+def build_shared_chinese_characters_mix_for_opted_decks(opted_deck_ids, raw_mix):
+    """Build normalized percent mix map for opted-in shared chinese_characters decks."""
+    return build_shared_chinese_characters_mix_for_decks(opted_deck_ids, raw_mix, include_orphan=False)
+
+
+def build_shared_chinese_characters_counts_for_opted_decks(total_cards, mix_map, opted_deck_ids):
+    """Build per-deck card counts from total cards and percent mix."""
+    return build_shared_chinese_characters_counts_for_decks(
+        total_cards,
+        mix_map,
+        opted_deck_ids,
+        include_orphan=False
+    )
+
+
+def build_shared_chinese_characters_mix_for_decks(opted_deck_ids, raw_mix, include_orphan=False):
+    """Build normalized mix for chinese_characters shared decks, optionally including orphan key."""
+    deck_ids = [int(deck_id) for deck_id in list(opted_deck_ids or [])]
+    normalized_mix = normalize_shared_chinese_characters_deck_mix(raw_mix)
+
+    keys = [str(deck_id) for deck_id in deck_ids]
+    if include_orphan:
+        keys.append(CHINESE_CHARACTERS_ORPHAN_MIX_KEY)
+    if len(keys) == 0:
+        return {}
+
+    weights = [int(normalized_mix.get(key, 0) or 0) for key in keys]
+    percents = _distribute_integer_total(100, weights)
+    return {keys[index]: int(percents[index]) for index in range(len(keys))}
+
+
+def build_shared_chinese_characters_counts_for_decks(total_cards, mix_map, opted_deck_ids, include_orphan=False):
+    """Build per-deck counts for chinese_characters shared decks, optionally including orphan key."""
+    deck_ids = [int(deck_id) for deck_id in list(opted_deck_ids or [])]
+    keys = [str(deck_id) for deck_id in deck_ids]
+    if include_orphan:
+        keys.append(CHINESE_CHARACTERS_ORPHAN_MIX_KEY)
+    if len(keys) == 0:
+        return {}
+    weights = [int(mix_map.get(key, 0) or 0) for key in keys]
+    counts = _distribute_integer_total(total_cards, weights)
+    return {keys[index]: int(counts[index]) for index in range(len(keys))}
+
+
 def get_kid_materialized_shared_decks_by_first_tag(conn, first_tag):
     """Return kid-local materialized shared decks keyed by local deck id."""
     required_tag = str(first_tag or '').strip()
@@ -593,6 +644,11 @@ def get_kid_materialized_shared_math_decks(conn):
     return get_kid_materialized_shared_decks_by_first_tag(conn, 'math')
 
 
+def get_kid_materialized_shared_chinese_characters_decks(conn):
+    """Return kid-local materialized shared chinese-character decks keyed by local deck id."""
+    return get_kid_materialized_shared_decks_by_first_tag(conn, 'chinese_characters')
+
+
 def get_kid_materialized_shared_lesson_reading_decks(conn):
     """Return kid-local materialized shared chinese_reading decks keyed by local deck id."""
     return get_kid_materialized_shared_decks_by_first_tag(conn, 'chinese_reading')
@@ -615,6 +671,46 @@ def get_shared_math_runtime_decks_for_kid(conn, kid):
         normalize_shared_math_session_card_count(kid),
         mix_percent_by_shared_id,
         shared_ids
+    )
+
+    runtime_decks = []
+    for entry in ordered:
+        local_deck_id = int(entry['local_deck_id'])
+        shared_deck_id = int(entry['shared_deck_id'])
+        total_cards = int(conn.execute(
+            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
+            [local_deck_id]
+        ).fetchone()[0] or 0)
+        runtime_decks.append({
+            'local_deck_id': local_deck_id,
+            'shared_deck_id': shared_deck_id,
+            'name': str(entry.get('local_name') or ''),
+            'total_cards': total_cards,
+            'session_count': int(count_by_shared_id.get(str(shared_deck_id), 0)),
+            'mix_percent': int(mix_percent_by_shared_id.get(str(shared_deck_id), 0)),
+        })
+    return runtime_decks
+
+
+def get_shared_chinese_characters_runtime_decks_for_kid(conn, kid):
+    """Return opted-in shared chinese_characters decks with per-session planned counts."""
+    materialized_by_local_id = get_kid_materialized_shared_chinese_characters_decks(conn)
+    if len(materialized_by_local_id) == 0:
+        return []
+
+    ordered_local_ids = sorted(materialized_by_local_id.keys())
+    ordered = [materialized_by_local_id[deck_id] for deck_id in ordered_local_ids]
+    shared_ids = [entry['shared_deck_id'] for entry in ordered]
+    mix_percent_by_shared_id = build_shared_chinese_characters_mix_for_decks(
+        shared_ids,
+        kid.get('sharedChineseCharactersDeckMix'),
+        include_orphan=True
+    )
+    count_by_shared_id = build_shared_chinese_characters_counts_for_decks(
+        normalize_session_card_count(kid),
+        mix_percent_by_shared_id,
+        shared_ids,
+        include_orphan=True
     )
 
     runtime_decks = []
@@ -760,6 +856,30 @@ def get_all_shared_deck_tags(conn):
     return sorted(tags)
 
 
+def build_chinese_pinyin_text(text):
+    """Generate pinyin for Chinese text using pypinyin (lazy import)."""
+    normalized = str(text or '').strip()
+    if not normalized:
+        return ''
+    try:
+        from pypinyin import lazy_pinyin, Style  # type: ignore
+    except Exception as exc:
+        raise RuntimeError(
+            'pypinyin is not installed. Install it in backend env: pip install pypinyin'
+        ) from exc
+
+    syllables = lazy_pinyin(
+        normalized,
+        style=Style.TONE,
+        neutral_tone_with_five=True,
+        strict=False,
+        errors='default',
+    )
+    parts = [str(item or '').strip() for item in list(syllables or [])]
+    parts = [item for item in parts if item]
+    return ' '.join(parts)
+
+
 @kids_bp.route('/shared-decks/name-availability', methods=['GET'])
 def shared_deck_name_availability():
     """Check whether a shared deck name is globally available."""
@@ -785,6 +905,31 @@ def shared_deck_name_availability():
             'available': row is None,
             'existing_deck_id': int(row[0]) if row else None,
         }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/chinese-characters/pinyin', methods=['POST'])
+def shared_deck_chinese_characters_pinyin():
+    """Return pinyin mapping for requested Chinese character strings."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+
+        payload = request.get_json() or {}
+        texts = normalize_shared_deck_fronts(payload.get('texts'))
+        pinyin_by_text = {}
+        for text in texts:
+            pinyin_by_text[str(text)] = build_chinese_pinyin_text(text)
+        return jsonify({
+            'count': len(texts),
+            'pinyin_by_text': pinyin_by_text,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except RuntimeError as e:
+        return jsonify({'error': str(e)}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1130,6 +1275,34 @@ def normalize_shared_lesson_reading_deck_mix(raw_mix):
     return normalize_shared_math_deck_mix(raw_mix)
 
 
+def normalize_shared_chinese_characters_deck_mix(raw_mix):
+    """Normalize stored chinese-characters shared deck mix payload."""
+    if not isinstance(raw_mix, dict):
+        return {}
+    normalized = {}
+    for raw_key, raw_value in raw_mix.items():
+        key = str(raw_key or '').strip()
+        normalized_key = None
+        if key == CHINESE_CHARACTERS_ORPHAN_MIX_KEY:
+            normalized_key = CHINESE_CHARACTERS_ORPHAN_MIX_KEY
+        else:
+            try:
+                deck_id = int(key)
+            except (TypeError, ValueError):
+                continue
+            if deck_id <= 0:
+                continue
+            normalized_key = str(deck_id)
+        try:
+            percent = int(raw_value)
+        except (TypeError, ValueError):
+            continue
+        normalized[normalized_key] = max(0, min(100, percent))
+        if len(normalized) >= (MAX_SHARED_DECK_OPTIN_BATCH + 1):
+            break
+    return normalized
+
+
 def get_kid_dashboard_stats(kid):
     """Get today's completed session counts and ungraded Chinese Reading flag in one connection."""
     default_counts = {'total': 0, 'chinese': 0, 'math': 0, 'writing': 0, 'lesson_reading': 0}
@@ -1227,6 +1400,9 @@ def with_practice_count_fallbacks(kid):
 
     safe_kid['sharedMathSessionCardCount'] = normalize_shared_math_session_card_count(safe_kid)
     safe_kid['sharedMathDeckMix'] = normalize_shared_math_deck_mix(safe_kid.get('sharedMathDeckMix'))
+    safe_kid['sharedChineseCharactersDeckMix'] = normalize_shared_chinese_characters_deck_mix(
+        safe_kid.get('sharedChineseCharactersDeckMix')
+    )
     safe_kid['sharedLessonReadingSessionCardCount'] = normalize_shared_lesson_reading_session_card_count(safe_kid)
     safe_kid['sharedLessonReadingDeckMix'] = normalize_shared_lesson_reading_deck_mix(safe_kid.get('sharedLessonReadingDeckMix'))
 
@@ -1765,6 +1941,13 @@ def update_kid(kid_id):
                 return jsonify({'error': 'sharedMathDeckMix must be an object'}), 400
             updates['sharedMathDeckMix'] = normalize_shared_math_deck_mix(data['sharedMathDeckMix'])
 
+        if 'sharedChineseCharactersDeckMix' in data:
+            if not isinstance(data['sharedChineseCharactersDeckMix'], dict):
+                return jsonify({'error': 'sharedChineseCharactersDeckMix must be an object'}), 400
+            updates['sharedChineseCharactersDeckMix'] = normalize_shared_chinese_characters_deck_mix(
+                data['sharedChineseCharactersDeckMix']
+            )
+
         if 'sharedLessonReadingSessionCardCount' in data:
             try:
                 shared_lesson_reading_session_count = int(data['sharedLessonReadingSessionCardCount'])
@@ -1843,6 +2026,35 @@ def get_or_create_default_deck(conn):
     ).fetchone()
 
     return row[0]
+
+
+def get_or_create_chinese_characters_orphan_deck(conn):
+    """Get or create the reserved orphan deck for detached/manual chinese-character cards.
+
+    Legacy compatibility: if the old default deck exists, treat it as the orphan deck.
+    """
+    result = conn.execute(
+        "SELECT id FROM decks WHERE name = ?",
+        [CHINESE_CHARACTERS_ORPHAN_DECK_NAME]
+    ).fetchone()
+    if result:
+        return int(result[0])
+
+    legacy = conn.execute(
+        "SELECT id FROM decks WHERE name = 'Chinese Characters'",
+    ).fetchone()
+    if legacy:
+        return int(legacy[0])
+
+    row = conn.execute(
+        """
+        INSERT INTO decks (name, description, tags)
+        VALUES (?, ?, ?)
+        RETURNING id
+        """,
+        [CHINESE_CHARACTERS_ORPHAN_DECK_NAME, 'Reserved deck for orphaned/manual Chinese character cards', ['chinese_characters', 'orphan']]
+    ).fetchone()
+    return int(row[0])
 
 
 def get_or_create_math_orphan_deck(conn):
@@ -2529,24 +2741,28 @@ def get_pending_writing_card_ids(conn):
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
 def get_cards(kid_id):
-    """Get all cards for a kid, with timing stats and next-session preview order."""
+    """Get all Chinese-character cards for a kid across opted-in shared decks and orphan deck."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
         conn = get_kid_connection_for(kid)
-        deck_id = get_or_create_default_deck(conn)
-        preview_ids = preview_deck_practice_order(conn, kid, deck_id, 'flashcard')
-        preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
+        orphan_deck_id = get_or_create_chinese_characters_orphan_deck(conn)
+        materialized = get_kid_materialized_shared_chinese_characters_decks(conn)
+        deck_ids = sorted(int(deck_id) for deck_id in materialized.keys())
+        if orphan_deck_id not in deck_ids:
+            deck_ids.append(orphan_deck_id)
 
-        cards = get_cards_with_stats(conn, deck_id)
+        cards = []
+        for deck_id in deck_ids:
+            cards.extend(get_cards_with_stats(conn, deck_id))
 
         conn.close()
 
-        card_list = [map_card_row(card, preview_order) for card in cards]
+        card_list = [map_card_row(card, {}) for card in cards]
 
-        return jsonify({'deck_id': deck_id, 'cards': card_list}), 200
+        return jsonify({'deck_id': orphan_deck_id, 'cards': card_list}), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2566,7 +2782,7 @@ def add_card(kid_id):
             return jsonify({'error': 'Front text is required'}), 400
 
         conn = get_kid_connection_for(kid)
-        deck_id = get_or_create_default_deck(conn)
+        deck_id = get_or_create_chinese_characters_orphan_deck(conn)
 
         card_id = conn.execute(
             """
@@ -2621,13 +2837,34 @@ def add_cards_bulk(kid_id):
             return jsonify({'error': 'No cards provided'}), 400
 
         conn = get_kid_connection_for(kid)
-        deck_id = get_or_create_default_deck(conn)
+        deck_id = get_or_create_chinese_characters_orphan_deck(conn)
+
+        candidate_fronts = []
+        seen_candidate_fronts = set()
+        for item in items:
+            front = (item.get('front') or '').strip()
+            if not front or front in seen_candidate_fronts:
+                continue
+            seen_candidate_fronts.add(front)
+            candidate_fronts.append(front)
+
+        existing_fronts = set()
+        if candidate_fronts:
+            placeholders = ','.join(['?'] * len(candidate_fronts))
+            rows = conn.execute(
+                f"SELECT front FROM cards WHERE deck_id = ? AND front IN ({placeholders})",
+                [deck_id, *candidate_fronts]
+            ).fetchall()
+            existing_fronts = {str(row[0] or '') for row in rows}
 
         created = []
         for item in items:
             front = (item.get('front') or '').strip()
             if not front:
                 continue
+            if front in existing_fronts:
+                continue
+            existing_fronts.add(front)
             card_id = conn.execute(
                 "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?) RETURNING id",
                 [deck_id, front, item.get('back', '')]
@@ -2655,10 +2892,23 @@ def delete_card(kid_id, card_id):
 
         conn = get_kid_connection_for(kid)
 
-        card = conn.execute("SELECT id FROM cards WHERE id = ?", [card_id]).fetchone()
+        card = conn.execute(
+            """
+            SELECT c.id, d.name
+            FROM cards c
+            JOIN decks d ON d.id = c.deck_id
+            WHERE c.id = ?
+            LIMIT 1
+            """,
+            [card_id]
+        ).fetchone()
         if not card:
             conn.close()
             return jsonify({'error': 'Card not found'}), 404
+        deck_name = str(card[1] or '')
+        if deck_name not in {CHINESE_CHARACTERS_ORPHAN_DECK_NAME, 'Chinese Characters'}:
+            conn.close()
+            return jsonify({'error': 'Only orphan Chinese character cards can be deleted here'}), 400
         delete_card_from_deck_internal(conn, card_id)
 
         conn.close()
@@ -2671,21 +2921,71 @@ def delete_card(kid_id, card_id):
 
 @kids_bp.route('/kids/<kid_id>/practice/start', methods=['POST'])
 def start_practice_session(kid_id):
-    """Start a practice session using red-first + hard + least-attempt selection."""
+    """Start a Chinese-character practice session composed from opted-in shared decks plus orphan."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
         conn = get_kid_connection_for(kid)
-        deck_id = get_or_create_default_deck(conn)
-        pending_session_id, selected_cards = plan_deck_pending_session(
-            conn, kid, kid_id, deck_id, 'flashcard'
-        )
+        selected_cards = []
+        total_target = normalize_session_card_count(kid)
 
-        conn.close()
-        if not pending_session_id:
+        runtime_decks = get_shared_chinese_characters_runtime_decks_for_kid(conn, kid)
+        shared_ids = [int(deck['shared_deck_id']) for deck in runtime_decks]
+        full_mix_percent_by_key = build_shared_chinese_characters_mix_for_decks(
+            shared_ids,
+            kid.get('sharedChineseCharactersDeckMix'),
+            include_orphan=True
+        )
+        full_count_by_key = build_shared_chinese_characters_counts_for_decks(
+            total_target,
+            full_mix_percent_by_key,
+            shared_ids,
+            include_orphan=True
+        )
+        for deck in runtime_decks:
+            per_deck_count = int(deck.get('session_count') or 0)
+            if per_deck_count <= 0:
+                continue
+
+            preview_kid = {**kid, 'sessionCardCount': per_deck_count}
+            cards_by_id, selected_ids = plan_deck_practice_selection(
+                conn,
+                preview_kid,
+                int(deck['local_deck_id']),
+                'flashcard'
+            )
+            for selected_id in selected_ids:
+                selected_cards.append(cards_by_id[selected_id])
+
+        orphan_deck_id = get_or_create_chinese_characters_orphan_deck(conn)
+        orphan_target = int(full_count_by_key.get(CHINESE_CHARACTERS_ORPHAN_MIX_KEY, 0) or 0)
+        if orphan_target > 0:
+            preview_kid = {**kid, 'sessionCardCount': orphan_target}
+            orphan_cards_by_id, orphan_ids = plan_deck_practice_selection(
+                conn,
+                preview_kid,
+                int(orphan_deck_id),
+                'flashcard'
+            )
+            for selected_id in orphan_ids:
+                selected_cards.append(orphan_cards_by_id[selected_id])
+
+        if len(selected_cards) == 0:
+            conn.close()
             return jsonify({'pending_session_id': None, 'cards': [], 'planned_count': 0}), 200
+
+        pending_session_id = create_pending_session(
+            kid_id,
+            'flashcard',
+            {
+                'kind': 'flashcard',
+                'planned_count': len(selected_cards),
+                'cards': [{'id': int(card['id'])} for card in selected_cards],
+            }
+        )
+        conn.close()
 
         return jsonify({
             'pending_session_id': pending_session_id,
@@ -2693,6 +2993,619 @@ def start_practice_session(kid_id):
             'planned_count': len(selected_cards)
         }), 200
 
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/characters/shared-decks', methods=['GET'])
+def get_kid_chinese_characters_shared_decks(kid_id):
+    """List global shared chinese-character decks and this kid's opt-in state."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        shared_conn = None
+        kid_conn = None
+        local_by_shared_id = {}
+        local_card_count_by_deck_id = {}
+        try:
+            shared_conn = get_shared_decks_connection()
+            decks = get_shared_chinese_characters_deck_rows(shared_conn)
+
+            kid_conn = get_kid_connection_for(kid)
+            materialized_by_local_id = get_kid_materialized_shared_chinese_characters_decks(kid_conn)
+            for entry in materialized_by_local_id.values():
+                shared_deck_id = int(entry['shared_deck_id'])
+                existing = local_by_shared_id.get(shared_deck_id)
+                if existing is None or int(entry['local_deck_id']) < int(existing['local_deck_id']):
+                    local_by_shared_id[shared_deck_id] = entry
+
+            local_deck_ids = [int(deck_id) for deck_id in materialized_by_local_id.keys()]
+            if local_deck_ids:
+                placeholders = ','.join(['?'] * len(local_deck_ids))
+                card_count_rows = kid_conn.execute(
+                    f"""
+                    SELECT deck_id, COUNT(*) AS card_count
+                    FROM cards
+                    WHERE deck_id IN ({placeholders})
+                    GROUP BY deck_id
+                    """,
+                    local_deck_ids
+                ).fetchall()
+                local_card_count_by_deck_id = {
+                    int(row[0]): int(row[1] or 0)
+                    for row in card_count_rows
+                }
+
+            orphan_deck_id = get_or_create_chinese_characters_orphan_deck(kid_conn)
+            orphan_row = kid_conn.execute(
+                "SELECT id, name FROM decks WHERE id = ? LIMIT 1",
+                [orphan_deck_id]
+            ).fetchone()
+            orphan_name = str(orphan_row[1] or CHINESE_CHARACTERS_ORPHAN_DECK_NAME) if orphan_row else CHINESE_CHARACTERS_ORPHAN_DECK_NAME
+            orphan_total = int(kid_conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
+                [orphan_deck_id]
+            ).fetchone()[0] or 0)
+            orphan_active = int(kid_conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
+                [orphan_deck_id]
+            ).fetchone()[0] or 0)
+            orphan_skipped = int(kid_conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = TRUE",
+                [orphan_deck_id]
+            ).fetchone()[0] or 0)
+            orphan_deck_payload = {
+                'deck_id': orphan_deck_id,
+                'name': orphan_name,
+                'card_count': orphan_total,
+                'active_card_count': orphan_active,
+                'skipped_card_count': orphan_skipped,
+            }
+        finally:
+            if kid_conn is not None:
+                kid_conn.close()
+            if shared_conn is not None:
+                shared_conn.close()
+
+        shared_deck_id_set = set()
+        for deck in decks:
+            shared_deck_id = int(deck['deck_id'])
+            shared_deck_id_set.add(shared_deck_id)
+            local_entry = local_by_shared_id.get(shared_deck_id)
+            materialized_name = (
+                str(local_entry['local_name'])
+                if local_entry
+                else build_materialized_shared_deck_name(deck['deck_id'], deck['name'])
+            )
+            materialized_deck_id = int(local_entry['local_deck_id']) if local_entry else None
+            deck['materialized_name'] = materialized_name
+            deck['opted_in'] = local_entry is not None
+            deck['materialized_deck_id'] = materialized_deck_id
+            deck['mix_percent'] = 0
+            deck['session_cards'] = 0
+
+        for shared_deck_id, local_entry in local_by_shared_id.items():
+            if shared_deck_id in shared_deck_id_set:
+                continue
+            local_deck_id = int(local_entry['local_deck_id'])
+            local_name = str(local_entry.get('local_name') or '')
+            _, _, tail_name = local_name.partition('__')
+            display_name = tail_name.strip() or local_name
+            decks.append({
+                'deck_id': int(shared_deck_id),
+                'name': display_name,
+                'tags': [str(tag) for tag in list(local_entry.get('tags') or []) if str(tag or '').strip()],
+                'creator_family_id': None,
+                'created_at': None,
+                'card_count': int(local_card_count_by_deck_id.get(local_deck_id, 0)),
+                'materialized_name': local_name,
+                'opted_in': True,
+                'materialized_deck_id': local_deck_id,
+                'mix_percent': 0,
+                'session_cards': 0,
+                'source_deleted': True,
+            })
+
+        session_card_count = normalize_session_card_count(kid)
+        opted_deck_ids = [int(deck['deck_id']) for deck in decks if deck['opted_in']]
+        mix_percent_by_deck_id = build_shared_chinese_characters_mix_for_decks(
+            opted_deck_ids,
+            kid.get('sharedChineseCharactersDeckMix'),
+            include_orphan=True
+        )
+        count_by_deck_id = build_shared_chinese_characters_counts_for_decks(
+            session_card_count,
+            mix_percent_by_deck_id,
+            opted_deck_ids,
+            include_orphan=True
+        )
+        for deck in decks:
+            deck_id_key = str(int(deck['deck_id']))
+            deck['mix_percent'] = int(mix_percent_by_deck_id.get(deck_id_key, 0))
+            deck['session_cards'] = int(count_by_deck_id.get(deck_id_key, 0))
+        if orphan_deck_payload is not None:
+            orphan_deck_payload['mix_percent'] = int(mix_percent_by_deck_id.get(CHINESE_CHARACTERS_ORPHAN_MIX_KEY, 0))
+            orphan_deck_payload['session_cards'] = int(count_by_deck_id.get(CHINESE_CHARACTERS_ORPHAN_MIX_KEY, 0))
+
+        return jsonify({
+            'decks': decks,
+            'deck_count': len(decks),
+            'session_card_count': session_card_count,
+            'shared_chinese_characters_deck_mix': mix_percent_by_deck_id,
+            'orphan_deck': orphan_deck_payload,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/characters/shared-decks/opt-in', methods=['POST'])
+def opt_in_kid_chinese_characters_shared_decks(kid_id):
+    """Materialize selected shared chinese-character decks into this kid's local DB."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload = request.get_json() or {}
+        raw_ids = payload.get('deck_ids')
+        if raw_ids is None:
+            raw_ids = payload.get('deckIds')
+        deck_ids = normalize_shared_deck_ids(raw_ids)
+
+        shared_conn = None
+        kid_conn = None
+        try:
+            shared_conn = get_shared_decks_connection()
+            placeholders = ','.join(['?'] * len(deck_ids))
+            deck_rows = shared_conn.execute(
+                f"""
+                SELECT deck_id, name, tags
+                FROM deck
+                WHERE deck_id IN ({placeholders})
+                """,
+                deck_ids
+            ).fetchall()
+            shared_by_id = {
+                int(row[0]): {
+                    'deck_id': int(row[0]),
+                    'name': str(row[1]),
+                    'tags': [str(tag) for tag in list(row[2] or []) if str(tag or '').strip()],
+                }
+                for row in deck_rows
+            }
+            missing_ids = [deck_id for deck_id in deck_ids if deck_id not in shared_by_id]
+            if missing_ids:
+                return jsonify({'error': f'Shared deck(s) not found: {", ".join(str(v) for v in missing_ids)}'}), 404
+
+            invalid_tag_ids = [
+                deck_id for deck_id in deck_ids
+                if 'chinese_characters' not in shared_by_id[deck_id]['tags']
+            ]
+            if invalid_tag_ids:
+                return jsonify({
+                    'error': f'Deck(s) are not chinese_characters-tagged: {", ".join(str(v) for v in invalid_tag_ids)}'
+                }), 400
+
+            card_rows = shared_conn.execute(
+                f"""
+                SELECT deck_id, front, back
+                FROM cards
+                WHERE deck_id IN ({placeholders})
+                ORDER BY deck_id ASC, id ASC
+                """,
+                deck_ids
+            ).fetchall()
+            cards_by_deck_id = {}
+            for row in card_rows:
+                src_deck_id = int(row[0])
+                cards_by_deck_id.setdefault(src_deck_id, []).append({
+                    'front': str(row[1]),
+                    'back': str(row[2]),
+                })
+
+            kid_conn = get_kid_connection_for(kid)
+            created = []
+            already_opted_in = []
+            for src_deck_id in deck_ids:
+                src_deck = shared_by_id[src_deck_id]
+                materialized_name = build_materialized_shared_deck_name(src_deck_id, src_deck['name'])
+                existing = kid_conn.execute(
+                    "SELECT id FROM decks WHERE name = ? LIMIT 1",
+                    [materialized_name]
+                ).fetchone()
+                if existing:
+                    already_opted_in.append({
+                        'shared_deck_id': src_deck_id,
+                        'shared_name': src_deck['name'],
+                        'materialized_name': materialized_name,
+                        'deck_id': int(existing[0]),
+                    })
+                    continue
+
+                materialized_tags = build_materialized_shared_deck_tags(src_deck['tags'])
+                description = f"Materialized from shared deck #{src_deck_id}: {src_deck['name']}"
+                inserted = kid_conn.execute(
+                    """
+                    INSERT INTO decks (name, description, tags)
+                    VALUES (?, ?, ?)
+                    RETURNING id
+                    """,
+                    [materialized_name, description, materialized_tags]
+                ).fetchone()
+                local_deck_id = int(inserted[0])
+
+                cards = cards_by_deck_id.get(src_deck_id, [])
+                cards_added = 0
+                cards_moved_from_orphan = 0
+                if cards:
+                    orphan_deck_id = get_or_create_chinese_characters_orphan_deck(kid_conn)
+                    source_fronts = []
+                    seen_fronts = set()
+                    for card in cards:
+                        front = str(card.get('front') or '')
+                        if front in seen_fronts:
+                            continue
+                        seen_fronts.add(front)
+                        source_fronts.append(front)
+
+                    orphan_by_front = {}
+                    if source_fronts:
+                        front_placeholders = ','.join(['?'] * len(source_fronts))
+                        orphan_rows = kid_conn.execute(
+                            f"""
+                            SELECT id, front, back, skip_practice, hardness_score, created_at
+                            FROM cards
+                            WHERE deck_id = ?
+                              AND front IN ({front_placeholders})
+                            ORDER BY id ASC
+                            """,
+                            [orphan_deck_id, *source_fronts]
+                        ).fetchall()
+                        for row in orphan_rows:
+                            row_front = str(row[1] or '')
+                            if row_front in orphan_by_front:
+                                continue
+                            orphan_by_front[row_front] = row
+
+                    moved_rows = []
+                    insert_rows = []
+                    for card in cards:
+                        front = str(card.get('front') or '')
+                        orphan_row = orphan_by_front.pop(front, None)
+                        if orphan_row is not None:
+                            moved_rows.append((orphan_row, str(card.get('back') or '')))
+                            continue
+                        insert_rows.append([local_deck_id, front, str(card.get('back') or '')])
+
+                    if moved_rows:
+                        moved_ids = [int(row[0][0]) for row in moved_rows]
+                        moved_placeholders = ','.join(['?'] * len(moved_ids))
+                        kid_conn.execute(
+                            f"DELETE FROM cards WHERE id IN ({moved_placeholders})",
+                            moved_ids
+                        )
+                        kid_conn.executemany(
+                            """
+                            INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            [
+                                [
+                                    int(orphan_row[0]),
+                                    local_deck_id,
+                                    str(orphan_row[1] or ''),
+                                    shared_back,
+                                    bool(orphan_row[3]),
+                                    float(orphan_row[4] or 0.0),
+                                    orphan_row[5],
+                                ]
+                                for orphan_row, shared_back in moved_rows
+                            ]
+                        )
+                        cards_moved_from_orphan = len(moved_rows)
+
+                    if insert_rows:
+                        kid_conn.executemany(
+                            "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
+                            insert_rows
+                        )
+                        cards_added = len(insert_rows)
+
+                created.append({
+                    'shared_deck_id': src_deck_id,
+                    'shared_name': src_deck['name'],
+                    'materialized_name': materialized_name,
+                    'deck_id': local_deck_id,
+                    'cards_added': cards_added,
+                    'cards_moved_from_orphan': cards_moved_from_orphan,
+                    'cards_total': len(cards),
+                })
+        finally:
+            if kid_conn is not None:
+                kid_conn.close()
+            if shared_conn is not None:
+                shared_conn.close()
+
+        return jsonify({
+            'requested_count': len(deck_ids),
+            'created_count': len(created),
+            'already_opted_in_count': len(already_opted_in),
+            'created': created,
+            'already_opted_in': already_opted_in,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/characters/shared-decks/opt-out', methods=['POST'])
+def opt_out_kid_chinese_characters_shared_decks(kid_id):
+    """Remove selected opted-in shared chinese-character decks from this kid's local DB."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload = request.get_json() or {}
+        raw_ids = payload.get('deck_ids')
+        if raw_ids is None:
+            raw_ids = payload.get('deckIds')
+        deck_ids = normalize_shared_deck_ids(raw_ids)
+
+        kid_conn = None
+        try:
+            kid_conn = get_kid_connection_for(kid)
+            materialized_by_local_id = get_kid_materialized_shared_chinese_characters_decks(kid_conn)
+            local_by_shared_id = {
+                int(entry['shared_deck_id']): {
+                    'local_deck_id': int(entry['local_deck_id']),
+                    'local_name': str(entry['local_name'] or ''),
+                }
+                for entry in materialized_by_local_id.values()
+            }
+
+            removed = []
+            already_opted_out = []
+            for shared_deck_id in deck_ids:
+                local_entry = local_by_shared_id.get(shared_deck_id)
+                if not local_entry:
+                    already_opted_out.append({'shared_deck_id': int(shared_deck_id)})
+                    continue
+
+                local_deck_id = int(local_entry['local_deck_id'])
+                local_name = str(local_entry['local_name'])
+                card_rows = kid_conn.execute(
+                    "SELECT id FROM cards WHERE deck_id = ?",
+                    [local_deck_id]
+                ).fetchall()
+                card_ids = [int(row[0]) for row in card_rows]
+                card_count = len(card_ids)
+
+                practiced_card_ids = []
+                if card_ids:
+                    placeholders = ','.join(['?'] * len(card_ids))
+                    practiced_rows = kid_conn.execute(
+                        f"SELECT DISTINCT card_id FROM session_results WHERE card_id IN ({placeholders})",
+                        card_ids
+                    ).fetchall()
+                    practiced_card_ids = [int(row[0]) for row in practiced_rows]
+                had_practice_sessions = len(practiced_card_ids) > 0
+
+                kid_conn.execute(
+                    "UPDATE sessions SET deck_id = NULL WHERE deck_id = ?",
+                    [local_deck_id]
+                )
+
+                if had_practice_sessions:
+                    orphan_deck_id = get_or_create_chinese_characters_orphan_deck(kid_conn)
+                    practiced_placeholders = ','.join(['?'] * len(practiced_card_ids))
+                    practiced_cards = kid_conn.execute(
+                        f"""
+                        SELECT id, front, back, skip_practice, hardness_score, created_at
+                        FROM cards
+                        WHERE id IN ({practiced_placeholders})
+                        """,
+                        practiced_card_ids
+                    ).fetchall()
+                    if practiced_cards:
+                        kid_conn.execute(
+                            f"DELETE FROM cards WHERE id IN ({practiced_placeholders})",
+                            practiced_card_ids
+                        )
+                        kid_conn.executemany(
+                            """
+                            INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            [
+                                [
+                                    int(row[0]),
+                                    orphan_deck_id,
+                                    row[1],
+                                    row[2],
+                                    bool(row[3]),
+                                    float(row[4] or 0.0),
+                                    row[5],
+                                ]
+                                for row in practiced_cards
+                            ]
+                        )
+
+                    practiced_card_id_set = set(practiced_card_ids)
+                    unpracticed_ids = [card_id for card_id in card_ids if card_id not in practiced_card_id_set]
+                    if unpracticed_ids:
+                        unpracticed_placeholders = ','.join(['?'] * len(unpracticed_ids))
+                        kid_conn.execute(
+                            f"DELETE FROM writing_sheet_cards WHERE card_id IN ({unpracticed_placeholders})",
+                            unpracticed_ids
+                        )
+                        kid_conn.execute(
+                            f"""
+                            DELETE FROM lesson_reading_audio
+                            WHERE result_id IN (
+                                SELECT id FROM session_results WHERE card_id IN ({unpracticed_placeholders})
+                            )
+                            """,
+                            unpracticed_ids
+                        )
+                        kid_conn.execute(
+                            f"DELETE FROM session_results WHERE card_id IN ({unpracticed_placeholders})",
+                            unpracticed_ids
+                        )
+                        kid_conn.execute(
+                            f"DELETE FROM cards WHERE id IN ({unpracticed_placeholders})",
+                            unpracticed_ids
+                        )
+                else:
+                    if card_ids:
+                        placeholders = ','.join(['?'] * len(card_ids))
+                        kid_conn.execute(
+                            f"DELETE FROM writing_sheet_cards WHERE card_id IN ({placeholders})",
+                            card_ids
+                        )
+                        kid_conn.execute(
+                            f"DELETE FROM session_results WHERE card_id IN ({placeholders})",
+                            card_ids
+                        )
+                    kid_conn.execute("DELETE FROM cards WHERE deck_id = ?", [local_deck_id])
+
+                kid_conn.execute("DELETE FROM decks WHERE id = ?", [local_deck_id])
+
+                removed.append({
+                    'shared_deck_id': int(shared_deck_id),
+                    'deck_id': local_deck_id,
+                    'materialized_name': local_name,
+                    'had_practice_sessions': had_practice_sessions,
+                    'cards_removed': card_count - len(practiced_card_ids),
+                    'cards_detached': len(practiced_card_ids),
+                })
+        finally:
+            if kid_conn is not None:
+                kid_conn.close()
+
+        return jsonify({
+            'requested_count': len(deck_ids),
+            'removed_count': len(removed),
+            'already_opted_out_count': len(already_opted_out),
+            'removed': removed,
+            'already_opted_out': already_opted_out,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/characters/shared-decks/cards', methods=['GET'])
+def get_shared_chinese_characters_cards(kid_id):
+    """Get cards for one opted-in shared chinese-character deck or orphan deck."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        try:
+            local_deck_id = int(request.args.get('deck_id'))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'deck_id is required and must be an integer'}), 400
+        if local_deck_id <= 0:
+            return jsonify({'error': 'deck_id must be a positive integer'}), 400
+
+        conn = get_kid_connection_for(kid)
+        try:
+            materialized_by_local_id = get_kid_materialized_shared_chinese_characters_decks(conn)
+            selected = materialized_by_local_id.get(local_deck_id)
+            is_orphan_deck = False
+            if not selected:
+                orphan_deck_id = get_or_create_chinese_characters_orphan_deck(conn)
+                orphan_row = conn.execute(
+                    "SELECT id, name FROM decks WHERE id = ? LIMIT 1",
+                    [orphan_deck_id]
+                ).fetchone()
+                if orphan_row and int(orphan_row[0]) == local_deck_id:
+                    is_orphan_deck = True
+                    selected = {
+                        'local_deck_id': int(orphan_row[0]),
+                        'local_name': str(orphan_row[1] or CHINESE_CHARACTERS_ORPHAN_DECK_NAME),
+                        'shared_deck_id': None,
+                    }
+                else:
+                    return jsonify({'error': 'Shared chinese-character deck not found for this kid'}), 404
+
+            requested_count = 0
+            preview_order = {}
+            if not is_orphan_deck:
+                opted_shared_ids = [entry['shared_deck_id'] for entry in materialized_by_local_id.values()]
+                mix_percent_by_deck_id = build_shared_chinese_characters_mix_for_decks(
+                    opted_shared_ids,
+                    kid.get('sharedChineseCharactersDeckMix'),
+                    include_orphan=True
+                )
+                count_by_deck_id = build_shared_chinese_characters_counts_for_decks(
+                    normalize_session_card_count(kid),
+                    mix_percent_by_deck_id,
+                    opted_shared_ids,
+                    include_orphan=True
+                )
+
+                requested_count = int(count_by_deck_id.get(str(selected['shared_deck_id']), 0))
+                preview_kid = {**kid, 'sessionCardCount': requested_count}
+                preview_ids = preview_deck_practice_order(
+                    conn,
+                    preview_kid,
+                    local_deck_id,
+                    'flashcard'
+                )
+                preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
+            else:
+                opted_shared_ids = [entry['shared_deck_id'] for entry in materialized_by_local_id.values()]
+                mix_percent_by_deck_id = build_shared_chinese_characters_mix_for_decks(
+                    opted_shared_ids,
+                    kid.get('sharedChineseCharactersDeckMix'),
+                    include_orphan=True
+                )
+                count_by_deck_id = build_shared_chinese_characters_counts_for_decks(
+                    normalize_session_card_count(kid),
+                    mix_percent_by_deck_id,
+                    opted_shared_ids,
+                    include_orphan=True
+                )
+                requested_count = int(count_by_deck_id.get(CHINESE_CHARACTERS_ORPHAN_MIX_KEY, 0))
+                if requested_count > 0:
+                    preview_kid = {**kid, 'sessionCardCount': requested_count}
+                    preview_ids = preview_deck_practice_order(
+                        conn,
+                        preview_kid,
+                        local_deck_id,
+                        'flashcard'
+                    )
+                    preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
+
+            cards = get_cards_with_stats(conn, local_deck_id)
+            active_count = int(conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
+                [local_deck_id]
+            ).fetchone()[0] or 0)
+            skipped_count = int(conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = TRUE",
+                [local_deck_id]
+            ).fetchone()[0] or 0)
+        finally:
+            conn.close()
+
+        return jsonify({
+            'shared_deck_id': int(selected['shared_deck_id']) if selected.get('shared_deck_id') is not None else None,
+            'deck_id': int(local_deck_id),
+            'deck_name': selected['local_name'],
+            'is_orphan_deck': bool(is_orphan_deck),
+            'session_count': requested_count,
+            'active_card_count': active_count,
+            'skipped_card_count': skipped_count,
+            'cards': [map_card_row(row, preview_order) for row in cards]
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

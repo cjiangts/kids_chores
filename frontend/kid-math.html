@@ -114,6 +114,21 @@
             color: #666;
         }
 
+        .practice-mode-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.9rem;
+        }
+
+        .practice-mode-label {
+            color: #555;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
     </style>
 </head>
 <body class="practice-page">
@@ -131,6 +146,13 @@
                     <div class="flashcard" style="cursor: default;">
                         <h2 class="session-title">Ready for math?</h2>
                         <p id="sessionInfo" class="progress">Session: 10 questions</p>
+                        <div class="practice-mode-row">
+                            <span class="practice-mode-label">Mode</span>
+                            <div id="judgeModeToggleStart" class="audio-filter-group" aria-label="Practice mode">
+                                <button type="button" class="audio-filter-btn active" data-judge-mode="self" aria-pressed="true">Kids Self</button>
+                                <button type="button" class="audio-filter-btn" data-judge-mode="parent" aria-pressed="false">Parent Assisted</button>
+                            </div>
+                        </div>
                         <button class="control-btn start-btn" onclick="startSession()">Start</button>
                     </div>
                 </div>
@@ -152,7 +174,7 @@
                     <div class="controls">
                         <div class="session-action-slot">
                             <div class="session-action-layer" id="knewRow">
-                                <button class="control-btn knew-btn session-action-btn session-single-btn" onclick="revealAnswer()" id="knewBtn">I knew it</button>
+                                <button class="control-btn knew-btn session-action-btn session-single-btn" onclick="revealAnswer()" id="knewBtn">I'm done</button>
                             </div>
                             <div class="session-action-layer hidden" id="judgeRow">
                                 <button class="control-btn dont-know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(false)" id="wrongBtn" disabled>Wrong</button>
@@ -177,6 +199,7 @@
     <script src="practice-progress.js"></script>
     <script src="practice-session.js"></script>
     <script src="practice-ui-common.js"></script>
+    <script src="practice-judge-mode.js"></script>
     <script src="practice-session-flow.js"></script>
     <script src="kid-math.js"></script>
 </body>

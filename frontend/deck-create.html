@@ -204,6 +204,7 @@
                         <div id="firstTagToggle" class="audio-filter-group" aria-label="First tag">
                             <button type="button" class="audio-filter-btn active" data-first-tag="math" aria-pressed="true">math</button>
                             <button type="button" class="audio-filter-btn" data-first-tag="chinese_reading" aria-pressed="false">chinese_reading</button>
+                            <button type="button" class="audio-filter-btn" data-first-tag="chinese_characters" aria-pressed="false">chinese_characters</button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -221,8 +222,8 @@
             </section>
 
             <section class="deck-panel">
-                <h2>2) Paste Cards CSV</h2>
-                <p style="margin-bottom: 0.6rem; color: #555;">Format: one card per line as <code>front,back</code></p>
+                <h2 id="cardsInputSectionTitle">2) Paste Cards CSV</h2>
+                <p id="cardsInputHelpText" style="margin-bottom: 0.6rem; color: #555;">Format: one card per line as <code>front,back</code></p>
                 <textarea id="cardsCsv" placeholder="1+1,2&#10;2+3,5"></textarea>
                 <div class="deck-row" style="margin-top: 0.7rem;">
                     <button type="button" id="previewBtn" class="btn-primary">Preview Deck</button>
