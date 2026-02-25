@@ -89,6 +89,13 @@ body {
     transform: translateY(-1px);
 }
 
+.practice-page button,
+.practice-page a,
+.practice-page .flashcard,
+.practice-page .practice-option {
+    touch-action: manipulation;
+}
+
 .practice-page .control-btn:disabled {
     opacity: 0.65;
     cursor: not-allowed;
