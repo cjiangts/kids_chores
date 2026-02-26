@@ -140,6 +140,9 @@ function renderHistory(attempts) {
         const responseTimeLabel = formatResponseTime(rawMs);
         const statusClass = item.correct ? 'right' : 'wrong';
         const statusText = item.correct ? 'Right' : 'Wrong';
+        const lessonReadingAudioAttrs = from === 'lesson-reading'
+            ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${rawMs}"`
+            : '';
         return `
             <div class="history-item">
                 ${formatType(item.session_type)} · ${responseTimeLabel}
@@ -148,10 +151,14 @@ function renderHistory(attempts) {
                     ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
                     · Session #${safeNum(item.session_id)}
                 </div>
-                ${item.audio_url ? `<audio class="attempt-audio" controls preload="none" src="${escapeHtml(item.audio_url)}"></audio>` : ''}
+                ${item.audio_url ? `<audio class="attempt-audio" controls preload="none" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>` : ''}
             </div>
         `;
     }).join('');
+
+    if (from === 'lesson-reading' && window.LessonReadingDurationBackfill) {
+        window.LessonReadingDurationBackfill.attach(historyList, { kidId });
+    }
 }
 
 function formatResponseTime(ms) {

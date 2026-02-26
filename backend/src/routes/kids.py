@@ -32,7 +32,7 @@ DEFAULT_SHARED_MATH_SESSION_CARD_COUNT = 10
 DEFAULT_SHARED_MATH_INCLUDE_ORPHAN = False
 DEFAULT_SHARED_LESSON_READING_SESSION_CARD_COUNT = 0
 DEFAULT_SHARED_LESSON_READING_INCLUDE_ORPHAN = False
-DEFAULT_SHARED_CHINESE_CHARACTERS_INCLUDE_ORPHAN = False
+DEFAULT_SHARED_CHINESE_CHARACTERS_INCLUDE_ORPHAN = True
 ALLOWED_SHARED_DECK_FIRST_TAGS = {'math', 'chinese_reading', 'chinese_characters'}
 MAX_SHARED_DECK_TAGS = 20
 MAX_SHARED_DECK_CARDS = 10000
@@ -2092,6 +2092,91 @@ def grade_kid_report_session_result(kid_id, session_id, result_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/report/results/<result_id>/response-time', methods=['PUT'])
+def backfill_kid_report_result_response_time(kid_id, result_id):
+    """Backfill lesson-reading response time from browser-observed audio duration."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        try:
+            result_id_int = int(result_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid result id'}), 400
+        if result_id_int <= 0:
+            return jsonify({'error': 'Invalid result id'}), 400
+
+        data = request.get_json() or {}
+        try:
+            response_time_ms = int(data.get('responseTimeMs'))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'responseTimeMs must be an integer'}), 400
+        if response_time_ms <= 0:
+            return jsonify({'error': 'responseTimeMs must be > 0'}), 400
+
+        conn = get_kid_connection_for(kid)
+        try:
+            row = conn.execute(
+                """
+                SELECT
+                    sr.id,
+                    sr.card_id,
+                    COALESCE(sr.response_time_ms, 0) AS response_time_ms,
+                    s.type
+                FROM session_results sr
+                JOIN sessions s ON s.id = sr.session_id
+                WHERE sr.id = ?
+                LIMIT 1
+                """,
+                [result_id_int]
+            ).fetchone()
+            if not row:
+                return jsonify({'error': 'Session result not found'}), 404
+
+            card_id = int(row[1]) if row[1] is not None else None
+            current_ms = int(row[2] or 0)
+            session_type = str(row[3] or '')
+            if session_type != 'lesson_reading':
+                return jsonify({'error': 'Only lesson reading results support duration backfill'}), 400
+
+            updated = False
+            if current_ms <= 0:
+                conn.execute(
+                    "UPDATE session_results SET response_time_ms = ? WHERE id = ?",
+                    [response_time_ms, result_id_int]
+                )
+                updated = True
+
+                if card_id is not None:
+                    latest_row = conn.execute(
+                        """
+                        SELECT sr.id
+                        FROM session_results sr
+                        JOIN sessions s ON s.id = sr.session_id
+                        WHERE sr.card_id = ? AND s.type = 'lesson_reading'
+                        ORDER BY COALESCE(s.completed_at, s.started_at, sr.timestamp) DESC, sr.id DESC
+                        LIMIT 1
+                        """,
+                        [card_id]
+                    ).fetchone()
+                    if latest_row and int(latest_row[0]) == result_id_int:
+                        conn.execute(
+                            "UPDATE cards SET hardness_score = ? WHERE id = ?",
+                            [float(response_time_ms), card_id]
+                        )
+
+            return jsonify({
+                'result_id': result_id_int,
+                'updated': bool(updated),
+                'response_time_ms': int(response_time_ms if updated else current_ms),
+            }), 200
+        finally:
+            conn.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>', methods=['PUT'])
 def update_kid(kid_id):
     """Update a specific kid's metadata"""
@@ -2877,7 +2962,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 [session_id, card_id, correct_value, response_time_ms]
             ).fetchone()
             result_id = int(result_row[0])
-            latest_response_by_card[card_id] = response_time_ms
             touched_card_ids.add(card_id)
 
             if session_type == 'lesson_reading':
@@ -2923,6 +3007,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                                 [result_id, file_name, mime_type]
                             )
                             consumed_lesson_audio_files.add(file_name)
+            latest_response_by_card[card_id] = response_time_ms
 
         if session_type in ('flashcard', 'math', 'lesson_reading'):
             for card_id, latest_ms in latest_response_by_card.items():

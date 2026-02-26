@@ -114,8 +114,11 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
         const responseTimeLabel = formatResponseTime(rawMs, currentSessionType);
         const pct = Math.max(0, Math.min(100, (rawMs / maxMs) * 100));
+        const lessonReadingAudioAttrs = currentSessionType === 'lesson_reading'
+            ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${rawMs}"`
+            : '';
         const audioHtml = item.audio_url
-            ? `<audio class="attempt-audio" controls preload="none" src="${escapeHtml(item.audio_url)}"></audio>`
+            ? `<audio class="attempt-audio" controls preload="none" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>`
             : '';
         const gradingHtml = renderGradingControls(item);
         const from = getCardReportFromSessionType(currentSessionType);
@@ -136,6 +139,10 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
             </div>
         `;
     }).join('');
+
+    if (currentSessionType === 'lesson_reading' && window.LessonReadingDurationBackfill) {
+        window.LessonReadingDurationBackfill.attach(container, { kidId });
+    }
 }
 
 function formatResponseTime(ms, sessionType) {

@@ -47,7 +47,6 @@ let recordingChunks = [];
 let recordingMimeType = '';
 let pendingRecordedBlob = null;
 let pendingRecordedMimeType = '';
-let pendingRecordedResponseTimeMs = 0;
 let pendingRecordedUrl = '';
 const errorState = { lastMessage: '' };
 const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
@@ -323,8 +322,6 @@ async function toggleRecord() {
 
 
 async function stopRecordingForReview() {
-    const now = Date.now();
-    const recordingDurationMs = Math.max(0, now - recordingStartedAtMs);
     const previousBtnText = recordBtn.textContent;
     recordBtn.disabled = true;
     recordBtn.textContent = 'Stopping...';
@@ -357,9 +354,9 @@ async function stopRecordingForReview() {
     }
 
     resetRecordingState();
+
     pendingRecordedBlob = blob;
     pendingRecordedMimeType = mimeType;
-    pendingRecordedResponseTimeMs = await estimateAudioDurationMs(blob, recordingDurationMs);
     if (pendingRecordedUrl) {
         URL.revokeObjectURL(pendingRecordedUrl);
     }
@@ -377,43 +374,6 @@ async function stopRecordingForReview() {
     recordBtn.disabled = false;
     showError('');
     updateFinishEarlyButtonState();
-}
-
-
-async function estimateAudioDurationMs(blob, fallbackMs) {
-    const fallback = Math.max(0, Number(fallbackMs) || 0);
-    if (!blob || !(blob instanceof Blob)) {
-        return fallback;
-    }
-
-    return new Promise((resolve) => {
-        const audio = document.createElement('audio');
-        const url = URL.createObjectURL(blob);
-        let done = false;
-        const finish = (value) => {
-            if (done) return;
-            done = true;
-            try {
-                URL.revokeObjectURL(url);
-            } catch (error) {
-                // no-op
-            }
-            const parsed = Math.max(0, Number(value) || 0);
-            resolve(parsed > 0 ? parsed : fallback);
-        };
-
-        const timeoutId = window.setTimeout(() => finish(fallback), 1200);
-        audio.preload = 'metadata';
-        audio.onloadedmetadata = () => {
-            window.clearTimeout(timeoutId);
-            finish(Math.round(Math.max(0, Number(audio.duration) || 0) * 1000));
-        };
-        audio.onerror = () => {
-            window.clearTimeout(timeoutId);
-            finish(fallback);
-        };
-        audio.src = url;
-    });
 }
 
 
@@ -512,7 +472,6 @@ function resetRecordingState() {
 function clearPendingRecordingPreview() {
     pendingRecordedBlob = null;
     pendingRecordedMimeType = '';
-    pendingRecordedResponseTimeMs = 0;
     if (reviewAudio) {
         try {
             reviewAudio.pause();
@@ -575,7 +534,6 @@ async function confirmAndNext() {
         sessionAnswers.push({
             cardId: card.id,
             known: true,
-            responseTimeMs: Math.max(0, Number(pendingRecordedResponseTimeMs) || 0),
         });
         completedCount += 1;
         updateFinishEarlyButtonState();

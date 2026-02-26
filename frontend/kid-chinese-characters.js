@@ -31,7 +31,6 @@ const resultSummary = document.getElementById('resultSummary');
 const pauseMask = document.getElementById('pauseMask');
 const flashcard = document.getElementById('flashcard');
 const cardBackContent = document.getElementById('cardBackContent');
-const cardSourceTags = document.getElementById('cardSourceTags');
 const revealRow = document.getElementById('revealRow');
 const judgeRow = document.getElementById('judgeRow');
 const revealBtn = document.getElementById('revealBtn');
@@ -325,9 +324,6 @@ function displayCurrentCard() {
     }
 
     const card = sessionCards[currentSessionIndex];
-    if (cardSourceTags) {
-        cardSourceTags.textContent = formatChineseCharactersSourceTags(card);
-    }
     cardContent.textContent = card.front;
     cardBackContent.textContent = String(card.back || '').trim();
     renderPracticeProgress(progress, progressFill, currentSessionIndex + 1, sessionCards.length, 'Card');
@@ -337,26 +333,6 @@ function displayCurrentCard() {
     pauseStartedAtMs = 0;
     pausedDurationMs = 0;
     setPausedVisual(false);
-}
-
-function formatChineseCharactersSourceTags(card) {
-    if (!card || typeof card !== 'object') {
-        return 'Source:';
-    }
-    const rawTags = Array.isArray(card.source_tags) ? card.source_tags : [];
-    let tags = rawTags
-        .map((tag) => String(tag || '').trim())
-        .filter(Boolean);
-    if (tags[0] === 'chinese_characters') {
-        tags = tags.slice(1);
-    }
-    if (tags.length === 0 && card.source_is_orphan) {
-        tags = ['orphan'];
-    }
-    if (tags.length === 0 && card.deck_name) {
-        tags = [String(card.deck_name)];
-    }
-    return `Source: ${tags.join(' · ')}`;
 }
 
 function revealAnswer() {

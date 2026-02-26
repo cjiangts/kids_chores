@@ -34,7 +34,6 @@ const addReadingBtn = document.getElementById('addReadingBtn');
 const addCardStatusMessage = document.getElementById('addCardStatusMessage');
 const addSiWuKuaiDuBtn = document.getElementById('addSiWuKuaiDuBtn');
 const addMaLiPingBtn = document.getElementById('addMaLiPingBtn');
-const orphanSummaryEl = document.getElementById('orphanSummary');
 
 const sharedDeckTabs = document.getElementById('sharedDeckTabs');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
@@ -504,21 +503,6 @@ function renderSelectedDecks() {
     selectedEmptyEl.classList.add('hidden');
 }
 
-function renderOrphanSummary() {
-    if (!orphanDeck) {
-        orphanSummaryEl.textContent = 'Orphan deck not available yet.';
-        return;
-    }
-    const total = Number.parseInt(orphanDeck.card_count, 10) || 0;
-    const active = Number.parseInt(orphanDeck.active_card_count, 10);
-    const skipped = Number.parseInt(orphanDeck.skipped_card_count, 10);
-    if (Number.isInteger(active) && Number.isInteger(skipped)) {
-        orphanSummaryEl.textContent = `${orphanDeck.name}: ${total} total (${active} active, ${skipped} skipped)`;
-    } else {
-        orphanSummaryEl.textContent = `${orphanDeck.name}: ${total} total`;
-    }
-}
-
 function renderSharedDeckTabs() {
     activeDeckId = null;
     activeDeckLabel = '';
@@ -677,7 +661,6 @@ async function loadSharedChineseCharacterDecks() {
     stagedOptedDeckIdSet = new Set(baselineOptedDeckIdSet);
     orphanDeck = result && typeof result.orphan_deck === 'object' && result.orphan_deck ? result.orphan_deck : null;
     ensureAvailableTagFilterController().sync();
-    renderOrphanSummary();
 
     const responseTotal = Number.parseInt(result.session_card_count, 10);
     if (Number.isInteger(responseTotal)) {
@@ -834,7 +817,6 @@ async function loadSharedDeckCards() {
             orphanDeck.card_count = orphanCards.length;
             orphanDeck.active_card_count = orphanCards.filter((card) => !card.skip_practice).length;
             orphanDeck.skipped_card_count = orphanCards.filter((card) => !!card.skip_practice).length;
-            renderOrphanSummary();
         }
 
         const activeCount = Number.parseInt(data.active_card_count, 10);
