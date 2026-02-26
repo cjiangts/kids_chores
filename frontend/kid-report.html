@@ -84,6 +84,49 @@
             font-size: 1.05rem;
         }
 
+        .daily-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.4rem;
+        }
+
+        .daily-chart-header h2 {
+            margin: 0;
+        }
+
+        .daily-chart-pager {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .daily-chart-page-label {
+            color: #555;
+            font-size: 0.82rem;
+            font-weight: 600;
+            min-width: 140px;
+            text-align: center;
+        }
+
+        .daily-chart-page-btn {
+            border: 1px solid #d4dbef;
+            background: #fff;
+            color: #2f3c7e;
+            border-radius: 999px;
+            padding: 0.22rem 0.65rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .daily-chart-page-btn:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
+
         .daily-legend {
             display: flex;
             gap: 0.75rem;
@@ -215,7 +258,14 @@
         <div class="summary-grid" id="summaryGrid"></div>
 
         <div class="daily-chart-wrap">
-            <h2>Daily Practice Minutes</h2>
+            <div class="daily-chart-header">
+                <h2>Daily Practice Active Minutes</h2>
+                <div class="daily-chart-pager">
+                    <button id="dailyChartNewerBtn" type="button" class="daily-chart-page-btn">Newer</button>
+                    <div id="dailyChartPageLabel" class="daily-chart-page-label">Latest 7 days</div>
+                    <button id="dailyChartOlderBtn" type="button" class="daily-chart-page-btn">Older</button>
+                </div>
+            </div>
             <div class="daily-legend">
                 <span><span class="legend-dot dot-reading"></span>Characters</span>
                 <span><span class="legend-dot dot-math"></span>Math</span>
@@ -226,6 +276,9 @@
         </div>
 
         <div class="report-table-wrap">
+            <div class="daily-chart-header" style="margin-bottom:0.7rem;">
+                <h2 style="margin:0; color:#2f3c7e; font-size:1.05rem;">Per Session Records</h2>
+            </div>
             <table class="report-table">
                 <thead>
                     <tr>
@@ -233,6 +286,7 @@
                         <th>Type</th>
                         <th id="startedHeader">Started</th>
                         <th>Total Minutes</th>
+                        <th>Active Minutes</th>
                         <th>Answered</th>
                         <th>Right</th>
                         <th>Wrong</th>

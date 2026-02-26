@@ -7,14 +7,38 @@ const reportTitle = document.getElementById('reportTitle');
 const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
 const dailyChartBody = document.getElementById('dailyChartBody');
+const dailyChartNewerBtn = document.getElementById('dailyChartNewerBtn');
+const dailyChartOlderBtn = document.getElementById('dailyChartOlderBtn');
+const dailyChartPageLabel = document.getElementById('dailyChartPageLabel');
 const reportBody = document.getElementById('reportBody');
 const startedHeader = document.getElementById('startedHeader');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+let dailyChartRows = [];
+let dailyChartPageIndex = 0;
+let reportSessions = [];
+const DAILY_CHART_PAGE_SIZE = 7;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
         window.location.href = '/admin.html';
         return;
+    }
+    if (dailyChartNewerBtn) {
+        dailyChartNewerBtn.addEventListener('click', () => {
+            if (dailyChartPageIndex <= 0) return;
+            dailyChartPageIndex -= 1;
+            renderDailyMinutesChartPage();
+            renderTablePage();
+        });
+    }
+    if (dailyChartOlderBtn) {
+        dailyChartOlderBtn.addEventListener('click', () => {
+            const pageCount = getDatePageCount(dailyChartRows, (row) => String(row?.date || ''), DAILY_CHART_PAGE_SIZE);
+            if (dailyChartPageIndex >= (pageCount - 1)) return;
+            dailyChartPageIndex += 1;
+            renderDailyMinutesChartPage();
+            renderTablePage();
+        });
     }
     await loadReport();
 });
@@ -30,6 +54,7 @@ async function loadReport() {
         const data = await response.json();
         const kidName = (data.kid && data.kid.name) ? data.kid.name : 'Kid';
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+        reportSessions = sessions;
         reportTitle.textContent = `${kidName}'s Practice Report`;
         renderSummary(sessions);
         renderDailyMinutesChart(sessions);
@@ -66,42 +91,46 @@ async function loadReportTimezone() {
 }
 
 function renderSummary(sessions) {
-    const total = sessions.length;
-    const readingSessions = sessions.filter((s) => s.type === 'flashcard');
-    const mathSessions = sessions.filter((s) => s.type === 'math');
-    const writingSessions = sessions.filter((s) => s.type === 'writing');
-    const lessonReadingSessions = sessions.filter((s) => s.type === 'lesson_reading');
-    const reading = readingSessions.length;
-    const math = mathSessions.length;
-    const writing = writingSessions.length;
-    const lessonReading = lessonReadingSessions.length;
-    const totalMinutes = sessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
-    const readingMinutes = readingSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
-    const mathMinutes = mathSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
-    const writingMinutes = writingSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
-    const lessonReadingMinutes = lessonReadingSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
+    const allTotals = summarizeSessions(sessions);
+    const todayKey = formatDateKey(new Date().toISOString());
+    const weeklyStartKey = todayKey ? shiftDateKey(todayKey, -6) : '';
+    const todaySessions = sessions.filter((session) => getSessionDateKey(session) === todayKey);
+    const weeklySessions = sessions.filter((session) => {
+        const key = getSessionDateKey(session);
+        return !!key && !!weeklyStartKey && key >= weeklyStartKey && key <= todayKey;
+    });
+    const todayTotals = summarizeSessions(todaySessions);
+    const weeklyTotals = summarizeSessions(weeklySessions);
+    const weeklyRangeLabel = (weeklyStartKey && todayKey) ? `${weeklyStartKey} → ${todayKey}` : 'Past 7 days';
 
     summaryGrid.innerHTML = `
-        <div class="summary-card"><div class="label">Total Sessions</div><div class="value">${total}</div><div class="label">${totalMinutes.toFixed(2)} min</div></div>
-        <div class="summary-card"><div class="label">Chinese Characters</div><div class="value">${reading}</div><div class="label">${readingMinutes.toFixed(2)} min</div></div>
-        <div class="summary-card"><div class="label">Math</div><div class="value">${math}</div><div class="label">${mathMinutes.toFixed(2)} min</div></div>
-        <div class="summary-card"><div class="label">Chinese Writing</div><div class="value">${writing}</div><div class="label">${writingMinutes.toFixed(2)} min</div></div>
-        <div class="summary-card"><div class="label">Chinese Reading</div><div class="value">${lessonReading}</div><div class="label">${lessonReadingMinutes.toFixed(2)} min</div></div>
+        <div class="summary-card"><div class="label">Total Sessions</div><div class="value">${allTotals.count}</div><div class="label">Elapsed: ${allTotals.elapsedMinutes.toFixed(1)} min</div><div class="label">Active: ${allTotals.activeMinutes.toFixed(1)} min</div></div>
+        <div class="summary-card"><div class="label">Weekly Total</div><div class="value">${weeklyTotals.count}</div><div class="label">${weeklyRangeLabel}</div><div class="label">Elapsed: ${weeklyTotals.elapsedMinutes.toFixed(1)} min</div><div class="label">Active: ${weeklyTotals.activeMinutes.toFixed(1)} min</div></div>
+        <div class="summary-card"><div class="label">Today</div><div class="value">${todayTotals.count}</div><div class="label">${todayKey || 'Today'}</div><div class="label">Elapsed: ${todayTotals.elapsedMinutes.toFixed(1)} min</div><div class="label">Active: ${todayTotals.activeMinutes.toFixed(1)} min</div></div>
     `;
 }
 
 function renderTable(sessions) {
-    if (sessions.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="8" style="color:#666;">No practice sessions yet.</td></tr>`;
+    reportSessions = Array.isArray(sessions) ? sessions : [];
+    renderTablePage();
+}
+
+function renderTablePage() {
+    const sessions = Array.isArray(reportSessions) ? reportSessions : [];
+    const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
+
+    if (sessions.length === 0 || view.pageItems.length === 0) {
+        reportBody.innerHTML = `<tr><td colspan="9" style="color:#666;">No practice sessions yet.</td></tr>`;
         return;
     }
 
-    reportBody.innerHTML = sessions.map((session) => `
+    reportBody.innerHTML = view.pageItems.map((session) => `
         <tr>
             <td>#${safeNum(session.id)}</td>
             <td>${renderType(session.type)}</td>
             <td>${formatDateTime(session.started_at)}</td>
             <td>${formatDurationMinutes(session)}</td>
+            <td>${formatResponseMinutes(session)}</td>
             <td>${safeNum(session.answer_count)}</td>
             <td>${safeNum(session.right_count)}</td>
             <td>${safeNum(session.wrong_count)}</td>
@@ -114,7 +143,7 @@ function renderDailyMinutesChart(sessions) {
     const dailyMap = new Map();
 
     sessions.forEach((session) => {
-        const minutes = getSessionDurationMinutes(session);
+        const minutes = getSessionResponseMinutes(session);
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
 
@@ -129,17 +158,35 @@ function renderDailyMinutesChart(sessions) {
         row.total += minutes;
     });
 
-    const rows = Array.from(dailyMap.entries())
+    dailyChartRows = Array.from(dailyMap.entries())
         .map(([date, v]) => ({ date, ...v }))
         .sort((a, b) => b.date.localeCompare(a.date));
 
-    if (rows.length === 0) {
-        dailyChartBody.innerHTML = `<div style="color:#666;font-size:0.9rem;">No completed practice time yet.</div>`;
+    dailyChartPageIndex = 0;
+    renderDailyMinutesChartPage();
+}
+
+function renderDailyMinutesChartPage() {
+    const rows = Array.isArray(dailyChartRows) ? dailyChartRows : [];
+    const view = buildDatePageView(rows, (row) => String(row?.date || ''), dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
+    dailyChartPageIndex = view.pageIndex;
+    syncDatePagerControls({
+        newerBtn: dailyChartNewerBtn,
+        olderBtn: dailyChartOlderBtn,
+        labelEl: dailyChartPageLabel,
+        view,
+        emptyLabel: 'No data',
+    });
+
+    if (rows.length === 0 || view.pageItems.length === 0) {
+        dailyChartBody.innerHTML = `<div style="color:#666;font-size:0.9rem;">No active response time yet.</div>`;
         return;
     }
 
-    const maxTotal = Math.max(...rows.map((r) => r.total), 1);
-    dailyChartBody.innerHTML = rows.map((row) => {
+    const pageRows = view.pageItems;
+    const maxTotal = Math.max(...pageRows.map((r) => r.total), 1);
+
+    dailyChartBody.innerHTML = pageRows.map((row) => {
         const readingPct = (row.reading / maxTotal) * 100;
         const mathPct = (row.math / maxTotal) * 100;
         const writingPct = (row.writing / maxTotal) * 100;
@@ -153,10 +200,72 @@ function renderDailyMinutesChart(sessions) {
                     <div class="daily-seg-writing" style="width:${writingPct.toFixed(2)}%"></div>
                     <div class="daily-seg-lesson-reading" style="width:${lessonReadingPct.toFixed(2)}%"></div>
                 </div>
-                <div class="daily-values">C ${row.reading.toFixed(2)} · M ${row.math.toFixed(2)} · W ${row.writing.toFixed(2)} · R ${row.lessonReading.toFixed(2)} · T ${row.total.toFixed(2)}</div>
+                <div class="daily-values">C ${row.reading.toFixed(1)} · M ${row.math.toFixed(1)} · W ${row.writing.toFixed(1)} · R ${row.lessonReading.toFixed(1)} · T ${row.total.toFixed(1)}</div>
             </div>
         `;
     }).join('');
+}
+
+function getSessionDateKey(session) {
+    return formatDateKey(session?.started_at || session?.completed_at);
+}
+
+function getDatePageCount(items, getDateKey, pageSize) {
+    return buildDatePageView(items, getDateKey, 0, pageSize).pageCount;
+}
+
+function buildDatePageView(items, getDateKey, requestedPageIndex, pageSize) {
+    const source = Array.isArray(items) ? items : [];
+    const size = Math.max(1, Number.parseInt(pageSize, 10) || 7);
+    const seen = new Set();
+    const dateKeys = [];
+    for (const item of source) {
+        const key = String(getDateKey(item) || '').trim();
+        if (!key || seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        dateKeys.push(key);
+    }
+
+    const pageCount = dateKeys.length > 0 ? Math.ceil(dateKeys.length / size) : 0;
+    const safePageIndex = pageCount > 0
+        ? Math.max(0, Math.min(Number.parseInt(requestedPageIndex, 10) || 0, pageCount - 1))
+        : 0;
+    const start = safePageIndex * size;
+    const pageDateKeys = dateKeys.slice(start, start + size);
+    const pageDateSet = new Set(pageDateKeys);
+    const pageItems = source.filter((item) => pageDateSet.has(String(getDateKey(item) || '').trim()));
+
+    return {
+        pageIndex: safePageIndex,
+        pageCount,
+        pageDateKeys,
+        pageItems,
+    };
+}
+
+function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }) {
+    const pageCount = Number.isFinite(Number(view?.pageCount)) ? Number(view.pageCount) : 0;
+    const pageIndex = Number.isFinite(Number(view?.pageIndex)) ? Number(view.pageIndex) : 0;
+    const pageDateKeys = Array.isArray(view?.pageDateKeys) ? view.pageDateKeys : [];
+
+    if (labelEl) {
+        if (pageCount <= 0 || pageDateKeys.length === 0) {
+            labelEl.textContent = emptyLabel || 'No data';
+        } else {
+            const first = pageDateKeys[0] || '';
+            const last = pageDateKeys[pageDateKeys.length - 1] || '';
+            const range = (first && last) ? `${first} → ${last}` : `Page ${pageIndex + 1}`;
+            labelEl.textContent = `${range} · ${pageIndex + 1}/${pageCount}`;
+        }
+    }
+    if (newerBtn) {
+        newerBtn.disabled = pageCount <= 0 || pageIndex <= 0;
+    }
+    if (olderBtn) {
+        olderBtn.disabled = pageCount <= 0 || pageIndex >= (pageCount - 1);
+    }
 }
 
 function renderType(type) {
@@ -192,7 +301,12 @@ function formatDateTime(iso) {
 
 function formatDurationMinutes(session) {
     const minutes = getSessionDurationMinutes(session);
-    return minutes.toFixed(2);
+    return minutes.toFixed(1);
+}
+
+function formatResponseMinutes(session) {
+    const minutes = getSessionResponseMinutes(session);
+    return minutes.toFixed(1);
 }
 
 function formatAvgSeconds(avgMs) {
@@ -237,6 +351,41 @@ function getSessionDurationMinutes(session) {
         return 0;
     }
     return Math.max(0, (end.getTime() - start.getTime()) / 60000);
+}
+
+function getSessionResponseMinutes(session) {
+    if (!session || typeof session !== 'object') return 0;
+    const totalResponseMs = Number(session.total_response_ms);
+    if (!Number.isFinite(totalResponseMs)) {
+        return 0;
+    }
+    return Math.max(0, totalResponseMs / 60000);
+}
+
+function summarizeSessions(sessions) {
+    const list = Array.isArray(sessions) ? sessions : [];
+    return {
+        count: list.length,
+        elapsedMinutes: list.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0),
+        activeMinutes: list.reduce((sum, session) => sum + getSessionResponseMinutes(session), 0),
+    };
+}
+
+function shiftDateKey(dateKey, deltaDays) {
+    const text = String(dateKey || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        return '';
+    }
+    const dt = new Date(`${text}T00:00:00Z`);
+    if (Number.isNaN(dt.getTime())) {
+        return '';
+    }
+    const delta = Number.parseInt(deltaDays, 10) || 0;
+    dt.setUTCDate(dt.getUTCDate() + delta);
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dt.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 function showError(message) {
