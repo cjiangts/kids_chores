@@ -271,6 +271,28 @@ window.PracticeManageCommon = {
             });
         }
 
+        if (mode === 'lifetime_attempts_desc') {
+            return copy.sort((a, b) => {
+                const aAttempts = Number.isFinite(a.lifetime_attempts) ? a.lifetime_attempts : 0;
+                const bAttempts = Number.isFinite(b.lifetime_attempts) ? b.lifetime_attempts : 0;
+                if (aAttempts === bAttempts) {
+                    return this.compareQueueOrder(a, b);
+                }
+                return bAttempts - aAttempts;
+            });
+        }
+
+        if (mode === 'lifetime_attempts_asc') {
+            return copy.sort((a, b) => {
+                const aAttempts = Number.isFinite(a.lifetime_attempts) ? a.lifetime_attempts : 0;
+                const bAttempts = Number.isFinite(b.lifetime_attempts) ? b.lifetime_attempts : 0;
+                if (aAttempts === bAttempts) {
+                    return this.compareQueueOrder(a, b);
+                }
+                return aAttempts - bAttempts;
+            });
+        }
+
         return copy.sort((a, b) => this.compareQueueOrder(a, b));
     },
 
@@ -338,8 +360,7 @@ window.PracticeManageCommon = {
     },
 
     createHierarchicalTagFilterController(config = {}) {
-        const inputEl = config.inputEl || null;
-        const optionsEl = config.optionsEl || null;
+        const selectEl = config.selectEl || null;
         const clearBtn = config.clearBtn || null;
         const getDecks = typeof config.getDecks === 'function' ? config.getDecks : () => [];
         const getDeckTags = typeof config.getDeckTags === 'function'
@@ -348,11 +369,10 @@ window.PracticeManageCommon = {
         const onFilterChanged = typeof config.onFilterChanged === 'function' ? config.onFilterChanged : null;
 
         let selectedTags = [];
-        let draftText = '';
         let filteredDeckIdSet = null;
         let currentSuggestions = [];
         let chipsEl = null;
-        let isApplyingProgrammaticInput = false;
+        let isApplyingProgrammaticSelect = false;
 
         const normalizeTag = (raw) => String(raw || '')
             .trim()
@@ -367,7 +387,7 @@ window.PracticeManageCommon = {
             if (chipsEl) {
                 return chipsEl;
             }
-            if (!inputEl || !inputEl.parentElement) {
+            if (!selectEl || !selectEl.parentElement) {
                 return null;
             }
             chipsEl = document.createElement('div');
@@ -388,11 +408,11 @@ window.PracticeManageCommon = {
                 }
             });
 
-            const parent = inputEl.closest('.available-filter');
+            const parent = selectEl.closest('.available-filter');
             if (parent && parent.parentElement) {
                 parent.insertAdjacentElement('afterend', chipsEl);
             } else {
-                inputEl.parentElement.insertAdjacentElement('afterend', chipsEl);
+                selectEl.parentElement.insertAdjacentElement('afterend', chipsEl);
             }
             return chipsEl;
         };
@@ -475,12 +495,7 @@ window.PracticeManageCommon = {
             filteredDeckIdSet = new Set(candidates.map((entry) => entry.deckId));
 
             const nextBranchLevel = findNextBranchLevel(candidates, nextLevelStart);
-            let suggestions = nextBranchLevel < 0 ? [] : getUniqueTagsAtLevel(candidates, nextBranchLevel);
-            const draft = normalizeTag(draftText);
-            if (draft) {
-                suggestions = suggestions.filter((tag) => tag.includes(draft));
-            }
-            currentSuggestions = suggestions;
+            currentSuggestions = nextBranchLevel < 0 ? [] : getUniqueTagsAtLevel(candidates, nextBranchLevel);
         };
 
         const renderChips = () => {
@@ -503,19 +518,24 @@ window.PracticeManageCommon = {
         };
 
         const renderSuggestions = () => {
-            if (!optionsEl) {
+            if (!selectEl) {
                 return;
             }
-            optionsEl.innerHTML = currentSuggestions
-                .map((tag) => `<option value="${escapeHtml(tag)}"></option>`)
-                .join('');
+            const placeholderLabel = currentSuggestions.length > 0 ? 'Add filter tag...' : 'No more tag filters';
+            isApplyingProgrammaticSelect = true;
+            selectEl.innerHTML = [
+                `<option value="">${escapeHtml(placeholderLabel)}</option>`,
+                ...currentSuggestions.map((tag) => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`),
+            ].join('');
+            selectEl.value = '';
+            isApplyingProgrammaticSelect = false;
         };
 
-        const commitInputAsTag = () => {
-            if (!inputEl) {
+        const commitSelectedOptionAsTag = () => {
+            if (!selectEl) {
                 return false;
             }
-            const next = normalizeTag(inputEl.value);
+            const next = normalizeTag(selectEl.value);
             if (!next) {
                 return false;
             }
@@ -523,10 +543,9 @@ window.PracticeManageCommon = {
                 return false;
             }
             selectedTags = [...selectedTags, next];
-            draftText = '';
-            isApplyingProgrammaticInput = true;
-            inputEl.value = '';
-            isApplyingProgrammaticInput = false;
+            isApplyingProgrammaticSelect = true;
+            selectEl.value = '';
+            isApplyingProgrammaticSelect = false;
             return true;
         };
 
@@ -547,45 +566,19 @@ window.PracticeManageCommon = {
             if (!filteredDeckIdSet.has(deckId)) {
                 return false;
             }
-            const draft = normalizeTag(draftText);
-            if (!draft) {
-                return true;
-            }
-            const tags = (Array.isArray(getDeckTags(deck)) ? getDeckTags(deck) : [])
-                .map(normalizeTag)
-                .filter(Boolean);
-            return tags.some((tag) => tag.includes(draft));
+            return true;
         };
 
-        const getDisplayLabel = () => {
-            const parts = [...selectedTags];
-            const draft = normalizeTag(draftText);
-            if (draft) {
-                parts.push(draft);
-            }
-            return parts.join(', ');
-        };
+        const getDisplayLabel = () => [...selectedTags].join(', ');
 
         const clear = () => {
             selectedTags = [];
-            draftText = '';
-            if (inputEl) {
-                isApplyingProgrammaticInput = true;
-                inputEl.value = '';
-                isApplyingProgrammaticInput = false;
-                inputEl.focus();
+            if (selectEl) {
+                isApplyingProgrammaticSelect = true;
+                selectEl.value = '';
+                isApplyingProgrammaticSelect = false;
+                selectEl.focus();
             }
-            sync();
-            if (onFilterChanged) {
-                onFilterChanged();
-            }
-        };
-
-        const handleInput = () => {
-            if (!inputEl || isApplyingProgrammaticInput) {
-                return;
-            }
-            draftText = String(inputEl.value || '');
             sync();
             if (onFilterChanged) {
                 onFilterChanged();
@@ -593,45 +586,21 @@ window.PracticeManageCommon = {
         };
 
         const handleChange = () => {
-            const committed = commitInputAsTag();
+            if (!selectEl || isApplyingProgrammaticSelect) {
+                return;
+            }
+            const committed = commitSelectedOptionAsTag();
             sync();
             if (onFilterChanged) {
                 onFilterChanged();
             }
-            if (committed && inputEl) {
-                inputEl.focus();
+            if (committed && selectEl) {
+                selectEl.focus();
             }
         };
 
-        const handleKeydown = (event) => {
-            if (!event) {
-                return;
-            }
-            if (event.key === 'Enter' || event.key === ',') {
-                event.preventDefault();
-                const committed = commitInputAsTag();
-                sync();
-                if (onFilterChanged) {
-                    onFilterChanged();
-                }
-                if (!committed && inputEl) {
-                    inputEl.select?.();
-                }
-                return;
-            }
-            if (event.key === 'Backspace' && inputEl && !String(inputEl.value || '').trim() && selectedTags.length > 0) {
-                selectedTags = selectedTags.slice(0, -1);
-                sync();
-                if (onFilterChanged) {
-                    onFilterChanged();
-                }
-            }
-        };
-
-        if (inputEl) {
-            inputEl.addEventListener('input', handleInput);
-            inputEl.addEventListener('change', handleChange);
-            inputEl.addEventListener('keydown', handleKeydown);
+        if (selectEl) {
+            selectEl.addEventListener('change', handleChange);
         }
         if (clearBtn) {
             clearBtn.addEventListener('click', clear);
@@ -645,7 +614,6 @@ window.PracticeManageCommon = {
             matchesDeck,
             getDisplayLabel,
             getSelectedTags: () => [...selectedTags],
-            getDraftText: () => String(draftText || ''),
         };
     }
 };

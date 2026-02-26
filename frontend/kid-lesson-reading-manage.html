@@ -144,6 +144,11 @@
             color: #176b2e;
         }
 
+        .deck-bubble:disabled {
+            opacity: 1;
+            cursor: not-allowed;
+        }
+
         .math-v2-actions {
             margin-top: 0.9rem;
             display: flex;
@@ -332,16 +337,15 @@
                         required
                     >
                 </div>
+                <div class="form-group" style="min-width: 280px;">
+                    <label for="sharedLessonReadingIncludeOrphan">Orphan Deck in Practice Queue</label>
+                    <label for="sharedLessonReadingIncludeOrphan" class="checkbox-inline">
+                        <input type="checkbox" id="sharedLessonReadingIncludeOrphan">
+                        <span>Include orphan deck cards in merged practice queue</span>
+                    </label>
+                </div>
                 <button type="submit" class="settings-save-btn">Save</button>
             </form>
-
-            <div class="math-v2-mix">
-                <h3>Deck Mix Allocation</h3>
-                <div id="mixBar" class="mix-bar"></div>
-                <p class="math-v2-note" style="margin-top:-0.2rem;">Drag the dividers on the bar to adjust deck percentages.</p>
-                <div id="mixRows"></div>
-                <p id="mixEmpty" class="math-v2-empty">Opt in at least one deck to configure mix.</p>
-            </div>
         </section>
 
         <section class="settings-section math-v2-panel">
@@ -353,13 +357,7 @@
                     <h3>Available Shared Decks</h3>
                     <div class="available-filter">
                         <div class="form-group">
-                            <input
-                                type="text"
-                                id="availableTagFilter"
-                                list="availableTagOptions"
-                                placeholder="Search by tag"
-                            >
-                            <datalist id="availableTagOptions"></datalist>
+                            <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
                         </div>
                         <button id="clearTagFilterBtn" type="button" class="btn-secondary">Clear</button>
                     </div>
@@ -383,19 +381,19 @@
             <h2 class="cards-title">
                 <span>Chinese Reading Questions <span id="lessonReadingCardCount">(0)</span></span>
             </h2>
-            <div id="sharedDeckTabs" class="math-deck-tabs"></div>
             <div class="cards-toolbar">
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="queue" selected>Order: Next Session Queue</option>
+                    <option value="lifetime_attempts_desc">Order: Lifetime Attempts (Desc)</option>
+                    <option value="lifetime_attempts_asc">Order: Lifetime Attempts (Asc)</option>
                 </select>
             </div>
-            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in this deck: 0</p>
+            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in merged bank: 0</p>
             <div id="cardsGrid" class="cards-grid"></div>
         </section>
     </div>
 
     <script src="practice-manage-common.js"></script>
-    <script src="deck-mix-common.js"></script>
     <script src="kid-lesson-reading-manage.js"></script>
 </body>
 </html>

@@ -20,7 +20,6 @@ const mixEmptyEl = document.getElementById('mixEmpty');
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
 const availableTagFilterInput = document.getElementById('availableTagFilter');
-const availableTagOptions = document.getElementById('availableTagOptions');
 const clearTagFilterBtn = document.getElementById('clearTagFilterBtn');
 const selectedDecksEl = document.getElementById('selectedDecks');
 const selectedEmptyEl = document.getElementById('selectedEmpty');
@@ -381,8 +380,7 @@ function ensureAvailableTagFilterController() {
         return availableTagFilterController;
     }
     availableTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
-        inputEl: availableTagFilterInput,
-        optionsEl: availableTagOptions,
+        selectEl: availableTagFilterInput,
         clearBtn: clearTagFilterBtn,
         getDecks: getAvailableDeckCandidatesForTagFilter,
         getDeckTags,

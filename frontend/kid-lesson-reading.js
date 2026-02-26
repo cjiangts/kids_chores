@@ -16,6 +16,7 @@ const progress = document.getElementById('progress');
 const progressFill = document.getElementById('progressFill');
 const cardTitle = document.getElementById('cardTitle');
 const cardPage = document.getElementById('cardPage');
+const cardSourceTags = document.getElementById('cardSourceTags');
 const recordBtn = document.getElementById('recordBtn');
 const recordRow = document.getElementById('recordRow');
 const reviewAudio = document.getElementById('reviewAudio');
@@ -236,6 +237,9 @@ function showCurrentCard() {
     renderPracticeProgress(progress, progressFill, currentIndex + 1, sessionCards.length, 'Card');
     cardTitle.textContent = card.front || '';
     cardPage.textContent = `Page ${card.back || ''}`;
+    if (cardSourceTags) {
+        cardSourceTags.textContent = formatLessonReadingSourceTags(card);
+    }
     clearPendingRecordingPreview();
 
     if (recordRow) {
@@ -244,6 +248,27 @@ function showCurrentCard() {
     recordBtn.disabled = false;
     setRecordingVisual(false);
     updateFinishEarlyButtonState();
+}
+
+
+function formatLessonReadingSourceTags(card) {
+    if (!card || typeof card !== 'object') {
+        return 'Source:';
+    }
+    const rawTags = Array.isArray(card.source_tags) ? card.source_tags : [];
+    let tags = rawTags
+        .map((tag) => String(tag || '').trim())
+        .filter(Boolean);
+    if (tags[0] === 'chinese_reading') {
+        tags = tags.slice(1);
+    }
+    if (tags.length === 0 && card.source_is_orphan) {
+        tags = ['orphan'];
+    }
+    if (tags.length === 0 && card.deck_name) {
+        tags = [String(card.deck_name)];
+    }
+    return `Source: ${tags.join(' · ')}`;
 }
 
 
