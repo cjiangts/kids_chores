@@ -152,6 +152,19 @@
             flex-wrap: wrap;
         }
 
+        .deck-apply-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.45rem;
+        }
+
+        .deck-apply-stack .success,
+        .deck-apply-stack .error {
+            margin-bottom: 0;
+            width: 100%;
+        }
+
         .math-v2-empty {
             color: #666;
             font-size: 0.9rem;
@@ -355,19 +368,18 @@
             <h2>Practice Settings</h2>
             <form id="sessionSettingsForm" class="settings-row">
                 <div class="form-group">
-                    <label for="sessionCardCount">Chinese Character Cards Per Session (Total Across Opted-in Decks + Orphan)</label>
+                    <label for="sessionCardCount">Chinese Character Cards Per Session (Total Across Opted-in Decks)</label>
                     <input type="number" id="sessionCardCount" min="0" max="200" step="1" required>
+                </div>
+                <div class="form-group" style="min-width: 280px;">
+                    <label for="sharedChineseCharactersIncludeOrphan">Orphan Deck in Practice Queue</label>
+                    <label for="sharedChineseCharactersIncludeOrphan" class="checkbox-inline">
+                        <input type="checkbox" id="sharedChineseCharactersIncludeOrphan">
+                        <span>Include orphan deck cards in merged practice queue</span>
+                    </label>
                 </div>
                 <button type="submit" class="settings-save-btn">Save</button>
             </form>
-
-            <div class="math-v2-mix">
-                <h3>Shared Deck Mix Allocation</h3>
-                <div id="mixBar" class="mix-bar"></div>
-                <p class="math-v2-note" style="margin-top:-0.2rem;">Drag dividers to split the full session across opted-in shared decks and the orphan deck.</p>
-                <div id="mixRows"></div>
-                <p id="mixEmpty" class="math-v2-empty">Opt in at least one shared deck to configure mix.</p>
-            </div>
         </section>
 
         <section class="settings-section math-v2-panel">
@@ -395,7 +407,10 @@
             </div>
             <div class="math-v2-actions">
                 <span id="deckPendingInfo" class="math-v2-note" style="margin:0;">No pending deck changes.</span>
-                <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes</button>
+                <div class="deck-apply-stack">
+                    <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes</button>
+                    <div id="deckChangeMessage" class="success hidden"></div>
+                </div>
             </div>
         </section>
 
@@ -425,7 +440,7 @@
                 <div class="orphan-editor-panel">
                     <h3>Orphan Deck Summary</h3>
                     <p id="orphanSummary" class="orphan-hint">Loading orphan deck...</p>
-                    <p class="orphan-hint">Use the deck tabs below to inspect cards. Delete buttons appear only when the orphan deck tab is selected.</p>
+                    <p class="orphan-hint">Use the merged question bank below to inspect cards. Delete buttons appear only on orphan-deck cards.</p>
                 </div>
             </div>
         </section>
@@ -434,7 +449,6 @@
             <h2 class="cards-title">
                 <span>Chinese Character Questions <span id="cardCount">(0)</span></span>
             </h2>
-            <div id="sharedDeckTabs" class="math-deck-tabs"></div>
             <div class="cards-toolbar">
                 <input
                     type="text"
@@ -447,15 +461,16 @@
                     <option value="queue" selected>Order: Next Session Queue</option>
                     <option value="added_time">Order: Added Time (Recent to Oldest)</option>
                     <option value="hardness_desc">Order: Hardness Score (Desc)</option>
+                    <option value="lifetime_attempts_desc">Order: Lifetime Attempts (Desc)</option>
+                    <option value="lifetime_attempts_asc">Order: Lifetime Attempts (Asc)</option>
                 </select>
             </div>
-            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in this deck: 0</p>
+            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in merged bank: 0</p>
             <div id="cardsGrid" class="cards-grid"></div>
         </section>
     </div>
 
     <script src="practice-manage-common.js"></script>
-    <script src="deck-mix-common.js"></script>
     <script src="kid-reading-manage.js"></script>
 </body>
 </html>

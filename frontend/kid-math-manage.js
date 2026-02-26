@@ -13,9 +13,7 @@ const lessonReadingTab = document.getElementById('lessonReadingTab');
 
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sharedMathSessionCardCountInput = document.getElementById('sharedMathSessionCardCount');
-const mixBarEl = document.getElementById('mixBar');
-const mixRowsEl = document.getElementById('mixRows');
-const mixEmptyEl = document.getElementById('mixEmpty');
+const sharedMathIncludeOrphanInput = document.getElementById('sharedMathIncludeOrphan');
 
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
@@ -25,7 +23,7 @@ const selectedDecksEl = document.getElementById('selectedDecks');
 const selectedEmptyEl = document.getElementById('selectedEmpty');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckPendingInfo = document.getElementById('deckPendingInfo');
-const sharedDeckTabs = document.getElementById('sharedDeckTabs');
+const deckChangeMessage = document.getElementById('deckChangeMessage');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const deckTotalInfo = document.getElementById('deckTotalInfo');
 const mathCardCount = document.getElementById('mathCardCount');
@@ -33,28 +31,15 @@ const cardsGrid = document.getElementById('cardsGrid');
 
 let allDecks = [];
 let orphanDeck = null;
-let mixByDeckId = {};
 let currentCards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
-let activeDeckId = null;
-let activeDeckLabel = '';
 let isDeckMoveInFlight = false;
 let baselineOptedDeckIdSet = new Set();
 let stagedOptedDeckIdSet = new Set();
 let availableTagFilterController = null;
+let includeOrphanInQueue = false;
 const CARD_PAGE_SIZE = 10;
-
-const MIX_COLORS = [
-    '#66d9e8',
-    '#74c0fc',
-    '#b197fc',
-    '#ffd43b',
-    '#ffa94d',
-    '#8ce99a',
-    '#ff8787',
-    '#c0eb75',
-];
 
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -84,45 +69,22 @@ function showSuccess(message) {
     successMessage.classList.remove('hidden');
 }
 
-function distributeIntegerTotal(total, weights) {
-    const count = Array.isArray(weights) ? weights.length : 0;
-    if (count === 0) {
-        return [];
+function showDeckChangeMessage(message, isError = false) {
+    if (!deckChangeMessage) {
+        return;
     }
-    const safeTotal = Math.max(0, Number.parseInt(total, 10) || 0);
-    if (safeTotal === 0) {
-        return Array(count).fill(0);
+    const text = String(message || '').trim();
+    if (!text) {
+        deckChangeMessage.textContent = '';
+        deckChangeMessage.classList.add('hidden');
+        deckChangeMessage.classList.remove('error');
+        deckChangeMessage.classList.add('success');
+        return;
     }
-
-    const normalized = weights.map((weight) => {
-        const value = Number(weight);
-        return Number.isFinite(value) && value > 0 ? value : 0;
-    });
-    const weightSum = normalized.reduce((sum, value) => sum + value, 0);
-    const finalWeights = weightSum > 0 ? normalized : Array(count).fill(1);
-    const finalWeightSum = finalWeights.reduce((sum, value) => sum + value, 0);
-
-    const exact = finalWeights.map((value) => (value * safeTotal) / finalWeightSum);
-    const floors = exact.map((value) => Math.floor(value));
-    let remainder = safeTotal - floors.reduce((sum, value) => sum + value, 0);
-
-    const ranked = exact
-        .map((value, index) => ({ index, remainder: value - floors[index] }))
-        .sort((a, b) => {
-            if (b.remainder !== a.remainder) {
-                return b.remainder - a.remainder;
-            }
-            return a.index - b.index;
-        });
-
-    let cursor = 0;
-    while (remainder > 0 && ranked.length > 0) {
-        floors[ranked[cursor].index] += 1;
-        cursor = (cursor + 1) % ranked.length;
-        remainder -= 1;
-    }
-
-    return floors;
+    deckChangeMessage.textContent = text;
+    deckChangeMessage.classList.remove('hidden');
+    deckChangeMessage.classList.toggle('error', isError);
+    deckChangeMessage.classList.toggle('success', !isError);
 }
 
 function getDeckById(deckId) {
@@ -171,135 +133,6 @@ function renderDeckPendingInfo() {
     applyDeckChangesBtn.textContent = isDeckMoveInFlight ? 'Applying...' : 'Apply Deck Changes';
 }
 
-function getMathQuestionDecks() {
-    const decks = getOptedDecks().map((deck) => ({
-        local_deck_id: Number(deck.materialized_deck_id || 0),
-        label: String(deck.name || ''),
-    })).filter((deck) => deck.local_deck_id > 0);
-
-    const orphanDeckId = Number(orphanDeck && orphanDeck.deck_id);
-    const orphanCardCount = Number(orphanDeck && orphanDeck.card_count);
-    if (orphanDeckId > 0 && orphanCardCount > 0) {
-        decks.push({
-            local_deck_id: orphanDeckId,
-            label: String(orphanDeck.name || 'math_orphan'),
-        });
-    }
-
-    return decks;
-}
-
-function normalizeMixForOptedDecks() {
-    const optedDecks = getOptedDecks();
-    if (optedDecks.length === 0) {
-        mixByDeckId = {};
-        return;
-    }
-
-    const deckIds = optedDecks.map((deck) => Number(deck.deck_id));
-    const weights = deckIds.map((deckId) => {
-        const raw = mixByDeckId[String(deckId)];
-        const parsed = Number.parseInt(raw, 10);
-        return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
-    });
-    const percents = distributeIntegerTotal(100, weights);
-
-    const next = {};
-    deckIds.forEach((deckId, index) => {
-        next[String(deckId)] = percents[index];
-    });
-    mixByDeckId = next;
-}
-
-function getCountByDeckId(totalCards, optedDecks) {
-    const deckIds = optedDecks.map((deck) => Number(deck.deck_id));
-    const weights = deckIds.map((deckId) => Number.parseInt(mixByDeckId[String(deckId)] || 0, 10));
-    const counts = distributeIntegerTotal(totalCards, weights);
-    const map = {};
-    deckIds.forEach((deckId, index) => {
-        map[String(deckId)] = counts[index];
-    });
-    return map;
-}
-
-function setMixByDeckFromPercentArray(optedDecks, percents) {
-    const next = {};
-    optedDecks.forEach((deck, index) => {
-        const deckId = String(Number(deck.deck_id));
-        const value = Number.parseInt(percents[index], 10);
-        next[deckId] = Number.isInteger(value) ? Math.max(0, Math.min(100, value)) : 0;
-    });
-    mixByDeckId = next;
-}
-
-function renderMixEditor() {
-    const optedDecks = getOptedDecks();
-    normalizeMixForOptedDecks();
-
-    if (optedDecks.length === 0) {
-        mixBarEl.innerHTML = '';
-        mixRowsEl.innerHTML = '';
-        mixEmptyEl.classList.remove('hidden');
-        return;
-    }
-
-    mixEmptyEl.classList.add('hidden');
-    const totalCards = Math.max(0, Number.parseInt(sharedMathSessionCardCountInput.value, 10) || 0);
-    const countByDeckId = getCountByDeckId(totalCards, optedDecks);
-    const percents = optedDecks.map((deck) => Number.parseInt(mixByDeckId[String(Number(deck.deck_id))] || 0, 10));
-
-    window.SharedDeckMix.renderMixBar({
-        mixBarEl,
-        optedDecks,
-        percents,
-        mixColors: MIX_COLORS,
-        escapeHtml,
-    });
-
-    mixRowsEl.innerHTML = optedDecks
-        .map((deck, index) => {
-            const percent = percents[index];
-            const cards = Number.parseInt(countByDeckId[String(Number(deck.deck_id))] || 0, 10);
-            const color = MIX_COLORS[index % MIX_COLORS.length];
-            return `
-                <div class="mix-row">
-                    <div class="mix-row-label" title="${escapeHtml(deck.name || '')}">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:6px;vertical-align:middle;"></span>${escapeHtml(deck.name || '')}
-                    </div>
-                    <div class="mix-pct">${percent}%</div>
-                    <div class="mix-cards">${cards} cards</div>
-                </div>
-            `;
-        })
-        .join('');
-}
-
-function onMixBarPointerDown(event) {
-    window.SharedDeckMix.onMixBarPointerDown(event, {
-        mixBarEl,
-        getOptedDecks,
-        normalizeMix: normalizeMixForOptedDecks,
-        getPercentForDeck: (deck) => Number.parseInt(mixByDeckId[String(Number(deck.deck_id))] || 0, 10),
-        setMixByDeckFromPercentArray,
-        renderMixEditor,
-    });
-}
-
-function rebalanceAfterOptInChanges() {
-    const optedDecks = getOptedDecks();
-    if (optedDecks.length === 0) {
-        mixByDeckId = {};
-        return;
-    }
-    const weights = optedDecks.map((deck) => Number.parseInt(mixByDeckId[String(Number(deck.deck_id))] || 0, 10));
-    const percents = distributeIntegerTotal(100, weights);
-    const next = {};
-    optedDecks.forEach((deck, index) => {
-        next[String(Number(deck.deck_id))] = percents[index];
-    });
-    mixByDeckId = next;
-}
-
 function renderAvailableDecks() {
     ensureAvailableTagFilterController().sync();
     const allAvailableDecks = (Array.isArray(allDecks) ? allDecks : []).filter(
@@ -308,7 +141,7 @@ function renderAvailableDecks() {
     const deckList = allAvailableDecks.filter(matchesAvailableTagFilter);
     if (allAvailableDecks.length === 0) {
         availableDecksEl.innerHTML = '';
-        availableEmptyEl.textContent = 'No shared math decks available yet.';
+        availableEmptyEl.textContent = 'No shared Math decks available yet.';
         availableEmptyEl.classList.remove('hidden');
         return;
     }
@@ -317,7 +150,7 @@ function renderAvailableDecks() {
         const filterLabel = ensureAvailableTagFilterController().getDisplayLabel();
         availableEmptyEl.textContent = filterLabel
             ? `No available deck matches tag "${filterLabel}".`
-            : 'No shared math decks available yet.';
+            : 'No shared Math decks available yet.';
         availableEmptyEl.classList.remove('hidden');
         return;
     }
@@ -328,13 +161,14 @@ function renderAvailableDecks() {
             const deckId = Number(deck.deck_id || 0);
             const classes = ['deck-bubble'];
             const suffix = ` · ${Number(deck.card_count || 0)} cards`;
+            const label = getMathDeckBubbleLabel(deck);
             return `
                 <button
                     type="button"
                     class="${classes.join(' ')}"
                     data-deck-id="${deckId}"
                     title="Click to stage opt-in"
-                >${escapeHtml(deck.name || '')}${escapeHtml(suffix)}</button>
+                >${escapeHtml(label)}${escapeHtml(suffix)}</button>
             `;
         })
         .join('');
@@ -344,6 +178,29 @@ function getDeckTags(deck) {
     return Array.isArray(deck.tags)
         ? deck.tags.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean)
         : [];
+}
+
+function stripMathFirstTagFromName(name) {
+    const text = String(name || '').trim();
+    if (!text) {
+        return '';
+    }
+    if (text === 'math') {
+        return '';
+    }
+    if (text.startsWith('math_')) {
+        return text.slice('math_'.length);
+    }
+    return text;
+}
+
+function getMathDeckBubbleLabel(deck) {
+    const tags = getDeckTags(deck);
+    if (tags.length > 1 && tags[0] === 'math') {
+        return tags.slice(1).join('_');
+    }
+    const stripped = stripMathFirstTagFromName(deck && deck.name);
+    return stripped || String(deck && deck.name ? deck.name : '');
 }
 
 function getAvailableDeckCandidatesForTagFilter() {
@@ -374,69 +231,42 @@ function matchesAvailableTagFilter(deck) {
 
 function renderSelectedDecks() {
     const optedDecks = getOptedDecks();
-    if (optedDecks.length === 0) {
-        selectedDecksEl.innerHTML = '';
-        selectedEmptyEl.classList.remove('hidden');
-        return;
-    }
+    const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'math_orphan');
+    const orphanName = stripMathFirstTagFromName(orphanNameRaw) || orphanNameRaw;
+    const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
 
-    selectedEmptyEl.classList.add('hidden');
-    selectedDecksEl.innerHTML = optedDecks
-        .map((deck) => {
+    const optedDeckButtons = optedDecks.map((deck) => {
             const deckId = Number(deck.deck_id || 0);
+            const suffix = ` · ${Number(deck.card_count || 0)} cards`;
+            const label = getMathDeckBubbleLabel(deck);
             return `
                 <button
                     type="button"
                     class="deck-bubble selected"
                     data-deck-id="${deckId}"
                     title="Click to stage opt-out"
-                >${escapeHtml(deck.name || '')}</button>
+                >${escapeHtml(label)}${escapeHtml(suffix)}</button>
             `;
-        })
-        .join('');
+        });
+
+    const orphanButton = `
+        <button
+            type="button"
+            class="deck-bubble selected"
+            disabled
+            title="Orphan deck is always shown here and cannot be opted out. Use Practice Settings to include/exclude it from the practice queue."
+        >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
+    `;
+
+    selectedDecksEl.innerHTML = [orphanButton, ...optedDeckButtons].join('');
+    selectedEmptyEl.classList.add('hidden');
 }
-
-
-function renderSharedDeckTabs() {
-    const questionDecks = getMathQuestionDecks();
-    if (questionDecks.length === 0) {
-        activeDeckId = null;
-        activeDeckLabel = '';
-        sharedDeckTabs.innerHTML = '';
-        currentCards = [];
-        resetAndDisplayCards(currentCards);
-        if (mathCardCount) {
-            mathCardCount.textContent = '(0)';
-        }
-        if (deckTotalInfo) {
-            deckTotalInfo.textContent = 'Active cards in this deck: 0';
-        }
-        return;
-    }
-
-    const validIds = new Set(questionDecks.map((deck) => Number(deck.local_deck_id)));
-    if (!Number.isInteger(activeDeckId) || !validIds.has(activeDeckId)) {
-        activeDeckId = Number(questionDecks[0].local_deck_id);
-    }
-
-    sharedDeckTabs.innerHTML = questionDecks.map((deck) => {
-        const localDeckId = Number(deck.local_deck_id);
-        const activeClass = activeDeckId === localDeckId ? ' active' : '';
-        const label = String(deck.label || '');
-        return `
-            <button type="button" class="math-deck-tab${activeClass}" data-materialized-deck-id="${localDeckId}">
-                ${escapeHtml(label)}
-            </button>
-        `;
-    }).join('');
-}
-
 
 function displayCards(cards) {
     sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
 
     if (sortedCards.length === 0) {
-        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in ${escapeHtml(activeDeckLabel || 'this deck')}</h3></div>`;
+        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
         return;
     }
 
@@ -454,6 +284,7 @@ function displayCards(cards) {
             >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
             <div class="card-front">${escapeHtml(card.front)}</div>
             <div class="card-back">= ${escapeHtml(card.back)}</div>
+            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(card.source_deck_label || card.source_deck_name || '-')}</div>
             ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
@@ -490,25 +321,12 @@ function maybeLoadMoreCards() {
 
 async function loadSharedDeckCards() {
     try {
-        if (!Number.isInteger(activeDeckId) || activeDeckId <= 0) {
-            currentCards = [];
-            resetAndDisplayCards(currentCards);
-            if (mathCardCount) {
-                mathCardCount.textContent = '(0)';
-            }
-            if (deckTotalInfo) {
-                deckTotalInfo.textContent = 'Active cards in this deck: 0';
-            }
-            return;
-        }
-
-        const response = await fetch(`${API_BASE}/kids/${kidId}/math/shared-decks/cards?deck_id=${encodeURIComponent(String(activeDeckId))}`);
+        const response = await fetch(`${API_BASE}/kids/${kidId}/math/shared-decks/cards`);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(data.error || `Failed to load deck cards (HTTP ${response.status})`);
+            throw new Error(data.error || `Failed to load merged cards (HTTP ${response.status})`);
         }
 
-        activeDeckLabel = String(data.deck_name || '');
         currentCards = Array.isArray(data.cards) ? data.cards : [];
         const activeCount = Number.isInteger(Number.parseInt(data.active_card_count, 10))
             ? Number.parseInt(data.active_card_count, 10)
@@ -521,12 +339,15 @@ async function loadSharedDeckCards() {
             mathCardCount.textContent = `(${currentCards.length})`;
         }
         if (deckTotalInfo) {
-            deckTotalInfo.textContent = `Active cards in this deck: ${activeCount} (Skipped: ${skippedCount})`;
+            const practiceActiveCount = Number.isInteger(Number.parseInt(data.practice_active_card_count, 10))
+                ? Number.parseInt(data.practice_active_card_count, 10)
+                : activeCount;
+            deckTotalInfo.textContent = `Active cards in merged bank: ${activeCount} (Skipped: ${skippedCount}) · In practice queue pool: ${practiceActiveCount}`;
         }
         resetAndDisplayCards(currentCards);
     } catch (error) {
-        console.error('Error loading shared math cards:', error);
-        showError(error.message || 'Failed to load shared math cards.');
+        console.error('Error loading shared Math cards:', error);
+        showError(error.message || 'Failed to load shared Math cards.');
     }
 }
 
@@ -566,7 +387,7 @@ async function handleCardsGridClick(event) {
         actionBtn.disabled = true;
         await updateSharedMathCardSkip(cardId, targetSkipped);
     } catch (error) {
-        console.error('Error updating shared math card skip:', error);
+        console.error('Error updating shared Math card skip:', error);
         showError(error.message || 'Failed to update skip status.');
     } finally {
         actionBtn.disabled = false;
@@ -581,7 +402,10 @@ async function loadKidInfo() {
     }
     kidNameEl.textContent = `${kid.name || 'Kid'} - Math Management`;
     const total = Number.parseInt(kid.sharedMathSessionCardCount, 10);
-    sharedMathSessionCardCountInput.value = String(Number.isInteger(total) ? total : 10);
+    sharedMathSessionCardCountInput.value = String(Number.isInteger(total) ? total : 0);
+    if (sharedMathIncludeOrphanInput) {
+        sharedMathIncludeOrphanInput.checked = Boolean(kid.sharedMathIncludeOrphan);
+    }
 }
 
 async function loadSharedMathDecks() {
@@ -607,31 +431,14 @@ async function loadSharedMathDecks() {
     if (Number.isInteger(responseTotal)) {
         sharedMathSessionCardCountInput.value = String(responseTotal);
     }
-
-    const responseMix = result && typeof result.shared_math_deck_mix === 'object' && result.shared_math_deck_mix
-        ? result.shared_math_deck_mix
-        : {};
-    const nextMix = {};
-    getOptedDecks().forEach((deck) => {
-        const deckId = String(Number(deck.deck_id));
-        const fromDeck = Number.parseInt(deck.mix_percent, 10);
-        const fromResponse = Number.parseInt(responseMix[deckId], 10);
-        if (Number.isInteger(fromResponse)) {
-            nextMix[deckId] = Math.max(0, Math.min(100, fromResponse));
-        } else if (Number.isInteger(fromDeck)) {
-            nextMix[deckId] = Math.max(0, Math.min(100, fromDeck));
-        } else {
-            nextMix[deckId] = 0;
-        }
-    });
-    mixByDeckId = nextMix;
-    rebalanceAfterOptInChanges();
+    includeOrphanInQueue = Boolean(result && result.include_orphan_in_queue);
+    if (sharedMathIncludeOrphanInput) {
+        sharedMathIncludeOrphanInput.checked = includeOrphanInQueue;
+    }
 
     renderAvailableDecks();
     renderSelectedDecks();
     renderDeckPendingInfo();
-    renderMixEditor();
-    renderSharedDeckTabs();
     await loadSharedDeckCards();
 }
 
@@ -644,20 +451,14 @@ async function saveSessionSettings() {
         showError('Math cards per session must be between 0 and 200.');
         return;
     }
-
-    normalizeMixForOptedDecks();
-    const payloadMix = {};
-    getOptedDecks().forEach((deck) => {
-        const deckId = String(Number(deck.deck_id));
-        payloadMix[deckId] = Number.parseInt(mixByDeckId[deckId] || 0, 10);
-    });
+    const includeOrphan = Boolean(sharedMathIncludeOrphanInput && sharedMathIncludeOrphanInput.checked);
 
     const response = await fetch(`${API_BASE}/kids/${kidId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             sharedMathSessionCardCount: total,
-            sharedMathDeckMix: payloadMix,
+            sharedMathIncludeOrphan: includeOrphan,
         }),
     });
     const result = await response.json().catch(() => ({}));
@@ -666,6 +467,7 @@ async function saveSessionSettings() {
     }
 
     showSuccess('Practice settings saved.');
+    includeOrphanInQueue = includeOrphan;
     await loadSharedMathDecks();
 }
 
@@ -722,12 +524,10 @@ async function stageDeckMembershipChange(deckId, direction) {
 
     showError('');
     showSuccess('');
-    rebalanceAfterOptInChanges();
+    showDeckChangeMessage('');
     renderAvailableDecks();
     renderSelectedDecks();
     renderDeckPendingInfo();
-    renderMixEditor();
-    renderSharedDeckTabs();
     await loadSharedDeckCards();
 }
 
@@ -767,6 +567,7 @@ async function applyDeckMembershipChanges() {
     renderDeckPendingInfo();
     showError('');
     showSuccess('');
+    showDeckChangeMessage('');
     try {
         if (toOptIn.length > 0) {
             await requestOptInDeckIds(toOptIn);
@@ -775,29 +576,15 @@ async function applyDeckMembershipChanges() {
             await requestOptOutDeckIds(toOptOut);
         }
         const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`;
-        showSuccess(summary);
+        showDeckChangeMessage(summary);
         await loadSharedMathDecks();
     } catch (error) {
         console.error('Error applying deck membership changes:', error);
-        showError(error.message || 'Failed to apply deck changes.');
+        showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
     } finally {
         isDeckMoveInFlight = false;
         renderDeckPendingInfo();
     }
-}
-
-async function onSharedDeckTabClick(event) {
-    const tab = event.target.closest('button[data-materialized-deck-id]');
-    if (!tab) {
-        return;
-    }
-    const nextDeckId = Number(tab.getAttribute('data-materialized-deck-id') || 0);
-    if (!(nextDeckId > 0) || activeDeckId === nextDeckId) {
-        return;
-    }
-    activeDeckId = nextDeckId;
-    renderSharedDeckTabs();
-    await loadSharedDeckCards();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -818,13 +605,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     selectedDecksEl.addEventListener('click', async (event) => {
         await onSelectedDeckClick(event);
     });
-    sharedDeckTabs.addEventListener('click', async (event) => {
-        await onSharedDeckTabClick(event);
-    });
     applyDeckChangesBtn.addEventListener('click', async () => {
         await applyDeckMembershipChanges();
     });
-    mixBarEl.addEventListener('pointerdown', onMixBarPointerDown);
     cardsGrid.addEventListener('click', handleCardsGridClick);
     window.addEventListener('scroll', () => {
         maybeLoadMoreCards();
@@ -835,13 +618,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             await saveSessionSettings();
         } catch (error) {
-            console.error('Error saving shared math settings:', error);
+            console.error('Error saving shared Math settings:', error);
             showError(error.message || 'Failed to save practice settings.');
         }
-    });
-
-    sharedMathSessionCardCountInput.addEventListener('input', () => {
-        renderMixEditor();
     });
     viewOrderSelect.addEventListener('change', () => {
         resetAndDisplayCards(currentCards);
@@ -853,7 +632,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadKidInfo();
         await loadSharedMathDecks();
     } catch (error) {
-        console.error('Error initializing math manage:', error);
+        console.error('Error initializing Math manage:', error);
         showError(error.message || 'Failed to load page.');
         kidNameEl.textContent = 'Math Management';
     }

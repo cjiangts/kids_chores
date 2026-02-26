@@ -38,6 +38,13 @@
             line-height: 1.2;
         }
 
+        .card-source {
+            margin-bottom: 0.8rem;
+            font-size: 0.95rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
         .card-answer {
             margin-top: 1rem;
             font-size: 2.8rem;
@@ -166,6 +173,7 @@
                     </div>
 
                     <div id="flashcard" class="flashcard" onclick="togglePauseFromCard()">
+                        <div class="card-source" id="cardSourceTags">Source: add · within10</div>
                         <div class="card-question" id="cardQuestion">3 + 4</div>
                         <div class="card-answer hidden" id="cardAnswer">= 7</div>
                         <div id="pauseMask" class="pause-mask hidden">Paused</div>

@@ -15,6 +15,7 @@ const sessionInfo = document.getElementById('sessionInfo');
 const progress = document.getElementById('progress');
 const progressFill = document.getElementById('progressFill');
 const flashcard = document.getElementById('flashcard');
+const cardSourceTags = document.getElementById('cardSourceTags');
 const cardQuestion = document.getElementById('cardQuestion');
 const cardAnswer = document.getElementById('cardAnswer');
 const pauseMask = document.getElementById('pauseMask');
@@ -117,7 +118,7 @@ async function loadMathPracticeReadyState() {
 
         if (configuredSessionCount <= 0) {
             practiceSection.classList.add('hidden');
-            showError('Math practice is off. Ask your parent to set total cards and deck mix in Manage Math.');
+            showError('Math practice is off. Ask your parent to set a session count in Manage Math.');
             return;
         }
 
@@ -229,6 +230,9 @@ function showCurrentQuestion() {
 
     const card = sessionCards[currentIndex];
     renderPracticeProgress(progress, progressFill, currentIndex + 1, sessionCards.length, 'Question');
+    if (cardSourceTags) {
+        cardSourceTags.textContent = formatMathSourceTags(card);
+    }
     cardQuestion.textContent = card.front;
     cardAnswer.textContent = `= ${card.back}`;
 
@@ -239,6 +243,26 @@ function showCurrentQuestion() {
     pauseStartedAtMs = 0;
     isPaused = false;
     setPausedVisual(false);
+}
+
+function formatMathSourceTags(card) {
+    if (!card || typeof card !== 'object') {
+        return 'Source:';
+    }
+    const rawTags = Array.isArray(card.source_tags) ? card.source_tags : [];
+    let tags = rawTags
+        .map((tag) => String(tag || '').trim())
+        .filter(Boolean);
+    if (tags[0] === 'math') {
+        tags = tags.slice(1);
+    }
+    if (tags.length === 0 && card.source_is_orphan) {
+        tags = ['orphan'];
+    }
+    if (tags.length === 0 && card.deck_name) {
+        tags = [String(card.deck_name)];
+    }
+    return `Source: ${tags.join(' · ')}`;
 }
 
 

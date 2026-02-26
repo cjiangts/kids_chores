@@ -156,6 +156,19 @@
             align-items: center;
         }
 
+        .deck-apply-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.45rem;
+        }
+
+        .deck-apply-stack .success,
+        .deck-apply-stack .error {
+            margin-bottom: 0;
+            width: 100%;
+        }
+
         .math-v2-empty {
             color: #666;
             font-size: 0.9rem;
@@ -373,7 +386,10 @@
             </div>
             <div class="math-v2-actions">
                 <span id="deckPendingInfo" class="math-v2-note" style="margin:0;">No pending deck changes.</span>
-                <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes</button>
+                <div class="deck-apply-stack">
+                    <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes</button>
+                    <div id="deckChangeMessage" class="success hidden"></div>
+                </div>
             </div>
         </section>
 

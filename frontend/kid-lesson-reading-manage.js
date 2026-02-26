@@ -23,6 +23,7 @@ const selectedDecksEl = document.getElementById('selectedDecks');
 const selectedEmptyEl = document.getElementById('selectedEmpty');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckPendingInfo = document.getElementById('deckPendingInfo');
+const deckChangeMessage = document.getElementById('deckChangeMessage');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const deckTotalInfo = document.getElementById('deckTotalInfo');
 const lessonReadingCardCount = document.getElementById('lessonReadingCardCount');
@@ -66,6 +67,24 @@ function showSuccess(message) {
     }
     successMessage.textContent = text;
     successMessage.classList.remove('hidden');
+}
+
+function showDeckChangeMessage(message, isError = false) {
+    if (!deckChangeMessage) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        deckChangeMessage.textContent = '';
+        deckChangeMessage.classList.add('hidden');
+        deckChangeMessage.classList.remove('error');
+        deckChangeMessage.classList.add('success');
+        return;
+    }
+    deckChangeMessage.textContent = text;
+    deckChangeMessage.classList.remove('hidden');
+    deckChangeMessage.classList.toggle('error', isError);
+    deckChangeMessage.classList.toggle('success', !isError);
 }
 
 function getDeckById(deckId) {
@@ -523,6 +542,7 @@ async function stageDeckMembershipChange(deckId, direction) {
 
     showError('');
     showSuccess('');
+    showDeckChangeMessage('');
     renderAvailableDecks();
     renderSelectedDecks();
     renderDeckPendingInfo();
@@ -565,6 +585,7 @@ async function applyDeckMembershipChanges() {
     renderDeckPendingInfo();
     showError('');
     showSuccess('');
+    showDeckChangeMessage('');
     try {
         if (toOptIn.length > 0) {
             await requestOptInDeckIds(toOptIn);
@@ -573,11 +594,11 @@ async function applyDeckMembershipChanges() {
             await requestOptOutDeckIds(toOptOut);
         }
         const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`;
-        showSuccess(summary);
+        showDeckChangeMessage(summary);
         await loadSharedLessonReadingDecks();
     } catch (error) {
         console.error('Error applying deck membership changes:', error);
-        showError(error.message || 'Failed to apply deck changes.');
+        showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
     } finally {
         isDeckMoveInFlight = false;
         renderDeckPendingInfo();
