@@ -953,6 +953,27 @@ def get_shared_deck_cards(conn, deck_id):
     } for row in rows]
 
 
+def get_kid_card_fronts_for_deck_ids(conn, deck_ids):
+    """Return distinct card fronts across selected kid-local deck ids."""
+    normalized = []
+    for raw_id in list(deck_ids or []):
+        try:
+            deck_id = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if deck_id <= 0 or deck_id in normalized:
+            continue
+        normalized.append(deck_id)
+    if not normalized:
+        return set()
+    placeholders = ','.join(['?'] * len(normalized))
+    rows = conn.execute(
+        f"SELECT DISTINCT front FROM cards WHERE deck_id IN ({placeholders})",
+        normalized
+    ).fetchall()
+    return {str(row[0] or '') for row in rows if str(row[0] or '')}
+
+
 def get_shared_front_conflicts(conn, fronts):
     """Return mapping: front -> list of conflicting decks containing that front."""
     if not fronts:
@@ -1285,14 +1306,6 @@ def create_shared_deck():
         conn = None
         try:
             conn = get_shared_decks_connection()
-            fronts = [card['front'] for card in cards]
-            conflicts = get_shared_front_conflicts(conn, fronts)
-            if conflicts:
-                return jsonify({
-                    'error': 'Some card fronts already exist in other decks.',
-                    'front_conflicts': conflicts,
-                }), 409
-
             conn.execute("BEGIN TRANSACTION")
             deck_row = conn.execute(
                 """
@@ -1342,7 +1355,7 @@ def create_shared_deck():
         if 'unique' in err and 'name' in err:
             return jsonify({'error': 'Deck name already exists. Please choose different tags.'}), 409
         if 'unique' in err and 'front' in err:
-            return jsonify({'error': 'Some card fronts already exist in other decks.'}), 409
+            return jsonify({'error': 'Shared deck DB still uses legacy front uniqueness. Run the one-time schema migration first.'}), 409
         return jsonify({'error': str(e)}), 500
 
 
@@ -3637,6 +3650,11 @@ def opt_in_kid_chinese_characters_shared_decks(kid_id):
                 })
 
             kid_conn = get_kid_connection_for(kid)
+            existing_materialized = get_kid_materialized_shared_chinese_characters_decks(kid_conn)
+            occupied_fronts = get_kid_card_fronts_for_deck_ids(
+                kid_conn,
+                list(existing_materialized.keys())
+            )
             created = []
             already_opted_in = []
             for src_deck_id in deck_ids:
@@ -3670,6 +3688,7 @@ def opt_in_kid_chinese_characters_shared_decks(kid_id):
                 cards = cards_by_deck_id.get(src_deck_id, [])
                 cards_added = 0
                 cards_moved_from_orphan = 0
+                cards_skipped_existing_front = 0
                 if cards:
                     orphan_deck_id = get_or_create_chinese_characters_orphan_deck(kid_conn)
                     source_fronts = []
@@ -3704,11 +3723,18 @@ def opt_in_kid_chinese_characters_shared_decks(kid_id):
                     insert_rows = []
                     for card in cards:
                         front = str(card.get('front') or '')
+                        if not front:
+                            continue
+                        if front in occupied_fronts:
+                            cards_skipped_existing_front += 1
+                            continue
                         orphan_row = orphan_by_front.pop(front, None)
                         if orphan_row is not None:
                             moved_rows.append((orphan_row, str(card.get('back') or '')))
+                            occupied_fronts.add(front)
                             continue
                         insert_rows.append([local_deck_id, front, str(card.get('back') or '')])
+                        occupied_fronts.add(front)
 
                     if moved_rows:
                         moved_ids = [int(row[0][0]) for row in moved_rows]
@@ -3751,6 +3777,7 @@ def opt_in_kid_chinese_characters_shared_decks(kid_id):
                     'deck_id': local_deck_id,
                     'cards_added': cards_added,
                     'cards_moved_from_orphan': cards_moved_from_orphan,
+                    'cards_skipped_existing_front': cards_skipped_existing_front,
                     'cards_total': len(cards),
                 })
         finally:
@@ -4210,6 +4237,11 @@ def opt_in_kid_math_shared_decks(kid_id):
                 })
 
             kid_conn = get_kid_connection_for(kid)
+            existing_materialized = get_kid_materialized_shared_math_decks(kid_conn)
+            occupied_fronts = get_kid_card_fronts_for_deck_ids(
+                kid_conn,
+                list(existing_materialized.keys())
+            )
             created = []
             already_opted_in = []
             for src_deck_id in deck_ids:
@@ -4243,6 +4275,7 @@ def opt_in_kid_math_shared_decks(kid_id):
                 cards = cards_by_deck_id.get(src_deck_id, [])
                 cards_added = 0
                 cards_moved_from_orphan = 0
+                cards_skipped_existing_front = 0
                 if cards:
                     orphan_deck_id = get_or_create_math_orphan_deck(kid_conn)
                     source_fronts = []
@@ -4277,11 +4310,18 @@ def opt_in_kid_math_shared_decks(kid_id):
                     insert_rows = []
                     for card in cards:
                         front = str(card.get('front') or '')
+                        if not front:
+                            continue
+                        if front in occupied_fronts:
+                            cards_skipped_existing_front += 1
+                            continue
                         orphan_row = orphan_by_front.pop(front, None)
                         if orphan_row is not None:
                             moved_rows.append(orphan_row)
+                            occupied_fronts.add(front)
                             continue
                         insert_rows.append([local_deck_id, front, str(card.get('back') or '')])
+                        occupied_fronts.add(front)
 
                     if moved_rows:
                         moved_ids = [int(row[0]) for row in moved_rows]
@@ -4325,6 +4365,7 @@ def opt_in_kid_math_shared_decks(kid_id):
                     'deck_id': local_deck_id,
                     'cards_added': cards_added,
                     'cards_moved_from_orphan': cards_moved_from_orphan,
+                    'cards_skipped_existing_front': cards_skipped_existing_front,
                     'cards_total': len(cards),
                 })
         finally:
@@ -4891,6 +4932,11 @@ def opt_in_kid_lesson_reading_shared_decks(kid_id):
                 })
 
             kid_conn = get_kid_connection_for(kid)
+            existing_materialized = get_kid_materialized_shared_lesson_reading_decks(kid_conn)
+            occupied_fronts = get_kid_card_fronts_for_deck_ids(
+                kid_conn,
+                list(existing_materialized.keys())
+            )
             created = []
             already_opted_in = []
             for src_deck_id in deck_ids:
@@ -4924,6 +4970,7 @@ def opt_in_kid_lesson_reading_shared_decks(kid_id):
                 cards = cards_by_deck_id.get(src_deck_id, [])
                 cards_added = 0
                 cards_moved_from_orphan = 0
+                cards_skipped_existing_front = 0
                 if cards:
                     orphan_deck_id = get_or_create_lesson_reading_orphan_deck(kid_conn)
                     source_fronts = []
@@ -4958,11 +5005,18 @@ def opt_in_kid_lesson_reading_shared_decks(kid_id):
                     insert_rows = []
                     for card in cards:
                         front = str(card.get('front') or '')
+                        if not front:
+                            continue
+                        if front in occupied_fronts:
+                            cards_skipped_existing_front += 1
+                            continue
                         orphan_row = orphan_by_front.pop(front, None)
                         if orphan_row is not None:
                             moved_rows.append(orphan_row)
+                            occupied_fronts.add(front)
                             continue
                         insert_rows.append([local_deck_id, front, str(card.get('back') or '')])
+                        occupied_fronts.add(front)
 
                     if moved_rows:
                         moved_ids = [int(row[0]) for row in moved_rows]
@@ -5005,6 +5059,7 @@ def opt_in_kid_lesson_reading_shared_decks(kid_id):
                     'deck_id': local_deck_id,
                     'cards_added': cards_added,
                     'cards_moved_from_orphan': cards_moved_from_orphan,
+                    'cards_skipped_existing_front': cards_skipped_existing_front,
                     'cards_total': len(cards),
                 })
         finally:

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS cards (
   front VARCHAR NOT NULL,
   back VARCHAR NOT NULL,
   FOREIGN KEY (deck_id) REFERENCES deck(deck_id),
-  UNIQUE (front)
+  UNIQUE (deck_id, front)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cards_deck_id_front ON cards(deck_id, front);

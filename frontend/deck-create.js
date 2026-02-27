@@ -28,7 +28,7 @@ let nameAvailable = null;
 let lastNameChecked = '';
 let nameCheckToken = 0;
 let nameCheckTimer = null;
-let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupAcrossDecks: [] };
+let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [] };
 let currentFirstTag = 'math';
 let autocompleteTagPaths = [];
 const RESERVED_FIRST_TAGS = new Set(['math', 'chinese_reading', 'chinese_characters', 'chinese_writing']);
@@ -426,50 +426,22 @@ async function previewDeckFromCsv() {
     });
 
     const uniqueCards = Array.from(firstByFront.values());
-    const frontConflicts = await fetchFrontConflicts(uniqueCards.map((card) => card.front));
-    const acrossDeckDedup = [];
-    previewCards = [];
-    uniqueCards.forEach((card) => {
-        const conflicts = Array.isArray(frontConflicts[card.front]) ? frontConflicts[card.front] : [];
-        if (conflicts.length > 0) {
-            acrossDeckDedup.push({
-                front: card.front,
-                line: card.line,
-                deck_names: conflicts.map((item) => item.name),
-            });
-            return;
-        }
-        previewCards.push({ front: card.front, back: card.back });
-    });
+    previewCards = uniqueCards.map((card) => ({ front: card.front, back: card.back }));
 
     previewDiagnostics = {
         totalRows: cards.length,
         dedupWithinDeck: withinDeckDedup,
-        dedupAcrossDecks: acrossDeckDedup,
     };
     previewRows = cards.map((card) => {
         const first = firstByFront.get(card.front);
         const isFirst = Boolean(first && first.line === card.line);
-        const conflicts = Array.isArray(frontConflicts[card.front]) ? frontConflicts[card.front] : [];
         if (!isFirst) {
-            const conflictDeckNames = conflicts.map((item) => item.name).join(', ');
-            const conflictPart = conflictDeckNames ? `; front also exists in: ${conflictDeckNames}` : '';
             return {
                 line: card.line,
                 front: card.front,
                 back: card.back,
                 kept: false,
-                statusText: `Removed: duplicate of line ${first.line}${conflictPart}`,
-            };
-        }
-        if (conflicts.length > 0) {
-            const conflictDeckNames = conflicts.map((item) => item.name).join(', ');
-            return {
-                line: card.line,
-                front: card.front,
-                back: card.back,
-                kept: false,
-                statusText: `Removed: front already used in ${conflictDeckNames}`,
+                statusText: `Removed: duplicate of line ${first.line}`,
             };
         }
         return {
@@ -491,9 +463,6 @@ function renderReview(cardsToCreate, allRows) {
     const withinDeckDedupCount = Array.isArray(previewDiagnostics.dedupWithinDeck)
         ? previewDiagnostics.dedupWithinDeck.length
         : 0;
-    const acrossDeckDedupCount = Array.isArray(previewDiagnostics.dedupAcrossDecks)
-        ? previewDiagnostics.dedupAcrossDecks.length
-        : 0;
     const shownRows = allRows;
 
     reviewMeta.innerHTML = `
@@ -501,7 +470,6 @@ function renderReview(cardsToCreate, allRows) {
         <div><strong>Tags:</strong> ${tags.map((tag) => `<code>${escapeHtml(tag)}</code>`).join(', ')}</div>
         <div><strong>Rows parsed:</strong> ${totalRows}</div>
         <div><strong>Removed (within this deck):</strong> ${withinDeckDedupCount}</div>
-        <div><strong>Removed (already used by other decks):</strong> ${acrossDeckDedupCount}</div>
         <div><strong>Cards to create:</strong> ${cardsToCreate.length}</div>
     `;
     renderDedupeSummary();
@@ -518,8 +486,7 @@ function renderReview(cardsToCreate, allRows) {
 
 function renderDedupeSummary() {
     const within = Array.isArray(previewDiagnostics.dedupWithinDeck) ? previewDiagnostics.dedupWithinDeck : [];
-    const across = Array.isArray(previewDiagnostics.dedupAcrossDecks) ? previewDiagnostics.dedupAcrossDecks : [];
-    if (within.length === 0 && across.length === 0) {
+    if (within.length === 0) {
         dedupeSummary.innerHTML = '';
         dedupeSummary.classList.add('hidden');
         return;
@@ -534,17 +501,6 @@ function renderDedupeSummary() {
         });
         if (within.length > 30) {
             lines.push(`<p>...and ${within.length - 30} more within-deck duplicates.</p>`);
-        }
-    }
-
-    if (across.length > 0) {
-        lines.push('<p><strong>Already exists in other deck(s):</strong></p>');
-        across.slice(0, 30).forEach((item) => {
-            const deckNames = item.deck_names.map((name) => escapeHtml(name)).join(', ');
-            lines.push(`<p>Line ${item.line} (${escapeHtml(item.front)}) removed; already used in: ${deckNames}.</p>`);
-        });
-        if (across.length > 30) {
-            lines.push(`<p>...and ${across.length - 30} more cross-deck duplicates.</p>`);
         }
     }
 
@@ -742,23 +698,4 @@ function updateAutocompleteSuggestions() {
     existingTagOptions.innerHTML = suggestions
         .map((tag) => `<option value="${escapeHtml(tag)}"></option>`)
         .join('');
-}
-
-async function fetchFrontConflicts(fronts) {
-    if (!Array.isArray(fronts) || fronts.length === 0) {
-        return {};
-    }
-    const response = await fetch(`${API_BASE}/shared-decks/front-conflicts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fronts }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(result.error || `Failed to check front conflicts (HTTP ${response.status})`);
-    }
-    if (!result || typeof result !== 'object' || !result.conflicts || typeof result.conflicts !== 'object') {
-        return {};
-    }
-    return result.conflicts;
 }
