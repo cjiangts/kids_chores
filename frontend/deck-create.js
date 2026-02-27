@@ -28,7 +28,7 @@ let nameAvailable = null;
 let lastNameChecked = '';
 let nameCheckToken = 0;
 let nameCheckTimer = null;
-let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [] };
+let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
 let currentFirstTag = 'math';
 let autocompleteTagPaths = [];
 const RESERVED_FIRST_TAGS = new Set(['math', 'chinese_reading', 'chinese_characters', 'chinese_writing']);
@@ -127,7 +127,7 @@ function renderFirstTagToggle() {
 
 function setCurrentFirstTag(tag) {
     const next = normalizeTag(tag);
-    if (next !== 'math' && next !== 'chinese_reading' && next !== 'chinese_characters') {
+    if (next !== 'math' && next !== 'chinese_reading' && next !== 'chinese_characters' && next !== 'chinese_writing') {
         return;
     }
     if (next === currentFirstTag) {
@@ -160,6 +160,10 @@ function isChineseCharactersDeckMode() {
     return currentFirstTag === 'chinese_characters';
 }
 
+function isChineseWritingDeckMode() {
+    return currentFirstTag === 'chinese_writing';
+}
+
 function updateCardsInputModeUi() {
     if (!cardsCsvInput) {
         return;
@@ -172,6 +176,16 @@ function updateCardsInputModeUi() {
             cardsInputHelpText.innerHTML = 'Paste Chinese text. The system will tokenize into individual Chinese characters as <code>front</code> and auto-generate pinyin as <code>back</code>.';
         }
         cardsCsvInput.placeholder = '比如：春眠不觉晓，处处闻啼鸟。';
+        return;
+    }
+    if (isChineseWritingDeckMode()) {
+        if (cardsInputSectionTitle) {
+            cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
+        }
+        if (cardsInputHelpText) {
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. For <code>chinese_writing</code>, dedup is keyed by <code>back</code>.';
+        }
+        cardsCsvInput.placeholder = '听写提示,汉字答案';
         return;
     }
     if (cardsInputSectionTitle) {
@@ -410,30 +424,35 @@ async function previewDeckFromCsv() {
         return;
     }
 
+    const dedupeKey = isChineseWritingDeckMode() ? 'back' : 'front';
     const withinDeckDedup = [];
-    const firstByFront = new Map();
+    const firstByKey = new Map();
     cards.forEach((card) => {
-        const kept = firstByFront.get(card.front);
+        const keyValue = String(card[dedupeKey] || '');
+        const kept = firstByKey.get(keyValue);
         if (kept) {
             withinDeckDedup.push({
-                front: card.front,
+                dedupe_key: dedupeKey,
+                dedupe_value: keyValue,
                 line: card.line,
                 kept_line: kept.line,
             });
             return;
         }
-        firstByFront.set(card.front, card);
+        firstByKey.set(keyValue, card);
     });
 
-    const uniqueCards = Array.from(firstByFront.values());
+    const uniqueCards = Array.from(firstByKey.values());
     previewCards = uniqueCards.map((card) => ({ front: card.front, back: card.back }));
 
     previewDiagnostics = {
         totalRows: cards.length,
         dedupWithinDeck: withinDeckDedup,
+        dedupeKey,
     };
     previewRows = cards.map((card) => {
-        const first = firstByFront.get(card.front);
+        const keyValue = String(card[dedupeKey] || '');
+        const first = firstByKey.get(keyValue);
         const isFirst = Boolean(first && first.line === card.line);
         if (!isFirst) {
             return {
@@ -441,7 +460,7 @@ async function previewDeckFromCsv() {
                 front: card.front,
                 back: card.back,
                 kept: false,
-                statusText: `Removed: duplicate of line ${first.line}`,
+                statusText: `Removed: duplicate ${dedupeKey} of line ${first.line}`,
             };
         }
         return {
@@ -486,6 +505,7 @@ function renderReview(cardsToCreate, allRows) {
 
 function renderDedupeSummary() {
     const within = Array.isArray(previewDiagnostics.dedupWithinDeck) ? previewDiagnostics.dedupWithinDeck : [];
+    const dedupeKey = previewDiagnostics.dedupeKey === 'back' ? 'back' : 'front';
     if (within.length === 0) {
         dedupeSummary.innerHTML = '';
         dedupeSummary.classList.add('hidden');
@@ -495,9 +515,9 @@ function renderDedupeSummary() {
     const lines = [];
     lines.push('<h3>Deduplication Details</h3>');
     if (within.length > 0) {
-        lines.push('<p><strong>Within current deck CSV:</strong></p>');
+        lines.push(`<p><strong>Within current deck CSV (keyed by ${dedupeKey}):</strong></p>`);
         within.slice(0, 30).forEach((item) => {
-            lines.push(`<p>Line ${item.line} (${escapeHtml(item.front)}) removed, kept line ${item.kept_line}.</p>`);
+            lines.push(`<p>Line ${item.line} (${escapeHtml(item.dedupe_value || '')}) removed, kept line ${item.kept_line}.</p>`);
         });
         if (within.length > 30) {
             lines.push(`<p>...and ${within.length - 30} more within-deck duplicates.</p>`);

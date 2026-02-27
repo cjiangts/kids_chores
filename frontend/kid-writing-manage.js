@@ -5,6 +5,7 @@ const kidId = params.get('id');
 
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
+const successMessage = document.getElementById('successMessage');
 const bulkImportForm = document.getElementById('bulkImportForm');
 const bulkWritingText = document.getElementById('bulkWritingText');
 const bulkAddBtn = document.getElementById('bulkAddBtn');
@@ -13,6 +14,7 @@ const bulkImportErrorMessage = document.getElementById('bulkImportErrorMessage')
 const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
+const sharedWritingIncludeOrphanInput = document.getElementById('sharedWritingIncludeOrphan');
 const sheetCardCountInput = document.getElementById('sheetCardCount');
 const sheetRowsPerCharInput = document.getElementById('sheetRowsPerChar');
 const createSheetBtn = document.getElementById('createSheetBtn');
@@ -22,15 +24,35 @@ const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
 const cardCount = document.getElementById('cardCount');
 const cardsGrid = document.getElementById('cardsGrid');
+const deckTotalInfo = document.getElementById('deckTotalInfo');
 const charactersTab = document.getElementById('charactersTab');
 const writingTab = document.getElementById('writingTab');
 const mathTab = document.getElementById('mathTab');
 const lessonReadingTab = document.getElementById('lessonReadingTab');
 
+const availableDecksEl = document.getElementById('availableDecks');
+const availableEmptyEl = document.getElementById('availableEmpty');
+const availableTagFilterInput = document.getElementById('availableTagFilter');
+const clearTagFilterBtn = document.getElementById('clearTagFilterBtn');
+const selectedDecksEl = document.getElementById('selectedDecks');
+const selectedEmptyEl = document.getElementById('selectedEmpty');
+const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
+const deckPendingInfo = document.getElementById('deckPendingInfo');
+const deckChangeMessage = document.getElementById('deckChangeMessage');
+
 let currentCards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
 const CARD_PAGE_SIZE = 10;
+
+let allDecks = [];
+let orphanDeck = null;
+let baselineOptedDeckIdSet = new Set();
+let stagedOptedDeckIdSet = new Set();
+let includeOrphanInQueue = false;
+let isDeckMoveInFlight = false;
+let availableTagFilterController = null;
+
 let isWritingBulkAdding = false;
 const previewPlayer = window.WritingAudioSequence.createPlayer({
     preload: 'auto',
@@ -41,6 +63,12 @@ const previewPlayer = window.WritingAudioSequence.createPlayer({
     }
 });
 
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value ?? '');
+    return div.innerHTML;
+}
+
 function escapeAttr(value) {
     return String(value || '')
         .replace(/&/g, '&amp;')
@@ -49,51 +77,344 @@ function escapeAttr(value) {
         .replace(/>/g, '&gt;');
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    if (!kidId) {
-        window.location.href = '/admin.html';
+function getDeckById(deckId) {
+    return allDecks.find((deck) => Number(deck.deck_id) === Number(deckId)) || null;
+}
+
+function getOptedDecks() {
+    return allDecks.filter((deck) => stagedOptedDeckIdSet.has(Number(deck.deck_id)));
+}
+
+function hasPendingDeckChanges() {
+    if (stagedOptedDeckIdSet.size !== baselineOptedDeckIdSet.size) {
+        return true;
+    }
+    for (const deckId of stagedOptedDeckIdSet) {
+        if (!baselineOptedDeckIdSet.has(deckId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function showPageSuccess(message) {
+    if (!successMessage) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        successMessage.textContent = '';
+        successMessage.classList.add('hidden');
+        return;
+    }
+    successMessage.textContent = text;
+    successMessage.classList.remove('hidden');
+}
+
+function showDeckChangeMessage(message, isError = false) {
+    if (!deckChangeMessage) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        deckChangeMessage.textContent = '';
+        deckChangeMessage.classList.add('hidden');
+        deckChangeMessage.classList.remove('error');
+        deckChangeMessage.classList.add('success');
+        return;
+    }
+    deckChangeMessage.textContent = text;
+    deckChangeMessage.classList.remove('hidden');
+    deckChangeMessage.classList.toggle('error', isError);
+    deckChangeMessage.classList.toggle('success', !isError);
+}
+
+function renderDeckPendingInfo() {
+    if (!deckPendingInfo || !applyDeckChangesBtn) {
         return;
     }
 
-    charactersTab.href = `/kid-reading-manage.html?id=${kidId}`;
-    writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
-    mathTab.href = `/kid-math-manage.html?id=${kidId}`;
-    lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
-
-    sessionSettingsForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await saveSessionSettings();
+    const toOptIn = [];
+    const toOptOut = [];
+    stagedOptedDeckIdSet.forEach((deckId) => {
+        if (!baselineOptedDeckIdSet.has(deckId)) {
+            toOptIn.push(deckId);
+        }
+    });
+    baselineOptedDeckIdSet.forEach((deckId) => {
+        if (!stagedOptedDeckIdSet.has(deckId)) {
+            toOptOut.push(deckId);
+        }
     });
 
-    bulkImportForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await bulkImportWritingCards();
+    if (toOptIn.length === 0 && toOptOut.length === 0) {
+        deckPendingInfo.textContent = 'No pending deck changes.';
+        applyDeckChangesBtn.disabled = true;
+        applyDeckChangesBtn.textContent = 'Apply Deck Changes';
+        return;
+    }
+
+    deckPendingInfo.textContent = `Pending: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`;
+    applyDeckChangesBtn.disabled = isDeckMoveInFlight;
+    applyDeckChangesBtn.textContent = isDeckMoveInFlight ? 'Applying...' : 'Apply Deck Changes';
+}
+
+function getDeckTags(deck) {
+    return Array.isArray(deck.tags)
+        ? deck.tags.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean)
+        : [];
+}
+
+function stripWritingFirstTagFromName(name) {
+    const text = String(name || '').trim();
+    if (!text) {
+        return '';
+    }
+    if (text === 'chinese_writing') {
+        return '';
+    }
+    if (text.startsWith('chinese_writing_')) {
+        return text.slice('chinese_writing_'.length);
+    }
+    return text;
+}
+
+function getWritingDeckBubbleLabel(deck) {
+    const tags = getDeckTags(deck);
+    if (tags.length > 1 && tags[0] === 'chinese_writing') {
+        return tags.slice(1).join('_');
+    }
+    const stripped = stripWritingFirstTagFromName(deck && deck.name);
+    return stripped || String(deck && deck.name ? deck.name : '');
+}
+
+function getAvailableDeckCandidatesForTagFilter() {
+    return (Array.isArray(allDecks) ? allDecks : []).filter(
+        (deck) => !stagedOptedDeckIdSet.has(Number(deck.deck_id))
+    );
+}
+
+function ensureAvailableTagFilterController() {
+    if (availableTagFilterController) {
+        return availableTagFilterController;
+    }
+    if (!window.PracticeManageCommon || typeof window.PracticeManageCommon.createHierarchicalTagFilterController !== 'function') {
+        availableTagFilterController = {
+            sync: () => {},
+            matchesDeck: () => true,
+            getDisplayLabel: () => '',
+        };
+        return availableTagFilterController;
+    }
+    availableTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
+        selectEl: availableTagFilterInput,
+        clearBtn: clearTagFilterBtn,
+        getDecks: getAvailableDeckCandidatesForTagFilter,
+        getDeckTags,
+        onFilterChanged: () => {
+            renderAvailableDecks();
+        },
+    });
+    return availableTagFilterController;
+}
+
+function matchesAvailableTagFilter(deck) {
+    return ensureAvailableTagFilterController().matchesDeck(deck);
+}
+
+function renderAvailableDecks() {
+    if (!availableDecksEl || !availableEmptyEl) {
+        return;
+    }
+
+    ensureAvailableTagFilterController().sync();
+    const allAvailableDecks = getAvailableDeckCandidatesForTagFilter();
+    const deckList = allAvailableDecks.filter(matchesAvailableTagFilter);
+
+    if (allAvailableDecks.length === 0) {
+        availableDecksEl.innerHTML = '';
+        availableEmptyEl.textContent = 'No shared Chinese Writing decks available yet.';
+        availableEmptyEl.classList.remove('hidden');
+        return;
+    }
+
+    if (deckList.length === 0) {
+        availableDecksEl.innerHTML = '';
+        const filterLabel = ensureAvailableTagFilterController().getDisplayLabel();
+        availableEmptyEl.textContent = filterLabel
+            ? `No available deck matches tag "${filterLabel}".`
+            : 'No shared Chinese Writing decks available yet.';
+        availableEmptyEl.classList.remove('hidden');
+        return;
+    }
+
+    availableEmptyEl.classList.add('hidden');
+    availableDecksEl.innerHTML = deckList.map((deck) => {
+        const deckId = Number(deck.deck_id || 0);
+        const suffix = ` · ${Number(deck.card_count || 0)} cards`;
+        const label = getWritingDeckBubbleLabel(deck);
+        return `
+            <button
+                type="button"
+                class="deck-bubble"
+                data-deck-id="${deckId}"
+                title="Click to stage opt-in"
+            >${escapeHtml(label)}${escapeHtml(suffix)}</button>
+        `;
+    }).join('');
+}
+
+function renderSelectedDecks() {
+    if (!selectedDecksEl || !selectedEmptyEl) {
+        return;
+    }
+
+    const optedDecks = getOptedDecks();
+    const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'chinese_writing_orphan');
+    const orphanName = stripWritingFirstTagFromName(orphanNameRaw) || orphanNameRaw;
+    const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
+
+    const optedDeckButtons = optedDecks.map((deck) => {
+        const deckId = Number(deck.deck_id || 0);
+        const suffix = ` · ${Number(deck.card_count || 0)} cards`;
+        const label = getWritingDeckBubbleLabel(deck);
+        return `
+            <button
+                type="button"
+                class="deck-bubble selected"
+                data-deck-id="${deckId}"
+                title="Click to stage opt-out"
+            >${escapeHtml(label)}${escapeHtml(suffix)}</button>
+        `;
     });
 
-    if (addMaLiPingWritingBtn) {
-        addMaLiPingWritingBtn.addEventListener('click', () => {
-            window.open('/writing-preset-maliping.html', '_blank', 'noopener,noreferrer,width=980,height=860');
-        });
+    const orphanButton = `
+        <button
+            type="button"
+            class="deck-bubble selected"
+            disabled
+            title="Orphan deck is always shown here and cannot be opted out. Use Practice Settings to include/exclude it from the practice queue."
+        >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
+    `;
+
+    selectedDecksEl.innerHTML = [orphanButton, ...optedDeckButtons].join('');
+    selectedEmptyEl.classList.add('hidden');
+}
+
+async function requestOptInDeckIds(deckIds) {
+    const response = await fetch(`${API_BASE}/kids/${kidId}/writing/shared-decks/opt-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_ids: deckIds }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to opt in decks (HTTP ${response.status})`);
+    }
+    return result;
+}
+
+async function requestOptOutDeckIds(deckIds) {
+    const response = await fetch(`${API_BASE}/kids/${kidId}/writing/shared-decks/opt-out`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_ids: deckIds }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to opt out decks (HTTP ${response.status})`);
+    }
+    return result;
+}
+
+async function stageDeckMembershipChange(deckId, direction) {
+    if (isDeckMoveInFlight) {
+        return;
+    }
+    const deck = getDeckById(deckId);
+    if (!deck) {
+        return;
     }
 
-    if (bulkWritingText) {
-        bulkWritingText.addEventListener('input', () => {
-            updateBulkAddButtonCount();
-        });
+    const shouldOptIn = direction === 'in';
+    const numericDeckId = Number(deck.deck_id);
+    const currentlyOptedIn = stagedOptedDeckIdSet.has(numericDeckId);
+    if (shouldOptIn && currentlyOptedIn) {
+        return;
+    }
+    if (!shouldOptIn && !currentlyOptedIn) {
+        return;
     }
 
-    viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
-    cardSearchInput.addEventListener('input', () => resetAndDisplayCards(currentCards));
-    cardsGrid.addEventListener('click', handleCardsGridClick);
-    window.addEventListener('scroll', () => maybeLoadMoreCards());
+    if (shouldOptIn) {
+        stagedOptedDeckIdSet.add(numericDeckId);
+    } else {
+        stagedOptedDeckIdSet.delete(numericDeckId);
+    }
 
-    createSheetBtn.addEventListener('click', async () => createAndPrintSheet());
-    viewSheetsBtn.addEventListener('click', () => viewSheets());
+    showError('');
+    showPageSuccess('');
+    showDeckChangeMessage('');
+    renderAvailableDecks();
+    renderSelectedDecks();
+    renderDeckPendingInfo();
+}
 
-    await loadKidInfo();
-    await loadWritingCards();
-    updateBulkAddButtonCount();
-});
+async function onAvailableDeckClick(event) {
+    const bubble = event.target.closest('button[data-deck-id]');
+    if (!bubble) {
+        return;
+    }
+    const deckId = Number(bubble.getAttribute('data-deck-id') || 0);
+    if (!(deckId > 0)) {
+        return;
+    }
+    await stageDeckMembershipChange(deckId, 'in');
+}
+
+async function onSelectedDeckClick(event) {
+    const bubble = event.target.closest('button[data-deck-id]');
+    if (!bubble) {
+        return;
+    }
+    const deckId = Number(bubble.getAttribute('data-deck-id') || 0);
+    if (!(deckId > 0)) {
+        return;
+    }
+    await stageDeckMembershipChange(deckId, 'out');
+}
+
+async function applyDeckMembershipChanges() {
+    if (isDeckMoveInFlight || !hasPendingDeckChanges()) {
+        return;
+    }
+
+    const toOptIn = [...stagedOptedDeckIdSet].filter((deckId) => !baselineOptedDeckIdSet.has(deckId));
+    const toOptOut = [...baselineOptedDeckIdSet].filter((deckId) => !stagedOptedDeckIdSet.has(deckId));
+
+    isDeckMoveInFlight = true;
+    renderDeckPendingInfo();
+    showError('');
+    showPageSuccess('');
+    showDeckChangeMessage('');
+    try {
+        if (toOptIn.length > 0) {
+            await requestOptInDeckIds(toOptIn);
+        }
+        if (toOptOut.length > 0) {
+            await requestOptOutDeckIds(toOptOut);
+        }
+        const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`;
+        showDeckChangeMessage(summary);
+        await loadSharedWritingDecks();
+    } catch (error) {
+        console.error('Error applying deck membership changes:', error);
+        showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
+    } finally {
+        isDeckMoveInFlight = false;
+        renderDeckPendingInfo();
+    }
+}
 
 async function loadKidInfo() {
     try {
@@ -109,10 +430,48 @@ async function loadKidInfo() {
             : 0;
         sessionCardCountInput.value = writingCount;
         sheetCardCountInput.value = writingCount;
+        if (sharedWritingIncludeOrphanInput) {
+            sharedWritingIncludeOrphanInput.checked = Boolean(kid.sharedWritingIncludeOrphan);
+        }
     } catch (error) {
         console.error('Error loading kid:', error);
         showError('Failed to load kid information');
     }
+}
+
+async function loadSharedWritingDecks() {
+    const response = await fetch(`${API_BASE}/kids/${kidId}/writing/shared-decks`);
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to load shared decks (HTTP ${response.status})`);
+    }
+
+    allDecks = Array.isArray(result.decks) ? result.decks : [];
+    baselineOptedDeckIdSet = new Set(
+        allDecks
+            .filter((deck) => Boolean(deck.opted_in))
+            .map((deck) => Number(deck.deck_id))
+            .filter((deckId) => deckId > 0)
+    );
+    stagedOptedDeckIdSet = new Set(baselineOptedDeckIdSet);
+    orphanDeck = result && typeof result.orphan_deck === 'object' && result.orphan_deck
+        ? result.orphan_deck
+        : null;
+    ensureAvailableTagFilterController().sync();
+
+    const responseTotal = Number.parseInt(result.session_card_count, 10);
+    if (Number.isInteger(responseTotal)) {
+        sessionCardCountInput.value = String(responseTotal);
+    }
+    includeOrphanInQueue = Boolean(result && result.include_orphan_in_queue);
+    if (sharedWritingIncludeOrphanInput) {
+        sharedWritingIncludeOrphanInput.checked = includeOrphanInQueue;
+    }
+
+    renderAvailableDecks();
+    renderSelectedDecks();
+    renderDeckPendingInfo();
+    await loadWritingCards();
 }
 
 async function saveSessionSettings() {
@@ -122,15 +481,20 @@ async function saveSessionSettings() {
             showError('Session size must be between 0 and 200');
             return;
         }
+        const includeOrphan = Boolean(sharedWritingIncludeOrphanInput && sharedWritingIncludeOrphanInput.checked);
 
         const response = await fetch(`${API_BASE}/kids/${kidId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ writingSessionCardCount: value })
+            body: JSON.stringify({
+                writingSessionCardCount: value,
+                sharedWritingIncludeOrphan: includeOrphan,
+            }),
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || `HTTP ${response.status}`);
         }
 
         const updatedKid = await response.json();
@@ -139,27 +503,47 @@ async function saveSessionSettings() {
             : value;
         sessionCardCountInput.value = updatedWritingCount;
         sheetCardCountInput.value = updatedWritingCount;
+        includeOrphanInQueue = includeOrphan;
         showError('');
+        showPageSuccess('Practice settings saved.');
+        await loadSharedWritingDecks();
     } catch (error) {
         console.error('Error saving session settings:', error);
-        showError('Failed to save practice settings');
+        showError(error.message || 'Failed to save practice settings');
     }
 }
 
 async function loadWritingCards() {
     try {
         showError('');
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards`);
+        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/shared-decks/cards`);
+        const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            throw new Error(data.error || `Failed to load merged cards (HTTP ${response.status})`);
         }
 
-        const data = await response.json();
-        currentCards = data.cards || [];
+        currentCards = Array.isArray(data.cards) ? data.cards : [];
+        const activeCount = Number.isInteger(Number.parseInt(data.active_card_count, 10))
+            ? Number.parseInt(data.active_card_count, 10)
+            : currentCards.filter((card) => !card.skip_practice).length;
+        const skippedCount = Number.isInteger(Number.parseInt(data.skipped_card_count, 10))
+            ? Number.parseInt(data.skipped_card_count, 10)
+            : currentCards.filter((card) => !!card.skip_practice).length;
+        const practiceActiveCount = Number.isInteger(Number.parseInt(data.practice_active_card_count, 10))
+            ? Number.parseInt(data.practice_active_card_count, 10)
+            : activeCount;
+
+        if (cardCount) {
+            cardCount.textContent = `(${currentCards.length})`;
+        }
+        if (deckTotalInfo) {
+            deckTotalInfo.textContent = `Active cards in merged bank: ${activeCount} (Skipped: ${skippedCount}) · In practice queue pool: ${practiceActiveCount}`;
+        }
+
         resetAndDisplayCards(currentCards);
     } catch (error) {
         console.error('Error loading writing cards:', error);
-        showError('Failed to load Chinese writing cards');
+        showError(error.message || 'Failed to load Chinese writing cards');
     }
 }
 
@@ -190,7 +574,7 @@ async function bulkImportWritingCards() {
         const skipped = Number(payload.skipped_existing_count || 0);
         bulkWritingText.value = '';
         updateBulkAddButtonCount();
-        await loadWritingCards();
+        await loadSharedWritingDecks();
         showBulkImportError(`Added ${inserted} new card(s). Skipped ${skipped} existing card(s).`, false);
     } catch (error) {
         console.error('Error bulk importing writing cards:', error);
@@ -320,7 +704,7 @@ async function deleteWritingCard(cardId) {
             throw new Error(result.error || 'Failed to delete Chinese writing card.');
         }
 
-        await loadWritingCards();
+        await loadSharedWritingDecks();
     } catch (error) {
         console.error('Error deleting writing card:', error);
         showError(error.message || 'Failed to delete Chinese writing card');
@@ -332,6 +716,10 @@ async function editWritingCardPrompt(cardId) {
         const targetCard = currentCards.find((card) => String(card.id) === String(cardId));
         if (!targetCard) {
             showError('Writing card not found.');
+            return;
+        }
+        if (!targetCard.source_is_orphan) {
+            showError('Only orphan writing cards can be edited here.');
             return;
         }
 
@@ -359,11 +747,25 @@ async function editWritingCardPrompt(cardId) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
 
-        await loadWritingCards();
+        await loadSharedWritingDecks();
     } catch (error) {
         console.error('Error updating writing card front:', error);
         showError(error.message || 'Failed to update voice prompt');
     }
+}
+
+async function updateSharedWritingCardSkip(cardId, skipped) {
+    const response = await fetch(`${API_BASE}/kids/${kidId}/writing/shared-decks/cards/${cardId}/skip`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skipped })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to update skip (HTTP ${response.status})`);
+    }
+    await loadWritingCards();
+    showError('');
 }
 
 function displayCards(cards) {
@@ -374,7 +776,7 @@ function displayCards(cards) {
     updatePracticingSummary(cards);
 
     if (sortedCards.length === 0) {
-        cardsGrid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><h3>No Chinese writing cards yet</h3><p>Bulk add cards above first.</p></div>';
+        cardsGrid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><h3>No Chinese writing cards yet</h3><p>Opt in shared decks or bulk add orphan cards above first.</p></div>';
         return;
     }
 
@@ -382,21 +784,38 @@ function displayCards(cards) {
 
     cardsGrid.innerHTML = visibleCards.map((card) => {
         const hasSavedAudio = !!card.audio_url;
+        const isOrphan = Boolean(card.source_is_orphan);
+        const skipEnabled = !card.skip_practice;
+        const cardLabel = card.back || card.front || '';
+        const promptLabel = card.front || card.back || '';
+        const sourceLabel = card.source_deck_label || card.source_deck_name || '-';
 
         return `
-            <div class="card-item">
+            <div class="card-item ${card.skip_practice ? 'skipped' : ''}">
+                ${isOrphan ? `
+                    <button
+                        type="button"
+                        class="delete-card-btn"
+                        data-action="delete-card"
+                        data-card-id="${escapeAttr(card.id)}"
+                        title="Delete this Chinese writing card"
+                        aria-label="Delete this card"
+                    >x</button>
+                ` : ''}
                 <button
                     type="button"
-                    class="delete-card-btn"
-                    data-action="delete-card"
+                    class="skip-toggle-btn ${card.skip_practice ? 'on' : 'off'}"
+                    data-action="toggle-skip"
                     data-card-id="${escapeAttr(card.id)}"
-                    title="Delete this Chinese writing card"
-                    aria-label="Delete this card"
-                >x</button>
-                <div class="card-front">${card.back || card.front || ''}</div>
+                    data-skipped="${card.skip_practice ? 'true' : 'false'}"
+                    title="${card.skip_practice ? 'Turn skip off for this card' : 'Mark this card as skipped'}"
+                    aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
+                >Skip ${skipEnabled ? 'OFF' : 'ON'}</button>
+                <div class="card-front">${escapeHtml(cardLabel)}</div>
                 <div style="margin-top: 6px; color: #555; font-size: 0.84rem;">
-                    Prompt: ${card.front || ''}
+                    Prompt: ${escapeHtml(promptLabel)}
                 </div>
+                <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(sourceLabel)}</div>
                 <div class="selected-audio-bar">
                     <div class="selected-audio-title">Audio</div>
                     <div class="selected-audio-actions">
@@ -405,6 +824,7 @@ function displayCards(cards) {
                             class="selected-audio-btn edit"
                             data-action="edit-front"
                             data-card-id="${escapeAttr(card.id)}"
+                            ${isOrphan ? '' : 'disabled title="Shared cards are read-only here"'}
                         >Edit Prompt</button>
                         <button
                             type="button"
@@ -415,6 +835,8 @@ function displayCards(cards) {
                     </div>
                 </div>
                 ${hasSavedAudio ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">Will auto-generate on first play</div>'}
+                ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
+                ${isOrphan ? '' : '<div style="margin-top: 4px; color: #666; font-size: 0.8rem;">Shared source card (edit/delete in source deck)</div>'}
                 <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
                 <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>
                 <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
@@ -439,7 +861,8 @@ function filterCardsByQuery(cards, rawQuery) {
     return cards.filter((card) => {
         const front = String(card.front || '');
         const back = String(card.back || '');
-        return front.includes(query) || back.includes(query);
+        const source = String(card.source_deck_label || card.source_deck_name || '');
+        return front.includes(query) || back.includes(query) || source.includes(query);
     });
 }
 
@@ -545,6 +968,24 @@ async function handleCardsGridClick(event) {
     const action = actionEl.dataset.action;
     const cardId = actionEl.dataset.cardId || '';
 
+    if (action === 'toggle-skip') {
+        if (!cardId) {
+            return;
+        }
+        const currentlySkipped = actionEl.dataset.skipped === 'true';
+        const targetSkipped = !currentlySkipped;
+        try {
+            actionEl.disabled = true;
+            await updateSharedWritingCardSkip(cardId, targetSkipped);
+        } catch (error) {
+            console.error('Error updating shared writing card skip:', error);
+            showError(error.message || 'Failed to update skip status.');
+        } finally {
+            actionEl.disabled = false;
+        }
+        return;
+    }
+
     if (action === 'delete-card') {
         if (cardId) {
             await deleteWritingCard(cardId);
@@ -574,3 +1015,71 @@ async function handleCardsGridClick(event) {
         previewPlayer.playUrls(promptUrls);
     }
 }
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!kidId) {
+        window.location.href = '/admin.html';
+        return;
+    }
+
+    charactersTab.href = `/kid-reading-manage.html?id=${kidId}`;
+    writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
+    mathTab.href = `/kid-math-manage.html?id=${kidId}`;
+    lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
+
+    sessionSettingsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveSessionSettings();
+    });
+
+    bulkImportForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await bulkImportWritingCards();
+    });
+
+    if (addMaLiPingWritingBtn) {
+        addMaLiPingWritingBtn.addEventListener('click', () => {
+            window.open('/writing-preset-maliping.html', '_blank', 'noopener,noreferrer,width=980,height=860');
+        });
+    }
+
+    if (bulkWritingText) {
+        bulkWritingText.addEventListener('input', () => {
+            updateBulkAddButtonCount();
+        });
+    }
+
+    if (availableDecksEl) {
+        availableDecksEl.addEventListener('click', async (event) => {
+            await onAvailableDeckClick(event);
+        });
+    }
+    ensureAvailableTagFilterController();
+    if (selectedDecksEl) {
+        selectedDecksEl.addEventListener('click', async (event) => {
+            await onSelectedDeckClick(event);
+        });
+    }
+    if (applyDeckChangesBtn) {
+        applyDeckChangesBtn.addEventListener('click', async () => {
+            await applyDeckMembershipChanges();
+        });
+    }
+
+    viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
+    cardSearchInput.addEventListener('input', () => resetAndDisplayCards(currentCards));
+    cardsGrid.addEventListener('click', handleCardsGridClick);
+    window.addEventListener('scroll', () => maybeLoadMoreCards());
+
+    createSheetBtn.addEventListener('click', async () => createAndPrintSheet());
+    viewSheetsBtn.addEventListener('click', () => viewSheets());
+
+    try {
+        await loadKidInfo();
+        await loadSharedWritingDecks();
+        updateBulkAddButtonCount();
+    } catch (error) {
+        console.error('Error initializing writing manage:', error);
+        showError(error.message || 'Failed to load page.');
+    }
+});
