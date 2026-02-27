@@ -46,6 +46,12 @@ CHINESE_CHARACTERS_ORPHAN_MIX_KEY = 'orphan'
 WRITING_AUDIO_EXTENSION = '.mp3'
 WRITING_AUDIO_FILE_NAME_MAX_BYTES = 220
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
+FLASHCARD_MAX_LOGGED_RESPONSE_TIME_MS = 20 * 1000
+WRITING_MAX_LOGGED_RESPONSE_TIME_MS = 2 * 60 * 1000
+MAX_LOGGED_RESPONSE_TIME_MS_BY_SESSION_TYPE = {
+    'flashcard': FLASHCARD_MAX_LOGGED_RESPONSE_TIME_MS,
+    'writing': WRITING_MAX_LOGGED_RESPONSE_TIME_MS,
+}
 _PENDING_SESSIONS = {}
 _PENDING_SESSIONS_LOCK = threading.Lock()
 
@@ -1730,6 +1736,7 @@ def get_kid_report(kid_id):
             return jsonify({'error': 'Kid not found'}), 404
 
         conn = get_kid_connection_for(kid)
+        apply_lazy_logged_response_time_caps(conn)
         rows = conn.execute(
             """
             SELECT
@@ -1791,6 +1798,7 @@ def get_kid_report_session_detail(kid_id, session_id):
             return jsonify({'error': 'Invalid session id'}), 400
 
         conn = get_kid_connection_for(kid)
+        apply_lazy_logged_response_time_caps(conn)
         session_row = conn.execute(
             """
             SELECT id, type, started_at, completed_at, COALESCE(planned_count, 0)
@@ -1931,6 +1939,7 @@ def get_kid_report_card_detail(kid_id, card_id):
             return jsonify({'error': 'Invalid card id'}), 400
 
         conn = get_kid_connection_for(kid)
+        apply_lazy_logged_response_time_caps(conn)
         card_row = conn.execute(
             """
             SELECT
@@ -2591,6 +2600,55 @@ def filter_answers_to_pending_cards(answers, pending):
     return filtered
 
 
+def normalize_logged_response_time_ms(session_type, raw_response_time_ms):
+    """Normalize and cap logged response time by session type."""
+    try:
+        response_time_ms = int(raw_response_time_ms)
+    except (TypeError, ValueError):
+        response_time_ms = 0
+    response_time_ms = max(0, response_time_ms)
+    max_ms = MAX_LOGGED_RESPONSE_TIME_MS_BY_SESSION_TYPE.get(str(session_type))
+    if max_ms is not None:
+        return min(response_time_ms, int(max_ms))
+    return response_time_ms
+
+
+def apply_lazy_logged_response_time_caps(conn):
+    """Lazily clamp historical response_time_ms rows to configured per-type limits."""
+    # TODO(cleanup): Remove this lazy read-path backfill after a one-time DB migration
+    # caps historical rows; keep only write-time capping in complete_session_internal().
+    flashcard_cap_ms = int(MAX_LOGGED_RESPONSE_TIME_MS_BY_SESSION_TYPE.get('flashcard') or 0)
+    writing_cap_ms = int(MAX_LOGGED_RESPONSE_TIME_MS_BY_SESSION_TYPE.get('writing') or 0)
+
+    if flashcard_cap_ms > 0:
+        conn.execute(
+            """
+            UPDATE session_results
+            SET response_time_ms = ?
+            FROM sessions s
+            WHERE session_results.session_id = s.id
+              AND s.type = 'flashcard'
+              AND session_results.response_time_ms IS NOT NULL
+              AND session_results.response_time_ms > ?
+            """,
+            [flashcard_cap_ms, flashcard_cap_ms]
+        )
+
+    if writing_cap_ms > 0:
+        conn.execute(
+            """
+            UPDATE session_results
+            SET response_time_ms = ?
+            FROM sessions s
+            WHERE session_results.session_id = s.id
+              AND s.type = 'writing'
+              AND session_results.response_time_ms IS NOT NULL
+              AND session_results.response_time_ms > ?
+            """,
+            [writing_cap_ms, writing_cap_ms]
+        )
+
+
 def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded_card_ids=None):
     """Plan one pending deck session without mutating DB state."""
     cards_by_id, selected_ids = plan_deck_practice_selection(
@@ -2944,10 +3002,10 @@ def complete_session_internal(kid, kid_id, session_type, data):
         for answer in answers:
             card_id = answer.get('cardId')
             known = answer.get('known')
-            try:
-                response_time_ms = int(answer.get('responseTimeMs'))
-            except (TypeError, ValueError):
-                response_time_ms = 0
+            response_time_ms = normalize_logged_response_time_ms(
+                session_type,
+                answer.get('responseTimeMs')
+            )
             if session_type == 'lesson_reading':
                 correct_value = 0
             else:
