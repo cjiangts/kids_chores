@@ -19,7 +19,11 @@ const sheetCardCountInput = document.getElementById('sheetCardCount');
 const sheetRowsPerCharInput = document.getElementById('sheetRowsPerChar');
 const createSheetBtn = document.getElementById('createSheetBtn');
 const viewSheetsBtn = document.getElementById('viewSheetsBtn');
-const practicingSummary = document.getElementById('practicingSummary');
+const practicingDeckCount = document.getElementById('practicingDeckCount');
+const practicingDeckGrid = document.getElementById('practicingDeckGrid');
+const practicingDeckEmpty = document.getElementById('practicingDeckEmpty');
+const pendingSheetCardsGrid = document.getElementById('pendingSheetCardsGrid');
+const pendingSheetCardsEmpty = document.getElementById('pendingSheetCardsEmpty');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
 const cardCount = document.getElementById('cardCount');
@@ -41,9 +45,12 @@ const deckPendingInfo = document.getElementById('deckPendingInfo');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
 
 let currentCards = [];
+let state2Cards = [];
+let state3Cards = [];
 let sortedCards = [];
 let visibleCardCount = 10;
 const CARD_PAGE_SIZE = 10;
+const WRITING_SHEET_MAX_ROWS = 10;
 
 let allDecks = [];
 let orphanDeck = null;
@@ -327,6 +334,23 @@ async function requestOptOutDeckIds(deckIds) {
     return result;
 }
 
+async function requestRemovePracticingQueueCard(cardId) {
+    const response = await fetch(
+        `${API_BASE}/kids/${kidId}/writing/practicing-queue/cards/${encodeURIComponent(cardId)}`,
+        { method: 'DELETE' }
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to remove card from candidates (HTTP ${response.status})`);
+    }
+    return result;
+}
+
+async function removeWritingCardFromCandidates(cardId) {
+    await requestRemovePracticingQueueCard(cardId);
+    await loadWritingCards();
+}
+
 async function stageDeckMembershipChange(deckId, direction) {
     if (isDeckMoveInFlight) {
         return;
@@ -523,6 +547,8 @@ async function loadWritingCards() {
         }
 
         currentCards = Array.isArray(data.cards) ? data.cards : [];
+        state2Cards = Array.isArray(data.practicing_cards) ? data.practicing_cards : [];
+        state3Cards = Array.isArray(data.practicing_sheet_cards) ? data.practicing_sheet_cards : [];
         const activeCount = Number.isInteger(Number.parseInt(data.active_card_count, 10))
             ? Number.parseInt(data.active_card_count, 10)
             : currentCards.filter((card) => !card.skip_practice).length;
@@ -540,11 +566,32 @@ async function loadWritingCards() {
             deckTotalInfo.textContent = `Active cards in merged bank: ${activeCount} (Skipped: ${skippedCount}) · In practice queue pool: ${practiceActiveCount}`;
         }
 
+        applySuggestedSheetInputs();
+        renderPracticingDeck();
+        renderPendingSheetCards();
         resetAndDisplayCards(currentCards);
     } catch (error) {
         console.error('Error loading writing cards:', error);
         showError(error.message || 'Failed to load Chinese writing cards');
     }
+}
+
+function applySuggestedSheetInputs() {
+    if (!sheetCardCountInput || !sheetRowsPerCharInput) {
+        return;
+    }
+
+    const candidateCount = Number(state2Cards.length || 0);
+    if (candidateCount <= 0) {
+        sheetCardCountInput.value = '1';
+        sheetRowsPerCharInput.value = '1';
+        return;
+    }
+
+    const suggestedCards = Math.max(1, Math.min(WRITING_SHEET_MAX_ROWS, candidateCount));
+    const suggestedRows = Math.max(1, Math.floor(WRITING_SHEET_MAX_ROWS / suggestedCards));
+    sheetCardCountInput.value = String(suggestedCards);
+    sheetRowsPerCharInput.value = String(suggestedRows);
 }
 
 async function bulkImportWritingCards() {
@@ -640,9 +687,9 @@ async function createAndPrintSheet() {
             previewWindow.close();
             return;
         }
-        if (count * rowsPerCharacter > 10) {
-            const maxCards = Math.max(1, Math.floor(10 / rowsPerCharacter));
-            showSheetError(`One page max is 10 rows. With ${rowsPerCharacter} row(s) per card, max cards is ${maxCards}.`);
+        if (count * rowsPerCharacter > WRITING_SHEET_MAX_ROWS) {
+            const maxCards = Math.max(1, Math.floor(WRITING_SHEET_MAX_ROWS / rowsPerCharacter));
+            showSheetError(`One page max is ${WRITING_SHEET_MAX_ROWS} rows. With ${rowsPerCharacter} row(s) per card, max cards is ${maxCards}.`);
             previewWindow.close();
             return;
         }
@@ -768,12 +815,66 @@ async function updateSharedWritingCardSkip(cardId, skipped) {
     showError('');
 }
 
+function renderPracticingDeck() {
+    if (!practicingDeckGrid || !practicingDeckEmpty || !practicingDeckCount) {
+        return;
+    }
+    const cards = [...state2Cards];
+    practicingDeckCount.textContent = `(${cards.length})`;
+    if (cards.length === 0) {
+        practicingDeckGrid.innerHTML = '';
+        practicingDeckEmpty.textContent = 'No suggested candidate cards.';
+        practicingDeckEmpty.classList.remove('hidden');
+        return;
+    }
+
+    practicingDeckEmpty.classList.add('hidden');
+    practicingDeckGrid.innerHTML = cards.map((card) => {
+        const cardLabel = String(card.back || card.front || '');
+        const reasonLabel = String(card.practicing_reason_label || '').trim() || 'In candidate queue';
+        const actionHtml = `
+            <div class="practicing-card-actions">
+                <button
+                    type="button"
+                    class="practicing-remove-btn"
+                    data-action="set-state-1"
+                    data-card-id="${escapeAttr(card.id)}"
+                >Remove from Candidates</button>
+            </div>
+        `;
+        return `
+            <div class="practicing-card-item">
+                <div class="practicing-card-title">${escapeHtml(cardLabel)}</div>
+                <div class="practicing-card-meta">Reason: ${escapeHtml(reasonLabel)}</div>
+                ${actionHtml}
+            </div>
+        `;
+    }).join('');
+}
+
+function renderPendingSheetCards() {
+    if (!pendingSheetCardsGrid || !pendingSheetCardsEmpty) {
+        return;
+    }
+    const cards = [...state3Cards];
+    if (cards.length === 0) {
+        pendingSheetCardsGrid.textContent = '';
+        pendingSheetCardsEmpty.classList.remove('hidden');
+        return;
+    }
+
+    pendingSheetCardsEmpty.classList.add('hidden');
+    const labels = cards
+        .map((card) => String(card.back || card.front || '').trim())
+        .filter((label) => label.length > 0);
+    pendingSheetCardsGrid.textContent = labels.join(' · ');
+}
+
 function displayCards(cards) {
     const filteredCards = filterCardsByQuery(cards, cardSearchInput.value);
     const sortMode = viewOrderSelect.value;
     sortedCards = window.PracticeManageCommon.sortCardsForView(filteredCards, sortMode);
     cardCount.textContent = `(${sortedCards.length})`;
-    updatePracticingSummary(cards);
 
     if (sortedCards.length === 0) {
         cardsGrid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><h3>No Chinese writing cards yet</h3><p>Opt in shared decks or bulk add orphan cards above first.</p></div>';
@@ -866,17 +967,6 @@ function filterCardsByQuery(cards, rawQuery) {
     });
 }
 
-function updatePracticingSummary(cards) {
-    if (!practicingSummary) {
-        return;
-    }
-    const practicingCards = cards.filter((card) => !!card.pending_sheet);
-    const practicingLabels = practicingCards.map((card) => String(card.back || card.front || '').trim()).filter((v) => v.length > 0);
-    practicingSummary.textContent = practicingLabels.length > 0
-        ? `Currently practicing (${practicingLabels.length}): ${practicingLabels.join(' · ')}`
-        : 'Currently practicing: none';
-}
-
 function resetAndDisplayCards(cards) {
     visibleCardCount = CARD_PAGE_SIZE;
     displayCards(cards);
@@ -967,6 +1057,23 @@ async function handleCardsGridClick(event) {
 
     const action = actionEl.dataset.action;
     const cardId = actionEl.dataset.cardId || '';
+
+    if (action === 'set-state-1') {
+        if (!cardId) {
+            return;
+        }
+        try {
+            actionEl.disabled = true;
+            await removeWritingCardFromCandidates(cardId);
+            showError('');
+        } catch (error) {
+            console.error('Error switching writing card state:', error);
+            showError(error.message || 'Failed to remove candidate card.');
+        } finally {
+            actionEl.disabled = false;
+        }
+        return;
+    }
 
     if (action === 'toggle-skip') {
         if (!cardId) {
@@ -1069,6 +1176,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     viewOrderSelect.addEventListener('change', () => resetAndDisplayCards(currentCards));
     cardSearchInput.addEventListener('input', () => resetAndDisplayCards(currentCards));
     cardsGrid.addEventListener('click', handleCardsGridClick);
+    if (practicingDeckGrid) {
+        practicingDeckGrid.addEventListener('click', handleCardsGridClick);
+    }
     window.addEventListener('scroll', () => maybeLoadMoreCards());
 
     createSheetBtn.addEventListener('click', async () => createAndPrintSheet());

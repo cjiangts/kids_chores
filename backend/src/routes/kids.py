@@ -3163,6 +3163,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
         latest_response_by_card = {}
         touched_card_ids = set()
+        writing_failed_card_ids = set()
         consumed_lesson_audio_files = set()
         for answer in answers:
             card_id = answer.get('cardId')
@@ -3175,6 +3176,11 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 correct_value = 0
             else:
                 correct_value = 1 if bool(known) else -1
+            if session_type == 'writing' and correct_value < 0:
+                try:
+                    writing_failed_card_ids.add(int(card_id))
+                except (TypeError, ValueError):
+                    pass
 
             result_row = conn.execute(
                 """
@@ -3258,6 +3264,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 """,
                 list(touched_card_ids)
             )
+            if len(writing_failed_card_ids) > 0:
+                enqueue_writing_practicing_card_ids(conn, writing_failed_card_ids)
 
         conn.execute("COMMIT")
     except Exception:
@@ -3343,6 +3351,167 @@ def map_card_row(row, preview_order):
     }
 
 
+def ensure_writing_practicing_queue_table(conn):
+    """Ensure parent-managed writing practicing queue table exists."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS writing_practicing_queue (
+            card_id INTEGER PRIMARY KEY,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS writing_practicing_queue_meta (
+            id INTEGER PRIMARY KEY,
+            seeded BOOLEAN NOT NULL DEFAULT FALSE
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO writing_practicing_queue_meta (id, seeded)
+        VALUES (1, FALSE)
+        ON CONFLICT (id) DO NOTHING
+        """
+    )
+
+
+def seed_writing_practicing_queue_if_needed(conn):
+    """One-time seed for State-2 cards: latest-wrong or never-practiced writing cards."""
+    ensure_writing_practicing_queue_table(conn)
+    meta_row = conn.execute(
+        "SELECT seeded FROM writing_practicing_queue_meta WHERE id = 1"
+    ).fetchone()
+    if meta_row and bool(meta_row[0]):
+        return
+
+    seed_rows = conn.execute(
+        """
+        WITH latest AS (
+            SELECT
+                sr.card_id,
+                sr.correct,
+                ROW_NUMBER() OVER (PARTITION BY sr.card_id ORDER BY sr.timestamp DESC, sr.id DESC) AS rn
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE s.type = 'writing'
+        )
+        SELECT c.id
+        FROM cards c
+        JOIN decks d ON d.id = c.deck_id
+        LEFT JOIN latest l ON l.card_id = c.id AND l.rn = 1
+        WHERE COALESCE(c.skip_practice, FALSE) = FALSE
+          AND (
+            d.name = ?
+            OR d.name = 'Chinese Character Writing'
+            OR (d.name LIKE ? AND list_contains(d.tags, 'chinese_writing'))
+          )
+          AND (l.card_id IS NULL OR l.correct < 0)
+        ORDER BY c.id ASC
+        """,
+        [WRITING_ORPHAN_DECK_NAME, f"{MATERIALIZED_SHARED_DECK_NAME_PREFIX}%"]
+    ).fetchall()
+    enqueue_writing_practicing_card_ids(conn, [int(row[0]) for row in seed_rows])
+    conn.execute(
+        "UPDATE writing_practicing_queue_meta SET seeded = TRUE WHERE id = 1"
+    )
+
+
+def enqueue_writing_practicing_card_ids(conn, card_ids):
+    """Upsert card ids into parent-managed writing practicing queue."""
+    normalized = []
+    for raw in list(card_ids or []):
+        try:
+            card_id = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if card_id <= 0 or card_id in normalized:
+            continue
+        normalized.append(card_id)
+    if len(normalized) == 0:
+        return 0
+
+    ensure_writing_practicing_queue_table(conn)
+    queued_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    conn.executemany(
+        """
+        INSERT INTO writing_practicing_queue (card_id, created_at)
+        VALUES (?, ?)
+        ON CONFLICT (card_id) DO UPDATE SET created_at = EXCLUDED.created_at
+        """,
+        [[card_id, queued_at] for card_id in normalized]
+    )
+    return len(normalized)
+
+
+def dequeue_writing_practicing_card_ids(conn, card_ids):
+    """Remove card ids from parent-managed writing practicing queue."""
+    normalized = []
+    for raw in list(card_ids or []):
+        try:
+            card_id = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if card_id <= 0 or card_id in normalized:
+            continue
+        normalized.append(card_id)
+    if len(normalized) == 0:
+        return 0
+
+    ensure_writing_practicing_queue_table(conn)
+    placeholders = ','.join(['?'] * len(normalized))
+    conn.execute(
+        f"DELETE FROM writing_practicing_queue WHERE card_id IN ({placeholders})",
+        normalized
+    )
+    return len(normalized)
+
+
+def get_writing_practicing_card_ids(conn, deck_ids=None, include_skipped=False):
+    """Return ordered writing practicing queue card ids for selected decks."""
+    seed_writing_practicing_queue_if_needed(conn)
+    conn.execute(
+        """
+        DELETE FROM writing_practicing_queue
+        WHERE card_id NOT IN (SELECT id FROM cards)
+        """
+    )
+
+    normalized_deck_ids = []
+    for raw in list(deck_ids or []):
+        try:
+            deck_id = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if deck_id <= 0 or deck_id in normalized_deck_ids:
+            continue
+        normalized_deck_ids.append(deck_id)
+
+    clauses = []
+    params = []
+    if normalized_deck_ids:
+        placeholders = ','.join(['?'] * len(normalized_deck_ids))
+        clauses.append(f"c.deck_id IN ({placeholders})")
+        params.extend(normalized_deck_ids)
+    if not include_skipped:
+        clauses.append("COALESCE(c.skip_practice, FALSE) = FALSE")
+
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+    rows = conn.execute(
+        f"""
+        SELECT q.card_id
+        FROM writing_practicing_queue q
+        JOIN cards c ON c.id = q.card_id
+        {where_sql}
+        ORDER BY q.created_at DESC, q.card_id DESC
+        """,
+        params
+    ).fetchall()
+    return [int(row[0]) for row in rows]
+
+
 def get_pending_writing_card_ids(conn):
     """Return card ids currently blocked by pending writing sheets."""
     rows = conn.execute(
@@ -3354,6 +3523,22 @@ def get_pending_writing_card_ids(conn):
         """
     ).fetchall()
     return [int(row[0]) for row in rows]
+
+
+def is_writing_card_pending_sheet(conn, card_id):
+    """Return whether one writing card is currently in a pending sheet."""
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM writing_sheet_cards wsc
+        JOIN writing_sheets ws ON ws.id = wsc.sheet_id
+        WHERE ws.status = 'pending'
+          AND wsc.card_id = ?
+        LIMIT 1
+        """,
+        [int(card_id)]
+    ).fetchone()
+    return bool(row)
 
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
@@ -3921,7 +4106,6 @@ def opt_in_kid_chinese_characters_shared_decks(kid_id):
                             insert_rows
                         )
                         cards_added = len(insert_rows)
-
                 created.append({
                     'shared_deck_id': src_deck_id,
                     'shared_name': src_deck['name'],
@@ -5918,6 +6102,19 @@ def opt_in_kid_writing_shared_decks(kid_id):
                             insert_rows
                         )
                         cards_added = len(insert_rows)
+                    queued_rows = kid_conn.execute(
+                        """
+                        SELECT id
+                        FROM cards
+                        WHERE deck_id = ?
+                          AND COALESCE(skip_practice, FALSE) = FALSE
+                        """,
+                        [local_deck_id]
+                    ).fetchall()
+                    enqueue_writing_practicing_card_ids(
+                        kid_conn,
+                        [int(row[0]) for row in queued_rows]
+                    )
 
                 created.append({
                     'shared_deck_id': src_deck_id,
@@ -6048,6 +6245,7 @@ def opt_out_kid_writing_shared_decks(kid_id):
                     ]
                     if unpracticed_ids:
                         unpracticed_placeholders = ','.join(['?'] * len(unpracticed_ids))
+                        dequeue_writing_practicing_card_ids(kid_conn, unpracticed_ids)
                         kid_conn.execute(
                             f"DELETE FROM writing_sheet_cards WHERE card_id IN ({unpracticed_placeholders})",
                             unpracticed_ids
@@ -6063,6 +6261,7 @@ def opt_out_kid_writing_shared_decks(kid_id):
                 else:
                     if card_ids:
                         placeholders = ','.join(['?'] * len(card_ids))
+                        dequeue_writing_practicing_card_ids(kid_conn, card_ids)
                         kid_conn.execute(
                             f"DELETE FROM writing_sheet_cards WHERE card_id IN ({placeholders})",
                             card_ids
@@ -6112,6 +6311,7 @@ def get_shared_writing_cards(kid_id):
         try:
             sources = get_shared_writing_merged_source_decks_for_kid(conn, kid)
             bank_sources = [src for src in sources if int(src.get('card_count') or 0) > 0]
+            bank_deck_ids = [int(src['local_deck_id']) for src in bank_sources]
             practice_sources = [src for src in sources if bool(src.get('included_in_queue'))]
             practice_source_ids = [
                 int(src['local_deck_id'])
@@ -6122,6 +6322,33 @@ def get_shared_writing_cards(kid_id):
             pending_card_ids = get_pending_writing_card_ids(conn)
             pending_card_set = set(pending_card_ids)
             preview_excluded_ids = list(pending_card_set)
+            practicing_queue_ids = get_writing_practicing_card_ids(
+                conn,
+                bank_deck_ids,
+                include_skipped=False
+            )
+            practicing_queue_set = set(practicing_queue_ids)
+            latest_writing_rows = conn.execute(
+                """
+                WITH latest AS (
+                    SELECT
+                        sr.card_id,
+                        sr.correct,
+                        ROW_NUMBER() OVER (PARTITION BY sr.card_id ORDER BY sr.timestamp DESC, sr.id DESC) AS rn
+                    FROM session_results sr
+                    JOIN sessions s ON s.id = sr.session_id
+                    WHERE s.type = 'writing'
+                )
+                SELECT card_id, correct
+                FROM latest
+                WHERE rn = 1
+                """
+            ).fetchall()
+            latest_writing_correct_by_card = {
+                int(row[0]): (int(row[1]) if row[1] is not None else None)
+                for row in latest_writing_rows
+                if row and row[0] is not None
+            }
 
             preview_order = {}
             if practice_source_ids:
@@ -6159,6 +6386,28 @@ def get_shared_writing_cards(kid_id):
                     card_id = int(row[0])
                     mapped['pending_sheet'] = card_id in pending_card_set
                     mapped['available_for_practice'] = (not mapped['pending_sheet'])
+                    mapped['in_practicing_queue'] = card_id in practicing_queue_set
+                    mapped['practicing_reason'] = None
+                    mapped['practicing_reason_label'] = None
+                    if mapped['pending_sheet']:
+                        mapped['writing_state'] = 3
+                        mapped['writing_state_label'] = 'In Practicing Sheet'
+                    elif mapped['in_practicing_queue']:
+                        mapped['writing_state'] = 2
+                        mapped['writing_state_label'] = 'Ready for Practicing Sheet'
+                        latest_correct = latest_writing_correct_by_card.get(card_id)
+                        if latest_correct is None:
+                            mapped['practicing_reason'] = 'newly_added'
+                            mapped['practicing_reason_label'] = 'Newly added'
+                        elif latest_correct < 0:
+                            mapped['practicing_reason'] = 'last_failed'
+                            mapped['practicing_reason_label'] = 'Last failed'
+                        else:
+                            mapped['practicing_reason'] = 'candidate_queue'
+                            mapped['practicing_reason_label'] = 'In candidate queue'
+                    else:
+                        mapped['writing_state'] = 1
+                        mapped['writing_state_label'] = 'Default'
                     mapped['source_deck_id'] = local_deck_id
                     mapped['source_deck_name'] = str(src.get('local_name') or '')
                     mapped['source_deck_label'] = _source_label(src)
@@ -6176,6 +6425,21 @@ def get_shared_writing_cards(kid_id):
                     mapped['prompt_audio_back_url'] = audio_meta['prompt_audio_back_url']
                     mapped['prompt_audio_front_url'] = audio_meta['prompt_audio_front_url']
                     merged_cards.append(mapped)
+
+            merged_by_id = {
+                int(card.get('id')): card
+                for card in merged_cards
+                if int(card.get('id') or 0) > 0
+            }
+            practicing_cards = []
+            for card_id in practicing_queue_ids:
+                card = merged_by_id.get(int(card_id))
+                if card is not None and int(card.get('writing_state') or 0) == 2:
+                    practicing_cards.append(card)
+            practicing_sheet_cards = [
+                card for card in merged_cards
+                if int(card.get('writing_state') or 0) == 3
+            ]
 
             active_count = sum(int(src.get('active_card_count') or 0) for src in bank_sources)
             skipped_count = sum(int(src.get('skipped_card_count') or 0) for src in bank_sources)
@@ -6195,6 +6459,10 @@ def get_shared_writing_cards(kid_id):
             'practice_active_card_count': int(practice_active_count),
             'active_card_count': active_count,
             'skipped_card_count': skipped_count,
+            'practicing_card_count': len(practicing_cards),
+            'practicing_cards': practicing_cards,
+            'practicing_sheet_card_count': len(practicing_sheet_cards),
+            'practicing_sheet_cards': practicing_sheet_cards,
             'cards': merged_cards,
         }), 200
     except Exception as e:
@@ -6302,6 +6570,7 @@ def add_writing_cards(kid_id):
             """,
             [deck_id, answer_text, answer_text]
         ).fetchone()
+        enqueue_writing_practicing_card_ids(conn, [int(row[0])])
 
         conn.close()
         audio_meta = build_writing_prompt_audio_payload(kid_id, row[2], row[3])
@@ -6448,6 +6717,7 @@ def add_writing_cards_bulk(kid_id):
                 'prompt_audio_front_url': audio_meta['prompt_audio_front_url'],
             })
 
+        enqueue_writing_practicing_card_ids(conn, [int(card['id']) for card in created])
         conn.close()
         return jsonify({
             'deck_id': deck_id,
@@ -6582,6 +6852,7 @@ def delete_writing_card(kid_id, card_id):
             conn.close()
             return jsonify({'error': 'Writing card not found'}), 404
 
+        dequeue_writing_practicing_card_ids(conn, [int(row[0])])
         conn.execute("DELETE FROM writing_sheet_cards WHERE card_id = ?", [card_id])
         delete_card_from_deck_internal(conn, card_id)
         conn.close()
@@ -6604,8 +6875,112 @@ def delete_writing_card(kid_id, card_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/writing/practicing-queue/cards/<card_id>', methods=['DELETE'])
+def remove_writing_practicing_queue_card(kid_id, card_id):
+    """Remove one writing card from parent-managed practicing queue."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        try:
+            card_id_int = int(card_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid card id'}), 400
+
+        conn = get_kid_connection_for(kid)
+        try:
+            card_row = conn.execute(
+                """
+                SELECT c.id, d.name, d.tags, COALESCE(c.skip_practice, FALSE)
+                FROM cards c
+                JOIN decks d ON d.id = c.deck_id
+                WHERE c.id = ?
+                LIMIT 1
+                """,
+                [card_id_int]
+            ).fetchone()
+            if not card_row:
+                return jsonify({'error': 'Card not found'}), 404
+
+            local_deck_name = str(card_row[1] or '')
+            local_deck_tags = [str(tag) for tag in list(card_row[2] or []) if str(tag or '').strip()]
+            is_materialized_shared = parse_shared_deck_id_from_materialized_name(local_deck_name) is not None
+            is_orphan = local_deck_name == WRITING_ORPHAN_DECK_NAME
+            if is_materialized_shared and 'chinese_writing' not in local_deck_tags:
+                return jsonify({'error': 'Card does not belong to a shared writing deck'}), 400
+            if not is_materialized_shared and not is_orphan:
+                return jsonify({'error': 'Card does not belong to a shared writing or orphan deck'}), 400
+
+            if is_writing_card_pending_sheet(conn, card_id_int):
+                return jsonify({'error': 'Card is in a pending practicing sheet; mark sheet done/withdraw first'}), 409
+            dequeue_writing_practicing_card_ids(conn, [card_id_int])
+        finally:
+            conn.close()
+
+        return jsonify({
+            'card_id': card_id_int,
+            'removed': True,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/writing/practicing-queue/cards/<card_id>', methods=['POST'])
+def add_writing_practicing_queue_card(kid_id, card_id):
+    """Add one writing card to parent-managed practicing queue."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        try:
+            card_id_int = int(card_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid card id'}), 400
+
+        conn = get_kid_connection_for(kid)
+        try:
+            card_row = conn.execute(
+                """
+                SELECT c.id, d.name, d.tags, COALESCE(c.skip_practice, FALSE)
+                FROM cards c
+                JOIN decks d ON d.id = c.deck_id
+                WHERE c.id = ?
+                LIMIT 1
+                """,
+                [card_id_int]
+            ).fetchone()
+            if not card_row:
+                return jsonify({'error': 'Card not found'}), 404
+
+            local_deck_name = str(card_row[1] or '')
+            local_deck_tags = [str(tag) for tag in list(card_row[2] or []) if str(tag or '').strip()]
+            is_materialized_shared = parse_shared_deck_id_from_materialized_name(local_deck_name) is not None
+            is_orphan = local_deck_name == WRITING_ORPHAN_DECK_NAME
+            if is_materialized_shared and 'chinese_writing' not in local_deck_tags:
+                return jsonify({'error': 'Card does not belong to a shared writing deck'}), 400
+            if not is_materialized_shared and not is_orphan:
+                return jsonify({'error': 'Card does not belong to a shared writing or orphan deck'}), 400
+            if bool(card_row[3]):
+                return jsonify({'error': 'Card is skipped. Turn skip off before moving to State 2'}), 400
+
+            if is_writing_card_pending_sheet(conn, card_id_int):
+                return jsonify({'error': 'Card is in a pending practicing sheet; mark sheet done/withdraw first'}), 409
+            enqueue_writing_practicing_card_ids(conn, [card_id_int])
+        finally:
+            conn.close()
+
+        return jsonify({
+            'card_id': card_id_int,
+            'added': True,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def select_writing_sheet_candidates(conn, deck_ids, requested_count, excluded_card_ids=None):
-    """Select candidate writing cards for sheet generation across one or more decks."""
+    """Select queued writing cards for sheet generation across one or more decks."""
     normalized_deck_ids = []
     for raw_id in list(deck_ids or []):
         try:
@@ -6618,6 +6993,7 @@ def select_writing_sheet_candidates(conn, deck_ids, requested_count, excluded_ca
     if len(normalized_deck_ids) == 0:
         return []
 
+    seed_writing_practicing_queue_if_needed(conn)
     excluded = excluded_card_ids or []
     placeholders = ','.join(['?'] * len(excluded)) if excluded else ''
     deck_placeholders = ','.join(['?'] * len(normalized_deck_ids))
@@ -6629,35 +7005,17 @@ def select_writing_sheet_candidates(conn, deck_ids, requested_count, excluded_ca
 
     return conn.execute(
         f"""
-        WITH latest AS (
-            SELECT
-                sr.card_id,
-                sr.correct,
-                ROW_NUMBER() OVER (PARTITION BY sr.card_id ORDER BY sr.timestamp DESC, sr.id DESC) AS rn
-            FROM session_results sr
-            JOIN sessions s ON s.id = sr.session_id
-            WHERE s.type = 'writing'
-        ),
-        available AS (
-            SELECT
-                c.id,
-                c.front,
-                c.back,
-                l.correct,
-                CASE
-                    WHEN l.card_id IS NULL OR l.correct < 0 THEN 0
-                    ELSE 1
-                END AS priority
-            FROM cards c
-            LEFT JOIN latest l ON l.card_id = c.id AND l.rn = 1
-            WHERE c.deck_id IN ({deck_placeholders})
-              {exclude_clause}
-        )
-        SELECT id, front, back, correct
-        FROM available
-        ORDER BY
-          priority ASC,
-          id ASC
+        SELECT
+            c.id,
+            c.front,
+            c.back,
+            NULL AS correct
+        FROM writing_practicing_queue q
+        JOIN cards c ON c.id = q.card_id
+        WHERE c.deck_id IN ({deck_placeholders})
+          AND COALESCE(c.skip_practice, FALSE) = FALSE
+          {exclude_clause}
+        ORDER BY q.created_at DESC, q.card_id DESC
         LIMIT ?
         """,
         [*params, requested_count]
@@ -6710,7 +7068,7 @@ def preview_writing_sheet(kid_id):
             return jsonify({
                 'preview': False,
                 'cards': [],
-                'message': 'No cards available to print right now. All writing cards may already be practicing.'
+                'message': 'No practicing-queue cards are available to print right now.'
             }), 200
 
         return jsonify({
@@ -6775,6 +7133,10 @@ def finalize_writing_sheet(kid_id):
         if any(card_id in pending_set for card_id in normalized_ids):
             conn.close()
             return jsonify({'error': 'Some selected cards are already practicing in another sheet'}), 409
+        state2_set = set(get_writing_practicing_card_ids(conn, bank_deck_ids, include_skipped=False))
+        if any(card_id not in state2_set for card_id in normalized_ids):
+            conn.close()
+            return jsonify({'error': 'Some selected cards are no longer in State 2 (ready for sheet)'}), 409
 
         placeholders = ','.join(['?'] * len(normalized_ids))
         deck_placeholders = ','.join(['?'] * len(bank_deck_ids))
@@ -6826,7 +7188,7 @@ def finalize_writing_sheet(kid_id):
 
 @kids_bp.route('/kids/<kid_id>/writing/sheets', methods=['POST'])
 def create_writing_sheet(kid_id):
-    """Create a printable writing sheet from never-seen or latest-wrong cards."""
+    """Create a printable writing sheet from State-2 (ready) cards."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
@@ -6873,7 +7235,7 @@ def create_writing_sheet(kid_id):
                 'sheet_id': None,
                 'cards': [],
                 'created': False,
-                'message': 'No cards available to print right now. All writing cards may already be practicing.'
+                'message': 'No practicing-queue cards are available to print right now.'
             }), 200
 
         sheet_id = conn.execute(

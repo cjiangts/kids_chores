@@ -8,8 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <style>
         .settings-section,
-        .add-card-section,
-        .sheet-section {
+        .add-card-section {
             background: white;
             padding: 1.5rem;
             border-radius: 8px;
@@ -190,6 +189,110 @@
         .cards-section .cards-title,
         .cards-section .cards-title span {
             color: #333;
+        }
+
+        .practicing-deck-section {
+            background: #fffdf4;
+            border: 1px solid #f1e3bc;
+        }
+
+        .practicing-deck-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 0.85rem;
+            margin-top: 0.9rem;
+        }
+
+        .practicing-deck-empty {
+            color: #7a6a3f;
+            font-size: 0.9rem;
+            margin-top: 0.6rem;
+        }
+
+        .practicing-card-item {
+            border: 1px solid #eddca8;
+            background: #fff9e8;
+            border-radius: 8px;
+            padding: 0.8rem;
+        }
+
+        .practicing-card-title {
+            font-family: var(--font-kaiti);
+            font-size: 2.2rem;
+            line-height: 1.1;
+            color: #2f2f2f;
+            text-align: center;
+        }
+
+        .practicing-card-meta {
+            margin-top: 0.45rem;
+            color: #6d613f;
+            font-size: 0.82rem;
+            text-align: center;
+        }
+
+        .practicing-card-actions {
+            margin-top: 0.55rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .pending-sheet-bar {
+            margin-top: 0.85rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #f0d18e;
+            background: #fff3d1;
+            color: #5f4b12;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            line-height: 1.4;
+        }
+
+        .pending-sheet-bar-label {
+            font-weight: 700;
+        }
+
+        .pending-sheet-text {
+            font-size: 1rem;
+            word-break: break-word;
+        }
+
+        .pending-sheet-empty {
+            font-size: 0.95rem;
+            color: #7a6a3f;
+        }
+
+        .practicing-remove-btn {
+            border: 1px solid #d5b95d;
+            background: #f5e6b2;
+            color: #5e4b12;
+            border-radius: 999px;
+            padding: 0.28rem 0.65rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .practicing-remove-btn:hover {
+            background: #efd995;
+        }
+
+        .practicing-remove-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            background: #f4ebca;
+            color: #786a42;
+        }
+
+        .practicing-chip {
+            margin-top: 0.38rem;
+            text-align: center;
+            font-size: 0.76rem;
+            color: #6b5500;
+            font-weight: 700;
         }
 
         .cards-grid {
@@ -448,18 +551,24 @@ DAY3:够 碗 现在 带着 和尚 不停 累了 休息 经过 相信 一定 迷�
             </div>
         </div>
 
-        <div class="sheet-section">
-            <h2 class="label-with-help">
+        <section class="settings-section practicing-deck-section">
+            <h2>Suggested Practicing Candidate Cards <span id="practicingDeckCount">(0)</span></h2>
+            <p class="math-v2-note" style="margin-bottom: 0.55rem;">
+                Parent-managed candidate queue for writing sheets. New cards and latest failed cards are auto-added here. Cards already on a pending sheet are hidden from this list.
+            </p>
+            <div id="practicingDeckGrid" class="practicing-deck-grid"></div>
+            <p id="practicingDeckEmpty" class="practicing-deck-empty">No suggested candidate cards.</p>
+            <h3 class="label-with-help" style="margin: 0.45rem 0 0.7rem 0;">
                 <span>Generate Practice Sheet</span>
                 <details class="help-details">
                     <summary title="Sheet generation tip">i</summary>
                     <div class="help-bubble">
                         Layout: each row has 10 Tianzige boxes. The first row for each card includes demo text; repeat rows focus on copying practice. Rows Per Card controls how many rows each card gets.
                         <br><br>
-                        Card selection: we only pick cards that are not currently practicing on another sheet. Priority goes to cards the kid got wrong most recently (or never practiced yet), then fills from the normal pool.
+                        Card selection: we pick from the <strong>Suggested Practicing Candidate Cards</strong> below, excluding cards already on a pending sheet. New cards and latest failed cards are auto-added to this candidate queue; you can remove any card manually.
                     </div>
                 </details>
-            </h2>
+            </h3>
             <div class="sheet-row">
                 <div class="form-group">
                     <label for="sheetCardCount">Cards Per Sheet</label>
@@ -472,11 +581,13 @@ DAY3:够 碗 现在 带着 和尚 不停 累了 休息 经过 相信 一定 迷�
                 <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
                 <button type="button" id="viewSheetsBtn" class="settings-save-btn sheet-view-btn">Manage Sheets</button>
             </div>
-            <div id="practicingSummary" style="margin-top: 0.65rem; padding: 0.6rem 0.75rem; border-radius: 8px; background: #fff7df; color: #6b5500; font-size: 0.9rem;">
-                Currently practicing: none
-            </div>
             <div id="sheetErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
-        </div>
+            <div class="pending-sheet-bar">
+                <span class="pending-sheet-bar-label">Cards on Active Practice Sheets:</span>
+                <span id="pendingSheetCardsGrid" class="pending-sheet-text"></span>
+                <span id="pendingSheetCardsEmpty" class="pending-sheet-empty">No cards in pending sheets.</span>
+            </div>
+        </section>
 
         <section class="settings-section cards-section">
             <h2 class="cards-title label-with-help">
