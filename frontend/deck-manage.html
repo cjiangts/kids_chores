@@ -67,6 +67,20 @@
             font-size: 0.95rem;
             padding: 0.4rem 0;
         }
+
+        .available-filter {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin: 0.6rem 0 0.9rem 0;
+            flex-wrap: wrap;
+        }
+
+        .available-filter .form-group {
+            flex: 1;
+            margin-bottom: 0;
+            min-width: 240px;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -85,6 +99,15 @@
                 <h2 style="margin: 0 0 0.7rem 0; color: #2f3c7e;">My Created Decks</h2>
                 <div class="actions">
                     <button id="createDeckNavBtn" type="button" class="btn-primary">Create New Deck</button>
+                </div>
+
+                <div class="available-filter">
+                    <div class="form-group">
+                        <select id="deckTagFilter" class="sort-select">
+                            <option value="">Add filter tag...</option>
+                        </select>
+                    </div>
+                    <button id="clearTagFilterBtn" type="button" class="btn-secondary">Clear Tag Filter</button>
                 </div>
 
                 <div id="emptyState" class="deck-empty hidden">No decks yet. Create your first one.</div>

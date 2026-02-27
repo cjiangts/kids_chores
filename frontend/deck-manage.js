@@ -5,6 +5,11 @@ const emptyState = document.getElementById('emptyState');
 const deckTableBody = document.getElementById('deckTableBody');
 const createDeckNavBtn = document.getElementById('createDeckNavBtn');
 const errorMessage = document.getElementById('errorMessage');
+const deckTagFilterInput = document.getElementById('deckTagFilter');
+const clearTagFilterBtn = document.getElementById('clearTagFilterBtn');
+
+let allDecks = [];
+let deckTagFilterController = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -14,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     createDeckNavBtn.addEventListener('click', () => {
         window.location.href = '/deck-create.html';
     });
+    ensureDeckTagFilterController().sync();
     deckTableBody.addEventListener('click', async (event) => {
         const btn = event.target.closest('button[data-action][data-deck-id]');
         if (!btn) {
@@ -66,19 +72,71 @@ async function loadMyDecks() {
         if (!response.ok) {
             throw new Error(result.error || `Failed to load decks (HTTP ${response.status})`);
         }
-        const decks = Array.isArray(result.decks) ? result.decks : [];
-        renderDecks(decks);
+        allDecks = Array.isArray(result.decks) ? result.decks : [];
+        ensureDeckTagFilterController().sync();
+        renderDecks();
     } catch (error) {
         console.error('Error loading shared decks:', error);
-        renderDecks([]);
+        allDecks = [];
+        ensureDeckTagFilterController().sync();
+        renderDecks();
         showError(error.message || 'Failed to load decks.');
     }
 }
 
-function renderDecks(decks) {
-    if (!Array.isArray(decks) || decks.length === 0) {
+function getDeckTags(deck) {
+    return Array.isArray(deck && deck.tags)
+        ? deck.tags.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean)
+        : [];
+}
+
+function ensureDeckTagFilterController() {
+    if (deckTagFilterController) {
+        return deckTagFilterController;
+    }
+
+    if (!window.PracticeManageCommon || typeof window.PracticeManageCommon.createHierarchicalTagFilterController !== 'function') {
+        deckTagFilterController = {
+            sync: () => {},
+            matchesDeck: () => true,
+            getDisplayLabel: () => '',
+        };
+        return deckTagFilterController;
+    }
+
+    deckTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
+        selectEl: deckTagFilterInput,
+        clearBtn: clearTagFilterBtn,
+        getDecks: () => allDecks,
+        getDeckTags,
+        onFilterChanged: () => {
+            renderDecks();
+        },
+    });
+    return deckTagFilterController;
+}
+
+function matchesDeckTagFilter(deck) {
+    return ensureDeckTagFilterController().matchesDeck(deck);
+}
+
+function renderDecks() {
+    if (!Array.isArray(allDecks) || allDecks.length === 0) {
         deckTableBody.innerHTML = '';
         tableWrap.classList.add('hidden');
+        emptyState.textContent = 'No decks yet. Create your first one.';
+        emptyState.classList.remove('hidden');
+        return;
+    }
+
+    const filteredDecks = allDecks.filter(matchesDeckTagFilter);
+    if (filteredDecks.length === 0) {
+        const filterLabel = ensureDeckTagFilterController().getDisplayLabel();
+        deckTableBody.innerHTML = '';
+        tableWrap.classList.add('hidden');
+        emptyState.textContent = filterLabel
+            ? `No decks match tag "${filterLabel}".`
+            : 'No decks match the selected tag filter.';
         emptyState.classList.remove('hidden');
         return;
     }
@@ -86,7 +144,7 @@ function renderDecks(decks) {
     emptyState.classList.add('hidden');
     tableWrap.classList.remove('hidden');
 
-    deckTableBody.innerHTML = decks.map((deck) => {
+    deckTableBody.innerHTML = filteredDecks.map((deck) => {
         const tags = Array.isArray(deck.tags) ? deck.tags : [];
         const tagHtml = tags.length > 0
             ? `<div class="deck-tags">${tags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
