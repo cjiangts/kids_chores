@@ -334,23 +334,6 @@ async function requestOptOutDeckIds(deckIds) {
     return result;
 }
 
-async function requestRemovePracticingQueueCard(cardId) {
-    const response = await fetch(
-        `${API_BASE}/kids/${kidId}/writing/practicing-queue/cards/${encodeURIComponent(cardId)}`,
-        { method: 'DELETE' }
-    );
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(result.error || `Failed to remove card from candidates (HTTP ${response.status})`);
-    }
-    return result;
-}
-
-async function removeWritingCardFromCandidates(cardId) {
-    await requestRemovePracticingQueueCard(cardId);
-    await loadWritingCards();
-}
-
 async function stageDeckMembershipChange(deckId, direction) {
     if (isDeckMoveInFlight) {
         return;
@@ -563,7 +546,7 @@ async function loadWritingCards() {
             cardCount.textContent = `(${currentCards.length})`;
         }
         if (deckTotalInfo) {
-            deckTotalInfo.textContent = `Active cards in merged bank: ${activeCount} (Skipped: ${skippedCount}) · In practice queue pool: ${practiceActiveCount}`;
+            deckTotalInfo.textContent = `Active cards in merged bank: ${activeCount} (Skipped: ${skippedCount}) · In daily practice pool: ${practiceActiveCount}`;
         }
 
         applySuggestedSheetInputs();
@@ -829,27 +812,52 @@ function renderPracticingDeck() {
     }
 
     practicingDeckEmpty.classList.add('hidden');
-    practicingDeckGrid.innerHTML = cards.map((card) => {
-        const cardLabel = String(card.back || card.front || '');
-        const reasonLabel = String(card.practicing_reason_label || '').trim() || 'In candidate queue';
-        const actionHtml = `
-            <div class="practicing-card-actions">
-                <button
-                    type="button"
-                    class="practicing-remove-btn"
-                    data-action="set-state-1"
-                    data-card-id="${escapeAttr(card.id)}"
-                >Remove from Candidates</button>
-            </div>
-        `;
+    const neverSeenLabels = [];
+    const lastFailedLabels = [];
+    const otherLabels = [];
+
+    cards.forEach((card) => {
+        const label = String(card.back || card.front || '').trim();
+        if (!label) {
+            return;
+        }
+        const reason = String(card.practicing_reason || '').trim();
+        if (reason === 'never_seen') {
+            neverSeenLabels.push(label);
+            return;
+        }
+        if (reason === 'last_failed') {
+            lastFailedLabels.push(label);
+            return;
+        }
+        otherLabels.push(label);
+    });
+
+    const renderBucketRow = (title, labels) => {
+        if (labels.length === 0) {
+            return `
+                <div class="pending-sheet-bar">
+                    <span class="pending-sheet-bar-label">${escapeHtml(title)}:</span>
+                    <span class="pending-sheet-empty">No cards.</span>
+                </div>
+            `;
+        }
         return `
-            <div class="practicing-card-item">
-                <div class="practicing-card-title">${escapeHtml(cardLabel)}</div>
-                <div class="practicing-card-meta">Reason: ${escapeHtml(reasonLabel)}</div>
-                ${actionHtml}
+            <div class="pending-sheet-bar">
+                <span class="pending-sheet-bar-label">${escapeHtml(title)}:</span>
+                <span class="pending-sheet-text">${escapeHtml(labels.join(' · '))}</span>
             </div>
         `;
-    }).join('');
+    };
+
+    const rows = [
+        renderBucketRow('Newly added', neverSeenLabels),
+        renderBucketRow('Last failed', lastFailedLabels),
+    ];
+    if (otherLabels.length > 0) {
+        rows.push(renderBucketRow('Other', otherLabels));
+    }
+    practicingDeckGrid.innerHTML = rows.join('');
 }
 
 function renderPendingSheetCards() {
@@ -1057,23 +1065,6 @@ async function handleCardsGridClick(event) {
 
     const action = actionEl.dataset.action;
     const cardId = actionEl.dataset.cardId || '';
-
-    if (action === 'set-state-1') {
-        if (!cardId) {
-            return;
-        }
-        try {
-            actionEl.disabled = true;
-            await removeWritingCardFromCandidates(cardId);
-            showError('');
-        } catch (error) {
-            console.error('Error switching writing card state:', error);
-            showError(error.message || 'Failed to remove candidate card.');
-        } finally {
-            actionEl.disabled = false;
-        }
-        return;
-    }
 
     if (action === 'toggle-skip') {
         if (!cardId) {

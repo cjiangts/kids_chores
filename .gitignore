@@ -54,3 +54,4 @@ htmlcov/
 
 # One-off local scripts
 backend/scripts/cleanup_legacy_writing_audio.py
+backend/scripts/cleanup_writing_candidate_queue_tables_in_backup_zip.py
