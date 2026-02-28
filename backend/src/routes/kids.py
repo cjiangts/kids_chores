@@ -70,13 +70,6 @@ def get_kid_scoped_db_relpath(kid):
     return f"data/families/family_{family_id}/kid_{kid_id}.db"
 
 
-def get_kid_writing_audio_dir(kid):
-    """Get filesystem directory for kid writing prompt audio files."""
-    family_id = str(kid.get('familyId') or '')
-    kid_id = kid.get('id')
-    return os.path.join(get_family_root(family_id), 'writing_audio', f'kid_{kid_id}')
-
-
 def get_shared_writing_audio_dir():
     """Get global shared directory for auto-generated writing prompt audio."""
     return os.path.join(DATA_DIR, 'shared', 'writing_audio')
@@ -153,8 +146,6 @@ def build_writing_prompt_audio_payload(kid_id, front_text, back_text):
         'audio_mime_type': front_meta.get('audio_mime_type'),
         'audio_url': front_meta.get('audio_url'),
         'prompt_audio_url': front_meta.get('audio_url'),
-        'prompt_audio_back_url': None,
-        'prompt_audio_front_url': front_meta.get('audio_url'),
     }
 
 
@@ -1469,7 +1460,7 @@ def create_shared_deck():
         if 'unique' in err and 'name' in err:
             return jsonify({'error': 'Deck name already exists. Please choose different tags.'}), 409
         if 'unique' in err and 'front' in err:
-            return jsonify({'error': 'Shared deck DB still uses legacy front uniqueness. Run the one-time schema migration first.'}), 409
+            return jsonify({'error': 'Shared deck DB schema mismatch on card uniqueness. Expected UNIQUE(deck_id, front).'}), 409
         return jsonify({'error': str(e)}), 500
 
 
@@ -1882,7 +1873,6 @@ def get_kid_report(kid_id):
             return jsonify({'error': 'Kid not found'}), 404
 
         conn = get_kid_connection_for(kid)
-        apply_lazy_logged_response_time_caps(conn)
         rows = conn.execute(
             """
             SELECT
@@ -1944,7 +1934,6 @@ def get_kid_report_session_detail(kid_id, session_id):
             return jsonify({'error': 'Invalid session id'}), 400
 
         conn = get_kid_connection_for(kid)
-        apply_lazy_logged_response_time_caps(conn)
         session_row = conn.execute(
             """
             SELECT id, type, started_at, completed_at, COALESCE(planned_count, 0)
@@ -2085,7 +2074,6 @@ def get_kid_report_card_detail(kid_id, card_id):
             return jsonify({'error': 'Invalid card id'}), 400
 
         conn = get_kid_connection_for(kid)
-        apply_lazy_logged_response_time_caps(conn)
         card_row = conn.execute(
             """
             SELECT
@@ -2466,9 +2454,6 @@ def delete_kid(kid_id):
 
         # Delete database file
         kid_db.delete_kid_database_by_path(kid.get('dbFilePath') or get_kid_scoped_db_relpath(kid))
-        audio_dir = get_kid_writing_audio_dir(kid)
-        if os.path.exists(audio_dir):
-            shutil.rmtree(audio_dir, ignore_errors=True)
         lesson_audio_dir = get_kid_lesson_reading_audio_dir(kid)
         if os.path.exists(lesson_audio_dir):
             shutil.rmtree(lesson_audio_dir, ignore_errors=True)
@@ -2483,42 +2468,14 @@ def delete_kid(kid_id):
 
 # Card routes
 
-def get_or_create_default_deck(conn):
-    """Get or create the default deck for a kid"""
-    result = conn.execute("SELECT id FROM decks WHERE name = 'Chinese Characters'").fetchone()
-
-    if result:
-        return result[0]
-
-    row = conn.execute(
-        """
-        INSERT INTO decks (name, description, tags)
-        VALUES (?, ?, ?)
-        RETURNING id
-        """,
-        ['Chinese Characters', 'Default deck for Chinese characters', []]
-    ).fetchone()
-
-    return row[0]
-
-
 def get_or_create_chinese_characters_orphan_deck(conn):
-    """Get or create the reserved orphan deck for detached/manual chinese-character cards.
-
-    Legacy compatibility: if the old default deck exists, treat it as the orphan deck.
-    """
+    """Get or create the reserved orphan deck for detached/manual chinese-character cards."""
     result = conn.execute(
         "SELECT id FROM decks WHERE name = ?",
         [CHINESE_CHARACTERS_ORPHAN_DECK_NAME]
     ).fetchone()
     if result:
         return int(result[0])
-
-    legacy = conn.execute(
-        "SELECT id FROM decks WHERE name = 'Chinese Characters'",
-    ).fetchone()
-    if legacy:
-        return int(legacy[0])
 
     row = conn.execute(
         """
@@ -2559,13 +2516,6 @@ def get_or_create_writing_orphan_deck(conn):
     ).fetchone()
     if result:
         return int(result[0])
-
-    # Backward-compatible fallback for existing kid DBs (v1 writing deck name).
-    legacy = conn.execute(
-        "SELECT id FROM decks WHERE name = 'Chinese Character Writing'",
-    ).fetchone()
-    if legacy:
-        return int(legacy[0])
 
     row = conn.execute(
         """
@@ -2776,42 +2726,6 @@ def normalize_logged_response_time_ms(session_type, raw_response_time_ms):
     if max_ms is not None:
         return min(response_time_ms, int(max_ms))
     return response_time_ms
-
-
-def apply_lazy_logged_response_time_caps(conn):
-    """Lazily clamp historical response_time_ms rows to configured per-type limits."""
-    # TODO(cleanup): Remove this lazy read-path backfill after a one-time DB migration
-    # caps historical rows; keep only write-time capping in complete_session_internal().
-    flashcard_cap_ms = int(MAX_LOGGED_RESPONSE_TIME_MS_BY_SESSION_TYPE.get('flashcard') or 0)
-    writing_cap_ms = int(MAX_LOGGED_RESPONSE_TIME_MS_BY_SESSION_TYPE.get('writing') or 0)
-
-    if flashcard_cap_ms > 0:
-        conn.execute(
-            """
-            UPDATE session_results
-            SET response_time_ms = ?
-            FROM sessions s
-            WHERE session_results.session_id = s.id
-              AND s.type = 'flashcard'
-              AND session_results.response_time_ms IS NOT NULL
-              AND session_results.response_time_ms > ?
-            """,
-            [flashcard_cap_ms, flashcard_cap_ms]
-        )
-
-    if writing_cap_ms > 0:
-        conn.execute(
-            """
-            UPDATE session_results
-            SET response_time_ms = ?
-            FROM sessions s
-            WHERE session_results.session_id = s.id
-              AND s.type = 'writing'
-              AND session_results.response_time_ms IS NOT NULL
-              AND session_results.response_time_ms > ?
-            """,
-            [writing_cap_ms, writing_cap_ms]
-        )
 
 
 def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded_card_ids=None):
@@ -3405,7 +3319,6 @@ def seed_writing_practicing_queue_if_needed(conn):
         WHERE COALESCE(c.skip_practice, FALSE) = FALSE
           AND (
             d.name = ?
-            OR d.name = 'Chinese Character Writing'
             OR (d.name LIKE ? AND list_contains(d.tags, 'chinese_writing'))
           )
           AND (l.card_id IS NULL OR l.correct < 0)
@@ -6422,8 +6335,6 @@ def get_shared_writing_cards(kid_id):
                     mapped['audio_mime_type'] = audio_meta['audio_mime_type']
                     mapped['audio_url'] = audio_meta['audio_url']
                     mapped['prompt_audio_url'] = audio_meta['prompt_audio_url']
-                    mapped['prompt_audio_back_url'] = audio_meta['prompt_audio_back_url']
-                    mapped['prompt_audio_front_url'] = audio_meta['prompt_audio_front_url']
                     merged_cards.append(mapped)
 
             merged_by_id = {
@@ -6587,8 +6498,6 @@ def add_writing_cards(kid_id):
                 'audio_mime_type': audio_meta['audio_mime_type'],
                 'audio_url': audio_meta['audio_url'],
                 'prompt_audio_url': audio_meta['prompt_audio_url'],
-                'prompt_audio_back_url': audio_meta['prompt_audio_back_url'],
-                'prompt_audio_front_url': audio_meta['prompt_audio_front_url'],
             }]
         }), 201
     except Exception as e:
@@ -6659,8 +6568,6 @@ def update_writing_card(kid_id, card_id):
             'audio_mime_type': new_audio_meta.get('audio_mime_type'),
             'audio_url': new_audio_meta.get('audio_url'),
             'prompt_audio_url': new_audio_meta.get('prompt_audio_url'),
-            'prompt_audio_back_url': new_audio_meta.get('prompt_audio_back_url'),
-            'prompt_audio_front_url': new_audio_meta.get('prompt_audio_front_url'),
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -6713,8 +6620,6 @@ def add_writing_cards_bulk(kid_id):
                 'audio_mime_type': audio_meta['audio_mime_type'],
                 'audio_url': audio_meta['audio_url'],
                 'prompt_audio_url': audio_meta['prompt_audio_url'],
-                'prompt_audio_back_url': audio_meta['prompt_audio_back_url'],
-                'prompt_audio_front_url': audio_meta['prompt_audio_front_url'],
             })
 
         enqueue_writing_practicing_card_ids(conn, [int(card['id']) for card in created])
@@ -7522,8 +7427,6 @@ def start_writing_practice_session(kid_id):
                 'audio_mime_type': audio_meta['audio_mime_type'],
                 'audio_url': audio_meta['audio_url'],
                 'prompt_audio_url': audio_meta['prompt_audio_url'],
-                'prompt_audio_back_url': audio_meta['prompt_audio_back_url'],
-                'prompt_audio_front_url': audio_meta['prompt_audio_front_url'],
             })
 
         return jsonify({

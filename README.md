@@ -19,17 +19,17 @@ Kids Daily Chores is a family learning tool designed for ages 4+, with daily Chi
 - Shared metadata file with file-lock + atomic write protection
 - Transactional session completion (all-or-nothing writes, batch audio upload)
 - Schema cached in memory, applied once per DB per process lifetime
-- Startup auto-migrations for schema evolution across deploys
 
 Data layout:
 
 ```text
 backend/data/
   kids.json
+  shared/
+    writing_audio/
   families/
     family_{id}/
       kid_{id}.db
-      writing_audio/
       lesson_reading_audio/
 ```
 
@@ -95,7 +95,7 @@ Or use helper scripts from project root:
   - Parent sets per-deck question count in a unified settings grid
   - Prompt/reveal/grade flow for kid sessions
 - Chinese Writing practice:
-  - Parent voice recording with live waveform visualizer + text answer
+  - Auto-generated shared Chinese prompt audio clip per writing card
   - Kid replays prompt, self-marks right/wrong
   - Chinese writing sheets generation/print workflow
   - Sheet status lifecycle (pending/done)
@@ -145,14 +145,8 @@ Or use helper scripts from project root:
   - Cards/decks
   - Session history and results (with tri-state correct scoring)
   - Practice state/queue cursor
-  - Chinese writing sheets and audio metadata
+  - Chinese writing sheets and practicing queue state
   - Lesson reading audio metadata
-- Startup auto-migrations:
-  - Backfill session `started_at` from response time totals
-  - Convert `session_results.correct` from boolean to integer
-  - Rebuild `lesson_reading_audio` table without FK constraint
-  - Sync ID sequences to prevent PK collisions after restore
-  - Cleanup incomplete sessions (delete orphaned results and audio)
 
 ## Deployment (Railway)
 

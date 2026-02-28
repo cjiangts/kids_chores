@@ -3,7 +3,7 @@
         if (!card) {
             return '';
         }
-        return String(card.prompt_audio_url || card.audio_url || card.prompt_audio_front_url || '').trim();
+        return String(card.prompt_audio_url || card.audio_url || '').trim();
     }
 
     function buildPromptUrls(card) {
