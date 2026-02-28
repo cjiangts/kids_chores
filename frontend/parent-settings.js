@@ -20,6 +20,7 @@ const backupInfo = document.getElementById('backupInfo');
 const backupSettingsCard = document.getElementById('backupSettingsCard');
 const familyAdminCard = document.getElementById('familyAdminCard');
 const familyAccountsList = document.getElementById('familyAccountsList');
+const familyStorageSummary = document.getElementById('familyStorageSummary');
 const familyAccountsEmpty = document.getElementById('familyAccountsEmpty');
 const familyAdminError = document.getElementById('familyAdminError');
 const familyAdminSuccess = document.getElementById('familyAdminSuccess');
@@ -449,6 +450,10 @@ async function loadFamilyRole() {
         if (familyAccountsList) {
             familyAccountsList.innerHTML = '';
         }
+        if (familyStorageSummary) {
+            familyStorageSummary.textContent = '';
+            familyStorageSummary.classList.add('hidden');
+        }
         if (familyAccountsEmpty) {
             familyAccountsEmpty.classList.add('hidden');
         }
@@ -470,16 +475,54 @@ async function loadFamilyAccounts() {
             showFamilyAdminError(result.error || `Failed to load families (HTTP ${response.status})`);
             return;
         }
-        renderFamilyAccounts(Array.isArray(result.families) ? result.families : []);
+        renderFamilyAccounts(
+            Array.isArray(result.families) ? result.families : [],
+            result.sharedStorage && typeof result.sharedStorage === 'object' ? result.sharedStorage : null
+        );
     } catch (error) {
         console.error('Error loading family accounts:', error);
         showFamilyAdminError('Failed to load family accounts.');
     }
 }
 
-function renderFamilyAccounts(families) {
+function formatBytes(bytes) {
+    const value = Number(bytes);
+    if (!Number.isFinite(value) || value <= 0) {
+        return '0 B';
+    }
+    if (value < 1024) {
+        return `${Math.round(value)} B`;
+    }
+    if (value < 1024 * 1024) {
+        return `${(value / 1024).toFixed(1)} KB`;
+    }
+    if (value < 1024 * 1024 * 1024) {
+        return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+    }
+    return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function renderFamilyAccounts(families, sharedStorage) {
     if (!familyAccountsList || !familyAccountsEmpty) {
         return;
+    }
+    if (familyStorageSummary) {
+        if (!sharedStorage) {
+            familyStorageSummary.textContent = '';
+            familyStorageSummary.classList.add('hidden');
+        } else {
+            const sharedDbBytes = Number.isFinite(Number(sharedStorage.sharedDeckDbBytes))
+                ? Number(sharedStorage.sharedDeckDbBytes)
+                : 0;
+            const sharedAudioCount = Number.isInteger(Number(sharedStorage.sharedWritingAudioFileCount))
+                ? Number(sharedStorage.sharedWritingAudioFileCount)
+                : 0;
+            const sharedAudioBytes = Number.isFinite(Number(sharedStorage.sharedWritingAudioTotalBytes))
+                ? Number(sharedStorage.sharedWritingAudioTotalBytes)
+                : 0;
+            familyStorageSummary.textContent = `Shared files: shared_decks.duckdb ${formatBytes(sharedDbBytes)}; shared writing audio ${sharedAudioCount} file(s), ${formatBytes(sharedAudioBytes)}.`;
+            familyStorageSummary.classList.remove('hidden');
+        }
     }
     if (!Array.isArray(families) || families.length === 0) {
         familyAccountsList.innerHTML = '';
@@ -500,7 +543,23 @@ function renderFamilyAccounts(families) {
         const badgeText = badgeParts.length > 0 ? ` (${badgeParts.join(', ')})` : '';
         const kidCount = Number.isInteger(Number(family.kidCount)) ? Number(family.kidCount) : 0;
         const kidDbFileCount = Number.isInteger(Number(family.kidDbFileCount)) ? Number(family.kidDbFileCount) : 0;
-        const kidDbTotalMb = Number.isFinite(Number(family.kidDbTotalMb)) ? Number(family.kidDbTotalMb) : 0;
+        const kidDbTotalBytes = Number.isFinite(Number(family.kidDbTotalBytes)) ? Number(family.kidDbTotalBytes) : 0;
+        const audioFileCount = Number.isInteger(Number(family.audioFileCount)) ? Number(family.audioFileCount) : 0;
+        const audioTotalBytes = Number.isFinite(Number(family.audioTotalBytes)) ? Number(family.audioTotalBytes) : 0;
+        const lessonAudioCount = Number.isInteger(Number(family.lessonReadingAudioFileCount))
+            ? Number(family.lessonReadingAudioFileCount)
+            : 0;
+        const lessonAudioBytes = Number.isFinite(Number(family.lessonReadingAudioTotalBytes))
+            ? Number(family.lessonReadingAudioTotalBytes)
+            : 0;
+        const otherAudioCount = Math.max(0, audioFileCount - lessonAudioCount);
+        const otherAudioBytes = Math.max(0, audioTotalBytes - lessonAudioBytes);
+        const familyStorageTotalBytes = Number.isFinite(Number(family.familyStorageTotalBytes))
+            ? Number(family.familyStorageTotalBytes)
+            : (kidDbTotalBytes + audioTotalBytes);
+        const kidDbLine = (kidDbFileCount > 0 && kidDbFileCount !== kidCount)
+            ? `Kid DB files: ${kidDbFileCount}, total ${formatBytes(kidDbTotalBytes)}`
+            : `Kid DB total: ${formatBytes(kidDbTotalBytes)}`;
         const canDelete = Boolean(family.canDelete);
         const deleteButton = canDelete
             ? `<button type="button" class="btn-secondary" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}">Delete</button>`
@@ -509,8 +568,11 @@ function renderFamilyAccounts(families) {
             <div class="settings-row" style="justify-content: space-between; border-top: 1px solid #eef1f8; padding: 0.55rem 0;">
                 <div>
                     <strong>${escapeHtml(username)}</strong> <code>#${escapeHtml(familyId)}</code>${escapeHtml(badgeText)}
+                    <div class="settings-note">Family total storage: ${formatBytes(familyStorageTotalBytes)}</div>
                     <div class="settings-note">${kidCount} kid(s)</div>
-                    <div class="settings-note">Kid DB files: ${kidDbFileCount}, total ${kidDbTotalMb.toFixed(2)} MB</div>
+                    <div class="settings-note">${kidDbLine}</div>
+                    <div class="settings-note">Lesson reading audio: ${lessonAudioCount}, ${formatBytes(lessonAudioBytes)}</div>
+                    ${otherAudioCount > 0 ? `<div class="settings-note">Other family audio: ${otherAudioCount}, ${formatBytes(otherAudioBytes)}</div>` : ''}
                 </div>
                 <div>${deleteButton}</div>
             </div>

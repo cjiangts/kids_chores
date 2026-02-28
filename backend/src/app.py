@@ -13,8 +13,9 @@ from src.routes.backup import backup_bp
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection
 
-BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+BACKEND_DIR = os.path.dirname(os.path.dirname(__file__))
+DATA_DIR = os.path.join(BACKEND_DIR, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
 
 
@@ -263,6 +264,41 @@ def create_app():
             return auth_err
 
         current_family_id = str(session.get('family_id') or '')
+        audio_extensions = {'.aac', '.flac', '.m4a', '.mp3', '.ogg', '.oga', '.opus', '.wav', '.webm'}
+
+        def _safe_getsize(path):
+            try:
+                return int(os.path.getsize(path))
+            except Exception:
+                return 0
+
+        def _scan_audio_stats(root_dir):
+            stats = {
+                'audioFileCount': 0,
+                'audioTotalBytes': 0,
+                'lessonReadingAudioFileCount': 0,
+                'lessonReadingAudioTotalBytes': 0,
+            }
+            if not os.path.isdir(root_dir):
+                return stats
+
+            for current_root, _, names in os.walk(root_dir):
+                for name in names:
+                    ext = os.path.splitext(name)[1].lower()
+                    if ext not in audio_extensions:
+                        continue
+                    abs_path = os.path.join(current_root, name)
+                    size_bytes = _safe_getsize(abs_path)
+                    rel_path = os.path.relpath(abs_path, root_dir).replace('\\', '/')
+                    parts = [part for part in rel_path.split('/') if part]
+
+                    stats['audioFileCount'] += 1
+                    stats['audioTotalBytes'] += size_bytes
+                    if len(parts) >= 1 and parts[0] == 'lesson_reading_audio':
+                        stats['lessonReadingAudioFileCount'] += 1
+                        stats['lessonReadingAudioTotalBytes'] += size_bytes
+            return stats
+
         kids = metadata.get_all_kids()
         kid_count_by_family_id = {}
         kid_db_file_count_by_family_id = {}
@@ -288,6 +324,11 @@ def create_app():
             kid_db_file_count_by_family_id[family_id] = int(kid_db_file_count_by_family_id.get(family_id, 0)) + 1
             kid_db_total_bytes_by_family_id[family_id] = int(kid_db_total_bytes_by_family_id.get(family_id, 0)) + size_bytes
 
+        shared_deck_db_stats_path = str(shared_deck_db_path)
+        shared_deck_db_bytes = _safe_getsize(shared_deck_db_stats_path) if os.path.exists(shared_deck_db_stats_path) else 0
+        shared_audio_root = os.path.join(os.path.dirname(shared_deck_db_stats_path), 'shared', 'writing_audio')
+        shared_audio_stats = _scan_audio_stats(shared_audio_root)
+
         def _sort_key(family):
             try:
                 return int(family.get('id'))
@@ -299,6 +340,10 @@ def create_app():
             family_id = str(family.get('id') or '')
             is_super = bool(family.get('superFamily'))
             is_current = family_id == current_family_id
+            family_root = os.path.join(FAMILIES_ROOT, f'family_{family_id}')
+            family_audio_stats = _scan_audio_stats(family_root)
+            kid_db_total_bytes = int(kid_db_total_bytes_by_family_id.get(family_id, 0))
+            audio_total_bytes = int(family_audio_stats.get('audioTotalBytes', 0))
             families.append({
                 'id': family_id,
                 'username': str(family.get('username') or ''),
@@ -306,13 +351,24 @@ def create_app():
                 'superFamily': is_super,
                 'kidCount': int(kid_count_by_family_id.get(family_id, 0)),
                 'kidDbFileCount': int(kid_db_file_count_by_family_id.get(family_id, 0)),
-                'kidDbTotalBytes': int(kid_db_total_bytes_by_family_id.get(family_id, 0)),
-                'kidDbTotalMb': round(int(kid_db_total_bytes_by_family_id.get(family_id, 0)) / (1024 * 1024), 2),
+                'kidDbTotalBytes': kid_db_total_bytes,
+                'audioFileCount': int(family_audio_stats.get('audioFileCount', 0)),
+                'audioTotalBytes': audio_total_bytes,
+                'lessonReadingAudioFileCount': int(family_audio_stats.get('lessonReadingAudioFileCount', 0)),
+                'lessonReadingAudioTotalBytes': int(family_audio_stats.get('lessonReadingAudioTotalBytes', 0)),
+                'familyStorageTotalBytes': kid_db_total_bytes + audio_total_bytes,
                 'isCurrent': is_current,
                 'canDelete': (not is_current) and (not is_super),
             })
 
-        return {'families': families}, 200
+        return {
+            'families': families,
+            'sharedStorage': {
+                'sharedDeckDbBytes': int(shared_deck_db_bytes),
+                'sharedWritingAudioFileCount': int(shared_audio_stats.get('audioFileCount', 0)),
+                'sharedWritingAudioTotalBytes': int(shared_audio_stats.get('audioTotalBytes', 0)),
+            }
+        }, 200
 
     @app.route('/api/parent-settings/families/<family_id>', methods=['DELETE'])
     def delete_family_account(family_id):
@@ -393,7 +449,7 @@ def create_app():
         return {'status': 'healthy'}, 200
 
     # Serve frontend files
-    frontend_dir = os.path.join(BACKEND_ROOT, 'frontend')
+    frontend_dir = os.path.join(PROJECT_ROOT, 'frontend')
 
     @app.route('/')
     def index():

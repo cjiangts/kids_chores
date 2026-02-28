@@ -174,6 +174,7 @@ Environment variables (optional):
 
 - `PYTHONPATH=.` is required when running Flask from `backend/`.
 - Keep family scoping strict for every data/backup API.
+- Legacy compatibility rule: legacy writing-audio paths/tables are permanently removed; do not add fallback logic for old layouts.
 - Shared JS utilities live in `practice-manage-common.js` (escapeHtml, date utils, card sorting, password dialogs).
 - Keep frontend simple (static files served by Flask).
 - See `review.md` for the latest codebase review and 10-year scale analysis.
