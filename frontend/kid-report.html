@@ -151,7 +151,7 @@
 
         .daily-row {
             display: grid;
-            grid-template-columns: 90px minmax(120px, 1fr) minmax(195px, 236px);
+            grid-template-columns: 90px minmax(120px, 1fr) minmax(80px, 100px);
             gap: 0.45rem;
             align-items: center;
             margin-bottom: 0.45rem;
@@ -165,11 +165,22 @@
 
         .daily-bar-track {
             width: 100%;
-            height: 12px;
+            min-height: 18px;
             border-radius: 999px;
             background: #eef2fb;
             overflow: hidden;
             display: flex;
+        }
+
+        .daily-seg-reading,
+        .daily-seg-math,
+        .daily-seg-writing,
+        .daily-seg-lesson-reading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+            overflow: hidden;
         }
 
         .daily-seg-reading { background: #4f83ff; }
@@ -177,12 +188,26 @@
         .daily-seg-writing { background: #f0aa41; }
         .daily-seg-lesson-reading { background: #7f56d9; }
 
-        .daily-values {
-            color: #555;
-            font-size: 0.78rem;
-            text-align: left;
+        .daily-seg-min {
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            line-height: 1;
             white-space: nowrap;
-            min-width: 0;
+            padding: 0 0.2rem;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+        }
+
+        .daily-seg-tiny .daily-seg-min {
+            display: none;
+        }
+
+        .daily-total {
+            color: #45528c;
+            font-size: 0.82rem;
+            text-align: right;
+            white-space: nowrap;
+            font-weight: 700;
         }
 
         @media (max-width: 760px) {
@@ -191,7 +216,7 @@
                 gap: 0.25rem;
             }
 
-            .daily-values {
+            .daily-total {
                 text-align: left;
             }
         }

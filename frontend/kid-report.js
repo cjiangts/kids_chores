@@ -195,15 +195,30 @@ function renderDailyMinutesChartPage() {
             <div class="daily-row">
                 <div class="daily-date">${row.date}</div>
                 <div class="daily-bar-track">
-                    <div class="daily-seg-reading" style="width:${readingPct.toFixed(2)}%"></div>
-                    <div class="daily-seg-math" style="width:${mathPct.toFixed(2)}%"></div>
-                    <div class="daily-seg-writing" style="width:${writingPct.toFixed(2)}%"></div>
-                    <div class="daily-seg-lesson-reading" style="width:${lessonReadingPct.toFixed(2)}%"></div>
+                    ${renderDailyMinutesSegment('daily-seg-reading', 'Characters', row.reading, readingPct)}
+                    ${renderDailyMinutesSegment('daily-seg-math', 'Math', row.math, mathPct)}
+                    ${renderDailyMinutesSegment('daily-seg-writing', 'Writing', row.writing, writingPct)}
+                    ${renderDailyMinutesSegment('daily-seg-lesson-reading', 'Reading', row.lessonReading, lessonReadingPct)}
                 </div>
-                <div class="daily-values">C ${row.reading.toFixed(1)} · M ${row.math.toFixed(1)} · W ${row.writing.toFixed(1)} · R ${row.lessonReading.toFixed(1)} · T ${row.total.toFixed(1)}</div>
+                <div class="daily-total">${row.total.toFixed(1)} min</div>
             </div>
         `;
     }).join('');
+}
+
+function renderDailyMinutesSegment(segmentClass, label, minutes, pct) {
+    const safeMinutes = Number.isFinite(Number(minutes)) ? Math.max(0, Number(minutes)) : 0;
+    const safePct = Number.isFinite(Number(pct)) ? Math.max(0, Number(pct)) : 0;
+    if (safeMinutes <= 0 || safePct <= 0) {
+        return '';
+    }
+    const minuteText = safeMinutes.toFixed(1);
+    const tinyClass = safePct < 5 ? ' daily-seg-tiny' : '';
+    return `
+        <div class="${segmentClass}${tinyClass}" style="width:${safePct.toFixed(2)}%" title="${label} ${minuteText} min">
+            <span class="daily-seg-min">${minuteText}</span>
+        </div>
+    `;
 }
 
 function getSessionDateKey(session) {

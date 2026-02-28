@@ -28,6 +28,11 @@ const sessionScreen = document.getElementById('sessionScreen');
 const resultScreen = document.getElementById('resultScreen');
 const sessionInfo = document.getElementById('sessionInfo');
 const resultSummary = document.getElementById('resultSummary');
+const bonusGameSection = document.getElementById('bonusGameSection');
+const bonusGameHint = document.getElementById('bonusGameHint');
+const bonusGameStatus = document.getElementById('bonusGameStatus');
+const bonusGameBoard = document.getElementById('bonusGameBoard');
+const bonusReplayBtn = document.getElementById('bonusReplayBtn');
 const pauseMask = document.getElementById('pauseMask');
 const flashcard = document.getElementById('flashcard');
 const cardBackContent = document.getElementById('cardBackContent');
@@ -55,6 +60,11 @@ let pauseStartedAtMs = 0;
 let pausedDurationMs = 0;
 let answerRevealed = false;
 let judgeMode = 'self';
+let wrongCardsInSession = [];
+let bonusSourceCards = [];
+let bonusTiles = [];
+let bonusSelectedTileIndexes = [];
+let bonusMatchedPairCount = 0;
 const JUDGE_MODE_STORAGE_KEY = 'practice_judge_mode_flashcard';
 const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
     button: finishEarlyBtn,
@@ -93,6 +103,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadCards();
     await loadWritingCards();
     initJudgeMode();
+    if (bonusGameBoard) {
+        bonusGameBoard.addEventListener('click', onBonusGameBoardClick);
+    }
+    if (bonusReplayBtn) {
+        bonusReplayBtn.addEventListener('click', () => {
+            if (bonusSourceCards.length > 0) {
+                startBonusGame(bonusSourceCards);
+            }
+        });
+    }
 });
 
 function isSessionInProgress() {
@@ -175,6 +195,8 @@ function resetToStartScreen() {
     knownCount = 0;
     unknownCount = 0;
     answerRevealed = false;
+    wrongCardsInSession = [];
+    resetBonusGame();
 
     const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
     const chineseEnabled = Number.isInteger(readingSessionCount) && readingSessionCount > 0;
@@ -304,6 +326,8 @@ async function startSession() {
         knownCount = 0;
         unknownCount = 0;
         sessionAnswers = [];
+        wrongCardsInSession = [];
+        resetBonusGame();
 
         startScreen.classList.add('hidden');
         practiceChooser.classList.add('hidden');
@@ -370,6 +394,11 @@ function answerCurrentCard(known) {
         knownCount += 1;
     } else {
         unknownCount += 1;
+        wrongCardsInSession.push({
+            id: currentCard.id,
+            front: String(currentCard.front || '').trim(),
+            back: String(currentCard.back || '').trim(),
+        });
     }
 
     const isLastCard = currentSessionIndex >= sessionCards.length - 1;
@@ -464,6 +493,7 @@ async function endSession(endedEarly = false) {
     resultSummary.textContent = endedEarly
         ? `Ended early · Known: ${knownCount} · Need practice: ${unknownCount}`
         : `Known: ${knownCount} · Need practice: ${unknownCount}`;
+    showBonusGameForWrongCards();
 
     try {
         await window.PracticeSessionFlow.postCompleteSession(
@@ -483,4 +513,168 @@ async function endSession(endedEarly = false) {
 
 function showError(message) {
     window.PracticeUiCommon.showAlertError(errorState, errorMessage, message);
+}
+
+function escapeHtml(text) {
+    return String(text || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function getUniqueWrongCards(cardsList) {
+    const uniqueCards = [];
+    const seen = new Set();
+    const list = Array.isArray(cardsList) ? cardsList : [];
+    list.forEach((card, index) => {
+        const front = String(card?.front || '').trim();
+        const back = String(card?.back || '').trim();
+        if (!front && !back) {
+            return;
+        }
+        const numericId = Number(card?.id);
+        const key = Number.isFinite(numericId) ? `id:${numericId}` : `text:${front}::${back}::${index}`;
+        if (seen.has(key)) {
+            return;
+        }
+        seen.add(key);
+        uniqueCards.push({
+            pairKey: key,
+            front: front || '?',
+            back: back || '(answer)',
+        });
+    });
+    return uniqueCards;
+}
+
+function resetBonusGame() {
+    bonusSourceCards = [];
+    bonusTiles = [];
+    bonusSelectedTileIndexes = [];
+    bonusMatchedPairCount = 0;
+    if (bonusGameSection) {
+        bonusGameSection.classList.add('hidden');
+    }
+    if (bonusGameHint) {
+        bonusGameHint.textContent = '';
+    }
+    if (bonusGameStatus) {
+        bonusGameStatus.textContent = '';
+    }
+    if (bonusGameBoard) {
+        bonusGameBoard.innerHTML = '';
+    }
+}
+
+function showBonusGameForWrongCards() {
+    const wrongCards = getUniqueWrongCards(wrongCardsInSession);
+    if (wrongCards.length === 0) {
+        resetBonusGame();
+        return;
+    }
+    bonusSourceCards = wrongCards;
+    if (bonusGameSection) {
+        bonusGameSection.classList.remove('hidden');
+    }
+    if (bonusGameHint) {
+        bonusGameHint.textContent = `Tap two boxes to pair each wrong character with its answer (${wrongCards.length} pair${wrongCards.length === 1 ? '' : 's'}).`;
+    }
+    startBonusGame(wrongCards);
+}
+
+function startBonusGame(sourceCards) {
+    const cardsList = Array.isArray(sourceCards) ? sourceCards : [];
+    const tiles = [];
+    cardsList.forEach((card) => {
+        const key = String(card.pairKey || '');
+        tiles.push({ pairKey: key, side: 'front', text: String(card.front || '?'), matched: false });
+        tiles.push({ pairKey: key, side: 'back', text: String(card.back || '(answer)'), matched: false });
+    });
+    bonusTiles = window.PracticeUiCommon.shuffleCards(tiles);
+    bonusSelectedTileIndexes = [];
+    bonusMatchedPairCount = 0;
+    renderBonusGameBoard();
+    renderBonusGameStatus();
+}
+
+function renderBonusGameBoard() {
+    if (!bonusGameBoard) {
+        return;
+    }
+    bonusGameBoard.innerHTML = bonusTiles.map((tile, index) => {
+        const isSelected = bonusSelectedTileIndexes.includes(index);
+        const classes = [
+            'bonus-tile',
+            isSelected ? 'selected' : '',
+            tile.matched ? 'matched' : '',
+        ].filter(Boolean).join(' ');
+        return `<button type="button" class="${classes}" data-bonus-index="${index}"${tile.matched ? ' disabled' : ''}>${escapeHtml(tile.text)}</button>`;
+    }).join('');
+}
+
+function renderBonusGameStatus() {
+    if (!bonusGameStatus) {
+        return;
+    }
+    const pairTotal = bonusSourceCards.length;
+    if (pairTotal <= 0) {
+        bonusGameStatus.textContent = '';
+        return;
+    }
+    if (bonusMatchedPairCount >= pairTotal) {
+        bonusGameStatus.textContent = `Great job! Matched all ${pairTotal} pair${pairTotal === 1 ? '' : 's'}.`;
+        return;
+    }
+    bonusGameStatus.textContent = `Matched ${bonusMatchedPairCount} / ${pairTotal}`;
+}
+
+function onBonusGameBoardClick(event) {
+    const tileBtn = event.target.closest('[data-bonus-index]');
+    if (!tileBtn) {
+        return;
+    }
+    const tileIndex = Number.parseInt(tileBtn.getAttribute('data-bonus-index'), 10);
+    if (!Number.isInteger(tileIndex)) {
+        return;
+    }
+    revealBonusTile(tileIndex);
+}
+
+function revealBonusTile(tileIndex) {
+    const tile = bonusTiles[tileIndex];
+    if (!tile || tile.matched) {
+        return;
+    }
+    if (bonusSelectedTileIndexes.includes(tileIndex)) {
+        return;
+    }
+
+    bonusSelectedTileIndexes.push(tileIndex);
+    renderBonusGameBoard();
+
+    if (bonusSelectedTileIndexes.length < 2) {
+        return;
+    }
+
+    const firstIndex = bonusSelectedTileIndexes[0];
+    const secondIndex = bonusSelectedTileIndexes[1];
+    const firstTile = bonusTiles[firstIndex];
+    const secondTile = bonusTiles[secondIndex];
+    const isPair = firstTile.pairKey === secondTile.pairKey && firstTile.side !== secondTile.side;
+
+    if (isPair) {
+        firstTile.matched = true;
+        secondTile.matched = true;
+        bonusSelectedTileIndexes = [];
+        bonusMatchedPairCount += 1;
+        renderBonusGameBoard();
+        renderBonusGameStatus();
+        return;
+    }
+
+    bonusSelectedTileIndexes = [];
+    renderBonusGameBoard();
+    renderBonusGameStatus();
 }

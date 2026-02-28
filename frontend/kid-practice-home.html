@@ -189,6 +189,74 @@
             line-height: 1.25;
         }
 
+        .bonus-game {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+        }
+
+        .bonus-game-title {
+            margin-bottom: 0.45rem;
+            color: #333;
+            font-size: 1.25rem;
+        }
+
+        .bonus-game-hint,
+        .bonus-game-status {
+            margin-bottom: 0.45rem;
+            color: #555;
+            font-size: 0.95rem;
+        }
+
+        .bonus-game-status {
+            font-weight: 700;
+            color: #2f6f3f;
+        }
+
+        .bonus-game-board {
+            margin-top: 0.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+            gap: 0.55rem;
+        }
+
+        .bonus-tile {
+            min-height: 68px;
+            border-radius: 10px;
+            border: 2px solid #d3dbf5;
+            background: #f1f4ff;
+            color: #28407d;
+            font-size: 1.35rem;
+            font-family: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0.35rem;
+        }
+
+        .bonus-tile.selected {
+            background: #fffdf2;
+            border-color: #ecd172;
+            color: #63490d;
+        }
+
+        .bonus-tile.matched {
+            background: #eaf8ee;
+            border-color: #62bb79;
+            color: #1f7f3d;
+            cursor: default;
+        }
+
+        .bonus-replay-btn {
+            margin-top: 0.7rem;
+            background: #2f7af5;
+            font-weight: 700;
+        }
+
+        .bonus-replay-btn:hover {
+            background: #1d66e1;
+        }
+
     </style>
 </head>
 <body class="practice-page">
@@ -271,6 +339,13 @@
                     <div class="flashcard">
                         <h2 class="session-title">Session Complete</h2>
                         <p id="resultSummary" class="progress"></p>
+                        <div id="bonusGameSection" class="bonus-game hidden">
+                            <h3 class="bonus-game-title">Bonus Game: Match the Wrong Cards</h3>
+                            <p id="bonusGameHint" class="bonus-game-hint"></p>
+                            <p id="bonusGameStatus" class="bonus-game-status"></p>
+                            <div id="bonusGameBoard" class="bonus-game-board"></div>
+                            <button id="bonusReplayBtn" type="button" class="control-btn bonus-replay-btn">Shuffle Again</button>
+                        </div>
                         <a id="resultBackBtn" href="/" class="control-btn back-btn result-back-btn">Back to my chores</a>
                     </div>
                 </div>
