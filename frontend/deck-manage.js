@@ -4,12 +4,17 @@ const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
 const deckTableBody = document.getElementById('deckTableBody');
 const createDeckNavBtn = document.getElementById('createDeckNavBtn');
+const createDeckBulkNavBtn = document.getElementById('createDeckBulkNavBtn');
 const errorMessage = document.getElementById('errorMessage');
 const deckTagFilterInput = document.getElementById('deckTagFilter');
-const clearTagFilterBtn = document.getElementById('clearTagFilterBtn');
+const selectAllVisibleCheckbox = document.getElementById('selectAllVisibleCheckbox');
+const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+const bulkSelectionMeta = document.getElementById('bulkSelectionMeta');
 
 let allDecks = [];
 let deckTagFilterController = null;
+let currentFilteredDeckIds = [];
+let isBulkDeleting = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -19,25 +24,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     createDeckNavBtn.addEventListener('click', () => {
         window.location.href = '/deck-create.html';
     });
+    if (createDeckBulkNavBtn) {
+        createDeckBulkNavBtn.addEventListener('click', () => {
+            window.location.href = '/deck-create-bulk.html';
+        });
+    }
+
+    if (selectAllVisibleCheckbox) {
+        selectAllVisibleCheckbox.addEventListener('change', () => {
+            toggleSelectAllVisible(selectAllVisibleCheckbox.checked);
+        });
+    }
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', async () => {
+            await deleteSelectedDecks();
+        });
+    }
+
     ensureDeckTagFilterController().sync();
-    deckTableBody.addEventListener('click', async (event) => {
-        const btn = event.target.closest('button[data-action][data-deck-id]');
-        if (!btn) {
-            return;
-        }
-        const deckId = Number(btn.getAttribute('data-deck-id') || 0);
-        if (!(deckId > 0)) {
-            return;
-        }
-        const action = String(btn.getAttribute('data-action') || '');
-        if (action === 'view') {
-            window.location.href = `/deck-view.html?deckId=${encodeURIComponent(String(deckId))}`;
-            return;
-        }
-        if (action === 'delete') {
-            await deleteDeck(deckId);
-        }
-    });
+    updateBulkSelectionUi();
+    syncSelectAllVisibleCheckbox();
     await loadMyDecks();
 });
 
@@ -106,7 +112,6 @@ function ensureDeckTagFilterController() {
 
     deckTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
         selectEl: deckTagFilterInput,
-        clearBtn: clearTagFilterBtn,
         getDecks: () => allDecks,
         getDeckTags,
         onFilterChanged: () => {
@@ -122,14 +127,20 @@ function matchesDeckTagFilter(deck) {
 
 function renderDecks() {
     if (!Array.isArray(allDecks) || allDecks.length === 0) {
+        currentFilteredDeckIds = [];
         deckTableBody.innerHTML = '';
         tableWrap.classList.add('hidden');
         emptyState.textContent = 'No decks yet. Create your first one.';
         emptyState.classList.remove('hidden');
+        updateBulkSelectionUi();
+        syncSelectAllVisibleCheckbox();
         return;
     }
 
     const filteredDecks = allDecks.filter(matchesDeckTagFilter);
+    currentFilteredDeckIds = filteredDecks
+        .map((deck) => Number(deck.deck_id || 0))
+        .filter((deckId) => deckId > 0);
     if (filteredDecks.length === 0) {
         const filterLabel = ensureDeckTagFilterController().getDisplayLabel();
         deckTableBody.innerHTML = '';
@@ -138,6 +149,8 @@ function renderDecks() {
             ? `No decks match tag "${filterLabel}".`
             : 'No decks match the selected tag filter.';
         emptyState.classList.remove('hidden');
+        updateBulkSelectionUi();
+        syncSelectAllVisibleCheckbox();
         return;
     }
 
@@ -152,50 +165,107 @@ function renderDecks() {
         return `
             <tr>
                 <td>${Number(deck.deck_id || 0)}</td>
-                <td><code>${escapeHtml(deck.name || '')}</code></td>
                 <td>${tagHtml}</td>
                 <td>${Number(deck.card_count || 0)}</td>
-                <td>${formatIsoTimestamp(deck.created_at)}</td>
-                <td>
-                    <button type="button" class="btn-secondary" data-action="view" data-deck-id="${Number(deck.deck_id || 0)}">View</button>
-                    <button type="button" class="btn-secondary" data-action="delete" data-deck-id="${Number(deck.deck_id || 0)}">Delete</button>
+                <td class="shared-report-table-action-cell">
+                    <a class="tab-link secondary shared-report-table-action-link" href="/deck-view.html?deckId=${encodeURIComponent(String(Number(deck.deck_id || 0)))}">View</a>
                 </td>
             </tr>
         `;
     }).join('');
+
+    updateBulkSelectionUi();
+    syncSelectAllVisibleCheckbox();
 }
 
-async function deleteDeck(deckId) {
-    const confirmed = window.confirm(`Delete deck #${deckId}? This cannot be undone.`);
+function toggleSelectAllVisible(checked) {
+    if (isBulkDeleting) {
+        return;
+    }
+    updateBulkSelectionUi();
+    syncSelectAllVisibleCheckbox();
+}
+
+function syncSelectAllVisibleCheckbox() {
+    if (!selectAllVisibleCheckbox) {
+        return;
+    }
+    const visibleCount = currentFilteredDeckIds.length;
+    selectAllVisibleCheckbox.disabled = visibleCount === 0 || isBulkDeleting;
+    if (visibleCount === 0) {
+        selectAllVisibleCheckbox.checked = false;
+    }
+    selectAllVisibleCheckbox.indeterminate = false;
+}
+
+function updateBulkSelectionUi() {
+    const allVisibleSelected = Boolean(selectAllVisibleCheckbox && selectAllVisibleCheckbox.checked);
+    const selectedCount = allVisibleSelected ? currentFilteredDeckIds.length : 0;
+
+    if (bulkSelectionMeta) {
+        bulkSelectionMeta.textContent = `${selectedCount} selected`;
+    }
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.disabled = selectedCount === 0 || isBulkDeleting;
+        deleteSelectedBtn.textContent = isBulkDeleting
+            ? 'Deleting...'
+            : `Delete Selected (${selectedCount})`;
+    }
+}
+
+async function deleteSelectedDecks() {
+    if (isBulkDeleting) {
+        return;
+    }
+    const allVisibleSelected = Boolean(selectAllVisibleCheckbox && selectAllVisibleCheckbox.checked);
+    const targets = allVisibleSelected ? currentFilteredDeckIds.slice() : [];
+    if (targets.length === 0) {
+        return;
+    }
+
+    const confirmed = window.confirm(`Delete ${targets.length} selected deck(s)? This cannot be undone.`);
     if (!confirmed) {
         return;
     }
-    showError('');
-    try {
-        const response = await fetch(`${API_BASE}/shared-decks/${deckId}`, {
-            method: 'DELETE',
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(result.error || `Failed to delete deck (HTTP ${response.status})`);
-        }
-        await loadMyDecks();
-    } catch (error) {
-        console.error('Error deleting shared deck:', error);
-        showError(error.message || 'Failed to delete deck.');
-    }
-}
 
-function formatIsoTimestamp(value) {
-    const text = String(value || '').trim();
-    if (!text) {
-        return '-';
+    isBulkDeleting = true;
+    updateBulkSelectionUi();
+    syncSelectAllVisibleCheckbox();
+    showError('');
+
+    const failures = [];
+    try {
+        for (const deckId of targets) {
+            try {
+                const response = await fetch(`${API_BASE}/shared-decks/${deckId}`, {
+                    method: 'DELETE',
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.error || `Delete failed (HTTP ${response.status})`);
+                }
+            } catch (error) {
+                failures.push({
+                    deckId,
+                    message: String(error.message || 'Delete failed'),
+                });
+            }
+        }
+    } finally {
+        isBulkDeleting = false;
     }
-    const date = new Date(text);
-    if (Number.isNaN(date.getTime())) {
-        return text;
+
+    await loadMyDecks();
+
+    if (failures.length > 0) {
+        const summary = failures
+            .slice(0, 2)
+            .map((item) => `#${item.deckId}: ${item.message}`)
+            .join(' | ');
+        const extraCount = failures.length > 2 ? ` (+${failures.length - 2} more)` : '';
+        showError(`${failures.length} deck(s) failed to delete. ${summary}${extraCount}`);
+        renderDecks();
     }
-    return date.toLocaleString();
 }
 
 function showError(message) {
@@ -207,4 +277,10 @@ function showError(message) {
     }
     errorMessage.textContent = text;
     errorMessage.classList.remove('hidden');
+}
+
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value ?? '');
+    return div.innerHTML;
 }

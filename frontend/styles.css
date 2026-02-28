@@ -243,6 +243,49 @@ body {
     min-width: 180px;
 }
 
+.shared-report-table-wrap {
+    background: #fff;
+    border-radius: 10px;
+    padding: 0.8rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.shared-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+
+.shared-report-table th,
+.shared-report-table td {
+    text-align: left;
+    border-bottom: 1px solid #eceff6;
+    padding: 0.55rem 0.4rem;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.shared-report-table th {
+    color: #45528c;
+    font-weight: 700;
+    background: #f7f9ff;
+}
+
+.shared-report-table-action-link {
+    display: inline-block;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
+    line-height: 1;
+}
+
+.shared-report-table-action-cell {
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+    width: 1%;
+}
+
 .manage-page .settings-section {
     background: white;
     padding: 1.5rem;

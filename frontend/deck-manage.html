@@ -20,34 +20,6 @@
             margin-bottom: 1rem;
         }
 
-        .deck-table-wrap {
-            border: 1px solid #e0e5eb;
-            border-radius: 8px;
-            overflow: auto;
-        }
-
-        .deck-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.92rem;
-            background: #fff;
-        }
-
-        .deck-table th,
-        .deck-table td {
-            border-bottom: 1px solid #eef1f4;
-            padding: 0.55rem;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        .deck-table thead th {
-            background: #f7f9fc;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-
         .deck-tags {
             display: inline-flex;
             flex-wrap: wrap;
@@ -81,6 +53,27 @@
             margin-bottom: 0;
             min-width: 240px;
         }
+
+        .bulk-actions {
+            display: flex;
+            gap: 0.55rem;
+            align-items: center;
+            margin: 0.35rem 0 0.9rem 0;
+            flex-wrap: wrap;
+        }
+
+        .bulk-actions label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.92rem;
+            color: #333;
+        }
+
+        .bulk-selection-meta {
+            color: #666;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -99,6 +92,7 @@
                 <h2 style="margin: 0 0 0.7rem 0; color: #2f3c7e;">My Created Decks</h2>
                 <div class="actions">
                     <button id="createDeckNavBtn" type="button" class="btn-primary">Create New Deck</button>
+                    <button id="createDeckBulkNavBtn" type="button" class="btn-secondary">Bulk Create New Decks</button>
                 </div>
 
                 <div class="available-filter">
@@ -107,21 +101,27 @@
                             <option value="">Add filter tag...</option>
                         </select>
                     </div>
-                    <button id="clearTagFilterBtn" type="button" class="btn-secondary">Clear Tag Filter</button>
+                </div>
+
+                <div class="bulk-actions">
+                    <label>
+                        <input id="selectAllVisibleCheckbox" type="checkbox">
+                        Select all visible
+                    </label>
+                    <button id="deleteSelectedBtn" type="button" class="btn-secondary">Delete Selected</button>
+                    <span id="bulkSelectionMeta" class="bulk-selection-meta">0 selected</span>
                 </div>
 
                 <div id="emptyState" class="deck-empty hidden">No decks yet. Create your first one.</div>
 
-                <div id="tableWrap" class="deck-table-wrap hidden">
-                    <table class="deck-table">
+                <div id="tableWrap" class="shared-report-table-wrap hidden">
+                    <table class="shared-report-table">
                         <thead>
                             <tr>
                                 <th style="width: 90px;">Deck ID</th>
-                                <th>Name</th>
                                 <th>Tags</th>
                                 <th style="width: 110px;">Cards</th>
-                                <th style="width: 180px;">Created At</th>
-                                <th style="width: 240px;">Actions</th>
+                                <th class="shared-report-table-action-cell">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="deckTableBody"></tbody>

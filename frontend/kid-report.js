@@ -134,7 +134,7 @@ function renderTablePage() {
             <td>${safeNum(session.answer_count)}</td>
             <td>${safeNum(session.right_count)}</td>
             <td>${safeNum(session.wrong_count)}</td>
-            <td><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}" class="tab-link secondary" style="padding:0.3rem 0.55rem; font-size:0.78rem;">View</a></td>
+            <td class="shared-report-table-action-cell"><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}" class="tab-link secondary shared-report-table-action-link">View</a></td>
         </tr>
     `).join('');
 }
