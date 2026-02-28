@@ -367,19 +367,21 @@
 
             <div class="math-v2-grid">
                 <div class="math-v2-column">
-                    <h3>Available Shared Decks</h3>
+                    <div class="deck-column-head">
+                        <h3 id="availableDecksTitle">Available Shared Decks (0)</h3>
+                        <button id="optInAllAvailableBtn" type="button" class="btn-secondary">Opt-in All</button>
+                    </div>
                     <div class="available-filter">
                         <div class="form-group">
                             <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
                         </div>
-                        <button id="clearTagFilterBtn" type="button" class="btn-secondary">Clear</button>
                     </div>
                     <div id="availableDecks" class="deck-bubble-wrap"></div>
                     <p id="availableEmpty" class="math-v2-empty hidden">No shared Chinese Reading decks available yet.</p>
                 </div>
 
                 <div class="math-v2-column">
-                    <h3>Opted-in Decks</h3>
+                    <h3 id="selectedDecksTitle">Opted-in Decks (0)</h3>
                     <div id="selectedDecks" class="deck-bubble-wrap"></div>
                     <p id="selectedEmpty" class="math-v2-empty">No deck opted in.</p>
                 </div>

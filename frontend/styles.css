@@ -286,6 +286,31 @@ body {
     width: 1%;
 }
 
+.deck-bubble-more {
+    cursor: default !important;
+    user-select: none;
+    opacity: 0.75;
+}
+
+.deck-column-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem;
+    margin-bottom: 0.55rem;
+}
+
+.deck-column-head h3 {
+    margin: 0;
+}
+
+.deck-column-head .btn-secondary {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.82rem;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
 .manage-page .settings-section {
     background: white;
     padding: 1.5rem;

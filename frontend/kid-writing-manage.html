@@ -165,22 +165,6 @@
             background: #218838;
         }
 
-        .preset-btn {
-            margin-top: 0.6rem;
-            width: 100%;
-            background: #2d7ef7;
-            color: white;
-            padding: 0.7rem 1.1rem;
-            border: none;
-            border-radius: 4px;
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-
-        .preset-btn:hover {
-            background: #1f6ce0;
-        }
-
         .cards-section h2 {
             margin-bottom: 1rem;
             color: #333;
@@ -453,19 +437,21 @@
             <p class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes.</p>
             <div class="math-v2-grid">
                 <div class="math-v2-column">
-                    <h3>Available Shared Decks</h3>
+                    <div class="deck-column-head">
+                        <h3 id="availableDecksTitle">Available Shared Decks (0)</h3>
+                        <button id="optInAllAvailableBtn" type="button" class="btn-secondary">Opt-in All</button>
+                    </div>
                     <div class="available-filter">
                         <div class="form-group">
                             <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
                         </div>
-                        <button id="clearTagFilterBtn" type="button" class="btn-secondary">Clear</button>
                     </div>
                     <div id="availableDecks" class="deck-bubble-wrap"></div>
                     <p id="availableEmpty" class="math-v2-empty hidden">No shared Chinese Writing decks available yet.</p>
                 </div>
 
                 <div class="math-v2-column">
-                    <h3>Opted-in Decks</h3>
+                    <h3 id="selectedDecksTitle">Opted-in Decks (0)</h3>
                     <div id="selectedDecks" class="deck-bubble-wrap"></div>
                     <p id="selectedEmpty" class="math-v2-empty">No deck opted in.</p>
                 </div>
@@ -499,7 +485,6 @@ DAY2:答应 病了 知道 从来 勇敢 感动 高山 一起 可是 找人 怎�
 DAY3:够 碗 现在 带着 和尚 不停 累了 休息 经过 相信 一定 迷路 千万"></textarea>
                     </div>
                     <button type="submit" id="bulkAddBtn" class="submit-btn">Bulk Add Chinese Writing Prompt</button>
-                    <button type="button" id="addMaLiPingWritingBtn" class="preset-btn">Add 马立平</button>
                     <div id="bulkImportErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
                 </form>
             </div>

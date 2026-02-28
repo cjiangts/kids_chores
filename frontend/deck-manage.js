@@ -9,7 +9,6 @@ const errorMessage = document.getElementById('errorMessage');
 const deckTagFilterInput = document.getElementById('deckTagFilter');
 const selectAllVisibleCheckbox = document.getElementById('selectAllVisibleCheckbox');
 const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-const bulkSelectionMeta = document.getElementById('bulkSelectionMeta');
 
 let allDecks = [];
 let deckTagFilterController = null;
@@ -202,9 +201,6 @@ function updateBulkSelectionUi() {
     const allVisibleSelected = Boolean(selectAllVisibleCheckbox && selectAllVisibleCheckbox.checked);
     const selectedCount = allVisibleSelected ? currentFilteredDeckIds.length : 0;
 
-    if (bulkSelectionMeta) {
-        bulkSelectionMeta.textContent = `${selectedCount} selected`;
-    }
     if (deleteSelectedBtn) {
         deleteSelectedBtn.disabled = selectedCount === 0 || isBulkDeleting;
         deleteSelectedBtn.textContent = isBulkDeleting

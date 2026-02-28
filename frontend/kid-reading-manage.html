@@ -227,22 +227,6 @@
             background: #218838;
         }
 
-        .preset-btn {
-            margin-top: 0.55rem;
-            width: 100%;
-            background: #2d7ef7;
-            color: white;
-            padding: 0.65rem 0.95rem;
-            border: none;
-            border-radius: 4px;
-            font-size: 0.92rem;
-            cursor: pointer;
-        }
-
-        .preset-btn:hover {
-            background: #1f6ce0;
-        }
-
         .cards-section h2 {
             margin-bottom: 1rem;
             color: #333;
@@ -388,19 +372,21 @@
 
             <div class="math-v2-grid">
                 <div class="math-v2-column">
-                    <h3>Available Shared Decks</h3>
+                    <div class="deck-column-head">
+                        <h3 id="availableDecksTitle">Available Shared Decks (0)</h3>
+                        <button id="optInAllAvailableBtn" type="button" class="btn-secondary">Opt-in All</button>
+                    </div>
                     <div class="available-filter">
                         <div class="form-group">
                             <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
                         </div>
-                        <button id="clearTagFilterBtn" type="button" class="btn-secondary">Clear</button>
                     </div>
                     <div id="availableDecks" class="deck-bubble-wrap"></div>
                     <p id="availableEmpty" class="math-v2-empty hidden">No shared Chinese Character decks available yet.</p>
                 </div>
 
                 <div class="math-v2-column">
-                    <h3>Opted-in Decks</h3>
+                    <h3 id="selectedDecksTitle">Opted-in Decks (0)</h3>
                     <div id="selectedDecks" class="deck-bubble-wrap"></div>
                     <p id="selectedEmpty" class="math-v2-empty">No deck opted in.</p>
                 </div>
@@ -432,8 +418,6 @@
                             </div>
                         </div>
                         <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add Chinese Characters</button>
-                        <button type="button" id="addSiWuKuaiDuBtn" class="preset-btn">Add 四五快读</button>
-                        <button type="button" id="addMaLiPingBtn" class="preset-btn">Add 马立平</button>
                         <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
                     </form>
                 </div>

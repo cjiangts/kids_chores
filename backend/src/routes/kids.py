@@ -3399,8 +3399,14 @@ def add_card(kid_id):
 
         data = request.get_json()
 
-        if not data.get('front'):
+        front = str(data.get('front') or '').strip()
+        if not front:
             return jsonify({'error': 'Front text is required'}), 400
+
+        back = str(data.get('back') or '').strip()
+        if not back:
+            generated = str(build_chinese_pinyin_text(front) or '').strip()
+            back = generated or front
 
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_chinese_characters_orphan_deck(conn)
@@ -3413,8 +3419,8 @@ def add_card(kid_id):
             """,
             [
                 deck_id,
-                data['front'],
-                data.get('back', '')
+                front,
+                back
             ]
         ).fetchone()[0]
 
@@ -3486,9 +3492,15 @@ def add_cards_bulk(kid_id):
             if front in existing_fronts:
                 continue
             existing_fronts.add(front)
+
+            back = str(item.get('back') or '').strip()
+            if not back:
+                generated = str(build_chinese_pinyin_text(front) or '').strip()
+                back = generated or front
+
             card_id = conn.execute(
                 "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?) RETURNING id",
-                [deck_id, front, item.get('back', '')]
+                [deck_id, front, back]
             ).fetchone()[0]
             created.append({'id': card_id, 'front': front})
 

@@ -21,9 +21,11 @@ const mixEmptyEl = document.getElementById('mixEmpty');
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
 const availableTagFilterInput = document.getElementById('availableTagFilter');
-const clearTagFilterBtn = document.getElementById('clearTagFilterBtn');
+const availableDecksTitle = document.getElementById('availableDecksTitle');
+const optInAllAvailableBtn = document.getElementById('optInAllAvailableBtn');
 const selectedDecksEl = document.getElementById('selectedDecks');
 const selectedEmptyEl = document.getElementById('selectedEmpty');
+const selectedDecksTitle = document.getElementById('selectedDecksTitle');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckPendingInfo = document.getElementById('deckPendingInfo');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
@@ -32,8 +34,6 @@ const addCardForm = document.getElementById('addCardForm');
 const chineseCharInput = document.getElementById('chineseChar');
 const addReadingBtn = document.getElementById('addReadingBtn');
 const addCardStatusMessage = document.getElementById('addCardStatusMessage');
-const addSiWuKuaiDuBtn = document.getElementById('addSiWuKuaiDuBtn');
-const addMaLiPingBtn = document.getElementById('addMaLiPingBtn');
 
 const sharedDeckTabs = document.getElementById('sharedDeckTabs');
 const viewOrderSelect = document.getElementById('viewOrderSelect');
@@ -57,6 +57,7 @@ let isDeckMoveInFlight = false;
 let baselineOptedDeckIdSet = new Set();
 let stagedOptedDeckIdSet = new Set();
 let availableTagFilterController = null;
+let optInAllAvailableController = null;
 let isReadingBulkAdding = false;
 let includeOrphanInQueue = false;
 const CARD_PAGE_SIZE = 10;
@@ -243,12 +244,18 @@ function renderDeckPendingInfo() {
         deckPendingInfo.textContent = 'No pending deck changes.';
         applyDeckChangesBtn.disabled = true;
         applyDeckChangesBtn.textContent = 'Apply Deck Changes';
+        if (optInAllAvailableController) {
+            optInAllAvailableController.render();
+        }
         return;
     }
 
     deckPendingInfo.textContent = `Pending: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`;
     applyDeckChangesBtn.disabled = isDeckMoveInFlight;
     applyDeckChangesBtn.textContent = isDeckMoveInFlight ? 'Applying...' : 'Apply Deck Changes';
+    if (optInAllAvailableController) {
+        optInAllAvailableController.render();
+    }
 }
 
 function getChineseCharacterQuestionDecks() {
@@ -401,7 +408,6 @@ function ensureAvailableTagFilterController() {
     }
     availableTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
         selectEl: availableTagFilterInput,
-        clearBtn: clearTagFilterBtn,
         getDecks: getAvailableDeckCandidatesForTagFilter,
         getDeckTags,
         onFilterChanged: () => {
@@ -438,43 +444,48 @@ function getChineseCharactersDeckBubbleLabel(deck) {
     return stripped || String(deck && deck.name ? deck.name : '');
 }
 
+function clearDeckSelectionMessages() {
+    showError('');
+    showSuccess('');
+    showDeckChangeMessage('');
+}
+
+async function refreshDeckSelectionViews() {
+    renderAvailableDecks();
+    renderSelectedDecks();
+    renderDeckPendingInfo();
+    renderSharedDeckTabs();
+    await loadSharedDeckCards();
+}
+
 function renderAvailableDecks() {
     ensureAvailableTagFilterController().sync();
-    const allAvailableDecks = (Array.isArray(allDecks) ? allDecks : []).filter(
-        (deck) => !stagedOptedDeckIdSet.has(Number(deck.deck_id))
-    );
+    const allAvailableDecks = getAvailableDeckCandidatesForTagFilter();
     const deckList = allAvailableDecks.filter(matchesAvailableTagFilter);
-    if (allAvailableDecks.length === 0) {
-        availableDecksEl.innerHTML = '';
-        availableEmptyEl.textContent = 'No shared Chinese Character decks available yet.';
-        availableEmptyEl.classList.remove('hidden');
-        return;
+    if (availableDecksTitle) {
+        availableDecksTitle.textContent = `Available Shared Decks (${deckList.length})`;
     }
-    if (deckList.length === 0) {
-        availableDecksEl.innerHTML = '';
-        const filterLabel = ensureAvailableTagFilterController().getDisplayLabel();
-        availableEmptyEl.textContent = filterLabel
-            ? `No available deck matches tag "${filterLabel}".`
-            : 'No shared Chinese Character decks available yet.';
-        availableEmptyEl.classList.remove('hidden');
-        return;
+    if (optInAllAvailableController) {
+        optInAllAvailableController.render(deckList.length);
     }
-    availableEmptyEl.classList.add('hidden');
-
-    availableDecksEl.innerHTML = deckList.map((deck) => {
-        const deckId = Number(deck.deck_id || 0);
-        const label = getChineseCharactersDeckBubbleLabel(deck);
-        const suffix = ` · ${Number(deck.card_count || 0)} cards`;
-        return `
-            <button type="button" class="deck-bubble" data-deck-id="${deckId}" title="Click to stage opt-in">
-                ${escapeHtml(label)}${escapeHtml(suffix)}
-            </button>
-        `;
-    }).join('');
+    window.PracticeManageCommon.renderLimitedAvailableDecks({
+        containerEl: availableDecksEl,
+        emptyEl: availableEmptyEl,
+        allAvailableDecks,
+        filteredDecks: deckList,
+        emptyText: 'No shared Chinese Character decks available yet.',
+        filterLabel: ensureAvailableTagFilterController().getDisplayLabel(),
+        getLabel: getChineseCharactersDeckBubbleLabel,
+        bubbleTitle: 'Click to stage opt-in',
+        maxVisibleCount: 10,
+    });
 }
 
 function renderSelectedDecks() {
     const optedDecks = getOptedDecks();
+    if (selectedDecksTitle) {
+        selectedDecksTitle.textContent = `Opted-in Decks (${optedDecks.length})`;
+    }
     const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'chinese_characters_orphan');
     const orphanName = stripChineseCharactersFirstTagFromName(orphanNameRaw) || orphanNameRaw;
     const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
@@ -757,14 +768,8 @@ async function stageDeckMembershipChange(deckId, direction) {
         stagedOptedDeckIdSet.delete(numericDeckId);
     }
 
-    showError('');
-    showSuccess('');
-    showDeckChangeMessage('');
-    renderAvailableDecks();
-    renderSelectedDecks();
-    renderDeckPendingInfo();
-    renderSharedDeckTabs();
-    await loadSharedDeckCards();
+    clearDeckSelectionMessages();
+    await refreshDeckSelectionViews();
 }
 
 async function applyDeckMembershipChanges() {
@@ -989,9 +994,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     mathTab.href = `/kid-math-manage.html?id=${kidId}`;
     lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
 
+    optInAllAvailableController = window.PracticeManageCommon.createSetBackedOptInAllAvailableController({
+        buttonEl: optInAllAvailableBtn,
+        isBusy: () => isDeckMoveInFlight,
+        getFilteredDecks: () => getAvailableDeckCandidatesForTagFilter().filter(matchesAvailableTagFilter),
+        getDeckIdSet: () => stagedOptedDeckIdSet,
+        clearMessages: clearDeckSelectionMessages,
+        onChanged: refreshDeckSelectionViews,
+    });
+
     availableDecksEl.addEventListener('click', async (event) => {
         await onAvailableDeckClick(event);
     });
+    if (optInAllAvailableBtn && optInAllAvailableController) {
+        optInAllAvailableBtn.addEventListener('click', async () => {
+            await optInAllAvailableController.optInAll();
+        });
+    }
     ensureAvailableTagFilterController();
     selectedDecksEl.addEventListener('click', async (event) => {
         await onSelectedDeckClick(event);
@@ -1036,16 +1055,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     chineseCharInput.addEventListener('input', () => {
         updateAddReadingButtonCount();
     });
-    if (addSiWuKuaiDuBtn) {
-        addSiWuKuaiDuBtn.addEventListener('click', () => {
-            window.open('/reading-preset-siwu-kuaidu.html', '_blank', 'noopener,noreferrer,width=920,height=840');
-        });
-    }
-    if (addMaLiPingBtn) {
-        addMaLiPingBtn.addEventListener('click', () => {
-            window.open('/reading-preset-maliping.html', '_blank', 'noopener,noreferrer,width=980,height=860');
-        });
-    }
 
     updateAddReadingButtonCount();
 

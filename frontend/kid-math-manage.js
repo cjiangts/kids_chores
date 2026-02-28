@@ -18,9 +18,11 @@ const sharedMathIncludeOrphanInput = document.getElementById('sharedMathIncludeO
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
 const availableTagFilterInput = document.getElementById('availableTagFilter');
-const clearTagFilterBtn = document.getElementById('clearTagFilterBtn');
+const availableDecksTitle = document.getElementById('availableDecksTitle');
+const optInAllAvailableBtn = document.getElementById('optInAllAvailableBtn');
 const selectedDecksEl = document.getElementById('selectedDecks');
 const selectedEmptyEl = document.getElementById('selectedEmpty');
+const selectedDecksTitle = document.getElementById('selectedDecksTitle');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckPendingInfo = document.getElementById('deckPendingInfo');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
@@ -38,6 +40,7 @@ let isDeckMoveInFlight = false;
 let baselineOptedDeckIdSet = new Set();
 let stagedOptedDeckIdSet = new Set();
 let availableTagFilterController = null;
+let optInAllAvailableController = null;
 let includeOrphanInQueue = false;
 const CARD_PAGE_SIZE = 10;
 
@@ -125,53 +128,41 @@ function renderDeckPendingInfo() {
         deckPendingInfo.textContent = 'No pending deck changes.';
         applyDeckChangesBtn.disabled = true;
         applyDeckChangesBtn.textContent = 'Apply Deck Changes';
+        if (optInAllAvailableController) {
+            optInAllAvailableController.render();
+        }
         return;
     }
 
     deckPendingInfo.textContent = `Pending: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`;
     applyDeckChangesBtn.disabled = isDeckMoveInFlight;
     applyDeckChangesBtn.textContent = isDeckMoveInFlight ? 'Applying...' : 'Apply Deck Changes';
+    if (optInAllAvailableController) {
+        optInAllAvailableController.render();
+    }
 }
 
 function renderAvailableDecks() {
     ensureAvailableTagFilterController().sync();
-    const allAvailableDecks = (Array.isArray(allDecks) ? allDecks : []).filter(
-        (deck) => !stagedOptedDeckIdSet.has(Number(deck.deck_id))
-    );
+    const allAvailableDecks = getAvailableDeckCandidatesForTagFilter();
     const deckList = allAvailableDecks.filter(matchesAvailableTagFilter);
-    if (allAvailableDecks.length === 0) {
-        availableDecksEl.innerHTML = '';
-        availableEmptyEl.textContent = 'No shared Math decks available yet.';
-        availableEmptyEl.classList.remove('hidden');
-        return;
+    if (availableDecksTitle) {
+        availableDecksTitle.textContent = `Available Shared Decks (${deckList.length})`;
     }
-    if (deckList.length === 0) {
-        availableDecksEl.innerHTML = '';
-        const filterLabel = ensureAvailableTagFilterController().getDisplayLabel();
-        availableEmptyEl.textContent = filterLabel
-            ? `No available deck matches tag "${filterLabel}".`
-            : 'No shared Math decks available yet.';
-        availableEmptyEl.classList.remove('hidden');
-        return;
+    if (optInAllAvailableController) {
+        optInAllAvailableController.render(deckList.length);
     }
-    availableEmptyEl.classList.add('hidden');
-
-    availableDecksEl.innerHTML = deckList
-        .map((deck) => {
-            const deckId = Number(deck.deck_id || 0);
-            const classes = ['deck-bubble'];
-            const suffix = ` · ${Number(deck.card_count || 0)} cards`;
-            const label = getMathDeckBubbleLabel(deck);
-            return `
-                <button
-                    type="button"
-                    class="${classes.join(' ')}"
-                    data-deck-id="${deckId}"
-                    title="Click to stage opt-in"
-                >${escapeHtml(label)}${escapeHtml(suffix)}</button>
-            `;
-        })
-        .join('');
+    window.PracticeManageCommon.renderLimitedAvailableDecks({
+        containerEl: availableDecksEl,
+        emptyEl: availableEmptyEl,
+        allAvailableDecks,
+        filteredDecks: deckList,
+        emptyText: 'No shared Math decks available yet.',
+        filterLabel: ensureAvailableTagFilterController().getDisplayLabel(),
+        getLabel: getMathDeckBubbleLabel,
+        bubbleTitle: 'Click to stage opt-in',
+        maxVisibleCount: 10,
+    });
 }
 
 function getDeckTags(deck) {
@@ -215,7 +206,6 @@ function ensureAvailableTagFilterController() {
     }
     availableTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
         selectEl: availableTagFilterInput,
-        clearBtn: clearTagFilterBtn,
         getDecks: getAvailableDeckCandidatesForTagFilter,
         getDeckTags,
         onFilterChanged: () => {
@@ -229,8 +219,24 @@ function matchesAvailableTagFilter(deck) {
     return ensureAvailableTagFilterController().matchesDeck(deck);
 }
 
+function clearDeckSelectionMessages() {
+    showError('');
+    showSuccess('');
+    showDeckChangeMessage('');
+}
+
+async function refreshDeckSelectionViews() {
+    renderAvailableDecks();
+    renderSelectedDecks();
+    renderDeckPendingInfo();
+    await loadSharedDeckCards();
+}
+
 function renderSelectedDecks() {
     const optedDecks = getOptedDecks();
+    if (selectedDecksTitle) {
+        selectedDecksTitle.textContent = `Opted-in Decks (${optedDecks.length})`;
+    }
     const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'math_orphan');
     const orphanName = stripMathFirstTagFromName(orphanNameRaw) || orphanNameRaw;
     const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
@@ -522,13 +528,8 @@ async function stageDeckMembershipChange(deckId, direction) {
         stagedOptedDeckIdSet.delete(numericDeckId);
     }
 
-    showError('');
-    showSuccess('');
-    showDeckChangeMessage('');
-    renderAvailableDecks();
-    renderSelectedDecks();
-    renderDeckPendingInfo();
-    await loadSharedDeckCards();
+    clearDeckSelectionMessages();
+    await refreshDeckSelectionViews();
 }
 
 async function onAvailableDeckClick(event) {
@@ -598,9 +599,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     mathTab.href = `/kid-math-manage.html?id=${kidId}`;
     lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
 
+    optInAllAvailableController = window.PracticeManageCommon.createSetBackedOptInAllAvailableController({
+        buttonEl: optInAllAvailableBtn,
+        isBusy: () => isDeckMoveInFlight,
+        getFilteredDecks: () => getAvailableDeckCandidatesForTagFilter().filter(matchesAvailableTagFilter),
+        getDeckIdSet: () => stagedOptedDeckIdSet,
+        clearMessages: clearDeckSelectionMessages,
+        onChanged: refreshDeckSelectionViews,
+    });
+
     availableDecksEl.addEventListener('click', async (event) => {
         await onAvailableDeckClick(event);
     });
+    if (optInAllAvailableBtn && optInAllAvailableController) {
+        optInAllAvailableBtn.addEventListener('click', async () => {
+            await optInAllAvailableController.optInAll();
+        });
+    }
     ensureAvailableTagFilterController();
     selectedDecksEl.addEventListener('click', async (event) => {
         await onSelectedDeckClick(event);

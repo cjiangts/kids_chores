@@ -9,7 +9,6 @@ const successMessage = document.getElementById('successMessage');
 const bulkImportForm = document.getElementById('bulkImportForm');
 const bulkWritingText = document.getElementById('bulkWritingText');
 const bulkAddBtn = document.getElementById('bulkAddBtn');
-const addMaLiPingWritingBtn = document.getElementById('addMaLiPingWritingBtn');
 const bulkImportErrorMessage = document.getElementById('bulkImportErrorMessage');
 const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
@@ -37,9 +36,11 @@ const lessonReadingTab = document.getElementById('lessonReadingTab');
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
 const availableTagFilterInput = document.getElementById('availableTagFilter');
-const clearTagFilterBtn = document.getElementById('clearTagFilterBtn');
+const availableDecksTitle = document.getElementById('availableDecksTitle');
+const optInAllAvailableBtn = document.getElementById('optInAllAvailableBtn');
 const selectedDecksEl = document.getElementById('selectedDecks');
 const selectedEmptyEl = document.getElementById('selectedEmpty');
+const selectedDecksTitle = document.getElementById('selectedDecksTitle');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckPendingInfo = document.getElementById('deckPendingInfo');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
@@ -59,6 +60,7 @@ let stagedOptedDeckIdSet = new Set();
 let includeOrphanInQueue = false;
 let isDeckMoveInFlight = false;
 let availableTagFilterController = null;
+let optInAllAvailableController = null;
 
 let isWritingBulkAdding = false;
 const previewPlayer = window.WritingAudioSequence.createPlayer({
@@ -158,12 +160,18 @@ function renderDeckPendingInfo() {
         deckPendingInfo.textContent = 'No pending deck changes.';
         applyDeckChangesBtn.disabled = true;
         applyDeckChangesBtn.textContent = 'Apply Deck Changes';
+        if (optInAllAvailableController) {
+            optInAllAvailableController.render();
+        }
         return;
     }
 
     deckPendingInfo.textContent = `Pending: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`;
     applyDeckChangesBtn.disabled = isDeckMoveInFlight;
     applyDeckChangesBtn.textContent = isDeckMoveInFlight ? 'Applying...' : 'Apply Deck Changes';
+    if (optInAllAvailableController) {
+        optInAllAvailableController.render();
+    }
 }
 
 function getDeckTags(deck) {
@@ -215,7 +223,6 @@ function ensureAvailableTagFilterController() {
     }
     availableTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
         selectEl: availableTagFilterInput,
-        clearBtn: clearTagFilterBtn,
         getDecks: getAvailableDeckCandidatesForTagFilter,
         getDeckTags,
         onFilterChanged: () => {
@@ -229,6 +236,18 @@ function matchesAvailableTagFilter(deck) {
     return ensureAvailableTagFilterController().matchesDeck(deck);
 }
 
+function clearDeckSelectionMessages() {
+    showError('');
+    showPageSuccess('');
+    showDeckChangeMessage('');
+}
+
+async function refreshDeckSelectionViews() {
+    renderAvailableDecks();
+    renderSelectedDecks();
+    renderDeckPendingInfo();
+}
+
 function renderAvailableDecks() {
     if (!availableDecksEl || !availableEmptyEl) {
         return;
@@ -237,38 +256,23 @@ function renderAvailableDecks() {
     ensureAvailableTagFilterController().sync();
     const allAvailableDecks = getAvailableDeckCandidatesForTagFilter();
     const deckList = allAvailableDecks.filter(matchesAvailableTagFilter);
-
-    if (allAvailableDecks.length === 0) {
-        availableDecksEl.innerHTML = '';
-        availableEmptyEl.textContent = 'No shared Chinese Writing decks available yet.';
-        availableEmptyEl.classList.remove('hidden');
-        return;
+    if (availableDecksTitle) {
+        availableDecksTitle.textContent = `Available Shared Decks (${deckList.length})`;
     }
-
-    if (deckList.length === 0) {
-        availableDecksEl.innerHTML = '';
-        const filterLabel = ensureAvailableTagFilterController().getDisplayLabel();
-        availableEmptyEl.textContent = filterLabel
-            ? `No available deck matches tag "${filterLabel}".`
-            : 'No shared Chinese Writing decks available yet.';
-        availableEmptyEl.classList.remove('hidden');
-        return;
+    if (optInAllAvailableController) {
+        optInAllAvailableController.render(deckList.length);
     }
-
-    availableEmptyEl.classList.add('hidden');
-    availableDecksEl.innerHTML = deckList.map((deck) => {
-        const deckId = Number(deck.deck_id || 0);
-        const suffix = ` · ${Number(deck.card_count || 0)} cards`;
-        const label = getWritingDeckBubbleLabel(deck);
-        return `
-            <button
-                type="button"
-                class="deck-bubble"
-                data-deck-id="${deckId}"
-                title="Click to stage opt-in"
-            >${escapeHtml(label)}${escapeHtml(suffix)}</button>
-        `;
-    }).join('');
+    window.PracticeManageCommon.renderLimitedAvailableDecks({
+        containerEl: availableDecksEl,
+        emptyEl: availableEmptyEl,
+        allAvailableDecks,
+        filteredDecks: deckList,
+        emptyText: 'No shared Chinese Writing decks available yet.',
+        filterLabel: ensureAvailableTagFilterController().getDisplayLabel(),
+        getLabel: getWritingDeckBubbleLabel,
+        bubbleTitle: 'Click to stage opt-in',
+        maxVisibleCount: 10,
+    });
 }
 
 function renderSelectedDecks() {
@@ -277,6 +281,9 @@ function renderSelectedDecks() {
     }
 
     const optedDecks = getOptedDecks();
+    if (selectedDecksTitle) {
+        selectedDecksTitle.textContent = `Opted-in Decks (${optedDecks.length})`;
+    }
     const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'chinese_writing_orphan');
     const orphanName = stripWritingFirstTagFromName(orphanNameRaw) || orphanNameRaw;
     const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
@@ -359,12 +366,8 @@ async function stageDeckMembershipChange(deckId, direction) {
         stagedOptedDeckIdSet.delete(numericDeckId);
     }
 
-    showError('');
-    showPageSuccess('');
-    showDeckChangeMessage('');
-    renderAvailableDecks();
-    renderSelectedDecks();
-    renderDeckPendingInfo();
+    clearDeckSelectionMessages();
+    await refreshDeckSelectionViews();
 }
 
 async function onAvailableDeckClick(event) {
@@ -1125,6 +1128,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     mathTab.href = `/kid-math-manage.html?id=${kidId}`;
     lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
 
+    optInAllAvailableController = window.PracticeManageCommon.createSetBackedOptInAllAvailableController({
+        buttonEl: optInAllAvailableBtn,
+        isBusy: () => isDeckMoveInFlight,
+        getFilteredDecks: () => getAvailableDeckCandidatesForTagFilter().filter(matchesAvailableTagFilter),
+        getDeckIdSet: () => stagedOptedDeckIdSet,
+        clearMessages: clearDeckSelectionMessages,
+        onChanged: refreshDeckSelectionViews,
+    });
+
     sessionSettingsForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveSessionSettings();
@@ -1135,12 +1147,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         await bulkImportWritingCards();
     });
 
-    if (addMaLiPingWritingBtn) {
-        addMaLiPingWritingBtn.addEventListener('click', () => {
-            window.open('/writing-preset-maliping.html', '_blank', 'noopener,noreferrer,width=980,height=860');
-        });
-    }
-
     if (bulkWritingText) {
         bulkWritingText.addEventListener('input', () => {
             updateBulkAddButtonCount();
@@ -1150,6 +1156,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (availableDecksEl) {
         availableDecksEl.addEventListener('click', async (event) => {
             await onAvailableDeckClick(event);
+        });
+    }
+    if (optInAllAvailableBtn && optInAllAvailableController) {
+        optInAllAvailableBtn.addEventListener('click', async () => {
+            await optInAllAvailableController.optInAll();
         });
     }
     ensureAvailableTagFilterController();

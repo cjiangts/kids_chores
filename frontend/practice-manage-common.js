@@ -359,6 +359,143 @@ window.PracticeManageCommon = {
         return `${dayDiff} days ago`;
     },
 
+    renderLimitedAvailableDecks(config = {}) {
+        const containerEl = config.containerEl || null;
+        const emptyEl = config.emptyEl || null;
+        if (!containerEl || !emptyEl) {
+            return { renderedCount: 0, hiddenCount: 0 };
+        }
+
+        const allAvailableDecks = Array.isArray(config.allAvailableDecks) ? config.allAvailableDecks : [];
+        const filteredDecks = Array.isArray(config.filteredDecks) ? config.filteredDecks : [];
+        const emptyText = String(config.emptyText || 'No shared decks available yet.');
+        const filterLabel = String(config.filterLabel || '').trim();
+        const getLabel = typeof config.getLabel === 'function'
+            ? config.getLabel
+            : (deck) => String(deck && deck.name ? deck.name : '');
+        const getSuffix = typeof config.getSuffix === 'function'
+            ? config.getSuffix
+            : (deck) => ` · ${Number(deck && deck.card_count ? deck.card_count : 0)} cards`;
+        const bubbleTitle = String(config.bubbleTitle || 'Click to stage opt-in');
+
+        const rawMax = Number.parseInt(String(config.maxVisibleCount ?? 10), 10);
+        const maxVisibleCount = Number.isInteger(rawMax) && rawMax > 0 ? rawMax : 10;
+
+        if (allAvailableDecks.length === 0) {
+            containerEl.innerHTML = '';
+            emptyEl.textContent = emptyText;
+            emptyEl.classList.remove('hidden');
+            return { renderedCount: 0, hiddenCount: 0 };
+        }
+
+        if (filteredDecks.length === 0) {
+            containerEl.innerHTML = '';
+            emptyEl.textContent = filterLabel
+                ? `No available deck matches tag "${filterLabel}".`
+                : emptyText;
+            emptyEl.classList.remove('hidden');
+            return { renderedCount: 0, hiddenCount: 0 };
+        }
+
+        emptyEl.classList.add('hidden');
+
+        const visibleDecks = filteredDecks.slice(0, maxVisibleCount);
+        const hiddenCount = Math.max(0, filteredDecks.length - visibleDecks.length);
+
+        const bubbleHtml = visibleDecks.map((deck) => {
+            const deckId = Number(deck && deck.deck_id ? deck.deck_id : 0);
+            const label = String(getLabel(deck) || '');
+            const suffix = String(getSuffix(deck) || '');
+            return `
+                <button
+                    type="button"
+                    class="deck-bubble"
+                    data-deck-id="${deckId}"
+                    title="${escapeHtml(bubbleTitle)}"
+                >${escapeHtml(label)}${escapeHtml(suffix)}</button>
+            `;
+        }).join('');
+
+        const moreHtml = hiddenCount > 0
+            ? `<span class="deck-bubble deck-bubble-more" title="${hiddenCount} more available deck(s) not shown">...</span>`
+            : '';
+
+        containerEl.innerHTML = `${bubbleHtml}${moreHtml}`;
+        return { renderedCount: visibleDecks.length, hiddenCount };
+    },
+
+    createOptInAllAvailableController(config = {}) {
+        const buttonEl = config.buttonEl || null;
+        const isBusy = typeof config.isBusy === 'function' ? config.isBusy : () => false;
+        const getFilteredDecks = typeof config.getFilteredDecks === 'function' ? config.getFilteredDecks : () => [];
+        const hasDeckId = typeof config.hasDeckId === 'function' ? config.hasDeckId : () => false;
+        const addDeckId = typeof config.addDeckId === 'function' ? config.addDeckId : () => {};
+        const clearMessages = typeof config.clearMessages === 'function' ? config.clearMessages : () => {};
+        const onChanged = typeof config.onChanged === 'function' ? config.onChanged : async () => {};
+        const getDeckId = typeof config.getDeckId === 'function'
+            ? config.getDeckId
+            : (deck) => Number(deck && deck.deck_id);
+
+        const render = (filteredCount = null) => {
+            if (!buttonEl) {
+                return;
+            }
+            const resolvedCount = Number.isInteger(filteredCount) && filteredCount >= 0
+                ? filteredCount
+                : getFilteredDecks().length;
+            buttonEl.disabled = Boolean(isBusy()) || resolvedCount === 0;
+            buttonEl.textContent = resolvedCount > 0 ? `Opt-in All (${resolvedCount})` : 'Opt-in All';
+        };
+
+        const optInAll = async () => {
+            if (Boolean(isBusy())) {
+                return;
+            }
+            const deckList = getFilteredDecks();
+            if (deckList.length === 0) {
+                render(0);
+                return;
+            }
+
+            let changed = false;
+            deckList.forEach((deck) => {
+                const deckId = getDeckId(deck);
+                if (deckId > 0 && !hasDeckId(deckId)) {
+                    addDeckId(deckId);
+                    changed = true;
+                }
+            });
+            if (!changed) {
+                render(deckList.length);
+                return;
+            }
+
+            clearMessages();
+            await onChanged();
+        };
+
+        return { render, optInAll };
+    },
+
+    createSetBackedOptInAllAvailableController(config = {}) {
+        const staticDeckIdSet = config.deckIdSet instanceof Set ? config.deckIdSet : null;
+        const getDeckIdSet = typeof config.getDeckIdSet === 'function'
+            ? config.getDeckIdSet
+            : () => (staticDeckIdSet || new Set());
+        return this.createOptInAllAvailableController({
+            buttonEl: config.buttonEl,
+            isBusy: config.isBusy,
+            getFilteredDecks: config.getFilteredDecks,
+            clearMessages: config.clearMessages,
+            onChanged: config.onChanged,
+            getDeckId: config.getDeckId,
+            hasDeckId: (deckId) => getDeckIdSet().has(Number(deckId)),
+            addDeckId: (deckId) => {
+                getDeckIdSet().add(Number(deckId));
+            },
+        });
+    },
+
     createHierarchicalTagFilterController(config = {}) {
         const selectEl = config.selectEl || null;
         const clearBtn = config.clearBtn || null;
