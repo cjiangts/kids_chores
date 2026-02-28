@@ -51,3 +51,6 @@ Desktop.ini
 .coverage
 .pytest_cache/
 htmlcov/
+
+# One-off local scripts
+backend/scripts/cleanup_legacy_writing_audio.py
