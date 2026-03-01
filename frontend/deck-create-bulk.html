@@ -32,18 +32,6 @@
             gap: 0.8rem;
         }
 
-        #bulkDeckInput {
-            width: 100%;
-            min-height: 280px;
-            resize: vertical;
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 0.93rem;
-            line-height: 1.35;
-            padding: 0.7rem;
-            border: 1px solid #d0d7de;
-            border-radius: 8px;
-        }
-
         .deck-row {
             display: flex;
             gap: 0.6rem;
@@ -63,35 +51,6 @@
             gap: 0.8rem;
             flex-wrap: wrap;
             margin-bottom: 0.7rem;
-        }
-
-        .deck-review-table-wrap {
-            max-height: 420px;
-            overflow: auto;
-            border: 1px solid #e0e5eb;
-            border-radius: 8px;
-        }
-
-        .deck-review-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.92rem;
-            background: #fff;
-        }
-
-        .deck-review-table th,
-        .deck-review-table td {
-            border-bottom: 1px solid #eef1f4;
-            padding: 0.5rem 0.55rem;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        .deck-review-table thead th {
-            position: sticky;
-            top: 0;
-            background: #f7f9fc;
-            z-index: 1;
         }
 
         .deck-row-status-ok {
@@ -134,13 +93,13 @@
 
             <section class="deck-panel">
                 <h2 id="bulkInputSectionTitle">2) Paste Deck Blocks</h2>
-                <p id="bulkInputHelpText" style="margin-bottom: 0.6rem; color: #555;">
+                <p id="bulkInputHelpText" class="muted-help-text">
                     Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags),
                     then card rows as <code>front,back</code>.
                     Separate blocks with a blank line.
                 </p>
-                <textarea id="bulkDeckInput" placeholder="siwukuaidu_book1_week1&#10;1+1,2&#10;2+3,5&#10;&#10;siwukuaidu_book1_week2&#10;3+4,7&#10;5+1,6"></textarea>
-                <div class="deck-row" style="margin-top: 0.7rem;">
+                <textarea id="bulkDeckInput" class="deck-bulk-textarea input-mono" placeholder="siwukuaidu_book1_week1&#10;1+1,2&#10;2+3,5&#10;&#10;siwukuaidu_book1_week2&#10;3+4,7&#10;5+1,6"></textarea>
+                <div class="deck-row mt-07">
                     <button type="button" id="previewBtn" class="btn-primary">Preview Bulk Create</button>
                     <button type="button" id="clearInputBtn" class="btn-secondary">Clear</button>
                 </div>
@@ -156,11 +115,11 @@
                     <table class="deck-review-table">
                         <thead>
                             <tr>
-                                <th style="width: 70px;">Block</th>
+                                <th class="table-col-70">Block</th>
                                 <th>Deck Name</th>
-                                <th style="width: 100px;">Rows</th>
-                                <th style="width: 120px;">Cards</th>
-                                <th style="width: 280px;">Status</th>
+                                <th class="table-col-100">Rows</th>
+                                <th class="table-col-120">Cards</th>
+                                <th class="table-col-280">Status</th>
                             </tr>
                         </thead>
                         <tbody id="reviewTableBody"></tbody>

@@ -120,13 +120,13 @@ function renderTablePage() {
     const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
 
     if (sessions.length === 0 || view.pageItems.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="9" style="color:#666;">No practice sessions yet.</td></tr>`;
+        reportBody.innerHTML = `<tr><td colspan="8" style="color:#666;">No practice sessions yet.</td></tr>`;
         return;
     }
 
     reportBody.innerHTML = view.pageItems.map((session) => `
         <tr>
-            <td>#${safeNum(session.id)}</td>
+            <td class="shared-report-table-action-cell"><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}" class="tab-link secondary mini-link-btn table-action-btn">View</a></td>
             <td>${renderType(session.type)}</td>
             <td>${formatDateTime(session.started_at)}</td>
             <td>${formatDurationMinutes(session)}</td>
@@ -134,7 +134,6 @@ function renderTablePage() {
             <td>${safeNum(session.answer_count)}</td>
             <td>${safeNum(session.right_count)}</td>
             <td>${safeNum(session.wrong_count)}</td>
-            <td class="shared-report-table-action-cell"><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}" class="tab-link secondary shared-report-table-action-link">View</a></td>
         </tr>
     `).join('');
 }
@@ -193,14 +192,13 @@ function renderDailyMinutesChartPage() {
         const lessonReadingPct = (row.lessonReading / maxTotal) * 100;
         return `
             <div class="daily-row">
-                <div class="daily-date">${row.date}</div>
+                <div class="daily-date">${row.date} · ${row.total.toFixed(1)} min</div>
                 <div class="daily-bar-track">
                     ${renderDailyMinutesSegment('daily-seg-reading', 'Characters', row.reading, readingPct)}
                     ${renderDailyMinutesSegment('daily-seg-math', 'Math', row.math, mathPct)}
                     ${renderDailyMinutesSegment('daily-seg-writing', 'Writing', row.writing, writingPct)}
                     ${renderDailyMinutesSegment('daily-seg-lesson-reading', 'Reading', row.lessonReading, lessonReadingPct)}
                 </div>
-                <div class="daily-total">${row.total.toFixed(1)} min</div>
             </div>
         `;
     }).join('');

@@ -3,6 +3,7 @@ const API_BASE = `${window.location.origin}/api`;
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
 const deckTableBody = document.getElementById('deckTableBody');
+const deckCountInfo = document.getElementById('deckCountInfo');
 const createDeckNavBtn = document.getElementById('createDeckNavBtn');
 const createDeckBulkNavBtn = document.getElementById('createDeckBulkNavBtn');
 const errorMessage = document.getElementById('errorMessage');
@@ -10,9 +11,13 @@ const deckTagFilterInput = document.getElementById('deckTagFilter');
 const selectAllVisibleCheckbox = document.getElementById('selectAllVisibleCheckbox');
 const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 
+const DECK_RENDER_CHUNK_SIZE = 20;
+
 let allDecks = [];
 let deckTagFilterController = null;
 let currentFilteredDeckIds = [];
+let currentFilteredDecks = [];
+let renderedDeckCount = 0;
 let isBulkDeleting = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -39,10 +44,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             await deleteSelectedDecks();
         });
     }
+    if (tableWrap) {
+        tableWrap.addEventListener('scroll', handleTableScroll);
+    }
 
     ensureDeckTagFilterController().sync();
     updateBulkSelectionUi();
     syncSelectAllVisibleCheckbox();
+    updateDeckCountInfo(0, 0);
     await loadMyDecks();
 });
 
@@ -126,21 +135,26 @@ function matchesDeckTagFilter(deck) {
 
 function renderDecks() {
     if (!Array.isArray(allDecks) || allDecks.length === 0) {
+        currentFilteredDecks = [];
+        renderedDeckCount = 0;
         currentFilteredDeckIds = [];
         deckTableBody.innerHTML = '';
         tableWrap.classList.add('hidden');
         emptyState.textContent = 'No decks yet. Create your first one.';
         emptyState.classList.remove('hidden');
+        updateDeckCountInfo(0, 0);
         updateBulkSelectionUi();
         syncSelectAllVisibleCheckbox();
         return;
     }
 
     const filteredDecks = allDecks.filter(matchesDeckTagFilter);
+    currentFilteredDecks = filteredDecks;
     currentFilteredDeckIds = filteredDecks
         .map((deck) => Number(deck.deck_id || 0))
         .filter((deckId) => deckId > 0);
     if (filteredDecks.length === 0) {
+        renderedDeckCount = 0;
         const filterLabel = ensureDeckTagFilterController().getDisplayLabel();
         deckTableBody.innerHTML = '';
         tableWrap.classList.add('hidden');
@@ -148,6 +162,7 @@ function renderDecks() {
             ? `No decks match tag "${filterLabel}".`
             : 'No decks match the selected tag filter.';
         emptyState.classList.remove('hidden');
+        updateDeckCountInfo(0, 0);
         updateBulkSelectionUi();
         syncSelectAllVisibleCheckbox();
         return;
@@ -155,26 +170,92 @@ function renderDecks() {
 
     emptyState.classList.add('hidden');
     tableWrap.classList.remove('hidden');
-
-    deckTableBody.innerHTML = filteredDecks.map((deck) => {
-        const tags = Array.isArray(deck.tags) ? deck.tags : [];
-        const tagHtml = tags.length > 0
-            ? `<div class="deck-tags">${tags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
-            : '-';
-        return `
-            <tr>
-                <td>${Number(deck.deck_id || 0)}</td>
-                <td>${tagHtml}</td>
-                <td>${Number(deck.card_count || 0)}</td>
-                <td class="shared-report-table-action-cell">
-                    <a class="tab-link secondary shared-report-table-action-link" href="/deck-view.html?deckId=${encodeURIComponent(String(Number(deck.deck_id || 0)))}">View</a>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    deckTableBody.innerHTML = '';
+    renderedDeckCount = 0;
+    if (tableWrap) {
+        tableWrap.scrollTop = 0;
+    }
+    appendNextDeckChunk();
+    fillTableViewport();
 
     updateBulkSelectionUi();
     syncSelectAllVisibleCheckbox();
+}
+
+function renderDeckRowHtml(deck) {
+    const deckId = Number(deck.deck_id || 0);
+    const tags = Array.isArray(deck.tags) ? deck.tags : [];
+    const tagHtml = tags.length > 0
+        ? `<div class="deck-tags">${tags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
+        : '-';
+    return `
+        <tr>
+            <td>${deckId}</td>
+            <td>${tagHtml}</td>
+            <td>${Number(deck.card_count || 0)}</td>
+            <td class="shared-report-table-action-cell">
+                <a class="tab-link secondary mini-link-btn table-action-btn" href="/deck-view.html?deckId=${encodeURIComponent(String(deckId))}">View</a>
+            </td>
+        </tr>
+    `;
+}
+
+function appendNextDeckChunk() {
+    const total = currentFilteredDecks.length;
+    if (renderedDeckCount >= total) {
+        updateDeckCountInfo(total, total);
+        return false;
+    }
+
+    const nextDecks = currentFilteredDecks.slice(renderedDeckCount, renderedDeckCount + DECK_RENDER_CHUNK_SIZE);
+    if (nextDecks.length === 0) {
+        updateDeckCountInfo(total, renderedDeckCount);
+        return false;
+    }
+    deckTableBody.insertAdjacentHTML('beforeend', nextDecks.map(renderDeckRowHtml).join(''));
+    renderedDeckCount += nextDecks.length;
+    updateDeckCountInfo(total, renderedDeckCount);
+    return true;
+}
+
+function fillTableViewport() {
+    if (!tableWrap) {
+        return;
+    }
+    let guard = 0;
+    while (
+        renderedDeckCount < currentFilteredDecks.length
+        && tableWrap.scrollHeight <= tableWrap.clientHeight + 16
+        && guard < 20
+    ) {
+        if (!appendNextDeckChunk()) {
+            break;
+        }
+        guard += 1;
+    }
+}
+
+function handleTableScroll() {
+    if (!tableWrap || tableWrap.classList.contains('hidden')) {
+        return;
+    }
+    if (renderedDeckCount >= currentFilteredDecks.length) {
+        return;
+    }
+    const thresholdPx = 140;
+    const reachedBottom = tableWrap.scrollTop + tableWrap.clientHeight >= tableWrap.scrollHeight - thresholdPx;
+    if (reachedBottom) {
+        appendNextDeckChunk();
+    }
+}
+
+function updateDeckCountInfo(total, shown) {
+    if (!deckCountInfo) {
+        return;
+    }
+    const safeTotal = Number.isFinite(total) ? Math.max(0, Math.trunc(total)) : 0;
+    const safeShown = Number.isFinite(shown) ? Math.max(0, Math.min(Math.trunc(shown), safeTotal)) : 0;
+    deckCountInfo.textContent = `Showing ${safeShown} of ${safeTotal} deck(s)`;
 }
 
 function toggleSelectAllVisible(checked) {

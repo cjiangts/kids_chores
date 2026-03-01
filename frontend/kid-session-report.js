@@ -124,7 +124,7 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         const from = getCardReportFromSessionType(currentSessionType);
         const canLink = !!from && Number.isFinite(Number(item.card_id));
         const reportLinkHtml = canLink
-            ? `<a class="tab-link secondary" href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(item.card_id)}&from=${encodeURIComponent(from)}" style="padding:0.25rem 0.5rem; font-size:0.76rem; margin-top:0.35rem; display:inline-block;">Report</a>`
+            ? `<a class="tab-link secondary mini-link-btn" href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(item.card_id)}&from=${encodeURIComponent(from)}">Report</a>`
             : '';
         return `
             <div class="answer-item">

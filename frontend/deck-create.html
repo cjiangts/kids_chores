@@ -106,18 +106,6 @@
             color: #555;
         }
 
-        #cardsCsv {
-            width: 100%;
-            min-height: 240px;
-            resize: vertical;
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 0.93rem;
-            line-height: 1.35;
-            padding: 0.7rem;
-            border: 1px solid #d0d7de;
-            border-radius: 8px;
-        }
-
         .deck-review-head {
             display: flex;
             justify-content: space-between;
@@ -125,35 +113,6 @@
             gap: 0.8rem;
             flex-wrap: wrap;
             margin-bottom: 0.7rem;
-        }
-
-        .deck-review-table-wrap {
-            max-height: 380px;
-            overflow: auto;
-            border: 1px solid #e0e5eb;
-            border-radius: 8px;
-        }
-
-        .deck-review-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.92rem;
-            background: #fff;
-        }
-
-        .deck-review-table th,
-        .deck-review-table td {
-            border-bottom: 1px solid #eef1f4;
-            padding: 0.5rem 0.55rem;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        .deck-review-table thead th {
-            position: sticky;
-            top: 0;
-            background: #f7f9fc;
-            z-index: 1;
         }
 
         .deck-dedupe {
@@ -224,9 +183,9 @@
 
             <section class="deck-panel">
                 <h2 id="cardsInputSectionTitle">2) Paste Cards CSV</h2>
-                <p id="cardsInputHelpText" style="margin-bottom: 0.6rem; color: #555;">Format: one card per line as <code>front,back</code></p>
-                <textarea id="cardsCsv" placeholder="1+1,2&#10;2+3,5"></textarea>
-                <div class="deck-row" style="margin-top: 0.7rem;">
+                <p id="cardsInputHelpText" class="muted-help-text">Format: one card per line as <code>front,back</code></p>
+                <textarea id="cardsCsv" class="deck-csv-textarea input-mono" placeholder="1+1,2&#10;2+3,5"></textarea>
+                <div class="deck-row mt-07">
                     <button type="button" id="previewBtn" class="btn-primary">Preview Deck</button>
                     <button type="button" id="clearCsvBtn" class="btn-secondary">Clear</button>
                 </div>
@@ -243,10 +202,10 @@
                     <table class="deck-review-table">
                         <thead>
                             <tr>
-                                <th style="width: 80px;">Line</th>
+                                <th class="table-col-80">Line</th>
                                 <th>Front</th>
                                 <th>Back</th>
-                                <th style="width: 320px;">Status</th>
+                                <th class="table-col-320">Status</th>
                             </tr>
                         </thead>
                         <tbody id="reviewTableBody"></tbody>

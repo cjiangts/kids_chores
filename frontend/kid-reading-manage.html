@@ -182,9 +182,6 @@
             margin-bottom: 0;
         }
 
-        .available-filter .form-group input {
-            min-width: 0;
-        }
 
         .orphan-editor-grid {
             display: grid;
@@ -205,27 +202,6 @@
             font-size: 1rem;
         }
 
-        .bulk-import-wrap textarea {
-            width: 100%;
-            min-height: 180px;
-            resize: vertical;
-        }
-
-        .submit-btn {
-            background: #28a745;
-            color: white;
-            padding: 0.75rem 1rem;
-            border: none;
-            border-radius: 4px;
-            font-size: 0.95rem;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 0.55rem;
-        }
-
-        .submit-btn:hover {
-            background: #218838;
-        }
 
         .cards-section h2 {
             margin-bottom: 1rem;
@@ -335,14 +311,14 @@
     <div class="container">
         <div class="header">
             <h1 id="kidName">Loading...</h1>
-            <a href="/admin.html" class="back-btn">← Back</a>
+            <a href="/admin.html" class="back-btn btn-secondary">← Back</a>
         </div>
 
         <div class="tab-nav">
-            <a id="charactersTab" class="tab-link primary" href="#">📖 Manage Chinese Characters</a>
-            <a id="writingTab" class="tab-link secondary" href="#">✍️ Manage Chinese Writing</a>
-            <a id="mathTab" class="tab-link secondary" href="#">➗ Manage Math</a>
-            <a id="lessonReadingTab" class="tab-link secondary" href="#">📚 Manage Chinese Reading</a>
+            <a id="charactersTab" class="btn-primary manage-tab" href="#">📖 Manage Chinese Characters</a>
+            <a id="writingTab" class="btn-secondary manage-tab" href="#">✍️ Manage Chinese Writing</a>
+            <a id="mathTab" class="btn-secondary manage-tab" href="#">➗ Manage Math</a>
+            <a id="lessonReadingTab" class="btn-secondary manage-tab" href="#">📚 Manage Chinese Reading</a>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>

@@ -39,35 +39,6 @@
             font-size: 0.82rem;
         }
 
-        .deck-table-wrap {
-            border: 1px solid #e0e5eb;
-            border-radius: 8px;
-            overflow: auto;
-            max-height: 600px;
-        }
-
-        .deck-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.92rem;
-            background: #fff;
-        }
-
-        .deck-table th,
-        .deck-table td {
-            border-bottom: 1px solid #eef1f4;
-            padding: 0.55rem;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        .deck-table thead th {
-            background: #f7f9fc;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-
         .deck-empty {
             color: #666;
             font-size: 0.95rem;
@@ -88,7 +59,7 @@
             </div>
 
             <section class="deck-panel">
-                <h2 style="margin: 0 0 0.8rem 0; color: #2f3c7e;">Deck Metadata</h2>
+                <h2 class="deck-section-title">Deck Metadata</h2>
                 <div id="deckMeta" class="hidden">
                     <div class="deck-meta-row"><strong>Deck ID:</strong> <span id="deckIdText"></span></div>
                     <div class="deck-meta-row"><strong>Name:</strong> <code id="deckNameText"></code></div>
@@ -99,13 +70,13 @@
             </section>
 
             <section class="deck-panel">
-                <h2 style="margin: 0 0 0.8rem 0; color: #2f3c7e;">Cards</h2>
+                <h2 class="deck-section-title">Cards</h2>
                 <div id="emptyState" class="deck-empty hidden">No cards in this deck.</div>
                 <div id="tableWrap" class="deck-table-wrap hidden">
                     <table class="deck-table">
                         <thead>
                             <tr>
-                                <th style="width: 80px;">#</th>
+                                <th class="table-col-80">#</th>
                                 <th>Front</th>
                                 <th>Back</th>
                             </tr>
