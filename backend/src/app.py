@@ -26,8 +26,6 @@ def create_app():
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
-    MIN_HARD_PCT = 0
-    MAX_HARD_PCT = 100
     # Shared user-created decks live in a single DB shared by all families.
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
@@ -128,7 +126,6 @@ def create_app():
 
         session['family_id'] = str(family['id'])
         session['family_username'] = family['username']
-        session.pop('parent_authenticated', None)
         return {
             'authenticated': True,
             'familyId': family['id'],
@@ -147,7 +144,6 @@ def create_app():
 
         session['family_id'] = str(family['id'])
         session['family_username'] = family['username']
-        session.pop('parent_authenticated', None)
         return {
             'authenticated': True,
             'familyId': family['id'],
@@ -159,23 +155,6 @@ def create_app():
     def family_auth_logout():
         session.pop('family_id', None)
         session.pop('family_username', None)
-        session.pop('parent_authenticated', None)
-        return {'authenticated': False}, 200
-
-    @app.route('/api/parent-auth/status', methods=['GET'])
-    def parent_auth_status():
-        if not is_family_authenticated():
-            return {'authenticated': False}, 200
-        return {'authenticated': True}, 200
-
-    @app.route('/api/parent-auth/login', methods=['POST'])
-    def parent_auth_login():
-        if not is_family_authenticated():
-            return {'error': 'Family login required'}, 401
-        return {'authenticated': True}, 200
-
-    @app.route('/api/parent-auth/logout', methods=['POST'])
-    def parent_auth_logout():
         return {'authenticated': False}, 200
 
     @app.route('/api/parent-auth/change-password', methods=['POST'])
@@ -195,37 +174,6 @@ def create_app():
             return {'error': 'Current password is incorrect'}, 400
 
         return {'success': True}, 200
-
-    @app.route('/api/parent-settings/hard-card-percentage', methods=['GET'])
-    def get_parent_hard_card_percentage():
-        auth_err = require_family_auth()
-        if auth_err:
-            return auth_err
-        family_id = str(session.get('family_id') or '')
-        return {
-            'hardCardPercentage': metadata.get_family_hard_card_percentage(family_id)
-        }, 200
-
-    @app.route('/api/parent-settings/hard-card-percentage', methods=['PUT'])
-    def update_parent_hard_card_percentage():
-        auth_err = require_family_auth()
-        if auth_err:
-            return auth_err
-
-        payload = request.get_json() or {}
-        try:
-            hard_pct = int(payload.get('hardCardPercentage'))
-        except (TypeError, ValueError):
-            return {'error': 'hardCardPercentage must be an integer'}, 400
-
-        if hard_pct < MIN_HARD_PCT or hard_pct > MAX_HARD_PCT:
-            return {'error': f'hardCardPercentage must be between {MIN_HARD_PCT} and {MAX_HARD_PCT}'}, 400
-
-        family_id = str(session.get('family_id') or '')
-        if not metadata.update_family_hard_card_percentage(family_id, hard_pct):
-            return {'error': 'Failed to update hard-card setting'}, 400
-
-        return {'hardCardPercentage': hard_pct, 'updated': True}, 200
 
     @app.route('/api/parent-settings/timezone', methods=['GET'])
     def get_parent_timezone():

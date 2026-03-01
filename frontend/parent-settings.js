@@ -5,10 +5,6 @@ const currentPasswordInput = document.getElementById('currentPassword');
 const newPasswordInput = document.getElementById('newPassword');
 const confirmPasswordInput = document.getElementById('confirmPassword');
 const changePasswordBtn = document.getElementById('changePasswordBtn');
-const hardCardPercentageInput = document.getElementById('hardCardPercentage');
-const saveHardCardBtn = document.getElementById('saveHardCardBtn');
-const hardCardError = document.getElementById('hardCardError');
-const hardCardSuccess = document.getElementById('hardCardSuccess');
 const familyTimezoneSelect = document.getElementById('familyTimezone');
 const saveTimezoneBtn = document.getElementById('saveTimezoneBtn');
 const timezoneError = document.getElementById('timezoneError');
@@ -50,7 +46,6 @@ let isSuperFamily = false;
 document.addEventListener('DOMContentLoaded', async () => {
     await loadFamilyRole();
     initializeTimezoneOptions();
-    loadHardCardSettings();
     loadTimezoneSettings();
     if (isSuperFamily) {
         loadBackupInfo();
@@ -81,10 +76,6 @@ restoreBackupBtn.addEventListener('click', async () => {
     }
     pendingRestorePassword = password;
     backupFileInput.click();
-});
-
-saveHardCardBtn.addEventListener('click', async () => {
-    await saveHardCardSettings();
 });
 
 saveTimezoneBtn.addEventListener('click', async () => {
@@ -120,56 +111,6 @@ if (familyAccountsList) {
         }
         await deleteFamilyAccount(familyId, familyUsername);
     });
-}
-
-async function loadHardCardSettings() {
-    try {
-        showHardCardError('');
-        showHardCardSuccess('');
-        const response = await fetch(`${API_BASE}/parent-settings/hard-card-percentage`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
-        const value = Number.parseInt(data.hardCardPercentage, 10);
-        hardCardPercentageInput.value = Number.isInteger(value) ? value : 20;
-    } catch (error) {
-        console.error('Error loading hard-card settings:', error);
-        showHardCardError('Failed to load global hard-card setting.');
-    }
-}
-
-async function saveHardCardSettings() {
-    try {
-        showHardCardError('');
-        showHardCardSuccess('');
-        const value = Number.parseInt(hardCardPercentageInput.value, 10);
-        if (!Number.isInteger(value) || value < 0 || value > 100) {
-            showHardCardError('Hard cards % must be between 0 and 100.');
-            return;
-        }
-
-        saveHardCardBtn.disabled = true;
-        saveHardCardBtn.textContent = 'Saving...';
-        const response = await fetch(`${API_BASE}/parent-settings/hard-card-percentage`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hardCardPercentage: value })
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            showHardCardError(result.error || 'Failed to save global hard-card setting.');
-            return;
-        }
-
-        showHardCardSuccess('Global hard-card setting saved.');
-    } catch (error) {
-        console.error('Error saving hard-card settings:', error);
-        showHardCardError('Failed to save global hard-card setting.');
-    } finally {
-        saveHardCardBtn.disabled = false;
-        saveHardCardBtn.textContent = 'Save';
-    }
 }
 
 function initializeTimezoneOptions() {
@@ -693,34 +634,6 @@ function showPasswordSuccess(message) {
         passwordSuccess.classList.remove('hidden');
     } else {
         passwordSuccess.classList.add('hidden');
-    }
-}
-
-function showHardCardError(message) {
-    if (message) {
-        const text = String(message);
-        if (hardCardError) {
-            hardCardError.textContent = '';
-            hardCardError.classList.add('hidden');
-        }
-        if (showHardCardError._lastMessage !== text) {
-            window.alert(text);
-            showHardCardError._lastMessage = text;
-        }
-    } else {
-        showHardCardError._lastMessage = '';
-        if (hardCardError) {
-            hardCardError.classList.add('hidden');
-        }
-    }
-}
-
-function showHardCardSuccess(message) {
-    if (message) {
-        hardCardSuccess.textContent = message;
-        hardCardSuccess.classList.remove('hidden');
-    } else {
-        hardCardSuccess.classList.add('hidden');
     }
 }
 

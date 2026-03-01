@@ -24,6 +24,13 @@ MAX_SESSION_CARD_COUNT = 200
 DEFAULT_HARD_CARD_PERCENTAGE = 20
 MIN_HARD_CARD_PERCENTAGE = 0
 MAX_HARD_CARD_PERCENTAGE = 100
+HARD_CARD_PERCENT_FIELD_BY_SESSION_TYPE = {
+    'flashcard': 'sharedChineseCharactersHardCardPercentage',
+    'math': 'sharedMathHardCardPercentage',
+    'writing': 'sharedWritingHardCardPercentage',
+    'lesson_reading': 'sharedLessonReadingHardCardPercentage',
+}
+PER_PAGE_HARD_CARD_PERCENT_FIELDS = tuple(HARD_CARD_PERCENT_FIELD_BY_SESSION_TYPE.values())
 MAX_WRITING_SHEET_ROWS = 10
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
@@ -527,100 +534,6 @@ def get_shared_writing_deck_rows(conn):
     return get_shared_deck_rows_by_first_tag(conn, 'chinese_writing')
 
 
-def _distribute_integer_total(total, weights):
-    """Distribute integer total proportionally by weights, preserving sum exactly."""
-    count = len(weights)
-    if count == 0:
-        return []
-    total_int = int(max(0, total))
-    if total_int == 0:
-        return [0] * count
-
-    normalized_weights = [max(0.0, float(weight or 0.0)) for weight in weights]
-    weight_sum = float(sum(normalized_weights))
-    if weight_sum <= 0:
-        normalized_weights = [1.0] * count
-        weight_sum = float(count)
-
-    exact = [weight * total_int / weight_sum for weight in normalized_weights]
-    floors = [int(math.floor(value)) for value in exact]
-    remainder = total_int - sum(floors)
-    if remainder > 0:
-        ranked = sorted(
-            range(count),
-            key=lambda idx: (exact[idx] - floors[idx], -idx),
-            reverse=True
-        )
-        for index in ranked[:remainder]:
-            floors[index] += 1
-    return floors
-
-
-def build_shared_math_mix_for_opted_decks(opted_deck_ids, raw_mix):
-    """Build normalized percent mix map for opted-in shared decks."""
-    deck_ids = [int(deck_id) for deck_id in list(opted_deck_ids or [])]
-    if len(deck_ids) == 0:
-        return {}
-    normalized_mix = normalize_shared_math_deck_mix(raw_mix)
-    weights = [int(normalized_mix.get(str(deck_id), 0) or 0) for deck_id in deck_ids]
-    percents = _distribute_integer_total(100, weights)
-    return {str(deck_ids[index]): int(percents[index]) for index in range(len(deck_ids))}
-
-
-def build_shared_math_counts_for_opted_decks(total_cards, mix_map, opted_deck_ids):
-    """Build per-deck card counts from total cards and percent mix."""
-    deck_ids = [int(deck_id) for deck_id in list(opted_deck_ids or [])]
-    if len(deck_ids) == 0:
-        return {}
-    weights = [int(mix_map.get(str(deck_id), 0) or 0) for deck_id in deck_ids]
-    counts = _distribute_integer_total(total_cards, weights)
-    return {str(deck_ids[index]): int(counts[index]) for index in range(len(deck_ids))}
-
-
-def build_shared_chinese_characters_mix_for_opted_decks(opted_deck_ids, raw_mix):
-    """Build normalized percent mix map for opted-in shared chinese_characters decks."""
-    return build_shared_chinese_characters_mix_for_decks(opted_deck_ids, raw_mix, include_orphan=False)
-
-
-def build_shared_chinese_characters_counts_for_opted_decks(total_cards, mix_map, opted_deck_ids):
-    """Build per-deck card counts from total cards and percent mix."""
-    return build_shared_chinese_characters_counts_for_decks(
-        total_cards,
-        mix_map,
-        opted_deck_ids,
-        include_orphan=False
-    )
-
-
-def build_shared_chinese_characters_mix_for_decks(opted_deck_ids, raw_mix, include_orphan=False):
-    """Build normalized mix for chinese_characters shared decks, optionally including orphan key."""
-    deck_ids = [int(deck_id) for deck_id in list(opted_deck_ids or [])]
-    normalized_mix = normalize_shared_chinese_characters_deck_mix(raw_mix)
-
-    keys = [str(deck_id) for deck_id in deck_ids]
-    if include_orphan:
-        keys.append(CHINESE_CHARACTERS_ORPHAN_MIX_KEY)
-    if len(keys) == 0:
-        return {}
-
-    weights = [int(normalized_mix.get(key, 0) or 0) for key in keys]
-    percents = _distribute_integer_total(100, weights)
-    return {keys[index]: int(percents[index]) for index in range(len(keys))}
-
-
-def build_shared_chinese_characters_counts_for_decks(total_cards, mix_map, opted_deck_ids, include_orphan=False):
-    """Build per-deck counts for chinese_characters shared decks, optionally including orphan key."""
-    deck_ids = [int(deck_id) for deck_id in list(opted_deck_ids or [])]
-    keys = [str(deck_id) for deck_id in deck_ids]
-    if include_orphan:
-        keys.append(CHINESE_CHARACTERS_ORPHAN_MIX_KEY)
-    if len(keys) == 0:
-        return {}
-    weights = [int(mix_map.get(key, 0) or 0) for key in keys]
-    counts = _distribute_integer_total(total_cards, weights)
-    return {keys[index]: int(counts[index]) for index in range(len(keys))}
-
-
 def get_kid_materialized_shared_decks_by_first_tag(conn, first_tag):
     """Return kid-local materialized shared decks keyed by local deck id."""
     required_tag = str(first_tag or '').strip()
@@ -669,44 +582,6 @@ def get_kid_materialized_shared_writing_decks(conn):
     return get_kid_materialized_shared_decks_by_first_tag(conn, 'chinese_writing')
 
 
-def get_shared_math_runtime_decks_for_kid(conn, kid):
-    """Return opted-in shared math decks with per-session planned counts."""
-    materialized_by_local_id = get_kid_materialized_shared_math_decks(conn)
-    if len(materialized_by_local_id) == 0:
-        return []
-
-    ordered_local_ids = sorted(materialized_by_local_id.keys())
-    ordered = [materialized_by_local_id[deck_id] for deck_id in ordered_local_ids]
-    shared_ids = [entry['shared_deck_id'] for entry in ordered]
-    mix_percent_by_shared_id = build_shared_math_mix_for_opted_decks(
-        shared_ids,
-        kid.get('sharedMathDeckMix')
-    )
-    count_by_shared_id = build_shared_math_counts_for_opted_decks(
-        normalize_shared_math_session_card_count(kid),
-        mix_percent_by_shared_id,
-        shared_ids
-    )
-
-    runtime_decks = []
-    for entry in ordered:
-        local_deck_id = int(entry['local_deck_id'])
-        shared_deck_id = int(entry['shared_deck_id'])
-        total_cards = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
-            [local_deck_id]
-        ).fetchone()[0] or 0)
-        runtime_decks.append({
-            'local_deck_id': local_deck_id,
-            'shared_deck_id': shared_deck_id,
-            'name': str(entry.get('local_name') or ''),
-            'total_cards': total_cards,
-            'session_count': int(count_by_shared_id.get(str(shared_deck_id), 0)),
-            'mix_percent': int(mix_percent_by_shared_id.get(str(shared_deck_id), 0)),
-        })
-    return runtime_decks
-
-
 def get_shared_math_merged_source_decks_for_kid(conn, kid):
     """Return math source decks for merged bank and merged practice queue."""
     materialized_by_local_id = get_kid_materialized_shared_math_decks(conn)
@@ -737,6 +612,7 @@ def get_shared_math_merged_source_decks_for_kid(conn, kid):
             'card_count': total_cards,
             'active_card_count': active_cards,
             'skipped_card_count': skipped_cards,
+            'included_in_bank': True,
             'included_in_queue': True,
         })
 
@@ -765,50 +641,11 @@ def get_shared_math_merged_source_decks_for_kid(conn, kid):
             'card_count': orphan_total,
             'active_card_count': orphan_active,
             'skipped_card_count': orphan_skipped,
+            'included_in_bank': bool(include_orphan_in_queue),
             'included_in_queue': bool(include_orphan_in_queue and orphan_active > 0),
         })
 
     return sources
-
-
-def get_shared_chinese_characters_runtime_decks_for_kid(conn, kid):
-    """Return opted-in shared chinese_characters decks with per-session planned counts."""
-    materialized_by_local_id = get_kid_materialized_shared_chinese_characters_decks(conn)
-    if len(materialized_by_local_id) == 0:
-        return []
-
-    ordered_local_ids = sorted(materialized_by_local_id.keys())
-    ordered = [materialized_by_local_id[deck_id] for deck_id in ordered_local_ids]
-    shared_ids = [entry['shared_deck_id'] for entry in ordered]
-    mix_percent_by_shared_id = build_shared_chinese_characters_mix_for_decks(
-        shared_ids,
-        kid.get('sharedChineseCharactersDeckMix'),
-        include_orphan=True
-    )
-    count_by_shared_id = build_shared_chinese_characters_counts_for_decks(
-        normalize_session_card_count(kid),
-        mix_percent_by_shared_id,
-        shared_ids,
-        include_orphan=True
-    )
-
-    runtime_decks = []
-    for entry in ordered:
-        local_deck_id = int(entry['local_deck_id'])
-        shared_deck_id = int(entry['shared_deck_id'])
-        total_cards = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
-            [local_deck_id]
-        ).fetchone()[0] or 0)
-        runtime_decks.append({
-            'local_deck_id': local_deck_id,
-            'shared_deck_id': shared_deck_id,
-            'name': str(entry.get('local_name') or ''),
-            'total_cards': total_cards,
-            'session_count': int(count_by_shared_id.get(str(shared_deck_id), 0)),
-            'mix_percent': int(mix_percent_by_shared_id.get(str(shared_deck_id), 0)),
-        })
-    return runtime_decks
 
 
 def get_shared_chinese_characters_merged_source_decks_for_kid(conn, kid):
@@ -841,6 +678,7 @@ def get_shared_chinese_characters_merged_source_decks_for_kid(conn, kid):
             'card_count': total_cards,
             'active_card_count': active_cards,
             'skipped_card_count': skipped_cards,
+            'included_in_bank': True,
             'included_in_queue': True,
         })
 
@@ -869,6 +707,7 @@ def get_shared_chinese_characters_merged_source_decks_for_kid(conn, kid):
             'card_count': orphan_total,
             'active_card_count': orphan_active,
             'skipped_card_count': orphan_skipped,
+            'included_in_bank': bool(include_orphan_in_queue),
             'included_in_queue': bool(include_orphan_in_queue and orphan_active > 0),
         })
 
@@ -905,6 +744,7 @@ def get_shared_lesson_reading_merged_source_decks_for_kid(conn, kid):
             'card_count': total_cards,
             'active_card_count': active_cards,
             'skipped_card_count': skipped_cards,
+            'included_in_bank': True,
             'included_in_queue': True,
         })
 
@@ -933,6 +773,7 @@ def get_shared_lesson_reading_merged_source_decks_for_kid(conn, kid):
             'card_count': orphan_total,
             'active_card_count': orphan_active,
             'skipped_card_count': orphan_skipped,
+            'included_in_bank': bool(include_orphan_in_queue),
             'included_in_queue': bool(include_orphan_in_queue and orphan_active > 0),
         })
 
@@ -969,6 +810,7 @@ def get_shared_writing_merged_source_decks_for_kid(conn, kid):
             'card_count': total_cards,
             'active_card_count': active_cards,
             'skipped_card_count': skipped_cards,
+            'included_in_bank': True,
             'included_in_queue': True,
         })
 
@@ -997,6 +839,7 @@ def get_shared_writing_merged_source_decks_for_kid(conn, kid):
             'card_count': orphan_total,
             'active_card_count': orphan_active,
             'skipped_card_count': orphan_skipped,
+            'included_in_bank': bool(include_orphan_in_queue),
             'included_in_queue': bool(include_orphan_in_queue and orphan_active > 0),
         })
 
@@ -1073,39 +916,6 @@ def get_kid_card_backs_for_deck_ids(conn, deck_ids):
         normalized
     ).fetchall()
     return {str(row[0] or '') for row in rows if str(row[0] or '')}
-
-
-def get_shared_front_conflicts(conn, fronts):
-    """Return mapping: front -> list of conflicting decks containing that front."""
-    if not fronts:
-        return {}
-    placeholders = ','.join(['?'] * len(fronts))
-    rows = conn.execute(
-        f"""
-        SELECT c.front, d.deck_id, d.name
-        FROM cards c
-        JOIN deck d ON d.deck_id = c.deck_id
-        WHERE c.front IN ({placeholders})
-        ORDER BY c.front, d.name, d.deck_id
-        """,
-        fronts
-    ).fetchall()
-
-    conflicts = {}
-    seen_pairs = set()
-    for row in rows:
-        front = str(row[0])
-        deck_id = int(row[1])
-        deck_name = str(row[2])
-        pair = (front, deck_id)
-        if pair in seen_pairs:
-            continue
-        seen_pairs.add(pair)
-        conflicts.setdefault(front, []).append({
-            'deck_id': deck_id,
-            'name': deck_name,
-        })
-    return conflicts
 
 
 def get_current_family_id_int():
@@ -1191,6 +1001,8 @@ def shared_deck_name_availability():
             'available': row is None,
             'existing_deck_id': int(row[0]) if row else None,
         }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1220,31 +1032,6 @@ def shared_deck_chinese_characters_pinyin():
         return jsonify({'error': str(e)}), 500
 
 
-@kids_bp.route('/shared-decks/front-conflicts', methods=['POST'])
-def shared_deck_front_conflicts():
-    """Return existing decks that already contain each requested front."""
-    try:
-        auth_err = require_super_family()
-        if auth_err:
-            return auth_err
-        payload = request.get_json() or {}
-        fronts = normalize_shared_deck_fronts(payload.get('fronts'))
-        conn = get_shared_decks_connection()
-        try:
-            conflicts = get_shared_front_conflicts(conn, fronts)
-        finally:
-            conn.close()
-        return jsonify({
-            'checked_front_count': len(fronts),
-            'conflict_count': len(conflicts),
-            'conflicts': conflicts,
-        }), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 @kids_bp.route('/shared-decks/tags', methods=['GET'])
 def shared_deck_tags():
     """Return shared-deck ordered tag paths for autocomplete."""
@@ -1260,6 +1047,8 @@ def shared_deck_tags():
             conn.close()
 
         return jsonify({'tag_paths': tag_paths}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1496,26 +1285,46 @@ def normalize_writing_session_card_count(kid):
     return parsed
 
 
-def normalize_hard_card_percentage(kid):
-    """Get validated hard-card percentage from family global setting."""
-    family_id = str(kid.get('familyId') or '')
-    if family_id:
-        try:
-            return metadata.get_family_hard_card_percentage(family_id)
-        except Exception:
-            pass
-
-    # Legacy fallback for old metadata rows.
-    value = kid.get('hardCardPercentage', DEFAULT_HARD_CARD_PERCENTAGE)
+def _normalize_hard_card_percentage_value(value):
+    """Normalize one hardness-percentage value to [0, 100]."""
     try:
         parsed = int(value)
     except (TypeError, ValueError):
         return DEFAULT_HARD_CARD_PERCENTAGE
-
     if parsed < MIN_HARD_CARD_PERCENTAGE:
         return MIN_HARD_CARD_PERCENTAGE
     if parsed > MAX_HARD_CARD_PERCENTAGE:
         return MAX_HARD_CARD_PERCENTAGE
+    return parsed
+
+
+def normalize_hard_card_percentage(kid, session_type=None):
+    """Get validated hard-card percentage, preferring per-session-type kid setting."""
+    session_key = str(session_type or '').strip().lower()
+    field_name = HARD_CARD_PERCENT_FIELD_BY_SESSION_TYPE.get(session_key)
+    if field_name:
+        raw_value = kid.get(field_name)
+        if raw_value is not None:
+            return _normalize_hard_card_percentage_value(raw_value)
+    return DEFAULT_HARD_CARD_PERCENTAGE
+
+
+def parse_optional_hard_card_percentage_arg(arg_name='hard_card_percentage'):
+    """Parse optional hard-card percentage from query args."""
+    raw_value = request.args.get(arg_name)
+    if raw_value is None:
+        return None
+    text = str(raw_value).strip()
+    if not text:
+        return None
+    try:
+        parsed = int(text)
+    except (TypeError, ValueError):
+        raise ValueError(f'{arg_name} must be an integer')
+    if parsed < MIN_HARD_CARD_PERCENTAGE or parsed > MAX_HARD_CARD_PERCENTAGE:
+        raise ValueError(
+            f'{arg_name} must be between {MIN_HARD_CARD_PERCENTAGE} and {MAX_HARD_CARD_PERCENTAGE}'
+        )
     return parsed
 
 
@@ -1740,9 +1549,17 @@ def with_practice_count_fallbacks(kid):
     safe_kid['writingSessionCardCount'] = max(0, min(MAX_SESSION_CARD_COUNT, writing_count))
 
     safe_kid['sharedMathSessionCardCount'] = normalize_shared_math_session_card_count(safe_kid)
+    safe_kid['sharedMathHardCardPercentage'] = normalize_hard_card_percentage(
+        safe_kid,
+        session_type='math'
+    )
     safe_kid['sharedMathDeckMix'] = normalize_shared_math_deck_mix(safe_kid.get('sharedMathDeckMix'))
     safe_kid['sharedMathIncludeOrphan'] = normalize_shared_math_include_orphan(
         safe_kid.get('sharedMathIncludeOrphan')
+    )
+    safe_kid['sharedChineseCharactersHardCardPercentage'] = normalize_hard_card_percentage(
+        safe_kid,
+        session_type='flashcard'
     )
     safe_kid['sharedChineseCharactersDeckMix'] = normalize_shared_chinese_characters_deck_mix(
         safe_kid.get('sharedChineseCharactersDeckMix')
@@ -1753,7 +1570,15 @@ def with_practice_count_fallbacks(kid):
     safe_kid['sharedWritingIncludeOrphan'] = normalize_shared_writing_include_orphan(
         safe_kid.get('sharedWritingIncludeOrphan')
     )
+    safe_kid['sharedWritingHardCardPercentage'] = normalize_hard_card_percentage(
+        safe_kid,
+        session_type='writing'
+    )
     safe_kid['sharedLessonReadingSessionCardCount'] = normalize_shared_lesson_reading_session_card_count(safe_kid)
+    safe_kid['sharedLessonReadingHardCardPercentage'] = normalize_hard_card_percentage(
+        safe_kid,
+        session_type='lesson_reading'
+    )
     safe_kid['sharedLessonReadingIncludeOrphan'] = normalize_shared_lesson_reading_include_orphan(
         safe_kid.get('sharedLessonReadingIncludeOrphan')
     )
@@ -1815,7 +1640,10 @@ def create_kid():
             'birthday': data['birthday'],
             'sessionCardCount': 0,
             'writingSessionCardCount': 0,
-            'hardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
+            'sharedChineseCharactersHardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
+            'sharedMathHardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
+            'sharedWritingHardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
+            'sharedLessonReadingHardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
             'sharedMathSessionCardCount': DEFAULT_SHARED_MATH_SESSION_CARD_COUNT,
             'sharedMathDeckMix': {},
             'sharedMathIncludeOrphan': DEFAULT_SHARED_MATH_INCLUDE_ORPHAN,
@@ -2356,16 +2184,18 @@ def update_kid(kid_id):
 
             updates['writingSessionCardCount'] = writing_session_card_count
 
-        if 'hardCardPercentage' in data:
+        for field_name in PER_PAGE_HARD_CARD_PERCENT_FIELDS:
+            if field_name not in data:
+                continue
             try:
-                hard_pct = int(data['hardCardPercentage'])
+                hard_pct = int(data[field_name])
             except (TypeError, ValueError):
-                return jsonify({'error': 'hardCardPercentage must be an integer'}), 400
-
+                return jsonify({'error': f'{field_name} must be an integer'}), 400
             if hard_pct < MIN_HARD_CARD_PERCENTAGE or hard_pct > MAX_HARD_CARD_PERCENTAGE:
-                return jsonify({'error': f'hardCardPercentage must be between {MIN_HARD_CARD_PERCENTAGE} and {MAX_HARD_CARD_PERCENTAGE}'}), 400
-
-            updates['hardCardPercentage'] = hard_pct
+                return jsonify({
+                    'error': f'{field_name} must be between {MIN_HARD_CARD_PERCENTAGE} and {MAX_HARD_CARD_PERCENTAGE}'
+                }), 400
+            updates[field_name] = hard_pct
 
         if 'sharedMathSessionCardCount' in data:
             try:
@@ -2728,32 +2558,6 @@ def normalize_logged_response_time_ms(session_type, raw_response_time_ms):
     return response_time_ms
 
 
-def plan_deck_pending_session(conn, kid, kid_id, deck_id, session_type, excluded_card_ids=None):
-    """Plan one pending deck session without mutating DB state."""
-    cards_by_id, selected_ids = plan_deck_practice_selection(
-        conn,
-        kid,
-        deck_id,
-        session_type,
-        excluded_card_ids=excluded_card_ids,
-    )
-    if len(selected_ids) == 0:
-        return None, []
-
-    pending_token = create_pending_session(
-        kid_id,
-        session_type,
-        {
-            'kind': 'deck',
-            'deck_id': int(deck_id),
-            'planned_count': len(selected_ids),
-            'cards': [{'id': int(card_id)} for card_id in selected_ids],
-        }
-    )
-    selected_cards = [cards_by_id[card_id] for card_id in selected_ids]
-    return pending_token, selected_cards
-
-
 def _get_practice_rankings_for_decks(conn, deck_ids, session_type, excluded_card_ids=None):
     """Return candidate ids and deterministic ranking inputs across one or more decks."""
     normalized_deck_ids = []
@@ -2855,17 +2659,7 @@ def _get_practice_rankings_for_decks(conn, deck_ids, session_type, excluded_card
     return cards_by_id, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids
 
 
-def _get_deck_practice_rankings(conn, deck_id, session_type, excluded_card_ids=None):
-    """Return candidate ids and deterministic ranking inputs for one deck."""
-    return _get_practice_rankings_for_decks(
-        conn,
-        [deck_id],
-        session_type,
-        excluded_card_ids=excluded_card_ids,
-    )
-
-
-def _select_session_card_ids(kid, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids):
+def _select_session_card_ids(kid, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids, session_type):
     """Select one session-sized card list from ranking inputs."""
     base_target_count = min(normalize_session_card_count(kid), len(candidate_ids))
     if base_target_count <= 0:
@@ -2885,7 +2679,7 @@ def _select_session_card_ids(kid, candidate_ids, red_card_ids, hard_ranked_ids, 
         selected_set = set(selected_ids)
 
     remaining_slots = max(0, target_count - len(selected_ids))
-    hard_pct = normalize_hard_card_percentage(kid)
+    hard_pct = normalize_hard_card_percentage(kid, session_type=session_type)
     if hard_pct <= 0 or remaining_slots <= 0:
         hard_target = 0
     else:
@@ -2914,61 +2708,6 @@ def _select_session_card_ids(kid, candidate_ids, red_card_ids, hard_ranked_ids, 
     return selected_ids
 
 
-def preview_deck_practice_order(conn, kid, deck_id, session_type, excluded_card_ids=None):
-    """Preview full deck order for next-session priority (not just first session size)."""
-    _, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_deck_practice_rankings(
-        conn,
-        deck_id,
-        session_type,
-        excluded_card_ids=excluded_card_ids,
-    )
-    if len(candidate_ids) == 0:
-        return []
-
-    first_session_ids = _select_session_card_ids(
-        kid,
-        candidate_ids,
-        red_card_ids,
-        hard_ranked_ids,
-        attempt_ranked_ids,
-    )
-    ordered_ids = []
-    seen = set()
-    for card_id in first_session_ids:
-        if card_id not in seen:
-            ordered_ids.append(card_id)
-            seen.add(card_id)
-    for card_id in attempt_ranked_ids:
-        if card_id not in seen:
-            ordered_ids.append(card_id)
-            seen.add(card_id)
-    for card_id in candidate_ids:
-        if card_id not in seen:
-            ordered_ids.append(card_id)
-            seen.add(card_id)
-    return ordered_ids
-
-
-def plan_deck_practice_selection(conn, kid, deck_id, session_type, excluded_card_ids=None):
-    """Build deterministic session card selection: red -> hard -> least lifetime attempts."""
-    cards_by_id, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_deck_practice_rankings(
-        conn,
-        deck_id,
-        session_type,
-        excluded_card_ids=excluded_card_ids,
-    )
-    if len(candidate_ids) == 0:
-        return cards_by_id, []
-    selected_ids = _select_session_card_ids(
-        kid,
-        candidate_ids,
-        red_card_ids,
-        hard_ranked_ids,
-        attempt_ranked_ids,
-    )
-    return cards_by_id, selected_ids
-
-
 def preview_deck_practice_order_for_decks(conn, kid, deck_ids, session_type, excluded_card_ids=None):
     """Preview merged next-session queue order across multiple decks."""
     _, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_practice_rankings_for_decks(
@@ -2986,6 +2725,7 @@ def preview_deck_practice_order_for_decks(conn, kid, deck_ids, session_type, exc
         red_card_ids,
         hard_ranked_ids,
         attempt_ranked_ids,
+        session_type,
     )
     ordered_ids = []
     seen = set()
@@ -3020,6 +2760,7 @@ def plan_deck_practice_selection_for_decks(conn, kid, deck_ids, session_type, ex
         red_card_ids,
         hard_ranked_ids,
         attempt_ranked_ids,
+        session_type,
     )
     return cards_by_id, selected_ids
 
@@ -4129,11 +3870,20 @@ def get_shared_chinese_characters_cards(kid_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        preview_hard_pct = parse_optional_hard_card_percentage_arg()
+        effective_hard_pct = (
+            preview_hard_pct
+            if preview_hard_pct is not None
+            else normalize_hard_card_percentage(kid, session_type='flashcard')
+        )
 
         conn = get_kid_connection_for(kid)
         try:
             sources = get_shared_chinese_characters_merged_source_decks_for_kid(conn, kid)
-            bank_sources = [src for src in sources if int(src.get('card_count') or 0) > 0]
+            bank_sources = [
+                src for src in sources
+                if int(src.get('card_count') or 0) > 0 and bool(src.get('included_in_bank', True))
+            ]
             practice_sources = [src for src in sources if bool(src.get('included_in_queue'))]
             practice_source_ids = [
                 int(src['local_deck_id'])
@@ -4146,6 +3896,7 @@ def get_shared_chinese_characters_cards(kid_id):
                 preview_kid = {
                     **kid,
                     'sessionCardCount': normalize_session_card_count(kid),
+                    'sharedChineseCharactersHardCardPercentage': int(effective_hard_pct),
                 }
                 preview_ids = preview_deck_practice_order_for_decks(
                     conn,
@@ -4187,6 +3938,7 @@ def get_shared_chinese_characters_cards(kid_id):
         return jsonify({
             'is_merged_bank': True,
             'deck_name': 'Merged Chinese Character Bank',
+            'hard_card_percentage': int(effective_hard_pct),
             'include_orphan_in_queue': normalize_shared_chinese_characters_include_orphan(
                 kid.get('sharedChineseCharactersIncludeOrphan')
             ),
@@ -4196,6 +3948,8 @@ def get_shared_chinese_characters_cards(kid_id):
             'skipped_card_count': skipped_count,
             'cards': merged_cards
         }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -4729,11 +4483,20 @@ def get_shared_math_cards(kid_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        preview_hard_pct = parse_optional_hard_card_percentage_arg()
+        effective_hard_pct = (
+            preview_hard_pct
+            if preview_hard_pct is not None
+            else normalize_hard_card_percentage(kid, session_type='math')
+        )
 
         conn = get_kid_connection_for(kid)
         try:
             sources = get_shared_math_merged_source_decks_for_kid(conn, kid)
-            bank_sources = [src for src in sources if int(src.get('card_count') or 0) > 0]
+            bank_sources = [
+                src for src in sources
+                if int(src.get('card_count') or 0) > 0 and bool(src.get('included_in_bank', True))
+            ]
             practice_sources = [src for src in sources if bool(src.get('included_in_queue'))]
             practice_source_ids = [
                 int(src['local_deck_id'])
@@ -4746,6 +4509,7 @@ def get_shared_math_cards(kid_id):
                 preview_kid = {
                     **kid,
                     'sessionCardCount': normalize_shared_math_session_card_count(kid),
+                    'sharedMathHardCardPercentage': int(effective_hard_pct),
                 }
                 preview_ids = preview_deck_practice_order_for_decks(
                     conn,
@@ -4787,6 +4551,7 @@ def get_shared_math_cards(kid_id):
         return jsonify({
             'is_merged_bank': True,
             'deck_name': 'Merged Math Bank',
+            'hard_card_percentage': int(effective_hard_pct),
             'include_orphan_in_queue': normalize_shared_math_include_orphan(
                 kid.get('sharedMathIncludeOrphan')
             ),
@@ -4796,6 +4561,8 @@ def get_shared_math_cards(kid_id):
             'skipped_card_count': skipped_count,
             'cards': merged_cards
         }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -5429,12 +5196,21 @@ def get_shared_lesson_reading_cards(kid_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        preview_hard_pct = parse_optional_hard_card_percentage_arg()
+        effective_hard_pct = (
+            preview_hard_pct
+            if preview_hard_pct is not None
+            else normalize_hard_card_percentage(kid, session_type='lesson_reading')
+        )
 
         conn = get_kid_connection_for(kid)
         try:
             sources = get_shared_lesson_reading_merged_source_decks_for_kid(conn, kid)
             source_by_local_id = {int(src['local_deck_id']): src for src in sources}
-            bank_sources = [src for src in sources if int(src.get('card_count') or 0) > 0]
+            bank_sources = [
+                src for src in sources
+                if int(src.get('card_count') or 0) > 0 and bool(src.get('included_in_bank', True))
+            ]
             practice_sources = [src for src in sources if bool(src.get('included_in_queue'))]
             practice_source_ids = [int(src['local_deck_id']) for src in practice_sources if int(src.get('active_card_count') or 0) > 0]
 
@@ -5443,6 +5219,7 @@ def get_shared_lesson_reading_cards(kid_id):
                 preview_kid = {
                     **kid,
                     'sessionCardCount': normalize_shared_lesson_reading_session_card_count(kid),
+                    'sharedLessonReadingHardCardPercentage': int(effective_hard_pct),
                 }
                 preview_ids = preview_deck_practice_order_for_decks(
                     conn,
@@ -5484,6 +5261,7 @@ def get_shared_lesson_reading_cards(kid_id):
         return jsonify({
             'is_merged_bank': True,
             'deck_name': 'Merged Chinese Reading Bank',
+            'hard_card_percentage': int(effective_hard_pct),
             'include_orphan_in_queue': normalize_shared_lesson_reading_include_orphan(
                 kid.get('sharedLessonReadingIncludeOrphan')
             ),
@@ -5493,6 +5271,8 @@ def get_shared_lesson_reading_cards(kid_id):
             'skipped_card_count': skipped_count,
             'cards': merged_cards,
         }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -6119,11 +5899,20 @@ def get_shared_writing_cards(kid_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        preview_hard_pct = parse_optional_hard_card_percentage_arg()
+        effective_hard_pct = (
+            preview_hard_pct
+            if preview_hard_pct is not None
+            else normalize_hard_card_percentage(kid, session_type='writing')
+        )
 
         conn = get_kid_connection_for(kid)
         try:
             sources = get_shared_writing_merged_source_decks_for_kid(conn, kid)
-            bank_sources = [src for src in sources if int(src.get('card_count') or 0) > 0]
+            bank_sources = [
+                src for src in sources
+                if int(src.get('card_count') or 0) > 0 and bool(src.get('included_in_bank', True))
+            ]
             bank_deck_ids = [int(src['local_deck_id']) for src in bank_sources]
             practice_sources = [src for src in sources if bool(src.get('included_in_queue'))]
             practice_source_ids = [
@@ -6156,6 +5945,7 @@ def get_shared_writing_cards(kid_id):
                 preview_kid = {
                     **kid,
                     'sessionCardCount': normalize_writing_session_card_count(kid),
+                    'sharedWritingHardCardPercentage': int(effective_hard_pct),
                 }
                 preview_ids = preview_deck_practice_order_for_decks(
                     conn,
@@ -6245,6 +6035,7 @@ def get_shared_writing_cards(kid_id):
             'is_merged_bank': True,
             'deck_name': 'Merged Chinese Writing Bank',
             'deck_id': orphan_deck_id,
+            'hard_card_percentage': int(effective_hard_pct),
             'include_orphan_in_queue': normalize_shared_writing_include_orphan(
                 kid.get('sharedWritingIncludeOrphan')
             ),
@@ -6258,6 +6049,8 @@ def get_shared_writing_cards(kid_id):
             'practicing_sheet_cards': practicing_sheet_cards,
             'cards': merged_cards,
         }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

@@ -78,25 +78,6 @@
             <div class="settings-grid">
                 <section class="settings-card">
                     <h2>Practice Settings</h2>
-                    <div class="inline-row">
-                        <div class="form-group">
-                            <label for="hardCardPercentage" class="label-with-help">
-                                Global Hard Cards %
-                                <details class="help-details">
-                                    <summary title="What is this?">?</summary>
-                                    <div class="help-bubble">
-                                        Hard Cards % controls how many cards in each session are pulled from the hardest group.
-                                        Hardness is based on each practice type's score (for Chinese characters/math: slower response tends to be harder; for Chinese writing: lower accuracy tends to be harder).
-                                        Example: if a session uses 20 cards and hard cards is 20%, about 4 cards are selected from the hard group, and the remaining 16 cards come from normal rotation so easier cards still get reviewed.
-                                    </div>
-                                </details>
-                            </label>
-                            <input type="number" id="hardCardPercentage" min="0" max="100" step="1" required>
-                        </div>
-                        <button type="button" id="saveHardCardBtn" class="btn-primary">Save</button>
-                    </div>
-                    <div id="hardCardError" class="error hidden"></div>
-                    <div id="hardCardSuccess" class="success hidden"></div>
                     <div class="inline-row" style="margin-top: 0.8rem;">
                         <div class="form-group">
                             <label for="familyTimezone">Family Time Zone</label>

@@ -13,9 +13,6 @@ METADATA_FILE = os.path.join(os.path.dirname(__file__), '../../data/kids.json')
 METADATA_LOCK_FILE = f"{METADATA_FILE}.lock"
 MAX_FAMILIES = 10
 PASSWORD_HASH_METHOD = 'pbkdf2:sha256'
-DEFAULT_HARD_CARD_PERCENTAGE = 20
-MIN_HARD_CARD_PERCENTAGE = 0
-MAX_HARD_CARD_PERCENTAGE = 100
 DEFAULT_FAMILY_TIMEZONE = 'America/New_York'
 _METADATA_THREAD_LOCK = threading.RLock()
 
@@ -30,22 +27,12 @@ def _normalize(data: Dict) -> Dict:
     for i, family in enumerate(data['families']):
         if not isinstance(family, dict):
             continue
-        value = family.get('hardCardPercentage', DEFAULT_HARD_CARD_PERCENTAGE)
-        try:
-            pct = int(value)
-        except (TypeError, ValueError):
-            pct = DEFAULT_HARD_CARD_PERCENTAGE
-        if pct < MIN_HARD_CARD_PERCENTAGE:
-            pct = MIN_HARD_CARD_PERCENTAGE
-        if pct > MAX_HARD_CARD_PERCENTAGE:
-            pct = MAX_HARD_CARD_PERCENTAGE
         timezone_name = _normalize_family_timezone(family.get('familyTimezone'))
         super_family = _normalize_super_family_flag(family.get('superFamily'))
         if super_family:
             has_super_family = True
         data['families'][i] = {
             **family,
-            'hardCardPercentage': pct,
             'familyTimezone': timezone_name,
             'superFamily': super_family,
         }
@@ -275,7 +262,6 @@ def register_family(username: str, password: str) -> Dict:
             'id': str(next_id),
             'username': username,
             'password': generate_password_hash(password, method=PASSWORD_HASH_METHOD),
-            'hardCardPercentage': DEFAULT_HARD_CARD_PERCENTAGE,
             'familyTimezone': DEFAULT_FAMILY_TIMEZONE,
             'superFamily': len(families) == 0,
             'createdAt': datetime.now().isoformat()
@@ -383,47 +369,6 @@ def update_family_password(family_id: str, current_password: str, new_password: 
     return _mutate_metadata(_op)
 
 
-def get_family_hard_card_percentage(family_id: str) -> int:
-    """Get family-level hard-card percentage with safe default."""
-    family = get_family_by_id(str(family_id or ''))
-    if not family:
-        return DEFAULT_HARD_CARD_PERCENTAGE
-    value = family.get('hardCardPercentage', DEFAULT_HARD_CARD_PERCENTAGE)
-    try:
-        pct = int(value)
-    except (TypeError, ValueError):
-        return DEFAULT_HARD_CARD_PERCENTAGE
-    if pct < MIN_HARD_CARD_PERCENTAGE:
-        return MIN_HARD_CARD_PERCENTAGE
-    if pct > MAX_HARD_CARD_PERCENTAGE:
-        return MAX_HARD_CARD_PERCENTAGE
-    return pct
-
-
-def update_family_hard_card_percentage(family_id: str, hard_card_percentage: int) -> bool:
-    """Update family-level hard-card percentage."""
-    family_id = str(family_id or '')
-    if not family_id:
-        return False
-    try:
-        pct = int(hard_card_percentage)
-    except (TypeError, ValueError):
-        return False
-    if pct < MIN_HARD_CARD_PERCENTAGE or pct > MAX_HARD_CARD_PERCENTAGE:
-        return False
-
-    def _op(data: Dict):
-        families = data.get('families', [])
-        for i, family in enumerate(families):
-            if str(family.get('id')) != family_id:
-                continue
-            families[i] = {**family, 'hardCardPercentage': pct}
-            data['families'] = families
-            return True
-        return False
-    return _mutate_metadata(_op)
-
-
 def get_family_timezone(family_id: str) -> str:
     """Get family-level timezone with safe default."""
     family = get_family_by_id(str(family_id or ''))
@@ -450,4 +395,3 @@ def update_family_timezone(family_id: str, family_timezone: str) -> bool:
         return False
 
     return _mutate_metadata(_op)
-

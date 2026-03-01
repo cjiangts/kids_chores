@@ -12,6 +12,10 @@ backup_bp = Blueprint('backup', __name__)
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
 FULL_BACKUP_MANIFEST = 'full_manifest.json'
+EXCLUDED_BACKUP_REL_PATHS = {
+    'debug.ipynb',
+    'kids.json.lock',
+}
 
 
 def _normalize_rel_path(path_value):
@@ -70,6 +74,14 @@ def _is_safe_backup_rel_path(path_value):
     return True
 
 
+def _is_included_backup_rel_path(path_value):
+    """Return whether one normalized data path should be included in backup."""
+    normalized = _normalize_rel_path(path_value)
+    if not _is_safe_backup_rel_path(normalized):
+        return False
+    return normalized not in EXCLUDED_BACKUP_REL_PATHS
+
+
 def _iter_data_files():
     """Yield normalized file paths relative to DATA_DIR."""
     if not os.path.exists(DATA_DIR):
@@ -79,7 +91,7 @@ def _iter_data_files():
         for name in names:
             abs_path = os.path.join(root, name)
             rel_path = _normalize_rel_path(os.path.relpath(abs_path, DATA_DIR))
-            if _is_safe_backup_rel_path(rel_path):
+            if _is_included_backup_rel_path(rel_path):
                 files.append(rel_path)
     return sorted(set(files))
 

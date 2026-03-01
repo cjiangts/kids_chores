@@ -359,6 +359,268 @@ window.PracticeManageCommon = {
         return `${dayDiff} days ago`;
     },
 
+    clampPercent(value, fallback = 20) {
+        const parsed = Number.parseInt(value, 10);
+        if (!Number.isInteger(parsed)) {
+            return Math.max(0, Math.min(100, Number.parseInt(fallback, 10) || 20));
+        }
+        return Math.max(0, Math.min(100, parsed));
+    },
+
+    createHardnessSliderController(config = {}) {
+        const sliderEl = config.sliderEl || null;
+        const valueEl = config.valueEl || null;
+        const debounceMsRaw = Number.parseInt(String(config.debounceMs ?? 180), 10);
+        const debounceMs = Number.isInteger(debounceMsRaw) && debounceMsRaw >= 0 ? debounceMsRaw : 180;
+        const onPreview = typeof config.onPreview === 'function' ? config.onPreview : async () => {};
+        const onCommit = typeof config.onCommit === 'function' ? config.onCommit : async () => {};
+        const onError = typeof config.onError === 'function' ? config.onError : () => {};
+
+        let currentValue = this.clampPercent(config.initialValue);
+        let previewTimer = null;
+        let isAttached = false;
+
+        const render = () => {
+            if (sliderEl) {
+                sliderEl.value = String(currentValue);
+            }
+            if (valueEl) {
+                valueEl.textContent = `${currentValue}%`;
+            }
+        };
+
+        const setValue = (value) => {
+            currentValue = this.clampPercent(value, currentValue);
+            render();
+            return currentValue;
+        };
+
+        const runPreview = async (value) => {
+            try {
+                await onPreview(value);
+            } catch (error) {
+                onError(error);
+            }
+        };
+
+        const schedulePreview = (value) => {
+            if (previewTimer) {
+                clearTimeout(previewTimer);
+            }
+            previewTimer = setTimeout(() => {
+                previewTimer = null;
+                void runPreview(value);
+            }, debounceMs);
+        };
+
+        const handleInput = () => {
+            const value = setValue(sliderEl ? sliderEl.value : currentValue);
+            schedulePreview(value);
+        };
+
+        const handleChange = async () => {
+            const value = setValue(sliderEl ? sliderEl.value : currentValue);
+            if (previewTimer) {
+                clearTimeout(previewTimer);
+                previewTimer = null;
+            }
+            try {
+                await onCommit(value);
+            } catch (error) {
+                onError(error);
+            }
+        };
+
+        const attach = () => {
+            if (!sliderEl || isAttached) {
+                render();
+                return;
+            }
+            sliderEl.addEventListener('input', handleInput);
+            sliderEl.addEventListener('change', () => {
+                void handleChange();
+            });
+            isAttached = true;
+            render();
+        };
+
+        return {
+            attach,
+            getValue: () => currentValue,
+            setValue,
+        };
+    },
+
+    createInlineStatusController(config = {}) {
+        const el = config.el || null;
+        const hiddenClass = String(config.hiddenClass || 'hidden');
+        const successClass = String(config.successClass || 'success');
+        const errorClass = String(config.errorClass || 'error');
+        const normalizeMessage = (value) => String(value || '').trim();
+
+        const clear = () => {
+            if (!el) {
+                return;
+            }
+            el.textContent = '';
+            el.classList.add(hiddenClass);
+            el.classList.remove(successClass);
+            el.classList.remove(errorClass);
+        };
+
+        const show = (message, isError = false) => {
+            if (!el) {
+                return;
+            }
+            const text = normalizeMessage(message);
+            if (!text) {
+                clear();
+                return;
+            }
+            el.textContent = text;
+            el.classList.remove(hiddenClass);
+            el.classList.toggle(errorClass, Boolean(isError));
+            el.classList.toggle(successClass, !isError);
+        };
+
+        return { clear, show };
+    },
+
+    createLatestResponseTracker() {
+        let requestSeq = 0;
+        let latestAppliedSeq = 0;
+        return {
+            begin() {
+                requestSeq += 1;
+                return requestSeq;
+            },
+            shouldApply(requestId) {
+                const id = Number.parseInt(requestId, 10);
+                if (!Number.isInteger(id) || id <= 0) {
+                    return false;
+                }
+                if (id < latestAppliedSeq) {
+                    return false;
+                }
+                latestAppliedSeq = id;
+                return true;
+            },
+        };
+    },
+
+    createKidHardnessController(config = {}) {
+        const sliderEl = config.sliderEl || null;
+        const valueEl = config.valueEl || null;
+        const statusEl = config.statusEl || null;
+        const apiBase = String(config.apiBase || '');
+        const kidId = String(config.kidId || '');
+        const kidFieldName = String(config.kidFieldName || '').trim();
+        const savedMessage = String(config.savedMessage || 'Hard cards % saved.');
+        const clearTopError = typeof config.clearTopError === 'function' ? config.clearTopError : () => {};
+        const reloadCards = typeof config.reloadCards === 'function' ? config.reloadCards : async () => {};
+        const onSaved = typeof config.onSaved === 'function' ? config.onSaved : null;
+
+        let currentValue = this.clampPercent(config.initialValue, 20);
+        const statusController = this.createInlineStatusController({
+            el: statusEl,
+            hiddenClass: 'hidden',
+            successClass: 'success',
+            errorClass: 'error',
+        });
+
+        const setCurrentValue = (value) => {
+            currentValue = this.clampPercent(value, currentValue);
+            if (sliderController) {
+                sliderController.setValue(currentValue);
+            }
+            return currentValue;
+        };
+
+        const parsePreviewValue = (value) => {
+            const parsed = Number.parseInt(value, 10);
+            if (!Number.isInteger(parsed)) {
+                return null;
+            }
+            return this.clampPercent(parsed, currentValue);
+        };
+
+        const formatSavedMessage = (value) => {
+            const normalizedValue = this.clampPercent(value, currentValue);
+            const template = String(savedMessage || '').trim();
+            if (template.includes('{value}')) {
+                return template.replace(/\{value\}/g, String(normalizedValue));
+            }
+            if (!template) {
+                return `Hard cards % saved: ${normalizedValue}%.`;
+            }
+            const base = template.replace(/[.!\s]+$/g, '');
+            return `${base}: ${normalizedValue}%.`;
+        };
+
+        const save = async (value) => {
+            if (!apiBase || !kidId || !kidFieldName) {
+                throw new Error('Hardness controller is not configured.');
+            }
+            const hardPct = this.clampPercent(value, currentValue);
+            const response = await fetch(`${apiBase}/kids/${kidId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [kidFieldName]: hardPct }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload.error || `Failed to save hardness % (HTTP ${response.status})`);
+            }
+            const persistedRaw = payload && payload[kidFieldName];
+            const persistedParsed = Number.parseInt(persistedRaw, 10);
+            const persistedHardPct = Number.isInteger(persistedParsed)
+                ? this.clampPercent(persistedParsed, hardPct)
+                : hardPct;
+            setCurrentValue(persistedHardPct);
+            statusController.show(formatSavedMessage(persistedHardPct), false);
+            if (onSaved) {
+                onSaved(payload, persistedHardPct);
+            }
+            return payload;
+        };
+
+        const sliderController = this.createHardnessSliderController({
+            sliderEl,
+            valueEl,
+            initialValue: currentValue,
+            debounceMs: 180,
+            onPreview: async (value) => {
+                clearTopError();
+                statusController.clear();
+                await reloadCards(value);
+            },
+            onCommit: async (value) => {
+                await save(value);
+                await reloadCards();
+            },
+            onError: (error) => {
+                statusController.show(
+                    (error && error.message) ? error.message : 'Failed to update hardness %.',
+                    true
+                );
+            },
+        });
+
+        const attach = () => {
+            statusController.clear();
+            sliderController.attach();
+        };
+
+        return {
+            attach,
+            getCurrentValue: () => currentValue,
+            setCurrentValue,
+            parsePreviewValue,
+            save,
+            statusController,
+        };
+    },
+
     renderLimitedAvailableDecks(config = {}) {
         const containerEl = config.containerEl || null;
         const emptyEl = config.emptyEl || null;

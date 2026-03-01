@@ -13,7 +13,6 @@ const lessonReadingTab = document.getElementById('lessonReadingTab');
 
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
-const sharedChineseCharactersIncludeOrphanInput = document.getElementById('sharedChineseCharactersIncludeOrphan');
 const mixBarEl = document.getElementById('mixBar');
 const mixRowsEl = document.getElementById('mixRows');
 const mixEmptyEl = document.getElementById('mixEmpty');
@@ -41,6 +40,9 @@ const cardSearchInput = document.getElementById('cardSearchInput');
 const deckTotalInfo = document.getElementById('deckTotalInfo');
 const cardCountEl = document.getElementById('cardCount');
 const cardsGrid = document.getElementById('cardsGrid');
+const hardnessPercentSlider = document.getElementById('hardnessPercentSlider');
+const hardnessPercentValue = document.getElementById('hardnessPercentValue');
+const hardnessPercentStatus = document.getElementById('hardnessPercentStatus');
 
 let currentKid = null;
 let allDecks = [];
@@ -59,9 +61,13 @@ let stagedOptedDeckIdSet = new Set();
 let availableTagFilterController = null;
 let optInAllAvailableController = null;
 let isReadingBulkAdding = false;
-let includeOrphanInQueue = false;
+let baselineIncludeOrphanInQueue = false;
+let stagedIncludeOrphanInQueue = false;
+let hardnessController = null;
+let sharedDeckCardsResponseTracker = null;
 const CARD_PAGE_SIZE = 10;
 const ORPHAN_MIX_KEY = 'orphan';
+const ORPHAN_BUBBLE_ID = '__orphan__';
 
 const MIX_COLORS = [
     '#66d9e8',
@@ -203,7 +209,7 @@ function getMixDeckKey(deck) {
 function getMixDecks() {
     const decks = getOptedDecks().map((deck) => ({ ...deck, mix_key: String(Number(deck.deck_id)) }));
     const orphanDeckId = Number(orphanDeck && orphanDeck.deck_id);
-    if (orphanDeckId > 0) {
+    if (orphanDeckId > 0 && stagedIncludeOrphanInQueue) {
         decks.push({
             deck_id: orphanDeckId,
             name: String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'chinese_characters_orphan'),
@@ -215,6 +221,9 @@ function getMixDecks() {
 }
 
 function hasPendingDeckChanges() {
+    if (stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue) {
+        return true;
+    }
     if (stagedOptedDeckIdSet.size !== baselineOptedDeckIdSet.size) {
         return true;
     }
@@ -240,7 +249,8 @@ function renderDeckPendingInfo() {
         }
     });
 
-    if (toOptIn.length === 0 && toOptOut.length === 0) {
+    const orphanPending = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue;
+    if (toOptIn.length === 0 && toOptOut.length === 0 && !orphanPending) {
         deckPendingInfo.textContent = 'No pending deck changes.';
         applyDeckChangesBtn.disabled = true;
         applyDeckChangesBtn.textContent = 'Apply Deck Changes';
@@ -250,7 +260,10 @@ function renderDeckPendingInfo() {
         return;
     }
 
-    deckPendingInfo.textContent = `Pending: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`;
+    const orphanText = orphanPending
+        ? `, orphan ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}`
+        : '';
+    deckPendingInfo.textContent = `Pending: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanText}.`;
     applyDeckChangesBtn.disabled = isDeckMoveInFlight;
     applyDeckChangesBtn.textContent = isDeckMoveInFlight ? 'Applying...' : 'Apply Deck Changes';
     if (optInAllAvailableController) {
@@ -266,7 +279,7 @@ function getChineseCharacterQuestionDecks() {
     })).filter((deck) => deck.local_deck_id > 0);
 
     const orphanDeckId = Number(orphanDeck && orphanDeck.deck_id);
-    if (orphanDeckId > 0) {
+    if (orphanDeckId > 0 && stagedIncludeOrphanInQueue) {
         decks.push({
             local_deck_id: orphanDeckId,
             label: String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'chinese_characters_orphan'),
@@ -323,6 +336,47 @@ function setMixByDeckFromPercentArray(mixDecks, percents) {
     mixByDeckId = next;
 }
 
+function getPointerClientX(event) {
+    if (Number.isFinite(event?.clientX)) {
+        return Number(event.clientX);
+    }
+    return null;
+}
+
+function renderMixBar(optedDecks, percents) {
+    if (!mixBarEl) {
+        return;
+    }
+    const safeDecks = Array.isArray(optedDecks) ? optedDecks : [];
+    const safePercents = Array.isArray(percents) ? percents : [];
+
+    let cumulative = 0;
+    const segmentHtml = safeDecks
+        .map((deck, index) => {
+            const percent = Number.parseInt(safePercents[index], 10) || 0;
+            const color = MIX_COLORS[index % MIX_COLORS.length];
+            const name = escapeHtml(deck?.name || '');
+            return `<div class="mix-segment" style="width:${percent}%;background:${color};" title="${name}: ${percent}%"></div>`;
+        })
+        .join('');
+
+    const handleHtml = safeDecks
+        .slice(0, -1)
+        .map((_, index) => {
+            const leftPct = Number.parseInt(safePercents[index], 10) || 0;
+            const rightPct = Number.parseInt(safePercents[index + 1], 10) || 0;
+            const pairTotal = leftPct + rightPct;
+            const draggable = pairTotal > 0;
+            cumulative += leftPct;
+            const className = draggable ? 'mix-handle' : 'mix-handle mix-handle-disabled';
+            const pointerStyle = draggable ? '' : 'pointer-events:none;opacity:0.45;';
+            return `<button type="button" class="${className}" data-handle-index="${index}" data-draggable="${draggable ? 'true' : 'false'}" style="left:${cumulative}%;${pointerStyle}" aria-label="Adjust mix divider ${index + 1}"></button>`;
+        })
+        .join('');
+
+    mixBarEl.innerHTML = `${segmentHtml}${handleHtml}`;
+}
+
 function renderMixEditor() {
     const mixDecks = getMixDecks();
     normalizeMixForOptedDecks();
@@ -339,13 +393,7 @@ function renderMixEditor() {
     const countByDeckId = getCountByDeckId(totalCards, mixDecks);
     const percents = mixDecks.map((deck) => Number.parseInt(mixByDeckId[getMixDeckKey(deck)] || 0, 10));
 
-    window.SharedDeckMix.renderMixBar({
-        mixBarEl,
-        optedDecks: mixDecks,
-        percents,
-        mixColors: MIX_COLORS,
-        escapeHtml,
-    });
+    renderMixBar(mixDecks, percents);
 
     mixRowsEl.innerHTML = mixDecks.map((deck, index) => {
             const percent = percents[index];
@@ -364,14 +412,65 @@ function renderMixEditor() {
 }
 
 function onMixBarPointerDown(event) {
-    window.SharedDeckMix.onMixBarPointerDown(event, {
-        mixBarEl,
-        getOptedDecks: getMixDecks,
-        normalizeMix: normalizeMixForOptedDecks,
-        getPercentForDeck: (deck) => Number.parseInt(mixByDeckId[getMixDeckKey(deck)] || 0, 10),
-        setMixByDeckFromPercentArray,
-        renderMixEditor,
-    });
+    const handle = event.target.closest('[data-handle-index]');
+    if (!handle) {
+        return;
+    }
+    if (String(handle.getAttribute('data-draggable') || 'true') !== 'true') {
+        return;
+    }
+
+    const handleIndex = Number(handle.getAttribute('data-handle-index') || -1);
+    if (!(handleIndex >= 0)) {
+        return;
+    }
+
+    const mixDecks = getMixDecks();
+    if (!Array.isArray(mixDecks) || mixDecks.length < 2 || handleIndex >= mixDecks.length - 1) {
+        return;
+    }
+    normalizeMixForOptedDecks();
+
+    const startX = getPointerClientX(event);
+    const rect = mixBarEl?.getBoundingClientRect?.();
+    if (!Number.isFinite(startX) || !rect || rect.width <= 0) {
+        return;
+    }
+
+    const startPercents = mixDecks.map((deck) => Number.parseInt(mixByDeckId[getMixDeckKey(deck)] || 0, 10) || 0);
+    const pairTotal = startPercents[handleIndex] + startPercents[handleIndex + 1];
+
+    const onMove = (moveEvent) => {
+        const moveX = getPointerClientX(moveEvent);
+        if (!Number.isFinite(moveX)) {
+            return;
+        }
+        const deltaPercent = ((moveX - startX) / rect.width) * 100;
+        let nextLeft = startPercents[handleIndex] + deltaPercent;
+        if (nextLeft < 0) {
+            nextLeft = 0;
+        }
+        if (nextLeft > pairTotal) {
+            nextLeft = pairTotal;
+        }
+
+        const next = [...startPercents];
+        next[handleIndex] = Math.round(nextLeft);
+        next[handleIndex + 1] = pairTotal - next[handleIndex];
+        setMixByDeckFromPercentArray(mixDecks, next);
+        renderMixEditor();
+    };
+
+    const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    event.preventDefault();
 }
 
 function rebalanceAfterOptInChanges() {
@@ -462,8 +561,10 @@ function renderAvailableDecks() {
     ensureAvailableTagFilterController().sync();
     const allAvailableDecks = getAvailableDeckCandidatesForTagFilter();
     const deckList = allAvailableDecks.filter(matchesAvailableTagFilter);
+    const shouldShowOrphan = Boolean(orphanDeck) && !stagedIncludeOrphanInQueue;
+    const availableDeckCount = deckList.length + (shouldShowOrphan ? 1 : 0);
     if (availableDecksTitle) {
-        availableDecksTitle.textContent = `Available Shared Decks (${deckList.length})`;
+        availableDecksTitle.textContent = `Available Shared Decks (${availableDeckCount})`;
     }
     if (optInAllAvailableController) {
         optInAllAvailableController.render(deckList.length);
@@ -479,12 +580,29 @@ function renderAvailableDecks() {
         bubbleTitle: 'Click to stage opt-in',
         maxVisibleCount: 10,
     });
+    if (shouldShowOrphan && availableDecksEl) {
+        const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'chinese_characters_orphan');
+        const orphanName = stripChineseCharactersFirstTagFromName(orphanNameRaw) || orphanNameRaw;
+        const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
+        const orphanBubble = `
+            <button
+                type="button"
+                class="deck-bubble"
+                data-deck-id="${ORPHAN_BUBBLE_ID}"
+                data-orphan-toggle="in"
+                title="Click to stage orphan opt-in"
+            >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
+        `;
+        availableDecksEl.insertAdjacentHTML('afterbegin', orphanBubble);
+        availableEmptyEl.classList.add('hidden');
+    }
 }
 
 function renderSelectedDecks() {
     const optedDecks = getOptedDecks();
+    const showOrphanInSelected = Boolean(orphanDeck) && stagedIncludeOrphanInQueue;
     if (selectedDecksTitle) {
-        selectedDecksTitle.textContent = `Opted-in Decks (${optedDecks.length})`;
+        selectedDecksTitle.textContent = `Opted-in Decks (${optedDecks.length + (showOrphanInSelected ? 1 : 0)})`;
     }
     const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'chinese_characters_orphan');
     const orphanName = stripChineseCharactersFirstTagFromName(orphanNameRaw) || orphanNameRaw;
@@ -501,17 +619,24 @@ function renderSelectedDecks() {
         `;
     }).join('');
 
-    const orphanButton = `
+    const orphanButton = showOrphanInSelected
+        ? `
         <button
             type="button"
             class="deck-bubble selected"
-            disabled
-            title="Orphan deck is always shown here and cannot be opted out. Use Practice Settings to include/exclude it from the practice queue."
+            data-deck-id="${ORPHAN_BUBBLE_ID}"
+            data-orphan-toggle="out"
+            title="Click to stage orphan opt-out"
         >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
-    `;
+    `
+        : '';
 
     selectedDecksEl.innerHTML = `${orphanButton}${optedButtons}`;
-    selectedEmptyEl.classList.add('hidden');
+    if (selectedDecksEl.innerHTML.trim()) {
+        selectedEmptyEl.classList.add('hidden');
+    } else {
+        selectedEmptyEl.classList.remove('hidden');
+    }
 }
 
 function renderSharedDeckTabs() {
@@ -650,8 +775,8 @@ async function loadKidInfo() {
     kidNameEl.textContent = `${kid.name || 'Kid'} - Chinese Characters Management`;
     const total = Number.parseInt(kid.sessionCardCount, 10);
     sessionCardCountInput.value = String(Number.isInteger(total) ? total : 10);
-    if (sharedChineseCharactersIncludeOrphanInput) {
-        sharedChineseCharactersIncludeOrphanInput.checked = Boolean(kid.sharedChineseCharactersIncludeOrphan);
+    if (hardnessController) {
+        hardnessController.setCurrentValue(kid.sharedChineseCharactersHardCardPercentage);
     }
 }
 
@@ -678,10 +803,8 @@ async function loadSharedChineseCharacterDecks() {
         sessionCardCountInput.value = String(responseTotal);
     }
 
-    includeOrphanInQueue = Boolean(result && result.include_orphan_in_queue);
-    if (sharedChineseCharactersIncludeOrphanInput) {
-        sharedChineseCharactersIncludeOrphanInput.checked = includeOrphanInQueue;
-    }
+    baselineIncludeOrphanInQueue = Boolean(result && result.include_orphan_in_queue);
+    stagedIncludeOrphanInQueue = baselineIncludeOrphanInQueue;
 
     renderAvailableDecks();
     renderSelectedDecks();
@@ -700,14 +823,11 @@ async function saveSessionSettings() {
         return;
     }
 
-    const includeOrphan = Boolean(sharedChineseCharactersIncludeOrphanInput && sharedChineseCharactersIncludeOrphanInput.checked);
-
     const response = await fetch(`${API_BASE}/kids/${kidId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             sessionCardCount: total,
-            sharedChineseCharactersIncludeOrphan: includeOrphan,
         }),
     });
     const result = await response.json().catch(() => ({}));
@@ -717,7 +837,6 @@ async function saveSessionSettings() {
 
     currentKid = result;
     showSuccess('Practice settings saved.');
-    includeOrphanInQueue = includeOrphan;
     await loadSharedChineseCharacterDecks();
 }
 
@@ -772,12 +891,27 @@ async function stageDeckMembershipChange(deckId, direction) {
     await refreshDeckSelectionViews();
 }
 
+async function stageOrphanInclusion(includeOrphan) {
+    if (isDeckMoveInFlight) {
+        return;
+    }
+    const nextValue = Boolean(includeOrphan);
+    if (stagedIncludeOrphanInQueue === nextValue) {
+        return;
+    }
+    stagedIncludeOrphanInQueue = nextValue;
+    rebalanceAfterOptInChanges();
+    clearDeckSelectionMessages();
+    await refreshDeckSelectionViews();
+}
+
 async function applyDeckMembershipChanges() {
     if (isDeckMoveInFlight || !hasPendingDeckChanges()) {
         return;
     }
     const toOptIn = [...stagedOptedDeckIdSet].filter((deckId) => !baselineOptedDeckIdSet.has(deckId));
     const toOptOut = [...baselineOptedDeckIdSet].filter((deckId) => !stagedOptedDeckIdSet.has(deckId));
+    const orphanChanged = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue;
 
     isDeckMoveInFlight = true;
     renderDeckPendingInfo();
@@ -791,7 +925,21 @@ async function applyDeckMembershipChanges() {
         if (toOptOut.length > 0) {
             await requestOptOutDeckIds(toOptOut);
         }
-        showDeckChangeMessage(`Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out.`);
+        if (orphanChanged) {
+            const response = await fetch(`${API_BASE}/kids/${kidId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sharedChineseCharactersIncludeOrphan: stagedIncludeOrphanInQueue,
+                }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(result.error || `Failed to update orphan deck setting (HTTP ${response.status})`);
+            }
+        }
+        const orphanSummary = orphanChanged ? `, orphan ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}` : '';
+        showDeckChangeMessage(`Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanSummary}.`);
         await loadSharedChineseCharacterDecks();
     } catch (error) {
         console.error('Error applying deck membership changes:', error);
@@ -802,15 +950,31 @@ async function applyDeckMembershipChanges() {
     }
 }
 
-async function loadSharedDeckCards() {
+async function loadSharedDeckCards(previewHardCardPercentage = null) {
+    const requestId = sharedDeckCardsResponseTracker
+        ? sharedDeckCardsResponseTracker.begin()
+        : 0;
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/characters/shared-decks/cards`);
+        const url = new URL(`${API_BASE}/kids/${kidId}/characters/shared-decks/cards`);
+        const previewHardPct = hardnessController
+            ? hardnessController.parsePreviewValue(previewHardCardPercentage)
+            : null;
+        if (previewHardPct !== null) {
+            url.searchParams.set('hard_card_percentage', String(previewHardPct));
+        }
+        const response = await fetch(url.toString());
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
             throw new Error(data.error || `Failed to load merged cards (HTTP ${response.status})`);
         }
+        if (sharedDeckCardsResponseTracker && !sharedDeckCardsResponseTracker.shouldApply(requestId)) {
+            return;
+        }
 
         currentCards = Array.isArray(data.cards) ? data.cards : [];
+        if (hardnessController) {
+            hardnessController.setCurrentValue(data.hard_card_percentage);
+        }
         orphanCardFronts = new Set(
             currentCards
                 .filter((card) => !!card.source_is_orphan)
@@ -960,6 +1124,11 @@ async function onAvailableDeckClick(event) {
     if (!bubble) {
         return;
     }
+    const orphanToggle = String(bubble.getAttribute('data-orphan-toggle') || '').trim().toLowerCase();
+    if (orphanToggle === 'in') {
+        await stageOrphanInclusion(true);
+        return;
+    }
     const deckId = Number(bubble.getAttribute('data-deck-id') || 0);
     if (!(deckId > 0)) {
         return;
@@ -970,6 +1139,11 @@ async function onAvailableDeckClick(event) {
 async function onSelectedDeckClick(event) {
     const bubble = event.target.closest('button[data-deck-id]');
     if (!bubble) {
+        return;
+    }
+    const orphanToggle = String(bubble.getAttribute('data-orphan-toggle') || '').trim().toLowerCase();
+    if (orphanToggle === 'out') {
+        await stageOrphanInclusion(false);
         return;
     }
     const deckId = Number(bubble.getAttribute('data-deck-id') || 0);
@@ -1055,6 +1229,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     chineseCharInput.addEventListener('input', () => {
         updateAddReadingButtonCount();
     });
+    hardnessController = window.PracticeManageCommon.createKidHardnessController({
+        sliderEl: hardnessPercentSlider,
+        valueEl: hardnessPercentValue,
+        statusEl: hardnessPercentStatus,
+        apiBase: API_BASE,
+        kidId,
+        kidFieldName: 'sharedChineseCharactersHardCardPercentage',
+        savedMessage: 'Hard cards % saved.',
+        clearTopError: () => {
+            showError('');
+        },
+        reloadCards: async (value) => {
+            await loadSharedDeckCards(value);
+        },
+        onSaved: (payload) => {
+            currentKid = payload;
+        },
+    });
+    hardnessController.attach();
+    sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();
 
     updateAddReadingButtonCount();
 

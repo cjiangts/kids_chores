@@ -399,20 +399,13 @@
                         required
                     >
                 </div>
-                <div class="form-group" style="min-width: 280px;">
-                    <label for="sharedMathIncludeOrphan">Orphan Deck in Practice Queue</label>
-                    <label for="sharedMathIncludeOrphan" class="checkbox-inline">
-                        <input type="checkbox" id="sharedMathIncludeOrphan">
-                        <span>Include orphan deck cards in merged practice queue</span>
-                    </label>
-                </div>
                 <button type="submit" class="settings-save-btn">Save</button>
             </form>
         </section>
 
         <section class="settings-section math-v2-panel">
             <h2>Opt-in Shared Math Decks</h2>
-            <p class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes.</p>
+            <p class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.</p>
 
             <div class="math-v2-grid">
                 <div class="math-v2-column">
@@ -462,6 +455,15 @@
                     <option value="lifetime_attempts_desc">Order: Lifetime Attempts (Desc)</option>
                     <option value="lifetime_attempts_asc">Order: Lifetime Attempts (Asc)</option>
                 </select>
+            </div>
+            <div class="hardness-slider-block">
+                <div class="hardness-slider-head">
+                    <div class="hardness-slider-title">Hard Cards in Next Session Queue</div>
+                    <div id="hardnessPercentValue" class="hardness-slider-value">20%</div>
+                </div>
+                <input id="hardnessPercentSlider" class="hardness-slider-input" type="range" min="0" max="100" step="1" value="20">
+                <p class="hardness-slider-hint">Drag to preview queue changes instantly. Release to save this page's hardness %.</p>
+                <div id="hardnessPercentStatus" class="hardness-slider-status hidden" aria-live="polite"></div>
             </div>
             <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in merged bank: 0</p>
             <div id="cardsGrid" class="cards-grid"></div>

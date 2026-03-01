@@ -421,20 +421,13 @@
                     <label for="sessionCardCount">Chinese Writing Cards Per Session (Total Across Opted-in Decks)</label>
                     <input type="number" id="sessionCardCount" min="0" max="200" step="1" required>
                 </div>
-                <div class="form-group" style="min-width: 280px;">
-                    <label for="sharedWritingIncludeOrphan">Orphan Deck in Practice Queue</label>
-                    <label for="sharedWritingIncludeOrphan" class="checkbox-inline">
-                        <input type="checkbox" id="sharedWritingIncludeOrphan">
-                        <span>Include orphan deck cards in merged practice queue</span>
-                    </label>
-                </div>
                 <button type="submit" class="settings-save-btn">Save</button>
             </form>
         </div>
 
         <section class="settings-section math-v2-panel">
             <h2>Opt-in Shared Chinese Writing Decks</h2>
-            <p class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes.</p>
+            <p class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.</p>
             <div class="math-v2-grid">
                 <div class="math-v2-column">
                     <div class="deck-column-head">
@@ -553,6 +546,15 @@ DAY3:够 碗 现在 带着 和尚 不停 累了 休息 经过 相信 一定 迷�
                     <option value="queue">Order: Next Session Queue</option>
                     <option value="hardness_desc">Order: Hardness Score (Desc)</option>
                 </select>
+            </div>
+            <div class="hardness-slider-block">
+                <div class="hardness-slider-head">
+                    <div class="hardness-slider-title">Hard Cards in Next Session Queue</div>
+                    <div id="hardnessPercentValue" class="hardness-slider-value">20%</div>
+                </div>
+                <input id="hardnessPercentSlider" class="hardness-slider-input" type="range" min="0" max="100" step="1" value="20">
+                <p class="hardness-slider-hint">Drag to preview queue changes instantly. Release to save this page's hardness %.</p>
+                <div id="hardnessPercentStatus" class="hardness-slider-status hidden" aria-live="polite"></div>
             </div>
             <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in merged bank: 0</p>
             <div id="cardsGrid" class="cards-grid"></div>
