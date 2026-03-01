@@ -81,17 +81,11 @@
             gap: 0.65rem;
         }
 
-        .replay-btn {
-            background: #2d7ef7;
-        }
-
-        .replay-btn:hover { background: #1f6ce0; }
-
         .rerecord-btn {
-            background: #6c757d;
+            background: #dc3545;
         }
 
-        .rerecord-btn:hover { background: #5a6268; }
+        .rerecord-btn:hover { background: #c82333; }
 
         .continue-btn {
             background: #2f9e44;
@@ -164,7 +158,10 @@
     <div class="container">
         <div class="header">
             <h1 id="kidName">Chinese Reading Practice</h1>
-            <a id="backToPractice" href="/kid-practice-home.html" class="back-btn">← Back</a>
+            <div class="header-actions">
+                <button class="control-btn early-finish-btn hidden" id="finishEarlyBtn" onclick="requestEarlyFinish()" disabled>Finish Early</button>
+                <a id="backToPractice" href="/kid-practice-home.html" class="back-btn">← Back</a>
+            </div>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
@@ -198,24 +195,21 @@
                             </div>
                             <canvas id="recordingWave" class="recording-wave"></canvas>
                         </div>
+                        <audio id="reviewAudio" class="review-audio hidden" controls preload="none"></audio>
                     </div>
 
                     <div class="controls">
                         <div class="session-action-slot">
                             <div class="session-action-layer" id="recordRow">
+                                <button class="control-btn session-pause-btn session-action-btn hidden" id="pauseSessionBtn" onclick="toggleSessionPause()">Pause Session</button>
                                 <button class="control-btn record-btn session-action-btn session-single-btn" id="recordBtn" onclick="toggleRecord()">Start Recording</button>
                             </div>
                             <div id="reviewControls" class="session-action-layer review-controls hidden">
-                                <button class="control-btn replay-btn session-action-btn reading-review-btn" id="replayBtn" onclick="replayRecording()">Replay</button>
                                 <button class="control-btn rerecord-btn session-action-btn reading-review-btn" id="rerecordBtn" onclick="reRecordCurrentCard()">Re-record</button>
-                                <button class="control-btn continue-btn session-action-btn reading-review-btn" id="continueBtn" onclick="confirmAndNext()">Continue</button>
+                                <button class="control-btn continue-btn session-action-btn session-single-btn" id="continueBtn" onclick="confirmAndNext()">Continue</button>
                             </div>
                         </div>
                     </div>
-                    <div class="early-finish-row">
-                        <button class="control-btn early-finish-btn" id="finishEarlyBtn" onclick="requestEarlyFinish()" disabled>Finish Early</button>
-                    </div>
-                    <audio id="reviewAudio" class="review-audio hidden" controls preload="none"></audio>
                 </div>
 
                 <div id="resultScreen" class="hidden">

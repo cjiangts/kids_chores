@@ -40,6 +40,14 @@
             padding: 0.4rem 0;
         }
 
+        .deck-tags-col {
+            width: 240px;
+        }
+
+        .deck-id-col {
+            width: 70px;
+        }
+
         .available-filter {
             display: flex;
             gap: 0.5rem;
@@ -88,7 +96,7 @@
                 <h2 class="deck-section-title">My Created Decks</h2>
                 <div class="actions">
                     <button id="createDeckNavBtn" type="button" class="btn-primary">Create New Deck</button>
-                    <button id="createDeckBulkNavBtn" type="button" class="btn-secondary">Bulk Create New Decks</button>
+                    <button id="createDeckBulkNavBtn" type="button" class="btn-primary">Bulk Create New Decks</button>
                 </div>
                 <p id="deckCountInfo" class="deck-count-info">Showing 0 of 0 deck(s)</p>
 
@@ -105,7 +113,7 @@
                         <input id="selectAllVisibleCheckbox" type="checkbox">
                         Select all visible
                     </label>
-                    <button id="deleteSelectedBtn" type="button" class="btn-secondary">Delete Selected</button>
+                    <button id="deleteSelectedBtn" type="button" class="btn-danger">Delete Selected</button>
                 </div>
 
                 <div id="emptyState" class="deck-empty hidden">No decks yet. Create your first one.</div>
@@ -114,8 +122,8 @@
                     <table class="shared-report-table">
                         <thead>
                             <tr>
-                                <th class="table-col-90">Deck ID</th>
-                                <th>Tags</th>
+                                <th class="deck-id-col">Deck ID</th>
+                                <th class="deck-tags-col">Tags</th>
                                 <th class="table-col-110">Cards</th>
                                 <th class="shared-report-table-action-cell">Actions</th>
                             </tr>

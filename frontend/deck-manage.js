@@ -190,8 +190,8 @@ function renderDeckRowHtml(deck) {
         : '-';
     return `
         <tr>
-            <td>${deckId}</td>
-            <td>${tagHtml}</td>
+            <td class="deck-id-col">${deckId}</td>
+            <td class="deck-tags-col">${tagHtml}</td>
             <td>${Number(deck.card_count || 0)}</td>
             <td class="shared-report-table-action-cell">
                 <a class="tab-link secondary mini-link-btn table-action-btn" href="/deck-view.html?deckId=${encodeURIComponent(String(deckId))}">View</a>

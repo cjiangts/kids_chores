@@ -21,9 +21,9 @@ const recordBtn = document.getElementById('recordBtn');
 const recordRow = document.getElementById('recordRow');
 const reviewAudio = document.getElementById('reviewAudio');
 const reviewControls = document.getElementById('reviewControls');
-const replayBtn = document.getElementById('replayBtn');
 const rerecordBtn = document.getElementById('rerecordBtn');
 const continueBtn = document.getElementById('continueBtn');
+const pauseSessionBtn = document.getElementById('pauseSessionBtn');
 const finishEarlyBtn = document.getElementById('finishEarlyBtn');
 const recordingViz = document.getElementById('recordingViz');
 const recordingWave = document.getElementById('recordingWave');
@@ -41,19 +41,23 @@ let sessionRecordings = {};
 let mediaRecorder = null;
 let mediaStream = null;
 let isRecording = false;
+let isRecordingPaused = false;
 let isUploadingRecording = false;
 let recordingStartedAtMs = 0;
+let recordingPauseStartedAtMs = 0;
 let recordingChunks = [];
 let recordingMimeType = '';
 let pendingRecordedBlob = null;
 let pendingRecordedMimeType = '';
 let pendingRecordedUrl = '';
+let isSessionPaused = false;
 const errorState = { lastMessage: '' };
 const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
     button: finishEarlyBtn,
     getHasActiveSession: () => (
         window.PracticeSession.hasActiveSession(activePendingSessionId)
         && sessionCards.length > 0
+        && !isSessionPaused
         && !isRecording
         && !isUploadingRecording
     ),
@@ -120,6 +124,47 @@ function isSessionInProgress() {
         && sessionCards.length > 0;
 }
 
+function hasActiveSessionScreen() {
+    return Boolean(
+        sessionScreen
+        && !sessionScreen.classList.contains('hidden')
+        && window.PracticeSession.hasActiveSession(activePendingSessionId)
+        && sessionCards.length > 0
+    );
+}
+
+function updatePauseSessionButtonState() {
+    if (!pauseSessionBtn) {
+        return;
+    }
+    const shouldShow = hasActiveSessionScreen() && (isRecording || isRecordingPaused || isSessionPaused);
+    pauseSessionBtn.classList.toggle('hidden', !shouldShow);
+    if (!shouldShow) {
+        pauseSessionBtn.textContent = 'Pause Session';
+        pauseSessionBtn.disabled = true;
+        return;
+    }
+    pauseSessionBtn.textContent = isSessionPaused ? 'Resume Session' : 'Pause Session';
+    pauseSessionBtn.disabled = isUploadingRecording;
+}
+
+function syncSessionPauseLockUi() {
+    const shouldLock = isSessionPaused;
+    if (recordBtn) {
+        recordBtn.disabled = shouldLock || isUploadingRecording;
+        if (isRecordingPaused) {
+            recordBtn.classList.add('recording');
+            recordBtn.textContent = 'Recording Paused';
+        }
+    }
+    if (continueBtn) {
+        continueBtn.disabled = shouldLock || isUploadingRecording;
+    }
+    if (rerecordBtn) {
+        rerecordBtn.disabled = shouldLock || isUploadingRecording;
+    }
+}
+
 
 async function loadKidInfo() {
     try {
@@ -177,6 +222,7 @@ function resetToStartScreen(totalCards) {
     sessionCards = [];
     window.PracticeSession.clearSessionStart(activePendingSessionId);
     activePendingSessionId = null;
+    isSessionPaused = false;
     currentIndex = 0;
     completedCount = 0;
     sessionAnswers = [];
@@ -211,8 +257,11 @@ async function startSession() {
         recordingMimeType = '';
         clearPendingRecordingPreview();
         isRecording = false;
+        isRecordingPaused = false;
         isUploadingRecording = false;
         recordingStartedAtMs = 0;
+        recordingPauseStartedAtMs = 0;
+        isSessionPaused = false;
 
         startScreen.classList.add('hidden');
         resultScreen.classList.add('hidden');
@@ -246,6 +295,7 @@ function showCurrentCard() {
     }
     recordBtn.disabled = false;
     setRecordingVisual(false);
+    syncSessionPauseLockUi();
     updateFinishEarlyButtonState();
 }
 
@@ -273,6 +323,9 @@ function formatLessonReadingSourceTags(card) {
 
 async function toggleRecord() {
     if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
+        return;
+    }
+    if (isSessionPaused) {
         return;
     }
     if (isUploadingRecording) {
@@ -379,7 +432,12 @@ async function stopRecordingForReview() {
 
 function setRecordingVisual(recording) {
     recordBtn.classList.toggle('recording', recording);
-    recordBtn.textContent = recording ? 'Stop Recording' : 'Start Recording';
+    if (isRecordingPaused) {
+        recordBtn.textContent = 'Recording Paused';
+    } else {
+        recordBtn.textContent = recording ? 'Stop Recording' : 'Start Recording';
+    }
+    syncSessionPauseLockUi();
     updateFinishEarlyButtonState();
 }
 
@@ -390,7 +448,7 @@ function startRecordingVisualizer(stream) {
     }
     recordingVisualizer.start(stream, {
         startedAtMs: recordingStartedAtMs,
-        isActive: () => isRecording,
+        isActive: () => isRecording && !isRecordingPaused,
     });
 }
 
@@ -456,7 +514,9 @@ async function stopAndCaptureRecording() {
 
 function resetRecordingState() {
     isRecording = false;
+    isRecordingPaused = false;
     recordingStartedAtMs = 0;
+    recordingPauseStartedAtMs = 0;
     recordingChunks = [];
     recordingMimeType = '';
     stopRecordingVisualizer();
@@ -498,15 +558,10 @@ function clearPendingRecordingPreview() {
     updateFinishEarlyButtonState();
 }
 
-function replayRecording() {
-    if (!pendingRecordedBlob || !reviewAudio) {
+function reRecordCurrentCard() {
+    if (isSessionPaused) {
         return;
     }
-    reviewAudio.currentTime = 0;
-    reviewAudio.play().catch(() => {});
-}
-
-function reRecordCurrentCard() {
     if (isUploadingRecording || isRecording) {
         return;
     }
@@ -515,6 +570,9 @@ function reRecordCurrentCard() {
 }
 
 async function confirmAndNext() {
+    if (isSessionPaused) {
+        return;
+    }
     if (isRecording || isUploadingRecording || !pendingRecordedBlob) {
         return;
     }
@@ -523,7 +581,6 @@ async function confirmAndNext() {
     isUploadingRecording = true;
     updateFinishEarlyButtonState();
     if (continueBtn) continueBtn.disabled = true;
-    if (replayBtn) replayBtn.disabled = true;
     if (rerecordBtn) rerecordBtn.disabled = true;
     try {
         sessionRecordings[String(card.id)] = {
@@ -553,23 +610,117 @@ async function confirmAndNext() {
         isUploadingRecording = false;
         updateFinishEarlyButtonState();
         if (continueBtn) continueBtn.disabled = false;
-        if (replayBtn) replayBtn.disabled = false;
         if (rerecordBtn) rerecordBtn.disabled = false;
     }
 }
 
 
+function mediaRecorderSupportsPauseResume() {
+    return Boolean(
+        mediaRecorder
+        && typeof mediaRecorder.pause === 'function'
+        && typeof mediaRecorder.resume === 'function'
+    );
+}
+
+async function pauseSession() {
+    if (!hasActiveSessionScreen() || isSessionPaused || isUploadingRecording || !isRecording) {
+        return;
+    }
+
+    if (!mediaRecorderSupportsPauseResume() || mediaRecorder.state !== 'recording') {
+        showError('Pause during recording is not supported in this browser. Stop recording first.');
+        return;
+    }
+    try {
+        mediaRecorder.pause();
+        isRecordingPaused = true;
+        recordingPauseStartedAtMs = Date.now();
+        stopRecordingVisualizer();
+        if (recordingViz) {
+            recordingViz.classList.remove('hidden');
+        }
+        if (recordingStatusText) {
+            recordingStatusText.textContent = 'Recording paused';
+        }
+    } catch (error) {
+        console.error('Error pausing recording:', error);
+        showError('Failed to pause recording.');
+        return;
+    }
+
+    isSessionPaused = true;
+    updateFinishEarlyButtonState();
+}
+
+function resumeSession() {
+    if (!isSessionPaused) {
+        return;
+    }
+
+    if (isRecordingPaused) {
+        if (!mediaRecorderSupportsPauseResume() || mediaRecorder.state !== 'paused') {
+            showError('Could not resume recording. Please re-record this card.');
+            resetRecordingState();
+            clearPendingRecordingPreview();
+            isSessionPaused = false;
+            updateFinishEarlyButtonState();
+            return;
+        }
+
+        try {
+            mediaRecorder.resume();
+            const pausedMs = recordingPauseStartedAtMs > 0 ? Date.now() - recordingPauseStartedAtMs : 0;
+            recordingStartedAtMs += Math.max(0, pausedMs);
+            recordingPauseStartedAtMs = 0;
+            isRecordingPaused = false;
+            startRecordingVisualizer(mediaStream);
+            setRecordingVisual(true);
+        } catch (error) {
+            console.error('Error resuming recording:', error);
+            showError('Failed to resume recording. Please re-record this card.');
+            resetRecordingState();
+            clearPendingRecordingPreview();
+            isSessionPaused = false;
+            updateFinishEarlyButtonState();
+            return;
+        }
+    }
+
+    isSessionPaused = false;
+    updateFinishEarlyButtonState();
+}
+
+function toggleSessionPause() {
+    if (isSessionPaused) {
+        resumeSession();
+        return;
+    }
+    if (!isRecording) {
+        return;
+    }
+    void pauseSession();
+}
+
 function updateFinishEarlyButtonState() {
     earlyFinishController.updateButtonState();
+    updatePauseSessionButtonState();
+    syncSessionPauseLockUi();
 }
 
 function requestEarlyFinish() {
+    if (isSessionPaused) {
+        return;
+    }
     earlyFinishController.requestFinish();
 }
 
 async function endSession(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
+    isSessionPaused = false;
+    isRecordingPaused = false;
+    recordingPauseStartedAtMs = 0;
     resultSummary.textContent = endedEarly
         ? `Ended early · Completed: ${completedCount} cards`
         : `Completed: ${completedCount} cards`;
@@ -627,6 +778,6 @@ function showError(message) {
     window.PracticeUiCommon.showAlertError(errorState, errorMessage, message);
 }
 
-window.replayRecording = replayRecording;
 window.reRecordCurrentCard = reRecordCurrentCard;
 window.confirmAndNext = confirmAndNext;
+window.toggleSessionPause = toggleSessionPause;

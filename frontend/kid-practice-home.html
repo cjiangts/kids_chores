@@ -263,7 +263,10 @@
     <div class="container">
         <div class="header">
             <h1 id="kidName">Loading...</h1>
-            <a id="kidBackBtn" href="/" class="back-btn">← Back</a>
+            <div class="header-actions">
+                <button class="control-btn early-finish-btn hidden" onclick="requestEarlyFinish()" id="finishEarlyBtn" disabled>Finish Early</button>
+                <a id="kidBackBtn" href="/" class="back-btn">← Back</a>
+            </div>
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
@@ -328,9 +331,6 @@
                                 <button class="control-btn dont-know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(false)" id="wrongBtn">Wrong</button>
                                 <button class="control-btn know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(true)" id="rightBtn">Right</button>
                             </div>
-                        </div>
-                        <div class="early-finish-row">
-                            <button class="control-btn early-finish-btn" onclick="requestEarlyFinish()" id="finishEarlyBtn" disabled>Finish Early</button>
                         </div>
                     </div>
                 </div>

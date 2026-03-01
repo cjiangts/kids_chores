@@ -68,6 +68,11 @@ window.PracticeUiCommon = {
                     return;
                 }
                 const hasActiveSession = Boolean(getHasActiveSession && getHasActiveSession());
+                const sessionScreen = document.getElementById('sessionScreen');
+                const shouldShow = sessionScreen
+                    ? !sessionScreen.classList.contains('hidden')
+                    : hasActiveSession;
+                button.classList.toggle('hidden', !shouldShow);
                 const recordedCount = Math.max(0, Number.parseInt(getRecordedCount && getRecordedCount(), 10) || 0);
                 button.disabled = !hasActiveSession || recordedCount <= 0;
             },

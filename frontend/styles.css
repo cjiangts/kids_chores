@@ -90,6 +90,12 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.practice-page .header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
 .back-btn {
     background: #6c757d;
     color: white;
@@ -118,12 +124,6 @@ body {
 
 .practice-page .controls {
     margin-bottom: 1rem;
-}
-
-.practice-page .early-finish-row {
-    margin-top: 0.8rem;
-    display: flex;
-    justify-content: center;
 }
 
 .practice-page .control-btn {
@@ -159,6 +159,22 @@ body {
     font-weight: 400;
 }
 
+.practice-page .header .early-finish-btn {
+    min-width: 0;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.95rem;
+}
+
+.practice-page .session-pause-btn {
+    min-width: 140px;
+    background: #f0ad4e;
+    color: #222;
+}
+
+.practice-page .session-pause-btn:hover {
+    background: #ec971f;
+}
+
 .practice-page .early-finish-btn:hover {
     background: #5a6268;
 }
@@ -169,6 +185,10 @@ body {
 
 .practice-page .start-btn:hover {
     background: #0069d9;
+}
+
+.practice-page #startScreen .start-btn {
+    margin-top: 0.9rem;
 }
 
 .practice-page .session-action-slot {
@@ -494,9 +514,11 @@ body {
     min-width: 260px;
     padding: 0.5rem 0.75rem;
     min-height: var(--control-height);
+    height: var(--control-height);
     border: 1px solid var(--control-border-color);
     border-radius: var(--control-radius);
     font-size: 0.95rem;
+    line-height: 1.2;
     background: var(--control-bg);
     color: var(--control-text);
 }
@@ -674,7 +696,8 @@ header p {
 }
 
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-danger {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -709,6 +732,16 @@ header p {
 
 .btn-secondary:hover {
     background: #f4f6fc;
+}
+
+.btn-danger {
+    background: #f44336;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: #da190b;
+    transform: translateY(-1px);
 }
 
 .submit-btn {
@@ -1092,10 +1125,16 @@ header p {
     resize: vertical;
 }
 
-.form-group input:not([type="checkbox"]):not([type="radio"]),
+.form-group input:not([type="checkbox"]):not([type="radio"]) {
+    padding: 0.5rem 0.75rem;
+    min-height: var(--control-height);
+}
+
 .form-group select {
     padding: 0.5rem 0.75rem;
     min-height: var(--control-height);
+    height: var(--control-height);
+    line-height: 1.2;
 }
 
 .form-group input:not([type="checkbox"]):not([type="radio"]):focus,
