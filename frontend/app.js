@@ -108,14 +108,40 @@ async function deleteKid(kidId, kidName) {
     }
 }
 
-function getMathSessionCount(kid) {
-    const sharedMathSessionCount = Number.parseInt(kid?.sharedMathSessionCardCount, 10);
-    return Number.isInteger(sharedMathSessionCount) ? Math.max(0, sharedMathSessionCount) : 0;
+function getOptedInDeckCategoryKeys(kid) {
+    const keys = Array.isArray(kid?.optedInDeckCategoryKeys) ? kid.optedInDeckCategoryKeys : [];
+    const normalized = keys
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter(Boolean);
+    return [...new Set(normalized)];
 }
 
-function getLessonReadingSessionCount(kid) {
-    const sharedLessonReadingSessionCount = Number.parseInt(kid?.sharedLessonReadingSessionCardCount, 10);
-    return Number.isInteger(sharedLessonReadingSessionCount) ? Math.max(0, sharedLessonReadingSessionCount) : 0;
+function getCategoryValueMap(rawValue) {
+    if (!rawValue || typeof rawValue !== 'object') {
+        return {};
+    }
+    const normalized = {};
+    Object.entries(rawValue).forEach(([rawKey, rawCount]) => {
+        const key = String(rawKey || '').trim().toLowerCase();
+        if (!key) {
+            return;
+        }
+        const count = Number.parseInt(rawCount, 10);
+        normalized[key] = Number.isInteger(count) ? Math.max(0, count) : 0;
+    });
+    return normalized;
+}
+
+function formatDeckCategoryLabel(categoryKey) {
+    const key = String(categoryKey || '').trim();
+    if (!key) {
+        return 'Unknown';
+    }
+    return key
+        .split('_')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
 }
 
 // UI Functions
@@ -132,29 +158,22 @@ function displayKids(kids) {
 
     kidsList.innerHTML = kids.map(kid => {
         const age = calculateAge(kid.birthday);
-        const chineseStars = Number.isInteger(kid.dailyCompletedChineseCountToday) ? kid.dailyCompletedChineseCountToday : 0;
-        const mathStars = Number.isInteger(kid.dailyCompletedMathCountToday) ? kid.dailyCompletedMathCountToday : 0;
-        const writingStars = Number.isInteger(kid.dailyCompletedWritingCountToday) ? kid.dailyCompletedWritingCountToday : 0;
-        const lessonReadingStars = Number.isInteger(kid.dailyCompletedLessonReadingCountToday) ? kid.dailyCompletedLessonReadingCountToday : 0;
-
-        const readingSessionCount = Number.parseInt(kid.sessionCardCount, 10);
-        const writingSessionCount = Number.parseInt(kid.writingSessionCardCount, 10);
-        const mathSessionCount = getMathSessionCount(kid);
-        const lessonReadingSessionCount = getLessonReadingSessionCount(kid);
+        const optedInKeys = getOptedInDeckCategoryKeys(kid);
+        const dailyCompletedByCategory = getCategoryValueMap(kid?.dailyCompletedByDeckCategory);
+        const practiceTargetByCategory = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
 
         const enabledLines = [];
-        if (Number.isInteger(readingSessionCount) && readingSessionCount > 0) {
-            enabledLines.push(`Chinese Characters: ${chineseStars > 0 ? '⭐'.repeat(chineseStars) : '-'}`);
-        }
-        if (Number.isInteger(writingSessionCount) && writingSessionCount > 0) {
-            enabledLines.push(`Chinese Writing: ${writingStars > 0 ? '⭐'.repeat(writingStars) : '-'}`);
-        }
-        if (mathSessionCount > 0) {
-            enabledLines.push(`Math: ${mathStars > 0 ? '⭐'.repeat(mathStars) : '-'}`);
-        }
-        if (lessonReadingSessionCount > 0) {
-            enabledLines.push(`Chinese Reading: ${lessonReadingStars > 0 ? '⭐'.repeat(lessonReadingStars) : '-'}`);
-        }
+        optedInKeys.forEach((categoryKey) => {
+            const targetCount = Number(practiceTargetByCategory[categoryKey] || 0);
+            const completedCount = Number(dailyCompletedByCategory[categoryKey] || 0);
+            const isAssigned = targetCount > 0 || completedCount > 0;
+            if (!isAssigned) {
+                return;
+            }
+            enabledLines.push(
+                `${formatDeckCategoryLabel(categoryKey)}: ${completedCount > 0 ? '⭐'.repeat(completedCount) : '-'}`
+            );
+        });
 
         const dailyPracticeBadge = enabledLines.length > 0
             ? `<p class="daily-stars">${enabledLines.join('<br>')}</p>`

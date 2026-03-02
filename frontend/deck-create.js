@@ -29,13 +29,19 @@ let lastNameChecked = '';
 let nameCheckToken = 0;
 let nameCheckTimer = null;
 let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
-let currentFirstTag = 'math';
+let currentFirstTag = '';
 let autocompleteTagPaths = [];
-const RESERVED_FIRST_TAGS = new Set(['math', 'chinese_reading', 'chinese_characters', 'chinese_writing']);
+let deckCategories = [];
+let deckCategoryKeySet = new Set();
+let reservedFirstTags = new Set();
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
     if (!allowed) {
+        return;
+    }
+    const categoriesLoaded = await loadDeckCategories();
+    if (!categoriesLoaded) {
         return;
     }
     renderTags();
@@ -113,10 +119,128 @@ function normalizeTag(text) {
         .replace(/^_+|_+$/g, '');
 }
 
+function normalizeBehaviorType(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
+        return text;
+    }
+    return '';
+}
+
+function getCurrentDeckCategory() {
+    const key = normalizeTag(currentFirstTag);
+    if (!key) {
+        return null;
+    }
+    return deckCategories.find((item) => item.category_key === key) || null;
+}
+
+function isChineseCharactersDeckMode() {
+    const category = getCurrentDeckCategory();
+    return Boolean(
+        category
+        && category.behavior_type === 'type_i'
+        && category.has_chinese_specific_logic
+    );
+}
+
+function isChineseWritingDeckMode() {
+    const category = getCurrentDeckCategory();
+    return Boolean(
+        category
+        && category.behavior_type === 'type_ii'
+        && category.has_chinese_specific_logic
+    );
+}
+
+function setControlsDisabled(disabled) {
+    const shouldDisable = Boolean(disabled);
+    if (newTagInput) {
+        newTagInput.disabled = shouldDisable;
+    }
+    if (addTagBtn) {
+        addTagBtn.disabled = shouldDisable;
+    }
+    if (cardsCsvInput) {
+        cardsCsvInput.disabled = shouldDisable;
+    }
+    if (previewBtn) {
+        previewBtn.disabled = shouldDisable;
+    }
+    if (clearCsvBtn) {
+        clearCsvBtn.disabled = shouldDisable;
+    }
+    if (createDeckBtn) {
+        createDeckBtn.disabled = shouldDisable || isCreatingDeck;
+    }
+}
+
+async function loadDeckCategories() {
+    showError('');
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/categories`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to load deck categories (HTTP ${response.status})`);
+        }
+
+        const rawCategories = Array.isArray(result.categories) ? result.categories : [];
+        const nextCategories = [];
+        const seenKeys = new Set();
+        rawCategories.forEach((item) => {
+            const key = normalizeTag(item && item.category_key);
+            const behaviorType = normalizeBehaviorType(item && item.behavior_type);
+            if (!key || !behaviorType || seenKeys.has(key)) {
+                return;
+            }
+            seenKeys.add(key);
+            nextCategories.push({
+                category_key: key,
+                behavior_type: behaviorType,
+                has_chinese_specific_logic: Boolean(item && item.has_chinese_specific_logic),
+            });
+        });
+
+        if (nextCategories.length === 0) {
+            throw new Error('No deck categories configured. Create a category first.');
+        }
+
+        deckCategories = nextCategories;
+        deckCategoryKeySet = new Set(nextCategories.map((item) => item.category_key));
+        reservedFirstTags = new Set(nextCategories.map((item) => item.category_key));
+        if (!deckCategoryKeySet.has(currentFirstTag)) {
+            currentFirstTag = nextCategories[0].category_key;
+        }
+        setControlsDisabled(false);
+        return true;
+    } catch (error) {
+        console.error('Error loading deck categories:', error);
+        deckCategories = [];
+        deckCategoryKeySet = new Set();
+        reservedFirstTags = new Set();
+        currentFirstTag = '';
+        if (firstTagToggle) {
+            firstTagToggle.innerHTML = '<span class="settings-note">No categories available.</span>';
+        }
+        setNameStatus('Deck categories unavailable.', 'error');
+        setControlsDisabled(true);
+        showError(error.message || 'Failed to load deck categories.');
+        return false;
+    }
+}
+
 function renderFirstTagToggle() {
     if (!firstTagToggle) {
         return;
     }
+    if (!Array.isArray(deckCategories) || deckCategories.length === 0) {
+        firstTagToggle.innerHTML = '<span class="settings-note">No categories available.</span>';
+        return;
+    }
+    firstTagToggle.innerHTML = deckCategories.map((item) => {
+        const isActive = item.category_key === currentFirstTag;
+        return `<button type="button" class="audio-filter-btn${isActive ? ' active' : ''}" data-first-tag="${escapeHtml(item.category_key)}" aria-pressed="${isActive ? 'true' : 'false'}">${escapeHtml(item.category_key)}</button>`;
+    }).join('');
     firstTagToggle.querySelectorAll('[data-first-tag]').forEach((el) => {
         const tag = String(el.getAttribute('data-first-tag') || '');
         const isActive = tag === currentFirstTag;
@@ -127,7 +251,7 @@ function renderFirstTagToggle() {
 
 function setCurrentFirstTag(tag) {
     const next = normalizeTag(tag);
-    if (next !== 'math' && next !== 'chinese_reading' && next !== 'chinese_characters' && next !== 'chinese_writing') {
+    if (!deckCategoryKeySet.has(next)) {
         return;
     }
     if (next === currentFirstTag) {
@@ -143,7 +267,7 @@ function setCurrentFirstTag(tag) {
 }
 
 function getAllTags() {
-    return [currentFirstTag, ...extraTags];
+    return [currentFirstTag, ...extraTags].filter(Boolean);
 }
 
 function getGeneratedName() {
@@ -154,14 +278,6 @@ function updateGeneratedName() {
     const name = getGeneratedName();
     generatedNameEl.textContent = name;
     scheduleNameAvailabilityCheck();
-}
-
-function isChineseCharactersDeckMode() {
-    return currentFirstTag === 'chinese_characters';
-}
-
-function isChineseWritingDeckMode() {
-    return currentFirstTag === 'chinese_writing';
 }
 
 function updateCardsInputModeUi() {
@@ -183,7 +299,7 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. For <code>chinese_writing</code>, dedup is keyed by <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. For Chinese-specific type_ii categories, dedup is keyed by <code>back</code>.';
         }
         cardsCsvInput.placeholder = '听写提示,汉字答案';
         return;
@@ -698,7 +814,7 @@ function getContextualAutocompleteTags() {
             }
         }
         const nextTag = normalizeTag(path[currentPath.length]);
-        if (!nextTag || RESERVED_FIRST_TAGS.has(nextTag)) {
+        if (!nextTag || reservedFirstTags.has(nextTag)) {
             return;
         }
         if (currentPath.includes(nextTag)) {

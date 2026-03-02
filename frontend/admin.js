@@ -8,11 +8,35 @@ const newKidBtn = document.getElementById('newKidBtn');
 const kidModal = document.getElementById('kidModal');
 const kidForm = document.getElementById('kidForm');
 const cancelBtn = document.getElementById('cancelBtn');
+const deckCategoryModal = document.getElementById('deckCategoryModal');
+const deckCategoryKidLabel = document.getElementById('deckCategoryKidLabel');
+const deckCategoryAvailableTitle = document.getElementById('deckCategoryAvailableTitle');
+const deckCategoryOptedTitle = document.getElementById('deckCategoryOptedTitle');
+const deckCategoryAvailableBubbles = document.getElementById('deckCategoryAvailableBubbles');
+const deckCategoryOptedBubbles = document.getElementById('deckCategoryOptedBubbles');
+const deckCategoryAvailableEmpty = document.getElementById('deckCategoryAvailableEmpty');
+const deckCategoryOptedEmpty = document.getElementById('deckCategoryOptedEmpty');
+const deckCategoryConfirmBtn = document.getElementById('deckCategoryConfirmBtn');
+const deckCategoryCancelBtn = document.getElementById('deckCategoryCancelBtn');
 const errorMessage = document.getElementById('errorMessage');
 const kidBirthdayInput = document.getElementById('kidBirthday');
 const kidNameInput = document.getElementById('kidName');
 const manageDecksLink = document.getElementById('manageDecksLink');
+const {
+    getOptedInDeckCategorySet,
+    getCategoryValueMap,
+    getDeckCategoryMetaMap,
+    getCategoryDisplayName,
+    getCategoryEmoji,
+} = window.DeckCategoryCommon;
 let isCreatingKid = false;
+let isSavingDeckCategories = false;
+let currentKids = [];
+let deckCategoryModalState = {
+    kidId: '',
+    availableKeys: [],
+    optedInKeys: [],
+};
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -35,6 +59,31 @@ kidForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     await createKid();
 });
+
+if (deckCategoryCancelBtn) {
+    deckCategoryCancelBtn.addEventListener('click', closeDeckCategoryModal);
+}
+if (deckCategoryAvailableBubbles) {
+    deckCategoryAvailableBubbles.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-category-key]');
+        if (!button) {
+            return;
+        }
+        moveDeckCategoryByKey(button.getAttribute('data-category-key'), 'toOpted');
+    });
+}
+if (deckCategoryOptedBubbles) {
+    deckCategoryOptedBubbles.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-category-key]');
+        if (!button) {
+            return;
+        }
+        moveDeckCategoryByKey(button.getAttribute('data-category-key'), 'toAvailable');
+    });
+}
+if (deckCategoryConfirmBtn) {
+    deckCategoryConfirmBtn.addEventListener('click', saveDeckCategoryOptIns);
+}
 
 async function applySuperFamilyUi() {
     if (!manageDecksLink) {
@@ -65,9 +114,11 @@ async function loadKids() {
         }
 
         const kids = await response.json();
+        currentKids = Array.isArray(kids) ? kids : [];
         displayKids(kids);
     } catch (error) {
         console.error('Error loading kids:', error);
+        currentKids = [];
         showError('Failed to load kids. Make sure the backend server is running on port 5001.');
     }
 }
@@ -186,14 +237,176 @@ async function goToLatestLessonReadingSession(kidId) {
     }
 }
 
-function getMathSessionCount(kid) {
-    const sharedMathSessionCount = Number.parseInt(kid?.sharedMathSessionCardCount, 10);
-    return Number.isInteger(sharedMathSessionCount) ? Math.max(0, sharedMathSessionCount) : 0;
+async function openDeckCategoryOptInModal(kidId) {
+    try {
+        const kidIdText = String(kidId || '').trim();
+        if (!kidIdText) {
+            return;
+        }
+        const kid = currentKids.find((item) => String(item?.id || '') === kidIdText);
+        const kidName = kid?.name ? String(kid.name) : 'Kid';
+        if (deckCategoryKidLabel) {
+            deckCategoryKidLabel.textContent = `Kid: ${kidName}`;
+        }
+        deckCategoryModalState = {
+            kidId: kidIdText,
+            availableKeys: [],
+            optedInKeys: [],
+        };
+        renderDeckCategoryModalLists();
+        if (deckCategoryModal) {
+            deckCategoryModal.classList.remove('hidden');
+        }
+
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidIdText)}/deck-categories`);
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        const data = await response.json().catch(() => ({}));
+        const availableKeys = Array.isArray(data.available_category_keys)
+            ? data.available_category_keys.map((value) => String(value || '').trim()).filter(Boolean)
+            : [];
+        const optedInKeys = Array.isArray(data.opted_in_category_keys)
+            ? data.opted_in_category_keys.map((value) => String(value || '').trim()).filter(Boolean)
+            : [];
+
+        deckCategoryModalState.availableKeys = availableKeys;
+        deckCategoryModalState.optedInKeys = optedInKeys;
+        renderDeckCategoryModalLists();
+    } catch (error) {
+        console.error('Error loading deck categories:', error);
+        closeDeckCategoryModal();
+        showError('Failed to load deck categories.');
+    }
 }
 
-function getLessonReadingSessionCount(kid) {
-    const sharedLessonReadingSessionCount = Number.parseInt(kid?.sharedLessonReadingSessionCardCount, 10);
-    return Number.isInteger(sharedLessonReadingSessionCount) ? Math.max(0, sharedLessonReadingSessionCount) : 0;
+function closeDeckCategoryModal() {
+    if (deckCategoryModal) {
+        deckCategoryModal.classList.add('hidden');
+    }
+    isSavingDeckCategories = false;
+    setDeckCategoryConfirmButtonState();
+}
+
+function renderDeckCategoryModalLists() {
+    renderDeckCategoryBubbleList(deckCategoryAvailableBubbles, deckCategoryModalState.availableKeys, false);
+    renderDeckCategoryBubbleList(deckCategoryOptedBubbles, deckCategoryModalState.optedInKeys, true);
+    if (deckCategoryAvailableTitle) {
+        deckCategoryAvailableTitle.textContent = `Available Deck Categories (${deckCategoryModalState.availableKeys.length})`;
+    }
+    if (deckCategoryOptedTitle) {
+        deckCategoryOptedTitle.textContent = `Opted-in Deck Categories (${deckCategoryModalState.optedInKeys.length})`;
+    }
+    if (deckCategoryAvailableEmpty) {
+        deckCategoryAvailableEmpty.classList.toggle('hidden', deckCategoryModalState.availableKeys.length > 0);
+    }
+    if (deckCategoryOptedEmpty) {
+        deckCategoryOptedEmpty.classList.toggle('hidden', deckCategoryModalState.optedInKeys.length > 0);
+    }
+}
+
+function renderDeckCategoryBubbleList(containerEl, keys, selected) {
+    if (!containerEl) {
+        return;
+    }
+    const sortedKeys = [...keys].sort((a, b) => a.localeCompare(b));
+    const bubbleClass = selected ? 'deck-category-bubble selected' : 'deck-category-bubble';
+    const bubbleTitle = selected ? 'Click to move back to Available' : 'Click to opt in';
+    containerEl.innerHTML = sortedKeys
+        .map((key) => `
+            <button type="button" class="${bubbleClass}" data-category-key="${escapeHtml(key)}" title="${bubbleTitle}">
+                ${escapeHtml(key)}
+            </button>
+        `)
+        .join('');
+}
+
+function moveDeckCategoryByKey(rawKey, direction) {
+    const key = String(rawKey || '').trim();
+    if (!key) {
+        return;
+    }
+    if (direction === 'toOpted') {
+        const removeSet = new Set([key]);
+        deckCategoryModalState.availableKeys = deckCategoryModalState.availableKeys.filter((key) => !removeSet.has(key));
+        const next = new Set(deckCategoryModalState.optedInKeys);
+        next.add(key);
+        deckCategoryModalState.optedInKeys = Array.from(next);
+    } else {
+        const removeSet = new Set([key]);
+        deckCategoryModalState.optedInKeys = deckCategoryModalState.optedInKeys.filter((key) => !removeSet.has(key));
+        const next = new Set(deckCategoryModalState.availableKeys);
+        next.add(key);
+        deckCategoryModalState.availableKeys = Array.from(next);
+    }
+    renderDeckCategoryModalLists();
+}
+
+async function saveDeckCategoryOptIns() {
+    if (isSavingDeckCategories) {
+        return;
+    }
+    const kidId = String(deckCategoryModalState.kidId || '').trim();
+    if (!kidId) {
+        return;
+    }
+    try {
+        isSavingDeckCategories = true;
+        setDeckCategoryConfirmButtonState();
+        const optedInKeys = [...deckCategoryModalState.optedInKeys].sort((a, b) => a.localeCompare(b));
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/deck-categories`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ categoryKeys: optedInKeys }),
+        });
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        closeDeckCategoryModal();
+        await loadKids();
+    } catch (error) {
+        console.error('Error saving deck categories:', error);
+        showError(error.message || 'Failed to save deck categories.');
+    } finally {
+        isSavingDeckCategories = false;
+        setDeckCategoryConfirmButtonState();
+    }
+}
+
+function setDeckCategoryConfirmButtonState() {
+    if (!deckCategoryConfirmBtn) {
+        return;
+    }
+    deckCategoryConfirmBtn.disabled = isSavingDeckCategories;
+    deckCategoryConfirmBtn.textContent = isSavingDeckCategories ? 'Saving...' : 'Confirm';
+}
+
+function getManagePathByCategory(categoryKey, categoryMetaMap = {}) {
+    const key = String(categoryKey || '').trim().toLowerCase();
+    const meta = categoryMetaMap?.[key] || {};
+    const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
+    if (behaviorType === 'type_i') {
+        return '/kid-type1-manage.html';
+    }
+    if (behaviorType === 'type_ii') return '/kid-writing-manage.html';
+    if (behaviorType === 'type_iii') return '/kid-lesson-reading-manage.html';
+    return '';
+}
+
+function getManageHrefByCategory(categoryKey, kidId, categoryMetaMap = {}) {
+    const key = String(categoryKey || '').trim().toLowerCase();
+    const path = getManagePathByCategory(key, categoryMetaMap);
+    if (!path) {
+        return '';
+    }
+    const params = new URLSearchParams();
+    params.set('id', String(kidId || ''));
+    params.set('categoryKey', key);
+    return `${path}?${params.toString()}`;
 }
 
 // UI Functions
@@ -210,18 +423,32 @@ function displayKids(kids) {
 
     kidsList.innerHTML = kids.map(kid => {
         const age = calculateAge(kid.birthday);
-        const readingCount = Number.parseInt(kid.sessionCardCount, 10);
-        const writingCount = Number.parseInt(kid.writingSessionCardCount, 10);
-        const safeReadingCount = Number.isInteger(readingCount) ? Math.max(0, readingCount) : 0;
-        const safeWritingCount = Number.isInteger(writingCount) ? Math.max(0, writingCount) : 0;
-        const safeMathCount = getMathSessionCount(kid);
-        const safeLessonReadingCount = getLessonReadingSessionCount(kid);
+        const optedInCategories = getOptedInDeckCategorySet(kid);
+        const practiceTargetByCategory = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
+        const categoryMetaMap = getDeckCategoryMetaMap(kid);
+        const optedInCategoryKeys = Array.from(optedInCategories).sort((a, b) => a.localeCompare(b));
 
-        const readingLabel = `📖 Chinese Characters (${safeReadingCount}/day)`;
-        const writingLabel = `✍️ Chinese Writing (${safeWritingCount}/day)`;
-        const mathLabel = `➗ Math (${safeMathCount}/day)`;
-        const lessonReadingLabel = `📚 Chinese Reading (${safeLessonReadingCount}/day)`;
-        const showChineseReadingReviewBtn = Boolean(kid.hasChineseReadingToReview);
+        const manageRows = optedInCategoryKeys.map((categoryKey) => {
+            const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap);
+            const emoji = getCategoryEmoji(categoryKey, categoryMetaMap);
+            const dailyTarget = Number.parseInt(practiceTargetByCategory[categoryKey], 10);
+            const safeDailyTarget = Number.isInteger(dailyTarget) ? Math.max(0, dailyTarget) : 0;
+            const label = `${emoji} ${displayName} (${safeDailyTarget}/day)`;
+            const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
+            if (href) {
+                return `
+                    <div class="practice-config-row">
+                        <a class="tab-link secondary practice-manage-btn" href="${href}">${label}</a>
+                    </div>
+                `;
+            }
+            return `
+                <div class="practice-config-row">
+                    <button type="button" class="tab-link secondary practice-manage-btn" disabled title="Manage page not implemented yet">${label}</button>
+                </div>
+            `;
+        });
+        const showChineseReadingReviewBtn = optedInCategories.has('chinese_reading') && Boolean(kid.hasChineseReadingToReview);
         const reviewChineseReadingRow = showChineseReadingReviewBtn
             ? `<div class="practice-config-row">
                         <button class="tab-link review-reading-btn" onclick="goToLatestLessonReadingSession('${kid.id}')">🎧 Review Chinese Reading</button>
@@ -234,19 +461,9 @@ function displayKids(kids) {
                 <p class="age">Birthday: ${formatDate(kid.birthday)}</p>
                 <div class="practice-config-list" onclick="event.stopPropagation()">
                     <div class="practice-config-row">
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-reading-manage.html?id=${kid.id}">${readingLabel}</a>
+                        <a class="tab-link primary practice-manage-btn" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;">🧩 Opt-in Deck Category</a>
                     </div>
-
-                    <div class="practice-config-row">
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-writing-manage.html?id=${kid.id}">${writingLabel}</a>
-                    </div>
-
-                    <div class="practice-config-row">
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-math-manage.html?id=${kid.id}">${mathLabel}</a>
-                    </div>
-                    <div class="practice-config-row">
-                        <a class="tab-link secondary practice-manage-btn" href="/kid-lesson-reading-manage.html?id=${kid.id}">${lessonReadingLabel}</a>
-                    </div>
+                    ${manageRows.join('')}
                     <div class="practice-config-row">
                         <a class="tab-link report-btn" href="/kid-report.html?id=${kid.id}">📊 Report</a>
                     </div>

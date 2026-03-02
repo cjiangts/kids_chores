@@ -141,6 +141,39 @@
             color: #c92a2a;
             font-weight: 600;
         }
+
+        #firstTagToggle {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 0.4rem;
+            border: 1px solid #d7deee;
+            border-radius: 8px;
+            background: #fbfcff;
+            padding: 0.42rem;
+            max-height: 140px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        #firstTagToggle .audio-filter-btn {
+            border: 1px solid #d5dcf2;
+            border-radius: 999px;
+            border-right: 1px solid #d5dcf2;
+            background: #fff;
+            line-height: 1.1;
+            white-space: nowrap;
+        }
+
+        #firstTagToggle .audio-filter-btn:last-child {
+            border-right: 1px solid #d5dcf2;
+        }
+
+        #firstTagToggle .audio-filter-btn.active {
+            background: #2f3c7e;
+            color: #fff;
+            border-color: #2f3c7e;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -161,10 +194,7 @@
                     <div class="form-group">
                         <label>First tag (required)</label>
                         <div id="firstTagToggle" class="audio-filter-group" aria-label="First tag">
-                            <button type="button" class="audio-filter-btn active" data-first-tag="math" aria-pressed="true">math</button>
-                            <button type="button" class="audio-filter-btn" data-first-tag="chinese_reading" aria-pressed="false">chinese_reading</button>
-                            <button type="button" class="audio-filter-btn" data-first-tag="chinese_characters" aria-pressed="false">chinese_characters</button>
-                            <button type="button" class="audio-filter-btn" data-first-tag="chinese_writing" aria-pressed="false">chinese_writing</button>
+                            <span class="settings-note">Loading categories...</span>
                         </div>
                     </div>
                     <div class="form-group">

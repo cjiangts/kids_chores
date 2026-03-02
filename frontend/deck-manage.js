@@ -6,6 +6,7 @@ const deckTableBody = document.getElementById('deckTableBody');
 const deckCountInfo = document.getElementById('deckCountInfo');
 const createDeckNavBtn = document.getElementById('createDeckNavBtn');
 const createDeckBulkNavBtn = document.getElementById('createDeckBulkNavBtn');
+const createDeckCategoryNavBtn = document.getElementById('createDeckCategoryNavBtn');
 const errorMessage = document.getElementById('errorMessage');
 const deckTagFilterInput = document.getElementById('deckTagFilter');
 const selectAllVisibleCheckbox = document.getElementById('selectAllVisibleCheckbox');
@@ -31,6 +32,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (createDeckBulkNavBtn) {
         createDeckBulkNavBtn.addEventListener('click', () => {
             window.location.href = '/deck-create-bulk.html';
+        });
+    }
+    if (createDeckCategoryNavBtn) {
+        createDeckCategoryNavBtn.addEventListener('click', () => {
+            window.location.href = '/deck-category-create.html';
         });
     }
 

@@ -30,10 +30,6 @@ const deckTotalInfo = document.getElementById('deckTotalInfo');
 const hardnessPercentSlider = document.getElementById('hardnessPercentSlider');
 const hardnessPercentValue = document.getElementById('hardnessPercentValue');
 const hardnessPercentStatus = document.getElementById('hardnessPercentStatus');
-const charactersTab = document.getElementById('charactersTab');
-const writingTab = document.getElementById('writingTab');
-const mathTab = document.getElementById('mathTab');
-const lessonReadingTab = document.getElementById('lessonReadingTab');
 
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
@@ -511,6 +507,14 @@ async function loadKidInfo() {
         }
 
         const kid = await response.json();
+        window.PracticeManageCommon.applyKidManageTabVisibility({
+            kidId,
+            optedInCategoryKeys: kid.optedInDeckCategoryKeys,
+            deckCategoryMetaByKey: kid.deckCategoryMetaByKey,
+            defaultCategoryByRoute: {
+                '/kid-writing-manage.html': 'chinese_writing',
+            },
+        });
         kidNameEl.textContent = `${kid.name}'s Chinese Character Writing`;
         const writingCount = Number.isInteger(Number.parseInt(kid.writingSessionCardCount, 10))
             ? Number.parseInt(kid.writingSessionCardCount, 10)
@@ -1211,10 +1215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    charactersTab.href = `/kid-reading-manage.html?id=${kidId}`;
-    writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
-    mathTab.href = `/kid-math-manage.html?id=${kidId}`;
-    lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
+    window.PracticeManageCommon.applyKidManageTabVisibility({ kidId });
 
     optInAllAvailableController = window.PracticeManageCommon.createSetBackedOptInAllAvailableController({
         buttonEl: optInAllAvailableBtn,

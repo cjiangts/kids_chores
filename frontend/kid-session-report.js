@@ -13,6 +13,9 @@ const rightSection = document.getElementById('rightSection');
 const rightSectionTitle = document.getElementById('rightSectionTitle');
 const wrongList = document.getElementById('wrongList');
 const rightList = document.getElementById('rightList');
+const SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters';
+const SESSION_TYPE_CHINESE_WRITING = 'chinese_writing';
+const SESSION_TYPE_CHINESE_READING = 'chinese_reading';
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
 
@@ -53,12 +56,12 @@ async function loadSessionDetail() {
         const data = await response.json();
         const kidName = data.kid?.name || 'Kid';
         const session = data.session || {};
-        currentSessionType = String(session.type || '');
+        currentSessionType = normalizeSessionType(session.type);
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
 
         renderSummary(session);
         const answers = Array.isArray(data.answers) ? data.answers : [];
-        if (currentSessionType === 'lesson_reading') {
+        if (currentSessionType === SESSION_TYPE_CHINESE_READING) {
             wrongSection.style.display = 'none';
             rightSection.style.display = '';
             rightSectionTitle.textContent = 'Cards';
@@ -114,7 +117,7 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
         const responseTimeLabel = formatResponseTime(rawMs, currentSessionType);
         const pct = Math.max(0, Math.min(100, (rawMs / maxMs) * 100));
-        const lessonReadingAudioAttrs = currentSessionType === 'lesson_reading'
+        const lessonReadingAudioAttrs = currentSessionType === SESSION_TYPE_CHINESE_READING
             ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${rawMs}"`
             : '';
         const audioHtml = item.audio_url
@@ -140,14 +143,14 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         `;
     }).join('');
 
-    if (currentSessionType === 'lesson_reading' && window.LessonReadingDurationBackfill) {
+    if (currentSessionType === SESSION_TYPE_CHINESE_READING && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
     }
 }
 
 function formatResponseTime(ms, sessionType) {
     const rawMs = Math.max(0, Number(ms) || 0);
-    if (sessionType === 'lesson_reading') {
+    if (normalizeSessionType(sessionType) === SESSION_TYPE_CHINESE_READING) {
         const totalSeconds = Math.floor(rawMs / 1000);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
@@ -157,7 +160,7 @@ function formatResponseTime(ms, sessionType) {
 }
 
 function renderGradingControls(item) {
-    if (currentSessionType !== 'lesson_reading') {
+    if (currentSessionType !== SESSION_TYPE_CHINESE_READING) {
         return '';
     }
     const resultId = Number(item?.result_id);
@@ -240,35 +243,46 @@ document.addEventListener('click', async (event) => {
 });
 
 function getCardReportFromSessionType(type) {
-    if (type === 'flashcard') return 'reading';
-    if (type === 'math') return 'math';
-    if (type === 'writing') return 'writing';
-    if (type === 'lesson_reading') return 'lesson-reading';
+    const normalizedType = normalizeSessionType(type);
+    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) return 'reading';
+    if (normalizedType === 'math') return 'math';
+    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'writing';
+    if (normalizedType === SESSION_TYPE_CHINESE_READING) return 'lesson-reading';
     return '';
 }
 
 function getCardDisplayLabel(front, back, sessionType) {
-    if (sessionType === 'math') {
+    const normalizedType = normalizeSessionType(sessionType);
+    if (normalizedType === 'math') {
         return front || back;
     }
-    if (sessionType === 'lesson_reading') {
+    if (normalizedType === SESSION_TYPE_CHINESE_READING) {
         return front || back;
     }
-    if (sessionType === 'flashcard') {
+    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) {
         return front || back;
     }
-    if (sessionType === 'writing') {
+    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) {
         return back || front;
     }
     return back || front;
 }
 
 function formatType(type) {
-    if (type === 'flashcard') return 'Chinese Characters';
-    if (type === 'math') return 'Math';
-    if (type === 'writing') return 'Chinese Writing';
-    if (type === 'lesson_reading') return 'Chinese Reading';
+    const normalizedType = normalizeSessionType(type);
+    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) return 'Chinese Characters';
+    if (normalizedType === 'math') return 'Math';
+    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'Chinese Writing';
+    if (normalizedType === SESSION_TYPE_CHINESE_READING) return 'Chinese Reading';
     return String(type || '-');
+}
+
+function normalizeSessionType(type) {
+    const text = String(type || '').trim().toLowerCase();
+    if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS;
+    if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
+    if (text === 'lesson_reading') return SESSION_TYPE_CHINESE_READING;
+    return text;
 }
 
 function formatDateTime(iso) {

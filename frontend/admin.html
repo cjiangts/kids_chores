@@ -47,10 +47,36 @@
                 </div>
             </div>
 
+            <!-- Deck Category Opt-in Modal -->
+            <div id="deckCategoryModal" class="modal hidden">
+                <div class="modal-content modal-large">
+                    <h2>Opt-in Deck Categories</h2>
+                    <p id="deckCategoryKidLabel" class="modal-subtitle"></p>
+                    <p class="modal-subtitle">Click a category to move between Available and Opted-in.</p>
+                    <div class="deck-category-grid">
+                        <div class="deck-category-column">
+                            <h3 id="deckCategoryAvailableTitle">Available Deck Categories (0)</h3>
+                            <div id="deckCategoryAvailableBubbles" class="deck-category-bubble-wrap"></div>
+                            <p id="deckCategoryAvailableEmpty" class="deck-category-empty hidden">No available deck category.</p>
+                        </div>
+                        <div class="deck-category-column">
+                            <h3 id="deckCategoryOptedTitle">Opted-in Deck Categories (0)</h3>
+                            <div id="deckCategoryOptedBubbles" class="deck-category-bubble-wrap"></div>
+                            <p id="deckCategoryOptedEmpty" class="deck-category-empty">No deck category opted in.</p>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="deckCategoryConfirmBtn" class="btn-primary">Confirm</button>
+                        <button type="button" id="deckCategoryCancelBtn" class="btn-secondary">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="errorMessage" class="error hidden"></div>
         </main>
     </div>
 
+    <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="admin.js"></script>
 </body>

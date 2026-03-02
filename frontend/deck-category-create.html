@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Deck Category - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .deck-page {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .deck-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .deck-panel h2 {
+            margin-bottom: 0.8rem;
+            color: #2f3c7e;
+            font-size: 1.15rem;
+        }
+
+        .deck-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 0.8rem;
+        }
+
+        .deck-row {
+            display: flex;
+            gap: 0.6rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body class="manage-page">
+    <div class="container deck-page">
+        <header>
+            <h1>🧩 Create Deck Category</h1>
+            <p>Create a new shared deck category and choose its behavior type.</p>
+        </header>
+
+        <main>
+            <div class="actions admin-actions">
+                <a href="/deck-manage.html" class="btn-secondary">← Back to Decks</a>
+            </div>
+
+            <section class="deck-panel">
+                <h2>New Category</h2>
+                <form id="createCategoryForm">
+                    <div class="deck-grid">
+                        <div class="form-group">
+                            <label for="categoryKeyInput">Category key</label>
+                            <input type="text" id="categoryKeyInput" placeholder="e.g. science_reading" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="displayNameInput">Display name</label>
+                            <input type="text" id="displayNameInput" placeholder="e.g. Science Reading">
+                        </div>
+                        <div class="form-group">
+                            <label for="emojiInput">Emoji</label>
+                            <input type="text" id="emojiInput" placeholder="e.g. 🧪">
+                        </div>
+                        <div class="form-group">
+                            <label for="behaviorTypeSelect">Behavior type</label>
+                            <select id="behaviorTypeSelect" required>
+                                <option value="type_i">type_i (front text -> done -> back text -> verify)</option>
+                                <option value="type_ii">type_ii (front audio -> done -> back text -> verify)</option>
+                                <option value="type_iii">type_iii (front+back text -> collect kid audio)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-inline">
+                                <input type="checkbox" id="hasChineseSpecificLogicCheckbox">
+                                Has Chinese-specific logic
+                            </label>
+                        </div>
+                    </div>
+                    <div class="deck-row mt-07">
+                        <button id="createCategoryBtn" type="submit" class="btn-primary">Create Category</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="deck-panel">
+                <h2>Existing Categories</h2>
+                <div id="emptyState" class="deck-empty hidden">No categories found.</div>
+                <div id="tableWrap" class="shared-report-table-wrap">
+                    <table class="shared-report-table">
+                        <thead>
+                            <tr>
+                                <th>Category Key</th>
+                                <th class="table-col-120">Display Name</th>
+                                <th class="table-col-80">Emoji</th>
+                                <th class="table-col-120">Behavior</th>
+                                <th class="table-col-120">Chinese Logic</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div id="successMessage" class="success hidden"></div>
+            <div id="errorMessage" class="error hidden"></div>
+        </main>
+    </div>
+
+    <script src="deck-category-create.js"></script>
+</body>
+</html>

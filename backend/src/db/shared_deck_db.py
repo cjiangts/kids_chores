@@ -45,5 +45,7 @@ def get_shared_decks_connection() -> duckdb.DuckDBPyConnection:
     if not os.path.exists(SHARED_DB_PATH):
         init_shared_decks_database()
     conn = duckdb.connect(SHARED_DB_PATH)
-    ensure_shared_deck_schema(conn, SHARED_DB_PATH)
+    # Run schema guards on each connection so new CREATE/INSERT IF NOT EXISTS
+    # statements apply immediately without restart/migration steps.
+    ensure_shared_deck_schema(conn)
     return conn

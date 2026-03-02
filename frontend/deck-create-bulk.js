@@ -13,13 +13,19 @@ const createDecksBtn = document.getElementById('createDecksBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 
-let currentFirstTag = 'math';
+let currentFirstTag = '';
 let previewDecks = [];
 let isCreatingDecks = false;
+let deckCategories = [];
+let deckCategoryKeySet = new Set();
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
     if (!allowed) {
+        return;
+    }
+    const categoriesLoaded = await loadDeckCategories();
+    if (!categoriesLoaded) {
         return;
     }
     renderFirstTagToggle();
@@ -89,6 +95,89 @@ function normalizeTag(text) {
         .replace(/^_+|_+$/g, '');
 }
 
+function normalizeBehaviorType(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
+        return text;
+    }
+    return '';
+}
+
+function setControlsDisabled(disabled) {
+    const isDisabled = Boolean(disabled);
+    if (bulkDeckInput) {
+        bulkDeckInput.disabled = isDisabled;
+    }
+    if (previewBtn) {
+        previewBtn.disabled = isDisabled;
+    }
+    if (clearInputBtn) {
+        clearInputBtn.disabled = isDisabled;
+    }
+    if (createDecksBtn) {
+        createDecksBtn.disabled = isDisabled || isCreatingDecks;
+    }
+}
+
+function getCurrentDeckCategory() {
+    const key = normalizeTag(currentFirstTag);
+    if (!key) {
+        return null;
+    }
+    return deckCategories.find((item) => item.category_key === key) || null;
+}
+
+async function loadDeckCategories() {
+    showError('');
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/categories`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to load deck categories (HTTP ${response.status})`);
+        }
+
+        const rawCategories = Array.isArray(result.categories) ? result.categories : [];
+        const nextCategories = [];
+        const seenKeys = new Set();
+        rawCategories.forEach((item) => {
+            const key = normalizeTag(item && item.category_key);
+            const behaviorType = normalizeBehaviorType(item && item.behavior_type);
+            if (!key || !behaviorType || seenKeys.has(key)) {
+                return;
+            }
+            seenKeys.add(key);
+            nextCategories.push({
+                category_key: key,
+                behavior_type: behaviorType,
+                has_chinese_specific_logic: Boolean(item && item.has_chinese_specific_logic),
+            });
+        });
+
+        if (nextCategories.length === 0) {
+            throw new Error('No deck categories configured. Create a category first.');
+        }
+
+        deckCategories = nextCategories;
+        deckCategoryKeySet = new Set(nextCategories.map((item) => item.category_key));
+        if (!deckCategoryKeySet.has(currentFirstTag)) {
+            currentFirstTag = nextCategories[0].category_key;
+        }
+        setControlsDisabled(false);
+        return true;
+    } catch (error) {
+        console.error('Error loading deck categories:', error);
+        deckCategories = [];
+        deckCategoryKeySet = new Set();
+        currentFirstTag = '';
+        if (firstTagToggle) {
+            firstTagToggle.innerHTML = '<span class="settings-note">No categories available.</span>';
+        }
+        setControlsDisabled(true);
+        showError(error.message || 'Failed to load deck categories.');
+        return false;
+    }
+}
+
 function normalizeTagList(tags) {
     const out = [];
     const seen = new Set();
@@ -121,6 +210,14 @@ function renderFirstTagToggle() {
     if (!firstTagToggle) {
         return;
     }
+    if (!Array.isArray(deckCategories) || deckCategories.length === 0) {
+        firstTagToggle.innerHTML = '<span class="settings-note">No categories available.</span>';
+        return;
+    }
+    firstTagToggle.innerHTML = deckCategories.map((item) => {
+        const isActive = item.category_key === currentFirstTag;
+        return `<button type="button" class="audio-filter-btn${isActive ? ' active' : ''}" data-first-tag="${escapeHtml(item.category_key)}" aria-pressed="${isActive ? 'true' : 'false'}">${escapeHtml(item.category_key)}</button>`;
+    }).join('');
     firstTagToggle.querySelectorAll('[data-first-tag]').forEach((el) => {
         const tag = String(el.getAttribute('data-first-tag') || '');
         const isActive = tag === currentFirstTag;
@@ -131,7 +228,7 @@ function renderFirstTagToggle() {
 
 function setCurrentFirstTag(tag) {
     const next = normalizeTag(tag);
-    if (next !== 'math' && next !== 'chinese_reading' && next !== 'chinese_characters' && next !== 'chinese_writing') {
+    if (!deckCategoryKeySet.has(next)) {
         return;
     }
     if (next === currentFirstTag) {
@@ -164,7 +261,21 @@ function parseCardLine(rawLine, lineNo) {
 }
 
 function isChineseCharactersDeckMode() {
-    return currentFirstTag === 'chinese_characters';
+    const category = getCurrentDeckCategory();
+    return Boolean(
+        category
+        && category.behavior_type === 'type_i'
+        && category.has_chinese_specific_logic
+    );
+}
+
+function isChineseWritingDeckMode() {
+    const category = getCurrentDeckCategory();
+    return Boolean(
+        category
+        && category.behavior_type === 'type_ii'
+        && category.has_chinese_specific_logic
+    );
 }
 
 function updateInputModeUi() {
@@ -209,7 +320,7 @@ function isLikelyRemainingTagLine(rawLine) {
 }
 
 function dedupeCards(cards) {
-    const dedupeKey = currentFirstTag === 'chinese_writing' ? 'back' : 'front';
+    const dedupeKey = isChineseWritingDeckMode() ? 'back' : 'front';
     const firstByKey = new Map();
     cards.forEach((card) => {
         const key = String(card[dedupeKey] || '');
@@ -374,6 +485,10 @@ async function fetchNameAvailability(name) {
 async function previewBulkCreate() {
     showError('');
     showSuccess('');
+    if (!currentFirstTag || !deckCategoryKeySet.has(currentFirstTag)) {
+        showError('Select a valid first tag before preview.');
+        return;
+    }
 
     let blocks;
     try {

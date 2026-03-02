@@ -1,82 +1,216 @@
-# Codebase Review - 2026-02-16
+# Code Review — Math/Chinese Consolidation (2026-03-02)
 
-## Bugs (Critical)
+**Goal:** Cut LOC, eliminate duplication, keep code simple.
+Migration scripts for DB compatibility go in `backend/scripts/` — not as runtime branches in `kids.py`.
 
-- [x] **B1 - Writing sheet ID race condition** — Used `RETURNING id` with sequence instead of `MAX(id)+1`.
-- [x] **B2 - Kid ID race condition** — Moved ID assignment inside `_mutate_metadata` lock in `add_kid()`. Removed `next_kid_id()`.
-- [x] **B3 - No transaction in session complete** — Wrapped `complete_session_internal` in `BEGIN/COMMIT/ROLLBACK`.
+## Current sizes (files in scope)
 
-## Security
+| File | Lines |
+|------|-------|
+| `backend/src/routes/kids.py` | 7509 |
+| `frontend/kid-type1-manage.js` | 1160 |
+| `frontend/kid-writing-manage.js` | 1303 |
+| `frontend/kid-lesson-reading-manage.js` | 777 |
+| `frontend/practice-manage-common.js` | 1257 |
+| `frontend/kid-type1.js` | 638 |
 
-- [x] **S1 - Weak default secret key** — Changed to `secrets.token_hex(32)` fallback.
-- [x] **S2 - XSS via innerHTML** — Added shared `escapeHtml()` in `practice-manage-common.js`, applied to user data in innerHTML, removed 3 duplicate local copies.
-- [x] **S3 - Wildcard CORS** — Restricted to configurable `CORS_ORIGINS` env var, defaulting to `localhost:5001`.
-
-## Code Quality
-
-- [x] **Q1 - Duplicated writing sheet query** — `create_writing_sheet` now calls `select_writing_sheet_candidates()`.
-- [x] **Q2 - Duplicated JS utilities** — Extracted `calculateAge`, `formatDate`, `parseDateOnly`, `validateBirthday` to `practice-manage-common.js`. Removed duplicates from `app.js` and `admin.js`. Removed debug `console.log` statements.
-- [x] **Q3 - Duplicate function sets in kid_db.py** — Removed unused `init_kid_database()`, `get_kid_connection()`, `delete_kid_database()`, `get_kid_db_path()`.
-- [x] **Q4 - Duplicated auth guards** — Extracted `require_parent_auth()` helper, used in 4 parent-settings endpoints.
-- [x] **Q5 - Duplicate `created_at`/`parent_added_at` field** — Removed `parent_added_at` from backend responses. Updated frontend to use `card.created_at` directly.
-
-## Performance
-
-- [x] **P1 - Schema re-read on every connection** — Cached `schema.sql` in memory. Track initialized DB paths in `_initialized_dbs` set to skip re-running schema/migrations.
-- **P2 - N+1 DB connections in `get_kids()`** — Skipped. Each kid has a separate DuckDB file, so N connections are unavoidable. With P1 fix (schema caching), each connection is now cheap. At family scale (2-5 kids) this is negligible.
-- **P3 - No indexes on `session_results`** — Skipped. DuckDB is a columnar engine that handles full scans efficiently. At projected 10-year scale (~150K rows per kid), queries stay well under 10ms without indexes.
-
-## 10-Year Scale Analysis
-
-Projected data per kid after 10 years of daily use:
-- cards: ~2,000 rows
-- sessions: ~15,000 rows (4/day avg)
-- session_results: ~150,000 rows (40/day avg)
-- DuckDB file size: ~5-10MB
-
-**No performance concerns.** DuckDB handles this scale trivially. No refactoring needed for foreseeable future.
-
-**Data persistence:** Railway Volume is required for data to survive across deploys (container filesystem is ephemeral without it).
+Estimated reducible LOC: **~2000–2500** across backend and frontend.
 
 ---
 
-# Codebase Review - 2026-02-18
+## 1. Backend — Triplicated shared-deck route handlers (Priority 1, ~900 LOC)
 
-## Bugs
+Every shared-deck operation is implemented three separate times for `type1`, `lesson_reading`, and `writing`. The operations are structurally identical; only table names, field names, and prefix strings differ.
 
-- [x] **B4 - Unsafe `.fetchone()[0]` without null check** — Added null-safe pattern on cursor reads in `ensure_practice_state()` and `plan_deck_practice_selection()`.
+### The six operations, each written 3×
 
-- [x] **B5 - Redundant deck seeding on every GET request** — Removed `seed_all_lesson_reading_decks(conn)` and `seed_all_math_decks(conn)` calls from card-list GET and practice-start endpoints. Seeding only runs at startup and on explicit seed endpoints.
+| Operation | type1 | lesson_reading | writing |
+|-----------|-------|----------------|---------|
+| GET shared decks | L4662 | L4885 | L5590 |
+| POST opt-in | L4682 | L5017 | L5722 |
+| POST opt-out | L4712 | L5235 | L5957 |
+| GET cards | L4743 | L5406 | L6104 |
+| PUT card skip | L4769 | L5494 | L6267 |
+| GET decks (readiness) | L4835 | L5551 | L6324 |
 
-## Performance
+That is 18 route handlers where 6 would suffice with a category config dict.
 
-- [x] **P4 - N+1 queries in `get_kids` endpoint** — Combined `get_today_completed_session_counts()` and `has_ungraded_lesson_reading_results()` into single `get_kid_dashboard_stats()` function sharing one DB connection per kid (halves connection count).
+### Suggested pattern
 
-- [x] **P5 - Missing indexes on frequently queried columns** — Added indexes: `cards(deck_id)`, `sessions(type, completed_at)`, `session_results(session_id)`, `session_results(card_id)`.
+```python
+CATEGORY_CONFIG = {
+    'type1':          { 'deck_prefix': 'type1_',          'orphan_name': ..., ... },
+    'lesson_reading': { 'deck_prefix': 'lesson_reading_', 'orphan_name': ..., ... },
+    'writing':        { 'deck_prefix': 'writing_',        'orphan_name': ..., ... },
+}
 
-## Code Cleanup
+@kids_bp.route('/kids/<kid_id>/<category>/shared-decks', methods=['GET'])
+def get_kid_shared_decks(kid_id, category):
+    cfg = CATEGORY_CONFIG[category]
+    return _get_shared_decks(kid_id, cfg)
+```
 
-- [x] **Q6 - Dead code in app.py** — Promoted `min_hard_pct`/`max_hard_pct` to `MIN_HARD_PCT`/`MAX_HARD_PCT` constants. Removed unused `is_parent_authenticated()`, `is_parent_page()`, and dead `enforce_parent_auth` branches. Renamed `require_parent_auth` → `require_family_auth`, `enforce_parent_auth` → `enforce_family_auth`.
+Each `_*` internal handles shared logic; config dict carries only what differs.
 
-## Skipped (Not Issues)
+### Opt-in size disparity is a signal
 
-- **SQL injection via f-string**: false positive — only used for `','.join(['?'] * len(ids))` placeholder generation, not user input.
-- **Metadata race condition**: file-lock prevents concurrent writes, single-process Flask.
-- **In-memory pending sessions**: by design — abandoned sessions cleaned up at startup.
-- **P3 indexes revisit**: DuckDB columnar engine still handles projected scale without indexes (see 10-year analysis above).
+`opt_in_kid_type1_shared_decks` L4682–4708 ≈ 27 lines.
+`opt_in_kid_lesson_reading_shared_decks` L5017–5232 ≈ 216 lines.
 
-# Refactor Plan (2026-02-18)
+If the two operations are semantically equivalent, lesson-reading is carrying logic that belongs elsewhere or is itself duplicated from somewhere else. Audit before collapsing so you don't lose the divergence silently.
 
-- [x] **R1 - Extract shared practice UI helpers** — Added `practice-ui-common.js` for shared `shuffleCards`, `formatElapsed`, and alert-style error handling helper.
-- [x] **R2 - Migrate session pages to shared helpers** — Updated kid Chinese Characters, Writing, Math, and Chinese Reading session scripts to use `practice-ui-common.js` helpers and removed duplicated local shuffle/elapsed/error logic.
-- [x] **R3 - Ensure shared script wiring** — Loaded `practice-ui-common.js` in all relevant session HTML pages before page-specific scripts.
-- [x] **R4 - Verify duplication reduction** — Re-scanned migrated session files; duplicate local `shuffleSessionCards`, local lesson `formatElapsed`, and alert-logic duplication were removed.
+---
 
-### Phase 2
+## 2. Backend — Session start/complete handlers (Priority 2, ~200 LOC)
 
-- [x] **R5 - Extract shared recording visualizer module** — Added `recording-visualizer.js` and switched both `kid-writing-manage.js` and `kid-lesson-reading.js` to shared start/stop/resize waveform rendering.
-- [x] **R6 - Simplify session controller scaffolding** — Added `practice-session-flow.js` with shared start/complete helpers and migrated session start flow in all four kid practice scripts (plus complete flow in reading/writing/math).
-- [x] **R7 - Consolidate duplicated inline session CSS** — Moved shared practice-page header/back/button/start/session-title styles into `styles.css` and removed duplicated inline blocks from `kid.html`, `kid-writing.html`, `kid-math.html`, and `kid-lesson-reading.html`.
-- [x] **R8 - Move backend legacy row fixups out of request path** — Completed in two steps:
-  1) moved legacy repair to startup-only flow;
-  2) after confirming pre-release/single-family usage, removed the startup legacy-repair hook and deleted related legacy repair helpers/constants from backend.
+```
+start_type1_practice_session            L7189
+start_lesson_reading_practice_session   L7214
+complete_type1_practice_session         L7381
+complete_lesson_reading_practice_session L7407
+complete_writing_practice_session       L7468
+complete_practice_session               L7487  ← possibly dead
+```
+
+`start_type_i_practice_session_internal` already exists at L4596.
+Check whether `start_lesson_reading_practice_session` calls it or duplicates its logic.
+
+`complete_session_internal` already exists at L3416.
+Check whether all three `complete_*` wrappers are thin (< 10 lines each) or have accumulated duplicate logic.
+
+`complete_practice_session` L7487 — if no route is registered to it, delete it.
+
+---
+
+## 3. Backend — Card skip toggle, implemented 3× (~100 LOC)
+
+```
+update_shared_type1_card_skip         L4769
+update_shared_lesson_reading_card_skip L5494
+update_shared_writing_card_skip       L6267
+```
+
+A skip toggle is: validate ownership → `UPDATE cards SET skipped = ? WHERE id = ?`.
+One `_update_card_skip(kid_id, card_id, cfg)` covers all three.
+
+---
+
+## 4. Backend — Orphan deck helpers, duplicated
+
+```python
+get_or_create_writing_orphan_deck(conn)        # L2989
+get_or_create_lesson_reading_orphan_deck(conn) # L3013
+```
+
+No equivalent for type1. Either type1 has no orphan decks (mark it in `CATEGORY_CONFIG` as `has_orphan=False`) or it is missing. Either way, collapse both helpers to:
+
+```python
+def get_or_create_orphan_deck(conn, orphan_deck_name: str): ...
+```
+
+---
+
+## 5. Backend — Unused / redundant session-type constants
+
+`kids.py` L27–29:
+```python
+SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters'
+SESSION_TYPE_CHINESE_WRITING     = 'chinese_writing'
+SESSION_TYPE_CHINESE_READING     = 'chinese_reading'
+```
+
+If session `type` is set as a bare string literal in route handlers rather than using these constants, they are dead. Either use them consistently everywhere or delete them.
+
+---
+
+## 6. Frontend — Three manage JS files share ~80% logic (Priority 1, ~600 LOC)
+
+`kid-type1-manage.js` (1160), `kid-writing-manage.js` (1303), `kid-lesson-reading-manage.js` (777) all implement the same structure:
+
+- Deck bubble rendering with orphan toggle
+- Tag filter via `createHierarchicalTagFilterController`
+- Session settings form save (validate → fetch → show error/success)
+- Card grid rendering with skip-toggle buttons
+- `showError` / `showSuccess` helpers
+- Identical fetch error-handling boilerplate
+
+`practice-manage-common.js` (1257) exists but doesn't cover these higher-level patterns.
+
+### What to move into `practice-manage-common.js`
+
+**a) Session settings saver factory**
+```javascript
+export function createSessionSettingsSaver({ endpoint, inputId, label }) {
+    return async function saveSessionSettings() {
+        // shared validation + fetch + error display
+    };
+}
+```
+
+**b) Card grid renderer**
+
+Each file builds identical `<div class="card-bubble">` HTML with skip/unskip buttons. Extractable with a `formatLabel(card)` callback for category-specific display.
+
+**c) Deck bubble renderer with orphan support**
+
+`renderAvailableDecks` / `renderSelectedDecks` is identical across all three files except for the orphan deck name string. Pass it as config.
+
+**d) `showError` / `showSuccess` helpers**
+
+Every file has these referencing local DOM IDs. Wire once via a shared factory that takes element references.
+
+### What stays per-file
+
+- `categoryKey`, endpoint URL fragments, page title
+- Writing-specific: audio recording logic (genuinely unique to writing)
+- Lesson-reading-specific: any reading-specific card display fields
+
+---
+
+## 7. Frontend — Bonus game logic in `kid-type1.js` (~150 LOC)
+
+`kid-type1.js` L479–634 is the bonus board matching game. This only applies to `chinese_characters`, not `math`. It currently lives unconditionally in the shared file.
+
+Options (simplest first):
+1. Guard with `if (categoryConfig.hasBonus)` — skip init for math
+2. Extract to `kid-type1-bonus.js` and conditionally include via `<script>`
+
+Since `kid-type1.html` is shared between math and Chinese characters, option 1 (guard) is the minimum change. Option 2 is cleaner if HTML pages are ever split.
+
+Also verify that `wrongCardsInSession` (L391–397) is guarded consistently — math sessions should not accumulate this dead state.
+
+---
+
+## 8. Frontend — `kid-reading-manage.html` redirect shim
+
+This file is now a redirect to `kid-type1-manage.html?categoryKey=chinese_characters`. Once all internal links point directly to the new URL, **delete this file**. Don't keep redirect shims permanently.
+
+---
+
+## 9. Metadata field naming inconsistency
+
+Backend uses different field names per category:
+- Writing: `sharedWritingHardCardPercentage`
+- Lesson reading: `sharedLessonReadingHardCardPercentage`
+- Type1: inside `TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD` (a dict by category key)
+
+Frontend must know which field name to use per category. This mapping is currently scattered. A `CATEGORY_CONFIG` dict on the backend (see item 1) gives one authoritative place — if needed by the frontend, expose it via one endpoint or embed it on page load.
+
+---
+
+## Action plan (ordered by impact)
+
+| # | Task | Where | LOC saved |
+|---|------|--------|-----------|
+| 1 | Build `CATEGORY_CONFIG` dict; collapse 18 shared-deck routes → 6 | `kids.py` | ~800 |
+| 2 | Audit opt-in size disparity (type1 27 ln vs lesson-reading 216 ln) | `kids.py` | varies |
+| 3 | Collapse card-skip to one `_update_card_skip` internal | `kids.py` | ~80 |
+| 4 | Merge orphan-deck helpers into one function | `kids.py` | ~25 |
+| 5 | Verify/delete `complete_practice_session` L7487 | `kids.py` | ~20 |
+| 6 | Verify/use or delete `SESSION_TYPE_*` constants | `kids.py` | ~3 |
+| 7 | Extract session-settings saver + card renderer + deck-bubble renderer into `practice-manage-common.js` | frontend | ~400 |
+| 8 | Shrink the three manage JS files to thin wrappers | frontend | ~400 |
+| 9 | Guard / extract bonus-game logic in `kid-type1.js` | frontend | ~150 |
+| 10 | Delete `kid-reading-manage.html` after updating all links | frontend | ~30 |
+
+Each step is independently deployable. DB schema changes go in `backend/scripts/` one-time migration scripts.

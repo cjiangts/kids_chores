@@ -17,6 +17,9 @@ let dailyChartRows = [];
 let dailyChartPageIndex = 0;
 let reportSessions = [];
 const DAILY_CHART_PAGE_SIZE = 7;
+const SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters';
+const SESSION_TYPE_CHINESE_WRITING = 'chinese_writing';
+const SESSION_TYPE_CHINESE_READING = 'chinese_reading';
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -145,15 +148,16 @@ function renderDailyMinutesChart(sessions) {
         const minutes = getSessionResponseMinutes(session);
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
+        const sessionType = normalizeSessionType(session.type);
 
         if (!dailyMap.has(dayKey)) {
             dailyMap.set(dayKey, { reading: 0, math: 0, writing: 0, lessonReading: 0, total: 0 });
         }
         const row = dailyMap.get(dayKey);
-        if (session.type === 'flashcard') row.reading += minutes;
-        if (session.type === 'math') row.math += minutes;
-        if (session.type === 'writing') row.writing += minutes;
-        if (session.type === 'lesson_reading') row.lessonReading += minutes;
+        if (sessionType === SESSION_TYPE_CHINESE_CHARACTERS) row.reading += minutes;
+        if (sessionType === 'math') row.math += minutes;
+        if (sessionType === SESSION_TYPE_CHINESE_WRITING) row.writing += minutes;
+        if (sessionType === SESSION_TYPE_CHINESE_READING) row.lessonReading += minutes;
         row.total += minutes;
     });
 
@@ -282,19 +286,28 @@ function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }
 }
 
 function renderType(type) {
-    if (type === 'flashcard') {
+    const normalizedType = normalizeSessionType(type);
+    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) {
         return '<span class="type-pill type-reading">Chinese Characters</span>';
     }
-    if (type === 'math') {
+    if (normalizedType === 'math') {
         return '<span class="type-pill type-math">Math</span>';
     }
-    if (type === 'writing') {
+    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) {
         return '<span class="type-pill type-writing">Chinese Writing</span>';
     }
-    if (type === 'lesson_reading') {
+    if (normalizedType === SESSION_TYPE_CHINESE_READING) {
         return '<span class="type-pill type-lesson-reading">Chinese Reading</span>';
     }
     return '<span class="type-pill">Unknown</span>';
+}
+
+function normalizeSessionType(type) {
+    const text = String(type || '').trim().toLowerCase();
+    if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS;
+    if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
+    if (text === 'lesson_reading') return SESSION_TYPE_CHINESE_READING;
+    return text;
 }
 
 function formatDateTime(iso) {

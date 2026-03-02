@@ -29,8 +29,7 @@ CREATE TABLE IF NOT EXISTS cards (
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),
-  type VARCHAR NOT NULL,  -- 'flashcard', 'math', 'writing', or 'lesson_reading'
-  deck_id INTEGER,
+  type VARCHAR NOT NULL,  -- 'chinese_characters', 'math', 'chinese_writing', or 'chinese_reading'
   planned_count INTEGER,
   started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP
@@ -67,6 +66,11 @@ CREATE TABLE IF NOT EXISTS writing_sheet_cards (
   sheet_id INTEGER NOT NULL,
   card_id INTEGER NOT NULL,
   PRIMARY KEY (sheet_id, card_id)
+);
+
+-- Kid-local opted-in deck categories (controls which manage buttons show in admin UI)
+CREATE TABLE IF NOT EXISTS deck_category_opt_in (
+  category_key VARCHAR PRIMARY KEY
 );
 
 -- Indexes for common query patterns

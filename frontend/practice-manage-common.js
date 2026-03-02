@@ -519,6 +519,12 @@ window.PracticeManageCommon = {
         const clearTopError = typeof config.clearTopError === 'function' ? config.clearTopError : () => {};
         const reloadCards = typeof config.reloadCards === 'function' ? config.reloadCards : async () => {};
         const onSaved = typeof config.onSaved === 'function' ? config.onSaved : null;
+        const buildPayload = typeof config.buildPayload === 'function'
+            ? config.buildPayload
+            : (hardPct) => ({ [kidFieldName]: hardPct });
+        const getPersistedValue = typeof config.getPersistedValue === 'function'
+            ? config.getPersistedValue
+            : (payload) => payload && payload[kidFieldName];
 
         let currentValue = this.clampPercent(config.initialValue, 20);
         const statusController = this.createInlineStatusController({
@@ -565,13 +571,13 @@ window.PracticeManageCommon = {
             const response = await fetch(`${apiBase}/kids/${kidId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [kidFieldName]: hardPct }),
+                body: JSON.stringify(buildPayload(hardPct)),
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
                 throw new Error(payload.error || `Failed to save hardness % (HTTP ${response.status})`);
             }
-            const persistedRaw = payload && payload[kidFieldName];
+            const persistedRaw = getPersistedValue(payload);
             const persistedParsed = Number.parseInt(persistedRaw, 10);
             const persistedHardPct = Number.isInteger(persistedParsed)
                 ? this.clampPercent(persistedParsed, hardPct)
@@ -1014,5 +1020,238 @@ window.PracticeManageCommon = {
             getDisplayLabel,
             getSelectedTags: () => [...selectedTags],
         };
-    }
+    },
+
+    applyKidManageTabVisibility(config = {}) {
+        const kidId = String(config.kidId || '').trim();
+        const normalizeKey = (value) => String(value || '').trim().toLowerCase();
+        const toTitleCase = (value) => String(value || '')
+            .split('_')
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+        const normalizeRoutePath = (value) => {
+            const text = String(value || '').trim();
+            if (!text || text === '#') {
+                return '';
+            }
+            try {
+                return new URL(text, window.location.origin).pathname || '';
+            } catch (_) {
+                return '';
+            }
+        };
+
+        const routesByCategory = (config && typeof config.routesByCategory === 'object' && config.routesByCategory)
+            ? { ...config.routesByCategory }
+            : {};
+        const defaultCategoryByRoute = (config && typeof config.defaultCategoryByRoute === 'object' && config.defaultCategoryByRoute)
+            ? { ...config.defaultCategoryByRoute }
+            : {};
+        const rawMetaByKey = (config && typeof config.deckCategoryMetaByKey === 'object' && config.deckCategoryMetaByKey)
+            ? config.deckCategoryMetaByKey
+            : {};
+        const metaByKey = {};
+        Object.entries(rawMetaByKey).forEach(([rawKey, rawValue]) => {
+            const key = normalizeKey(rawKey);
+            const item = rawValue && typeof rawValue === 'object' ? rawValue : {};
+            if (!key) {
+                return;
+            }
+            metaByKey[key] = {
+                behavior_type: normalizeKey(item.behavior_type),
+                has_chinese_specific_logic: Boolean(item.has_chinese_specific_logic),
+                display_name: String(item.display_name || '').trim(),
+                emoji: String(item.emoji || '').trim(),
+            };
+        });
+        const hasOptedInData = Array.isArray(config.optedInCategoryKeys);
+        const rawKeys = hasOptedInData ? config.optedInCategoryKeys : null;
+        const normalizedOptedKeys = rawKeys
+            ? rawKeys.map(normalizeKey).filter(Boolean)
+            : null;
+        const normalizedOptedSet = normalizedOptedKeys ? new Set(normalizedOptedKeys) : null;
+        const tabNavEl = config.tabNavEl || document.querySelector('.tab-nav');
+        const routeToDefaultCategory = {};
+        Object.entries(defaultCategoryByRoute).forEach(([rawRoutePath, rawCategoryKey]) => {
+            const routePath = normalizeRoutePath(rawRoutePath);
+            const categoryKey = normalizeKey(rawCategoryKey);
+            if (routePath && categoryKey) {
+                routeToDefaultCategory[routePath] = categoryKey;
+            }
+        });
+        const tabsByCategory = {};
+        const configuredTabsByCategory = (config && typeof config.tabsByCategory === 'object' && config.tabsByCategory)
+            ? config.tabsByCategory
+            : {};
+        Object.entries(configuredTabsByCategory).forEach(([rawCategoryKey, tabEl]) => {
+            const categoryKey = normalizeKey(rawCategoryKey);
+            if (!categoryKey || !tabEl || tabsByCategory[categoryKey]) {
+                return;
+            }
+            tabsByCategory[categoryKey] = tabEl;
+        });
+        if (Object.keys(tabsByCategory).length === 0 && tabNavEl) {
+            const discoveredTabs = tabNavEl.querySelectorAll('a.manage-tab');
+            discoveredTabs.forEach((tabEl) => {
+                const attrCategoryKey = normalizeKey(tabEl.getAttribute('data-category-key'));
+                const hrefRoute = normalizeRoutePath(tabEl.getAttribute('href') || tabEl.href || '');
+                const defaultCategoryKey = normalizeKey(routeToDefaultCategory[hrefRoute]);
+                const categoryKey = attrCategoryKey || defaultCategoryKey;
+                if (!categoryKey || tabsByCategory[categoryKey]) {
+                    return;
+                }
+                tabsByCategory[categoryKey] = tabEl;
+            });
+        }
+        const tabEntries = Object.entries(tabsByCategory).map(([rawCategoryKey, tabEl]) => {
+            const categoryKey = normalizeKey(rawCategoryKey);
+            if (!categoryKey || !tabEl) {
+                return null;
+            }
+            const explicitRoute = normalizeRoutePath(routesByCategory[categoryKey]);
+            const hrefRoute = normalizeRoutePath(tabEl.getAttribute('href') || tabEl.href || '');
+            const routePath = explicitRoute || hrefRoute;
+            return {
+                categoryKey,
+                tabEl,
+                routePath,
+            };
+        }).filter(Boolean);
+        const routeByCategoryFromTabs = {};
+        tabEntries.forEach((entry) => {
+            if (entry.routePath) {
+                routeByCategoryFromTabs[entry.categoryKey] = entry.routePath;
+            }
+        });
+        const resolveRoutePathByCategory = (rawCategoryKey) => {
+            const categoryKey = normalizeKey(rawCategoryKey);
+            if (!categoryKey) {
+                return '';
+            }
+            const explicitRoute = normalizeRoutePath(routesByCategory[categoryKey]);
+            if (explicitRoute) {
+                return explicitRoute;
+            }
+            const categoryMeta = metaByKey[categoryKey] || {};
+            const behaviorType = normalizeKey(categoryMeta.behavior_type);
+            if (behaviorType === 'type_i') {
+                return '/kid-type1-manage.html';
+            }
+            if (behaviorType === 'type_ii') {
+                return '/kid-writing-manage.html';
+            }
+            if (behaviorType === 'type_iii') {
+                return '/kid-lesson-reading-manage.html';
+            }
+            return routeByCategoryFromTabs[categoryKey] || '';
+        };
+        const getCategoryLabel = (rawCategoryKey) => {
+            const categoryKey = normalizeKey(rawCategoryKey);
+            const categoryMeta = metaByKey[categoryKey] || {};
+            const displayName = String(categoryMeta.display_name || '').trim() || toTitleCase(categoryKey);
+            const emoji = String(categoryMeta.emoji || '').trim() || '🧩';
+            return `${emoji} ${displayName}`;
+        };
+        const currentRoutePath = normalizeRoutePath(window.location.pathname);
+        const currentQueryCategoryKey = normalizeKey(new URLSearchParams(window.location.search).get('categoryKey'));
+
+        if (!hasOptedInData) {
+            return;
+        }
+
+        if (Array.isArray(normalizedOptedKeys) && tabNavEl) {
+            const keysToRender = [];
+            const seen = new Set();
+            normalizedOptedKeys.forEach((key) => {
+                if (!key || seen.has(key)) {
+                    return;
+                }
+                seen.add(key);
+                keysToRender.push(key);
+            });
+            let currentCategoryKey = currentQueryCategoryKey;
+            if (!currentCategoryKey) {
+                currentCategoryKey = routeToDefaultCategory[currentRoutePath] || '';
+            }
+            if (!currentCategoryKey) {
+                currentCategoryKey = keysToRender.find((key) => resolveRoutePathByCategory(key) === currentRoutePath) || '';
+            }
+            if (!currentCategoryKey && keysToRender.length > 0) {
+                currentCategoryKey = keysToRender[0];
+            }
+
+            const effectiveKidId = kidId || String(new URLSearchParams(window.location.search).get('id') || '').trim();
+            const fragment = document.createDocumentFragment();
+            keysToRender.forEach((key) => {
+                const routePath = resolveRoutePathByCategory(key);
+                if (!routePath) {
+                    return;
+                }
+                const anchor = document.createElement('a');
+                const isActive = routePath === currentRoutePath && key === currentCategoryKey;
+                anchor.className = `${isActive ? 'btn-primary' : 'btn-secondary'} manage-tab`;
+                const qs = new URLSearchParams();
+                if (effectiveKidId) {
+                    qs.set('id', effectiveKidId);
+                }
+                qs.set('categoryKey', key);
+                anchor.href = `${routePath}?${qs.toString()}`;
+                anchor.textContent = getCategoryLabel(key);
+                fragment.appendChild(anchor);
+            });
+            tabNavEl.replaceChildren(fragment);
+            return;
+        }
+
+        const routeToCategoryKey = {};
+        tabEntries.forEach((entry) => {
+            const categoryKey = entry.categoryKey;
+            const route = resolveRoutePathByCategory(categoryKey);
+            if (!route) {
+                return;
+            }
+            if (normalizedOptedSet && !normalizedOptedSet.has(categoryKey)) {
+                return;
+            }
+            if (!routeToCategoryKey[route]) {
+                routeToCategoryKey[route] = categoryKey;
+            }
+        });
+        Object.entries(defaultCategoryByRoute).forEach(([routePath, rawCategoryKey]) => {
+            const route = normalizeRoutePath(routePath);
+            const categoryKey = normalizeKey(rawCategoryKey);
+            if (!route || !categoryKey) {
+                return;
+            }
+            if (normalizedOptedSet && !normalizedOptedSet.has(categoryKey)) {
+                return;
+            }
+            routeToCategoryKey[route] = categoryKey;
+        });
+
+        tabEntries.forEach((entry) => {
+            const categoryKey = entry.categoryKey;
+            const tabEl = entry.tabEl;
+            const routePath = resolveRoutePathByCategory(categoryKey);
+            const effectiveCategoryKey = routeToCategoryKey[routePath] || '';
+            if (kidId) {
+                const qs = new URLSearchParams();
+                qs.set('id', kidId);
+                if (effectiveCategoryKey) {
+                    qs.set('categoryKey', effectiveCategoryKey);
+                } else {
+                    qs.set('categoryKey', String(categoryKey || '').trim().toLowerCase());
+                }
+                if (routePath) {
+                    tabEl.href = `${routePath}?${qs.toString()}`;
+                }
+            }
+            if (normalizedOptedSet) {
+                tabEl.classList.toggle('hidden', !effectiveCategoryKey);
+            } else {
+                tabEl.classList.remove('hidden');
+            }
+        });
+    },
 };

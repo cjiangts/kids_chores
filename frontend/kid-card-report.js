@@ -4,6 +4,7 @@ const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
 const cardId = params.get('cardId');
 const from = params.get('from');
+const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 
 const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
@@ -11,6 +12,9 @@ const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
 const trendChart = document.getElementById('trendChart');
 const historyList = document.getElementById('historyList');
+const SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters';
+const SESSION_TYPE_CHINESE_WRITING = 'chinese_writing';
+const SESSION_TYPE_CHINESE_READING = 'chinese_reading';
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -24,14 +28,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function resolveBackHref() {
-    if (from === 'reading') {
-        return `/kid-reading-manage.html?id=${encodeURIComponent(kidId)}`;
+    const type1Category = categoryKey || (from === 'reading' ? SESSION_TYPE_CHINESE_CHARACTERS : 'math');
+    if (from === 'reading' || from === 'type1') {
+        const qs = new URLSearchParams();
+        qs.set('id', String(kidId || ''));
+        if (type1Category) {
+            qs.set('categoryKey', type1Category);
+        }
+        return `/kid-type1-manage.html?${qs.toString()}`;
     }
     if (from === 'writing') {
         return `/kid-writing-manage.html?id=${encodeURIComponent(kidId)}`;
-    }
-    if (from === 'math') {
-        return `/kid-math-manage.html?id=${encodeURIComponent(kidId)}`;
     }
     if (from === 'lesson-reading') {
         return `/kid-lesson-reading-manage.html?id=${encodeURIComponent(kidId)}`;
@@ -173,18 +180,27 @@ function formatResponseTime(ms) {
 }
 
 function formatType(type) {
-    if (type === 'flashcard') return 'Chinese Characters';
-    if (type === 'math') return 'Math';
-    if (type === 'writing') return 'Chinese Writing';
-    if (type === 'lesson_reading') return 'Chinese Reading';
+    const normalizedType = normalizeSessionType(type);
+    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) return 'Chinese Characters';
+    if (normalizedType === 'math') return 'Math';
+    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'Chinese Writing';
+    if (normalizedType === SESSION_TYPE_CHINESE_READING) return 'Chinese Reading';
     return String(type || '-');
+}
+
+function normalizeSessionType(type) {
+    const text = String(type || '').trim().toLowerCase();
+    if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS;
+    if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
+    if (text === 'lesson_reading') return SESSION_TYPE_CHINESE_READING;
+    return text;
 }
 
 function getCardDisplayLabel(front, back, source) {
     const frontText = String(front || '').trim();
     const backText = String(back || '').trim();
 
-    if (source === 'math') {
+    if (source === 'type1') {
         return frontText || backText;
     }
     if (source === 'lesson-reading') {

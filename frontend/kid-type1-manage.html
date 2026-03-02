@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kid Math Profile - Learning App</title>
+    <title>Kid Type-I Profile - Learning App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -274,6 +274,25 @@
             gap: 1rem;
         }
 
+        .orphan-editor-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .orphan-editor-panel {
+            background: #f8f9ff;
+            border: 1px solid #dbe1ff;
+            border-radius: 10px;
+            padding: 0.9rem;
+        }
+
+        .orphan-editor-panel h3 {
+            margin: 0 0 0.7rem 0;
+            color: #334;
+            font-size: 1rem;
+        }
+
         .card-item {
             background: white;
             padding: 1.5rem;
@@ -341,6 +360,47 @@
             font-weight: 600;
         }
 
+        .type1-chinese-mode .cards-grid {
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        }
+
+        .type1-chinese-mode .card-item {
+            padding: 1.2rem;
+        }
+
+        .type1-chinese-mode .card-front {
+            font-size: 4rem;
+            font-family: var(--font-kaiti);
+            font-weight: 400;
+            line-height: 1.12;
+        }
+
+        .type1-chinese-mode .card-back {
+            margin-top: 6px;
+            color: #1d7a35;
+            font-size: 0.92rem;
+            font-weight: 700;
+        }
+
+        .delete-card-btn {
+            position: absolute;
+            top: 0.45rem;
+            right: 0.45rem;
+            width: 26px;
+            height: 26px;
+            border-radius: 999px;
+            border: 1px solid #f1b0b7;
+            background: #fff5f5;
+            color: #c92a2a;
+            cursor: pointer;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .delete-card-btn:hover {
+            background: #ffe3e3;
+        }
+
         @media (max-width: 880px) {
             .math-v2-grid {
                 grid-template-columns: 1fr;
@@ -361,6 +421,10 @@
             .mix-row .mix-cards {
                 text-align: left;
             }
+
+            .orphan-editor-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -371,25 +435,20 @@
             <a href="/admin.html" class="back-btn btn-secondary">← Back</a>
         </div>
 
-        <div class="tab-nav">
-            <a id="charactersTab" class="btn-secondary manage-tab" href="#">📖 Manage Chinese Characters</a>
-            <a id="writingTab" class="btn-secondary manage-tab" href="#">✍️ Manage Chinese Writing</a>
-            <a id="mathTab" class="btn-primary manage-tab" href="#">➗ Manage Math</a>
-            <a id="lessonReadingTab" class="btn-secondary manage-tab" href="#">📚 Manage Chinese Reading</a>
-        </div>
+        <div class="tab-nav"></div>
 
         <div id="errorMessage" class="error hidden"></div>
         <div id="successMessage" class="success hidden"></div>
 
         <section class="settings-section">
-            <h2>Practice Settings</h2>
-            <form id="sessionSettingsForm" class="settings-row">
-                <div class="form-group">
-                    <label for="sharedMathSessionCardCount">Math Cards Per Session (Total Across Opted-in Decks)</label>
-                    <input
-                        type="number"
-                        id="sharedMathSessionCardCount"
-                        min="0"
+                <h2>Practice Settings</h2>
+                <form id="sessionSettingsForm" class="settings-row">
+                    <div class="form-group">
+                        <label id="sessionCardCountLabel" for="sharedMathSessionCardCount">Practice Cards Per Session (Total Across Opted-in Decks)</label>
+                        <input
+                            type="number"
+                            id="sharedMathSessionCardCount"
+                            min="0"
                         max="200"
                         step="1"
                         required
@@ -400,8 +459,8 @@
         </section>
 
         <section class="settings-section math-v2-panel">
-            <h2>Opt-in Shared Math Decks</h2>
-            <p class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.</p>
+            <h2 id="optInDecksHeading">Opt-in Shared Practice Decks</h2>
+            <p id="optInDecksNote" class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.</p>
 
             <div class="math-v2-grid">
                 <div class="math-v2-column">
@@ -415,7 +474,7 @@
                         </div>
                     </div>
                     <div id="availableDecks" class="deck-bubble-wrap"></div>
-                    <p id="availableEmpty" class="math-v2-empty hidden">No shared math decks available yet.</p>
+                    <p id="availableEmpty" class="math-v2-empty hidden">No shared practice decks available yet.</p>
                 </div>
 
                 <div class="math-v2-column">
@@ -433,20 +492,52 @@
             </div>
         </section>
 
+        <section id="orphanEditorSection" class="settings-section hidden">
+            <h2>Orphan Deck Editor</h2>
+            <p class="math-v2-note">Manual custom cards live in the orphan deck. Bulk import and delete are allowed only there.</p>
+            <div class="orphan-editor-grid">
+                <div class="orphan-editor-panel">
+                    <h3>Bulk Add Chinese Characters</h3>
+                    <form id="addCardForm">
+                        <div class="form-group">
+                            <label for="chineseChar">Chinese Characters</label>
+                            <div class="bulk-import-wrap">
+                                <textarea
+                                    id="chineseChar"
+                                    placeholder="比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀"
+                                    required
+                                ></textarea>
+                            </div>
+                        </div>
+                        <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add Chinese Characters</button>
+                        <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
         <section class="settings-section cards-section">
             <h2 class="cards-title label-with-help">
-                <span>Math Questions <span id="mathCardCount">(0)</span></span>
+                <span><span id="cardsSectionTitleText">Practice Questions</span> <span id="mathCardCount">(0)</span></span>
                 <details class="help-details">
                     <summary title="Hardness tip">i</summary>
-                    <div class="help-bubble">
-                        Hardness score for Math is based on the card's most recent response time.
+                    <div id="cardsHardnessHelpText" class="help-bubble">
+                        Hardness score for this category is based on the card's most recent response time.
                         Slower response means higher hardness.
                     </div>
                 </details>
             </h2>
             <div class="cards-toolbar">
+                <input
+                    type="text"
+                    id="cardSearchInput"
+                    class="cards-search-input hidden"
+                    placeholder="Search cards..."
+                    aria-label="Search cards"
+                >
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="queue" selected>Order: Next Session Queue</option>
+                    <option value="added_time">Order: Added Time (Recent to Oldest)</option>
                     <option value="hardness_desc">Order: Hardness Score (Desc)</option>
                     <option value="lifetime_attempts_desc">Order: Lifetime Attempts (Desc)</option>
                     <option value="lifetime_attempts_asc">Order: Lifetime Attempts (Asc)</option>
@@ -466,7 +557,8 @@
         </section>
     </div>
 
+    <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
-    <script src="kid-math-manage.js"></script>
+    <script src="kid-type1-manage.js"></script>
 </body>
 </html>

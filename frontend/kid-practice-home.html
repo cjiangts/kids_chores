@@ -7,13 +7,6 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        .chinese-text {
-            font-family: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif !important;
-        }
-        .header {
-            margin-bottom: 2rem;
-        }
-
         .practice-container {
             max-width: 600px;
         }
@@ -47,216 +40,19 @@
             color: #333;
         }
 
-        .practice-option p {
-            font-size: 0.9rem;
-            color: #666;
-            line-height: 1.35;
-        }
-
         .practice-star-badge {
             margin-top: 0.6rem;
             min-height: 1.1rem;
-            color: #f3b400 !important;
+            color: #f3b400;
             font-weight: 700;
-            font-size: 1rem !important;
-        }
-
-        .flashcard {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            padding: 4rem 2rem;
-            text-align: center;
-            min-height: 400px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            user-select: none;
-            transition: transform 0.3s ease;
-            margin-bottom: 2rem;
-            position: relative;
-        }
-
-        .card-content {
-            font-size: 10rem;
-            font-family: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
-            color: #333;
-            line-height: 1.2;
+            font-size: 1rem;
         }
 
         @media (max-width: 768px) {
             .practice-chooser {
                 grid-template-columns: 1fr;
             }
-
-            .card-content {
-                font-size: 8rem;
-            }
         }
-
-        .tap-hint {
-            font-size: 0.9rem;
-            color: #999;
-            margin-top: 1rem;
-        }
-
-        .controls {
-            margin-bottom: 2rem;
-        }
-
-        .pause-row {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 0.8rem;
-        }
-
-        .answer-row {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .know-btn {
-            background: #28a745;
-            min-width: 190px;
-            font-size: 1.15rem;
-            font-weight: 700;
-            padding: 1rem 1.8rem;
-        }
-
-        .know-btn:hover {
-            background: #218838;
-        }
-
-        .dont-know-btn {
-            background: #dc3545;
-            min-width: 190px;
-            font-size: 1.15rem;
-            font-weight: 700;
-            padding: 1rem 1.8rem;
-        }
-
-        .dont-know-btn:hover {
-            background: #c82333;
-        }
-
-        .pause-btn {
-            background: #f0ad4e;
-            color: #222;
-            min-width: 130px;
-            font-weight: 600;
-        }
-
-        .pause-btn:hover {
-            background: #ec971f;
-        }
-
-        .pause-mask {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #666;
-        }
-
-        .progress {
-            text-align: center;
-            font-size: 1rem;
-            color: #666;
-            margin-bottom: 1rem;
-        }
-
-        .practice-mode-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
-            flex-wrap: wrap;
-            margin-bottom: 0.9rem;
-        }
-
-        .practice-mode-label {
-            color: #555;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-
-        .card-back-content {
-            margin-top: 0.9rem;
-            font-size: 2.2rem;
-            color: #1f8f3f;
-            font-weight: 700;
-            line-height: 1.25;
-        }
-
-        .bonus-game {
-            margin-top: 1rem;
-            width: 100%;
-            max-width: 520px;
-            text-align: center;
-        }
-
-        .bonus-game-title {
-            margin-bottom: 0.45rem;
-            color: #333;
-            font-size: 1.25rem;
-        }
-
-        .bonus-game-hint,
-        .bonus-game-status {
-            margin-bottom: 0.45rem;
-            color: #555;
-            font-size: 0.95rem;
-        }
-
-        .bonus-game-status {
-            font-weight: 700;
-            color: #2f6f3f;
-        }
-
-        .bonus-game-board {
-            margin-top: 0.5rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
-            gap: 0.55rem;
-        }
-
-        .bonus-tile {
-            min-height: 68px;
-            border-radius: 10px;
-            border: 2px solid #d3dbf5;
-            background: #f1f4ff;
-            color: #28407d;
-            font-size: 1.35rem;
-            font-family: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
-            font-weight: 700;
-            cursor: pointer;
-            padding: 0.35rem;
-        }
-
-        .bonus-tile.selected {
-            background: #fffdf2;
-            border-color: #ecd172;
-            color: #63490d;
-        }
-
-        .bonus-tile.matched {
-            background: #eaf8ee;
-            border-color: #62bb79;
-            color: #1f7f3d;
-            cursor: default;
-        }
-
-        .bonus-replay-btn {
-            margin-top: 0.7rem;
-            background: #2f7af5;
-            font-weight: 700;
-        }
-
-        .bonus-replay-btn:hover {
-            background: #1d66e1;
-        }
-
     </style>
 </head>
 <body class="practice-page">
@@ -264,7 +60,6 @@
         <div class="header">
             <h1 id="kidName">Loading...</h1>
             <div class="header-actions">
-                <button class="control-btn early-finish-btn hidden" onclick="requestEarlyFinish()" id="finishEarlyBtn" disabled>Finish Early</button>
                 <a id="kidBackBtn" href="/" class="back-btn">← Back</a>
             </div>
         </div>
@@ -272,93 +67,31 @@
         <div id="errorMessage" class="error hidden"></div>
 
         <div class="practice-container">
-            <!-- Flashcard Practice -->
             <div id="practiceSection" class="hidden">
                 <div id="practiceChooser" class="practice-chooser">
-                    <button id="chinesePracticeOption" class="practice-option" onclick="chooseChinesePractice()">
+                    <button id="chinesePracticeOption" class="practice-option" data-category-key="chinese_characters" onclick="chooseChinesePractice()">
                         <h3>📖 Chinese Characters</h3>
                         <p id="chineseStarBadge" class="practice-star-badge"></p>
                     </button>
-                    <button id="writingPracticeOption" class="practice-option" onclick="goWritingPractice()">
+                    <button id="writingPracticeOption" class="practice-option" data-category-key="chinese_writing" onclick="goWritingPractice('chinese_writing')">
                         <h3>✍️ Chinese Character Writing</h3>
                         <p id="writingStarBadge" class="practice-star-badge"></p>
                     </button>
-                    <button id="mathPracticeOption" class="practice-option" onclick="goMathPractice()">
+                    <button id="mathPracticeOption" class="practice-option" data-category-key="math" onclick="goType1Practice('math')">
                         <h3>➗ Math</h3>
                         <p id="mathStarBadge" class="practice-star-badge"></p>
                     </button>
-                    <button id="lessonReadingPracticeOption" class="practice-option" onclick="goLessonReadingPractice()">
+                    <button id="lessonReadingPracticeOption" class="practice-option" data-category-key="chinese_reading" onclick="goLessonReadingPractice('chinese_reading')">
                         <h3>📚 Chinese Reading</h3>
                         <p id="lessonReadingStarBadge" class="practice-star-badge"></p>
                     </button>
                 </div>
-
-                <div id="startScreen" class="hidden">
-                    <div class="flashcard">
-                        <h2 class="session-title">Ready to start?</h2>
-                        <p id="sessionInfo" class="progress">Session: 10 Chinese character cards</p>
-                        <div class="practice-mode-row">
-                            <span class="practice-mode-label">Mode</span>
-                            <div id="judgeModeToggleStart" class="audio-filter-group" aria-label="Practice mode">
-                                <button type="button" class="audio-filter-btn active" data-judge-mode="self" aria-pressed="true">Kids Self</button>
-                                <button type="button" class="audio-filter-btn" data-judge-mode="parent" aria-pressed="false">Parent Assisted</button>
-                            </div>
-                        </div>
-                        <button class="control-btn start-btn" onclick="startSession()">Start</button>
-                    </div>
-                </div>
-
-                <div id="sessionScreen" class="hidden">
-                    <div class="practice-progress">
-                        <div class="practice-progress-text" id="progress">Card 1 of 10</div>
-                        <div class="practice-progress-track">
-                            <div class="practice-progress-fill" id="progressFill"></div>
-                        </div>
-                    </div>
-
-                    <div id="flashcard" class="flashcard" onclick="togglePauseFromCard()">
-                        <div class="card-content" id="cardContent">你</div>
-                        <div class="card-back-content hidden" id="cardBackContent"></div>
-                        <div id="pauseMask" class="pause-mask hidden">Paused</div>
-                    </div>
-
-                    <div class="controls">
-                        <div class="session-action-slot">
-                            <div class="session-action-layer" id="revealRow">
-                                <button class="control-btn start-btn session-action-btn session-single-btn" onclick="revealAnswer()" id="revealBtn">I'm done</button>
-                            </div>
-                            <div class="session-action-layer hidden" id="judgeRow">
-                                <button class="control-btn dont-know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(false)" id="wrongBtn">Wrong</button>
-                                <button class="control-btn know-btn session-action-btn session-judge-btn" onclick="answerCurrentCard(true)" id="rightBtn">Right</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="resultScreen" class="hidden">
-                    <div class="flashcard">
-                        <h2 class="session-title">Session Complete</h2>
-                        <p id="resultSummary" class="progress"></p>
-                        <div id="bonusGameSection" class="bonus-game hidden">
-                            <h3 class="bonus-game-title">Bonus Game: Match the Wrong Cards</h3>
-                            <p id="bonusGameHint" class="bonus-game-hint"></p>
-                            <p id="bonusGameStatus" class="bonus-game-status"></p>
-                            <div id="bonusGameBoard" class="bonus-game-board"></div>
-                            <button id="bonusReplayBtn" type="button" class="control-btn bonus-replay-btn">Shuffle Again</button>
-                        </div>
-                        <a id="resultBackBtn" href="/" class="control-btn back-btn result-back-btn">Back to my chores</a>
-                    </div>
-                </div>
             </div>
-
         </div>
     </div>
 
-    <script src="practice-progress.js"></script>
-    <script src="practice-session.js"></script>
+    <script src="deck-category-common.js"></script>
     <script src="practice-ui-common.js"></script>
-    <script src="practice-judge-mode.js"></script>
-    <script src="practice-session-flow.js"></script>
-    <script src="kid-chinese-characters.js"></script>
+    <script src="kid-practice-home.js"></script>
 </body>
 </html>

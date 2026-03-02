@@ -6,10 +6,6 @@ const kidId = params.get('id');
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
 const successMessage = document.getElementById('successMessage');
-const charactersTab = document.getElementById('charactersTab');
-const writingTab = document.getElementById('writingTab');
-const mathTab = document.getElementById('mathTab');
-const lessonReadingTab = document.getElementById('lessonReadingTab');
 
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sharedLessonReadingSessionCardCountInput = document.getElementById('sharedLessonReadingSessionCardCount');
@@ -479,6 +475,14 @@ async function loadKidInfo() {
     if (!response.ok) {
         throw new Error(kid.error || `Failed to load kid (HTTP ${response.status})`);
     }
+    window.PracticeManageCommon.applyKidManageTabVisibility({
+        kidId,
+        optedInCategoryKeys: kid.optedInDeckCategoryKeys,
+        deckCategoryMetaByKey: kid.deckCategoryMetaByKey,
+        defaultCategoryByRoute: {
+            '/kid-lesson-reading-manage.html': 'chinese_reading',
+        },
+    });
     kidNameEl.textContent = `${kid.name || 'Kid'} - Chinese Reading Management`;
     const total = Number.parseInt(kid.sharedLessonReadingSessionCardCount, 10);
     sharedLessonReadingSessionCardCountInput.value = String(Number.isInteger(total) ? total : 0);
@@ -699,10 +703,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    charactersTab.href = `/kid-reading-manage.html?id=${kidId}`;
-    writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
-    mathTab.href = `/kid-math-manage.html?id=${kidId}`;
-    lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
+    window.PracticeManageCommon.applyKidManageTabVisibility({ kidId });
 
     optInAllAvailableController = window.PracticeManageCommon.createSetBackedOptInAllAvailableController({
         buttonEl: optInAllAvailableBtn,

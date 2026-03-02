@@ -17,8 +17,11 @@ window.PracticeSessionFlow = {
         return { pendingSessionId, cards, data };
     },
 
-    async postCompleteSession(url, pendingSessionId, answers) {
+    async postCompleteSession(url, pendingSessionId, answers, extraPayload = null) {
         const payload = window.PracticeSession.buildCompletePayload(pendingSessionId, answers);
+        if (extraPayload && typeof extraPayload === 'object') {
+            Object.assign(payload, extraPayload);
+        }
         return fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

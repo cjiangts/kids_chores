@@ -2,17 +2,27 @@ const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
+const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
+const TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'type1SessionCardCountByCategory';
+const TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD = 'type1IncludeOrphanByCategory';
+const TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'type1HardCardPercentageByCategory';
+
+const {
+    buildCategoryDisplayName,
+    getDeckCategoryMetaMap,
+} = window.DeckCategoryCommon;
 
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
 const successMessage = document.getElementById('successMessage');
-const charactersTab = document.getElementById('charactersTab');
-const writingTab = document.getElementById('writingTab');
-const mathTab = document.getElementById('mathTab');
-const lessonReadingTab = document.getElementById('lessonReadingTab');
 
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sharedMathSessionCardCountInput = document.getElementById('sharedMathSessionCardCount');
+const sessionCardCountLabel = document.getElementById('sessionCardCountLabel');
+const optInDecksHeading = document.getElementById('optInDecksHeading');
+const optInDecksNote = document.getElementById('optInDecksNote');
+const cardsSectionTitleText = document.getElementById('cardsSectionTitleText');
+const cardsHardnessHelpText = document.getElementById('cardsHardnessHelpText');
 
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
@@ -25,7 +35,14 @@ const selectedDecksTitle = document.getElementById('selectedDecksTitle');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckPendingInfo = document.getElementById('deckPendingInfo');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
+const orphanEditorSection = document.getElementById('orphanEditorSection');
+const addCardForm = document.getElementById('addCardForm');
+const chineseCharInput = document.getElementById('chineseChar');
+const addReadingBtn = document.getElementById('addReadingBtn');
+const addCardStatusMessage = document.getElementById('addCardStatusMessage');
+
 const viewOrderSelect = document.getElementById('viewOrderSelect');
+const cardSearchInput = document.getElementById('cardSearchInput');
 const deckTotalInfo = document.getElementById('deckTotalInfo');
 const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
@@ -36,6 +53,7 @@ const hardnessPercentStatus = document.getElementById('hardnessPercentStatus');
 let allDecks = [];
 let orphanDeck = null;
 let currentCards = [];
+let orphanCardFronts = new Set();
 let sortedCards = [];
 let visibleCardCount = 10;
 let isDeckMoveInFlight = false;
@@ -47,8 +65,48 @@ let baselineIncludeOrphanInQueue = false;
 let stagedIncludeOrphanInQueue = false;
 let hardnessController = null;
 let sharedDeckCardsResponseTracker = null;
+let currentCategoryDisplayName = 'Practice';
+let isChineseSpecificLogic = false;
+let isReadingBulkAdding = false;
+let initialHardCardPercent = null;
+let type1SessionCardCountByCategory = {};
+let type1IncludeOrphanByCategory = {};
+let type1HardCardPercentByCategory = {};
 const CARD_PAGE_SIZE = 10;
 const ORPHAN_BUBBLE_ID = '__orphan__';
+
+function toCategoryMap(rawMap) {
+    const input = (rawMap && typeof rawMap === 'object') ? rawMap : {};
+    const out = {};
+    Object.entries(input).forEach(([rawKey, value]) => {
+        const key = String(rawKey || '').trim().toLowerCase();
+        if (!key) {
+            return;
+        }
+        out[key] = value;
+    });
+    return out;
+}
+
+function getCategoryIntValue(rawMap, fallback = 0) {
+    const map = toCategoryMap(rawMap);
+    const parsed = Number.parseInt(map[categoryKey], 10);
+    return Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function getCategoryBoolValue(rawMap, fallback = false) {
+    const map = toCategoryMap(rawMap);
+    if (!Object.prototype.hasOwnProperty.call(map, categoryKey)) {
+        return Boolean(fallback);
+    }
+    return Boolean(map[categoryKey]);
+}
+
+function withCategoryValue(rawMap, value) {
+    const map = toCategoryMap(rawMap);
+    map[categoryKey] = value;
+    return map;
+}
 
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -94,6 +152,72 @@ function showDeckChangeMessage(message, isError = false) {
     deckChangeMessage.classList.remove('hidden');
     deckChangeMessage.classList.toggle('error', isError);
     deckChangeMessage.classList.toggle('success', !isError);
+}
+
+function showStatusMessage(message, isError = true) {
+    if (!addCardStatusMessage) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        addCardStatusMessage.textContent = '';
+        addCardStatusMessage.classList.add('hidden');
+        return;
+    }
+    addCardStatusMessage.textContent = text;
+    addCardStatusMessage.classList.remove('hidden');
+    if (isError) {
+        addCardStatusMessage.style.background = '#f8d7da';
+        addCardStatusMessage.style.color = '#721c24';
+        addCardStatusMessage.style.border = '1px solid #f5c6cb';
+    } else {
+        addCardStatusMessage.style.background = '#d4edda';
+        addCardStatusMessage.style.color = '#155724';
+        addCardStatusMessage.style.border = '1px solid #c3e6cb';
+    }
+}
+
+function withCategoryKey(url) {
+    if (categoryKey) {
+        url.searchParams.set('categoryKey', categoryKey);
+    }
+    return url;
+}
+
+function buildType1ApiUrl(pathSuffix) {
+    const cleanSuffix = String(pathSuffix || '').replace(/^\/+/, '');
+    const url = new URL(`${API_BASE}/kids/${kidId}/type1/${cleanSuffix}`);
+    return withCategoryKey(url).toString();
+}
+
+function getCurrentCategoryDisplayName() {
+    return String(currentCategoryDisplayName || '').trim() || buildCategoryDisplayName(categoryKey);
+}
+
+function applyCategoryUiText() {
+    const displayName = getCurrentCategoryDisplayName();
+    if (sessionCardCountLabel) {
+        sessionCardCountLabel.textContent = `${displayName} Cards Per Session (Total Across Opted-in Decks)`;
+    }
+    if (optInDecksHeading) {
+        optInDecksHeading.textContent = `Opt-in Shared ${displayName} Decks`;
+    }
+    if (optInDecksNote) {
+        optInDecksNote.textContent = 'Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.';
+    }
+    if (cardsSectionTitleText) {
+        cardsSectionTitleText.textContent = `${displayName} Questions`;
+    }
+    if (cardsHardnessHelpText) {
+        cardsHardnessHelpText.textContent = `Hardness score for ${displayName} is based on the card's most recent response time. Slower response means higher hardness.`;
+    }
+    if (orphanEditorSection) {
+        orphanEditorSection.classList.toggle('hidden', !isChineseSpecificLogic);
+    }
+    if (cardSearchInput) {
+        cardSearchInput.classList.toggle('hidden', !isChineseSpecificLogic);
+    }
+    document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);
 }
 
 function getDeckById(deckId) {
@@ -172,15 +296,15 @@ function renderAvailableDecks() {
         emptyEl: availableEmptyEl,
         allAvailableDecks,
         filteredDecks: deckList,
-        emptyText: 'No shared Math decks available yet.',
+        emptyText: `No shared ${getCurrentCategoryDisplayName()} decks available yet.`,
         filterLabel: ensureAvailableTagFilterController().getDisplayLabel(),
-        getLabel: getMathDeckBubbleLabel,
+        getLabel: getType1DeckBubbleLabel,
         bubbleTitle: 'Click to stage opt-in',
         maxVisibleCount: 10,
     });
     if (shouldShowOrphan && availableDecksEl) {
-        const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'math_orphan');
-        const orphanName = stripMathFirstTagFromName(orphanNameRaw) || orphanNameRaw;
+        const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : `${categoryKey}_orphan`);
+        const orphanName = stripCategoryFirstTagFromName(orphanNameRaw) || orphanNameRaw;
         const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
         const orphanBubble = `
             <button
@@ -202,26 +326,27 @@ function getDeckTags(deck) {
         : [];
 }
 
-function stripMathFirstTagFromName(name) {
+function stripCategoryFirstTagFromName(name) {
     const text = String(name || '').trim();
     if (!text) {
         return '';
     }
-    if (text === 'math') {
+    if (text === categoryKey) {
         return '';
     }
-    if (text.startsWith('math_')) {
-        return text.slice('math_'.length);
+    const prefix = `${categoryKey}_`;
+    if (text.startsWith(prefix)) {
+        return text.slice(prefix.length);
     }
     return text;
 }
 
-function getMathDeckBubbleLabel(deck) {
+function getType1DeckBubbleLabel(deck) {
     const tags = getDeckTags(deck);
-    if (tags.length > 1 && tags[0] === 'math') {
+    if (tags.length > 1 && tags[0] === categoryKey) {
         return tags.slice(1).join('_');
     }
-    const stripped = stripMathFirstTagFromName(deck && deck.name);
+    const stripped = stripCategoryFirstTagFromName(deck && deck.name);
     return stripped || String(deck && deck.name ? deck.name : '');
 }
 
@@ -269,23 +394,23 @@ function renderSelectedDecks() {
     if (selectedDecksTitle) {
         selectedDecksTitle.textContent = `Opted-in Decks (${optedDecks.length + (showOrphanInSelected ? 1 : 0)})`;
     }
-    const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : 'math_orphan');
-    const orphanName = stripMathFirstTagFromName(orphanNameRaw) || orphanNameRaw;
+    const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : `${categoryKey}_orphan`);
+    const orphanName = stripCategoryFirstTagFromName(orphanNameRaw) || orphanNameRaw;
     const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
 
     const optedDeckButtons = optedDecks.map((deck) => {
-            const deckId = Number(deck.deck_id || 0);
-            const suffix = ` · ${Number(deck.card_count || 0)} cards`;
-            const label = getMathDeckBubbleLabel(deck);
-            return `
-                <button
-                    type="button"
-                    class="deck-bubble selected"
-                    data-deck-id="${deckId}"
-                    title="Click to stage opt-out"
-                >${escapeHtml(label)}${escapeHtml(suffix)}</button>
-            `;
-        });
+        const deckId = Number(deck.deck_id || 0);
+        const suffix = ` · ${Number(deck.card_count || 0)} cards`;
+        const label = getType1DeckBubbleLabel(deck);
+        return `
+            <button
+                type="button"
+                class="deck-bubble selected"
+                data-deck-id="${deckId}"
+                title="Click to stage opt-out"
+            >${escapeHtml(label)}${escapeHtml(suffix)}</button>
+        `;
+    });
 
     const orphanButton = showOrphanInSelected
         ? `
@@ -307,16 +432,58 @@ function renderSelectedDecks() {
     }
 }
 
-function displayCards(cards) {
-    sortedCards = window.PracticeManageCommon.sortCardsForView(cards, viewOrderSelect.value);
-
-    if (sortedCards.length === 0) {
-        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
-        return;
+function filterCardsByQuery(cards, rawQuery) {
+    const query = String(rawQuery || '').trim();
+    if (!query) {
+        return cards;
     }
+    return cards.filter((card) => {
+        const front = String(card.front || '');
+        const back = String(card.back || '');
+        return front.includes(query) || back.includes(query);
+    });
+}
 
-    const visibleCards = sortedCards.slice(0, visibleCardCount);
-    cardsGrid.innerHTML = visibleCards.map((card) => `
+function buildCardReportHref(card) {
+    const qs = new URLSearchParams();
+    qs.set('id', String(kidId || ''));
+    qs.set('cardId', String(card.id || ''));
+    qs.set('from', 'type1');
+    if (categoryKey) {
+        qs.set('categoryKey', categoryKey);
+    }
+    return `/kid-card-report.html?${qs.toString()}`;
+}
+
+function buildChineseCardMarkup(card) {
+    return `
+        <div class="card-item type1-chinese-card">
+            ${card.source_is_orphan ? `
+                <button
+                    type="button"
+                    class="delete-card-btn"
+                    data-action="delete-card"
+                    data-card-id="${escapeHtml(card.id)}"
+                    title="Delete this orphan card"
+                    aria-label="Delete this card"
+                >×</button>
+            ` : ''}
+            <div class="card-front">${escapeHtml(card.front)}</div>
+            ${String(card.back || '').trim() ? `
+            <div class="card-back">${escapeHtml(card.back)}</div>
+            ` : ''}
+            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(card.source_deck_label || card.source_deck_name || '-')}</div>
+            <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
+            <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>
+            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
+            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
+            <a class="card-report-link" href="${buildCardReportHref(card)}">Report</a>
+        </div>
+    `;
+}
+
+function buildGenericType1CardMarkup(card) {
+    return `
         <div class="card-item ${card.skip_practice ? 'skipped' : ''}">
             <button
                 type="button"
@@ -334,20 +501,36 @@ function displayCards(cards) {
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
-            <a
-                class="card-report-link"
-                href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(card.id)}&from=math"
-            >Report</a>
+            <a class="card-report-link" href="${buildCardReportHref(card)}">Report</a>
         </div>
-    `).join('');
+    `;
 }
 
+function displayCards(cards) {
+    const filteredCards = isChineseSpecificLogic
+        ? filterCardsByQuery(cards, cardSearchInput ? cardSearchInput.value : '')
+        : cards;
+    sortedCards = window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
+
+    if (mathCardCount) {
+        mathCardCount.textContent = `(${sortedCards.length})`;
+    }
+
+    if (sortedCards.length === 0) {
+        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
+        return;
+    }
+
+    const visibleCards = sortedCards.slice(0, visibleCardCount);
+    cardsGrid.innerHTML = visibleCards
+        .map((card) => (isChineseSpecificLogic ? buildChineseCardMarkup(card) : buildGenericType1CardMarkup(card)))
+        .join('');
+}
 
 function resetAndDisplayCards(cards) {
     visibleCardCount = CARD_PAGE_SIZE;
     displayCards(cards);
 }
-
 
 function maybeLoadMoreCards() {
     if (sortedCards.length <= visibleCardCount) {
@@ -363,13 +546,67 @@ function maybeLoadMoreCards() {
     displayCards(currentCards);
 }
 
+function updateAddReadingButtonCount() {
+    if (!addReadingBtn || !chineseCharInput) {
+        return;
+    }
+    if (isReadingBulkAdding) {
+        addReadingBtn.textContent = 'Adding...';
+        return;
+    }
+    const totalChineseChars = countChineseCharsBeforeDbDedup(chineseCharInput.value);
+    if (totalChineseChars > 0) {
+        addReadingBtn.textContent = `Bulk Add Chinese Characters (${totalChineseChars})`;
+        return;
+    }
+    addReadingBtn.textContent = 'Bulk Add Chinese Characters';
+}
+
+function setReadingBulkAddBusy(isBusy) {
+    if (!addReadingBtn || !chineseCharInput) {
+        return;
+    }
+    isReadingBulkAdding = !!isBusy;
+    addReadingBtn.disabled = isReadingBulkAdding;
+    chineseCharInput.disabled = isReadingBulkAdding;
+    updateAddReadingButtonCount();
+}
+
+function extractChineseCharacters(text) {
+    const matches = String(text || '').match(/\p{Script=Han}/gu);
+    if (!matches) {
+        return [];
+    }
+    return [...new Set(matches)];
+}
+
+function countChineseCharsBeforeDbDedup(text) {
+    const matches = String(text || '').match(/\p{Script=Han}/gu);
+    return matches ? matches.length : 0;
+}
+
+function updateOrphanDerivedState(cards) {
+    const safeCards = Array.isArray(cards) ? cards : [];
+    const orphanCards = safeCards.filter((card) => !!card.source_is_orphan);
+    orphanCardFronts = new Set(
+        orphanCards
+            .map((card) => String(card.front || ''))
+            .filter(Boolean)
+    );
+    if (!orphanDeck) {
+        return;
+    }
+    orphanDeck.card_count = orphanCards.length;
+    orphanDeck.active_card_count = orphanCards.filter((card) => !card.skip_practice).length;
+    orphanDeck.skipped_card_count = orphanCards.filter((card) => !!card.skip_practice).length;
+}
 
 async function loadSharedDeckCards(previewHardCardPercentage = null) {
     const requestId = sharedDeckCardsResponseTracker
         ? sharedDeckCardsResponseTracker.begin()
         : 0;
     try {
-        const url = new URL(`${API_BASE}/kids/${kidId}/math/shared-decks/cards`);
+        const url = withCategoryKey(new URL(`${API_BASE}/kids/${kidId}/type1/shared-decks/cards`));
         const previewHardPct = hardnessController
             ? hardnessController.parsePreviewValue(previewHardCardPercentage)
             : null;
@@ -389,6 +626,9 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
         if (hardnessController) {
             hardnessController.setCurrentValue(data.hard_card_percentage);
         }
+
+        updateOrphanDerivedState(currentCards);
+
         const activeCount = Number.isInteger(Number.parseInt(data.active_card_count, 10))
             ? Number.parseInt(data.active_card_count, 10)
             : currentCards.filter((card) => !card.skip_practice).length;
@@ -396,9 +636,6 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
             ? Number.parseInt(data.skipped_card_count, 10)
             : currentCards.filter((card) => !!card.skip_practice).length;
 
-        if (mathCardCount) {
-            mathCardCount.textContent = `(${currentCards.length})`;
-        }
         if (deckTotalInfo) {
             const practiceActiveCount = Number.isInteger(Number.parseInt(data.practice_active_card_count, 10))
                 ? Number.parseInt(data.practice_active_card_count, 10)
@@ -407,14 +644,13 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
         }
         resetAndDisplayCards(currentCards);
     } catch (error) {
-        console.error('Error loading shared Math cards:', error);
-        showError(error.message || 'Failed to load shared Math cards.');
+        console.error('Error loading shared category cards:', error);
+        showError(error.message || `Failed to load shared ${getCurrentCategoryDisplayName()} cards.`);
     }
 }
 
-
-async function updateSharedMathCardSkip(cardId, skipped) {
-    const response = await fetch(`${API_BASE}/kids/${kidId}/math/shared-decks/cards/${cardId}/skip`, {
+async function updateSharedType1CardSkip(cardId, skipped) {
+    const response = await fetch(buildType1ApiUrl(`shared-decks/cards/${cardId}/skip`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ skipped })
@@ -427,6 +663,82 @@ async function updateSharedMathCardSkip(cardId, skipped) {
     showError('');
 }
 
+async function addOrphanCards() {
+    if (!isChineseSpecificLogic || isReadingBulkAdding) {
+        return;
+    }
+    try {
+        setReadingBulkAddBusy(true);
+        showStatusMessage('');
+        showError('');
+        showSuccess('');
+
+        const input = String(chineseCharInput ? chineseCharInput.value : '').trim();
+        const chineseChars = extractChineseCharacters(input);
+        if (chineseChars.length === 0) {
+            showError('Please enter at least one Chinese character');
+            return;
+        }
+
+        const newChars = chineseChars.filter((ch) => !orphanCardFronts.has(ch));
+        const skippedExistingCount = Math.max(0, chineseChars.length - newChars.length);
+        if (newChars.length === 0) {
+            showError('All characters already exist in orphan deck');
+            return;
+        }
+
+        const addUrl = withCategoryKey(new URL(`${API_BASE}/kids/${kidId}/cards/bulk`));
+        const response = await fetch(addUrl.toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                categoryKey,
+                cards: newChars.map((ch) => ({ front: ch, back: '' }))
+            }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to add cards (HTTP ${response.status})`);
+        }
+
+        const inserted = Math.max(0, Number(result.created) || 0);
+        addCardForm.reset();
+        updateAddReadingButtonCount();
+        showStatusMessage(`Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s).`, false);
+        await loadSharedType1Decks();
+    } catch (error) {
+        console.error('Error adding orphan cards:', error);
+        showStatusMessage('');
+        showError(error.message || 'Failed to add cards.');
+    } finally {
+        setReadingBulkAddBusy(false);
+    }
+}
+
+async function deleteOrphanCard(cardId) {
+    try {
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            'deleting this orphan card',
+            (password) => fetch(`${API_BASE}/kids/${kidId}/cards/${cardId}`, {
+                method: 'DELETE',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+            })
+        );
+        if (result.cancelled) {
+            return;
+        }
+        if (!result.ok) {
+            throw new Error(result.error || 'Failed to delete card.');
+        }
+
+        showError('');
+        showSuccess('Card deleted.');
+        await loadSharedType1Decks();
+    } catch (error) {
+        console.error('Error deleting orphan card:', error);
+        showError(error.message || 'Failed to delete card.');
+    }
+}
 
 async function handleCardsGridClick(event) {
     const actionBtn = event.target.closest('[data-action]');
@@ -434,9 +746,30 @@ async function handleCardsGridClick(event) {
         return;
     }
     const action = actionBtn.dataset.action;
+
+    if (action === 'delete-card') {
+        const cardId = actionBtn.dataset.cardId;
+        if (!cardId) {
+            return;
+        }
+        const cardRow = (Array.isArray(currentCards) ? currentCards : []).find((card) => String(card.id) === String(cardId));
+        if (!cardRow || !cardRow.source_is_orphan) {
+            showError('Only orphan cards can be deleted.');
+            return;
+        }
+        actionBtn.disabled = true;
+        try {
+            await deleteOrphanCard(cardId);
+        } finally {
+            actionBtn.disabled = false;
+        }
+        return;
+    }
+
     if (action !== 'toggle-skip') {
         return;
     }
+
     const cardId = actionBtn.dataset.cardId;
     if (!cardId) {
         return;
@@ -446,9 +779,9 @@ async function handleCardsGridClick(event) {
     const targetSkipped = !currentlySkipped;
     try {
         actionBtn.disabled = true;
-        await updateSharedMathCardSkip(cardId, targetSkipped);
+        await updateSharedType1CardSkip(cardId, targetSkipped);
     } catch (error) {
-        console.error('Error updating shared Math card skip:', error);
+        console.error('Error updating shared category card skip:', error);
         showError(error.message || 'Failed to update skip status.');
     } finally {
         actionBtn.disabled = false;
@@ -461,16 +794,36 @@ async function loadKidInfo() {
     if (!response.ok) {
         throw new Error(kid.error || `Failed to load kid (HTTP ${response.status})`);
     }
-    kidNameEl.textContent = `${kid.name || 'Kid'} - Math Management`;
-    const total = Number.parseInt(kid.sharedMathSessionCardCount, 10);
+
+    const categoryMetaMap = getDeckCategoryMetaMap(kid);
+    const categoryMeta = categoryMetaMap[categoryKey] || {};
+    const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim()
+        || buildCategoryDisplayName(categoryKey);
+
+    isChineseSpecificLogic = Boolean(categoryMeta && categoryMeta.has_chinese_specific_logic);
+    currentCategoryDisplayName = displayName;
+    applyCategoryUiText();
+
+    window.PracticeManageCommon.applyKidManageTabVisibility({
+        kidId,
+        optedInCategoryKeys: kid.optedInDeckCategoryKeys,
+        deckCategoryMetaByKey: kid.deckCategoryMetaByKey,
+        defaultCategoryByRoute: {
+            '/kid-type1-manage.html': categoryKey,
+        },
+    });
+
+    kidNameEl.textContent = `${kid.name || 'Kid'} - ${displayName} Management`;
+    type1SessionCardCountByCategory = toCategoryMap(kid[TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]);
+    type1IncludeOrphanByCategory = toCategoryMap(kid[TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
+    type1HardCardPercentByCategory = toCategoryMap(kid[TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
+    const total = getCategoryIntValue(type1SessionCardCountByCategory, 0);
     sharedMathSessionCardCountInput.value = String(Number.isInteger(total) ? total : 0);
-    if (hardnessController) {
-        hardnessController.setCurrentValue(kid.sharedMathHardCardPercentage);
-    }
+    initialHardCardPercent = getCategoryIntValue(type1HardCardPercentByCategory, null);
 }
 
-async function loadSharedMathDecks() {
-    const response = await fetch(`${API_BASE}/kids/${kidId}/math/shared-decks`);
+async function loadSharedType1Decks() {
+    const response = await fetch(buildType1ApiUrl('shared-decks'));
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(result.error || `Failed to load shared decks (HTTP ${response.status})`);
@@ -507,30 +860,36 @@ async function saveSessionSettings() {
 
     const total = Number.parseInt(sharedMathSessionCardCountInput.value, 10);
     if (!Number.isInteger(total) || total < 0 || total > 200) {
-        showError('Math cards per session must be between 0 and 200.');
+        showError(`${getCurrentCategoryDisplayName()} cards per session must be between 0 and 200.`);
         return;
     }
     const response = await fetch(`${API_BASE}/kids/${kidId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            sharedMathSessionCardCount: total,
+            [TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]: withCategoryValue(
+                type1SessionCardCountByCategory,
+                total,
+            ),
         }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(result.error || `Failed to save settings (HTTP ${response.status})`);
     }
+    type1SessionCardCountByCategory = toCategoryMap(
+        result && result[TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]
+    );
 
     showSuccess('Practice settings saved.');
-    await loadSharedMathDecks();
+    await loadSharedType1Decks();
 }
 
 async function requestOptInDeckIds(deckIds) {
-    const response = await fetch(`${API_BASE}/kids/${kidId}/math/shared-decks/opt-in`, {
+    const response = await fetch(buildType1ApiUrl('shared-decks/opt-in'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_ids: deckIds }),
+        body: JSON.stringify({ deck_ids: deckIds, categoryKey }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -540,10 +899,10 @@ async function requestOptInDeckIds(deckIds) {
 }
 
 async function requestOptOutDeckIds(deckIds) {
-    const response = await fetch(`${API_BASE}/kids/${kidId}/math/shared-decks/opt-out`, {
+    const response = await fetch(buildType1ApiUrl('shared-decks/opt-out'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_ids: deckIds }),
+        body: JSON.stringify({ deck_ids: deckIds, categoryKey }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -654,18 +1013,24 @@ async function applyDeckMembershipChanges() {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    sharedMathIncludeOrphan: stagedIncludeOrphanInQueue,
+                    [TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD]: withCategoryValue(
+                        type1IncludeOrphanByCategory,
+                        stagedIncludeOrphanInQueue,
+                    ),
                 }),
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) {
                 throw new Error(result.error || `Failed to update orphan deck setting (HTTP ${response.status})`);
             }
+            type1IncludeOrphanByCategory = toCategoryMap(
+                result && result[TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD]
+            );
         }
         const orphanSummary = orphanChanged ? `, orphan ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}` : '';
         const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanSummary}.`;
         showDeckChangeMessage(summary);
-        await loadSharedMathDecks();
+        await loadSharedType1Decks();
     } catch (error) {
         console.error('Error applying deck membership changes:', error);
         showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
@@ -680,11 +1045,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/admin.html';
         return;
     }
+    if (!categoryKey) {
+        showError('Missing deck category. Open this page from Admin.');
+        return;
+    }
+    applyCategoryUiText();
 
-    charactersTab.href = `/kid-reading-manage.html?id=${kidId}`;
-    writingTab.href = `/kid-writing-manage.html?id=${kidId}`;
-    mathTab.href = `/kid-math-manage.html?id=${kidId}`;
-    lessonReadingTab.href = `/kid-lesson-reading-manage.html?id=${kidId}`;
+    window.PracticeManageCommon.applyKidManageTabVisibility({
+        kidId,
+        defaultCategoryByRoute: {
+            '/kid-type1-manage.html': categoryKey,
+        },
+    });
 
     optInAllAvailableController = window.PracticeManageCommon.createSetBackedOptInAllAvailableController({
         buttonEl: optInAllAvailableBtn,
@@ -720,39 +1092,69 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             await saveSessionSettings();
         } catch (error) {
-            console.error('Error saving shared Math settings:', error);
+            console.error('Error saving shared category settings:', error);
             showError(error.message || 'Failed to save practice settings.');
         }
     });
     viewOrderSelect.addEventListener('change', () => {
         resetAndDisplayCards(currentCards);
     });
-    hardnessController = window.PracticeManageCommon.createKidHardnessController({
-        sliderEl: hardnessPercentSlider,
-        valueEl: hardnessPercentValue,
-        statusEl: hardnessPercentStatus,
-        apiBase: API_BASE,
-        kidId,
-        kidFieldName: 'sharedMathHardCardPercentage',
-        savedMessage: 'Hard cards % saved.',
-        clearTopError: () => {
-            showError('');
-        },
-        reloadCards: async (value) => {
-            await loadSharedDeckCards(value);
-        },
-    });
-    hardnessController.attach();
+    if (cardSearchInput) {
+        cardSearchInput.addEventListener('input', () => {
+            resetAndDisplayCards(currentCards);
+        });
+    }
+    if (addCardForm) {
+        addCardForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            await addOrphanCards();
+        });
+    }
+    if (chineseCharInput) {
+        chineseCharInput.addEventListener('input', () => {
+            updateAddReadingButtonCount();
+        });
+    }
+
     sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();
 
     try {
         showError('');
         showSuccess('');
         await loadKidInfo();
-        await loadSharedMathDecks();
+        hardnessController = window.PracticeManageCommon.createKidHardnessController({
+            sliderEl: hardnessPercentSlider,
+            valueEl: hardnessPercentValue,
+            statusEl: hardnessPercentStatus,
+            apiBase: API_BASE,
+            kidId,
+            kidFieldName: TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD,
+            savedMessage: 'Hard cards % saved.',
+            buildPayload: (hardPct) => ({
+                [TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]: withCategoryValue(
+                    type1HardCardPercentByCategory,
+                    hardPct,
+                ),
+            }),
+            getPersistedValue: (payload) => {
+                const map = toCategoryMap(payload && payload[TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
+                type1HardCardPercentByCategory = map;
+                return getCategoryIntValue(map, null);
+            },
+            clearTopError: () => {
+                showError('');
+            },
+            reloadCards: async (value) => {
+                await loadSharedDeckCards(value);
+            },
+        });
+        hardnessController.attach();
+        hardnessController.setCurrentValue(initialHardCardPercent);
+        await loadSharedType1Decks();
+        updateAddReadingButtonCount();
     } catch (error) {
-        console.error('Error initializing Math manage:', error);
+        console.error('Error initializing category manage:', error);
         showError(error.message || 'Failed to load page.');
-        kidNameEl.textContent = 'Math Management';
+        kidNameEl.textContent = `${getCurrentCategoryDisplayName()} Management`;
     }
 });
