@@ -771,9 +771,13 @@ window.PracticeManageCommon = {
         const getDeckTags = typeof config.getDeckTags === 'function'
             ? config.getDeckTags
             : (deck) => (Array.isArray(deck?.tags) ? deck.tags : []);
+        const getDeckTagLabels = typeof config.getDeckTagLabels === 'function'
+            ? config.getDeckTagLabels
+            : null;
         const onFilterChanged = typeof config.onFilterChanged === 'function' ? config.onFilterChanged : null;
 
         let selectedTags = [];
+        let selectedTagLabels = [];
         let filteredDeckIdSet = null;
         let currentSuggestions = [];
         let chipsEl = null;
@@ -782,6 +786,7 @@ window.PracticeManageCommon = {
         const normalizeTag = (raw) => String(raw || '')
             .trim()
             .toLowerCase()
+            .replace(/\([^()]*\)\s*$/, '')
             .replace(/\s+/g, '_')
             .replace(/_+/g, '_')
             .replace(/^_+|_+$/g, '');
@@ -827,31 +832,51 @@ window.PracticeManageCommon = {
             return decks
                 .map((deck) => {
                     const rawTags = Array.isArray(getDeckTags(deck)) ? getDeckTags(deck) : [];
-                    const tags = rawTags.map(normalizeTag).filter(Boolean);
+                    const deckLabels = getDeckTagLabels ? getDeckTagLabels(deck) : rawTags;
+                    const rawLabels = Array.isArray(deckLabels) ? deckLabels : rawTags;
+                    const tags = [];
+                    const tagLabels = [];
+                    const seen = new Set();
+                    rawTags.forEach((rawTag, index) => {
+                        const tagKey = normalizeTag(rawTag);
+                        if (!tagKey || seen.has(tagKey)) {
+                            return;
+                        }
+                        seen.add(tagKey);
+                        const rawLabel = String(rawLabels[index] || '').trim();
+                        const label = rawLabel || tagKey;
+                        tags.push(tagKey);
+                        tagLabels.push(label);
+                    });
                     const deckId = getDeckId(deck);
                     if (!Number.isFinite(deckId) || deckId <= 0 || tags.length === 0) {
                         return null;
                     }
-                    return { deck, deckId, tags };
+                    return { deck, deckId, tags, tagLabels };
                 })
                 .filter(Boolean);
         };
 
-        const getUniqueTagsAtLevel = (entries, levelIndex) => {
-            const tags = new Set();
+        const getUniqueTagOptionsAtLevel = (entries, levelIndex) => {
+            const tagMap = new Map();
             entries.forEach((entry) => {
                 const tag = String(entry.tags[levelIndex] || '').trim();
                 if (tag) {
-                    tags.add(tag);
+                    const label = String(entry.tagLabels[levelIndex] || tag).trim() || tag;
+                    if (!tagMap.has(tag)) {
+                        tagMap.set(tag, label);
+                    }
                 }
             });
-            return Array.from(tags).sort((a, b) => a.localeCompare(b));
+            return Array.from(tagMap.entries())
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([key, label]) => ({ key, label }));
         };
 
         const findNextBranchLevel = (entries, startLevel) => {
             let level = Math.max(0, Number.parseInt(startLevel, 10) || 0);
             while (level < 64) {
-                const uniqueTags = getUniqueTagsAtLevel(entries, level);
+                const uniqueTags = getUniqueTagOptionsAtLevel(entries, level);
                 if (uniqueTags.length === 0) {
                     return -1;
                 }
@@ -867,6 +892,7 @@ window.PracticeManageCommon = {
             let candidates = [...entries];
             let nextLevelStart = 0;
             const normalizedSelected = [];
+            const normalizedSelectedLabels = [];
 
             for (let i = 0; i < selectedTags.length; i += 1) {
                 const selected = normalizeTag(selectedTags[i]);
@@ -877,18 +903,21 @@ window.PracticeManageCommon = {
                 if (branchLevel < 0) {
                     break;
                 }
-                const choices = getUniqueTagsAtLevel(candidates, branchLevel);
-                if (!choices.includes(selected)) {
+                const choices = getUniqueTagOptionsAtLevel(candidates, branchLevel);
+                const choiceMap = new Map(choices.map((item) => [item.key, item.label]));
+                if (!choiceMap.has(selected)) {
                     break;
                 }
                 candidates = candidates.filter((entry) => entry.tags[branchLevel] === selected);
                 normalizedSelected.push(selected);
+                normalizedSelectedLabels.push(choiceMap.get(selected) || selected);
                 nextLevelStart = branchLevel + 1;
             }
 
             if (normalizedSelected.length !== selectedTags.length) {
                 selectedTags = normalizedSelected;
             }
+            selectedTagLabels = normalizedSelectedLabels;
 
             return { candidates, nextLevelStart };
         };
@@ -900,7 +929,7 @@ window.PracticeManageCommon = {
             filteredDeckIdSet = new Set(candidates.map((entry) => entry.deckId));
 
             const nextBranchLevel = findNextBranchLevel(candidates, nextLevelStart);
-            currentSuggestions = nextBranchLevel < 0 ? [] : getUniqueTagsAtLevel(candidates, nextBranchLevel);
+            currentSuggestions = nextBranchLevel < 0 ? [] : getUniqueTagOptionsAtLevel(candidates, nextBranchLevel);
         };
 
         const renderChips = () => {
@@ -914,12 +943,15 @@ window.PracticeManageCommon = {
                 return;
             }
             container.classList.remove('hidden');
-            container.innerHTML = selectedTags.map((tag, index) => `
+            container.innerHTML = selectedTags.map((tag, index) => {
+                const label = String(selectedTagLabels[index] || tag).trim() || tag;
+                return `
                 <span class="shared-tag-filter-chip">
-                    ${escapeHtml(tag)}
-                    <button type="button" class="shared-tag-filter-chip-remove" data-filter-tag-index="${index}" aria-label="Remove ${escapeHtml(tag)}">×</button>
+                    ${escapeHtml(label)}
+                    <button type="button" class="shared-tag-filter-chip-remove" data-filter-tag-index="${index}" aria-label="Remove ${escapeHtml(label)}">×</button>
                 </span>
-            `).join('');
+            `;
+            }).join('');
         };
 
         const renderSuggestions = () => {
@@ -930,7 +962,9 @@ window.PracticeManageCommon = {
             isApplyingProgrammaticSelect = true;
             selectEl.innerHTML = [
                 `<option value="">${escapeHtml(placeholderLabel)}</option>`,
-                ...currentSuggestions.map((tag) => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`),
+                ...currentSuggestions.map((option) => (
+                    `<option value="${escapeHtml(option.key)}">${escapeHtml(option.label)}</option>`
+                )),
             ].join('');
             selectEl.value = '';
             isApplyingProgrammaticSelect = false;
@@ -944,10 +978,12 @@ window.PracticeManageCommon = {
             if (!next) {
                 return false;
             }
-            if (!currentSuggestions.includes(next) || selectedTags.includes(next)) {
+            const optionMap = new Map(currentSuggestions.map((item) => [item.key, item.label]));
+            if (!optionMap.has(next) || selectedTags.includes(next)) {
                 return false;
             }
             selectedTags = [...selectedTags, next];
+            selectedTagLabels = [...selectedTagLabels, optionMap.get(next) || next];
             isApplyingProgrammaticSelect = true;
             selectEl.value = '';
             isApplyingProgrammaticSelect = false;
@@ -974,10 +1010,14 @@ window.PracticeManageCommon = {
             return true;
         };
 
-        const getDisplayLabel = () => [...selectedTags].join(', ');
+        const getDisplayLabel = () => selectedTagLabels
+            .map((label, index) => String(label || selectedTags[index] || '').trim())
+            .filter(Boolean)
+            .join(', ');
 
         const clear = () => {
             selectedTags = [];
+            selectedTagLabels = [];
             if (selectEl) {
                 isApplyingProgrammaticSelect = true;
                 selectEl.value = '';

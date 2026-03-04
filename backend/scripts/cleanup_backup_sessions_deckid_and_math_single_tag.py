@@ -8,6 +8,7 @@ Actions:
 4) Populate deck_category display_name/emoji/share access in shared_decks.duckdb.
 5) Drop obsolete writing candidate queue tables from kid DBs.
 6) Migrate kids.json per-category settings into kid DB deck_category_opt_in columns.
+7) Prefix type-III card backs with "Page " in shared and kid DBs.
 """
 
 import argparse
@@ -59,6 +60,11 @@ LEGACY_WRITING_QUEUE_TABLES = (
     "writing_practicing_queue_meta",
 )
 
+SHARED_TAG_COMMENT_MIGRATIONS = {
+    "maprek": "马立平学前班",
+    "siwukuaidu": "四五快读",
+}
+
 DEPRECATED_KID_FIELDS_TO_DROP = (
     "sessionCardCount",
     "type1SessionCardCountByCategory",
@@ -86,6 +92,155 @@ def _normalize_category_key(value):
     text = re.sub(r"[\s\-]+", "_", text)
     text = re.sub(r"_+", "_", text).strip("_")
     return text
+
+
+def _normalize_shared_tag_key(value):
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    text = re.sub(r"\([^()]*\)\s*$", "", text).strip()
+    if not text:
+        return ""
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    return text
+
+
+def _resolve_shared_tag_comment(key):
+    normalized = _normalize_shared_tag_key(key)
+    if not normalized:
+        return ""
+    if normalized in SHARED_TAG_COMMENT_MIGRATIONS:
+        return SHARED_TAG_COMMENT_MIGRATIONS[normalized]
+    if normalized != "math" and normalized.startswith("ma"):
+        grade_match = re.match(r"^ma(\d+)$", normalized)
+        if grade_match:
+            return f"马立平{int(grade_match.group(1))}年级"
+        return "马立平"
+    return ""
+
+
+def _migrate_shared_deck_tag_comments(conn):
+    tables = _get_table_names(conn)
+    if "deck" not in tables:
+        return 0, 0
+
+    deck_rows = conn.execute(
+        """
+        SELECT deck_id, name, tags, creator_family_id, created_at
+        FROM deck
+        ORDER BY deck_id ASC
+        """
+    ).fetchall()
+    updated_deck_count = 0
+    migrated_tag_count = 0
+    migrated_deck_rows = []
+    for row in deck_rows:
+        deck_id = int(row[0])
+        name = str(row[1] or "").strip()
+        raw_tags = list(row[2] or [])
+        creator_family_id = int(row[3])
+        created_at = row[4]
+        if not raw_tags:
+            migrated_deck_rows.append(
+                (deck_id, name, [], creator_family_id, created_at)
+            )
+            continue
+        next_tags = []
+        changed = False
+        changed_in_row = 0
+        for raw_tag in raw_tags:
+            original = str(raw_tag or "").strip()
+            if not original:
+                continue
+            key = _normalize_shared_tag_key(original)
+            if not key:
+                continue
+            comment = _resolve_shared_tag_comment(key)
+            if comment:
+                migrated = f"{key}({comment})"
+                next_tags.append(migrated)
+                if migrated != original:
+                    changed = True
+                    changed_in_row += 1
+            else:
+                next_tags.append(original)
+
+        if changed:
+            updated_deck_count += 1
+            migrated_tag_count += changed_in_row
+        migrated_deck_rows.append(
+            (deck_id, name, next_tags, creator_family_id, created_at)
+        )
+
+    if updated_deck_count <= 0:
+        return 0, 0
+
+    has_cards = "cards" in tables
+    card_rows = []
+    max_card_id = 0
+    if has_cards:
+        card_rows = conn.execute(
+            "SELECT id, deck_id, front, back FROM cards ORDER BY id ASC"
+        ).fetchall()
+        if card_rows:
+            max_card_id = max(int(row[0]) for row in card_rows)
+    max_deck_id = 0
+    if migrated_deck_rows:
+        max_deck_id = max(int(row[0]) for row in migrated_deck_rows)
+
+    if has_cards:
+        conn.execute("DROP TABLE cards")
+    conn.execute("DROP TABLE deck")
+    conn.execute("DROP SEQUENCE IF EXISTS shared_deck_id_seq")
+    conn.execute(f"CREATE SEQUENCE shared_deck_id_seq START {max_deck_id + 1}")
+    conn.execute(
+        """
+        CREATE TABLE deck (
+          deck_id INTEGER PRIMARY KEY DEFAULT nextval('shared_deck_id_seq'),
+          name VARCHAR NOT NULL UNIQUE,
+          tags VARCHAR[] NOT NULL DEFAULT [],
+          creator_family_id INTEGER NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.executemany(
+        """
+        INSERT INTO deck (deck_id, name, tags, creator_family_id, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        migrated_deck_rows,
+    )
+
+    if has_cards:
+        conn.execute("DROP SEQUENCE IF EXISTS shared_card_id_seq")
+        conn.execute(f"CREATE SEQUENCE shared_card_id_seq START {max_card_id + 1}")
+        conn.execute(
+            """
+            CREATE TABLE cards (
+              id INTEGER PRIMARY KEY DEFAULT nextval('shared_card_id_seq'),
+              deck_id INTEGER NOT NULL,
+              front VARCHAR NOT NULL,
+              back VARCHAR NOT NULL,
+              FOREIGN KEY (deck_id) REFERENCES deck(deck_id),
+              UNIQUE (deck_id, front)
+            )
+            """
+        )
+        if card_rows:
+            conn.executemany(
+                """
+                INSERT INTO cards (id, deck_id, front, back)
+                VALUES (?, ?, ?, ?)
+                """,
+                card_rows,
+            )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cards_deck_id_front ON cards(deck_id, front)"
+        )
+
+    return updated_deck_count, migrated_tag_count
 
 
 def _to_int(value, minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0):
@@ -382,6 +537,109 @@ def _get_shared_deck_category_meta(conn):
             "emoji": str(row[5] or "").strip(),
         }
     return meta
+
+
+def _prefix_page_back(raw_back):
+    text = str(raw_back or "").strip()
+    if re.match(r"^page\s+", text, flags=re.IGNORECASE):
+        suffix = re.sub(r"^page\s+", "", text, flags=re.IGNORECASE).strip()
+        return f"Page {suffix}" if suffix else "Page "
+    return f"Page {text}" if text else "Page "
+
+
+def _migrate_shared_type3_card_back_prefix(conn):
+    tables = _get_table_names(conn)
+    if "deck" not in tables or "cards" not in tables:
+        return 0
+
+    meta = _get_shared_deck_category_meta(conn)
+    type3_keys = {
+        _normalize_category_key(key)
+        for key, value in meta.items()
+        if str((value or {}).get("behavior_type") or "").strip().lower() == BEHAVIOR_TYPE_III
+    }
+    if not type3_keys:
+        return 0
+
+    deck_rows = conn.execute("SELECT deck_id, tags FROM deck").fetchall()
+    target_deck_ids = []
+    for row in deck_rows:
+        deck_id = int(row[0])
+        tags = [_normalize_shared_tag_key(tag) for tag in list(row[1] or [])]
+        tags = [tag for tag in tags if tag]
+        if any(tag in type3_keys for tag in tags):
+            target_deck_ids.append(deck_id)
+    if not target_deck_ids:
+        return 0
+
+    placeholders = ",".join(["?"] * len(target_deck_ids))
+    card_rows = conn.execute(
+        f"SELECT id, back FROM cards WHERE deck_id IN ({placeholders})",
+        target_deck_ids,
+    ).fetchall()
+    updates = []
+    for row in card_rows:
+        card_id = int(row[0])
+        current_back = str(row[1] or "")
+        next_back = _prefix_page_back(current_back)
+        if next_back != current_back:
+            updates.append([next_back, card_id])
+    if not updates:
+        return 0
+
+    conn.executemany(
+        "UPDATE cards SET back = ? WHERE id = ?",
+        updates,
+    )
+    return len(updates)
+
+
+def _migrate_kid_type3_card_back_prefix(conn, shared_category_meta_by_key):
+    tables = _get_table_names(conn)
+    if "decks" not in tables or "cards" not in tables:
+        return 0
+    if not isinstance(shared_category_meta_by_key, dict) or not shared_category_meta_by_key:
+        return 0
+
+    type3_keys = {
+        _normalize_category_key(key)
+        for key, value in shared_category_meta_by_key.items()
+        if str((value or {}).get("behavior_type") or "").strip().lower() == BEHAVIOR_TYPE_III
+    }
+    if not type3_keys:
+        return 0
+
+    deck_rows = conn.execute("SELECT id, tags FROM decks").fetchall()
+    target_deck_ids = []
+    for row in deck_rows:
+        deck_id = int(row[0])
+        tags = [_normalize_shared_tag_key(tag) for tag in list(row[1] or [])]
+        tags = [tag for tag in tags if tag]
+        if any(tag in type3_keys for tag in tags):
+            target_deck_ids.append(deck_id)
+    if not target_deck_ids:
+        return 0
+
+    placeholders = ",".join(["?"] * len(target_deck_ids))
+    card_rows = conn.execute(
+        f"SELECT id, back FROM cards WHERE deck_id IN ({placeholders})",
+        target_deck_ids,
+    ).fetchall()
+    updates = []
+    for row in card_rows:
+        card_id = int(row[0])
+        current_back = str(row[1] or "")
+        next_back = _prefix_page_back(current_back)
+        if next_back != current_back:
+            updates.append([next_back, card_id])
+    if not updates:
+        return 0
+
+    conn.executemany(
+        "UPDATE cards SET back = ? WHERE id = ?",
+        updates,
+    )
+    return len(updates)
 
 
 def _ensure_kid_deck_category_opt_in_table_columns(conn):
@@ -789,6 +1047,9 @@ def cleanup_db_bytes(
             removed_card_count = 0
             inserted_category_count = 0
             updated_category_count = 0
+            migrated_tag_comment_deck_count = 0
+            migrated_tag_comment_count = 0
+            type3_back_prefixed_count = 0
             inserted_opt_in_row_count = 0
             seeded_opt_in = False
             observed_shared_category_meta = {}
@@ -797,6 +1058,11 @@ def cleanup_db_bytes(
             if base_name == "shared_decks.duckdb":
                 removed_deck_count, removed_card_count = _remove_single_math_tag_shared_decks_if_present(conn)
                 inserted_category_count, updated_category_count = _populate_shared_deck_category_display_data(conn)
+                (
+                    migrated_tag_comment_deck_count,
+                    migrated_tag_comment_count,
+                ) = _migrate_shared_deck_tag_comments(conn)
+                type3_back_prefixed_count = _migrate_shared_type3_card_back_prefix(conn)
                 observed_shared_category_meta = _get_shared_deck_category_meta(conn)
             else:
                 kid_id = _extract_kid_id_from_entry_name(entry_name)
@@ -805,6 +1071,10 @@ def cleanup_db_bytes(
                         conn,
                         shared_category_meta_by_key,
                         kid_category_config,
+                    )
+                    type3_back_prefixed_count = _migrate_kid_type3_card_back_prefix(
+                        conn,
+                        shared_category_meta_by_key,
                     )
         finally:
             conn.close()
@@ -821,6 +1091,9 @@ def cleanup_db_bytes(
         removed_card_count,
         inserted_category_count,
         updated_category_count,
+        migrated_tag_comment_deck_count,
+        migrated_tag_comment_count,
+        type3_back_prefixed_count,
         inserted_opt_in_row_count,
         seeded_opt_in,
         observed_shared_category_meta,
@@ -842,6 +1115,9 @@ def cleanup_backup_zip(input_zip, output_zip):
     removed_shared_card_count = 0
     inserted_shared_category_count = 0
     updated_shared_category_count = 0
+    migrated_shared_tag_comment_deck_count = 0
+    migrated_shared_tag_comment_count = 0
+    type3_back_prefixed_count = 0
     seeded_opt_in_db_count = 0
     inserted_opt_in_row_count = 0
     kids_json_updated_kid_count = 0
@@ -870,6 +1146,9 @@ def cleanup_backup_zip(input_zip, output_zip):
             removed_cards,
             inserted_categories,
             updated_categories,
+            migrated_tag_comment_decks,
+            migrated_tag_comments,
+            type3_back_prefixed_local,
             inserted_opt_in_rows_local,
             seeded_opt_in_local,
             observed_shared_meta,
@@ -882,6 +1161,9 @@ def cleanup_backup_zip(input_zip, output_zip):
             "removed_cards": removed_cards,
             "inserted_categories": inserted_categories,
             "updated_categories": updated_categories,
+            "migrated_tag_comment_decks": migrated_tag_comment_decks,
+            "migrated_tag_comments": migrated_tag_comments,
+            "type3_back_prefixed_count": type3_back_prefixed_local,
             "inserted_opt_in_rows": inserted_opt_in_rows_local,
             "seeded_opt_in": seeded_opt_in_local,
         }
@@ -918,6 +1200,15 @@ def cleanup_backup_zip(input_zip, output_zip):
                     removed_cards = int(shared_cleanup_summary["removed_cards"] or 0)
                     inserted_categories = int(shared_cleanup_summary["inserted_categories"] or 0)
                     updated_categories = int(shared_cleanup_summary["updated_categories"] or 0)
+                    migrated_tag_comment_decks = int(
+                        shared_cleanup_summary["migrated_tag_comment_decks"] or 0
+                    )
+                    migrated_tag_comments = int(
+                        shared_cleanup_summary["migrated_tag_comments"] or 0
+                    )
+                    type3_back_prefixed_local = int(
+                        shared_cleanup_summary["type3_back_prefixed_count"] or 0
+                    )
 
                     if dropped_sessions_deck_id:
                         sessions_column_dropped_db_count += 1
@@ -929,6 +1220,9 @@ def cleanup_backup_zip(input_zip, output_zip):
                     removed_shared_card_count += removed_cards
                     inserted_shared_category_count += inserted_categories
                     updated_shared_category_count += updated_categories
+                    migrated_shared_tag_comment_deck_count += migrated_tag_comment_decks
+                    migrated_shared_tag_comment_count += migrated_tag_comments
+                    type3_back_prefixed_count += type3_back_prefixed_local
 
                 elif lower_name.endswith(".duckdb") or lower_name.endswith(".db"):
                     checked_db_count += 1
@@ -943,6 +1237,9 @@ def cleanup_backup_zip(input_zip, output_zip):
                         removed_cards,
                         inserted_categories,
                         updated_categories,
+                        migrated_tag_comment_decks,
+                        migrated_tag_comments,
+                        type3_back_prefixed_local,
                         inserted_opt_in_rows_local,
                         seeded_opt_in_local,
                         observed_shared_meta,
@@ -962,6 +1259,9 @@ def cleanup_backup_zip(input_zip, output_zip):
                     removed_shared_card_count += int(removed_cards or 0)
                     inserted_shared_category_count += int(inserted_categories or 0)
                     updated_shared_category_count += int(updated_categories or 0)
+                    migrated_shared_tag_comment_deck_count += int(migrated_tag_comment_decks or 0)
+                    migrated_shared_tag_comment_count += int(migrated_tag_comments or 0)
+                    type3_back_prefixed_count += int(type3_back_prefixed_local or 0)
                     inserted_opt_in_row_count += int(inserted_opt_in_rows_local or 0)
                     if seeded_opt_in_local:
                         seeded_opt_in_db_count += 1
@@ -984,6 +1284,9 @@ def cleanup_backup_zip(input_zip, output_zip):
         "removed_shared_card_count": removed_shared_card_count,
         "inserted_shared_category_count": inserted_shared_category_count,
         "updated_shared_category_count": updated_shared_category_count,
+        "migrated_shared_tag_comment_deck_count": migrated_shared_tag_comment_deck_count,
+        "migrated_shared_tag_comment_count": migrated_shared_tag_comment_count,
+        "type3_back_prefixed_count": type3_back_prefixed_count,
         "seeded_opt_in_db_count": seeded_opt_in_db_count,
         "inserted_opt_in_row_count": inserted_opt_in_row_count,
         "kids_json_updated_kid_count": kids_json_updated_kid_count,
@@ -1030,6 +1333,18 @@ def main():
     print(
         "Shared deck_category rows updated: "
         f"{summary['updated_shared_category_count']}"
+    )
+    print(
+        "Shared decks with tag comment migrated: "
+        f"{summary['migrated_shared_tag_comment_deck_count']}"
+    )
+    print(
+        "Shared tag comments migrated: "
+        f"{summary['migrated_shared_tag_comment_count']}"
+    )
+    print(
+        'Type-III card backs prefixed with "Page ": '
+        f"{summary['type3_back_prefixed_count']}"
     )
     print(
         "Kid DBs with deck_category_opt_in config migrated: "

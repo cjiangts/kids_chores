@@ -93,12 +93,16 @@ async function ensureSuperFamily() {
 }
 
 function normalizeTag(text) {
-    return String(text || '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
+    return deckCategoryCommon.parseDeckTagInput(text).tag;
+}
+
+function parseTagInput(text) {
+    return deckCategoryCommon.parseDeckTagInput(text);
+}
+
+function formatTagPayload(tagInfo) {
+    const item = tagInfo && typeof tagInfo === 'object' ? tagInfo : {};
+    return deckCategoryCommon.formatDeckTagLabel(item.tag, item.comment);
 }
 
 function getDeckCountForCategory(categoryKey) {
@@ -294,18 +298,18 @@ function updateInputModeUi() {
             bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Text)';
         }
         if (bulkInputHelpText) {
-            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags), then paste Chinese text lines only. The system auto-extracts Chinese characters as <code>front</code> and auto-generates pinyin as <code>back</code>. Separate blocks with a blank line.';
+            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then paste Chinese text lines only. The system auto-extracts Chinese characters as <code>front</code> and auto-generates pinyin as <code>back</code>. Separate blocks with a blank line.';
         }
-        bulkDeckInput.placeholder = 'siwukuaidu_book1_week1\n春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。\n\nsiwukuaidu_book1_week2\n床前明月光，疑是地上霜。';
+        bulkDeckInput.placeholder = 'ma3(马立平3年级)_book1_week1\n春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。\n\nma3(马立平3年级)_book1_week2\n床前明月光，疑是地上霜。';
         return;
     }
     if (bulkInputSectionTitle) {
         bulkInputSectionTitle.textContent = '2) Paste Deck Blocks';
     }
     if (bulkInputHelpText) {
-        bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags), then card rows as <code>front,back</code>. Separate blocks with a blank line.';
+        bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then card rows as <code>front,back</code>. Separate blocks with a blank line.';
     }
-    bulkDeckInput.placeholder = 'siwukuaidu_book1_week1\n1+1,2\n2+3,5\n\nsiwukuaidu_book1_week2\n3+4,7\n5+1,6';
+    bulkDeckInput.placeholder = 'ma3(马立平3年级)_unit1\n1+1,2\n2+3,5\n\nma3(马立平3年级)_unit2\n3+4,7\n5+1,6';
 }
 
 function parseChineseCharactersFromLine(rawLine, lineNo) {
@@ -318,12 +322,11 @@ function parseChineseCharactersFromLine(rawLine, lineNo) {
 }
 
 function isLikelyRemainingTagLine(rawLine) {
-    const raw = String(rawLine || '').trim().toLowerCase();
+    const raw = String(rawLine || '').trim();
     if (!raw || raw.includes(',') || /\p{Script=Han}/u.test(raw)) {
         return false;
     }
-    const normalized = normalizeTag(raw);
-    return Boolean(normalized && normalized === raw);
+    return parseRemainingTagParts(raw, { strict: false }).length > 0;
 }
 
 function dedupeCards(cards) {
@@ -336,6 +339,54 @@ function dedupeCards(cards) {
         }
     });
     return Array.from(firstByKey.values()).map((card) => ({ front: card.front, back: card.back }));
+}
+
+function splitRawTagPath(rawLine) {
+    const text = String(rawLine || '').trim();
+    if (!text) {
+        return [];
+    }
+    const out = [];
+    let current = '';
+    let depth = 0;
+    for (const ch of text) {
+        if (ch === '(') {
+            depth += 1;
+            current += ch;
+            continue;
+        }
+        if (ch === ')') {
+            if (depth > 0) {
+                depth -= 1;
+            }
+            current += ch;
+            continue;
+        }
+        if (ch === '_' && depth === 0) {
+            out.push(current);
+            current = '';
+            continue;
+        }
+        current += ch;
+    }
+    out.push(current);
+    return out.map((part) => String(part || '').trim()).filter(Boolean);
+}
+
+function parseRemainingTagParts(rawLine, { strict = true } = {}) {
+    const parts = splitRawTagPath(rawLine);
+    if (parts.length === 0) {
+        return [];
+    }
+    const parsed = parts.map((part) => parseTagInput(part));
+    const allValid = parsed.every((item) => Boolean(item.tag));
+    if (!allValid) {
+        if (!strict) {
+            return [];
+        }
+        throw new Error('invalid remaining tag');
+    }
+    return parsed;
 }
 
 function parseDeckBlocks(rawText) {
@@ -361,14 +412,17 @@ function parseDeckBlocks(rawText) {
             throw new Error(`Line ${tagLineNo}: expected remaining tag only (no comma).`);
         }
 
-        const remainingTag = normalizeTag(headerRaw);
-        if (!remainingTag) {
+        let remainingTagPartsParsed = [];
+        try {
+            remainingTagPartsParsed = parseRemainingTagParts(headerRaw, { strict: true });
+        } catch (_) {
             throw new Error(`Line ${tagLineNo}: invalid remaining tag.`);
         }
-        const remainingTagParts = remainingTag.split('_').map((part) => normalizeTag(part)).filter(Boolean);
+        const remainingTagParts = remainingTagPartsParsed.map((item) => item.tag);
         if (remainingTagParts.length === 0) {
             throw new Error(`Line ${tagLineNo}: invalid remaining tag.`);
         }
+        const remainingTag = remainingTagParts.join('_');
 
         const rows = [];
         while (i < lines.length) {
@@ -415,6 +469,7 @@ function parseDeckBlocks(rawText) {
             blockIndex: blocks.length + 1,
             remainingTag,
             remainingTagParts,
+            remainingTagPartsPayload: remainingTagPartsParsed.map((item) => formatTagPayload(item)),
             tagLine: tagLineNo,
             parsedRowCount: rows.length,
             cards: dedupeCards(rows),
@@ -653,6 +708,9 @@ async function previewBulkCreate() {
     blocks.forEach((block) => {
         const tags = buildDeckTags(currentFirstTag, block.remainingTagParts);
         block.extraTags = tags.slice(1);
+        block.extraTagsPayload = Array.isArray(block.remainingTagPartsPayload)
+            ? block.remainingTagPartsPayload
+            : block.extraTags;
         block.fullTags = tags;
         block.deckName = tags.join('_');
     });
@@ -823,7 +881,7 @@ async function createDecks() {
         for (const item of targets) {
             const payload = {
                 firstTag: currentFirstTag,
-                extraTags: item.extraTags,
+                extraTags: item.extraTagsPayload,
                 cards: item.cards,
             };
 

@@ -14,6 +14,7 @@ const SHARED_SCOPE_LESSON_READING = 'lesson-reading';
 
 const {
     normalizeCategoryKey,
+    parseDeckTagInput,
     getCategoryRawValueMap,
     getDeckCategoryMetaMap,
 } = window.DeckCategoryCommon;
@@ -477,8 +478,22 @@ function renderAvailableDecks() {
 
 function getDeckTags(deck) {
     return Array.isArray(deck.tags)
-        ? deck.tags.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean)
+        ? deck.tags
+            .map((tag) => parseDeckTagInput(tag).tag)
+            .filter(Boolean)
         : [];
+}
+
+function getDeckTagLabels(deck) {
+    const keys = getDeckTags(deck);
+    const rawLabels = Array.isArray(deck && deck.tag_labels) ? deck.tag_labels : [];
+    return keys.map((tagKey, index) => {
+        const parsedLabel = parseDeckTagInput(rawLabels[index]);
+        if (parsedLabel.tag === tagKey && parsedLabel.label) {
+            return parsedLabel.label;
+        }
+        return tagKey;
+    });
 }
 
 function stripCategoryFirstTagFromName(name) {
@@ -519,6 +534,7 @@ function ensureAvailableTagFilterController() {
         selectEl: availableTagFilterInput,
         getDecks: getAvailableDeckCandidatesForTagFilter,
         getDeckTags,
+        getDeckTagLabels,
         onFilterChanged: () => {
             renderAvailableDecks();
         },

@@ -116,12 +116,16 @@ async function ensureSuperFamily() {
 }
 
 function normalizeTag(text) {
-    return String(text || '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
+    return deckCategoryCommon.parseDeckTagInput(text).tag;
+}
+
+function parseTagInput(text) {
+    return deckCategoryCommon.parseDeckTagInput(text);
+}
+
+function formatTagPayload(tagInfo) {
+    const item = tagInfo && typeof tagInfo === 'object' ? tagInfo : {};
+    return deckCategoryCommon.formatDeckTagLabel(item.tag, item.comment);
 }
 
 function getDeckCountForCategory(categoryKey) {
@@ -237,7 +241,7 @@ function setCurrentFirstTag(tag) {
         return;
     }
     currentFirstTag = next;
-    extraTags = extraTags.filter((item) => item !== currentFirstTag);
+    extraTags = extraTags.filter((item) => item.tag !== currentFirstTag);
     renderTags();
     renderFirstTagToggle();
     updateCardsInputModeUi();
@@ -246,7 +250,7 @@ function setCurrentFirstTag(tag) {
 }
 
 function getAllTags() {
-    return [currentFirstTag, ...extraTags].filter(Boolean);
+    return [currentFirstTag, ...extraTags.map((item) => item.tag)].filter(Boolean);
 }
 
 function getGeneratedName() {
@@ -331,14 +335,18 @@ function updateCardsInputModeUi() {
 }
 
 function addExtraTag(rawTag) {
-    const nextTag = normalizeTag(rawTag);
+    const parsed = parseTagInput(rawTag);
+    const nextTag = parsed.tag;
     if (!nextTag) {
         return false;
     }
-    if (nextTag === currentFirstTag || extraTags.includes(nextTag)) {
+    if (nextTag === currentFirstTag || extraTags.some((item) => item.tag === nextTag)) {
         return false;
     }
-    extraTags.push(nextTag);
+    extraTags.push({
+        tag: nextTag,
+        comment: parsed.comment,
+    });
     return true;
 }
 
@@ -351,7 +359,7 @@ function addExtraTagFromInput() {
 }
 
 function removeExtraTag(tag) {
-    extraTags = extraTags.filter((item) => item !== tag);
+    extraTags = extraTags.filter((item) => item.tag !== tag);
     renderTags();
     updateGeneratedName();
     updateAutocompleteSuggestions();
@@ -362,7 +370,8 @@ function renderTags() {
         tagsContainer.innerHTML = '<span class="settings-note">No additional tags yet.</span>';
         return;
     }
-    tagsContainer.innerHTML = extraTags.map((tag) => {
+    tagsContainer.innerHTML = extraTags.map((item) => {
+        const tag = String(item && item.tag ? item.tag : '').trim();
         return `<span class="deck-tag">${escapeHtml(tag)} <button type="button" data-tag="${escapeHtml(tag)}" aria-label="Remove ${escapeHtml(tag)}">✕</button></span>`;
     }).join('');
     tagsContainer.querySelectorAll('button[data-tag]').forEach((btn) => {
@@ -764,7 +773,7 @@ async function createDeck() {
 
     const payload = {
         firstTag: currentFirstTag,
-        extraTags: extraTags,
+        extraTags: extraTags.map((item) => formatTagPayload(item)),
         cards: previewCards,
     };
 

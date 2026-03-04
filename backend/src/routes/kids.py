@@ -49,6 +49,7 @@ DECK_CATEGORY_BEHAVIOR_TYPES = {
 MAX_SHARED_DECK_TAGS = 20
 MAX_SHARED_DECK_CARDS = 10000
 MAX_SHARED_TAG_LENGTH = 64
+MAX_SHARED_TAG_COMMENT_LENGTH = 120
 MAX_SHARED_DECK_OPTIN_BATCH = 200
 MATERIALIZED_SHARED_DECK_NAME_PREFIX = 'shared_deck_'
 KID_DECK_CATEGORY_OPT_IN_TABLE = 'deck_category_opt_in'
@@ -335,9 +336,53 @@ def normalize_shared_deck_tag(raw_tag):
     text = str(raw_tag or '').strip().lower()
     if not text:
         return ''
+    text = re.sub(r'\([^()]*\)\s*$', '', text).strip()
+    if not text:
+        return ''
     text = re.sub(r'\s+', '_', text)
     text = re.sub(r'_+', '_', text).strip('_')
     return text
+
+
+def parse_shared_deck_tag_with_comment(raw_tag):
+    """Parse one raw tag into canonical key + optional display comment."""
+    text = str(raw_tag or '').strip()
+    if not text:
+        return '', ''
+    match = re.match(r'^(.*?)(?:\(([^()]*)\))?$', text)
+    if not match:
+        return normalize_shared_deck_tag(text), ''
+    base = str(match.group(1) or '').strip()
+    raw_comment = str(match.group(2) or '').strip()
+    tag = normalize_shared_deck_tag(base)
+    comment = re.sub(r'\s+', ' ', raw_comment).strip()
+    return tag, comment
+
+
+def format_shared_deck_tag_display_label(tag, comment):
+    """Format one canonical tag key with optional comment for dropdown labels."""
+    key = normalize_shared_deck_tag(tag)
+    if not key:
+        return ''
+    text = re.sub(r'\s+', ' ', str(comment or '').strip()).strip()
+    if not text:
+        return key
+    return f"{key}({text})"
+
+
+def extract_shared_deck_tags_and_labels(raw_tags):
+    """Build canonical + display tag arrays from stored raw tag tokens."""
+    tags = []
+    tag_labels = []
+    seen = set()
+    for raw in list(raw_tags or []):
+        tag, comment = parse_shared_deck_tag_with_comment(raw)
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        tags.append(tag)
+        tag_labels.append(format_shared_deck_tag_display_label(tag, comment))
+    return tags, tag_labels
 
 
 def normalize_shared_deck_category_behavior(raw_behavior):
@@ -424,7 +469,7 @@ def get_allowed_shared_deck_first_tags(conn):
     }
 
 
-def build_shared_deck_tags(first_tag, extra_tags, allowed_first_tags):
+def build_shared_deck_tags(first_tag, extra_tags, allowed_first_tags, *, include_comments=False):
     """Build ordered unique tags list with first tag constrained by allowed values."""
     allowed = {
         normalize_shared_deck_tag(item)
@@ -441,6 +486,7 @@ def build_shared_deck_tags(first_tag, extra_tags, allowed_first_tags):
         raise ValueError(f'firstTag is too long (max {MAX_SHARED_TAG_LENGTH})')
 
     tags = [first]
+    comments_by_tag = {}
     seen = {first}
     if extra_tags is None:
         extra_tags = []
@@ -448,18 +494,26 @@ def build_shared_deck_tags(first_tag, extra_tags, allowed_first_tags):
         raise ValueError('extraTags must be an array')
 
     for raw in extra_tags:
-        tag = normalize_shared_deck_tag(raw)
+        tag, comment = parse_shared_deck_tag_with_comment(raw)
         if not tag or tag in seen:
             continue
         if len(tag) > MAX_SHARED_TAG_LENGTH:
             raise ValueError(f'Tag "{tag}" is too long (max {MAX_SHARED_TAG_LENGTH})')
+        if comment and len(comment) > MAX_SHARED_TAG_COMMENT_LENGTH:
+            raise ValueError(
+                f'Tag comment for "{tag}" is too long '
+                f'(max {MAX_SHARED_TAG_COMMENT_LENGTH})'
+            )
         tags.append(tag)
+        comments_by_tag[tag] = comment
         seen.add(tag)
         if len(tags) > MAX_SHARED_DECK_TAGS:
             raise ValueError(f'Too many tags (max {MAX_SHARED_DECK_TAGS})')
 
     if len(tags) < 2:
         raise ValueError('At least one additional tag is required')
+    if include_comments:
+        return tags, comments_by_tag
     return tags
 
 
@@ -627,15 +681,8 @@ def parse_shared_deck_id_from_materialized_name(deck_name):
 
 def build_materialized_shared_deck_tags(shared_tags):
     """Build kid-local deck tags for materialized shared decks."""
-    ordered = []
-    seen = set()
-    for raw in list(shared_tags or []):
-        tag = str(raw or '').strip()
-        if not tag or tag in seen:
-            continue
-        seen.add(tag)
-        ordered.append(tag)
-    return ordered
+    tags, _ = extract_shared_deck_tags_and_labels(shared_tags)
+    return tags
 
 
 def get_shared_deck_rows_by_first_tag(conn, first_tag):
@@ -660,13 +707,14 @@ def get_shared_deck_rows_by_first_tag(conn, first_tag):
     ).fetchall()
     decks = []
     for row in rows:
-        tags = [str(tag) for tag in list(row[2] or []) if str(tag or '').strip()]
+        tags, tag_labels = extract_shared_deck_tags_and_labels(row[2])
         if required_tag not in tags:
             continue
         decks.append({
             'deck_id': int(row[0]),
             'name': str(row[1]),
             'tags': tags,
+            'tag_labels': tag_labels,
             'creator_family_id': int(row[3]),
             'created_at': row[4].isoformat() if row[4] else None,
             'card_count': int(row[5] or 0),
@@ -698,7 +746,7 @@ def get_kid_materialized_shared_decks_by_first_tag(conn, first_tag):
         shared_deck_id = parse_shared_deck_id_from_materialized_name(local_name)
         if shared_deck_id is None:
             continue
-        tags = [str(tag) for tag in list(row[2] or []) if str(tag or '').strip()]
+        tags, tag_labels = extract_shared_deck_tags_and_labels(row[2])
         if required_tag not in tags:
             continue
         decks[local_deck_id] = {
@@ -706,6 +754,7 @@ def get_kid_materialized_shared_decks_by_first_tag(conn, first_tag):
             'local_name': local_name,
             'shared_deck_id': shared_deck_id,
             'tags': tags,
+            'tag_labels': tag_labels,
         }
     return decks
 
@@ -900,7 +949,7 @@ def get_or_create_category_orphan_deck(conn, category_key):
 def _build_shared_source_deck_entry(entry, total_cards, active_cards):
     """Build one non-orphan merged-source payload."""
     skipped_cards = max(0, total_cards - active_cards)
-    tags = [str(tag) for tag in list(entry.get('tags') or []) if str(tag or '').strip()]
+    tags, _ = extract_shared_deck_tags_and_labels(entry.get('tags') or [])
     return {
         'local_deck_id': int(entry['local_deck_id']),
         'shared_deck_id': int(entry['shared_deck_id']),
@@ -918,7 +967,7 @@ def _build_shared_source_deck_entry(entry, total_cards, active_cards):
 def _build_orphan_source_deck_entry(orphan_row, orphan_deck_name, orphan_total, orphan_active, include_orphan_in_queue):
     """Build one orphan merged-source payload."""
     orphan_skipped = max(0, orphan_total - orphan_active)
-    orphan_tags = [str(tag) for tag in list(orphan_row[2] or []) if str(tag or '').strip()]
+    orphan_tags, _ = extract_shared_deck_tags_and_labels(orphan_row[2])
     return {
         'local_deck_id': int(orphan_row[0]),
         'shared_deck_id': None,
@@ -1108,12 +1157,7 @@ def get_all_shared_deck_tag_paths(conn):
     seen_paths = set()
     ordered_paths = []
     for row in rows:
-        raw_tags = list(row[0] or [])
-        path = []
-        for tag in raw_tags:
-            value = str(tag or '').strip()
-            if value:
-                path.append(value)
+        path, _ = extract_shared_deck_tags_and_labels(row[0])
         if not path:
             continue
         key = tuple(path)
@@ -1605,14 +1649,18 @@ def list_my_shared_decks():
         finally:
             conn.close()
 
-        decks = [{
-            'deck_id': int(row[0]),
-            'name': str(row[1]),
-            'tags': list(row[2] or []),
-            'creator_family_id': int(row[3]),
-            'created_at': row[4].isoformat() if row[4] else None,
-            'card_count': int(row[5] or 0),
-        } for row in rows]
+        decks = []
+        for row in rows:
+            tags, tag_labels = extract_shared_deck_tags_and_labels(row[2])
+            decks.append({
+                'deck_id': int(row[0]),
+                'name': str(row[1]),
+                'tags': tags,
+                'tag_labels': tag_labels,
+                'creator_family_id': int(row[3]),
+                'created_at': row[4].isoformat() if row[4] else None,
+                'card_count': int(row[5] or 0),
+            })
 
         return jsonify({'decks': decks}), 200
     except Exception as e:
@@ -1645,7 +1693,7 @@ def get_shared_deck_details(deck_id):
             'deck': {
                 'deck_id': int(deck_row[0]),
                 'name': str(deck_row[1]),
-                'tags': list(deck_row[2] or []),
+                'tags': extract_shared_deck_tags_and_labels(deck_row[2])[0],
                 'creator_family_id': int(deck_row[3]),
                 'created_at': deck_row[4].isoformat() if deck_row[4] else None,
             },
@@ -1712,10 +1760,11 @@ def create_shared_deck():
         try:
             conn = get_shared_decks_connection()
             allowed_first_tags = get_allowed_shared_deck_first_tags(conn)
-            tags = build_shared_deck_tags(
+            tags, comments_by_tag = build_shared_deck_tags(
                 payload.get('firstTag'),
                 payload.get('extraTags'),
                 allowed_first_tags=allowed_first_tags,
+                include_comments=True,
             )
             prefix_conflict_tags = find_shared_deck_tag_prefix_conflict(conn, tags)
             if prefix_conflict_tags:
@@ -1739,6 +1788,10 @@ def create_shared_deck():
                 else dedupe_shared_deck_cards_by_front(cards)
             )
             deck_name = '_'.join(tags)
+            storage_tags = [
+                format_shared_deck_tag_display_label(tag, comments_by_tag.get(tag))
+                for tag in tags
+            ]
 
             conn.execute("BEGIN TRANSACTION")
             deck_row = conn.execute(
@@ -1747,7 +1800,7 @@ def create_shared_deck():
                 VALUES (?, ?, ?)
                 RETURNING deck_id, created_at
                 """,
-                [deck_name, tags, family_id_int]
+                [deck_name, storage_tags, family_id_int]
             ).fetchone()
             deck_id = int(deck_row[0])
             created_at = deck_row[1].isoformat() if deck_row and deck_row[1] else None
@@ -4299,7 +4352,8 @@ def build_type_i_shared_decks_payload(
         decks.append({
             'deck_id': int(shared_deck_id),
             'name': display_name,
-            'tags': [str(tag) for tag in list(local_entry.get('tags') or []) if str(tag or '').strip()],
+            'tags': extract_shared_deck_tags_and_labels(local_entry.get('tags') or [])[0],
+            'tag_labels': [str(tag) for tag in list(local_entry.get('tag_labels') or []) if str(tag or '').strip()],
             'creator_family_id': None,
             'created_at': None,
             'card_count': int(local_card_count_by_deck_id.get(local_deck_id, 0)),
@@ -4357,7 +4411,7 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
             int(row[0]): {
                 'deck_id': int(row[0]),
                 'name': str(row[1]),
-                'tags': [str(tag) for tag in list(row[2] or []) if str(tag or '').strip()],
+                'tags': extract_shared_deck_tags_and_labels(row[2])[0],
             }
             for row in deck_rows
         }
@@ -4804,7 +4858,7 @@ def build_type_i_shared_cards_payload(
             preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
 
         def _source_label(source):
-            tags = [str(tag) for tag in list(source.get('tags') or []) if str(tag or '').strip()]
+            tags = extract_shared_deck_tags_and_labels(source.get('tags') or [])[0]
             tail = tags[1:] if len(tags) > 1 else []
             if tail:
                 return ' / '.join(tail)
@@ -4822,7 +4876,7 @@ def build_type_i_shared_cards_payload(
                 mapped['source_deck_id'] = local_deck_id
                 mapped['source_deck_name'] = str(src.get('local_name') or '')
                 mapped['source_deck_label'] = _source_label(src)
-                mapped['source_deck_tags'] = [str(tag) for tag in list(src.get('tags') or []) if str(tag or '').strip()]
+                mapped['source_deck_tags'] = extract_shared_deck_tags_and_labels(src.get('tags') or [])[0]
                 mapped['source_is_orphan'] = bool(src.get('is_orphan'))
                 merged_cards.append(mapped)
 
@@ -4898,7 +4952,7 @@ def start_type_i_practice_session_internal(
                 'shared_deck_id': int(src['shared_deck_id']) if src.get('shared_deck_id') is not None else None,
                 'deck_id': local_deck_id,
                 'deck_name': str(src.get('local_name') or ''),
-                'source_tags': [str(tag) for tag in list(src.get('tags') or []) if str(tag or '').strip()],
+                'source_tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
                 'source_is_orphan': bool(src.get('is_orphan')),
             })
 
@@ -5061,7 +5115,7 @@ def update_shared_card_skip_internal(kid, card_id_int, skipped, *, category_key,
             return {'error': 'Card not found'}, 404
 
         local_deck_name = str(card_row[2] or '')
-        local_deck_tags = [str(tag) for tag in list(card_row[3] or []) if str(tag or '').strip()]
+        local_deck_tags = extract_shared_deck_tags_and_labels(card_row[3])[0]
         is_materialized_shared = parse_shared_deck_id_from_materialized_name(local_deck_name) is not None
         is_orphan = local_deck_name == str(orphan_deck_name or '')
         if is_materialized_shared and str(category_key or '') not in local_deck_tags:
@@ -5227,7 +5281,8 @@ def build_shared_decks_listing_payload(
         decks.append({
             'deck_id': int(shared_deck_id),
             'name': display_name,
-            'tags': [str(tag) for tag in list(local_entry.get('tags') or []) if str(tag or '').strip()],
+            'tags': extract_shared_deck_tags_and_labels(local_entry.get('tags') or [])[0],
+            'tag_labels': [str(tag) for tag in list(local_entry.get('tag_labels') or []) if str(tag or '').strip()],
             'creator_family_id': None,
             'created_at': None,
             'card_count': int(local_card_count_by_deck_id.get(local_deck_id, 0)),
@@ -5278,7 +5333,7 @@ def opt_in_shared_decks_internal(
             int(row[0]): {
                 'deck_id': int(row[0]),
                 'name': str(row[1]),
-                'tags': [str(tag) for tag in list(row[2] or []) if str(tag or '').strip()],
+                'tags': extract_shared_deck_tags_and_labels(row[2])[0],
             }
             for row in deck_rows
         }
@@ -6087,7 +6142,7 @@ def get_shared_type2_cards(kid_id):
             orphan_deck_name = get_category_orphan_deck_name(category_key)
 
             def _source_label(source):
-                tags = [str(tag) for tag in list(source.get('tags') or []) if str(tag or '').strip()]
+                tags = extract_shared_deck_tags_and_labels(source.get('tags') or [])[0]
                 tail = tags[1:] if len(tags) > 1 else []
                 if tail:
                     return ' / '.join(tail)
@@ -6126,7 +6181,7 @@ def get_shared_type2_cards(kid_id):
                     mapped['source_deck_id'] = local_deck_id
                     mapped['source_deck_name'] = str(src.get('local_name') or '')
                     mapped['source_deck_label'] = _source_label(src)
-                    mapped['source_deck_tags'] = [str(tag) for tag in list(src.get('tags') or []) if str(tag or '').strip()]
+                    mapped['source_deck_tags'] = extract_shared_deck_tags_and_labels(src.get('tags') or [])[0]
                     mapped['source_is_orphan'] = bool(src.get('is_orphan'))
                     audio_meta = build_writing_prompt_audio_payload(
                         kid_id,
@@ -7275,7 +7330,7 @@ def start_writing_practice_session(kid_id):
                 'shared_deck_id': int(src['shared_deck_id']) if src.get('shared_deck_id') is not None else None,
                 'deck_id': local_deck_id,
                 'deck_name': str(src.get('local_name') or ''),
-                'source_tags': [str(tag) for tag in list(src.get('tags') or []) if str(tag or '').strip()],
+                'source_tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
                 'source_is_orphan': bool(src.get('is_orphan')),
             })
         if len(selected_cards) == 0:

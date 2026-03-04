@@ -233,13 +233,22 @@ function hasActiveSessionScreen() {
 }
 
 function applyPageTypeClasses() {
-    document.body.classList.remove('practice-type-i', 'practice-type-ii', 'practice-type-iii', 'type2-chinese-font');
+    document.body.classList.remove(
+        'practice-type-i',
+        'practice-type-ii',
+        'practice-type-iii',
+        'type2-chinese-font',
+        'type3-chinese-font'
+    );
     if (!state.behaviorType) {
         return;
     }
     document.body.classList.add(`practice-${state.behaviorType.replace('_', '-')}`);
     if (isType(BEHAVIOR_TYPE_II) && state.hasChineseSpecificLogic) {
         document.body.classList.add('type2-chinese-font');
+    }
+    if (isType(BEHAVIOR_TYPE_III) && state.hasChineseSpecificLogic) {
+        document.body.classList.add('type3-chinese-font');
     }
 }
 

@@ -194,11 +194,13 @@
             <section class="deck-panel">
                 <h2 id="bulkInputSectionTitle">2) Paste Deck Blocks</h2>
                 <p id="bulkInputHelpText" class="muted-help-text">
-                    Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags),
-                    then card rows as <code>front,back</code>.
+                    Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags).
+                    Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>).
+                    Comments do not affect deck-name generation.
+                    Then card rows as <code>front,back</code>.
                     Separate blocks with a blank line.
                 </p>
-                <textarea id="bulkDeckInput" class="deck-bulk-textarea input-mono" placeholder="siwukuaidu_book1_week1&#10;1+1,2&#10;2+3,5&#10;&#10;siwukuaidu_book1_week2&#10;3+4,7&#10;5+1,6"></textarea>
+                <textarea id="bulkDeckInput" class="deck-bulk-textarea input-mono" placeholder="ma3(马立平3年级)_unit1&#10;1+1,2&#10;2+3,5&#10;&#10;ma3(马立平3年级)_unit2&#10;3+4,7&#10;5+1,6"></textarea>
                 <div class="deck-row mt-07">
                     <button type="button" id="previewBtn" class="btn-primary">Preview Bulk Create</button>
                     <button type="button" id="clearInputBtn" class="btn-secondary">Clear</button>

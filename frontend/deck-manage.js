@@ -176,6 +176,18 @@ function getDeckSecondaryTags(deck) {
     return tags.slice(1);
 }
 
+function getDeckSecondaryTagLabels(deck) {
+    const secondaryTagKeys = getDeckSecondaryTags(deck);
+    const rawLabels = Array.isArray(deck && deck.tag_labels) ? deck.tag_labels.slice(1) : [];
+    return secondaryTagKeys.map((tagKey, index) => {
+        const parsed = deckCategoryCommon.parseDeckTagInput(rawLabels[index]);
+        if (parsed.tag === tagKey && parsed.label) {
+            return parsed.label;
+        }
+        return tagKey;
+    });
+}
+
 function getCategoryLabel(categoryKey) {
     const key = normalizeCategoryKey(categoryKey);
     if (!key) {
@@ -360,8 +372,7 @@ function renderDecks() {
 
 function renderDeckRowHtml(deck) {
     const deckId = Number(deck.deck_id || 0);
-    const tags = Array.isArray(deck.tags) ? deck.tags : [];
-    const remainingTags = tags.slice(1);
+    const remainingTags = getDeckSecondaryTagLabels(deck);
     const tagHtml = remainingTags.length > 0
         ? `<div class="deck-tags">${remainingTags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
         : '-';

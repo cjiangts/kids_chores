@@ -12,6 +12,33 @@
         return String(rawValue || '').trim().toLowerCase();
     }
 
+    function parseDeckTagInput(rawValue) {
+        const text = String(rawValue || '').trim();
+        if (!text) {
+            return { tag: '', comment: '', label: '' };
+        }
+        const match = text.match(/^(.*?)(?:\(([^()]*)\))?$/);
+        const baseText = String((match && match[1]) || '').trim();
+        const rawComment = String((match && match[2]) || '').trim();
+        const tag = String(baseText || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_+|_+$/g, '');
+        if (!tag) {
+            return { tag: '', comment: '', label: '' };
+        }
+        const comment = rawComment.replace(/\s+/g, ' ').trim();
+        const label = comment ? `${tag}(${comment})` : tag;
+        return { tag, comment, label };
+    }
+
+    function formatDeckTagLabel(tag, comment) {
+        const parsed = parseDeckTagInput(`${String(tag || '').trim()}${comment ? `(${String(comment || '').trim()})` : ''}`);
+        return parsed.label;
+    }
+
     function getCategoryRawValueMap(source) {
         const output = {};
         if (!source || typeof source !== 'object') {
@@ -357,6 +384,8 @@
 
     window.DeckCategoryCommon = {
         normalizeCategoryKey,
+        parseDeckTagInput,
+        formatDeckTagLabel,
         getOptedInDeckCategoryKeys,
         getOptedInDeckCategorySet,
         getCategoryRawValueMap,
