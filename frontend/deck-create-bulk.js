@@ -18,6 +18,7 @@ let previewDecks = [];
 let isCreatingDecks = false;
 let deckCategories = [];
 let deckCategoryKeySet = new Set();
+let deckCountByCategoryKey = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!categoriesLoaded) {
         return;
     }
+    await loadDeckTagCountsByCategory();
     renderFirstTagToggle();
     updateInputModeUi();
 });
@@ -101,6 +103,36 @@ function normalizeBehaviorType(value) {
         return text;
     }
     return '';
+}
+
+function getBehaviorTypeLabel(behaviorType) {
+    const normalized = normalizeBehaviorType(behaviorType);
+    if (normalized === 'type_i') {
+        return 'Type I';
+    }
+    if (normalized === 'type_ii') {
+        return 'Type II';
+    }
+    if (normalized === 'type_iii') {
+        return 'Type III';
+    }
+    return 'Unknown Type';
+}
+
+function getCategoryDescriptor(item) {
+    const behaviorLabel = getBehaviorTypeLabel(item && item.behavior_type);
+    const logicLabel = item && item.has_chinese_specific_logic ? 'Chinese' : 'Generic';
+    return `${behaviorLabel} ${logicLabel}`;
+}
+
+function getDeckCountForCategory(categoryKey) {
+    const key = normalizeTag(categoryKey);
+    if (!key) {
+        return 0;
+    }
+    const raw = deckCountByCategoryKey[key];
+    const count = Number.isFinite(raw) ? Math.max(0, Math.trunc(raw)) : 0;
+    return count;
 }
 
 function setControlsDisabled(disabled) {
@@ -178,6 +210,33 @@ async function loadDeckCategories() {
     }
 }
 
+async function loadDeckTagCountsByCategory() {
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/tags`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to load tags (HTTP ${response.status})`);
+        }
+        const tagPaths = Array.isArray(result.tag_paths)
+            ? result.tag_paths
+                .map((path) => Array.isArray(path) ? path.map((tag) => normalizeTag(tag)).filter(Boolean) : [])
+                .filter((path) => path.length > 0)
+            : [];
+        const nextCountByCategory = {};
+        tagPaths.forEach((path) => {
+            const first = normalizeTag(path[0]);
+            if (!first) {
+                return;
+            }
+            nextCountByCategory[first] = Number(nextCountByCategory[first] || 0) + 1;
+        });
+        deckCountByCategoryKey = nextCountByCategory;
+    } catch (error) {
+        console.error('Error loading deck counts by category:', error);
+        deckCountByCategoryKey = {};
+    }
+}
+
 function normalizeTagList(tags) {
     const out = [];
     const seen = new Set();
@@ -216,7 +275,13 @@ function renderFirstTagToggle() {
     }
     firstTagToggle.innerHTML = deckCategories.map((item) => {
         const isActive = item.category_key === currentFirstTag;
-        return `<button type="button" class="audio-filter-btn${isActive ? ' active' : ''}" data-first-tag="${escapeHtml(item.category_key)}" aria-pressed="${isActive ? 'true' : 'false'}">${escapeHtml(item.category_key)}</button>`;
+        const count = getDeckCountForCategory(item.category_key);
+        return `
+            <button type="button" class="first-tag-option${isActive ? ' active' : ''}" data-first-tag="${escapeHtml(item.category_key)}" aria-pressed="${isActive ? 'true' : 'false'}">
+                <span class="first-tag-option-title">${escapeHtml(item.category_key)}</span>
+                <span class="first-tag-option-desc">${escapeHtml(getCategoryDescriptor(item))} · ${count} deck${count === 1 ? '' : 's'}</span>
+            </button>
+        `;
     }).join('');
     firstTagToggle.querySelectorAll('[data-first-tag]').forEach((el) => {
         const tag = String(el.getAttribute('data-first-tag') || '');
@@ -278,6 +343,11 @@ function isChineseWritingDeckMode() {
     );
 }
 
+function isTypeIIDeckMode() {
+    const category = getCurrentDeckCategory();
+    return Boolean(category && category.behavior_type === 'type_ii');
+}
+
 function updateInputModeUi() {
     if (!bulkDeckInput) {
         return;
@@ -320,7 +390,7 @@ function isLikelyRemainingTagLine(rawLine) {
 }
 
 function dedupeCards(cards) {
-    const dedupeKey = isChineseWritingDeckMode() ? 'back' : 'front';
+    const dedupeKey = isTypeIIDeckMode() ? 'back' : 'front';
     const firstByKey = new Map();
     cards.forEach((card) => {
         const key = String(card[dedupeKey] || '');
@@ -473,13 +543,152 @@ async function enrichChineseCharactersBacks(blocks) {
     });
 }
 
-async function fetchNameAvailability(name) {
-    const response = await fetch(`${API_BASE}/shared-decks/name-availability?name=${encodeURIComponent(name)}`);
+async function fetchTagPathAvailability(firstTag, extraTags) {
+    const params = new URLSearchParams();
+    params.set('firstTag', String(firstTag || '').trim());
+    const tags = Array.isArray(extraTags) ? extraTags : [];
+    tags.forEach((tag) => {
+        params.append('extraTag', String(tag || '').trim());
+    });
+    const name = buildDeckTags(firstTag, tags).join('_');
+    if (name) {
+        params.set('name', name);
+    }
+    const response = await fetch(`${API_BASE}/shared-decks/name-availability?${params.toString()}`);
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(result.error || `Failed to check name "${name}" (HTTP ${response.status})`);
+        throw new Error(result.error || `Failed to validate tag path "${name}" (HTTP ${response.status})`);
     }
-    return Boolean(result.available);
+    return {
+        available: Boolean(result.available),
+        conflictType: String(result.conflict_type || '').trim(),
+        conflictTags: Array.isArray(result.conflict_tags) ? result.conflict_tags : [],
+    };
+}
+
+function formatTagPath(tags) {
+    const list = Array.isArray(tags) ? tags.map((tag) => String(tag || '').trim()).filter(Boolean) : [];
+    if (list.length === 0) {
+        return '[]';
+    }
+    return `[${list.join(', ')}]`;
+}
+
+function formatDeckNameList(rawDecks, maxItems = 3) {
+    const decks = Array.isArray(rawDecks) ? rawDecks : [];
+    const names = [];
+    const seen = new Set();
+    decks.forEach((item) => {
+        const name = String(item && item.deck_name ? item.deck_name : '').trim();
+        const fallbackId = Number(item && item.deck_id ? item.deck_id : 0);
+        const label = name || (fallbackId > 0 ? `#${fallbackId}` : '');
+        if (!label || seen.has(label)) {
+            return;
+        }
+        seen.add(label);
+        names.push(label);
+    });
+    if (names.length === 0) {
+        return '';
+    }
+    if (names.length <= maxItems) {
+        return names.join(', ');
+    }
+    return `${names.slice(0, maxItems).join(', ')} (+${names.length - maxItems} more)`;
+}
+
+async function fetchCategoryCardOverlap(cards) {
+    if (!Array.isArray(cards) || cards.length === 0) {
+        return { dedupeKey: 'front', otherKey: 'back', overlaps: [] };
+    }
+    const response = await fetch(`${API_BASE}/shared-decks/category-card-overlap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            categoryKey: currentFirstTag,
+            cards: cards.map((item) => ({
+                front: String(item && item.front ? item.front : ''),
+                back: String(item && item.back ? item.back : ''),
+            })),
+        }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to compare with existing cards (HTTP ${response.status})`);
+    }
+    return {
+        dedupeKey: String(result && result.dedupe_key ? result.dedupe_key : 'front').trim().toLowerCase() === 'back'
+            ? 'back'
+            : 'front',
+        otherKey: String(result && result.other_key ? result.other_key : '').trim().toLowerCase() === 'front'
+            ? 'front'
+            : 'back',
+        overlaps: Array.isArray(result && result.overlaps) ? result.overlaps : [],
+    };
+}
+
+function buildOverlapSummary(overlapInfo) {
+    const overlaps = Array.isArray(overlapInfo && overlapInfo.overlaps) ? overlapInfo.overlaps : [];
+    let exactCount = 0;
+    let mismatchCount = 0;
+    const exactDecks = [];
+    const mismatchDecks = [];
+    overlaps.forEach((item) => {
+        const exact = Array.isArray(item && item.exact_match_decks) ? item.exact_match_decks : [];
+        const mismatch = Array.isArray(item && item.mismatch_decks) ? item.mismatch_decks : [];
+        if (exact.length > 0) {
+            exactCount += 1;
+            exactDecks.push(...exact);
+        }
+        if (mismatch.length > 0) {
+            mismatchCount += 1;
+            mismatchDecks.push(...mismatch);
+        }
+    });
+    const dedupeKey = String(overlapInfo && overlapInfo.dedupeKey ? overlapInfo.dedupeKey : 'front');
+    const otherKey = String(overlapInfo && overlapInfo.otherKey ? overlapInfo.otherKey : (dedupeKey === 'back' ? 'front' : 'back'));
+    const exactDeckText = formatDeckNameList(exactDecks);
+    const mismatchDeckText = formatDeckNameList(mismatchDecks);
+    return {
+        exactText: exactCount > 0
+            ? `Exact card match for ${exactCount} card(s) in: ${exactDeckText}.`
+            : '',
+        warningText: mismatchCount > 0
+            ? `Warning: ${mismatchCount} card(s) share same ${dedupeKey} with different ${otherKey} in: ${mismatchDeckText}.`
+            : '',
+    };
+}
+
+function renderStatusCellHtml(item) {
+    const statusText = String(item && item.statusText ? item.statusText : '').trim();
+    const isKept = statusText.toLowerCase() === 'kept';
+    if (!isKept) {
+        return `<span class="deck-row-status-conflict">${escapeHtml(statusText)}</span>`;
+    }
+    const exactText = String(item && item.exactText ? item.exactText : '').trim();
+    const warningText = String(item && item.warningText ? item.warningText : '').trim();
+    const parts = ['<span class="deck-row-status-ok">Kept</span>'];
+    if (exactText) {
+        parts.push(`<span class="deck-row-status-note">${escapeHtml(exactText)}</span>`);
+    }
+    if (warningText) {
+        parts.push(`<span class="deck-row-status-note-warn">${escapeHtml(warningText)}</span>`);
+    }
+    return parts.join('');
+}
+
+function isStrictPrefixPath(pathA, pathB) {
+    const a = Array.isArray(pathA) ? pathA : [];
+    const b = Array.isArray(pathB) ? pathB : [];
+    if (a.length === 0 || b.length === 0 || a.length >= b.length) {
+        return false;
+    }
+    for (let i = 0; i < a.length; i += 1) {
+        if (String(a[i] || '') !== String(b[i] || '')) {
+            return false;
+        }
+    }
+    return true;
 }
 
 async function previewBulkCreate() {
@@ -507,8 +716,23 @@ async function previewBulkCreate() {
     blocks.forEach((block) => {
         const tags = buildDeckTags(currentFirstTag, block.remainingTagParts);
         block.extraTags = tags.slice(1);
+        block.fullTags = tags;
         block.deckName = tags.join('_');
     });
+
+    try {
+        const overlapResults = await Promise.all(
+            blocks.map(async (block) => fetchCategoryCardOverlap(block.cards))
+        );
+        overlapResults.forEach((info, index) => {
+            const summary = buildOverlapSummary(info);
+            blocks[index].exactText = summary.exactText;
+            blocks[index].warningText = summary.warningText;
+        });
+    } catch (error) {
+        showError(error.message || 'Failed to compare with existing cards.');
+        return;
+    }
 
     const countByName = new Map();
     blocks.forEach((block) => {
@@ -516,19 +740,53 @@ async function previewBulkCreate() {
         countByName.set(block.deckName, count + 1);
     });
 
-    const namesToCheck = Array.from(new Set(
-        blocks
-            .filter((block) => Number(countByName.get(block.deckName) || 0) === 1)
-            .map((block) => block.deckName)
-    ));
+    const inInputPrefixConflictsByBlockIndex = new Map();
+    for (let i = 0; i < blocks.length; i += 1) {
+        for (let j = i + 1; j < blocks.length; j += 1) {
+            const left = blocks[i];
+            const right = blocks[j];
+            const leftPath = Array.isArray(left.fullTags) ? left.fullTags : [];
+            const rightPath = Array.isArray(right.fullTags) ? right.fullTags : [];
+            if (isStrictPrefixPath(leftPath, rightPath) || isStrictPrefixPath(rightPath, leftPath)) {
+                const leftMsg = `Conflicts with block ${right.blockIndex} path ${formatTagPath(rightPath)}.`;
+                const rightMsg = `Conflicts with block ${left.blockIndex} path ${formatTagPath(leftPath)}.`;
+                const leftMessages = inInputPrefixConflictsByBlockIndex.get(left.blockIndex) || [];
+                const rightMessages = inInputPrefixConflictsByBlockIndex.get(right.blockIndex) || [];
+                leftMessages.push(leftMsg);
+                rightMessages.push(rightMsg);
+                inInputPrefixConflictsByBlockIndex.set(left.blockIndex, leftMessages);
+                inInputPrefixConflictsByBlockIndex.set(right.blockIndex, rightMessages);
+            }
+        }
+    }
 
-    let availableByName = {};
+    const pathKeyToCheck = new Map();
+    blocks.forEach((block) => {
+        if (Number(countByName.get(block.deckName) || 0) > 1) {
+            return;
+        }
+        const extra = Array.isArray(block.extraTags) ? block.extraTags : [];
+        if (extra.length === 0) {
+            return;
+        }
+        const tags = [currentFirstTag, ...(Array.isArray(block.extraTags) ? block.extraTags : [])];
+        const key = tags.join('\u0001');
+        if (!pathKeyToCheck.has(key)) {
+            pathKeyToCheck.set(key, {
+                firstTag: currentFirstTag,
+                extraTags: extra,
+                deckName: block.deckName,
+            });
+        }
+    });
+
+    let availabilityByPathKey = {};
     try {
-        const checks = await Promise.all(namesToCheck.map(async (name) => {
-            const available = await fetchNameAvailability(name);
-            return [name, available];
+        const checks = await Promise.all(Array.from(pathKeyToCheck.entries()).map(async ([key, payload]) => {
+            const availability = await fetchTagPathAvailability(payload.firstTag, payload.extraTags);
+            return [key, availability];
         }));
-        availableByName = Object.fromEntries(checks);
+        availabilityByPathKey = Object.fromEntries(checks);
     } catch (error) {
         showError(error.message || 'Failed to verify deck names.');
         return;
@@ -540,18 +798,36 @@ async function previewBulkCreate() {
             block.statusText = 'Invalid: remaining tag collapses to first tag only.';
             return;
         }
+        const inInputConflicts = inInputPrefixConflictsByBlockIndex.get(block.blockIndex) || [];
+        if (inInputConflicts.length > 0) {
+            block.statusCode = 'invalid';
+            block.statusText = `Invalid: tag path prefix conflict in input. ${inInputConflicts[0]}`;
+            block.exactText = '';
+            block.warningText = '';
+            return;
+        }
         if (Number(countByName.get(block.deckName) || 0) > 1) {
             block.statusCode = 'invalid';
             block.statusText = 'Invalid: duplicate deck name in input.';
+            block.exactText = '';
+            block.warningText = '';
             return;
         }
-        if (!availableByName[block.deckName]) {
+        const pathKey = [currentFirstTag, ...(Array.isArray(block.extraTags) ? block.extraTags : [])].join('\u0001');
+        const availability = availabilityByPathKey[pathKey] || null;
+        if (!availability || !availability.available) {
             block.statusCode = 'invalid';
-            block.statusText = 'Invalid: deck name already exists.';
+            if (availability && availability.conflictType === 'tag_prefix_conflict') {
+                block.statusText = `Invalid: tag path conflicts with existing path ${formatTagPath(availability.conflictTags)}.`;
+            } else {
+                block.statusText = 'Invalid: deck name already exists.';
+            }
+            block.exactText = '';
+            block.warningText = '';
             return;
         }
         block.statusCode = 'ready';
-        block.statusText = 'Ready to create';
+        block.statusText = 'Kept';
     });
 
     previewDecks = blocks;
@@ -563,16 +839,12 @@ function renderReview() {
     const total = previewDecks.length;
     const ready = previewDecks.filter((item) => item.statusCode === 'ready').length;
     const invalid = previewDecks.filter((item) => item.statusCode === 'invalid').length;
-    const created = previewDecks.filter((item) => item.statusCode === 'created').length;
-    const failed = previewDecks.filter((item) => item.statusCode === 'failed').length;
 
     reviewMeta.innerHTML = `
         <div><strong>First tag:</strong> <code>${escapeHtml(currentFirstTag)}</code></div>
         <div><strong>Blocks parsed:</strong> ${total}</div>
         <div><strong>Ready to create:</strong> ${ready}</div>
-        <div><strong>Invalid (duplicate/existing names):</strong> ${invalid}</div>
-        <div><strong>Created:</strong> ${created}</div>
-        <div><strong>Failed:</strong> ${failed}</div>
+        <div><strong>Invalid (tag-path/name conflicts):</strong> <span class="${invalid > 0 ? 'deck-row-status-conflict' : ''}">${invalid}</span></div>
     `;
 
     reviewTableBody.innerHTML = previewDecks.map((item) => `
@@ -581,7 +853,7 @@ function renderReview() {
             <td><code>${escapeHtml(item.deckName)}</code></td>
             <td>${item.parsedRowCount}</td>
             <td>${item.cards.length}</td>
-            <td class="${item.statusCode === 'ready' || item.statusCode === 'created' ? 'deck-row-status-ok' : 'deck-row-status-warn'}">${escapeHtml(item.statusText)}</td>
+            <td>${renderStatusCellHtml(item)}</td>
         </tr>
     `).join('');
 }

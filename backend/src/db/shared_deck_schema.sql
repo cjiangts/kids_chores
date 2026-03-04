@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS deck_category (
   category_key VARCHAR PRIMARY KEY,
   behavior_type VARCHAR NOT NULL,
   has_chinese_specific_logic BOOLEAN NOT NULL DEFAULT FALSE,
+  is_shared_with_non_super_family BOOLEAN NOT NULL DEFAULT FALSE,
   display_name VARCHAR,
   emoji VARCHAR
 );

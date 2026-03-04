@@ -48,6 +48,10 @@
             width: 70px;
         }
 
+        .deck-category-col {
+            width: 190px;
+        }
+
         .available-filter {
             display: flex;
             gap: 0.5rem;
@@ -97,7 +101,7 @@
                 <div class="actions">
                     <button id="createDeckNavBtn" type="button" class="btn-primary">Create New Deck</button>
                     <button id="createDeckBulkNavBtn" type="button" class="btn-primary">Bulk Create New Decks</button>
-                    <button id="createDeckCategoryNavBtn" type="button" class="btn-primary">Create Deck Category</button>
+                    <button id="createDeckCategoryNavBtn" type="button" class="btn-primary">Manage Deck Category</button>
                 </div>
                 <p id="deckCountInfo" class="deck-count-info">Showing 0 of 0 deck(s)</p>
 
@@ -124,6 +128,7 @@
                         <thead>
                             <tr>
                                 <th class="deck-id-col">Deck ID</th>
+                                <th class="deck-category-col">Deck Category</th>
                                 <th class="deck-tags-col">Tags</th>
                                 <th class="table-col-110">Cards</th>
                                 <th class="shared-report-table-action-cell">Actions</th>

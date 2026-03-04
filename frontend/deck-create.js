@@ -31,6 +31,7 @@ let nameCheckTimer = null;
 let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
 let currentFirstTag = '';
 let autocompleteTagPaths = [];
+let deckCountByCategoryKey = {};
 let deckCategories = [];
 let deckCategoryKeySet = new Set();
 let reservedFirstTags = new Set();
@@ -127,6 +128,36 @@ function normalizeBehaviorType(value) {
     return '';
 }
 
+function getBehaviorTypeLabel(behaviorType) {
+    const normalized = normalizeBehaviorType(behaviorType);
+    if (normalized === 'type_i') {
+        return 'Type I';
+    }
+    if (normalized === 'type_ii') {
+        return 'Type II';
+    }
+    if (normalized === 'type_iii') {
+        return 'Type III';
+    }
+    return 'Unknown Type';
+}
+
+function getCategoryDescriptor(item) {
+    const behaviorLabel = getBehaviorTypeLabel(item && item.behavior_type);
+    const logicLabel = item && item.has_chinese_specific_logic ? 'Chinese' : 'Generic';
+    return `${behaviorLabel} ${logicLabel}`;
+}
+
+function getDeckCountForCategory(categoryKey) {
+    const key = normalizeTag(categoryKey);
+    if (!key) {
+        return 0;
+    }
+    const raw = deckCountByCategoryKey[key];
+    const count = Number.isFinite(raw) ? Math.max(0, Math.trunc(raw)) : 0;
+    return count;
+}
+
 function getCurrentDeckCategory() {
     const key = normalizeTag(currentFirstTag);
     if (!key) {
@@ -151,6 +182,11 @@ function isChineseWritingDeckMode() {
         && category.behavior_type === 'type_ii'
         && category.has_chinese_specific_logic
     );
+}
+
+function isTypeIIDeckMode() {
+    const category = getCurrentDeckCategory();
+    return Boolean(category && category.behavior_type === 'type_ii');
 }
 
 function setControlsDisabled(disabled) {
@@ -239,7 +275,13 @@ function renderFirstTagToggle() {
     }
     firstTagToggle.innerHTML = deckCategories.map((item) => {
         const isActive = item.category_key === currentFirstTag;
-        return `<button type="button" class="audio-filter-btn${isActive ? ' active' : ''}" data-first-tag="${escapeHtml(item.category_key)}" aria-pressed="${isActive ? 'true' : 'false'}">${escapeHtml(item.category_key)}</button>`;
+        const count = getDeckCountForCategory(item.category_key);
+        return `
+            <button type="button" class="first-tag-option${isActive ? ' active' : ''}" data-first-tag="${escapeHtml(item.category_key)}" aria-pressed="${isActive ? 'true' : 'false'}">
+                <span class="first-tag-option-title">${escapeHtml(item.category_key)}</span>
+                <span class="first-tag-option-desc">${escapeHtml(getCategoryDescriptor(item))} · ${count} deck${count === 1 ? '' : 's'}</span>
+            </button>
+        `;
     }).join('');
     firstTagToggle.querySelectorAll('[data-first-tag]').forEach((el) => {
         const tag = String(el.getAttribute('data-first-tag') || '');
@@ -274,9 +316,37 @@ function getGeneratedName() {
     return getAllTags().join('_');
 }
 
+function hasEnoughTagsForDeck() {
+    return getAllTags().length >= 2;
+}
+
+function buildNameAvailabilityQueryParams() {
+    const tags = getAllTags();
+    const params = new URLSearchParams();
+    if (tags.length >= 2) {
+        params.set('firstTag', tags[0]);
+        tags.slice(1).forEach((tag) => {
+            params.append('extraTag', tag);
+        });
+    }
+    const name = tags.join('_');
+    if (name) {
+        params.set('name', name);
+    }
+    return params;
+}
+
+function formatTagPath(tags) {
+    const list = Array.isArray(tags) ? tags.map((tag) => String(tag || '').trim()).filter(Boolean) : [];
+    if (list.length === 0) {
+        return '[]';
+    }
+    return `[${list.join(', ')}]`;
+}
+
 function updateGeneratedName() {
     const name = getGeneratedName();
-    generatedNameEl.textContent = name;
+    generatedNameEl.textContent = name || '(auto)';
     scheduleNameAvailabilityCheck();
 }
 
@@ -299,9 +369,19 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. For Chinese-specific type_ii categories, dedup is keyed by <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. For type_ii categories, dedup is keyed by <code>back</code>.';
         }
         cardsCsvInput.placeholder = '听写提示,汉字答案';
+        return;
+    }
+    if (isTypeIIDeckMode()) {
+        if (cardsInputSectionTitle) {
+            cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
+        }
+        if (cardsInputHelpText) {
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. For type_ii categories, dedup is keyed by <code>back</code>.';
+        }
+        cardsCsvInput.placeholder = 'Prompt text,Answer text';
         return;
     }
     if (cardsInputSectionTitle) {
@@ -510,12 +590,73 @@ async function parseCardsForCurrentMode() {
     }));
 }
 
+async function fetchCategoryCardOverlap(cards) {
+    if (!Array.isArray(cards) || cards.length === 0) {
+        return { dedupeKey: 'front', otherKey: 'back', overlapByValue: {} };
+    }
+    const response = await fetch(`${API_BASE}/shared-decks/category-card-overlap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            categoryKey: currentFirstTag,
+            cards: cards.map((item) => ({
+                front: String(item && item.front ? item.front : ''),
+                back: String(item && item.back ? item.back : ''),
+            })),
+        }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to compare with existing cards (HTTP ${response.status})`);
+    }
+    const dedupeKey = String(result && result.dedupe_key ? result.dedupe_key : 'front').trim().toLowerCase() === 'back'
+        ? 'back'
+        : 'front';
+    const otherKey = dedupeKey === 'back' ? 'front' : 'back';
+    const overlapByValue = {};
+    const overlaps = Array.isArray(result && result.overlaps) ? result.overlaps : [];
+    overlaps.forEach((item) => {
+        const dedupeValue = String(item && item.dedupe_value ? item.dedupe_value : '');
+        if (!dedupeValue) {
+            return;
+        }
+        overlapByValue[dedupeValue] = {
+            exactDecks: Array.isArray(item && item.exact_match_decks) ? item.exact_match_decks : [],
+            mismatchDecks: Array.isArray(item && item.mismatch_decks) ? item.mismatch_decks : [],
+        };
+    });
+    return { dedupeKey, otherKey, overlapByValue };
+}
+
+function formatDeckNameList(rawDecks, maxItems = 3) {
+    const decks = Array.isArray(rawDecks) ? rawDecks : [];
+    const names = [];
+    const seen = new Set();
+    decks.forEach((item) => {
+        const name = String(item && item.deck_name ? item.deck_name : '').trim();
+        const fallbackId = Number(item && item.deck_id ? item.deck_id : 0);
+        const label = name || (fallbackId > 0 ? `#${fallbackId}` : '');
+        if (!label || seen.has(label)) {
+            return;
+        }
+        seen.add(label);
+        names.push(label);
+    });
+    if (names.length === 0) {
+        return '';
+    }
+    if (names.length <= maxItems) {
+        return names.join(', ');
+    }
+    return `${names.slice(0, maxItems).join(', ')} (+${names.length - maxItems} more)`;
+}
+
 async function previewDeckFromCsv() {
     showError('');
     showSuccess('');
     const available = await ensureNameAvailable();
     if (!available) {
-        showError('Deck name already exists. Change tags before continuing.');
+        showError('Deck tags are not available. Fix the tag path and try again.');
         return;
     }
 
@@ -527,7 +668,7 @@ async function previewDeckFromCsv() {
         return;
     }
 
-    const dedupeKey = isChineseWritingDeckMode() ? 'back' : 'front';
+    const dedupeKey = isTypeIIDeckMode() ? 'back' : 'front';
     const withinDeckDedup = [];
     const firstByKey = new Map();
     cards.forEach((card) => {
@@ -546,6 +687,16 @@ async function previewDeckFromCsv() {
     });
 
     const uniqueCards = Array.from(firstByKey.values());
+    let overlapByValue = {};
+    let overlapOtherKey = dedupeKey === 'back' ? 'front' : 'back';
+    try {
+        const overlapInfo = await fetchCategoryCardOverlap(uniqueCards);
+        overlapByValue = overlapInfo.overlapByValue || {};
+        overlapOtherKey = overlapInfo.otherKey || overlapOtherKey;
+    } catch (error) {
+        showError(error.message || 'Failed to compare with existing cards.');
+        return;
+    }
     previewCards = uniqueCards.map((card) => ({ front: card.front, back: card.back }));
 
     previewDiagnostics = {
@@ -566,12 +717,23 @@ async function previewDeckFromCsv() {
                 statusText: `Removed: duplicate ${dedupeKey} of line ${first.line}`,
             };
         }
+        const overlap = overlapByValue[keyValue] || null;
+        const exactDecks = overlap && Array.isArray(overlap.exactDecks) ? overlap.exactDecks : [];
+        const mismatchDecks = overlap && Array.isArray(overlap.mismatchDecks) ? overlap.mismatchDecks : [];
+        const exactDeckText = formatDeckNameList(exactDecks);
+        const mismatchDeckText = formatDeckNameList(mismatchDecks);
         return {
             line: card.line,
             front: card.front,
             back: card.back,
             kept: true,
             statusText: 'Kept',
+            exactText: exactDeckText
+                ? `Exact card already exists in: ${exactDeckText}.`
+                : '',
+            warningText: mismatchDeckText
+                ? `Warning: same ${dedupeKey} exists with different ${overlapOtherKey} in: ${mismatchDeckText}.`
+                : '',
         };
     });
     renderReview(previewCards, previewRows);
@@ -601,9 +763,27 @@ function renderReview(cardsToCreate, allRows) {
             <td>${row.line}</td>
             <td>${escapeHtml(row.front)}</td>
             <td>${escapeHtml(row.back)}</td>
-            <td class="${row.kept ? 'deck-row-status-ok' : 'deck-row-status-warn'}">${escapeHtml(row.statusText)}</td>
+            <td>${renderStatusCellHtml(row)}</td>
         </tr>
     `).join('');
+}
+
+function renderStatusCellHtml(row) {
+    const statusText = String(row && row.statusText ? row.statusText : '').trim();
+    const isKept = statusText.toLowerCase() === 'kept';
+    if (!isKept) {
+        return `<span class="deck-row-status-warn">${escapeHtml(statusText)}</span>`;
+    }
+    const exactText = String(row && row.exactText ? row.exactText : '').trim();
+    const warningText = String(row && row.warningText ? row.warningText : '').trim();
+    const parts = [`<span class="deck-row-status-ok">Kept</span>`];
+    if (exactText) {
+        parts.push(`<span class="deck-row-status-note">${escapeHtml(exactText)}</span>`);
+    }
+    if (warningText) {
+        parts.push(`<span class="deck-row-status-note-warn">${escapeHtml(warningText)}</span>`);
+    }
+    return parts.join('');
 }
 
 function renderDedupeSummary() {
@@ -641,7 +821,7 @@ async function createDeck() {
     }
     const available = await ensureNameAvailable();
     if (!available) {
-        showError('Deck name already exists. Change tags before creating.');
+        showError('Deck tags are not available. Fix the tag path before creating.');
         return;
     }
 
@@ -712,8 +892,13 @@ function setNameStatus(text, state) {
 
 function scheduleNameAvailabilityCheck() {
     nameAvailable = null;
+    lastNameChecked = '';
     if (nameCheckTimer) {
         window.clearTimeout(nameCheckTimer);
+    }
+    if (!hasEnoughTagsForDeck()) {
+        setNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        return;
     }
     setNameStatus('Checking name availability...', 'note');
     nameCheckTimer = window.setTimeout(() => {
@@ -723,6 +908,12 @@ function scheduleNameAvailabilityCheck() {
 }
 
 async function ensureNameAvailable() {
+    if (!hasEnoughTagsForDeck()) {
+        nameAvailable = false;
+        lastNameChecked = '';
+        setNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        return false;
+    }
     const currentName = getGeneratedName();
     if (nameAvailable !== null && lastNameChecked === currentName) {
         return nameAvailable;
@@ -732,10 +923,17 @@ async function ensureNameAvailable() {
 }
 
 async function checkNameAvailability() {
+    if (!hasEnoughTagsForDeck()) {
+        nameAvailable = false;
+        lastNameChecked = '';
+        setNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        return;
+    }
     const currentName = getGeneratedName();
     const token = ++nameCheckToken;
     try {
-        const response = await fetch(`${API_BASE}/shared-decks/name-availability?name=${encodeURIComponent(currentName)}`);
+        const params = buildNameAvailabilityQueryParams();
+        const response = await fetch(`${API_BASE}/shared-decks/name-availability?${params.toString()}`);
         const result = await response.json().catch(() => ({}));
         if (token !== nameCheckToken) {
             return;
@@ -747,6 +945,11 @@ async function checkNameAvailability() {
         lastNameChecked = currentName;
         if (nameAvailable) {
             setNameStatus('Name available.', 'ok');
+        } else if (result && result.conflict_type === 'tag_prefix_conflict') {
+            setNameStatus(
+                `Tag path conflicts with existing path ${formatTagPath(result.conflict_tags)}.`,
+                'error',
+            );
         } else {
             setNameStatus('Name already exists. Please change tags.', 'error');
         }
@@ -773,11 +976,23 @@ async function loadAutocompleteTags() {
                 .map((path) => Array.isArray(path) ? path.map((tag) => normalizeTag(tag)).filter(Boolean) : [])
                 .filter((path) => path.length > 0)
             : [];
+        const nextCountByCategory = {};
+        autocompleteTagPaths.forEach((path) => {
+            const first = normalizeTag(path[0]);
+            if (!first) {
+                return;
+            }
+            nextCountByCategory[first] = Number(nextCountByCategory[first] || 0) + 1;
+        });
+        deckCountByCategoryKey = nextCountByCategory;
+        renderFirstTagToggle();
         updateAutocompleteSuggestions();
     } catch (error) {
         console.error('Error loading autocomplete tags:', error);
         autocompleteTagPaths = [];
+        deckCountByCategoryKey = {};
         existingTagOptions.innerHTML = '';
+        renderFirstTagToggle();
     }
 }
 

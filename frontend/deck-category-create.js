@@ -4,8 +4,6 @@ const createCategoryForm = document.getElementById('createCategoryForm');
 const categoryKeyInput = document.getElementById('categoryKeyInput');
 const displayNameInput = document.getElementById('displayNameInput');
 const emojiInput = document.getElementById('emojiInput');
-const behaviorTypeSelect = document.getElementById('behaviorTypeSelect');
-const hasChineseSpecificLogicCheckbox = document.getElementById('hasChineseSpecificLogicCheckbox');
 const createCategoryBtn = document.getElementById('createCategoryBtn');
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
@@ -14,6 +12,7 @@ const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 
 let isCreating = false;
+const sharingCategoryKeys = new Set();
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -22,6 +21,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     await loadCategories();
 });
+
+if (categoryTableBody) {
+    categoryTableBody.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action="share-category"]');
+        if (!button) {
+            return;
+        }
+        const categoryKey = String(button.getAttribute('data-category-key') || '').trim();
+        if (!categoryKey) {
+            return;
+        }
+        void shareCategory(categoryKey);
+    });
+}
 
 if (createCategoryForm) {
     createCategoryForm.addEventListener('submit', async (event) => {
@@ -37,6 +50,31 @@ function normalizeCategoryKey(text) {
         .replace(/\s+/g, '_')
         .replace(/_+/g, '_')
         .replace(/^_+|_+$/g, '');
+}
+
+function getSelectedBehaviorType() {
+    const selected = document.querySelector('input[name="behaviorType"]:checked');
+    return String(selected ? selected.value : '').trim();
+}
+
+function resetBehaviorTypeSelection(defaultValue = 'type_i') {
+    const options = Array.from(document.querySelectorAll('input[name="behaviorType"]'));
+    for (const option of options) {
+        option.checked = String(option.value || '').trim() === defaultValue;
+    }
+}
+
+function getSelectedChineseSpecificLogic() {
+    const selected = document.querySelector('input[name="hasChineseSpecificLogic"]:checked');
+    return String(selected ? selected.value : '').trim().toLowerCase() === 'true';
+}
+
+function resetChineseSpecificLogicSelection(defaultValue = false) {
+    const defaultText = defaultValue ? 'true' : 'false';
+    const options = Array.from(document.querySelectorAll('input[name="hasChineseSpecificLogic"]'));
+    for (const option of options) {
+        option.checked = String(option.value || '').trim().toLowerCase() === defaultText;
+    }
 }
 
 async function ensureSuperFamily() {
@@ -106,6 +144,11 @@ function renderCategories(categories) {
             const emoji = String(item.emoji || '').trim();
             const behavior = String(item.behavior_type || '').trim();
             const chineseSpecific = item.has_chinese_specific_logic ? 'Yes' : 'No';
+            const sharedWithNonSuper = Boolean(item.is_shared_with_non_super_family);
+            const isSharing = sharingCategoryKeys.has(key);
+            const shareButton = sharedWithNonSuper
+                ? `<button type="button" class="btn-secondary" disabled>Shared</button>`
+                : `<button type="button" class="btn-primary" data-action="share-category" data-category-key="${escapeHtml(key)}" ${isSharing ? 'disabled' : ''}>${isSharing ? 'Sharing...' : 'Share to Non-super'}</button>`;
             return `
                 <tr>
                     <td>${escapeHtml(key)}</td>
@@ -113,6 +156,8 @@ function renderCategories(categories) {
                     <td>${escapeHtml(emoji)}</td>
                     <td>${escapeHtml(behavior)}</td>
                     <td>${escapeHtml(chineseSpecific)}</td>
+                    <td>${sharedWithNonSuper ? 'Yes' : 'No'}</td>
+                    <td>${shareButton}</td>
                 </tr>
             `;
         }).join('');
@@ -127,8 +172,8 @@ async function createCategory() {
     const categoryKey = normalizeCategoryKey(categoryKeyInput ? categoryKeyInput.value : '');
     const displayName = String(displayNameInput ? displayNameInput.value : '').trim();
     const emoji = String(emojiInput ? emojiInput.value : '').trim();
-    const behaviorType = String(behaviorTypeSelect ? behaviorTypeSelect.value : '').trim();
-    const hasChineseSpecificLogic = Boolean(hasChineseSpecificLogicCheckbox && hasChineseSpecificLogicCheckbox.checked);
+    const behaviorType = getSelectedBehaviorType();
+    const hasChineseSpecificLogic = getSelectedChineseSpecificLogic();
 
     if (!categoryKey) {
         showError('Category key is required.');
@@ -175,12 +220,8 @@ async function createCategory() {
         if (emojiInput) {
             emojiInput.value = '';
         }
-        if (hasChineseSpecificLogicCheckbox) {
-            hasChineseSpecificLogicCheckbox.checked = false;
-        }
-        if (behaviorTypeSelect) {
-            behaviorTypeSelect.value = 'type_i';
-        }
+        resetChineseSpecificLogicSelection(false);
+        resetBehaviorTypeSelection('type_i');
         await loadCategories();
     } catch (error) {
         showError(error.message || 'Failed to create category.');
@@ -190,6 +231,40 @@ async function createCategory() {
             createCategoryBtn.disabled = false;
             createCategoryBtn.textContent = 'Create Category';
         }
+    }
+}
+
+async function shareCategory(categoryKey) {
+    const key = normalizeCategoryKey(categoryKey);
+    if (!key || sharingCategoryKeys.has(key)) {
+        return;
+    }
+    const confirmed = window.confirm(
+        `Share category "${key}" with non-super families?\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) {
+        return;
+    }
+    sharingCategoryKeys.add(key);
+    showError('');
+    showSuccess('');
+    await loadCategories();
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/categories/${encodeURIComponent(key)}/share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to share category (HTTP ${response.status})`);
+        }
+        showSuccess(`Category shared with non-super families: ${key}`);
+    } catch (error) {
+        showError(error.message || 'Failed to share category.');
+    } finally {
+        sharingCategoryKeys.delete(key);
+        await loadCategories();
     }
 }
 

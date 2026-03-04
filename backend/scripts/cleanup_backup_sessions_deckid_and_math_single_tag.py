@@ -5,7 +5,7 @@ Actions:
 1) Drop sessions.deck_id from kid DBs in the backup zip.
 2) Remove shared decks whose only tag is 'math' and delete their cards.
 3) Rewrite sessions.type legacy values to deck category keys.
-4) Populate deck_category display_name/emoji in shared_decks.duckdb.
+4) Populate deck_category display_name/emoji/share access in shared_decks.duckdb.
 5) Drop obsolete writing candidate queue tables from kid DBs.
 6) Migrate kids.json per-category settings into kid DB deck_category_opt_in columns.
 """
@@ -48,10 +48,10 @@ LEGACY_SESSION_TYPE_TO_CATEGORY_KEY = {
 }
 
 LEGACY_SHARED_CATEGORY_ROWS = [
-    ("math", "type_i", False, "Math", "➗"),
-    ("chinese_characters", "type_i", True, "Chinese Characters", "📖"),
-    ("chinese_writing", "type_ii", True, "Chinese Writing", "✍️"),
-    ("chinese_reading", "type_iii", True, "Chinese Reading", "📚"),
+    ("math", "type_i", False, True, "Math", "➗"),
+    ("chinese_characters", "type_i", True, True, "Chinese Characters", "📖"),
+    ("chinese_writing", "type_ii", True, True, "Chinese Writing", "✍️"),
+    ("chinese_reading", "type_iii", True, True, "Chinese Reading", "📚"),
 ]
 
 LEGACY_WRITING_QUEUE_TABLES = (
@@ -229,6 +229,7 @@ def _populate_shared_deck_category_display_data(conn):
           category_key VARCHAR PRIMARY KEY,
           behavior_type VARCHAR NOT NULL,
           has_chinese_specific_logic BOOLEAN NOT NULL DEFAULT FALSE,
+          is_shared_with_non_super_family BOOLEAN NOT NULL DEFAULT FALSE,
           display_name VARCHAR,
           emoji VARCHAR
         )
@@ -240,6 +241,10 @@ def _populate_shared_deck_category_display_data(conn):
         conn.execute(
             "ALTER TABLE deck_category ADD COLUMN has_chinese_specific_logic BOOLEAN DEFAULT FALSE"
         )
+    if "is_shared_with_non_super_family" not in columns:
+        conn.execute(
+            "ALTER TABLE deck_category ADD COLUMN is_shared_with_non_super_family BOOLEAN DEFAULT FALSE"
+        )
     if "display_name" not in columns:
         conn.execute("ALTER TABLE deck_category ADD COLUMN display_name VARCHAR")
     if "emoji" not in columns:
@@ -247,10 +252,22 @@ def _populate_shared_deck_category_display_data(conn):
 
     inserted = 0
     updated = 0
-    for category_key, behavior_type, has_chinese_logic, display_name, emoji in LEGACY_SHARED_CATEGORY_ROWS:
+    for (
+        category_key,
+        behavior_type,
+        has_chinese_logic,
+        is_shared_with_non_super_family,
+        display_name,
+        emoji,
+    ) in LEGACY_SHARED_CATEGORY_ROWS:
         row = conn.execute(
             """
-            SELECT behavior_type, has_chinese_specific_logic, display_name, emoji
+            SELECT
+                behavior_type,
+                has_chinese_specific_logic,
+                is_shared_with_non_super_family,
+                display_name,
+                emoji
             FROM deck_category
             WHERE category_key = ?
             """,
@@ -261,24 +278,39 @@ def _populate_shared_deck_category_display_data(conn):
             conn.execute(
                 """
                 INSERT INTO deck_category (
-                    category_key, behavior_type, has_chinese_specific_logic, display_name, emoji
+                    category_key,
+                    behavior_type,
+                    has_chinese_specific_logic,
+                    is_shared_with_non_super_family,
+                    display_name,
+                    emoji
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                [category_key, behavior_type, has_chinese_logic, display_name, emoji],
+                [
+                    category_key,
+                    behavior_type,
+                    has_chinese_logic,
+                    bool(is_shared_with_non_super_family),
+                    display_name,
+                    emoji,
+                ],
             )
             inserted += 1
             continue
 
         existing_behavior_type = str(row[0] or "").strip().lower()
         existing_has_chinese_logic = bool(row[1])
-        existing_display_name = str(row[2] or "").strip()
-        existing_emoji = str(row[3] or "").strip()
+        existing_is_shared_with_non_super = bool(row[2])
+        existing_display_name = str(row[3] or "").strip()
+        existing_emoji = str(row[4] or "").strip()
 
         needs_update = False
         if existing_behavior_type != behavior_type:
             needs_update = True
         if existing_has_chinese_logic != bool(has_chinese_logic):
+            needs_update = True
+        if existing_is_shared_with_non_super != bool(is_shared_with_non_super_family):
             needs_update = True
         if not existing_display_name or not existing_emoji:
             needs_update = True
@@ -291,6 +323,7 @@ def _populate_shared_deck_category_display_data(conn):
             UPDATE deck_category
             SET behavior_type = ?,
                 has_chinese_specific_logic = ?,
+                is_shared_with_non_super_family = ?,
                 display_name = CASE
                     WHEN display_name IS NULL OR trim(display_name) = '' THEN ?
                     ELSE display_name
@@ -301,7 +334,14 @@ def _populate_shared_deck_category_display_data(conn):
                 END
             WHERE category_key = ?
             """,
-            [behavior_type, bool(has_chinese_logic), display_name, emoji, category_key],
+            [
+                behavior_type,
+                bool(has_chinese_logic),
+                bool(is_shared_with_non_super_family),
+                display_name,
+                emoji,
+                category_key,
+            ],
         )
         updated += 1
 
@@ -315,7 +355,13 @@ def _get_shared_deck_category_meta(conn):
 
     rows = conn.execute(
         """
-        SELECT category_key, behavior_type, has_chinese_specific_logic, display_name, emoji
+        SELECT
+          category_key,
+          behavior_type,
+          has_chinese_specific_logic,
+          is_shared_with_non_super_family,
+          display_name,
+          emoji
         FROM deck_category
         ORDER BY category_key ASC
         """
@@ -331,8 +377,9 @@ def _get_shared_deck_category_meta(conn):
         meta[key] = {
             "behavior_type": behavior_type,
             "has_chinese_specific_logic": bool(row[2]),
-            "display_name": str(row[3] or "").strip(),
-            "emoji": str(row[4] or "").strip(),
+            "is_shared_with_non_super_family": bool(row[3]),
+            "display_name": str(row[4] or "").strip(),
+            "emoji": str(row[5] or "").strip(),
         }
     return meta
 
@@ -401,37 +448,67 @@ def _migrate_kid_deck_category_opt_in_config(conn, shared_category_meta_by_key, 
         return 0, False
 
     config = kid_category_config if isinstance(kid_category_config, dict) else {}
+
+    raw_session_map = config.get("session_card_count_by_category")
     session_map = {
         _normalize_category_key(raw_key): raw_value
-        for raw_key, raw_value in (config.get("session_card_count_by_category") or {}).items()
+        for raw_key, raw_value in (raw_session_map or {}).items()
         if _normalize_category_key(raw_key)
     }
+
+    raw_hard_map = config.get("hard_card_percentage_by_category")
     hard_map = {
         _normalize_category_key(raw_key): raw_value
-        for raw_key, raw_value in (config.get("hard_card_percentage_by_category") or {}).items()
+        for raw_key, raw_value in (raw_hard_map or {}).items()
         if _normalize_category_key(raw_key)
     }
+
+    raw_include_map = config.get("include_orphan_by_category")
     include_map = {
         _normalize_category_key(raw_key): raw_value
-        for raw_key, raw_value in (config.get("include_orphan_by_category") or {}).items()
+        for raw_key, raw_value in (raw_include_map or {}).items()
         if _normalize_category_key(raw_key)
     }
+
+    raw_opted_in_keys = config.get("opted_in_category_keys")
+    has_opted_in_keys = isinstance(raw_opted_in_keys, list)
     opted_in_set = {
         _normalize_category_key(raw_key)
-        for raw_key in list(config.get("opted_in_category_keys") or [])
+        for raw_key in list(raw_opted_in_keys or [])
         if _normalize_category_key(raw_key)
     }
 
     existing_rows = conn.execute(
-        f"SELECT category_key FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}"
+        f"""
+        SELECT
+          category_key,
+          COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN}, FALSE),
+          COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT}, 0),
+          COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE}, {DEFAULT_HARD_CARD_PERCENTAGE}),
+          COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN}, TRUE)
+        FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}
+        """
     ).fetchall()
-    existing_key_set = {
-        _normalize_category_key(row[0])
-        for row in existing_rows
-        if _normalize_category_key(row[0])
-    }
-    # Old schema used row presence as opt-in semantics; preserve that during migration.
-    opted_in_set.update(existing_key_set)
+    existing_by_key = {}
+    for row in existing_rows:
+        key = _normalize_category_key(row[0])
+        if not key:
+            continue
+        existing_by_key[key] = {
+            "is_opted_in": bool(row[1]),
+            "session_card_count": int(row[2] or 0),
+            "hard_card_percentage": int(row[3] or 0),
+            "include_orphan": bool(row[4]),
+        }
+    existing_key_set = set(existing_by_key.keys())
+
+    if not has_opted_in_keys:
+        opted_in_set = {
+            key
+            for key, values in existing_by_key.items()
+            if bool(values.get("is_opted_in"))
+        }
+
     missing_keys = [key for key in shared_keys if key not in existing_key_set]
     if missing_keys:
         conn.executemany(
@@ -447,6 +524,13 @@ def _migrate_kid_deck_category_opt_in_config(conn, shared_category_meta_by_key, 
             """,
             [[key] for key in missing_keys],
         )
+        for key in missing_keys:
+            existing_by_key[key] = {
+                "is_opted_in": False,
+                "session_card_count": 0,
+                "hard_card_percentage": DEFAULT_HARD_CARD_PERCENTAGE,
+                "include_orphan": DEFAULT_INCLUDE_ORPHAN,
+            }
 
     conn.executemany(
         f"""
@@ -461,9 +545,31 @@ def _migrate_kid_deck_category_opt_in_config(conn, shared_category_meta_by_key, 
         [
             [
                 bool(key in opted_in_set),
-                _to_int(session_map.get(key), minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0),
-                _to_percent(hard_map.get(key)),
-                _to_bool(include_map.get(key), default=DEFAULT_INCLUDE_ORPHAN),
+                (
+                    _to_int(session_map.get(key), minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0)
+                    if key in session_map
+                    else _to_int(
+                        existing_by_key.get(key, {}).get("session_card_count"),
+                        minimum=0,
+                        maximum=MAX_SESSION_CARD_COUNT,
+                        default=0,
+                    )
+                ),
+                (
+                    _to_percent(hard_map.get(key))
+                    if key in hard_map
+                    else _to_percent(
+                        existing_by_key.get(key, {}).get("hard_card_percentage")
+                    )
+                ),
+                (
+                    _to_bool(include_map.get(key), default=DEFAULT_INCLUDE_ORPHAN)
+                    if key in include_map
+                    else _to_bool(
+                        existing_by_key.get(key, {}).get("include_orphan"),
+                        default=DEFAULT_INCLUDE_ORPHAN,
+                    )
+                ),
                 key,
             ]
             for key in shared_keys
@@ -487,28 +593,6 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
         return raw_bytes, {}, 0
 
     shared_meta = shared_category_meta_by_key if isinstance(shared_category_meta_by_key, dict) else {}
-    type_i_keys = sorted(
-        [
-            key
-            for key, item in shared_meta.items()
-            if str((item or {}).get("behavior_type") or "").strip().lower() == BEHAVIOR_TYPE_I
-        ]
-    )
-    type_iii_keys = sorted(
-        [
-            key
-            for key, item in shared_meta.items()
-            if str((item or {}).get("behavior_type") or "").strip().lower() == BEHAVIOR_TYPE_III
-        ]
-    )
-    type_ii_keys = sorted(
-        [
-            key
-            for key, item in shared_meta.items()
-            if str((item or {}).get("behavior_type") or "").strip().lower() == BEHAVIOR_TYPE_II
-        ]
-    )
-    type_i_and_iii_keys = sorted(set(type_i_keys + type_iii_keys))
     shared_key_set = set(shared_meta.keys())
 
     kid_category_config_by_kid_id = {}
@@ -558,111 +642,89 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
                 if key:
                     merged_include_map[key] = raw_value
 
-        normalized_counts = {}
-        normalized_hard = {}
-        normalized_orphan = {}
+        normalized_counts = {
+            key: _to_int(raw_value, minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0)
+            for key, raw_value in merged_count_map.items()
+            if key in shared_key_set
+        }
+        if "sessionCardCount" in kid and "chinese_characters" in shared_key_set:
+            normalized_counts["chinese_characters"] = _to_int(
+                kid.get("sessionCardCount"),
+                minimum=0,
+                maximum=MAX_SESSION_CARD_COUNT,
+                default=0,
+            )
+        if "sharedMathSessionCardCount" in kid and "math" in shared_key_set:
+            normalized_counts["math"] = _to_int(
+                kid.get("sharedMathSessionCardCount"),
+                minimum=0,
+                maximum=MAX_SESSION_CARD_COUNT,
+                default=0,
+            )
+        if "sharedLessonReadingSessionCardCount" in kid and "chinese_reading" in shared_key_set:
+            normalized_counts["chinese_reading"] = _to_int(
+                kid.get("sharedLessonReadingSessionCardCount"),
+                minimum=0,
+                maximum=MAX_SESSION_CARD_COUNT,
+                default=0,
+            )
+        if "writingSessionCardCount" in kid and "chinese_writing" in shared_key_set:
+            normalized_counts["chinese_writing"] = _to_int(
+                kid.get("writingSessionCardCount"),
+                minimum=0,
+                maximum=MAX_SESSION_CARD_COUNT,
+                default=0,
+            )
+
+        normalized_hard = {
+            key: _to_percent(raw_value)
+            for key, raw_value in merged_hard_map.items()
+            if key in shared_key_set
+        }
+        if "sharedChineseCharactersHardCardPercentage" in kid and "chinese_characters" in shared_key_set:
+            normalized_hard["chinese_characters"] = _to_percent(
+                kid.get("sharedChineseCharactersHardCardPercentage")
+            )
+        if "sharedMathHardCardPercentage" in kid and "math" in shared_key_set:
+            normalized_hard["math"] = _to_percent(
+                kid.get("sharedMathHardCardPercentage")
+            )
+        if "sharedLessonReadingHardCardPercentage" in kid and "chinese_reading" in shared_key_set:
+            normalized_hard["chinese_reading"] = _to_percent(
+                kid.get("sharedLessonReadingHardCardPercentage")
+            )
+        if "sharedWritingHardCardPercentage" in kid and "chinese_writing" in shared_key_set:
+            normalized_hard["chinese_writing"] = _to_percent(
+                kid.get("sharedWritingHardCardPercentage")
+            )
+
+        normalized_orphan = {
+            key: _to_bool(raw_value, default=DEFAULT_INCLUDE_ORPHAN)
+            for key, raw_value in merged_include_map.items()
+            if key in shared_key_set
+        }
+        if "sharedChineseCharactersIncludeOrphan" in kid and "chinese_characters" in shared_key_set:
+            normalized_orphan["chinese_characters"] = _to_bool(
+                kid.get("sharedChineseCharactersIncludeOrphan"),
+                default=DEFAULT_INCLUDE_ORPHAN,
+            )
+        if "sharedLessonReadingIncludeOrphan" in kid and "chinese_reading" in shared_key_set:
+            normalized_orphan["chinese_reading"] = _to_bool(
+                kid.get("sharedLessonReadingIncludeOrphan"),
+                default=DEFAULT_INCLUDE_ORPHAN,
+            )
+        if "sharedWritingIncludeOrphan" in kid and "chinese_writing" in shared_key_set:
+            normalized_orphan["chinese_writing"] = _to_bool(
+                kid.get("sharedWritingIncludeOrphan"),
+                default=DEFAULT_INCLUDE_ORPHAN,
+            )
+
         preferred_keys = []
         preferred_seen = set()
-
-        for key in type_i_and_iii_keys:
-            if key in merged_count_map:
-                count_value = _to_int(merged_count_map.get(key), minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0)
-            elif key == "chinese_characters":
-                count_value = _to_int(kid.get("sessionCardCount"), minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0)
-            elif key == "math":
-                count_value = _to_int(
-                    kid.get("sharedMathSessionCardCount"),
-                    minimum=0,
-                    maximum=MAX_SESSION_CARD_COUNT,
-                    default=0,
-                )
-            elif key == "chinese_reading":
-                count_value = _to_int(
-                    kid.get("sharedLessonReadingSessionCardCount"),
-                    minimum=0,
-                    maximum=MAX_SESSION_CARD_COUNT,
-                    default=0,
-                )
-            else:
-                count_value = 0
-
-            if key in merged_hard_map:
-                hard_value = _to_percent(merged_hard_map.get(key))
-            elif key == "chinese_characters":
-                hard_value = _to_percent(kid.get("sharedChineseCharactersHardCardPercentage"))
-            elif key == "math":
-                hard_value = _to_percent(kid.get("sharedMathHardCardPercentage"))
-            elif key == "chinese_reading":
-                hard_value = _to_percent(kid.get("sharedLessonReadingHardCardPercentage"))
-            else:
-                hard_value = DEFAULT_HARD_CARD_PERCENTAGE
-
-            if key in merged_include_map:
-                orphan_value = _to_bool(merged_include_map.get(key), default=DEFAULT_INCLUDE_ORPHAN)
-            elif key == "chinese_characters":
-                orphan_value = _to_bool(kid.get("sharedChineseCharactersIncludeOrphan"), default=DEFAULT_INCLUDE_ORPHAN)
-            elif key == "chinese_reading":
-                orphan_value = _to_bool(kid.get("sharedLessonReadingIncludeOrphan"), default=DEFAULT_INCLUDE_ORPHAN)
-            else:
-                orphan_value = DEFAULT_INCLUDE_ORPHAN
-
-            normalized_counts[key] = count_value
-            normalized_hard[key] = hard_value
-            normalized_orphan[key] = orphan_value
-
-            if count_value > 0 and key not in preferred_seen:
+        for key, count_value in normalized_counts.items():
+            if int(count_value) > 0 and key not in preferred_seen:
                 preferred_seen.add(key)
                 preferred_keys.append(key)
-
-        for key in type_ii_keys:
-            if key in merged_count_map:
-                count_value = _to_int(
-                    merged_count_map.get(key),
-                    minimum=0,
-                    maximum=MAX_SESSION_CARD_COUNT,
-                    default=0,
-                )
-            elif key == "chinese_writing":
-                count_value = _to_int(
-                    kid.get("writingSessionCardCount"),
-                    minimum=0,
-                    maximum=MAX_SESSION_CARD_COUNT,
-                    default=0,
-                )
-            else:
-                count_value = 0
-
-            if key in merged_hard_map:
-                hard_value = _to_percent(merged_hard_map.get(key))
-            elif key == "chinese_writing":
-                hard_value = _to_percent(kid.get("sharedWritingHardCardPercentage"))
-            else:
-                hard_value = DEFAULT_HARD_CARD_PERCENTAGE
-
-            if key in merged_include_map:
-                orphan_value = _to_bool(merged_include_map.get(key), default=DEFAULT_INCLUDE_ORPHAN)
-            elif key == "chinese_writing":
-                orphan_value = _to_bool(kid.get("sharedWritingIncludeOrphan"), default=DEFAULT_INCLUDE_ORPHAN)
-            else:
-                orphan_value = DEFAULT_INCLUDE_ORPHAN
-
-            normalized_counts[key] = count_value
-            normalized_hard[key] = hard_value
-            normalized_orphan[key] = orphan_value
-
-            if count_value > 0 and key not in preferred_seen:
-                preferred_seen.add(key)
-                preferred_keys.append(key)
-
-        reading_count = _to_int(
-            kid.get("sharedLessonReadingSessionCardCount"),
-            minimum=0,
-            maximum=MAX_SESSION_CARD_COUNT,
-            default=0,
-        )
-        if reading_count > 0 and "chinese_reading" in shared_key_set and "chinese_reading" not in preferred_seen:
-            preferred_seen.add("chinese_reading")
-            preferred_keys.append("chinese_reading")
 
         for raw_key in list(kid.get("optedInDeckCategoryKeys") or []):
             key = _normalize_category_key(raw_key)
@@ -670,13 +732,18 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
                 preferred_seen.add(key)
                 preferred_keys.append(key)
 
-        if kid_id:
-            kid_category_config_by_kid_id[kid_id] = {
-                "session_card_count_by_category": normalized_counts,
-                "hard_card_percentage_by_category": normalized_hard,
-                "include_orphan_by_category": normalized_orphan,
-                "opted_in_category_keys": preferred_keys,
-            }
+        has_opted_in_source = isinstance(kid.get("optedInDeckCategoryKeys"), list)
+        config_payload = {}
+        if normalized_counts:
+            config_payload["session_card_count_by_category"] = normalized_counts
+        if normalized_hard:
+            config_payload["hard_card_percentage_by_category"] = normalized_hard
+        if normalized_orphan:
+            config_payload["include_orphan_by_category"] = normalized_orphan
+        if has_opted_in_source or normalized_counts:
+            config_payload["opted_in_category_keys"] = preferred_keys
+        if kid_id and config_payload:
+            kid_category_config_by_kid_id[kid_id] = config_payload
 
         kid.pop(SESSION_CARD_COUNT_BY_CATEGORY_FIELD, None)
         kid.pop(HARD_CARD_PERCENT_BY_CATEGORY_FIELD, None)

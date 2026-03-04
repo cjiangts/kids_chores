@@ -1035,33 +1035,6 @@ header p {
     background: #e4e9ff;
 }
 
-.audio-filter-group {
-    display: inline-flex;
-    border: 1px solid #d7deee;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #fff;
-}
-
-.audio-filter-btn {
-    border: none;
-    background: #fff;
-    color: #445;
-    padding: 0.42rem 0.72rem;
-    font-size: 0.82rem;
-    cursor: pointer;
-    border-right: 1px solid #e6ebf6;
-}
-
-.audio-filter-btn:last-child {
-    border-right: none;
-}
-
-.audio-filter-btn.active {
-    background: #2f3c7e;
-    color: #fff;
-}
-
 .modal {
     position: fixed;
     top: 0;

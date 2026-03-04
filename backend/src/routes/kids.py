@@ -264,6 +264,25 @@ def require_super_family():
     return None
 
 
+def is_super_family_id(family_id):
+    """Return whether one family id has super-family privileges."""
+    normalized = str(family_id or '').strip()
+    if not normalized:
+        return False
+    return bool(metadata.is_super_family(normalized))
+
+
+def can_family_access_deck_category(category_meta, *, family_id=None, is_super=None):
+    """Return whether one family can access one deck category."""
+    if not isinstance(category_meta, dict):
+        return False
+    if is_super is None:
+        is_super = is_super_family_id(family_id if family_id is not None else current_family_id())
+    if is_super:
+        return True
+    return bool(category_meta.get('is_shared_with_non_super_family'))
+
+
 def get_kid_for_family(kid_id):
     """Get kid scoped to currently logged-in family."""
     family_id = current_family_id()
@@ -355,7 +374,13 @@ def get_shared_deck_categories(conn):
     """Return all shared deck categories sorted by key."""
     rows = conn.execute(
         """
-        SELECT category_key, behavior_type, has_chinese_specific_logic, display_name, emoji
+        SELECT
+          category_key,
+          behavior_type,
+          has_chinese_specific_logic,
+          is_shared_with_non_super_family,
+          display_name,
+          emoji
         FROM deck_category
         ORDER BY category_key ASC
         """
@@ -369,8 +394,9 @@ def get_shared_deck_categories(conn):
             'category_key': str(row[0] or ''),
             'behavior_type': behavior_type,
             'has_chinese_specific_logic': bool(row[2]),
-            'display_name': str(row[3] or '').strip(),
-            'emoji': str(row[4] or '').strip(),
+            'is_shared_with_non_super_family': bool(row[3]),
+            'display_name': str(row[4] or '').strip(),
+            'emoji': str(row[5] or '').strip(),
         })
     return categories
 
@@ -1086,6 +1112,42 @@ def get_all_shared_deck_tag_paths(conn):
     return ordered_paths
 
 
+def normalize_shared_deck_tag_path(tags):
+    """Normalize one ordered deck-tag path."""
+    normalized = []
+    for raw in list(tags or []):
+        tag = normalize_shared_deck_tag(raw)
+        if not tag:
+            continue
+        normalized.append(tag)
+    return normalized
+
+
+def find_shared_deck_tag_prefix_conflict(conn, candidate_tags):
+    """Return conflicting existing tag path when one path is a strict prefix of the other."""
+    candidate = tuple(normalize_shared_deck_tag_path(candidate_tags))
+    if not candidate:
+        return None
+
+    existing_paths = get_all_shared_deck_tag_paths(conn)
+    for raw_path in existing_paths:
+        existing = tuple(normalize_shared_deck_tag_path(raw_path))
+        if not existing or existing == candidate:
+            continue
+        common_len = min(len(existing), len(candidate))
+        if common_len <= 0:
+            continue
+        if existing[:common_len] == candidate[:common_len]:
+            return list(existing)
+    return None
+
+
+def format_shared_deck_tag_path(tags):
+    """Format one tag path for human-readable messages."""
+    normalized = normalize_shared_deck_tag_path(tags)
+    return '[' + ', '.join(normalized) + ']'
+
+
 def build_chinese_pinyin_text(text):
     """Generate pinyin for Chinese text using pypinyin (lazy import)."""
     normalized = str(text or '').strip()
@@ -1163,11 +1225,18 @@ def create_shared_deck_category():
                     category_key,
                     behavior_type,
                     has_chinese_specific_logic,
+                    is_shared_with_non_super_family,
                     display_name,
                     emoji
                 )
-                VALUES (?, ?, ?, ?, ?)
-                RETURNING category_key, behavior_type, has_chinese_specific_logic, display_name, emoji
+                VALUES (?, ?, ?, FALSE, ?, ?)
+                RETURNING
+                  category_key,
+                  behavior_type,
+                  has_chinese_specific_logic,
+                  is_shared_with_non_super_family,
+                  display_name,
+                  emoji
                 """,
                 [category_key, behavior_type, has_chinese_specific_logic, display_name, emoji]
             ).fetchone()
@@ -1180,8 +1249,9 @@ def create_shared_deck_category():
                 'category_key': str(row[0] or ''),
                 'behavior_type': str(row[1] or ''),
                 'has_chinese_specific_logic': bool(row[2]),
-                'display_name': str(row[3] or '').strip(),
-                'emoji': str(row[4] or '').strip(),
+                'is_shared_with_non_super_family': bool(row[3]),
+                'display_name': str(row[4] or '').strip(),
+                'emoji': str(row[5] or '').strip(),
             },
         }), 201
     except ValueError as e:
@@ -1193,6 +1263,90 @@ def create_shared_deck_category():
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/shared-decks/categories/<category_key>/share', methods=['POST'])
+def share_deck_category_to_non_super(category_key):
+    """One-way share: allow non-super families to access one deck category."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+
+        key = normalize_shared_deck_tag(category_key)
+        if not key:
+            return jsonify({'error': 'categoryKey is required'}), 400
+
+        conn = get_shared_decks_connection()
+        try:
+            row = conn.execute(
+                """
+                SELECT
+                  category_key,
+                  behavior_type,
+                  has_chinese_specific_logic,
+                  is_shared_with_non_super_family,
+                  display_name,
+                  emoji
+                FROM deck_category
+                WHERE category_key = ?
+                LIMIT 1
+                """,
+                [key],
+            ).fetchone()
+            if row is None:
+                return jsonify({'error': 'Category not found'}), 404
+
+            already_shared = bool(row[3])
+            if not already_shared:
+                row = conn.execute(
+                    """
+                    UPDATE deck_category
+                    SET is_shared_with_non_super_family = TRUE
+                    WHERE category_key = ?
+                    RETURNING
+                      category_key,
+                      behavior_type,
+                      has_chinese_specific_logic,
+                      is_shared_with_non_super_family,
+                      display_name,
+                      emoji
+                    """,
+                    [key],
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT
+                      category_key,
+                      behavior_type,
+                      has_chinese_specific_logic,
+                      is_shared_with_non_super_family,
+                      display_name,
+                      emoji
+                    FROM deck_category
+                    WHERE category_key = ?
+                    LIMIT 1
+                    """,
+                    [key],
+                ).fetchone()
+        finally:
+            conn.close()
+
+        return jsonify({
+            'shared': True,
+            'updated': not already_shared,
+            'category': {
+                'category_key': str(row[0] or ''),
+                'behavior_type': str(row[1] or ''),
+                'has_chinese_specific_logic': bool(row[2]),
+                'is_shared_with_non_super_family': bool(row[3]),
+                'display_name': str(row[4] or '').strip(),
+                'emoji': str(row[5] or '').strip(),
+            },
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/shared-decks/name-availability', methods=['GET'])
 def shared_deck_name_availability():
     """Check whether a shared deck name is globally available."""
@@ -1200,23 +1354,49 @@ def shared_deck_name_availability():
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        deck_name = str(request.args.get('name') or '').strip()
-        if not deck_name:
-            return jsonify({'error': 'name is required'}), 400
+        requested_name = str(request.args.get('name') or '').strip()
 
         conn = get_shared_decks_connection()
         try:
+            tags = None
+            first_tag_raw = request.args.get('firstTag')
+            if first_tag_raw is not None:
+                extra_tags_raw = request.args.getlist('extraTag')
+                allowed_first_tags = get_allowed_shared_deck_first_tags(conn)
+                tags = build_shared_deck_tags(
+                    first_tag_raw,
+                    extra_tags_raw,
+                    allowed_first_tags=allowed_first_tags,
+                )
+
+            deck_name = '_'.join(tags) if tags else requested_name
+            if not deck_name:
+                return jsonify({'error': 'name is required'}), 400
+
             row = conn.execute(
                 "SELECT deck_id FROM deck WHERE name = ? LIMIT 1",
                 [deck_name]
             ).fetchone()
+            prefix_conflict_tags = (
+                find_shared_deck_tag_prefix_conflict(conn, tags)
+                if tags
+                else None
+            )
         finally:
             conn.close()
 
+        if row is not None:
+            conflict_type = 'exact_name'
+        elif prefix_conflict_tags:
+            conflict_type = 'tag_prefix_conflict'
+        else:
+            conflict_type = None
         return jsonify({
             'name': deck_name,
-            'available': row is None,
+            'available': row is None and not prefix_conflict_tags,
             'existing_deck_id': int(row[0]) if row else None,
+            'conflict_type': conflict_type,
+            'conflict_tags': prefix_conflict_tags,
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -1245,6 +1425,113 @@ def shared_deck_chinese_characters_pinyin():
         return jsonify({'error': str(e)}), 400
     except RuntimeError as e:
         return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/category-card-overlap', methods=['POST'])
+def shared_deck_category_card_overlap():
+    """Compare candidate cards with existing cards in one category."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+
+        payload = request.get_json() or {}
+        category_key = normalize_shared_deck_tag(payload.get('categoryKey'))
+        if not category_key:
+            raise ValueError('categoryKey is required')
+        cards = normalize_shared_deck_cards(payload.get('cards'))
+
+        conn = get_shared_decks_connection()
+        try:
+            category_meta = None
+            for item in get_shared_deck_categories(conn):
+                key = normalize_shared_deck_tag(item.get('category_key'))
+                if key == category_key:
+                    category_meta = item
+                    break
+            if category_meta is None:
+                raise ValueError(f'Unknown categoryKey: {category_key}')
+
+            behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
+            dedupe_key = 'back' if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II else 'front'
+            other_key = 'front' if dedupe_key == 'back' else 'back'
+
+            rows = conn.execute(
+                """
+                SELECT
+                  c.front,
+                  c.back,
+                  d.deck_id,
+                  d.name
+                FROM cards c
+                JOIN deck d ON d.deck_id = c.deck_id
+                WHERE array_length(d.tags) >= 1
+                  AND lower(d.tags[1]) = ?
+                ORDER BY d.deck_id ASC, c.id ASC
+                """,
+                [category_key],
+            ).fetchall()
+        finally:
+            conn.close()
+
+        existing_by_dedupe = {}
+        for row in rows:
+            front = str(row[0] or '')
+            back = str(row[1] or '')
+            dedupe_value = back if dedupe_key == 'back' else front
+            existing_by_dedupe.setdefault(dedupe_value, []).append({
+                'front': front,
+                'back': back,
+                'deck_id': int(row[2]),
+                'deck_name': str(row[3] or ''),
+            })
+
+        def unique_decks(entries):
+            seen = set()
+            out = []
+            for entry in entries:
+                key = int(entry.get('deck_id') or 0)
+                if key <= 0 or key in seen:
+                    continue
+                seen.add(key)
+                out.append({
+                    'deck_id': key,
+                    'deck_name': str(entry.get('deck_name') or '').strip(),
+                })
+            return out
+
+        overlaps = []
+        for idx, card in enumerate(cards):
+            front = str(card.get('front') or '')
+            back = str(card.get('back') or '')
+            dedupe_value = back if dedupe_key == 'back' else front
+            matches = list(existing_by_dedupe.get(dedupe_value) or [])
+            if not matches:
+                continue
+
+            exact_matches = [entry for entry in matches if entry.get('front') == front and entry.get('back') == back]
+            mismatch_matches = [entry for entry in matches if not (entry.get('front') == front and entry.get('back') == back)]
+            overlaps.append({
+                'index': idx,
+                'front': front,
+                'back': back,
+                'dedupe_key': dedupe_key,
+                'dedupe_value': dedupe_value,
+                'other_key': other_key,
+                'exact_match_decks': unique_decks(exact_matches),
+                'mismatch_decks': unique_decks(mismatch_matches),
+            })
+
+        return jsonify({
+            'category_key': category_key,
+            'dedupe_key': dedupe_key,
+            'other_key': other_key,
+            'overlaps': overlaps,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1417,16 +1704,21 @@ def create_shared_deck():
                 payload.get('extraTags'),
                 allowed_first_tags=allowed_first_tags,
             )
+            prefix_conflict_tags = find_shared_deck_tag_prefix_conflict(conn, tags)
+            if prefix_conflict_tags:
+                raise ValueError(
+                    'Tag path conflicts with existing deck path '
+                    f'{format_shared_deck_tag_path(prefix_conflict_tags)}. '
+                    'Nested tag paths are not allowed.'
+                )
             dedupe_by_back = False
             if tags:
                 category_meta_by_key = get_shared_deck_category_meta_by_key()
                 first_tag = normalize_shared_deck_tag(tags[0])
                 category_meta = category_meta_by_key.get(first_tag) if first_tag else None
                 behavior_type = str((category_meta or {}).get('behavior_type') or '').strip().lower()
-                has_chinese_specific_logic = bool((category_meta or {}).get('has_chinese_specific_logic'))
                 dedupe_by_back = (
                     behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II
-                    and has_chinese_specific_logic
                 )
             cards = (
                 dedupe_shared_deck_cards_by_back(cards)
@@ -1544,7 +1836,14 @@ def get_kid_dashboard_stats(kid):
         day_end_local = day_start_local + timedelta(days=1)
         day_start_utc = day_start_local.astimezone(timezone.utc).replace(tzinfo=None)
         day_end_utc = day_end_local.astimezone(timezone.utc).replace(tzinfo=None)
-        category_meta_by_key = get_shared_deck_category_meta_by_key()
+        family_id = str(kid.get('familyId') or '').strip()
+        is_super = is_super_family_id(family_id)
+        all_category_meta_by_key = get_shared_deck_category_meta_by_key()
+        category_meta_by_key = {
+            key: meta
+            for key, meta in all_category_meta_by_key.items()
+            if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
+        }
 
         rows = conn.execute(
             """
@@ -1596,6 +1895,9 @@ def get_kid_opted_in_deck_category_keys(kid):
     """Return normalized deck-category keys opted in for one kid."""
     try:
         hydrate_kid_category_config_from_db(kid)
+        family_id = str(kid.get('familyId') or '').strip()
+        is_super = is_super_family_id(family_id)
+        category_meta_by_key = get_shared_deck_category_meta_by_key()
         raw_keys = kid.get('optedInDeckCategoryKeys')
         if not isinstance(raw_keys, list):
             return []
@@ -1604,6 +1906,13 @@ def get_kid_opted_in_deck_category_keys(kid):
         for raw_key in raw_keys:
             key = normalize_shared_deck_tag(raw_key)
             if not key or key in seen:
+                continue
+            category_meta = category_meta_by_key.get(key)
+            if not can_family_access_deck_category(
+                category_meta,
+                family_id=family_id,
+                is_super=is_super,
+            ):
                 continue
             seen.add(key)
             keys.append(key)
@@ -1627,6 +1936,7 @@ def get_shared_deck_category_meta_by_key():
         metadata_by_key[key] = {
             'behavior_type': str(item.get('behavior_type') or '').strip().lower(),
             'has_chinese_specific_logic': bool(item.get('has_chinese_specific_logic')),
+            'is_shared_with_non_super_family': bool(item.get('is_shared_with_non_super_family')),
             'display_name': str(item.get('display_name') or '').strip(),
             'emoji': str(item.get('emoji') or '').strip(),
         }
@@ -1687,6 +1997,9 @@ def resolve_kid_deck_category_key_for_behavior(
         raise ValueError(f'categoryKey "{key}" has unsupported behavior type')
     if has_chinese_specific_logic != bool(expected_has_chinese_specific_logic):
         raise ValueError(f'categoryKey "{key}" has unsupported Chinese logic mode')
+    family_id = str(kid.get('familyId') or '').strip()
+    if not can_family_access_deck_category(category_meta, family_id=family_id):
+        raise ValueError(f'categoryKey "{key}" is not shared with this family')
 
     opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid))
     if key not in opted_in_keys:
@@ -1919,7 +2232,13 @@ def get_kids():
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
         kids = metadata.get_all_kids(family_id=family_id)
-        category_meta_by_key = get_shared_deck_category_meta_by_key()
+        is_super = is_super_family_id(family_id)
+        all_category_meta_by_key = get_shared_deck_category_meta_by_key()
+        category_meta_by_key = {
+            key: meta
+            for key, meta in all_category_meta_by_key.items()
+            if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
+        }
 
         kids_with_progress = []
         for kid in kids:
@@ -1973,7 +2292,6 @@ def create_kid():
             'familyId': family_id,
             'name': data['name'],
             'birthday': data['birthday'],
-            TYPE_I_NON_CHINESE_DECK_MIX_FIELD: {},
             'createdAt': datetime.now().isoformat()
         })
         kid_id = kid['id']
@@ -1999,7 +2317,14 @@ def get_kid(kid_id):
 
         today_counts, has_ungraded = get_kid_dashboard_stats(kid)
         opted_in_category_keys = get_kid_opted_in_deck_category_keys(kid)
-        category_meta_by_key = get_shared_deck_category_meta_by_key()
+        family_id = str(kid.get('familyId') or '').strip()
+        is_super = is_super_family_id(family_id)
+        all_category_meta_by_key = get_shared_deck_category_meta_by_key()
+        category_meta_by_key = {
+            key: meta
+            for key, meta in all_category_meta_by_key.items()
+            if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
+        }
         daily_completed_by_deck_category = get_kid_daily_completed_by_deck_category(
             kid,
             opted_in_category_keys,
@@ -2032,12 +2357,22 @@ def get_kid_deck_categories(kid_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        family_id = str(kid.get('familyId') or '').strip()
+        is_super = is_super_family_id(family_id)
 
         shared_conn = get_shared_decks_connection()
         try:
-            categories = get_shared_deck_categories(shared_conn)
+            all_categories = get_shared_deck_categories(shared_conn)
         finally:
             shared_conn.close()
+        categories = [
+            item for item in all_categories
+            if can_family_access_deck_category(
+                item,
+                family_id=family_id,
+                is_super=is_super,
+            )
+        ]
 
         category_keys = [
             normalize_shared_deck_tag(item.get('category_key'))
@@ -2055,6 +2390,7 @@ def get_kid_deck_categories(kid_id):
                 'emoji': str(item.get('emoji') or '').strip(),
                 'behavior_type': str(item.get('behavior_type') or '').strip().lower(),
                 'has_chinese_specific_logic': bool(item.get('has_chinese_specific_logic')),
+                'is_shared_with_non_super_family': bool(item.get('is_shared_with_non_super_family')),
             }
 
         kid_conn = get_kid_connection_for(kid)
@@ -2100,6 +2436,8 @@ def update_kid_deck_categories(kid_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        family_id = str(kid.get('familyId') or '').strip()
+        is_super = is_super_family_id(family_id)
 
         payload = request.get_json() or {}
         category_keys = normalize_deck_category_keys(payload.get('categoryKeys'))
@@ -2109,6 +2447,11 @@ def update_kid_deck_categories(kid_id):
             allowed_keys = {
                 normalize_shared_deck_tag(item.get('category_key'))
                 for item in get_shared_deck_categories(shared_conn)
+                if can_family_access_deck_category(
+                    item,
+                    family_id=family_id,
+                    is_super=is_super,
+                )
                 if normalize_shared_deck_tag(item.get('category_key'))
             }
         finally:

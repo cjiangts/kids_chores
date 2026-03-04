@@ -20,6 +20,7 @@ let currentFilteredDeckIds = [];
 let currentFilteredDecks = [];
 let renderedDeckCount = 0;
 let isBulkDeleting = false;
+let deckCategoryMetaByKey = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -58,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateBulkSelectionUi();
     syncSelectAllVisibleCheckbox();
     updateDeckCountInfo(0, 0);
+    await loadDeckCategoryMeta();
     await loadMyDecks();
 });
 
@@ -101,6 +103,36 @@ async function loadMyDecks() {
         ensureDeckTagFilterController().sync();
         renderDecks();
         showError(error.message || 'Failed to load decks.');
+    }
+}
+
+function normalizeCategoryKey(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+async function loadDeckCategoryMeta() {
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/categories`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to load categories (HTTP ${response.status})`);
+        }
+        const categories = Array.isArray(result.categories) ? result.categories : [];
+        const next = {};
+        categories.forEach((item) => {
+            const key = normalizeCategoryKey(item && item.category_key);
+            if (!key) {
+                return;
+            }
+            next[key] = {
+                display_name: String(item && item.display_name ? item.display_name : '').trim(),
+                emoji: String(item && item.emoji ? item.emoji : '').trim(),
+            };
+        });
+        deckCategoryMetaByKey = next;
+    } catch (error) {
+        console.error('Error loading deck categories for manage table:', error);
+        deckCategoryMetaByKey = {};
     }
 }
 
@@ -191,12 +223,22 @@ function renderDecks() {
 function renderDeckRowHtml(deck) {
     const deckId = Number(deck.deck_id || 0);
     const tags = Array.isArray(deck.tags) ? deck.tags : [];
-    const tagHtml = tags.length > 0
-        ? `<div class="deck-tags">${tags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
+    const firstTag = String(tags[0] || '').trim();
+    const remainingTags = tags.slice(1);
+    const categoryKey = normalizeCategoryKey(firstTag);
+    const categoryMeta = categoryKey ? deckCategoryMetaByKey[categoryKey] : null;
+    const categoryLabel = String((categoryMeta && categoryMeta.display_name) || firstTag || '-').trim() || '-';
+    const categoryEmoji = String((categoryMeta && categoryMeta.emoji) || '').trim();
+    const categoryHtml = categoryLabel === '-'
+        ? '-'
+        : `${categoryEmoji ? `${escapeHtml(categoryEmoji)} ` : ''}${escapeHtml(categoryLabel)}`;
+    const tagHtml = remainingTags.length > 0
+        ? `<div class="deck-tags">${remainingTags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
         : '-';
     return `
         <tr>
             <td class="deck-id-col">${deckId}</td>
+            <td class="deck-category-col">${categoryHtml}</td>
             <td class="deck-tags-col">${tagHtml}</td>
             <td>${Number(deck.card_count || 0)}</td>
             <td class="shared-report-table-action-cell">
