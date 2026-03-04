@@ -48,10 +48,6 @@
             width: 70px;
         }
 
-        .deck-category-col {
-            width: 190px;
-        }
-
         .available-filter {
             display: flex;
             gap: 0.5rem;
@@ -82,6 +78,51 @@
             color: #333;
         }
 
+        .deck-category-filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.55rem;
+            margin: 0.35rem 0 0.8rem;
+        }
+
+        .deck-category-filter-btn {
+            border: 1px solid #c8d1e1;
+            border-radius: 10px;
+            background: #fff;
+            color: #233044;
+            text-align: left;
+            cursor: pointer;
+            padding: 0.68rem 0.75rem;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+
+        .deck-category-filter-btn:hover {
+            border-color: #4f83ff;
+            transform: translateY(-1px);
+        }
+
+        .deck-category-filter-btn.active {
+            border-color: #4f83ff;
+            box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.16);
+            background: #f7faff;
+        }
+
+        .deck-category-filter-title {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #233044;
+            margin-bottom: 0.18rem;
+            word-break: break-word;
+        }
+
+        .deck-category-filter-desc {
+            display: block;
+            font-size: 0.82rem;
+            line-height: 1.35;
+            color: #4b5a70;
+        }
+
     </style>
 </head>
 <body class="manage-page">
@@ -103,15 +144,18 @@
                     <button id="createDeckBulkNavBtn" type="button" class="btn-primary">Bulk Create New Decks</button>
                     <button id="createDeckCategoryNavBtn" type="button" class="btn-primary">Manage Deck Category</button>
                 </div>
-                <p id="deckCountInfo" class="deck-count-info">Showing 0 of 0 deck(s)</p>
+
+                <div id="deckCategoryFilterWrap" class="deck-category-filter-row"></div>
 
                 <div class="available-filter">
                     <div class="form-group">
                         <select id="deckTagFilter" class="sort-select">
-                            <option value="">Add filter tag...</option>
+                            <option value="">Filter by secondary tag...</option>
                         </select>
                     </div>
                 </div>
+
+                <p id="deckCountInfo" class="deck-count-info">Showing 0 of 0 deck(s)</p>
 
                 <div class="bulk-actions">
                     <label>
@@ -128,7 +172,6 @@
                         <thead>
                             <tr>
                                 <th class="deck-id-col">Deck ID</th>
-                                <th class="deck-category-col">Deck Category</th>
                                 <th class="deck-tags-col">Tags</th>
                                 <th class="table-col-110">Cards</th>
                                 <th class="shared-report-table-action-cell">Actions</th>
@@ -144,6 +187,7 @@
     </div>
 
     <script src="practice-manage-common.js"></script>
+    <script src="deck-category-common.js"></script>
     <script src="deck-manage.js"></script>
 </body>
 </html>

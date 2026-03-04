@@ -12,6 +12,10 @@ const reviewTableBody = document.getElementById('reviewTableBody');
 const createDecksBtn = document.getElementById('createDecksBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
+const deckCategoryCommon = window.DeckCategoryCommon;
+if (!deckCategoryCommon) {
+    throw new Error('deck-category-common.js is required for deck-create-bulk');
+}
 
 let currentFirstTag = '';
 let previewDecks = [];
@@ -97,34 +101,6 @@ function normalizeTag(text) {
         .replace(/^_+|_+$/g, '');
 }
 
-function normalizeBehaviorType(value) {
-    const text = String(value || '').trim().toLowerCase();
-    if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
-        return text;
-    }
-    return '';
-}
-
-function getBehaviorTypeLabel(behaviorType) {
-    const normalized = normalizeBehaviorType(behaviorType);
-    if (normalized === 'type_i') {
-        return 'Type I';
-    }
-    if (normalized === 'type_ii') {
-        return 'Type II';
-    }
-    if (normalized === 'type_iii') {
-        return 'Type III';
-    }
-    return 'Unknown Type';
-}
-
-function getCategoryDescriptor(item) {
-    const behaviorLabel = getBehaviorTypeLabel(item && item.behavior_type);
-    const logicLabel = item && item.has_chinese_specific_logic ? 'Chinese' : 'Generic';
-    return `${behaviorLabel} ${logicLabel}`;
-}
-
 function getDeckCountForCategory(categoryKey) {
     const key = normalizeTag(categoryKey);
     if (!key) {
@@ -162,38 +138,13 @@ function getCurrentDeckCategory() {
 async function loadDeckCategories() {
     showError('');
     try {
-        const response = await fetch(`${API_BASE}/shared-decks/categories`);
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(result.error || `Failed to load deck categories (HTTP ${response.status})`);
-        }
-
-        const rawCategories = Array.isArray(result.categories) ? result.categories : [];
-        const nextCategories = [];
-        const seenKeys = new Set();
-        rawCategories.forEach((item) => {
-            const key = normalizeTag(item && item.category_key);
-            const behaviorType = normalizeBehaviorType(item && item.behavior_type);
-            if (!key || !behaviorType || seenKeys.has(key)) {
-                return;
-            }
-            seenKeys.add(key);
-            nextCategories.push({
-                category_key: key,
-                behavior_type: behaviorType,
-                has_chinese_specific_logic: Boolean(item && item.has_chinese_specific_logic),
-            });
+        const loaded = await deckCategoryCommon.loadDeckCategoriesForFirstTagPicker({
+            apiBase: API_BASE,
+            selectedCategoryKey: currentFirstTag,
         });
-
-        if (nextCategories.length === 0) {
-            throw new Error('No deck categories configured. Create a category first.');
-        }
-
-        deckCategories = nextCategories;
-        deckCategoryKeySet = new Set(nextCategories.map((item) => item.category_key));
-        if (!deckCategoryKeySet.has(currentFirstTag)) {
-            currentFirstTag = nextCategories[0].category_key;
-        }
+        deckCategories = loaded.categories;
+        deckCategoryKeySet = loaded.categoryKeySet;
+        currentFirstTag = loaded.selectedCategoryKey;
         setControlsDisabled(false);
         return true;
     } catch (error) {
@@ -269,25 +220,11 @@ function renderFirstTagToggle() {
     if (!firstTagToggle) {
         return;
     }
-    if (!Array.isArray(deckCategories) || deckCategories.length === 0) {
-        firstTagToggle.innerHTML = '<span class="settings-note">No categories available.</span>';
-        return;
-    }
-    firstTagToggle.innerHTML = deckCategories.map((item) => {
-        const isActive = item.category_key === currentFirstTag;
-        const count = getDeckCountForCategory(item.category_key);
-        return `
-            <button type="button" class="first-tag-option${isActive ? ' active' : ''}" data-first-tag="${escapeHtml(item.category_key)}" aria-pressed="${isActive ? 'true' : 'false'}">
-                <span class="first-tag-option-title">${escapeHtml(item.category_key)}</span>
-                <span class="first-tag-option-desc">${escapeHtml(getCategoryDescriptor(item))} · ${count} deck${count === 1 ? '' : 's'}</span>
-            </button>
-        `;
-    }).join('');
-    firstTagToggle.querySelectorAll('[data-first-tag]').forEach((el) => {
-        const tag = String(el.getAttribute('data-first-tag') || '');
-        const isActive = tag === currentFirstTag;
-        el.classList.toggle('active', isActive);
-        el.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    deckCategoryCommon.renderFirstTagCategoryPicker({
+        containerEl: firstTagToggle,
+        categories: deckCategories,
+        selectedCategoryKey: currentFirstTag,
+        getDeckCount: getDeckCountForCategory,
     });
 }
 

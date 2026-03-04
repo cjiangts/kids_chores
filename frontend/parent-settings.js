@@ -482,25 +482,15 @@ function renderFamilyAccounts(families, sharedStorage) {
             badgeParts.push('current');
         }
         const badgeText = badgeParts.length > 0 ? ` (${badgeParts.join(', ')})` : '';
-        const kidCount = Number.isInteger(Number(family.kidCount)) ? Number(family.kidCount) : 0;
         const kidDbFileCount = Number.isInteger(Number(family.kidDbFileCount)) ? Number(family.kidDbFileCount) : 0;
         const kidDbTotalBytes = Number.isFinite(Number(family.kidDbTotalBytes)) ? Number(family.kidDbTotalBytes) : 0;
         const audioFileCount = Number.isInteger(Number(family.audioFileCount)) ? Number(family.audioFileCount) : 0;
         const audioTotalBytes = Number.isFinite(Number(family.audioTotalBytes)) ? Number(family.audioTotalBytes) : 0;
-        const lessonAudioCount = Number.isInteger(Number(family.lessonReadingAudioFileCount))
-            ? Number(family.lessonReadingAudioFileCount)
-            : 0;
-        const lessonAudioBytes = Number.isFinite(Number(family.lessonReadingAudioTotalBytes))
-            ? Number(family.lessonReadingAudioTotalBytes)
-            : 0;
-        const otherAudioCount = Math.max(0, audioFileCount - lessonAudioCount);
-        const otherAudioBytes = Math.max(0, audioTotalBytes - lessonAudioBytes);
         const familyStorageTotalBytes = Number.isFinite(Number(family.familyStorageTotalBytes))
             ? Number(family.familyStorageTotalBytes)
             : (kidDbTotalBytes + audioTotalBytes);
-        const kidDbLine = (kidDbFileCount > 0 && kidDbFileCount !== kidCount)
-            ? `Kid DB files: ${kidDbFileCount}, total ${formatBytes(kidDbTotalBytes)}`
-            : `Kid DB total: ${formatBytes(kidDbTotalBytes)}`;
+        const kidDbLine = `Kid DB: ${kidDbFileCount} file(s), ${formatBytes(kidDbTotalBytes)}`;
+        const audioLine = `Audio: ${audioFileCount} file(s), ${formatBytes(audioTotalBytes)}`;
         const canDelete = Boolean(family.canDelete);
         const deleteButton = canDelete
             ? `<button type="button" class="btn-secondary" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}">Delete</button>`
@@ -510,10 +500,8 @@ function renderFamilyAccounts(families, sharedStorage) {
                 <div>
                     <strong>${escapeHtml(username)}</strong> <code>#${escapeHtml(familyId)}</code>${escapeHtml(badgeText)}
                     <div class="settings-note">Family total storage: ${formatBytes(familyStorageTotalBytes)}</div>
-                    <div class="settings-note">${kidCount} kid(s)</div>
                     <div class="settings-note">${kidDbLine}</div>
-                    <div class="settings-note">Lesson reading audio: ${lessonAudioCount}, ${formatBytes(lessonAudioBytes)}</div>
-                    ${otherAudioCount > 0 ? `<div class="settings-note">Other family audio: ${otherAudioCount}, ${formatBytes(otherAudioBytes)}</div>` : ''}
+                    <div class="settings-note">${audioLine}</div>
                 </div>
                 <div>${deleteButton}</div>
             </div>

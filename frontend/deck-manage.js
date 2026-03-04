@@ -8,19 +8,26 @@ const createDeckNavBtn = document.getElementById('createDeckNavBtn');
 const createDeckBulkNavBtn = document.getElementById('createDeckBulkNavBtn');
 const createDeckCategoryNavBtn = document.getElementById('createDeckCategoryNavBtn');
 const errorMessage = document.getElementById('errorMessage');
+const deckCategoryFilterWrap = document.getElementById('deckCategoryFilterWrap');
 const deckTagFilterInput = document.getElementById('deckTagFilter');
 const selectAllVisibleCheckbox = document.getElementById('selectAllVisibleCheckbox');
 const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 
 const DECK_RENDER_CHUNK_SIZE = 20;
+const deckCategoryCommon = window.DeckCategoryCommon;
+if (!deckCategoryCommon) {
+    throw new Error('deck-category-common.js is required for deck-manage');
+}
 
 let allDecks = [];
-let deckTagFilterController = null;
 let currentFilteredDeckIds = [];
 let currentFilteredDecks = [];
 let renderedDeckCount = 0;
 let isBulkDeleting = false;
 let deckCategoryMetaByKey = {};
+let deckCategoryOrder = [];
+let selectedCategoryFilterKey = '';
+let secondaryTagFilterController = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -54,8 +61,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tableWrap) {
         tableWrap.addEventListener('scroll', handleTableScroll);
     }
-
-    ensureDeckTagFilterController().sync();
+    if (deckCategoryFilterWrap) {
+        deckCategoryFilterWrap.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-category-filter-key]');
+            if (!button) {
+                return;
+            }
+            const nextKey = normalizeCategoryKey(button.getAttribute('data-category-filter-key'));
+            if (nextKey === selectedCategoryFilterKey) {
+                return;
+            }
+            selectedCategoryFilterKey = nextKey;
+            renderDecks();
+        });
+    }
     updateBulkSelectionUi();
     syncSelectAllVisibleCheckbox();
     updateDeckCountInfo(0, 0);
@@ -95,12 +114,10 @@ async function loadMyDecks() {
             throw new Error(result.error || `Failed to load decks (HTTP ${response.status})`);
         }
         allDecks = Array.isArray(result.decks) ? result.decks : [];
-        ensureDeckTagFilterController().sync();
         renderDecks();
     } catch (error) {
         console.error('Error loading shared decks:', error);
         allDecks = [];
-        ensureDeckTagFilterController().sync();
         renderDecks();
         showError(error.message || 'Failed to load decks.');
     }
@@ -119,20 +136,27 @@ async function loadDeckCategoryMeta() {
         }
         const categories = Array.isArray(result.categories) ? result.categories : [];
         const next = {};
+        const nextOrder = [];
         categories.forEach((item) => {
             const key = normalizeCategoryKey(item && item.category_key);
             if (!key) {
                 return;
             }
+            nextOrder.push(key);
             next[key] = {
                 display_name: String(item && item.display_name ? item.display_name : '').trim(),
                 emoji: String(item && item.emoji ? item.emoji : '').trim(),
+                behavior_type: deckCategoryCommon.normalizeBehaviorType(item && item.behavior_type),
+                has_chinese_specific_logic: Boolean(item && item.has_chinese_specific_logic),
+                is_shared_with_non_super_family: Boolean(item && item.is_shared_with_non_super_family),
             };
         });
         deckCategoryMetaByKey = next;
+        deckCategoryOrder = nextOrder;
     } catch (error) {
         console.error('Error loading deck categories for manage table:', error);
         deckCategoryMetaByKey = {};
+        deckCategoryOrder = [];
     }
 }
 
@@ -142,36 +166,152 @@ function getDeckTags(deck) {
         : [];
 }
 
-function ensureDeckTagFilterController() {
-    if (deckTagFilterController) {
-        return deckTagFilterController;
+function getDeckPrimaryCategoryKey(deck) {
+    const tags = getDeckTags(deck);
+    return normalizeCategoryKey(tags[0]);
+}
+
+function getDeckSecondaryTags(deck) {
+    const tags = getDeckTags(deck);
+    return tags.slice(1);
+}
+
+function getCategoryLabel(categoryKey) {
+    const key = normalizeCategoryKey(categoryKey);
+    if (!key) {
+        return '';
+    }
+    const meta = deckCategoryMetaByKey[key];
+    const displayName = String(meta && meta.display_name ? meta.display_name : '').trim();
+    return displayName || key;
+}
+
+function getCategorySortWeight(categoryKey) {
+    const key = normalizeCategoryKey(categoryKey);
+    const orderIndex = deckCategoryOrder.indexOf(key);
+    if (orderIndex >= 0) {
+        return orderIndex;
+    }
+    return Number.MAX_SAFE_INTEGER;
+}
+
+function getCategoryFilterItems() {
+    const countsByKey = {};
+    allDecks.forEach((deck) => {
+        const categoryKey = getDeckPrimaryCategoryKey(deck);
+        if (!categoryKey) {
+            return;
+        }
+        countsByKey[categoryKey] = (countsByKey[categoryKey] || 0) + 1;
+    });
+
+    const allKeysSet = new Set([
+        ...Object.keys(deckCategoryMetaByKey),
+        ...Object.keys(countsByKey),
+    ]);
+    const allKeys = Array.from(allKeysSet);
+    allKeys.sort((a, b) => {
+        const weightA = getCategorySortWeight(a);
+        const weightB = getCategorySortWeight(b);
+        if (weightA !== weightB) {
+            return weightA - weightB;
+        }
+        return a.localeCompare(b);
+    });
+
+    return allKeys.map((categoryKey) => {
+        const meta = deckCategoryMetaByKey[categoryKey] || null;
+        const count = Number.isFinite(countsByKey[categoryKey]) ? countsByKey[categoryKey] : 0;
+        const title = deckCategoryCommon.getCategoryCardTitle(categoryKey, meta || {});
+        const description = deckCategoryCommon.getCategoryCardDescription(meta || {}, count);
+        return {
+            key: categoryKey,
+            title,
+            description,
+            count,
+        };
+    });
+}
+
+function renderCategoryFilters() {
+    if (!deckCategoryFilterWrap) {
+        return;
+    }
+
+    const categoryItems = getCategoryFilterItems();
+    if (categoryItems.length === 0) {
+        selectedCategoryFilterKey = '';
+        deckCategoryFilterWrap.innerHTML = '';
+        return;
+    }
+    const validKeys = new Set(categoryItems.map((item) => item.key));
+    if (!selectedCategoryFilterKey || !validKeys.has(selectedCategoryFilterKey)) {
+        selectedCategoryFilterKey = categoryItems[0].key;
+    }
+    const categoryButtonsHtml = categoryItems.map((item) => `
+        <button
+            type="button"
+            class="deck-category-filter-btn${item.key === selectedCategoryFilterKey ? ' active' : ''}"
+            data-category-filter-key="${escapeHtml(item.key)}"
+            aria-pressed="${item.key === selectedCategoryFilterKey ? 'true' : 'false'}"
+        >
+            <span class="deck-category-filter-title">${escapeHtml(item.title)}</span>
+            <span class="deck-category-filter-desc">${escapeHtml(item.description)}</span>
+        </button>
+    `).join('');
+
+    deckCategoryFilterWrap.innerHTML = categoryButtonsHtml;
+}
+
+function getDecksByCategoryFilter() {
+    return allDecks.filter((deck) => getDeckPrimaryCategoryKey(deck) === selectedCategoryFilterKey);
+}
+
+function ensureSecondaryTagFilterController() {
+    if (secondaryTagFilterController) {
+        return secondaryTagFilterController;
     }
 
     if (!window.PracticeManageCommon || typeof window.PracticeManageCommon.createHierarchicalTagFilterController !== 'function') {
-        deckTagFilterController = {
+        secondaryTagFilterController = {
             sync: () => {},
             matchesDeck: () => true,
             getDisplayLabel: () => '',
         };
-        return deckTagFilterController;
+        return secondaryTagFilterController;
     }
 
-    deckTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
+    secondaryTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
         selectEl: deckTagFilterInput,
-        getDecks: () => allDecks,
-        getDeckTags,
+        getDecks: getDecksByCategoryFilter,
+        getDeckTags: getDeckSecondaryTags,
         onFilterChanged: () => {
             renderDecks();
         },
     });
-    return deckTagFilterController;
+    return secondaryTagFilterController;
 }
 
-function matchesDeckTagFilter(deck) {
-    return ensureDeckTagFilterController().matchesDeck(deck);
+function matchesSecondaryTagFilter(deck) {
+    return ensureSecondaryTagFilterController().matchesDeck(deck);
+}
+
+function buildDeckEmptyStateMessage() {
+    const categoryLabel = getCategoryLabel(selectedCategoryFilterKey);
+    const secondaryFilterLabel = ensureSecondaryTagFilterController().getDisplayLabel();
+    if (selectedCategoryFilterKey && secondaryFilterLabel) {
+        return `No decks in "${categoryLabel}" match secondary tag "${secondaryFilterLabel}".`;
+    }
+    if (selectedCategoryFilterKey) {
+        return `No decks in "${categoryLabel}".`;
+    }
+    return 'No decks match the selected filters.';
 }
 
 function renderDecks() {
+    renderCategoryFilters();
+    ensureSecondaryTagFilterController().sync();
+
     if (!Array.isArray(allDecks) || allDecks.length === 0) {
         currentFilteredDecks = [];
         renderedDeckCount = 0;
@@ -186,19 +326,17 @@ function renderDecks() {
         return;
     }
 
-    const filteredDecks = allDecks.filter(matchesDeckTagFilter);
+    const decksByCategory = getDecksByCategoryFilter();
+    const filteredDecks = decksByCategory.filter(matchesSecondaryTagFilter);
     currentFilteredDecks = filteredDecks;
     currentFilteredDeckIds = filteredDecks
         .map((deck) => Number(deck.deck_id || 0))
         .filter((deckId) => deckId > 0);
     if (filteredDecks.length === 0) {
         renderedDeckCount = 0;
-        const filterLabel = ensureDeckTagFilterController().getDisplayLabel();
         deckTableBody.innerHTML = '';
         tableWrap.classList.add('hidden');
-        emptyState.textContent = filterLabel
-            ? `No decks match tag "${filterLabel}".`
-            : 'No decks match the selected tag filter.';
+        emptyState.textContent = buildDeckEmptyStateMessage();
         emptyState.classList.remove('hidden');
         updateDeckCountInfo(0, 0);
         updateBulkSelectionUi();
@@ -223,22 +361,13 @@ function renderDecks() {
 function renderDeckRowHtml(deck) {
     const deckId = Number(deck.deck_id || 0);
     const tags = Array.isArray(deck.tags) ? deck.tags : [];
-    const firstTag = String(tags[0] || '').trim();
     const remainingTags = tags.slice(1);
-    const categoryKey = normalizeCategoryKey(firstTag);
-    const categoryMeta = categoryKey ? deckCategoryMetaByKey[categoryKey] : null;
-    const categoryLabel = String((categoryMeta && categoryMeta.display_name) || firstTag || '-').trim() || '-';
-    const categoryEmoji = String((categoryMeta && categoryMeta.emoji) || '').trim();
-    const categoryHtml = categoryLabel === '-'
-        ? '-'
-        : `${categoryEmoji ? `${escapeHtml(categoryEmoji)} ` : ''}${escapeHtml(categoryLabel)}`;
     const tagHtml = remainingTags.length > 0
         ? `<div class="deck-tags">${remainingTags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
         : '-';
     return `
         <tr>
             <td class="deck-id-col">${deckId}</td>
-            <td class="deck-category-col">${categoryHtml}</td>
             <td class="deck-tags-col">${tagHtml}</td>
             <td>${Number(deck.card_count || 0)}</td>
             <td class="shared-report-table-action-cell">

@@ -1,6 +1,15 @@
-# Code Review — Round 2 (2026-03-04)
+# Code Review — Round 3 (2026-03-04)
 
-Progress since last review: orphan deck helpers merged, card-skip collapsed to one internal, bonus game gated by category, writing/reading manage JS deleted, kid-type1/type3/writing practice merged into `kid-practice.js`. Good structural work.
+## Progress since last review
+
+- `resolve_kid_category_with_mode` (L2062) now exists as a single dispatcher — all three type resolvers delegate to it ✓
+- `dispatch_shared_deck_scope_operation` + `SHARED_DECK_OPERATION_HANDLERS` collapses 18 routes to 6 parameterized routes ✓
+- `get_or_create_category_orphan_deck` unified helper in place (L874) ✓
+- `buildCardMarkup` common builder in `kid-card-manage.js` — the three thin wrappers all delegate to it ✓
+- `escapeHtml` defined once in `practice-manage-common.js` L1, loaded globally in all pages that need it ✓
+- `kid-practice.js` unifies type-I, type-II, type-III practice into one file with a dispatch pattern ✓
+
+---
 
 ## Current sizes
 
@@ -13,211 +22,160 @@ Progress since last review: orphan deck helpers merged, card-skip collapsed to o
 
 ---
 
-## 1. Three category-resolution functions that are 95% identical (Priority 1, ~80 LOC)
+## Security
 
-`kids.py` has three separate functions:
-```
-resolve_kid_type_iii_category_with_mode  L1806
-resolve_kid_type_ii_category_with_mode   L1850
-resolve_kid_type_i_category_with_mode    L1891 (inferred)
-```
+### 1. No rate limiting on login or password verification (High)
 
-Each one:
-1. Normalizes `raw_category_key`
-2. Looks up `category_meta_by_key`
-3. Checks `behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_*`
-4. Falls back to scanning opted-in keys when no key given
+`app.py` login endpoint and `require_critical_password()` (kids.py L300) call `metadata.verify_family_password()` with no attempt tracking, delay, or lockout.
 
-The **only** difference is the `expected_behavior_type` string being compared against. Collapse to one:
+**Attack:** An attacker who knows a family ID can brute-force the password at full request speed. Family IDs are sequential integers and returned in API responses to authenticated users, so they aren't secret.
 
-```python
-def resolve_kid_category_with_mode(kid, raw_category_key, expected_behavior_type, *, allow_default=True):
-    ...
-```
+**Fix options (pick one):**
+- Flask-Limiter: `@limiter.limit("5 per minute")` on the login route and any route using `require_critical_password()`.
+- In-process: a `collections.defaultdict(deque)` keyed by IP + family_id, tracking timestamps of failed attempts, rejecting after N failures in a window.
 
-Then the three callers become one-liners.
+Destructive operations (delete kid, restore backup, deck opt-out) all go through `require_critical_password()` so they're all exposed.
 
----
+### 2. CSRF — partial protection only (Medium)
 
-## 2. Two merged-source-deck functions that are 95% identical (Priority 1, ~80 LOC)
+`SESSION_COOKIE_SAMESITE = 'Lax'` (app.py L28) prevents most cross-site POST attacks because browsers don't send Lax cookies on cross-site POSTs. However:
+- SameSite=Lax does NOT protect cross-site navigations that result in GET requests
+- iOS/older Safari has SameSite bugs
+- No CSRF token is validated anywhere
 
-```
-get_shared_type_i_merged_source_decks_for_kid   L872
-get_shared_type_ii_merged_source_decks_for_kid  L950
-```
+For a family app on a private domain this risk is low, but the `X-Confirm-Password` header acts as an implicit CSRF token for destructive operations, which is reasonable.
 
-Both functions execute the same SQL block twice (for normal decks and for orphan decks), build identical `sources.append({...})` dicts, and differ only in which materialization helper they call at the top:
-- Type-I calls `get_kid_materialized_shared_decks_by_first_tag()`
-- Type-II calls `get_kid_materialized_shared_type_ii_decks()`
+**Recommendation:** Document this explicitly in README. No immediate code change required, but add `SESSION_COOKIE_SECURE = True` unconditionally (not gated on FLASK_ENV) since Railway always serves over HTTPS.
 
-Collapse to one with a `get_materialized_func` parameter:
+### 3. `SESSION_COOKIE_SECURE` gated on env var (Low)
 
 ```python
-def get_shared_merged_source_decks_for_kid(conn, kid, get_materialized_func):
-    ...
+# app.py L29
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
 ```
+
+If `FLASK_ENV` is not set (or misspelled), cookies are sent over HTTP. On Railway this doesn't matter because the platform enforces HTTPS, but it's fragile. Set it unconditionally to `True` in production Docker builds or use a `RAILWAY_ENVIRONMENT` check.
+
+### 4. Audio path validation is correct — note for future (Informational)
+
+Both audio serve endpoints (L6510, L6589) correctly check `file_name != os.path.basename(file_name)` before calling `send_from_directory`. This is the right pattern. If new audio endpoints are added, they must follow the same pattern.
 
 ---
 
-## 3. `escapeHtml` duplicated in ~8 files (Priority 2, ~40 LOC)
+## Likely dead endpoint
 
-Every JS file re-implements one of two variants:
+### `complete_practice_session` at L7588
 
-```javascript
-// DOM-based variant (kid-card-manage.js, practice-manage-common.js, ...)
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = String(text ?? '');
-    return div.innerHTML;
-}
+Route: `POST /kids/<kid_id>/practice/complete`
 
-// Regex variant (kid-report.js) — subtly different output for some chars
-function escapeHtml(raw) {
-    return String(raw || '')
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')...
-}
-```
+The current frontend (`kid-practice.js`) hits:
+- `/kids/<kid_id>/cards/practice/complete` (type-I)
+- `/kids/<kid_id>/type2/practice/complete` (type-II)
+- `/kids/<kid_id>/lesson-reading/practice/complete` (type-III)
 
-The two variants are not equivalent (regex version escapes `"` and `'`; DOM version does not). Pick one, put it in a shared module loaded first, delete the rest.
+No frontend code calls `/kids/<kid_id>/practice/complete`. This endpoint resolves `resolve_kid_type_i_chinese_category_key` with `allow_default=True`, which suggests it was the old generic Chinese-characters endpoint.
+
+**Verify:** Grep all frontend `.js` files for `/practice/complete` — if nothing hits the bare `/kids/<kid_id>/practice/complete` path, delete this route and the function. Dead route handlers are maintenance burden and attack surface.
 
 ---
 
-## 4. Three card markup builders that are 70% identical (Priority 2, ~100 LOC)
+## Performance
 
-`kid-card-manage.js`:
+### 5. N+1 query in `get_kid_daily_completed_by_deck_category` (Low)
+
+`kids.py` L2166–2208: one SQL query per opted-in category key in a loop.
+
+```python
+for key in keys:
+    row = conn.execute(
+        "SELECT COUNT(*) FROM sessions WHERE type = ? AND ...",
+        [day_start_utc, day_end_utc, key]
+    ).fetchone()
 ```
-buildChineseCardMarkup()        L624
-buildGenericType1CardMarkup()   L651
-buildType2CardMarkup()          L675
-```
 
-All three render: skip toggle, source label, hardness score, creation date, attempt count. Only the front/back field names and a few conditional extras differ. Refactor to one `buildCardMarkup(card, opts)` where `opts` carries field names and feature flags.
-
----
-
-## 5. Dead ALTER TABLE columns in `shared_deck_schema.sql`
+For a typical kid with 2–4 opted-in categories this is fine. But it could be one query:
 
 ```sql
-CREATE TABLE IF NOT EXISTS deck_category (
-  ...
-  has_chinese_specific_logic BOOLEAN NOT NULL DEFAULT FALSE,
-  display_name VARCHAR,
-  emoji VARCHAR
-);
-
--- These are immediately dead — columns already exist above
-ALTER TABLE deck_category ADD COLUMN IF NOT EXISTS has_chinese_specific_logic BOOLEAN DEFAULT FALSE;
-ALTER TABLE deck_category ADD COLUMN IF NOT EXISTS display_name VARCHAR;
-ALTER TABLE deck_category ADD COLUMN IF NOT EXISTS emoji VARCHAR;
+SELECT type, COUNT(*) FROM sessions
+WHERE type = ANY(?) AND completed_at >= ? AND completed_at < ?
+GROUP BY type
 ```
 
-The `ALTER TABLE` statements are for fresh-DB idempotence but the `CREATE TABLE` already defines those columns. The ALTER statements only matter for databases that existed before these columns were added — i.e. they're a one-time migration. Move them to `backend/scripts/` and remove from the schema file.
+Not urgent, but straightforward to fix and future-proof if category count grows.
+
+### 6. Audio synthesis runs synchronously on the request path (Low)
+
+`synthesize_shared_writing_audio()` (L175) is called during the card-serve request if the audio file doesn't exist. It calls gTTS or edge-tts, which makes an outbound HTTP/WebSocket call, blocking the Flask worker for the full TTS round-trip.
+
+**Risk:** One slow TTS call blocks a Flask worker thread for several seconds. Under concurrent load, this can exhaust the worker pool.
+
+**Fix:** Pre-generate audio on card creation, not on first serve. The bulk import and card-add routes already call synthesis — verify that audio is always synthesized eagerly at write time so the serve path never needs to synthesize.
+
+### 7. DuckDB connection opened fresh per request (Informational)
+
+Every route opens a new DuckDB connection via `get_kid_connection_for(kid)` and closes it in a `try/finally`. This is normal for DuckDB (it's an embedded DB, not a connection-pool server). The pattern is correct as long as every code path reaches the `finally`. Spot-check: any early `return` before the `try` block would leak a connection. The helper at L294–297 wraps this so it's consistent — no action needed.
 
 ---
 
-## 6. `normalizeSessionType('flashcard')` — dead legacy mapping
+## Code quality and architecture
 
-`deck-category-common.js`:
+### 8. `kids.py` at 7309 lines is a maintenance liability
+
+55 routes and 246 functions in one file. When a bug appears or a new feature is added, it's hard to know where to look, and the entire file must be parsed by any reader (including this review agent).
+
+Natural split points along existing internal module boundaries:
+
+| Proposed file | Current home | Approx lines |
+|---------------|-------------|-------------|
+| `routes/shared_decks.py` | Shared deck CRUD, category CRUD | ~1200 |
+| `routes/writing.py` | Type-II cards, sheets, audio, practice | ~1100 |
+| `routes/lesson_reading.py` | Type-III audio, practice | ~400 |
+| `routes/practice.py` | Session start/complete, card selection | ~600 |
+| `routes/kids_core.py` | Kid CRUD, deck categories, reports | ~800 |
+| `routes/kids_helpers.py` | Internal helpers, normalization fns | ~3200 |
+
+This is the single highest-leverage structural improvement remaining. It doesn't change any behavior.
+
+### 9. Three URL builders in `kid-practice.js` are inconsistent (Low)
+
 ```javascript
-function normalizeSessionType(type) {
-    if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS; // never reached
-    if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
-    return text;
+function buildType1ApiUrl(pathSuffix) {
+    return `${API_BASE}/kids/${kidId}/cards/${cleanSuffix}`;   // base: /cards/
+}
+function buildType3ApiUrl(pathSuffix) {
+    return `${API_BASE}/kids/${kidId}/lesson-reading/${cleanSuffix}`;  // base: /lesson-reading/
+}
+function buildType2ApiUrl(path) {
+    return window.DeckCategoryCommon.buildType2ApiUrl(...);  // delegates to external helper
 }
 ```
 
-No current code passes `'flashcard'`. Remove this branch. If it was needed for old DB rows, that's a migration concern not a runtime concern.
+Type-II delegates to an external helper in `DeckCategoryCommon` while type-I and type-III are inline. This is because type-II routes are under `/kids/<kid_id>/type2/` while type-I uses `/kids/<kid_id>/cards/`. If you ever normalize the backend route structure (e.g., `/kids/<kid_id>/practice/<type>/...`), the URL builder pattern will unify naturally. For now it's acceptable — just document why type-II is different.
 
----
+### 10. `get_shared_type1_cards` (L4990) is now a handler, not a route — but still named confusingly
 
-## 7. Category key normalization duplicated everywhere (Priority 3)
+The function was converted from a registered route to a dispatch handler. Its name starts with `get_shared_` which implies it was once a route handler. Now that it's an internal handler function, renaming to `_get_type1_shared_cards_payload` (or similar) would clarify its role. Same applies to similar functions in the dispatch table.
 
-The pattern `String(rawKey || '').trim().toLowerCase()` appears inline in:
-- `deck-category-common.js` line 5 (as `normalizeCategoryKey`)
-- `kid-card-manage.js` line 120 (inside `toCategoryMap`)
-- `app.js` line 63 (inside `getCategoryValueMap`)
-- elsewhere
+### 11. Missing index for session completion time range queries
 
-`normalizeCategoryKey` already exists in `deck-category-common.js`. The other files should call it instead of duplicating.
-
-Also, `toCategoryMap` in `kid-card-manage.js` and `getCategoryValueMap` in `app.js` do nearly the same thing (normalize keys of an object). Consolidate in `deck-category-common.js`.
-
----
-
-## 8. Type-II uses a different API URL builder — inconsistency
-
-`kid-card-manage.js` has two URL builders:
-```javascript
-function buildSharedDeckApiUrl(pathSuffix) { ... }  // for type-I / type-III
-function buildType2ApiUrl(pathSuffix) { ... }        // delegates to DeckCategoryCommon.buildType2ApiUrl
+`schema.sql` has:
+```sql
+CREATE INDEX IF NOT EXISTS idx_sessions_type_completed ON sessions(type, completed_at);
 ```
 
-This means type-II routes are on a different URL path structure from type-I/III. If the backend path is already parameterized, make the frontend builder parameterized too so there's one function. If backend routes are different, that's the real inconsistency to fix.
+The daily completed count query filters `WHERE type = ? AND completed_at >= ? AND completed_at < ?`. This index covers it — good. But `session_results` only has `idx_session_results_card_id` and `idx_session_results_session_id`. If report queries do `WHERE session_id IN (...)` with a large subquery, the existing index is fine. No action needed — just confirm report queries don't filter `session_results` by timestamp directly without going through `sessions`.
 
 ---
 
-## 9. No validation before navigating to type-III practice
+## Action plan (updated)
 
-`kid-practice-home.js`:
-```javascript
-if (behaviorType === 'type_iii') {
-    goType3Practice(categoryKey); // no opt-in check
-    return;
-}
-```
-
-But for Chinese characters there's an explicit opted-in check before redirecting. A direct URL with an arbitrary `categoryKey` will silently land on a broken page. Either validate opt-in status before redirect or handle the broken state gracefully in `kid-practice.js` on load.
-
----
-
-## 10. Hardness percentage default mismatch
-
-Backend `normalize_hard_card_percentage()` returns `DEFAULT_HARD_CARD_PERCENTAGE` when no value is set.
-Frontend `getInitialHardCardPercentFromKid()` returns `null` when not set.
-
-If the frontend sends a save with `null`, the backend might interpret it differently than no-save. Verify the round-trip is consistent, or make one side match the other.
-
----
-
-## 11. `showError` / `showSuccess` pattern still in every file
-
-Each JS file has 15–25 lines of identical show/hide error message logic. This was flagged in the last review and hasn't changed. Since `practice-manage-common.js` is already a shared module, add:
-
-```javascript
-export function createMessageDisplay(errorEl, successEl) {
-    return {
-        showError(msg) { ... },
-        showSuccess(msg) { ... },
-        clear() { ... }
-    };
-}
-```
-
----
-
-## 12. Date formatting scattered across files
-
-- `kid-report.js`: `formatDateKey()`, `formatDateTime()`, `parseUtcTimestamp()`
-- `kid-card-report.js`: own formatters
-- `practice-manage-common.js`: own formatters
-
-No shared date utility. When a format changes it must be updated in 3+ places.
-
----
-
-## Action plan
-
-| # | Task | Impact |
-|---|------|--------|
-| 1 | Merge 3 `resolve_kid_type_*_category_with_mode` → 1 parameterized fn | ~80 LOC |
-| 2 | Merge 2 `get_shared_type_*_merged_source_decks_for_kid` → 1 | ~80 LOC |
-| 3 | Merge 3 `buildChineseCardMarkup` / `buildGenericType1CardMarkup` / `buildType2CardMarkup` → 1 | ~100 LOC |
-| 4 | Consolidate `escapeHtml` to one shared module; pick DOM or regex variant consistently | ~40 LOC |
-| 5 | Move `toCategoryMap` / `getCategoryValueMap` to `deck-category-common.js`, remove duplicates | ~40 LOC |
-| 6 | Remove `ALTER TABLE` dead columns from `shared_deck_schema.sql`; put in `backend/scripts/` if still needed | schema hygiene |
-| 7 | Delete `flashcard` branch from `normalizeSessionType` | trivial |
-| 8 | Unify type-II API URL builder with type-I/III, or document intentional divergence | consistency |
-| 9 | Add opt-in validation before `goType3Practice()` redirect | correctness |
-| 10 | Align hardness percentage null vs default between backend and frontend | correctness |
-| 11 | Add `createMessageDisplay` factory to `practice-manage-common.js` | ~200 LOC across files |
-| 12 | Create shared date utility module | ~60 LOC |
+| # | Task | Priority | Category |
+|---|------|----------|----------|
+| 1 | Add rate limiting to login + `require_critical_password()` | 🔴 High | Security |
+| 2 | Set `SESSION_COOKIE_SECURE = True` unconditionally | 🟡 Medium | Security |
+| 3 | Verify and delete `complete_practice_session` L7588 if dead | 🟡 Medium | Dead code |
+| 4 | Split `kids.py` (7309 lines) into 5–6 route files | 🟡 Medium | Architecture |
+| 5 | Replace N+1 loop in `get_kid_daily_completed_by_deck_category` with GROUP BY | 🟢 Low | Performance |
+| 6 | Verify audio is always synthesized at write time (not lazily at serve time) | 🟢 Low | Performance |
+| 7 | Rename dispatch handler functions to internal naming convention (`_`) | 🟢 Low | Code quality |
+| 8 | Document type-II URL builder divergence in a comment | 🟢 Low | Code quality |

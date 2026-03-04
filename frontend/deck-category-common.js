@@ -1,4 +1,13 @@
 (function initDeckCategoryCommon() {
+    function escapeHtmlLocal(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     function normalizeCategoryKey(rawValue) {
         return String(rawValue || '').trim().toLowerCase();
     }
@@ -180,6 +189,141 @@
         return '';
     }
 
+    function getBehaviorTypeLabel(behaviorType) {
+        const normalized = normalizeBehaviorType(behaviorType);
+        if (normalized === 'type_i') {
+            return 'Type I';
+        }
+        if (normalized === 'type_ii') {
+            return 'Type II';
+        }
+        if (normalized === 'type_iii') {
+            return 'Type III';
+        }
+        return '';
+    }
+
+    function getCategoryDescriptor(categoryMeta = {}) {
+        const behaviorLabel = getBehaviorTypeLabel(categoryMeta.behavior_type);
+        if (!behaviorLabel) {
+            return '';
+        }
+        const logicLabel = categoryMeta.has_chinese_specific_logic ? 'Chinese' : 'Generic';
+        return `${behaviorLabel} ${logicLabel}`;
+    }
+
+    function getCategoryVisibilityLabel(categoryMeta = {}) {
+        if (!categoryMeta || typeof categoryMeta !== 'object') {
+            return '';
+        }
+        if (!Object.prototype.hasOwnProperty.call(categoryMeta, 'is_shared_with_non_super_family')) {
+            return '';
+        }
+        return categoryMeta.is_shared_with_non_super_family ? 'Public' : 'Private';
+    }
+
+    function getCategoryCardTitle(categoryKey, categoryMeta = {}) {
+        const key = normalizeCategoryKey(categoryKey);
+        const displayName = String(categoryMeta.display_name || '').trim() || key;
+        const emoji = String(categoryMeta.emoji || '').trim();
+        return emoji ? `${emoji} ${displayName}` : displayName;
+    }
+
+    function getCategoryCardDescription(categoryMeta = {}, deckCount = 0, options = {}) {
+        const parts = [];
+        const descriptor = getCategoryDescriptor(categoryMeta);
+        if (descriptor) {
+            parts.push(descriptor);
+        }
+        const includeVisibility = options && Object.prototype.hasOwnProperty.call(options, 'includeVisibility')
+            ? Boolean(options.includeVisibility)
+            : true;
+        if (includeVisibility) {
+            const visibilityLabel = getCategoryVisibilityLabel(categoryMeta);
+            if (visibilityLabel) {
+                parts.push(visibilityLabel);
+            }
+        }
+        const count = Number.isFinite(deckCount) ? Math.max(0, Math.trunc(deckCount)) : 0;
+        parts.push(`${count} deck${count === 1 ? '' : 's'}`);
+        return parts.join(' · ');
+    }
+
+    async function loadDeckCategoriesForFirstTagPicker(config = {}) {
+        const base = String(config.apiBase || `${window.location.origin}/api`).replace(/\/+$/, '');
+        const response = await fetch(`${base}/shared-decks/categories`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to load deck categories (HTTP ${response.status})`);
+        }
+
+        const rawCategories = Array.isArray(result.categories) ? result.categories : [];
+        const categories = [];
+        const seen = new Set();
+        rawCategories.forEach((item) => {
+            const key = normalizeCategoryKey(item && item.category_key);
+            const behaviorType = normalizeBehaviorType(item && item.behavior_type);
+            if (!key || !behaviorType || seen.has(key)) {
+                return;
+            }
+            seen.add(key);
+            categories.push({
+                category_key: key,
+                behavior_type: behaviorType,
+                has_chinese_specific_logic: Boolean(item && item.has_chinese_specific_logic),
+                display_name: String(item && item.display_name ? item.display_name : '').trim(),
+                emoji: String(item && item.emoji ? item.emoji : '').trim(),
+                is_shared_with_non_super_family: Boolean(item && item.is_shared_with_non_super_family),
+            });
+        });
+
+        if (categories.length === 0) {
+            throw new Error('No deck categories configured. Create a category first.');
+        }
+
+        const categoryKeySet = new Set(categories.map((item) => item.category_key));
+        const preferred = normalizeCategoryKey(config.selectedCategoryKey);
+        const selectedCategoryKey = categoryKeySet.has(preferred)
+            ? preferred
+            : categories[0].category_key;
+
+        return {
+            categories,
+            categoryKeySet,
+            selectedCategoryKey,
+        };
+    }
+
+    function renderFirstTagCategoryPicker(config = {}) {
+        const containerEl = config.containerEl || null;
+        if (!containerEl) {
+            return;
+        }
+        const categories = Array.isArray(config.categories) ? config.categories : [];
+        if (categories.length === 0) {
+            containerEl.innerHTML = '<span class="settings-note">No categories available.</span>';
+            return;
+        }
+        const selectedKey = normalizeCategoryKey(config.selectedCategoryKey);
+        const getDeckCount = typeof config.getDeckCount === 'function'
+            ? config.getDeckCount
+            : () => 0;
+
+        containerEl.innerHTML = categories.map((item) => {
+            const key = normalizeCategoryKey(item && item.category_key);
+            const isActive = key === selectedKey;
+            const count = getDeckCount(key);
+            const title = getCategoryCardTitle(key, item);
+            const description = getCategoryCardDescription(item, count);
+            return `
+                <button type="button" class="first-tag-option${isActive ? ' active' : ''}" data-first-tag="${escapeHtmlLocal(key)}" aria-pressed="${isActive ? 'true' : 'false'}">
+                    <span class="first-tag-option-title">${escapeHtmlLocal(title)}</span>
+                    <span class="first-tag-option-desc">${escapeHtmlLocal(description)}</span>
+                </button>
+            `;
+        }).join('');
+    }
+
     function buildKidScopedApiUrl({
         kidId,
         scope = '',
@@ -229,6 +373,13 @@
         getTypeIIICategoryKeys,
         resolveTypeIIIPracticeCategoryKey,
         normalizeBehaviorType,
+        getBehaviorTypeLabel,
+        getCategoryDescriptor,
+        getCategoryVisibilityLabel,
+        getCategoryCardTitle,
+        getCategoryCardDescription,
+        loadDeckCategoriesForFirstTagPicker,
+        renderFirstTagCategoryPicker,
         buildKidScopedApiUrl,
         buildType2ApiUrl,
     };
