@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Practice Session - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .practice-container {
+            max-width: 700px;
+        }
+
+        .flashcard {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 2rem 1.5rem;
+            text-align: center;
+            min-height: 360px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1.4rem;
+            position: relative;
+        }
+
+        #sessionScreen .flashcard {
+            min-height: 380px;
+            height: 380px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        #sessionScreen .controls {
+            margin-top: 0.15rem;
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 720px) {
+            #sessionScreen .flashcard {
+                min-height: 340px;
+                height: 340px;
+            }
+        }
+
+        .flashcard.revealed {
+            border: 3px solid #4caf50;
+        }
+
+        .card-question {
+            font-size: 3.2rem;
+            font-weight: 700;
+            color: #222;
+            line-height: 1.2;
+        }
+
+        .card-answer {
+            margin-top: 1rem;
+            font-size: 2.8rem;
+            color: #1f8f3f;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        body.practice-type-ii .card-answer {
+            font-size: 4rem;
+        }
+
+        .prompt-text {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #222;
+            line-height: 1.2;
+        }
+
+        .tap-hint {
+            margin-top: 0.75rem;
+            color: #777;
+        }
+
+        .pause-mask {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #666;
+        }
+
+        .practice-mode-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.9rem;
+        }
+
+        .practice-mode-label {
+            color: #555;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .wrong-btn {
+            background: #dc3545;
+        }
+
+        .wrong-btn:hover {
+            background: #c82333;
+        }
+
+        .right-btn {
+            background: #28a745;
+        }
+
+        .right-btn:hover {
+            background: #218838;
+        }
+
+        .knew-btn,
+        .done-btn,
+        .record-btn {
+            background: #2d7ef7;
+            font-weight: 700;
+        }
+
+        .knew-btn:hover,
+        .done-btn:hover,
+        .record-btn:hover {
+            background: #1f6ce0;
+        }
+
+        .record-btn.recording {
+            background: #dc3545;
+        }
+
+        .record-btn.recording:hover {
+            background: #c82333;
+        }
+
+        .review-controls {
+            gap: 0.65rem;
+        }
+
+        .rerecord-btn {
+            background: #dc3545;
+        }
+
+        .rerecord-btn:hover {
+            background: #c82333;
+        }
+
+        .continue-btn {
+            background: #2f9e44;
+        }
+
+        .continue-btn:hover {
+            background: #248337;
+        }
+
+        .card-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #222;
+            line-height: 1.28;
+        }
+
+        .card-page {
+            margin-top: 0.8rem;
+            font-size: 1.2rem;
+            color: #1f8f3f;
+            font-weight: 700;
+        }
+
+        #cardSourceTags {
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .review-audio {
+            width: 100%;
+            max-width: 520px;
+            margin: 0.75rem auto 0.9rem;
+            display: block;
+        }
+
+        .reading-review-btn {
+            min-width: 130px;
+        }
+
+        .recording-viz {
+            margin: 1rem auto 0;
+            max-width: 520px;
+            width: 100%;
+            background: #fff6f6;
+            border: 1px solid #ffd7d7;
+            border-radius: 12px;
+            padding: 0.55rem 0.75rem 0.7rem;
+        }
+
+        .recording-viz-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #b12a2a;
+            font-size: 0.92rem;
+            font-weight: 700;
+            margin-bottom: 0.45rem;
+        }
+
+        .recording-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e53935;
+            animation: recPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes recPulse {
+            0% { transform: scale(0.85); opacity: 0.55; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(0.85); opacity: 0.55; }
+        }
+
+        .recording-wave {
+            display: block;
+            width: 100%;
+            height: 70px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #ffdede;
+        }
+
+        .bonus-game {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+        }
+
+        .bonus-game-title {
+            margin-bottom: 0.45rem;
+            color: #333;
+            font-size: 1.25rem;
+        }
+
+        .bonus-game-hint,
+        .bonus-game-status {
+            margin-bottom: 0.45rem;
+            color: #555;
+            font-size: 0.95rem;
+        }
+
+        .bonus-game-status {
+            font-weight: 700;
+            color: #2f6f3f;
+        }
+
+        .bonus-game-board {
+            margin-top: 0.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+            gap: 0.55rem;
+        }
+
+        .bonus-tile {
+            min-height: 68px;
+            border-radius: 10px;
+            border: 2px solid #d3dbf5;
+            background: #f1f4ff;
+            color: #28407d;
+            font-size: 1.35rem;
+            font-family: var(--font-kaiti);
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0.35rem;
+        }
+
+        .bonus-tile.selected {
+            background: #fffdf2;
+            border-color: #ecd172;
+            color: #63490d;
+        }
+
+        .bonus-tile.matched {
+            background: #eaf8ee;
+            border-color: #62bb79;
+            color: #1f7f3d;
+            cursor: default;
+        }
+
+        .bonus-replay-btn {
+            margin-top: 0.7rem;
+            background: #2f7af5;
+            font-weight: 700;
+        }
+
+        .bonus-replay-btn:hover {
+            background: #1d66e1;
+        }
+
+        body.practice-type-i #flashcard,
+        body.practice-type-ii #flashcard {
+            cursor: pointer;
+        }
+
+        body.practice-type-i #flashcard.chinese-mode .card-question {
+            font-size: clamp(5rem, 18vw, 9rem);
+            line-height: 1.2;
+            font-weight: 400;
+            color: #333;
+        }
+
+        body.practice-type-i #flashcard.chinese-mode .card-answer {
+            font-size: clamp(1.8rem, 6vw, 2.4rem);
+            line-height: 1.25;
+        }
+
+        body.practice-type-ii.type2-chinese-font .card-answer {
+            font-family: var(--font-kaiti);
+        }
+
+        .chinese-text {
+            font-family: var(--font-kaiti) !important;
+        }
+    </style>
+</head>
+<body class="practice-page">
+    <div class="container">
+        <div class="header">
+            <h1 id="kidName">Practice</h1>
+            <div class="header-actions">
+                <button class="control-btn early-finish-btn hidden" id="finishEarlyBtn" disabled>Finish Early</button>
+                <a id="backToPractice" href="/kid-practice-home.html" class="back-btn">← Back</a>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="error hidden"></div>
+
+        <div class="practice-container">
+            <div id="practiceSection" class="hidden">
+                <div id="startScreen">
+                    <div class="flashcard" style="cursor: default;">
+                        <h2 id="startTitle" class="session-title">Ready to start?</h2>
+                        <p id="sessionInfo" class="progress">Session: 10 cards</p>
+                        <div id="judgeModeRow" class="practice-mode-row hidden">
+                            <span class="practice-mode-label">Mode</span>
+                            <div id="judgeModeToggleStart" class="audio-filter-group" aria-label="Practice mode">
+                                <button type="button" class="audio-filter-btn active" data-judge-mode="self" aria-pressed="true">Kids Self</button>
+                                <button type="button" class="audio-filter-btn" data-judge-mode="parent" aria-pressed="false">Parent Assisted</button>
+                            </div>
+                        </div>
+                        <button id="startBtn" class="control-btn start-btn">Start</button>
+                    </div>
+                </div>
+
+                <div id="sessionScreen" class="hidden">
+                    <div class="practice-progress">
+                        <div id="progress" class="practice-progress-text">Card 1 of 10</div>
+                        <div class="practice-progress-track">
+                            <div id="progressFill" class="practice-progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div id="flashcard" class="flashcard">
+                        <div class="card-page hidden" id="cardSourceTags">Source:</div>
+                        <div class="card-title hidden" id="cardTitle"></div>
+                        <div class="card-page hidden" id="cardPage"></div>
+                        <div class="card-question hidden" id="cardQuestion"></div>
+                        <div class="prompt-text hidden" id="promptText">🔊 Listen and write</div>
+                        <div class="tap-hint hidden" id="tapHint">Tap card to replay prompt</div>
+                        <div class="card-answer hidden" id="cardAnswer"></div>
+                        <div id="pauseMask" class="pause-mask hidden">Paused</div>
+                        <div id="recordingViz" class="recording-viz hidden" aria-live="polite">
+                            <div class="recording-viz-header">
+                                <span class="recording-dot"></span>
+                                <span id="recordingStatusText">Recording...</span>
+                            </div>
+                            <canvas id="recordingWave" class="recording-wave"></canvas>
+                        </div>
+                        <audio id="reviewAudio" class="review-audio hidden" controls preload="none"></audio>
+                    </div>
+
+                    <div class="controls">
+                        <div class="session-action-slot">
+                            <div class="session-action-layer hidden" id="knewRow">
+                                <button class="control-btn knew-btn session-action-btn session-single-btn" id="knewBtn">I'm done</button>
+                            </div>
+                            <div class="session-action-layer hidden" id="doneRow">
+                                <button class="control-btn done-btn session-action-btn session-single-btn" id="doneBtn">I'm done</button>
+                            </div>
+                            <div class="session-action-layer hidden" id="judgeRow">
+                                <button class="control-btn wrong-btn session-action-btn reading-review-btn" id="wrongBtn" disabled>Wrong</button>
+                                <button class="control-btn right-btn session-action-btn session-single-btn" id="rightBtn" disabled>Right</button>
+                            </div>
+                            <div class="session-action-layer hidden" id="recordRow">
+                                <button class="control-btn session-pause-btn session-action-btn hidden" id="pauseSessionBtn">Pause Session</button>
+                                <button class="control-btn record-btn session-action-btn session-single-btn" id="recordBtn">Start Recording</button>
+                            </div>
+                            <div id="reviewControls" class="session-action-layer review-controls hidden">
+                                <button class="control-btn rerecord-btn session-action-btn reading-review-btn" id="rerecordBtn">Re-record</button>
+                                <button class="control-btn continue-btn session-action-btn session-single-btn" id="continueBtn">Continue</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="resultScreen" class="hidden">
+                    <div class="flashcard" style="cursor: default;">
+                        <h2 class="session-title">Session Complete</h2>
+                        <p id="resultSummary" class="progress"></p>
+                        <div id="bonusGameSection" class="bonus-game hidden">
+                            <h3 class="bonus-game-title">Bonus Game: Match the Wrong Cards</h3>
+                            <p id="bonusGameHint" class="bonus-game-hint"></p>
+                            <p id="bonusGameStatus" class="bonus-game-status"></p>
+                            <div id="bonusGameBoard" class="bonus-game-board"></div>
+                            <button id="bonusReplayBtn" type="button" class="control-btn bonus-replay-btn">Shuffle Again</button>
+                        </div>
+                        <a id="resultBackToPractice" href="/kid-practice-home.html" class="control-btn back-btn result-back-btn">Back to my chores</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="practice-progress.js"></script>
+    <script src="practice-session.js"></script>
+    <script src="practice-ui-common.js"></script>
+    <script src="practice-judge-mode.js"></script>
+    <script src="practice-session-flow.js"></script>
+    <script src="writing-audio-sequence.js"></script>
+    <script src="deck-category-common.js"></script>
+    <script src="audio-common.js"></script>
+    <script src="recording-visualizer.js"></script>
+    <script src="kid-practice.js"></script>
+</body>
+</html>

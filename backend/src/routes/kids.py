@@ -214,31 +214,31 @@ def synthesize_shared_writing_audio(front_text, overwrite=False, spoken_text=Non
                 pass
 
 
-def get_kid_lesson_reading_audio_dir(kid):
-    """Get filesystem directory for kid lesson-reading recording files."""
+def get_kid_type3_audio_dir(kid):
+    """Get filesystem directory for kid type-III recording files."""
     family_id = str(kid.get('familyId') or '')
     kid_id = kid.get('id')
     return os.path.join(get_family_root(family_id), 'lesson_reading_audio', f'kid_{kid_id}')
 
 
-def ensure_lesson_reading_audio_dir(kid):
-    """Ensure kid lesson-reading audio directory exists."""
-    path = get_kid_lesson_reading_audio_dir(kid)
+def ensure_type3_audio_dir(kid):
+    """Ensure kid type-III audio directory exists."""
+    path = get_kid_type3_audio_dir(kid)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def cleanup_lesson_reading_pending_audio_files_by_payload(pending_payload):
-    """Delete uploaded lesson-reading files for one pending session payload."""
+def cleanup_type3_pending_audio_files_by_payload(pending_payload):
+    """Delete uploaded type-III recording files for one pending session payload."""
     if not pending_payload:
         return
-    lesson_audio_by_card = pending_payload.get('lesson_audio_by_card')
-    if not isinstance(lesson_audio_by_card, dict) or len(lesson_audio_by_card) == 0:
+    type3_audio_by_card = pending_payload.get('type3_audio_by_card')
+    if not isinstance(type3_audio_by_card, dict) or len(type3_audio_by_card) == 0:
         return
-    audio_dir = str(pending_payload.get('lesson_audio_dir') or '').strip()
+    audio_dir = str(pending_payload.get('type3_audio_dir') or '').strip()
     if not audio_dir:
         return
-    for item in lesson_audio_by_card.values():
+    for item in type3_audio_by_card.values():
         if not isinstance(item, dict):
             continue
         file_name = str(item.get('file_name') or '').strip()
@@ -250,13 +250,6 @@ def cleanup_lesson_reading_pending_audio_files_by_payload(pending_payload):
                 os.remove(audio_path)
             except Exception:
                 pass
-
-
-def cleanup_lesson_reading_pending_audio_files(kid, pending_payload):
-    """Backwards-compatible wrapper for pending lesson-reading cleanup."""
-    if pending_payload and not pending_payload.get('lesson_audio_dir') and kid:
-        pending_payload = {**pending_payload, 'lesson_audio_dir': get_kid_lesson_reading_audio_dir(kid)}
-    cleanup_lesson_reading_pending_audio_files_by_payload(pending_payload)
 
 
 def current_family_id():
@@ -2867,9 +2860,9 @@ def delete_kid(kid_id):
 
         # Delete database file
         kid_db.delete_kid_database_by_path(kid.get('dbFilePath') or get_kid_scoped_db_relpath(kid))
-        lesson_audio_dir = get_kid_lesson_reading_audio_dir(kid)
-        if os.path.exists(lesson_audio_dir):
-            shutil.rmtree(lesson_audio_dir, ignore_errors=True)
+        type3_audio_dir = get_kid_type3_audio_dir(kid)
+        if os.path.exists(type3_audio_dir):
+            shutil.rmtree(type3_audio_dir, ignore_errors=True)
 
         # Delete from metadata
         metadata.delete_kid(kid_id, family_id=family_id)
@@ -2983,7 +2976,7 @@ def _cleanup_expired_pending_sessions():
             continue
         if not is_type_iii_session_type(payload.get('session_type')):
             continue
-        cleanup_lesson_reading_pending_audio_files_by_payload(payload)
+        cleanup_type3_pending_audio_files_by_payload(payload)
 
 
 def create_pending_session(kid_id, session_type, payload):
@@ -3012,11 +3005,11 @@ def pop_pending_session(token, kid_id, session_type):
         return None
     if str(payload.get('kid_id')) != str(kid_id):
         if is_type_iii_session_type(payload.get('session_type')):
-            cleanup_lesson_reading_pending_audio_files_by_payload(payload)
+            cleanup_type3_pending_audio_files_by_payload(payload)
         return None
     if str(payload.get('session_type')) != str(session_type):
         if is_type_iii_session_type(payload.get('session_type')):
-            cleanup_lesson_reading_pending_audio_files_by_payload(payload)
+            cleanup_type3_pending_audio_files_by_payload(payload)
         return None
     return payload
 
@@ -3371,13 +3364,13 @@ def complete_session_internal(kid, kid_id, session_type, data):
         session_type,
         category_meta_by_key=category_meta_by_key,
     )
-    uploaded_lesson_audio = data.get('_uploaded_lesson_audio_by_card') if uses_type_iii_audio else {}
-    if not isinstance(uploaded_lesson_audio, dict):
-        uploaded_lesson_audio = {}
-    pending_lesson_audio = pending.get('lesson_audio_by_card') if uses_type_iii_audio else {}
-    if not isinstance(pending_lesson_audio, dict):
-        pending_lesson_audio = {}
-    written_lesson_audio_paths = []
+    uploaded_type3_audio = data.get('_uploaded_type3_audio_by_card') if uses_type_iii_audio else {}
+    if not isinstance(uploaded_type3_audio, dict):
+        uploaded_type3_audio = {}
+    pending_type3_audio = pending.get('type3_audio_by_card') if uses_type_iii_audio else {}
+    if not isinstance(pending_type3_audio, dict):
+        pending_type3_audio = {}
+    written_type3_audio_paths = []
 
     # Validate answers before starting transaction
     for answer in answers:
@@ -3386,7 +3379,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
         if not card_id or not isinstance(known, bool):
             conn.close()
             if uses_type_iii_audio:
-                cleanup_lesson_reading_pending_audio_files(kid, pending)
+                cleanup_type3_pending_audio_files_by_payload(pending)
             return {'error': 'Each answer needs cardId (int) and known (bool)'}, 400
 
     try:
@@ -3403,7 +3396,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
         latest_response_by_card = {}
         touched_card_ids = set()
-        consumed_lesson_audio_files = set()
+        consumed_type3_audio_files = set()
         for answer in answers:
             card_id = answer.get('cardId')
             known = answer.get('known')
@@ -3427,9 +3420,9 @@ def complete_session_internal(kid, kid_id, session_type, data):
             touched_card_ids.add(card_id)
 
             if uses_type_iii_audio:
-                uploaded_audio = uploaded_lesson_audio.get(card_id)
+                uploaded_audio = uploaded_type3_audio.get(card_id)
                 if uploaded_audio is None:
-                    uploaded_audio = uploaded_lesson_audio.get(str(card_id))
+                    uploaded_audio = uploaded_type3_audio.get(str(card_id))
                 if isinstance(uploaded_audio, dict):
                     audio_bytes = uploaded_audio.get('bytes')
                     if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) == 0:
@@ -3441,12 +3434,12 @@ def complete_session_internal(kid, kid_id, session_type, data):
                     if not ext:
                         guessed_ext = mimetypes.guess_extension(mime_type) or ''
                         ext = guessed_ext.lower() if guessed_ext else '.webm'
-                    audio_dir = ensure_lesson_reading_audio_dir(kid)
+                    audio_dir = ensure_type3_audio_dir(kid)
                     file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
                     file_path = os.path.join(audio_dir, file_name)
                     with open(file_path, 'wb') as f:
                         f.write(bytes(audio_bytes))
-                    written_lesson_audio_paths.append(file_path)
+                    written_type3_audio_paths.append(file_path)
                     conn.execute(
                         """
                         INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
@@ -3454,9 +3447,9 @@ def complete_session_internal(kid, kid_id, session_type, data):
                         """,
                         [result_id, file_name, mime_type]
                     )
-                    consumed_lesson_audio_files.add(file_name)
+                    consumed_type3_audio_files.add(file_name)
                 else:
-                    audio_meta = pending_lesson_audio.get(str(card_id))
+                    audio_meta = pending_type3_audio.get(str(card_id))
                     if isinstance(audio_meta, dict):
                         file_name = str(audio_meta.get('file_name') or '').strip()
                         mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
@@ -3468,7 +3461,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                                 """,
                                 [result_id, file_name, mime_type]
                             )
-                            consumed_lesson_audio_files.add(file_name)
+                            consumed_type3_audio_files.add(file_name)
             latest_response_by_card[card_id] = response_time_ms
 
         if session_behavior_type in (DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_III):
@@ -3502,33 +3495,30 @@ def complete_session_internal(kid, kid_id, session_type, data):
     except Exception:
         conn.execute("ROLLBACK")
         conn.close()
-        for file_path in written_lesson_audio_paths:
+        for file_path in written_type3_audio_paths:
             try:
                 if os.path.exists(file_path):
                     os.remove(file_path)
             except Exception:
                 pass
         if uses_type_iii_audio:
-            cleanup_lesson_reading_pending_audio_files(kid, pending)
+            cleanup_type3_pending_audio_files_by_payload(pending)
         raise
 
     conn.close()
-    if uses_type_iii_audio and isinstance(pending_lesson_audio, dict):
+    if uses_type_iii_audio and isinstance(pending_type3_audio, dict):
         leftovers = {}
-        for item in pending_lesson_audio.values():
+        for item in pending_type3_audio.values():
             if not isinstance(item, dict):
                 continue
             file_name = str(item.get('file_name') or '').strip()
-            if file_name and file_name not in consumed_lesson_audio_files:
+            if file_name and file_name not in consumed_type3_audio_files:
                 leftovers[file_name] = item
         if len(leftovers) > 0:
-            cleanup_lesson_reading_pending_audio_files(
-                kid,
-                {
-                    'lesson_audio_dir': pending.get('lesson_audio_dir'),
-                    'lesson_audio_by_card': {name: meta for name, meta in leftovers.items()},
-                }
-            )
+            cleanup_type3_pending_audio_files_by_payload({
+                'type3_audio_dir': pending.get('type3_audio_dir'),
+                'type3_audio_by_card': {name: meta for name, meta in leftovers.items()},
+            })
     return {
         'session_id': session_id,
         'answer_count': len(answers),
@@ -3760,6 +3750,18 @@ def add_card(kid_id):
         conn = get_kid_connection_for(kid)
         try:
             deck_id = get_or_create_category_orphan_deck(conn, category_key)
+            source_decks = get_shared_type_i_merged_source_decks_for_kid(
+                conn,
+                kid,
+                category_key,
+            )
+            source_deck_ids = [int(src['local_deck_id']) for src in source_decks]
+            existing_fronts = {
+                str(value or '').strip()
+                for value in get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
+            }
+            if front in existing_fronts:
+                return jsonify({'error': 'This Chinese character already exists in the card bank'}), 400
 
             card_id = conn.execute(
                 """
@@ -3824,31 +3826,25 @@ def add_cards_bulk(kid_id):
         conn = get_kid_connection_for(kid)
         try:
             deck_id = get_or_create_category_orphan_deck(conn, category_key)
-
-            candidate_fronts = []
-            seen_candidate_fronts = set()
-            for item in items:
-                front = (item.get('front') or '').strip()
-                if not front or front in seen_candidate_fronts:
-                    continue
-                seen_candidate_fronts.add(front)
-                candidate_fronts.append(front)
-
-            existing_fronts = set()
-            if candidate_fronts:
-                placeholders = ','.join(['?'] * len(candidate_fronts))
-                rows = conn.execute(
-                    f"SELECT front FROM cards WHERE deck_id = ? AND front IN ({placeholders})",
-                    [deck_id, *candidate_fronts]
-                ).fetchall()
-                existing_fronts = {str(row[0] or '') for row in rows}
+            source_decks = get_shared_type_i_merged_source_decks_for_kid(
+                conn,
+                kid,
+                category_key,
+            )
+            source_deck_ids = [int(src['local_deck_id']) for src in source_decks]
+            existing_fronts = {
+                str(value or '').strip()
+                for value in get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
+            }
 
             created = []
+            skipped_existing_count = 0
             for item in items:
                 front = (item.get('front') or '').strip()
                 if not front:
                     continue
                 if front in existing_fronts:
+                    skipped_existing_count += 1
                     continue
                 existing_fronts.add(front)
 
@@ -3865,49 +3861,14 @@ def add_cards_bulk(kid_id):
         finally:
             conn.close()
 
-        return jsonify({'created': len(created), 'cards': created, 'category_key': category_key}), 201
+        return jsonify({
+            'created': len(created),
+            'skipped_existing_count': skipped_existing_count,
+            'cards': created,
+            'category_key': category_key,
+        }), 201
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/kids/<kid_id>/cards/<card_id>', methods=['DELETE'])
-def delete_card(kid_id, card_id):
-    """Delete a card"""
-    try:
-        auth_err = require_critical_password()
-        if auth_err:
-            return auth_err
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-
-        conn = get_kid_connection_for(kid)
-
-        card = conn.execute(
-            """
-            SELECT c.id, d.name
-            FROM cards c
-            JOIN decks d ON d.id = c.deck_id
-            WHERE c.id = ?
-            LIMIT 1
-            """,
-            [card_id]
-        ).fetchone()
-        if not card:
-            conn.close()
-            return jsonify({'error': 'Card not found'}), 404
-        deck_name = str(card[1] or '')
-        if deck_name not in {CHINESE_CHARACTERS_ORPHAN_DECK_NAME, 'Chinese Characters'}:
-            conn.close()
-            return jsonify({'error': 'Only orphan Chinese character cards can be deleted here'}), 400
-        delete_card_from_deck_internal(conn, card_id)
-
-        conn.close()
-
-        return jsonify({'message': 'Card deleted successfully'}), 200
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -4654,7 +4615,7 @@ def start_type_i_practice_session_internal(
 
 
 SHARED_DECK_SCOPE_TYPE1 = 'cards'
-SHARED_DECK_SCOPE_LESSON_READING = 'lesson-reading'
+SHARED_DECK_SCOPE_TYPE3 = 'lesson-reading'
 SHARED_DECK_SCOPE_TYPE2 = 'type2'
 
 SHARED_DECK_OP_GET = 'shared_decks_get'
@@ -4873,7 +4834,7 @@ def build_shared_decks_listing_payload(
     session_card_count,
     include_orphan_in_queue,
 ):
-    """Build shared deck listing payload for lesson-reading/writing style categories."""
+    """Build shared deck listing payload for type-II/type-III categories."""
     shared_conn = None
     kid_conn = None
     orphan_deck_payload = None
@@ -4979,7 +4940,7 @@ def opt_in_shared_decks_internal(
     get_materialized_decks_fn,
     unique_key_field,
 ):
-    """Materialize shared decks into kid DB for lesson-reading/writing categories."""
+    """Materialize shared decks into kid DB for type-II/type-III categories."""
     shared_conn = None
     kid_conn = None
     try:
@@ -5215,7 +5176,7 @@ def opt_in_shared_decks_internal(
     }, 200
 
 
-def delete_shared_deck_related_rows(conn, card_ids, *, delete_lesson_reading_audio):
+def delete_shared_deck_related_rows(conn, card_ids, *, delete_type3_audio):
     """Delete rows related to selected card ids when opt-out removes cards."""
     if not card_ids:
         return
@@ -5224,7 +5185,7 @@ def delete_shared_deck_related_rows(conn, card_ids, *, delete_lesson_reading_aud
         f"DELETE FROM writing_sheet_cards WHERE card_id IN ({placeholders})",
         card_ids
     )
-    if delete_lesson_reading_audio:
+    if delete_type3_audio:
         conn.execute(
             f"""
             DELETE FROM lesson_reading_audio
@@ -5248,9 +5209,9 @@ def opt_out_shared_decks_internal(
     orphan_deck_name,
     orphan_deck_description,
     get_materialized_decks_fn,
-    delete_lesson_reading_audio,
+    delete_type3_audio,
 ):
-    """Opt out shared decks for lesson-reading/writing style categories."""
+    """Opt out shared decks for type-II/type-III categories."""
     kid_conn = None
     try:
         kid_conn = get_kid_connection_for(kid)
@@ -5336,7 +5297,7 @@ def opt_out_shared_decks_internal(
                     delete_shared_deck_related_rows(
                         kid_conn,
                         unpracticed_ids,
-                        delete_lesson_reading_audio=delete_lesson_reading_audio,
+                        delete_type3_audio=delete_type3_audio,
                     )
                     unpracticed_placeholders = ','.join(['?'] * len(unpracticed_ids))
                     kid_conn.execute(
@@ -5347,7 +5308,7 @@ def opt_out_shared_decks_internal(
                 delete_shared_deck_related_rows(
                     kid_conn,
                     card_ids,
-                    delete_lesson_reading_audio=delete_lesson_reading_audio,
+                    delete_type3_audio=delete_type3_audio,
                 )
                 kid_conn.execute("DELETE FROM cards WHERE deck_id = ?", [local_deck_id])
 
@@ -5561,7 +5522,7 @@ def opt_out_shared_decks_for_scope(kid_id, category):
                     conn,
                     scope_context['category_key'],
                 ),
-                delete_lesson_reading_audio=False,
+                delete_type3_audio=False,
             )
             return jsonify(payload), status_code
 
@@ -5682,7 +5643,7 @@ def run_shared_deck_scope_operation(operation, kid_id, category, *, card_id=None
     return handler(kid_id, category)
 
 
-def get_shared_lesson_reading_cards(kid_id):
+def get_shared_type3_cards(kid_id):
     """Get merged cards across opted-in type-III decks and orphan deck."""
     try:
         kid = get_kid_for_family(kid_id)
@@ -5910,10 +5871,10 @@ CATEGORY_CONFIG.update({
         'kind': 'type1',
         'cards_handler': get_shared_type1_cards,
     },
-    SHARED_DECK_SCOPE_LESSON_READING: {
+    SHARED_DECK_SCOPE_TYPE3: {
         'kind': 'type3',
         'use_type_i_card_management': True,
-        'cards_handler': get_shared_lesson_reading_cards,
+        'cards_handler': get_shared_type3_cards,
     },
     SHARED_DECK_SCOPE_TYPE2: {
         'kind': 'type2',
@@ -5984,12 +5945,19 @@ def add_writing_cards(kid_id):
             category_key,
         )
         source_deck_ids = [int(src['local_deck_id']) for src in source_decks]
-        existing_values = (
-            get_kid_card_backs_for_deck_ids(conn, source_deck_ids)
+        existing_values = {
+            str(value or '').strip()
+            for value in (
+                get_kid_card_backs_for_deck_ids(conn, source_deck_ids)
+                if has_chinese_specific_logic
+                else get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
+            )
+        }
+        dedupe_value = (
+            str(card_back or '').strip()
             if has_chinese_specific_logic
-            else get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
+            else str(card_front or '').strip()
         )
-        dedupe_value = card_back if has_chinese_specific_logic else card_front
         if dedupe_value in existing_values:
             conn.close()
             return jsonify({
@@ -6040,7 +6008,7 @@ def add_writing_cards(kid_id):
 
 @kids_bp.route('/kids/<kid_id>/type2/cards/<card_id>', methods=['PUT'])
 def update_writing_card(kid_id, card_id):
-    """Update one type-II orphan card front text (voice prompt source)."""
+    """Update one type-II card front text (voice prompt source)."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
@@ -6056,15 +6024,24 @@ def update_writing_card(kid_id, card_id):
             return jsonify({'error': 'front is required'}), 400
 
         conn = get_kid_connection_for(kid)
-        deck_id = get_or_create_category_orphan_deck(conn, category_key)
+        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
+            conn,
+            kid,
+            category_key,
+        )
+        source_deck_ids = [int(src['local_deck_id']) for src in source_decks]
+        if len(source_deck_ids) == 0:
+            conn.close()
+            return jsonify({'error': 'Writing card not found'}), 404
+        placeholders = ','.join(['?'] * len(source_deck_ids))
         row = conn.execute(
-            """
+            f"""
             SELECT id, deck_id, front, back, COALESCE(skip_practice, FALSE), hardness_score, created_at
             FROM cards
-            WHERE id = ? AND deck_id = ?
+            WHERE id = ? AND deck_id IN ({placeholders})
             LIMIT 1
             """,
-            [card_id, deck_id]
+            [card_id, *source_deck_ids]
         ).fetchone()
         if not row:
             conn.close()
@@ -6151,16 +6128,25 @@ def add_writing_cards_bulk(kid_id):
             category_key,
         )
         source_deck_ids = [int(src['local_deck_id']) for src in source_decks]
-        existing_set = (
-            get_kid_card_backs_for_deck_ids(conn, source_deck_ids)
-            if has_chinese_specific_logic
-            else get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
-        )
+        existing_set = {
+            str(value or '').strip()
+            for value in (
+                get_kid_card_backs_for_deck_ids(conn, source_deck_ids)
+                if has_chinese_specific_logic
+                else get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
+            )
+        }
 
         created = []
         skipped_existing = 0
         for front_text, back_text in rows_to_insert:
-            dedupe_value = back_text if has_chinese_specific_logic else front_text
+            dedupe_value = (
+                str(back_text or '').strip()
+                if has_chinese_specific_logic
+                else str(front_text or '').strip()
+            )
+            if not dedupe_value:
+                continue
             if dedupe_value in existing_set:
                 skipped_existing += 1
                 continue
@@ -6291,8 +6277,8 @@ def get_writing_audio(kid_id, file_name):
 
 
 @kids_bp.route('/kids/<kid_id>/lesson-reading/audio/<path:file_name>', methods=['GET'])
-def get_lesson_reading_audio(kid_id, file_name):
-    """Serve lesson-reading recording audio file for one kid."""
+def get_type3_audio(kid_id, file_name):
+    """Serve type-III recording audio file for one kid."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
@@ -6301,7 +6287,7 @@ def get_lesson_reading_audio(kid_id, file_name):
         if file_name != os.path.basename(file_name):
             return jsonify({'error': 'Invalid file name'}), 400
 
-        audio_dir = get_kid_lesson_reading_audio_dir(kid)
+        audio_dir = get_kid_type3_audio_dir(kid)
         audio_path = os.path.join(audio_dir, file_name)
         if not os.path.exists(audio_path):
             return jsonify({'error': 'Audio file not found'}), 404
@@ -7045,7 +7031,7 @@ def start_type1_practice_session(kid_id):
 
 
 @kids_bp.route('/kids/<kid_id>/lesson-reading/practice/start', methods=['POST'])
-def start_lesson_reading_practice_session(kid_id):
+def start_type3_practice_session(kid_id):
     """Start a merged type-III session from opted-in decks (+ optional orphan)."""
     try:
         kid = get_kid_for_family(kid_id)
@@ -7061,7 +7047,7 @@ def start_lesson_reading_practice_session(kid_id):
             kid,
             category_key,
             pending_session_payload_extras={
-                'lesson_audio_dir': ensure_lesson_reading_audio_dir(kid),
+                'type3_audio_dir': ensure_type3_audio_dir(kid),
             },
         )
         return jsonify(response_payload), status_code
@@ -7072,7 +7058,7 @@ def start_lesson_reading_practice_session(kid_id):
 
 
 @kids_bp.route('/kids/<kid_id>/lesson-reading/practice/upload-audio', methods=['POST'])
-def upload_lesson_reading_practice_audio(kid_id):
+def upload_type3_practice_audio(kid_id):
     """Upload one type-III recording clip for an active pending session."""
     try:
         kid = get_kid_for_family(kid_id)
@@ -7120,7 +7106,7 @@ def upload_lesson_reading_practice_audio(kid_id):
             ext = '.webm'
         mime_type = audio_file.mimetype or 'application/octet-stream'
 
-        audio_dir = ensure_lesson_reading_audio_dir(kid)
+        audio_dir = ensure_type3_audio_dir(kid)
         file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
         file_path = os.path.join(audio_dir, file_name)
         with open(file_path, 'wb') as f:
@@ -7140,18 +7126,18 @@ def upload_lesson_reading_practice_audio(kid_id):
                     pass
                 return jsonify({'error': 'Pending session not found or expired'}), 404
 
-            lesson_audio_by_card = live.get('lesson_audio_by_card')
-            if not isinstance(lesson_audio_by_card, dict):
-                lesson_audio_by_card = {}
-                live['lesson_audio_by_card'] = lesson_audio_by_card
-            if not str(live.get('lesson_audio_dir') or '').strip():
-                live['lesson_audio_dir'] = audio_dir
+            type3_audio_by_card = live.get('type3_audio_by_card')
+            if not isinstance(type3_audio_by_card, dict):
+                type3_audio_by_card = {}
+                live['type3_audio_by_card'] = type3_audio_by_card
+            if not str(live.get('type3_audio_dir') or '').strip():
+                live['type3_audio_dir'] = audio_dir
 
-            old_meta = lesson_audio_by_card.get(str(card_id))
+            old_meta = type3_audio_by_card.get(str(card_id))
             if isinstance(old_meta, dict):
                 old_file_name = str(old_meta.get('file_name') or '').strip() or None
 
-            lesson_audio_by_card[str(card_id)] = {
+            type3_audio_by_card[str(card_id)] = {
                 'file_name': file_name,
                 'mime_type': mime_type,
             }
@@ -7204,7 +7190,7 @@ def complete_type1_practice_session(kid_id):
 
 
 @kids_bp.route('/kids/<kid_id>/lesson-reading/practice/complete', methods=['POST'])
-def complete_lesson_reading_practice_session(kid_id):
+def complete_type3_practice_session(kid_id):
     """Complete a type-III practice session with all answers."""
     try:
         kid = get_kid_for_family(kid_id)
@@ -7249,7 +7235,7 @@ def complete_lesson_reading_practice_session(kid_id):
                 'answers': answers,
                 'startedAt': started_at or None,
                 'categoryKey': request.form.get('categoryKey') or request.args.get('categoryKey'),
-                '_uploaded_lesson_audio_by_card': uploaded_audio_by_card,
+                '_uploaded_type3_audio_by_card': uploaded_audio_by_card,
             }
         else:
             payload_data = request.get_json() or {}

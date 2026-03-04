@@ -51,8 +51,10 @@ async function loadKid() {
             ? window.DeckCategoryCommon.getCategoryDisplayName(activeCategoryKey, categoryMetaMap)
             : 'Type-II';
         kidNameEl.textContent = `${kid.name}'s ${activeCategoryDisplayName} Sheets`;
+        document.title = `${kid.name} - ${activeCategoryDisplayName} Sheets - Kids Daily Chores`;
     } catch (error) {
         console.error('Error loading kid:', error);
+        document.title = 'Practice Sheets - Kids Daily Chores';
     }
 }
 

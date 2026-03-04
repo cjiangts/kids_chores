@@ -143,8 +143,10 @@ function renderSheet(sheet) {
 
     if (isPreviewMode) {
         sheetMeta.textContent = `Preview only · Not saved yet · Cards: ${sheet.cards.length}`;
+        document.title = 'Writing Sheet Preview - Kids Daily Chores';
     } else {
         sheetMeta.textContent = `Sheet #${sheet.id} · ${created} · Cards: ${sheet.cards.length}`;
+        document.title = `Writing Sheet #${sheet.id} - Kids Daily Chores`;
     }
 
     if (!sheet.cards || sheet.cards.length === 0) {

@@ -223,10 +223,6 @@ body {
     min-width: 220px;
 }
 
-.practice-page .session-judge-btn {
-    min-width: 180px;
-}
-
 .practice-page .result-back-btn {
     margin-top: 0.9rem;
     text-decoration: none;

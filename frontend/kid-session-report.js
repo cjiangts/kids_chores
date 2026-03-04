@@ -65,6 +65,7 @@ async function loadSessionDetail() {
         currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type);
         currentSessionCategoryDisplayName = String(session.category_display_name || '').trim();
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
+        document.title = `${kidName} - Session #${session.id || sessionId} - Kids Daily Chores`;
 
         renderSummary(session);
         const answers = Array.isArray(data.answers) ? data.answers : [];
@@ -85,6 +86,7 @@ async function loadSessionDetail() {
     } catch (error) {
         console.error('Error loading session detail:', error);
         showError('Failed to load session detail.');
+        document.title = 'Session Detail - Kids Daily Chores';
     }
 }
 

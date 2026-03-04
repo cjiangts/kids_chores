@@ -78,12 +78,14 @@ async function loadReport() {
         reportSessions = sessions;
         reportCategoryThemeByKey = buildCategoryThemeByKey(sessions);
         reportTitle.textContent = `${kidName}'s Practice Report`;
+        document.title = `${kidName} - Practice Report - Kids Daily Chores`;
         renderSummary(sessions);
         renderDailyMinutesChart(sessions);
         renderTable(sessions);
     } catch (error) {
         console.error('Error loading report:', error);
         showError('Failed to load practice report.');
+        document.title = 'Kid Practice Report - Kids Daily Chores';
     }
 }
 
@@ -428,12 +430,6 @@ function formatDurationMinutes(session) {
 function formatResponseMinutes(session) {
     const minutes = getSessionResponseMinutes(session);
     return minutes.toFixed(1);
-}
-
-function formatAvgSeconds(avgMs) {
-    const ms = Number(avgMs);
-    if (!Number.isFinite(ms)) return '0.00';
-    return (Math.max(0, ms) / 1000).toFixed(2);
 }
 
 function safeNum(value) {

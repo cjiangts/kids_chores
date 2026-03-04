@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS cards (
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),
-  type VARCHAR NOT NULL,  -- 'chinese_characters', 'math', 'chinese_writing', or 'chinese_reading'
+  type VARCHAR NOT NULL,  -- deck_category key
   planned_count INTEGER,
   started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS session_results (
   timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Lesson-reading recording audio metadata (actual audio files are stored on disk)
+-- Type-III recording audio metadata (actual audio files are stored on disk)
 CREATE TABLE IF NOT EXISTS lesson_reading_audio (
   result_id INTEGER PRIMARY KEY,
   file_name VARCHAR NOT NULL,

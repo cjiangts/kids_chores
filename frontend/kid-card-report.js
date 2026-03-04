@@ -73,6 +73,7 @@ async function loadCardReport() {
 
         const cardLabel = getCardDisplayLabel(card.front, card.back, from) || `#${card.id || cardId}`;
         pageTitle.textContent = `${kidName} · Card ${cardLabel}`;
+        document.title = `${kidName} - Card Report - Kids Daily Chores`;
 
         renderSummary(card, summary, attempts);
         renderTrend(attempts);
@@ -80,6 +81,7 @@ async function loadCardReport() {
     } catch (error) {
         console.error('Error loading card report:', error);
         showError('Failed to load card report.');
+        document.title = 'Card Report - Kids Daily Chores';
     }
 }
 

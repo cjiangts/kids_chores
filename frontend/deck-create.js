@@ -510,19 +510,6 @@ async function parseCardsForCurrentMode() {
     }));
 }
 
-function dedupeCardsByFront(cards) {
-    const deduped = [];
-    const seen = new Set();
-    cards.forEach((card) => {
-        if (seen.has(card.front)) {
-            return;
-        }
-        seen.add(card.front);
-        deduped.push(card);
-    });
-    return deduped;
-}
-
 async function previewDeckFromCsv() {
     showError('');
     showSuccess('');

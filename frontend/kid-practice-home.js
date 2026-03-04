@@ -43,6 +43,12 @@ let activeTypeIIICategoryKey = requestedCategoryKey;
 const errorState = { lastMessage: '' };
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
 
+function updatePageTitle() {
+    const kidName = String(currentKid?.name || '').trim();
+    document.title = kidName
+        ? `${kidName} - Practice Home - Kids Daily Chores`
+        : 'Practice Home - Kids Daily Chores';
+}
 
 function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpecificLogic) {
     if (behaviorType === 'type_iii') {
@@ -83,6 +89,7 @@ async function loadKidInfo() {
         activeTypeIICategoryKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
         activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
         kidNameEl.textContent = `${currentKid.name}'s Practice`;
+        updatePageTitle();
     } catch (error) {
         console.error('Error loading kid:', error);
         showError('Failed to load kid information');
@@ -316,7 +323,7 @@ function goType1Practice(category) {
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
-    window.location.href = `/kid-type1.html?${params.toString()}`;
+    window.location.href = `/kid-practice.html?${params.toString()}`;
 }
 
 function goWritingPractice(category) {
@@ -341,7 +348,7 @@ function goWritingPractice(category) {
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
-    window.location.href = `/kid-writing.html?${params.toString()}`;
+    window.location.href = `/kid-practice.html?${params.toString()}`;
 }
 
 function goType3Practice(category) {
@@ -360,7 +367,7 @@ function goType3Practice(category) {
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
-    window.location.href = `/kid-type3.html?${params.toString()}`;
+    window.location.href = `/kid-practice.html?${params.toString()}`;
 }
 
 function showError(message) {

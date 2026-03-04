@@ -46,68 +46,6 @@ async function loadKids() {
     }
 }
 
-async function createKid() {
-    try {
-        const name = document.getElementById('kidName').value;
-        const birthday = document.getElementById('kidBirthday').value;
-
-        // Validate birthday format (YYYY-MM-DD)
-        const validationResult = validateBirthday(birthday);
-        console.log('Validation result for', birthday, ':', validationResult);
-        if (!validationResult) {
-            showError('Invalid birthday format! Please use YYYY-MM-DD (e.g., 2015-06-15)');
-            return;
-        }
-
-        const response = await fetch(`${API_BASE}/kids`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ name, birthday }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const newKid = await response.json();
-        console.log('Kid created:', newKid);
-
-        // Close modal and reload
-        kidModal.classList.add('hidden');
-        kidForm.reset();
-        await loadKids();
-    } catch (error) {
-        console.error('Error creating kid:', error);
-        showError('Failed to create kid. Please try again.');
-    }
-}
-
-async function deleteKid(kidId, kidName) {
-    try {
-        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
-            `deleting ${kidName}`,
-            (password) => fetch(`${API_BASE}/kids/${kidId}`, {
-                method: 'DELETE',
-                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
-            }),
-            { warningMessage: 'This will permanently delete this kid and all practice data.' }
-        );
-        if (result.cancelled) {
-            return;
-        }
-        if (!result.ok) {
-            throw new Error(result.error || 'Failed to delete kid.');
-        }
-
-        await loadKids();
-    } catch (error) {
-        console.error('Error deleting kid:', error);
-        showError(error.message || 'Failed to delete kid. Please try again.');
-    }
-}
-
 function getOptedInDeckCategoryKeys(kid) {
     const keys = Array.isArray(kid?.optedInDeckCategoryKeys) ? kid.optedInDeckCategoryKeys : [];
     const normalized = keys
@@ -179,7 +117,7 @@ function displayKids(kids) {
             ? `<p class="daily-stars">${enabledLines.join('<br>')}</p>`
             : `<p class="daily-stars disabled">No daily practices assigned</p>`;
         return `
-            <div class="kid-card" onclick="selectKid('${kid.id}', '${escapeHtml(kid.name)}')">
+            <div class="kid-card" onclick="selectKid('${kid.id}')">
                 <h3>${escapeHtml(kid.name)}</h3>
                 <p class="age">${age} years old</p>
                 ${dailyPracticeBadge}
@@ -188,7 +126,7 @@ function displayKids(kids) {
     }).join('');
 }
 
-function selectKid(kidId, kidName) {
+function selectKid(kidId) {
     // Navigate to kid's profile page
     window.location.href = `/kid-practice-home.html?id=${kidId}`;
 }

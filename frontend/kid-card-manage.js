@@ -74,7 +74,6 @@ let orphanDeck = null;
 let currentCards = [];
 let state2Cards = [];
 let state3Cards = [];
-let orphanCardFronts = new Set();
 let sortedCards = [];
 let visibleCardCount = 10;
 let isDeckMoveInFlight = false;
@@ -87,6 +86,7 @@ let stagedIncludeOrphanInQueue = false;
 let hardnessController = null;
 let sharedDeckCardsResponseTracker = null;
 let currentCategoryDisplayName = 'Practice';
+let currentKidName = '';
 let isChineseSpecificLogic = false;
 let currentSharedScope = SHARED_SCOPE_CARDS;
 let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
@@ -319,6 +319,16 @@ function getCurrentCategoryDisplayName() {
     return String(currentCategoryDisplayName || '').trim();
 }
 
+function updatePageTitle() {
+    const displayName = getCurrentCategoryDisplayName() || 'Card';
+    const kidName = String(currentKidName || '').trim();
+    if (kidName) {
+        document.title = `${kidName} - ${displayName} Management - Kids Daily Chores`;
+        return;
+    }
+    document.title = `${displayName} Management - Kids Daily Chores`;
+}
+
 function applyCategoryUiText() {
     const displayName = getCurrentCategoryDisplayName();
     const showOrphanEditor = isChineseSpecificLogic
@@ -369,6 +379,7 @@ function applyCategoryUiText() {
     }
     document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);
     updateAddReadingButtonCount();
+    updatePageTitle();
 }
 
 function getDeckById(deckId) {
@@ -662,7 +673,6 @@ function buildGenericType1CardMarkup(card) {
 }
 
 function buildType2CardMarkup(card) {
-    const isOrphan = Boolean(card.source_is_orphan);
     const hasSavedAudio = !!card.audio_url;
     const primaryText = isChineseSpecificLogic
         ? String(card.back || card.front || '')
@@ -702,7 +712,6 @@ function buildType2CardMarkup(card) {
                         class="selected-audio-btn save"
                         data-action="edit-front"
                         data-card-id="${escapeHtml(card.id)}"
-                        ${isOrphan ? '' : 'disabled title="Shared cards are read-only here"'}
                     >Edit Prompt</button>
                     <button
                         type="button"
@@ -907,11 +916,6 @@ function countType2ChineseTokensBeforeDbDedup(text) {
 function updateOrphanDerivedState(cards) {
     const safeCards = Array.isArray(cards) ? cards : [];
     const orphanCards = safeCards.filter((card) => !!card.source_is_orphan);
-    orphanCardFronts = new Set(
-        orphanCards
-            .map((card) => String(card.front || ''))
-            .filter(Boolean)
-    );
     if (!orphanDeck) {
         return;
     }
@@ -1235,20 +1239,13 @@ async function addOrphanCards() {
             return;
         }
 
-        const newChars = chineseChars.filter((ch) => !orphanCardFronts.has(ch));
-        const skippedExistingCount = Math.max(0, chineseChars.length - newChars.length);
-        if (newChars.length === 0) {
-            showError('All characters already exist in orphan deck');
-            return;
-        }
-
         const addUrl = withCategoryKey(new URL(`${API_BASE}/kids/${kidId}/cards/bulk`));
         const response = await fetch(addUrl.toString(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 categoryKey,
-                cards: newChars.map((ch) => ({ front: ch, back: '' }))
+                cards: chineseChars.map((ch) => ({ front: ch, back: '' }))
             }),
         });
         const result = await response.json().catch(() => ({}));
@@ -1257,6 +1254,7 @@ async function addOrphanCards() {
         }
 
         const inserted = Math.max(0, Number(result.created) || 0);
+        const skippedExistingCount = Math.max(0, Number(result.skipped_existing_count) || 0);
         addCardForm.reset();
         updateAddReadingButtonCount();
         showStatusMessage(`Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s).`, false);
@@ -1278,10 +1276,6 @@ async function editType2CardPrompt(cardId) {
         const targetCard = (Array.isArray(currentCards) ? currentCards : []).find((card) => String(card.id) === String(cardId));
         if (!targetCard) {
             showError('Card not found.');
-            return;
-        }
-        if (!targetCard.source_is_orphan) {
-            showError('Only orphan cards can be edited here.');
             return;
         }
 
@@ -1410,6 +1404,7 @@ async function loadKidInfo() {
 
     isChineseSpecificLogic = Boolean(categoryMeta && categoryMeta.has_chinese_specific_logic);
     currentCategoryDisplayName = displayName;
+    currentKidName = String(kid.name || '').trim();
     applyCategoryUiText();
 
     window.PracticeManageCommon.applyKidManageTabVisibility({
@@ -1418,7 +1413,6 @@ async function loadKidInfo() {
         deckCategoryMetaByKey: kid.deckCategoryMetaByKey,
         defaultCategoryByRoute: {
             '/kid-card-manage.html': categoryKey,
-            '/kid-lesson-reading-manage.html': categoryKey,
         },
     });
 
@@ -1656,7 +1650,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         kidId,
         defaultCategoryByRoute: {
             '/kid-card-manage.html': categoryKey,
-            '/kid-lesson-reading-manage.html': categoryKey,
         },
     });
 
@@ -1768,5 +1761,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Error initializing category manage:', error);
         showError(error.message || 'Failed to load page.');
         kidNameEl.textContent = `${getCurrentCategoryDisplayName()} Management`;
+        updatePageTitle();
     }
 });
