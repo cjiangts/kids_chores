@@ -4,7 +4,6 @@ const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
 const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 const {
-    buildCategoryDisplayName,
     getDeckCategoryMetaMap,
 } = window.DeckCategoryCommon;
 
@@ -52,7 +51,7 @@ let isPaused = false;
 let sessionAnswers = [];
 let configuredSessionCount = 0;
 let judgeMode = 'self';
-let currentCategoryDisplayName = 'Practice';
+let currentCategoryDisplayName = '';
 let hasChineseSpecificLogic = false;
 let wrongCardsInSession = [];
 let bonusSourceCards = [];
@@ -90,7 +89,7 @@ function buildType1ApiUrl(pathSuffix) {
 }
 
 function getCurrentCategoryDisplayName() {
-    return String(currentCategoryDisplayName || '').trim() || buildCategoryDisplayName(categoryKey);
+    return String(currentCategoryDisplayName || '').trim();
 }
 
 function hasBonusGameForCategory() {
@@ -157,8 +156,7 @@ async function loadKidInfo() {
         const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
         const categoryMeta = categoryMetaMap[categoryKey] || {};
         hasChineseSpecificLogic = Boolean(categoryMeta && categoryMeta.has_chinese_specific_logic);
-        const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim()
-            || buildCategoryDisplayName(categoryKey);
+        const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim();
         currentCategoryDisplayName = displayName;
         kidNameEl.textContent = `${currentKid.name}'s ${displayName}`;
         if (startTitle) {

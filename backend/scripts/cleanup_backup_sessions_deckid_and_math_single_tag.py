@@ -7,8 +7,7 @@ Actions:
 3) Rewrite sessions.type legacy values to deck category keys.
 4) Populate deck_category display_name/emoji in shared_decks.duckdb.
 5) Drop obsolete writing candidate queue tables from kid DBs.
-6) Seed kid-local deck_category_opt_in rows when the table is empty.
-7) Migrate kids.json type-I/type-III and type-II settings into category-keyed map fields.
+6) Migrate kids.json per-category settings into kid DB deck_category_opt_in columns.
 """
 
 import argparse
@@ -23,12 +22,17 @@ import duckdb
 
 MAX_SESSION_CARD_COUNT = 200
 DEFAULT_HARD_CARD_PERCENTAGE = 0
+DEFAULT_INCLUDE_ORPHAN = True
 
 SESSION_CARD_COUNT_BY_CATEGORY_FIELD = "sessionCardCountByCategory"
 HARD_CARD_PERCENT_BY_CATEGORY_FIELD = "hardCardPercentageByCategory"
 INCLUDE_ORPHAN_BY_CATEGORY_FIELD = "includeOrphanByCategory"
 
 KID_DECK_CATEGORY_OPT_IN_TABLE = "deck_category_opt_in"
+KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN = "is_opted_in"
+KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT = "session_card_count"
+KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE = "hard_card_percentage"
+KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN = "include_orphan"
 KID_DB_NAME_PATTERN = re.compile(r"(?:^|/)kid_(\d+)\.(?:db|duckdb)$", re.IGNORECASE)
 
 BEHAVIOR_TYPE_I = "type_i"
@@ -333,88 +337,140 @@ def _get_shared_deck_category_meta(conn):
     return meta
 
 
-def _discover_kid_opt_in_keys_from_db(conn, shared_key_set):
-    discovered = []
-    seen = set()
-    tables = _get_table_names(conn)
-    if "sessions" in tables:
-        rows = conn.execute("SELECT DISTINCT type FROM sessions").fetchall()
-        for row in rows:
-            key = _normalize_category_key(row[0])
-            if key and key in shared_key_set and key not in seen:
-                seen.add(key)
-                discovered.append(key)
-    if "decks" in tables:
-        rows = conn.execute("SELECT tags FROM decks").fetchall()
-        for row in rows:
-            tags = list(row[0] or [])
-            if not tags:
-                continue
-            key = _normalize_category_key(tags[0])
-            if key and key in shared_key_set and key not in seen:
-                seen.add(key)
-                discovered.append(key)
-    return discovered
-
-
-def _seed_kid_deck_category_opt_in_if_empty(conn, shared_category_meta_by_key, preferred_keys):
-    if not isinstance(shared_category_meta_by_key, dict) or not shared_category_meta_by_key:
-        return 0, False
-
+def _ensure_kid_deck_category_opt_in_table_columns(conn):
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {KID_DECK_CATEGORY_OPT_IN_TABLE} (
-          category_key VARCHAR PRIMARY KEY
+          category_key VARCHAR PRIMARY KEY,
+          {KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN} BOOLEAN NOT NULL DEFAULT FALSE,
+          {KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT} INTEGER NOT NULL DEFAULT 0,
+          {KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE} INTEGER NOT NULL DEFAULT {DEFAULT_HARD_CARD_PERCENTAGE},
+          {KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN} BOOLEAN NOT NULL DEFAULT TRUE
         )
         """
     )
-
-    existing_count = int(
-        conn.execute(f"SELECT COUNT(*) FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}").fetchone()[0] or 0
-    )
-    if existing_count > 0:
-        return 0, False
-
-    shared_key_set = set(shared_category_meta_by_key.keys())
-    chosen = []
-    seen = set()
-
-    for raw_key in list(preferred_keys or []):
-        key = _normalize_category_key(raw_key)
-        if key and key in shared_key_set and key not in seen:
-            seen.add(key)
-            chosen.append(key)
-
-    for key in _discover_kid_opt_in_keys_from_db(conn, shared_key_set):
-        if key not in seen:
-            seen.add(key)
-            chosen.append(key)
-
-    if not chosen:
-        chosen = sorted(shared_key_set)
-
-    for key in chosen:
+    columns = {
+        str(row[1] or "").strip().lower()
+        for row in conn.execute(
+            f"PRAGMA table_info('{KID_DECK_CATEGORY_OPT_IN_TABLE}')"
+        ).fetchall()
+    }
+    if KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN not in columns:
         conn.execute(
-            f"INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (category_key) VALUES (?)",
-            [key],
+            f"""
+            ALTER TABLE {KID_DECK_CATEGORY_OPT_IN_TABLE}
+            ADD COLUMN {KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN} BOOLEAN NOT NULL DEFAULT FALSE
+            """
+        )
+    if KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT not in columns:
+        conn.execute(
+            f"""
+            ALTER TABLE {KID_DECK_CATEGORY_OPT_IN_TABLE}
+            ADD COLUMN {KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT} INTEGER NOT NULL DEFAULT 0
+            """
+        )
+    if KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE not in columns:
+        conn.execute(
+            f"""
+            ALTER TABLE {KID_DECK_CATEGORY_OPT_IN_TABLE}
+            ADD COLUMN {KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE} INTEGER NOT NULL DEFAULT {DEFAULT_HARD_CARD_PERCENTAGE}
+            """
+        )
+    if KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN not in columns:
+        conn.execute(
+            f"""
+            ALTER TABLE {KID_DECK_CATEGORY_OPT_IN_TABLE}
+            ADD COLUMN {KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN} BOOLEAN NOT NULL DEFAULT TRUE
+            """
         )
 
-    return len(chosen), True
 
+def _migrate_kid_deck_category_opt_in_config(conn, shared_category_meta_by_key, kid_category_config):
+    if not isinstance(shared_category_meta_by_key, dict) or not shared_category_meta_by_key:
+        return 0, False
 
-def _build_fallback_shared_category_meta():
-    meta = {}
-    for category_key, behavior_type, has_chinese_specific_logic, display_name, emoji in LEGACY_SHARED_CATEGORY_ROWS:
-        key = _normalize_category_key(category_key)
-        if not key:
-            continue
-        meta[key] = {
-            "behavior_type": str(behavior_type).strip().lower(),
-            "has_chinese_specific_logic": bool(has_chinese_specific_logic),
-            "display_name": str(display_name or "").strip(),
-            "emoji": str(emoji or "").strip(),
+    _ensure_kid_deck_category_opt_in_table_columns(conn)
+    shared_keys = sorted(
+        {
+            _normalize_category_key(raw_key)
+            for raw_key in shared_category_meta_by_key.keys()
+            if _normalize_category_key(raw_key)
         }
-    return meta
+    )
+    if not shared_keys:
+        return 0, False
+
+    config = kid_category_config if isinstance(kid_category_config, dict) else {}
+    session_map = {
+        _normalize_category_key(raw_key): raw_value
+        for raw_key, raw_value in (config.get("session_card_count_by_category") or {}).items()
+        if _normalize_category_key(raw_key)
+    }
+    hard_map = {
+        _normalize_category_key(raw_key): raw_value
+        for raw_key, raw_value in (config.get("hard_card_percentage_by_category") or {}).items()
+        if _normalize_category_key(raw_key)
+    }
+    include_map = {
+        _normalize_category_key(raw_key): raw_value
+        for raw_key, raw_value in (config.get("include_orphan_by_category") or {}).items()
+        if _normalize_category_key(raw_key)
+    }
+    opted_in_set = {
+        _normalize_category_key(raw_key)
+        for raw_key in list(config.get("opted_in_category_keys") or [])
+        if _normalize_category_key(raw_key)
+    }
+
+    existing_rows = conn.execute(
+        f"SELECT category_key FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}"
+    ).fetchall()
+    existing_key_set = {
+        _normalize_category_key(row[0])
+        for row in existing_rows
+        if _normalize_category_key(row[0])
+    }
+    # Old schema used row presence as opt-in semantics; preserve that during migration.
+    opted_in_set.update(existing_key_set)
+    missing_keys = [key for key in shared_keys if key not in existing_key_set]
+    if missing_keys:
+        conn.executemany(
+            f"""
+            INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (
+                category_key,
+                {KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN},
+                {KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT},
+                {KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE},
+                {KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN}
+            )
+            VALUES (?, FALSE, 0, {DEFAULT_HARD_CARD_PERCENTAGE}, TRUE)
+            """,
+            [[key] for key in missing_keys],
+        )
+
+    conn.executemany(
+        f"""
+        UPDATE {KID_DECK_CATEGORY_OPT_IN_TABLE}
+        SET
+          {KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN} = ?,
+          {KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT} = ?,
+          {KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE} = ?,
+          {KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN} = ?
+        WHERE category_key = ?
+        """,
+        [
+            [
+                bool(key in opted_in_set),
+                _to_int(session_map.get(key), minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0),
+                _to_percent(hard_map.get(key)),
+                _to_bool(include_map.get(key), default=DEFAULT_INCLUDE_ORPHAN),
+                key,
+            ]
+            for key in shared_keys
+        ],
+    )
+
+    return len(missing_keys), True
 
 
 def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
@@ -455,7 +511,7 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
     type_i_and_iii_keys = sorted(set(type_i_keys + type_iii_keys))
     shared_key_set = set(shared_meta.keys())
 
-    preferred_opt_in_by_kid_id = {}
+    kid_category_config_by_kid_id = {}
     updated_kid_count = 0
 
     for idx, item in enumerate(kids):
@@ -542,13 +598,13 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
                 hard_value = DEFAULT_HARD_CARD_PERCENTAGE
 
             if key in merged_include_map:
-                orphan_value = _to_bool(merged_include_map.get(key), default=False)
+                orphan_value = _to_bool(merged_include_map.get(key), default=DEFAULT_INCLUDE_ORPHAN)
             elif key == "chinese_characters":
-                orphan_value = _to_bool(kid.get("sharedChineseCharactersIncludeOrphan"), default=False)
+                orphan_value = _to_bool(kid.get("sharedChineseCharactersIncludeOrphan"), default=DEFAULT_INCLUDE_ORPHAN)
             elif key == "chinese_reading":
-                orphan_value = _to_bool(kid.get("sharedLessonReadingIncludeOrphan"), default=False)
+                orphan_value = _to_bool(kid.get("sharedLessonReadingIncludeOrphan"), default=DEFAULT_INCLUDE_ORPHAN)
             else:
-                orphan_value = False
+                orphan_value = DEFAULT_INCLUDE_ORPHAN
 
             normalized_counts[key] = count_value
             normalized_hard[key] = hard_value
@@ -584,11 +640,11 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
                 hard_value = DEFAULT_HARD_CARD_PERCENTAGE
 
             if key in merged_include_map:
-                orphan_value = _to_bool(merged_include_map.get(key), default=False)
+                orphan_value = _to_bool(merged_include_map.get(key), default=DEFAULT_INCLUDE_ORPHAN)
             elif key == "chinese_writing":
-                orphan_value = _to_bool(kid.get("sharedWritingIncludeOrphan"), default=False)
+                orphan_value = _to_bool(kid.get("sharedWritingIncludeOrphan"), default=DEFAULT_INCLUDE_ORPHAN)
             else:
-                orphan_value = False
+                orphan_value = DEFAULT_INCLUDE_ORPHAN
 
             normalized_counts[key] = count_value
             normalized_hard[key] = hard_value
@@ -614,26 +670,34 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
                 preferred_seen.add(key)
                 preferred_keys.append(key)
 
-        kid[SESSION_CARD_COUNT_BY_CATEGORY_FIELD] = normalized_counts
-        kid[HARD_CARD_PERCENT_BY_CATEGORY_FIELD] = normalized_hard
-        kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD] = normalized_orphan
+        if kid_id:
+            kid_category_config_by_kid_id[kid_id] = {
+                "session_card_count_by_category": normalized_counts,
+                "hard_card_percentage_by_category": normalized_hard,
+                "include_orphan_by_category": normalized_orphan,
+                "opted_in_category_keys": preferred_keys,
+            }
+
+        kid.pop(SESSION_CARD_COUNT_BY_CATEGORY_FIELD, None)
+        kid.pop(HARD_CARD_PERCENT_BY_CATEGORY_FIELD, None)
+        kid.pop(INCLUDE_ORPHAN_BY_CATEGORY_FIELD, None)
         for field_name in DEPRECATED_KID_FIELDS_TO_DROP:
             kid.pop(field_name, None)
         kids[idx] = kid
-
-        if kid_id:
-            preferred_opt_in_by_kid_id[kid_id] = preferred_keys
 
         if (
             normalized_counts != merged_count_map
             or normalized_hard != merged_hard_map
             or normalized_orphan != merged_include_map
+            or SESSION_CARD_COUNT_BY_CATEGORY_FIELD in item
+            or HARD_CARD_PERCENT_BY_CATEGORY_FIELD in item
+            or INCLUDE_ORPHAN_BY_CATEGORY_FIELD in item
         ):
             updated_kid_count += 1
 
     payload["kids"] = kids
     migrated_bytes = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
-    return migrated_bytes, preferred_opt_in_by_kid_id, updated_kid_count
+    return migrated_bytes, kid_category_config_by_kid_id, updated_kid_count
 
 
 def cleanup_db_bytes(
@@ -641,7 +705,7 @@ def cleanup_db_bytes(
     raw_bytes,
     *,
     shared_category_meta_by_key=None,
-    preferred_opt_in_keys=None,
+    kid_category_config=None,
 ):
     with tempfile.TemporaryDirectory(prefix="backup_zip_cleanup_") as temp_dir:
         db_path = os.path.join(temp_dir, "db.duckdb")
@@ -670,10 +734,10 @@ def cleanup_db_bytes(
             else:
                 kid_id = _extract_kid_id_from_entry_name(entry_name)
                 if kid_id and isinstance(shared_category_meta_by_key, dict) and shared_category_meta_by_key:
-                    inserted_opt_in_row_count, seeded_opt_in = _seed_kid_deck_category_opt_in_if_empty(
+                    inserted_opt_in_row_count, seeded_opt_in = _migrate_kid_deck_category_opt_in_config(
                         conn,
                         shared_category_meta_by_key,
-                        preferred_opt_in_keys,
+                        kid_category_config,
                     )
         finally:
             conn.close()
@@ -723,43 +787,46 @@ def cleanup_backup_zip(input_zip, output_zip):
                 shared_entry_name = entry_name
                 break
 
+        if shared_entry_name is None:
+            raise ValueError("Input backup zip is missing shared_decks.duckdb")
+
         cleaned_shared_bytes = None
         shared_cleanup_summary = None
-        shared_category_meta_by_key = _build_fallback_shared_category_meta()
-        if shared_entry_name is not None:
-            raw_shared_bytes = source_zip.read(shared_entry_name)
-            (
-                cleaned_shared_bytes,
-                dropped_sessions_deck_id,
-                dropped_legacy_writing_tables,
-                session_type_updates,
-                removed_decks,
-                removed_cards,
-                inserted_categories,
-                updated_categories,
-                inserted_opt_in_rows_local,
-                seeded_opt_in_local,
-                observed_shared_meta,
-            ) = cleanup_db_bytes(shared_entry_name, raw_shared_bytes)
-            shared_cleanup_summary = {
-                "dropped_sessions_deck_id": dropped_sessions_deck_id,
-                "dropped_legacy_writing_tables": dropped_legacy_writing_tables,
-                "session_type_updates": session_type_updates,
-                "removed_decks": removed_decks,
-                "removed_cards": removed_cards,
-                "inserted_categories": inserted_categories,
-                "updated_categories": updated_categories,
-                "inserted_opt_in_rows": inserted_opt_in_rows_local,
-                "seeded_opt_in": seeded_opt_in_local,
-            }
-            if observed_shared_meta:
-                shared_category_meta_by_key = observed_shared_meta
+        shared_category_meta_by_key = {}
+        raw_shared_bytes = source_zip.read(shared_entry_name)
+        (
+            cleaned_shared_bytes,
+            dropped_sessions_deck_id,
+            dropped_legacy_writing_tables,
+            session_type_updates,
+            removed_decks,
+            removed_cards,
+            inserted_categories,
+            updated_categories,
+            inserted_opt_in_rows_local,
+            seeded_opt_in_local,
+            observed_shared_meta,
+        ) = cleanup_db_bytes(shared_entry_name, raw_shared_bytes)
+        shared_cleanup_summary = {
+            "dropped_sessions_deck_id": dropped_sessions_deck_id,
+            "dropped_legacy_writing_tables": dropped_legacy_writing_tables,
+            "session_type_updates": session_type_updates,
+            "removed_decks": removed_decks,
+            "removed_cards": removed_cards,
+            "inserted_categories": inserted_categories,
+            "updated_categories": updated_categories,
+            "inserted_opt_in_rows": inserted_opt_in_rows_local,
+            "seeded_opt_in": seeded_opt_in_local,
+        }
+        if not observed_shared_meta:
+            raise ValueError("shared_decks.duckdb has no deck_category metadata")
+        shared_category_meta_by_key = observed_shared_meta
 
         kids_json_bytes = None
-        preferred_opt_in_by_kid_id = {}
+        kid_category_config_by_kid_id = {}
         kids_json_entry_name = next((name for name in info_by_name.keys() if name.lower() == "kids.json"), None)
         if kids_json_entry_name is not None:
-            migrated_kids_json_bytes, preferred_opt_in_by_kid_id, kids_json_updated_kid_count = (
+            migrated_kids_json_bytes, kid_category_config_by_kid_id, kids_json_updated_kid_count = (
                 _migrate_kids_json_bytes(
                     source_zip.read(kids_json_entry_name),
                     shared_category_meta_by_key,
@@ -799,7 +866,7 @@ def cleanup_backup_zip(input_zip, output_zip):
                 elif lower_name.endswith(".duckdb") or lower_name.endswith(".db"):
                     checked_db_count += 1
                     kid_id = _extract_kid_id_from_entry_name(entry_name)
-                    preferred_keys = preferred_opt_in_by_kid_id.get(kid_id, [])
+                    kid_category_config = kid_category_config_by_kid_id.get(kid_id, {})
                     (
                         entry_bytes,
                         dropped_sessions_deck_id,
@@ -816,7 +883,7 @@ def cleanup_backup_zip(input_zip, output_zip):
                         entry_name,
                         entry_bytes,
                         shared_category_meta_by_key=shared_category_meta_by_key,
-                        preferred_opt_in_keys=preferred_keys,
+                        kid_category_config=kid_category_config,
                     )
                     if dropped_sessions_deck_id:
                         sessions_column_dropped_db_count += 1
@@ -861,7 +928,7 @@ def parse_args():
         description=(
             "Clean a full backup zip by removing sessions.deck_id, rewriting sessions.type values, "
             "removing single-tag math decks, filling deck_category display metadata, dropping legacy "
-            "writing queue tables, seeding deck_category_opt_in rows, and migrating kids.json category-keyed maps."
+            "writing queue tables, migrating kid config maps into deck_category_opt_in, and cleaning kids.json."
         )
     )
     parser.add_argument("--input-zip", required=True, help="Path to source backup zip")
@@ -898,7 +965,7 @@ def main():
         f"{summary['updated_shared_category_count']}"
     )
     print(
-        "Kid DBs seeded with deck_category_opt_in rows: "
+        "Kid DBs with deck_category_opt_in config migrated: "
         f"{summary['seeded_opt_in_db_count']}"
     )
     print(

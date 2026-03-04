@@ -14,7 +14,6 @@ const SHARED_SCOPE_TYPE2 = 'type2';
 const SHARED_SCOPE_LESSON_READING = 'lesson-reading';
 
 const {
-    buildCategoryDisplayName,
     getDeckCategoryMetaMap,
 } = window.DeckCategoryCommon;
 
@@ -128,10 +127,16 @@ function toCategoryMap(rawMap) {
     return out;
 }
 
-function getCategoryIntValue(rawMap, fallback = 0) {
+function getCategoryIntValue(rawMap) {
     const map = toCategoryMap(rawMap);
     const parsed = Number.parseInt(map[categoryKey], 10);
-    return Number.isInteger(parsed) ? parsed : fallback;
+    return Number.isInteger(parsed) ? parsed : 0;
+}
+
+function getCategoryNullableIntValue(rawMap) {
+    const map = toCategoryMap(rawMap);
+    const parsed = Number.parseInt(map[categoryKey], 10);
+    return Number.isInteger(parsed) ? parsed : null;
 }
 
 function withCategoryValue(rawMap, value) {
@@ -252,7 +257,7 @@ function isType2Behavior() {
 
 function getSessionCountFromKid(kid) {
     sessionCardCountByCategory = toCategoryMap(kid[SESSION_CARD_COUNT_BY_CATEGORY_FIELD]);
-    return getCategoryIntValue(sessionCardCountByCategory, 0);
+    return getCategoryIntValue(sessionCardCountByCategory);
 }
 
 function buildSessionCountPayload(total) {
@@ -287,7 +292,7 @@ function applyIncludeOrphanFromPayload(payload) {
 
 function getInitialHardCardPercentFromKid(kid) {
     hardCardPercentByCategory = toCategoryMap(kid[HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
-    return getCategoryIntValue(hardCardPercentByCategory, null);
+    return getCategoryNullableIntValue(hardCardPercentByCategory);
 }
 
 function buildHardCardPercentPayload(hardPct) {
@@ -303,11 +308,15 @@ function getPersistedHardCardPercentFromPayload(payload) {
     const previousMap = hardCardPercentByCategory;
     const map = toCategoryMap(payload && payload[HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
     hardCardPercentByCategory = map;
-    return getCategoryIntValue(map, getCategoryIntValue(previousMap, null));
+    const persistedValue = getCategoryNullableIntValue(map);
+    if (persistedValue === null) {
+        return getCategoryNullableIntValue(previousMap);
+    }
+    return persistedValue;
 }
 
 function getCurrentCategoryDisplayName() {
-    return String(currentCategoryDisplayName || '').trim() || buildCategoryDisplayName(categoryKey);
+    return String(currentCategoryDisplayName || '').trim();
 }
 
 function applyCategoryUiText() {
@@ -1381,8 +1390,7 @@ async function loadKidInfo() {
 
     const categoryMetaMap = getDeckCategoryMetaMap(kid);
     const categoryMeta = categoryMetaMap[categoryKey] || {};
-    const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim()
-        || buildCategoryDisplayName(categoryKey);
+    const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim();
     const behaviorType = String(categoryMeta && categoryMeta.behavior_type ? categoryMeta.behavior_type : '')
         .trim()
         .toLowerCase();

@@ -16,10 +16,8 @@ const rightList = document.getElementById('rightList');
 const {
     SESSION_TYPE_CHINESE_CHARACTERS,
     SESSION_TYPE_CHINESE_WRITING,
-    buildCategoryDisplayName,
     normalizeSessionType,
     normalizeBehaviorType,
-    inferBehaviorTypeFromSessionType,
 } = window.DeckCategoryCommon;
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
@@ -48,7 +46,7 @@ async function loadReportTimezone() {
             reportTimezone = tz;
         }
     } catch (error) {
-        // Keep browser timezone fallback.
+        // Keep browser timezone.
     }
 }
 
@@ -64,7 +62,7 @@ async function loadSessionDetail() {
         const kidName = data.kid?.name || 'Kid';
         const session = data.session || {};
         currentSessionType = normalizeSessionType(session.type);
-        currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type) || inferBehaviorTypeFromSessionType(currentSessionType);
+        currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type);
         currentSessionCategoryDisplayName = String(session.category_display_name || '').trim();
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
 
@@ -285,22 +283,7 @@ function getCardDisplayLabel(front, back, sessionType) {
 }
 
 function formatType(type) {
-    const normalizedType = normalizeSessionType(type);
-    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) return 'Chinese Characters';
-    if (normalizedType === 'math') return 'Math';
-    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_ii') {
-        if (currentSessionCategoryDisplayName) {
-            return currentSessionCategoryDisplayName;
-        }
-        return buildCategoryDisplayName(normalizedType || type);
-    }
-    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii') {
-        if (currentSessionCategoryDisplayName) {
-            return currentSessionCategoryDisplayName;
-        }
-        return buildCategoryDisplayName(normalizedType || type);
-    }
-    return String(type || '-');
+    return currentSessionCategoryDisplayName;
 }
 
 function isTypeIIIReviewSession() {

@@ -126,11 +126,6 @@
             margin-right: 0.35rem;
         }
 
-        .dot-reading { background: #4f83ff; }
-        .dot-math { background: #48b87a; }
-        .dot-writing { background: #f0aa41; }
-        .dot-lesson-reading { background: #7f56d9; }
-
         .daily-row {
             display: grid;
             grid-template-columns: 170px minmax(120px, 1fr);
@@ -154,21 +149,13 @@
             display: flex;
         }
 
-        .daily-seg-reading,
-        .daily-seg-math,
-        .daily-seg-writing,
-        .daily-seg-lesson-reading {
+        .daily-seg {
             display: flex;
             align-items: center;
             justify-content: center;
             min-width: 0;
             overflow: hidden;
         }
-
-        .daily-seg-reading { background: #4f83ff; }
-        .daily-seg-math { background: #48b87a; }
-        .daily-seg-writing { background: #f0aa41; }
-        .daily-seg-lesson-reading { background: #7f56d9; }
 
         .daily-seg-min {
             color: #fff;
@@ -204,11 +191,6 @@
             color: #2f5aa8;
         }
 
-        .type-math {
-            background: #e9f7ef;
-            color: #206c46;
-        }
-
         .type-writing {
             background: #fff3e8;
             color: #9a5b00;
@@ -240,12 +222,7 @@
                     <button id="dailyChartOlderBtn" type="button" class="daily-chart-page-btn">Older</button>
                 </div>
             </div>
-            <div class="daily-legend">
-                <span><span class="legend-dot dot-reading"></span>Characters</span>
-                <span><span class="legend-dot dot-math"></span>Math</span>
-                <span><span class="legend-dot dot-writing"></span>Writing</span>
-                <span><span class="legend-dot dot-lesson-reading"></span>Reading</span>
-            </div>
+            <div class="daily-legend" id="dailyLegend"></div>
             <div id="dailyChartBody"></div>
         </div>
 

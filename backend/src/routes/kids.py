@@ -21,9 +21,10 @@ kids_bp = Blueprint('kids', __name__)
 
 MIN_SESSION_CARD_COUNT = 1
 MAX_SESSION_CARD_COUNT = 200
-DEFAULT_HARD_CARD_PERCENTAGE = 20
+DEFAULT_HARD_CARD_PERCENTAGE = 0
 MIN_HARD_CARD_PERCENTAGE = 0
 MAX_HARD_CARD_PERCENTAGE = 100
+DEFAULT_INCLUDE_ORPHAN_IN_QUEUE = True
 TYPE_I_NON_CHINESE_DECK_MIX_FIELD = 'sharedMathDeckMix'
 SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'sessionCardCountByCategory'
 HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'hardCardPercentageByCategory'
@@ -49,6 +50,10 @@ CHINESE_CHARACTERS_ORPHAN_DECK_NAME = 'chinese_characters_orphan'
 WRITING_ORPHAN_DECK_NAME = 'chinese_writing_orphan'
 WRITING_ORPHAN_DECK_DESCRIPTION = 'Reserved deck for orphaned/manual chinese-writing cards'
 KID_DECK_CATEGORY_OPT_IN_TABLE = 'deck_category_opt_in'
+KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN = 'is_opted_in'
+KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT = 'session_card_count'
+KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE = 'hard_card_percentage'
+KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN = 'include_orphan'
 WRITING_AUDIO_EXTENSION = '.mp3'
 WRITING_AUDIO_FILE_NAME_MAX_BYTES = 220
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
@@ -678,12 +683,91 @@ def get_kid_materialized_shared_type_ii_decks(conn, category_key):
     return get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
 
 
+def hydrate_kid_category_config_from_db(kid, *, category_meta_by_key=None, force_reload=False):
+    """Populate kid payload with per-category config maps sourced from kid DB."""
+    if not force_reload:
+        existing_session = kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
+        existing_hard = kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
+        existing_orphan = kid.get(INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
+        existing_opted = kid.get('optedInDeckCategoryKeys')
+        if (
+            isinstance(existing_session, dict)
+            and isinstance(existing_hard, dict)
+            and isinstance(existing_orphan, dict)
+            and isinstance(existing_opted, list)
+        ):
+            return kid
+
+    metadata = (
+        category_meta_by_key
+        if isinstance(category_meta_by_key, dict)
+        else get_shared_deck_category_meta_by_key()
+    )
+    category_keys = sorted(
+        {
+            normalize_shared_deck_tag(raw_key)
+            for raw_key in metadata.keys()
+            if normalize_shared_deck_tag(raw_key)
+        }
+    )
+    session_by_category = {key: 0 for key in category_keys}
+    hard_pct_by_category = {key: DEFAULT_HARD_CARD_PERCENTAGE for key in category_keys}
+    include_orphan_by_category = {key: DEFAULT_INCLUDE_ORPHAN_IN_QUEUE for key in category_keys}
+    opted_in_set = set()
+
+    conn = get_kid_connection_for(kid)
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT
+              category_key,
+              COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN}, FALSE) AS is_opted_in,
+              COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT}, 0) AS session_card_count,
+              COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE}, {DEFAULT_HARD_CARD_PERCENTAGE}) AS hard_card_percentage,
+              COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN}, TRUE) AS include_orphan
+            FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    for row in rows:
+        key = normalize_shared_deck_tag(row[0])
+        if not key:
+            continue
+        session_by_category[key] = max(
+            0,
+            min(MAX_SESSION_CARD_COUNT, int(row[2] or 0)),
+        )
+        hard_pct_by_category[key] = _normalize_hard_card_percentage_value(row[3])
+        include_orphan_by_category[key] = bool(row[4])
+        if bool(row[1]):
+            opted_in_set.add(key)
+
+    opted_in_keys = [
+        key for key in category_keys
+        if key in opted_in_set
+    ]
+    for key in sorted(opted_in_set):
+        if key not in category_keys:
+            opted_in_keys.append(key)
+
+    kid[SESSION_CARD_COUNT_BY_CATEGORY_FIELD] = session_by_category
+    kid[HARD_CARD_PERCENT_BY_CATEGORY_FIELD] = hard_pct_by_category
+    kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD] = include_orphan_by_category
+    kid['optedInDeckCategoryKeys'] = opted_in_keys
+    return kid
+
+
 def get_category_session_card_count_for_kid(kid, category_key):
     """Return one category's configured cards-per-session value."""
     key = normalize_shared_deck_tag(category_key)
     if not key:
         return 0
     raw_map = kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
+    if not isinstance(raw_map, dict):
+        hydrate_kid_category_config_from_db(kid)
+        raw_map = kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
     if not isinstance(raw_map, dict):
         return 0
     raw_value = raw_map.get(key, 0)
@@ -727,6 +811,9 @@ def get_category_hard_card_percentage_for_kid(kid, category_key):
         return DEFAULT_HARD_CARD_PERCENTAGE
     raw_map = kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
     if not isinstance(raw_map, dict):
+        hydrate_kid_category_config_from_db(kid)
+        raw_map = kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
+    if not isinstance(raw_map, dict):
         return DEFAULT_HARD_CARD_PERCENTAGE
     return _normalize_hard_card_percentage_value(raw_map.get(key))
 
@@ -735,14 +822,17 @@ def get_category_include_orphan_for_kid(kid, category_key):
     """Return one category's include-orphan-in-queue setting."""
     key = normalize_shared_deck_tag(category_key)
     if not key:
-        return False
+        return DEFAULT_INCLUDE_ORPHAN_IN_QUEUE
     raw_map = kid.get(INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
     if not isinstance(raw_map, dict):
-        return False
+        hydrate_kid_category_config_from_db(kid)
+        raw_map = kid.get(INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
+    if not isinstance(raw_map, dict):
+        return DEFAULT_INCLUDE_ORPHAN_IN_QUEUE
     value = raw_map.get(key)
     if isinstance(value, bool):
         return value
-    return False
+    return DEFAULT_INCLUDE_ORPHAN_IN_QUEUE
 
 
 def get_category_orphan_deck_name(category_key):
@@ -1541,19 +1631,14 @@ def get_kid_dashboard_stats(kid):
 def get_kid_opted_in_deck_category_keys(kid):
     """Return normalized deck-category keys opted in for one kid."""
     try:
-        conn = get_kid_connection_for(kid)
-    except Exception:
-        return []
-
-    try:
-        ensure_kid_deck_category_opt_in_table(conn)
-        rows = conn.execute(
-            f"SELECT category_key FROM {KID_DECK_CATEGORY_OPT_IN_TABLE} ORDER BY category_key ASC"
-        ).fetchall()
+        hydrate_kid_category_config_from_db(kid)
+        raw_keys = kid.get('optedInDeckCategoryKeys')
+        if not isinstance(raw_keys, list):
+            return []
         keys = []
         seen = set()
-        for row in rows:
-            key = normalize_shared_deck_tag(row[0])
+        for raw_key in raw_keys:
+            key = normalize_shared_deck_tag(raw_key)
             if not key or key in seen:
                 continue
             seen.add(key)
@@ -1561,8 +1646,6 @@ def get_kid_opted_in_deck_category_keys(kid):
         return keys
     except Exception:
         return []
-    finally:
-        conn.close()
 
 
 def get_shared_deck_category_meta_by_key():
@@ -1605,17 +1688,16 @@ def get_type_iii_category_keys(category_meta_by_key=None):
 
 
 def get_deck_category_display_name(category_key, category_meta_by_key=None):
-    """Return one category display name with key-based fallback."""
+    """Return one category display name from metadata."""
     key = normalize_shared_deck_tag(category_key)
     if not key:
-        return 'Practice'
-    metadata = category_meta_by_key if isinstance(category_meta_by_key, dict) else {}
-    display_name = str((metadata.get(key) or {}).get('display_name') or '').strip()
-    if display_name:
-        return display_name
-    return ' '.join(
-        [part.capitalize() for part in key.split('_') if part]
-    ) or key
+        return ''
+    metadata = (
+        category_meta_by_key
+        if isinstance(category_meta_by_key, dict)
+        else get_shared_deck_category_meta_by_key()
+    )
+    return str((metadata.get(key) or {}).get('display_name') or '').strip()
 
 
 def resolve_kid_deck_category_key_for_behavior(
@@ -1871,17 +1953,6 @@ def get_kid_practice_target_by_deck_category(kid, opted_in_category_keys, catego
     return targets
 
 
-def ensure_kid_deck_category_opt_in_table(conn):
-    """Ensure kid-local deck-category opt-in table exists."""
-    conn.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS {KID_DECK_CATEGORY_OPT_IN_TABLE} (
-          category_key VARCHAR PRIMARY KEY
-        )
-        """
-    )
-
-
 @kids_bp.route('/kids', methods=['GET'])
 def get_kids():
     """Get all kids"""
@@ -1939,30 +2010,12 @@ def create_kid():
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
 
-        try:
-            category_meta_by_key = get_shared_deck_category_meta_by_key()
-        except Exception:
-            category_meta_by_key = {}
-        session_card_count_by_category = {}
-        hard_card_percentage_by_category = {}
-        include_orphan_by_category = {}
-        for raw_key in category_meta_by_key.keys():
-            key = normalize_shared_deck_tag(raw_key)
-            if not key:
-                continue
-            session_card_count_by_category[key] = 0
-            hard_card_percentage_by_category[key] = DEFAULT_HARD_CARD_PERCENTAGE
-            include_orphan_by_category[key] = False
-
         # Save to metadata (ID assigned atomically inside the lock)
         kid = metadata.add_kid({
             'familyId': family_id,
             'name': data['name'],
             'birthday': data['birthday'],
             TYPE_I_NON_CHINESE_DECK_MIX_FIELD: {},
-            SESSION_CARD_COUNT_BY_CATEGORY_FIELD: session_card_count_by_category,
-            HARD_CARD_PERCENT_BY_CATEGORY_FIELD: hard_card_percentage_by_category,
-            INCLUDE_ORPHAN_BY_CATEGORY_FIELD: include_orphan_by_category,
             'createdAt': datetime.now().isoformat()
         })
         kid_id = kid['id']
@@ -2048,9 +2101,13 @@ def get_kid_deck_categories(kid_id):
 
         kid_conn = get_kid_connection_for(kid)
         try:
-            ensure_kid_deck_category_opt_in_table(kid_conn)
             rows = kid_conn.execute(
-                f"SELECT category_key FROM {KID_DECK_CATEGORY_OPT_IN_TABLE} ORDER BY category_key ASC"
+                f"""
+                SELECT category_key
+                FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}
+                WHERE {KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN} = TRUE
+                ORDER BY category_key ASC
+                """
             ).fetchall()
         finally:
             kid_conn.close()
@@ -2105,15 +2162,26 @@ def update_kid_deck_categories(kid_id):
 
         kid_conn = get_kid_connection_for(kid)
         try:
-            ensure_kid_deck_category_opt_in_table(kid_conn)
-            kid_conn.execute(f"DELETE FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}")
-            for key in category_keys:
-                kid_conn.execute(
-                    f"INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (category_key) VALUES (?)",
-                    [key]
+            kid_conn.execute(
+                f"UPDATE {KID_DECK_CATEGORY_OPT_IN_TABLE} SET {KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN} = FALSE"
+            )
+            if category_keys:
+                kid_conn.executemany(
+                    f"""
+                    INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (
+                      category_key,
+                      {KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN}
+                    )
+                    VALUES (?, TRUE)
+                    ON CONFLICT (category_key)
+                    DO UPDATE SET {KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN} = TRUE
+                    """,
+                    [[key] for key in category_keys],
                 )
         finally:
             kid_conn.close()
+
+        kid['optedInDeckCategoryKeys'] = list(category_keys)
 
         return jsonify({
             'updated': True,
@@ -2160,10 +2228,12 @@ def get_kid_report(kid_id):
         sessions = []
         for row in rows:
             session_type = normalize_shared_deck_tag(row[1])
+            session_category_display_name = get_deck_category_display_name(session_type, category_meta_by_key)
             sessions.append({
                 'id': int(row[0]),
                 'type': row[1],
                 'behavior_type': get_session_behavior_type(session_type, category_meta_by_key),
+                'category_display_name': session_category_display_name,
                 'started_at': row[2].isoformat() if row[2] else None,
                 'completed_at': row[3].isoformat() if row[3] else None,
                 'planned_count': int(row[4] or 0),
@@ -2428,6 +2498,7 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'session_id': int(row[4]) if row[4] is not None else None,
                 'session_type': row[5],
                 'session_behavior_type': get_session_behavior_type(session_type, category_meta_by_key),
+                'session_category_display_name': get_deck_category_display_name(session_type, category_meta_by_key),
                 'session_started_at': row[6].isoformat() if row[6] else None,
                 'session_completed_at': row[7].isoformat() if row[7] else None,
                 'audio_file_name': row[8] or None,
@@ -2633,7 +2704,10 @@ def update_kid(kid_id):
             return jsonify({'error': 'Kid not found'}), 404
 
         data = request.get_json() or {}
-        updates = {}
+        metadata_updates = {}
+        session_count_updates_by_key = {}
+        hard_pct_updates_by_key = {}
+        include_orphan_updates_by_key = {}
         category_meta_by_key = get_shared_deck_category_meta_by_key()
         all_category_keys = {
             normalize_shared_deck_tag(raw_key)
@@ -2641,19 +2715,10 @@ def update_kid(kid_id):
             if normalize_shared_deck_tag(raw_key)
         }
 
-        def _merged_existing_map(field_name):
-            existing_map = kid.get(field_name)
-            return {
-                normalize_shared_deck_tag(raw_key): raw_value
-                for raw_key, raw_value in (existing_map.items() if isinstance(existing_map, dict) else [])
-                if normalize_shared_deck_tag(raw_key) in all_category_keys
-            }
-
         if SESSION_CARD_COUNT_BY_CATEGORY_FIELD in data:
             raw_map = data.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
             if not isinstance(raw_map, dict):
                 return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD} must be an object'}), 400
-            merged = _merged_existing_map(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
             for raw_key, raw_value in raw_map.items():
                 key = normalize_shared_deck_tag(raw_key)
                 if key not in all_category_keys:
@@ -2664,14 +2729,12 @@ def update_kid(kid_id):
                     return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} must be an integer'}), 400
                 if parsed < 0 or parsed > MAX_SESSION_CARD_COUNT:
                     return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} must be between 0 and {MAX_SESSION_CARD_COUNT}'}), 400
-                merged[key] = parsed
-            updates[SESSION_CARD_COUNT_BY_CATEGORY_FIELD] = merged
+                session_count_updates_by_key[key] = parsed
 
         if HARD_CARD_PERCENT_BY_CATEGORY_FIELD in data:
             raw_map = data.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
             if not isinstance(raw_map, dict):
                 return jsonify({'error': f'{HARD_CARD_PERCENT_BY_CATEGORY_FIELD} must be an object'}), 400
-            merged = _merged_existing_map(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
             for raw_key, raw_value in raw_map.items():
                 key = normalize_shared_deck_tag(raw_key)
                 if key not in all_category_keys:
@@ -2682,36 +2745,100 @@ def update_kid(kid_id):
                     return jsonify({'error': f'{HARD_CARD_PERCENT_BY_CATEGORY_FIELD}.{key} must be an integer'}), 400
                 if parsed < MIN_HARD_CARD_PERCENTAGE or parsed > MAX_HARD_CARD_PERCENTAGE:
                     return jsonify({'error': f'{HARD_CARD_PERCENT_BY_CATEGORY_FIELD}.{key} must be between {MIN_HARD_CARD_PERCENTAGE} and {MAX_HARD_CARD_PERCENTAGE}'}), 400
-                merged[key] = parsed
-            updates[HARD_CARD_PERCENT_BY_CATEGORY_FIELD] = merged
+                hard_pct_updates_by_key[key] = parsed
 
         if INCLUDE_ORPHAN_BY_CATEGORY_FIELD in data:
             raw_map = data.get(INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
             if not isinstance(raw_map, dict):
                 return jsonify({'error': f'{INCLUDE_ORPHAN_BY_CATEGORY_FIELD} must be an object'}), 400
-            merged = _merged_existing_map(INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
             for raw_key, raw_value in raw_map.items():
                 key = normalize_shared_deck_tag(raw_key)
                 if key not in all_category_keys:
                     return jsonify({'error': f'Unknown category key in {INCLUDE_ORPHAN_BY_CATEGORY_FIELD}: {raw_key}'}), 400
                 if not isinstance(raw_value, bool):
                     return jsonify({'error': f'{INCLUDE_ORPHAN_BY_CATEGORY_FIELD}.{key} must be a boolean'}), 400
-                merged[key] = raw_value
-            updates[INCLUDE_ORPHAN_BY_CATEGORY_FIELD] = merged
+                include_orphan_updates_by_key[key] = raw_value
 
         if TYPE_I_NON_CHINESE_DECK_MIX_FIELD in data:
             if not isinstance(data[TYPE_I_NON_CHINESE_DECK_MIX_FIELD], dict):
                 return jsonify({'error': f'{TYPE_I_NON_CHINESE_DECK_MIX_FIELD} must be an object'}), 400
-            updates[TYPE_I_NON_CHINESE_DECK_MIX_FIELD] = sanitize_deck_mix_payload(
+            metadata_updates[TYPE_I_NON_CHINESE_DECK_MIX_FIELD] = sanitize_deck_mix_payload(
                 data[TYPE_I_NON_CHINESE_DECK_MIX_FIELD]
             )
 
-        if not updates:
+        has_db_updates = bool(
+            session_count_updates_by_key
+            or hard_pct_updates_by_key
+            or include_orphan_updates_by_key
+        )
+        if not has_db_updates and not metadata_updates:
             return jsonify({'error': 'No supported fields to update'}), 400
 
-        updated_kid = metadata.update_kid(kid_id, updates, family_id=family_id)
+        if has_db_updates:
+            kid_conn = get_kid_connection_for(kid)
+            try:
+                if session_count_updates_by_key:
+                    kid_conn.executemany(
+                        f"""
+                        INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (
+                          category_key,
+                          {KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT}
+                        )
+                        VALUES (?, ?)
+                        ON CONFLICT (category_key)
+                        DO UPDATE SET {KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT} = EXCLUDED.{KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT}
+                        """,
+                        [
+                            [key, int(value)]
+                            for key, value in session_count_updates_by_key.items()
+                        ],
+                    )
+                if hard_pct_updates_by_key:
+                    kid_conn.executemany(
+                        f"""
+                        INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (
+                          category_key,
+                          {KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE}
+                        )
+                        VALUES (?, ?)
+                        ON CONFLICT (category_key)
+                        DO UPDATE SET {KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE} = EXCLUDED.{KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE}
+                        """,
+                        [
+                            [key, int(value)]
+                            for key, value in hard_pct_updates_by_key.items()
+                        ],
+                    )
+                if include_orphan_updates_by_key:
+                    kid_conn.executemany(
+                        f"""
+                        INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (
+                          category_key,
+                          {KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN}
+                        )
+                        VALUES (?, ?)
+                        ON CONFLICT (category_key)
+                        DO UPDATE SET {KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN} = EXCLUDED.{KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN}
+                        """,
+                        [
+                            [key, bool(value)]
+                            for key, value in include_orphan_updates_by_key.items()
+                        ],
+                    )
+            finally:
+                kid_conn.close()
+
+        if metadata_updates:
+            updated_kid = metadata.update_kid(kid_id, metadata_updates, family_id=family_id)
+        else:
+            updated_kid = metadata.get_kid_by_id(kid_id, family_id=family_id)
         if not updated_kid:
             return jsonify({'error': 'Kid not found'}), 404
+        hydrate_kid_category_config_from_db(
+            updated_kid,
+            category_meta_by_key=category_meta_by_key,
+            force_reload=True,
+        )
 
         return jsonify(updated_kid), 200
     except Exception as e:

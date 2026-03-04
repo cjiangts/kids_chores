@@ -70,7 +70,7 @@ def _is_password_hashed(value: str) -> bool:
 
 
 def _normalize_family_timezone(value) -> str:
-    """Validate timezone string; fallback to default when invalid/missing."""
+    """Validate timezone string and normalize invalid/missing values."""
     candidate = str(value or '').strip() or DEFAULT_FAMILY_TIMEZONE
     try:
         ZoneInfo(candidate)

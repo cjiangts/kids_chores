@@ -115,18 +115,11 @@
             };
 
             try {
-                // Prefer direct URL for maximum browser compatibility.
                 await playSource(url);
                 return true;
-            } catch (directError) {
-                try {
-                    const cachedSource = await ensureCachedAudioSource(url);
-                    await playSource(cachedSource);
-                    return true;
-                } catch (fallbackError) {
-                    onError(fallbackError);
-                    return false;
-                }
+            } catch (error) {
+                onError(error);
+                return false;
             }
         }
 

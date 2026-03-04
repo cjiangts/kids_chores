@@ -37,7 +37,7 @@ const {
 
 let currentKid = null;
 let writingCards = [];
-let activeChineseCategoryKey = requestedCategoryKey || 'chinese_characters';
+let activeChineseCategoryKey = requestedCategoryKey;
 let activeTypeIICategoryKey = requestedCategoryKey;
 let activeTypeIIICategoryKey = requestedCategoryKey;
 const errorState = { lastMessage: '' };
@@ -228,10 +228,10 @@ function renderPracticeOptions() {
         && optedInSet.has(typeIIIKey)
         && Number.isInteger(typeIIISessionCount)
         && typeIIISessionCount > 0;
-    const typeIIIDisplayName = typeIIIKey ? getCategoryDisplayName(typeIIIKey, categoryMetaMap) : 'Type-III Practice';
-    const typeIIIEmoji = typeIIIKey ? getCategoryEmoji(typeIIIKey, categoryMetaMap) : '📚';
-    const typeIIDisplayName = typeIIKey ? getCategoryDisplayName(typeIIKey, categoryMetaMap) : 'Type-II Practice';
-    const typeIIEmoji = typeIIKey ? getCategoryEmoji(typeIIKey, categoryMetaMap) : '✍️';
+    const typeIIIDisplayName = typeIIIKey ? getCategoryDisplayName(typeIIIKey, categoryMetaMap) : '';
+    const typeIIIEmoji = typeIIIKey ? getCategoryEmoji(typeIIIKey, categoryMetaMap) : '';
+    const typeIIDisplayName = typeIIKey ? getCategoryDisplayName(typeIIKey, categoryMetaMap) : '';
+    const typeIIEmoji = typeIIKey ? getCategoryEmoji(typeIIKey, categoryMetaMap) : '';
 
     chineseStarBadge.textContent = getCategoryStarsText('chinese_characters', dailyCompletedByCategory);
     writingStarBadge.textContent = getCategoryStarsText(typeIIKey, dailyCompletedByCategory);
@@ -277,7 +277,7 @@ function renderPracticeOptions() {
     }
 }
 
-async function chooseChinesePractice(category = 'chinese_characters') {
+async function chooseChinesePractice(category) {
     const categoryKey = String(category || '').trim().toLowerCase();
     if (!categoryKey) {
         showError('Chinese practice category is missing.');
@@ -319,9 +319,8 @@ function goType1Practice(category) {
     window.location.href = `/kid-type1.html?${params.toString()}`;
 }
 
-function goWritingPractice(category = '') {
-    const fallbackKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
-    const categoryKey = String(category || fallbackKey || '').trim().toLowerCase();
+function goWritingPractice(category) {
+    const categoryKey = String(category || '').trim().toLowerCase();
     if (!categoryKey) {
         showError('Type-II category is missing.');
         return;
@@ -345,9 +344,8 @@ function goWritingPractice(category = '') {
     window.location.href = `/kid-writing.html?${params.toString()}`;
 }
 
-function goType3Practice(category = '') {
-    const fallbackKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
-    const categoryKey = String(category || fallbackKey || '').trim().toLowerCase();
+function goType3Practice(category) {
+    const categoryKey = String(category || '').trim().toLowerCase();
     if (!categoryKey) {
         showError('Type-III category is missing.');
         return;

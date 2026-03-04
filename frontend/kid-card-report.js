@@ -14,10 +14,6 @@ const trendChart = document.getElementById('trendChart');
 const historyList = document.getElementById('historyList');
 const {
     SESSION_TYPE_CHINESE_CHARACTERS,
-    SESSION_TYPE_CHINESE_WRITING,
-    normalizeSessionType,
-    normalizeBehaviorType,
-    inferBehaviorTypeFromSessionType,
 } = window.DeckCategoryCommon;
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
@@ -99,7 +95,7 @@ async function loadReportTimezone() {
             reportTimezone = tz;
         }
     } catch (error) {
-        // Keep browser timezone fallback.
+        // Keep browser timezone.
     }
 }
 
@@ -166,7 +162,7 @@ function renderHistory(attempts) {
             : '';
         return `
             <div class="history-item">
-                ${formatType(item.session_type, item.session_behavior_type)} · ${responseTimeLabel}
+                ${formatType(item.session_category_display_name)} · ${responseTimeLabel}
                 <span class="pill ${statusClass}">${statusText}</span>
                 <div class="meta">
                     ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
@@ -193,15 +189,8 @@ function formatResponseTime(ms) {
     return `${(rawMs / 1000).toFixed(2)}s`;
 }
 
-function formatType(type, behaviorTypeRaw = '') {
-    const normalizedType = normalizeSessionType(type);
-    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) return 'Chinese Characters';
-    if (normalizedType === 'math') return 'Math';
-    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'Chinese Writing';
-    const behaviorType = normalizeBehaviorType(behaviorTypeRaw) || inferBehaviorTypeFromSessionType(normalizedType);
-    if (behaviorType === 'type_ii') return 'Type-II';
-    if (behaviorType === 'type_iii') return 'Type-III';
-    return String(type || '-');
+function formatType(sessionCategoryDisplayName = '') {
+    return String(sessionCategoryDisplayName || '').trim();
 }
 
 function getCardDisplayLabel(front, back, source) {

@@ -70,7 +70,11 @@ CREATE TABLE IF NOT EXISTS writing_sheet_cards (
 
 -- Kid-local opted-in deck categories (controls which manage buttons show in admin UI)
 CREATE TABLE IF NOT EXISTS deck_category_opt_in (
-  category_key VARCHAR PRIMARY KEY
+  category_key VARCHAR PRIMARY KEY,
+  is_opted_in BOOLEAN NOT NULL DEFAULT FALSE,
+  session_card_count INTEGER NOT NULL DEFAULT 0,
+  hard_card_percentage INTEGER NOT NULL DEFAULT 0,
+  include_orphan BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- Indexes for common query patterns

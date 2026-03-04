@@ -7,6 +7,7 @@ const reportTitle = document.getElementById('reportTitle');
 const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
 const dailyChartBody = document.getElementById('dailyChartBody');
+const dailyLegend = document.getElementById('dailyLegend');
 const dailyChartNewerBtn = document.getElementById('dailyChartNewerBtn');
 const dailyChartOlderBtn = document.getElementById('dailyChartOlderBtn');
 const dailyChartPageLabel = document.getElementById('dailyChartPageLabel');
@@ -14,14 +15,25 @@ const reportBody = document.getElementById('reportBody');
 const startedHeader = document.getElementById('startedHeader');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let dailyChartRows = [];
+let dailyChartCategories = [];
 let dailyChartPageIndex = 0;
 let reportSessions = [];
 const DAILY_CHART_PAGE_SIZE = 7;
+const DAILY_CATEGORY_COLORS = [
+    '#4f83ff',
+    '#48b87a',
+    '#f0aa41',
+    '#7f56d9',
+    '#d95f8d',
+    '#2ca9a1',
+    '#e06c4c',
+    '#5f7a8b',
+    '#b67d3b',
+    '#4c6ce0',
+];
 const {
-    SESSION_TYPE_CHINESE_CHARACTERS,
     normalizeSessionType,
     normalizeBehaviorType,
-    inferBehaviorTypeFromSessionType,
 } = window.DeckCategoryCommon;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -89,7 +101,7 @@ async function loadReportTimezone() {
             startedHeader.textContent = `Started (${reportTimezone})`;
         }
     } catch (error) {
-        // Keep browser timezone fallback.
+        // Keep browser timezone.
         if (startedHeader) {
             startedHeader.textContent = `Started (${reportTimezone})`;
         }
@@ -146,35 +158,67 @@ function renderTablePage() {
 
 function renderDailyMinutesChart(sessions) {
     const dailyMap = new Map();
+    const categoryTotals = new Map();
+    const categoryLabelByKey = new Map();
 
     sessions.forEach((session) => {
         const minutes = getSessionResponseMinutes(session);
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
         const sessionType = normalizeSessionType(session.type);
-        const behaviorType = normalizeBehaviorType(session.behavior_type) || inferBehaviorTypeFromSessionType(sessionType);
+        if (!sessionType) return;
+        const categoryKey = sessionType;
+        const categoryLabel = String(session?.category_display_name || '').trim();
+        if (!categoryLabelByKey.has(categoryKey)) {
+            categoryLabelByKey.set(categoryKey, categoryLabel);
+        }
 
         if (!dailyMap.has(dayKey)) {
-            dailyMap.set(dayKey, { reading: 0, math: 0, writing: 0, lessonReading: 0, total: 0 });
+            dailyMap.set(dayKey, { byCategory: {}, total: 0 });
         }
         const row = dailyMap.get(dayKey);
-        if (sessionType === SESSION_TYPE_CHINESE_CHARACTERS) row.reading += minutes;
-        if (sessionType === 'math') row.math += minutes;
-        if (behaviorType === 'type_ii') row.writing += minutes;
-        if (behaviorType === 'type_iii') row.lessonReading += minutes;
+        row.byCategory[categoryKey] = (Number(row.byCategory[categoryKey]) || 0) + minutes;
         row.total += minutes;
+        categoryTotals.set(categoryKey, (Number(categoryTotals.get(categoryKey)) || 0) + minutes);
     });
+
+    const orderedCategoryKeys = Array.from(categoryTotals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([categoryKey]) => categoryKey);
+    dailyChartCategories = orderedCategoryKeys.map((categoryKey, index) => ({
+        key: categoryKey,
+        label: String(categoryLabelByKey.get(categoryKey) || ''),
+        color: getDailyCategoryColor(categoryKey || String(index)),
+    }));
 
     dailyChartRows = Array.from(dailyMap.entries())
         .map(([date, v]) => ({ date, ...v }))
         .sort((a, b) => b.date.localeCompare(a.date));
 
+    renderDailyLegend();
     dailyChartPageIndex = 0;
     renderDailyMinutesChartPage();
 }
 
+function renderDailyLegend() {
+    if (!dailyLegend) {
+        return;
+    }
+    const categories = Array.isArray(dailyChartCategories) ? dailyChartCategories : [];
+    if (categories.length === 0) {
+        dailyLegend.innerHTML = '';
+        dailyLegend.style.display = 'none';
+        return;
+    }
+    dailyLegend.style.display = '';
+    dailyLegend.innerHTML = categories.map((category) => `
+        <span><span class="legend-dot" style="background:${escapeHtml(category.color)}"></span>${escapeHtml(category.label)}</span>
+    `).join('');
+}
+
 function renderDailyMinutesChartPage() {
     const rows = Array.isArray(dailyChartRows) ? dailyChartRows : [];
+    const categories = Array.isArray(dailyChartCategories) ? dailyChartCategories : [];
     const view = buildDatePageView(rows, (row) => String(row?.date || ''), dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
     dailyChartPageIndex = view.pageIndex;
     syncDatePagerControls({
@@ -194,25 +238,28 @@ function renderDailyMinutesChartPage() {
     const maxTotal = Math.max(...pageRows.map((r) => r.total), 1);
 
     dailyChartBody.innerHTML = pageRows.map((row) => {
-        const readingPct = (row.reading / maxTotal) * 100;
-        const mathPct = (row.math / maxTotal) * 100;
-        const writingPct = (row.writing / maxTotal) * 100;
-        const lessonReadingPct = (row.lessonReading / maxTotal) * 100;
+        const segments = categories.map((category) => {
+            const minutes = Number(row?.byCategory?.[category.key]) || 0;
+            const pct = (minutes / maxTotal) * 100;
+            return renderDailyMinutesSegment({
+                label: category.label,
+                minutes,
+                pct,
+                color: category.color,
+            });
+        }).join('');
         return `
             <div class="daily-row">
                 <div class="daily-date">${row.date} · ${row.total.toFixed(1)} min</div>
                 <div class="daily-bar-track">
-                    ${renderDailyMinutesSegment('daily-seg-reading', 'Characters', row.reading, readingPct)}
-                    ${renderDailyMinutesSegment('daily-seg-math', 'Math', row.math, mathPct)}
-                    ${renderDailyMinutesSegment('daily-seg-writing', 'Writing', row.writing, writingPct)}
-                    ${renderDailyMinutesSegment('daily-seg-lesson-reading', 'Reading', row.lessonReading, lessonReadingPct)}
+                    ${segments}
                 </div>
             </div>
         `;
     }).join('');
 }
 
-function renderDailyMinutesSegment(segmentClass, label, minutes, pct) {
+function renderDailyMinutesSegment({ label, minutes, pct, color }) {
     const safeMinutes = Number.isFinite(Number(minutes)) ? Math.max(0, Number(minutes)) : 0;
     const safePct = Number.isFinite(Number(pct)) ? Math.max(0, Number(pct)) : 0;
     if (safeMinutes <= 0 || safePct <= 0) {
@@ -220,11 +267,23 @@ function renderDailyMinutesSegment(segmentClass, label, minutes, pct) {
     }
     const minuteText = safeMinutes.toFixed(1);
     const tinyClass = safePct < 5 ? ' daily-seg-tiny' : '';
+    const safeColor = String(color || '#4f83ff');
     return `
-        <div class="${segmentClass}${tinyClass}" style="width:${safePct.toFixed(2)}%" title="${label} ${minuteText} min">
+        <div class="daily-seg${tinyClass}" style="width:${safePct.toFixed(2)}%;background:${escapeHtml(safeColor)}" title="${escapeHtml(label)} ${minuteText} min">
             <span class="daily-seg-min">${minuteText}</span>
         </div>
     `;
+}
+
+function getDailyCategoryColor(categoryKey) {
+    const key = String(categoryKey || '');
+    let hash = 0;
+    for (let i = 0; i < key.length; i += 1) {
+        hash = ((hash << 5) - hash) + key.charCodeAt(i);
+        hash |= 0;
+    }
+    const index = Math.abs(hash) % DAILY_CATEGORY_COLORS.length;
+    return DAILY_CATEGORY_COLORS[index];
 }
 
 function getSessionDateKey(session) {
@@ -290,23 +349,18 @@ function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }
 }
 
 function renderType(type, session = null) {
-    const normalizedType = normalizeSessionType(type);
-    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) {
-        return '<span class="type-pill type-reading">Chinese Characters</span>';
+    const displayName = escapeHtml(String(session?.category_display_name || '').trim());
+    const behaviorType = normalizeBehaviorType(session?.behavior_type);
+    if (behaviorType === 'type_i') {
+        return `<span class="type-pill type-reading">${displayName}</span>`;
     }
-    if (normalizedType === 'math') {
-        return '<span class="type-pill type-math">Math</span>';
-    }
-    const behaviorType = normalizeBehaviorType(session?.behavior_type) || inferBehaviorTypeFromSessionType(normalizedType);
     if (behaviorType === 'type_ii') {
-        const label = String(session?.category_display_name || '').trim() || 'Type-II';
-        return `<span class="type-pill type-writing">${label}</span>`;
+        return `<span class="type-pill type-writing">${displayName}</span>`;
     }
     if (behaviorType === 'type_iii') {
-        const label = String(session?.category_display_name || '').trim() || 'Type-III';
-        return `<span class="type-pill type-lesson-reading">${label}</span>`;
+        return `<span class="type-pill type-lesson-reading">${displayName}</span>`;
     }
-    return '<span class="type-pill">Unknown</span>';
+    return `<span class="type-pill">${displayName}</span>`;
 }
 
 function formatDateTime(iso) {
@@ -430,4 +484,13 @@ function showError(message) {
             errorMessage.classList.add('hidden');
         }
     }
+}
+
+function escapeHtml(raw) {
+    return String(raw || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }

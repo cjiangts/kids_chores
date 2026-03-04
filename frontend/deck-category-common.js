@@ -6,18 +6,6 @@
         return String(rawValue || '').trim().toLowerCase();
     }
 
-    function buildCategoryDisplayName(rawKey) {
-        const key = normalizeCategoryKey(rawKey);
-        if (!key) {
-            return 'Practice';
-        }
-        return key
-            .split('_')
-            .filter(Boolean)
-            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-            .join(' ');
-    }
-
     function getOptedInDeckCategoryKeys(kid) {
         const rawKeys = Array.isArray(kid?.optedInDeckCategoryKeys)
             ? kid.optedInDeckCategoryKeys
@@ -80,10 +68,7 @@
     function getCategoryDisplayName(categoryKey, categoryMetaMap = {}) {
         const key = normalizeCategoryKey(categoryKey);
         const fromMeta = String(categoryMetaMap?.[key]?.display_name || '').trim();
-        if (fromMeta) {
-            return fromMeta;
-        }
-        return buildCategoryDisplayName(key);
+        return fromMeta;
     }
 
     function getCategoryEmoji(categoryKey, categoryMetaMap = {}) {
@@ -203,7 +188,6 @@
         SESSION_TYPE_CHINESE_CHARACTERS,
         SESSION_TYPE_CHINESE_WRITING,
         normalizeCategoryKey,
-        buildCategoryDisplayName,
         getOptedInDeckCategoryKeys,
         getOptedInDeckCategorySet,
         getCategoryValueMap,

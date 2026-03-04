@@ -4,7 +4,6 @@ const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
 const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 const {
-    buildCategoryDisplayName,
     getDeckCategoryMetaMap,
     resolveTypeIIIPracticeCategoryKey,
 } = window.DeckCategoryCommon || {};
@@ -39,7 +38,7 @@ const resultSummary = document.getElementById('resultSummary');
 
 let currentKid = null;
 let activeCategoryKey = requestedCategoryKey;
-let currentCategoryDisplayName = 'Type-III Practice';
+let currentCategoryDisplayName = '';
 let sessionCards = [];
 let activePendingSessionId = null;
 let currentIndex = 0;
@@ -194,9 +193,8 @@ async function loadKidInfo() {
         }
         const categoryMetaMap = getDeckCategoryMetaMap ? getDeckCategoryMetaMap(currentKid) : {};
         const categoryMeta = categoryMetaMap[activeCategoryKey] || {};
-        const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim()
-            || (buildCategoryDisplayName ? buildCategoryDisplayName(activeCategoryKey) : activeCategoryKey);
-        currentCategoryDisplayName = displayName || 'Type-III Practice';
+        const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim();
+        currentCategoryDisplayName = displayName;
         kidNameEl.textContent = `${currentKid.name}'s ${currentCategoryDisplayName}`;
         if (startTitle) {
             startTitle.textContent = `Ready for ${currentCategoryDisplayName}?`;
@@ -208,8 +206,7 @@ async function loadKidInfo() {
 }
 
 function getCurrentCategoryDisplayName() {
-    return String(currentCategoryDisplayName || '').trim()
-        || (buildCategoryDisplayName ? buildCategoryDisplayName(activeCategoryKey || 'type_iii') : (activeCategoryKey || 'type_iii'));
+    return String(currentCategoryDisplayName || '').trim();
 }
 
 

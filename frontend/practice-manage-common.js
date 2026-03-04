@@ -359,10 +359,10 @@ window.PracticeManageCommon = {
         return `${dayDiff} days ago`;
     },
 
-    clampPercent(value, fallback = 20) {
+    clampPercent(value) {
         const parsed = Number.parseInt(value, 10);
         if (!Number.isInteger(parsed)) {
-            return Math.max(0, Math.min(100, Number.parseInt(fallback, 10) || 20));
+            return 20;
         }
         return Math.max(0, Math.min(100, parsed));
     },
@@ -390,7 +390,7 @@ window.PracticeManageCommon = {
         };
 
         const setValue = (value) => {
-            currentValue = this.clampPercent(value, currentValue);
+            currentValue = this.clampPercent(value);
             render();
             return currentValue;
         };
@@ -526,7 +526,7 @@ window.PracticeManageCommon = {
             ? config.getPersistedValue
             : (payload) => payload && payload[kidFieldName];
 
-        let currentValue = this.clampPercent(config.initialValue, 20);
+        let currentValue = this.clampPercent(config.initialValue);
         const statusController = this.createInlineStatusController({
             el: statusEl,
             hiddenClass: 'hidden',
@@ -535,7 +535,7 @@ window.PracticeManageCommon = {
         });
 
         const setCurrentValue = (value) => {
-            currentValue = this.clampPercent(value, currentValue);
+            currentValue = this.clampPercent(value);
             if (sliderController) {
                 sliderController.setValue(currentValue);
             }
@@ -547,11 +547,11 @@ window.PracticeManageCommon = {
             if (!Number.isInteger(parsed)) {
                 return null;
             }
-            return this.clampPercent(parsed, currentValue);
+            return this.clampPercent(parsed);
         };
 
         const formatSavedMessage = (value) => {
-            const normalizedValue = this.clampPercent(value, currentValue);
+            const normalizedValue = this.clampPercent(value);
             const template = String(savedMessage || '').trim();
             if (template.includes('{value}')) {
                 return template.replace(/\{value\}/g, String(normalizedValue));
@@ -567,7 +567,7 @@ window.PracticeManageCommon = {
             if (!apiBase || !kidId || !kidFieldName) {
                 throw new Error('Hardness controller is not configured.');
             }
-            const hardPct = this.clampPercent(value, currentValue);
+            const hardPct = this.clampPercent(value);
             const response = await fetch(`${apiBase}/kids/${kidId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -580,7 +580,7 @@ window.PracticeManageCommon = {
             const persistedRaw = getPersistedValue(payload);
             const persistedParsed = Number.parseInt(persistedRaw, 10);
             const persistedHardPct = Number.isInteger(persistedParsed)
-                ? this.clampPercent(persistedParsed, hardPct)
+                ? this.clampPercent(persistedParsed)
                 : hardPct;
             setCurrentValue(persistedHardPct);
             statusController.show(formatSavedMessage(persistedHardPct), false);
