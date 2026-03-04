@@ -19,7 +19,6 @@ let reportSessions = [];
 const DAILY_CHART_PAGE_SIZE = 7;
 const SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters';
 const SESSION_TYPE_CHINESE_WRITING = 'chinese_writing';
-const SESSION_TYPE_CHINESE_READING = 'chinese_reading';
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -130,7 +129,7 @@ function renderTablePage() {
     reportBody.innerHTML = view.pageItems.map((session) => `
         <tr>
             <td class="shared-report-table-action-cell"><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}" class="tab-link secondary mini-link-btn table-action-btn">View</a></td>
-            <td>${renderType(session.type)}</td>
+            <td>${renderType(session.type, session)}</td>
             <td>${formatDateTime(session.started_at)}</td>
             <td>${formatDurationMinutes(session)}</td>
             <td>${formatResponseMinutes(session)}</td>
@@ -149,6 +148,7 @@ function renderDailyMinutesChart(sessions) {
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
         const sessionType = normalizeSessionType(session.type);
+        const behaviorType = normalizeBehaviorType(session.behavior_type) || inferBehaviorTypeFromSessionType(sessionType);
 
         if (!dailyMap.has(dayKey)) {
             dailyMap.set(dayKey, { reading: 0, math: 0, writing: 0, lessonReading: 0, total: 0 });
@@ -157,7 +157,7 @@ function renderDailyMinutesChart(sessions) {
         if (sessionType === SESSION_TYPE_CHINESE_CHARACTERS) row.reading += minutes;
         if (sessionType === 'math') row.math += minutes;
         if (sessionType === SESSION_TYPE_CHINESE_WRITING) row.writing += minutes;
-        if (sessionType === SESSION_TYPE_CHINESE_READING) row.lessonReading += minutes;
+        if (behaviorType === 'type_iii') row.lessonReading += minutes;
         row.total += minutes;
     });
 
@@ -285,7 +285,7 @@ function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }
     }
 }
 
-function renderType(type) {
+function renderType(type, session = null) {
     const normalizedType = normalizeSessionType(type);
     if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) {
         return '<span class="type-pill type-reading">Chinese Characters</span>';
@@ -296,7 +296,8 @@ function renderType(type) {
     if (normalizedType === SESSION_TYPE_CHINESE_WRITING) {
         return '<span class="type-pill type-writing">Chinese Writing</span>';
     }
-    if (normalizedType === SESSION_TYPE_CHINESE_READING) {
+    const behaviorType = normalizeBehaviorType(session?.behavior_type) || inferBehaviorTypeFromSessionType(normalizedType);
+    if (behaviorType === 'type_iii') {
         return '<span class="type-pill type-lesson-reading">Chinese Reading</span>';
     }
     return '<span class="type-pill">Unknown</span>';
@@ -306,8 +307,28 @@ function normalizeSessionType(type) {
     const text = String(type || '').trim().toLowerCase();
     if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS;
     if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
-    if (text === 'lesson_reading') return SESSION_TYPE_CHINESE_READING;
     return text;
+}
+
+function normalizeBehaviorType(type) {
+    const text = String(type || '').trim().toLowerCase();
+    if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
+        return text;
+    }
+    return '';
+}
+
+function inferBehaviorTypeFromSessionType(normalizedType) {
+    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS || normalizedType === 'math') {
+        return 'type_i';
+    }
+    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) {
+        return 'type_ii';
+    }
+    if (normalizedType === 'lesson_reading') {
+        return 'type_iii';
+    }
+    return '';
 }
 
 function formatDateTime(iso) {

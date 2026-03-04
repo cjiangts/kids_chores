@@ -369,10 +369,13 @@
         }
 
         .type1-chinese-mode .card-front {
-            font-size: 4rem;
+            font-size: var(--type1-chinese-front-size-rem, 4rem);
             font-family: var(--font-kaiti);
             font-weight: 400;
             line-height: 1.12;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: clip;
         }
 
         .type1-chinese-mode .card-back {
@@ -559,6 +562,6 @@
 
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
-    <script src="kid-type1-manage.js"></script>
+    <script src="kid-card-manage.js"></script>
 </body>
 </html>

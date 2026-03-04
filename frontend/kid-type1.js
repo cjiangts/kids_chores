@@ -85,7 +85,7 @@ function withCategoryKey(url) {
 
 function buildType1ApiUrl(pathSuffix) {
     const cleanSuffix = String(pathSuffix || '').replace(/^\/+/, '');
-    const url = new URL(`${API_BASE}/kids/${kidId}/type1/${cleanSuffix}`);
+    const url = new URL(`${API_BASE}/kids/${kidId}/cards/${cleanSuffix}`);
     return withCategoryKey(url).toString();
 }
 
@@ -317,7 +317,7 @@ function showCurrentQuestion() {
     cardQuestion.textContent = card.front;
     cardAnswer.textContent = hasChineseSpecificLogic
         ? String(card.back || '').trim()
-        : `= ${card.back}`;
+        : String(card.back || '');
 
     answerRevealed = false;
 
@@ -455,7 +455,7 @@ async function endSession(endedEarly = false) {
 
     try {
         await window.PracticeSessionFlow.postCompleteSession(
-            `${API_BASE}/kids/${kidId}/type1/practice/complete`,
+            buildType1ApiUrl('practice/complete'),
             activePendingSessionId,
             sessionAnswers,
             { categoryKey },

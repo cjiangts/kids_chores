@@ -13,6 +13,9 @@ const chinesePracticeOption = document.getElementById('chinesePracticeOption');
 const writingPracticeOption = document.getElementById('writingPracticeOption');
 const mathPracticeOption = document.getElementById('mathPracticeOption');
 const lessonReadingPracticeOption = document.getElementById('lessonReadingPracticeOption');
+const lessonReadingPracticeTitle = lessonReadingPracticeOption
+    ? lessonReadingPracticeOption.querySelector('h3')
+    : null;
 const chineseStarBadge = document.getElementById('chineseStarBadge');
 const writingStarBadge = document.getElementById('writingStarBadge');
 const mathStarBadge = document.getElementById('mathStarBadge');
@@ -25,11 +28,13 @@ const {
     getCategoryDisplayName,
     getCategoryEmoji,
     resolveChinesePracticeCategoryKey,
+    resolveTypeIIIPracticeCategoryKey,
 } = window.DeckCategoryCommon;
 
 let currentKid = null;
 let writingCards = [];
 let activeChineseCategoryKey = requestedCategoryKey || 'chinese_characters';
+let activeTypeIIICategoryKey = requestedCategoryKey;
 const errorState = { lastMessage: '' };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -52,6 +57,7 @@ async function loadKidInfo() {
         }
         currentKid = await response.json();
         activeChineseCategoryKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
+        activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
         kidNameEl.textContent = `${currentKid.name}'s Practice`;
     } catch (error) {
         console.error('Error loading kid:', error);
@@ -117,7 +123,8 @@ function renderDynamicPracticeOptions({
             return;
         }
         const meta = categoryMetaMap[key] || {};
-        if (meta.behavior_type !== 'type_i') {
+        const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
+        if (behaviorType !== 'type_i' && behaviorType !== 'type_iii') {
             return;
         }
         const targetCount = Number.parseInt(practiceTargetByCategory?.[key], 10);
@@ -132,6 +139,10 @@ function renderDynamicPracticeOptions({
         button.type = 'button';
         button.className = 'practice-option dynamic-practice-option';
         button.addEventListener('click', () => {
+            if (behaviorType === 'type_iii') {
+                goType3Practice(key);
+                return;
+            }
             if (meta.has_chinese_specific_logic) {
                 void chooseChinesePractice(key);
                 return;
@@ -170,7 +181,9 @@ function renderPracticeOptions() {
         10,
     );
     const mathSessionCount = Number.parseInt(practiceTargetByCategory?.math, 10);
-    const lessonReadingSessionCount = Number.parseInt(practiceTargetByCategory?.chinese_reading, 10);
+    const typeIIIKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
+    activeTypeIIICategoryKey = typeIIIKey;
+    const typeIIISessionCount = Number.parseInt(typeIIIKey ? practiceTargetByCategory?.[typeIIIKey] : 0, 10);
 
     const chineseEnabled = (
         optedInSet.has('chinese_characters')
@@ -179,17 +192,32 @@ function renderPracticeOptions() {
     );
     const writingEnabled = optedInSet.has('chinese_writing') && Number.isInteger(writingSessionCount) && writingSessionCount > 0;
     const mathEnabled = optedInSet.has('math') && Number.isInteger(mathSessionCount) && mathSessionCount > 0;
-    const lessonReadingEnabled = optedInSet.has('chinese_reading') && Number.isInteger(lessonReadingSessionCount) && lessonReadingSessionCount > 0;
+    const typeIIIEnabled = Boolean(typeIIIKey)
+        && optedInSet.has(typeIIIKey)
+        && Number.isInteger(typeIIISessionCount)
+        && typeIIISessionCount > 0;
+    const typeIIIDisplayName = typeIIIKey ? getCategoryDisplayName(typeIIIKey, categoryMetaMap) : 'Type-III Practice';
+    const typeIIIEmoji = typeIIIKey ? getCategoryEmoji(typeIIIKey, categoryMetaMap) : '📚';
 
     chineseStarBadge.textContent = getCategoryStarsText('chinese_characters', dailyCompletedByCategory);
     writingStarBadge.textContent = getCategoryStarsText('chinese_writing', dailyCompletedByCategory);
     mathStarBadge.textContent = getCategoryStarsText('math', dailyCompletedByCategory);
-    lessonReadingStarBadge.textContent = getCategoryStarsText('chinese_reading', dailyCompletedByCategory);
+    lessonReadingStarBadge.textContent = getCategoryStarsText(typeIIIKey, dailyCompletedByCategory);
+    if (lessonReadingPracticeTitle) {
+        lessonReadingPracticeTitle.textContent = `${typeIIIEmoji} ${typeIIIDisplayName}`;
+    }
+    if (lessonReadingPracticeOption) {
+        if (typeIIIKey) {
+            lessonReadingPracticeOption.setAttribute('data-category-key', typeIIIKey);
+        } else {
+            lessonReadingPracticeOption.removeAttribute('data-category-key');
+        }
+    }
 
     chinesePracticeOption.classList.toggle('hidden', !chineseEnabled);
     writingPracticeOption.classList.toggle('hidden', !writingEnabled);
     mathPracticeOption.classList.toggle('hidden', !mathEnabled);
-    lessonReadingPracticeOption.classList.toggle('hidden', !lessonReadingEnabled);
+    lessonReadingPracticeOption.classList.toggle('hidden', !typeIIIEnabled);
 
     const dynamicOptionCount = renderDynamicPracticeOptions({
         optedInCategoryKeys: optedInKeys,
@@ -198,7 +226,7 @@ function renderPracticeOptions() {
         practiceTargetByCategory,
     });
     practiceSection.classList.remove('hidden');
-    if (!chineseEnabled && !writingEnabled && !mathEnabled && !lessonReadingEnabled && dynamicOptionCount <= 0) {
+    if (!chineseEnabled && !writingEnabled && !mathEnabled && !typeIIIEnabled && dynamicOptionCount <= 0) {
         showError('No daily practice is assigned. Ask your parent to set per-session counts above 0.');
     } else {
         showError('');
@@ -270,10 +298,11 @@ function goWritingPractice(category = 'chinese_writing') {
     window.location.href = `/kid-writing.html?${params.toString()}`;
 }
 
-function goLessonReadingPractice(category = 'chinese_reading') {
-    const categoryKey = String(category || '').trim().toLowerCase();
+function goType3Practice(category = '') {
+    const fallbackKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
+    const categoryKey = String(category || fallbackKey || '').trim().toLowerCase();
     if (!categoryKey) {
-        showError('Reading category is missing.');
+        showError('Type-III category is missing.');
         return;
     }
     const optedInSet = getOptedInDeckCategorySet(currentKid);
@@ -286,7 +315,7 @@ function goLessonReadingPractice(category = 'chinese_reading') {
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
-    window.location.href = `/kid-lesson-reading.html?${params.toString()}`;
+    window.location.href = `/kid-type3.html?${params.toString()}`;
 }
 
 function showError(message) {

@@ -212,10 +212,10 @@ async function deleteKid(kidId, kidName) {
     }
 }
 
-async function goToLatestLessonReadingSession(kidId) {
+async function goToLatestTypeIIIReviewSession(kidId) {
     try {
         showError('');
-        const response = await fetch(`${API_BASE}/kids/${kidId}/report/lesson-reading/next-to-grade`);
+        const response = await fetch(`${API_BASE}/kids/${kidId}/report/type-iii/next-to-grade`);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -224,16 +224,16 @@ async function goToLatestLessonReadingSession(kidId) {
         if (!Number.isFinite(targetSessionId) || targetSessionId <= 0) {
             const latestSessionId = Number(data.latest_session_id);
             if (Number.isFinite(latestSessionId) && latestSessionId > 0) {
-                showError('No Chinese Reading cards need grading right now.');
+                showError('No Type-III cards need grading right now.');
             } else {
-                showError('No Chinese Reading session found yet for this kid.');
+                showError('No Type-III session found yet for this kid.');
             }
             return;
         }
         window.location.href = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(targetSessionId)}`;
     } catch (error) {
-        console.error('Error opening latest Chinese Reading session:', error);
-        showError('Failed to open latest Chinese Reading session.');
+        console.error('Error opening latest Type-III session:', error);
+        showError('Failed to open latest Type-III session.');
     }
 }
 
@@ -390,10 +390,10 @@ function getManagePathByCategory(categoryKey, categoryMetaMap = {}) {
     const meta = categoryMetaMap?.[key] || {};
     const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
     if (behaviorType === 'type_i') {
-        return '/kid-type1-manage.html';
+        return '/kid-card-manage.html';
     }
     if (behaviorType === 'type_ii') return '/kid-writing-manage.html';
-    if (behaviorType === 'type_iii') return '/kid-lesson-reading-manage.html';
+    if (behaviorType === 'type_iii') return '/kid-card-manage.html';
     return '';
 }
 
@@ -448,10 +448,10 @@ function displayKids(kids) {
                 </div>
             `;
         });
-        const showChineseReadingReviewBtn = optedInCategories.has('chinese_reading') && Boolean(kid.hasChineseReadingToReview);
-        const reviewChineseReadingRow = showChineseReadingReviewBtn
+        const showTypeIIIReviewBtn = Boolean(kid.hasTypeIIIToReview);
+        const reviewTypeIIIRow = showTypeIIIReviewBtn
             ? `<div class="practice-config-row">
-                        <button class="tab-link review-reading-btn" onclick="goToLatestLessonReadingSession('${kid.id}')">🎧 Review Chinese Reading</button>
+                        <button class="tab-link review-reading-btn" onclick="goToLatestTypeIIIReviewSession('${kid.id}')">🎧 Review Kid's Recording</button>
                     </div>`
             : '';
         return `
@@ -467,7 +467,7 @@ function displayKids(kids) {
                     <div class="practice-config-row">
                         <a class="tab-link report-btn" href="/kid-report.html?id=${kid.id}">📊 Report</a>
                     </div>
-                    ${reviewChineseReadingRow}
+                    ${reviewTypeIIIRow}
                 </div>
                 <button class="delete-btn" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">
                     🗑️ Delete

@@ -15,9 +15,10 @@ const wrongList = document.getElementById('wrongList');
 const rightList = document.getElementById('rightList');
 const SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters';
 const SESSION_TYPE_CHINESE_WRITING = 'chinese_writing';
-const SESSION_TYPE_CHINESE_READING = 'chinese_reading';
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
+let currentSessionBehaviorType = '';
+let currentSessionCategoryDisplayName = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !sessionId) {
@@ -57,11 +58,13 @@ async function loadSessionDetail() {
         const kidName = data.kid?.name || 'Kid';
         const session = data.session || {};
         currentSessionType = normalizeSessionType(session.type);
+        currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type) || inferBehaviorTypeFromSessionType(currentSessionType);
+        currentSessionCategoryDisplayName = String(session.category_display_name || '').trim();
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
 
         renderSummary(session);
         const answers = Array.isArray(data.answers) ? data.answers : [];
-        if (currentSessionType === SESSION_TYPE_CHINESE_READING) {
+        if (isTypeIIIReviewSession()) {
             wrongSection.style.display = 'none';
             rightSection.style.display = '';
             rightSectionTitle.textContent = 'Cards';
@@ -115,9 +118,9 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         const back = String(item.back || '').trim();
         const label = getCardDisplayLabel(front, back, currentSessionType) || '(blank)';
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
-        const responseTimeLabel = formatResponseTime(rawMs, currentSessionType);
+        const responseTimeLabel = formatResponseTime(rawMs);
         const pct = Math.max(0, Math.min(100, (rawMs / maxMs) * 100));
-        const lessonReadingAudioAttrs = currentSessionType === SESSION_TYPE_CHINESE_READING
+        const lessonReadingAudioAttrs = isTypeIIIReviewSession()
             ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${rawMs}"`
             : '';
         const audioHtml = item.audio_url
@@ -126,8 +129,15 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         const gradingHtml = renderGradingControls(item);
         const from = getCardReportFromSessionType(currentSessionType);
         const canLink = !!from && Number.isFinite(Number(item.card_id));
+        const reportLinkParams = new URLSearchParams();
+        reportLinkParams.set('id', String(kidId || ''));
+        reportLinkParams.set('cardId', String(item.card_id || ''));
+        reportLinkParams.set('from', String(from || ''));
+        if (from === 'lesson-reading' && currentSessionType) {
+            reportLinkParams.set('categoryKey', String(currentSessionType));
+        }
         const reportLinkHtml = canLink
-            ? `<a class="tab-link secondary mini-link-btn" href="/kid-card-report.html?id=${encodeURIComponent(kidId)}&cardId=${encodeURIComponent(item.card_id)}&from=${encodeURIComponent(from)}">Report</a>`
+            ? `<a class="tab-link secondary mini-link-btn" href="/kid-card-report.html?${reportLinkParams.toString()}">Report</a>`
             : '';
         return `
             <div class="answer-item">
@@ -143,14 +153,14 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         `;
     }).join('');
 
-    if (currentSessionType === SESSION_TYPE_CHINESE_READING && window.LessonReadingDurationBackfill) {
+    if (isTypeIIIReviewSession() && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
     }
 }
 
-function formatResponseTime(ms, sessionType) {
+function formatResponseTime(ms) {
     const rawMs = Math.max(0, Number(ms) || 0);
-    if (normalizeSessionType(sessionType) === SESSION_TYPE_CHINESE_READING) {
+    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii') {
         const totalSeconds = Math.floor(rawMs / 1000);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
@@ -160,7 +170,7 @@ function formatResponseTime(ms, sessionType) {
 }
 
 function renderGradingControls(item) {
-    if (currentSessionType !== SESSION_TYPE_CHINESE_READING) {
+    if (!isTypeIIIReviewSession()) {
         return '';
     }
     const resultId = Number(item?.result_id);
@@ -247,16 +257,16 @@ function getCardReportFromSessionType(type) {
     if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) return 'reading';
     if (normalizedType === 'math') return 'math';
     if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'writing';
-    if (normalizedType === SESSION_TYPE_CHINESE_READING) return 'lesson-reading';
+    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii') return 'lesson-reading';
     return '';
 }
 
 function getCardDisplayLabel(front, back, sessionType) {
     const normalizedType = normalizeSessionType(sessionType);
-    if (normalizedType === 'math') {
+    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii') {
         return front || back;
     }
-    if (normalizedType === SESSION_TYPE_CHINESE_READING) {
+    if (normalizedType === 'math') {
         return front || back;
     }
     if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) {
@@ -273,7 +283,12 @@ function formatType(type) {
     if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) return 'Chinese Characters';
     if (normalizedType === 'math') return 'Math';
     if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'Chinese Writing';
-    if (normalizedType === SESSION_TYPE_CHINESE_READING) return 'Chinese Reading';
+    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii') {
+        if (currentSessionCategoryDisplayName) {
+            return currentSessionCategoryDisplayName;
+        }
+        return buildCategoryDisplayName(normalizedType || type);
+    }
     return String(type || '-');
 }
 
@@ -281,8 +296,36 @@ function normalizeSessionType(type) {
     const text = String(type || '').trim().toLowerCase();
     if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS;
     if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
-    if (text === 'lesson_reading') return SESSION_TYPE_CHINESE_READING;
     return text;
+}
+
+function normalizeBehaviorType(type) {
+    const text = String(type || '').trim().toLowerCase();
+    if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
+        return text;
+    }
+    return '';
+}
+
+function inferBehaviorTypeFromSessionType(type) {
+    const normalizedType = normalizeSessionType(type);
+    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'type_ii';
+    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS || normalizedType === 'math') return 'type_i';
+    if (normalizedType === 'lesson_reading') return 'type_iii';
+    return '';
+}
+
+function isTypeIIIReviewSession() {
+    return normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii';
+}
+
+function buildCategoryDisplayName(rawKey) {
+    return String(rawKey || '')
+        .trim()
+        .split('_')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
 }
 
 function formatDateTime(iso) {

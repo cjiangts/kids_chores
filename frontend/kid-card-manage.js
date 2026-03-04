@@ -6,6 +6,10 @@ const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase()
 const TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'type1SessionCardCountByCategory';
 const TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD = 'type1IncludeOrphanByCategory';
 const TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'type1HardCardPercentageByCategory';
+const BEHAVIOR_TYPE_TYPE_I = 'type_i';
+const BEHAVIOR_TYPE_TYPE_III = 'type_iii';
+const SHARED_SCOPE_CARDS = 'cards';
+const SHARED_SCOPE_LESSON_READING = 'lesson-reading';
 
 const {
     buildCategoryDisplayName,
@@ -67,6 +71,7 @@ let hardnessController = null;
 let sharedDeckCardsResponseTracker = null;
 let currentCategoryDisplayName = 'Practice';
 let isChineseSpecificLogic = false;
+let currentSharedScope = SHARED_SCOPE_CARDS;
 let isReadingBulkAdding = false;
 let initialHardCardPercent = null;
 let type1SessionCardCountByCategory = {};
@@ -74,6 +79,9 @@ let type1IncludeOrphanByCategory = {};
 let type1HardCardPercentByCategory = {};
 const CARD_PAGE_SIZE = 10;
 const ORPHAN_BUBBLE_ID = '__orphan__';
+const CHINESE_FRONT_MAX_FONT_SIZE_REM = 4;
+const CHINESE_FRONT_MIN_FONT_SIZE_REM = 0.55;
+const CHINESE_FRONT_FIT_ITERATIONS = 8;
 
 function toCategoryMap(rawMap) {
     const input = (rawMap && typeof rawMap === 'object') ? rawMap : {};
@@ -184,10 +192,65 @@ function withCategoryKey(url) {
     return url;
 }
 
-function buildType1ApiUrl(pathSuffix) {
+function buildSharedDeckApiUrl(pathSuffix) {
     const cleanSuffix = String(pathSuffix || '').replace(/^\/+/, '');
-    const url = new URL(`${API_BASE}/kids/${kidId}/type1/${cleanSuffix}`);
+    const url = new URL(`${API_BASE}/kids/${kidId}/${currentSharedScope}/${cleanSuffix}`);
     return withCategoryKey(url).toString();
+}
+
+function getSessionCountFromKid(kid) {
+    type1SessionCardCountByCategory = toCategoryMap(kid[TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]);
+    return getCategoryIntValue(type1SessionCardCountByCategory, 0);
+}
+
+function buildSessionCountPayload(total) {
+    return {
+        [TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]: withCategoryValue(
+            type1SessionCardCountByCategory,
+            total,
+        ),
+    };
+}
+
+function applySessionCountFromPayload(payload) {
+    type1SessionCardCountByCategory = toCategoryMap(
+        payload && payload[TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]
+    );
+}
+
+function buildIncludeOrphanPayload(includeOrphan) {
+    return {
+        [TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD]: withCategoryValue(
+            type1IncludeOrphanByCategory,
+            includeOrphan,
+        ),
+    };
+}
+
+function applyIncludeOrphanFromPayload(payload) {
+    type1IncludeOrphanByCategory = toCategoryMap(
+        payload && payload[TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD]
+    );
+}
+
+function getInitialHardCardPercentFromKid(kid) {
+    type1HardCardPercentByCategory = toCategoryMap(kid[TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
+    return getCategoryIntValue(type1HardCardPercentByCategory, null);
+}
+
+function buildHardCardPercentPayload(hardPct) {
+    return {
+        [TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]: withCategoryValue(
+            type1HardCardPercentByCategory,
+            hardPct,
+        ),
+    };
+}
+
+function getPersistedHardCardPercentFromPayload(payload) {
+    const map = toCategoryMap(payload && payload[TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
+    type1HardCardPercentByCategory = map;
+    return getCategoryIntValue(map, null);
 }
 
 function getCurrentCategoryDisplayName() {
@@ -448,7 +511,7 @@ function buildCardReportHref(card) {
     const qs = new URLSearchParams();
     qs.set('id', String(kidId || ''));
     qs.set('cardId', String(card.id || ''));
-    qs.set('from', 'type1');
+    qs.set('from', currentSharedScope === SHARED_SCOPE_LESSON_READING ? 'lesson-reading' : 'cards');
     if (categoryKey) {
         qs.set('categoryKey', categoryKey);
     }
@@ -495,7 +558,7 @@ function buildGenericType1CardMarkup(card) {
                 aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
             >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
             <div class="card-front">${escapeHtml(card.front)}</div>
-            <div class="card-back">= ${escapeHtml(card.back)}</div>
+            <div class="card-back">${escapeHtml(card.back)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(card.source_deck_label || card.source_deck_name || '-')}</div>
             ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
@@ -504,6 +567,86 @@ function buildGenericType1CardMarkup(card) {
             <a class="card-report-link" href="${buildCardReportHref(card)}">Report</a>
         </div>
     `;
+}
+
+function getTextLength(text) {
+    return [...String(text || '').trim()].length;
+}
+
+function getChineseFrontBaseFontSizeByMaxLength(maxLength) {
+    if (maxLength <= 1) return 4;
+    if (maxLength <= 2) return 3.7;
+    if (maxLength <= 4) return 3.1;
+    if (maxLength <= 6) return 2.6;
+    if (maxLength <= 8) return 2.2;
+    if (maxLength <= 12) return 1.75;
+    if (maxLength <= 16) return 1.4;
+    if (maxLength <= 24) return 1.1;
+    return 0.9;
+}
+
+function areChineseFrontNodesSingleLine(frontNodes) {
+    return frontNodes.every((frontEl) => (
+        frontEl.clientWidth > 0
+        && frontEl.scrollWidth <= (frontEl.clientWidth + 1)
+    ));
+}
+
+function applyChineseCardFrontUniformSize(visibleCards = null) {
+    if (!isChineseSpecificLogic || !cardsGrid) {
+        return;
+    }
+    const frontNodes = [...cardsGrid.querySelectorAll('.type1-chinese-card .card-front')];
+    if (frontNodes.length === 0) {
+        cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
+        return;
+    }
+
+    const safeVisibleCards = Array.isArray(visibleCards)
+        ? visibleCards
+        : sortedCards.slice(0, visibleCardCount);
+    const maxLength = safeVisibleCards.reduce((maxLen, card) => {
+        const length = getTextLength(card && card.front);
+        return length > maxLen ? length : maxLen;
+    }, 1);
+
+    let low = CHINESE_FRONT_MIN_FONT_SIZE_REM;
+    let high = Math.min(
+        CHINESE_FRONT_MAX_FONT_SIZE_REM,
+        Math.max(CHINESE_FRONT_MIN_FONT_SIZE_REM, getChineseFrontBaseFontSizeByMaxLength(maxLength))
+    );
+    let best = low;
+
+    const setSharedSize = (sizeRem) => {
+        cardsGrid.style.setProperty('--type1-chinese-front-size-rem', `${sizeRem.toFixed(3)}rem`);
+        frontNodes.forEach((frontEl) => {
+            frontEl.style.transform = 'none';
+            frontEl.style.transformOrigin = '';
+        });
+    };
+
+    const fitsAtSize = (sizeRem) => {
+        setSharedSize(sizeRem);
+        return areChineseFrontNodesSingleLine(frontNodes);
+    };
+
+    if (fitsAtSize(high)) {
+        return;
+    }
+    if (!fitsAtSize(low)) {
+        return;
+    }
+    best = low;
+    for (let i = 0; i < CHINESE_FRONT_FIT_ITERATIONS; i += 1) {
+        const mid = (low + high) / 2;
+        if (fitsAtSize(mid)) {
+            best = mid;
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    setSharedSize(best);
 }
 
 function displayCards(cards) {
@@ -518,6 +661,7 @@ function displayCards(cards) {
 
     if (sortedCards.length === 0) {
         cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
+        cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
         return;
     }
 
@@ -525,6 +669,7 @@ function displayCards(cards) {
     cardsGrid.innerHTML = visibleCards
         .map((card) => (isChineseSpecificLogic ? buildChineseCardMarkup(card) : buildGenericType1CardMarkup(card)))
         .join('');
+    applyChineseCardFrontUniformSize(visibleCards);
 }
 
 function resetAndDisplayCards(cards) {
@@ -606,7 +751,7 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
         ? sharedDeckCardsResponseTracker.begin()
         : 0;
     try {
-        const url = withCategoryKey(new URL(`${API_BASE}/kids/${kidId}/type1/shared-decks/cards`));
+        const url = new URL(buildSharedDeckApiUrl('shared-decks/cards'));
         const previewHardPct = hardnessController
             ? hardnessController.parsePreviewValue(previewHardCardPercentage)
             : null;
@@ -650,7 +795,7 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
 }
 
 async function updateSharedType1CardSkip(cardId, skipped) {
-    const response = await fetch(buildType1ApiUrl(`shared-decks/cards/${cardId}/skip`), {
+    const response = await fetch(buildSharedDeckApiUrl(`shared-decks/cards/${cardId}/skip`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ skipped })
@@ -799,6 +944,17 @@ async function loadKidInfo() {
     const categoryMeta = categoryMetaMap[categoryKey] || {};
     const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim()
         || buildCategoryDisplayName(categoryKey);
+    const behaviorType = String(categoryMeta && categoryMeta.behavior_type ? categoryMeta.behavior_type : '')
+        .trim()
+        .toLowerCase();
+    if (behaviorType !== BEHAVIOR_TYPE_TYPE_I && behaviorType !== BEHAVIOR_TYPE_TYPE_III) {
+        throw new Error(`Unsupported manage behavior type: ${behaviorType || 'unknown'}`);
+    }
+    currentSharedScope = (
+        behaviorType === BEHAVIOR_TYPE_TYPE_III
+            ? SHARED_SCOPE_LESSON_READING
+            : SHARED_SCOPE_CARDS
+    );
 
     isChineseSpecificLogic = Boolean(categoryMeta && categoryMeta.has_chinese_specific_logic);
     currentCategoryDisplayName = displayName;
@@ -809,21 +965,20 @@ async function loadKidInfo() {
         optedInCategoryKeys: kid.optedInDeckCategoryKeys,
         deckCategoryMetaByKey: kid.deckCategoryMetaByKey,
         defaultCategoryByRoute: {
-            '/kid-type1-manage.html': categoryKey,
+            '/kid-card-manage.html': categoryKey,
+            '/kid-lesson-reading-manage.html': categoryKey,
         },
     });
 
     kidNameEl.textContent = `${kid.name || 'Kid'} - ${displayName} Management`;
-    type1SessionCardCountByCategory = toCategoryMap(kid[TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]);
     type1IncludeOrphanByCategory = toCategoryMap(kid[TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
-    type1HardCardPercentByCategory = toCategoryMap(kid[TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
-    const total = getCategoryIntValue(type1SessionCardCountByCategory, 0);
+    const total = getSessionCountFromKid(kid);
     sharedMathSessionCardCountInput.value = String(Number.isInteger(total) ? total : 0);
-    initialHardCardPercent = getCategoryIntValue(type1HardCardPercentByCategory, null);
+    initialHardCardPercent = getInitialHardCardPercentFromKid(kid);
 }
 
 async function loadSharedType1Decks() {
-    const response = await fetch(buildType1ApiUrl('shared-decks'));
+    const response = await fetch(buildSharedDeckApiUrl('shared-decks'));
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(result.error || `Failed to load shared decks (HTTP ${response.status})`);
@@ -866,30 +1021,24 @@ async function saveSessionSettings() {
     const response = await fetch(`${API_BASE}/kids/${kidId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            [TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]: withCategoryValue(
-                type1SessionCardCountByCategory,
-                total,
-            ),
-        }),
+        body: JSON.stringify(buildSessionCountPayload(total)),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(result.error || `Failed to save settings (HTTP ${response.status})`);
     }
-    type1SessionCardCountByCategory = toCategoryMap(
-        result && result[TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD]
-    );
+    applySessionCountFromPayload(result);
 
     showSuccess('Practice settings saved.');
     await loadSharedType1Decks();
 }
 
 async function requestOptInDeckIds(deckIds) {
-    const response = await fetch(buildType1ApiUrl('shared-decks/opt-in'), {
+    const body = { deck_ids: deckIds, categoryKey };
+    const response = await fetch(buildSharedDeckApiUrl('shared-decks/opt-in'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_ids: deckIds, categoryKey }),
+        body: JSON.stringify(body),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -899,10 +1048,11 @@ async function requestOptInDeckIds(deckIds) {
 }
 
 async function requestOptOutDeckIds(deckIds) {
-    const response = await fetch(buildType1ApiUrl('shared-decks/opt-out'), {
+    const body = { deck_ids: deckIds, categoryKey };
+    const response = await fetch(buildSharedDeckApiUrl('shared-decks/opt-out'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_ids: deckIds, categoryKey }),
+        body: JSON.stringify(body),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -1012,20 +1162,13 @@ async function applyDeckMembershipChanges() {
             const response = await fetch(`${API_BASE}/kids/${kidId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    [TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD]: withCategoryValue(
-                        type1IncludeOrphanByCategory,
-                        stagedIncludeOrphanInQueue,
-                    ),
-                }),
+                body: JSON.stringify(buildIncludeOrphanPayload(stagedIncludeOrphanInQueue)),
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) {
                 throw new Error(result.error || `Failed to update orphan deck setting (HTTP ${response.status})`);
             }
-            type1IncludeOrphanByCategory = toCategoryMap(
-                result && result[TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD]
-            );
+            applyIncludeOrphanFromPayload(result);
         }
         const orphanSummary = orphanChanged ? `, orphan ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}` : '';
         const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanSummary}.`;
@@ -1054,7 +1197,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.PracticeManageCommon.applyKidManageTabVisibility({
         kidId,
         defaultCategoryByRoute: {
-            '/kid-type1-manage.html': categoryKey,
+            '/kid-card-manage.html': categoryKey,
+            '/kid-lesson-reading-manage.html': categoryKey,
         },
     });
 
@@ -1086,6 +1230,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('scroll', () => {
         maybeLoadMoreCards();
     });
+    window.addEventListener('resize', () => {
+        applyChineseCardFrontUniformSize();
+    });
+    if (document.fonts && typeof document.fonts.addEventListener === 'function') {
+        document.fonts.addEventListener('loadingdone', () => {
+            applyChineseCardFrontUniformSize();
+        });
+    }
 
     sessionSettingsForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -1130,17 +1282,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             kidId,
             kidFieldName: TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD,
             savedMessage: 'Hard cards % saved.',
-            buildPayload: (hardPct) => ({
-                [TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]: withCategoryValue(
-                    type1HardCardPercentByCategory,
-                    hardPct,
-                ),
-            }),
-            getPersistedValue: (payload) => {
-                const map = toCategoryMap(payload && payload[TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
-                type1HardCardPercentByCategory = map;
-                return getCategoryIntValue(map, null);
-            },
+            buildPayload: (hardPct) => buildHardCardPercentPayload(hardPct),
+            getPersistedValue: (payload) => getPersistedHardCardPercentFromPayload(payload),
             clearTopError: () => {
                 showError('');
             },

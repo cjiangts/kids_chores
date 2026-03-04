@@ -1136,13 +1136,13 @@ window.PracticeManageCommon = {
             const categoryMeta = metaByKey[categoryKey] || {};
             const behaviorType = normalizeKey(categoryMeta.behavior_type);
             if (behaviorType === 'type_i') {
-                return '/kid-type1-manage.html';
+                return '/kid-card-manage.html';
             }
             if (behaviorType === 'type_ii') {
                 return '/kid-writing-manage.html';
             }
             if (behaviorType === 'type_iii') {
-                return '/kid-lesson-reading-manage.html';
+                return '/kid-card-manage.html';
             }
             return routeByCategoryFromTabs[categoryKey] || '';
         };

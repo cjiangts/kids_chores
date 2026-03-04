@@ -117,6 +117,27 @@
         return chineseKeys[0];
     }
 
+    function getTypeIIICategoryKeys(kid) {
+        const optedInKeys = getOptedInDeckCategoryKeys(kid);
+        const categoryMetaMap = getDeckCategoryMetaMap(kid);
+        return optedInKeys.filter((key) => {
+            const categoryMeta = categoryMetaMap[key] || {};
+            return categoryMeta.behavior_type === 'type_iii';
+        });
+    }
+
+    function resolveTypeIIIPracticeCategoryKey(kid, preferredKey = '') {
+        const keys = getTypeIIICategoryKeys(kid);
+        if (keys.length === 0) {
+            return '';
+        }
+        const preferred = normalizeCategoryKey(preferredKey);
+        if (preferred && keys.includes(preferred)) {
+            return preferred;
+        }
+        return keys[0];
+    }
+
     window.DeckCategoryCommon = {
         normalizeCategoryKey,
         buildCategoryDisplayName,
@@ -128,5 +149,7 @@
         getCategoryEmoji,
         getTypeIChineseSpecificCategoryKeys,
         resolveChinesePracticeCategoryKey,
+        getTypeIIICategoryKeys,
+        resolveTypeIIIPracticeCategoryKey,
     };
 }());
