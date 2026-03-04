@@ -17,8 +17,12 @@ let dailyChartRows = [];
 let dailyChartPageIndex = 0;
 let reportSessions = [];
 const DAILY_CHART_PAGE_SIZE = 7;
-const SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters';
-const SESSION_TYPE_CHINESE_WRITING = 'chinese_writing';
+const {
+    SESSION_TYPE_CHINESE_CHARACTERS,
+    normalizeSessionType,
+    normalizeBehaviorType,
+    inferBehaviorTypeFromSessionType,
+} = window.DeckCategoryCommon;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -156,7 +160,7 @@ function renderDailyMinutesChart(sessions) {
         const row = dailyMap.get(dayKey);
         if (sessionType === SESSION_TYPE_CHINESE_CHARACTERS) row.reading += minutes;
         if (sessionType === 'math') row.math += minutes;
-        if (sessionType === SESSION_TYPE_CHINESE_WRITING) row.writing += minutes;
+        if (behaviorType === 'type_ii') row.writing += minutes;
         if (behaviorType === 'type_iii') row.lessonReading += minutes;
         row.total += minutes;
     });
@@ -293,42 +297,16 @@ function renderType(type, session = null) {
     if (normalizedType === 'math') {
         return '<span class="type-pill type-math">Math</span>';
     }
-    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) {
-        return '<span class="type-pill type-writing">Chinese Writing</span>';
-    }
     const behaviorType = normalizeBehaviorType(session?.behavior_type) || inferBehaviorTypeFromSessionType(normalizedType);
+    if (behaviorType === 'type_ii') {
+        const label = String(session?.category_display_name || '').trim() || 'Type-II';
+        return `<span class="type-pill type-writing">${label}</span>`;
+    }
     if (behaviorType === 'type_iii') {
-        return '<span class="type-pill type-lesson-reading">Chinese Reading</span>';
+        const label = String(session?.category_display_name || '').trim() || 'Type-III';
+        return `<span class="type-pill type-lesson-reading">${label}</span>`;
     }
     return '<span class="type-pill">Unknown</span>';
-}
-
-function normalizeSessionType(type) {
-    const text = String(type || '').trim().toLowerCase();
-    if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS;
-    if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
-    return text;
-}
-
-function normalizeBehaviorType(type) {
-    const text = String(type || '').trim().toLowerCase();
-    if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
-        return text;
-    }
-    return '';
-}
-
-function inferBehaviorTypeFromSessionType(normalizedType) {
-    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS || normalizedType === 'math') {
-        return 'type_i';
-    }
-    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) {
-        return 'type_ii';
-    }
-    if (normalizedType === 'lesson_reading') {
-        return 'type_iii';
-    }
-    return '';
 }
 
 function formatDateTime(iso) {

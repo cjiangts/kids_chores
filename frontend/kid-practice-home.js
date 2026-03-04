@@ -11,6 +11,9 @@ const practiceSection = document.getElementById('practiceSection');
 const practiceChooser = document.getElementById('practiceChooser');
 const chinesePracticeOption = document.getElementById('chinesePracticeOption');
 const writingPracticeOption = document.getElementById('writingPracticeOption');
+const writingPracticeTitle = writingPracticeOption
+    ? writingPracticeOption.querySelector('h3')
+    : null;
 const mathPracticeOption = document.getElementById('mathPracticeOption');
 const lessonReadingPracticeOption = document.getElementById('lessonReadingPracticeOption');
 const lessonReadingPracticeTitle = lessonReadingPracticeOption
@@ -28,14 +31,34 @@ const {
     getCategoryDisplayName,
     getCategoryEmoji,
     resolveChinesePracticeCategoryKey,
+    resolveTypeIIPracticeCategoryKey,
     resolveTypeIIIPracticeCategoryKey,
 } = window.DeckCategoryCommon;
 
 let currentKid = null;
 let writingCards = [];
 let activeChineseCategoryKey = requestedCategoryKey || 'chinese_characters';
+let activeTypeIICategoryKey = requestedCategoryKey;
 let activeTypeIIICategoryKey = requestedCategoryKey;
 const errorState = { lastMessage: '' };
+const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
+
+
+function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpecificLogic) {
+    if (behaviorType === 'type_iii') {
+        goType3Practice(categoryKey);
+        return;
+    }
+    if (behaviorType === 'type_ii') {
+        goWritingPractice(categoryKey);
+        return;
+    }
+    if (hasChineseSpecificLogic) {
+        void chooseChinesePractice(categoryKey);
+        return;
+    }
+    goType1Practice(categoryKey);
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -57,6 +80,7 @@ async function loadKidInfo() {
         }
         currentKid = await response.json();
         activeChineseCategoryKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
+        activeTypeIICategoryKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
         activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
         kidNameEl.textContent = `${currentKid.name}'s Practice`;
     } catch (error) {
@@ -70,7 +94,13 @@ async function loadKidInfo() {
 
 async function loadWritingCards() {
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards`);
+        if (!activeTypeIICategoryKey) {
+            writingCards = [];
+            return;
+        }
+        const url = new URL(`${API_BASE}/kids/${kidId}/type2/cards`);
+        url.searchParams.set('categoryKey', activeTypeIICategoryKey);
+        const response = await fetch(url.toString());
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -124,7 +154,7 @@ function renderDynamicPracticeOptions({
         }
         const meta = categoryMetaMap[key] || {};
         const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
-        if (behaviorType !== 'type_i' && behaviorType !== 'type_iii') {
+        if (!VALID_BEHAVIOR_TYPES.has(behaviorType)) {
             return;
         }
         const targetCount = Number.parseInt(practiceTargetByCategory?.[key], 10);
@@ -139,15 +169,7 @@ function renderDynamicPracticeOptions({
         button.type = 'button';
         button.className = 'practice-option dynamic-practice-option';
         button.addEventListener('click', () => {
-            if (behaviorType === 'type_iii') {
-                goType3Practice(key);
-                return;
-            }
-            if (meta.has_chinese_specific_logic) {
-                void chooseChinesePractice(key);
-                return;
-            }
-            goType1Practice(key);
+            runDynamicPracticeByBehavior(key, behaviorType, Boolean(meta.has_chinese_specific_logic));
         });
 
         const title = document.createElement('h3');
@@ -170,17 +192,24 @@ function renderPracticeOptions() {
         return;
     }
 
-    const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
     const optedInSet = getOptedInDeckCategorySet(currentKid);
     const optedInKeys = getOptedInDeckCategoryKeys(currentKid);
     const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
     const dailyCompletedByCategory = getCategoryValueMap(currentKid?.dailyCompletedByDeckCategory);
     const practiceTargetByCategory = getCategoryValueMap(currentKid?.practiceTargetByDeckCategory);
     const chineseCharactersSessionCount = Number.parseInt(
-        practiceTargetByCategory?.chinese_characters ?? currentKid?.sessionCardCount,
+        practiceTargetByCategory?.chinese_characters,
         10,
     );
     const mathSessionCount = Number.parseInt(practiceTargetByCategory?.math, 10);
+    const typeIIKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
+    activeTypeIICategoryKey = typeIIKey;
+    const typeIISessionCount = Number.parseInt(
+        typeIIKey
+            ? practiceTargetByCategory?.[typeIIKey]
+            : 0,
+        10,
+    );
     const typeIIIKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
     activeTypeIIICategoryKey = typeIIIKey;
     const typeIIISessionCount = Number.parseInt(typeIIIKey ? practiceTargetByCategory?.[typeIIIKey] : 0, 10);
@@ -190,7 +219,10 @@ function renderPracticeOptions() {
         && Number.isInteger(chineseCharactersSessionCount)
         && chineseCharactersSessionCount > 0
     );
-    const writingEnabled = optedInSet.has('chinese_writing') && Number.isInteger(writingSessionCount) && writingSessionCount > 0;
+    const writingEnabled = Boolean(typeIIKey)
+        && optedInSet.has(typeIIKey)
+        && Number.isInteger(typeIISessionCount)
+        && typeIISessionCount > 0;
     const mathEnabled = optedInSet.has('math') && Number.isInteger(mathSessionCount) && mathSessionCount > 0;
     const typeIIIEnabled = Boolean(typeIIIKey)
         && optedInSet.has(typeIIIKey)
@@ -198,9 +230,11 @@ function renderPracticeOptions() {
         && typeIIISessionCount > 0;
     const typeIIIDisplayName = typeIIIKey ? getCategoryDisplayName(typeIIIKey, categoryMetaMap) : 'Type-III Practice';
     const typeIIIEmoji = typeIIIKey ? getCategoryEmoji(typeIIIKey, categoryMetaMap) : '📚';
+    const typeIIDisplayName = typeIIKey ? getCategoryDisplayName(typeIIKey, categoryMetaMap) : 'Type-II Practice';
+    const typeIIEmoji = typeIIKey ? getCategoryEmoji(typeIIKey, categoryMetaMap) : '✍️';
 
     chineseStarBadge.textContent = getCategoryStarsText('chinese_characters', dailyCompletedByCategory);
-    writingStarBadge.textContent = getCategoryStarsText('chinese_writing', dailyCompletedByCategory);
+    writingStarBadge.textContent = getCategoryStarsText(typeIIKey, dailyCompletedByCategory);
     mathStarBadge.textContent = getCategoryStarsText('math', dailyCompletedByCategory);
     lessonReadingStarBadge.textContent = getCategoryStarsText(typeIIIKey, dailyCompletedByCategory);
     if (lessonReadingPracticeTitle) {
@@ -211,6 +245,16 @@ function renderPracticeOptions() {
             lessonReadingPracticeOption.setAttribute('data-category-key', typeIIIKey);
         } else {
             lessonReadingPracticeOption.removeAttribute('data-category-key');
+        }
+    }
+    if (writingPracticeTitle) {
+        writingPracticeTitle.textContent = `${typeIIEmoji} ${typeIIDisplayName}`;
+    }
+    if (writingPracticeOption) {
+        if (typeIIKey) {
+            writingPracticeOption.setAttribute('data-category-key', typeIIKey);
+        } else {
+            writingPracticeOption.removeAttribute('data-category-key');
         }
     }
 
@@ -275,10 +319,11 @@ function goType1Practice(category) {
     window.location.href = `/kid-type1.html?${params.toString()}`;
 }
 
-function goWritingPractice(category = 'chinese_writing') {
-    const categoryKey = String(category || '').trim().toLowerCase();
+function goWritingPractice(category = '') {
+    const fallbackKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
+    const categoryKey = String(category || fallbackKey || '').trim().toLowerCase();
     if (!categoryKey) {
-        showError('Writing category is missing.');
+        showError('Type-II category is missing.');
         return;
     }
     const optedInSet = getOptedInDeckCategorySet(currentKid);
@@ -288,8 +333,10 @@ function goWritingPractice(category = 'chinese_writing') {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
-    if (writingCards.length === 0) {
-        showError('No Chinese writing cards yet. Ask your parent to add some first.');
+    if (categoryKey === activeTypeIICategoryKey && writingCards.length === 0) {
+        const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
+        const label = getCategoryDisplayName(categoryKey, categoryMetaMap);
+        showError(`No ${label} cards yet. Ask your parent to add some first.`);
         return;
     }
     const params = new URLSearchParams();

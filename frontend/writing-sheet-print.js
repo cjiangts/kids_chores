@@ -4,6 +4,7 @@ const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
 const sheetId = params.get('sheet');
 const previewKey = params.get('previewKey');
+const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 
 const printBtn = document.getElementById('printBtn');
 const sheetMeta = document.getElementById('sheetMeta');
@@ -11,6 +12,15 @@ const sheetContent = document.getElementById('sheetContent');
 
 let currentSheet = null;
 let isPreviewMode = false;
+
+function buildType2ApiUrl(path) {
+    return window.DeckCategoryCommon.buildType2ApiUrl({
+        kidId,
+        path,
+        categoryKey,
+        apiBase: API_BASE,
+    });
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     printBtn.addEventListener('click', async () => {
@@ -36,7 +46,7 @@ async function loadSheet() {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets/${sheetId}`);
+        const response = await fetch(buildType2ApiUrl(`/sheets/${sheetId}`));
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -57,7 +67,13 @@ function loadPreviewSheet() {
             return;
         }
         const payload = JSON.parse(raw);
-        if (!payload || String(payload.kidId) !== String(kidId) || !Array.isArray(payload.cards)) {
+        const payloadCategoryKey = String(payload && payload.categoryKey ? payload.categoryKey : '').trim().toLowerCase();
+        if (
+            !payload
+            || String(payload.kidId) !== String(kidId)
+            || !Array.isArray(payload.cards)
+            || (categoryKey && payloadCategoryKey && payloadCategoryKey !== categoryKey)
+        ) {
             sheetContent.innerHTML = '<p class="error">Invalid preview payload.</p>';
             return;
         }
@@ -86,12 +102,13 @@ async function handlePrintClick() {
         const originalLabel = printBtn.textContent;
         printBtn.textContent = 'Saving...';
         try {
-            const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets/finalize`, {
+            const response = await fetch(buildType2ApiUrl('/sheets/finalize'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     rows_per_character: Number.parseInt(currentSheet.practice_rows, 10) || 1,
-                    card_ids: currentSheet.cards.map((card) => Number(card.id))
+                    card_ids: currentSheet.cards.map((card) => Number(card.id)),
+                    categoryKey,
                 })
             });
             const payload = await response.json().catch(() => ({}));

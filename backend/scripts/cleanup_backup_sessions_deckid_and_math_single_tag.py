@@ -8,7 +8,7 @@ Actions:
 4) Populate deck_category display_name/emoji in shared_decks.duckdb.
 5) Drop obsolete writing candidate queue tables from kid DBs.
 6) Seed kid-local deck_category_opt_in rows when the table is empty.
-7) Migrate kids.json type-I settings into category-keyed map fields.
+7) Migrate kids.json type-I/type-III and type-II settings into category-keyed map fields.
 """
 
 import argparse
@@ -24,9 +24,9 @@ import duckdb
 MAX_SESSION_CARD_COUNT = 200
 DEFAULT_HARD_CARD_PERCENTAGE = 0
 
-TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD = "type1SessionCardCountByCategory"
-TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD = "type1HardCardPercentageByCategory"
-TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD = "type1IncludeOrphanByCategory"
+SESSION_CARD_COUNT_BY_CATEGORY_FIELD = "sessionCardCountByCategory"
+HARD_CARD_PERCENT_BY_CATEGORY_FIELD = "hardCardPercentageByCategory"
+INCLUDE_ORPHAN_BY_CATEGORY_FIELD = "includeOrphanByCategory"
 
 KID_DECK_CATEGORY_OPT_IN_TABLE = "deck_category_opt_in"
 KID_DB_NAME_PATTERN = re.compile(r"(?:^|/)kid_(\d+)\.(?:db|duckdb)$", re.IGNORECASE)
@@ -53,6 +53,25 @@ LEGACY_SHARED_CATEGORY_ROWS = [
 LEGACY_WRITING_QUEUE_TABLES = (
     "writing_practicing_queue",
     "writing_practicing_queue_meta",
+)
+
+DEPRECATED_KID_FIELDS_TO_DROP = (
+    "sessionCardCount",
+    "type1SessionCardCountByCategory",
+    "type1HardCardPercentageByCategory",
+    "type1IncludeOrphanByCategory",
+    "type2SessionCardCountByCategory",
+    "type2HardCardPercentageByCategory",
+    "sharedMathSessionCardCount",
+    "sharedChineseCharactersIncludeOrphan",
+    "sharedChineseCharactersHardCardPercentage",
+    "sharedMathHardCardPercentage",
+    "sharedWritingHardCardPercentage",
+    "sharedWritingIncludeOrphan",
+    "writingSessionCardCount",
+    "sharedLessonReadingSessionCardCount",
+    "sharedLessonReadingHardCardPercentage",
+    "sharedLessonReadingIncludeOrphan",
 )
 
 
@@ -419,6 +438,21 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
             if str((item or {}).get("behavior_type") or "").strip().lower() == BEHAVIOR_TYPE_I
         ]
     )
+    type_iii_keys = sorted(
+        [
+            key
+            for key, item in shared_meta.items()
+            if str((item or {}).get("behavior_type") or "").strip().lower() == BEHAVIOR_TYPE_III
+        ]
+    )
+    type_ii_keys = sorted(
+        [
+            key
+            for key, item in shared_meta.items()
+            if str((item or {}).get("behavior_type") or "").strip().lower() == BEHAVIOR_TYPE_II
+        ]
+    )
+    type_i_and_iii_keys = sorted(set(type_i_keys + type_iii_keys))
     shared_key_set = set(shared_meta.keys())
 
     preferred_opt_in_by_kid_id = {}
@@ -430,12 +464,43 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
         kid = dict(item)
         kid_id = str(kid.get("id") or "").strip()
 
-        original_counts = kid.get(TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
-        original_hard = kid.get(TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
-        original_orphan = kid.get(TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
-        count_map = dict(original_counts) if isinstance(original_counts, dict) else {}
-        hard_map = dict(original_hard) if isinstance(original_hard, dict) else {}
-        orphan_map = dict(original_orphan) if isinstance(original_orphan, dict) else {}
+        merged_count_map = {}
+        for source_map in (
+            kid.get("type1SessionCardCountByCategory"),
+            kid.get("type2SessionCardCountByCategory"),
+            kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD),
+        ):
+            if not isinstance(source_map, dict):
+                continue
+            for raw_key, raw_value in source_map.items():
+                key = _normalize_category_key(raw_key)
+                if key:
+                    merged_count_map[key] = raw_value
+
+        merged_hard_map = {}
+        for source_map in (
+            kid.get("type1HardCardPercentageByCategory"),
+            kid.get("type2HardCardPercentageByCategory"),
+            kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD),
+        ):
+            if not isinstance(source_map, dict):
+                continue
+            for raw_key, raw_value in source_map.items():
+                key = _normalize_category_key(raw_key)
+                if key:
+                    merged_hard_map[key] = raw_value
+
+        merged_include_map = {}
+        for source_map in (
+            kid.get("type1IncludeOrphanByCategory"),
+            kid.get(INCLUDE_ORPHAN_BY_CATEGORY_FIELD),
+        ):
+            if not isinstance(source_map, dict):
+                continue
+            for raw_key, raw_value in source_map.items():
+                key = _normalize_category_key(raw_key)
+                if key:
+                    merged_include_map[key] = raw_value
 
         normalized_counts = {}
         normalized_hard = {}
@@ -443,9 +508,9 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
         preferred_keys = []
         preferred_seen = set()
 
-        for key in type_i_keys:
-            if key in count_map:
-                count_value = _to_int(count_map.get(key), minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0)
+        for key in type_i_and_iii_keys:
+            if key in merged_count_map:
+                count_value = _to_int(merged_count_map.get(key), minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0)
             elif key == "chinese_characters":
                 count_value = _to_int(kid.get("sessionCardCount"), minimum=0, maximum=MAX_SESSION_CARD_COUNT, default=0)
             elif key == "math":
@@ -455,22 +520,33 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
                     maximum=MAX_SESSION_CARD_COUNT,
                     default=0,
                 )
+            elif key == "chinese_reading":
+                count_value = _to_int(
+                    kid.get("sharedLessonReadingSessionCardCount"),
+                    minimum=0,
+                    maximum=MAX_SESSION_CARD_COUNT,
+                    default=0,
+                )
             else:
                 count_value = 0
 
-            if key in hard_map:
-                hard_value = _to_percent(hard_map.get(key))
+            if key in merged_hard_map:
+                hard_value = _to_percent(merged_hard_map.get(key))
             elif key == "chinese_characters":
                 hard_value = _to_percent(kid.get("sharedChineseCharactersHardCardPercentage"))
             elif key == "math":
                 hard_value = _to_percent(kid.get("sharedMathHardCardPercentage"))
+            elif key == "chinese_reading":
+                hard_value = _to_percent(kid.get("sharedLessonReadingHardCardPercentage"))
             else:
                 hard_value = DEFAULT_HARD_CARD_PERCENTAGE
 
-            if key in orphan_map:
-                orphan_value = _to_bool(orphan_map.get(key), default=False)
+            if key in merged_include_map:
+                orphan_value = _to_bool(merged_include_map.get(key), default=False)
             elif key == "chinese_characters":
                 orphan_value = _to_bool(kid.get("sharedChineseCharactersIncludeOrphan"), default=False)
+            elif key == "chinese_reading":
+                orphan_value = _to_bool(kid.get("sharedLessonReadingIncludeOrphan"), default=False)
             else:
                 orphan_value = False
 
@@ -482,15 +558,45 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
                 preferred_seen.add(key)
                 preferred_keys.append(key)
 
-        writing_count = _to_int(
-            kid.get("writingSessionCardCount"),
-            minimum=0,
-            maximum=MAX_SESSION_CARD_COUNT,
-            default=0,
-        )
-        if writing_count > 0 and "chinese_writing" in shared_key_set and "chinese_writing" not in preferred_seen:
-            preferred_seen.add("chinese_writing")
-            preferred_keys.append("chinese_writing")
+        for key in type_ii_keys:
+            if key in merged_count_map:
+                count_value = _to_int(
+                    merged_count_map.get(key),
+                    minimum=0,
+                    maximum=MAX_SESSION_CARD_COUNT,
+                    default=0,
+                )
+            elif key == "chinese_writing":
+                count_value = _to_int(
+                    kid.get("writingSessionCardCount"),
+                    minimum=0,
+                    maximum=MAX_SESSION_CARD_COUNT,
+                    default=0,
+                )
+            else:
+                count_value = 0
+
+            if key in merged_hard_map:
+                hard_value = _to_percent(merged_hard_map.get(key))
+            elif key == "chinese_writing":
+                hard_value = _to_percent(kid.get("sharedWritingHardCardPercentage"))
+            else:
+                hard_value = DEFAULT_HARD_CARD_PERCENTAGE
+
+            if key in merged_include_map:
+                orphan_value = _to_bool(merged_include_map.get(key), default=False)
+            elif key == "chinese_writing":
+                orphan_value = _to_bool(kid.get("sharedWritingIncludeOrphan"), default=False)
+            else:
+                orphan_value = False
+
+            normalized_counts[key] = count_value
+            normalized_hard[key] = hard_value
+            normalized_orphan[key] = orphan_value
+
+            if count_value > 0 and key not in preferred_seen:
+                preferred_seen.add(key)
+                preferred_keys.append(key)
 
         reading_count = _to_int(
             kid.get("sharedLessonReadingSessionCardCount"),
@@ -508,18 +614,20 @@ def _migrate_kids_json_bytes(raw_bytes, shared_category_meta_by_key):
                 preferred_seen.add(key)
                 preferred_keys.append(key)
 
-        kid[TYPE_I_SESSION_CARD_COUNT_BY_CATEGORY_FIELD] = normalized_counts
-        kid[TYPE_I_HARD_CARD_PERCENT_BY_CATEGORY_FIELD] = normalized_hard
-        kid[TYPE_I_INCLUDE_ORPHAN_BY_CATEGORY_FIELD] = normalized_orphan
+        kid[SESSION_CARD_COUNT_BY_CATEGORY_FIELD] = normalized_counts
+        kid[HARD_CARD_PERCENT_BY_CATEGORY_FIELD] = normalized_hard
+        kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD] = normalized_orphan
+        for field_name in DEPRECATED_KID_FIELDS_TO_DROP:
+            kid.pop(field_name, None)
         kids[idx] = kid
 
         if kid_id:
             preferred_opt_in_by_kid_id[kid_id] = preferred_keys
 
         if (
-            normalized_counts != count_map
-            or normalized_hard != hard_map
-            or normalized_orphan != orphan_map
+            normalized_counts != merged_count_map
+            or normalized_hard != merged_hard_map
+            or normalized_orphan != merged_include_map
         ):
             updated_kid_count += 1
 
@@ -753,7 +861,7 @@ def parse_args():
         description=(
             "Clean a full backup zip by removing sessions.deck_id, rewriting sessions.type values, "
             "removing single-tag math decks, filling deck_category display metadata, dropping legacy "
-            "writing queue tables, seeding deck_category_opt_in rows, and migrating kids.json type-I maps."
+            "writing queue tables, seeding deck_category_opt_in rows, and migrating kids.json category-keyed maps."
         )
     )
     parser.add_argument("--input-zip", required=True, help="Path to source backup zip")

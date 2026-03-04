@@ -2,6 +2,9 @@ const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
+const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
+let activeCategoryKey = requestedCategoryKey;
+let activeCategoryDisplayName = 'Type-II';
 
 const kidNameEl = document.getElementById('kidName');
 const backBtn = document.getElementById('backBtn');
@@ -13,10 +16,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/';
         return;
     }
-    backBtn.href = `/kid-writing-manage.html?id=${kidId}`;
     await loadKid();
+    const backParams = new URLSearchParams();
+    backParams.set('id', String(kidId || ''));
+    if (activeCategoryKey) {
+        backParams.set('categoryKey', activeCategoryKey);
+    }
+    backBtn.href = `/kid-card-manage.html?${backParams.toString()}`;
     await loadSheets();
 });
+
+function buildType2ApiUrl(path) {
+    return window.DeckCategoryCommon.buildType2ApiUrl({
+        kidId,
+        path,
+        categoryKey: activeCategoryKey,
+        apiBase: API_BASE,
+    });
+}
 
 async function loadKid() {
     try {
@@ -25,7 +42,15 @@ async function loadKid() {
             throw new Error(`HTTP ${response.status}`);
         }
         const kid = await response.json();
-        kidNameEl.textContent = `${kid.name}'s Chinese Writing Sheets`;
+        activeCategoryKey = window.DeckCategoryCommon.resolveTypeIIPracticeCategoryKey(
+            kid,
+            activeCategoryKey,
+        );
+        const categoryMetaMap = window.DeckCategoryCommon.getDeckCategoryMetaMap(kid);
+        activeCategoryDisplayName = activeCategoryKey
+            ? window.DeckCategoryCommon.getCategoryDisplayName(activeCategoryKey, categoryMetaMap)
+            : 'Type-II';
+        kidNameEl.textContent = `${kid.name}'s ${activeCategoryDisplayName} Sheets`;
     } catch (error) {
         console.error('Error loading kid:', error);
     }
@@ -34,7 +59,7 @@ async function loadKid() {
 async function loadSheets() {
     try {
         showError('');
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets`);
+        const response = await fetch(buildType2ApiUrl('/sheets'));
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -91,7 +116,7 @@ function renderSheets(sheets) {
 
 async function markDone(sheetId) {
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets/${sheetId}/complete`, {
+        const response = await fetch(buildType2ApiUrl(`/sheets/${sheetId}/complete`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
@@ -108,7 +133,7 @@ async function markDone(sheetId) {
 
 async function deleteSheet(sheetId) {
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/sheets/${sheetId}/withdraw`, {
+        const response = await fetch(buildType2ApiUrl(`/sheets/${sheetId}/withdraw`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
@@ -125,7 +150,13 @@ async function deleteSheet(sheetId) {
 }
 
 function printSheet(sheetId) {
-    const url = `/writing-sheet-print.html?id=${encodeURIComponent(kidId)}&sheet=${encodeURIComponent(sheetId)}`;
+    const qs = new URLSearchParams();
+    qs.set('id', String(kidId || ''));
+    qs.set('sheet', String(sheetId || ''));
+    if (activeCategoryKey) {
+        qs.set('categoryKey', activeCategoryKey);
+    }
+    const url = `/writing-sheet-print.html?${qs.toString()}`;
     window.open(url, '_blank');
 }
 

@@ -385,23 +385,114 @@
             font-weight: 700;
         }
 
-        .delete-card-btn {
-            position: absolute;
-            top: 0.45rem;
-            right: 0.45rem;
-            width: 26px;
-            height: 26px;
-            border-radius: 999px;
-            border: 1px solid #f1b0b7;
-            background: #fff5f5;
-            color: #c92a2a;
-            cursor: pointer;
-            font-weight: 700;
-            line-height: 1;
+        .sheet-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            flex-wrap: wrap;
         }
 
-        .delete-card-btn:hover {
-            background: #ffe3e3;
+        .sheet-row .form-group {
+            margin-bottom: 0;
+            max-width: 220px;
+        }
+
+        .sheet-view-btn {
+            background: #6c757d;
+        }
+
+        .sheet-view-btn:hover {
+            background: #5a6268;
+        }
+
+        .practicing-deck-section {
+            background: #fffdf4;
+            border: 1px solid #f1e3bc;
+        }
+
+        .practicing-bucket-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            margin-top: 0.75rem;
+        }
+
+        .practicing-deck-empty {
+            color: #7a6a3f;
+            font-size: 0.9rem;
+            margin-top: 0.6rem;
+        }
+
+        .pending-sheet-bar {
+            margin-top: 0.85rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #f0d18e;
+            background: #fff3d1;
+            color: #5f4b12;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            line-height: 1.4;
+        }
+
+        .practicing-bucket-list .pending-sheet-bar {
+            margin-top: 0;
+        }
+
+        .pending-sheet-bar-label {
+            font-weight: 700;
+        }
+
+        .pending-sheet-text {
+            font-size: 1rem;
+            word-break: break-word;
+        }
+
+        .pending-sheet-empty {
+            font-size: 0.95rem;
+            color: #7a6a3f;
+        }
+
+        .selected-audio-bar {
+            margin-top: 0.55rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            background: #eef4ff;
+            border: 1px solid #cfdcfb;
+            text-align: left;
+        }
+
+        .selected-audio-title {
+            font-size: 0.8rem;
+            color: #24468f;
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+        }
+
+        .selected-audio-actions {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        .selected-audio-btn {
+            border: none;
+            border-radius: 6px;
+            padding: 0.3rem 0.5rem;
+            color: white;
+            cursor: pointer;
+            font-size: 0.78rem;
+        }
+
+        .selected-audio-btn.save {
+            background: #1f8e43;
+        }
+
+        .selected-audio-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
         }
 
         @media (max-width: 880px) {
@@ -447,10 +538,10 @@
                 <h2>Practice Settings</h2>
                 <form id="sessionSettingsForm" class="settings-row">
                     <div class="form-group">
-                        <label id="sessionCardCountLabel" for="sharedMathSessionCardCount">Practice Cards Per Session (Total Across Opted-in Decks)</label>
+                        <label id="sessionCardCountLabel" for="sessionCardCount">Practice Cards Per Session (Total Across Opted-in Decks)</label>
                         <input
                             type="number"
-                            id="sharedMathSessionCardCount"
+                            id="sessionCardCount"
                             min="0"
                         max="200"
                         step="1"
@@ -497,13 +588,13 @@
 
         <section id="orphanEditorSection" class="settings-section hidden">
             <h2>Orphan Deck Editor</h2>
-            <p class="math-v2-note">Manual custom cards live in the orphan deck. Bulk import and delete are allowed only there.</p>
+            <p class="math-v2-note">Manual custom cards live in the orphan deck. Bulk import is supported here; use Skip to exclude cards from practice.</p>
             <div class="orphan-editor-grid">
                 <div class="orphan-editor-panel">
-                    <h3>Bulk Add Chinese Characters</h3>
+                    <h3 id="orphanEditorTitle">Bulk Add Chinese Characters</h3>
                     <form id="addCardForm">
                         <div class="form-group">
-                            <label for="chineseChar">Chinese Characters</label>
+                            <label id="orphanEditorInputLabel" for="chineseChar">Chinese Characters</label>
                             <div class="bulk-import-wrap">
                                 <textarea
                                     id="chineseChar"
@@ -516,6 +607,44 @@
                         <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
                     </form>
                 </div>
+            </div>
+        </section>
+
+        <section id="type2ChineseSheetSection" class="settings-section practicing-deck-section hidden">
+            <h2><span id="type2ChineseSheetSectionTitleText">Suggested Practicing Candidate Cards</span> <span id="practicingDeckCount">(0)</span></h2>
+            <p class="math-v2-note" style="margin-bottom: 0.55rem;">
+                Auto-selected candidate cards for writing sheets: newly added or latest failed. Cards already on a pending sheet are hidden from this list.
+            </p>
+            <div id="practicingDeckGrid" class="practicing-bucket-list"></div>
+            <p id="practicingDeckEmpty" class="practicing-deck-empty">No suggested candidate cards.</p>
+            <h3 class="label-with-help" style="margin: 0.45rem 0 0.7rem 0;">
+                <span>Generate Practice Sheet</span>
+                <details class="help-details">
+                    <summary title="Sheet generation tip">i</summary>
+                    <div class="help-bubble">
+                        Layout: each row has 10 Tianzige boxes. The first row for each card includes demo text; repeat rows focus on copying practice. Rows Per Card controls how many rows each card gets.
+                        <br><br>
+                        Card selection: we pick from the suggested candidates, excluding cards already on a pending sheet.
+                    </div>
+                </details>
+            </h3>
+            <div class="sheet-row">
+                <div class="form-group">
+                    <label for="sheetCardCount">Cards Per Sheet</label>
+                    <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
+                </div>
+                <div class="form-group">
+                    <label for="sheetRowsPerChar">Rows Per Card</label>
+                    <input type="number" id="sheetRowsPerChar" min="1" max="10" step="1" value="1" required>
+                </div>
+                <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
+                <button type="button" id="viewSheetsBtn" class="settings-save-btn sheet-view-btn">Manage Sheets</button>
+            </div>
+            <div id="sheetErrorMessage" class="error hidden" style="margin-top: 0.8rem;"></div>
+            <div class="pending-sheet-bar">
+                <span class="pending-sheet-bar-label">Cards on Active Practice Sheets:</span>
+                <span id="pendingSheetCardsGrid" class="pending-sheet-text"></span>
+                <span id="pendingSheetCardsEmpty" class="pending-sheet-empty">No cards in pending sheets.</span>
             </div>
         </section>
 
@@ -562,6 +691,7 @@
 
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
+    <script src="writing-audio-sequence.js"></script>
     <script src="kid-card-manage.js"></script>
 </body>
 </html>

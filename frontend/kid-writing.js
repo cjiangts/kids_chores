@@ -2,6 +2,7 @@ const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
+const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 
 const kidNameEl = document.getElementById('kidName');
 const backToPractice = document.getElementById('backToPractice');
@@ -26,6 +27,8 @@ const resultSummary = document.getElementById('resultSummary');
 
 let currentKid = null;
 let availableCards = [];
+let activeCategoryKey = requestedCategoryKey;
+let activeCategoryDisplayName = 'Type-II Practice';
 let sessionCards = [];
 let activePendingSessionId = null;
 let currentIndex = 0;
@@ -94,17 +97,40 @@ async function loadKidInfo() {
             throw new Error(`HTTP ${response.status}`);
         }
         currentKid = await response.json();
-        kidNameEl.textContent = `${currentKid.name}'s Chinese Writing`;
+        activeCategoryKey = window.DeckCategoryCommon.resolveTypeIIPracticeCategoryKey(
+            currentKid,
+            activeCategoryKey,
+        );
+        const categoryMetaMap = window.DeckCategoryCommon.getDeckCategoryMetaMap(currentKid);
+        activeCategoryDisplayName = activeCategoryKey
+            ? window.DeckCategoryCommon.getCategoryDisplayName(activeCategoryKey, categoryMetaMap)
+            : 'Type-II Practice';
+        kidNameEl.textContent = `${currentKid.name}'s ${activeCategoryDisplayName}`;
     } catch (error) {
         console.error('Error loading kid info:', error);
         showError('Failed to load kid information');
     }
 }
 
+function buildType2ApiUrl(path) {
+    return window.DeckCategoryCommon.buildType2ApiUrl({
+        kidId,
+        path,
+        categoryKey: activeCategoryKey,
+        apiBase: API_BASE,
+    });
+}
+
 async function loadWritingCards() {
     try {
         showError('');
-        const response = await fetch(`${API_BASE}/kids/${kidId}/writing/cards`);
+        if (!activeCategoryKey) {
+            availableCards = [];
+            practiceSection.classList.add('hidden');
+            showError('No type-II category is assigned yet.');
+            return;
+        }
+        const response = await fetch(buildType2ApiUrl('/cards'));
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -113,7 +139,7 @@ async function loadWritingCards() {
         availableCards = (data.cards || []).filter((card) => card.available_for_practice !== false);
         if (availableCards.length === 0) {
             practiceSection.classList.add('hidden');
-            showError('No Chinese writing cards yet. Ask your parent to add some first.');
+            showError(`No ${activeCategoryDisplayName} cards yet. Ask your parent to add some first.`);
             return;
         }
 
@@ -121,12 +147,17 @@ async function loadWritingCards() {
         resetToStartScreen();
     } catch (error) {
         console.error('Error loading writing cards:', error);
-        showError('Failed to load Chinese writing cards');
+        showError('Failed to load type-II cards');
     }
 }
 
 function resetToStartScreen() {
-    const writingSessionCount = Number.parseInt(currentKid?.writingSessionCardCount, 10);
+    const practiceTargetByCategory = window.DeckCategoryCommon.getCategoryValueMap(
+        currentKid?.practiceTargetByDeckCategory
+    );
+    const writingSessionCount = activeCategoryKey
+        ? Number.parseInt(practiceTargetByCategory?.[activeCategoryKey], 10)
+        : 0;
     const target = Math.min(Number.isInteger(writingSessionCount) ? writingSessionCount : 0, availableCards.length);
     sessionInfo.textContent = `Session: ${target} cards`;
 
@@ -150,14 +181,14 @@ async function startSession() {
         showError('');
         primeAudioForAutoplay();
         const started = await window.PracticeSessionFlow.startShuffledSession(
-            `${API_BASE}/kids/${kidId}/writing/practice/start`,
-            {}
+            buildType2ApiUrl('/practice/start'),
+            { categoryKey: activeCategoryKey }
         );
         activePendingSessionId = started.pendingSessionId;
         sessionCards = started.cards;
 
         if (!window.PracticeSession.hasActiveSession(activePendingSessionId) || sessionCards.length === 0) {
-            showError('No Chinese writing cards available');
+            showError(`No ${activeCategoryDisplayName} cards available`);
             return;
         }
 
@@ -174,7 +205,7 @@ async function startSession() {
         updateFinishEarlyButtonState();
     } catch (error) {
         console.error('Error starting writing session:', error);
-        showError('Failed to start Chinese writing session');
+        showError('Failed to start type-II practice session');
     }
 }
 
@@ -313,9 +344,10 @@ async function endSession(endedEarly = false) {
 
     try {
         await window.PracticeSessionFlow.postCompleteSession(
-            `${API_BASE}/kids/${kidId}/writing/practice/complete`,
+            buildType2ApiUrl('/practice/complete'),
             activePendingSessionId,
-            sessionAnswers
+            sessionAnswers,
+            { categoryKey: activeCategoryKey }
         );
     } catch (error) {
         console.error('Error completing writing session:', error);

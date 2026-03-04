@@ -1139,7 +1139,7 @@ window.PracticeManageCommon = {
                 return '/kid-card-manage.html';
             }
             if (behaviorType === 'type_ii') {
-                return '/kid-writing-manage.html';
+                return '/kid-card-manage.html';
             }
             if (behaviorType === 'type_iii') {
                 return '/kid-card-manage.html';

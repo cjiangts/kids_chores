@@ -12,8 +12,13 @@ const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
 const trendChart = document.getElementById('trendChart');
 const historyList = document.getElementById('historyList');
-const SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters';
-const SESSION_TYPE_CHINESE_WRITING = 'chinese_writing';
+const {
+    SESSION_TYPE_CHINESE_CHARACTERS,
+    SESSION_TYPE_CHINESE_WRITING,
+    normalizeSessionType,
+    normalizeBehaviorType,
+    inferBehaviorTypeFromSessionType,
+} = window.DeckCategoryCommon;
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -36,8 +41,13 @@ function resolveBackHref() {
         }
         return `/kid-card-manage.html?${qs.toString()}`;
     }
-    if (from === 'writing') {
-        return `/kid-writing-manage.html?id=${encodeURIComponent(kidId)}`;
+    if (from === 'type2' || from === 'writing') {
+        const qs = new URLSearchParams();
+        qs.set('id', String(kidId || ''));
+        if (categoryKey) {
+            qs.set('categoryKey', categoryKey);
+        }
+        return `/kid-card-manage.html?${qs.toString()}`;
     }
     if (from === 'lesson-reading') {
         const qs = new URLSearchParams();
@@ -189,30 +199,9 @@ function formatType(type, behaviorTypeRaw = '') {
     if (normalizedType === 'math') return 'Math';
     if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'Chinese Writing';
     const behaviorType = normalizeBehaviorType(behaviorTypeRaw) || inferBehaviorTypeFromSessionType(normalizedType);
+    if (behaviorType === 'type_ii') return 'Type-II';
     if (behaviorType === 'type_iii') return 'Type-III';
     return String(type || '-');
-}
-
-function normalizeSessionType(type) {
-    const text = String(type || '').trim().toLowerCase();
-    if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS;
-    if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
-    return text;
-}
-
-function normalizeBehaviorType(type) {
-    const text = String(type || '').trim().toLowerCase();
-    if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
-        return text;
-    }
-    return '';
-}
-
-function inferBehaviorTypeFromSessionType(normalizedType) {
-    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS || normalizedType === 'math') return 'type_i';
-    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'type_ii';
-    if (normalizedType === 'lesson_reading') return 'type_iii';
-    return '';
 }
 
 function getCardDisplayLabel(front, back, source) {
@@ -228,7 +217,7 @@ function getCardDisplayLabel(front, back, source) {
     if (source === 'reading') {
         return frontText || backText;
     }
-    if (source === 'writing') {
+    if (source === 'type2' || source === 'writing') {
         return backText || frontText;
     }
 

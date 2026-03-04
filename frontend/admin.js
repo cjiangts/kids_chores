@@ -389,12 +389,9 @@ function getManagePathByCategory(categoryKey, categoryMetaMap = {}) {
     const key = String(categoryKey || '').trim().toLowerCase();
     const meta = categoryMetaMap?.[key] || {};
     const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
-    if (behaviorType === 'type_i') {
-        return '/kid-card-manage.html';
-    }
-    if (behaviorType === 'type_ii') return '/kid-writing-manage.html';
-    if (behaviorType === 'type_iii') return '/kid-card-manage.html';
-    return '';
+    return ['type_i', 'type_ii', 'type_iii'].includes(behaviorType)
+        ? '/kid-card-manage.html'
+        : '';
 }
 
 function getManageHrefByCategory(categoryKey, kidId, categoryMetaMap = {}) {

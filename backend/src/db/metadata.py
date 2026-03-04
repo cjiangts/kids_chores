@@ -23,6 +23,14 @@ def _normalize(data: Dict) -> Dict:
         data['families'] = []
     if 'kids' not in data or not isinstance(data.get('kids'), list):
         data['kids'] = []
+    for i, kid in enumerate(data['kids']):
+        if not isinstance(kid, dict):
+            continue
+        # Legacy scalar; category-keyed map is the source of truth.
+        if 'sessionCardCount' in kid:
+            kid = dict(kid)
+            kid.pop('sessionCardCount', None)
+            data['kids'][i] = kid
     has_super_family = False
     for i, family in enumerate(data['families']):
         if not isinstance(family, dict):
