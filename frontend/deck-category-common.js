@@ -13,6 +13,7 @@
     }
 
     function parseDeckTagInput(rawValue) {
+        // Keep this parser in sync with backend parse_shared_deck_tag_with_comment in routes/kids.py.
         const text = String(rawValue || '').trim();
         if (!text) {
             return { tag: '', comment: '', label: '' };
@@ -122,41 +123,18 @@
         return '🧩';
     }
 
-    function getTypeIChineseSpecificCategoryKeys(kid) {
+    function getCategoryKeysByPredicate(kid, predicate) {
         const optedInKeys = getOptedInDeckCategoryKeys(kid);
         const categoryMetaMap = getDeckCategoryMetaMap(kid);
+        const matcher = typeof predicate === 'function' ? predicate : () => false;
         return optedInKeys.filter((key) => {
             const categoryMeta = categoryMetaMap[key] || {};
-            return categoryMeta.behavior_type === 'type_i'
-                && Boolean(categoryMeta.has_chinese_specific_logic);
+            return Boolean(matcher(categoryMeta));
         });
     }
 
-    function resolveChinesePracticeCategoryKey(kid, preferredKey = '') {
-        const chineseKeys = getTypeIChineseSpecificCategoryKeys(kid);
-        if (chineseKeys.length === 0) {
-            return '';
-        }
-        const preferred = normalizeCategoryKey(preferredKey);
-        if (preferred && chineseKeys.includes(preferred)) {
-            return preferred;
-        }
-        return chineseKeys[0];
-    }
-
-    function getTypeINonChineseCategoryKeys(kid) {
-        const optedInKeys = getOptedInDeckCategoryKeys(kid);
-        const categoryMetaMap = getDeckCategoryMetaMap(kid);
-        return optedInKeys.filter((key) => {
-            const categoryMeta = categoryMetaMap[key] || {};
-            return categoryMeta.behavior_type === 'type_i'
-                && !Boolean(categoryMeta.has_chinese_specific_logic);
-        });
-    }
-
-    function resolveTypeINonChinesePracticeCategoryKey(kid, preferredKey = '') {
-        const keys = getTypeINonChineseCategoryKeys(kid);
-        if (keys.length === 0) {
+    function resolvePreferredCategoryKey(keys, preferredKey = '') {
+        if (!Array.isArray(keys) || keys.length === 0) {
             return '';
         }
         const preferred = normalizeCategoryKey(preferredKey);
@@ -166,47 +144,45 @@
         return keys[0];
     }
 
-    function getTypeIIICategoryKeys(kid) {
-        const optedInKeys = getOptedInDeckCategoryKeys(kid);
-        const categoryMetaMap = getDeckCategoryMetaMap(kid);
-        return optedInKeys.filter((key) => {
-            const categoryMeta = categoryMetaMap[key] || {};
-            return categoryMeta.behavior_type === 'type_iii';
-        });
-    }
+    const getTypeIChineseSpecificCategoryKeys = (kid) => getCategoryKeysByPredicate(
+        kid,
+        (meta) => meta.behavior_type === 'type_i' && Boolean(meta.has_chinese_specific_logic),
+    );
 
-    function getTypeIICategoryKeys(kid) {
-        const optedInKeys = getOptedInDeckCategoryKeys(kid);
-        const categoryMetaMap = getDeckCategoryMetaMap(kid);
-        return optedInKeys.filter((key) => {
-            const categoryMeta = categoryMetaMap[key] || {};
-            return categoryMeta.behavior_type === 'type_ii';
-        });
-    }
+    const getTypeINonChineseCategoryKeys = (kid) => getCategoryKeysByPredicate(
+        kid,
+        (meta) => meta.behavior_type === 'type_i' && !Boolean(meta.has_chinese_specific_logic),
+    );
 
-    function resolveTypeIIPracticeCategoryKey(kid, preferredKey = '') {
-        const keys = getTypeIICategoryKeys(kid);
-        if (keys.length === 0) {
-            return '';
-        }
-        const preferred = normalizeCategoryKey(preferredKey);
-        if (preferred && keys.includes(preferred)) {
-            return preferred;
-        }
-        return keys[0];
-    }
+    const getTypeIICategoryKeys = (kid) => getCategoryKeysByPredicate(
+        kid,
+        (meta) => meta.behavior_type === 'type_ii',
+    );
 
-    function resolveTypeIIIPracticeCategoryKey(kid, preferredKey = '') {
-        const keys = getTypeIIICategoryKeys(kid);
-        if (keys.length === 0) {
-            return '';
-        }
-        const preferred = normalizeCategoryKey(preferredKey);
-        if (preferred && keys.includes(preferred)) {
-            return preferred;
-        }
-        return keys[0];
-    }
+    const getTypeIIICategoryKeys = (kid) => getCategoryKeysByPredicate(
+        kid,
+        (meta) => meta.behavior_type === 'type_iii',
+    );
+
+    const resolveChinesePracticeCategoryKey = (kid, preferredKey = '') => resolvePreferredCategoryKey(
+        getTypeIChineseSpecificCategoryKeys(kid),
+        preferredKey,
+    );
+
+    const resolveTypeINonChinesePracticeCategoryKey = (kid, preferredKey = '') => resolvePreferredCategoryKey(
+        getTypeINonChineseCategoryKeys(kid),
+        preferredKey,
+    );
+
+    const resolveTypeIIPracticeCategoryKey = (kid, preferredKey = '') => resolvePreferredCategoryKey(
+        getTypeIICategoryKeys(kid),
+        preferredKey,
+    );
+
+    const resolveTypeIIIPracticeCategoryKey = (kid, preferredKey = '') => resolvePreferredCategoryKey(
+        getTypeIIICategoryKeys(kid),
+        preferredKey,
+    );
 
     function normalizeBehaviorType(type) {
         const text = String(type || '').trim().toLowerCase();

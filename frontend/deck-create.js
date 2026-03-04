@@ -20,9 +20,19 @@ const createDeckBtn = document.getElementById('createDeckBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const deckCategoryCommon = window.DeckCategoryCommon;
+const deckCreateCommon = window.DeckCreateCommon;
 if (!deckCategoryCommon) {
     throw new Error('deck-category-common.js is required for deck-create');
 }
+if (!deckCreateCommon) {
+    throw new Error('deck-create-common.js is required for deck-create');
+}
+
+const normalizeTag = deckCreateCommon.normalizeTag;
+const parseTagInput = deckCreateCommon.parseTagInput;
+const formatTagPayload = deckCreateCommon.formatTagPayload;
+const showError = (message) => deckCreateCommon.showMessage(errorMessage, message);
+const showSuccess = (message) => deckCreateCommon.showMessage(successMessage, message);
 
 let extraTags = [];
 let previewCards = [];
@@ -41,7 +51,7 @@ let deckCategoryKeySet = new Set();
 let reservedFirstTags = new Set();
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const allowed = await ensureSuperFamily();
+    const allowed = await deckCreateCommon.ensureSuperFamily(API_BASE);
     if (!allowed) {
         return;
     }
@@ -92,115 +102,44 @@ createDeckBtn.addEventListener('click', async () => {
     await createDeck();
 });
 
-async function ensureSuperFamily() {
-    try {
-        const response = await fetch(`${API_BASE}/family-auth/status`);
-        if (!response.ok) {
-            window.location.href = '/family-login.html';
-            return false;
-        }
-        const auth = await response.json().catch(() => ({}));
-        if (!auth.authenticated) {
-            window.location.href = '/family-login.html';
-            return false;
-        }
-        if (!auth.isSuperFamily) {
-            window.location.href = '/admin.html';
-            return false;
-        }
-        return true;
-    } catch (error) {
-        window.location.href = '/admin.html';
-        return false;
-    }
-}
-
-function normalizeTag(text) {
-    return deckCategoryCommon.parseDeckTagInput(text).tag;
-}
-
-function parseTagInput(text) {
-    return deckCategoryCommon.parseDeckTagInput(text);
-}
-
-function formatTagPayload(tagInfo) {
-    const item = tagInfo && typeof tagInfo === 'object' ? tagInfo : {};
-    return deckCategoryCommon.formatDeckTagLabel(item.tag, item.comment);
-}
-
-function getDeckCountForCategory(categoryKey) {
-    const key = normalizeTag(categoryKey);
-    if (!key) {
-        return 0;
-    }
-    const raw = deckCountByCategoryKey[key];
-    const count = Number.isFinite(raw) ? Math.max(0, Math.trunc(raw)) : 0;
-    return count;
-}
-
 function getCurrentDeckCategory() {
-    const key = normalizeTag(currentFirstTag);
-    if (!key) {
-        return null;
-    }
-    return deckCategories.find((item) => item.category_key === key) || null;
+    return deckCreateCommon.getCurrentDeckCategory(currentFirstTag, deckCategories);
 }
 
 function isChineseCharactersDeckMode() {
-    const category = getCurrentDeckCategory();
-    return Boolean(
-        category
-        && category.behavior_type === 'type_i'
-        && category.has_chinese_specific_logic
-    );
+    return deckCreateCommon.isChineseCharactersDeckMode(getCurrentDeckCategory());
 }
 
 function isChineseWritingDeckMode() {
-    const category = getCurrentDeckCategory();
-    return Boolean(
-        category
-        && category.behavior_type === 'type_ii'
-        && category.has_chinese_specific_logic
-    );
+    return deckCreateCommon.isChineseWritingDeckMode(getCurrentDeckCategory());
 }
 
 function isTypeIIDeckMode() {
-    const category = getCurrentDeckCategory();
-    return Boolean(category && category.behavior_type === 'type_ii');
+    return deckCreateCommon.isTypeIIDeckMode(getCurrentDeckCategory());
 }
 
 function setControlsDisabled(disabled) {
-    const shouldDisable = Boolean(disabled);
-    if (newTagInput) {
-        newTagInput.disabled = shouldDisable;
-    }
-    if (addTagBtn) {
-        addTagBtn.disabled = shouldDisable;
-    }
-    if (cardsCsvInput) {
-        cardsCsvInput.disabled = shouldDisable;
-    }
-    if (previewBtn) {
-        previewBtn.disabled = shouldDisable;
-    }
-    if (clearCsvBtn) {
-        clearCsvBtn.disabled = shouldDisable;
-    }
-    if (createDeckBtn) {
-        createDeckBtn.disabled = shouldDisable || isCreatingDeck;
-    }
+    deckCreateCommon.setControlsDisabled(disabled, {
+        newTagInput: { element: newTagInput },
+        addTagBtn: { element: addTagBtn },
+        cardsCsvInput: { element: cardsCsvInput },
+        previewBtn: { element: previewBtn },
+        clearCsvBtn: { element: clearCsvBtn },
+        createDeckBtn: { element: createDeckBtn, busyGuard: () => isCreatingDeck },
+    });
 }
 
 async function loadDeckCategories() {
     showError('');
     try {
-        const loaded = await deckCategoryCommon.loadDeckCategoriesForFirstTagPicker({
+        const loaded = await deckCreateCommon.loadDeckCategories({
             apiBase: API_BASE,
             selectedCategoryKey: currentFirstTag,
+            includeReservedFirstTags: true,
         });
         deckCategories = loaded.categories;
         deckCategoryKeySet = loaded.categoryKeySet;
-        reservedFirstTags = new Set(loaded.categories.map((item) => item.category_key));
+        reservedFirstTags = loaded.reservedFirstTags;
         currentFirstTag = loaded.selectedCategoryKey;
         setControlsDisabled(false);
         return true;
@@ -224,20 +163,17 @@ function renderFirstTagToggle() {
     if (!firstTagToggle) {
         return;
     }
-    deckCategoryCommon.renderFirstTagCategoryPicker({
+    deckCreateCommon.renderFirstTagToggle({
         containerEl: firstTagToggle,
         categories: deckCategories,
         selectedCategoryKey: currentFirstTag,
-        getDeckCount: getDeckCountForCategory,
+        getDeckCount: (categoryKey) => deckCreateCommon.getDeckCountForCategory(categoryKey, deckCountByCategoryKey),
     });
 }
 
 function setCurrentFirstTag(tag) {
-    const next = normalizeTag(tag);
-    if (!deckCategoryKeySet.has(next)) {
-        return;
-    }
-    if (next === currentFirstTag) {
+    const next = deckCreateCommon.normalizeNextFirstTag(tag, currentFirstTag, deckCategoryKeySet);
+    if (!next) {
         return;
     }
     currentFirstTag = next;
@@ -275,14 +211,6 @@ function buildNameAvailabilityQueryParams() {
         params.set('name', name);
     }
     return params;
-}
-
-function formatTagPath(tags) {
-    const list = Array.isArray(tags) ? tags.map((tag) => String(tag || '').trim()).filter(Boolean) : [];
-    if (list.length === 0) {
-        return '[]';
-    }
-    return `[${list.join(', ')}]`;
 }
 
 function updateGeneratedName() {
@@ -495,24 +423,6 @@ function parseChineseCharacterText(rawText) {
     return cards;
 }
 
-async function fetchChineseCharacterPinyinMap(texts) {
-    if (!Array.isArray(texts) || texts.length === 0) {
-        return {};
-    }
-    const response = await fetch(`${API_BASE}/shared-decks/chinese-characters/pinyin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(result.error || `Failed to generate pinyin (HTTP ${response.status})`);
-    }
-    return result && typeof result.pinyin_by_text === 'object' && result.pinyin_by_text
-        ? result.pinyin_by_text
-        : {};
-}
-
 async function parseCardsForCurrentMode() {
     if (!isChineseCharactersDeckMode()) {
         return parseCardsCsv(cardsCsvInput.value);
@@ -529,72 +439,11 @@ async function parseCardsForCurrentMode() {
         uniqueTexts.push(card.front);
     });
 
-    const pinyinByText = await fetchChineseCharacterPinyinMap(uniqueTexts);
+    const pinyinByText = await deckCreateCommon.fetchChineseCharacterPinyinMap(API_BASE, uniqueTexts);
     return cards.map((card) => ({
         ...card,
         back: String(pinyinByText[card.front] || '').trim() || card.front,
     }));
-}
-
-async function fetchCategoryCardOverlap(cards) {
-    if (!Array.isArray(cards) || cards.length === 0) {
-        return { dedupeKey: 'front', otherKey: 'back', overlapByValue: {} };
-    }
-    const response = await fetch(`${API_BASE}/shared-decks/category-card-overlap`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            categoryKey: currentFirstTag,
-            cards: cards.map((item) => ({
-                front: String(item && item.front ? item.front : ''),
-                back: String(item && item.back ? item.back : ''),
-            })),
-        }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(result.error || `Failed to compare with existing cards (HTTP ${response.status})`);
-    }
-    const dedupeKey = String(result && result.dedupe_key ? result.dedupe_key : 'front').trim().toLowerCase() === 'back'
-        ? 'back'
-        : 'front';
-    const otherKey = dedupeKey === 'back' ? 'front' : 'back';
-    const overlapByValue = {};
-    const overlaps = Array.isArray(result && result.overlaps) ? result.overlaps : [];
-    overlaps.forEach((item) => {
-        const dedupeValue = String(item && item.dedupe_value ? item.dedupe_value : '');
-        if (!dedupeValue) {
-            return;
-        }
-        overlapByValue[dedupeValue] = {
-            exactDecks: Array.isArray(item && item.exact_match_decks) ? item.exact_match_decks : [],
-            mismatchDecks: Array.isArray(item && item.mismatch_decks) ? item.mismatch_decks : [],
-        };
-    });
-    return { dedupeKey, otherKey, overlapByValue };
-}
-
-function formatDeckNameList(rawDecks, maxItems = 3) {
-    const decks = Array.isArray(rawDecks) ? rawDecks : [];
-    const names = [];
-    const seen = new Set();
-    decks.forEach((item) => {
-        const name = String(item && item.deck_name ? item.deck_name : '').trim();
-        const fallbackId = Number(item && item.deck_id ? item.deck_id : 0);
-        const label = name || (fallbackId > 0 ? `#${fallbackId}` : '');
-        if (!label || seen.has(label)) {
-            return;
-        }
-        seen.add(label);
-        names.push(label);
-    });
-    if (names.length === 0) {
-        return '';
-    }
-    if (names.length <= maxItems) {
-        return names.join(', ');
-    }
-    return `${names.slice(0, maxItems).join(', ')} (+${names.length - maxItems} more)`;
 }
 
 async function previewDeckFromCsv() {
@@ -636,8 +485,12 @@ async function previewDeckFromCsv() {
     let overlapByValue = {};
     let overlapOtherKey = dedupeKey === 'back' ? 'front' : 'back';
     try {
-        const overlapInfo = await fetchCategoryCardOverlap(uniqueCards);
-        overlapByValue = overlapInfo.overlapByValue || {};
+        const overlapInfo = await deckCreateCommon.fetchCategoryCardOverlap(
+            API_BASE,
+            currentFirstTag,
+            uniqueCards,
+        );
+        overlapByValue = deckCreateCommon.toOverlapByValue(overlapInfo);
         overlapOtherKey = overlapInfo.otherKey || overlapOtherKey;
     } catch (error) {
         showError(error.message || 'Failed to compare with existing cards.');
@@ -666,8 +519,8 @@ async function previewDeckFromCsv() {
         const overlap = overlapByValue[keyValue] || null;
         const exactDecks = overlap && Array.isArray(overlap.exactDecks) ? overlap.exactDecks : [];
         const mismatchDecks = overlap && Array.isArray(overlap.mismatchDecks) ? overlap.mismatchDecks : [];
-        const exactDeckText = formatDeckNameList(exactDecks);
-        const mismatchDeckText = formatDeckNameList(mismatchDecks);
+        const exactDeckText = deckCreateCommon.formatDeckNameList(exactDecks);
+        const mismatchDeckText = deckCreateCommon.formatDeckNameList(mismatchDecks);
         return {
             line: card.line,
             front: card.front,
@@ -709,27 +562,9 @@ function renderReview(cardsToCreate, allRows) {
             <td>${row.line}</td>
             <td>${escapeHtml(row.front)}</td>
             <td>${escapeHtml(row.back)}</td>
-            <td>${renderStatusCellHtml(row)}</td>
+            <td>${deckCreateCommon.renderStatusCellHtml(row, { warnClass: 'deck-row-status-warn' })}</td>
         </tr>
     `).join('');
-}
-
-function renderStatusCellHtml(row) {
-    const statusText = String(row && row.statusText ? row.statusText : '').trim();
-    const isKept = statusText.toLowerCase() === 'kept';
-    if (!isKept) {
-        return `<span class="deck-row-status-warn">${escapeHtml(statusText)}</span>`;
-    }
-    const exactText = String(row && row.exactText ? row.exactText : '').trim();
-    const warningText = String(row && row.warningText ? row.warningText : '').trim();
-    const parts = [`<span class="deck-row-status-ok">Kept</span>`];
-    if (exactText) {
-        parts.push(`<span class="deck-row-status-note">${escapeHtml(exactText)}</span>`);
-    }
-    if (warningText) {
-        parts.push(`<span class="deck-row-status-note-warn">${escapeHtml(warningText)}</span>`);
-    }
-    return parts.join('');
 }
 
 function renderDedupeSummary() {
@@ -808,28 +643,6 @@ async function createDeck() {
     }
 }
 
-function showError(message) {
-    const text = String(message || '').trim();
-    if (!text) {
-        errorMessage.textContent = '';
-        errorMessage.classList.add('hidden');
-        return;
-    }
-    errorMessage.textContent = text;
-    errorMessage.classList.remove('hidden');
-}
-
-function showSuccess(message) {
-    const text = String(message || '').trim();
-    if (!text) {
-        successMessage.textContent = '';
-        successMessage.classList.add('hidden');
-        return;
-    }
-    successMessage.textContent = text;
-    successMessage.classList.remove('hidden');
-}
-
 function setNameStatus(text, state) {
     nameStatus.textContent = text;
     nameStatus.classList.remove('ok', 'error', 'note');
@@ -893,7 +706,7 @@ async function checkNameAvailability() {
             setNameStatus('Name available.', 'ok');
         } else if (result && result.conflict_type === 'tag_prefix_conflict') {
             setNameStatus(
-                `Tag path conflicts with existing path ${formatTagPath(result.conflict_tags)}.`,
+                `Tag path conflicts with existing path ${deckCreateCommon.formatTagPath(result.conflict_tags)}.`,
                 'error',
             );
         } else {

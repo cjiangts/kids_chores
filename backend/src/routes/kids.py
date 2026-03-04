@@ -346,6 +346,7 @@ def normalize_shared_deck_tag(raw_tag):
 
 def parse_shared_deck_tag_with_comment(raw_tag):
     """Parse one raw tag into canonical key + optional display comment."""
+    # Keep this parser in sync with frontend parseDeckTagInput in deck-category-common.js.
     text = str(raw_tag or '').strip()
     if not text:
         return '', ''
@@ -3708,6 +3709,56 @@ def plan_deck_practice_selection_for_decks(conn, kid, deck_ids, session_type, ex
     return cards_by_id, selected_ids
 
 
+def _update_hardness_after_session(
+    conn,
+    *,
+    session_behavior_type,
+    latest_response_by_card,
+    touched_card_ids,
+    session_type,
+):
+    """Update card hardness for one completed session."""
+    if session_behavior_type in (DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_III):
+        for card_id, latest_ms in latest_response_by_card.items():
+            conn.execute(
+                "UPDATE cards SET hardness_score = ? WHERE id = ?",
+                [float(latest_ms or 0), card_id]
+            )
+        return
+    if session_behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_II or len(touched_card_ids) == 0:
+        return
+    placeholders = ','.join(['?'] * len(touched_card_ids))
+    conn.execute(
+        f"""
+        UPDATE cards
+        SET hardness_score = stats.hardness_score
+        FROM (
+            SELECT
+                sr.card_id,
+                COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct > 0 THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE s.type = ?
+              AND sr.card_id IN ({placeholders})
+            GROUP BY sr.card_id
+        ) AS stats
+        WHERE cards.id = stats.card_id
+        """,
+        [session_type, *list(touched_card_ids)]
+    )
+
+
+def _cleanup_uncommitted_type3_audio(written_paths, pending_payload):
+    """Cleanup audio files created/queued for an uncommitted type-III session."""
+    for file_path in list(written_paths or []):
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass
+    cleanup_type3_pending_audio_files_by_payload(pending_payload)
+
+
 def complete_session_internal(kid, kid_id, session_type, data):
     """Complete a session by saving all answers in one batch."""
     pending_session_id = data.get('pendingSessionId')
@@ -3837,45 +3888,20 @@ def complete_session_internal(kid, kid_id, session_type, data):
                             consumed_type3_audio_files.add(file_name)
             latest_response_by_card[card_id] = response_time_ms
 
-        if session_behavior_type in (DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_III):
-            for card_id, latest_ms in latest_response_by_card.items():
-                conn.execute(
-                    "UPDATE cards SET hardness_score = ? WHERE id = ?",
-                    [float(latest_ms or 0), card_id]
-                )
-        elif session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II and len(touched_card_ids) > 0:
-            placeholders = ','.join(['?'] * len(touched_card_ids))
-            conn.execute(
-                f"""
-                UPDATE cards
-                SET hardness_score = stats.hardness_score
-                FROM (
-                    SELECT
-                        sr.card_id,
-                        COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct > 0 THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
-                    FROM session_results sr
-                    JOIN sessions s ON s.id = sr.session_id
-                    WHERE s.type = ?
-                      AND sr.card_id IN ({placeholders})
-                    GROUP BY sr.card_id
-                ) AS stats
-                WHERE cards.id = stats.card_id
-                """,
-                [session_type, *list(touched_card_ids)]
-            )
+        _update_hardness_after_session(
+            conn,
+            session_behavior_type=session_behavior_type,
+            latest_response_by_card=latest_response_by_card,
+            touched_card_ids=touched_card_ids,
+            session_type=session_type,
+        )
 
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
         conn.close()
-        for file_path in written_type3_audio_paths:
-            try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-            except Exception:
-                pass
         if uses_type_iii_audio:
-            cleanup_type3_pending_audio_files_by_payload(pending)
+            _cleanup_uncommitted_type3_audio(written_type3_audio_paths, pending)
         raise
 
     conn.close()
@@ -4392,36 +4418,45 @@ def build_type_i_shared_decks_payload(
     return payload
 
 
+def _fetch_shared_decks_by_ids(shared_conn, deck_ids):
+    """Load shared deck metadata by ids and report missing ids."""
+    normalized_ids = [int(deck_id) for deck_id in list(deck_ids or [])]
+    if len(normalized_ids) == 0:
+        return {}, []
+    placeholders = ','.join(['?'] * len(normalized_ids))
+    deck_rows = shared_conn.execute(
+        f"""
+        SELECT deck_id, name, tags
+        FROM deck
+        WHERE deck_id IN ({placeholders})
+        """,
+        normalized_ids
+    ).fetchall()
+    shared_by_id = {
+        int(row[0]): {
+            'deck_id': int(row[0]),
+            'name': str(row[1]),
+            'tags': extract_shared_deck_tags_and_labels(row[2])[0],
+        }
+        for row in deck_rows
+    }
+    missing_ids = [deck_id for deck_id in normalized_ids if deck_id not in shared_by_id]
+    return shared_by_id, missing_ids
+
+
 def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific_logic):
     """Materialize selected shared decks for one type-I category."""
     shared_conn = None
     kid_conn = None
     try:
         shared_conn = get_shared_decks_connection()
-        placeholders = ','.join(['?'] * len(deck_ids))
-        deck_rows = shared_conn.execute(
-            f"""
-            SELECT deck_id, name, tags
-            FROM deck
-            WHERE deck_id IN ({placeholders})
-            """,
-            deck_ids
-        ).fetchall()
-        shared_by_id = {
-            int(row[0]): {
-                'deck_id': int(row[0]),
-                'name': str(row[1]),
-                'tags': extract_shared_deck_tags_and_labels(row[2])[0],
-            }
-            for row in deck_rows
-        }
-
-        missing_ids = [deck_id for deck_id in deck_ids if deck_id not in shared_by_id]
+        shared_by_id, missing_ids = _fetch_shared_decks_by_ids(shared_conn, deck_ids)
         if missing_ids:
             return {
                 'error': f'Shared deck(s) not found: {", ".join(str(v) for v in missing_ids)}'
             }, 404
 
+        placeholders = ','.join(['?'] * len(deck_ids))
         invalid_tag_ids = [
             deck_id for deck_id in deck_ids
             if category_key not in shared_by_id[deck_id]['tags']
@@ -5320,30 +5355,13 @@ def opt_in_shared_decks_internal(
     kid_conn = None
     try:
         shared_conn = get_shared_decks_connection()
-        placeholders = ','.join(['?'] * len(deck_ids))
-        deck_rows = shared_conn.execute(
-            f"""
-            SELECT deck_id, name, tags
-            FROM deck
-            WHERE deck_id IN ({placeholders})
-            """,
-            deck_ids
-        ).fetchall()
-        shared_by_id = {
-            int(row[0]): {
-                'deck_id': int(row[0]),
-                'name': str(row[1]),
-                'tags': extract_shared_deck_tags_and_labels(row[2])[0],
-            }
-            for row in deck_rows
-        }
-
-        missing_ids = [deck_id for deck_id in deck_ids if deck_id not in shared_by_id]
+        shared_by_id, missing_ids = _fetch_shared_decks_by_ids(shared_conn, deck_ids)
         if missing_ids:
             return {
                 'error': f'Shared deck(s) not found: {", ".join(str(v) for v in missing_ids)}'
             }, 404
 
+        placeholders = ','.join(['?'] * len(deck_ids))
         invalid_tag_ids = [
             deck_id for deck_id in deck_ids
             if first_tag not in shared_by_id[deck_id]['tags']
