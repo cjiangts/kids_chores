@@ -362,7 +362,7 @@ window.PracticeManageCommon = {
     clampPercent(value) {
         const parsed = Number.parseInt(value, 10);
         if (!Number.isInteger(parsed)) {
-            return 20;
+            return 0;
         }
         return Math.max(0, Math.min(100, parsed));
     },

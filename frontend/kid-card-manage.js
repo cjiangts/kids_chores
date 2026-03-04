@@ -2,7 +2,6 @@ const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
-const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 const SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'sessionCardCountByCategory';
 const INCLUDE_ORPHAN_BY_CATEGORY_FIELD = 'includeOrphanByCategory';
 const HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'hardCardPercentageByCategory';
@@ -14,8 +13,11 @@ const SHARED_SCOPE_TYPE2 = 'type2';
 const SHARED_SCOPE_LESSON_READING = 'lesson-reading';
 
 const {
+    normalizeCategoryKey,
+    getCategoryRawValueMap,
     getDeckCategoryMetaMap,
 } = window.DeckCategoryCommon;
+const categoryKey = normalizeCategoryKey(params.get('categoryKey'));
 
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
@@ -115,16 +117,7 @@ const promptPreviewPlayer = (
     : null;
 
 function toCategoryMap(rawMap) {
-    const input = (rawMap && typeof rawMap === 'object') ? rawMap : {};
-    const out = {};
-    Object.entries(input).forEach(([rawKey, value]) => {
-        const key = String(rawKey || '').trim().toLowerCase();
-        if (!key) {
-            return;
-        }
-        out[key] = value;
-    });
-    return out;
+    return getCategoryRawValueMap(rawMap);
 }
 
 function getCategoryIntValue(rawMap) {
@@ -143,12 +136,6 @@ function withCategoryValue(rawMap, value) {
     const map = toCategoryMap(rawMap);
     map[categoryKey] = value;
     return map;
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = String(text ?? '');
-    return div.innerHTML;
 }
 
 function showError(message) {
@@ -237,14 +224,20 @@ function withCategoryKey(url) {
 
 function buildSharedDeckApiUrl(pathSuffix) {
     const cleanSuffix = String(pathSuffix || '').replace(/^\/+/, '');
-    const url = new URL(`${API_BASE}/kids/${kidId}/${currentSharedScope}/${cleanSuffix}`);
-    return withCategoryKey(url).toString();
+    return window.DeckCategoryCommon.buildKidScopedApiUrl({
+        kidId,
+        scope: currentSharedScope,
+        path: `/${cleanSuffix}`,
+        categoryKey,
+        apiBase: API_BASE,
+    });
 }
 
 function buildType2ApiUrl(pathSuffix) {
     const cleanSuffix = String(pathSuffix || '').replace(/^\/+/, '');
-    return window.DeckCategoryCommon.buildType2ApiUrl({
+    return window.DeckCategoryCommon.buildKidScopedApiUrl({
         kidId,
+        scope: SHARED_SCOPE_TYPE2,
         path: `/${cleanSuffix}`,
         categoryKey,
         apiBase: API_BASE,
@@ -622,54 +615,22 @@ function buildCardReportHref(card) {
 }
 
 function buildChineseCardMarkup(card) {
-    return `
-        <div class="card-item type1-chinese-card ${card.skip_practice ? 'skipped' : ''}">
-            <button
-                type="button"
-                class="skip-toggle-btn ${card.skip_practice ? 'on' : 'off'}"
-                data-action="toggle-skip"
-                data-card-id="${card.id}"
-                data-skipped="${card.skip_practice ? 'true' : 'false'}"
-                title="${card.skip_practice ? 'Turn skip off for this card' : 'Mark this card as skipped'}"
-                aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
-            >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
-            <div class="card-front">${escapeHtml(card.front)}</div>
-            ${String(card.back || '').trim() ? `
-            <div class="card-back">${escapeHtml(card.back)}</div>
-            ` : ''}
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(card.source_deck_label || card.source_deck_name || '-')}</div>
-            ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
-            <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
-            <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
-            <a class="card-report-link" href="${buildCardReportHref(card)}">Report</a>
-        </div>
-    `;
+    return buildCardMarkup(card, {
+        cardClassNames: ['type1-chinese-card'],
+        primaryText: card.front,
+        secondaryText: card.back,
+        showSecondary: String(card.back || '').trim().length > 0,
+        includeAddedDate: true,
+    });
 }
 
 function buildGenericType1CardMarkup(card) {
-    return `
-        <div class="card-item ${card.skip_practice ? 'skipped' : ''}">
-            <button
-                type="button"
-                class="skip-toggle-btn ${card.skip_practice ? 'on' : 'off'}"
-                data-action="toggle-skip"
-                data-card-id="${card.id}"
-                data-skipped="${card.skip_practice ? 'true' : 'false'}"
-                title="${card.skip_practice ? 'Turn skip off for this card' : 'Mark this card as skipped'}"
-                aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
-            >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
-            <div class="card-front">${escapeHtml(card.front)}</div>
-            <div class="card-back">${escapeHtml(card.back)}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(card.source_deck_label || card.source_deck_name || '-')}</div>
-            ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
-            <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
-            <a class="card-report-link" href="${buildCardReportHref(card)}">Report</a>
-        </div>
-    `;
+    return buildCardMarkup(card, {
+        primaryText: card.front,
+        secondaryText: card.back,
+        showSecondary: true,
+        includeAddedDate: false,
+    });
 }
 
 function buildType2CardMarkup(card) {
@@ -683,13 +644,50 @@ function buildType2CardMarkup(card) {
     const showSecondary = isChineseSpecificLogic
         ? secondaryText.length > 0 && secondaryText !== primaryText
         : secondaryText.length > 0;
-    const cardClass = [
-        'card-item',
-        isChineseSpecificLogic ? 'type1-chinese-card' : '',
-        card.skip_practice ? 'skipped' : '',
-    ].filter(Boolean).join(' ');
+    const audioActionsHtml = `
+        <div class="selected-audio-bar">
+            <div class="selected-audio-title">Audio</div>
+            <div class="selected-audio-actions">
+                <button
+                    type="button"
+                    class="selected-audio-btn save"
+                    data-action="edit-front"
+                    data-card-id="${escapeHtml(card.id)}"
+                >Edit Prompt</button>
+                <button
+                    type="button"
+                    class="selected-audio-btn save"
+                    data-action="load-play-audio"
+                    data-card-id="${escapeHtml(card.id)}"
+                >Load/Play</button>
+            </div>
+        </div>
+        ${hasSavedAudio ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">Will auto-generate on first play</div>'}
+    `;
+    return buildCardMarkup(card, {
+        cardClassNames: isChineseSpecificLogic ? ['type1-chinese-card'] : [],
+        primaryText,
+        secondaryText,
+        showSecondary,
+        includeAddedDate: true,
+        extraSectionHtml: audioActionsHtml,
+    });
+}
+
+function buildCardMarkup(card, options = {}) {
+    const classes = ['card-item', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])];
+    if (card.skip_practice) {
+        classes.push('skipped');
+    }
+    const primaryText = String(options.primaryText || '');
+    const secondaryText = String(options.secondaryText || '');
+    const showSecondary = options.showSecondary !== false && secondaryText.trim().length > 0;
+    const includeAddedDate = Boolean(options.includeAddedDate);
+    const extraSectionHtml = String(options.extraSectionHtml || '');
+    const sourceText = String(card.source_deck_label || card.source_deck_name || '-');
+
     return `
-        <div class="${cardClass}">
+        <div class="${classes.filter(Boolean).join(' ')}">
             <button
                 type="button"
                 class="skip-toggle-btn ${card.skip_practice ? 'on' : 'off'}"
@@ -700,31 +698,12 @@ function buildType2CardMarkup(card) {
                 aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
             >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
             <div class="card-front">${escapeHtml(primaryText)}</div>
-            ${showSecondary ? `
-            <div class="card-back">${escapeHtml(secondaryText)}</div>
-            ` : ''}
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(card.source_deck_label || card.source_deck_name || '-')}</div>
-            <div class="selected-audio-bar">
-                <div class="selected-audio-title">Audio</div>
-                <div class="selected-audio-actions">
-                    <button
-                        type="button"
-                        class="selected-audio-btn save"
-                        data-action="edit-front"
-                        data-card-id="${escapeHtml(card.id)}"
-                    >Edit Prompt</button>
-                    <button
-                        type="button"
-                        class="selected-audio-btn save"
-                        data-action="load-play-audio"
-                        data-card-id="${escapeHtml(card.id)}"
-                    >Load/Play</button>
-                </div>
-            </div>
-            ${hasSavedAudio ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">Will auto-generate on first play</div>'}
+            ${showSecondary ? `<div class="card-back">${escapeHtml(secondaryText)}</div>` : ''}
+            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(sourceText)}</div>
+            ${extraSectionHtml}
             ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
-            <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>
+            ${includeAddedDate ? `<div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>` : ''}
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
             <a class="card-report-link" href="${buildCardReportHref(card)}">Report</a>

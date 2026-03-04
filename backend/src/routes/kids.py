@@ -869,22 +869,59 @@ def get_or_create_category_orphan_deck(conn, category_key):
     )
 
 
-def get_shared_type_i_merged_source_decks_for_kid(
+def _build_shared_source_deck_entry(entry, total_cards, active_cards):
+    """Build one non-orphan merged-source payload."""
+    skipped_cards = max(0, total_cards - active_cards)
+    tags = [str(tag) for tag in list(entry.get('tags') or []) if str(tag or '').strip()]
+    return {
+        'local_deck_id': int(entry['local_deck_id']),
+        'shared_deck_id': int(entry['shared_deck_id']),
+        'local_name': str(entry.get('local_name') or ''),
+        'tags': tags,
+        'is_orphan': False,
+        'card_count': int(total_cards),
+        'active_card_count': int(active_cards),
+        'skipped_card_count': int(skipped_cards),
+        'included_in_bank': True,
+        'included_in_queue': True,
+    }
+
+
+def _build_orphan_source_deck_entry(orphan_row, orphan_deck_name, orphan_total, orphan_active, include_orphan_in_queue):
+    """Build one orphan merged-source payload."""
+    orphan_skipped = max(0, orphan_total - orphan_active)
+    orphan_tags = [str(tag) for tag in list(orphan_row[2] or []) if str(tag or '').strip()]
+    return {
+        'local_deck_id': int(orphan_row[0]),
+        'shared_deck_id': None,
+        'local_name': str(orphan_row[1] or orphan_deck_name),
+        'tags': orphan_tags,
+        'is_orphan': True,
+        'card_count': int(orphan_total),
+        'active_card_count': int(orphan_active),
+        'skipped_card_count': int(orphan_skipped),
+        'included_in_bank': bool(include_orphan_in_queue),
+        'included_in_queue': bool(include_orphan_in_queue and orphan_active > 0),
+    }
+
+
+def get_shared_merged_source_decks_for_kid(
     conn,
     kid,
     category_key,
     *,
+    get_materialized_func,
     include_orphan_in_queue_override=None,
 ):
-    """Return type-I source decks for merged bank and merged practice queue."""
+    """Return merged source decks (normal + orphan) for one category."""
     first_tag = normalize_shared_deck_tag(category_key)
     if not first_tag:
         return []
-    materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
+    materialized_by_local_id = get_materialized_func(conn, first_tag)
     include_orphan_in_queue = (
         bool(include_orphan_in_queue_override)
         if include_orphan_in_queue_override is not None
-        else get_category_include_orphan_for_kid(kid, category_key)
+        else get_category_include_orphan_for_kid(kid, first_tag)
     )
 
     sources = []
@@ -899,20 +936,7 @@ def get_shared_type_i_merged_source_decks_for_kid(
             "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
             [local_id]
         ).fetchone()[0] or 0)
-        skipped_cards = max(0, total_cards - active_cards)
-        tags = [str(tag) for tag in list(entry.get('tags') or []) if str(tag or '').strip()]
-        sources.append({
-            'local_deck_id': local_id,
-            'shared_deck_id': int(entry['shared_deck_id']),
-            'local_name': str(entry.get('local_name') or ''),
-            'tags': tags,
-            'is_orphan': False,
-            'card_count': total_cards,
-            'active_card_count': active_cards,
-            'skipped_card_count': skipped_cards,
-            'included_in_bank': True,
-            'included_in_queue': True,
-        })
+        sources.append(_build_shared_source_deck_entry(entry, total_cards, active_cards))
 
     orphan_deck_name = get_category_orphan_deck_name(first_tag)
     orphan_deck_id = get_or_create_category_orphan_deck(conn, first_tag)
@@ -929,90 +953,42 @@ def get_shared_type_i_merged_source_decks_for_kid(
             "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
             [orphan_deck_id]
         ).fetchone()[0] or 0)
-        orphan_skipped = max(0, orphan_total - orphan_active)
-        orphan_tags = [str(tag) for tag in list(orphan_row[2] or []) if str(tag or '').strip()]
-        sources.append({
-            'local_deck_id': int(orphan_row[0]),
-            'shared_deck_id': None,
-            'local_name': str(orphan_row[1] or orphan_deck_name),
-            'tags': orphan_tags,
-            'is_orphan': True,
-            'card_count': orphan_total,
-            'active_card_count': orphan_active,
-            'skipped_card_count': orphan_skipped,
-            'included_in_bank': bool(include_orphan_in_queue),
-            'included_in_queue': bool(include_orphan_in_queue and orphan_active > 0),
-        })
+        sources.append(_build_orphan_source_deck_entry(
+            orphan_row,
+            orphan_deck_name,
+            orphan_total,
+            orphan_active,
+            include_orphan_in_queue,
+        ))
 
     return sources
+
+
+def get_shared_type_i_merged_source_decks_for_kid(
+    conn,
+    kid,
+    category_key,
+    *,
+    include_orphan_in_queue_override=None,
+):
+    """Return type-I source decks for merged bank and merged practice queue."""
+    return get_shared_merged_source_decks_for_kid(
+        conn,
+        kid,
+        category_key,
+        get_materialized_func=get_kid_materialized_shared_decks_by_first_tag,
+        include_orphan_in_queue_override=include_orphan_in_queue_override,
+    )
 
 
 def get_shared_type_ii_merged_source_decks_for_kid(conn, kid, category_key):
     """Return type-II source decks for merged bank and merged practice queue."""
-    first_tag = normalize_shared_deck_tag(category_key)
-    if not first_tag:
-        return []
-    materialized_by_local_id = get_kid_materialized_shared_type_ii_decks(conn, first_tag)
-    include_orphan_in_queue = get_category_include_orphan_for_kid(kid, first_tag)
-
-    sources = []
-    for local_deck_id in sorted(materialized_by_local_id.keys()):
-        entry = materialized_by_local_id[local_deck_id]
-        local_id = int(entry['local_deck_id'])
-        total_cards = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
-            [local_id]
-        ).fetchone()[0] or 0)
-        active_cards = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
-            [local_id]
-        ).fetchone()[0] or 0)
-        skipped_cards = max(0, total_cards - active_cards)
-        tags = [str(tag) for tag in list(entry.get('tags') or []) if str(tag or '').strip()]
-        sources.append({
-            'local_deck_id': local_id,
-            'shared_deck_id': int(entry['shared_deck_id']),
-            'local_name': str(entry.get('local_name') or ''),
-            'tags': tags,
-            'is_orphan': False,
-            'card_count': total_cards,
-            'active_card_count': active_cards,
-            'skipped_card_count': skipped_cards,
-            'included_in_bank': True,
-            'included_in_queue': True,
-        })
-
-    orphan_deck_name = get_category_orphan_deck_name(first_tag)
-    orphan_deck_id = get_or_create_category_orphan_deck(conn, first_tag)
-    orphan_row = conn.execute(
-        "SELECT id, name, tags FROM decks WHERE id = ? LIMIT 1",
-        [orphan_deck_id]
-    ).fetchone()
-    if orphan_row:
-        orphan_total = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
-            [orphan_deck_id]
-        ).fetchone()[0] or 0)
-        orphan_active = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
-            [orphan_deck_id]
-        ).fetchone()[0] or 0)
-        orphan_skipped = max(0, orphan_total - orphan_active)
-        orphan_tags = [str(tag) for tag in list(orphan_row[2] or []) if str(tag or '').strip()]
-        sources.append({
-            'local_deck_id': int(orphan_row[0]),
-            'shared_deck_id': None,
-            'local_name': str(orphan_row[1] or orphan_deck_name),
-            'tags': orphan_tags,
-            'is_orphan': True,
-            'card_count': orphan_total,
-            'active_card_count': orphan_active,
-            'skipped_card_count': orphan_skipped,
-            'included_in_bank': bool(include_orphan_in_queue),
-            'included_in_queue': bool(include_orphan_in_queue and orphan_active > 0),
-        })
-
-    return sources
+    return get_shared_merged_source_decks_for_kid(
+        conn,
+        kid,
+        category_key,
+        get_materialized_func=get_kid_materialized_shared_type_ii_decks,
+    )
 
 
 def get_shared_deck_owned_by_family(conn, deck_id, family_id_int):
@@ -1781,114 +1757,108 @@ def resolve_kid_type_i_category_key(
     raise ValueError('categoryKey is required when multiple matching type-I categories are opted-in')
 
 
+def resolve_kid_category_with_mode(
+    kid,
+    raw_category_key,
+    expected_behavior_types,
+    *,
+    allow_default=True,
+    unknown_error='Unknown deck category',
+    wrong_type_error='categoryKey has unsupported behavior type',
+    no_match_error='Kid is not opted-in to a matching category',
+    multiple_match_error='categoryKey is required when multiple matching categories are opted-in',
+):
+    """Resolve category key for one or more behavior types and return chinese-specific mode."""
+    if isinstance(expected_behavior_types, str):
+        behavior_type_set = {
+            str(expected_behavior_types).strip().lower()
+        }
+    else:
+        behavior_type_set = {
+            str(item).strip().lower()
+            for item in list(expected_behavior_types or [])
+            if str(item).strip()
+        }
+    if not behavior_type_set:
+        raise ValueError('expected_behavior_types is required')
+
+    key = normalize_shared_deck_tag(raw_category_key)
+    category_meta_by_key = get_shared_deck_category_meta_by_key()
+
+    if key:
+        category_meta = category_meta_by_key.get(key)
+        if not isinstance(category_meta, dict):
+            raise ValueError(str(unknown_error))
+        behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
+        if behavior_type not in behavior_type_set:
+            raise ValueError(str(wrong_type_error))
+        has_chinese_specific_logic = bool(category_meta.get('has_chinese_specific_logic'))
+        resolved_category_key = resolve_kid_deck_category_key_for_behavior(
+            kid,
+            key,
+            expected_behavior_type=behavior_type,
+            expected_has_chinese_specific_logic=has_chinese_specific_logic,
+        )
+        return resolved_category_key, has_chinese_specific_logic
+
+    if not allow_default:
+        raise ValueError('categoryKey is required')
+
+    opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid))
+    matching_keys = []
+    for candidate_key in sorted(opted_in_keys):
+        category_meta = category_meta_by_key.get(candidate_key)
+        if not isinstance(category_meta, dict):
+            continue
+        behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
+        if behavior_type not in behavior_type_set:
+            continue
+        matching_keys.append(candidate_key)
+
+    if len(matching_keys) == 1:
+        only_key = matching_keys[0]
+        category_meta = category_meta_by_key.get(only_key) or {}
+        return only_key, bool(category_meta.get('has_chinese_specific_logic'))
+    if len(matching_keys) == 0:
+        raise ValueError(str(no_match_error))
+    raise ValueError(str(multiple_match_error))
+
+
 def resolve_kid_type_i_category_with_mode(kid, raw_category_key):
     """Resolve explicit type-I/type-III category key and return its chinese-specific mode flag."""
-    key = normalize_shared_deck_tag(raw_category_key)
-    if not key:
-        raise ValueError('categoryKey is required')
-    category_meta_by_key = get_shared_deck_category_meta_by_key()
-    category_meta = category_meta_by_key.get(key)
-    if not isinstance(category_meta, dict):
-        raise ValueError('Unknown deck category')
-    behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
-    if behavior_type not in {DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_III}:
-        raise ValueError('categoryKey must be a type-I or type-III deck category')
-    has_chinese_specific_logic = bool(category_meta.get('has_chinese_specific_logic'))
-    resolved_category_key = resolve_kid_deck_category_key_for_behavior(
+    return resolve_kid_category_with_mode(
         kid,
-        key,
-        expected_behavior_type=behavior_type,
-        expected_has_chinese_specific_logic=has_chinese_specific_logic,
+        raw_category_key,
+        {DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_III},
+        allow_default=False,
+        wrong_type_error='categoryKey must be a type-I or type-III deck category',
     )
-    return resolved_category_key, has_chinese_specific_logic
 
 
 def resolve_kid_type_iii_category_with_mode(kid, raw_category_key, *, allow_default=True):
     """Resolve explicit type-III category key and return its chinese-specific mode flag."""
-    key = normalize_shared_deck_tag(raw_category_key)
-    category_meta_by_key = get_shared_deck_category_meta_by_key()
-
-    if key:
-        category_meta = category_meta_by_key.get(key)
-        if not isinstance(category_meta, dict):
-            raise ValueError('Unknown deck category')
-        behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
-        if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_III:
-            raise ValueError('categoryKey must be a type-III deck category')
-        has_chinese_specific_logic = bool(category_meta.get('has_chinese_specific_logic'))
-        resolved_category_key = resolve_kid_deck_category_key_for_behavior(
-            kid,
-            key,
-            expected_behavior_type=DECK_CATEGORY_BEHAVIOR_TYPE_III,
-            expected_has_chinese_specific_logic=has_chinese_specific_logic,
-        )
-        return resolved_category_key, has_chinese_specific_logic
-
-    if not allow_default:
-        raise ValueError('categoryKey is required')
-
-    opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid))
-    matching_keys = []
-    for candidate_key in sorted(opted_in_keys):
-        category_meta = category_meta_by_key.get(candidate_key)
-        if not isinstance(category_meta, dict):
-            continue
-        behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
-        if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_III:
-            continue
-        matching_keys.append(candidate_key)
-
-    if len(matching_keys) == 1:
-        only_key = matching_keys[0]
-        category_meta = category_meta_by_key.get(only_key) or {}
-        return only_key, bool(category_meta.get('has_chinese_specific_logic'))
-    if len(matching_keys) == 0:
-        raise ValueError('Kid is not opted-in to a type-III category')
-    raise ValueError('categoryKey is required when multiple type-III categories are opted-in')
+    return resolve_kid_category_with_mode(
+        kid,
+        raw_category_key,
+        DECK_CATEGORY_BEHAVIOR_TYPE_III,
+        allow_default=allow_default,
+        wrong_type_error='categoryKey must be a type-III deck category',
+        no_match_error='Kid is not opted-in to a type-III category',
+        multiple_match_error='categoryKey is required when multiple type-III categories are opted-in',
+    )
 
 
 def resolve_kid_type_ii_category_with_mode(kid, raw_category_key, *, allow_default=True):
     """Resolve explicit type-II category key and return its chinese-specific mode flag."""
-    key = normalize_shared_deck_tag(raw_category_key)
-    category_meta_by_key = get_shared_deck_category_meta_by_key()
-
-    if key:
-        category_meta = category_meta_by_key.get(key)
-        if not isinstance(category_meta, dict):
-            raise ValueError('Unknown deck category')
-        behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
-        if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_II:
-            raise ValueError('categoryKey must be a type-II deck category')
-        has_chinese_specific_logic = bool(category_meta.get('has_chinese_specific_logic'))
-        resolved_category_key = resolve_kid_deck_category_key_for_behavior(
-            kid,
-            key,
-            expected_behavior_type=DECK_CATEGORY_BEHAVIOR_TYPE_II,
-            expected_has_chinese_specific_logic=has_chinese_specific_logic,
-        )
-        return resolved_category_key, has_chinese_specific_logic
-
-    if not allow_default:
-        raise ValueError('categoryKey is required')
-
-    opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid))
-    matching_keys = []
-    for candidate_key in sorted(opted_in_keys):
-        category_meta = category_meta_by_key.get(candidate_key)
-        if not isinstance(category_meta, dict):
-            continue
-        behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
-        if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_II:
-            continue
-        matching_keys.append(candidate_key)
-
-    if len(matching_keys) == 1:
-        only_key = matching_keys[0]
-        category_meta = category_meta_by_key.get(only_key) or {}
-        return only_key, bool(category_meta.get('has_chinese_specific_logic'))
-    if len(matching_keys) == 0:
-        raise ValueError('Kid is not opted-in to a type-II category')
-    raise ValueError('categoryKey is required when multiple type-II categories are opted-in')
+    return resolve_kid_category_with_mode(
+        kid,
+        raw_category_key,
+        DECK_CATEGORY_BEHAVIOR_TYPE_II,
+        allow_default=allow_default,
+        wrong_type_error='categoryKey must be a type-II deck category',
+        no_match_error='Kid is not opted-in to a type-II category',
+        multiple_match_error='categoryKey is required when multiple type-II categories are opted-in',
+    )
 
 
 def get_kid_daily_completed_by_deck_category(kid, opted_in_category_keys, today_counts=None):

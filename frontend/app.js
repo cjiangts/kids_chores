@@ -6,6 +6,10 @@ const API_BASE = `${window.location.origin}/api`;
 const kidsList = document.getElementById('kidsList');
 const errorMessage = document.getElementById('errorMessage');
 const familyLogoutLink = document.getElementById('familyLogoutLink');
+const {
+    getOptedInDeckCategoryKeys,
+    getCategoryValueMap,
+} = window.DeckCategoryCommon;
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,30 +48,6 @@ async function loadKids() {
         console.error('Error loading kids:', error);
         showError('Failed to load kids. Make sure the backend server is running on port 5001.');
     }
-}
-
-function getOptedInDeckCategoryKeys(kid) {
-    const keys = Array.isArray(kid?.optedInDeckCategoryKeys) ? kid.optedInDeckCategoryKeys : [];
-    const normalized = keys
-        .map((value) => String(value || '').trim().toLowerCase())
-        .filter(Boolean);
-    return [...new Set(normalized)];
-}
-
-function getCategoryValueMap(rawValue) {
-    if (!rawValue || typeof rawValue !== 'object') {
-        return {};
-    }
-    const normalized = {};
-    Object.entries(rawValue).forEach(([rawKey, rawCount]) => {
-        const key = String(rawKey || '').trim().toLowerCase();
-        if (!key) {
-            return;
-        }
-        const count = Number.parseInt(rawCount, 10);
-        normalized[key] = Number.isInteger(count) ? Math.max(0, count) : 0;
-    });
-    return normalized;
 }
 
 function formatDeckCategoryLabel(categoryKey) {

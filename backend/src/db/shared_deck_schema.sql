@@ -17,13 +17,6 @@ CREATE TABLE IF NOT EXISTS deck_category (
   emoji VARCHAR
 );
 
-ALTER TABLE deck_category
-ADD COLUMN IF NOT EXISTS has_chinese_specific_logic BOOLEAN DEFAULT FALSE;
-ALTER TABLE deck_category
-ADD COLUMN IF NOT EXISTS display_name VARCHAR;
-ALTER TABLE deck_category
-ADD COLUMN IF NOT EXISTS emoji VARCHAR;
-
 CREATE TABLE IF NOT EXISTS cards (
   id INTEGER PRIMARY KEY DEFAULT nextval('shared_card_id_seq'),
   deck_id INTEGER NOT NULL,

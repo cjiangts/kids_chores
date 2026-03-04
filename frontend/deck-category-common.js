@@ -6,6 +6,21 @@
         return String(rawValue || '').trim().toLowerCase();
     }
 
+    function getCategoryRawValueMap(source) {
+        const output = {};
+        if (!source || typeof source !== 'object') {
+            return output;
+        }
+        Object.entries(source).forEach(([rawKey, rawValue]) => {
+            const key = normalizeCategoryKey(rawKey);
+            if (!key) {
+                return;
+            }
+            output[key] = rawValue;
+        });
+        return output;
+    }
+
     function getOptedInDeckCategoryKeys(kid) {
         const rawKeys = Array.isArray(kid?.optedInDeckCategoryKeys)
             ? kid.optedInDeckCategoryKeys
@@ -29,14 +44,8 @@
 
     function getCategoryValueMap(source) {
         const output = {};
-        if (!source || typeof source !== 'object') {
-            return output;
-        }
-        Object.entries(source).forEach(([rawKey, rawValue]) => {
-            const key = normalizeCategoryKey(rawKey);
-            if (!key) {
-                return;
-            }
+        const normalizedSource = getCategoryRawValueMap(source);
+        Object.entries(normalizedSource).forEach(([key, rawValue]) => {
             const value = Number.parseInt(rawValue, 10);
             output[key] = Number.isInteger(value) ? Math.max(0, value) : 0;
         });
@@ -152,7 +161,6 @@
 
     function normalizeSessionType(type) {
         const text = String(type || '').trim().toLowerCase();
-        if (text === 'flashcard') return SESSION_TYPE_CHINESE_CHARACTERS;
         if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
         return text;
     }
@@ -173,15 +181,35 @@
         return '';
     }
 
-    function buildType2ApiUrl({ kidId, path = '', categoryKey = '', apiBase = `${window.location.origin}/api` }) {
+    function buildKidScopedApiUrl({
+        kidId,
+        scope = '',
+        path = '',
+        categoryKey = '',
+        apiBase = `${window.location.origin}/api`,
+    }) {
         const safeKidId = String(kidId || '').trim();
+        const normalizedScope = String(scope || '').trim().replace(/^\/+|\/+$/g, '');
+        if (!normalizedScope) {
+            throw new Error('scope is required');
+        }
         const normalizedPath = String(path || '').trim().replace(/^\/+/, '');
-        const url = new URL(`${String(apiBase || '').replace(/\/+$/, '')}/kids/${encodeURIComponent(safeKidId)}/type2/${normalizedPath}`);
+        const url = new URL(`${String(apiBase || '').replace(/\/+$/, '')}/kids/${encodeURIComponent(safeKidId)}/${normalizedScope}/${normalizedPath}`);
         const normalizedCategoryKey = normalizeCategoryKey(categoryKey);
         if (normalizedCategoryKey) {
             url.searchParams.set('categoryKey', normalizedCategoryKey);
         }
         return url.toString();
+    }
+
+    function buildType2ApiUrl({ kidId, path = '', categoryKey = '', apiBase = `${window.location.origin}/api` }) {
+        return buildKidScopedApiUrl({
+            kidId,
+            scope: 'type2',
+            path,
+            categoryKey,
+            apiBase,
+        });
     }
 
     window.DeckCategoryCommon = {
@@ -190,6 +218,7 @@
         normalizeCategoryKey,
         getOptedInDeckCategoryKeys,
         getOptedInDeckCategorySet,
+        getCategoryRawValueMap,
         getCategoryValueMap,
         getDeckCategoryMetaMap,
         getCategoryDisplayName,
@@ -203,6 +232,7 @@
         normalizeSessionType,
         normalizeBehaviorType,
         inferBehaviorTypeFromSessionType,
+        buildKidScopedApiUrl,
         buildType2ApiUrl,
     };
 }());

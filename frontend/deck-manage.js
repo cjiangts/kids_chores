@@ -361,9 +361,3 @@ function showError(message) {
     errorMessage.textContent = text;
     errorMessage.classList.remove('hidden');
 }
-
-function escapeHtml(value) {
-    const div = document.createElement('div');
-    div.textContent = String(value ?? '');
-    return div.innerHTML;
-}
