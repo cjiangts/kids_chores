@@ -12,6 +12,7 @@ import time
 import threading
 import mimetypes
 import re
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.db import metadata, kid_db
@@ -139,11 +140,16 @@ def build_writing_audio_meta_for_front(kid_id, front_text, *, category_key):
         }
 
     mime_type = mimetypes.guess_type(file_name)[0] or 'audio/mpeg'
-    query = f"?categoryKey={category_key}" if str(category_key or '').strip() else ''
+    query = (
+        f"?categoryKey={quote(str(category_key).strip(), safe='')}"
+        if str(category_key or '').strip()
+        else ''
+    )
+    encoded_file_name = quote(file_name, safe='')
     return {
         'audio_file_name': file_name,
         'audio_mime_type': mime_type,
-        'audio_url': f"/api/kids/{kid_id}/type2/audio/{file_name}{query}",
+        'audio_url': f"/api/kids/{kid_id}/type2/audio/{encoded_file_name}{query}",
     }
 
 
@@ -6217,21 +6223,34 @@ def get_writing_audio(kid_id, file_name):
             return jsonify({'error': 'Invalid file name'}), 400
 
         conn = get_kid_connection_for(kid)
-        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
-            conn,
-            kid,
-            category_key,
-        )
-        source_deck_ids = [int(src['local_deck_id']) for src in source_decks]
-        if not source_deck_ids:
+        try:
+            # Keep this endpoint read-only. Do not create orphan decks while serving audio.
+            materialized_by_local_id = get_kid_materialized_shared_type_ii_decks(conn, category_key)
+            source_deck_ids = [
+                int(entry['local_deck_id'])
+                for entry in materialized_by_local_id.values()
+                if int(entry.get('local_deck_id') or 0) > 0
+            ]
+            include_orphan = get_category_include_orphan_for_kid(kid, category_key)
+            if include_orphan:
+                orphan_deck_name = get_category_orphan_deck_name(category_key)
+                orphan_row = conn.execute(
+                    "SELECT id FROM decks WHERE name = ? LIMIT 1",
+                    [orphan_deck_name],
+                ).fetchone()
+                if orphan_row and int(orphan_row[0] or 0) > 0:
+                    source_deck_ids.append(int(orphan_row[0]))
+
+            source_deck_ids = sorted(set(source_deck_ids))
+            if not source_deck_ids:
+                return jsonify({'error': 'Audio file not found'}), 404
+            placeholders = ','.join(['?'] * len(source_deck_ids))
+            rows = conn.execute(
+                f"SELECT front, back FROM cards WHERE deck_id IN ({placeholders})",
+                source_deck_ids
+            ).fetchall()
+        finally:
             conn.close()
-            return jsonify({'error': 'Audio file not found'}), 404
-        placeholders = ','.join(['?'] * len(source_deck_ids))
-        rows = conn.execute(
-            f"SELECT front, back FROM cards WHERE deck_id IN ({placeholders})",
-            source_deck_ids
-        ).fetchall()
-        conn.close()
 
         synth_args_by_file_name = {}
         for row in rows:

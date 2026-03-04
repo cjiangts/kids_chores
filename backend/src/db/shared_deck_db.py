@@ -1,5 +1,6 @@
 """DuckDB connection manager for shared, family-created decks."""
 import os
+import threading
 from typing import Optional
 
 import duckdb
@@ -11,6 +12,7 @@ SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'shared_deck_schema.sql')
 
 _schema_sql_cache: Optional[str] = None
 _initialized_dbs: set = set()
+_schema_init_lock = threading.Lock()
 
 
 def _get_schema_sql() -> str:
@@ -24,11 +26,14 @@ def _get_schema_sql() -> str:
 
 def ensure_shared_deck_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
     """Ensure shared deck schema exists for a connection."""
-    if db_path and db_path in _initialized_dbs:
+    if db_path:
+        with _schema_init_lock:
+            if db_path in _initialized_dbs:
+                return
+            conn.execute(_get_schema_sql())
+            _initialized_dbs.add(db_path)
         return
     conn.execute(_get_schema_sql())
-    if db_path:
-        _initialized_dbs.add(db_path)
 
 
 def init_shared_decks_database() -> str:
@@ -45,7 +50,5 @@ def get_shared_decks_connection() -> duckdb.DuckDBPyConnection:
     if not os.path.exists(SHARED_DB_PATH):
         init_shared_decks_database()
     conn = duckdb.connect(SHARED_DB_PATH)
-    # Run schema guards on each connection so new CREATE/INSERT IF NOT EXISTS
-    # statements apply immediately without restart/migration steps.
-    ensure_shared_deck_schema(conn)
+    ensure_shared_deck_schema(conn, SHARED_DB_PATH)
     return conn

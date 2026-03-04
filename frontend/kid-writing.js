@@ -38,6 +38,7 @@ let answerRevealed = false;
 let cardShownAtMs = 0;
 let sessionAnswers = [];
 let audioPrimed = false;
+let isChineseSpecificTypeII = false;
 const errorState = { lastMessage: '' };
 const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
     button: finishEarlyBtn,
@@ -102,6 +103,11 @@ async function loadKidInfo() {
             activeCategoryKey,
         );
         const categoryMetaMap = window.DeckCategoryCommon.getDeckCategoryMetaMap(currentKid);
+        const categoryMeta = activeCategoryKey
+            ? (categoryMetaMap[activeCategoryKey] || {})
+            : {};
+        isChineseSpecificTypeII = Boolean(categoryMeta?.has_chinese_specific_logic);
+        document.body.classList.toggle('type2-chinese-font', isChineseSpecificTypeII);
         activeCategoryDisplayName = activeCategoryKey
             ? window.DeckCategoryCommon.getCategoryDisplayName(activeCategoryKey, categoryMetaMap)
             : 'Type-II Practice';

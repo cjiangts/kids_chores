@@ -115,7 +115,8 @@
             };
 
             try {
-                await playSource(url);
+                const resolvedSource = await ensureCachedAudioSource(url);
+                await playSource(resolvedSource);
                 return true;
             } catch (error) {
                 onError(error);

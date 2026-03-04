@@ -18,22 +18,25 @@ let dailyChartRows = [];
 let dailyChartCategories = [];
 let dailyChartPageIndex = 0;
 let reportSessions = [];
+let reportCategoryThemeByKey = new Map();
 const DAILY_CHART_PAGE_SIZE = 7;
-const DAILY_CATEGORY_COLORS = [
-    '#4f83ff',
-    '#48b87a',
-    '#f0aa41',
-    '#7f56d9',
-    '#d95f8d',
-    '#2ca9a1',
-    '#e06c4c',
-    '#5f7a8b',
-    '#b67d3b',
-    '#4c6ce0',
+const CATEGORY_COLOR_PALETTE = [
+    { bar: '#3b82f6', pillBg: '#e8f1ff', pillText: '#1e4f9f' }, // blue
+    { bar: '#f59e0b', pillBg: '#fff4de', pillText: '#9a5b00' }, // orange
+    { bar: '#10b981', pillBg: '#e6faf3', pillText: '#0d6b57' }, // green
+    { bar: '#8b5cf6', pillBg: '#efe8ff', pillText: '#5a3aa6' }, // purple
+    { bar: '#ef4444', pillBg: '#fdecec', pillText: '#a33131' }, // red
+    { bar: '#06b6d4', pillBg: '#e7fafd', pillText: '#0a6c83' }, // cyan
+    { bar: '#84cc16', pillBg: '#f1fadf', pillText: '#4e7d08' }, // lime
+    { bar: '#ec4899', pillBg: '#fdeaf3', pillText: '#9c2d63' }, // pink
+    { bar: '#6366f1', pillBg: '#ececff', pillText: '#4043a3' }, // indigo
+    { bar: '#f97316', pillBg: '#fff0e5', pillText: '#a34a0d' }, // deep orange
+    { bar: '#14b8a6', pillBg: '#e5fbf8', pillText: '#0b6b62' }, // teal
+    { bar: '#a855f7', pillBg: '#f4eaff', pillText: '#6f33aa' }, // violet
 ];
+const DEFAULT_CATEGORY_COLOR_THEME = CATEGORY_COLOR_PALETTE[0];
 const {
     normalizeSessionType,
-    normalizeBehaviorType,
 } = window.DeckCategoryCommon;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -73,6 +76,7 @@ async function loadReport() {
         const kidName = (data.kid && data.kid.name) ? data.kid.name : 'Kid';
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
         reportSessions = sessions;
+        reportCategoryThemeByKey = buildCategoryThemeByKey(sessions);
         reportTitle.textContent = `${kidName}'s Practice Report`;
         renderSummary(sessions);
         renderDailyMinutesChart(sessions);
@@ -185,10 +189,10 @@ function renderDailyMinutesChart(sessions) {
     const orderedCategoryKeys = Array.from(categoryTotals.entries())
         .sort((a, b) => b[1] - a[1])
         .map(([categoryKey]) => categoryKey);
-    dailyChartCategories = orderedCategoryKeys.map((categoryKey, index) => ({
+    dailyChartCategories = orderedCategoryKeys.map((categoryKey) => ({
         key: categoryKey,
         label: String(categoryLabelByKey.get(categoryKey) || ''),
-        color: getDailyCategoryColor(categoryKey || String(index)),
+        color: getCategoryColorTheme(categoryKey).bar,
     }));
 
     dailyChartRows = Array.from(dailyMap.entries())
@@ -275,15 +279,60 @@ function renderDailyMinutesSegment({ label, minutes, pct, color }) {
     `;
 }
 
-function getDailyCategoryColor(categoryKey) {
-    const key = String(categoryKey || '');
-    let hash = 0;
-    for (let i = 0; i < key.length; i += 1) {
-        hash = ((hash << 5) - hash) + key.charCodeAt(i);
-        hash |= 0;
+function getCategoryColorTheme(categoryKey) {
+    const key = String(categoryKey || '').trim().toLowerCase();
+    if (!key) {
+        return DEFAULT_CATEGORY_COLOR_THEME;
     }
-    const index = Math.abs(hash) % DAILY_CATEGORY_COLORS.length;
-    return DAILY_CATEGORY_COLORS[index];
+    const existing = reportCategoryThemeByKey.get(key);
+    if (existing) {
+        return existing;
+    }
+    const nextTheme = CATEGORY_COLOR_PALETTE[
+        reportCategoryThemeByKey.size % CATEGORY_COLOR_PALETTE.length
+    ] || DEFAULT_CATEGORY_COLOR_THEME;
+    reportCategoryThemeByKey.set(key, nextTheme);
+    return nextTheme;
+}
+
+function buildCategoryThemeByKey(sessions) {
+    const totalsByKey = new Map();
+    const countByKey = new Map();
+    for (const session of (Array.isArray(sessions) ? sessions : [])) {
+        const categoryKey = normalizeSessionType(session?.type);
+        if (!categoryKey) {
+            continue;
+        }
+        if (!totalsByKey.has(categoryKey)) {
+            totalsByKey.set(categoryKey, 0);
+            countByKey.set(categoryKey, 0);
+        }
+        totalsByKey.set(
+            categoryKey,
+            (Number(totalsByKey.get(categoryKey)) || 0) + getSessionResponseMinutes(session),
+        );
+        countByKey.set(categoryKey, (Number(countByKey.get(categoryKey)) || 0) + 1);
+    }
+
+    const orderedKeys = Array.from(totalsByKey.keys()).sort((a, b) => {
+        const minuteDiff = (Number(totalsByKey.get(b)) || 0) - (Number(totalsByKey.get(a)) || 0);
+        if (Math.abs(minuteDiff) > 0.00001) {
+            return minuteDiff;
+        }
+        const sessionDiff = (Number(countByKey.get(b)) || 0) - (Number(countByKey.get(a)) || 0);
+        if (sessionDiff !== 0) {
+            return sessionDiff;
+        }
+        return String(a).localeCompare(String(b));
+    });
+
+    const themeByKey = new Map();
+    for (let i = 0; i < orderedKeys.length; i += 1) {
+        const key = orderedKeys[i];
+        const theme = CATEGORY_COLOR_PALETTE[i % CATEGORY_COLOR_PALETTE.length] || DEFAULT_CATEGORY_COLOR_THEME;
+        themeByKey.set(key, theme);
+    }
+    return themeByKey;
 }
 
 function getSessionDateKey(session) {
@@ -349,18 +398,11 @@ function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }
 }
 
 function renderType(type, session = null) {
+    const categoryKey = normalizeSessionType(type || session?.type);
     const displayName = escapeHtml(String(session?.category_display_name || '').trim());
-    const behaviorType = normalizeBehaviorType(session?.behavior_type);
-    if (behaviorType === 'type_i') {
-        return `<span class="type-pill type-reading">${displayName}</span>`;
-    }
-    if (behaviorType === 'type_ii') {
-        return `<span class="type-pill type-writing">${displayName}</span>`;
-    }
-    if (behaviorType === 'type_iii') {
-        return `<span class="type-pill type-lesson-reading">${displayName}</span>`;
-    }
-    return `<span class="type-pill">${displayName}</span>`;
+    const theme = getCategoryColorTheme(categoryKey || displayName);
+    const pillBg = String(theme?.bar || DEFAULT_CATEGORY_COLOR_THEME.bar);
+    return `<span class="type-pill" style="background:${escapeHtml(pillBg)};color:#ffffff;">${displayName}</span>`;
 }
 
 function formatDateTime(iso) {

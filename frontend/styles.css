@@ -248,6 +248,7 @@ body {
 
 .manage-page .tab-nav {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.75rem;
     margin-bottom: 1.25rem;
 }
