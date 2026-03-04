@@ -2168,6 +2168,7 @@ def get_kid_daily_completed_by_deck_category(kid, opted_in_category_keys, today_
     counts = {}
     keys = [normalize_shared_deck_tag(key) for key in list(opted_in_category_keys or [])]
     keys = [key for key in keys if key]
+    keys = list(dict.fromkeys(keys))
     if not keys:
         return counts
     if isinstance(today_counts, dict):
@@ -2175,6 +2176,7 @@ def get_kid_daily_completed_by_deck_category(kid, opted_in_category_keys, today_
             counts[key] = int(today_counts.get(key, 0) or 0)
         return counts
 
+    counts = {key: 0 for key in keys}
     conn = None
     try:
         conn = get_kid_connection_for(kid)
@@ -2186,22 +2188,25 @@ def get_kid_daily_completed_by_deck_category(kid, opted_in_category_keys, today_
         day_start_utc = day_start_local.astimezone(timezone.utc).replace(tzinfo=None)
         day_end_utc = day_end_local.astimezone(timezone.utc).replace(tzinfo=None)
 
-        for key in keys:
-            row = conn.execute(
-                """
-                SELECT COUNT(*)
-                FROM sessions s
-                WHERE s.completed_at IS NOT NULL
-                  AND s.completed_at >= ?
-                  AND s.completed_at < ?
-                  AND s.type = ?
-                """,
-                [day_start_utc, day_end_utc, key],
-            ).fetchone()
-            counts[key] = int(row[0] or 0)
+        placeholders = ', '.join(['?'] * len(keys))
+        rows = conn.execute(
+            f"""
+            SELECT s.type, COUNT(*)
+            FROM sessions s
+            WHERE s.completed_at IS NOT NULL
+              AND s.completed_at >= ?
+              AND s.completed_at < ?
+              AND s.type IN ({placeholders})
+            GROUP BY s.type
+            """,
+            [day_start_utc, day_end_utc, *keys],
+        ).fetchall()
+        for row in rows:
+            key = normalize_shared_deck_tag(row[0])
+            if key in counts:
+                counts[key] = int(row[1] or 0)
     except Exception:
-        for key in keys:
-            counts[key] = 0
+        counts = {key: 0 for key in keys}
     finally:
         if conn is not None:
             conn.close()
@@ -7571,32 +7576,6 @@ def complete_writing_practice_session(kid_id):
         category_key, _ = resolve_kid_type_ii_category_with_mode(
             kid,
             payload_data.get('categoryKey') or request.args.get('categoryKey'),
-        )
-        payload, status_code = complete_session_internal(
-            kid,
-            kid_id,
-            category_key,
-            payload_data
-        )
-        return jsonify(payload), status_code
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/kids/<kid_id>/practice/complete', methods=['POST'])
-def complete_practice_session(kid_id):
-    """Complete a Chinese practice session with all answers."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-        payload_data = request.get_json(silent=True) or {}
-        category_key = resolve_kid_type_i_chinese_category_key(
-            kid,
-            payload_data.get('categoryKey') or request.args.get('categoryKey'),
-            allow_default=True,
         )
         payload, status_code = complete_session_internal(
             kid,
