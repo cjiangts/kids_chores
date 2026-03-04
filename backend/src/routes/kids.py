@@ -17,6 +17,10 @@ from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import get_shared_decks_connection
+from src.security_rate_limit import (
+    CRITICAL_PASSWORD_RATE_LIMITER,
+    build_critical_password_limit_key,
+)
 
 kids_bp = Blueprint('kids', __name__)
 
@@ -312,8 +316,17 @@ def require_critical_password():
         password = str(request.form.get('confirmPassword') or '')
     if not password:
         return jsonify({'error': 'Password confirmation required'}), 400
+
+    limit_key = build_critical_password_limit_key(request, family_id=family_id)
+    allowed, retry_after_seconds = CRITICAL_PASSWORD_RATE_LIMITER.check(limit_key)
+    if not allowed:
+        return jsonify({
+            'error': 'Too many password confirmation attempts. Try again later.',
+            'retryAfterSeconds': int(retry_after_seconds),
+        }), 429
     if not metadata.verify_family_password(family_id, password):
         return jsonify({'error': 'Invalid password'}), 403
+    CRITICAL_PASSWORD_RATE_LIMITER.reset(limit_key)
     return None
 
 

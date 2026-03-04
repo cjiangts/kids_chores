@@ -12,6 +12,12 @@ from src.routes.kids import (
 from src.routes.backup import backup_bp
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection
+from src.security_rate_limit import (
+    LOGIN_RATE_LIMITER,
+    CRITICAL_PASSWORD_RATE_LIMITER,
+    build_login_limit_key,
+    build_critical_password_limit_key,
+)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 BACKEND_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -25,7 +31,15 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+    raw_secure_cookie = str(os.environ.get('SESSION_COOKIE_SECURE') or '').strip().lower()
+    if raw_secure_cookie in {'1', 'true', 'yes', 'on'}:
+        session_cookie_secure = True
+    elif raw_secure_cookie in {'0', 'false', 'no', 'off'}:
+        session_cookie_secure = False
+    else:
+        # Secure by default on Railway/prod; local HTTP dev stays usable.
+        session_cookie_secure = bool(os.environ.get('RAILWAY_ENVIRONMENT')) or os.environ.get('FLASK_ENV') == 'production'
+    app.config['SESSION_COOKIE_SECURE'] = session_cookie_secure
     # Shared user-created decks live in a single DB shared by all families.
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
@@ -61,8 +75,17 @@ def create_app():
                 password = str(json_data.get('confirmPassword') or '')
         if not password:
             return {'error': 'Password confirmation required'}, 400
+
+        limit_key = build_critical_password_limit_key(request, family_id=family_id)
+        allowed, retry_after_seconds = CRITICAL_PASSWORD_RATE_LIMITER.check(limit_key)
+        if not allowed:
+            return {
+                'error': 'Too many password confirmation attempts. Try again later.',
+                'retryAfterSeconds': int(retry_after_seconds),
+            }, 429
         if not metadata.verify_family_password(family_id, password):
             return {'error': 'Invalid password'}, 403
+        CRITICAL_PASSWORD_RATE_LIMITER.reset(limit_key)
         return None
 
     @app.before_request
@@ -138,9 +161,17 @@ def create_app():
         payload = request.get_json() or {}
         username = str(payload.get('username') or '').strip()
         password = str(payload.get('password') or '')
+        limit_key = build_login_limit_key(request, username=username)
+        allowed, retry_after_seconds = LOGIN_RATE_LIMITER.check(limit_key)
+        if not allowed:
+            return {
+                'error': 'Too many login attempts. Try again later.',
+                'retryAfterSeconds': int(retry_after_seconds),
+            }, 429
         family = metadata.authenticate_family(username, password)
         if not family:
             return {'error': 'Invalid username or password'}, 401
+        LOGIN_RATE_LIMITER.reset(limit_key)
 
         session['family_id'] = str(family['id'])
         session['family_username'] = family['username']

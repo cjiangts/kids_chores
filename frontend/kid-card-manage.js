@@ -29,7 +29,7 @@ const sessionCardCountLabel = document.getElementById('sessionCardCountLabel');
 const optInDecksHeading = document.getElementById('optInDecksHeading');
 const optInDecksNote = document.getElementById('optInDecksNote');
 const cardsSectionTitleText = document.getElementById('cardsSectionTitleText');
-const cardsHardnessHelpText = document.getElementById('cardsHardnessHelpText');
+const hardnessComputationHint = document.getElementById('hardnessComputationHint');
 
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
@@ -64,7 +64,6 @@ const pendingSheetCardsEmpty = document.getElementById('pendingSheetCardsEmpty')
 
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
-const deckTotalInfo = document.getElementById('deckTotalInfo');
 const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const hardnessPercentSlider = document.getElementById('hardnessPercentSlider');
@@ -94,6 +93,7 @@ let currentSharedScope = SHARED_SCOPE_CARDS;
 let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
 let isReadingBulkAdding = false;
 let initialHardCardPercent = null;
+let currentSkippedCardCount = 0;
 let sessionCardCountByCategory = {};
 let includeOrphanByCategory = {};
 let hardCardPercentByCategory = {};
@@ -326,7 +326,6 @@ function applyCategoryUiText() {
     const displayName = getCurrentCategoryDisplayName();
     const showOrphanEditor = isChineseSpecificLogic
         && (currentBehaviorType === BEHAVIOR_TYPE_TYPE_I || currentBehaviorType === BEHAVIOR_TYPE_TYPE_II);
-    const showCardSearch = isChineseSpecificLogic || currentBehaviorType === BEHAVIOR_TYPE_TYPE_II;
     const showType2ChineseSheet = isType2Behavior() && isChineseSpecificLogic;
     if (sessionCardCountLabel) {
         sessionCardCountLabel.textContent = `${displayName} Cards Per Session (Total Across Opted-in Decks)`;
@@ -338,10 +337,14 @@ function applyCategoryUiText() {
         optInDecksNote.textContent = 'Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.';
     }
     if (cardsSectionTitleText) {
-        cardsSectionTitleText.textContent = `${displayName} Questions`;
+        cardsSectionTitleText.textContent = `${displayName} Cards`;
     }
-    if (cardsHardnessHelpText) {
-        cardsHardnessHelpText.textContent = `Hardness score for ${displayName} is based on the card's most recent response time. Slower response means higher hardness.`;
+    if (hardnessComputationHint) {
+        if (isType2Behavior()) {
+            hardnessComputationHint.textContent = 'Drag to preview queue changes instantly. Release to save this page\'s hardness %. Hardness score is based on each card\'s overall correctness rate. Lower correctness means higher hardness.';
+        } else {
+            hardnessComputationHint.textContent = 'Drag to preview queue changes instantly. Release to save this page\'s hardness %. Hardness score is based on each card\'s most recent response time. Slower response means higher hardness.';
+        }
     }
     if (orphanEditorSection) {
         orphanEditorSection.classList.toggle('hidden', !showOrphanEditor);
@@ -366,9 +369,6 @@ function applyCategoryUiText() {
     }
     if (type2ChineseSheetSectionTitleText) {
         type2ChineseSheetSectionTitleText.textContent = `Suggested ${displayName} Candidate Cards`;
-    }
-    if (cardSearchInput) {
-        cardSearchInput.classList.toggle('hidden', !showCardSearch);
     }
     document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);
     updateAddReadingButtonCount();
@@ -795,13 +795,11 @@ function applyChineseCardFrontUniformSize(visibleCards = null) {
 }
 
 function displayCards(cards) {
-    const filteredCards = (isChineseSpecificLogic || isType2Behavior())
-        ? filterCardsByQuery(cards, cardSearchInput ? cardSearchInput.value : '')
-        : cards;
+    const filteredCards = filterCardsByQuery(cards, cardSearchInput ? cardSearchInput.value : '');
     sortedCards = window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
 
     if (mathCardCount) {
-        mathCardCount.textContent = `(${sortedCards.length})`;
+        mathCardCount.textContent = `(${sortedCards.length} · Skipped: ${currentSkippedCardCount})`;
     }
 
     if (sortedCards.length === 0) {
@@ -1136,19 +1134,10 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
 
         updateOrphanDerivedState(currentCards);
 
-        const activeCount = Number.isInteger(Number.parseInt(data.active_card_count, 10))
-            ? Number.parseInt(data.active_card_count, 10)
-            : currentCards.filter((card) => !card.skip_practice).length;
         const skippedCount = Number.isInteger(Number.parseInt(data.skipped_card_count, 10))
             ? Number.parseInt(data.skipped_card_count, 10)
             : currentCards.filter((card) => !!card.skip_practice).length;
-
-        if (deckTotalInfo) {
-            const practiceActiveCount = Number.isInteger(Number.parseInt(data.practice_active_card_count, 10))
-                ? Number.parseInt(data.practice_active_card_count, 10)
-                : activeCount;
-            deckTotalInfo.textContent = `Active cards in merged bank: ${activeCount} (Skipped: ${skippedCount}) · In practice queue pool: ${practiceActiveCount}`;
-        }
+        currentSkippedCardCount = skippedCount;
         applySuggestedType2SheetInputs();
         renderPracticingDeck();
         renderPendingSheetCards();

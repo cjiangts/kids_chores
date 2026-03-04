@@ -51,7 +51,6 @@ const bonusGameSection = document.getElementById('bonusGameSection');
 const bonusGameHint = document.getElementById('bonusGameHint');
 const bonusGameStatus = document.getElementById('bonusGameStatus');
 const bonusGameBoard = document.getElementById('bonusGameBoard');
-const bonusReplayBtn = document.getElementById('bonusReplayBtn');
 
 const {
     getDeckCategoryMetaMap,
@@ -1504,6 +1503,7 @@ async function endType2Session(endedEarly = false) {
 
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
+    setResultBackToPracticeVisible(true);
     resultSummary.textContent = endedEarly
         ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
         : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`;
@@ -1534,6 +1534,7 @@ async function endType2Session(endedEarly = false) {
 async function endType3Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
+    setResultBackToPracticeVisible(true);
     state.isSessionPaused = false;
     state.isRecordingPaused = false;
     state.recordingPauseStartedAtMs = 0;
@@ -1648,6 +1649,13 @@ function getUniqueWrongCards(cardsList) {
     return uniqueCards;
 }
 
+function setResultBackToPracticeVisible(visible) {
+    if (!resultBackToPractice) {
+        return;
+    }
+    resultBackToPractice.classList.toggle('hidden', !visible);
+}
+
 function resetBonusGame() {
     state.bonusSourceCards = [];
     state.bonusTiles = [];
@@ -1657,6 +1665,7 @@ function resetBonusGame() {
     bonusGameHint.textContent = '';
     bonusGameStatus.textContent = '';
     bonusGameBoard.innerHTML = '';
+    setResultBackToPracticeVisible(true);
 }
 
 function showBonusGameForWrongCards() {
@@ -1669,6 +1678,7 @@ function showBonusGameForWrongCards() {
         resetBonusGame();
         return;
     }
+    setResultBackToPracticeVisible(false);
     state.bonusSourceCards = wrongCards;
     bonusGameSection.classList.remove('hidden');
     bonusGameHint.textContent = `Tap two boxes to pair each wrong card with its answer (${wrongCards.length} pair${wrongCards.length === 1 ? '' : 's'}).`;
@@ -1707,13 +1717,16 @@ function renderBonusGameStatus() {
     const pairTotal = state.bonusSourceCards.length;
     if (pairTotal <= 0) {
         bonusGameStatus.textContent = '';
+        setResultBackToPracticeVisible(true);
         return;
     }
     if (state.bonusMatchedPairCount >= pairTotal) {
         bonusGameStatus.textContent = `Great job! Matched all ${pairTotal} pair${pairTotal === 1 ? '' : 's'}.`;
+        setResultBackToPracticeVisible(true);
         return;
     }
     bonusGameStatus.textContent = `Matched ${state.bonusMatchedPairCount} / ${pairTotal}`;
+    setResultBackToPracticeVisible(false);
 }
 
 function onBonusGameBoardClick(event) {
@@ -1810,11 +1823,6 @@ function bindEventHandlers() {
     });
 
     bonusGameBoard.addEventListener('click', onBonusGameBoardClick);
-    bonusReplayBtn.addEventListener('click', () => {
-        if (state.bonusSourceCards.length > 0) {
-            startBonusGame(state.bonusSourceCards);
-        }
-    });
 
     backToPractice.addEventListener('click', (event) => {
         if (!isSessionInProgress()) {

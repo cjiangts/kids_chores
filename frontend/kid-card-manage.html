@@ -649,21 +649,14 @@
         </section>
 
         <section class="settings-section cards-section">
-            <h2 class="cards-title label-with-help">
-                <span><span id="cardsSectionTitleText">Practice Questions</span> <span id="mathCardCount">(0)</span></span>
-                <details class="help-details">
-                    <summary title="Hardness tip">i</summary>
-                    <div id="cardsHardnessHelpText" class="help-bubble">
-                        Hardness score for this category is based on the card's most recent response time.
-                        Slower response means higher hardness.
-                    </div>
-                </details>
+            <h2 class="cards-title">
+                <span><span id="cardsSectionTitleText">Practice Cards</span> <span id="mathCardCount">(0)</span></span>
             </h2>
             <div class="cards-toolbar">
                 <input
                     type="text"
                     id="cardSearchInput"
-                    class="cards-search-input hidden"
+                    class="cards-search-input"
                     placeholder="Search cards..."
                     aria-label="Search cards"
                 >
@@ -681,10 +674,9 @@
                     <div id="hardnessPercentValue" class="hardness-slider-value">20%</div>
                 </div>
                 <input id="hardnessPercentSlider" class="hardness-slider-input" type="range" min="0" max="100" step="1" value="20">
-                <p class="hardness-slider-hint">Drag to preview queue changes instantly. Release to save this page's hardness %.</p>
+                <p id="hardnessComputationHint" class="hardness-slider-hint">Drag to preview queue changes instantly. Release to save this page's hardness %.</p>
                 <div id="hardnessPercentStatus" class="hardness-slider-status hidden" aria-live="polite"></div>
             </div>
-            <p id="deckTotalInfo" style="margin-bottom: 0.8rem; color: #666; font-size: 0.92rem;">Active cards in merged bank: 0</p>
             <div id="cardsGrid" class="cards-grid"></div>
         </section>
     </div>
