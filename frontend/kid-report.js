@@ -36,7 +36,7 @@ const CATEGORY_COLOR_PALETTE = [
 ];
 const DEFAULT_CATEGORY_COLOR_THEME = CATEGORY_COLOR_PALETTE[0];
 const {
-    normalizeSessionType,
+    normalizeCategoryKey,
 } = window.DeckCategoryCommon;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -171,7 +171,7 @@ function renderDailyMinutesChart(sessions) {
         const minutes = getSessionResponseMinutes(session);
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
-        const sessionType = normalizeSessionType(session.type);
+        const sessionType = normalizeCategoryKey(session.type);
         if (!sessionType) return;
         const categoryKey = sessionType;
         const categoryLabel = String(session?.category_display_name || '').trim();
@@ -301,7 +301,7 @@ function buildCategoryThemeByKey(sessions) {
     const totalsByKey = new Map();
     const countByKey = new Map();
     for (const session of (Array.isArray(sessions) ? sessions : [])) {
-        const categoryKey = normalizeSessionType(session?.type);
+        const categoryKey = normalizeCategoryKey(session?.type);
         if (!categoryKey) {
             continue;
         }
@@ -400,7 +400,7 @@ function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }
 }
 
 function renderType(type, session = null) {
-    const categoryKey = normalizeSessionType(type || session?.type);
+    const categoryKey = normalizeCategoryKey(type || session?.type);
     const displayName = escapeHtml(String(session?.category_display_name || '').trim());
     const theme = getCategoryColorTheme(categoryKey || displayName);
     const pillBg = String(theme?.bar || DEFAULT_CATEGORY_COLOR_THEME.bar);

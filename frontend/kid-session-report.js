@@ -14,9 +14,7 @@ const rightSectionTitle = document.getElementById('rightSectionTitle');
 const wrongList = document.getElementById('wrongList');
 const rightList = document.getElementById('rightList');
 const {
-    SESSION_TYPE_CHINESE_CHARACTERS,
-    SESSION_TYPE_CHINESE_WRITING,
-    normalizeSessionType,
+    normalizeCategoryKey,
     normalizeBehaviorType,
 } = window.DeckCategoryCommon;
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -61,7 +59,7 @@ async function loadSessionDetail() {
         const data = await response.json();
         const kidName = data.kid?.name || 'Kid';
         const session = data.session || {};
-        currentSessionType = normalizeSessionType(session.type);
+        currentSessionType = normalizeCategoryKey(session.type);
         currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type);
         currentSessionCategoryDisplayName = String(session.category_display_name || '').trim();
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
@@ -139,7 +137,7 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         reportLinkParams.set('id', String(kidId || ''));
         reportLinkParams.set('cardId', String(item.card_id || ''));
         reportLinkParams.set('from', String(from || ''));
-        if ((from === 'lesson-reading' || from === 'type2' || from === 'writing') && currentSessionType) {
+        if (currentSessionType) {
             reportLinkParams.set('categoryKey', String(currentSessionType));
         }
         const reportLinkHtml = canLink
@@ -259,29 +257,22 @@ document.addEventListener('click', async (event) => {
 });
 
 function getCardReportFromSessionType(type) {
-    const normalizedType = normalizeSessionType(type);
-    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) return 'reading';
-    if (normalizedType === 'math') return 'math';
-    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_ii') return 'type2';
-    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii') return 'lesson-reading';
+    const behavior = normalizeBehaviorType(currentSessionBehaviorType);
+    if (behavior === 'type_ii') return 'type2';
+    if (behavior === 'type_iii') return 'lesson-reading';
+    if (behavior === 'type_i') return 'cards';
     return '';
 }
 
 function getCardDisplayLabel(front, back, sessionType) {
-    const normalizedType = normalizeSessionType(sessionType);
-    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii') {
+    const normalizedBehavior = normalizeBehaviorType(currentSessionBehaviorType);
+    if (normalizedBehavior === 'type_iii') {
         return front || back;
     }
-    if (normalizedType === 'math') {
-        return front || back;
-    }
-    if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS) {
-        return front || back;
-    }
-    if (normalizedType === SESSION_TYPE_CHINESE_WRITING) {
+    if (normalizedBehavior === 'type_ii') {
         return back || front;
     }
-    return back || front;
+    return front || back;
 }
 
 function formatType(type) {

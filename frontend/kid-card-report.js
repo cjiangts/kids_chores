@@ -4,7 +4,7 @@ const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
 const cardId = params.get('cardId');
 const from = params.get('from');
-const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
+const categoryKey = window.DeckCategoryCommon.normalizeCategoryKey(params.get('categoryKey'));
 
 const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
@@ -12,9 +12,6 @@ const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
 const trendChart = document.getElementById('trendChart');
 const historyList = document.getElementById('historyList');
-const {
-    SESSION_TYPE_CHINESE_CHARACTERS,
-} = window.DeckCategoryCommon;
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -28,16 +25,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function resolveBackHref() {
-    const type1Category = categoryKey || (from === 'reading' ? SESSION_TYPE_CHINESE_CHARACTERS : 'math');
-    if (from === 'reading' || from === 'cards') {
+    if (from === 'cards') {
         const qs = new URLSearchParams();
         qs.set('id', String(kidId || ''));
-        if (type1Category) {
-            qs.set('categoryKey', type1Category);
+        if (categoryKey) {
+            qs.set('categoryKey', categoryKey);
         }
         return `/kid-card-manage.html?${qs.toString()}`;
     }
-    if (from === 'type2' || from === 'writing') {
+    if (from === 'type2') {
         const qs = new URLSearchParams();
         qs.set('id', String(kidId || ''));
         if (categoryKey) {
@@ -199,16 +195,10 @@ function getCardDisplayLabel(front, back, source) {
     const frontText = String(front || '').trim();
     const backText = String(back || '').trim();
 
-    if (source === 'cards') {
+    if (source === 'cards' || source === 'lesson-reading') {
         return frontText || backText;
     }
-    if (source === 'lesson-reading') {
-        return frontText || backText;
-    }
-    if (source === 'reading') {
-        return frontText || backText;
-    }
-    if (source === 'type2' || source === 'writing') {
+    if (source === 'type2') {
         return backText || frontText;
     }
 

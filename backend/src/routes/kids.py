@@ -47,9 +47,6 @@ MAX_SHARED_DECK_CARDS = 10000
 MAX_SHARED_TAG_LENGTH = 64
 MAX_SHARED_DECK_OPTIN_BATCH = 200
 MATERIALIZED_SHARED_DECK_NAME_PREFIX = 'shared_deck_'
-CHINESE_CHARACTERS_ORPHAN_DECK_NAME = 'chinese_characters_orphan'
-WRITING_ORPHAN_DECK_NAME = 'chinese_writing_orphan'
-WRITING_ORPHAN_DECK_DESCRIPTION = 'Reserved deck for orphaned/manual chinese-writing cards'
 KID_DECK_CATEGORY_OPT_IN_TABLE = 'deck_category_opt_in'
 KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN = 'is_opted_in'
 KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT = 'session_card_count'
@@ -839,20 +836,12 @@ def get_category_orphan_deck_name(category_key):
     key = normalize_shared_deck_tag(category_key)
     if not key:
         raise ValueError('categoryKey is required')
-    if key == 'chinese_characters':
-        return CHINESE_CHARACTERS_ORPHAN_DECK_NAME
-    if key == 'chinese_writing':
-        return WRITING_ORPHAN_DECK_NAME
     return f'{key}_orphan'
 
 
 def get_category_orphan_deck_description(category_key):
     """Return orphan deck description for one category key."""
     key = normalize_shared_deck_tag(category_key) or 'cards'
-    if key == 'chinese_characters':
-        return 'Reserved deck for orphaned/manual Chinese character cards'
-    if key == 'chinese_writing':
-        return WRITING_ORPHAN_DECK_DESCRIPTION
     return f'Reserved deck for orphaned/manual {key} cards'
 
 

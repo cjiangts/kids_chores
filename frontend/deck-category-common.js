@@ -1,7 +1,4 @@
 (function initDeckCategoryCommon() {
-    const SESSION_TYPE_CHINESE_CHARACTERS = 'chinese_characters';
-    const SESSION_TYPE_CHINESE_WRITING = 'chinese_writing';
-
     function normalizeCategoryKey(rawValue) {
         return String(rawValue || '').trim().toLowerCase();
     }
@@ -108,10 +105,29 @@
         if (preferred && chineseKeys.includes(preferred)) {
             return preferred;
         }
-        if (chineseKeys.includes('chinese_characters')) {
-            return 'chinese_characters';
-        }
         return chineseKeys[0];
+    }
+
+    function getTypeINonChineseCategoryKeys(kid) {
+        const optedInKeys = getOptedInDeckCategoryKeys(kid);
+        const categoryMetaMap = getDeckCategoryMetaMap(kid);
+        return optedInKeys.filter((key) => {
+            const categoryMeta = categoryMetaMap[key] || {};
+            return categoryMeta.behavior_type === 'type_i'
+                && !Boolean(categoryMeta.has_chinese_specific_logic);
+        });
+    }
+
+    function resolveTypeINonChinesePracticeCategoryKey(kid, preferredKey = '') {
+        const keys = getTypeINonChineseCategoryKeys(kid);
+        if (keys.length === 0) {
+            return '';
+        }
+        const preferred = normalizeCategoryKey(preferredKey);
+        if (preferred && keys.includes(preferred)) {
+            return preferred;
+        }
+        return keys[0];
     }
 
     function getTypeIIICategoryKeys(kid) {
@@ -141,9 +157,6 @@
         if (preferred && keys.includes(preferred)) {
             return preferred;
         }
-        if (keys.includes('chinese_writing')) {
-            return 'chinese_writing';
-        }
         return keys[0];
     }
 
@@ -159,25 +172,11 @@
         return keys[0];
     }
 
-    function normalizeSessionType(type) {
-        const text = String(type || '').trim().toLowerCase();
-        if (text === 'writing') return SESSION_TYPE_CHINESE_WRITING;
-        return text;
-    }
-
     function normalizeBehaviorType(type) {
         const text = String(type || '').trim().toLowerCase();
         if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
             return text;
         }
-        return '';
-    }
-
-    function inferBehaviorTypeFromSessionType(rawType) {
-        const normalizedType = normalizeSessionType(rawType);
-        if (normalizedType === SESSION_TYPE_CHINESE_CHARACTERS || normalizedType === 'math') return 'type_i';
-        if (normalizedType === SESSION_TYPE_CHINESE_WRITING) return 'type_ii';
-        if (normalizedType === 'lesson_reading') return 'type_iii';
         return '';
     }
 
@@ -213,8 +212,6 @@
     }
 
     window.DeckCategoryCommon = {
-        SESSION_TYPE_CHINESE_CHARACTERS,
-        SESSION_TYPE_CHINESE_WRITING,
         normalizeCategoryKey,
         getOptedInDeckCategoryKeys,
         getOptedInDeckCategorySet,
@@ -224,14 +221,14 @@
         getCategoryDisplayName,
         getCategoryEmoji,
         getTypeIChineseSpecificCategoryKeys,
+        getTypeINonChineseCategoryKeys,
         resolveChinesePracticeCategoryKey,
+        resolveTypeINonChinesePracticeCategoryKey,
         getTypeIICategoryKeys,
         resolveTypeIIPracticeCategoryKey,
         getTypeIIICategoryKeys,
         resolveTypeIIIPracticeCategoryKey,
-        normalizeSessionType,
         normalizeBehaviorType,
-        inferBehaviorTypeFromSessionType,
         buildKidScopedApiUrl,
         buildType2ApiUrl,
     };

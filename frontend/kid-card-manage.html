@@ -7,12 +7,12 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        .math-v2-panel h2 {
+        .deck-v2-panel h2 {
             margin: 0 0 0.45rem 0;
             color: #2f3c7e;
         }
 
-        .math-v2-note {
+        .deck-v2-note {
             color: #555;
             margin-bottom: 1rem;
             line-height: 1.35;
@@ -27,13 +27,13 @@
             padding: 0.7rem 0.8rem;
         }
 
-        .math-v2-mix {
+        .deck-v2-mix {
             margin-top: 0.9rem;
             border-top: 1px solid #e9ecef;
             padding-top: 0.8rem;
         }
 
-        .math-v2-mix h3 {
+        .deck-v2-mix h3 {
             margin: 0 0 0.55rem 0;
             color: #334;
             font-size: 1rem;
@@ -96,13 +96,13 @@
             text-align: right;
         }
 
-        .math-v2-grid {
+        .deck-v2-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
         }
 
-        .math-v2-column {
+        .deck-v2-column {
             background: #f8f9ff;
             border: 1px solid #dbe1ff;
             border-radius: 10px;
@@ -110,7 +110,7 @@
             min-height: 280px;
         }
 
-        .math-v2-column h3 {
+        .deck-v2-column h3 {
             margin: 0 0 0.7rem 0;
             color: #334;
             font-size: 1rem;
@@ -199,7 +199,7 @@
             line-height: 1;
         }
 
-        .math-v2-actions {
+        .deck-v2-actions {
             margin-top: 0.9rem;
             display: flex;
             gap: 0.6rem;
@@ -219,7 +219,7 @@
             width: 100%;
         }
 
-        .math-v2-empty {
+        .deck-v2-empty {
             color: #666;
             font-size: 0.9rem;
         }
@@ -246,14 +246,14 @@
             color: #333;
         }
 
-        .math-deck-tabs {
+        .deck-category-tabs {
             display: flex;
             flex-wrap: wrap;
             gap: 0.6rem;
             margin-bottom: 1rem;
         }
 
-        .math-deck-tab {
+        .deck-category-tab {
             border: none;
             border-radius: 8px;
             background: #eef2ff;
@@ -263,7 +263,7 @@
             cursor: pointer;
         }
 
-        .math-deck-tab.active {
+        .deck-category-tab.active {
             background: #4CAF50;
             color: #fff;
         }
@@ -496,11 +496,11 @@
         }
 
         @media (max-width: 880px) {
-            .math-v2-grid {
+            .deck-v2-grid {
                 grid-template-columns: 1fr;
             }
 
-            .math-deck-tabs {
+            .deck-category-tabs {
                 display: grid;
                 grid-template-columns: 1fr;
             }
@@ -552,12 +552,12 @@
             </form>
         </section>
 
-        <section class="settings-section math-v2-panel">
+        <section class="settings-section deck-v2-panel">
             <h2 id="optInDecksHeading">Opt-in Shared Practice Decks</h2>
-            <p id="optInDecksNote" class="math-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.</p>
+            <p id="optInDecksNote" class="deck-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.</p>
 
-            <div class="math-v2-grid">
-                <div class="math-v2-column">
+            <div class="deck-v2-grid">
+                <div class="deck-v2-column">
                     <div class="deck-column-head">
                         <h3 id="availableDecksTitle">Available Shared Decks (0)</h3>
                         <button id="optInAllAvailableBtn" type="button" class="btn-secondary">Opt-in All</button>
@@ -568,17 +568,17 @@
                         </div>
                     </div>
                     <div id="availableDecks" class="deck-bubble-wrap"></div>
-                    <p id="availableEmpty" class="math-v2-empty hidden">No shared practice decks available yet.</p>
+                    <p id="availableEmpty" class="deck-v2-empty hidden">No shared practice decks available yet.</p>
                 </div>
 
-                <div class="math-v2-column">
+                <div class="deck-v2-column">
                     <h3 id="selectedDecksTitle">Opted-in Decks (0)</h3>
                     <div id="selectedDecks" class="deck-bubble-wrap"></div>
-                    <p id="selectedEmpty" class="math-v2-empty">No deck opted in.</p>
+                    <p id="selectedEmpty" class="deck-v2-empty">No deck opted in.</p>
                 </div>
             </div>
-            <div class="math-v2-actions">
-                <span id="deckPendingInfo" class="math-v2-note" style="margin:0;">No pending deck changes.</span>
+            <div class="deck-v2-actions">
+                <span id="deckPendingInfo" class="deck-v2-note" style="margin:0;">No pending deck changes.</span>
                 <div class="deck-apply-stack">
                     <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes</button>
                     <div id="deckChangeMessage" class="success hidden"></div>
@@ -588,7 +588,7 @@
 
         <section id="orphanEditorSection" class="settings-section hidden">
             <h2>Orphan Deck Editor</h2>
-            <p class="math-v2-note">Manual custom cards live in the orphan deck. Bulk import is supported here; use Skip to exclude cards from practice.</p>
+            <p class="deck-v2-note">Manual custom cards live in the orphan deck. Bulk import is supported here; use Skip to exclude cards from practice.</p>
             <div class="orphan-editor-grid">
                 <div class="orphan-editor-panel">
                     <h3 id="orphanEditorTitle">Bulk Add Chinese Characters</h3>
@@ -612,7 +612,7 @@
 
         <section id="type2ChineseSheetSection" class="settings-section practicing-deck-section hidden">
             <h2><span id="type2ChineseSheetSectionTitleText">Suggested Practicing Candidate Cards</span> <span id="practicingDeckCount">(0)</span></h2>
-            <p class="math-v2-note" style="margin-bottom: 0.55rem;">
+            <p class="deck-v2-note" style="margin-bottom: 0.55rem;">
                 Auto-selected candidate cards for writing sheets: newly added or latest failed. Cards already on a pending sheet are hidden from this list.
             </p>
             <div id="practicingDeckGrid" class="practicing-bucket-list"></div>

@@ -23,41 +23,16 @@ def _normalize(data: Dict) -> Dict:
         data['families'] = []
     if 'kids' not in data or not isinstance(data.get('kids'), list):
         data['kids'] = []
-    for i, kid in enumerate(data['kids']):
-        if not isinstance(kid, dict):
-            continue
-        # Legacy scalar; category-keyed map is the source of truth.
-        if 'sessionCardCount' in kid:
-            kid = dict(kid)
-            kid.pop('sessionCardCount', None)
-            data['kids'][i] = kid
-    has_super_family = False
     for i, family in enumerate(data['families']):
         if not isinstance(family, dict):
             continue
         timezone_name = _normalize_family_timezone(family.get('familyTimezone'))
         super_family = _normalize_super_family_flag(family.get('superFamily'))
-        if super_family:
-            has_super_family = True
         data['families'][i] = {
             **family,
             'familyTimezone': timezone_name,
             'superFamily': super_family,
         }
-    # Backward-compatible bootstrap: if legacy metadata has no super family,
-    # promote the oldest family (smallest id) to avoid locking out admin actions.
-    if data['families'] and not has_super_family:
-        promoted_idx = 0
-        promoted_id = None
-        for idx, family in enumerate(data['families']):
-            try:
-                family_id = int(family.get('id'))
-            except (TypeError, ValueError):
-                continue
-            if promoted_id is None or family_id < promoted_id:
-                promoted_id = family_id
-                promoted_idx = idx
-        data['families'][promoted_idx]['superFamily'] = True
     if 'lastUpdated' not in data:
         data['lastUpdated'] = datetime.now().isoformat()
     return data
