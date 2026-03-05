@@ -59,6 +59,8 @@ KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE = 'hard_card_percentage'
 KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN = 'include_orphan'
 WRITING_AUDIO_EXTENSION = '.mp3'
 WRITING_AUDIO_FILE_NAME_MAX_BYTES = 220
+WRITING_TTS_LANGUAGE_ZH = 'zh-CN'
+WRITING_TTS_LANGUAGE_EN = 'en'
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
 TYPE_I_MAX_LOGGED_RESPONSE_TIME_MS = 20 * 1000
 TYPE_II_MAX_LOGGED_RESPONSE_TIME_MS = 2 * 60 * 1000
@@ -100,6 +102,11 @@ def normalize_writing_audio_text(front_text):
     return text
 
 
+def get_writing_tts_language(has_chinese_specific_logic=True):
+    """Choose type-II TTS language from category mode."""
+    return WRITING_TTS_LANGUAGE_ZH if bool(has_chinese_specific_logic) else WRITING_TTS_LANGUAGE_EN
+
+
 def build_writing_front_tts_text(front_text, back_text, has_chinese_specific_logic=True):
     """Build spoken text for front prompt clip."""
     front_norm = normalize_writing_audio_text(front_text)
@@ -131,7 +138,12 @@ def build_shared_writing_audio_file_name(front_text):
     return f"{prefix}_{digest}{WRITING_AUDIO_EXTENSION}"
 
 
-def build_writing_audio_meta_for_front(kid_id, front_text, *, category_key):
+def build_writing_audio_meta_for_front(
+    kid_id,
+    front_text,
+    *,
+    category_key,
+):
     """Build writing audio metadata payload for one front text."""
     file_name = build_shared_writing_audio_file_name(front_text)
     if not file_name:
@@ -177,12 +189,19 @@ def build_writing_prompt_audio_payload(
     }
 
 
-def synthesize_shared_writing_audio(front_text, overwrite=False, spoken_text=None):
+def synthesize_shared_writing_audio(
+    front_text,
+    overwrite=False,
+    spoken_text=None,
+    *,
+    has_chinese_specific_logic=True,
+):
     """Generate shared TTS clip for writing text, returns (file_name, generated_now)."""
     normalized_front = normalize_writing_audio_text(front_text)
     if not normalized_front:
         raise ValueError('Card front is empty, cannot generate audio')
 
+    tts_language = get_writing_tts_language(has_chinese_specific_logic)
     file_name = build_shared_writing_audio_file_name(normalized_front)
     if not file_name:
         raise ValueError('Unable to derive audio file name from card front')
@@ -200,7 +219,7 @@ def synthesize_shared_writing_audio(front_text, overwrite=False, spoken_text=Non
     temp_path = f"{audio_path}.{uuid.uuid4().hex}.tmp"
     try:
         from gtts import gTTS
-        tts = gTTS(text=normalized_spoken, lang='zh-CN', slow=False)
+        tts = gTTS(text=normalized_spoken, lang=tts_language, slow=False)
         tts.save(temp_path)
         if (not os.path.exists(temp_path)) or os.path.getsize(temp_path) == 0:
             raise RuntimeError('gTTS produced an empty audio file')
@@ -6657,6 +6676,7 @@ def get_writing_audio(kid_id, file_name):
                 synth_args.get('file_key_text'),
                 overwrite=False,
                 spoken_text=synth_args.get('spoken_text'),
+                has_chinese_specific_logic=has_chinese_specific_logic,
             )
             if not os.path.exists(audio_path):
                 return jsonify({'error': 'Audio file not found'}), 404
