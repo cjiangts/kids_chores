@@ -144,7 +144,7 @@ function renderTablePage() {
     const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
 
     if (sessions.length === 0 || view.pageItems.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="11" style="color:#666;">No practice sessions yet.</td></tr>`;
+        reportBody.innerHTML = `<tr><td colspan="12" style="color:#666;">No practice sessions yet.</td></tr>`;
         return;
     }
 
@@ -155,6 +155,7 @@ function renderTablePage() {
             <td>${formatDateTime(session.started_at)}</td>
             <td>${formatDurationMinutes(session)}</td>
             <td>${formatResponseMinutes(session)}</td>
+            <td>${safeNum(session.planned_count)}</td>
             <td>${safeNum(session.answer_count)}</td>
             <td>${safeNum(session.right_count)}</td>
             <td>${safeNum(session.wrong_count)}</td>

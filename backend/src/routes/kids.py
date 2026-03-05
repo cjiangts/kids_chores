@@ -2134,6 +2134,10 @@ def get_kid_dashboard_stats(kid):
             session_type = normalize_shared_deck_tag(row[0])
             if not session_type or session_type not in category_meta_by_key:
                 continue
+            session_behavior_type = get_session_behavior_type(
+                session_type,
+                category_meta_by_key=category_meta_by_key,
+            )
             planned_count = max(0, int(row[1] or 0))
             answer_count = int(row[2] or 0)
             right_count = int(row[3] or 0)
@@ -2144,7 +2148,16 @@ def get_kid_dashboard_stats(kid):
             if target_answer_count <= 0 and planned_count <= 0:
                 continue
             is_incomplete = planned_count > 0 and answer_count < planned_count
-            base_tier = 'half_silver' if is_incomplete else ('gold' if right_count >= target_answer_count else 'silver')
+            if is_incomplete:
+                base_tier = 'half_silver'
+            elif session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III:
+                # Type-III is graded later; keep completed sessions silver until graded.
+                if (right_count + wrong_count) >= target_answer_count and right_count >= target_answer_count:
+                    base_tier = 'gold'
+                else:
+                    base_tier = 'silver'
+            else:
+                base_tier = 'gold' if right_count >= target_answer_count else 'silver'
             effective_best_total = right_count + retry_best_rety
             achieved_gold_after_retries = effective_best_total >= target_answer_count
 
@@ -2156,7 +2169,10 @@ def get_kid_dashboard_stats(kid):
             today_star_tiers[session_type].extend(tiers)
             today_counts[session_type] += len(tiers)
             today_counts['total'] += len(tiers)
-            effective_percent = float(effective_best_total) * 100.0 / float(max(1, target_answer_count))
+            if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III and (right_count + wrong_count) <= 0:
+                effective_percent = float(answer_count) * 100.0 / float(max(1, target_answer_count))
+            else:
+                effective_percent = float(effective_best_total) * 100.0 / float(max(1, target_answer_count))
             today_latest_percent[session_type] = max(0.0, min(100.0, effective_percent))
 
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
@@ -3821,9 +3837,6 @@ def get_latest_unfinished_session_for_today(conn, kid, session_type):
     session_key = normalize_shared_deck_tag(session_type)
     if not session_key:
         return None
-    behavior_type = get_session_behavior_type(session_key)
-    if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III:
-        return None
 
     day_start_utc, day_end_utc = get_kid_today_bounds_utc(kid)
     row = conn.execute(
@@ -4480,7 +4493,11 @@ def complete_session_internal(kid, kid_id, session_type, data):
     )
     is_continue_session = (
         continue_source_session_id > 0
-        and session_behavior_type in (DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_II)
+        and session_behavior_type in (
+            DECK_CATEGORY_BEHAVIOR_TYPE_I,
+            DECK_CATEGORY_BEHAVIOR_TYPE_II,
+            DECK_CATEGORY_BEHAVIOR_TYPE_III,
+        )
     )
     if is_continue_session:
         is_retry_session = False
@@ -4657,20 +4674,69 @@ def complete_session_internal(kid, kid_id, session_type, data):
                     answer.get('responseTimeMs'),
                     session_behavior_type=session_behavior_type,
                 )
-                correct_value = 1 if bool(known) else -1
+                if uses_type_iii_audio:
+                    correct_value = 0
+                else:
+                    correct_value = 1 if bool(known) else -1
                 if correct_value > 0:
                     right_count += 1
                 elif correct_value < 0:
                     wrong_count += 1
-                conn.execute(
+                result_row = conn.execute(
                     """
                     INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
                     VALUES (?, ?, ?, ?)
+                    RETURNING id
                     """,
                     [continue_source_session_id, card_id, correct_value, response_time_ms]
-                )
+                ).fetchone()
+                result_id = int(result_row[0])
                 touched_card_ids.add(card_id)
                 latest_response_by_card[card_id] = response_time_ms
+
+                if uses_type_iii_audio:
+                    uploaded_audio = uploaded_type3_audio.get(card_id)
+                    if uploaded_audio is None:
+                        uploaded_audio = uploaded_type3_audio.get(str(card_id))
+                    if isinstance(uploaded_audio, dict):
+                        audio_bytes = uploaded_audio.get('bytes')
+                        if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) == 0:
+                            raise ValueError(f'Uploaded audio for card {card_id} is empty')
+                        mime_type = str(uploaded_audio.get('mime_type') or 'application/octet-stream').strip()
+                        original_filename = str(uploaded_audio.get('filename') or '').strip()
+                        safe_name = secure_filename(original_filename)
+                        ext = os.path.splitext(safe_name)[1].lower()
+                        if not ext:
+                            guessed_ext = mimetypes.guess_extension(mime_type) or ''
+                            ext = guessed_ext.lower() if guessed_ext else '.webm'
+                        audio_dir = ensure_type3_audio_dir(kid)
+                        file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
+                        file_path = os.path.join(audio_dir, file_name)
+                        with open(file_path, 'wb') as f:
+                            f.write(bytes(audio_bytes))
+                        written_type3_audio_paths.append(file_path)
+                        conn.execute(
+                            """
+                            INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                            VALUES (?, ?, ?)
+                            """,
+                            [result_id, file_name, mime_type]
+                        )
+                        consumed_type3_audio_files.add(file_name)
+                    else:
+                        audio_meta = pending_type3_audio.get(str(card_id))
+                        if isinstance(audio_meta, dict):
+                            file_name = str(audio_meta.get('file_name') or '').strip()
+                            mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
+                            if file_name:
+                                conn.execute(
+                                    """
+                                    INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                                    VALUES (?, ?, ?)
+                                    """,
+                                    [result_id, file_name, mime_type]
+                                )
+                                consumed_type3_audio_files.add(file_name)
 
             _update_hardness_after_session(
                 conn,
@@ -4712,6 +4778,10 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 attempt_star_tiers = ['half_silver']
                 achieved_gold_star = False
                 star_tier = 'half_silver'
+            elif uses_type_iii_audio:
+                achieved_gold_star = False
+                star_tier = 'silver'
+                attempt_star_tiers = ['silver']
             else:
                 achieved_gold_star = updated_wrong_count == 0
                 star_tier = 'gold' if achieved_gold_star else 'silver'
@@ -4719,6 +4789,19 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
             conn.execute("COMMIT")
             conn.close()
+            if uses_type_iii_audio and isinstance(pending_type3_audio, dict):
+                leftovers = {}
+                for item in pending_type3_audio.values():
+                    if not isinstance(item, dict):
+                        continue
+                    file_name = str(item.get('file_name') or '').strip()
+                    if file_name and file_name not in consumed_type3_audio_files:
+                        leftovers[file_name] = item
+                if len(leftovers) > 0:
+                    cleanup_type3_pending_audio_files_by_payload({
+                        'type3_audio_dir': pending.get('type3_audio_dir'),
+                        'type3_audio_by_card': {name: meta for name, meta in leftovers.items()},
+                    })
             return {
                 'session_id': int(continue_source_session_id),
                 'answer_count': int(updated_answer_count),
@@ -4737,7 +4820,11 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 'attempt_count_today_for_chain': 1,
                 'attempt_star_tiers': attempt_star_tiers,
                 'total_correct_percentage': (
-                    float(updated_right_count) * 100.0 / float(max(1, target_answer_count))
+                    (
+                        float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
+                        if uses_type_iii_audio
+                        else float(updated_right_count) * 100.0 / float(max(1, target_answer_count))
+                    )
                 ),
                 'achieved_gold_star': bool(achieved_gold_star),
                 'star_tier': star_tier,
@@ -4863,6 +4950,10 @@ def complete_session_internal(kid, kid_id, session_type, data):
         attempt_star_tiers = ['half_silver']
         achieved_gold_star = False
         star_tier = 'half_silver'
+    elif uses_type_iii_audio:
+        achieved_gold_star = False
+        star_tier = 'silver'
+        attempt_star_tiers = [star_tier]
     else:
         achieved_gold_star = bool(wrong_count == 0)
         star_tier = ('gold' if achieved_gold_star else 'silver')
@@ -4885,7 +4976,11 @@ def complete_session_internal(kid, kid_id, session_type, data):
         'attempt_count_today_for_chain': 1,
         'attempt_star_tiers': attempt_star_tiers,
         'total_correct_percentage': (
-            float(right_count) * 100.0 / float(max(1, target_answer_count))
+            (
+                float(len(answers)) * 100.0 / float(max(1, target_answer_count))
+                if uses_type_iii_audio
+                else float(right_count) * 100.0 / float(max(1, target_answer_count))
+            )
         ),
         'achieved_gold_star': achieved_gold_star,
         'star_tier': star_tier,
@@ -8460,6 +8555,7 @@ def start_writing_practice_session(kid_id):
         is_continue_session = continue_source_session is not None
         retry_source_session = None
         is_retry_session = False
+        selected_cards = []
         if is_continue_session:
             practiced_card_ids = get_session_practiced_card_ids(
                 conn,
@@ -8493,55 +8589,54 @@ def start_writing_practice_session(kid_id):
         else:
             retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
             is_retry_session = retry_source_session is not None
-        if is_retry_session:
-            retry_wrong_card_ids = get_retry_source_wrong_card_ids(
-                conn,
-                retry_source_session['session_id'],
-            )
-            selected_cards = build_retry_selected_cards_for_sources(
-                conn,
-                source_by_deck_id,
-                retry_wrong_card_ids,
-            )
-        else:
-            excluded_card_ids = list(set(pending_card_ids))
-            writing_session_count = get_category_session_card_count_for_kid(kid, category_key)
-            if writing_session_count <= 0:
-                conn.close()
-                return jsonify({
-                    'category_key': category_key,
-                    'pending_session_id': None,
-                    'cards': [],
-                    'planned_count': 0,
-                    'is_continue_session': False,
-                    'continue_source_session_id': None,
-                    'is_retry_session': False,
-                }), 200
-            preview_kid = with_preview_session_count_for_category(
-                kid,
-                category_key,
-                writing_session_count,
-            )
-            cards_by_id, selected_ids = plan_deck_practice_selection_for_decks(
-                conn,
-                preview_kid,
-                source_deck_ids,
-                category_key,
-                excluded_card_ids=excluded_card_ids
-            )
-            selected_cards = []
-            for card_id in selected_ids:
-                card = cards_by_id.get(card_id) or {}
-                local_deck_id = int(card.get('deck_id') or 0)
-                src = source_by_deck_id.get(local_deck_id) or {}
-                selected_cards.append({
-                    **card,
-                    'shared_deck_id': int(src['shared_deck_id']) if src.get('shared_deck_id') is not None else None,
-                    'deck_id': local_deck_id,
-                    'deck_name': str(src.get('local_name') or ''),
-                    'source_tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
-                    'source_is_orphan': bool(src.get('is_orphan')),
-                })
+            if is_retry_session:
+                retry_wrong_card_ids = get_retry_source_wrong_card_ids(
+                    conn,
+                    retry_source_session['session_id'],
+                )
+                selected_cards = build_retry_selected_cards_for_sources(
+                    conn,
+                    source_by_deck_id,
+                    retry_wrong_card_ids,
+                )
+            else:
+                excluded_card_ids = list(set(pending_card_ids))
+                writing_session_count = get_category_session_card_count_for_kid(kid, category_key)
+                if writing_session_count <= 0:
+                    conn.close()
+                    return jsonify({
+                        'category_key': category_key,
+                        'pending_session_id': None,
+                        'cards': [],
+                        'planned_count': 0,
+                        'is_continue_session': False,
+                        'continue_source_session_id': None,
+                        'is_retry_session': False,
+                    }), 200
+                preview_kid = with_preview_session_count_for_category(
+                    kid,
+                    category_key,
+                    writing_session_count,
+                )
+                cards_by_id, selected_ids = plan_deck_practice_selection_for_decks(
+                    conn,
+                    preview_kid,
+                    source_deck_ids,
+                    category_key,
+                    excluded_card_ids=excluded_card_ids
+                )
+                for card_id in selected_ids:
+                    card = cards_by_id.get(card_id) or {}
+                    local_deck_id = int(card.get('deck_id') or 0)
+                    src = source_by_deck_id.get(local_deck_id) or {}
+                    selected_cards.append({
+                        **card,
+                        'shared_deck_id': int(src['shared_deck_id']) if src.get('shared_deck_id') is not None else None,
+                        'deck_id': local_deck_id,
+                        'deck_name': str(src.get('local_name') or ''),
+                        'source_tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
+                        'source_is_orphan': bool(src.get('is_orphan')),
+                    })
         if len(selected_cards) == 0:
             conn.close()
             return jsonify({
