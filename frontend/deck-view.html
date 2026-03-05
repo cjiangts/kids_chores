@@ -44,6 +44,30 @@
             font-size: 0.95rem;
             padding: 0.4rem 0;
         }
+
+        .deck-edit-help {
+            color: #555;
+            margin-bottom: 0.7rem;
+            line-height: 1.35;
+        }
+
+        .deck-edit-textarea {
+            width: 100%;
+            min-height: 130px;
+            resize: vertical;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.9rem;
+            border: 1px solid #cfd7ea;
+            border-radius: 8px;
+            padding: 0.65rem 0.7rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .deck-edit-row {
+            display: flex;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -70,6 +94,16 @@
             </section>
 
             <section class="deck-panel">
+                <h2 class="deck-section-title">Edit Cards</h2>
+                <p class="deck-edit-help">Add cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed. You can also delete existing cards below.</p>
+                <textarea id="cardsInput" class="deck-edit-textarea" placeholder="1+1,2&#10;2+3,5"></textarea>
+                <div class="deck-edit-row">
+                    <button type="button" id="addCardsBtn" class="btn-primary">Add Cards</button>
+                    <button type="button" id="clearCardsInputBtn" class="btn-secondary">Clear</button>
+                </div>
+            </section>
+
+            <section class="deck-panel">
                 <h2 class="deck-section-title">Cards</h2>
                 <div id="emptyState" class="deck-empty hidden">No cards in this deck.</div>
                 <div id="tableWrap" class="deck-table-wrap hidden">
@@ -79,6 +113,7 @@
                                 <th class="table-col-80">#</th>
                                 <th>Front</th>
                                 <th>Back</th>
+                                <th class="table-col-120">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="cardsTableBody"></tbody>
@@ -86,6 +121,7 @@
                 </div>
             </section>
 
+            <div id="successMessage" class="success hidden"></div>
             <div id="errorMessage" class="error hidden"></div>
         </main>
     </div>

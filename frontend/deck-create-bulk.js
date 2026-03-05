@@ -246,7 +246,7 @@ function updateInputModeUi() {
         bulkInputSectionTitle.textContent = '2) Paste Deck Blocks';
     }
     if (bulkInputHelpText) {
-        bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then card rows as <code>front,back</code>. Separate blocks with a blank line.';
+        bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then card rows as <code>front,back</code> (spaces around <code>front</code>/<code>back</code> are automatically trimmed). Separate blocks with a blank line.';
     }
     bulkDeckInput.placeholder = 'ma3(马立平3年级)_unit1\n1+1,2\n2+3,5\n\nma3(马立平3年级)_unit2\n3+4,7\n5+1,6';
 }

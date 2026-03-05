@@ -113,8 +113,9 @@ def build_writing_front_tts_text(front_text, back_text, has_chinese_specific_log
     back_norm = normalize_writing_audio_text(back_text)
     if not front_norm:
         return ''
-    if bool(has_chinese_specific_logic) and back_norm and back_norm != front_norm:
-        return f"{back_norm}，{front_norm}"
+    _ = has_chinese_specific_logic  # keep arg for call-site compatibility
+    if back_norm and back_norm != front_norm:
+        return f"{back_norm}, {front_norm}"
     return front_norm
 
 
@@ -1118,6 +1119,22 @@ def get_shared_deck_cards(conn, deck_id):
     } for row in rows]
 
 
+def get_shared_deck_dedupe_key(conn, raw_tags):
+    """Resolve dedupe key for one shared deck from its category behavior."""
+    tags = extract_shared_deck_tags_and_labels(raw_tags)[0]
+    first_tag = normalize_shared_deck_tag(tags[0]) if tags else ''
+    if not first_tag:
+        return 'front'
+    row = conn.execute(
+        "SELECT behavior_type FROM deck_category WHERE category_key = ? LIMIT 1",
+        [first_tag]
+    ).fetchone()
+    behavior_type = normalize_shared_deck_category_behavior(row[0] if row else '')
+    if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II:
+        return 'back'
+    return 'front'
+
+
 def get_kid_card_fronts_for_deck_ids(conn, deck_ids):
     """Return distinct card fronts across selected kid-local deck ids."""
     normalized = []
@@ -1689,7 +1706,7 @@ def list_my_shared_decks():
 
 @kids_bp.route('/shared-decks/<int:deck_id>', methods=['GET'])
 def get_shared_deck_details(deck_id):
-    """Return one owned shared deck and cards for read-only view UI."""
+    """Return one owned shared deck and cards for view/edit UI."""
     try:
         auth_err = require_super_family()
         if auth_err:
@@ -1719,6 +1736,151 @@ def get_shared_deck_details(deck_id):
             },
             'card_count': len(cards),
             'cards': cards,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/<int:deck_id>/cards', methods=['POST'])
+def add_shared_deck_cards(deck_id):
+    """Add cards to one owned shared deck with category-aware dedupe."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        family_id_int = get_current_family_id_int()
+        if family_id_int is None:
+            if not current_family_id():
+                return jsonify({'error': 'Family login required'}), 401
+            return jsonify({'error': 'Invalid family id in session'}), 400
+
+        payload = request.get_json(silent=True) or {}
+        if isinstance(payload.get('cards'), list):
+            cards = normalize_shared_deck_cards(payload.get('cards'))
+        else:
+            front = str(payload.get('front') or '').strip()
+            back = str(payload.get('back') or '').strip()
+            if not front or not back:
+                return jsonify({'error': 'Provide cards[] or one front/back pair.'}), 400
+            cards = [{'front': front, 'back': back}]
+
+        conn = None
+        try:
+            conn = get_shared_decks_connection()
+            deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
+            if not deck_row:
+                return jsonify({'error': 'Deck not found'}), 404
+
+            dedupe_key = get_shared_deck_dedupe_key(conn, deck_row[2])
+            cards = (
+                dedupe_shared_deck_cards_by_back(cards)
+                if dedupe_key == 'back'
+                else dedupe_shared_deck_cards_by_front(cards)
+            )
+
+            existing_rows = conn.execute(
+                "SELECT front, back FROM cards WHERE deck_id = ?",
+                [deck_id]
+            ).fetchall()
+            existing_fronts = {str(row[0] or '') for row in existing_rows if str(row[0] or '')}
+            existing_backs = {str(row[1] or '') for row in existing_rows if str(row[1] or '')}
+
+            insert_rows = []
+            skipped_existing_front = 0
+            skipped_existing_back = 0
+            for card in cards:
+                front = str(card.get('front') or '')
+                back = str(card.get('back') or '')
+                if front in existing_fronts:
+                    skipped_existing_front += 1
+                    continue
+                if dedupe_key == 'back' and back in existing_backs:
+                    skipped_existing_back += 1
+                    continue
+                existing_fronts.add(front)
+                existing_backs.add(back)
+                insert_rows.append([deck_id, front, back])
+
+            if insert_rows:
+                conn.executemany(
+                    """
+                    INSERT INTO cards (deck_id, front, back)
+                    VALUES (?, ?, ?)
+                    """,
+                    insert_rows
+                )
+
+            card_count = int(conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
+                [deck_id]
+            ).fetchone()[0] or 0)
+        finally:
+            if conn is not None:
+                conn.close()
+
+        return jsonify({
+            'deck_id': int(deck_id),
+            'dedupe_key': dedupe_key,
+            'input_count': len(cards),
+            'inserted_count': len(insert_rows),
+            'skipped_existing_front': skipped_existing_front,
+            'skipped_existing_back': skipped_existing_back,
+            'skipped_existing_count': int(skipped_existing_front + skipped_existing_back),
+            'card_count': card_count,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        err = str(e).lower()
+        if 'unique' in err and 'front' in err:
+            return jsonify({'error': 'One or more cards already exist by front text in this deck.'}), 409
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/<int:deck_id>/cards/<int:card_id>', methods=['DELETE'])
+def delete_shared_deck_card(deck_id, card_id):
+    """Delete one card from one owned shared deck."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        family_id_int = get_current_family_id_int()
+        if family_id_int is None:
+            if not current_family_id():
+                return jsonify({'error': 'Family login required'}), 401
+            return jsonify({'error': 'Invalid family id in session'}), 400
+
+        conn = None
+        try:
+            conn = get_shared_decks_connection()
+            deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
+            if not deck_row:
+                return jsonify({'error': 'Deck not found'}), 404
+
+            card_row = conn.execute(
+                "SELECT id FROM cards WHERE id = ? AND deck_id = ? LIMIT 1",
+                [card_id, deck_id]
+            ).fetchone()
+            if not card_row:
+                return jsonify({'error': 'Card not found'}), 404
+
+            conn.execute(
+                "DELETE FROM cards WHERE id = ? AND deck_id = ?",
+                [card_id, deck_id]
+            )
+            card_count = int(conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
+                [deck_id]
+            ).fetchone()[0] or 0)
+        finally:
+            if conn is not None:
+                conn.close()
+
+        return jsonify({
+            'deleted': True,
+            'deck_id': int(deck_id),
+            'card_id': int(card_id),
+            'card_count': card_count,
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -4380,9 +4542,27 @@ def build_type_i_shared_decks_payload(
             else build_materialized_shared_deck_name(deck['deck_id'], deck['name'])
         )
         materialized_deck_id = int(local_entry['local_deck_id']) if local_entry else None
+        shared_card_count = int(deck.get('card_count') or 0)
+        materialized_card_count = (
+            int(local_card_count_by_deck_id.get(materialized_deck_id, 0))
+            if materialized_deck_id is not None
+            else None
+        )
         deck['materialized_name'] = materialized_name
         deck['opted_in'] = local_entry is not None
         deck['materialized_deck_id'] = materialized_deck_id
+        deck['shared_card_count'] = shared_card_count
+        deck['materialized_card_count'] = materialized_card_count
+        deck['has_update_warning'] = bool(
+            local_entry is not None
+            and materialized_card_count is not None
+            and materialized_card_count != shared_card_count
+        )
+        deck['update_warning_reason'] = (
+            'count_mismatch'
+            if bool(deck['has_update_warning'])
+            else ''
+        )
         deck['mix_percent'] = 0
         deck['session_cards'] = 0
 
@@ -4405,6 +4585,10 @@ def build_type_i_shared_decks_payload(
             'materialized_name': local_name,
             'opted_in': True,
             'materialized_deck_id': local_deck_id,
+            'shared_card_count': None,
+            'materialized_card_count': int(local_card_count_by_deck_id.get(local_deck_id, 0)),
+            'has_update_warning': True,
+            'update_warning_reason': 'source_deleted',
             'mix_percent': 0,
             'session_cards': 0,
             'source_deleted': True,
@@ -5315,13 +5499,32 @@ def build_shared_decks_listing_payload(
         shared_deck_id = int(deck['deck_id'])
         shared_deck_id_set.add(shared_deck_id)
         local_entry = local_by_shared_id.get(shared_deck_id)
+        materialized_deck_id = int(local_entry['local_deck_id']) if local_entry else None
+        shared_card_count = int(deck.get('card_count') or 0)
+        materialized_card_count = (
+            int(local_card_count_by_deck_id.get(materialized_deck_id, 0))
+            if materialized_deck_id is not None
+            else None
+        )
         deck['materialized_name'] = (
             str(local_entry['local_name'])
             if local_entry
             else build_materialized_shared_deck_name(deck['deck_id'], deck['name'])
         )
         deck['opted_in'] = local_entry is not None
-        deck['materialized_deck_id'] = int(local_entry['local_deck_id']) if local_entry else None
+        deck['materialized_deck_id'] = materialized_deck_id
+        deck['shared_card_count'] = shared_card_count
+        deck['materialized_card_count'] = materialized_card_count
+        deck['has_update_warning'] = bool(
+            local_entry is not None
+            and materialized_card_count is not None
+            and materialized_card_count != shared_card_count
+        )
+        deck['update_warning_reason'] = (
+            'count_mismatch'
+            if bool(deck['has_update_warning'])
+            else ''
+        )
         deck['mix_percent'] = 0
         deck['session_cards'] = 0
 
@@ -5343,6 +5546,10 @@ def build_shared_decks_listing_payload(
             'materialized_name': local_name,
             'opted_in': True,
             'materialized_deck_id': local_deck_id,
+            'shared_card_count': None,
+            'materialized_card_count': int(local_card_count_by_deck_id.get(local_deck_id, 0)),
+            'has_update_warning': True,
+            'update_warning_reason': 'source_deleted',
             'mix_percent': 0,
             'session_cards': 0,
             'source_deleted': True,

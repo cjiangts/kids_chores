@@ -520,6 +520,26 @@ function getType1DeckBubbleLabel(deck) {
     return stripped || String(deck && deck.name ? deck.name : '');
 }
 
+function hasDeckCountMismatchWarning(deck) {
+    if (!deck || !deck.opted_in) {
+        return false;
+    }
+    return Boolean(deck.has_update_warning);
+}
+
+function getDeckCountMismatchWarningText(deck) {
+    const reason = String(deck && deck.update_warning_reason ? deck.update_warning_reason : '').trim().toLowerCase();
+    if (reason === 'source_deleted' || Boolean(deck && deck.source_deleted)) {
+        return 'Shared source deck was deleted; local copy may be outdated.';
+    }
+    const sharedCount = Number.parseInt(deck && deck.shared_card_count, 10);
+    const materializedCount = Number.parseInt(deck && deck.materialized_card_count, 10);
+    if (!Number.isInteger(sharedCount) || !Number.isInteger(materializedCount)) {
+        return 'Shared deck changed since last opt-in (count mismatch).';
+    }
+    return `Shared deck changed (${sharedCount} shared vs ${materializedCount} local).`;
+}
+
 function getAvailableDeckCandidatesForTagFilter() {
     return (Array.isArray(allDecks) ? allDecks : []).filter(
         (deck) => !stagedOptedDeckIdSet.has(Number(deck.deck_id))
@@ -562,8 +582,11 @@ async function refreshDeckSelectionViews() {
 function renderSelectedDecks() {
     const optedDecks = getOptedDecks();
     const showOrphanInSelected = Boolean(orphanDeck) && stagedIncludeOrphanInQueue;
+    const warningCount = optedDecks.filter((deck) => hasDeckCountMismatchWarning(deck)).length;
     if (selectedDecksTitle) {
-        selectedDecksTitle.textContent = `Opted-in Decks (${optedDecks.length + (showOrphanInSelected ? 1 : 0)})`;
+        const total = optedDecks.length + (showOrphanInSelected ? 1 : 0);
+        const warningSuffix = warningCount > 0 ? ` · ⚠ ${warningCount}` : '';
+        selectedDecksTitle.textContent = `Opted-in Decks (${total}${warningSuffix})`;
     }
     const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : `${categoryKey}_orphan`);
     const orphanName = stripCategoryFirstTagFromName(orphanNameRaw) || orphanNameRaw;
@@ -573,13 +596,21 @@ function renderSelectedDecks() {
         const deckId = Number(deck.deck_id || 0);
         const suffix = ` · ${Number(deck.card_count || 0)} cards`;
         const label = getType1DeckBubbleLabel(deck);
+        const hasWarning = hasDeckCountMismatchWarning(deck);
+        const warningText = hasWarning ? getDeckCountMismatchWarningText(deck) : '';
+        const warningBadge = hasWarning
+            ? `<span class="deck-update-warning" title="${escapeHtml(warningText)}">⚠</span>`
+            : '';
+        const title = hasWarning
+            ? `${warningText} Click to stage opt-out`
+            : 'Click to stage opt-out';
         return `
             <button
                 type="button"
-                class="deck-bubble selected"
+                class="deck-bubble selected${hasWarning ? ' warning' : ''}"
                 data-deck-id="${deckId}"
-                title="Click to stage opt-out"
-            >${escapeHtml(label)}${escapeHtml(suffix)}</button>
+                title="${escapeHtml(title)}"
+            >${escapeHtml(label)}${escapeHtml(suffix)}${warningBadge}</button>
         `;
     });
 
@@ -906,17 +937,6 @@ function countType2ChineseTokensBeforeDbDedup(text) {
     return matches ? matches.length : 0;
 }
 
-function updateOrphanDerivedState(cards) {
-    const safeCards = Array.isArray(cards) ? cards : [];
-    const orphanCards = safeCards.filter((card) => !!card.source_is_orphan);
-    if (!orphanDeck) {
-        return;
-    }
-    orphanDeck.card_count = orphanCards.length;
-    orphanDeck.active_card_count = orphanCards.filter((card) => !card.skip_practice).length;
-    orphanDeck.skipped_card_count = orphanCards.filter((card) => !!card.skip_practice).length;
-}
-
 function applySuggestedType2SheetInputs() {
     if (!isType2Behavior() || !isChineseSpecificLogic || !sheetCardCountInput || !sheetRowsPerCharInput) {
         return;
@@ -1147,8 +1167,6 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
         if (hardnessController) {
             hardnessController.setCurrentValue(data.hard_card_percentage);
         }
-
-        updateOrphanDerivedState(currentCards);
 
         const skippedCount = Number.isInteger(Number.parseInt(data.skipped_card_count, 10))
             ? Number.parseInt(data.skipped_card_count, 10)

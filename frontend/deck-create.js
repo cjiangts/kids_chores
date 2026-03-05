@@ -238,7 +238,7 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. For type_ii categories, dedup is keyed by <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii categories, dedup is keyed by <code>back</code>.';
         }
         cardsCsvInput.placeholder = '听写提示,汉字答案';
         return;
@@ -248,7 +248,7 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. For type_ii categories, dedup is keyed by <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii categories, dedup is keyed by <code>back</code>.';
         }
         cardsCsvInput.placeholder = 'Prompt text,Answer text';
         return;
@@ -257,7 +257,7 @@ function updateCardsInputModeUi() {
         cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
     }
     if (cardsInputHelpText) {
-        cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>';
+        cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed.';
     }
     cardsCsvInput.placeholder = '1+1,2\n2+3,5';
 }
