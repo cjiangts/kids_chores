@@ -19,7 +19,6 @@ const deckCategoryOptedEmpty = document.getElementById('deckCategoryOptedEmpty')
 const deckCategoryConfirmBtn = document.getElementById('deckCategoryConfirmBtn');
 const deckCategoryCancelBtn = document.getElementById('deckCategoryCancelBtn');
 const errorMessage = document.getElementById('errorMessage');
-const kidBirthdayInput = document.getElementById('kidBirthday');
 const kidNameInput = document.getElementById('kidName');
 const manageDecksLink = document.getElementById('manageDecksLink');
 const {
@@ -42,7 +41,6 @@ let deckCategoryModalState = {
 document.addEventListener('DOMContentLoaded', async () => {
     await applySuperFamilyUi();
     loadKids();
-    bindBirthdayAutoFormat();
 });
 
 // Event Listeners
@@ -131,26 +129,11 @@ async function createKid() {
     try {
         isCreatingKid = true;
         const name = document.getElementById('kidName').value;
-        const birthday = document.getElementById('kidBirthday').value;
-
-        // Validate birthday format (YYYY-MM-DD)
-        const validationResult = validateBirthday(birthday);
-        if (!validationResult) {
-            showError('');
-            window.alert('Invalid birthday format! Please use YYYY-MM-DD (e.g., 2015-06-15)');
-            if (kidBirthdayInput) {
-                kidBirthdayInput.focus();
-            }
-            return;
-        }
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Creating...';
         if (kidNameInput) {
             kidNameInput.disabled = true;
-        }
-        if (kidBirthdayInput) {
-            kidBirthdayInput.disabled = true;
         }
 
         const response = await fetch(`${API_BASE}/kids`, {
@@ -158,7 +141,7 @@ async function createKid() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ name, birthday }),
+            body: JSON.stringify({ name }),
         });
 
         if (!response.ok) {
@@ -181,9 +164,6 @@ async function createKid() {
         submitBtn.textContent = 'Save';
         if (kidNameInput) {
             kidNameInput.disabled = false;
-        }
-        if (kidBirthdayInput) {
-            kidBirthdayInput.disabled = false;
         }
     }
 }
@@ -419,7 +399,6 @@ function displayKids(kids) {
     }
 
     kidsList.innerHTML = kids.map(kid => {
-        const age = calculateAge(kid.birthday);
         const optedInCategories = getOptedInDeckCategorySet(kid);
         const practiceTargetByCategory = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
         const categoryMetaMap = getDeckCategoryMetaMap(kid);
@@ -454,8 +433,6 @@ function displayKids(kids) {
         return `
             <div class="kid-card">
                 <h3>${escapeHtml(kid.name)}</h3>
-                <p class="age">Age: ${age} years old</p>
-                <p class="age">Birthday: ${formatDate(kid.birthday)}</p>
                 <div class="practice-config-list" onclick="event.stopPropagation()">
                     <div class="practice-config-row">
                         <a class="tab-link primary practice-manage-btn" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;">🧩 Opt-in Deck Category</a>
@@ -491,21 +468,4 @@ function showError(message) {
             errorMessage.classList.add('hidden');
         }
     }
-}
-
-function bindBirthdayAutoFormat() {
-    if (!kidBirthdayInput) {
-        return;
-    }
-    kidBirthdayInput.addEventListener('input', () => {
-        const digits = String(kidBirthdayInput.value || '').replace(/\D/g, '').slice(0, 8);
-        let formatted = digits;
-        if (digits.length > 4) {
-            formatted = `${digits.slice(0, 4)}-${digits.slice(4)}`;
-        }
-        if (digits.length > 6) {
-            formatted = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
-        }
-        kidBirthdayInput.value = formatted;
-    });
 }

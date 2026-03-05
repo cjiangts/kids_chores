@@ -71,6 +71,7 @@ MAX_LOGGED_RESPONSE_TIME_MS_BY_BEHAVIOR_TYPE = {
 _PENDING_SESSIONS = {}
 _PENDING_SESSIONS_LOCK = threading.Lock()
 PENDING_RETRY_SOURCE_SESSION_ID_KEY = 'retry_source_session_id'
+PENDING_CONTINUE_SOURCE_SESSION_ID_KEY = 'continue_source_session_id'
 
 
 def get_family_root(family_id):
@@ -2100,6 +2101,7 @@ def get_kid_dashboard_stats(kid):
             """
             SELECT
                 s.type,
+                COALESCE(s.planned_count, 0) AS planned_count,
                 COUNT(sr.id) AS answer_count,
                 COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
                 COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
@@ -2115,6 +2117,7 @@ def get_kid_dashboard_stats(kid):
             GROUP BY
                 s.id,
                 s.type,
+                s.planned_count,
                 s.retry_count,
                 s.retry_best_rety_correct_count,
                 s.started_at,
@@ -2131,26 +2134,29 @@ def get_kid_dashboard_stats(kid):
             session_type = normalize_shared_deck_tag(row[0])
             if not session_type or session_type not in category_meta_by_key:
                 continue
-            answer_count = int(row[1] or 0)
-            right_count = int(row[2] or 0)
-            wrong_count = int(row[3] or 0)
-            retry_count = max(0, int(row[4] or 0))
-            retry_best_rety = max(0, int(row[5] or 0))
-            target_answer_count = max(answer_count, right_count + wrong_count)
-            if target_answer_count <= 0:
+            planned_count = max(0, int(row[1] or 0))
+            answer_count = int(row[2] or 0)
+            right_count = int(row[3] or 0)
+            wrong_count = int(row[4] or 0)
+            retry_count = max(0, int(row[5] or 0))
+            retry_best_rety = max(0, int(row[6] or 0))
+            target_answer_count = max(planned_count, answer_count, right_count + wrong_count)
+            if target_answer_count <= 0 and planned_count <= 0:
                 continue
-            base_tier = 'gold' if right_count >= target_answer_count else 'silver'
+            is_incomplete = planned_count > 0 and answer_count < planned_count
+            base_tier = 'half_silver' if is_incomplete else ('gold' if right_count >= target_answer_count else 'silver')
             effective_best_total = right_count + retry_best_rety
             achieved_gold_after_retries = effective_best_total >= target_answer_count
 
             tiers = [base_tier]
-            for retry_index in range(retry_count):
-                is_last_retry = retry_index == (retry_count - 1)
-                tiers.append('gold' if achieved_gold_after_retries and is_last_retry else 'silver')
+            if not is_incomplete:
+                for retry_index in range(retry_count):
+                    is_last_retry = retry_index == (retry_count - 1)
+                    tiers.append('gold' if achieved_gold_after_retries and is_last_retry else 'silver')
             today_star_tiers[session_type].extend(tiers)
             today_counts[session_type] += len(tiers)
             today_counts['total'] += len(tiers)
-            effective_percent = float(effective_best_total) * 100.0 / float(target_answer_count)
+            effective_percent = float(effective_best_total) * 100.0 / float(max(1, target_answer_count))
             today_latest_percent[session_type] = max(0.0, min(100.0, effective_percent))
 
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
@@ -2513,7 +2519,7 @@ def get_kid_daily_star_tiers_by_deck_category(opted_in_category_keys, today_star
         tiers = []
         for raw in raw_tiers:
             tier = str(raw or '').strip().lower()
-            if tier in ('gold', 'silver'):
+            if tier in ('gold', 'silver', 'half_silver'):
                 tiers.append(tier)
         result[key] = tiers
     return result
@@ -2619,9 +2625,6 @@ def create_kid():
         if not data.get('name'):
             return jsonify({'error': 'Name is required'}), 400
 
-        if not data.get('birthday'):
-            return jsonify({'error': 'Birthday is required'}), 400
-
         family_id = current_family_id()
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
@@ -2630,7 +2633,6 @@ def create_kid():
         kid = metadata.add_kid({
             'familyId': family_id,
             'name': data['name'],
-            'birthday': data['birthday'],
             'createdAt': datetime.now().isoformat()
         })
         kid_id = kid['id']
@@ -3814,6 +3816,148 @@ def get_latest_retry_source_session_for_today(conn, kid, session_type):
     }
 
 
+def get_latest_unfinished_session_for_today(conn, kid, session_type):
+    """Return latest unfinished session for today when planned_count > answer_count."""
+    session_key = normalize_shared_deck_tag(session_type)
+    if not session_key:
+        return None
+    behavior_type = get_session_behavior_type(session_key)
+    if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III:
+        return None
+
+    day_start_utc, day_end_utc = get_kid_today_bounds_utc(kid)
+    row = conn.execute(
+        """
+        SELECT
+            s.id,
+            COALESCE(s.planned_count, 0) AS planned_count,
+            COUNT(sr.id) AS answer_count,
+            COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
+            COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+        FROM sessions s
+        LEFT JOIN session_results sr ON sr.session_id = s.id
+        WHERE s.type = ?
+          AND COALESCE(s.planned_count, 0) > 0
+          AND COALESCE(s.completed_at, s.started_at) >= ?
+          AND COALESCE(s.completed_at, s.started_at) < ?
+        GROUP BY s.id, s.planned_count, s.completed_at, s.started_at
+        HAVING COUNT(sr.id) < COALESCE(s.planned_count, 0)
+        ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
+        LIMIT 1
+        """,
+        [session_key, day_start_utc, day_end_utc],
+    ).fetchone()
+    if not row:
+        return None
+
+    session_id = int(row[0] or 0)
+    planned_count = max(0, int(row[1] or 0))
+    answer_count = max(0, int(row[2] or 0))
+    right_count = max(0, int(row[3] or 0))
+    wrong_count = max(0, int(row[4] or 0))
+    if session_id <= 0 or planned_count <= 0 or answer_count >= planned_count:
+        return None
+
+    return {
+        'session_id': session_id,
+        'planned_count': planned_count,
+        'answer_count': answer_count,
+        'right_count': right_count,
+        'wrong_count': wrong_count,
+    }
+
+
+def get_session_practiced_card_ids(conn, session_id):
+    """Return ordered unique card ids already practiced in one session."""
+    rows = conn.execute(
+        """
+        SELECT DISTINCT card_id
+        FROM session_results
+        WHERE session_id = ?
+          AND card_id IS NOT NULL
+        ORDER BY card_id ASC
+        """,
+        [int(session_id)],
+    ).fetchall()
+    card_ids = []
+    for row in rows:
+        try:
+            card_id = int(row[0])
+        except (TypeError, ValueError):
+            continue
+        if card_id > 0:
+            card_ids.append(card_id)
+    return card_ids
+
+
+def build_continue_selected_cards_for_decks(
+    conn,
+    kid,
+    deck_ids,
+    session_type,
+    missing_count,
+    *,
+    excluded_card_ids=None,
+):
+    """Build continuation card selection for one unfinished session."""
+    target_count = max(0, int(missing_count or 0))
+    normalized_deck_ids = []
+    seen_deck_ids = set()
+    for raw_deck_id in list(deck_ids or []):
+        try:
+            deck_id = int(raw_deck_id)
+        except (TypeError, ValueError):
+            continue
+        if deck_id <= 0 or deck_id in seen_deck_ids:
+            continue
+        normalized_deck_ids.append(deck_id)
+        seen_deck_ids.add(deck_id)
+    if target_count <= 0 or len(normalized_deck_ids) == 0:
+        return []
+
+    cards_by_id, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_practice_rankings_for_decks(
+        conn,
+        normalized_deck_ids,
+        session_type,
+        excluded_card_ids=excluded_card_ids,
+    )
+    if len(candidate_ids) == 0:
+        return []
+
+    ordered_ids = []
+    seen = set()
+    first_ids = _select_session_card_ids(
+        kid,
+        candidate_ids,
+        red_card_ids,
+        hard_ranked_ids,
+        attempt_ranked_ids,
+        session_type,
+    )
+    for card_id in first_ids:
+        if card_id not in seen:
+            ordered_ids.append(card_id)
+            seen.add(card_id)
+    for card_id in attempt_ranked_ids:
+        if card_id not in seen:
+            ordered_ids.append(card_id)
+            seen.add(card_id)
+    for card_id in candidate_ids:
+        if card_id not in seen:
+            ordered_ids.append(card_id)
+            seen.add(card_id)
+
+    selected_cards = []
+    for card_id in ordered_ids:
+        card = cards_by_id.get(card_id)
+        if not card:
+            continue
+        selected_cards.append(card)
+        if len(selected_cards) >= target_count:
+            break
+    return selected_cards
+
+
 def get_retry_source_wrong_card_ids(conn, source_session_id):
     """Return ordered unique wrong card ids from one source session."""
     rows = conn.execute(
@@ -3861,6 +4005,67 @@ def build_retry_ready_payload(conn, kid, category_key, source_by_deck_id):
         'is_retry_session': True,
         'retry_source_session_id': int(retry_source_session['session_id']),
         'retry_card_count': len(retry_cards),
+    }
+
+
+def build_special_session_ready_payload(
+    conn,
+    kid,
+    category_key,
+    *,
+    source_by_deck_id,
+    source_deck_ids,
+    excluded_card_ids=None,
+):
+    """Build continuation/retry readiness metadata for one category."""
+    continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
+    if continue_source_session is not None:
+        practiced_card_ids = get_session_practiced_card_ids(
+            conn,
+            continue_source_session['session_id'],
+        )
+        excluded_set = set()
+        for raw_card_id in list(excluded_card_ids or []):
+            try:
+                card_id = int(raw_card_id)
+            except (TypeError, ValueError):
+                continue
+            if card_id > 0:
+                excluded_set.add(card_id)
+        for raw_card_id in practiced_card_ids:
+            try:
+                card_id = int(raw_card_id)
+            except (TypeError, ValueError):
+                continue
+            if card_id > 0:
+                excluded_set.add(card_id)
+        missing_count = max(
+            0,
+            int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
+        )
+        continue_cards = build_continue_selected_cards_for_decks(
+            conn,
+            kid,
+            source_deck_ids,
+            category_key,
+            missing_count,
+            excluded_card_ids=list(excluded_set),
+        )
+        return {
+            'is_continue_session': True,
+            'continue_source_session_id': int(continue_source_session['session_id']),
+            'continue_card_count': len(continue_cards),
+            'is_retry_session': False,
+            'retry_source_session_id': None,
+            'retry_card_count': 0,
+        }
+
+    retry_payload = build_retry_ready_payload(conn, kid, category_key, source_by_deck_id)
+    return {
+        'is_continue_session': False,
+        'continue_source_session_id': None,
+        'continue_card_count': 0,
+        **retry_payload,
     }
 
 
@@ -4265,10 +4470,20 @@ def complete_session_internal(kid, kid_id, session_type, data):
         retry_source_session_id = int(pending.get(PENDING_RETRY_SOURCE_SESSION_ID_KEY) or 0)
     except (TypeError, ValueError):
         retry_source_session_id = 0
+    try:
+        continue_source_session_id = int(pending.get(PENDING_CONTINUE_SOURCE_SESSION_ID_KEY) or 0)
+    except (TypeError, ValueError):
+        continue_source_session_id = 0
     is_retry_session = (
         retry_source_session_id > 0
         and session_behavior_type in (DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_II)
     )
+    is_continue_session = (
+        continue_source_session_id > 0
+        and session_behavior_type in (DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_II)
+    )
+    if is_continue_session:
+        is_retry_session = False
     uploaded_type3_audio = data.get('_uploaded_type3_audio_by_card') if uses_type_iii_audio else {}
     if not isinstance(uploaded_type3_audio, dict):
         uploaded_type3_audio = {}
@@ -4386,6 +4601,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 'right_count': retry_right_count,
                 'wrong_count': retry_wrong_count,
                 'completed': True,
+                'is_continue_session': False,
+                'continue_source_session_id': None,
                 'is_retry_session': True,
                 'retry_source_session_id': int(retry_source_session_id),
                 'retry_count': updated_retry_count,
@@ -4400,6 +4617,130 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 ),
                 'achieved_gold_star': bool(achieved_gold_star),
                 'star_tier': ('gold' if achieved_gold_star else 'silver'),
+            }, 200
+
+        if is_continue_session:
+            source_row = conn.execute(
+                """
+                SELECT
+                    s.id,
+                    COALESCE(s.planned_count, 0) AS planned_count,
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                  AND s.type = ?
+                GROUP BY s.id, s.planned_count
+                """,
+                [continue_source_session_id, session_type],
+            ).fetchone()
+            if not source_row:
+                raise ValueError('Continue source session not found')
+
+            source_planned_count = max(0, int(source_row[1] or 0))
+            source_answer_count = max(0, int(source_row[2] or 0))
+            source_right_count = max(0, int(source_row[3] or 0))
+            source_wrong_count = max(0, int(source_row[4] or 0))
+            if source_planned_count <= 0:
+                raise ValueError('Continue source session has invalid planned count')
+
+            right_count = 0
+            wrong_count = 0
+            latest_response_by_card = {}
+            touched_card_ids = set()
+            for answer in answers:
+                card_id = answer.get('cardId')
+                known = answer.get('known')
+                response_time_ms = normalize_logged_response_time_ms(
+                    answer.get('responseTimeMs'),
+                    session_behavior_type=session_behavior_type,
+                )
+                correct_value = 1 if bool(known) else -1
+                if correct_value > 0:
+                    right_count += 1
+                elif correct_value < 0:
+                    wrong_count += 1
+                conn.execute(
+                    """
+                    INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    [continue_source_session_id, card_id, correct_value, response_time_ms]
+                )
+                touched_card_ids.add(card_id)
+                latest_response_by_card[card_id] = response_time_ms
+
+            _update_hardness_after_session(
+                conn,
+                session_behavior_type=session_behavior_type,
+                latest_response_by_card=latest_response_by_card,
+                touched_card_ids=touched_card_ids,
+                session_type=session_type,
+            )
+
+            conn.execute(
+                """
+                UPDATE sessions
+                SET completed_at = ?
+                WHERE id = ?
+                """,
+                [completed_at_utc, continue_source_session_id],
+            )
+            updated_row = conn.execute(
+                """
+                SELECT
+                    COALESCE(planned_count, 0),
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                GROUP BY s.id, s.planned_count
+                """,
+                [continue_source_session_id],
+            ).fetchone()
+            updated_planned_count = max(0, int(updated_row[0] or 0)) if updated_row else source_planned_count
+            updated_answer_count = max(0, int(updated_row[1] or 0)) if updated_row else (source_answer_count + len(answers))
+            updated_right_count = max(0, int(updated_row[2] or 0)) if updated_row else (source_right_count + right_count)
+            updated_wrong_count = max(0, int(updated_row[3] or 0)) if updated_row else (source_wrong_count + wrong_count)
+            target_answer_count = max(updated_planned_count, updated_answer_count, updated_right_count + updated_wrong_count)
+            is_incomplete = updated_planned_count > 0 and updated_answer_count < updated_planned_count
+            if is_incomplete:
+                attempt_star_tiers = ['half_silver']
+                achieved_gold_star = False
+                star_tier = 'half_silver'
+            else:
+                achieved_gold_star = updated_wrong_count == 0
+                star_tier = 'gold' if achieved_gold_star else 'silver'
+                attempt_star_tiers = [star_tier]
+
+            conn.execute("COMMIT")
+            conn.close()
+            return {
+                'session_id': int(continue_source_session_id),
+                'answer_count': int(updated_answer_count),
+                'planned_count': int(updated_planned_count),
+                'right_count': int(updated_right_count),
+                'wrong_count': int(updated_wrong_count),
+                'completed': True,
+                'is_continue_session': True,
+                'continue_source_session_id': int(continue_source_session_id),
+                'is_retry_session': False,
+                'retry_source_session_id': None,
+                'retry_count': 0,
+                'retry_total_response_ms': 0,
+                'retry_best_rety_correct_count': 0,
+                'target_answer_count': int(target_answer_count),
+                'attempt_count_today_for_chain': 1,
+                'attempt_star_tiers': attempt_star_tiers,
+                'total_correct_percentage': (
+                    float(updated_right_count) * 100.0 / float(max(1, target_answer_count))
+                ),
+                'achieved_gold_star': bool(achieved_gold_star),
+                'star_tier': star_tier,
             }, 200
 
         right_count = 0
@@ -4516,6 +4857,16 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 'type3_audio_dir': pending.get('type3_audio_dir'),
                 'type3_audio_by_card': {name: meta for name, meta in leftovers.items()},
             })
+    target_answer_count = int(max(planned_count, len(answers), right_count + wrong_count))
+    is_incomplete = planned_count > 0 and len(answers) < planned_count
+    if is_incomplete:
+        attempt_star_tiers = ['half_silver']
+        achieved_gold_star = False
+        star_tier = 'half_silver'
+    else:
+        achieved_gold_star = bool(wrong_count == 0)
+        star_tier = ('gold' if achieved_gold_star else 'silver')
+        attempt_star_tiers = [star_tier]
     return {
         'session_id': session_id,
         'answer_count': len(answers),
@@ -4523,19 +4874,21 @@ def complete_session_internal(kid, kid_id, session_type, data):
         'right_count': int(right_count),
         'wrong_count': int(wrong_count),
         'completed': True,
+        'is_continue_session': False,
+        'continue_source_session_id': None,
         'is_retry_session': False,
         'retry_source_session_id': None,
         'retry_count': 0,
         'retry_total_response_ms': 0,
         'retry_best_rety_correct_count': 0,
-        'target_answer_count': int(max(len(answers), right_count + wrong_count)),
+        'target_answer_count': target_answer_count,
         'attempt_count_today_for_chain': 1,
-        'attempt_star_tiers': [('gold' if wrong_count == 0 else 'silver')],
+        'attempt_star_tiers': attempt_star_tiers,
         'total_correct_percentage': (
-            float(right_count) * 100.0 / float(max(1, len(answers)))
+            float(right_count) * 100.0 / float(max(1, target_answer_count))
         ),
-        'achieved_gold_star': bool(wrong_count == 0),
-        'star_tier': ('gold' if wrong_count == 0 else 'silver'),
+        'achieved_gold_star': achieved_gold_star,
+        'star_tier': star_tier,
     }, 200
 
 
@@ -5596,9 +5949,45 @@ def start_type_i_practice_session_internal(
             if int(src.get('active_card_count') or 0) > 0
         ]
         source_by_deck_id = {int(src['local_deck_id']): src for src in included_sources}
-        retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
-        is_retry_session = retry_source_session is not None
-        if is_retry_session:
+        continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
+        is_continue_session = continue_source_session is not None
+        retry_source_session = None
+        is_retry_session = False
+        if is_continue_session:
+            practiced_card_ids = get_session_practiced_card_ids(
+                conn,
+                continue_source_session['session_id'],
+            )
+            missing_count = max(
+                0,
+                int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
+            )
+            continue_cards = build_continue_selected_cards_for_decks(
+                conn,
+                kid,
+                source_deck_ids,
+                category_key,
+                missing_count,
+                excluded_card_ids=practiced_card_ids,
+            )
+            selected_cards = []
+            for card in continue_cards:
+                local_deck_id = int(card.get('deck_id') or 0)
+                src = source_by_deck_id.get(local_deck_id) or {}
+                selected_cards.append({
+                    **card,
+                    'shared_deck_id': int(src['shared_deck_id']) if src.get('shared_deck_id') is not None else None,
+                    'deck_id': local_deck_id,
+                    'deck_name': str(src.get('local_name') or ''),
+                    'source_tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
+                    'source_is_orphan': bool(src.get('is_orphan')),
+                })
+        else:
+            retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
+            is_retry_session = retry_source_session is not None
+        if is_continue_session:
+            pass
+        elif is_retry_session:
             retry_wrong_card_ids = get_retry_source_wrong_card_ids(
                 conn,
                 retry_source_session['session_id'],
@@ -5642,6 +6031,12 @@ def start_type_i_practice_session_internal(
             payload = {'pending_session_id': None, 'cards': [], 'planned_count': 0}
             if include_category_key_in_response:
                 payload['category_key'] = category_key
+            payload['is_continue_session'] = bool(is_continue_session)
+            payload['continue_source_session_id'] = (
+                int(continue_source_session['session_id'])
+                if is_continue_session and continue_source_session is not None
+                else None
+            )
             payload['is_retry_session'] = bool(is_retry_session)
             payload['retry_source_session_id'] = (
                 int(retry_source_session['session_id'])
@@ -5655,6 +6050,8 @@ def start_type_i_practice_session_internal(
             'planned_count': len(selected_cards),
             'cards': [{'id': int(card['id'])} for card in selected_cards],
         }
+        if is_continue_session and continue_source_session is not None:
+            pending_session_payload[PENDING_CONTINUE_SOURCE_SESSION_ID_KEY] = int(continue_source_session['session_id'])
         if is_retry_session and retry_source_session is not None:
             pending_session_payload[PENDING_RETRY_SOURCE_SESSION_ID_KEY] = int(retry_source_session['session_id'])
         if isinstance(pending_session_payload_extras, dict):
@@ -5672,6 +6069,12 @@ def start_type_i_practice_session_internal(
         'pending_session_id': pending_session_id,
         'planned_count': len(selected_cards),
         'cards': selected_cards,
+        'is_continue_session': bool(is_continue_session),
+        'continue_source_session_id': (
+            int(continue_source_session['session_id'])
+            if is_continue_session and continue_source_session is not None
+            else None
+        ),
         'is_retry_session': bool(is_retry_session),
         'retry_source_session_id': (
             int(retry_source_session['session_id'])
@@ -6660,7 +7063,10 @@ def get_decks_for_scope(kid_id, category):
             category,
             request.args.get('categoryKey'),
         )
-        retry_ready_payload = {
+        special_ready_payload = {
+            'is_continue_session': False,
+            'continue_source_session_id': None,
+            'continue_card_count': 0,
             'is_retry_session': False,
             'retry_source_session_id': None,
             'retry_card_count': 0,
@@ -6678,11 +7084,13 @@ def get_decks_for_scope(kid_id, category):
                     src for src in sources
                     if bool(src.get('included_in_queue')) and int(src.get('active_card_count') or 0) > 0
                 ]
-                retry_ready_payload = build_retry_ready_payload(
+                source_deck_ids = [int(src['local_deck_id']) for src in included_sources]
+                special_ready_payload = build_special_session_ready_payload(
                     conn,
                     kid,
                     scope_context['category_key'],
-                    {int(src['local_deck_id']): src for src in included_sources},
+                    source_by_deck_id={int(src['local_deck_id']): src for src in included_sources},
+                    source_deck_ids=source_deck_ids,
                 )
             finally:
                 conn.close()
@@ -6698,11 +7106,19 @@ def get_decks_for_scope(kid_id, category):
                     src for src in sources
                     if bool(src.get('included_in_queue')) and int(src.get('active_card_count') or 0) > 0
                 ]
-                retry_ready_payload = build_retry_ready_payload(
+                source_deck_ids = [int(src['local_deck_id']) for src in included_sources]
+                pending_card_ids = (
+                    get_pending_writing_card_ids(conn)
+                    if bool(scope_context.get('has_chinese_specific_logic'))
+                    else []
+                )
+                special_ready_payload = build_special_session_ready_payload(
                     conn,
                     kid,
                     scope_context['category_key'],
-                    {int(src['local_deck_id']): src for src in included_sources},
+                    source_by_deck_id={int(src['local_deck_id']): src for src in included_sources},
+                    source_deck_ids=source_deck_ids,
+                    excluded_card_ids=pending_card_ids,
                 )
             finally:
                 conn.close()
@@ -6718,7 +7134,7 @@ def get_decks_for_scope(kid_id, category):
             'category_key': scope_context['category_key'],
             **payload,
             'has_chinese_specific_logic': bool(scope_context['has_chinese_specific_logic']),
-            **retry_ready_payload,
+            **special_ready_payload,
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -6809,16 +7225,6 @@ def get_shared_type2_cards(kid_id):
                 for src in practice_sources
                 if int(src.get('active_card_count') or 0) > 0
             ]
-            retry_ready_payload = build_retry_ready_payload(
-                conn,
-                kid,
-                category_key,
-                {
-                    int(src['local_deck_id']): src
-                    for src in practice_sources
-                    if int(src.get('active_card_count') or 0) > 0
-                },
-            )
 
             pending_card_ids = []
             pending_card_set = set()
@@ -6846,6 +7252,18 @@ def get_shared_type2_cards(kid_id):
                         candidate_reason_by_card[card_id] = ('never_seen', 'Newly added')
                     else:
                         candidate_reason_by_card[card_id] = ('last_failed', 'Last failed')
+            special_ready_payload = build_special_session_ready_payload(
+                conn,
+                kid,
+                category_key,
+                source_by_deck_id={
+                    int(src['local_deck_id']): src
+                    for src in practice_sources
+                    if int(src.get('active_card_count') or 0) > 0
+                },
+                source_deck_ids=practice_source_ids,
+                excluded_card_ids=pending_card_ids,
+            )
 
             preview_order = {}
             if practice_source_ids:
@@ -6972,7 +7390,7 @@ def get_shared_type2_cards(kid_id):
             'practicing_sheet_card_count': len(practicing_sheet_cards),
             'practicing_sheet_cards': practicing_sheet_cards,
             'cards': merged_cards,
-            **retry_ready_payload,
+            **special_ready_payload,
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -8037,8 +8455,44 @@ def start_writing_practice_session(kid_id):
         ]
         source_by_deck_id = {int(src['local_deck_id']): src for src in included_sources}
 
-        retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
-        is_retry_session = retry_source_session is not None
+        pending_card_ids = get_pending_writing_card_ids(conn) if has_chinese_specific_logic else []
+        continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
+        is_continue_session = continue_source_session is not None
+        retry_source_session = None
+        is_retry_session = False
+        if is_continue_session:
+            practiced_card_ids = get_session_practiced_card_ids(
+                conn,
+                continue_source_session['session_id'],
+            )
+            excluded_card_ids = list(set([*pending_card_ids, *practiced_card_ids]))
+            missing_count = max(
+                0,
+                int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
+            )
+            continue_cards = build_continue_selected_cards_for_decks(
+                conn,
+                kid,
+                source_deck_ids,
+                category_key,
+                missing_count,
+                excluded_card_ids=excluded_card_ids,
+            )
+            selected_cards = []
+            for card in continue_cards:
+                local_deck_id = int(card.get('deck_id') or 0)
+                src = source_by_deck_id.get(local_deck_id) or {}
+                selected_cards.append({
+                    **card,
+                    'shared_deck_id': int(src['shared_deck_id']) if src.get('shared_deck_id') is not None else None,
+                    'deck_id': local_deck_id,
+                    'deck_name': str(src.get('local_name') or ''),
+                    'source_tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
+                    'source_is_orphan': bool(src.get('is_orphan')),
+                })
+        else:
+            retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
+            is_retry_session = retry_source_session is not None
         if is_retry_session:
             retry_wrong_card_ids = get_retry_source_wrong_card_ids(
                 conn,
@@ -8050,7 +8504,6 @@ def start_writing_practice_session(kid_id):
                 retry_wrong_card_ids,
             )
         else:
-            pending_card_ids = get_pending_writing_card_ids(conn) if has_chinese_specific_logic else []
             excluded_card_ids = list(set(pending_card_ids))
             writing_session_count = get_category_session_card_count_for_kid(kid, category_key)
             if writing_session_count <= 0:
@@ -8060,6 +8513,8 @@ def start_writing_practice_session(kid_id):
                     'pending_session_id': None,
                     'cards': [],
                     'planned_count': 0,
+                    'is_continue_session': False,
+                    'continue_source_session_id': None,
                     'is_retry_session': False,
                 }), 200
             preview_kid = with_preview_session_count_for_category(
@@ -8094,6 +8549,12 @@ def start_writing_practice_session(kid_id):
                 'pending_session_id': None,
                 'cards': [],
                 'planned_count': 0,
+                'is_continue_session': bool(is_continue_session),
+                'continue_source_session_id': (
+                    int(continue_source_session['session_id'])
+                    if is_continue_session and continue_source_session is not None
+                    else None
+                ),
                 'is_retry_session': bool(is_retry_session),
                 'retry_source_session_id': (
                     int(retry_source_session['session_id'])
@@ -8107,6 +8568,8 @@ def start_writing_practice_session(kid_id):
             'planned_count': len(selected_cards),
             'cards': [{'id': int(card['id'])} for card in selected_cards],
         }
+        if is_continue_session and continue_source_session is not None:
+            pending_session_payload[PENDING_CONTINUE_SOURCE_SESSION_ID_KEY] = int(continue_source_session['session_id'])
         if is_retry_session and retry_source_session is not None:
             pending_session_payload[PENDING_RETRY_SOURCE_SESSION_ID_KEY] = int(retry_source_session['session_id'])
         pending_session_id = create_pending_session(
@@ -8137,6 +8600,12 @@ def start_writing_practice_session(kid_id):
             'pending_session_id': pending_session_id,
             'planned_count': len(cards_with_audio),
             'cards': cards_with_audio,
+            'is_continue_session': bool(is_continue_session),
+            'continue_source_session_id': (
+                int(continue_source_session['session_id'])
+                if is_continue_session and continue_source_session is not None
+                else None
+            ),
             'is_retry_session': bool(is_retry_session),
             'retry_source_session_id': (
                 int(retry_source_session['session_id'])

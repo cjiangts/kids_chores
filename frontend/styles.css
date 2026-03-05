@@ -135,6 +135,20 @@ body {
     opacity: 0.92;
 }
 
+.tier-emoji-star.half-silver {
+    -webkit-mask-image: linear-gradient(to right, #000 0 var(--star-fill-pct, 56%), transparent var(--star-fill-pct, 56%) 100%);
+    mask-image: linear-gradient(to right, #000 0 var(--star-fill-pct, 56%), transparent var(--star-fill-pct, 56%) 100%);
+}
+
+.practice-star-badge {
+    margin-top: 0.6rem;
+    min-height: 1.1rem;
+    color: var(--practice-today-color, #f3b400);
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
 .practice-page .controls {
     margin-bottom: 1rem;
 }
@@ -908,14 +922,35 @@ header p {
 
 .kid-card .daily-stars {
     margin-top: 10px;
-    font-size: 1.1rem;
     min-height: 1.2em;
     color: #f6b700;
+    display: grid;
+    gap: 6px;
+}
+
+.kid-card .daily-stars-row {
+    display: grid;
+    gap: 3px;
+}
+
+.kid-card .daily-stars-label {
+    display: block;
+    margin-top: 0;
+    min-height: 0;
+}
+
+.kid-card .daily-stars-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px;
+    align-items: center;
+    min-height: 1.1rem;
 }
 
 .kid-card .daily-stars.disabled {
     font-size: 0.85rem;
     color: #888;
+    display: block;
 }
 
 .kid-card .practice-config-list {

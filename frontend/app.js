@@ -76,13 +76,13 @@ function displayKids(kids) {
     }
 
     kidsList.innerHTML = kids.map(kid => {
-        const age = calculateAge(kid.birthday);
         const optedInKeys = getOptedInDeckCategoryKeys(kid);
         const dailyCompletedByCategory = getCategoryValueMap(kid?.dailyCompletedByDeckCategory);
         const dailyStarTiersByCategory = getCategoryRawValueMap(kid?.dailyStarTiersByDeckCategory);
+        const dailyPercentByCategory = getCategoryValueMap(kid?.dailyPercentByDeckCategory);
         const practiceTargetByCategory = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
 
-        const enabledLines = [];
+        const enabledRows = [];
         optedInKeys.forEach((categoryKey) => {
             const targetCount = Number(practiceTargetByCategory[categoryKey] || 0);
             const completedCount = Number(dailyCompletedByCategory[categoryKey] || 0);
@@ -93,29 +93,40 @@ function displayKids(kids) {
             const tiersFromPayload = Array.isArray(dailyStarTiersByCategory[categoryKey])
                 ? dailyStarTiersByCategory[categoryKey]
                     .map((tier) => String(tier || '').trim().toLowerCase())
-                    .filter((tier) => tier === 'gold' || tier === 'silver')
+                    .filter((tier) => tier === 'gold' || tier === 'silver' || tier === 'half_silver')
                 : [];
             const fallbackTiers = Array.from({ length: completedCount > 0 ? completedCount : 0 }, () => 'gold');
             const tiers = tiersFromPayload.length > 0 ? tiersFromPayload : fallbackTiers;
+            const rawPercent = Number.parseFloat(dailyPercentByCategory[categoryKey]);
+            const percentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
             const starsHtml = tiers.length > 0
                 ? tiers.map((tier) => (
                     tier === 'gold'
-                        ? '<span class="tier-emoji-star gold" aria-hidden="true">🌟</span>'
-                        : '<span class="tier-emoji-star silver" aria-hidden="true">⭐</span>'
+                        ? '<span class="tier-emoji-star gold" aria-hidden="true">⭐️</span>'
+                        : (tier === 'half_silver'
+                            ? `<span class="tier-emoji-star silver half-silver" aria-hidden="true" style="--star-fill-pct:${percentValue}%">⭐️</span>`
+                            : '<span class="tier-emoji-star silver" aria-hidden="true">⭐️</span>')
                 )).join('')
                 : '-';
-            enabledLines.push(
-                `${formatDeckCategoryLabel(categoryKey)}: ${starsHtml}`
-            );
+            enabledRows.push({
+                label: formatDeckCategoryLabel(categoryKey),
+                starsHtml,
+            });
         });
 
-        const dailyPracticeBadge = enabledLines.length > 0
-            ? `<p class="daily-stars">${enabledLines.join('<br>')}</p>`
-            : `<p class="daily-stars disabled">No daily practices assigned</p>`;
+        const dailyPracticeBadge = enabledRows.length > 0
+            ? `<div class="daily-stars">${
+                enabledRows.map((row) => (
+                    `<div class="daily-stars-row">
+                        <span class="daily-stars-label practice-star-badge">${escapeHtml(row.label)}:</span>
+                        <span class="daily-stars-strip">${row.starsHtml}</span>
+                    </div>`
+                )).join('')
+            }</div>`
+            : `<div class="daily-stars disabled">No daily practices assigned</div>`;
         return `
             <div class="kid-card" onclick="selectKid('${kid.id}')">
                 <h3>${escapeHtml(kid.name)}</h3>
-                <p class="age">${age} years old</p>
                 ${dailyPracticeBadge}
             </div>
         `;

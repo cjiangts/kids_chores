@@ -33,6 +33,13 @@ def _normalize(data: Dict) -> Dict:
             'familyTimezone': timezone_name,
             'superFamily': super_family,
         }
+    normalized_kids = []
+    for kid in data['kids']:
+        if not isinstance(kid, dict):
+            continue
+        next_kid = {key: value for key, value in kid.items() if key != 'birthday'}
+        normalized_kids.append(next_kid)
+    data['kids'] = normalized_kids
     if 'lastUpdated' not in data:
         data['lastUpdated'] = datetime.now().isoformat()
     return data

@@ -137,7 +137,7 @@ function getCategoryStarTiers(categoryKey, dailyStarTiersByCategory, dailyComple
     const tiersFromPayload = Array.isArray(dailyStarTiersByCategory?.[key])
         ? dailyStarTiersByCategory[key]
             .map((tier) => String(tier || '').trim().toLowerCase())
-            .filter((tier) => tier === 'gold' || tier === 'silver')
+            .filter((tier) => tier === 'gold' || tier === 'silver' || tier === 'half_silver')
         : [];
     if (tiersFromPayload.length > 0) {
         return tiersFromPayload;
@@ -154,12 +154,16 @@ function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyComple
     }
     const rawPercent = Number.parseFloat(dailyPercentByCategory?.[normalizeCategoryKey(categoryKey)]);
     const percentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
+    const halfSilverStyle = ` style="--star-fill-pct:${percentValue}%"`;
     const starsHtml = tiers.map((tier) => {
         const normalizedTier = String(tier || '').trim().toLowerCase();
         if (normalizedTier === 'gold') {
-            return '<span class="practice-star practice-star-gold" aria-hidden="true">🌟</span>';
+            return '<span class="practice-star practice-star-gold" aria-hidden="true">⭐️</span>';
         }
-        return '<span class="practice-star practice-star-silver" aria-hidden="true">⭐</span>';
+        if (normalizedTier === 'half_silver') {
+            return `<span class="practice-star practice-star-silver practice-star-half-silver" aria-hidden="true"${halfSilverStyle}>⭐️</span>`;
+        }
+        return '<span class="practice-star practice-star-silver" aria-hidden="true">⭐️</span>';
     }).join('');
     const goldCount = tiers.reduce((sum, tier) => (
         String(tier || '').trim().toLowerCase() === 'gold' ? (sum + 1) : sum
@@ -170,6 +174,9 @@ function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyComple
         goldCount - (latestTier === 'gold' ? 1 : 0),
     );
     const displayPercent = (previousGoldCount * 100) + percentValue;
+    if (latestTier === 'half_silver') {
+        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-encourage">${displayPercent}% · Finish your session first.</span>`;
+    }
     if (goldCount >= 3) {
         return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Incredible! Three gold stars!</span>`;
     }

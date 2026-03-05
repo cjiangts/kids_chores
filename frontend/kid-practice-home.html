@@ -45,15 +45,6 @@
             color: #333;
         }
 
-        .practice-star-badge {
-            margin-top: 0.6rem;
-            min-height: 1.1rem;
-            color: var(--practice-today-color);
-            font-weight: 700;
-            font-size: 1rem;
-            line-height: 1.35;
-        }
-
         .practice-star {
             display: inline-block;
             font-size: 1.03rem;
@@ -65,6 +56,11 @@
         .practice-star-silver {
             filter: grayscale(1) saturate(0) brightness(1.08);
             opacity: 0.92;
+        }
+
+        .practice-star-half-silver {
+            -webkit-mask-image: linear-gradient(to right, #000 0 var(--star-fill-pct, 56%), transparent var(--star-fill-pct, 56%) 100%);
+            mask-image: linear-gradient(to right, #000 0 var(--star-fill-pct, 56%), transparent var(--star-fill-pct, 56%) 100%);
         }
 
         .practice-star-note {

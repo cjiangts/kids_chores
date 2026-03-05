@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import tempfile
 from pathlib import Path
 import zipfile
@@ -57,12 +58,50 @@ def find_kid_dbs(data_root: Path) -> list[Path]:
     return [db for db in dbs if db.is_file()]
 
 
-def migrate_full_backup_zip(input_zip: Path, output_zip: Path) -> int:
+def strip_birthday_from_kids_metadata(raw_bytes: bytes) -> tuple[bytes, bool]:
+    try:
+        payload = json.loads(raw_bytes.decode("utf-8"))
+    except Exception:
+        return raw_bytes, False
+    if not isinstance(payload, dict):
+        return raw_bytes, False
+    kids = payload.get("kids")
+    if not isinstance(kids, list):
+        return raw_bytes, False
+    changed = False
+    for kid in kids:
+        if not isinstance(kid, dict):
+            continue
+        if "birthday" in kid:
+            kid.pop("birthday", None)
+            changed = True
+    if not changed:
+        return raw_bytes, False
+    return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"), True
+
+
+def migrate_kids_metadata_file(kids_json_path: Path) -> bool:
+    if not kids_json_path.exists() or not kids_json_path.is_file():
+        return False
+    raw = kids_json_path.read_bytes()
+    migrated, changed = strip_birthday_from_kids_metadata(raw)
+    if changed:
+        kids_json_path.write_bytes(migrated)
+    return changed
+
+
+def migrate_full_backup_zip(input_zip: Path, output_zip: Path) -> tuple[int, bool]:
     migrated_count = 0
+    metadata_changed = False
     with zipfile.ZipFile(input_zip, "r") as zin, zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zout:
         for info in zin.infolist():
             name = str(info.filename or "")
             data = zin.read(name)
+            if name == "kids.json":
+                migrated_json, changed = strip_birthday_from_kids_metadata(data)
+                zout.writestr(info, migrated_json)
+                metadata_changed = metadata_changed or changed
+                continue
             is_kid_db = (
                 name.startswith("families/family_")
                 and name.endswith(".db")
@@ -79,7 +118,7 @@ def migrate_full_backup_zip(input_zip: Path, output_zip: Path) -> int:
                 migrated_bytes = tmp_db.read_bytes()
             zout.writestr(info, migrated_bytes)
             migrated_count += 1
-    return migrated_count
+    return migrated_count, metadata_changed
 
 
 def main() -> None:
@@ -111,8 +150,10 @@ def main() -> None:
         if not input_zip.exists():
             raise SystemExit(f"Input zip not found: {input_zip}")
         output_zip.parent.mkdir(parents=True, exist_ok=True)
-        migrated = migrate_full_backup_zip(input_zip.resolve(), output_zip.resolve())
+        migrated, metadata_changed = migrate_full_backup_zip(input_zip.resolve(), output_zip.resolve())
         print(f"Migrated {migrated} kid DB file(s) in zip.")
+        if metadata_changed:
+            print("Removed legacy 'birthday' field from kids.json in zip.")
         print(f"Output: {output_zip.resolve()}")
         return
 
@@ -127,6 +168,10 @@ def main() -> None:
         migrate_one_db(db_path)
         migrated += 1
         print(f"Migrated: {db_path}")
+
+    metadata_changed = migrate_kids_metadata_file(data_root / "kids.json")
+    if metadata_changed:
+        print(f"Removed legacy 'birthday' field from: {data_root / 'kids.json'}")
 
     print(f"Done. Migrated {migrated} kid DB file(s).")
 
