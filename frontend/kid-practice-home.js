@@ -32,6 +32,7 @@ const {
     getOptedInDeckCategorySet,
     getOptedInDeckCategoryKeys,
     getCategoryValueMap,
+    getCategoryRawValueMap,
     getDeckCategoryMetaMap,
     getCategoryDisplayName,
     getCategoryEmoji,
@@ -131,11 +132,57 @@ async function loadWritingCards() {
     }
 }
 
-function getCategoryStarsText(categoryKey, dailyCompletedByCategory) {
+function getCategoryStarTiers(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory) {
     const key = normalizeCategoryKey(categoryKey);
+    const tiersFromPayload = Array.isArray(dailyStarTiersByCategory?.[key])
+        ? dailyStarTiersByCategory[key]
+            .map((tier) => String(tier || '').trim().toLowerCase())
+            .filter((tier) => tier === 'gold' || tier === 'silver')
+        : [];
+    if (tiersFromPayload.length > 0) {
+        return tiersFromPayload;
+    }
     const completedCount = Number.parseInt(dailyCompletedByCategory?.[key], 10);
     const safeCount = Number.isInteger(completedCount) ? Math.max(0, completedCount) : 0;
-    return safeCount > 0 ? `Today: ${'⭐'.repeat(safeCount)}` : 'Today: no stars yet';
+    return Array.from({ length: safeCount }, () => 'gold');
+}
+
+function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory) {
+    const tiers = getCategoryStarTiers(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory);
+    if (tiers.length === 0) {
+        return 'Today: no stars yet<br><span class="practice-star-note practice-star-note-encourage practice-star-note-encourage-zero">0% · Let\'s start and earn a star!</span>';
+    }
+    const rawPercent = Number.parseFloat(dailyPercentByCategory?.[normalizeCategoryKey(categoryKey)]);
+    const percentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
+    const starsHtml = tiers.map((tier) => {
+        const normalizedTier = String(tier || '').trim().toLowerCase();
+        if (normalizedTier === 'gold') {
+            return '<span class="practice-star practice-star-gold" aria-hidden="true">🌟</span>';
+        }
+        return '<span class="practice-star practice-star-silver" aria-hidden="true">⭐</span>';
+    }).join('');
+    const goldCount = tiers.reduce((sum, tier) => (
+        String(tier || '').trim().toLowerCase() === 'gold' ? (sum + 1) : sum
+    ), 0);
+    const latestTier = tiers[tiers.length - 1];
+    const previousGoldCount = Math.max(
+        0,
+        goldCount - (latestTier === 'gold' ? 1 : 0),
+    );
+    const displayPercent = (previousGoldCount * 100) + percentValue;
+    if (goldCount >= 3) {
+        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Incredible! Three gold stars!</span>`;
+    }
+    if (goldCount === 2) {
+        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Awesome! Two gold stars!</span>`;
+    }
+    if (displayPercent >= 100) {
+        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Good job!</span>`;
+    }
+    if (tiers.length >= 4) {
+        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Great effort today!</span>`;
+    }
+    return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-encourage">${displayPercent}% · Keep trying, you can do it!</span>`;
 }
 
 function getStaticPracticeOptionKeySet() {
@@ -161,6 +208,8 @@ function renderDynamicPracticeOptions({
     optedInCategoryKeys,
     categoryMetaMap,
     dailyCompletedByCategory,
+    dailyStarTiersByCategory,
+    dailyPercentByCategory,
     practiceTargetByCategory,
 }) {
     clearDynamicPracticeOptions();
@@ -197,7 +246,12 @@ function renderDynamicPracticeOptions({
 
         const stars = document.createElement('p');
         stars.className = 'practice-star-badge';
-        stars.textContent = getCategoryStarsText(key, dailyCompletedByCategory);
+        stars.innerHTML = getCategoryStarsHtml(
+            key,
+            dailyStarTiersByCategory,
+            dailyCompletedByCategory,
+            dailyPercentByCategory,
+        );
         button.appendChild(stars);
 
         practiceChooser.appendChild(button);
@@ -215,6 +269,8 @@ function renderPracticeOptions() {
     const optedInKeys = getOptedInDeckCategoryKeys(currentKid);
     const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
     const dailyCompletedByCategory = getCategoryValueMap(currentKid?.dailyCompletedByDeckCategory);
+    const dailyStarTiersByCategory = getCategoryRawValueMap(currentKid?.dailyStarTiersByDeckCategory);
+    const dailyPercentByCategory = getCategoryValueMap(currentKid?.dailyPercentByDeckCategory);
     const practiceTargetByCategory = getCategoryValueMap(currentKid?.practiceTargetByDeckCategory);
     const typeIChineseKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
     activeChineseCategoryKey = typeIChineseKey;
@@ -274,10 +330,10 @@ function renderPracticeOptions() {
         : '';
     const typeINonChineseEmoji = typeINonChineseKey ? getCategoryEmoji(typeINonChineseKey, categoryMetaMap) : '';
 
-    chineseStarBadge.textContent = getCategoryStarsText(typeIChineseKey, dailyCompletedByCategory);
-    writingStarBadge.textContent = getCategoryStarsText(typeIIKey, dailyCompletedByCategory);
-    mathStarBadge.textContent = getCategoryStarsText(typeINonChineseKey, dailyCompletedByCategory);
-    lessonReadingStarBadge.textContent = getCategoryStarsText(typeIIIKey, dailyCompletedByCategory);
+    chineseStarBadge.innerHTML = getCategoryStarsHtml(typeIChineseKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory);
+    writingStarBadge.innerHTML = getCategoryStarsHtml(typeIIKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory);
+    mathStarBadge.innerHTML = getCategoryStarsHtml(typeINonChineseKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory);
+    lessonReadingStarBadge.innerHTML = getCategoryStarsHtml(typeIIIKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory);
     if (chinesePracticeOption) {
         if (typeIChineseKey) {
             chinesePracticeOption.setAttribute('data-category-key', typeIChineseKey);
@@ -331,6 +387,8 @@ function renderPracticeOptions() {
         optedInCategoryKeys: optedInKeys,
         categoryMetaMap,
         dailyCompletedByCategory,
+        dailyStarTiersByCategory,
+        dailyPercentByCategory,
         practiceTargetByCategory,
     });
     practiceSection.classList.remove('hidden');

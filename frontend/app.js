@@ -9,6 +9,7 @@ const familyLogoutLink = document.getElementById('familyLogoutLink');
 const {
     getOptedInDeckCategoryKeys,
     getCategoryValueMap,
+    getCategoryRawValueMap,
 } = window.DeckCategoryCommon;
 
 // Load kids on page load
@@ -78,6 +79,7 @@ function displayKids(kids) {
         const age = calculateAge(kid.birthday);
         const optedInKeys = getOptedInDeckCategoryKeys(kid);
         const dailyCompletedByCategory = getCategoryValueMap(kid?.dailyCompletedByDeckCategory);
+        const dailyStarTiersByCategory = getCategoryRawValueMap(kid?.dailyStarTiersByDeckCategory);
         const practiceTargetByCategory = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
 
         const enabledLines = [];
@@ -88,8 +90,22 @@ function displayKids(kids) {
             if (!isAssigned) {
                 return;
             }
+            const tiersFromPayload = Array.isArray(dailyStarTiersByCategory[categoryKey])
+                ? dailyStarTiersByCategory[categoryKey]
+                    .map((tier) => String(tier || '').trim().toLowerCase())
+                    .filter((tier) => tier === 'gold' || tier === 'silver')
+                : [];
+            const fallbackTiers = Array.from({ length: completedCount > 0 ? completedCount : 0 }, () => 'gold');
+            const tiers = tiersFromPayload.length > 0 ? tiersFromPayload : fallbackTiers;
+            const starsHtml = tiers.length > 0
+                ? tiers.map((tier) => (
+                    tier === 'gold'
+                        ? '<span class="tier-emoji-star gold" aria-hidden="true">🌟</span>'
+                        : '<span class="tier-emoji-star silver" aria-hidden="true">⭐</span>'
+                )).join('')
+                : '-';
             enabledLines.push(
-                `${formatDeckCategoryLabel(categoryKey)}: ${completedCount > 0 ? '⭐'.repeat(completedCount) : '-'}`
+                `${formatDeckCategoryLabel(categoryKey)}: ${starsHtml}`
             );
         });
 

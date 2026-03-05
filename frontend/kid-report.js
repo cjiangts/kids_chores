@@ -144,7 +144,7 @@ function renderTablePage() {
     const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
 
     if (sessions.length === 0 || view.pageItems.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="8" style="color:#666;">No practice sessions yet.</td></tr>`;
+        reportBody.innerHTML = `<tr><td colspan="11" style="color:#666;">No practice sessions yet.</td></tr>`;
         return;
     }
 
@@ -158,6 +158,9 @@ function renderTablePage() {
             <td>${safeNum(session.answer_count)}</td>
             <td>${safeNum(session.right_count)}</td>
             <td>${safeNum(session.wrong_count)}</td>
+            <td>${formatRetryMinutes(session)}</td>
+            <td>${safeNum(session.retry_count)}</td>
+            <td>${safeNum(session.retry_best_rety_correct_count)}</td>
         </tr>
     `).join('');
 }
@@ -168,7 +171,7 @@ function renderDailyMinutesChart(sessions) {
     const categoryLabelByKey = new Map();
 
     sessions.forEach((session) => {
-        const minutes = getSessionResponseMinutes(session);
+        const minutes = getSessionCombinedActiveMinutes(session);
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
         const sessionType = normalizeCategoryKey(session.type);
@@ -311,7 +314,7 @@ function buildCategoryThemeByKey(sessions) {
         }
         totalsByKey.set(
             categoryKey,
-            (Number(totalsByKey.get(categoryKey)) || 0) + getSessionResponseMinutes(session),
+            (Number(totalsByKey.get(categoryKey)) || 0) + getSessionCombinedActiveMinutes(session),
         );
         countByKey.set(categoryKey, (Number(countByKey.get(categoryKey)) || 0) + 1);
     }
@@ -432,6 +435,11 @@ function formatResponseMinutes(session) {
     return minutes.toFixed(1);
 }
 
+function formatRetryMinutes(session) {
+    const minutes = getSessionRetryResponseMinutes(session);
+    return minutes.toFixed(1);
+}
+
 function safeNum(value) {
     const num = Number(value);
     return Number.isFinite(num) ? num : 0;
@@ -479,12 +487,25 @@ function getSessionResponseMinutes(session) {
     return Math.max(0, totalResponseMs / 60000);
 }
 
+function getSessionRetryResponseMinutes(session) {
+    if (!session || typeof session !== 'object') return 0;
+    const retryResponseMs = Number(session.retry_total_response_ms);
+    if (!Number.isFinite(retryResponseMs)) {
+        return 0;
+    }
+    return Math.max(0, retryResponseMs / 60000);
+}
+
+function getSessionCombinedActiveMinutes(session) {
+    return getSessionResponseMinutes(session) + getSessionRetryResponseMinutes(session);
+}
+
 function summarizeSessions(sessions) {
     const list = Array.isArray(sessions) ? sessions : [];
     return {
         count: list.length,
         elapsedMinutes: list.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0),
-        activeMinutes: list.reduce((sum, session) => sum + getSessionResponseMinutes(session), 0),
+        activeMinutes: list.reduce((sum, session) => sum + getSessionCombinedActiveMinutes(session), 0),
     };
 }
 

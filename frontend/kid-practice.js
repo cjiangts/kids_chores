@@ -14,6 +14,7 @@ const startScreen = document.getElementById('startScreen');
 const sessionScreen = document.getElementById('sessionScreen');
 const resultScreen = document.getElementById('resultScreen');
 const sessionInfo = document.getElementById('sessionInfo');
+const retrySessionBadge = document.getElementById('retrySessionBadge');
 const progress = document.getElementById('progress');
 const progressFill = document.getElementById('progressFill');
 const flashcard = document.getElementById('flashcard');
@@ -31,6 +32,7 @@ const recordingStatusText = document.getElementById('recordingStatusText');
 const reviewAudio = document.getElementById('reviewAudio');
 const startBtn = document.getElementById('startBtn');
 const finishEarlyBtn = document.getElementById('finishEarlyBtn');
+const resultStarBadge = document.getElementById('resultStarBadge');
 const resultSummary = document.getElementById('resultSummary');
 const judgeModeRow = document.getElementById('judgeModeRow');
 const judgeModeToggleStart = document.getElementById('judgeModeToggleStart');
@@ -73,6 +75,9 @@ const state = {
     behaviorType: '',
     hasChineseSpecificLogic: false,
     configuredSessionCount: 0,
+    readyIsRetrySession: false,
+    readyRetrySourceSessionId: null,
+    readyRetryCardCount: 0,
     availableCards: [],
     sessionCards: [],
     activePendingSessionId: null,
@@ -381,6 +386,18 @@ async function loadReadyState() {
     }
 }
 
+function resetReadyRetryState() {
+    state.readyIsRetrySession = false;
+    state.readyRetrySourceSessionId = null;
+    state.readyRetryCardCount = 0;
+}
+
+function applyReadyRetryState(payload) {
+    state.readyIsRetrySession = Boolean(payload?.is_retry_session);
+    state.readyRetrySourceSessionId = Number.parseInt(payload?.retry_source_session_id, 10) || null;
+    state.readyRetryCardCount = Math.max(0, Number.parseInt(payload?.retry_card_count, 10) || 0);
+}
+
 async function loadType1ReadyState() {
     showError('');
     const decksResponse = await fetch(buildType1ApiUrl('decks'));
@@ -389,6 +406,8 @@ async function loadType1ReadyState() {
     }
 
     const decksData = await decksResponse.json();
+    resetReadyRetryState();
+    applyReadyRetryState(decksData);
     if (typeof decksData?.has_chinese_specific_logic === 'boolean') {
         state.hasChineseSpecificLogic = Boolean(decksData.has_chinese_specific_logic);
         applyPageTypeClasses();
@@ -400,21 +419,34 @@ async function loadType1ReadyState() {
         return Number(deck.total_cards || 0) > 0 && Number(deck.session_count || 0) > 0;
     });
     const itemNoun = state.hasChineseSpecificLogic ? 'cards' : 'questions';
+    const targetCount = state.readyIsRetrySession
+        ? state.readyRetryCardCount
+        : state.configuredSessionCount;
 
-    if (state.configuredSessionCount <= 0) {
+    if (!state.readyIsRetrySession && state.configuredSessionCount <= 0) {
         practiceSection.classList.add('hidden');
         showError(`${getCurrentCategoryDisplayName()} practice is off. Ask your parent to set a session count in Manage ${getCurrentCategoryDisplayName()}.`);
         return;
     }
 
-    if (!availableWithConfig) {
+    if (targetCount <= 0) {
+        practiceSection.classList.add('hidden');
+        if (state.readyIsRetrySession) {
+            showError(`Retry session has no available ${itemNoun} right now. Ask your parent to check deck settings.`);
+            return;
+        }
+        showError(`No ${getCurrentCategoryDisplayName()} ${itemNoun} available for current deck settings.`);
+        return;
+    }
+
+    if (!state.readyIsRetrySession && !availableWithConfig) {
         practiceSection.classList.add('hidden');
         showError(`No ${getCurrentCategoryDisplayName()} ${itemNoun} available for current deck settings.`);
         return;
     }
 
     practiceSection.classList.remove('hidden');
-    resetToStartScreen(state.configuredSessionCount);
+    resetToStartScreen(targetCount);
 }
 
 async function loadType2ReadyState() {
@@ -425,8 +457,16 @@ async function loadType2ReadyState() {
     }
 
     const data = await response.json();
+    resetReadyRetryState();
+    applyReadyRetryState(data);
     state.availableCards = (data.cards || []).filter((card) => card.available_for_practice !== false);
-    if (state.availableCards.length === 0) {
+    if (state.readyIsRetrySession && state.readyRetryCardCount <= 0) {
+        practiceSection.classList.add('hidden');
+        showError('Retry session has no available cards right now. Ask your parent to check deck settings.');
+        return;
+    }
+
+    if (!state.readyIsRetrySession && state.availableCards.length === 0) {
         practiceSection.classList.add('hidden');
         showError(`No ${getCurrentCategoryDisplayName()} cards yet. Ask your parent to add some first.`);
         return;
@@ -444,6 +484,8 @@ async function loadType3ReadyState() {
     }
 
     const data = await response.json();
+    resetReadyRetryState();
+    applyReadyRetryState(data);
     const total = Number.parseInt(data.total_session_count, 10) || 0;
     const deckList = Array.isArray(data.decks) ? data.decks : [];
     const availableWithConfig = deckList.some((deck) => {
@@ -499,11 +541,14 @@ function resetBaseSessionState() {
 
     state.wrongCardsInSession = [];
     resetBonusGame();
+    renderResultStarStrip([]);
 }
 
 function resetToStartScreen(totalCards = 0) {
     let target = Math.max(0, Number.parseInt(totalCards, 10) || 0);
-    if (isType(BEHAVIOR_TYPE_II)) {
+    if (state.readyIsRetrySession) {
+        target = Math.max(0, Number.parseInt(state.readyRetryCardCount, 10) || 0);
+    } else if (isType(BEHAVIOR_TYPE_II)) {
         const practiceTargetByCategory = window.DeckCategoryCommon.getCategoryValueMap(
             state.currentKid?.practiceTargetByDeckCategory
         );
@@ -517,6 +562,12 @@ function resetToStartScreen(totalCards = 0) {
         sessionInfo.textContent = `Session: ${target} questions`;
     } else {
         sessionInfo.textContent = `Session: ${target} cards`;
+    }
+    startTitle.textContent = state.readyIsRetrySession
+        ? `Retry ${getCurrentCategoryDisplayName()}`
+        : `Ready for ${getCurrentCategoryDisplayName()}?`;
+    if (retrySessionBadge) {
+        retrySessionBadge.classList.toggle('hidden', !state.readyIsRetrySession);
     }
 
     resetBaseSessionState();
@@ -1478,6 +1529,8 @@ async function endType1Session(endedEarly = false) {
                 ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
                 : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
         );
+    let achievedGoldStar = state.wrongCount === 0;
+    let attemptStarTiers = [achievedGoldStar ? 'gold' : 'silver'];
 
     if (hasBonusGameForCategory()) {
         showBonusGameForWrongCards();
@@ -1486,16 +1539,36 @@ async function endType1Session(endedEarly = false) {
     }
 
     try {
-        await window.PracticeSessionFlow.postCompleteSession(
+        const response = await window.PracticeSessionFlow.postCompleteSession(
             buildType1ApiUrl('practice/complete'),
             state.activePendingSessionId,
             state.sessionAnswers,
             { categoryKey: state.categoryKey }
         );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        if (typeof payload?.achieved_gold_star === 'boolean') {
+            achievedGoldStar = Boolean(payload.achieved_gold_star);
+        }
+        const payloadTiers = Array.isArray(payload?.attempt_star_tiers)
+            ? payload.attempt_star_tiers
+            : [];
+        if (payloadTiers.length > 0) {
+            attemptStarTiers = payloadTiers;
+        } else {
+            const attempts = Math.max(1, Number.parseInt(payload?.attempt_count_today_for_chain, 10) || 1);
+            attemptStarTiers = Array.from(
+                { length: attempts },
+                (_, index) => (achievedGoldStar && index === attempts - 1 ? 'gold' : 'silver'),
+            );
+        }
     } catch (error) {
         console.error('Error completing type-I session:', error);
         showError('Failed to save session results');
     }
+    renderResultStarStrip(attemptStarTiers);
 
     window.PracticeSession.clearSessionStart(state.activePendingSessionId);
     updateFinishEarlyButtonState();
@@ -1516,18 +1589,40 @@ async function endType2Session(endedEarly = false) {
     resultSummary.textContent = endedEarly
         ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
         : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`;
+    let achievedGoldStar = state.wrongCount === 0;
+    let attemptStarTiers = [achievedGoldStar ? 'gold' : 'silver'];
 
     try {
-        await window.PracticeSessionFlow.postCompleteSession(
+        const response = await window.PracticeSessionFlow.postCompleteSession(
             buildType2ApiUrl('/practice/complete'),
             state.activePendingSessionId,
             state.sessionAnswers,
             { categoryKey: state.categoryKey }
         );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        if (typeof payload?.achieved_gold_star === 'boolean') {
+            achievedGoldStar = Boolean(payload.achieved_gold_star);
+        }
+        const payloadTiers = Array.isArray(payload?.attempt_star_tiers)
+            ? payload.attempt_star_tiers
+            : [];
+        if (payloadTiers.length > 0) {
+            attemptStarTiers = payloadTiers;
+        } else {
+            const attempts = Math.max(1, Number.parseInt(payload?.attempt_count_today_for_chain, 10) || 1);
+            attemptStarTiers = Array.from(
+                { length: attempts },
+                (_, index) => (achievedGoldStar && index === attempts - 1 ? 'gold' : 'silver'),
+            );
+        }
     } catch (error) {
         console.error('Error completing type-II session:', error);
         showError('Failed to save session results');
     }
+    renderResultStarStrip(attemptStarTiers);
 
     window.PracticeSession.clearSessionStart(state.activePendingSessionId);
     updateFinishEarlyButtonState();
@@ -1550,6 +1645,7 @@ async function endType3Session(endedEarly = false) {
     resultSummary.textContent = endedEarly
         ? `Ended early · Completed: ${state.completedCount} cards`
         : `Completed: ${state.completedCount} cards`;
+    renderResultStarStrip([]);
 
     try {
         const payload = window.PracticeSession.buildCompletePayload(
@@ -1663,6 +1759,28 @@ function setResultBackToPracticeVisible(visible) {
         return;
     }
     resultBackToPractice.classList.toggle('hidden', !visible);
+}
+
+function renderResultStarStrip(starTiers) {
+    if (!resultStarBadge) {
+        return;
+    }
+    const tiers = Array.isArray(starTiers)
+        ? starTiers
+            .map((tier) => String(tier || '').trim().toLowerCase())
+            .filter((tier) => tier === 'gold' || tier === 'silver')
+        : [];
+    if (tiers.length === 0) {
+        resultStarBadge.textContent = '';
+        resultStarBadge.classList.add('hidden');
+        return;
+    }
+    resultStarBadge.classList.remove('hidden');
+    resultStarBadge.innerHTML = `Today: ${tiers.map((tier) => (
+        tier === 'gold'
+            ? '<span class="tier-emoji-star gold" aria-hidden="true">🌟</span>'
+            : '<span class="tier-emoji-star silver" aria-hidden="true">⭐</span>'
+    )).join('')}`;
 }
 
 function resetBonusGame() {

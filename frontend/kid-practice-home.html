@@ -7,6 +7,11 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
+        :root {
+            --practice-today-color: #f3b400;
+            --practice-encourage-color: #b45309;
+        }
+
         .practice-container {
             max-width: 600px;
         }
@@ -43,9 +48,41 @@
         .practice-star-badge {
             margin-top: 0.6rem;
             min-height: 1.1rem;
-            color: #f3b400;
+            color: var(--practice-today-color);
             font-weight: 700;
             font-size: 1rem;
+            line-height: 1.35;
+        }
+
+        .practice-star {
+            display: inline-block;
+            font-size: 1.03rem;
+            line-height: 1;
+            margin-right: 0.02rem;
+            vertical-align: -0.02rem;
+        }
+
+        .practice-star-silver {
+            filter: grayscale(1) saturate(0) brightness(1.08);
+            opacity: 0.92;
+        }
+
+        .practice-star-note {
+            display: block;
+            margin-top: 0.3rem;
+            font-size: 0.86rem;
+        }
+
+        .practice-star-note-good {
+            color: #15803d;
+        }
+
+        .practice-star-note-encourage {
+            color: var(--practice-encourage-color);
+        }
+
+        .practice-star-note-encourage-zero {
+            color: var(--practice-encourage-color);
         }
 
         @media (max-width: 768px) {

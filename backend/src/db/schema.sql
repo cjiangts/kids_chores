@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),
   type VARCHAR NOT NULL,  -- deck_category key
   planned_count INTEGER,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  retry_total_response_ms BIGINT NOT NULL DEFAULT 0,
+  retry_best_rety_correct_count INTEGER NOT NULL DEFAULT 0,
   started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP
 );

@@ -122,6 +122,19 @@ body {
     font-size: 1.5rem;
 }
 
+.tier-emoji-star {
+    display: inline-block;
+    font-size: 1.03rem;
+    line-height: 1;
+    margin-right: 0.02rem;
+    vertical-align: -0.02rem;
+}
+
+.tier-emoji-star.silver {
+    filter: grayscale(1) saturate(0) brightness(1.08);
+    opacity: 0.92;
+}
+
 .practice-page .controls {
     margin-bottom: 1rem;
 }
