@@ -63,6 +63,24 @@ function formatDeckCategoryLabel(categoryKey) {
         .join(' ');
 }
 
+function clampPercent(value, fallback = 100) {
+    const raw = Number.parseFloat(value);
+    if (!Number.isFinite(raw)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
+function renderProgressBadgeByTier(tier, fillPercent, isLatestTier) {
+    const normalizedTier = String(tier || '').trim().toLowerCase();
+    const effectiveFill = clampPercent(isLatestTier ? fillPercent : 100, 100);
+    if (normalizedTier === 'half_silver') {
+        return `<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
+    }
+    if (normalizedTier === 'silver') {
+        return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
+    }
+    return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
+}
+
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
@@ -99,14 +117,11 @@ function displayKids(kids) {
             const tiers = tiersFromPayload.length > 0 ? tiersFromPayload : fallbackTiers;
             const rawPercent = Number.parseFloat(dailyPercentByCategory[categoryKey]);
             const percentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
+            const lastTierIndex = Math.max(0, tiers.length - 1);
             const starsHtml = tiers.length > 0
-                ? tiers.map((tier) => (
-                    tier === 'gold'
-                        ? '<span class="tier-emoji-star gold" aria-hidden="true">⭐️</span>'
-                        : (tier === 'half_silver'
-                            ? `<span class="tier-emoji-star silver half-silver" aria-hidden="true" style="--star-fill-pct:${percentValue}%">⭐️</span>`
-                            : '<span class="tier-emoji-star silver" aria-hidden="true">⭐️</span>')
-                )).join('')
+                ? `<span class="progress-badge-strip">${tiers.map((tier, index) => (
+                    renderProgressBadgeByTier(tier, percentValue, index === lastTierIndex)
+                )).join('')}</span>`
                 : '-';
             enabledRows.push({
                 label: formatDeckCategoryLabel(categoryKey),

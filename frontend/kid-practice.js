@@ -1602,11 +1602,7 @@ async function endType1Session(endedEarly = false) {
         if (payloadTiers.length > 0) {
             attemptStarTiers = payloadTiers;
         } else {
-            const attempts = Math.max(1, Number.parseInt(payload?.attempt_count_today_for_chain, 10) || 1);
-            attemptStarTiers = Array.from(
-                { length: attempts },
-                (_, index) => (achievedGoldStar && index === attempts - 1 ? 'gold' : 'silver'),
-            );
+            attemptStarTiers = [endedEarly ? 'half_silver' : 'gold'];
         }
     } catch (error) {
         console.error('Error completing type-I session:', error);
@@ -1660,11 +1656,7 @@ async function endType2Session(endedEarly = false) {
         if (payloadTiers.length > 0) {
             attemptStarTiers = payloadTiers;
         } else {
-            const attempts = Math.max(1, Number.parseInt(payload?.attempt_count_today_for_chain, 10) || 1);
-            attemptStarTiers = Array.from(
-                { length: attempts },
-                (_, index) => (achievedGoldStar && index === attempts - 1 ? 'gold' : 'silver'),
-            );
+            attemptStarTiers = [endedEarly ? 'half_silver' : 'gold'];
         }
     } catch (error) {
         console.error('Error completing type-II session:', error);
@@ -1809,15 +1801,32 @@ function setResultBackToPracticeVisible(visible) {
     resultBackToPractice.classList.toggle('hidden', !visible);
 }
 
+function renderProgressBadgeByTier(tier, fillPercent) {
+    const normalizedTier = String(tier || '').trim().toLowerCase();
+    const clampedFill = Number.isFinite(Number(fillPercent))
+        ? Math.max(0, Math.min(100, Math.round(Number(fillPercent))))
+        : 100;
+    if (normalizedTier === 'half_silver') {
+        return `<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:${clampedFill}%"></span>`;
+    }
+    if (normalizedTier === 'silver') {
+        return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
+    }
+    return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${clampedFill}%"></span>`;
+}
+
 function renderResultStarStrip(starTiers, halfSilverPercent = null) {
     if (!resultStarBadge) {
         return;
     }
-    const tiers = Array.isArray(starTiers)
+    let tiers = Array.isArray(starTiers)
         ? starTiers
             .map((tier) => String(tier || '').trim().toLowerCase())
             .filter((tier) => tier === 'gold' || tier === 'silver' || tier === 'half_silver')
         : [];
+    if (tiers.length > 1) {
+        tiers = [tiers[tiers.length - 1]];
+    }
     const rawHalfSilverPercent = Number.parseFloat(halfSilverPercent);
     const clampedHalfSilverPercent = Number.isFinite(rawHalfSilverPercent)
         ? Math.max(0, Math.min(100, Math.round(rawHalfSilverPercent)))
@@ -1828,13 +1837,8 @@ function renderResultStarStrip(starTiers, halfSilverPercent = null) {
         return;
     }
     resultStarBadge.classList.remove('hidden');
-    resultStarBadge.innerHTML = `Today: ${tiers.map((tier) => (
-        tier === 'gold'
-            ? '<span class="tier-emoji-star gold" aria-hidden="true">⭐️</span>'
-            : (tier === 'half_silver'
-                ? `<span class="tier-emoji-star silver half-silver" aria-hidden="true" style="--star-fill-pct:${clampedHalfSilverPercent}%">⭐️</span>`
-                : '<span class="tier-emoji-star silver" aria-hidden="true">⭐️</span>')
-    )).join('')}`;
+    const latestTier = tiers[tiers.length - 1];
+    resultStarBadge.innerHTML = `Today: <span class="progress-badge-strip">${renderProgressBadgeByTier(latestTier, clampedHalfSilverPercent)}</span>`;
 }
 
 function resetBonusGame() {

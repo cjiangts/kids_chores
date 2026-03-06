@@ -122,22 +122,54 @@ body {
     font-size: 1.5rem;
 }
 
-.tier-emoji-star {
-    display: inline-block;
-    font-size: 1.03rem;
+.progress-badge-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    vertical-align: middle;
     line-height: 1;
-    margin-right: 0.02rem;
-    vertical-align: -0.02rem;
 }
 
-.tier-emoji-star.silver {
-    filter: grayscale(1) saturate(0) brightness(1.08);
-    opacity: 0.92;
+.progress-badge-icon {
+    --badge-fill-pct: 100%;
+    position: relative;
+    display: inline-block;
+    height: 31px;
+    aspect-ratio: 398 / 161;
+    vertical-align: middle;
 }
 
-.tier-emoji-star.half-silver {
-    -webkit-mask-image: linear-gradient(to right, #000 0 var(--star-fill-pct, 56%), transparent var(--star-fill-pct, 56%) 100%);
-    mask-image: linear-gradient(to right, #000 0 var(--star-fill-pct, 56%), transparent var(--star-fill-pct, 56%) 100%);
+.progress-badge-icon::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('/assets/session-progress-badge.png?v=3');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-position: left center;
+}
+
+.progress-badge-icon::after {
+    clip-path: inset(0 calc(100% - var(--badge-fill-pct)) 0 0);
+}
+
+.progress-badge-icon.silver::after {
+    filter: grayscale(1) saturate(0.05) brightness(1.04);
+}
+
+.kid-card .daily-stars-strip .progress-badge-icon,
+.practice-star-badge .progress-badge-icon {
+    height: 26px;
+}
+
+#resultStarBadge .progress-badge-icon {
+    height: 70px;
+}
+
+.practice-star-badge .progress-badge-strip {
+    margin-left: 0.16rem;
+    transform: translateY(-1px);
 }
 
 .practice-star-badge {
@@ -941,10 +973,17 @@ header p {
 
 .kid-card .daily-stars-strip {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1px;
+    flex-wrap: nowrap;
+    gap: 6px;
     align-items: center;
-    min-height: 1.1rem;
+    min-height: 26px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.kid-card .daily-stars-strip .progress-badge-strip {
+    flex-wrap: nowrap;
 }
 
 .kid-card .daily-stars.disabled {

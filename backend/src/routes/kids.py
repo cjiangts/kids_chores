@@ -2142,7 +2142,6 @@ def get_kid_dashboard_stats(kid):
             answer_count = int(row[2] or 0)
             right_count = int(row[3] or 0)
             wrong_count = int(row[4] or 0)
-            retry_count = max(0, int(row[5] or 0))
             retry_best_rety = max(0, int(row[6] or 0))
             target_answer_count = max(planned_count, answer_count, right_count + wrong_count)
             if target_answer_count <= 0 and planned_count <= 0:
@@ -2150,29 +2149,19 @@ def get_kid_dashboard_stats(kid):
             is_incomplete = planned_count > 0 and answer_count < planned_count
             if is_incomplete:
                 base_tier = 'half_silver'
-            elif session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III:
-                # Type-III is graded later; keep completed sessions silver until graded.
-                if (right_count + wrong_count) >= target_answer_count and right_count >= target_answer_count:
-                    base_tier = 'gold'
-                else:
-                    base_tier = 'silver'
             else:
-                base_tier = 'gold' if right_count >= target_answer_count else 'silver'
+                base_tier = 'gold'
             effective_best_total = right_count + retry_best_rety
-            achieved_gold_after_retries = effective_best_total >= target_answer_count
 
-            tiers = [base_tier]
-            if not is_incomplete:
-                for retry_index in range(retry_count):
-                    is_last_retry = retry_index == (retry_count - 1)
-                    tiers.append('gold' if achieved_gold_after_retries and is_last_retry else 'silver')
-            today_star_tiers[session_type].extend(tiers)
-            today_counts[session_type] += len(tiers)
-            today_counts['total'] += len(tiers)
-            if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III and (right_count + wrong_count) <= 0:
+            if is_incomplete:
+                effective_percent = float(answer_count) * 100.0 / float(max(1, target_answer_count))
+            elif session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III and (right_count + wrong_count) <= 0:
                 effective_percent = float(answer_count) * 100.0 / float(max(1, target_answer_count))
             else:
                 effective_percent = float(effective_best_total) * 100.0 / float(max(1, target_answer_count))
+            today_star_tiers[session_type].append(base_tier)
+            today_counts[session_type] += 1
+            today_counts['total'] += 1
             today_latest_percent[session_type] = max(0.0, min(100.0, effective_percent))
 
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
@@ -3972,13 +3961,13 @@ def build_continue_selected_cards_for_decks(
 
 
 def get_retry_source_wrong_card_ids(conn, source_session_id):
-    """Return ordered unique wrong card ids from one source session."""
+    """Return ordered unique unresolved retry card ids from one source session."""
     rows = conn.execute(
         """
         SELECT DISTINCT card_id
         FROM session_results
         WHERE session_id = ?
-          AND correct < 0
+          AND correct = -1
           AND card_id IS NOT NULL
         ORDER BY card_id ASC
         """,
@@ -4559,10 +4548,17 @@ def complete_session_internal(kid, kid_id, session_type, data):
             retry_right_count = 0
             retry_wrong_count = 0
             retry_total_response_ms = 0
+            retry_success_card_ids = set()
             for answer in answers:
+                try:
+                    answer_card_id = int(answer.get('cardId'))
+                except (TypeError, ValueError):
+                    answer_card_id = 0
                 known = bool(answer.get('known'))
                 if known:
                     retry_right_count += 1
+                    if answer_card_id > 0:
+                        retry_success_card_ids.add(answer_card_id)
                 else:
                     retry_wrong_count += 1
                 response_time_ms = normalize_logged_response_time_ms(
@@ -4571,7 +4567,30 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 )
                 retry_total_response_ms += int(response_time_ms or 0)
 
-            candidate_best_retry_correct = retry_right_count
+            if retry_success_card_ids:
+                placeholders = ','.join(['?'] * len(retry_success_card_ids))
+                conn.execute(
+                    f"""
+                    UPDATE session_results
+                    SET correct = -2
+                    WHERE session_id = ?
+                      AND card_id IN ({placeholders})
+                      AND correct = -1
+                    """,
+                    [retry_source_session_id, *sorted(retry_success_card_ids)],
+                )
+
+            best_retry_row = conn.execute(
+                """
+                SELECT COUNT(DISTINCT card_id)
+                FROM session_results
+                WHERE session_id = ?
+                  AND correct = -2
+                  AND card_id IS NOT NULL
+                """,
+                [retry_source_session_id],
+            ).fetchone()
+            candidate_best_retry_correct = max(0, int(best_retry_row[0] or 0)) if best_retry_row else 0
             conn.execute(
                 """
                 UPDATE sessions
@@ -4603,14 +4622,13 @@ def complete_session_internal(kid, kid_id, session_type, data):
             updated_retry_count = int(updated_retry_row[0] or 0) if updated_retry_row else 0
             updated_retry_total_ms = int(updated_retry_row[1] or 0) if updated_retry_row else 0
             updated_best_retry_correct = int(updated_retry_row[2] or 0) if updated_retry_row else 0
-            achieved_gold_star = (source_right_count + updated_best_retry_correct) >= source_target_answer_count
+            total_correct_percent = (
+                float(source_right_count + updated_best_retry_correct) * 100.0 / float(source_target_answer_count)
+                if source_target_answer_count > 0 else 0.0
+            )
+            achieved_gold_star = total_correct_percent >= 100.0
             attempt_count_today_for_chain = 1 + max(0, updated_retry_count)
-            attempt_star_tiers = [
-                'gold' if source_right_count >= source_target_answer_count else 'silver',
-            ]
-            for retry_index in range(max(0, updated_retry_count)):
-                is_last_retry = retry_index == (updated_retry_count - 1)
-                attempt_star_tiers.append('gold' if achieved_gold_star and is_last_retry else 'silver')
+            attempt_star_tiers = ['gold']
             return {
                 'session_id': int(retry_source_session_id),
                 'answer_count': len(answers),
@@ -4628,12 +4646,9 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 'target_answer_count': int(source_target_answer_count),
                 'attempt_count_today_for_chain': int(attempt_count_today_for_chain),
                 'attempt_star_tiers': attempt_star_tiers,
-                'total_correct_percentage': (
-                    float(source_right_count + updated_best_retry_correct) * 100.0 / float(source_target_answer_count)
-                    if source_target_answer_count > 0 else 0.0
-                ),
+                'total_correct_percentage': float(total_correct_percent),
                 'achieved_gold_star': bool(achieved_gold_star),
-                'star_tier': ('gold' if achieved_gold_star else 'silver'),
+                'star_tier': 'gold',
             }, 200
 
         if is_continue_session:
@@ -4775,17 +4790,25 @@ def complete_session_internal(kid, kid_id, session_type, data):
             target_answer_count = max(updated_planned_count, updated_answer_count, updated_right_count + updated_wrong_count)
             is_incomplete = updated_planned_count > 0 and updated_answer_count < updated_planned_count
             if is_incomplete:
+                total_correct_percentage = (
+                    float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
+                )
+            elif uses_type_iii_audio and (updated_right_count + updated_wrong_count) <= 0:
+                total_correct_percentage = (
+                    float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
+                )
+            else:
+                total_correct_percentage = (
+                    float(updated_right_count) * 100.0 / float(max(1, target_answer_count))
+                )
+            if is_incomplete:
                 attempt_star_tiers = ['half_silver']
                 achieved_gold_star = False
                 star_tier = 'half_silver'
-            elif uses_type_iii_audio:
-                achieved_gold_star = False
-                star_tier = 'silver'
-                attempt_star_tiers = ['silver']
             else:
-                achieved_gold_star = updated_wrong_count == 0
-                star_tier = 'gold' if achieved_gold_star else 'silver'
-                attempt_star_tiers = [star_tier]
+                achieved_gold_star = total_correct_percentage >= 100.0
+                star_tier = 'gold'
+                attempt_star_tiers = ['gold']
 
             conn.execute("COMMIT")
             conn.close()
@@ -4819,13 +4842,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 'target_answer_count': int(target_answer_count),
                 'attempt_count_today_for_chain': 1,
                 'attempt_star_tiers': attempt_star_tiers,
-                'total_correct_percentage': (
-                    (
-                        float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
-                        if uses_type_iii_audio
-                        else float(updated_right_count) * 100.0 / float(max(1, target_answer_count))
-                    )
-                ),
+                'total_correct_percentage': float(total_correct_percentage),
                 'achieved_gold_star': bool(achieved_gold_star),
                 'star_tier': star_tier,
             }, 200
@@ -4947,17 +4964,19 @@ def complete_session_internal(kid, kid_id, session_type, data):
     target_answer_count = int(max(planned_count, len(answers), right_count + wrong_count))
     is_incomplete = planned_count > 0 and len(answers) < planned_count
     if is_incomplete:
+        total_correct_percentage = float(len(answers)) * 100.0 / float(max(1, target_answer_count))
+    elif uses_type_iii_audio and (right_count + wrong_count) <= 0:
+        total_correct_percentage = float(len(answers)) * 100.0 / float(max(1, target_answer_count))
+    else:
+        total_correct_percentage = float(right_count) * 100.0 / float(max(1, target_answer_count))
+    if is_incomplete:
         attempt_star_tiers = ['half_silver']
         achieved_gold_star = False
         star_tier = 'half_silver'
-    elif uses_type_iii_audio:
-        achieved_gold_star = False
-        star_tier = 'silver'
-        attempt_star_tiers = [star_tier]
     else:
-        achieved_gold_star = bool(wrong_count == 0)
-        star_tier = ('gold' if achieved_gold_star else 'silver')
-        attempt_star_tiers = [star_tier]
+        achieved_gold_star = total_correct_percentage >= 100.0
+        star_tier = 'gold'
+        attempt_star_tiers = ['gold']
     return {
         'session_id': session_id,
         'answer_count': len(answers),
@@ -4975,13 +4994,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
         'target_answer_count': target_answer_count,
         'attempt_count_today_for_chain': 1,
         'attempt_star_tiers': attempt_star_tiers,
-        'total_correct_percentage': (
-            (
-                float(len(answers)) * 100.0 / float(max(1, target_answer_count))
-                if uses_type_iii_audio
-                else float(right_count) * 100.0 / float(max(1, target_answer_count))
-            )
-        ),
+        'total_correct_percentage': float(total_correct_percentage),
         'achieved_gold_star': achieved_gold_star,
         'star_tier': star_tier,
     }, 200

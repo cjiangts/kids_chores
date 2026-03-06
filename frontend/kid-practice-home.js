@@ -147,49 +147,48 @@ function getCategoryStarTiers(categoryKey, dailyStarTiersByCategory, dailyComple
     return Array.from({ length: safeCount }, () => 'gold');
 }
 
+function clampPercent(value, fallback = 100) {
+    const raw = Number.parseFloat(value);
+    if (!Number.isFinite(raw)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
+function renderProgressBadgeByTier(tier, fillPercent, isLatestTier) {
+    const normalizedTier = String(tier || '').trim().toLowerCase();
+    const effectiveFill = clampPercent(isLatestTier ? fillPercent : 100, 100);
+    if (normalizedTier === 'half_silver') {
+        return `<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
+    }
+    if (normalizedTier === 'silver') {
+        return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
+    }
+    return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
+}
+
 function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory) {
     const tiers = getCategoryStarTiers(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory);
     if (tiers.length === 0) {
         return 'Today: no stars yet<br><span class="practice-star-note practice-star-note-encourage practice-star-note-encourage-zero">0% · Let\'s start and earn a star!</span>';
     }
     const rawPercent = Number.parseFloat(dailyPercentByCategory?.[normalizeCategoryKey(categoryKey)]);
-    const percentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
-    const halfSilverStyle = ` style="--star-fill-pct:${percentValue}%"`;
-    const starsHtml = tiers.map((tier) => {
-        const normalizedTier = String(tier || '').trim().toLowerCase();
-        if (normalizedTier === 'gold') {
-            return '<span class="practice-star practice-star-gold" aria-hidden="true">⭐️</span>';
-        }
-        if (normalizedTier === 'half_silver') {
-            return `<span class="practice-star practice-star-silver practice-star-half-silver" aria-hidden="true"${halfSilverStyle}>⭐️</span>`;
-        }
-        return '<span class="practice-star practice-star-silver" aria-hidden="true">⭐️</span>';
-    }).join('');
-    const goldCount = tiers.reduce((sum, tier) => (
-        String(tier || '').trim().toLowerCase() === 'gold' ? (sum + 1) : sum
-    ), 0);
-    const latestTier = tiers[tiers.length - 1];
-    const previousGoldCount = Math.max(
-        0,
-        goldCount - (latestTier === 'gold' ? 1 : 0),
-    );
-    const displayPercent = (previousGoldCount * 100) + percentValue;
+    const latestPercentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.round(rawPercent)) : 0;
+    const previousSessionCount = Math.max(0, tiers.length - 1);
+    const percentValue = (previousSessionCount * 100) + latestPercentValue;
+    const lastTierIndex = Math.max(0, tiers.length - 1);
+    const latestTier = String(tiers[lastTierIndex] || '').trim().toLowerCase();
+    const starsHtml = `<span class="progress-badge-strip">${tiers.map((tier, index) => (
+        renderProgressBadgeByTier(tier, latestPercentValue, index === lastTierIndex)
+    )).join('')}</span>`;
     if (latestTier === 'half_silver') {
-        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-encourage">${displayPercent}% · Finish your session first.</span>`;
+        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-encourage">${percentValue}% · Finish session first.</span>`;
     }
-    if (goldCount >= 3) {
-        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Incredible! Three gold stars!</span>`;
+    if (percentValue < 100) {
+        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-encourage">${percentValue}% · Keep trying, you can do it!</span>`;
     }
-    if (goldCount === 2) {
-        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Awesome! Two gold stars!</span>`;
+    if (percentValue < 200) {
+        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${percentValue}% · Good job!</span>`;
     }
-    if (displayPercent >= 100) {
-        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Good job!</span>`;
-    }
-    if (tiers.length >= 4) {
-        return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${displayPercent}% · Great effort today!</span>`;
-    }
-    return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-encourage">${displayPercent}% · Keep trying, you can do it!</span>`;
+    return `Today: ${starsHtml}<br><span class="practice-star-note practice-star-note-good">${percentValue}% · Wow! Amazing work!</span>`;
 }
 
 function getStaticPracticeOptionKeySet() {
