@@ -961,28 +961,33 @@ header p {
 }
 
 .kid-card .daily-stars-row {
-    display: grid;
-    gap: 3px;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
 }
 
 .kid-card .daily-stars-label {
-    display: block;
+    display: inline-flex;
+    align-items: center;
     margin-top: 0;
     min-height: 0;
+    white-space: nowrap;
 }
 
 .kid-card .daily-stars-strip {
     display: flex;
+    flex: 0 0 auto;
     flex-wrap: nowrap;
-    gap: 6px;
+    gap: 0;
     align-items: center;
-    min-height: 26px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: thin;
+    min-height: 0;
+    min-width: 0;
+    overflow: visible;
 }
 
 .kid-card .daily-stars-strip .progress-badge-strip {
+    max-width: 100%;
     flex-wrap: nowrap;
 }
 

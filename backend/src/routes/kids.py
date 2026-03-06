@@ -4123,6 +4123,49 @@ def build_retry_selected_cards_for_sources(conn, source_by_deck_id, wrong_card_i
     return selected_cards
 
 
+def build_type_i_multiple_choice_pool_cards(conn, source_by_deck_id, card_ids):
+    """Build ordered type-I multiple-choice pool cards from source session card ids."""
+    normalized_ids = []
+    seen = set()
+    for raw_card_id in list(card_ids or []):
+        try:
+            card_id = int(raw_card_id)
+        except (TypeError, ValueError):
+            continue
+        if card_id <= 0 or card_id in seen:
+            continue
+        normalized_ids.append(card_id)
+        seen.add(card_id)
+    if len(normalized_ids) == 0:
+        return []
+
+    placeholders = ', '.join(['?'] * len(normalized_ids))
+    rows = conn.execute(
+        f"""
+        SELECT id, deck_id, front, back
+        FROM cards
+        WHERE id IN ({placeholders})
+        """,
+        normalized_ids,
+    ).fetchall()
+    row_by_card_id = {int(row[0]): row for row in rows}
+
+    pool_cards = []
+    for card_id in normalized_ids:
+        row = row_by_card_id.get(card_id)
+        if not row:
+            continue
+        local_deck_id = int(row[1] or 0)
+        if local_deck_id <= 0 or local_deck_id not in source_by_deck_id:
+            continue
+        pool_cards.append({
+            'id': int(row[0]),
+            'front': row[2],
+            'back': row[3],
+        })
+    return pool_cards
+
+
 def filter_answers_to_pending_cards(answers, pending):
     """Keep only one answer per planned pending card; ignore extras/unplanned cards."""
     if not isinstance(answers, list):
@@ -6040,6 +6083,7 @@ def start_type_i_practice_session_internal(
     include_orphan_in_queue_override=None,
     pending_session_payload_extras=None,
     include_category_key_in_response=True,
+    include_multiple_choice_pool_cards=False,
 ):
     """Start one merged type-I practice session with optional per-category overrides."""
     conn = get_kid_connection_for(kid)
@@ -6058,11 +6102,12 @@ def start_type_i_practice_session_internal(
         ]
         source_by_deck_id = {int(src['local_deck_id']): src for src in included_sources}
         continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
+        continue_practiced_card_ids = []
         is_continue_session = continue_source_session is not None
         retry_source_session = None
         is_retry_session = False
         if is_continue_session:
-            practiced_card_ids = get_session_practiced_card_ids(
+            continue_practiced_card_ids = get_session_practiced_card_ids(
                 conn,
                 continue_source_session['session_id'],
             )
@@ -6076,7 +6121,7 @@ def start_type_i_practice_session_internal(
                 source_deck_ids,
                 category_key,
                 missing_count,
-                excluded_card_ids=practiced_card_ids,
+                excluded_card_ids=continue_practiced_card_ids,
             )
             selected_cards = []
             for card in continue_cards:
@@ -6153,6 +6198,27 @@ def start_type_i_practice_session_internal(
             )
             return payload, 200
 
+        multiple_choice_pool_cards = []
+        if include_multiple_choice_pool_cards and (is_continue_session or is_retry_session):
+            source_session_card_ids = []
+            if is_continue_session and continue_source_session is not None:
+                selected_card_ids = [int(card.get('id') or 0) for card in selected_cards]
+                source_session_card_ids = [
+                    card_id
+                    for card_id in [*continue_practiced_card_ids, *selected_card_ids]
+                    if int(card_id or 0) > 0
+                ]
+            elif is_retry_session and retry_source_session is not None:
+                source_session_card_ids = get_session_practiced_card_ids(
+                    conn,
+                    retry_source_session['session_id'],
+                )
+            multiple_choice_pool_cards = build_type_i_multiple_choice_pool_cards(
+                conn,
+                source_by_deck_id,
+                source_session_card_ids,
+            )
+
         pending_session_payload = {
             'kind': category_key,
             'planned_count': len(selected_cards),
@@ -6190,6 +6256,8 @@ def start_type_i_practice_session_internal(
             else None
         ),
     }
+    if include_multiple_choice_pool_cards:
+        payload['multiple_choice_pool_cards'] = multiple_choice_pool_cards
     if include_category_key_in_response:
         payload['category_key'] = category_key
     return payload, 200
@@ -8743,6 +8811,7 @@ def start_type1_practice_session(kid_id):
             kid_id,
             kid,
             category_key,
+            include_multiple_choice_pool_cards=True,
         )
         return jsonify(response_payload), status_code
     except ValueError as e:

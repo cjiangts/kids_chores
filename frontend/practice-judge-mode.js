@@ -1,17 +1,25 @@
 window.PracticeJudgeMode = (function initPracticeJudgeMode(window) {
     const SELF = 'self';
     const PARENT = 'parent';
+    const MULTI = 'multi';
 
     function normalizeMode(rawMode) {
         const text = String(rawMode || '').trim().toLowerCase();
         if (text === PARENT) {
             return PARENT;
         }
+        if (text === MULTI) {
+            return MULTI;
+        }
         return SELF;
     }
 
     function isSelfMode(mode) {
         return normalizeMode(mode) === SELF;
+    }
+
+    function isMultiMode(mode) {
+        return normalizeMode(mode) === MULTI;
     }
 
     function loadMode(storageKey, defaultMode = SELF) {
@@ -38,12 +46,15 @@ window.PracticeJudgeMode = (function initPracticeJudgeMode(window) {
 
     function getRevealJudgeUiState(mode, answerRevealed) {
         const selfMode = isSelfMode(mode);
+        const multiMode = isMultiMode(mode);
         const revealed = !!answerRevealed;
         return {
-            mode: selfMode ? SELF : PARENT,
+            mode: selfMode ? SELF : (multiMode ? MULTI : PARENT),
             isSelfMode: selfMode,
+            isMultiMode: multiMode,
             showRevealAction: selfMode && !revealed,
-            showJudgeActions: (!selfMode) || revealed,
+            showJudgeActions: (!selfMode && !multiMode) || revealed,
+            showMultiChoiceActions: multiMode,
             showBackAnswer: selfMode && revealed,
         };
     }
@@ -87,8 +98,10 @@ window.PracticeJudgeMode = (function initPracticeJudgeMode(window) {
     return {
         SELF,
         PARENT,
+        MULTI,
         normalizeMode,
         isSelfMode,
+        isMultiMode,
         loadMode,
         saveMode,
         getRevealJudgeUiState,

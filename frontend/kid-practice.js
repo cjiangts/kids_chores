@@ -34,12 +34,15 @@ const startBtn = document.getElementById('startBtn');
 const finishEarlyBtn = document.getElementById('finishEarlyBtn');
 const resultStarBadge = document.getElementById('resultStarBadge');
 const resultSummary = document.getElementById('resultSummary');
+const sessionActionSlot = document.querySelector('.session-action-slot');
 const judgeModeRow = document.getElementById('judgeModeRow');
 const judgeModeToggleStart = document.getElementById('judgeModeToggleStart');
 const knewRow = document.getElementById('knewRow');
 const knewBtn = document.getElementById('knewBtn');
 const doneRow = document.getElementById('doneRow');
 const doneBtn = document.getElementById('doneBtn');
+const multiChoiceRow = document.getElementById('multiChoiceRow');
+const multiChoiceGrid = document.getElementById('multiChoiceGrid');
 const judgeRow = document.getElementById('judgeRow');
 const wrongBtn = document.getElementById('wrongBtn');
 const rightBtn = document.getElementById('rightBtn');
@@ -67,6 +70,7 @@ const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_III = 'type_iii';
 const VALID_BEHAVIOR_TYPES = new Set([BEHAVIOR_TYPE_I, BEHAVIOR_TYPE_II, BEHAVIOR_TYPE_III]);
 const JUDGE_MODE_STORAGE_KEY = 'practice_judge_mode_type1';
+const TYPE1_MULTIPLE_CHOICE_OPTION_COUNT = 4;
 
 const state = {
     currentKid: null,
@@ -96,6 +100,8 @@ const state = {
     isPaused: false,
     sessionAnswers: [],
     judgeMode: 'self',
+    type1MultipleChoiceOptions: [],
+    type1MultipleChoicePoolCards: [],
     wrongCardsInSession: [],
     bonusSourceCards: [],
     bonusTiles: [],
@@ -267,6 +273,7 @@ function applyPageTypeClasses() {
 function hideAllSessionRows() {
     knewRow.classList.add('hidden');
     doneRow.classList.add('hidden');
+    multiChoiceRow.classList.add('hidden');
     judgeRow.classList.add('hidden');
     recordRow.classList.add('hidden');
     reviewControls.classList.add('hidden');
@@ -546,6 +553,8 @@ function resetBaseSessionState() {
     state.pauseStartedAtMs = 0;
     state.isPaused = false;
     state.sessionAnswers = [];
+    state.type1MultipleChoiceOptions = [];
+    state.type1MultipleChoicePoolCards = [];
 
     state.isSessionPaused = false;
     state.sessionRecordings = {};
@@ -647,8 +656,10 @@ function getJudgeModeUiState() {
     if (!window.PracticeJudgeMode || !isType(BEHAVIOR_TYPE_I)) {
         return {
             isSelfMode: true,
+            isMultiMode: false,
             showRevealAction: true,
             showJudgeActions: false,
+            showMultiChoiceActions: false,
             showBackAnswer: false,
         };
     }
@@ -679,6 +690,9 @@ async function startType1Session() {
         state.activePendingSessionId = started.pendingSessionId;
         state.activeIsRetrySession = Boolean(started?.data?.is_retry_session);
         state.sessionCards = started.cards;
+        state.type1MultipleChoicePoolCards = Array.isArray(started?.data?.multiple_choice_pool_cards)
+            ? started.data.multiple_choice_pool_cards
+            : [];
 
         if (!window.PracticeSession.hasActiveSession(state.activePendingSessionId) || state.sessionCards.length === 0) {
             state.activeIsRetrySession = false;
@@ -817,9 +831,120 @@ function showCurrentQuestion() {
     state.pausedDurationMs = 0;
     state.pauseStartedAtMs = 0;
     state.isPaused = false;
+    prepareType1MultipleChoiceOptions(card);
 
     setPausedVisual(false);
     applyJudgeModeUi();
+}
+
+function normalizeType1ChoiceText(value) {
+    return String(value ?? '').trim();
+}
+
+function shuffleCopy(list) {
+    const items = Array.isArray(list) ? list.slice() : [];
+    if (typeof window.PracticeUiCommon?.shuffleCards === 'function') {
+        return window.PracticeUiCommon.shuffleCards(items);
+    }
+    for (let i = items.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [items[i], items[j]] = [items[j], items[i]];
+    }
+    return items;
+}
+
+function buildType1MultipleChoiceOptions(card) {
+    const correctText = normalizeType1ChoiceText(card?.back);
+    if (!correctText) {
+        return [];
+    }
+
+    const sourceCards = Array.isArray(state.type1MultipleChoicePoolCards)
+        && state.type1MultipleChoicePoolCards.length > 0
+        ? state.type1MultipleChoicePoolCards
+        : state.sessionCards;
+    const currentCardId = Number.parseInt(card?.id, 10);
+    const distractorPool = [];
+    sourceCards.forEach((item) => {
+        const itemId = Number.parseInt(item?.id, 10);
+        if (
+            Number.isInteger(currentCardId)
+            && currentCardId > 0
+            && Number.isInteger(itemId)
+            && itemId === currentCardId
+        ) {
+            return;
+        }
+        const normalized = normalizeType1ChoiceText(item?.back);
+        if (!normalized || normalized === correctText) {
+            return;
+        }
+        distractorPool.push(normalized);
+    });
+
+    const distractors = [];
+    const seenUnique = new Set();
+    const addUniqueDistractor = (text) => {
+        const normalized = normalizeType1ChoiceText(text);
+        if (!normalized || normalized === correctText || seenUnique.has(normalized)) {
+            return;
+        }
+        seenUnique.add(normalized);
+        distractors.push(normalized);
+    };
+    shuffleCopy(distractorPool).forEach(addUniqueDistractor);
+    while (
+        distractors.length < (TYPE1_MULTIPLE_CHOICE_OPTION_COUNT - 1)
+        && distractorPool.length > 0
+    ) {
+        const randomIndex = Math.floor(Math.random() * distractorPool.length);
+        distractors.push(distractorPool[randomIndex]);
+    }
+    const options = [
+        { text: correctText, isCorrect: true },
+        ...distractors
+            .slice(0, TYPE1_MULTIPLE_CHOICE_OPTION_COUNT - 1)
+            .map((text) => ({ text, isCorrect: false })),
+    ];
+    return shuffleCopy(options);
+}
+
+function prepareType1MultipleChoiceOptions(card) {
+    state.type1MultipleChoiceOptions = buildType1MultipleChoiceOptions(card);
+}
+
+function renderType1MultipleChoiceOptions() {
+    if (!multiChoiceGrid || !isType(BEHAVIOR_TYPE_I)) {
+        return;
+    }
+    const options = Array.isArray(state.type1MultipleChoiceOptions)
+        ? state.type1MultipleChoiceOptions
+        : [];
+    if (options.length === 0) {
+        multiChoiceGrid.innerHTML = '';
+        return;
+    }
+    multiChoiceGrid.innerHTML = options.map((option, index) => {
+        return `<button type="button" class="control-btn multi-choice-btn" data-choice-index="${index}"${state.isPaused ? ' disabled' : ''}>${escapeHtml(option.text)}</button>`;
+    }).join('');
+}
+
+function answerType1MultipleChoice(choiceIndex) {
+    if (!isType(BEHAVIOR_TYPE_I) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
+        return;
+    }
+    const index = Number.parseInt(choiceIndex, 10);
+    if (!Number.isInteger(index) || index < 0) {
+        return;
+    }
+    const options = Array.isArray(state.type1MultipleChoiceOptions)
+        ? state.type1MultipleChoiceOptions
+        : [];
+    const choice = options[index];
+    if (!choice) {
+        return;
+    }
+    answerType1Card(Boolean(choice.isCorrect));
 }
 
 function showCurrentPrompt() {
@@ -956,7 +1081,10 @@ function answerCurrentCard(correct) {
 
 function answerType1Card(correct) {
     const judgeState = getJudgeModeUiState();
-    if ((judgeState.isSelfMode && !state.answerRevealed) || state.isPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
+    if (judgeState.isSelfMode && !state.answerRevealed) {
+        return;
+    }
+    if (state.isPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
 
@@ -1030,9 +1158,18 @@ function applyJudgeModeUi() {
     const judgeState = getJudgeModeUiState();
     knewRow.classList.toggle('hidden', !judgeState.showRevealAction);
     doneRow.classList.add('hidden');
+    multiChoiceRow.classList.toggle('hidden', !judgeState.showMultiChoiceActions);
+    if (sessionActionSlot) {
+        sessionActionSlot.classList.toggle('multi-choice-active', judgeState.showMultiChoiceActions);
+    }
     recordRow.classList.add('hidden');
     reviewControls.classList.add('hidden');
     judgeRow.classList.toggle('hidden', !judgeState.showJudgeActions);
+    if (judgeState.showMultiChoiceActions) {
+        renderType1MultipleChoiceOptions();
+    } else if (multiChoiceGrid) {
+        multiChoiceGrid.innerHTML = '';
+    }
 
     if (!state.isPaused) {
         cardAnswer.classList.toggle('hidden', !judgeState.showBackAnswer);
@@ -1993,6 +2130,16 @@ function bindEventHandlers() {
     rightBtn.addEventListener('click', () => {
         answerCurrentCard(true);
     });
+    if (multiChoiceGrid) {
+        multiChoiceGrid.addEventListener('click', (event) => {
+            const target = event.target.closest('[data-choice-index]');
+            if (!target) {
+                return;
+            }
+            event.preventDefault();
+            answerType1MultipleChoice(target.getAttribute('data-choice-index'));
+        });
+    }
 
     recordBtn.addEventListener('click', () => {
         void toggleRecord();

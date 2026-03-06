@@ -106,7 +106,7 @@
 
         .practice-mode-picker {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.55rem;
         }
 
@@ -205,6 +205,49 @@
 
         .review-controls {
             gap: 0.65rem;
+        }
+
+        .practice-page .session-action-layer.multi-choice-layer {
+            position: static;
+            inset: auto;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .practice-page .session-action-slot.multi-choice-active {
+            max-width: 560px;
+            min-height: 136px;
+        }
+
+        .multi-choice-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.65rem;
+            width: 100%;
+            max-width: 460px;
+        }
+
+        .multi-choice-btn {
+            background: #2d7ef7;
+            color: #fff;
+            font-weight: 700;
+            white-space: normal;
+            line-height: 1.25;
+            min-height: 56px;
+            height: auto;
+            padding: 0.7rem 0.8rem;
+            text-align: center;
+        }
+
+        .multi-choice-btn:hover {
+            background: #1f6ce0;
+        }
+
+        @media (max-width: 520px) {
+            .multi-choice-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .rerecord-btn {
@@ -417,6 +460,10 @@
                                     <span class="practice-mode-option-title">Parent Assist</span>
                                     <span class="practice-mode-option-desc">Parent judges immediately and taps Right or Wrong.</span>
                                 </button>
+                                <button type="button" class="practice-mode-option" data-judge-mode="multi" aria-pressed="false">
+                                    <span class="practice-mode-option-title">Multiple Choice</span>
+                                    <span class="practice-mode-option-desc">Pick 1 of 4 answers. System grades automatically.</span>
+                                </button>
                             </div>
                         </div>
                         <button id="startBtn" class="control-btn start-btn">Start</button>
@@ -457,6 +504,9 @@
                             </div>
                             <div class="session-action-layer hidden" id="doneRow">
                                 <button class="control-btn done-btn session-action-btn session-single-btn" id="doneBtn">I'm done</button>
+                            </div>
+                            <div class="session-action-layer hidden multi-choice-layer" id="multiChoiceRow">
+                                <div class="multi-choice-grid" id="multiChoiceGrid"></div>
                             </div>
                             <div class="session-action-layer hidden" id="judgeRow">
                                 <button class="control-btn wrong-btn session-action-btn reading-review-btn" id="wrongBtn" disabled>Wrong</button>
