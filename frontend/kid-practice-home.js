@@ -156,11 +156,11 @@ function clampPercent(value, fallback = 100) {
 function renderProgressBadgeByTier(tier, fillPercent, isLatestTier) {
     const normalizedTier = String(tier || '').trim().toLowerCase();
     const effectiveFill = clampPercent(isLatestTier ? fillPercent : 100, 100);
-    if (normalizedTier === 'half_silver') {
-        return `<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
-    }
     if (normalizedTier === 'silver') {
         return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
+    }
+    if (normalizedTier === 'half_silver' || effectiveFill < 100) {
+        return `<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
     }
     return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
 }

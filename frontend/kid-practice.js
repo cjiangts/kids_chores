@@ -1806,11 +1806,11 @@ function renderProgressBadgeByTier(tier, fillPercent) {
     const clampedFill = Number.isFinite(Number(fillPercent))
         ? Math.max(0, Math.min(100, Math.round(Number(fillPercent))))
         : 100;
-    if (normalizedTier === 'half_silver') {
-        return `<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:${clampedFill}%"></span>`;
-    }
     if (normalizedTier === 'silver') {
         return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
+    }
+    if (normalizedTier === 'half_silver' || clampedFill < 100) {
+        return `<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:${clampedFill}%"></span>`;
     }
     return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${clampedFill}%"></span>`;
 }
