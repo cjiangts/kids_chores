@@ -237,6 +237,21 @@
             background: #f7faff;
         }
 
+        #firstTagToggle.category-locked .first-tag-option {
+            cursor: default;
+            transform: none;
+        }
+
+        #firstTagToggle .first-tag-option.lock-hidden {
+            display: none;
+        }
+
+        .category-preselect-note {
+            margin-top: 0.38rem;
+            font-size: 0.83rem;
+            color: #4b5a70;
+        }
+
         .first-tag-option-title {
             display: block;
             font-size: 0.95rem;
@@ -270,10 +285,10 @@
                 <h2>1) Deck Metadata</h2>
                 <div class="deck-grid">
                     <fieldset class="form-group first-tag-field">
-                        <legend>First tag (required)</legend>
                         <div id="firstTagToggle" aria-label="First tag">
                             <span class="settings-note">Loading categories...</span>
                         </div>
+                        <p id="categoryPreselectNote" class="category-preselect-note hidden"></p>
                     </fieldset>
                     <div class="form-group">
                         <label for="newTagInput">Add tag</label>

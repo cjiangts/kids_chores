@@ -5,6 +5,7 @@ const newTagInput = document.getElementById('newTagInput');
 const addTagBtn = document.getElementById('addTagBtn');
 const tagsContainer = document.getElementById('tagsContainer');
 const existingTagOptions = document.getElementById('existingTagOptions');
+const categoryPreselectNote = document.getElementById('categoryPreselectNote');
 const generatedNameEl = document.getElementById('generatedName');
 const nameStatus = document.getElementById('nameStatus');
 const cardsCsvInput = document.getElementById('cardsCsv');
@@ -49,6 +50,8 @@ let deckCountByCategoryKey = {};
 let deckCategories = [];
 let deckCategoryKeySet = new Set();
 let reservedFirstTags = new Set();
+const createUrlParams = new URLSearchParams(window.location.search);
+let lockedFirstTagFromQuery = normalizeTag(createUrlParams.get('categoryKey'));
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await deckCreateCommon.ensureSuperFamily(API_BASE);
@@ -69,6 +72,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 if (firstTagToggle) {
     firstTagToggle.addEventListener('click', (event) => {
+        if (lockedFirstTagFromQuery) {
+            return;
+        }
         const target = event.target.closest('[data-first-tag]');
         if (!target) {
             return;
@@ -134,13 +140,16 @@ async function loadDeckCategories() {
     try {
         const loaded = await deckCreateCommon.loadDeckCategories({
             apiBase: API_BASE,
-            selectedCategoryKey: currentFirstTag,
+            selectedCategoryKey: lockedFirstTagFromQuery || currentFirstTag,
             includeReservedFirstTags: true,
         });
         deckCategories = loaded.categories;
         deckCategoryKeySet = loaded.categoryKeySet;
         reservedFirstTags = loaded.reservedFirstTags;
         currentFirstTag = loaded.selectedCategoryKey;
+        if (lockedFirstTagFromQuery && currentFirstTag !== lockedFirstTagFromQuery) {
+            lockedFirstTagFromQuery = '';
+        }
         setControlsDisabled(false);
         return true;
     } catch (error) {
@@ -169,9 +178,38 @@ function renderFirstTagToggle() {
         selectedCategoryKey: currentFirstTag,
         getDeckCount: (categoryKey) => deckCreateCommon.getDeckCountForCategory(categoryKey, deckCountByCategoryKey),
     });
+    applyFirstTagLockMode();
+}
+
+function applyFirstTagLockMode() {
+    if (!firstTagToggle) {
+        return;
+    }
+    const isLocked = Boolean(lockedFirstTagFromQuery && currentFirstTag === lockedFirstTagFromQuery);
+    firstTagToggle.classList.toggle('category-locked', isLocked);
+    const options = firstTagToggle.querySelectorAll('.first-tag-option');
+    options.forEach((button) => {
+        const optionKey = normalizeTag(button.getAttribute('data-first-tag'));
+        const isActive = optionKey === currentFirstTag;
+        button.classList.toggle('lock-hidden', isLocked && !isActive);
+        button.disabled = Boolean(isLocked && isActive);
+        button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+    });
+    if (categoryPreselectNote) {
+        if (isLocked) {
+            categoryPreselectNote.textContent = 'Category preselected from Manage Decks.';
+            categoryPreselectNote.classList.remove('hidden');
+        } else {
+            categoryPreselectNote.textContent = '';
+            categoryPreselectNote.classList.add('hidden');
+        }
+    }
 }
 
 function setCurrentFirstTag(tag) {
+    if (lockedFirstTagFromQuery) {
+        return;
+    }
     const next = deckCreateCommon.normalizeNextFirstTag(tag, currentFirstTag, deckCategoryKeySet);
     if (!next) {
         return;

@@ -6,7 +6,6 @@ const deckTableBody = document.getElementById('deckTableBody');
 const deckCountInfo = document.getElementById('deckCountInfo');
 const createDeckNavBtn = document.getElementById('createDeckNavBtn');
 const createDeckBulkNavBtn = document.getElementById('createDeckBulkNavBtn');
-const createDeckCategoryNavBtn = document.getElementById('createDeckCategoryNavBtn');
 const errorMessage = document.getElementById('errorMessage');
 const deckCategoryFilterWrap = document.getElementById('deckCategoryFilterWrap');
 const deckTagFilterInput = document.getElementById('deckTagFilter');
@@ -35,16 +34,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     createDeckNavBtn.addEventListener('click', () => {
-        window.location.href = '/deck-create.html';
+        window.location.href = buildCreateDeckUrl('/deck-create.html');
     });
     if (createDeckBulkNavBtn) {
         createDeckBulkNavBtn.addEventListener('click', () => {
-            window.location.href = '/deck-create-bulk.html';
-        });
-    }
-    if (createDeckCategoryNavBtn) {
-        createDeckCategoryNavBtn.addEventListener('click', () => {
-            window.location.href = '/deck-category-create.html';
+            window.location.href = buildCreateDeckUrl('/deck-create-bulk.html');
         });
     }
 
@@ -63,6 +57,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (deckCategoryFilterWrap) {
         deckCategoryFilterWrap.addEventListener('click', (event) => {
+            const manageButton = event.target.closest('[data-category-action="manage-category"]');
+            if (manageButton) {
+                window.location.href = '/deck-category-create.html';
+                return;
+            }
             const button = event.target.closest('[data-category-filter-key]');
             if (!button) {
                 return;
@@ -81,6 +80,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadDeckCategoryMeta();
     await loadMyDecks();
 });
+
+function buildCreateDeckUrl(path) {
+    const url = new URL(String(path || '/deck-create.html'), window.location.origin);
+    const categoryKey = normalizeCategoryKey(selectedCategoryFilterKey);
+    if (categoryKey) {
+        url.searchParams.set('categoryKey', categoryKey);
+    }
+    return `${url.pathname}${url.search}`;
+}
 
 async function ensureSuperFamily() {
     try {
@@ -251,9 +259,23 @@ function renderCategoryFilters() {
     }
 
     const categoryItems = getCategoryFilterItems();
+    const manageCategoryButtonHtml = `
+        <button
+            type="button"
+            class="deck-category-filter-btn deck-category-manage-btn"
+            data-category-action="manage-category"
+            aria-label="Manage deck category"
+        >
+            <span class="deck-category-filter-title">
+                <span class="deck-category-filter-plus" aria-hidden="true">+</span>
+                Manage Deck Category
+            </span>
+            <span class="deck-category-filter-desc">Create and configure deck categories.</span>
+        </button>
+    `;
     if (categoryItems.length === 0) {
         selectedCategoryFilterKey = '';
-        deckCategoryFilterWrap.innerHTML = '';
+        deckCategoryFilterWrap.innerHTML = manageCategoryButtonHtml;
         return;
     }
     const validKeys = new Set(categoryItems.map((item) => item.key));
@@ -272,7 +294,7 @@ function renderCategoryFilters() {
         </button>
     `).join('');
 
-    deckCategoryFilterWrap.innerHTML = categoryButtonsHtml;
+    deckCategoryFilterWrap.innerHTML = `${categoryButtonsHtml}${manageCategoryButtonHtml}`;
 }
 
 function getDecksByCategoryFilter() {

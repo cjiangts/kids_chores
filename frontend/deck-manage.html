@@ -123,6 +123,27 @@
             color: #4b5a70;
         }
 
+        .deck-category-manage-btn {
+            border-style: dashed;
+            border-color: #86a6ee;
+            background: #f7faff;
+        }
+
+        .deck-category-manage-btn:hover {
+            border-color: #4f83ff;
+            box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.12);
+        }
+
+        .deck-category-filter-plus {
+            display: inline-block;
+            font-size: 1.35rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-right: 0.42rem;
+            color: #2f5fc6;
+            vertical-align: -0.05em;
+        }
+
     </style>
 </head>
 <body class="manage-page">
@@ -142,7 +163,6 @@
                 <div class="actions">
                     <button id="createDeckNavBtn" type="button" class="btn-primary">Create New Deck</button>
                     <button id="createDeckBulkNavBtn" type="button" class="btn-primary">Bulk Create New Decks</button>
-                    <button id="createDeckCategoryNavBtn" type="button" class="btn-primary">Manage Deck Category</button>
                 </div>
 
                 <div id="deckCategoryFilterWrap" class="deck-category-filter-row"></div>
