@@ -42,6 +42,7 @@ const {
     resolveTypeIIPracticeCategoryKey,
     resolveTypeIIIPracticeCategoryKey,
 } = window.DeckCategoryCommon;
+const PRACTICE_NAV_CACHE_KEY = 'kid_practice_nav_cache_v1';
 
 let currentKid = null;
 let writingCards = null;
@@ -75,6 +76,22 @@ function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpeci
         return;
     }
     goType1Practice(categoryKey);
+}
+
+function cacheKidForPracticeNavigation() {
+    try {
+        if (!currentKid || !kidId) {
+            return;
+        }
+        const payload = {
+            kidId: String(kidId),
+            cachedAtMs: Date.now(),
+            kid: currentKid,
+        };
+        window.sessionStorage.setItem(PRACTICE_NAV_CACHE_KEY, JSON.stringify(payload));
+    } catch (error) {
+        // Best-effort cache only.
+    }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -461,6 +478,7 @@ function goType1Practice(category) {
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
+    cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
 
@@ -490,6 +508,7 @@ function goWritingPractice(category) {
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
+    cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
 
@@ -509,6 +528,7 @@ function goType3Practice(category) {
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
+    cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
 

@@ -71,6 +71,8 @@ const BEHAVIOR_TYPE_III = 'type_iii';
 const VALID_BEHAVIOR_TYPES = new Set([BEHAVIOR_TYPE_I, BEHAVIOR_TYPE_II, BEHAVIOR_TYPE_III]);
 const JUDGE_MODE_STORAGE_KEY = 'practice_judge_mode_type1';
 const TYPE1_MULTIPLE_CHOICE_OPTION_COUNT = 4;
+const PRACTICE_NAV_CACHE_KEY = 'kid_practice_nav_cache_v1';
+const PRACTICE_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 
 const state = {
     currentKid: null,
@@ -347,13 +349,38 @@ function chooseEffectiveCategoryMeta(categoryMetaMap, preferredKey) {
     return { key: '', meta: {} };
 }
 
-async function loadKidInfo() {
-    const response = await fetch(`${API_BASE}/kids/${kidId}`);
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+function readKidFromPracticeNavigationCache() {
+    try {
+        const raw = window.sessionStorage.getItem(PRACTICE_NAV_CACHE_KEY);
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            return null;
+        }
+        if (String(parsed.kidId || '') !== String(kidId || '')) {
+            return null;
+        }
+        const cachedAtMs = Number(parsed.cachedAtMs || 0);
+        if (!Number.isFinite(cachedAtMs) || cachedAtMs <= 0) {
+            return null;
+        }
+        if ((Date.now() - cachedAtMs) > PRACTICE_NAV_CACHE_TTL_MS) {
+            return null;
+        }
+        const kid = parsed.kid;
+        if (!kid || typeof kid !== 'object') {
+            return null;
+        }
+        return kid;
+    } catch (error) {
+        return null;
     }
-    state.currentKid = await response.json();
+}
 
+function applyKidInfoPayload(kidPayload) {
+    state.currentKid = kidPayload;
     const categoryMetaMap = getDeckCategoryMetaMap ? getDeckCategoryMetaMap(state.currentKid) : {};
     let categoryKey = state.categoryKey;
     if (!categoryKey) {
@@ -384,6 +411,28 @@ async function loadKidInfo() {
     kidNameEl.textContent = `${state.currentKid.name}'s ${state.categoryDisplayName}`;
     startTitle.textContent = `Ready for ${state.categoryDisplayName}?`;
     updatePageTitle();
+}
+
+async function loadKidInfo(options = {}) {
+    const preferNavigationCache = Boolean(options?.preferNavigationCache);
+    if (preferNavigationCache) {
+        const cachedKid = readKidFromPracticeNavigationCache();
+        if (cachedKid) {
+            try {
+                applyKidInfoPayload(cachedKid);
+                return;
+            } catch (error) {
+                // Fall through to network fetch when cache is stale or incomplete.
+            }
+        }
+    }
+
+    const response = await fetch(`${API_BASE}/kids/${kidId}?view=practice_session`);
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    applyKidInfoPayload(payload);
 }
 
 async function loadReadyState() {
@@ -2182,7 +2231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindEventHandlers();
 
     try {
-        await loadKidInfo();
+        await loadKidInfo({ preferNavigationCache: true });
         configureTypeUi();
         await loadReadyState();
         if (isType(BEHAVIOR_TYPE_III)) {

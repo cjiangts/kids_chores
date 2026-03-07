@@ -2785,7 +2785,8 @@ def get_kid(kid_id):
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
         view = str(request.args.get('view') or '').strip().lower()
-        include_has_ungraded = view != 'practice_home'
+        include_dashboard_metrics = view != 'practice_session'
+        include_has_ungraded = view not in {'practice_home', 'practice_session'}
 
         family_id = str(kid.get('familyId') or '').strip()
         family_timezone = metadata.get_family_timezone(family_id)
@@ -2802,14 +2803,20 @@ def get_kid(kid_id):
         except Exception:
             conn = None
         try:
-            today_counts, today_star_tiers, today_latest_percent, has_ungraded = get_kid_dashboard_stats(
-                kid,
-                category_meta_by_key=category_meta_by_key,
-                type_iii_category_keys=get_type_iii_category_keys(category_meta_by_key),
-                include_has_ungraded=include_has_ungraded,
-                conn=conn,
-                family_timezone=family_timezone,
-            )
+            if include_dashboard_metrics:
+                today_counts, today_star_tiers, today_latest_percent, has_ungraded = get_kid_dashboard_stats(
+                    kid,
+                    category_meta_by_key=category_meta_by_key,
+                    type_iii_category_keys=get_type_iii_category_keys(category_meta_by_key),
+                    include_has_ungraded=include_has_ungraded,
+                    conn=conn,
+                    family_timezone=family_timezone,
+                )
+            else:
+                today_counts = defaultdict(int)
+                today_star_tiers = defaultdict(list)
+                today_latest_percent = defaultdict(float)
+                has_ungraded = False
             opted_in_category_keys = get_kid_opted_in_deck_category_keys(
                 kid,
                 category_meta_by_key=category_meta_by_key,
@@ -2818,19 +2825,24 @@ def get_kid(kid_id):
         finally:
             if conn is not None:
                 conn.close()
-        daily_completed_by_deck_category = get_kid_daily_completed_by_deck_category(
-            kid,
-            opted_in_category_keys,
-            today_counts=today_counts,
-        )
-        daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
-            opted_in_category_keys,
-            today_star_tiers=today_star_tiers,
-        )
-        daily_percent_by_deck_category = get_kid_daily_percent_by_deck_category(
-            opted_in_category_keys,
-            today_latest_percent=today_latest_percent,
-        )
+        if include_dashboard_metrics:
+            daily_completed_by_deck_category = get_kid_daily_completed_by_deck_category(
+                kid,
+                opted_in_category_keys,
+                today_counts=today_counts,
+            )
+            daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
+                opted_in_category_keys,
+                today_star_tiers=today_star_tiers,
+            )
+            daily_percent_by_deck_category = get_kid_daily_percent_by_deck_category(
+                opted_in_category_keys,
+                today_latest_percent=today_latest_percent,
+            )
+        else:
+            daily_completed_by_deck_category = {}
+            daily_star_tiers_by_deck_category = {}
+            daily_percent_by_deck_category = {}
         practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
             kid,
             opted_in_category_keys,
