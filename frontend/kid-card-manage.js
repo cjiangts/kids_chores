@@ -34,12 +34,16 @@ const hardnessComputationHint = document.getElementById('hardnessComputationHint
 
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
+const availablePersonalDeckEl = document.getElementById('availablePersonalDeck');
 const availableTagFilterInput = document.getElementById('availableTagFilter');
 const availableDecksTitle = document.getElementById('availableDecksTitle');
 const optInAllAvailableBtn = document.getElementById('optInAllAvailableBtn');
 const selectedDecksEl = document.getElementById('selectedDecks');
 const selectedEmptyEl = document.getElementById('selectedEmpty');
+const selectedPersonalDeckEl = document.getElementById('selectedPersonalDeck');
+const selectedTagFilterInput = document.getElementById('selectedTagFilter');
 const selectedDecksTitle = document.getElementById('selectedDecksTitle');
+const optOutAllSelectedBtn = document.getElementById('optOutAllSelectedBtn');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckPendingInfo = document.getElementById('deckPendingInfo');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
@@ -83,6 +87,8 @@ let baselineOptedDeckIdSet = new Set();
 let stagedOptedDeckIdSet = new Set();
 let availableTagFilterController = null;
 let optInAllAvailableController = null;
+let selectedTagFilterController = null;
+let optOutAllSelectedController = null;
 let baselineIncludeOrphanInQueue = false;
 let stagedIncludeOrphanInQueue = false;
 let hardnessController = null;
@@ -101,9 +107,11 @@ let hardCardPercentByCategory = {};
 const CARD_PAGE_SIZE = 10;
 const WRITING_SHEET_MAX_ROWS = 10;
 const ORPHAN_BUBBLE_ID = '__orphan__';
+const MAX_DECK_BUBBLE_COUNT = 10;
 const CHINESE_FRONT_MAX_FONT_SIZE_REM = 4;
 const CHINESE_FRONT_MIN_FONT_SIZE_REM = 0.55;
 const CHINESE_FRONT_FIT_ITERATIONS = 8;
+const SHOW_DECK_COUNT_MISMATCH_WARNING = false;
 
 const promptPreviewPlayer = (
     window.WritingAudioSequence && typeof window.WritingAudioSequence.createPlayer === 'function'
@@ -421,6 +429,9 @@ function renderDeckPendingInfo() {
         if (optInAllAvailableController) {
             optInAllAvailableController.render();
         }
+        if (optOutAllSelectedController) {
+            optOutAllSelectedController.render();
+        }
         return;
     }
 
@@ -433,46 +444,107 @@ function renderDeckPendingInfo() {
     if (optInAllAvailableController) {
         optInAllAvailableController.render();
     }
+    if (optOutAllSelectedController) {
+        optOutAllSelectedController.render();
+    }
+}
+
+function buildOrphanDeckBubbleHtml(direction) {
+    const normalizedDirection = String(direction || '').trim().toLowerCase();
+    if (!orphanDeck || (normalizedDirection !== 'in' && normalizedDirection !== 'out')) {
+        return '';
+    }
+    const pendingClass = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue ? ' pending-change' : '';
+    const orphanName = getPersonalDeckDisplayName();
+    const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
+    const action = normalizedDirection === 'in' ? 'opt-in' : 'opt-out';
+    return `
+        <button
+            type="button"
+            class="deck-bubble${pendingClass}"
+            data-deck-id="${ORPHAN_BUBBLE_ID}"
+            data-orphan-toggle="${normalizedDirection}"
+            title="Click to stage Personal Deck ${action}"
+        >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
+    `;
+}
+
+function hasPendingDeckMembershipChange(deckId) {
+    const numericDeckId = Number(deckId);
+    if (!(numericDeckId > 0)) {
+        return false;
+    }
+    return baselineOptedDeckIdSet.has(numericDeckId) !== stagedOptedDeckIdSet.has(numericDeckId);
+}
+
+function getPendingDeckBubbleClass(deck) {
+    const deckId = Number(deck && deck.deck_id ? deck.deck_id : 0);
+    return hasPendingDeckMembershipChange(deckId) ? 'pending-change' : '';
+}
+
+function renderDeckBubbleColumn(config = {}) {
+    const titleEl = config.titleEl || null;
+    const titleText = String(config.titleText || 'Decks').trim() || 'Decks';
+    const titleSuffix = String(config.titleSuffix || '');
+    const totalCount = Number.parseInt(String(config.totalCount), 10);
+    if (titleEl) {
+        const resolvedTotal = Number.isInteger(totalCount) && totalCount >= 0 ? totalCount : 0;
+        titleEl.textContent = `${titleText} (${resolvedTotal}${titleSuffix})`;
+    }
+
+    const bulkController = config.bulkController || null;
+    const filteredDecks = Array.isArray(config.filteredDecks) ? config.filteredDecks : [];
+    if (bulkController && typeof bulkController.render === 'function') {
+        bulkController.render(filteredDecks.length);
+    }
+
+    window.PracticeManageCommon.renderLimitedAvailableDecks({
+        containerEl: config.containerEl,
+        emptyEl: config.emptyEl,
+        allAvailableDecks: Array.isArray(config.allDecks) ? config.allDecks : [],
+        filteredDecks,
+        emptyText: String(config.emptyText || ''),
+        filterLabel: String(config.filterLabel || ''),
+        noMatchTextPrefix: String(config.noMatchTextPrefix || ''),
+        getLabel: typeof config.getLabel === 'function' ? config.getLabel : getType1DeckBubbleLabel,
+        getBubbleClassName: typeof config.getBubbleClassName === 'function' ? config.getBubbleClassName : null,
+        bubbleTitle: String(config.bubbleTitle || ''),
+        maxVisibleCount: MAX_DECK_BUBBLE_COUNT,
+    });
+}
+
+function renderPersonalDeckControl(containerEl, direction) {
+    if (!containerEl) {
+        return;
+    }
+    const buttonHtml = buildOrphanDeckBubbleHtml(direction);
+    containerEl.innerHTML = buttonHtml;
 }
 
 function renderAvailableDecks() {
-    ensureAvailableTagFilterController().sync();
+    const tagFilter = ensureAvailableTagFilterController();
+    tagFilter.sync();
     const allAvailableDecks = getAvailableDeckCandidatesForTagFilter();
     const deckList = allAvailableDecks.filter(matchesAvailableTagFilter);
     const shouldShowOrphan = Boolean(orphanDeck) && !stagedIncludeOrphanInQueue;
     const availableDeckCount = deckList.length + (shouldShowOrphan ? 1 : 0);
-    if (availableDecksTitle) {
-        availableDecksTitle.textContent = `Available Shared Decks (${availableDeckCount})`;
-    }
-    if (optInAllAvailableController) {
-        optInAllAvailableController.render(deckList.length);
-    }
-    window.PracticeManageCommon.renderLimitedAvailableDecks({
+
+    renderDeckBubbleColumn({
+        titleEl: availableDecksTitle,
+        titleText: 'Available Shared Decks',
+        totalCount: availableDeckCount,
+        bulkController: optInAllAvailableController,
         containerEl: availableDecksEl,
         emptyEl: availableEmptyEl,
-        allAvailableDecks,
+        allDecks: allAvailableDecks,
         filteredDecks: deckList,
         emptyText: `No shared ${getCurrentCategoryDisplayName()} decks available yet.`,
-        filterLabel: ensureAvailableTagFilterController().getDisplayLabel(),
+        filterLabel: tagFilter.getDisplayLabel(),
         getLabel: getType1DeckBubbleLabel,
+        getBubbleClassName: getPendingDeckBubbleClass,
         bubbleTitle: 'Click to stage opt-in',
-        maxVisibleCount: 10,
     });
-    if (shouldShowOrphan && availableDecksEl) {
-        const orphanName = getPersonalDeckDisplayName();
-        const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
-        const orphanBubble = `
-            <button
-                type="button"
-                class="deck-bubble"
-                data-deck-id="${ORPHAN_BUBBLE_ID}"
-                data-orphan-toggle="in"
-                title="Click to stage Personal Deck opt-in"
-            >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
-        `;
-        availableDecksEl.insertAdjacentHTML('afterbegin', orphanBubble);
-        availableEmptyEl.classList.add('hidden');
-    }
+    renderPersonalDeckControl(availablePersonalDeckEl, shouldShowOrphan ? 'in' : '');
 }
 
 function getDeckTags(deck) {
@@ -524,6 +596,9 @@ function getPersonalDeckDisplayName() {
 }
 
 function hasDeckCountMismatchWarning(deck) {
+    if (!SHOW_DECK_COUNT_MISMATCH_WARNING) {
+        return false;
+    }
     if (!deck || !deck.opted_in) {
         return false;
     }
@@ -549,6 +624,10 @@ function getAvailableDeckCandidatesForTagFilter() {
     );
 }
 
+function getSelectedDeckCandidatesForTagFilter() {
+    return getOptedDecks();
+}
+
 function ensureAvailableTagFilterController() {
     if (availableTagFilterController) {
         return availableTagFilterController;
@@ -569,6 +648,26 @@ function matchesAvailableTagFilter(deck) {
     return ensureAvailableTagFilterController().matchesDeck(deck);
 }
 
+function ensureSelectedTagFilterController() {
+    if (selectedTagFilterController) {
+        return selectedTagFilterController;
+    }
+    selectedTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
+        selectEl: selectedTagFilterInput,
+        getDecks: getSelectedDeckCandidatesForTagFilter,
+        getDeckTags,
+        getDeckTagLabels,
+        onFilterChanged: () => {
+            renderSelectedDecks();
+        },
+    });
+    return selectedTagFilterController;
+}
+
+function matchesSelectedTagFilter(deck) {
+    return ensureSelectedTagFilterController().matchesDeck(deck);
+}
+
 function clearDeckSelectionMessages() {
     showError('');
     showSuccess('');
@@ -583,57 +682,33 @@ async function refreshDeckSelectionViews() {
 }
 
 function renderSelectedDecks() {
-    const optedDecks = getOptedDecks();
+    const tagFilter = ensureSelectedTagFilterController();
+    tagFilter.sync();
+    const optedDecks = getSelectedDeckCandidatesForTagFilter();
+    const deckList = optedDecks.filter(matchesSelectedTagFilter);
     const showOrphanInSelected = Boolean(orphanDeck) && stagedIncludeOrphanInQueue;
-    const warningCount = optedDecks.filter((deck) => hasDeckCountMismatchWarning(deck)).length;
-    if (selectedDecksTitle) {
-        const total = optedDecks.length + (showOrphanInSelected ? 1 : 0);
-        const warningSuffix = warningCount > 0 ? ` · ⚠ ${warningCount}` : '';
-        selectedDecksTitle.textContent = `Opted-in Decks (${total}${warningSuffix})`;
-    }
-    const orphanName = getPersonalDeckDisplayName();
-    const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
+    const warningCount = deckList.filter((deck) => hasDeckCountMismatchWarning(deck)).length;
+    const warningSuffix = warningCount > 0 ? ` · ⚠ ${warningCount}` : '';
+    const selectedDeckCount = deckList.length + (showOrphanInSelected ? 1 : 0);
 
-    const optedDeckButtons = optedDecks.map((deck) => {
-        const deckId = Number(deck.deck_id || 0);
-        const suffix = ` · ${Number(deck.card_count || 0)} cards`;
-        const label = getType1DeckBubbleLabel(deck);
-        const hasWarning = hasDeckCountMismatchWarning(deck);
-        const warningText = hasWarning ? getDeckCountMismatchWarningText(deck) : '';
-        const warningBadge = hasWarning
-            ? `<span class="deck-update-warning" title="${escapeHtml(warningText)}">⚠</span>`
-            : '';
-        const title = hasWarning
-            ? `${warningText} Click to stage opt-out`
-            : 'Click to stage opt-out';
-        return `
-            <button
-                type="button"
-                class="deck-bubble selected${hasWarning ? ' warning' : ''}"
-                data-deck-id="${deckId}"
-                title="${escapeHtml(title)}"
-            >${escapeHtml(label)}${escapeHtml(suffix)}${warningBadge}</button>
-        `;
+    renderDeckBubbleColumn({
+        titleEl: selectedDecksTitle,
+        titleText: 'Opted-in Decks',
+        titleSuffix: warningSuffix,
+        totalCount: selectedDeckCount,
+        bulkController: optOutAllSelectedController,
+        containerEl: selectedDecksEl,
+        emptyEl: selectedEmptyEl,
+        allDecks: optedDecks,
+        filteredDecks: deckList,
+        emptyText: 'No deck opted in.',
+        filterLabel: tagFilter.getDisplayLabel(),
+        noMatchTextPrefix: 'No opted-in deck matches tag',
+        getLabel: getType1DeckBubbleLabel,
+        getBubbleClassName: getPendingDeckBubbleClass,
+        bubbleTitle: 'Click to stage opt-out',
     });
-
-    const orphanButton = showOrphanInSelected
-        ? `
-        <button
-            type="button"
-            class="deck-bubble selected"
-            data-deck-id="${ORPHAN_BUBBLE_ID}"
-            data-orphan-toggle="out"
-            title="Click to stage Personal Deck opt-out"
-        >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
-    `
-        : '';
-
-    selectedDecksEl.innerHTML = [orphanButton, ...optedDeckButtons].join('');
-    if (selectedDecksEl.innerHTML.trim()) {
-        selectedEmptyEl.classList.add('hidden');
-    } else {
-        selectedEmptyEl.classList.remove('hidden');
-    }
+    renderPersonalDeckControl(selectedPersonalDeckEl, showOrphanInSelected ? 'out' : '');
 }
 
 function filterCardsByQuery(cards, rawQuery) {
@@ -1665,19 +1740,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearMessages: clearDeckSelectionMessages,
         onChanged: refreshDeckSelectionViews,
     });
+    optOutAllSelectedController = window.PracticeManageCommon.createOptInAllAvailableController({
+        buttonEl: optOutAllSelectedBtn,
+        buttonText: 'Opt-out All',
+        isBusy: () => isDeckMoveInFlight,
+        getFilteredDecks: () => getSelectedDeckCandidatesForTagFilter().filter(matchesSelectedTagFilter),
+        hasDeckId: (deckId) => !stagedOptedDeckIdSet.has(Number(deckId)),
+        addDeckId: (deckId) => {
+            stagedOptedDeckIdSet.delete(Number(deckId));
+        },
+        clearMessages: clearDeckSelectionMessages,
+        onChanged: refreshDeckSelectionViews,
+    });
 
     availableDecksEl.addEventListener('click', async (event) => {
         await onAvailableDeckClick(event);
     });
+    if (availablePersonalDeckEl) {
+        availablePersonalDeckEl.addEventListener('click', async (event) => {
+            await onAvailableDeckClick(event);
+        });
+    }
     if (optInAllAvailableBtn && optInAllAvailableController) {
         optInAllAvailableBtn.addEventListener('click', async () => {
             await optInAllAvailableController.optInAll();
         });
     }
+    if (optOutAllSelectedBtn && optOutAllSelectedController) {
+        optOutAllSelectedBtn.addEventListener('click', async () => {
+            await optOutAllSelectedController.optInAll();
+        });
+    }
     ensureAvailableTagFilterController();
+    ensureSelectedTagFilterController();
     selectedDecksEl.addEventListener('click', async (event) => {
         await onSelectedDeckClick(event);
     });
+    if (selectedPersonalDeckEl) {
+        selectedPersonalDeckEl.addEventListener('click', async (event) => {
+            await onSelectedDeckClick(event);
+        });
+    }
     applyDeckChangesBtn.addEventListener('click', async () => {
         await applyDeckMembershipChanges();
     });

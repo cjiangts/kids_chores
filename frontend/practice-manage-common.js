@@ -595,12 +595,16 @@ window.PracticeManageCommon = {
         const filteredDecks = Array.isArray(config.filteredDecks) ? config.filteredDecks : [];
         const emptyText = String(config.emptyText || 'No shared decks available yet.');
         const filterLabel = String(config.filterLabel || '').trim();
+        const noMatchTextPrefix = String(config.noMatchTextPrefix || 'No available deck matches tag').trim();
         const getLabel = typeof config.getLabel === 'function'
             ? config.getLabel
             : (deck) => String(deck && deck.name ? deck.name : '');
         const getSuffix = typeof config.getSuffix === 'function'
             ? config.getSuffix
             : (deck) => ` · ${Number(deck && deck.card_count ? deck.card_count : 0)} cards`;
+        const getBubbleClassName = typeof config.getBubbleClassName === 'function'
+            ? config.getBubbleClassName
+            : () => '';
         const bubbleTitle = String(config.bubbleTitle || 'Click to stage opt-in');
 
         const rawMax = Number.parseInt(String(config.maxVisibleCount ?? 10), 10);
@@ -616,7 +620,7 @@ window.PracticeManageCommon = {
         if (filteredDecks.length === 0) {
             containerEl.innerHTML = '';
             emptyEl.textContent = filterLabel
-                ? `No available deck matches tag "${filterLabel}".`
+                ? `${noMatchTextPrefix} "${filterLabel}".`
                 : emptyText;
             emptyEl.classList.remove('hidden');
             return { renderedCount: 0, hiddenCount: 0 };
@@ -631,10 +635,15 @@ window.PracticeManageCommon = {
             const deckId = Number(deck && deck.deck_id ? deck.deck_id : 0);
             const label = String(getLabel(deck) || '');
             const suffix = String(getSuffix(deck) || '');
+            const rawExtraClasses = String(getBubbleClassName(deck) || '').trim();
+            const extraClasses = rawExtraClasses
+                .split(/\s+/)
+                .filter((token) => /^[a-zA-Z0-9_-]+$/.test(token));
+            const bubbleClass = ['deck-bubble', ...extraClasses].join(' ');
             return `
                 <button
                     type="button"
-                    class="deck-bubble"
+                    class="${bubbleClass}"
                     data-deck-id="${deckId}"
                     title="${escapeHtml(bubbleTitle)}"
                 >${escapeHtml(label)}${escapeHtml(suffix)}</button>
@@ -651,6 +660,7 @@ window.PracticeManageCommon = {
 
     createOptInAllAvailableController(config = {}) {
         const buttonEl = config.buttonEl || null;
+        const buttonText = String(config.buttonText || 'Opt-in All').trim() || 'Opt-in All';
         const isBusy = typeof config.isBusy === 'function' ? config.isBusy : () => false;
         const getFilteredDecks = typeof config.getFilteredDecks === 'function' ? config.getFilteredDecks : () => [];
         const hasDeckId = typeof config.hasDeckId === 'function' ? config.hasDeckId : () => false;
@@ -669,7 +679,7 @@ window.PracticeManageCommon = {
                 ? filteredCount
                 : getFilteredDecks().length;
             buttonEl.disabled = Boolean(isBusy()) || resolvedCount === 0;
-            buttonEl.textContent = resolvedCount > 0 ? `Opt-in All (${resolvedCount})` : 'Opt-in All';
+            buttonEl.textContent = resolvedCount > 0 ? `${buttonText} (${resolvedCount})` : buttonText;
         };
 
         const optInAll = async () => {
@@ -775,9 +785,9 @@ window.PracticeManageCommon = {
                 }
             });
 
-            const parent = selectEl.closest('.available-filter');
-            if (parent && parent.parentElement) {
-                parent.insertAdjacentElement('afterend', chipsEl);
+            const filterRow = selectEl.closest('.deck-filter-row, .available-filter');
+            if (filterRow && filterRow.parentElement) {
+                filterRow.insertAdjacentElement('afterend', chipsEl);
             } else {
                 selectEl.parentElement.insertAdjacentElement('afterend', chipsEl);
             }

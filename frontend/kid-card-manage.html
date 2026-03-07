@@ -120,6 +120,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.55rem;
+            align-items: flex-start;
         }
 
         .deck-bubble {
@@ -136,6 +137,12 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .deck-bubble.pending-change {
+            border-color: #1f8f42;
+            background: #e8f9ee;
+            color: #176b2e;
         }
 
         .deck-bubble.opted {
@@ -235,16 +242,59 @@
             font-size: 0.9rem;
         }
 
-        .available-filter {
+        .deck-filter-row {
             display: flex;
             gap: 0.5rem;
             align-items: center;
             margin-bottom: 0.7rem;
         }
 
-        .available-filter .form-group {
+        .deck-filter-row .form-group {
             flex: 1;
             margin-bottom: 0;
+        }
+
+        .deck-filter-group {
+            margin-bottom: 0.7rem;
+            padding: 0.45rem 0.55rem 0.2rem;
+            border: 1px solid #dfe4f7;
+            border-radius: 10px;
+            background: #f4f7ff;
+        }
+
+        .deck-filter-group .deck-filter-row {
+            margin-bottom: 0;
+        }
+
+        .deck-filter-group .shared-tag-filter-chips {
+            margin-bottom: 0.3rem;
+        }
+
+        .deck-filter-group .shared-tag-filter-chip {
+            background: #f5eeff;
+            color: #5a2f91;
+            border-color: #dac8ff;
+        }
+
+        .deck-filter-group .shared-tag-filter-chip-remove {
+            color: #5a2f91;
+        }
+
+        .deck-filter-group .shared-tag-filter-chip-remove:hover {
+            background: rgba(90, 47, 145, 0.1);
+        }
+
+        .deck-filter-group #availableTagFilter,
+        .deck-filter-group #selectedTagFilter {
+            min-height: 32px;
+            height: 32px;
+            padding: 0.32rem 0.65rem;
+            font-size: 0.9rem;
+        }
+
+        .deck-personal-row {
+            margin-bottom: 0.55rem;
+            min-height: 36px;
         }
 
         .cards-section h2 {
@@ -573,9 +623,12 @@
                         <h3 id="availableDecksTitle">Available Shared Decks (0)</h3>
                         <button id="optInAllAvailableBtn" type="button" class="btn-secondary">Opt-in All</button>
                     </div>
-                    <div class="available-filter">
-                        <div class="form-group">
-                            <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
+                    <div id="availablePersonalDeck" class="deck-bubble-wrap deck-personal-row"></div>
+                    <div class="deck-filter-group">
+                        <div class="deck-filter-row">
+                            <div class="form-group">
+                                <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
+                            </div>
                         </div>
                     </div>
                     <div id="availableDecks" class="deck-bubble-wrap"></div>
@@ -583,7 +636,18 @@
                 </div>
 
                 <div class="deck-v2-column">
-                    <h3 id="selectedDecksTitle">Opted-in Decks (0)</h3>
+                    <div class="deck-column-head">
+                        <h3 id="selectedDecksTitle">Opted-in Decks (0)</h3>
+                        <button id="optOutAllSelectedBtn" type="button" class="btn-secondary">Opt-out All</button>
+                    </div>
+                    <div id="selectedPersonalDeck" class="deck-bubble-wrap deck-personal-row"></div>
+                    <div class="deck-filter-group">
+                        <div class="deck-filter-row">
+                            <div class="form-group">
+                                <select id="selectedTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
+                            </div>
+                        </div>
+                    </div>
                     <div id="selectedDecks" class="deck-bubble-wrap"></div>
                     <p id="selectedEmpty" class="deck-v2-empty">No deck opted in.</p>
                 </div>
