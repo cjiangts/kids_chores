@@ -107,7 +107,6 @@
             border: 1px solid #dbe1ff;
             border-radius: 10px;
             padding: 0.9rem;
-            min-height: 280px;
         }
 
         .deck-v2-column h3 {
@@ -467,6 +466,38 @@
             font-weight: 700;
         }
 
+        .card-deck-row {
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            min-width: 0;
+            color: #666;
+            font-size: 0.82rem;
+        }
+
+        .card-deck-label {
+            white-space: nowrap;
+            font-weight: 600;
+            color: #59627a;
+        }
+
+        .card-deck-pill {
+            max-width: min(100%, 220px);
+            display: inline-block;
+            border: 1px solid #b8c5ff;
+            background: #edf2ff;
+            color: #2f3c7e;
+            border-radius: 999px;
+            padding: 0.2rem 0.55rem;
+            font-size: 0.8rem;
+            line-height: 1.15;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .skip-toggle-btn {
             position: absolute;
             top: 0.5rem;
@@ -608,25 +639,31 @@
         }
 
         .selected-audio-bar {
-            margin-top: 0.55rem;
-            padding: 0.5rem;
+            margin: 0.55rem auto 0;
+            padding: 0.48rem 0.52rem;
             border-radius: 8px;
-            background: #eef4ff;
-            border: 1px solid #cfdcfb;
+            background: #f4f8ff;
+            border: 1px solid #d5e2ff;
             text-align: left;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.45rem;
+            max-width: 100%;
         }
 
         .selected-audio-title {
-            font-size: 0.8rem;
-            color: #24468f;
+            font-size: 0.78rem;
+            color: #36538f;
             font-weight: 700;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0;
+            white-space: nowrap;
         }
 
         .selected-audio-actions {
             display: flex;
             gap: 0.35rem;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 
         .selected-audio-btn {
@@ -636,10 +673,23 @@
             color: white;
             cursor: pointer;
             font-size: 0.78rem;
+            font-weight: 700;
         }
 
-        .selected-audio-btn.save {
+        .selected-audio-btn.edit {
+            background: #3f7ee8;
+        }
+
+        .selected-audio-btn.edit:hover {
+            background: #306bd0;
+        }
+
+        .selected-audio-btn.play {
             background: #1f8e43;
+        }
+
+        .selected-audio-btn.play:hover {
+            background: #167236;
         }
 
         .selected-audio-btn:disabled {
@@ -706,7 +756,7 @@
 
         <section class="settings-section deck-v2-panel">
             <h2 id="optInDecksHeading">Opt-in Shared Practice Decks</h2>
-            <p id="optInDecksNote" class="deck-v2-note">Choose which shared decks to use, then click Apply Deck Changes. If you opt out of a shared deck, cards with practice history are kept in Personal Deck so progress is not lost.</p>
+            <p id="optInDecksNote" class="deck-v2-note">Click a deck bubble to opt in or opt out, then click Apply Deck Changes. If you opt out of a shared deck, cards with practice history are kept in Personal Deck so progress is not lost.</p>
 
             <div class="deck-v2-grid">
                 <div class="deck-v2-column">
@@ -756,7 +806,7 @@
 
         <section id="orphanEditorSection" class="settings-section hidden">
             <h2>Personal Deck Editor</h2>
-            <p class="deck-v2-note">Manual custom cards live in the Personal Deck. Bulk import is supported here.</p>
+            <p class="deck-v2-note">Manual custom cards live in the Personal Deck. Bulk import is supported here. Tokenization is automatic: Type I splits by each Chinese character; Type II splits by Chinese word/phrase chunks.</p>
             <div class="orphan-editor-grid">
                 <div class="orphan-editor-panel">
                     <h3 id="orphanEditorTitle">Bulk Add Chinese Characters</h3>

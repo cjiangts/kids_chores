@@ -346,7 +346,7 @@ function applyCategoryUiText() {
         optInDecksHeading.textContent = `Opt-in Shared ${displayName} Decks`;
     }
     if (optInDecksNote) {
-        optInDecksNote.textContent = 'Choose which shared decks to use, then click Apply Deck Changes. If you opt out of a shared deck, cards with practice history are kept in Personal Deck so progress is not lost.';
+        optInDecksNote.textContent = 'Click a deck bubble to opt in or opt out, then click Apply Deck Changes. If you opt out of a shared deck, cards with practice history are kept in Personal Deck so progress is not lost.';
     }
     if (cardsSectionTitleText) {
         cardsSectionTitleText.textContent = `${displayName} Cards`;
@@ -870,20 +870,20 @@ function buildType2CardMarkup(card) {
         : secondaryText.length > 0;
     const audioActionsHtml = `
         <div class="selected-audio-bar">
-            <div class="selected-audio-title">Audio</div>
+            <div class="selected-audio-title">Prompt</div>
             <div class="selected-audio-actions">
                 <button
                     type="button"
-                    class="selected-audio-btn save"
+                    class="selected-audio-btn edit"
                     data-action="edit-front"
                     data-card-id="${escapeHtml(card.id)}"
-                >Edit Prompt</button>
+                >Edit</button>
                 <button
                     type="button"
-                    class="selected-audio-btn save"
+                    class="selected-audio-btn play"
                     data-action="load-play-audio"
                     data-card-id="${escapeHtml(card.id)}"
-                >Load/Play</button>
+                >Play</button>
             </div>
         </div>
         ${hasSavedAudio ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">Will auto-generate on first play</div>'}
@@ -929,6 +929,18 @@ function getCardMetricDescription(card) {
     return `Last response: ${formatMillisecondsAsSeconds(card && card.hardness_score)}`;
 }
 
+function formatDeckPillName(rawName) {
+    const text = String(rawName || '').trim();
+    if (!text) {
+        return '-';
+    }
+    return text
+        .replace(/\s*\/\s*/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
 function buildCardMarkup(card, options = {}) {
     const classes = ['card-item', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])];
     if (card.skip_practice) {
@@ -939,7 +951,9 @@ function buildCardMarkup(card, options = {}) {
     const showSecondary = options.showSecondary !== false && secondaryText.trim().length > 0;
     const includeAddedDate = Boolean(options.includeAddedDate);
     const extraSectionHtml = String(options.extraSectionHtml || '');
-    const sourceText = String(card.source_deck_label || card.source_deck_name || '-');
+    const sourceRaw = String(card.source_deck_label || card.source_deck_name || '-');
+    const sourceTitle = escapeHtml(sourceRaw);
+    const sourceDisplay = escapeHtml(formatDeckPillName(sourceRaw));
 
     return `
         <div class="${classes.filter(Boolean).join(' ')}">
@@ -954,7 +968,9 @@ function buildCardMarkup(card, options = {}) {
             >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
             <div class="card-front">${escapeHtml(primaryText)}</div>
             ${showSecondary ? `<div class="card-back">${escapeHtml(secondaryText)}</div>` : ''}
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(sourceText)}</div>
+            <div class="card-deck-row">
+                <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
+            </div>
             ${extraSectionHtml}
             ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
             <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">${escapeHtml(getCardMetricDescription(card))}</div>
