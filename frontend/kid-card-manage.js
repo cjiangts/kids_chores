@@ -34,13 +34,11 @@ const hardnessComputationHint = document.getElementById('hardnessComputationHint
 
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
-const availablePersonalDeckEl = document.getElementById('availablePersonalDeck');
 const availableTagFilterInput = document.getElementById('availableTagFilter');
 const availableDecksTitle = document.getElementById('availableDecksTitle');
 const optInAllAvailableBtn = document.getElementById('optInAllAvailableBtn');
 const selectedDecksEl = document.getElementById('selectedDecks');
 const selectedEmptyEl = document.getElementById('selectedEmpty');
-const selectedPersonalDeckEl = document.getElementById('selectedPersonalDeck');
 const selectedTagFilterInput = document.getElementById('selectedTagFilter');
 const selectedDecksTitle = document.getElementById('selectedDecksTitle');
 const optOutAllSelectedBtn = document.getElementById('optOutAllSelectedBtn');
@@ -63,8 +61,6 @@ const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 const practicingDeckCount = document.getElementById('practicingDeckCount');
 const practicingDeckGrid = document.getElementById('practicingDeckGrid');
 const practicingDeckEmpty = document.getElementById('practicingDeckEmpty');
-const pendingSheetCardsGrid = document.getElementById('pendingSheetCardsGrid');
-const pendingSheetCardsEmpty = document.getElementById('pendingSheetCardsEmpty');
 
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
@@ -110,7 +106,7 @@ const CARD_PAGE_SIZE = 10;
 const WRITING_SHEET_MAX_ROWS = 10;
 const HARD_CARD_PRESET_STEP = 20;
 const ORPHAN_BUBBLE_ID = '__orphan__';
-const MAX_DECK_BUBBLE_COUNT = 10;
+const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FRONT_MAX_FONT_SIZE_REM = 4;
 const CHINESE_FRONT_MIN_FONT_SIZE_REM = 0.55;
 const CHINESE_FRONT_FIT_ITERATIONS = 8;
@@ -343,10 +339,10 @@ function applyCategoryUiText() {
         sessionCardCountLabel.textContent = `${displayName} Cards Per Session (Total Across Opted-in Decks)`;
     }
     if (optInDecksHeading) {
-        optInDecksHeading.textContent = `Opt-in Shared ${displayName} Decks`;
+        optInDecksHeading.textContent = `Opt-in Predefined ${displayName} Decks`;
     }
     if (optInDecksNote) {
-        optInDecksNote.textContent = 'Click a deck bubble to opt in or opt out, then click Apply Deck Changes. If you opt out of a shared deck, cards with practice history are kept in Personal Deck so progress is not lost.';
+        optInDecksNote.textContent = 'Click a deck bubble to opt in or opt out, then click Apply Deck Changes. If you opt out, cards with practice history move to Personal Deck so progress is not lost. If you opt back in later, matching cards move from Personal Deck back into predefined decks.';
     }
     if (cardsSectionTitleText) {
         cardsSectionTitleText.textContent = `${displayName} Cards`;
@@ -375,7 +371,7 @@ function applyCategoryUiText() {
         type2ChineseSheetSection.classList.toggle('hidden', !showType2ChineseSheet);
     }
     if (type2ChineseSheetSectionTitleText) {
-        type2ChineseSheetSectionTitleText.textContent = `Suggested ${displayName} Candidate Cards`;
+        type2ChineseSheetSectionTitleText.textContent = `Generate ${displayName} Practice Sheets`;
     }
     document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);
     updateAddReadingButtonCount();
@@ -459,7 +455,7 @@ function buildOrphanDeckBubbleHtml(direction) {
     return `
         <button
             type="button"
-            class="deck-bubble${pendingClass}"
+            class="deck-bubble personal-deck-bubble${pendingClass}"
             data-deck-id="${ORPHAN_BUBBLE_ID}"
             data-orphan-toggle="${normalizedDirection}"
             title="Click to stage Personal Deck ${action}"
@@ -544,15 +540,9 @@ function renderDeckBubbleColumn(config = {}) {
         getBubbleClassName,
         bubbleTitle: String(config.bubbleTitle || ''),
         maxVisibleCount: MAX_DECK_BUBBLE_COUNT,
+        persistentHtmlBefore: String(config.persistentHtmlBefore || ''),
+        persistentItemCount: Number.parseInt(String(config.persistentItemCount ?? 0), 10) || 0,
     });
-}
-
-function renderPersonalDeckControl(containerEl, direction) {
-    if (!containerEl) {
-        return;
-    }
-    const buttonHtml = buildOrphanDeckBubbleHtml(direction);
-    containerEl.innerHTML = buttonHtml;
 }
 
 function renderAvailableDecks() {
@@ -565,20 +555,21 @@ function renderAvailableDecks() {
 
     renderDeckBubbleColumn({
         titleEl: availableDecksTitle,
-        titleText: 'Available Shared Decks',
+        titleText: 'Available Predefined Decks',
         totalCount: availableDeckCount,
         bulkController: optInAllAvailableController,
         containerEl: availableDecksEl,
         emptyEl: availableEmptyEl,
         allDecks: allAvailableDecks,
         filteredDecks: deckList,
-        emptyText: `No shared ${getCurrentCategoryDisplayName()} decks available yet.`,
+        emptyText: `No predefined ${getCurrentCategoryDisplayName()} decks available yet.`,
         filterLabel: tagFilter.getDisplayLabel(),
         getLabel: getType1DeckBubbleLabel,
         getBubbleClassName: getPendingDeckBubbleClass,
         bubbleTitle: 'Click to stage opt-in',
+        persistentHtmlBefore: shouldShowOrphan ? buildOrphanDeckBubbleHtml('in') : '',
+        persistentItemCount: shouldShowOrphan ? 1 : 0,
     });
-    renderPersonalDeckControl(availablePersonalDeckEl, shouldShowOrphan ? 'in' : '');
 }
 
 function getDeckTags(deck) {
@@ -741,8 +732,9 @@ function renderSelectedDecks() {
         getLabel: getType1DeckBubbleLabel,
         getBubbleClassName: getPendingDeckBubbleClass,
         bubbleTitle: 'Click to stage opt-out',
+        persistentHtmlBefore: showOrphanInSelected ? buildOrphanDeckBubbleHtml('out') : '',
+        persistentItemCount: showOrphanInSelected ? 1 : 0,
     });
-    renderPersonalDeckControl(selectedPersonalDeckEl, showOrphanInSelected ? 'out' : '');
 }
 
 function filterCardsByQuery(cards, rawQuery) {
@@ -1179,18 +1171,22 @@ function applySuggestedType2SheetInputs() {
 }
 
 function renderPracticingDeck() {
-    if (!practicingDeckGrid || !practicingDeckEmpty || !practicingDeckCount) {
+    if (!practicingDeckGrid || !practicingDeckEmpty) {
         return;
     }
     if (!isType2Behavior() || !isChineseSpecificLogic) {
-        practicingDeckCount.textContent = '(0)';
+        if (practicingDeckCount) {
+            practicingDeckCount.textContent = '(0)';
+        }
         practicingDeckGrid.innerHTML = '';
         practicingDeckEmpty.classList.remove('hidden');
         return;
     }
 
     const cards = [...state2Cards];
-    practicingDeckCount.textContent = `(${cards.length})`;
+    if (practicingDeckCount) {
+        practicingDeckCount.textContent = `(${cards.length})`;
+    }
     if (cards.length === 0) {
         practicingDeckGrid.innerHTML = '';
         practicingDeckEmpty.textContent = 'No suggested candidate cards.';
@@ -1201,6 +1197,9 @@ function renderPracticingDeck() {
     practicingDeckEmpty.classList.add('hidden');
     const neverSeenLabels = [];
     const lastFailedLabels = [];
+    const pendingSheetLabels = state3Cards
+        .map((card) => String(card.back || card.front || '').trim())
+        .filter((label) => label.length > 0);
     const otherLabels = [];
 
     cards.forEach((card) => {
@@ -1221,90 +1220,50 @@ function renderPracticingDeck() {
     });
 
     const renderBucketRow = (title, labels) => {
-        if (labels.length === 0) {
-            return `
-                <div class="pending-sheet-bar">
-                    <span class="pending-sheet-bar-label">${escapeHtml(title)}:</span>
-                    <span class="pending-sheet-empty">No cards.</span>
-                </div>
-            `;
-        }
+        const safeLabels = Array.isArray(labels)
+            ? labels.map((item) => String(item || '').trim()).filter(Boolean)
+            : [];
+        const pillsHtml = safeLabels.length > 0
+            ? safeLabels.map((label) => `<span class="suggested-card-pill">${escapeHtml(label)}</span>`).join('')
+            : '<span class="suggested-card-empty">No cards.</span>';
         return `
-            <div class="pending-sheet-bar">
-                <span class="pending-sheet-bar-label">${escapeHtml(title)}:</span>
-                <span class="pending-sheet-text">${escapeHtml(labels.join(' · '))}</span>
+            <div class="suggested-card-row">
+                <span class="suggested-card-row-label">${escapeHtml(title)}:</span>
+                <div class="suggested-card-pill-list">${pillsHtml}</div>
             </div>
         `;
     };
 
     const rows = [
-        renderBucketRow('Newly added', neverSeenLabels),
-        renderBucketRow('Last failed', lastFailedLabels),
+        renderBucketRow(`Newly added (${neverSeenLabels.length})`, neverSeenLabels),
+        renderBucketRow(`Last failed (${lastFailedLabels.length})`, lastFailedLabels),
+        renderBucketRow(`Cards on Active Practice Sheets (${pendingSheetLabels.length})`, pendingSheetLabels),
     ];
     if (otherLabels.length > 0) {
-        rows.push(renderBucketRow('Other', otherLabels));
+        rows.push(renderBucketRow(`Other (${otherLabels.length})`, otherLabels));
     }
     practicingDeckGrid.innerHTML = rows.join('');
-}
-
-function renderPendingSheetCards() {
-    if (!pendingSheetCardsGrid || !pendingSheetCardsEmpty) {
-        return;
-    }
-    if (!isType2Behavior() || !isChineseSpecificLogic) {
-        pendingSheetCardsGrid.textContent = '';
-        pendingSheetCardsEmpty.classList.remove('hidden');
-        return;
-    }
-
-    const cards = [...state3Cards];
-    if (cards.length === 0) {
-        pendingSheetCardsGrid.textContent = '';
-        pendingSheetCardsEmpty.classList.remove('hidden');
-        return;
-    }
-
-    pendingSheetCardsEmpty.classList.add('hidden');
-    const labels = cards
-        .map((card) => String(card.back || card.front || '').trim())
-        .filter((label) => label.length > 0);
-    pendingSheetCardsGrid.textContent = labels.join(' · ');
 }
 
 async function createAndPrintType2ChineseSheet() {
     if (!isType2Behavior() || !isChineseSpecificLogic) {
         return;
     }
-    let previewWindow = null;
     try {
-        previewWindow = window.open('about:blank', '_blank');
-        if (!previewWindow) {
-            showSheetError('Popup blocked. Please allow popups for this site to preview the sheet.');
-            return;
-        }
-        try {
-            previewWindow.document.write('<!doctype html><title>Loading...</title><p style="font-family: sans-serif; padding: 1rem;">Preparing sheet preview...</p>');
-        } catch (error) {
-            // Continue.
-        }
-
         const count = Number.parseInt(sheetCardCountInput ? sheetCardCountInput.value : '', 10);
         const rowsPerCharacter = Number.parseInt(sheetRowsPerCharInput ? sheetRowsPerCharInput.value : '', 10);
         showSheetError('');
         if (!Number.isInteger(count) || count < 1 || count > 200) {
             showSheetError('Cards per sheet must be between 1 and 200');
-            previewWindow.close();
             return;
         }
         if (!Number.isInteger(rowsPerCharacter) || rowsPerCharacter < 1 || rowsPerCharacter > 10) {
             showSheetError('Rows per card must be between 1 and 10');
-            previewWindow.close();
             return;
         }
         if (count * rowsPerCharacter > WRITING_SHEET_MAX_ROWS) {
             const maxCards = Math.max(1, Math.floor(WRITING_SHEET_MAX_ROWS / rowsPerCharacter));
             showSheetError(`One page max is ${WRITING_SHEET_MAX_ROWS} rows. With ${rowsPerCharacter} row(s) per card, max cards is ${maxCards}.`);
-            previewWindow.close();
             return;
         }
 
@@ -1343,11 +1302,9 @@ async function createAndPrintType2ChineseSheet() {
         if (categoryKey) {
             params.set('categoryKey', categoryKey);
         }
-        previewWindow.location.href = `/writing-sheet-print.html?${params.toString()}`;
+        params.set('from', 'manage');
+        window.location.href = `/writing-sheet-print.html?${params.toString()}`;
     } catch (error) {
-        if (previewWindow && !previewWindow.closed) {
-            previewWindow.close();
-        }
         showSheetError(error.message || 'Failed to generate practice sheet preview');
     }
 }
@@ -1400,7 +1357,6 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
         currentSkippedCardCount = skippedCount;
         applySuggestedType2SheetInputs();
         renderPracticingDeck();
-        renderPendingSheetCards();
         resetAndDisplayCards(currentCards);
     } catch (error) {
         console.error('Error loading shared category cards:', error);
@@ -1661,7 +1617,7 @@ async function loadSharedType1Decks() {
     const response = await fetch(buildSharedDeckApiUrl('shared-decks'));
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(result.error || `Failed to load shared decks (HTTP ${response.status})`);
+        throw new Error(result.error || `Failed to load predefined decks (HTTP ${response.status})`);
     }
     allDecks = Array.isArray(result.decks) ? result.decks : [];
     baselineOptedDeckIdSet = new Set(
@@ -1905,11 +1861,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     availableDecksEl.addEventListener('click', async (event) => {
         await onAvailableDeckClick(event);
     });
-    if (availablePersonalDeckEl) {
-        availablePersonalDeckEl.addEventListener('click', async (event) => {
-            await onAvailableDeckClick(event);
-        });
-    }
     if (optInAllAvailableBtn && optInAllAvailableController) {
         optInAllAvailableBtn.addEventListener('click', async () => {
             await optInAllAvailableController.optInAll();
@@ -1925,11 +1876,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     selectedDecksEl.addEventListener('click', async (event) => {
         await onSelectedDeckClick(event);
     });
-    if (selectedPersonalDeckEl) {
-        selectedPersonalDeckEl.addEventListener('click', async (event) => {
-            await onSelectedDeckClick(event);
-        });
-    }
     applyDeckChangesBtn.addEventListener('click', async () => {
         await applyDeckMembershipChanges();
     });

@@ -101,20 +101,13 @@ async function loadReport() {
 function renderSummary(sessions) {
     const allTotals = summarizeSessions(sessions);
     const todayKey = formatDateKey(new Date().toISOString());
-    const weeklyStartKey = todayKey ? shiftDateKey(todayKey, -6) : '';
+    const todayLabel = todayKey ? `Today · ${todayKey}` : 'Today';
     const todaySessions = sessions.filter((session) => getSessionDateKey(session) === todayKey);
-    const weeklySessions = sessions.filter((session) => {
-        const key = getSessionDateKey(session);
-        return !!key && !!weeklyStartKey && key >= weeklyStartKey && key <= todayKey;
-    });
     const todayTotals = summarizeSessions(todaySessions);
-    const weeklyTotals = summarizeSessions(weeklySessions);
-    const weeklyRangeLabel = (weeklyStartKey && todayKey) ? `${weeklyStartKey} → ${todayKey}` : 'Past 7 days';
 
     summaryGrid.innerHTML = `
-        <div class="summary-card"><div class="label">Total Sessions</div><div class="value">${allTotals.count}</div><div class="label">Elapsed: ${allTotals.elapsedMinutes.toFixed(1)} min</div><div class="label">Active: ${allTotals.activeMinutes.toFixed(1)} min</div></div>
-        <div class="summary-card"><div class="label">Weekly Total</div><div class="value">${weeklyTotals.count}</div><div class="label">${weeklyRangeLabel}</div><div class="label">Elapsed: ${weeklyTotals.elapsedMinutes.toFixed(1)} min</div><div class="label">Active: ${weeklyTotals.activeMinutes.toFixed(1)} min</div></div>
-        <div class="summary-card"><div class="label">Today</div><div class="value">${todayTotals.count}</div><div class="label">${todayKey || 'Today'}</div><div class="label">Elapsed: ${todayTotals.elapsedMinutes.toFixed(1)} min</div><div class="label">Active: ${todayTotals.activeMinutes.toFixed(1)} min</div></div>
+        <div class="summary-card"><div class="label">Total Sessions</div><div class="value">${allTotals.count}</div><div class="label">Active: ${allTotals.activeMinutes.toFixed(1)} min</div></div>
+        <div class="summary-card"><div class="label">${todayLabel}</div><div class="value">${todayTotals.count}</div><div class="label">Active: ${todayTotals.activeMinutes.toFixed(1)} min</div></div>
     `;
 }
 
@@ -128,7 +121,7 @@ function renderTablePage() {
     const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
 
     if (sessions.length === 0 || view.pageItems.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="12" style="color:#666;">No practice sessions yet.</td></tr>`;
+        reportBody.innerHTML = `<tr><td colspan="11" style="color:#666;">No practice sessions yet.</td></tr>`;
         return;
     }
 
@@ -137,7 +130,6 @@ function renderTablePage() {
             <td class="shared-report-table-action-cell"><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}" class="tab-link secondary mini-link-btn table-action-btn">View</a></td>
             <td>${renderType(session.type, session)}</td>
             <td>${formatDateTime(session.started_at)}</td>
-            <td>${formatDurationMinutes(session)}</td>
             <td>${formatResponseMinutes(session)}</td>
             <td>${safeNum(session.planned_count)}</td>
             <td>${safeNum(session.answer_count)}</td>
@@ -410,11 +402,6 @@ function formatDateTime(iso) {
     });
 }
 
-function formatDurationMinutes(session) {
-    const minutes = getSessionDurationMinutes(session);
-    return minutes.toFixed(1);
-}
-
 function formatResponseMinutes(session) {
     const minutes = getSessionResponseMinutes(session);
     return minutes.toFixed(1);
@@ -453,16 +440,6 @@ function formatDateKey(iso) {
     return y && m && d ? `${y}-${m}-${d}` : '';
 }
 
-function getSessionDurationMinutes(session) {
-    if (!session || typeof session !== 'object') return 0;
-    const start = parseUtcTimestamp(session.started_at);
-    const end = parseUtcTimestamp(session.completed_at);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        return 0;
-    }
-    return Math.max(0, (end.getTime() - start.getTime()) / 60000);
-}
-
 function getSessionResponseMinutes(session) {
     if (!session || typeof session !== 'object') return 0;
     const totalResponseMs = Number(session.total_response_ms);
@@ -489,26 +466,8 @@ function summarizeSessions(sessions) {
     const list = Array.isArray(sessions) ? sessions : [];
     return {
         count: list.length,
-        elapsedMinutes: list.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0),
         activeMinutes: list.reduce((sum, session) => sum + getSessionCombinedActiveMinutes(session), 0),
     };
-}
-
-function shiftDateKey(dateKey, deltaDays) {
-    const text = String(dateKey || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-        return '';
-    }
-    const dt = new Date(`${text}T00:00:00Z`);
-    if (Number.isNaN(dt.getTime())) {
-        return '';
-    }
-    const delta = Number.parseInt(deltaDays, 10) || 0;
-    dt.setUTCDate(dt.getUTCDate() + delta);
-    const y = dt.getUTCFullYear();
-    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(dt.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
 }
 
 function showError(message) {

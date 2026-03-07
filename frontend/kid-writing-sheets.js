@@ -155,6 +155,7 @@ function printSheet(sheetId) {
     const qs = new URLSearchParams();
     qs.set('id', String(kidId || ''));
     qs.set('sheet', String(sheetId || ''));
+    qs.set('from', 'sheets');
     if (activeCategoryKey) {
         qs.set('categoryKey', activeCategoryKey);
     }

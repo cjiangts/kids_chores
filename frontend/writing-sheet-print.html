@@ -31,7 +31,14 @@
             gap: 10px;
         }
 
-        .toolbar button {
+        .toolbar-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar button,
+        .toolbar .toolbar-link {
             border: none;
             border-radius: 6px;
             padding: 8px 12px;
@@ -39,6 +46,16 @@
             background: #2d7ef7;
             color: #fff;
             font-size: 0.95rem;
+            text-decoration: none;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toolbar .toolbar-link.secondary {
+            background: #eaf0ff;
+            color: #234b9a;
         }
 
         .sheet-title {
@@ -53,15 +70,23 @@
         }
 
         .sheet-item {
-            margin-bottom: 18px;
             page-break-inside: avoid;
+            margin: 0;
         }
 
         .grid-row {
             display: grid;
             grid-template-columns: repeat(10, var(--cell-size));
             gap: 6px;
-            margin-bottom: 8px;
+            margin: 0;
+        }
+
+        .sheet-item .grid-row + .grid-row {
+            margin-top: 8px;
+        }
+
+        .sheet-item + .sheet-item {
+            margin-top: 8px;
         }
 
         .cell {
@@ -136,7 +161,10 @@
 <body>
     <div class="toolbar">
         <div class="sheet-title">Chinese Writing Practice Sheet</div>
-        <button id="printBtn" type="button">Print</button>
+        <div class="toolbar-actions">
+            <a id="backBtn" class="toolbar-link secondary" href="/">← Back</a>
+            <button id="printBtn" type="button">Print</button>
+        </div>
     </div>
     <div id="sheetMeta" class="sheet-meta"></div>
     <div id="sheetContent"></div>

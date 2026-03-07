@@ -593,7 +593,7 @@ window.PracticeManageCommon = {
 
         const allAvailableDecks = Array.isArray(config.allAvailableDecks) ? config.allAvailableDecks : [];
         const filteredDecks = Array.isArray(config.filteredDecks) ? config.filteredDecks : [];
-        const emptyText = String(config.emptyText || 'No shared decks available yet.');
+        const emptyText = String(config.emptyText || 'No predefined decks available yet.');
         const filterLabel = String(config.filterLabel || '').trim();
         const noMatchTextPrefix = String(config.noMatchTextPrefix || 'No available deck matches tag').trim();
         const getLabel = typeof config.getLabel === 'function'
@@ -606,19 +606,34 @@ window.PracticeManageCommon = {
             ? config.getBubbleClassName
             : () => '';
         const bubbleTitle = String(config.bubbleTitle || 'Click to stage opt-in');
+        const persistentHtmlBefore = String(config.persistentHtmlBefore || '');
+        const persistentItemCountRaw = Number.parseInt(String(config.persistentItemCount ?? 0), 10);
+        const persistentItemCount = Number.isInteger(persistentItemCountRaw) && persistentItemCountRaw > 0
+            ? persistentItemCountRaw
+            : 0;
 
-        const rawMax = Number.parseInt(String(config.maxVisibleCount ?? 10), 10);
-        const maxVisibleCount = Number.isInteger(rawMax) && rawMax > 0 ? rawMax : 10;
+        const rawMax = Number.parseInt(String(config.maxVisibleCount ?? 0), 10);
+        const maxVisibleCount = Number.isInteger(rawMax) && rawMax > 0
+            ? rawMax
+            : filteredDecks.length;
 
         if (allAvailableDecks.length === 0) {
-            containerEl.innerHTML = '';
+            containerEl.innerHTML = persistentHtmlBefore;
+            if (persistentItemCount > 0) {
+                emptyEl.classList.add('hidden');
+                return { renderedCount: persistentItemCount, hiddenCount: 0 };
+            }
             emptyEl.textContent = emptyText;
             emptyEl.classList.remove('hidden');
             return { renderedCount: 0, hiddenCount: 0 };
         }
 
         if (filteredDecks.length === 0) {
-            containerEl.innerHTML = '';
+            containerEl.innerHTML = persistentHtmlBefore;
+            if (persistentItemCount > 0) {
+                emptyEl.classList.add('hidden');
+                return { renderedCount: persistentItemCount, hiddenCount: 0 };
+            }
             emptyEl.textContent = filterLabel
                 ? `${noMatchTextPrefix} "${filterLabel}".`
                 : emptyText;
@@ -654,8 +669,8 @@ window.PracticeManageCommon = {
             ? `<div class="deck-bubble-more-row" title="${hiddenCount} more available deck(s) not shown">+${hiddenCount} more deck(s)</div>`
             : '';
 
-        containerEl.innerHTML = `${bubbleHtml}${moreHtml}`;
-        return { renderedCount: visibleDecks.length, hiddenCount };
+        containerEl.innerHTML = `${persistentHtmlBefore}${bubbleHtml}${moreHtml}`;
+        return { renderedCount: visibleDecks.length + persistentItemCount, hiddenCount };
     },
 
     createOptInAllAvailableController(config = {}) {

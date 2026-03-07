@@ -1301,11 +1301,11 @@ function updatePauseSessionButtonState() {
     const shouldShow = hasActiveSessionScreen() && (state.isRecording || state.isRecordingPaused || state.isSessionPaused);
     pauseSessionBtn.classList.toggle('hidden', !shouldShow);
     if (!shouldShow) {
-        pauseSessionBtn.textContent = 'Pause Session';
+        pauseSessionBtn.textContent = 'Pause';
         pauseSessionBtn.disabled = true;
         return;
     }
-    pauseSessionBtn.textContent = state.isSessionPaused ? 'Resume Session' : 'Pause Session';
+    pauseSessionBtn.textContent = state.isSessionPaused ? 'Resume' : 'Pause';
     pauseSessionBtn.disabled = state.isUploadingRecording;
 }
 
@@ -1340,7 +1340,7 @@ async function toggleRecord() {
         return;
     }
     if (state.pendingRecordedBlob) {
-        showError('Replay or continue this recording, or re-record.');
+        showError('Replay or continue this recording, or redo.');
         return;
     }
 
@@ -1660,7 +1660,7 @@ function resumeSession() {
 
     if (state.isRecordingPaused) {
         if (!mediaRecorderSupportsPauseResume() || state.mediaRecorder.state !== 'paused') {
-            showError('Could not resume recording. Please re-record this card.');
+            showError('Could not resume recording. Please redo this card.');
             resetRecordingState();
             clearPendingRecordingPreview();
             state.isSessionPaused = false;
@@ -1680,7 +1680,7 @@ function resumeSession() {
             setRecordingVisual(true);
         } catch (error) {
             console.error('Error resuming recording:', error);
-            showError('Failed to resume recording. Please re-record this card.');
+            showError('Failed to resume recording. Please redo this card.');
             resetRecordingState();
             clearPendingRecordingPreview();
             state.isSessionPaused = false;

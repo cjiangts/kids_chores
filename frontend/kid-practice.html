@@ -182,6 +182,31 @@
             background: #218838;
         }
 
+        .practice-page #judgeRow .session-action-btn.wrong-btn {
+            min-width: 68px;
+            flex: 0 0 68px;
+            padding: 0;
+            font-size: 1.5rem;
+        }
+
+        .practice-page #judgeRow .session-action-btn.right-btn {
+            min-width: 272px;
+            flex: 0 0 272px;
+            font-size: 1.5rem;
+        }
+
+        @media (max-width: 560px) {
+            .practice-page #judgeRow .session-action-btn.wrong-btn {
+                min-width: 60px;
+                flex-basis: 60px;
+            }
+
+            .practice-page #judgeRow .session-action-btn.right-btn {
+                min-width: 220px;
+                flex-basis: 220px;
+            }
+        }
+
         .knew-btn,
         .done-btn,
         .record-btn {
@@ -509,16 +534,16 @@
                                 <div class="multi-choice-grid" id="multiChoiceGrid"></div>
                             </div>
                             <div class="session-action-layer hidden" id="judgeRow">
-                                <button class="control-btn wrong-btn session-action-btn reading-review-btn" id="wrongBtn" disabled>Wrong</button>
-                                <button class="control-btn right-btn session-action-btn session-single-btn" id="rightBtn" disabled>Right</button>
+                                <button class="control-btn wrong-btn session-action-btn session-pair-short" id="wrongBtn" aria-label="Wrong" title="Wrong" disabled>✕</button>
+                                <button class="control-btn right-btn session-action-btn session-single-btn session-pair-long" id="rightBtn" aria-label="Right" title="Right" disabled>✓</button>
                             </div>
                             <div class="session-action-layer hidden" id="recordRow">
-                                <button class="control-btn session-pause-btn session-action-btn hidden" id="pauseSessionBtn">Pause Session</button>
-                                <button class="control-btn record-btn session-action-btn session-single-btn" id="recordBtn">Start Recording</button>
+                                <button class="control-btn session-pause-btn session-action-btn session-pair-short hidden" id="pauseSessionBtn">Pause</button>
+                                <button class="control-btn record-btn session-action-btn session-single-btn session-pair-long" id="recordBtn">Start Recording</button>
                             </div>
                             <div id="reviewControls" class="session-action-layer review-controls hidden">
-                                <button class="control-btn rerecord-btn session-action-btn reading-review-btn" id="rerecordBtn">Re-record</button>
-                                <button class="control-btn continue-btn session-action-btn session-single-btn" id="continueBtn">Continue</button>
+                                <button class="control-btn rerecord-btn session-action-btn reading-review-btn session-pair-short" id="rerecordBtn">Redo</button>
+                                <button class="control-btn continue-btn session-action-btn session-single-btn session-pair-long" id="continueBtn">Continue</button>
                             </div>
                         </div>
                     </div>

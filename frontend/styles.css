@@ -348,7 +348,7 @@ body {
 .practice-page .session-pause-btn {
     min-width: 140px;
     background: #f0ad4e;
-    color: #222;
+    color: #fff;
 }
 
 .practice-page .session-pause-btn:hover {
@@ -401,6 +401,32 @@ body {
 
 .practice-page .session-single-btn {
     min-width: 220px;
+}
+
+.practice-page .session-pair-short {
+    min-width: 102px;
+    flex: 0 0 102px;
+}
+
+.practice-page .session-pair-long {
+    min-width: 238px;
+    flex: 0 0 238px;
+}
+
+@media (max-width: 560px) {
+    .practice-page .session-pair-short {
+        min-width: 88px;
+        flex-basis: 88px;
+    }
+
+    .practice-page .session-pair-long {
+        min-width: 192px;
+        flex-basis: 192px;
+    }
+
+    .practice-page .session-action-layer {
+        gap: 0.6rem;
+    }
 }
 
 .practice-page .result-back-btn {

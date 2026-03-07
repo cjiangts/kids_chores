@@ -5,8 +5,10 @@ const kidId = params.get('id');
 const sheetId = params.get('sheet');
 const previewKey = params.get('previewKey');
 const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
+const from = String(params.get('from') || '').trim().toLowerCase();
 
 const printBtn = document.getElementById('printBtn');
+const backBtn = document.getElementById('backBtn');
 const sheetMeta = document.getElementById('sheetMeta');
 const sheetContent = document.getElementById('sheetContent');
 
@@ -23,11 +25,33 @@ function buildType2ApiUrl(path) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    if (backBtn) {
+        backBtn.href = buildBackHref();
+    }
     printBtn.addEventListener('click', async () => {
         await handlePrintClick();
     });
     await loadSheet();
 });
+
+function buildBackHref() {
+    const query = new URLSearchParams();
+    if (kidId) {
+        query.set('id', String(kidId));
+    }
+    if (categoryKey) {
+        query.set('categoryKey', categoryKey);
+    }
+    const qs = query.toString();
+
+    if (from === 'manage' || previewKey) {
+        return qs ? `/kid-card-manage.html?${qs}` : '/admin.html';
+    }
+    if (from === 'sheets' || sheetId) {
+        return qs ? `/kid-writing-sheets.html?${qs}` : '/admin.html';
+    }
+    return qs ? `/kid-card-manage.html?${qs}` : '/admin.html';
+}
 
 async function loadSheet() {
     if (!kidId) {
