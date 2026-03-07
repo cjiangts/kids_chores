@@ -3019,39 +3019,43 @@ def get_kid_report(kid_id):
             return jsonify({'error': 'Kid not found'}), 404
 
         conn = get_kid_connection_for(kid)
-        rows = conn.execute(
-            """
-            SELECT
-                s.id,
-                s.type,
-                s.started_at,
-                s.completed_at,
-                COALESCE(s.planned_count, 0) AS planned_count,
-                COALESCE(s.retry_count, 0) AS retry_count,
-                COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
-                COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count,
-                COUNT(sr.id) AS answer_count,
-                COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
-                COALESCE(SUM(CASE WHEN sr.response_time_ms IS NULL THEN 0 ELSE sr.response_time_ms END), 0) AS total_response_ms,
-                COALESCE(AVG(sr.response_time_ms), 0) AS avg_response_ms
-            FROM sessions s
-            LEFT JOIN session_results sr ON sr.session_id = s.id
-            GROUP BY
-                s.id,
-                s.type,
-                s.started_at,
-                s.completed_at,
-                s.planned_count,
-                s.retry_count,
-                s.retry_total_response_ms,
-                s.retry_best_rety_correct_count
-            ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
-            """
-        ).fetchall()
-        conn.close()
+        try:
+            rows = conn.execute(
+                """
+                WITH session_results_agg AS (
+                    SELECT
+                        session_id,
+                        COUNT(*) AS answer_count,
+                        COALESCE(SUM(CASE WHEN correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
+                        COALESCE(SUM(CASE WHEN correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
+                        COALESCE(SUM(CASE WHEN response_time_ms IS NULL THEN 0 ELSE response_time_ms END), 0) AS total_response_ms
+                    FROM session_results
+                    GROUP BY session_id
+                )
+                SELECT
+                    s.id,
+                    s.type,
+                    s.started_at,
+                    s.completed_at,
+                    COALESCE(s.planned_count, 0) AS planned_count,
+                    COALESCE(s.retry_count, 0) AS retry_count,
+                    COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
+                    COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count,
+                    COALESCE(a.answer_count, 0) AS answer_count,
+                    COALESCE(a.right_count, 0) AS right_count,
+                    COALESCE(a.wrong_count, 0) AS wrong_count,
+                    COALESCE(a.total_response_ms, 0) AS total_response_ms
+                FROM sessions s
+                LEFT JOIN session_results_agg a ON a.session_id = s.id
+                ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
+                """
+            ).fetchall()
+        finally:
+            conn.close()
 
         category_meta_by_key = get_shared_deck_category_meta_by_key()
+        family_id = str(kid.get('familyId') or '').strip()
+        family_timezone = metadata.get_family_timezone(family_id)
         sessions = []
         for row in rows:
             session_type = normalize_shared_deck_tag(row[1])
@@ -3071,7 +3075,6 @@ def get_kid_report(kid_id):
                 'right_count': int(row[9] or 0),
                 'wrong_count': int(row[10] or 0),
                 'total_response_ms': int(row[11] or 0),
-                'avg_response_ms': float(row[12] or 0),
             })
 
         return jsonify({
@@ -3079,6 +3082,7 @@ def get_kid_report(kid_id):
                 'id': kid.get('id'),
                 'name': kid.get('name'),
             },
+            'family_timezone': family_timezone,
             'sessions': sessions
         }), 200
     except Exception as e:

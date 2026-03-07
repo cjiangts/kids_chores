@@ -61,18 +61,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderTablePage();
         });
     }
+    if (startedHeader) {
+        startedHeader.textContent = `Started (${reportTimezone})`;
+    }
     await loadReport();
 });
 
 async function loadReport() {
     try {
         showError('');
-        await loadReportTimezone();
         const response = await fetch(`${API_BASE}/kids/${kidId}/report`);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
         const data = await response.json();
+        const familyTimezone = String(data.family_timezone || '').trim();
+        if (familyTimezone) {
+            reportTimezone = familyTimezone;
+        }
+        if (startedHeader) {
+            startedHeader.textContent = `Started (${reportTimezone})`;
+        }
         const kidName = (data.kid && data.kid.name) ? data.kid.name : 'Kid';
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
         reportSessions = sessions;
@@ -86,31 +95,6 @@ async function loadReport() {
         console.error('Error loading report:', error);
         showError('Failed to load practice report.');
         document.title = 'Kid Practice Report - Kids Daily Chores';
-    }
-}
-
-async function loadReportTimezone() {
-    try {
-        const response = await fetch(`${API_BASE}/parent-settings/timezone`);
-        if (!response.ok) {
-            if (startedHeader) {
-                startedHeader.textContent = `Started (${reportTimezone})`;
-            }
-            return;
-        }
-        const data = await response.json().catch(() => ({}));
-        const tz = String(data.familyTimezone || '').trim();
-        if (tz) {
-            reportTimezone = tz;
-        }
-        if (startedHeader) {
-            startedHeader.textContent = `Started (${reportTimezone})`;
-        }
-    } catch (error) {
-        // Keep browser timezone.
-        if (startedHeader) {
-            startedHeader.textContent = `Started (${reportTimezone})`;
-        }
     }
 }
 
