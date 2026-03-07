@@ -104,7 +104,7 @@ let includeOrphanByCategory = {};
 let hardCardPercentByCategory = {};
 const CARD_PAGE_SIZE = 10;
 const WRITING_SHEET_MAX_ROWS = 10;
-const HARD_CARD_PRESET_STEP = 20;
+const HARD_CARD_PRESET_STEP = 10;
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FRONT_MAX_FONT_SIZE_REM = 4;
@@ -449,7 +449,7 @@ function buildOrphanDeckBubbleHtml(direction) {
         return '';
     }
     const pendingClass = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue ? ' pending-change' : '';
-    const orphanName = getPersonalDeckDisplayName();
+    const orphanName = `⭐ ${getPersonalDeckDisplayName()}`;
     const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
     const action = normalizedDirection === 'in' ? 'opt-in' : 'opt-out';
     return `
