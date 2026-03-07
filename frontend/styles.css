@@ -147,14 +147,11 @@ body {
 .progress-badge-icon {
     --badge-fill-pct: 100%;
     --progress-star-size: 1.2rem;
-    --progress-badge-pad-y: 0.12em;
-    --progress-badge-pad-x: 0.46em;
+    --progress-badge-pad-y: 0;
+    --progress-badge-pad-x: 0;
     display: inline-grid;
     place-items: center start;
     padding: var(--progress-badge-pad-y) var(--progress-badge-pad-x);
-    border-radius: 999px;
-    border: 1px solid rgba(230, 186, 72, 0.62);
-    background: rgba(255, 236, 176, 0.2);
     vertical-align: middle;
     overflow: hidden;
 }
@@ -182,11 +179,6 @@ body {
     clip-path: inset(0 0 0 var(--badge-fill-pct));
 }
 
-.progress-badge-icon.silver {
-    border-color: rgba(170, 178, 193, 0.72);
-    background: rgba(221, 226, 236, 0.34);
-}
-
 .progress-badge-icon.silver::before {
     filter: grayscale(1) saturate(0.04) brightness(1.03);
 }
@@ -195,41 +187,16 @@ body {
     content: none;
 }
 
-.progress-badge-icon.partial {
-    border-color: rgba(230, 186, 72, 0.62);
-    background: rgba(255, 236, 176, 0.2);
-}
-
-.progress-badge-strip .progress-badge-icon:nth-child(2):not(.silver) {
-    border-color: rgba(154, 143, 255, 0.66);
-    background: rgba(212, 206, 255, 0.24);
-}
-
 .progress-badge-strip .progress-badge-icon:nth-child(2):not(.silver)::before {
     filter: hue-rotate(235deg) saturate(1.2);
-}
-
-.progress-badge-strip .progress-badge-icon:nth-child(3):not(.silver) {
-    border-color: rgba(255, 159, 194, 0.7);
-    background: rgba(255, 220, 234, 0.3);
 }
 
 .progress-badge-strip .progress-badge-icon:nth-child(3):not(.silver)::before {
     filter: hue-rotate(300deg) saturate(1.24);
 }
 
-.progress-badge-strip .progress-badge-icon:nth-child(4):not(.silver) {
-    border-color: rgba(115, 201, 176, 0.72);
-    background: rgba(208, 243, 231, 0.32);
-}
-
 .progress-badge-strip .progress-badge-icon:nth-child(4):not(.silver)::before {
     filter: hue-rotate(120deg) saturate(1.18);
-}
-
-.progress-badge-strip .progress-badge-icon:nth-child(n+5):not(.silver) {
-    border-color: rgba(255, 183, 112, 0.72);
-    background: rgba(255, 235, 206, 0.33);
 }
 
 .progress-badge-strip .progress-badge-icon:nth-child(n+5):not(.silver)::before {
@@ -263,6 +230,13 @@ body {
     font-weight: 600;
     font-size: 1rem;
     line-height: 1.35;
+}
+
+.practice-done-mark {
+    color: #15803d;
+    font-size: 0.95em;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .practice-page .controls {
@@ -1087,6 +1061,23 @@ header p {
     min-height: 0;
     min-width: 0;
     overflow: visible;
+}
+
+.kid-card .daily-stars-done-mark {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.3rem;
+    color: #15803d;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.kid-card .daily-stars-row-stacked .daily-stars-done-mark {
+    display: block;
+    margin-left: 0;
+    margin-top: 0.22rem;
 }
 
 .kid-card .daily-stars-strip .progress-badge-strip {

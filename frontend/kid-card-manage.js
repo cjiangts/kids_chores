@@ -335,7 +335,7 @@ function applyCategoryUiText() {
         optInDecksHeading.textContent = `Opt-in Shared ${displayName} Decks`;
     }
     if (optInDecksNote) {
-        optInDecksNote.textContent = 'Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Orphan opt-out only hides orphan cards from merged bank and queue; cards stay in DB.';
+        optInDecksNote.textContent = 'Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Personal Deck opt-out only hides personal cards from merged bank and queue; cards stay in DB.';
     }
     if (cardsSectionTitleText) {
         cardsSectionTitleText.textContent = `${displayName} Cards`;
@@ -425,7 +425,7 @@ function renderDeckPendingInfo() {
     }
 
     const orphanText = orphanPending
-        ? `, orphan ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}`
+        ? `, Personal Deck ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}`
         : '';
     deckPendingInfo.textContent = `Pending: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanText}.`;
     applyDeckChangesBtn.disabled = isDeckMoveInFlight;
@@ -459,8 +459,7 @@ function renderAvailableDecks() {
         maxVisibleCount: 10,
     });
     if (shouldShowOrphan && availableDecksEl) {
-        const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : `${categoryKey}_orphan`);
-        const orphanName = stripCategoryFirstTagFromName(orphanNameRaw) || orphanNameRaw;
+        const orphanName = getPersonalDeckDisplayName();
         const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
         const orphanBubble = `
             <button
@@ -468,7 +467,7 @@ function renderAvailableDecks() {
                 class="deck-bubble"
                 data-deck-id="${ORPHAN_BUBBLE_ID}"
                 data-orphan-toggle="in"
-                title="Click to stage orphan opt-in"
+                title="Click to stage Personal Deck opt-in"
             >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
         `;
         availableDecksEl.insertAdjacentHTML('afterbegin', orphanBubble);
@@ -518,6 +517,10 @@ function getType1DeckBubbleLabel(deck) {
     }
     const stripped = stripCategoryFirstTagFromName(deck && deck.name);
     return stripped || String(deck && deck.name ? deck.name : '');
+}
+
+function getPersonalDeckDisplayName() {
+    return 'Personal Deck';
 }
 
 function hasDeckCountMismatchWarning(deck) {
@@ -588,8 +591,7 @@ function renderSelectedDecks() {
         const warningSuffix = warningCount > 0 ? ` · ⚠ ${warningCount}` : '';
         selectedDecksTitle.textContent = `Opted-in Decks (${total}${warningSuffix})`;
     }
-    const orphanNameRaw = String(orphanDeck && orphanDeck.name ? orphanDeck.name : `${categoryKey}_orphan`);
-    const orphanName = stripCategoryFirstTagFromName(orphanNameRaw) || orphanNameRaw;
+    const orphanName = getPersonalDeckDisplayName();
     const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
 
     const optedDeckButtons = optedDecks.map((deck) => {
@@ -621,7 +623,7 @@ function renderSelectedDecks() {
             class="deck-bubble selected"
             data-deck-id="${ORPHAN_BUBBLE_ID}"
             data-orphan-toggle="out"
-            title="Click to stage orphan opt-out"
+            title="Click to stage Personal Deck opt-out"
         >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
     `
         : '';
@@ -1620,11 +1622,11 @@ async function applyDeckMembershipChanges() {
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(result.error || `Failed to update orphan deck setting (HTTP ${response.status})`);
+                throw new Error(result.error || `Failed to update Personal Deck setting (HTTP ${response.status})`);
             }
             applyIncludeOrphanFromPayload(result);
         }
-        const orphanSummary = orphanChanged ? `, orphan ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}` : '';
+        const orphanSummary = orphanChanged ? `, Personal Deck ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}` : '';
         const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanSummary}.`;
         showDeckChangeMessage(summary);
         await loadSharedType1Decks();

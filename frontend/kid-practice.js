@@ -1719,7 +1719,7 @@ function formatType3SourceTags(card) {
         tags = tags.slice(1);
     }
     if (tags.length === 0 && card.source_is_orphan) {
-        tags = ['orphan'];
+        tags = ['personal'];
     }
     if (tags.length === 0 && card.deck_name) {
         tags = [String(card.deck_name)];

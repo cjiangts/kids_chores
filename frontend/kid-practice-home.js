@@ -205,11 +205,15 @@ function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyComple
         return 'Today: no stars yet<br><span class="practice-star-note practice-star-note-encourage practice-star-note-encourage-zero">0% · Let\'s start and earn a star!</span>';
     }
     const rawPercent = Number.parseFloat(dailyPercentByCategory?.[normalizeCategoryKey(categoryKey)]);
-    const latestPercentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.round(rawPercent)) : 0;
+    const hasLatestPercent = Number.isFinite(rawPercent);
+    const latestPercentValue = hasLatestPercent ? Math.max(0, Math.round(rawPercent)) : 0;
     const previousSessionCount = Math.max(0, tiers.length - 1);
     const percentValue = (previousSessionCount * 100) + latestPercentValue;
     const lastTierIndex = Math.max(0, tiers.length - 1);
     const latestTier = String(tiers[lastTierIndex] || '').trim().toLowerCase();
+    const fallbackLatestPercent = latestTier === 'gold' ? 100 : 0;
+    const cumulativePercent = (previousSessionCount * 100) + (hasLatestPercent ? latestPercentValue : fallbackLatestPercent);
+    const isDoneToday = cumulativePercent >= 100;
     const isStackedBadgeLayout = tiers.length > 1;
     const badgeStripClass = isStackedBadgeLayout
         ? 'progress-badge-strip progress-badge-strip-stacked'
@@ -217,7 +221,10 @@ function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyComple
     const starsHtml = `<span class="${badgeStripClass}">${tiers.map((tier, index) => (
         renderProgressBadgeByTier(tier, latestPercentValue, index === lastTierIndex)
     )).join('')}</span>`;
-    const starsLine = isStackedBadgeLayout ? `Today:<br>${starsHtml}` : `Today: ${starsHtml}`;
+    const doneMark = isDoneToday
+        ? ' <span class="practice-done-mark" aria-label="Done today" title="Done today">✅ Done</span>'
+        : '';
+    const starsLine = isStackedBadgeLayout ? `Today:${doneMark}<br>${starsHtml}` : `Today: ${starsHtml}${doneMark}`;
     if (latestTier === 'half_silver') {
         return `${starsLine}<br><span class="practice-star-note practice-star-note-encourage">${percentValue}% · Finish session first.</span>`;
     }

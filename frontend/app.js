@@ -116,21 +116,30 @@ function displayKids(kids) {
             const fallbackTiers = Array.from({ length: completedCount > 0 ? completedCount : 0 }, () => 'gold');
             const tiers = tiersFromPayload.length > 0 ? tiersFromPayload : fallbackTiers;
             const rawPercent = Number.parseFloat(dailyPercentByCategory[categoryKey]);
-            const percentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
+            const hasLatestPercent = Number.isFinite(rawPercent);
+            const latestPercentValue = hasLatestPercent ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
             const lastTierIndex = Math.max(0, tiers.length - 1);
+            const latestTier = String(tiers[lastTierIndex] || '').trim().toLowerCase();
+            const previousSessionCount = Math.max(0, tiers.length - 1);
+            const fallbackLatestPercent = latestTier === 'gold' ? 100 : 0;
+            const cumulativePercent = (previousSessionCount * 100) + (hasLatestPercent ? latestPercentValue : fallbackLatestPercent);
+            const isDoneToday = cumulativePercent >= 100;
             const isStackedBadgeLayout = tiers.length > 1;
             const badgeStripClass = isStackedBadgeLayout
                 ? 'progress-badge-strip progress-badge-strip-stacked'
                 : 'progress-badge-strip';
             const starsHtml = tiers.length > 0
                 ? `<span class="${badgeStripClass}">${tiers.map((tier, index) => (
-                    renderProgressBadgeByTier(tier, percentValue, index === lastTierIndex)
+                    renderProgressBadgeByTier(tier, latestPercentValue, index === lastTierIndex)
                 )).join('')}</span>`
                 : '-';
             enabledRows.push({
                 label: formatDeckCategoryLabel(categoryKey),
                 starsHtml,
                 isStackedBadgeLayout,
+                doneMarkHtml: isDoneToday
+                    ? '<span class="daily-stars-done-mark" aria-label="Done today" title="Done today">✅ Done</span>'
+                    : '',
             });
         });
 
@@ -139,7 +148,7 @@ function displayKids(kids) {
                 enabledRows.map((row) => (
                     `<div class="daily-stars-row ${row.isStackedBadgeLayout ? 'daily-stars-row-stacked' : 'daily-stars-row-inline'}">
                         <span class="daily-stars-label practice-star-badge">${escapeHtml(row.label)}:</span>
-                        <span class="daily-stars-strip">${row.starsHtml}</span>
+                        <span class="daily-stars-strip">${row.starsHtml}${row.doneMarkHtml}</span>
                     </div>`
                 )).join('')
             }</div>`
