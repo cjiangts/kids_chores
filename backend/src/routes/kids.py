@@ -790,7 +790,13 @@ def get_kid_materialized_shared_type_ii_decks(conn, category_key):
     return get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
 
 
-def hydrate_kid_category_config_from_db(kid, *, category_meta_by_key=None, force_reload=False):
+def hydrate_kid_category_config_from_db(
+    kid,
+    *,
+    category_meta_by_key=None,
+    force_reload=False,
+    conn=None,
+):
     """Populate kid payload with per-category config maps sourced from kid DB."""
     if not force_reload:
         existing_session = kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
@@ -822,9 +828,13 @@ def hydrate_kid_category_config_from_db(kid, *, category_meta_by_key=None, force
     include_orphan_by_category = {key: DEFAULT_INCLUDE_ORPHAN_IN_QUEUE for key in category_keys}
     opted_in_set = set()
 
-    conn = get_kid_connection_for(kid)
+    local_conn = conn
+    owns_conn = False
+    if local_conn is None:
+        local_conn = get_kid_connection_for(kid)
+        owns_conn = True
     try:
-        rows = conn.execute(
+        rows = local_conn.execute(
             f"""
             SELECT
               category_key,
@@ -836,7 +846,8 @@ def hydrate_kid_category_config_from_db(kid, *, category_meta_by_key=None, force
             """
         ).fetchall()
     finally:
-        conn.close()
+        if owns_conn and local_conn is not None:
+            local_conn.close()
 
     for row in rows:
         key = normalize_shared_deck_tag(row[0])
@@ -2070,34 +2081,51 @@ def parse_optional_hard_card_percentage_arg(arg_name='hard_card_percentage'):
     return parsed
 
 
-def get_kid_dashboard_stats(kid):
+def get_kid_dashboard_stats(
+    kid,
+    *,
+    category_meta_by_key=None,
+    type_iii_category_keys=None,
+    conn=None,
+    family_timezone=None,
+):
     """Get today's completed counts by category key and ungraded type-III flag in one connection."""
     default_counts = defaultdict(int)
     default_star_tiers = defaultdict(list)
     default_latest_percent = defaultdict(float)
-    try:
-        conn = get_kid_connection_for(kid)
-    except Exception:
-        return default_counts, default_star_tiers, default_latest_percent, False
+    local_conn = conn
+    owns_conn = False
+    if local_conn is None:
+        try:
+            local_conn = get_kid_connection_for(kid)
+            owns_conn = True
+        except Exception:
+            return default_counts, default_star_tiers, default_latest_percent, False
 
     try:
         family_id = str(kid.get('familyId') or '')
-        family_timezone = metadata.get_family_timezone(family_id)
-        tzinfo = ZoneInfo(family_timezone)
+        effective_family_timezone = (
+            str(family_timezone).strip()
+            if str(family_timezone or '').strip()
+            else metadata.get_family_timezone(family_id)
+        )
+        is_super = is_super_family_id(family_id)
+        tzinfo = ZoneInfo(effective_family_timezone)
         day_start_local = datetime.now(tzinfo).replace(hour=0, minute=0, second=0, microsecond=0)
         day_end_local = day_start_local + timedelta(days=1)
         day_start_utc = day_start_local.astimezone(timezone.utc).replace(tzinfo=None)
         day_end_utc = day_end_local.astimezone(timezone.utc).replace(tzinfo=None)
-        family_id = str(kid.get('familyId') or '').strip()
-        is_super = is_super_family_id(family_id)
-        all_category_meta_by_key = get_shared_deck_category_meta_by_key()
-        category_meta_by_key = {
-            key: meta
-            for key, meta in all_category_meta_by_key.items()
-            if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
-        }
+        effective_category_meta_by_key = (
+            category_meta_by_key
+            if isinstance(category_meta_by_key, dict)
+            else {
+                key: meta
+                for key, meta in get_shared_deck_category_meta_by_key().items()
+                if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
+            }
+        )
 
-        rows = conn.execute(
+        rows = local_conn.execute(
             """
             SELECT
                 s.type,
@@ -2105,10 +2133,7 @@ def get_kid_dashboard_stats(kid):
                 COUNT(sr.id) AS answer_count,
                 COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
                 COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
-                COALESCE(s.retry_count, 0) AS retry_count,
-                COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count,
-                s.started_at,
-                s.completed_at
+                COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
             WHERE s.completed_at IS NOT NULL
@@ -2118,11 +2143,9 @@ def get_kid_dashboard_stats(kid):
                 s.id,
                 s.type,
                 s.planned_count,
-                s.retry_count,
                 s.retry_best_rety_correct_count,
-                s.started_at,
                 s.completed_at
-            ORDER BY COALESCE(s.completed_at, s.started_at) ASC, s.id ASC
+            ORDER BY s.completed_at ASC, s.id ASC
             """,
             [day_start_utc, day_end_utc]
         ).fetchall()
@@ -2132,17 +2155,17 @@ def get_kid_dashboard_stats(kid):
         today_latest_percent = defaultdict(float)
         for row in rows:
             session_type = normalize_shared_deck_tag(row[0])
-            if not session_type or session_type not in category_meta_by_key:
+            if not session_type or session_type not in effective_category_meta_by_key:
                 continue
             session_behavior_type = get_session_behavior_type(
                 session_type,
-                category_meta_by_key=category_meta_by_key,
+                category_meta_by_key=effective_category_meta_by_key,
             )
             planned_count = max(0, int(row[1] or 0))
             answer_count = int(row[2] or 0)
             right_count = int(row[3] or 0)
             wrong_count = int(row[4] or 0)
-            retry_best_rety = max(0, int(row[6] or 0))
+            retry_best_rety = max(0, int(row[5] or 0))
             target_answer_count = max(planned_count, answer_count, right_count + wrong_count)
             if target_answer_count <= 0 and planned_count <= 0:
                 continue
@@ -2164,11 +2187,22 @@ def get_kid_dashboard_stats(kid):
             today_counts['total'] += 1
             today_latest_percent[session_type] = max(0.0, min(100.0, effective_percent))
 
-        type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
+        effective_type_iii_category_keys = [
+            normalize_shared_deck_tag(item)
+            for item in list(
+                type_iii_category_keys
+                if isinstance(type_iii_category_keys, (list, tuple, set))
+                else get_type_iii_category_keys(effective_category_meta_by_key)
+            )
+        ]
+        effective_type_iii_category_keys = [
+            key for key in effective_type_iii_category_keys
+            if key
+        ]
         has_ungraded = False
-        if type_iii_category_keys:
-            placeholders = ', '.join(['?'] * len(type_iii_category_keys))
-            ungraded_row = conn.execute(
+        if effective_type_iii_category_keys:
+            placeholders = ', '.join(['?'] * len(effective_type_iii_category_keys))
+            ungraded_row = local_conn.execute(
                 f"""
                 SELECT 1
                 FROM sessions s
@@ -2178,7 +2212,7 @@ def get_kid_dashboard_stats(kid):
                   AND sr.correct = 0
                 LIMIT 1
                 """,
-                type_iii_category_keys,
+                effective_type_iii_category_keys,
             ).fetchone()
             has_ungraded = bool(ungraded_row)
 
@@ -2186,16 +2220,29 @@ def get_kid_dashboard_stats(kid):
     except Exception:
         return default_counts, default_star_tiers, default_latest_percent, False
     finally:
-        conn.close()
+        if owns_conn and local_conn is not None:
+            local_conn.close()
 
 
-def get_kid_opted_in_deck_category_keys(kid):
+def get_kid_opted_in_deck_category_keys(kid, *, category_meta_by_key=None, conn=None):
     """Return normalized deck-category keys opted in for one kid."""
     try:
-        hydrate_kid_category_config_from_db(kid)
         family_id = str(kid.get('familyId') or '').strip()
         is_super = is_super_family_id(family_id)
-        category_meta_by_key = get_shared_deck_category_meta_by_key()
+        effective_category_meta_by_key = (
+            category_meta_by_key
+            if isinstance(category_meta_by_key, dict)
+            else {
+                key: meta
+                for key, meta in get_shared_deck_category_meta_by_key().items()
+                if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
+            }
+        )
+        hydrate_kid_category_config_from_db(
+            kid,
+            category_meta_by_key=effective_category_meta_by_key,
+            conn=conn,
+        )
         raw_keys = kid.get('optedInDeckCategoryKeys')
         if not isinstance(raw_keys, list):
             return []
@@ -2205,7 +2252,7 @@ def get_kid_opted_in_deck_category_keys(kid):
             key = normalize_shared_deck_tag(raw_key)
             if not key or key in seen:
                 continue
-            category_meta = category_meta_by_key.get(key)
+            category_meta = effective_category_meta_by_key.get(key)
             if not can_family_access_deck_category(
                 category_meta,
                 family_id=family_id,
@@ -2217,6 +2264,45 @@ def get_kid_opted_in_deck_category_keys(kid):
         return keys
     except Exception:
         return []
+
+
+def get_kid_has_ungraded_type_iii(kid, *, type_iii_category_keys=None, conn=None):
+    """Return whether kid has any completed type-III session rows needing grading."""
+    keys = [
+        normalize_shared_deck_tag(item)
+        for item in list(type_iii_category_keys or [])
+    ]
+    keys = [key for key in keys if key]
+    if not keys:
+        return False
+    local_conn = conn
+    owns_conn = False
+    if local_conn is None:
+        try:
+            local_conn = get_kid_connection_for(kid)
+            owns_conn = True
+        except Exception:
+            return False
+    try:
+        placeholders = ', '.join(['?'] * len(keys))
+        row = local_conn.execute(
+            f"""
+            SELECT 1
+            FROM sessions s
+            JOIN session_results sr ON sr.session_id = s.id
+            WHERE s.type IN ({placeholders})
+              AND s.completed_at IS NOT NULL
+              AND sr.correct = 0
+            LIMIT 1
+            """,
+            keys,
+        ).fetchone()
+        return bool(row)
+    except Exception:
+        return False
+    finally:
+        if owns_conn and local_conn is not None:
+            local_conn.close()
 
 
 def get_shared_deck_category_meta_by_key():
@@ -2571,7 +2657,10 @@ def get_kids():
         family_id = current_family_id()
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
+        view = str(request.args.get('view') or '').strip().lower()
+        is_admin_view = (view == 'admin')
         kids = metadata.get_all_kids(family_id=family_id)
+        family_timezone = metadata.get_family_timezone(family_id)
         is_super = is_super_family_id(family_id)
         all_category_meta_by_key = get_shared_deck_category_meta_by_key()
         category_meta_by_key = {
@@ -2579,41 +2668,74 @@ def get_kids():
             for key, meta in all_category_meta_by_key.items()
             if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
         }
+        type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
 
         kids_with_progress = []
         for kid in kids:
-            today_counts, today_star_tiers, today_latest_percent, has_ungraded = get_kid_dashboard_stats(kid)
-            opted_in_category_keys = get_kid_opted_in_deck_category_keys(kid)
-            daily_completed_by_deck_category = get_kid_daily_completed_by_deck_category(
-                kid,
-                opted_in_category_keys,
-                today_counts=today_counts,
-            )
-            daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
-                opted_in_category_keys,
-                today_star_tiers=today_star_tiers,
-            )
-            daily_percent_by_deck_category = get_kid_daily_percent_by_deck_category(
-                opted_in_category_keys,
-                today_latest_percent=today_latest_percent,
-            )
-            practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
-                kid,
-                opted_in_category_keys,
-                category_meta_by_key,
-            )
-            kid_with_progress = {
-                **kid,
-                'dailyCompletedCountToday': int(today_counts.get('total', 0) or 0),
-                'hasTypeIIIToReview': has_ungraded,
-                'optedInDeckCategoryKeys': opted_in_category_keys,
-                'dailyCompletedByDeckCategory': daily_completed_by_deck_category,
-                'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
-                'dailyPercentByDeckCategory': daily_percent_by_deck_category,
-                'practiceTargetByDeckCategory': practice_target_by_deck_category,
-                'deckCategoryMetaByKey': category_meta_by_key,
-            }
-            kids_with_progress.append(kid_with_progress)
+            conn = None
+            try:
+                conn = get_kid_connection_for(kid)
+            except Exception:
+                conn = None
+            try:
+                opted_in_category_keys = get_kid_opted_in_deck_category_keys(
+                    kid,
+                    category_meta_by_key=category_meta_by_key,
+                    conn=conn,
+                )
+                practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
+                    kid,
+                    opted_in_category_keys,
+                    category_meta_by_key,
+                )
+                if is_admin_view:
+                    today_counts = defaultdict(int)
+                    today_star_tiers = defaultdict(list)
+                    today_latest_percent = defaultdict(float)
+                    has_ungraded = get_kid_has_ungraded_type_iii(
+                        kid,
+                        type_iii_category_keys=type_iii_category_keys,
+                        conn=conn,
+                    )
+                    daily_completed_by_deck_category = {}
+                    daily_star_tiers_by_deck_category = {}
+                    daily_percent_by_deck_category = {}
+                else:
+                    today_counts, today_star_tiers, today_latest_percent, has_ungraded = get_kid_dashboard_stats(
+                        kid,
+                        category_meta_by_key=category_meta_by_key,
+                        type_iii_category_keys=type_iii_category_keys,
+                        conn=conn,
+                        family_timezone=family_timezone,
+                    )
+                    daily_completed_by_deck_category = get_kid_daily_completed_by_deck_category(
+                        kid,
+                        opted_in_category_keys,
+                        today_counts=today_counts,
+                    )
+                    daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
+                        opted_in_category_keys,
+                        today_star_tiers=today_star_tiers,
+                    )
+                    daily_percent_by_deck_category = get_kid_daily_percent_by_deck_category(
+                        opted_in_category_keys,
+                        today_latest_percent=today_latest_percent,
+                    )
+                kid_with_progress = {
+                    **kid,
+                    'dailyCompletedCountToday': int(today_counts.get('total', 0) or 0),
+                    'hasTypeIIIToReview': has_ungraded,
+                    'optedInDeckCategoryKeys': opted_in_category_keys,
+                    'dailyCompletedByDeckCategory': daily_completed_by_deck_category,
+                    'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
+                    'dailyPercentByDeckCategory': daily_percent_by_deck_category,
+                    'practiceTargetByDeckCategory': practice_target_by_deck_category,
+                    'deckCategoryMetaByKey': category_meta_by_key,
+                }
+                kids_with_progress.append(kid_with_progress)
+            finally:
+                if conn is not None:
+                    conn.close()
 
         return jsonify(kids_with_progress), 200
     except Exception as e:
@@ -2661,9 +2783,8 @@ def get_kid(kid_id):
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        today_counts, today_star_tiers, today_latest_percent, has_ungraded = get_kid_dashboard_stats(kid)
-        opted_in_category_keys = get_kid_opted_in_deck_category_keys(kid)
         family_id = str(kid.get('familyId') or '').strip()
+        family_timezone = metadata.get_family_timezone(family_id)
         is_super = is_super_family_id(family_id)
         all_category_meta_by_key = get_shared_deck_category_meta_by_key()
         category_meta_by_key = {
@@ -2671,6 +2792,27 @@ def get_kid(kid_id):
             for key, meta in all_category_meta_by_key.items()
             if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
         }
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+        except Exception:
+            conn = None
+        try:
+            today_counts, today_star_tiers, today_latest_percent, has_ungraded = get_kid_dashboard_stats(
+                kid,
+                category_meta_by_key=category_meta_by_key,
+                type_iii_category_keys=get_type_iii_category_keys(category_meta_by_key),
+                conn=conn,
+                family_timezone=family_timezone,
+            )
+            opted_in_category_keys = get_kid_opted_in_deck_category_keys(
+                kid,
+                category_meta_by_key=category_meta_by_key,
+                conn=conn,
+            )
+        finally:
+            if conn is not None:
+                conn.close()
         daily_completed_by_deck_category = get_kid_daily_completed_by_deck_category(
             kid,
             opted_in_category_keys,

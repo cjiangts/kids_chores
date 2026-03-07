@@ -38,8 +38,8 @@ let deckCategoryModalState = {
 };
 
 // Load kids on page load
-document.addEventListener('DOMContentLoaded', async () => {
-    await applySuperFamilyUi();
+document.addEventListener('DOMContentLoaded', () => {
+    applySuperFamilyUi();
     loadKids();
 });
 
@@ -105,7 +105,7 @@ async function loadKids() {
     try {
         showError('');
         kidsList.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
-        const response = await fetch(`${API_BASE}/kids`);
+        const response = await fetch(`${API_BASE}/kids?view=admin`);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
