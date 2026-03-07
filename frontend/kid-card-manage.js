@@ -620,6 +620,21 @@ function getPersonalDeckDisplayName() {
     return 'Personal Deck';
 }
 
+function resolveCardSourceDeckName(card) {
+    const raw = String(card?.source_deck_label || card?.source_deck_name || '').trim();
+    const normalized = raw.toLowerCase().replace(/[\s_]+/g, '');
+    if (
+        Boolean(card?.source_is_orphan)
+        || normalized === 'orphan'
+        || normalized === 'orphandeck'
+        || normalized === 'personaldeck'
+        || normalized === 'personaldecks'
+    ) {
+        return getPersonalDeckDisplayName();
+    }
+    return raw || '-';
+}
+
 function hasDeckCountMismatchWarning(deck) {
     if (!SHOW_DECK_COUNT_MISMATCH_WARNING) {
         return false;
@@ -745,7 +760,7 @@ function filterCardsByQuery(cards, rawQuery) {
     return cards.filter((card) => {
         const front = String(card.front || '');
         const back = String(card.back || '');
-        const source = String(card.source_deck_label || card.source_deck_name || '');
+        const source = String(resolveCardSourceDeckName(card) || '');
         return front.includes(query) || back.includes(query) || source.includes(query);
     });
 }
@@ -943,9 +958,13 @@ function buildCardMarkup(card, options = {}) {
     const showSecondary = options.showSecondary !== false && secondaryText.trim().length > 0;
     const includeAddedDate = Boolean(options.includeAddedDate);
     const extraSectionHtml = String(options.extraSectionHtml || '');
-    const sourceRaw = String(card.source_deck_label || card.source_deck_name || '-');
+    const sourceRaw = resolveCardSourceDeckName(card);
     const sourceTitle = escapeHtml(sourceRaw);
-    const sourceDisplay = escapeHtml(formatDeckPillName(sourceRaw));
+    const sourceDisplay = escapeHtml(
+        sourceRaw === getPersonalDeckDisplayName()
+            ? sourceRaw
+            : formatDeckPillName(sourceRaw)
+    );
 
     return `
         <div class="${classes.filter(Boolean).join(' ')}">

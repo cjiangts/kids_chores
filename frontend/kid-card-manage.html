@@ -234,19 +234,27 @@
         .deck-v2-actions {
             margin-top: 0.9rem;
             display: flex;
-            gap: 0.6rem;
-            align-items: center;
-        }
-
-        .deck-apply-stack {
-            display: flex;
             flex-direction: column;
-            align-items: flex-start;
             gap: 0.45rem;
         }
 
-        .deck-apply-stack .success,
-        .deck-apply-stack .error {
+        .deck-v2-action-row {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .deck-v2-action-row .deck-v2-note {
+            margin: 0;
+        }
+
+        .deck-v2-action-row .settings-save-btn {
+            margin-left: auto;
+        }
+
+        .deck-v2-actions .success,
+        .deck-v2-actions .error {
             margin-bottom: 0;
             width: 100%;
         }
@@ -888,11 +896,11 @@
                 </div>
             </div>
             <div class="deck-v2-actions">
-                <span id="deckPendingInfo" class="deck-v2-note" style="margin:0;">No pending deck changes.</span>
-                <div class="deck-apply-stack">
+                <div class="deck-v2-action-row">
+                    <span id="deckPendingInfo" class="deck-v2-note">No pending deck changes.</span>
                     <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes</button>
-                    <div id="deckChangeMessage" class="success hidden"></div>
                 </div>
+                <div id="deckChangeMessage" class="success hidden"></div>
             </div>
         </section>
 
