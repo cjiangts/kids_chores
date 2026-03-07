@@ -651,7 +651,7 @@ window.PracticeManageCommon = {
         }).join('');
 
         const moreHtml = hiddenCount > 0
-            ? `<span class="deck-bubble deck-bubble-more" title="${hiddenCount} more available deck(s) not shown">...</span>`
+            ? `<div class="deck-bubble-more-row" title="${hiddenCount} more available deck(s) not shown">+${hiddenCount} more deck(s)</div>`
             : '';
 
         containerEl.innerHTML = `${bubbleHtml}${moreHtml}`;

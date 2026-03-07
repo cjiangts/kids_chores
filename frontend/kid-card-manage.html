@@ -257,9 +257,9 @@
         .deck-filter-group {
             margin-bottom: 0.7rem;
             padding: 0.45rem 0.55rem 0.2rem;
-            border: 1px solid #dfe4f7;
+            border: 1px solid #ffd6a3;
             border-radius: 10px;
-            background: #f4f7ff;
+            background: #fff8ee;
         }
 
         .deck-filter-group .deck-filter-row {
@@ -271,25 +271,33 @@
         }
 
         .deck-filter-group .shared-tag-filter-chip {
-            background: #f5eeff;
-            color: #5a2f91;
-            border-color: #dac8ff;
+            background: #fff2de;
+            color: #8a4a05;
+            border-color: #ffc887;
         }
 
         .deck-filter-group .shared-tag-filter-chip-remove {
-            color: #5a2f91;
+            color: #8a4a05;
         }
 
         .deck-filter-group .shared-tag-filter-chip-remove:hover {
-            background: rgba(90, 47, 145, 0.1);
+            background: rgba(138, 74, 5, 0.12);
+        }
+
+        .deck-filter-label {
+            margin: 0 0 0.32rem 0.12rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #a35b08;
+            letter-spacing: 0.01em;
         }
 
         .deck-filter-group #availableTagFilter,
         .deck-filter-group #selectedTagFilter {
-            min-height: 32px;
-            height: 32px;
-            padding: 0.32rem 0.65rem;
-            font-size: 0.9rem;
+            min-height: 30px;
+            height: 30px;
+            padding: 0.24rem 0.62rem;
+            font-size: 0.88rem;
         }
 
         .deck-personal-row {
@@ -305,6 +313,89 @@
         .cards-section .cards-title,
         .cards-section .cards-title span {
             color: #333;
+        }
+
+        .card-status-filter {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: #f7f9ff;
+            border: 1px solid #dbe1ff;
+            border-radius: 999px;
+            padding: 0.18rem;
+        }
+
+        .card-status-filter-btn {
+            border: 0;
+            border-radius: 999px;
+            padding: 0.36rem 0.72rem;
+            font-size: 0.88rem;
+            line-height: 1;
+            color: #3a4e9d;
+            background: transparent;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .card-status-filter-btn:hover {
+            background: rgba(58, 78, 157, 0.08);
+        }
+
+        .card-status-filter-btn.active {
+            background: #3f7ee8;
+            color: #fff;
+        }
+
+        .cards-toolbar .cards-search-input,
+        .cards-toolbar #viewOrderSelect {
+            min-height: 34px;
+            height: 34px;
+            padding-top: 0.35rem;
+            padding-bottom: 0.35rem;
+            font-size: 0.92rem;
+        }
+
+        .hardness-slider-input.discrete-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: 0;
+            padding: 0;
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            border: 0;
+        }
+
+        .hardness-preset-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin: 0.1rem 0 0.1rem;
+        }
+
+        .hardness-preset-btn {
+            border: 1px solid #c7d2ff;
+            background: #fff;
+            color: #3d4fa7;
+            border-radius: 999px;
+            min-width: 54px;
+            padding: 0.28rem 0.58rem;
+            font-size: 0.83rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .hardness-preset-btn:hover {
+            background: #f3f6ff;
+        }
+
+        .hardness-preset-btn.active {
+            border-color: #3f7ee8;
+            background: #3f7ee8;
+            color: #fff;
         }
 
         .deck-category-tabs {
@@ -615,7 +706,7 @@
 
         <section class="settings-section deck-v2-panel">
             <h2 id="optInDecksHeading">Opt-in Shared Practice Decks</h2>
-            <p id="optInDecksNote" class="deck-v2-note">Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Personal Deck opt-out only hides personal cards from merged bank and queue; cards stay in DB.</p>
+            <p id="optInDecksNote" class="deck-v2-note">Choose which shared decks to use, then click Apply Deck Changes. If you opt out of a shared deck, cards with practice history are kept in Personal Deck so progress is not lost.</p>
 
             <div class="deck-v2-grid">
                 <div class="deck-v2-column">
@@ -625,6 +716,7 @@
                     </div>
                     <div id="availablePersonalDeck" class="deck-bubble-wrap deck-personal-row"></div>
                     <div class="deck-filter-group">
+                        <div class="deck-filter-label">Filter by Tags</div>
                         <div class="deck-filter-row">
                             <div class="form-group">
                                 <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
@@ -642,6 +734,7 @@
                     </div>
                     <div id="selectedPersonalDeck" class="deck-bubble-wrap deck-personal-row"></div>
                     <div class="deck-filter-group">
+                        <div class="deck-filter-label">Filter by Tags</div>
                         <div class="deck-filter-row">
                             <div class="form-group">
                                 <select id="selectedTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
@@ -663,13 +756,12 @@
 
         <section id="orphanEditorSection" class="settings-section hidden">
             <h2>Personal Deck Editor</h2>
-            <p class="deck-v2-note">Manual custom cards live in the Personal Deck. Bulk import is supported here; use Skip to exclude cards from practice.</p>
+            <p class="deck-v2-note">Manual custom cards live in the Personal Deck. Bulk import is supported here.</p>
             <div class="orphan-editor-grid">
                 <div class="orphan-editor-panel">
                     <h3 id="orphanEditorTitle">Bulk Add Chinese Characters</h3>
                     <form id="addCardForm">
                         <div class="form-group">
-                            <label id="orphanEditorInputLabel" for="chineseChar">Chinese Characters</label>
                             <div class="bulk-import-wrap">
                                 <textarea
                                     id="chineseChar"
@@ -728,6 +820,11 @@
                 <span><span id="cardsSectionTitleText">Practice Cards</span> <span id="mathCardCount">(0)</span></span>
             </h2>
             <div class="cards-toolbar">
+                <div class="card-status-filter" role="group" aria-label="Card status filter">
+                    <button type="button" class="card-status-filter-btn active" data-card-status-filter="all">All</button>
+                    <button type="button" class="card-status-filter-btn" data-card-status-filter="active">Active</button>
+                    <button type="button" class="card-status-filter-btn" data-card-status-filter="skipped">Skipped</button>
+                </div>
                 <input
                     type="text"
                     id="cardSearchInput"
@@ -738,7 +835,7 @@
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="queue" selected>Order: Next Session Queue</option>
                     <option value="added_time">Order: Added Time (Recent to Oldest)</option>
-                    <option value="hardness_desc">Order: Hardness Score (Desc)</option>
+                    <option value="hardness_desc">Order: Hard to Easy</option>
                     <option value="lifetime_attempts_desc">Order: Lifetime Attempts (Desc)</option>
                     <option value="lifetime_attempts_asc">Order: Lifetime Attempts (Asc)</option>
                 </select>
@@ -746,10 +843,17 @@
             <div class="hardness-slider-block">
                 <div class="hardness-slider-head">
                     <div class="hardness-slider-title">Hard Cards in Next Session Queue</div>
-                    <div id="hardnessPercentValue" class="hardness-slider-value">20%</div>
                 </div>
-                <input id="hardnessPercentSlider" class="hardness-slider-input" type="range" min="0" max="100" step="1" value="20">
-                <p id="hardnessComputationHint" class="hardness-slider-hint">Drag to preview queue changes instantly. Release to save this page's hardness %.</p>
+                <input id="hardnessPercentSlider" class="hardness-slider-input discrete-hidden" type="range" min="0" max="100" step="20" value="20">
+                <div class="hardness-preset-row" role="group" aria-label="Queue percentage">
+                    <button type="button" class="hardness-preset-btn" data-hard-card-preset="0">0%</button>
+                    <button type="button" class="hardness-preset-btn" data-hard-card-preset="20">20%</button>
+                    <button type="button" class="hardness-preset-btn" data-hard-card-preset="40">40%</button>
+                    <button type="button" class="hardness-preset-btn" data-hard-card-preset="60">60%</button>
+                    <button type="button" class="hardness-preset-btn" data-hard-card-preset="80">80%</button>
+                    <button type="button" class="hardness-preset-btn" data-hard-card-preset="100">100%</button>
+                </div>
+                <p id="hardnessComputationHint" class="hardness-slider-hint">Choose what % of the next session uses harder cards; the rest uses least-played cards.</p>
                 <div id="hardnessPercentStatus" class="hardness-slider-status hidden" aria-live="polite"></div>
             </div>
             <div id="cardsGrid" class="cards-grid"></div>

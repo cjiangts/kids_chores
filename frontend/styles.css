@@ -530,6 +530,14 @@ body {
     opacity: 0.75;
 }
 
+.deck-bubble-more-row {
+    flex: 0 0 100%;
+    font-size: 0.82rem;
+    color: #6a7390;
+    padding: 0.1rem 0.15rem 0;
+    line-height: 1.2;
+}
+
 .deck-column-head {
     display: flex;
     align-items: center;

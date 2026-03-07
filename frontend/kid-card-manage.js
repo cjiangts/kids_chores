@@ -49,7 +49,6 @@ const deckPendingInfo = document.getElementById('deckPendingInfo');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
 const orphanEditorSection = document.getElementById('orphanEditorSection');
 const orphanEditorTitle = document.getElementById('orphanEditorTitle');
-const orphanEditorInputLabel = document.getElementById('orphanEditorInputLabel');
 const addCardForm = document.getElementById('addCardForm');
 const chineseCharInput = document.getElementById('chineseChar');
 const addReadingBtn = document.getElementById('addReadingBtn');
@@ -71,9 +70,11 @@ const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
 const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
+const cardStatusFilterButtons = [...document.querySelectorAll('button[data-card-status-filter]')];
 const hardnessPercentSlider = document.getElementById('hardnessPercentSlider');
 const hardnessPercentValue = document.getElementById('hardnessPercentValue');
 const hardnessPercentStatus = document.getElementById('hardnessPercentStatus');
+const hardCardPresetButtons = [...document.querySelectorAll('button[data-hard-card-preset]')];
 
 let allDecks = [];
 let orphanDeck = null;
@@ -101,11 +102,13 @@ let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
 let isReadingBulkAdding = false;
 let initialHardCardPercent = null;
 let currentSkippedCardCount = 0;
+let currentCardStatusFilter = 'all';
 let sessionCardCountByCategory = {};
 let includeOrphanByCategory = {};
 let hardCardPercentByCategory = {};
 const CARD_PAGE_SIZE = 10;
 const WRITING_SHEET_MAX_ROWS = 10;
+const HARD_CARD_PRESET_STEP = 20;
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 10;
 const CHINESE_FRONT_MAX_FONT_SIZE_REM = 4;
@@ -343,16 +346,16 @@ function applyCategoryUiText() {
         optInDecksHeading.textContent = `Opt-in Shared ${displayName} Decks`;
     }
     if (optInDecksNote) {
-        optInDecksNote.textContent = 'Click a deck to stage move between lists. Nothing is saved until you click Apply Deck Changes. Personal Deck opt-out only hides personal cards from merged bank and queue; cards stay in DB.';
+        optInDecksNote.textContent = 'Choose which shared decks to use, then click Apply Deck Changes. If you opt out of a shared deck, cards with practice history are kept in Personal Deck so progress is not lost.';
     }
     if (cardsSectionTitleText) {
         cardsSectionTitleText.textContent = `${displayName} Cards`;
     }
     if (hardnessComputationHint) {
         if (isType2Behavior()) {
-            hardnessComputationHint.textContent = 'Drag to preview queue changes instantly. Release to save this page\'s hardness %. Hardness score is based on each card\'s overall correctness rate. Lower correctness means higher hardness.';
+            hardnessComputationHint.textContent = 'Choose what % of the next session uses harder cards; the rest uses least-played cards. Here, harder cards are based on overall correctness rate.';
         } else {
-            hardnessComputationHint.textContent = 'Drag to preview queue changes instantly. Release to save this page\'s hardness %. Hardness score is based on each card\'s most recent response time. Slower response means higher hardness.';
+            hardnessComputationHint.textContent = 'Choose what % of the next session uses harder cards; the rest uses least-played cards. Here, harder cards are based on each card\'s most recent response time.';
         }
     }
     if (orphanEditorSection) {
@@ -362,11 +365,6 @@ function applyCategoryUiText() {
         orphanEditorTitle.textContent = isType2Behavior()
             ? 'Bulk Add Chinese Words/Phrases'
             : 'Bulk Add Chinese Characters';
-    }
-    if (orphanEditorInputLabel) {
-        orphanEditorInputLabel.textContent = isType2Behavior()
-            ? 'Chinese words/phrases'
-            : 'Chinese Characters';
     }
     if (chineseCharInput) {
         chineseCharInput.placeholder = isType2Behavior()
@@ -482,6 +480,23 @@ function getPendingDeckBubbleClass(deck) {
     return hasPendingDeckMembershipChange(deckId) ? 'pending-change' : '';
 }
 
+function sortDecksPendingFirst(decks) {
+    const list = Array.isArray(decks) ? decks : [];
+    return list
+        .map((deck, index) => ({
+            deck,
+            index,
+            pending: hasPendingDeckMembershipChange(deck && deck.deck_id) ? 1 : 0,
+        }))
+        .sort((a, b) => {
+            if (b.pending !== a.pending) {
+                return b.pending - a.pending;
+            }
+            return a.index - b.index;
+        })
+        .map((entry) => entry.deck);
+}
+
 function renderDeckBubbleColumn(config = {}) {
     const titleEl = config.titleEl || null;
     const titleText = String(config.titleText || 'Decks').trim() || 'Decks';
@@ -494,20 +509,39 @@ function renderDeckBubbleColumn(config = {}) {
 
     const bulkController = config.bulkController || null;
     const filteredDecks = Array.isArray(config.filteredDecks) ? config.filteredDecks : [];
+    const getBubbleClassName = typeof config.getBubbleClassName === 'function'
+        ? config.getBubbleClassName
+        : null;
+    const orderedDecks = getBubbleClassName
+        ? filteredDecks
+            .map((deck, index) => {
+                const className = String(getBubbleClassName(deck) || '').trim();
+                const isPending = className.split(/\s+/).includes('pending-change');
+                return { deck, index, isPending };
+            })
+            .sort((a, b) => {
+                if (a.isPending !== b.isPending) {
+                    return a.isPending ? -1 : 1;
+                }
+                return a.index - b.index;
+            })
+            .map((item) => item.deck)
+        : filteredDecks;
+
     if (bulkController && typeof bulkController.render === 'function') {
-        bulkController.render(filteredDecks.length);
+        bulkController.render(orderedDecks.length);
     }
 
     window.PracticeManageCommon.renderLimitedAvailableDecks({
         containerEl: config.containerEl,
         emptyEl: config.emptyEl,
         allAvailableDecks: Array.isArray(config.allDecks) ? config.allDecks : [],
-        filteredDecks,
+        filteredDecks: orderedDecks,
         emptyText: String(config.emptyText || ''),
         filterLabel: String(config.filterLabel || ''),
         noMatchTextPrefix: String(config.noMatchTextPrefix || ''),
         getLabel: typeof config.getLabel === 'function' ? config.getLabel : getType1DeckBubbleLabel,
-        getBubbleClassName: typeof config.getBubbleClassName === 'function' ? config.getBubbleClassName : null,
+        getBubbleClassName,
         bubbleTitle: String(config.bubbleTitle || ''),
         maxVisibleCount: MAX_DECK_BUBBLE_COUNT,
     });
@@ -525,7 +559,7 @@ function renderAvailableDecks() {
     const tagFilter = ensureAvailableTagFilterController();
     tagFilter.sync();
     const allAvailableDecks = getAvailableDeckCandidatesForTagFilter();
-    const deckList = allAvailableDecks.filter(matchesAvailableTagFilter);
+    const deckList = sortDecksPendingFirst(allAvailableDecks.filter(matchesAvailableTagFilter));
     const shouldShowOrphan = Boolean(orphanDeck) && !stagedIncludeOrphanInQueue;
     const availableDeckCount = deckList.length + (shouldShowOrphan ? 1 : 0);
 
@@ -685,7 +719,7 @@ function renderSelectedDecks() {
     const tagFilter = ensureSelectedTagFilterController();
     tagFilter.sync();
     const optedDecks = getSelectedDeckCandidatesForTagFilter();
-    const deckList = optedDecks.filter(matchesSelectedTagFilter);
+    const deckList = sortDecksPendingFirst(optedDecks.filter(matchesSelectedTagFilter));
     const showOrphanInSelected = Boolean(orphanDeck) && stagedIncludeOrphanInQueue;
     const warningCount = deckList.filter((deck) => hasDeckCountMismatchWarning(deck)).length;
     const warningSuffix = warningCount > 0 ? ` · ⚠ ${warningCount}` : '';
@@ -722,6 +756,72 @@ function filterCardsByQuery(cards, rawQuery) {
         const source = String(card.source_deck_label || card.source_deck_name || '');
         return front.includes(query) || back.includes(query) || source.includes(query);
     });
+}
+
+function filterCardsByStatus(cards, statusFilter) {
+    const mode = String(statusFilter || 'all').trim().toLowerCase();
+    if (mode === 'active') {
+        return cards.filter((card) => !card.skip_practice);
+    }
+    if (mode === 'skipped') {
+        return cards.filter((card) => !!card.skip_practice);
+    }
+    return cards;
+}
+
+function renderCardStatusFilterButtons() {
+    if (!cardStatusFilterButtons.length) {
+        return;
+    }
+    cardStatusFilterButtons.forEach((button) => {
+        const mode = String(button.getAttribute('data-card-status-filter') || '').trim().toLowerCase();
+        button.classList.toggle('active', mode === currentCardStatusFilter);
+    });
+}
+
+function setCardStatusFilter(nextFilter) {
+    const mode = String(nextFilter || '').trim().toLowerCase();
+    const resolved = (mode === 'active' || mode === 'skipped') ? mode : 'all';
+    if (resolved === currentCardStatusFilter) {
+        return;
+    }
+    currentCardStatusFilter = resolved;
+    renderCardStatusFilterButtons();
+    resetAndDisplayCards(currentCards);
+}
+
+function roundToHardCardPresetStep(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isInteger(parsed)) {
+        return 0;
+    }
+    const clamped = Math.max(0, Math.min(100, parsed));
+    const rounded = Math.round(clamped / HARD_CARD_PRESET_STEP) * HARD_CARD_PRESET_STEP;
+    return Math.max(0, Math.min(100, rounded));
+}
+
+function renderHardCardPresetButtons() {
+    if (!hardCardPresetButtons.length) {
+        return;
+    }
+    const current = roundToHardCardPresetStep(hardnessPercentSlider ? hardnessPercentSlider.value : 0);
+    hardCardPresetButtons.forEach((button) => {
+        const value = roundToHardCardPresetStep(button.getAttribute('data-hard-card-preset'));
+        const isActive = value === current;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+}
+
+function applyHardCardPreset(rawValue) {
+    if (!hardnessPercentSlider) {
+        return;
+    }
+    const next = roundToHardCardPresetStep(rawValue);
+    hardnessPercentSlider.value = String(next);
+    hardnessPercentSlider.dispatchEvent(new Event('input', { bubbles: true }));
+    hardnessPercentSlider.dispatchEvent(new Event('change', { bubbles: true }));
+    renderHardCardPresetButtons();
 }
 
 function buildCardReportHref(card) {
@@ -798,6 +898,37 @@ function buildType2CardMarkup(card) {
     });
 }
 
+function formatMetricPercent(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return '-';
+    }
+    const normalized = Math.max(0, Math.min(100, numeric));
+    const rounded = Math.round(normalized * 10) / 10;
+    return Number.isInteger(rounded) ? `${rounded}%` : `${rounded.toFixed(1)}%`;
+}
+
+function formatMillisecondsAsSeconds(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+        return '-';
+    }
+    const seconds = numeric / 1000;
+    if (seconds >= 1) {
+        const rounded = Math.round(seconds * 10) / 10;
+        return Number.isInteger(rounded) ? `${rounded}s` : `${rounded.toFixed(1)}s`;
+    }
+    const short = seconds.toFixed(2).replace(/0+$/g, '').replace(/\.$/, '');
+    return `${short}s`;
+}
+
+function getCardMetricDescription(card) {
+    if (isType2Behavior()) {
+        return `Overall wrong rate: ${formatMetricPercent(card && card.hardness_score)}`;
+    }
+    return `Last response: ${formatMillisecondsAsSeconds(card && card.hardness_score)}`;
+}
+
 function buildCardMarkup(card, options = {}) {
     const classes = ['card-item', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])];
     if (card.skip_practice) {
@@ -826,7 +957,7 @@ function buildCardMarkup(card, options = {}) {
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Source: ${escapeHtml(sourceText)}</div>
             ${extraSectionHtml}
             ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
-            <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">Hardness score: ${window.PracticeManageCommon.formatHardnessScore(card.hardness_score)}</div>
+            <div style="margin-top: 10px; color: #666; font-size: 0.85rem;">${escapeHtml(getCardMetricDescription(card))}</div>
             ${includeAddedDate ? `<div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${window.PracticeManageCommon.formatAddedDate(card.created_at)}</div>` : ''}
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
@@ -919,11 +1050,12 @@ function applyChineseCardFrontUniformSize(visibleCards = null) {
 }
 
 function displayCards(cards) {
-    const filteredCards = filterCardsByQuery(cards, cardSearchInput ? cardSearchInput.value : '');
+    const statusFilteredCards = filterCardsByStatus(cards, currentCardStatusFilter);
+    const filteredCards = filterCardsByQuery(statusFilteredCards, cardSearchInput ? cardSearchInput.value : '');
     sortedCards = window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
 
     if (mathCardCount) {
-        mathCardCount.textContent = `(${sortedCards.length} · Skipped: ${currentSkippedCardCount})`;
+        mathCardCount.textContent = `(${sortedCards.length})`;
     }
 
     if (sortedCards.length === 0) {
@@ -1244,6 +1376,7 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
         if (hardnessController) {
             hardnessController.setCurrentValue(data.hard_card_percentage);
         }
+        renderHardCardPresetButtons();
 
         const skippedCount = Number.isInteger(Number.parseInt(data.skipped_card_count, 10))
             ? Number.parseInt(data.skipped_card_count, 10)
@@ -1809,6 +1942,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     viewOrderSelect.addEventListener('change', () => {
         resetAndDisplayCards(currentCards);
     });
+    renderCardStatusFilterButtons();
+    if (cardStatusFilterButtons.length) {
+        cardStatusFilterButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const nextFilter = button.getAttribute('data-card-status-filter');
+                setCardStatusFilter(nextFilter);
+            });
+        });
+    }
     if (cardSearchInput) {
         cardSearchInput.addEventListener('input', () => {
             resetAndDisplayCards(currentCards);
@@ -1835,6 +1977,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             viewType2ChineseSheets();
         });
     }
+    if (hardnessPercentSlider) {
+        hardnessPercentSlider.addEventListener('input', () => {
+            renderHardCardPresetButtons();
+        });
+        hardnessPercentSlider.addEventListener('change', () => {
+            renderHardCardPresetButtons();
+        });
+    }
+    if (hardCardPresetButtons.length) {
+        hardCardPresetButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                applyHardCardPreset(button.getAttribute('data-hard-card-preset'));
+            });
+        });
+    }
 
     sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();
 
@@ -1850,7 +2007,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             apiBase: API_BASE,
             kidId,
             kidFieldName: HARD_CARD_PERCENT_BY_CATEGORY_FIELD,
-            savedMessage: 'Hard cards % saved.',
+            savedMessage: 'Queue setting saved.',
             buildPayload: (hardPct) => buildHardCardPercentPayload(hardPct),
             getPersistedValue: (payload) => getPersistedHardCardPercentFromPayload(payload),
             clearTopError: () => {
@@ -1862,6 +2019,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         hardnessController.attach();
         hardnessController.setCurrentValue(initialHardCardPercent);
+        renderHardCardPresetButtons();
         await loadSharedType1Decks();
         updateAddReadingButtonCount();
     } catch (error) {
