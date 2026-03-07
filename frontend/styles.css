@@ -128,6 +128,69 @@ body {
     font-size: 1.5rem;
 }
 
+.simple-audio-player {
+    margin-top: 0.42rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    border: 1px solid #dbe3f4;
+    border-radius: 999px;
+    background: #f5f8ff;
+    padding: 0.32rem 0.52rem;
+}
+
+.simple-audio-player .attempt-audio,
+.simple-audio-player .review-audio {
+    display: none;
+}
+
+.audio-play-btn {
+    border: 0;
+    border-radius: 999px;
+    background: #4f83ff;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.24rem 0.48rem;
+    cursor: pointer;
+    min-width: 58px;
+    line-height: 1;
+}
+
+.audio-play-btn:hover {
+    background: #356ce9;
+}
+
+.audio-speed-btn {
+    border: 1px solid #cfd7ea;
+    border-radius: 999px;
+    background: #fff;
+    color: #2f3c7e;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.18rem 0.45rem;
+    line-height: 1.1;
+    cursor: pointer;
+}
+
+.audio-speed-btn:hover {
+    background: #f0f4ff;
+}
+
+.audio-progress {
+    flex: 1;
+    min-width: 120px;
+    accent-color: #4f83ff;
+}
+
+.audio-time {
+    color: #516185;
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 .progress-badge-strip {
     display: inline-flex;
     align-items: center;

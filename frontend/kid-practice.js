@@ -2226,6 +2226,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    if (window.SimpleAudioPlayer && reviewAudio) {
+        window.SimpleAudioPlayer.wrapAudio(reviewAudio);
+    }
+
     backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
     resultBackToPractice.href = `/kid-practice-home.html?id=${kidId}`;
     bindEventHandlers();

@@ -1,5 +1,5 @@
 """Kid management API routes"""
-from flask import Blueprint, request, jsonify, send_from_directory, session
+from flask import Blueprint, request, jsonify, send_from_directory, send_file, session
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import hashlib
@@ -7,11 +7,13 @@ import math
 import json
 import os
 import shutil
+import subprocess
 import uuid
 import time
 import threading
 import mimetypes
 import re
+from io import BytesIO
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
@@ -3330,14 +3332,18 @@ def get_kid_report_card_detail(kid_id, card_id):
         attempts = []
         right_count = 0
         wrong_count = 0
+        ungraded_count = 0
         response_sum_ms = 0
         for row in attempts_rows:
-            is_correct = int(row[1] or 0) > 0
+            correct_score = int(row[1] or 0)
+            is_correct = correct_score > 0
             response_ms = int(row[2] or 0)
             session_type = normalize_shared_deck_tag(row[5])
             attempts.append({
                 'result_id': int(row[0]),
                 'correct': is_correct,
+                'correct_score': correct_score,
+                'grade_status': ('pass' if correct_score > 0 else ('fail' if correct_score < 0 else 'ungraded')),
                 'response_time_ms': response_ms,
                 'timestamp': row[3].isoformat() if row[3] else None,
                 'session_id': int(row[4]) if row[4] is not None else None,
@@ -3351,14 +3357,17 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[8]}" if row[8] else None,
             })
             response_sum_ms += response_ms
-            if is_correct:
+            if correct_score > 0:
                 right_count += 1
-            else:
+            elif correct_score < 0:
                 wrong_count += 1
+            else:
+                ungraded_count += 1
 
         attempts_count = len(attempts)
         avg_response_ms = (response_sum_ms / attempts_count) if attempts_count > 0 else 0
-        accuracy_pct = ((right_count * 100.0) / attempts_count) if attempts_count > 0 else 0
+        graded_count = right_count + wrong_count
+        accuracy_pct = ((right_count * 100.0) / graded_count) if graded_count > 0 else 0
 
         return jsonify({
             'kid': {
@@ -3378,6 +3387,7 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'attempt_count': attempts_count,
                 'right_count': right_count,
                 'wrong_count': wrong_count,
+                'ungraded_count': ungraded_count,
                 'accuracy_pct': accuracy_pct,
                 'avg_response_ms': avg_response_ms,
             },
@@ -8183,6 +8193,91 @@ def get_type3_audio(kid_id, file_name):
 
         mime_type = row[0] if row and row[0] else None
         return send_from_directory(audio_dir, file_name, as_attachment=False, mimetype=mime_type)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def sanitize_download_filename_stem(raw_name, fallback='recording'):
+    """Return safe user-facing filename stem while preserving Unicode text."""
+    text = str(raw_name or '').strip()
+    if not text:
+        text = fallback
+    text = re.sub(r'[\x00-\x1f\x7f]+', '', text)
+    text = text.replace('/', '／').replace('\\', '＼')
+    text = text.strip().strip('.')
+    if not text:
+        text = fallback
+    # Keep names reasonable for browser download dialogs.
+    return text[:120]
+
+
+@kids_bp.route('/kids/<kid_id>/lesson-reading/audio/<path:file_name>/download-mp3', methods=['GET'])
+def download_type3_audio_as_mp3(kid_id, file_name):
+    """Download one type-III recording as MP3 (transcoded on demand)."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        if file_name != os.path.basename(file_name):
+            return jsonify({'error': 'Invalid file name'}), 400
+
+        audio_dir = get_kid_type3_audio_dir(kid)
+        audio_path = os.path.join(audio_dir, file_name)
+        if not os.path.exists(audio_path):
+            return jsonify({'error': 'Audio file not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        row = conn.execute(
+            """
+            SELECT s.type
+            FROM lesson_reading_audio lra
+            JOIN session_results sr ON sr.id = lra.result_id
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE lra.file_name = ?
+            LIMIT 1
+            """,
+            [file_name]
+        ).fetchone()
+        conn.close()
+
+        if not row or not is_type_iii_session_type(row[0]):
+            return jsonify({'error': 'Audio file not found'}), 404
+
+        requested_name = request.args.get('downloadName')
+        base_stem = sanitize_download_filename_stem(
+            requested_name or os.path.splitext(file_name)[0],
+            fallback='recording'
+        )
+        output_name = f'{base_stem}.mp3'
+
+        ffmpeg_cmd = [
+            'ffmpeg',
+            '-v', 'error',
+            '-i', audio_path,
+            '-vn',
+            '-acodec', 'libmp3lame',
+            '-b:a', '128k',
+            '-f', 'mp3',
+            'pipe:1',
+        ]
+        process = subprocess.run(
+            ffmpeg_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if process.returncode != 0 or not process.stdout:
+            detail = process.stderr.decode('utf-8', errors='ignore').strip()
+            message = detail or 'Audio transcoding failed'
+            return jsonify({'error': message}), 500
+
+        return send_file(
+            BytesIO(process.stdout),
+            mimetype='audio/mpeg',
+            as_attachment=True,
+            download_name=output_name,
+        )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

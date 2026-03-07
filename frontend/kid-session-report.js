@@ -21,6 +21,7 @@ let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
 let currentSessionBehaviorType = '';
 let currentSessionCategoryDisplayName = '';
+let liveDurationBackfillBound = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !sessionId) {
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     backBtn.href = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
+    bindLiveDurationBackfillUpdates();
     await loadReportTimezone();
     await loadSessionDetail();
 });
@@ -117,7 +119,8 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
     const maxMs = Math.max(...sorted.map((item) => Math.max(0, Number(item?.response_time_ms) || 0)), 1);
 
     container.innerHTML = sorted.map((item) => {
-        const isRight = Number(item?.correct_score) > 0;
+        const correctScore = Number(item?.correct_score);
+        const barClass = getAnswerBarClassByScore(correctScore);
         const front = String(item.front || '').trim();
         const back = String(item.back || '').trim();
         const label = getCardDisplayLabel(front, back, currentSessionType) || '(blank)';
@@ -128,7 +131,7 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
             ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${rawMs}"`
             : '';
         const audioHtml = item.audio_url
-            ? `<audio class="attempt-audio" controls preload="none" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>`
+            ? `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>`
             : '';
         const gradingHtml = renderGradingControls(item);
         const from = getCardReportFromSessionType(currentSessionType);
@@ -143,13 +146,17 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
         const reportLinkHtml = canLink
             ? `<a class="tab-link secondary mini-link-btn" href="/kid-card-report.html?${reportLinkParams.toString()}">Report</a>`
             : '';
+        const cardIdValue = safeNum(item.card_id);
+        const resultIdAttr = Number.isFinite(Number(item?.result_id))
+            ? ` data-result-id="${Number(item.result_id)}"`
+            : '';
         return `
-            <div class="answer-item">
+            <div class="answer-item"${resultIdAttr} data-card-id="${cardIdValue}" data-response-time-ms="${rawMs}">
                 <div>${escapeHtml(label)}</div>
                 <div class="answer-bar-track">
-                    <div class="answer-bar-fill ${isRight ? 'right' : 'wrong'}" style="width:${pct.toFixed(2)}%"></div>
+                    <div class="answer-bar-fill ${barClass}" style="width:${pct.toFixed(2)}%"></div>
                 </div>
-                <div class="meta">Card #${safeNum(item.card_id)} · ${responseTimeLabel}</div>
+                <div class="meta">Card #${cardIdValue} · ${responseTimeLabel}</div>
                 ${reportLinkHtml}
                 ${audioHtml}
                 ${gradingHtml}
@@ -160,6 +167,67 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
     if (isTypeIIIReviewSession() && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
     }
+    if (window.SimpleAudioPlayer) {
+        window.SimpleAudioPlayer.attach(container, { selector: 'audio.js-simple-audio' });
+    }
+    syncRenderedResponseTimeBars();
+}
+
+function getAnswerBarClassByScore(correctScore) {
+    const score = Number(correctScore);
+    if (score > 0) {
+        return 'right';
+    }
+    if (score < 0) {
+        return 'wrong';
+    }
+    return 'pending';
+}
+
+function bindLiveDurationBackfillUpdates() {
+    if (liveDurationBackfillBound) {
+        return;
+    }
+    liveDurationBackfillBound = true;
+    window.addEventListener('lesson-reading-duration-updated', (event) => {
+        const detail = event && event.detail ? event.detail : {};
+        const resultId = Number(detail.resultId);
+        const responseMs = Math.max(0, Number(detail.responseTimeMs) || 0);
+        if (!Number.isFinite(resultId) || resultId <= 0 || responseMs <= 0) {
+            return;
+        }
+        const item = document.querySelector(`.answer-item[data-result-id="${resultId}"]`);
+        if (!item) {
+            return;
+        }
+        item.dataset.responseTimeMs = String(responseMs);
+        const cardId = safeNum(item.dataset.cardId);
+        const meta = item.querySelector('.meta');
+        if (meta) {
+            meta.textContent = `Card #${cardId} · ${formatResponseTime(responseMs)}`;
+        }
+        syncRenderedResponseTimeBars();
+    });
+}
+
+function syncRenderedResponseTimeBars() {
+    const items = Array.from(document.querySelectorAll('.answer-item[data-response-time-ms]'));
+    if (items.length === 0) {
+        return;
+    }
+    const maxMs = Math.max(
+        ...items.map((node) => Math.max(0, Number(node.dataset.responseTimeMs || 0))),
+        1
+    );
+    items.forEach((node) => {
+        const bar = node.querySelector('.answer-bar-fill');
+        if (!bar) {
+            return;
+        }
+        const value = Math.max(0, Number(node.dataset.responseTimeMs || 0));
+        const pct = Math.max(0, Math.min(100, (value / maxMs) * 100));
+        bar.style.width = `${pct.toFixed(2)}%`;
+    });
 }
 
 function formatResponseTime(ms) {
@@ -246,6 +314,15 @@ document.addEventListener('click', async (event) => {
                 gradeRow.outerHTML = replacement;
             } else if (replacement) {
                 item.insertAdjacentHTML('beforeend', replacement);
+            }
+            const bar = item.querySelector('.answer-bar-fill');
+            if (bar) {
+                const score = Number.isFinite(Number(saved?.correct_score))
+                    ? Number(saved.correct_score)
+                    : (saved?.grade_status === 'pass' ? 1 : (saved?.grade_status === 'fail' ? -1 : 0));
+                const nextClass = getAnswerBarClassByScore(score);
+                bar.classList.remove('right', 'wrong', 'pending');
+                bar.classList.add(nextClass);
             }
         }
     } catch (error) {

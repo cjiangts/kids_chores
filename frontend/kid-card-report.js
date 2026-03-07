@@ -13,6 +13,8 @@ const summaryGrid = document.getElementById('summaryGrid');
 const trendChart = document.getElementById('trendChart');
 const historyList = document.getElementById('historyList');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+let currentKidName = '';
+let currentCardFront = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !cardId) {
@@ -20,9 +22,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    backBtn.href = resolveBackHref();
+    bindBackButton();
     await loadCardReport();
 });
+
+function bindBackButton() {
+    if (!backBtn) {
+        return;
+    }
+    const fallbackHref = resolveBackHref();
+    backBtn.href = fallbackHref;
+    backBtn.addEventListener('click', (event) => {
+        if (!canUseHistoryBack()) {
+            return;
+        }
+        event.preventDefault();
+        window.history.back();
+    });
+}
+
+function canUseHistoryBack() {
+    if (!window.history || window.history.length <= 1) {
+        return false;
+    }
+    const referrer = String(document.referrer || '').trim();
+    if (!referrer) {
+        return false;
+    }
+    try {
+        const refUrl = new URL(referrer, window.location.origin);
+        return refUrl.origin === window.location.origin;
+    } catch (error) {
+        return false;
+    }
+}
 
 function resolveBackHref() {
     if (from === 'cards') {
@@ -66,6 +99,8 @@ async function loadCardReport() {
         const card = data.card || {};
         const attempts = Array.isArray(data.attempts) ? data.attempts : [];
         const summary = data.summary || {};
+        currentKidName = String(kidName || '').trim();
+        currentCardFront = String(card.front || '').trim();
 
         const cardLabel = getCardDisplayLabel(card.front, card.back, from) || `#${card.id || cardId}`;
         pageTitle.textContent = `${kidName} · Card ${cardLabel}`;
@@ -129,12 +164,13 @@ function renderTrend(attempts) {
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
         const scaled = Math.max(minHeight, Math.round((rawMs / maxMs) * 170));
         const label = `${formatResponseTime(rawMs)} · ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}`;
-        return `<div class="trend-bar ${item.correct ? 'right' : 'wrong'}" title="${escapeHtml(`#${index + 1} ${label}`)}" style="height:${scaled}px"></div>`;
+        const correctness = resolveCorrectness(item);
+        return `<div class="trend-bar ${correctness}" title="${escapeHtml(`#${index + 1} ${label}`)}" style="height:${scaled}px"></div>`;
     }).join('');
 
     trendChart.innerHTML = `
         <div class="trend-bars">${bars}</div>
-        <div class="chart-legend">Each bar is one attempt in time order. Height = response time. Green = right, red = wrong.</div>
+        <div class="chart-legend">Each bar is one attempt in time order. Height = response time. Green = right, red = wrong, yellow = ungraded.</div>
     `;
 }
 
@@ -153,10 +189,21 @@ function renderHistory(attempts) {
     historyList.innerHTML = sorted.map((item) => {
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
         const responseTimeLabel = formatResponseTime(rawMs);
-        const statusClass = item.correct ? 'right' : 'wrong';
-        const statusText = item.correct ? 'Right' : 'Wrong';
+        const correctness = resolveCorrectness(item);
+        const statusClass = correctness;
+        const statusText = correctness === 'right' ? 'Right' : (correctness === 'wrong' ? 'Wrong' : 'Ungraded');
         const lessonReadingAudioAttrs = from === 'lesson-reading'
             ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${rawMs}"`
+            : '';
+        const downloadFilename = buildAudioDownloadFilename(item);
+        const downloadUrl = buildAudioDownloadUrl(item, downloadFilename);
+        const audioBlockHtml = item.audio_url
+            ? `
+                <div class="audio-history-row">
+                    <audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>
+                    <a class="tab-link secondary mini-link-btn audio-download-link" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFilename)}">Download</a>
+                </div>
+            `
             : '';
         return `
             <div class="history-item">
@@ -166,7 +213,7 @@ function renderHistory(attempts) {
                     ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
                     · Session #${safeNum(item.session_id)}
                 </div>
-                ${item.audio_url ? `<audio class="attempt-audio" controls preload="none" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>` : ''}
+                ${audioBlockHtml}
             </div>
         `;
     }).join('');
@@ -174,6 +221,25 @@ function renderHistory(attempts) {
     if (from === 'lesson-reading' && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(historyList, { kidId });
     }
+    if (window.SimpleAudioPlayer) {
+        window.SimpleAudioPlayer.attach(historyList, { selector: 'audio.js-simple-audio' });
+    }
+}
+
+function resolveCorrectness(item) {
+    const scoreRaw = Number(item?.correct_score);
+    if (Number.isFinite(scoreRaw)) {
+        if (scoreRaw > 0) return 'right';
+        if (scoreRaw < 0) return 'wrong';
+        return 'pending';
+    }
+    if (item?.correct === true || item?.correct === 1) {
+        return 'right';
+    }
+    if (item?.correct === false || item?.correct === 0) {
+        return 'wrong';
+    }
+    return 'pending';
 }
 
 function formatResponseTime(ms) {
@@ -189,6 +255,54 @@ function formatResponseTime(ms) {
 
 function formatType(sessionCategoryDisplayName = '') {
     return String(sessionCategoryDisplayName || '').trim();
+}
+
+function sanitizeFilenamePart(value, fallback) {
+    const cleaned = String(value || '')
+        .replace(/[\\/:*?"<>|]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return cleaned || fallback;
+}
+
+function resolveAudioExtension(item) {
+    return '.mp3';
+}
+
+function buildAudioDownloadFilename(item) {
+    const kidPart = sanitizeFilenamePart(currentKidName, 'Kid');
+    const frontPart = sanitizeFilenamePart(currentCardFront, 'Card');
+    const base = `${kidPart}-${frontPart}`.slice(0, 120);
+    return `${base}${resolveAudioExtension(item)}`;
+}
+
+function resolveAudioFileName(item) {
+    const explicit = String(item?.audio_file_name || '').trim();
+    if (explicit) {
+        return explicit;
+    }
+    const audioUrl = String(item?.audio_url || '').trim();
+    if (!audioUrl) {
+        return '';
+    }
+    try {
+        const parsed = new URL(audioUrl, window.location.origin);
+        const parts = parsed.pathname.split('/');
+        return decodeURIComponent(parts[parts.length - 1] || '').trim();
+    } catch (error) {
+        return '';
+    }
+}
+
+function buildAudioDownloadUrl(item, downloadFilename) {
+    const fileName = resolveAudioFileName(item);
+    if (!fileName) {
+        return String(item?.audio_url || '').trim();
+    }
+    const path = `/api/kids/${encodeURIComponent(String(kidId || ''))}/lesson-reading/audio/${encodeURIComponent(fileName)}/download-mp3`;
+    const query = new URLSearchParams();
+    query.set('downloadName', String(downloadFilename || '').replace(/\.mp3$/i, ''));
+    return `${path}?${query.toString()}`;
 }
 
 function getCardDisplayLabel(front, back, source) {

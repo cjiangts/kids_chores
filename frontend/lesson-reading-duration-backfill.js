@@ -57,11 +57,18 @@ window.LessonReadingDurationBackfill = (() => {
                 }
                 try {
                     const saved = await sendBackfill(kidId, resultId, durationMs);
+                    let resolvedMs = durationMs;
                     if (saved && Number(saved.response_time_ms || 0) > 0) {
-                        audioEl.dataset.responseTimeMs = String(Number(saved.response_time_ms));
-                    } else {
-                        audioEl.dataset.responseTimeMs = String(durationMs);
+                        resolvedMs = Number(saved.response_time_ms);
                     }
+                    audioEl.dataset.responseTimeMs = String(resolvedMs);
+                    window.dispatchEvent(new CustomEvent('lesson-reading-duration-updated', {
+                        detail: {
+                            kidId: String(kidId || ''),
+                            resultId,
+                            responseTimeMs: resolvedMs,
+                        },
+                    }));
                 } catch (error) {
                     // Best effort only: ignore failures.
                     console.warn('Lesson reading duration backfill failed:', error);
@@ -76,4 +83,3 @@ window.LessonReadingDurationBackfill = (() => {
 
     return { attach };
 })();
-
