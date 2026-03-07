@@ -44,7 +44,9 @@ const {
 } = window.DeckCategoryCommon;
 
 let currentKid = null;
-let writingCards = [];
+let writingCards = null;
+let writingCardsLoadedCategoryKey = '';
+let writingCardsLoading = false;
 let activeChineseCategoryKey = requestedCategoryKey;
 let activeTypeINonChineseCategoryKey = requestedCategoryKey;
 let activeTypeIICategoryKey = requestedCategoryKey;
@@ -83,13 +85,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     kidBackBtn.href = '/';
     await loadKidInfo();
-    await loadWritingCards();
     renderPracticeOptions();
+    window.setTimeout(() => {
+        void warmWritingCards();
+    }, 0);
 });
 
 async function loadKidInfo() {
     try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}`);
+        const response = await fetch(`${API_BASE}/kids/${kidId}?view=practice_home`);
         if (!response.ok) {
             throw new Error('Kid not found');
         }
@@ -100,6 +104,10 @@ async function loadKidInfo() {
             activeTypeINonChineseCategoryKey,
         );
         activeTypeIICategoryKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
+        if (writingCardsLoadedCategoryKey && writingCardsLoadedCategoryKey !== activeTypeIICategoryKey) {
+            writingCards = null;
+            writingCardsLoadedCategoryKey = '';
+        }
         activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
         kidNameEl.textContent = `${currentKid.name}'s Practice`;
         updatePageTitle();
@@ -112,12 +120,17 @@ async function loadKidInfo() {
     }
 }
 
-async function loadWritingCards() {
+async function warmWritingCards() {
     try {
-        if (!activeTypeIICategoryKey) {
-            writingCards = [];
+        if (writingCardsLoading) {
             return;
         }
+        if (!activeTypeIICategoryKey) {
+            writingCards = [];
+            writingCardsLoadedCategoryKey = '';
+            return;
+        }
+        writingCardsLoading = true;
         const url = new URL(`${API_BASE}/kids/${kidId}/type2/cards`);
         url.searchParams.set('categoryKey', activeTypeIICategoryKey);
         const response = await fetch(url.toString());
@@ -126,9 +139,13 @@ async function loadWritingCards() {
         }
         const data = await response.json();
         writingCards = (data.cards || []).filter((card) => card.available_for_practice !== false);
+        writingCardsLoadedCategoryKey = activeTypeIICategoryKey;
     } catch (error) {
         console.error('Error loading writing cards:', error);
         writingCards = [];
+        writingCardsLoadedCategoryKey = activeTypeIICategoryKey || '';
+    } finally {
+        writingCardsLoading = false;
     }
 }
 
@@ -460,7 +477,11 @@ function goWritingPractice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
-    if (categoryKey === activeTypeIICategoryKey && writingCards.length === 0) {
+    if (
+        categoryKey === writingCardsLoadedCategoryKey
+        && Array.isArray(writingCards)
+        && writingCards.length === 0
+    ) {
         const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
         const label = getCategoryDisplayName(categoryKey, categoryMetaMap);
         showError(`No ${label} cards yet. Ask your parent to add some first.`);

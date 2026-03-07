@@ -2086,6 +2086,7 @@ def get_kid_dashboard_stats(
     *,
     category_meta_by_key=None,
     type_iii_category_keys=None,
+    include_has_ungraded=True,
     conn=None,
     family_timezone=None,
 ):
@@ -2187,34 +2188,35 @@ def get_kid_dashboard_stats(
             today_counts['total'] += 1
             today_latest_percent[session_type] = max(0.0, min(100.0, effective_percent))
 
-        effective_type_iii_category_keys = [
-            normalize_shared_deck_tag(item)
-            for item in list(
-                type_iii_category_keys
-                if isinstance(type_iii_category_keys, (list, tuple, set))
-                else get_type_iii_category_keys(effective_category_meta_by_key)
-            )
-        ]
-        effective_type_iii_category_keys = [
-            key for key in effective_type_iii_category_keys
-            if key
-        ]
         has_ungraded = False
-        if effective_type_iii_category_keys:
-            placeholders = ', '.join(['?'] * len(effective_type_iii_category_keys))
-            ungraded_row = local_conn.execute(
-                f"""
-                SELECT 1
-                FROM sessions s
-                JOIN session_results sr ON sr.session_id = s.id
-                WHERE s.type IN ({placeholders})
-                  AND s.completed_at IS NOT NULL
-                  AND sr.correct = 0
-                LIMIT 1
-                """,
-                effective_type_iii_category_keys,
-            ).fetchone()
-            has_ungraded = bool(ungraded_row)
+        if include_has_ungraded:
+            effective_type_iii_category_keys = [
+                normalize_shared_deck_tag(item)
+                for item in list(
+                    type_iii_category_keys
+                    if isinstance(type_iii_category_keys, (list, tuple, set))
+                    else get_type_iii_category_keys(effective_category_meta_by_key)
+                )
+            ]
+            effective_type_iii_category_keys = [
+                key for key in effective_type_iii_category_keys
+                if key
+            ]
+            if effective_type_iii_category_keys:
+                placeholders = ', '.join(['?'] * len(effective_type_iii_category_keys))
+                ungraded_row = local_conn.execute(
+                    f"""
+                    SELECT 1
+                    FROM sessions s
+                    JOIN session_results sr ON sr.session_id = s.id
+                    WHERE s.type IN ({placeholders})
+                      AND s.completed_at IS NOT NULL
+                      AND sr.correct = 0
+                    LIMIT 1
+                    """,
+                    effective_type_iii_category_keys,
+                ).fetchone()
+                has_ungraded = bool(ungraded_row)
 
         return today_counts, today_star_tiers, today_latest_percent, has_ungraded
     except Exception:
@@ -2782,6 +2784,8 @@ def get_kid(kid_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        view = str(request.args.get('view') or '').strip().lower()
+        include_has_ungraded = view != 'practice_home'
 
         family_id = str(kid.get('familyId') or '').strip()
         family_timezone = metadata.get_family_timezone(family_id)
@@ -2802,6 +2806,7 @@ def get_kid(kid_id):
                 kid,
                 category_meta_by_key=category_meta_by_key,
                 type_iii_category_keys=get_type_iii_category_keys(category_meta_by_key),
+                include_has_ungraded=include_has_ungraded,
                 conn=conn,
                 family_timezone=family_timezone,
             )
