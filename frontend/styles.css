@@ -70,6 +70,12 @@ body {
     margin: 0 auto;
 }
 
+@media (min-width: 761px) {
+    .family-home-page .container {
+        max-width: 720px;
+    }
+}
+
 .practice-page .header h1 {
     color: #fff;
 }
@@ -131,45 +137,123 @@ body {
     line-height: 1;
 }
 
+.progress-badge-strip.progress-badge-strip-stacked {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.32rem;
+}
+
 .progress-badge-icon {
     --badge-fill-pct: 100%;
-    position: relative;
-    display: inline-block;
-    height: 31px;
-    aspect-ratio: 398 / 161;
+    --progress-star-size: 1.2rem;
+    --progress-badge-pad-y: 0.12em;
+    --progress-badge-pad-x: 0.46em;
+    display: inline-grid;
+    place-items: center start;
+    padding: var(--progress-badge-pad-y) var(--progress-badge-pad-x);
+    border-radius: 999px;
+    border: 1px solid rgba(230, 186, 72, 0.62);
+    background: rgba(255, 236, 176, 0.2);
     vertical-align: middle;
+    overflow: hidden;
+}
+
+.progress-badge-icon::before,
+.progress-badge-icon::after {
+    content: '⭐⭐⭐⭐⭐';
+    grid-area: 1 / 1;
+    display: block;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    font-size: var(--progress-star-size);
+    letter-spacing: 0;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.progress-badge-icon::before {
+    z-index: 0;
 }
 
 .progress-badge-icon::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url('/assets/session-progress-badge.png?v=3');
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
-    background-position: left center;
+    z-index: 2;
+    filter: grayscale(1) saturate(0.04) brightness(1.03);
+    clip-path: inset(0 0 0 var(--badge-fill-pct));
 }
 
-.progress-badge-icon::after {
-    clip-path: inset(0 calc(100% - var(--badge-fill-pct)) 0 0);
+.progress-badge-icon.silver {
+    border-color: rgba(170, 178, 193, 0.72);
+    background: rgba(221, 226, 236, 0.34);
+}
+
+.progress-badge-icon.silver::before {
+    filter: grayscale(1) saturate(0.04) brightness(1.03);
 }
 
 .progress-badge-icon.silver::after {
-    filter: grayscale(1) saturate(0.05) brightness(1.04);
+    content: none;
+}
+
+.progress-badge-icon.partial {
+    border-color: rgba(230, 186, 72, 0.62);
+    background: rgba(255, 236, 176, 0.2);
+}
+
+.progress-badge-strip .progress-badge-icon:nth-child(2):not(.silver) {
+    border-color: rgba(154, 143, 255, 0.66);
+    background: rgba(212, 206, 255, 0.24);
+}
+
+.progress-badge-strip .progress-badge-icon:nth-child(2):not(.silver)::before {
+    filter: hue-rotate(235deg) saturate(1.2);
+}
+
+.progress-badge-strip .progress-badge-icon:nth-child(3):not(.silver) {
+    border-color: rgba(255, 159, 194, 0.7);
+    background: rgba(255, 220, 234, 0.3);
+}
+
+.progress-badge-strip .progress-badge-icon:nth-child(3):not(.silver)::before {
+    filter: hue-rotate(300deg) saturate(1.24);
+}
+
+.progress-badge-strip .progress-badge-icon:nth-child(4):not(.silver) {
+    border-color: rgba(115, 201, 176, 0.72);
+    background: rgba(208, 243, 231, 0.32);
+}
+
+.progress-badge-strip .progress-badge-icon:nth-child(4):not(.silver)::before {
+    filter: hue-rotate(120deg) saturate(1.18);
+}
+
+.progress-badge-strip .progress-badge-icon:nth-child(n+5):not(.silver) {
+    border-color: rgba(255, 183, 112, 0.72);
+    background: rgba(255, 235, 206, 0.33);
+}
+
+.progress-badge-strip .progress-badge-icon:nth-child(n+5):not(.silver)::before {
+    filter: hue-rotate(28deg) saturate(1.14);
 }
 
 .kid-card .daily-stars-strip .progress-badge-icon,
 .practice-star-badge .progress-badge-icon {
-    height: 26px;
+    --progress-star-size: 1.1rem;
 }
 
 #resultStarBadge .progress-badge-icon {
-    height: 70px;
+    --progress-star-size: 1.85rem;
 }
 
 .practice-star-badge .progress-badge-strip {
     margin-left: 0.16rem;
     transform: translateY(-1px);
+}
+
+.practice-star-badge .progress-badge-strip.progress-badge-strip-stacked {
+    margin-left: 0;
+    margin-top: 0.32rem;
+    transform: none;
 }
 
 .practice-star-badge {
@@ -927,6 +1011,16 @@ header p {
     margin-top: 20px;
 }
 
+@media (min-width: 761px) {
+    #kidsList.kids-grid {
+        grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+    }
+
+    .kid-card .daily-stars-row-inline {
+        flex-wrap: nowrap;
+    }
+}
+
 .kid-card {
     background: white;
     border-radius: 12px;
@@ -967,6 +1061,15 @@ header p {
     flex-wrap: wrap;
 }
 
+.kid-card .daily-stars-row-stacked {
+    display: block;
+}
+
+.kid-card .daily-stars-row-stacked .daily-stars-strip {
+    display: block;
+    margin-top: 0.34rem;
+}
+
 .kid-card .daily-stars-label {
     display: inline-flex;
     align-items: center;
@@ -988,6 +1091,10 @@ header p {
 
 .kid-card .daily-stars-strip .progress-badge-strip {
     max-width: 100%;
+    flex-wrap: nowrap;
+}
+
+.kid-card .daily-stars-strip .progress-badge-strip.progress-badge-strip-stacked {
     flex-wrap: nowrap;
 }
 

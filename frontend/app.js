@@ -72,11 +72,11 @@ function clampPercent(value, fallback = 100) {
 function renderProgressBadgeByTier(tier, fillPercent, isLatestTier) {
     const normalizedTier = String(tier || '').trim().toLowerCase();
     const effectiveFill = clampPercent(isLatestTier ? fillPercent : 100, 100);
-    if (normalizedTier === 'silver') {
-        return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
+    if (isLatestTier && effectiveFill < 100) {
+        return `<span class="progress-badge-icon partial" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
     }
-    if (normalizedTier === 'half_silver' || effectiveFill < 100) {
-        return `<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
+    if (normalizedTier === 'silver' || normalizedTier === 'half_silver') {
+        return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
     }
     return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
 }
@@ -118,21 +118,26 @@ function displayKids(kids) {
             const rawPercent = Number.parseFloat(dailyPercentByCategory[categoryKey]);
             const percentValue = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
             const lastTierIndex = Math.max(0, tiers.length - 1);
+            const isStackedBadgeLayout = tiers.length > 1;
+            const badgeStripClass = isStackedBadgeLayout
+                ? 'progress-badge-strip progress-badge-strip-stacked'
+                : 'progress-badge-strip';
             const starsHtml = tiers.length > 0
-                ? `<span class="progress-badge-strip">${tiers.map((tier, index) => (
+                ? `<span class="${badgeStripClass}">${tiers.map((tier, index) => (
                     renderProgressBadgeByTier(tier, percentValue, index === lastTierIndex)
                 )).join('')}</span>`
                 : '-';
             enabledRows.push({
                 label: formatDeckCategoryLabel(categoryKey),
                 starsHtml,
+                isStackedBadgeLayout,
             });
         });
 
         const dailyPracticeBadge = enabledRows.length > 0
             ? `<div class="daily-stars">${
                 enabledRows.map((row) => (
-                    `<div class="daily-stars-row">
+                    `<div class="daily-stars-row ${row.isStackedBadgeLayout ? 'daily-stars-row-stacked' : 'daily-stars-row-inline'}">
                         <span class="daily-stars-label practice-star-badge">${escapeHtml(row.label)}:</span>
                         <span class="daily-stars-strip">${row.starsHtml}</span>
                     </div>`
