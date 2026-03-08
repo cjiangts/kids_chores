@@ -146,7 +146,7 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
             reportLinkParams.set('categoryKey', String(currentSessionType));
         }
         const reportLinkHtml = canLink
-            ? `<a class="tab-link secondary mini-link-btn answer-report-link" href="/kid-card-report.html?${reportLinkParams.toString()}">Report</a>`
+            ? `<a class="tab-link secondary mini-link-btn answer-report-link" href="/kid-card-report.html?${reportLinkParams.toString()}">Records</a>`
             : '';
         const cardIdValue = safeNum(item.card_id);
         const resultIdAttr = Number.isFinite(Number(item?.result_id))

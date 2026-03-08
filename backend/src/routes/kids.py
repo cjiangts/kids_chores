@@ -5239,7 +5239,28 @@ def get_cards_with_stats(conn, deck_id):
             c.hardness_score,
             c.created_at,
             COUNT(sr.id) AS lifetime_attempts,
-            MAX(sr.timestamp) AS last_seen_at
+            MAX(sr.timestamp) AS last_seen_at,
+            100.0 * AVG(
+                CASE
+                    WHEN sr.id IS NULL THEN NULL
+                    WHEN sr.correct > 0 THEN 0.0
+                    ELSE 1.0
+                END
+            ) AS overall_wrong_rate,
+            ARG_MAX(
+                CASE
+                    WHEN sr.id IS NULL THEN NULL
+                    ELSE COALESCE(sr.response_time_ms, 0)
+                END,
+                sr.timestamp
+            ) AS last_response_time_ms,
+            ARG_MAX(
+                CASE
+                    WHEN sr.id IS NULL THEN NULL
+                    ELSE sr.correct
+                END,
+                sr.timestamp
+            ) AS last_result_correct
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.deck_id = ?
@@ -5252,6 +5273,15 @@ def get_cards_with_stats(conn, deck_id):
 
 def map_card_row(row, preview_order):
     """Map raw card+stats row to API object."""
+    last_result_correct = row[11]
+    if last_result_correct is None:
+        last_result = None
+    elif int(last_result_correct) > 0:
+        last_result = 'right'
+    elif int(last_result_correct) == 0:
+        last_result = 'ungraded'
+    else:
+        last_result = 'wrong'
     return {
         'id': row[0],
         'deck_id': row[1],
@@ -5262,7 +5292,10 @@ def map_card_row(row, preview_order):
         'created_at': row[6].isoformat() if row[6] else None,
         'next_session_order': preview_order.get(row[0]),
         'lifetime_attempts': int(row[7]) if row[7] is not None else 0,
-        'last_seen_at': row[8].isoformat() if row[8] else None
+        'last_seen_at': row[8].isoformat() if row[8] else None,
+        'overall_wrong_rate': float(row[9]) if row[9] is not None else None,
+        'last_response_time_ms': int(row[10]) if row[10] is not None else None,
+        'last_result': last_result,
     }
 
 

@@ -1320,6 +1320,26 @@ header p {
     color: #0b436f;
 }
 
+.kid-card .worksheet-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-width: 165px;
+    padding: 8px 10px;
+    background: #edf7ff;
+    color: #24537b;
+    border: 1px solid #9ec7e7;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.kid-card .worksheet-btn:hover {
+    background: #e2f1ff;
+    color: #1d4567;
+}
+
 @media (max-width: 680px) {
     .kid-card .practice-config-row {
         gap: 8px;

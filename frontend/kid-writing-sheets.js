@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (activeCategoryKey) {
         backParams.set('categoryKey', activeCategoryKey);
     }
-    backBtn.href = `/kid-card-manage.html?${backParams.toString()}`;
+    backBtn.href = `/kid-writing-sheet-manage.html?${backParams.toString()}`;
     await loadSheets();
 });
 

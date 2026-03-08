@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Printable Work Sheets - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .worksheet-manage-page .container {
+            max-width: 960px;
+        }
+
+        .worksheet-manage-page .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .worksheet-manage-page .header h1 {
+            margin: 0;
+            color: #fff;
+            font-size: clamp(1.45rem, 3.2vw, 2rem);
+            line-height: 1.2;
+        }
+
+        .worksheet-page-note {
+            margin: 0 0 0.9rem 0;
+            color: #e7ecff;
+            font-size: 0.95rem;
+        }
+
+        .type2-sheet-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+        }
+
+        .sheet-subgroup {
+            border: 1px solid #e4d2a3;
+            border-radius: 12px;
+            background: #fff8e8;
+            padding: 0.85rem 0.95rem;
+        }
+
+        .sheet-subgroup-generate {
+            border-color: #cfdcf9;
+            background: #f6f9ff;
+        }
+
+        .sheet-subgroup-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.45rem;
+        }
+
+        .sheet-subgroup-head h3 {
+            margin: 0;
+            color: #4f3b0f;
+            font-size: 1.12rem;
+            line-height: 1.3;
+        }
+
+        .sheet-subgroup-generate .sheet-subgroup-head h3 {
+            color: #24457e;
+        }
+
+        .sheet-subgroup-note {
+            margin: 0;
+            color: #6c5a2f;
+            font-size: 0.94rem;
+            line-height: 1.4;
+        }
+
+        .sheet-subgroup-generate .sheet-subgroup-note {
+            color: #47628f;
+        }
+
+        .sheet-manage-btn {
+            border: 1px solid #b9cdf9;
+            background: #eef3ff;
+            color: #2f59a7;
+            border-radius: 9px;
+            padding: 0.38rem 0.75rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .sheet-manage-btn:hover {
+            background: #e3ecff;
+        }
+
+        .practicing-bucket-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            margin-top: 0.65rem;
+        }
+
+        .practicing-deck-empty {
+            color: #7a6a3f;
+            font-size: 0.9rem;
+            margin-top: 0.6rem;
+        }
+
+        .suggested-card-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem 0.55rem;
+        }
+
+        .suggested-card-row-label {
+            font-weight: 700;
+            color: #5f4b12;
+            font-size: 1.02rem;
+        }
+
+        .suggested-card-pill-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.42rem;
+            align-items: center;
+        }
+
+        .suggested-card-pill {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid #e5c276;
+            background: #fff3d1;
+            color: #5f4b12;
+            border-radius: 999px;
+            padding: 0.18rem 0.62rem;
+            font-size: 0.95rem;
+            line-height: 1.22;
+            word-break: break-word;
+        }
+
+        .suggested-card-empty {
+            font-size: 0.95rem;
+            color: #7a6a3f;
+        }
+
+        .sheet-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: end;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .sheet-row .form-group {
+            margin-bottom: 0;
+            max-width: 220px;
+        }
+
+        .sheet-row .settings-save-btn {
+            min-width: 132px;
+        }
+
+        .sheet-list {
+            display: grid;
+            gap: 0.9rem;
+            margin-top: 0.6rem;
+        }
+
+        .sheet-item {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+            padding: 1rem;
+        }
+
+        .sheet-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 0.5rem;
+        }
+
+        .status {
+            font-size: 0.85rem;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.2rem 0.55rem;
+        }
+
+        .status.pending {
+            background: #ffe9b3;
+            color: #7b5a00;
+        }
+
+        .status.done {
+            background: #d6f5dc;
+            color: #206633;
+        }
+
+        .sheet-cards {
+            color: #444;
+            margin-bottom: 0.7rem;
+            line-height: 1.35;
+        }
+
+        .sheet-meta {
+            color: #666;
+            font-size: 0.84rem;
+            margin-bottom: 0.65rem;
+            line-height: 1.35;
+        }
+
+        .sheet-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+        }
+
+        @media (max-width: 760px) {
+            .worksheet-manage-page .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .worksheet-manage-page .back-btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .sheet-row .form-group {
+                max-width: none;
+                flex: 1 1 150px;
+            }
+
+            .sheet-row .settings-save-btn,
+            .sheet-row .sheet-manage-btn {
+                width: 100%;
+                text-align: center;
+                justify-content: center;
+            }
+
+            .sheet-actions button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="practice-page manage-page worksheet-manage-page">
+    <div class="container">
+        <div class="header">
+            <h1 id="pageTitle">Printable work sheets (Chinese Writing)</h1>
+            <a id="backBtn" href="/admin.html" class="back-btn btn-secondary">← Back to Admin</a>
+        </div>
+
+        <p id="pageSubtitle" class="worksheet-page-note"></p>
+
+        <div id="errorMessage" class="error hidden"></div>
+
+        <section class="settings-section">
+            <h2>Generate Chinese Writing Practice Sheets</h2>
+            <div class="type2-sheet-layout">
+                <div class="sheet-subgroup sheet-subgroup-suggested">
+                    <div class="sheet-subgroup-head">
+                        <h3>Suggested Cards <span id="practicingDeckCount">(0)</span></h3>
+                    </div>
+                    <p class="sheet-subgroup-note">Cards are auto-selected from newly added and last failed cards. Cards already on an active sheet are excluded.</p>
+                    <div id="practicingDeckGrid" class="practicing-bucket-list"></div>
+                    <p id="practicingDeckEmpty" class="practicing-deck-empty">No suggested candidate cards.</p>
+                </div>
+
+                <div class="sheet-subgroup sheet-subgroup-generate">
+                    <div class="sheet-subgroup-head">
+                        <h3>Generate Practice Sheet（生成田字格）</h3>
+                    </div>
+                    <p id="categoryLabel" class="sheet-subgroup-note"></p>
+                    <div class="sheet-row">
+                        <div class="form-group">
+                            <label for="sheetCardCount">Cards Per Sheet</label>
+                            <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sheetRowsPerChar">Rows Per Card</label>
+                            <input type="number" id="sheetRowsPerChar" min="1" max="10" step="1" value="1" required>
+                        </div>
+                        <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
+                    </div>
+                    <div id="sheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
+                </div>
+
+                <div class="sheet-subgroup sheet-subgroup-generate">
+                    <div class="sheet-subgroup-head">
+                        <h3>Practice Sheets</h3>
+                    </div>
+                    <p class="sheet-subgroup-note">Print, mark done, or delete pending sheets here.</p>
+                    <div id="sheetList" class="sheet-list"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="deck-category-common.js"></script>
+    <script src="kid-writing-sheet-manage.js"></script>
+</body>
+</html>

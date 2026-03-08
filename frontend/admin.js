@@ -22,6 +22,7 @@ const errorMessage = document.getElementById('errorMessage');
 const kidNameInput = document.getElementById('kidName');
 const manageDecksLink = document.getElementById('manageDecksLink');
 const {
+    getOptedInDeckCategoryKeys,
     getOptedInDeckCategorySet,
     getCategoryValueMap,
     getDeckCategoryMetaMap,
@@ -386,6 +387,22 @@ function getManageHrefByCategory(categoryKey, kidId, categoryMetaMap = {}) {
     return `${path}?${params.toString()}`;
 }
 
+function getPrintableWorksheetHref(kid, categoryMetaMap = {}) {
+    const optedInCategoryKeys = getOptedInDeckCategoryKeys(kid);
+    const chineseType2CategoryKeys = optedInCategoryKeys.filter((categoryKey) => {
+        const meta = categoryMetaMap?.[categoryKey] || {};
+        return String(meta.behavior_type || '').trim().toLowerCase() === 'type_ii'
+            && Boolean(meta.has_chinese_specific_logic);
+    });
+    if (chineseType2CategoryKeys.length <= 0) {
+        return '';
+    }
+    const params = new URLSearchParams();
+    params.set('id', String(kid?.id || ''));
+    params.set('categoryKey', String(chineseType2CategoryKeys[0] || ''));
+    return `/kid-writing-sheet-manage.html?${params.toString()}`;
+}
+
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
@@ -430,6 +447,12 @@ function displayKids(kids) {
                         <button class="tab-link review-reading-btn" onclick="goToLatestTypeIIIReviewSession('${kid.id}')">🎧 Review Kid's Recording</button>
                     </div>`
             : '';
+        const printableWorksheetHref = getPrintableWorksheetHref(kid, categoryMetaMap);
+        const printableWorksheetRow = printableWorksheetHref
+            ? `<div class="practice-config-row">
+                        <a class="tab-link worksheet-btn" href="${printableWorksheetHref}">🖨️ Printable work sheets (Chinese Writing)</a>
+                    </div>`
+            : '';
         return `
             <div class="kid-card">
                 <h3>${escapeHtml(kid.name)}</h3>
@@ -439,8 +462,9 @@ function displayKids(kids) {
                     </div>
                     ${manageRows.join('')}
                     <div class="practice-config-row">
-                        <a class="tab-link report-btn" href="/kid-report.html?id=${kid.id}">📊 Report</a>
+                        <a class="tab-link report-btn" href="/kid-report.html?id=${kid.id}">📊 Records</a>
                     </div>
+                    ${printableWorksheetRow}
                     ${reviewTypeIIIRow}
                 </div>
                 <button class="delete-btn" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">

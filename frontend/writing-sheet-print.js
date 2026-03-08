@@ -44,10 +44,19 @@ function buildBackHref() {
     }
     const qs = query.toString();
 
-    if (from === 'manage' || previewKey) {
+    if (from === 'worksheets') {
+        return qs ? `/kid-writing-sheet-manage.html?${qs}` : '/admin.html';
+    }
+    if (from === 'manage') {
         return qs ? `/kid-card-manage.html?${qs}` : '/admin.html';
     }
-    if (from === 'sheets' || sheetId) {
+    if (from === 'sheets') {
+        return qs ? `/kid-writing-sheets.html?${qs}` : '/admin.html';
+    }
+    if (previewKey) {
+        return qs ? `/kid-card-manage.html?${qs}` : '/admin.html';
+    }
+    if (sheetId) {
         return qs ? `/kid-writing-sheets.html?${qs}` : '/admin.html';
     }
     return qs ? `/kid-card-manage.html?${qs}` : '/admin.html';
