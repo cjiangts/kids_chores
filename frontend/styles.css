@@ -1205,6 +1205,12 @@ header p {
     white-space: nowrap;
 }
 
+.daily-stars-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+}
+
 .kid-card .daily-stars-strip {
     display: flex;
     flex: 0 0 auto;
