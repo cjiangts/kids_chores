@@ -10,7 +10,15 @@ const {
     getOptedInDeckCategoryKeys,
     getCategoryValueMap,
     getCategoryRawValueMap,
+    normalizeCategoryKey,
 } = window.DeckCategoryCommon;
+const {
+    buildCategoryStarsModel,
+} = window.PracticeStarBadgeCommon || {};
+
+if (!buildCategoryStarsModel) {
+    throw new Error('practice-star-badge-common.js is required for app');
+}
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -63,24 +71,6 @@ function formatDeckCategoryLabel(categoryKey) {
         .join(' ');
 }
 
-function clampPercent(value, fallback = 100) {
-    const raw = Number.parseFloat(value);
-    if (!Number.isFinite(raw)) return fallback;
-    return Math.max(0, Math.min(100, Math.round(raw)));
-}
-
-function renderProgressBadgeByTier(tier, fillPercent, isLatestTier) {
-    const normalizedTier = String(tier || '').trim().toLowerCase();
-    const effectiveFill = clampPercent(isLatestTier ? fillPercent : 100, 100);
-    if (isLatestTier && effectiveFill < 100) {
-        return `<span class="progress-badge-icon partial" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
-    }
-    if (normalizedTier === 'silver' || normalizedTier === 'half_silver') {
-        return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
-    }
-    return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
-}
-
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
@@ -108,38 +98,20 @@ function displayKids(kids) {
             if (!isAssigned) {
                 return;
             }
-            const tiersFromPayload = Array.isArray(dailyStarTiersByCategory[categoryKey])
-                ? dailyStarTiersByCategory[categoryKey]
-                    .map((tier) => String(tier || '').trim().toLowerCase())
-                    .filter((tier) => tier === 'gold' || tier === 'silver' || tier === 'half_silver')
-                : [];
-            const fallbackTiers = Array.from({ length: completedCount > 0 ? completedCount : 0 }, () => 'gold');
-            const tiers = tiersFromPayload.length > 0 ? tiersFromPayload : fallbackTiers;
-            const rawPercent = Number.parseFloat(dailyPercentByCategory[categoryKey]);
-            const hasLatestPercent = Number.isFinite(rawPercent);
-            const latestPercentValue = hasLatestPercent ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
-            const lastTierIndex = Math.max(0, tiers.length - 1);
-            const latestTier = String(tiers[lastTierIndex] || '').trim().toLowerCase();
-            const previousSessionCount = Math.max(0, tiers.length - 1);
-            const fallbackLatestPercent = latestTier === 'gold' ? 100 : 0;
-            const cumulativePercent = (previousSessionCount * 100) + (hasLatestPercent ? latestPercentValue : fallbackLatestPercent);
-            const isDoneToday = cumulativePercent >= 100;
-            const isStackedBadgeLayout = tiers.length > 1;
-            const badgeStripClass = isStackedBadgeLayout
-                ? 'progress-badge-strip progress-badge-strip-stacked'
-                : 'progress-badge-strip';
-            const starsHtml = tiers.length > 0
-                ? `<span class="${badgeStripClass}">${tiers.map((tier, index) => (
-                    renderProgressBadgeByTier(tier, latestPercentValue, index === lastTierIndex)
-                )).join('')}</span>`
-                : '-';
+            const starsModel = buildCategoryStarsModel({
+                categoryKey,
+                dailyStarTiersByCategory,
+                dailyCompletedByCategory,
+                dailyPercentByCategory,
+                normalizeCategoryKey,
+                doneMarkClass: 'daily-stars-done-mark',
+                doneMarkText: '✅ Done',
+            });
             enabledRows.push({
                 label: formatDeckCategoryLabel(categoryKey),
-                starsHtml,
-                isStackedBadgeLayout,
-                doneMarkHtml: isDoneToday
-                    ? '<span class="daily-stars-done-mark" aria-label="Done today" title="Done today">✅ Done</span>'
-                    : '',
+                starsHtml: starsModel.starsHtml,
+                isStackedBadgeLayout: starsModel.isStackedBadgeLayout,
+                doneMarkHtml: starsModel.doneMarkHtml,
             });
         });
 

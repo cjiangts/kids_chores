@@ -271,7 +271,15 @@
 
         @media (max-width: 520px) {
             .multi-choice-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.45rem;
+                max-width: none;
+            }
+
+            .multi-choice-btn {
+                min-height: 52px;
+                padding: 0.62rem 0.45rem;
+                font-size: 0.94rem;
             }
         }
 

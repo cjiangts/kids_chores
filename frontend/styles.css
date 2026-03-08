@@ -328,7 +328,7 @@ body {
 
 .practice-star-badge .progress-badge-strip {
     margin-left: 0.16rem;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
 }
 
 .practice-star-badge .progress-badge-strip.progress-badge-strip-stacked {
@@ -346,10 +346,15 @@ body {
     line-height: 1.35;
 }
 
-.practice-done-mark {
+.practice-done-mark,
+.kid-card .daily-stars-done-mark {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.3rem;
     color: #15803d;
-    font-size: 0.95em;
+    font-size: 0.94rem;
     font-weight: 700;
+    line-height: 1;
     white-space: nowrap;
 }
 
@@ -1211,17 +1216,6 @@ header p {
     overflow: visible;
 }
 
-.kid-card .daily-stars-done-mark {
-    display: inline-flex;
-    align-items: center;
-    margin-left: 0.3rem;
-    color: #15803d;
-    font-size: 0.9rem;
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
-}
-
 .kid-card .daily-stars-row-stacked .daily-stars-done-mark {
     display: block;
     margin-left: 0;
@@ -1231,10 +1225,13 @@ header p {
 .kid-card .daily-stars-strip .progress-badge-strip {
     max-width: 100%;
     flex-wrap: nowrap;
+    align-items: center;
+    transform: translateY(-2px);
 }
 
 .kid-card .daily-stars-strip .progress-badge-strip.progress-badge-strip-stacked {
     flex-wrap: nowrap;
+    transform: none;
 }
 
 .kid-card .daily-stars.disabled {
@@ -1337,8 +1334,8 @@ header p {
     }
 
     .family-home-page .kid-card .daily-stars-label.practice-star-badge {
-        font-size: 0.9rem;
-        line-height: 1.16;
+        font-size: 0.94rem;
+        line-height: 1.12;
     }
 
     .family-home-page .kid-card .daily-stars-strip .progress-badge-icon {
@@ -1352,7 +1349,7 @@ header p {
 
     .family-home-page .kid-card .daily-stars-done-mark {
         margin-left: 0.14rem;
-        font-size: 0.82rem;
+        font-size: 0.86rem;
     }
 }
 

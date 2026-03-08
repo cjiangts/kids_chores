@@ -29,6 +29,9 @@ const writingStarBadge = document.getElementById('writingStarBadge');
 const mathStarBadge = document.getElementById('mathStarBadge');
 const lessonReadingStarBadge = document.getElementById('lessonReadingStarBadge');
 const {
+    buildCategoryStarsModel,
+} = window.PracticeStarBadgeCommon || {};
+const {
     getOptedInDeckCategorySet,
     getOptedInDeckCategoryKeys,
     getCategoryValueMap,
@@ -43,6 +46,10 @@ const {
     resolveTypeIIIPracticeCategoryKey,
 } = window.DeckCategoryCommon;
 const PRACTICE_NAV_CACHE_KEY = 'kid_practice_nav_cache_v1';
+
+if (!buildCategoryStarsModel) {
+    throw new Error('practice-star-badge-common.js is required for kid-practice-home');
+}
 
 let currentKid = null;
 let writingCards = null;
@@ -166,75 +173,33 @@ async function warmWritingCards() {
     }
 }
 
-function getCategoryStarTiers(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory) {
-    const key = normalizeCategoryKey(categoryKey);
-    const tiersFromPayload = Array.isArray(dailyStarTiersByCategory?.[key])
-        ? dailyStarTiersByCategory[key]
-            .map((tier) => String(tier || '').trim().toLowerCase())
-            .filter((tier) => tier === 'gold' || tier === 'silver' || tier === 'half_silver')
-        : [];
-    if (tiersFromPayload.length > 0) {
-        return tiersFromPayload;
-    }
-    const completedCount = Number.parseInt(dailyCompletedByCategory?.[key], 10);
-    const safeCount = Number.isInteger(completedCount) ? Math.max(0, completedCount) : 0;
-    return Array.from({ length: safeCount }, () => 'gold');
-}
-
-function clampPercent(value, fallback = 100) {
-    const raw = Number.parseFloat(value);
-    if (!Number.isFinite(raw)) return fallback;
-    return Math.max(0, Math.min(100, Math.round(raw)));
-}
-
-function renderProgressBadgeByTier(tier, fillPercent, isLatestTier) {
-    const normalizedTier = String(tier || '').trim().toLowerCase();
-    const effectiveFill = clampPercent(isLatestTier ? fillPercent : 100, 100);
-    if (isLatestTier && effectiveFill < 100) {
-        return `<span class="progress-badge-icon partial" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
-    }
-    if (normalizedTier === 'silver' || normalizedTier === 'half_silver') {
-        return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
-    }
-    return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${effectiveFill}%"></span>`;
-}
-
 function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory) {
-    const tiers = getCategoryStarTiers(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory);
-    if (tiers.length === 0) {
+    const starsModel = buildCategoryStarsModel({
+        categoryKey,
+        dailyStarTiersByCategory,
+        dailyCompletedByCategory,
+        dailyPercentByCategory,
+        normalizeCategoryKey,
+        doneMarkClass: 'practice-done-mark',
+        doneMarkText: '✅ Done',
+    });
+    if (starsModel.tiers.length === 0) {
         return 'Today: no stars yet<br><span class="practice-star-note practice-star-note-encourage practice-star-note-encourage-zero">0% · Let\'s start and earn a star!</span>';
     }
-    const rawPercent = Number.parseFloat(dailyPercentByCategory?.[normalizeCategoryKey(categoryKey)]);
-    const hasLatestPercent = Number.isFinite(rawPercent);
-    const latestPercentValue = hasLatestPercent ? Math.max(0, Math.round(rawPercent)) : 0;
-    const previousSessionCount = Math.max(0, tiers.length - 1);
-    const percentValue = (previousSessionCount * 100) + latestPercentValue;
-    const lastTierIndex = Math.max(0, tiers.length - 1);
-    const latestTier = String(tiers[lastTierIndex] || '').trim().toLowerCase();
-    const fallbackLatestPercent = latestTier === 'gold' ? 100 : 0;
-    const cumulativePercent = (previousSessionCount * 100) + (hasLatestPercent ? latestPercentValue : fallbackLatestPercent);
-    const isDoneToday = cumulativePercent >= 100;
-    const isStackedBadgeLayout = tiers.length > 1;
-    const badgeStripClass = isStackedBadgeLayout
-        ? 'progress-badge-strip progress-badge-strip-stacked'
-        : 'progress-badge-strip';
-    const starsHtml = `<span class="${badgeStripClass}">${tiers.map((tier, index) => (
-        renderProgressBadgeByTier(tier, latestPercentValue, index === lastTierIndex)
-    )).join('')}</span>`;
-    const doneMark = isDoneToday
-        ? ' <span class="practice-done-mark" aria-label="Done today" title="Done today">✅ Done</span>'
-        : '';
-    const starsLine = isStackedBadgeLayout ? `Today:${doneMark}<br>${starsHtml}` : `Today: ${starsHtml}${doneMark}`;
-    if (latestTier === 'half_silver') {
-        return `${starsLine}<br><span class="practice-star-note practice-star-note-encourage">${percentValue}% · Finish session first.</span>`;
+    const doneMarkInline = starsModel.doneMarkHtml ? ` ${starsModel.doneMarkHtml}` : '';
+    const starsLine = starsModel.isStackedBadgeLayout
+        ? `Today:${doneMarkInline}<br>${starsModel.starsHtml}`
+        : `Today: ${starsModel.starsHtml}${doneMarkInline}`;
+    if (starsModel.latestTier === 'half_silver') {
+        return `${starsLine}<br><span class="practice-star-note practice-star-note-encourage">${starsModel.percentValue}% · Finish session first.</span>`;
     }
-    if (percentValue < 100) {
-        return `${starsLine}<br><span class="practice-star-note practice-star-note-encourage">${percentValue}% · Keep trying, you can do it!</span>`;
+    if (starsModel.percentValue < 100) {
+        return `${starsLine}<br><span class="practice-star-note practice-star-note-encourage">${starsModel.percentValue}% · Keep trying, you can do it!</span>`;
     }
-    if (percentValue < 200) {
-        return `${starsLine}<br><span class="practice-star-note practice-star-note-good">${percentValue}% · Good job!</span>`;
+    if (starsModel.percentValue < 200) {
+        return `${starsLine}<br><span class="practice-star-note practice-star-note-good">${starsModel.percentValue}% · Good job!</span>`;
     }
-    return `${starsLine}<br><span class="practice-star-note practice-star-note-good">${percentValue}% · Wow! Amazing work!</span>`;
+    return `${starsLine}<br><span class="practice-star-note practice-star-note-good">${starsModel.percentValue}% · Wow! Amazing work!</span>`;
 }
 
 function getStaticPracticeOptionKeySet() {
