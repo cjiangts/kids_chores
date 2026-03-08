@@ -189,7 +189,7 @@ function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyComple
     const doneMarkInline = starsModel.doneMarkHtml ? ` ${starsModel.doneMarkHtml}` : '';
     const starsLine = starsModel.isStackedBadgeLayout
         ? `Today:${doneMarkInline}<br>${starsModel.starsHtml}`
-        : `Today: <span class="daily-stars-strip">${starsModel.starsHtml}${starsModel.doneMarkHtml}</span>`;
+        : `Today: ${starsModel.starsHtml}${doneMarkInline}`;
     if (starsModel.latestTier === 'half_silver') {
         return `${starsLine}<br><span class="practice-star-note practice-star-note-encourage">${starsModel.percentValue}% · Finish session first.</span>`;
     }
