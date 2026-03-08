@@ -219,6 +219,13 @@ window.PracticeManageCommon = {
 
         if (mode === 'hardness_desc') {
             return copy.sort((a, b) => {
+                const aAttempts = Number.isFinite(a.lifetime_attempts) ? a.lifetime_attempts : 0;
+                const bAttempts = Number.isFinite(b.lifetime_attempts) ? b.lifetime_attempts : 0;
+                const aNeverSeen = aAttempts <= 0;
+                const bNeverSeen = bAttempts <= 0;
+                if (aNeverSeen !== bNeverSeen) {
+                    return aNeverSeen ? -1 : 1;
+                }
                 const aHard = Number.isFinite(a.hardness_score) ? a.hardness_score : -1;
                 const bHard = Number.isFinite(b.hardness_score) ? b.hardness_score : -1;
                 if (aHard === bHard) {
@@ -875,20 +882,35 @@ window.PracticeManageCommon = {
             let nextLevelStart = 0;
             const normalizedSelected = [];
             const normalizedSelectedLabels = [];
+            let pathBecameInvalid = false;
 
             for (let i = 0; i < selectedTags.length; i += 1) {
                 const selected = normalizeTag(selectedTags[i]);
                 if (!selected) {
                     continue;
                 }
+                const existingLabel = String(selectedTagLabels[i] || selectedTags[i] || selected).trim() || selected;
+                if (pathBecameInvalid) {
+                    normalizedSelected.push(selected);
+                    normalizedSelectedLabels.push(existingLabel);
+                    continue;
+                }
                 const branchLevel = findNextBranchLevel(candidates, nextLevelStart);
                 if (branchLevel < 0) {
-                    break;
+                    pathBecameInvalid = true;
+                    candidates = [];
+                    normalizedSelected.push(selected);
+                    normalizedSelectedLabels.push(existingLabel);
+                    continue;
                 }
                 const choices = getUniqueTagOptionsAtLevel(candidates, branchLevel);
                 const choiceMap = new Map(choices.map((item) => [item.key, item.label]));
                 if (!choiceMap.has(selected)) {
-                    break;
+                    pathBecameInvalid = true;
+                    candidates = [];
+                    normalizedSelected.push(selected);
+                    normalizedSelectedLabels.push(existingLabel);
+                    continue;
                 }
                 candidates = candidates.filter((entry) => entry.tags[branchLevel] === selected);
                 normalizedSelected.push(selected);
@@ -896,9 +918,7 @@ window.PracticeManageCommon = {
                 nextLevelStart = branchLevel + 1;
             }
 
-            if (normalizedSelected.length !== selectedTags.length) {
-                selectedTags = normalizedSelected;
-            }
+            selectedTags = normalizedSelected;
             selectedTagLabels = normalizedSelectedLabels;
 
             return { candidates, nextLevelStart };

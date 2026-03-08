@@ -4478,12 +4478,17 @@ def _get_practice_rankings_for_decks(conn, deck_ids, session_type, excluded_card
     red_rows.sort(key=lambda row: (row[7], row[0]))
     red_card_ids = [row[0] for row in red_rows]
 
+    def hard_rank_key(row):
+        # Never-seen cards (0 lifetime attempts) are treated as hardest so 100%
+        # hard-card mode still surfaces unseen cards instead of starving them.
+        lifetime_attempts = int(row[6] if row[6] is not None else 0)
+        hardness_score = float(row[5] if row[5] is not None else 0)
+        unseen_priority = 0 if lifetime_attempts <= 0 else 1
+        return (unseen_priority, -hardness_score, row[0])
+
     hard_ranked_ids = [
         row[0]
-        for row in sorted(
-            rows,
-            key=lambda row: (-float(row[5] if row[5] is not None else 0), row[0])
-        )
+        for row in sorted(rows, key=hard_rank_key)
     ]
     attempt_ranked_ids = [
         row[0]

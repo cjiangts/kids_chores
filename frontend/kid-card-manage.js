@@ -349,9 +349,9 @@ function applyCategoryUiText() {
     }
     if (hardnessComputationHint) {
         if (isType2Behavior()) {
-            hardnessComputationHint.textContent = 'Choose what % of the next session uses harder cards; the rest uses least-played cards. Here, harder cards are based on overall correctness rate.';
+            hardnessComputationHint.textContent = 'Choose what % of the next session uses harder cards; the rest uses least-played cards. Here, harder cards are based on overall correctness rate, and never-seen cards count as hard.';
         } else {
-            hardnessComputationHint.textContent = 'Choose what % of the next session uses harder cards; the rest uses least-played cards. Here, harder cards are based on each card\'s most recent response time.';
+            hardnessComputationHint.textContent = 'Choose what % of the next session uses harder cards; the rest uses least-played cards. Here, harder cards are based on each card\'s most recent response time, and never-seen cards count as hard.';
         }
     }
     if (orphanEditorSection) {
