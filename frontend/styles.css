@@ -358,11 +358,6 @@ body {
     white-space: nowrap;
 }
 
-.practice-done-mark {
-    vertical-align: middle;
-    transform: translateY(-2px);
-}
-
 .practice-page .controls {
     margin-bottom: 1rem;
 }
