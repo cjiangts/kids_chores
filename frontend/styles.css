@@ -1347,7 +1347,8 @@ header p {
         align-items: center;
     }
 
-    .family-home-page .kid-card .daily-stars-done-mark {
+    .family-home-page .kid-card .daily-stars-done-mark,
+    .family-home-page .kid-card .practice-done-mark {
         margin-left: 0.14rem;
         font-size: 0.86rem;
     }

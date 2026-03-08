@@ -104,7 +104,7 @@ function displayKids(kids) {
                 dailyCompletedByCategory,
                 dailyPercentByCategory,
                 normalizeCategoryKey,
-                doneMarkClass: 'daily-stars-done-mark',
+                doneMarkClass: 'practice-done-mark',
                 doneMarkText: '✅ Done',
             });
             enabledRows.push({
