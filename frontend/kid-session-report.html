@@ -109,6 +109,11 @@
             flex-wrap: wrap;
         }
 
+        .answer-head-row > div:first-child {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
         .answer-report-link {
             margin-left: auto;
             white-space: nowrap;
@@ -181,6 +186,22 @@
             min-height: 26px;
             padding: 0 0.58rem;
             font-size: 0.78rem;
+        }
+
+        .answer-item .audio-play-btn {
+            min-width: 54px;
+        }
+
+        .answer-item .audio-speed-btn {
+            min-width: 42px;
+        }
+
+        .answer-item .audio-progress {
+            min-width: 0;
+        }
+
+        .answer-item .simple-audio-player {
+            min-width: 0;
         }
 
         .grade-status.pass {

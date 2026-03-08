@@ -133,6 +133,7 @@ body {
     display: flex;
     align-items: center;
     gap: 0.55rem;
+    min-width: 0;
     width: 100%;
     border: 1px solid #dbe3f4;
     border-radius: 999px;
@@ -191,7 +192,7 @@ body {
 
 .audio-progress {
     flex: 1;
-    min-width: 120px;
+    min-width: 0;
     accent-color: #4f83ff;
 }
 
@@ -204,16 +205,16 @@ body {
 
 @media (max-width: 900px), (hover: none) and (pointer: coarse) {
     .simple-audio-player {
-        padding: 0.42rem 0.62rem;
-        min-height: 42px;
-        gap: 0.5rem;
+        padding: 0.35rem 0.45rem;
+        min-height: 36px;
+        gap: 0.35rem;
     }
 
     .audio-play-btn,
     .audio-speed-btn {
-        height: 36px;
-        min-height: 36px;
-        padding: 0 0.7rem;
+        height: 32px;
+        min-height: 32px;
+        padding: 0 0.5rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -221,21 +222,22 @@ body {
     }
 
     .audio-play-btn {
-        min-width: 72px;
-        font-size: 0.84rem;
+        min-width: 58px;
+        font-size: 0.78rem;
     }
 
     .audio-speed-btn {
-        min-width: 52px;
-        font-size: 0.8rem;
+        min-width: 42px;
+        font-size: 0.76rem;
     }
 
     .audio-progress {
-        min-height: 30px;
+        min-height: 22px;
+        min-width: 0;
     }
 
     .audio-time {
-        font-size: 0.8rem;
+        font-size: 0.74rem;
     }
 }
 
@@ -1317,6 +1319,38 @@ header p {
 @media (max-width: 680px) {
     .kid-card .practice-config-row {
         gap: 8px;
+    }
+}
+
+@media (max-width: 760px) {
+    .family-home-page .kid-card {
+        padding: 18px 16px;
+    }
+
+    .family-home-page .kid-card .daily-stars {
+        gap: 4px;
+    }
+
+    .family-home-page .kid-card .daily-stars-row {
+        gap: 0.28rem;
+    }
+
+    .family-home-page .kid-card .daily-stars-label.practice-star-badge {
+        font-size: 0.9rem;
+        line-height: 1.16;
+    }
+
+    .family-home-page .kid-card .daily-stars-strip .progress-badge-icon {
+        --progress-star-size: 0.96rem;
+    }
+
+    .family-home-page .kid-card .daily-stars-strip .progress-badge-strip {
+        gap: 0.22rem;
+    }
+
+    .family-home-page .kid-card .daily-stars-done-mark {
+        margin-left: 0.14rem;
+        font-size: 0.82rem;
     }
 }
 
