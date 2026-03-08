@@ -67,8 +67,8 @@ async function loadSessionDetail() {
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
         document.title = `${kidName} - Session #${session.id || sessionId} - Kids Daily Chores`;
 
-        renderSummary(session);
         const answers = Array.isArray(data.answers) ? data.answers : [];
+        renderSummary(session, answers);
         if (isTypeIIIReviewSession()) {
             wrongSection.style.display = 'none';
             rightSection.style.display = '';
@@ -90,11 +90,13 @@ async function loadSessionDetail() {
     }
 }
 
-function renderSummary(session) {
+function renderSummary(session, answers) {
+    const totalActiveMs = calculateSessionActiveMs(answers);
     summaryGrid.innerHTML = `
         <div class="summary-card"><div class="label">Type</div><div class="value">${formatType(session.type)}</div></div>
         <div class="summary-card"><div class="label">Started</div><div class="value">${formatDateTime(session.started_at)}</div></div>
         <div class="summary-card"><div class="label">Answered</div><div class="value">${safeNum(session.answer_count)}</div></div>
+        <div class="summary-card"><div class="label">Active Time</div><div class="value" id="summaryActiveTimeValue">${formatActiveMinutes(totalActiveMs)}</div></div>
     `;
 }
 
@@ -144,7 +146,7 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
             reportLinkParams.set('categoryKey', String(currentSessionType));
         }
         const reportLinkHtml = canLink
-            ? `<a class="tab-link secondary mini-link-btn" href="/kid-card-report.html?${reportLinkParams.toString()}">Report</a>`
+            ? `<a class="tab-link secondary mini-link-btn answer-report-link" href="/kid-card-report.html?${reportLinkParams.toString()}">Report</a>`
             : '';
         const cardIdValue = safeNum(item.card_id);
         const resultIdAttr = Number.isFinite(Number(item?.result_id))
@@ -152,12 +154,14 @@ function renderAnswerList(container, cards, keepSingleGroupOrder) {
             : '';
         return `
             <div class="answer-item"${resultIdAttr} data-card-id="${cardIdValue}" data-response-time-ms="${rawMs}">
-                <div>${escapeHtml(label)}</div>
+                <div class="answer-head-row">
+                    <div>${escapeHtml(label)}</div>
+                    ${reportLinkHtml}
+                </div>
                 <div class="answer-bar-track">
                     <div class="answer-bar-fill ${barClass}" style="width:${pct.toFixed(2)}%"></div>
                 </div>
                 <div class="meta">Card #${cardIdValue} · ${responseTimeLabel}</div>
-                ${reportLinkHtml}
                 ${audioHtml}
                 ${gradingHtml}
             </div>
@@ -213,6 +217,7 @@ function bindLiveDurationBackfillUpdates() {
 function syncRenderedResponseTimeBars() {
     const items = Array.from(document.querySelectorAll('.answer-item[data-response-time-ms]'));
     if (items.length === 0) {
+        updateSummaryActiveTimeFromRenderedAnswers();
         return;
     }
     const maxMs = Math.max(
@@ -228,6 +233,35 @@ function syncRenderedResponseTimeBars() {
         const pct = Math.max(0, Math.min(100, (value / maxMs) * 100));
         bar.style.width = `${pct.toFixed(2)}%`;
     });
+    updateSummaryActiveTimeFromRenderedAnswers();
+}
+
+function updateSummaryActiveTimeFromRenderedAnswers() {
+    const valueEl = document.getElementById('summaryActiveTimeValue');
+    if (!valueEl) {
+        return;
+    }
+    const items = Array.from(document.querySelectorAll('.answer-item[data-response-time-ms]'));
+    const totalActiveMs = items.reduce((sum, node) => {
+        const value = Math.max(0, Number(node.dataset.responseTimeMs || 0));
+        return sum + value;
+    }, 0);
+    valueEl.textContent = formatActiveMinutes(totalActiveMs);
+}
+
+function calculateSessionActiveMs(answers) {
+    if (!Array.isArray(answers) || answers.length === 0) {
+        return 0;
+    }
+    return answers.reduce((sum, item) => {
+        const value = Math.max(0, Number(item?.response_time_ms) || 0);
+        return sum + value;
+    }, 0);
+}
+
+function formatActiveMinutes(totalMs) {
+    const minutes = Math.max(0, Number(totalMs) || 0) / 60000;
+    return `${minutes.toFixed(1)} min`;
 }
 
 function formatResponseTime(ms) {

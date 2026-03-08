@@ -64,7 +64,7 @@
         .trend-bars {
             min-width: 100%;
             display: flex;
-            gap: 6px;
+            gap: 3px;
             align-items: end;
             height: 190px;
             padding: 8px 6px 4px;
@@ -73,9 +73,28 @@
             border: 1px solid #e6ecff;
         }
 
+        .trend-col {
+            height: 100%;
+            width: 29px;
+            min-width: 29px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 3px;
+        }
+
+        .trend-value {
+            font-size: 0.64rem;
+            color: #5b6787;
+            line-height: 1;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
         .trend-bar {
-            width: 12px;
-            min-width: 12px;
+            width: 11px;
+            min-width: 11px;
             border-radius: 6px 6px 0 0;
             background: #4cb780;
             opacity: 0.92;
@@ -115,6 +134,14 @@
             color: #666;
         }
 
+        .history-head-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
         .audio-history-row {
             margin-top: 0.35rem;
             display: flex;
@@ -131,6 +158,13 @@
 
         .audio-download-link {
             white-space: nowrap;
+            margin-left: auto;
+        }
+
+        @media (max-width: 560px) {
+            .history-head-row {
+                align-items: flex-start;
+            }
         }
 
         .pill {

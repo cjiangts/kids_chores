@@ -15,6 +15,8 @@ const historyList = document.getElementById('historyList');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentKidName = '';
 let currentCardFront = '';
+let trendAttemptsFull = [];
+let trendResizeRafId = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !cardId) {
@@ -23,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     bindBackButton();
+    bindTrendResize();
     await loadCardReport();
 });
 
@@ -107,7 +110,8 @@ async function loadCardReport() {
         document.title = `${kidName} - Card Report - Kids Daily Chores`;
 
         renderSummary(card, summary, attempts);
-        renderTrend(attempts);
+        trendAttemptsFull = attempts;
+        renderTrend(trendAttemptsFull);
         renderHistory(attempts);
     } catch (error) {
         console.error('Error loading card report:', error);
@@ -158,20 +162,83 @@ function renderTrend(attempts) {
         return;
     }
 
-    const maxMs = Math.max(...attempts.map((item) => Math.max(0, Number(item.response_time_ms) || 0)), 1);
+    const totalCount = attempts.length;
+    const shownAttempts = getTrendVisibleAttempts(attempts);
+    const shownCount = shownAttempts.length;
+    const maxMs = Math.max(...shownAttempts.map((item) => Math.max(0, Number(item.response_time_ms) || 0)), 1);
+    const trendUseMinutesUnit = maxMs >= 60000;
     const minHeight = 6;
-    const bars = attempts.map((item, index) => {
+    const firstVisibleIndex = totalCount - shownCount;
+    const bars = shownAttempts.map((item, index) => {
         const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
         const scaled = Math.max(minHeight, Math.round((rawMs / maxMs) * 170));
+        const responseLabel = formatTrendResponseTime(rawMs, trendUseMinutesUnit);
         const label = `${formatResponseTime(rawMs)} · ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}`;
         const correctness = resolveCorrectness(item);
-        return `<div class="trend-bar ${correctness}" title="${escapeHtml(`#${index + 1} ${label}`)}" style="height:${scaled}px"></div>`;
+        return `
+            <div class="trend-col">
+                <div class="trend-value">${escapeHtml(responseLabel)}</div>
+                <div class="trend-bar ${correctness}" title="${escapeHtml(`#${firstVisibleIndex + index + 1} ${label}`)}" style="height:${scaled}px"></div>
+            </div>
+        `;
     }).join('');
+    const windowNote = totalCount > shownCount
+        ? ` Showing latest ${shownCount} of ${totalCount} attempts to fit screen.`
+        : '';
 
     trendChart.innerHTML = `
         <div class="trend-bars">${bars}</div>
-        <div class="chart-legend">Each bar is one attempt in time order. Height = response time. Green = right, red = wrong, yellow = ungraded.</div>
+        <div class="chart-legend">Each bar is one attempt in time order. Height = response time. Green = right, red = wrong, yellow = ungraded.${windowNote}</div>
     `;
+}
+
+function getTrendVisibleAttempts(attempts) {
+    const list = Array.isArray(attempts) ? attempts : [];
+    if (list.length <= 1) {
+        return list;
+    }
+    const containerWidth = Math.max(
+        Number(trendChart?.clientWidth || 0),
+        Number(trendChart?.getBoundingClientRect?.().width || 0)
+    );
+    if (!Number.isFinite(containerWidth) || containerWidth <= 120) {
+        return list;
+    }
+    const colWidthPx = 29;
+    const colGapPx = 3;
+    const innerPaddingPx = 14; // 6px + 6px horizontal padding + borders
+    const availableWidth = Math.max(0, containerWidth - innerPaddingPx);
+    const maxVisible = Math.max(
+        6,
+        Math.floor((availableWidth + colGapPx) / (colWidthPx + colGapPx))
+    );
+    if (list.length <= maxVisible) {
+        return list;
+    }
+    return list.slice(list.length - maxVisible);
+}
+
+function bindTrendResize() {
+    window.addEventListener('resize', () => {
+        if (!trendAttemptsFull.length) {
+            return;
+        }
+        if (trendResizeRafId) {
+            window.cancelAnimationFrame(trendResizeRafId);
+        }
+        trendResizeRafId = window.requestAnimationFrame(() => {
+            trendResizeRafId = 0;
+            renderTrend(trendAttemptsFull);
+        });
+    });
+}
+
+function formatTrendResponseTime(ms, useMinutesUnit) {
+    const rawMs = Math.max(0, Number(ms) || 0);
+    if (useMinutesUnit) {
+        return `${(rawMs / 60000).toFixed(1)} min`;
+    }
+    return `${(rawMs / 1000).toFixed(1)}s`;
 }
 
 function renderHistory(attempts) {
@@ -197,18 +264,25 @@ function renderHistory(attempts) {
             : '';
         const downloadFilename = buildAudioDownloadFilename(item);
         const downloadUrl = buildAudioDownloadUrl(item, downloadFilename);
+        const downloadButtonHtml = item.audio_url
+            ? `<a class="tab-link secondary mini-link-btn audio-download-link" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFilename)}">Download</a>`
+            : '';
         const audioBlockHtml = item.audio_url
             ? `
                 <div class="audio-history-row">
                     <audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>
-                    <a class="tab-link secondary mini-link-btn audio-download-link" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFilename)}">Download</a>
                 </div>
             `
             : '';
         return `
             <div class="history-item">
-                ${formatType(item.session_category_display_name)} · ${responseTimeLabel}
-                <span class="pill ${statusClass}">${statusText}</span>
+                <div class="history-head-row">
+                    <div>
+                        ${formatType(item.session_category_display_name)} · ${responseTimeLabel}
+                        <span class="pill ${statusClass}">${statusText}</span>
+                    </div>
+                    ${downloadButtonHtml}
+                </div>
                 <div class="meta">
                     ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
                     · Session #${safeNum(item.session_id)}

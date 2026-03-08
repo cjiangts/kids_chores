@@ -150,11 +150,16 @@ body {
     border-radius: 999px;
     background: #4f83ff;
     color: #fff;
-    font-size: 0.75rem;
+    font-size: 0.84rem;
     font-weight: 700;
-    padding: 0.24rem 0.48rem;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    min-width: 58px;
+    min-width: 72px;
     line-height: 1;
 }
 
@@ -167,10 +172,16 @@ body {
     border-radius: 999px;
     background: #fff;
     color: #2f3c7e;
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    padding: 0.18rem 0.45rem;
-    line-height: 1.1;
+    height: 36px;
+    min-height: 36px;
+    min-width: 52px;
+    padding: 0 0.7rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
 }
 
@@ -189,6 +200,43 @@ body {
     font-size: 0.74rem;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+}
+
+@media (max-width: 900px), (hover: none) and (pointer: coarse) {
+    .simple-audio-player {
+        padding: 0.42rem 0.62rem;
+        min-height: 42px;
+        gap: 0.5rem;
+    }
+
+    .audio-play-btn,
+    .audio-speed-btn {
+        height: 36px;
+        min-height: 36px;
+        padding: 0 0.7rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+
+    .audio-play-btn {
+        min-width: 72px;
+        font-size: 0.84rem;
+    }
+
+    .audio-speed-btn {
+        min-width: 52px;
+        font-size: 0.8rem;
+    }
+
+    .audio-progress {
+        min-height: 30px;
+    }
+
+    .audio-time {
+        font-size: 0.8rem;
+    }
 }
 
 .progress-badge-strip {

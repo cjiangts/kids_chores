@@ -101,11 +101,32 @@
             font-size: 0.78rem;
         }
 
+        .answer-head-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .answer-report-link {
+            margin-left: auto;
+            white-space: nowrap;
+            min-height: 26px;
+            padding: 0 0.58rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            line-height: 1;
+        }
+
         .grade-row {
             margin-top: 0.45rem;
             display: flex;
             gap: 0.35rem;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         .grade-btn {
@@ -113,8 +134,13 @@
             border-radius: 999px;
             background: #fff;
             color: #2f3c7e;
-            font-size: 0.76rem;
-            padding: 0.2rem 0.62rem;
+            font-size: 0.78rem;
+            min-height: 26px;
+            padding: 0 0.58rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
             cursor: pointer;
         }
 
@@ -138,11 +164,23 @@
 
         .grade-status {
             margin-top: 0.45rem;
-            display: inline-block;
-            font-size: 0.76rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 26px;
+            font-size: 0.78rem;
             border-radius: 999px;
-            padding: 0.2rem 0.62rem;
+            padding: 0 0.58rem;
+            line-height: 1;
             color: #fff;
+        }
+
+        .answer-item .audio-play-btn,
+        .answer-item .audio-speed-btn {
+            height: 26px;
+            min-height: 26px;
+            padding: 0 0.58rem;
+            font-size: 0.78rem;
         }
 
         .grade-status.pass {
@@ -155,6 +193,9 @@
 
         @media (max-width: 760px) {
             .detail-grid { grid-template-columns: 1fr; }
+            .answer-head-row {
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
