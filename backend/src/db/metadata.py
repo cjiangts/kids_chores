@@ -11,7 +11,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 METADATA_FILE = os.path.join(os.path.dirname(__file__), '../../data/kids.json')
 METADATA_LOCK_FILE = f"{METADATA_FILE}.lock"
-MAX_FAMILIES = 10
 PASSWORD_HASH_METHOD = 'pbkdf2:sha256'
 DEFAULT_FAMILY_TIMEZONE = 'America/New_York'
 _METADATA_THREAD_LOCK = threading.RLock()
@@ -242,8 +241,6 @@ def register_family(username: str, password: str) -> Dict:
             str(f.get('username') or '').strip().lower()
             for f in families
         }
-        if len(families) >= MAX_FAMILIES:
-            raise ValueError(f'Family limit reached ({MAX_FAMILIES})')
         if username.strip().lower() in existing:
             raise ValueError('Username already exists')
 

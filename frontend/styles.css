@@ -260,13 +260,14 @@ body {
 .progress-badge-icon {
     --badge-fill-pct: 100%;
     --progress-star-size: 1.2rem;
-    --progress-badge-pad-y: 0;
+    --progress-badge-pad-y: 0.08rem;
     --progress-badge-pad-x: 0;
     display: inline-grid;
     place-items: center start;
     padding: var(--progress-badge-pad-y) var(--progress-badge-pad-x);
     vertical-align: middle;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: visible;
 }
 
 .progress-badge-icon::before,
@@ -277,7 +278,7 @@ body {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     font-size: var(--progress-star-size);
     letter-spacing: 0;
-    line-height: 1;
+    line-height: 1.06;
     white-space: nowrap;
     pointer-events: none;
 }
@@ -1346,6 +1347,7 @@ header p {
 
     .family-home-page .kid-card .daily-stars-strip .progress-badge-strip {
         gap: 0.22rem;
+        align-items: center;
     }
 
     .family-home-page .kid-card .daily-stars-done-mark {

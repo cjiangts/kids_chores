@@ -8211,6 +8211,27 @@ def sanitize_download_filename_stem(raw_name, fallback='recording'):
     return text[:120]
 
 
+def resolve_ffmpeg_executable():
+    """Resolve ffmpeg binary path for environments without system ffmpeg."""
+    configured = str(os.environ.get('FFMPEG_BIN') or '').strip()
+    if configured:
+        return configured
+
+    system_ffmpeg = shutil.which('ffmpeg')
+    if system_ffmpeg:
+        return system_ffmpeg
+
+    try:
+        import imageio_ffmpeg  # type: ignore
+        bundled = str(imageio_ffmpeg.get_ffmpeg_exe() or '').strip()
+        if bundled:
+            return bundled
+    except Exception:
+        return ''
+
+    return ''
+
+
 @kids_bp.route('/kids/<kid_id>/lesson-reading/audio/<path:file_name>/download-mp3', methods=['GET'])
 def download_type3_audio_as_mp3(kid_id, file_name):
     """Download one type-III recording as MP3 (transcoded on demand)."""
@@ -8250,9 +8271,21 @@ def download_type3_audio_as_mp3(kid_id, file_name):
             fallback='recording'
         )
         output_name = f'{base_stem}.mp3'
+        passthrough_ext = os.path.splitext(file_name)[1] or '.webm'
+        passthrough_name = f'{base_stem}{passthrough_ext}'
+        passthrough_mime = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+
+        ffmpeg_exe = resolve_ffmpeg_executable()
+        if not ffmpeg_exe:
+            return send_file(
+                audio_path,
+                mimetype=passthrough_mime,
+                as_attachment=True,
+                download_name=passthrough_name,
+            )
 
         ffmpeg_cmd = [
-            'ffmpeg',
+            ffmpeg_exe,
             '-v', 'error',
             '-i', audio_path,
             '-vn',
@@ -8268,9 +8301,12 @@ def download_type3_audio_as_mp3(kid_id, file_name):
             check=False,
         )
         if process.returncode != 0 or not process.stdout:
-            detail = process.stderr.decode('utf-8', errors='ignore').strip()
-            message = detail or 'Audio transcoding failed'
-            return jsonify({'error': message}), 500
+            return send_file(
+                audio_path,
+                mimetype=passthrough_mime,
+                as_attachment=True,
+                download_name=passthrough_name,
+            )
 
         return send_file(
             BytesIO(process.stdout),

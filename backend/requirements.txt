@@ -4,3 +4,4 @@ duckdb==1.4.4
 python-dotenv==1.0.0
 gTTS==2.5.4
 pypinyin==0.52.0
+imageio-ffmpeg==0.5.1
