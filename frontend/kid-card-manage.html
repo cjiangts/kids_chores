@@ -473,6 +473,25 @@
             margin: 0;
         }
 
+        .cards-header-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 0.56rem;
+            margin-bottom: 0.74rem;
+            flex-wrap: nowrap;
+        }
+
+        .cards-view-control {
+            display: inline-flex;
+            flex-direction: row;
+            align-items: flex-end;
+            justify-content: flex-end;
+            gap: 0;
+            min-width: 0;
+            flex: 0 0 auto;
+        }
+
         .deck-setup-summary-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -610,8 +629,8 @@
             display: inline-flex;
             align-items: center;
             gap: 0.2rem;
-            background: #fff7ea;
-            border: 1px solid #f6cf93;
+            background: #edf9f1;
+            border: 1px solid #9edeb4;
             border-radius: 999px;
             padding: 0.18rem;
         }
@@ -623,19 +642,77 @@
             font-size: 0.84rem;
             font-weight: 700;
             line-height: 1;
-            color: #9a5a00;
+            color: #1f7a43;
             background: transparent;
             cursor: pointer;
             white-space: nowrap;
         }
 
         .card-view-mode-btn:hover {
-            background: rgba(245, 158, 11, 0.16);
+            background: rgba(43, 152, 86, 0.15);
         }
 
         .card-view-mode-btn.active {
-            background: #f59e0b;
+            background: #2ba35a;
             color: #fff;
+        }
+
+        .cards-visible-action-btn {
+            min-height: 34px;
+            height: 34px;
+            padding: 0.35rem 0.64rem;
+            font-size: 0.86rem;
+            line-height: 1;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .cards-visible-action-btn.skip,
+        .cards-visible-action-btn.unskip {
+            justify-self: stretch;
+        }
+
+        .cards-visible-action-btn.skip {
+            background: #f59e0b;
+            border-color: #f59e0b;
+            color: #fff;
+        }
+
+        .cards-visible-action-btn.skip:hover:enabled {
+            background: #dc8a08;
+            border-color: #dc8a08;
+            color: #fff;
+        }
+
+        .cards-visible-action-btn.unskip {
+            background: #3f7ee8;
+            border-color: #3f7ee8;
+            color: #fff;
+        }
+
+        .cards-visible-action-btn.unskip:hover:enabled {
+            background: #2f6fd9;
+            border-color: #2f6fd9;
+            color: #fff;
+        }
+
+        .cards-visible-action-btn:disabled {
+            opacity: 0.52;
+            cursor: not-allowed;
+        }
+
+        .cards-bulk-action-message-wrap {
+            display: flex;
+            justify-content: flex-end;
+            margin: -0.18rem 0 0.72rem;
+        }
+
+        .cards-bulk-action-message-wrap .success,
+        .cards-bulk-action-message-wrap .error {
+            margin: 0;
+            padding: 0.58rem 0.76rem;
+            max-width: min(760px, 100%);
+            width: auto;
         }
 
         .manage-page .cards-toolbar .cards-search-input,
@@ -649,7 +726,7 @@
 
         .manage-page .cards-toolbar {
             display: grid;
-            grid-template-columns: auto auto minmax(160px, 1fr) minmax(220px, 300px);
+            grid-template-columns: auto minmax(180px, 1fr) auto auto minmax(220px, 300px);
             align-items: end;
             column-gap: 0.52rem;
             row-gap: 0.5rem;
@@ -675,7 +752,7 @@
 
         @media (max-width: 1180px) {
             .manage-page .cards-toolbar {
-                grid-template-columns: auto auto minmax(120px, 1fr) minmax(180px, 240px);
+                grid-template-columns: auto minmax(120px, 1fr) auto auto minmax(180px, 240px);
                 column-gap: 0.45rem;
             }
 
@@ -689,8 +766,22 @@
         }
 
         @media (max-width: 980px) {
+            .cards-header-row {
+                gap: 0.42rem;
+            }
+
+            .cards-view-control .card-view-mode {
+                gap: 0.18rem;
+                padding: 0.14rem;
+            }
+
+            .cards-view-control .card-view-mode-btn {
+                padding: 0.22rem 0.32rem;
+                font-size: 0.75rem;
+            }
+
             .manage-page .cards-toolbar {
-                grid-template-columns: minmax(0, 0.46fr) minmax(0, 0.54fr);
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
                 gap: 0.5rem;
             }
 
@@ -701,34 +792,47 @@
             }
 
             .manage-page .cards-toolbar .toolbar-control-block:nth-of-type(1) {
-                grid-column: 1 / 2;
+                grid-column: 1 / -1;
             }
 
-            .manage-page .cards-toolbar .toolbar-control-block:nth-of-type(2) {
-                grid-column: 2 / 3;
-                justify-self: stretch;
-            }
-
-            .manage-page .toolbar-control-block .card-status-filter,
-            .manage-page .toolbar-control-block .card-view-mode {
+            .manage-page .toolbar-control-block .card-status-filter {
                 width: 100%;
                 justify-content: space-between;
                 overflow: hidden;
             }
 
             .manage-page .cards-toolbar .cards-search-input {
-                grid-column: 1 / 2;
+                grid-column: 1 / -1;
                 min-width: 0;
                 width: 100%;
                 max-width: none;
                 justify-self: stretch;
             }
 
-            .manage-page .cards-toolbar #viewOrderSelect {
+            .manage-page .cards-toolbar .cards-visible-action-btn.skip {
+                grid-column: 1 / 2;
+            }
+
+            .manage-page .cards-toolbar .cards-visible-action-btn.unskip {
                 grid-column: 2 / 3;
+            }
+
+            .manage-page .cards-toolbar #viewOrderSelect {
+                grid-column: 1 / -1;
                 width: 100%;
                 max-width: none;
                 justify-self: stretch;
+            }
+
+            .cards-bulk-action-message-wrap {
+                justify-content: stretch;
+                margin-top: -0.08rem;
+            }
+
+            .cards-bulk-action-message-wrap .success,
+            .cards-bulk-action-message-wrap .error {
+                width: 100%;
+                max-width: none;
             }
 
             .manage-page .toolbar-control-label {
@@ -740,6 +844,13 @@
             .manage-page .card-view-mode {
                 gap: 0.2rem;
                 padding: 0.14rem;
+            }
+
+            .cards-visible-action-btn {
+                width: 100%;
+                padding: 0.28rem 0.36rem;
+                font-size: 0.76rem;
+                text-align: center;
             }
 
             .manage-page .card-status-filter-btn,
@@ -763,9 +874,18 @@
         }
 
         @media (max-width: 420px) {
+            .cards-header-row {
+                gap: 0.3rem;
+            }
+
             .manage-page .card-status-filter-btn,
             .manage-page .card-view-mode-btn {
                 padding: 0.2rem 0.24rem;
+                font-size: 0.72rem;
+            }
+
+            .cards-visible-action-btn {
+                padding: 0.24rem 0.28rem;
                 font-size: 0.72rem;
             }
 
@@ -1040,6 +1160,31 @@
             }
         }
 
+        /* Keep Back button at top-right on mobile for this page. */
+        @media (max-width: 760px) {
+            .kid-card-manage-page .header {
+                flex-direction: row;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 0.6rem;
+            }
+
+            .kid-card-manage-page .header h1 {
+                flex: 1 1 auto;
+                min-width: 0;
+                margin-right: 0.35rem;
+            }
+
+            .kid-card-manage-page .header .back-btn {
+                width: auto;
+                min-width: 92px;
+                margin-left: auto;
+                text-align: center;
+                white-space: nowrap;
+                flex: 0 0 auto;
+            }
+        }
+
         .deck-category-tabs {
             display: flex;
             flex-wrap: wrap;
@@ -1203,11 +1348,17 @@
             display: flex;
             gap: 0.55rem;
             align-items: center;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 
         .orphan-editor-action-row .submit-btn {
             margin: 0;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .orphan-editor-action-row .btn-secondary {
+            flex: 0 0 auto;
         }
 
         .card-item {
@@ -1535,8 +1686,12 @@
             }
 
             #deckOptInModal .manage-popup-modal-body {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                overflow: hidden;
                 padding-right: 0;
-                padding-bottom: 5rem;
+                padding-bottom: 0;
             }
 
             #deckOptInModal #availableDecks,
@@ -1546,14 +1701,24 @@
                 padding-right: 0;
             }
 
+            #deckOptInModal .deck-v2-grid {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                padding-right: 0.08rem;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+
             #deckOptInModal .deck-v2-actions {
-                position: sticky;
-                bottom: 0;
+                position: static;
                 margin-top: 0.72rem;
                 padding-top: 0.62rem;
+                padding-bottom: calc(0.2rem + env(safe-area-inset-bottom, 0px));
                 border-top: 1px solid #dbe1ff;
                 background: #fff;
                 z-index: 3;
+                flex: 0 0 auto;
             }
 
             #deckOptInModal .deck-v2-action-row {
@@ -1573,7 +1738,7 @@
         }
     </style>
 </head>
-<body class="practice-page manage-page">
+<body class="practice-page manage-page kid-card-manage-page">
     <div class="container">
         <div class="header">
             <h1 id="kidName">Loading...</h1>
@@ -1651,9 +1816,17 @@
         </section>
 
         <section class="settings-section cards-section">
-            <h2 class="cards-title">
-                <span><span id="cardsSectionTitleText">Cards</span> <span id="mathCardCount">(0)</span></span>
-            </h2>
+            <div class="cards-header-row">
+                <h2 class="cards-title">
+                    <span><span id="cardsSectionTitleText">Cards</span> <span id="mathCardCount">(0)</span></span>
+                </h2>
+                <div class="toolbar-control-block cards-view-control">
+                    <div class="card-view-mode" role="group" aria-label="Card view mode">
+                        <button type="button" class="card-view-mode-btn active" data-card-view-mode="short" title="Fold all cards to concise pills">Fold All</button>
+                        <button type="button" class="card-view-mode-btn" data-card-view-mode="long" title="Unfold all cards to full details">Unfold All</button>
+                    </div>
+                </div>
+            </div>
             <div class="cards-toolbar">
                 <div class="toolbar-control-block">
                     <div class="toolbar-control-label">Cards</div>
@@ -1663,13 +1836,6 @@
                         <button type="button" class="card-status-filter-btn" data-card-status-filter="skipped">Skipped</button>
                     </div>
                 </div>
-                <div class="toolbar-control-block">
-                    <div class="toolbar-control-label">View</div>
-                    <div class="card-view-mode" role="group" aria-label="Card view mode">
-                        <button type="button" class="card-view-mode-btn active" data-card-view-mode="short" title="Fold all cards to concise pills">Fold All</button>
-                        <button type="button" class="card-view-mode-btn" data-card-view-mode="long" title="Unfold all cards to full details">Unfold All</button>
-                    </div>
-                </div>
                 <input
                     type="text"
                     id="cardSearchInput"
@@ -1677,6 +1843,8 @@
                     placeholder="Search cards..."
                     aria-label="Search cards"
                 >
+                <button id="skipVisibleCardsBtn" type="button" class="btn-secondary cards-visible-action-btn skip">Skip (0)</button>
+                <button id="unskipVisibleCardsBtn" type="button" class="btn-secondary cards-visible-action-btn unskip">Unskip (0)</button>
                 <select id="viewOrderSelect" class="sort-select">
                     <option value="queue" selected>Order: Next Session Queue</option>
                     <option value="added_time">Order: Added Time (Recent to Oldest)</option>
@@ -1684,6 +1852,9 @@
                     <option value="lifetime_attempts_desc">Order: Lifetime Attempts (Desc)</option>
                     <option value="lifetime_attempts_asc">Order: Lifetime Attempts (Asc)</option>
                 </select>
+            </div>
+            <div class="cards-bulk-action-message-wrap">
+                <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>
             </div>
             <div id="cardsGrid" class="cards-grid"></div>
         </section>
@@ -1740,7 +1911,7 @@
                 <div class="deck-v2-actions">
                     <div class="deck-v2-action-row">
                         <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply (+0/-0)</button>
-                        <button id="cancelDeckOptInModalBtn" type="button" class="btn-secondary">Cancel</button>
+                        <button id="cancelDeckOptInModalBtn" type="button" class="btn-secondary">Close</button>
                     </div>
                     <div id="deckChangeMessage" class="success hidden"></div>
                 </div>
@@ -1769,8 +1940,8 @@
                                 </div>
                             </div>
                             <div class="orphan-editor-action-row">
-                                <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add Chinese Characters</button>
-                                <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary">Cancel</button>
+                                <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add</button>
+                                <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary">Close</button>
                             </div>
                             <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
                         </form>

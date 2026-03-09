@@ -64,6 +64,9 @@ const addCardStatusMessage = document.getElementById('addCardStatusMessage');
 
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const cardSearchInput = document.getElementById('cardSearchInput');
+const skipVisibleCardsBtn = document.getElementById('skipVisibleCardsBtn');
+const unskipVisibleCardsBtn = document.getElementById('unskipVisibleCardsBtn');
+const cardsBulkActionMessage = document.getElementById('cardsBulkActionMessage');
 const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardStatusFilterButtons = [...document.querySelectorAll('button[data-card-status-filter]')];
@@ -100,6 +103,7 @@ let currentCardStatusFilter = 'all';
 let currentCardViewMode = 'short';
 let expandedCompactCardIds = new Set();
 let currentMobileDeckTab = 'available';
+let isBulkSkipActionInFlight = false;
 let sessionCardCountByCategory = {};
 let includeOrphanByCategory = {};
 let hardCardPercentByCategory = {};
@@ -215,6 +219,24 @@ function showStatusMessage(message, isError = true) {
     }
 }
 
+function showCardsBulkActionMessage(message, isError = false) {
+    if (!cardsBulkActionMessage) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        cardsBulkActionMessage.textContent = '';
+        cardsBulkActionMessage.classList.add('hidden');
+        cardsBulkActionMessage.classList.remove('error');
+        cardsBulkActionMessage.classList.add('success');
+        return;
+    }
+    cardsBulkActionMessage.textContent = text;
+    cardsBulkActionMessage.classList.remove('hidden');
+    cardsBulkActionMessage.classList.toggle('error', !!isError);
+    cardsBulkActionMessage.classList.toggle('success', !isError);
+}
+
 function isModalOpen(modalEl) {
     return Boolean(modalEl) && !modalEl.classList.contains('hidden');
 }
@@ -238,7 +260,6 @@ function handleModalBackdropClick(event) {
         return;
     }
     if (event.target === deckOptInModal) {
-        setManageModalOpen(deckOptInModal, false);
         return;
     }
     if (event.target === personalDeckModal) {
@@ -879,6 +900,30 @@ function filterCardsByStatus(cards, statusFilter) {
     return cards;
 }
 
+function getSortedCardsForDisplay(cards) {
+    const statusFilteredCards = filterCardsByStatus(cards, currentCardStatusFilter);
+    const filteredCards = filterCardsByQuery(statusFilteredCards, cardSearchInput ? cardSearchInput.value : '');
+    return window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
+}
+
+function getVisibleCardsForDisplay(cards) {
+    const sorted = getSortedCardsForDisplay(cards);
+    return sorted.slice(0, visibleCardCount);
+}
+
+function renderVisibleSkipActionButtons() {
+    if (!skipVisibleCardsBtn || !unskipVisibleCardsBtn) {
+        return;
+    }
+    const visibleCards = getVisibleCardsForDisplay(currentCards);
+    const skipableCount = visibleCards.filter((card) => !card.skip_practice).length;
+    const unskipableCount = visibleCards.filter((card) => !!card.skip_practice).length;
+    skipVisibleCardsBtn.textContent = `Skip (${skipableCount})`;
+    unskipVisibleCardsBtn.textContent = `Unskip (${unskipableCount})`;
+    skipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || skipableCount <= 0;
+    unskipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || unskipableCount <= 0;
+}
+
 function renderCardStatusFilterButtons() {
     if (!cardStatusFilterButtons.length) {
         return;
@@ -1337,9 +1382,7 @@ function applyChineseCardFrontUniformSize() {
 }
 
 function displayCards(cards) {
-    const statusFilteredCards = filterCardsByStatus(cards, currentCardStatusFilter);
-    const filteredCards = filterCardsByQuery(statusFilteredCards, cardSearchInput ? cardSearchInput.value : '');
-    sortedCards = window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
+    sortedCards = getSortedCardsForDisplay(cards);
 
     if (mathCardCount) {
         mathCardCount.textContent = `(${sortedCards.length})`;
@@ -1349,6 +1392,7 @@ function displayCards(cards) {
         cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
         cardsGrid.classList.remove('short-view');
         cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
+        renderVisibleSkipActionButtons();
         return;
     }
 
@@ -1359,6 +1403,7 @@ function displayCards(cards) {
             .map((card) => buildLongCardMarkup(card))
             .join('');
         applyChineseCardFrontUniformSize();
+        renderVisibleSkipActionButtons();
         return;
     }
 
@@ -1391,6 +1436,7 @@ function displayCards(cards) {
     } else {
         cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
     }
+    renderVisibleSkipActionButtons();
 }
 
 function resetAndDisplayCards(cards) {
@@ -1428,14 +1474,10 @@ function updateAddReadingButtonCount() {
         const countText = dedupStats.dedupedCount > 0
             ? `${dedupStats.uniqueCount}, dedup ${dedupStats.dedupedCount}`
             : `${dedupStats.uniqueCount}`;
-        addReadingBtn.textContent = isType2
-            ? `Bulk Add Chinese Words/Phrases (${countText})`
-            : `Bulk Add Chinese Characters (${countText})`;
+        addReadingBtn.textContent = `Bulk Add (${countText})`;
         return;
     }
-    addReadingBtn.textContent = isType2
-        ? 'Bulk Add Chinese Words/Phrases'
-        : 'Bulk Add Chinese Characters';
+    addReadingBtn.textContent = 'Bulk Add';
 }
 
 function setReadingBulkAddBusy(isBusy) {
@@ -1511,7 +1553,8 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
     }
 }
 
-async function updateSharedType1CardSkip(cardId, skipped) {
+async function updateSharedType1CardSkip(cardId, skipped, options = {}) {
+    const reloadCards = options.reloadCards !== false;
     const response = await fetch(buildSharedDeckApiUrl(`shared-decks/cards/${cardId}/skip`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1521,8 +1564,75 @@ async function updateSharedType1CardSkip(cardId, skipped) {
     if (!response.ok) {
         throw new Error(result.error || `Failed to update skip (HTTP ${response.status})`);
     }
-    await loadSharedDeckCards();
+    if (reloadCards) {
+        await loadSharedDeckCards();
+    }
     showError('');
+}
+
+async function updateSharedType1CardsSkipBulk(cardIds, skipped) {
+    const normalizedIds = [...new Set(
+        (Array.isArray(cardIds) ? cardIds : [])
+            .map((value) => Number.parseInt(value, 10))
+            .filter((value) => Number.isInteger(value))
+    )];
+    if (normalizedIds.length <= 0) {
+        return { updated_count: 0, skip_practice: Boolean(skipped) };
+    }
+    const response = await fetch(buildSharedDeckApiUrl('shared-decks/cards/skip-bulk'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            card_ids: normalizedIds,
+            skipped: Boolean(skipped),
+        }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to update skip (HTTP ${response.status})`);
+    }
+    showError('');
+    return result;
+}
+
+async function applyVisibleCardsSkip(targetSkipped) {
+    if (isBulkSkipActionInFlight) {
+        return;
+    }
+    const visibleCards = getVisibleCardsForDisplay(currentCards);
+    const cardsToUpdate = visibleCards.filter((card) => Boolean(card.skip_practice) !== Boolean(targetSkipped));
+    if (cardsToUpdate.length <= 0) {
+        renderVisibleSkipActionButtons();
+        return;
+    }
+    isBulkSkipActionInFlight = true;
+    renderVisibleSkipActionButtons();
+    try {
+        showError('');
+        showSuccess('');
+        showCardsBulkActionMessage('');
+        const cardIds = cardsToUpdate.map((card) => Number.parseInt(card && card.id, 10)).filter((id) => Number.isInteger(id));
+        const result = await updateSharedType1CardsSkipBulk(cardIds, targetSkipped);
+        const successCount = Math.max(0, Number.parseInt(result && result.updated_count, 10) || 0);
+        const failedCount = Math.max(0, cardIds.length - successCount);
+        await loadSharedDeckCards();
+        if (failedCount > 0 && successCount > 0) {
+            showCardsBulkActionMessage(
+                `${targetSkipped ? 'Skipped' : 'Unskipped'} ${successCount} shown card(s); failed ${failedCount}.`,
+                true
+            );
+        } else if (failedCount > 0) {
+            showCardsBulkActionMessage(`Failed to update ${failedCount} shown card(s).`, true);
+        } else if (successCount > 0) {
+            showCardsBulkActionMessage(`${targetSkipped ? 'Skipped' : 'Unskipped'} ${successCount} shown card(s).`, false);
+        }
+    } catch (error) {
+        console.error('Error applying bulk skip to shown cards:', error);
+        showCardsBulkActionMessage(error.message || 'Failed to update shown cards.', true);
+    } finally {
+        isBulkSkipActionInFlight = false;
+        renderVisibleSkipActionButtons();
+    }
 }
 
 async function addOrphanCards() {
@@ -1721,6 +1831,9 @@ async function handleCardsGridClick(event) {
     const targetSkipped = !currentlySkipped;
     try {
         actionBtn.disabled = true;
+        if (isBulkSkipActionInFlight) {
+            return;
+        }
         await updateSharedType1CardSkip(cardId, targetSkipped);
     } catch (error) {
         console.error('Error updating shared category card skip:', error);
@@ -2012,7 +2125,6 @@ async function applyDeckMembershipChanges() {
         const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanSummary}.`;
         showDeckChangeMessage(summary);
         await loadSharedType1Decks();
-        setManageModalOpen(deckOptInModal, false);
     } catch (error) {
         console.error('Error applying deck membership changes:', error);
         showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
@@ -2203,6 +2315,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cardSearchInput) {
         cardSearchInput.addEventListener('input', () => {
             resetAndDisplayCards(currentCards);
+        });
+    }
+    if (skipVisibleCardsBtn) {
+        skipVisibleCardsBtn.addEventListener('click', async () => {
+            await applyVisibleCardsSkip(true);
+        });
+    }
+    if (unskipVisibleCardsBtn) {
+        unskipVisibleCardsBtn.addEventListener('click', async () => {
+            await applyVisibleCardsSkip(false);
         });
     }
     if (addCardForm) {

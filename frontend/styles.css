@@ -947,8 +947,14 @@ header {
 }
 
 header h1 {
-    font-size: 2.5em;
+    font-size: clamp(1.9rem, 4.6vw, 3rem);
     margin-bottom: 10px;
+    line-height: 1.1;
+}
+
+.header h1 {
+    font-size: clamp(1.85rem, 4.2vw, 2.8rem);
+    line-height: 1.1;
 }
 
 header p {
@@ -1045,7 +1051,23 @@ header p {
     justify-content: center;
 }
 
+/* Keep manage-page titles responsive on all devices. */
+.manage-page .header h1 {
+    font-size: clamp(1.5rem, 3.6vw, 2.2rem);
+    line-height: 1.2;
+}
+
 @media (max-width: 760px) {
+    header h1,
+    .header h1 {
+        font-size: clamp(1.45rem, 7.4vw, 2.05rem);
+        line-height: 1.15;
+    }
+
+    header p {
+        font-size: clamp(0.95rem, 4.2vw, 1.08rem);
+    }
+
     .manage-page .settings-row {
         flex-direction: column;
         align-items: stretch;
@@ -1068,7 +1090,7 @@ header p {
     }
 
     .manage-page .header h1 {
-        font-size: 1.45rem;
+        font-size: clamp(1.2rem, 6.2vw, 1.55rem);
         line-height: 1.25;
     }
 

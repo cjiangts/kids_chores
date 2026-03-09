@@ -95,7 +95,7 @@ window.PracticeManageCommon = {
                     ${warningMessage ? `<p class="pwd-warning">${escapeHtml(warningMessage)}</p>` : ''}
                     <input class="pwd-input" type="password" autocomplete="current-password" />
                     <div class="pwd-actions">
-                        <button type="button" class="pwd-btn cancel">Cancel</button>
+                        <button type="button" class="pwd-btn cancel">Close</button>
                         <button type="button" class="pwd-btn confirm">Confirm</button>
                     </div>
                 </div>
