@@ -8,7 +8,6 @@ const WRITING_SHEET_MAX_ROWS = 10;
 
 const pageTitleEl = document.getElementById('pageTitle');
 const pageSubtitleEl = document.getElementById('pageSubtitle');
-const categoryLabelEl = document.getElementById('categoryLabel');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 
@@ -89,9 +88,6 @@ function updatePageText() {
     }
     if (pageTitleEl) {
         pageTitleEl.textContent = 'Printable work sheets (Chinese Writing)';
-    }
-    if (categoryLabelEl) {
-        categoryLabelEl.textContent = `Category: ${displayName}`;
     }
 }
 
@@ -258,7 +254,12 @@ function renderSheets(sheets) {
         const sheetId = Number.parseInt(sheet && sheet.id, 10);
         const safeSheetId = Number.isInteger(sheetId) && sheetId > 0 ? sheetId : 0;
         const cards = Array.isArray(sheet && sheet.cards) ? sheet.cards : [];
-        const answers = cards.map((card) => String(card && (card.back || card.front) || '').trim()).filter(Boolean).join(' · ');
+        const answerLabels = cards
+            .map((card) => String(card && (card.back || card.front) || '').trim())
+            .filter(Boolean);
+        const answersHtml = answerLabels.length > 0
+            ? answerLabels.map((label) => `<span class="sheet-card-pill">${escapeHtml(label)}</span>`).join('')
+            : '<span class="sheet-card-empty">(no cards)</span>';
         const isDone = String(sheet && sheet.status || '').trim().toLowerCase() === 'done';
         const isPending = !isDone;
         const statusClass = isDone ? 'done' : 'pending';
@@ -266,23 +267,28 @@ function renderSheets(sheets) {
         const printedDay = formatDate(sheet && sheet.created_at);
         const finishedDay = isDone ? formatDate(sheet && sheet.completed_at) : '-';
         const finishedIn = isDone ? formatDuration(sheet && sheet.created_at, sheet && sheet.completed_at) : '-';
+        const deleteBtnHtml = isPending
+            ? `<button type="button" class="sheet-delete-icon" data-sheet-action="delete" data-sheet-id="${safeSheetId}" aria-label="Delete sheet" title="Delete sheet">×</button>`
+            : '';
 
         return `
             <article class="sheet-item">
                 <div class="sheet-head">
                     <div>Sheet #${safeSheetId}</div>
-                    <span class="status ${statusClass}">${statusLabel}</span>
+                    <div class="sheet-head-right">
+                        <span class="status ${statusClass}">${statusLabel}</span>
+                        ${deleteBtnHtml}
+                    </div>
                 </div>
                 <div class="sheet-meta">
                     Printed: ${escapeHtml(printedDay)}<br>
                     Finished: ${escapeHtml(finishedDay)}<br>
                     Time to finish: ${escapeHtml(finishedIn)}
                 </div>
-                <div class="sheet-cards">${escapeHtml(answers || '(no cards)')}</div>
+                <div class="sheet-cards">${answersHtml}</div>
                 <div class="sheet-actions">
                     <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">Print</button>
                     ${isPending ? `<button type="button" class="done-btn" data-sheet-action="done" data-sheet-id="${safeSheetId}">Mark Done</button>` : ''}
-                    ${isPending ? `<button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>` : ''}
                 </div>
             </article>
         `;

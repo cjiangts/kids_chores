@@ -103,9 +103,7 @@ const CARD_PAGE_SIZE_LONG = 10;
 const CARD_PAGE_SIZE_SHORT = 60;
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
-const CHINESE_FRONT_MAX_FONT_SIZE_REM = 4;
-const CHINESE_FRONT_MIN_FONT_SIZE_REM = 0.55;
-const CHINESE_FRONT_FIT_ITERATIONS = 8;
+const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
 const SHOW_DECK_COUNT_MISMATCH_WARNING = false;
 
 const promptPreviewPlayer = (
@@ -815,7 +813,7 @@ function setCardViewMode(nextMode) {
         return;
     }
     currentCardViewMode = resolved;
-    if (resolved !== 'short') {
+    if (resolved !== 'long') {
         expandedCompactCardIds.clear();
     }
     renderCardViewModeButtons();
@@ -823,7 +821,7 @@ function setCardViewMode(nextMode) {
 }
 
 function getCardPageSize() {
-    return currentCardViewMode === 'short' ? CARD_PAGE_SIZE_SHORT : CARD_PAGE_SIZE_LONG;
+    return currentCardViewMode === 'long' ? CARD_PAGE_SIZE_LONG : CARD_PAGE_SIZE_SHORT;
 }
 
 function getSessionCardCountForMixLegend() {
@@ -1188,22 +1186,21 @@ function buildCompactCardMarkup(card) {
     `;
 }
 
-function buildExpandedCompactCardMarkup(card) {
-    const cardId = String(card && card.id ? card.id : '');
-    const foldBtn = `
+function buildCompactFoldButtonMarkup(cardId) {
+    const safeId = String(cardId || '').trim();
+    return `
         <button
             type="button"
             class="compact-fold-btn"
             data-action="collapse-compact"
-            data-card-id="${escapeHtml(cardId)}"
+            data-card-id="${escapeHtml(safeId)}"
             title="Fold back to short view"
             aria-label="Fold back to short view"
         >Fold</button>
     `;
-    const options = {
-        cardClassNames: ['short-inline-expanded'],
-        prependControlsHtml: foldBtn,
-    };
+}
+
+function buildLongCardMarkup(card, options = {}) {
     if (isType2Behavior()) {
         return buildType2CardMarkup(card, options);
     }
@@ -1212,87 +1209,16 @@ function buildExpandedCompactCardMarkup(card) {
         : buildGenericType1CardMarkup(card, options);
 }
 
-function getTextLength(text) {
-    return [...String(text || '').trim()].length;
-}
-
-function getChineseFrontBaseFontSizeByMaxLength(maxLength) {
-    if (maxLength <= 1) return 4;
-    if (maxLength <= 2) return 3.7;
-    if (maxLength <= 4) return 3.1;
-    if (maxLength <= 6) return 2.6;
-    if (maxLength <= 8) return 2.2;
-    if (maxLength <= 12) return 1.75;
-    if (maxLength <= 16) return 1.4;
-    if (maxLength <= 24) return 1.1;
-    return 0.9;
-}
-
-function areChineseFrontNodesSingleLine(frontNodes) {
-    return frontNodes.every((frontEl) => (
-        frontEl.clientWidth > 0
-        && frontEl.scrollWidth <= (frontEl.clientWidth + 1)
-    ));
-}
-
-function applyChineseCardFrontUniformSize(visibleCards = null) {
+function applyChineseCardFrontUniformSize() {
     if (!isChineseSpecificLogic || !cardsGrid) {
         return;
     }
-    const frontNodes = [...cardsGrid.querySelectorAll('.type1-chinese-card .card-front')];
-    if (frontNodes.length === 0) {
+    const hasChineseFront = !!cardsGrid.querySelector('.type1-chinese-card .card-front');
+    if (!hasChineseFront) {
         cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
         return;
     }
-
-    const safeVisibleCards = Array.isArray(visibleCards)
-        ? visibleCards
-        : sortedCards.slice(0, visibleCardCount);
-    const maxLength = safeVisibleCards.reduce((maxLen, card) => {
-        const sizeText = isType2Behavior() && isChineseSpecificLogic
-            ? (card && (card.back || card.front))
-            : (card && card.front);
-        const length = getTextLength(sizeText);
-        return length > maxLen ? length : maxLen;
-    }, 1);
-
-    let low = CHINESE_FRONT_MIN_FONT_SIZE_REM;
-    let high = Math.min(
-        CHINESE_FRONT_MAX_FONT_SIZE_REM,
-        Math.max(CHINESE_FRONT_MIN_FONT_SIZE_REM, getChineseFrontBaseFontSizeByMaxLength(maxLength))
-    );
-    let best = low;
-
-    const setSharedSize = (sizeRem) => {
-        cardsGrid.style.setProperty('--type1-chinese-front-size-rem', `${sizeRem.toFixed(3)}rem`);
-        frontNodes.forEach((frontEl) => {
-            frontEl.style.transform = 'none';
-            frontEl.style.transformOrigin = '';
-        });
-    };
-
-    const fitsAtSize = (sizeRem) => {
-        setSharedSize(sizeRem);
-        return areChineseFrontNodesSingleLine(frontNodes);
-    };
-
-    if (fitsAtSize(high)) {
-        return;
-    }
-    if (!fitsAtSize(low)) {
-        return;
-    }
-    best = low;
-    for (let i = 0; i < CHINESE_FRONT_FIT_ITERATIONS; i += 1) {
-        const mid = (low + high) / 2;
-        if (fitsAtSize(mid)) {
-            best = mid;
-            low = mid;
-        } else {
-            high = mid;
-        }
-    }
-    setSharedSize(best);
+    cardsGrid.style.setProperty('--type1-chinese-front-size-rem', `${CHINESE_FIXED_FRONT_SIZE_REM}rem`);
 }
 
 function displayCards(cards) {
@@ -1305,9 +1231,6 @@ function displayCards(cards) {
     }
 
     if (sortedCards.length === 0) {
-        if (currentCardViewMode === 'short') {
-            expandedCompactCardIds.clear();
-        }
         cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
         cardsGrid.classList.remove('short-view');
         cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
@@ -1315,39 +1238,44 @@ function displayCards(cards) {
     }
 
     const visibleCards = sortedCards.slice(0, visibleCardCount);
-    if (currentCardViewMode === 'short') {
-        const visibleIds = new Set(
-            visibleCards
-                .map((card) => String(card && card.id ? card.id : ''))
-                .filter((value) => value.length > 0)
-        );
-        for (const expandedId of [...expandedCompactCardIds]) {
-            if (!visibleIds.has(expandedId)) {
-                expandedCompactCardIds.delete(expandedId);
-            }
-        }
-        cardsGrid.classList.add('short-view');
+    if (currentCardViewMode === 'long') {
+        cardsGrid.classList.remove('short-view');
         cardsGrid.innerHTML = visibleCards
-            .map((card) => (
-                expandedCompactCardIds.has(String(card && card.id ? card.id : ''))
-                    ? buildExpandedCompactCardMarkup(card)
-                    : buildCompactCardMarkup(card)
-            ))
+            .map((card) => buildLongCardMarkup(card))
             .join('');
-        cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
+        applyChineseCardFrontUniformSize();
         return;
     }
 
-    cardsGrid.classList.remove('short-view');
+    const visibleIds = new Set(
+        visibleCards
+            .map((card) => String(card && card.id ? card.id : ''))
+            .filter((value) => value.length > 0)
+    );
+    for (const expandedId of [...expandedCompactCardIds]) {
+        if (!visibleIds.has(expandedId)) {
+            expandedCompactCardIds.delete(expandedId);
+        }
+    }
+
+    const hasExpandedCards = visibleCards.some((card) => expandedCompactCardIds.has(String(card && card.id ? card.id : '')));
+    cardsGrid.classList.add('short-view');
     cardsGrid.innerHTML = visibleCards
         .map((card) => {
-            if (isType2Behavior()) {
-                return buildType2CardMarkup(card);
+            const cardId = String(card && card.id ? card.id : '');
+            if (expandedCompactCardIds.has(cardId)) {
+                return `<div class="short-expanded-slot">${buildLongCardMarkup(card, {
+                    prependControlsHtml: buildCompactFoldButtonMarkup(cardId),
+                })}</div>`;
             }
-            return isChineseSpecificLogic ? buildChineseCardMarkup(card) : buildGenericType1CardMarkup(card);
+            return buildCompactCardMarkup(card);
         })
         .join('');
-    applyChineseCardFrontUniformSize(visibleCards);
+    if (hasExpandedCards) {
+        applyChineseCardFrontUniformSize();
+    } else {
+        cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
+    }
 }
 
 function resetAndDisplayCards(cards) {
@@ -1624,6 +1552,10 @@ async function handleCardsGridClick(event) {
             return;
         }
         expandedCompactCardIds.delete(cardId);
+        if (currentCardViewMode === 'long') {
+            currentCardViewMode = 'short';
+            renderCardViewModeButtons();
+        }
         displayCards(currentCards);
         return;
     }

@@ -762,6 +762,31 @@
             }
         }
 
+        @media (max-width: 560px) {
+            .queue-mix-legend-item {
+                display: grid;
+                grid-template-columns: auto minmax(0, 1fr);
+                column-gap: 0.35rem;
+                row-gap: 0.15rem;
+                align-items: center;
+            }
+
+            .queue-mix-legend-item strong {
+                grid-column: 1 / -1;
+                margin-left: 1.1rem;
+                white-space: normal;
+                text-align: left;
+            }
+
+            .queue-settings-actions {
+                flex-wrap: wrap;
+            }
+
+            .queue-settings-actions .settings-save-btn {
+                margin-left: auto;
+            }
+        }
+
         .queue-settings-actions .settings-save-btn:disabled {
             background: #c9d0dc;
             color: #f9fbff;
@@ -803,14 +828,16 @@
             gap: 0.5rem;
         }
 
-        .cards-grid.short-view .empty-state {
-            width: 100%;
+        .cards-grid.short-view .short-expanded-slot {
+            flex: 1 1 100%;
         }
 
-        .cards-grid.short-view .card-item.short-inline-expanded {
-            flex: 1 1 100%;
+        .cards-grid.short-view .short-expanded-slot .card-item {
+            width: min(100%, 420px);
+        }
+
+        .cards-grid.short-view .empty-state {
             width: 100%;
-            max-width: none;
         }
 
         .card-compact-pill {
@@ -1268,7 +1295,7 @@
                                 required
                             >
                         </div>
-                        <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn" disabled>Save Settings</button>
+                        <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn" disabled>Save</button>
                     </div>
                 </form>
             </div>
@@ -1284,8 +1311,8 @@
                 <div class="toolbar-control-block">
                     <div class="toolbar-control-label">View</div>
                     <div class="card-view-mode" role="group" aria-label="Card view mode">
-                        <button type="button" class="card-view-mode-btn active" data-card-view-mode="short" title="Short: quick text-only pills">Short</button>
-                        <button type="button" class="card-view-mode-btn" data-card-view-mode="long" title="Long: full details and actions">Long</button>
+                        <button type="button" class="card-view-mode-btn active" data-card-view-mode="short" title="Fold all cards to concise pills">Fold All</button>
+                        <button type="button" class="card-view-mode-btn" data-card-view-mode="long" title="Unfold all cards to full details">Unfold All</button>
                     </div>
                 </div>
                 <input

@@ -157,8 +157,28 @@
         }
 
         .sheet-row .form-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
             margin-bottom: 0;
-            max-width: 220px;
+            max-width: none;
+            white-space: nowrap;
+        }
+
+        .sheet-row .form-group label {
+            margin: 0;
+            font-size: 0.94rem;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .sheet-row .form-group input[type="number"] {
+            width: 72px;
+            min-width: 72px;
+            max-width: 84px;
+            margin: 0;
+            padding: 0.38rem 0.4rem;
+            text-align: center;
         }
 
         .sheet-row .settings-save-btn {
@@ -186,6 +206,12 @@
             margin-bottom: 0.5rem;
         }
 
+        .sheet-head-right {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
         .status {
             font-size: 0.85rem;
             font-weight: 700;
@@ -203,9 +229,50 @@
             color: #206633;
         }
 
+        .sheet-delete-icon {
+            border: 0;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            background: #dc3545;
+            color: #fff;
+            font-size: 0.92rem;
+            font-weight: 700;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .sheet-delete-icon:hover {
+            background: #c82333;
+        }
+
         .sheet-cards {
-            color: #444;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.38rem;
             margin-bottom: 0.7rem;
+        }
+
+        .sheet-card-pill {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid #b8c5ff;
+            background: #edf2ff;
+            color: #2f3c7e;
+            border-radius: 999px;
+            padding: 0.16rem 0.56rem;
+            font-size: 0.9rem;
+            line-height: 1.2;
+        }
+
+        .sheet-card-empty {
+            color: #666;
+            font-size: 0.9rem;
             line-height: 1.35;
         }
 
@@ -222,6 +289,14 @@
             gap: 0.45rem;
         }
 
+        .sheet-item .done-btn {
+            background: #2ca24f;
+        }
+
+        .sheet-item .done-btn:hover {
+            background: #228a42;
+        }
+
         @media (max-width: 760px) {
             .worksheet-manage-page .header {
                 flex-direction: column;
@@ -234,8 +309,7 @@
             }
 
             .sheet-row .form-group {
-                max-width: none;
-                flex: 1 1 150px;
+                flex: 0 0 auto;
             }
 
             .sheet-row .settings-save-btn,
@@ -262,46 +336,42 @@
 
         <div id="errorMessage" class="error hidden"></div>
 
-        <section class="settings-section">
-            <h2>Generate Chinese Writing Practice Sheets</h2>
-            <div class="type2-sheet-layout">
-                <div class="sheet-subgroup sheet-subgroup-suggested">
-                    <div class="sheet-subgroup-head">
-                        <h3>Suggested Cards <span id="practicingDeckCount">(0)</span></h3>
-                    </div>
-                    <p class="sheet-subgroup-note">Cards are auto-selected from newly added and last failed cards. Cards already on an active sheet are excluded.</p>
-                    <div id="practicingDeckGrid" class="practicing-bucket-list"></div>
-                    <p id="practicingDeckEmpty" class="practicing-deck-empty">No suggested candidate cards.</p>
+        <div class="type2-sheet-layout">
+            <div class="sheet-subgroup sheet-subgroup-suggested">
+                <div class="sheet-subgroup-head">
+                    <h3>Suggested Cards <span id="practicingDeckCount">(0)</span></h3>
                 </div>
-
-                <div class="sheet-subgroup sheet-subgroup-generate">
-                    <div class="sheet-subgroup-head">
-                        <h3>Generate Practice Sheet（生成田字格）</h3>
-                    </div>
-                    <p id="categoryLabel" class="sheet-subgroup-note"></p>
-                    <div class="sheet-row">
-                        <div class="form-group">
-                            <label for="sheetCardCount">Cards Per Sheet</label>
-                            <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="sheetRowsPerChar">Rows Per Card</label>
-                            <input type="number" id="sheetRowsPerChar" min="1" max="10" step="1" value="1" required>
-                        </div>
-                        <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
-                    </div>
-                    <div id="sheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
-                </div>
-
-                <div class="sheet-subgroup sheet-subgroup-generate">
-                    <div class="sheet-subgroup-head">
-                        <h3>Practice Sheets</h3>
-                    </div>
-                    <p class="sheet-subgroup-note">Print, mark done, or delete pending sheets here.</p>
-                    <div id="sheetList" class="sheet-list"></div>
-                </div>
+                <p class="sheet-subgroup-note">Cards are auto-selected from newly added and last failed cards. Cards already on an active sheet are excluded.</p>
+                <div id="practicingDeckGrid" class="practicing-bucket-list"></div>
+                <p id="practicingDeckEmpty" class="practicing-deck-empty">No suggested candidate cards.</p>
             </div>
-        </section>
+
+            <div class="sheet-subgroup sheet-subgroup-generate">
+                <div class="sheet-subgroup-head">
+                    <h3>Generate Practice Sheet（生成田字格）</h3>
+                </div>
+                <div class="sheet-row">
+                    <div class="form-group">
+                        <label for="sheetCardCount">Cards Per Sheet</label>
+                        <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sheetRowsPerChar">Rows Per Card</label>
+                        <input type="number" id="sheetRowsPerChar" min="1" max="10" step="1" value="1" required>
+                    </div>
+                    <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
+                </div>
+                <div id="sheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
+            </div>
+
+            <div class="sheet-subgroup sheet-subgroup-generate">
+                <div class="sheet-subgroup-head">
+                    <h3>Practice Sheets</h3>
+                </div>
+                <p class="sheet-subgroup-note">Print, mark done, or delete pending sheets here.</p>
+                <div id="sheetList" class="sheet-list"></div>
+            </div>
+        </div>
     </div>
 
     <script src="deck-category-common.js"></script>
