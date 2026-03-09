@@ -29,7 +29,19 @@ const sessionCardCountInput = document.getElementById('sessionCardCount');
 const sessionCardCountLabel = document.getElementById('sessionCardCountLabel');
 const optInDecksHeading = document.getElementById('optInDecksHeading');
 const optInDecksNoteBtn = document.getElementById('optInDecksNoteBtn');
+const openDeckOptInModalBtn = document.getElementById('openDeckOptInModalBtn');
+const deckOptInModal = document.getElementById('deckOptInModal');
+const cancelDeckOptInModalBtn = document.getElementById('cancelDeckOptInModalBtn');
+const mobileDeckTabs = document.getElementById('mobileDeckTabs');
+const mobileDeckTabAvailableBtn = document.getElementById('mobileDeckTabAvailableBtn');
+const mobileDeckTabSelectedBtn = document.getElementById('mobileDeckTabSelectedBtn');
+const openPersonalDeckModalBtn = document.getElementById('openPersonalDeckModalBtn');
+const personalDeckModal = document.getElementById('personalDeckModal');
+const cancelPersonalDeckModalBtn = document.getElementById('cancelPersonalDeckModalBtn');
 const cardsSectionTitleText = document.getElementById('cardsSectionTitleText');
+const deckSetupDeckCountEl = document.getElementById('deckSetupDeckCount');
+const deckSetupCardCountEl = document.getElementById('deckSetupCardCount');
+const deckSetupSessionCountEl = document.getElementById('deckSetupSessionCount');
 const hardnessComputationHint = document.getElementById('hardnessComputationHint');
 
 const availableDecksEl = document.getElementById('availableDecks');
@@ -44,10 +56,6 @@ const selectedDecksTitle = document.getElementById('selectedDecksTitle');
 const optOutAllSelectedBtn = document.getElementById('optOutAllSelectedBtn');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
-const orphanEditorSection = document.getElementById('orphanEditorSection');
-const orphanEditorToggleBtn = document.getElementById('orphanEditorToggleBtn');
-const orphanEditorToggleLabel = document.getElementById('orphanEditorToggleLabel');
-const orphanEditorContent = document.getElementById('orphanEditorContent');
 const orphanEditorTitle = document.getElementById('orphanEditorTitle');
 const addCardForm = document.getElementById('addCardForm');
 const chineseCharInput = document.getElementById('chineseChar');
@@ -91,13 +99,14 @@ let currentSkippedCardCount = 0;
 let currentCardStatusFilter = 'all';
 let currentCardViewMode = 'short';
 let expandedCompactCardIds = new Set();
-let isOrphanEditorExpanded = false;
+let currentMobileDeckTab = 'available';
 let sessionCardCountByCategory = {};
 let includeOrphanByCategory = {};
 let hardCardPercentByCategory = {};
 let baselineSessionCardCount = 0;
 let baselineHardCardPercent = 0;
 let isQueueSettingsSaving = false;
+let queueSettingsSaveSuccessText = '';
 let previewQueueTimer = null;
 const CARD_PAGE_SIZE_LONG = 10;
 const CARD_PAGE_SIZE_SHORT = 60;
@@ -193,7 +202,7 @@ function showStatusMessage(message, isError = true) {
     addCardStatusMessage.textContent = text;
     addCardStatusMessage.classList.remove('hidden');
     if (text) {
-        setOrphanEditorExpanded(true);
+        setManageModalOpen(personalDeckModal, true);
     }
     if (isError) {
         addCardStatusMessage.style.background = '#f8d7da';
@@ -206,22 +215,94 @@ function showStatusMessage(message, isError = true) {
     }
 }
 
-function setOrphanEditorExpanded(expanded) {
-    const next = Boolean(expanded);
-    isOrphanEditorExpanded = next;
-    if (orphanEditorContent) {
-        orphanEditorContent.classList.toggle('hidden', !next);
+function isModalOpen(modalEl) {
+    return Boolean(modalEl) && !modalEl.classList.contains('hidden');
+}
+
+function syncModalBodyLock() {
+    const hasOpenModal = isModalOpen(deckOptInModal) || isModalOpen(personalDeckModal);
+    document.body.classList.toggle('modal-open', hasOpenModal);
+}
+
+function setManageModalOpen(modalEl, shouldOpen) {
+    if (!modalEl) {
+        return;
     }
-    if (orphanEditorToggleBtn) {
-        orphanEditorToggleBtn.setAttribute('aria-expanded', next ? 'true' : 'false');
-        orphanEditorToggleBtn.setAttribute(
-            'aria-label',
-            next ? 'Collapse Personal Deck Editor' : 'Expand Personal Deck Editor'
-        );
+    modalEl.classList.toggle('hidden', !shouldOpen);
+    modalEl.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+    syncModalBodyLock();
+}
+
+function handleModalBackdropClick(event) {
+    if (!(event.target instanceof HTMLElement)) {
+        return;
     }
-    if (orphanEditorToggleLabel) {
-        orphanEditorToggleLabel.textContent = next ? 'Hide' : 'Show';
+    if (event.target === deckOptInModal) {
+        setManageModalOpen(deckOptInModal, false);
+        return;
     }
+    if (event.target === personalDeckModal) {
+        setManageModalOpen(personalDeckModal, false);
+    }
+}
+
+function isMobileDeckTabEnabled() {
+    return window.matchMedia('(max-width: 880px)').matches;
+}
+
+function getDeckBubbleCount(containerEl) {
+    if (!containerEl) {
+        return 0;
+    }
+    return containerEl.querySelectorAll('button[data-deck-id]').length;
+}
+
+function updateMobileDeckTabLabels() {
+    if (!mobileDeckTabAvailableBtn || !mobileDeckTabSelectedBtn) {
+        return;
+    }
+    const availableCount = getDeckBubbleCount(availableDecksEl);
+    const selectedCount = getDeckBubbleCount(selectedDecksEl);
+    mobileDeckTabAvailableBtn.textContent = `Available (${availableCount})`;
+    mobileDeckTabSelectedBtn.textContent = `Opted-in (${selectedCount})`;
+}
+
+function renderMobileDeckTabButtons() {
+    if (!mobileDeckTabAvailableBtn || !mobileDeckTabSelectedBtn) {
+        return;
+    }
+    const onAvailable = currentMobileDeckTab !== 'selected';
+    mobileDeckTabAvailableBtn.classList.toggle('active', onAvailable);
+    mobileDeckTabAvailableBtn.setAttribute('aria-selected', onAvailable ? 'true' : 'false');
+    mobileDeckTabSelectedBtn.classList.toggle('active', !onAvailable);
+    mobileDeckTabSelectedBtn.setAttribute('aria-selected', onAvailable ? 'false' : 'true');
+}
+
+function setMobileDeckTab(nextTab) {
+    const resolved = String(nextTab || '').trim().toLowerCase() === 'selected' ? 'selected' : 'available';
+    currentMobileDeckTab = resolved;
+    renderMobileDeckTabButtons();
+    if (!deckOptInModal) {
+        return;
+    }
+    if (!isMobileDeckTabEnabled()) {
+        deckOptInModal.removeAttribute('data-mobile-deck-tab');
+        return;
+    }
+    deckOptInModal.setAttribute('data-mobile-deck-tab', currentMobileDeckTab);
+}
+
+function syncMobileDeckTabsForViewport() {
+    if (!mobileDeckTabs || !deckOptInModal) {
+        return;
+    }
+    if (isMobileDeckTabEnabled()) {
+        deckOptInModal.setAttribute('data-mobile-deck-tab', currentMobileDeckTab);
+    } else {
+        deckOptInModal.removeAttribute('data-mobile-deck-tab');
+    }
+    renderMobileDeckTabButtons();
+    updateMobileDeckTabLabels();
 }
 
 function withCategoryKey(url) {
@@ -340,13 +421,13 @@ function applyCategoryUiText() {
     const showOrphanEditor = isChineseSpecificLogic
         && (currentBehaviorType === BEHAVIOR_TYPE_TYPE_I || currentBehaviorType === BEHAVIOR_TYPE_TYPE_II);
     if (sessionCardCountLabel) {
-        sessionCardCountLabel.textContent = 'Cards per session';
+        sessionCardCountLabel.textContent = 'Cards/day';
     }
     if (optInDecksHeading) {
         optInDecksHeading.textContent = `Opt-in Predefined ${displayName} Decks`;
     }
     if (cardsSectionTitleText) {
-        cardsSectionTitleText.textContent = `${displayName} Cards`;
+        cardsSectionTitleText.textContent = 'Cards';
     }
     if (hardnessComputationHint) {
         if (isType2Behavior()) {
@@ -355,8 +436,11 @@ function applyCategoryUiText() {
             hardnessComputationHint.textContent = 'Hard cards are the ones that took longest on the most recent try.';
         }
     }
-    if (orphanEditorSection) {
-        orphanEditorSection.classList.toggle('hidden', !showOrphanEditor);
+    if (openPersonalDeckModalBtn) {
+        openPersonalDeckModalBtn.classList.toggle('hidden', !showOrphanEditor);
+    }
+    if (!showOrphanEditor) {
+        setManageModalOpen(personalDeckModal, false);
     }
     if (orphanEditorTitle) {
         orphanEditorTitle.textContent = isType2Behavior()
@@ -370,6 +454,7 @@ function applyCategoryUiText() {
     }
     document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);
     updateAddReadingButtonCount();
+    renderDeckSetupSummary();
     updatePageTitle();
 }
 
@@ -379,6 +464,25 @@ function getDeckById(deckId) {
 
 function getOptedDecks() {
     return allDecks.filter((deck) => stagedOptedDeckIdSet.has(Number(deck.deck_id)));
+}
+
+function getDeckSetupDeckCount() {
+    const optedDeckCount = stagedOptedDeckIdSet.size;
+    const includePersonalDeck = Boolean(orphanDeck) && stagedIncludeOrphanInQueue;
+    return optedDeckCount + (includePersonalDeck ? 1 : 0);
+}
+
+function renderDeckSetupSummary() {
+    if (deckSetupDeckCountEl) {
+        deckSetupDeckCountEl.textContent = String(Math.max(0, getDeckSetupDeckCount()));
+    }
+    if (deckSetupCardCountEl) {
+        const cardsCount = Array.isArray(currentCards) ? currentCards.length : 0;
+        deckSetupCardCountEl.textContent = String(Math.max(0, cardsCount));
+    }
+    if (deckSetupSessionCountEl) {
+        deckSetupSessionCountEl.textContent = String(getSessionCardCountForMixLegend());
+    }
 }
 
 function hasPendingDeckChanges() {
@@ -411,14 +515,15 @@ function renderDeckPendingInfo() {
     });
 
     const orphanPending = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue;
-    const pendingText = `${toOptIn.length} opt-in, ${toOptOut.length} opt-out`;
+    const pendingText = `+${toOptIn.length}/-${toOptOut.length}`;
     const personalText = orphanPending
-        ? `, Personal Deck ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}`
+        ? ` · Personal ${stagedIncludeOrphanInQueue ? 'in' : 'out'}`
         : '';
-    const buttonText = `Apply Deck Changes (${pendingText}${personalText})`;
+    const buttonText = `Apply (${pendingText}${personalText})`;
     if (toOptIn.length === 0 && toOptOut.length === 0 && !orphanPending) {
         applyDeckChangesBtn.disabled = true;
         applyDeckChangesBtn.textContent = buttonText;
+        renderDeckSetupSummary();
         if (optInAllAvailableController) {
             optInAllAvailableController.render();
         }
@@ -429,9 +534,8 @@ function renderDeckPendingInfo() {
     }
 
     applyDeckChangesBtn.disabled = isDeckMoveInFlight;
-    applyDeckChangesBtn.textContent = isDeckMoveInFlight
-        ? `Applying (${pendingText}${personalText})...`
-        : buttonText;
+    applyDeckChangesBtn.textContent = isDeckMoveInFlight ? 'Applying...' : buttonText;
+    renderDeckSetupSummary();
     if (optInAllAvailableController) {
         optInAllAvailableController.render();
     }
@@ -552,14 +656,14 @@ function renderAvailableDecks() {
 
     renderDeckBubbleColumn({
         titleEl: availableDecksTitle,
-        titleText: 'Available Predefined Decks',
+        titleText: 'Available Decks',
         totalCount: availableDeckCount,
         bulkController: optInAllAvailableController,
         containerEl: availableDecksEl,
         emptyEl: availableEmptyEl,
         allDecks: allAvailableDecks,
         filteredDecks: deckList,
-        emptyText: `No predefined ${getCurrentCategoryDisplayName()} decks available yet.`,
+        emptyText: 'No available decks yet.',
         filterLabel: tagFilter.getDisplayLabel(),
         getLabel: getType1DeckBubbleLabel,
         getBubbleClassName: getPendingDeckBubbleClass,
@@ -567,6 +671,7 @@ function renderAvailableDecks() {
         persistentHtmlBefore: shouldShowOrphan ? buildOrphanDeckBubbleHtml('in') : '',
         persistentItemCount: shouldShowOrphan ? 1 : 0,
     });
+    updateMobileDeckTabLabels();
 }
 
 function getDeckTags(deck) {
@@ -747,6 +852,7 @@ function renderSelectedDecks() {
         persistentHtmlBefore: showOrphanInSelected ? buildOrphanDeckBubbleHtml('out') : '',
         persistentItemCount: showOrphanInSelected ? 1 : 0,
     });
+    updateMobileDeckTabLabels();
 }
 
 function filterCardsByQuery(cards, rawQuery) {
@@ -853,7 +959,7 @@ function updateHardnessSliderTrack(hardPct) {
         return;
     }
     const hard = Math.max(0, Math.min(100, Number.parseInt(hardPct, 10) || 0));
-    hardnessPercentSlider.style.background = `linear-gradient(90deg, #dc3545 0%, #dc3545 ${hard}%, #1f8e43 ${hard}%, #1f8e43 100%)`;
+    hardnessPercentSlider.style.background = `linear-gradient(90deg, #f59e0b 0%, #f59e0b ${hard}%, #3f7ee8 ${hard}%, #3f7ee8 100%)`;
 }
 
 function updateQueueMixLegend() {
@@ -870,6 +976,7 @@ function updateQueueMixLegend() {
     }
     updateHardnessSliderTrack(hardPct);
     updateQueueSettingsSaveButtonState();
+    renderDeckSetupSummary();
 }
 
 function normalizeSessionCountInputValue() {
@@ -891,6 +998,7 @@ function normalizeHardSliderValue() {
 function setQueueSettingsBaseline(sessionCount, hardPct) {
     baselineSessionCardCount = Math.max(0, Math.min(200, Number.parseInt(sessionCount, 10) || 0));
     baselineHardCardPercent = Math.max(0, Math.min(100, Number.parseInt(hardPct, 10) || 0));
+    queueSettingsSaveSuccessText = `Saved ${baselineHardCardPercent}% · ${baselineSessionCardCount}`;
     updateQueueSettingsSaveButtonState();
 }
 
@@ -904,7 +1012,14 @@ function updateQueueSettingsSaveButtonState() {
     if (!queueSettingsSaveBtn) {
         return;
     }
-    queueSettingsSaveBtn.disabled = isQueueSettingsSaving || !hasQueueSettingsChanges();
+    const hasChanges = hasQueueSettingsChanges();
+    if (isQueueSettingsSaving) {
+        queueSettingsSaveBtn.disabled = true;
+        queueSettingsSaveBtn.textContent = 'Saving...';
+        return;
+    }
+    queueSettingsSaveBtn.disabled = !hasChanges;
+    queueSettingsSaveBtn.textContent = hasChanges ? 'Save' : (queueSettingsSaveSuccessText || 'Saved');
 }
 
 function scheduleQueuePreviewReload() {
@@ -1713,7 +1828,7 @@ async function saveQueueSettings() {
     const total = normalizeSessionCountInputValue();
     const hardPct = normalizeHardSliderValue();
     if (total < 0 || total > 200) {
-        showError(`${getCurrentCategoryDisplayName()} cards per session must be between 0 and 200.`);
+        showError(`${getCurrentCategoryDisplayName()} cards/day must be between 0 and 200.`);
         return;
     }
     if (hardPct < 0 || hardPct > 100) {
@@ -1897,6 +2012,7 @@ async function applyDeckMembershipChanges() {
         const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanSummary}.`;
         showDeckChangeMessage(summary);
         await loadSharedType1Decks();
+        setManageModalOpen(deckOptInModal, false);
     } catch (error) {
         console.error('Error applying deck membership changes:', error);
         showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
@@ -1915,12 +2031,73 @@ document.addEventListener('DOMContentLoaded', async () => {
         showError('Missing deck category. Open this page from Admin.');
         return;
     }
-    setOrphanEditorExpanded(false);
-    if (orphanEditorToggleBtn) {
-        orphanEditorToggleBtn.addEventListener('click', () => {
-            setOrphanEditorExpanded(!isOrphanEditorExpanded);
+    if (openDeckOptInModalBtn) {
+        openDeckOptInModalBtn.addEventListener('click', () => {
+            if (isMobileDeckTabEnabled()) {
+                setMobileDeckTab('available');
+            }
+            setManageModalOpen(deckOptInModal, true);
         });
     }
+    if (cancelDeckOptInModalBtn) {
+        cancelDeckOptInModalBtn.addEventListener('click', () => {
+            setManageModalOpen(deckOptInModal, false);
+        });
+    }
+    if (openPersonalDeckModalBtn) {
+        openPersonalDeckModalBtn.addEventListener('click', () => {
+            setManageModalOpen(personalDeckModal, true);
+        });
+    }
+    if (cancelPersonalDeckModalBtn) {
+        cancelPersonalDeckModalBtn.addEventListener('click', () => {
+            setManageModalOpen(personalDeckModal, false);
+        });
+    }
+    if (deckOptInModal) {
+        deckOptInModal.addEventListener('click', handleModalBackdropClick);
+    }
+    if (personalDeckModal) {
+        personalDeckModal.addEventListener('click', handleModalBackdropClick);
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') {
+            return;
+        }
+        if (isModalOpen(personalDeckModal)) {
+            setManageModalOpen(personalDeckModal, false);
+            return;
+        }
+        if (isModalOpen(deckOptInModal)) {
+            setManageModalOpen(deckOptInModal, false);
+        }
+    });
+    if (deckOptInModal) {
+        deckOptInModal.classList.add('hidden');
+        deckOptInModal.setAttribute('aria-hidden', 'true');
+    }
+    if (personalDeckModal) {
+        personalDeckModal.classList.add('hidden');
+        personalDeckModal.setAttribute('aria-hidden', 'true');
+    }
+    if (mobileDeckTabAvailableBtn) {
+        mobileDeckTabAvailableBtn.addEventListener('click', () => {
+            if (!isMobileDeckTabEnabled()) {
+                return;
+            }
+            setMobileDeckTab('available');
+        });
+    }
+    if (mobileDeckTabSelectedBtn) {
+        mobileDeckTabSelectedBtn.addEventListener('click', () => {
+            if (!isMobileDeckTabEnabled()) {
+                return;
+            }
+            setMobileDeckTab('selected');
+        });
+    }
+    syncMobileDeckTabsForViewport();
+    syncModalBodyLock();
     if (optInDecksNoteBtn) {
         optInDecksNoteBtn.addEventListener('click', () => {
             window.alert(getOptInDecksHelpText());
@@ -1983,6 +2160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     window.addEventListener('resize', () => {
         applyChineseCardFrontUniformSize();
+        syncMobileDeckTabsForViewport();
     });
     if (document.fonts && typeof document.fonts.addEventListener === 'function') {
         document.fonts.addEventListener('loadingdone', () => {

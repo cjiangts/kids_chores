@@ -16,6 +16,63 @@
             max-width: min(1560px, calc(100vw - 28px));
         }
 
+        body.modal-open {
+            overflow: hidden;
+        }
+
+        .manage-popup-btn {
+            min-height: 34px;
+            padding: 0.38rem 0.72rem;
+            font-size: 0.9rem;
+        }
+
+        .manage-popup-modal {
+            z-index: 1300;
+        }
+
+        .manage-popup-modal .modal-content {
+            width: min(1480px, calc(100vw - 24px));
+            max-width: min(1480px, calc(100vw - 24px));
+            max-height: calc(100vh - 26px);
+            padding: 1rem 1rem 0.95rem;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .manage-popup-modal .modal-content.personal-modal {
+            width: min(840px, calc(100vw - 24px));
+            max-width: min(840px, calc(100vw - 24px));
+        }
+
+        .manage-popup-modal-body {
+            overflow-y: auto;
+            padding-right: 0.15rem;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+
+        .manage-popup-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.7rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .manage-popup-title-row h2 {
+            margin: 0;
+            color: #2f3c7e;
+        }
+
+        .manage-popup-title-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
         .deck-v2-title-row {
             display: flex;
             align-items: center;
@@ -120,6 +177,10 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
+        }
+
+        .deck-mobile-tabs {
+            display: none;
         }
 
         .deck-v2-column {
@@ -269,6 +330,10 @@
             margin-left: auto;
         }
 
+        .deck-v2-action-row .btn-secondary {
+            min-height: 36px;
+        }
+
         .deck-v2-action-row .settings-save-btn:disabled {
             background: #c9d0dc;
             color: #f9fbff;
@@ -391,14 +456,105 @@
             display: none;
         }
 
+        .settings-main-section h2,
         .cards-section h2 {
             margin-bottom: 1rem;
             color: #333;
+            font-size: 1.46rem;
+            line-height: 1.18;
         }
 
         .cards-section .cards-title,
         .cards-section .cards-title span {
             color: #333;
+        }
+
+        .cards-section .cards-title {
+            margin: 0;
+        }
+
+        .deck-setup-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.46rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .deck-setup-summary-card {
+            background: #f7f9ff;
+            border: 1px solid #dbe1ff;
+            border-radius: 12px;
+            padding: 0.5rem 0.56rem;
+        }
+
+        .deck-setup-summary-label {
+            margin: 0;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #67739a;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .deck-setup-summary-value {
+            margin: 0.16rem 0 0;
+            font-size: 1.02rem;
+            color: #22325f;
+            line-height: 1;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .deck-setup-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .deck-setup-actions .manage-popup-btn {
+            min-height: 36px;
+            padding: 0.42rem 0.86rem;
+        }
+
+        .deck-setup-actions .settings-save-btn {
+            min-width: 180px;
+        }
+
+        .settings-overview-row {
+            display: block;
+        }
+
+        .settings-subgroup {
+            margin-top: 0.72rem;
+            border: 1px solid #dbe1ff;
+            border-radius: 12px;
+            background: #f8f9ff;
+            padding: 0.54rem 0.62rem;
+        }
+
+        .settings-subgroup .hardness-slider-block {
+            margin: 0;
+        }
+
+        @media (min-width: 1180px) {
+            .settings-overview-row {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: end;
+                gap: 0.72rem;
+            }
+
+            .settings-overview-row .deck-setup-summary-grid {
+                margin-bottom: 0;
+            }
+
+            .settings-overview-row .deck-setup-actions {
+                justify-content: flex-end;
+                flex-wrap: nowrap;
+            }
         }
 
         .card-status-filter {
@@ -534,7 +690,7 @@
 
         @media (max-width: 980px) {
             .manage-page .cards-toolbar {
-                grid-template-columns: auto auto minmax(0, 1fr);
+                grid-template-columns: minmax(0, 0.46fr) minmax(0, 0.54fr);
                 gap: 0.5rem;
             }
 
@@ -544,22 +700,32 @@
                 justify-self: start;
             }
 
+            .manage-page .cards-toolbar .toolbar-control-block:nth-of-type(1) {
+                grid-column: 1 / 2;
+            }
+
+            .manage-page .cards-toolbar .toolbar-control-block:nth-of-type(2) {
+                grid-column: 2 / 3;
+                justify-self: stretch;
+            }
+
             .manage-page .toolbar-control-block .card-status-filter,
             .manage-page .toolbar-control-block .card-view-mode {
-                width: auto;
-                justify-content: flex-start;
+                width: 100%;
+                justify-content: space-between;
+                overflow: hidden;
             }
 
             .manage-page .cards-toolbar .cards-search-input {
                 grid-column: 1 / 2;
                 min-width: 0;
-                width: clamp(118px, 34vw, 176px);
-                max-width: 176px;
-                justify-self: start;
+                width: 100%;
+                max-width: none;
+                justify-self: stretch;
             }
 
             .manage-page .cards-toolbar #viewOrderSelect {
-                grid-column: 2 / 4;
+                grid-column: 2 / 3;
                 width: 100%;
                 max-width: none;
                 justify-self: stretch;
@@ -578,8 +744,11 @@
 
             .manage-page .card-status-filter-btn,
             .manage-page .card-view-mode-btn {
-                padding: 0.28rem 0.54rem;
-                font-size: 0.8rem;
+                padding: 0.24rem 0.36rem;
+                font-size: 0.76rem;
+                min-width: 0;
+                text-align: center;
+                flex: 1 1 0;
             }
 
             .queue-mix-legend {
@@ -596,8 +765,8 @@
         @media (max-width: 420px) {
             .manage-page .card-status-filter-btn,
             .manage-page .card-view-mode-btn {
-                padding: 0.24rem 0.46rem;
-                font-size: 0.76rem;
+                padding: 0.2rem 0.24rem;
+                font-size: 0.72rem;
             }
 
             .manage-page .cards-toolbar .cards-search-input,
@@ -672,11 +841,11 @@
         }
 
         .queue-mix-legend-item.hard .queue-mix-swatch {
-            background: #dc3545;
+            background: #f59e0b;
         }
 
         .queue-mix-legend-item.least .queue-mix-swatch {
-            background: #1f8e43;
+            background: #3f7ee8;
         }
 
         .mix-split-slider {
@@ -685,7 +854,7 @@
             height: 16px;
             border-radius: 999px;
             border: 1px solid #cfd8f0;
-            background: linear-gradient(90deg, #dc3545 0%, #dc3545 20%, #1f8e43 20%, #1f8e43 100%);
+            background: linear-gradient(90deg, #f59e0b 0%, #f59e0b 20%, #3f7ee8 20%, #3f7ee8 100%);
             outline: none;
         }
 
@@ -727,24 +896,57 @@
         .queue-settings-actions {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
             gap: 0.7rem;
             margin-top: 0.15rem;
             flex-wrap: nowrap;
+            flex: 1 1 auto;
+            min-width: 0;
         }
 
         .queue-settings-actions .queue-session-count-group {
-            flex: 0 1 auto;
+            flex: 1 1 auto;
         }
 
-        .queue-settings-actions .settings-save-btn {
+        .queue-controls-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 0.7rem;
+            flex-wrap: nowrap;
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        .queue-save-row {
+            margin-top: 0;
+            display: flex;
+            justify-content: flex-end;
             flex: 0 0 auto;
+            min-width: 0;
+        }
+
+        .queue-save-row .settings-save-btn {
+            min-width: 132px;
             white-space: nowrap;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .queue-save-row .settings-save-btn:disabled {
+            background: #c9d0dc;
+            color: #f9fbff;
+            cursor: not-allowed;
+            box-shadow: none;
         }
 
         .manage-page .hardness-slider-block {
-            margin: 0.45rem 0 0.7rem;
-            padding: 0.5rem 0.65rem;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
         }
 
         .manage-page .hardness-slider-head {
@@ -764,26 +966,15 @@
 
         @media (max-width: 560px) {
             .queue-mix-legend-item {
-                display: grid;
-                grid-template-columns: auto minmax(0, 1fr);
-                column-gap: 0.35rem;
-                row-gap: 0.15rem;
+                display: flex;
                 align-items: center;
+                gap: 0.32rem;
             }
 
             .queue-mix-legend-item strong {
-                grid-column: 1 / -1;
-                margin-left: 1.1rem;
-                white-space: normal;
-                text-align: left;
-            }
-
-            .queue-settings-actions {
-                flex-wrap: wrap;
-            }
-
-            .queue-settings-actions .settings-save-btn {
                 margin-left: auto;
+                white-space: nowrap;
+                text-align: right;
             }
         }
 
@@ -791,6 +982,62 @@
             background: #c9d0dc;
             color: #f9fbff;
             cursor: not-allowed;
+        }
+
+        /* Keep Next Session Mix inside card bounds on narrow screens. */
+        @media (max-width: 980px) {
+            .queue-mix-legend {
+                grid-template-columns: 1fr;
+            }
+
+            .queue-controls-row {
+                gap: 0.45rem;
+            }
+
+            .queue-settings-actions {
+                justify-content: flex-start;
+                gap: 0.45rem;
+            }
+
+            .queue-save-row .settings-save-btn {
+                width: auto;
+                min-width: 104px;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .queue-mix-legend-item {
+                display: flex;
+                align-items: center;
+                gap: 0.32rem;
+            }
+
+            .queue-mix-legend-item strong {
+                margin-left: auto;
+                white-space: nowrap;
+                text-align: right;
+            }
+
+            .manage-page .queue-session-count-group {
+                flex-wrap: nowrap;
+            }
+
+            .manage-page .queue-session-count-group input[type="number"] {
+                width: 82px;
+                min-width: 82px;
+            }
+
+            .manage-page .queue-session-count-group label {
+                white-space: nowrap;
+                font-size: 0.8rem;
+            }
+
+            .queue-save-row .settings-save-btn {
+                min-width: 88px;
+                padding-left: 0.7rem;
+                padding-right: 0.7rem;
+                font-size: 0.84rem;
+            }
         }
 
         .deck-category-tabs {
@@ -950,6 +1197,17 @@
             margin: 0 0 0.7rem 0;
             color: #334;
             font-size: 1rem;
+        }
+
+        .orphan-editor-action-row {
+            display: flex;
+            gap: 0.55rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .orphan-editor-action-row .submit-btn {
+            margin: 0;
         }
 
         .card-item {
@@ -1140,6 +1398,68 @@
                 grid-template-columns: 1fr;
             }
 
+            .manage-page .tab-nav .manage-tab {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.24rem;
+            }
+
+            .manage-page .tab-nav .manage-tab .manage-tab-emoji {
+                font-size: 1rem;
+                line-height: 1;
+            }
+
+            .deck-setup-actions {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+
+            .deck-setup-actions .manage-popup-btn,
+            .deck-setup-actions .settings-save-btn {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .deck-mobile-tabs {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.22rem;
+                background: #eef2ff;
+                border: 1px solid #cfd8f8;
+                border-radius: 999px;
+                padding: 0.16rem;
+                margin: 0 0 0.7rem;
+            }
+
+            .deck-mobile-tab-btn {
+                border: 0;
+                background: transparent;
+                color: #334a97;
+                border-radius: 999px;
+                min-height: 30px;
+                padding: 0.22rem 0.72rem;
+                font-size: 0.86rem;
+                font-weight: 700;
+                line-height: 1;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+
+            .deck-mobile-tab-btn.active {
+                background: #3d7ee6;
+                color: #fff;
+            }
+
+            #deckOptInModal[data-mobile-deck-tab="available"] [data-deck-mobile-pane="selected"] {
+                display: none;
+            }
+
+            #deckOptInModal[data-mobile-deck-tab="selected"] [data-deck-mobile-pane="available"] {
+                display: none;
+            }
+
             .deck-category-tabs {
                 display: grid;
                 grid-template-columns: 1fr;
@@ -1160,6 +1480,97 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        @media (max-width: 640px) {
+            .settings-main-section h2,
+            .cards-section h2 {
+                font-size: 1.26rem;
+            }
+
+            .deck-setup-summary-card {
+                padding: 0.44rem 0.48rem;
+            }
+
+            .deck-setup-summary-label {
+                font-size: 0.58rem;
+                letter-spacing: 0.06em;
+            }
+
+            .deck-setup-summary-value {
+                font-size: 0.95rem;
+            }
+
+            .manage-page .tab-nav {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.42rem;
+            }
+
+            .manage-page .tab-nav .manage-tab {
+                min-width: 0;
+                width: 100%;
+                padding: 0.48rem 0.22rem;
+            }
+
+            .manage-page .tab-nav .manage-tab .manage-tab-label {
+                display: none;
+            }
+
+            .manage-page .tab-nav .manage-tab .manage-tab-emoji {
+                font-size: 1.15rem;
+                margin: 0;
+            }
+        }
+
+        /* Mobile: avoid nested scrolling in deck opt-in popup. */
+        @media (max-width: 880px) {
+            #deckOptInModal .modal-content {
+                width: 100vw;
+                max-width: 100vw;
+                height: 100vh;
+                height: 100dvh;
+                max-height: 100vh;
+                max-height: 100dvh;
+                border-radius: 0;
+                padding: 0.85rem 0.72rem 0.7rem;
+            }
+
+            #deckOptInModal .manage-popup-modal-body {
+                padding-right: 0;
+                padding-bottom: 5rem;
+            }
+
+            #deckOptInModal #availableDecks,
+            #deckOptInModal #selectedDecks {
+                max-height: none;
+                overflow: visible;
+                padding-right: 0;
+            }
+
+            #deckOptInModal .deck-v2-actions {
+                position: sticky;
+                bottom: 0;
+                margin-top: 0.72rem;
+                padding-top: 0.62rem;
+                border-top: 1px solid #dbe1ff;
+                background: #fff;
+                z-index: 3;
+            }
+
+            #deckOptInModal .deck-v2-action-row {
+                justify-content: space-between;
+                flex-wrap: nowrap;
+            }
+
+            #deckOptInModal .deck-v2-action-row .settings-save-btn {
+                margin-left: 0;
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+
+            #deckOptInModal .deck-v2-action-row .btn-secondary {
+                flex: 0 0 auto;
+            }
+        }
     </style>
 </head>
 <body class="practice-page manage-page">
@@ -1174,131 +1585,75 @@
         <div id="errorMessage" class="error hidden"></div>
         <div id="successMessage" class="success hidden"></div>
 
-        <section class="settings-section deck-v2-panel">
-            <div class="deck-v2-title-row">
-                <h2 id="optInDecksHeading">Opt-in Predefined Practice Decks</h2>
-                <button id="optInDecksNoteBtn" type="button" class="btn-secondary optin-note-btn">How it works</button>
-            </div>
-
-            <div class="deck-v2-grid">
-                <div class="deck-v2-column">
-                    <div class="deck-column-head">
-                        <h3 id="availableDecksTitle">Available Predefined Decks (0)</h3>
-                        <button id="optInAllAvailableBtn" type="button" class="btn-secondary">Opt-in All</button>
+        <section class="settings-section settings-main-section">
+            <h2>Settings</h2>
+            <div class="settings-overview-row">
+                <div class="deck-setup-summary-grid">
+                    <div class="deck-setup-summary-card">
+                        <p class="deck-setup-summary-label">Decks</p>
+                        <p id="deckSetupDeckCount" class="deck-setup-summary-value">0</p>
                     </div>
-                    <div class="deck-filter-group">
-                        <div class="deck-filter-label">Filter by Tags</div>
-                        <div class="deck-filter-row">
-                            <div class="form-group">
-                                <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
+                    <div class="deck-setup-summary-card">
+                        <p class="deck-setup-summary-label">Cards</p>
+                        <p id="deckSetupCardCount" class="deck-setup-summary-value">0</p>
+                    </div>
+                    <div class="deck-setup-summary-card">
+                        <p class="deck-setup-summary-label">Per day</p>
+                        <p id="deckSetupSessionCount" class="deck-setup-summary-value">0</p>
+                    </div>
+                </div>
+                <div class="deck-setup-actions">
+                    <button id="openDeckOptInModalBtn" type="button" class="settings-save-btn manage-popup-btn">Manage Deck Opt-in</button>
+                    <button id="openPersonalDeckModalBtn" type="button" class="btn-secondary manage-popup-btn hidden">Personal Deck Editor</button>
+                </div>
+            </div>
+            <div class="settings-subgroup session-mix-subgroup">
+                <div class="hardness-slider-block">
+                    <div class="hardness-slider-head">
+                        <div class="hardness-slider-title">Next Session Mix</div>
+                    </div>
+                    <form id="sessionSettingsForm" class="queue-settings-form">
+                        <div class="queue-mix-legend" aria-live="polite">
+                            <div class="queue-mix-legend-item hard">
+                                <span class="queue-mix-swatch" aria-hidden="true"></span>
+                                <span>Hard cards</span>
+                                <strong id="hardCardsMixSummary">0% · 0 cards</strong>
+                            </div>
+                            <div class="queue-mix-legend-item least">
+                                <span class="queue-mix-swatch" aria-hidden="true"></span>
+                                <span>Least practiced</span>
+                                <strong id="leastRecentMixSummary">0% · 0 cards</strong>
                             </div>
                         </div>
-                    </div>
-                    <div id="availableDecks" class="deck-bubble-wrap"></div>
-                    <p id="availableEmpty" class="deck-v2-empty hidden">No predefined practice decks available yet.</p>
-                </div>
-
-                <div class="deck-v2-column">
-                    <div class="deck-column-head">
-                        <h3 id="selectedDecksTitle">Opted-in Decks (0)</h3>
-                        <button id="optOutAllSelectedBtn" type="button" class="btn-secondary">Opt-out All</button>
-                    </div>
-                    <div class="deck-filter-group">
-                        <div class="deck-filter-label">Filter by Tags</div>
-                        <div class="deck-filter-row">
-                            <div class="form-group">
-                                <select id="selectedTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="selectedDecks" class="deck-bubble-wrap"></div>
-                    <p id="selectedEmpty" class="deck-v2-empty">No deck opted in.</p>
-                </div>
-            </div>
-            <div class="deck-v2-actions">
-                <div class="deck-v2-action-row">
-                    <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply Deck Changes (0 opt-in, 0 opt-out)</button>
-                </div>
-                <div id="deckChangeMessage" class="success hidden"></div>
-            </div>
-        </section>
-
-        <section id="orphanEditorSection" class="settings-section hidden">
-            <div class="collapsible-section-head">
-                <h2>Personal Deck Editor</h2>
-                <button
-                    id="orphanEditorToggleBtn"
-                    type="button"
-                    class="collapsible-toggle-btn"
-                    aria-expanded="false"
-                    aria-controls="orphanEditorContent"
-                >
-                    <span id="orphanEditorToggleLabel">Show</span>
-                    <span class="collapsible-chevron" aria-hidden="true">▾</span>
-                </button>
-            </div>
-            <div id="orphanEditorContent" class="collapsible-section-content hidden">
-                <p class="deck-v2-note">Add custom cards to the Personal Deck.</p>
-                <div class="orphan-editor-grid">
-                    <div class="orphan-editor-panel">
-                        <h3 id="orphanEditorTitle">Bulk Add Chinese Characters</h3>
-                        <form id="addCardForm">
-                            <div class="form-group">
-                                <div class="bulk-import-wrap">
-                                    <textarea
-                                        id="chineseChar"
-                                        placeholder="比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀"
+                        <input id="hardnessPercentSlider" class="hardness-slider-input mix-split-slider" type="range" min="0" max="100" step="5" value="20" aria-label="Hard cards percentage">
+                        <p id="hardnessComputationHint" class="hardness-slider-hint">Set hard vs least-practiced mix.</p>
+                        <div class="queue-controls-row">
+                            <div class="queue-settings-actions">
+                                <div class="form-group queue-session-count-group">
+                                    <label id="sessionCardCountLabel" for="sessionCardCount">Cards/day</label>
+                                    <input
+                                        type="number"
+                                        id="sessionCardCount"
+                                        min="0"
+                                        max="200"
+                                        step="1"
                                         required
-                                    ></textarea>
+                                    >
                                 </div>
                             </div>
-                            <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add Chinese Characters</button>
-                            <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
-                        </form>
-                    </div>
+                            <div class="queue-save-row">
+                                <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn" disabled>Save</button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </section>
 
         <section class="settings-section cards-section">
             <h2 class="cards-title">
-                <span><span id="cardsSectionTitleText">Practice Cards</span> <span id="mathCardCount">(0)</span></span>
+                <span><span id="cardsSectionTitleText">Cards</span> <span id="mathCardCount">(0)</span></span>
             </h2>
-            <div class="hardness-slider-block">
-                <div class="hardness-slider-head">
-                    <div class="hardness-slider-title">Next Session Mix</div>
-                </div>
-                <form id="sessionSettingsForm" class="queue-settings-form">
-                    <div class="queue-mix-legend" aria-live="polite">
-                        <div class="queue-mix-legend-item hard">
-                            <span class="queue-mix-swatch" aria-hidden="true"></span>
-                            <span>Hard cards</span>
-                            <strong id="hardCardsMixSummary">0% · 0 cards</strong>
-                        </div>
-                        <div class="queue-mix-legend-item least">
-                            <span class="queue-mix-swatch" aria-hidden="true"></span>
-                            <span>Least practiced</span>
-                            <strong id="leastRecentMixSummary">0% · 0 cards</strong>
-                        </div>
-                    </div>
-                    <input id="hardnessPercentSlider" class="hardness-slider-input mix-split-slider" type="range" min="0" max="100" step="5" value="20" aria-label="Hard cards percentage">
-                    <p id="hardnessComputationHint" class="hardness-slider-hint">Set hard vs least-practiced mix.</p>
-                    <div class="queue-settings-actions">
-                        <div class="form-group queue-session-count-group">
-                            <label id="sessionCardCountLabel" for="sessionCardCount">Cards per session</label>
-                            <input
-                                type="number"
-                                id="sessionCardCount"
-                                min="0"
-                                max="200"
-                                step="1"
-                                required
-                            >
-                        </div>
-                        <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn" disabled>Save</button>
-                    </div>
-                </form>
-            </div>
             <div class="cards-toolbar">
                 <div class="toolbar-control-block">
                     <div class="toolbar-control-label">Cards</div>
@@ -1332,6 +1687,97 @@
             </div>
             <div id="cardsGrid" class="cards-grid"></div>
         </section>
+    </div>
+
+    <div id="deckOptInModal" class="modal hidden manage-popup-modal" aria-hidden="true">
+        <div class="modal-content modal-large" role="dialog" aria-modal="true" aria-labelledby="optInDecksHeading">
+            <div class="manage-popup-title-row">
+                <h2 id="optInDecksHeading">Opt-in Predefined Practice Decks</h2>
+                <div class="manage-popup-title-actions">
+                    <button id="optInDecksNoteBtn" type="button" class="btn-secondary optin-note-btn">How it works</button>
+                </div>
+            </div>
+            <div class="manage-popup-modal-body">
+                <div id="mobileDeckTabs" class="deck-mobile-tabs" role="tablist" aria-label="Deck list">
+                    <button id="mobileDeckTabAvailableBtn" type="button" class="deck-mobile-tab-btn active" data-mobile-deck-tab="available" role="tab" aria-selected="true">Available</button>
+                    <button id="mobileDeckTabSelectedBtn" type="button" class="deck-mobile-tab-btn" data-mobile-deck-tab="selected" role="tab" aria-selected="false">Opted-in</button>
+                </div>
+                <div class="deck-v2-grid">
+                    <div class="deck-v2-column" data-deck-mobile-pane="available">
+                        <div class="deck-column-head">
+                            <h3 id="availableDecksTitle">Available Decks (0)</h3>
+                            <button id="optInAllAvailableBtn" type="button" class="btn-secondary">Opt-in All</button>
+                        </div>
+                        <div class="deck-filter-group">
+                            <div class="deck-filter-label">Filter by Tags</div>
+                            <div class="deck-filter-row">
+                                <div class="form-group">
+                                    <select id="availableTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="availableDecks" class="deck-bubble-wrap"></div>
+                        <p id="availableEmpty" class="deck-v2-empty hidden">No available decks yet.</p>
+                    </div>
+
+                    <div class="deck-v2-column" data-deck-mobile-pane="selected">
+                        <div class="deck-column-head">
+                            <h3 id="selectedDecksTitle">Opted-in Decks (0)</h3>
+                            <button id="optOutAllSelectedBtn" type="button" class="btn-secondary">Opt-out All</button>
+                        </div>
+                        <div class="deck-filter-group">
+                            <div class="deck-filter-label">Filter by Tags</div>
+                            <div class="deck-filter-row">
+                                <div class="form-group">
+                                    <select id="selectedTagFilter" class="sort-select"><option value="">Add filter tag...</option></select>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="selectedDecks" class="deck-bubble-wrap"></div>
+                        <p id="selectedEmpty" class="deck-v2-empty">No deck opted in.</p>
+                    </div>
+                </div>
+                <div class="deck-v2-actions">
+                    <div class="deck-v2-action-row">
+                        <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply (+0/-0)</button>
+                        <button id="cancelDeckOptInModalBtn" type="button" class="btn-secondary">Cancel</button>
+                    </div>
+                    <div id="deckChangeMessage" class="success hidden"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="personalDeckModal" class="modal hidden manage-popup-modal" aria-hidden="true">
+        <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="personalDeckModalHeading">
+            <div class="manage-popup-title-row">
+                <h2 id="personalDeckModalHeading">Personal Deck Editor</h2>
+            </div>
+            <div class="manage-popup-modal-body">
+                <p class="deck-v2-note">Add custom cards to the Personal Deck.</p>
+                <div class="orphan-editor-grid">
+                    <div class="orphan-editor-panel">
+                        <h3 id="orphanEditorTitle">Bulk Add Chinese Characters</h3>
+                        <form id="addCardForm">
+                            <div class="form-group">
+                                <div class="bulk-import-wrap">
+                                    <textarea
+                                        id="chineseChar"
+                                        placeholder="比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀"
+                                        required
+                                    ></textarea>
+                                </div>
+                            </div>
+                            <div class="orphan-editor-action-row">
+                                <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add Chinese Characters</button>
+                                <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary">Cancel</button>
+                            </div>
+                            <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="deck-category-common.js"></script>

@@ -1188,12 +1188,12 @@ window.PracticeManageCommon = {
             }
             return routeByCategoryFromTabs[categoryKey] || '';
         };
-        const getCategoryLabel = (rawCategoryKey) => {
+        const getCategoryLabelParts = (rawCategoryKey) => {
             const categoryKey = normalizeKey(rawCategoryKey);
             const categoryMeta = metaByKey[categoryKey] || {};
             const displayName = String(categoryMeta.display_name || '').trim() || toTitleCase(categoryKey);
             const emoji = String(categoryMeta.emoji || '').trim() || '🧩';
-            return `${emoji} ${displayName}`;
+            return { emoji, displayName };
         };
         const currentRoutePath = normalizeRoutePath(window.location.pathname);
         const currentQueryCategoryKey = normalizeKey(new URLSearchParams(window.location.search).get('categoryKey'));
@@ -1239,7 +1239,10 @@ window.PracticeManageCommon = {
                 }
                 qs.set('categoryKey', key);
                 anchor.href = `${routePath}?${qs.toString()}`;
-                anchor.textContent = getCategoryLabel(key);
+                const { emoji, displayName } = getCategoryLabelParts(key);
+                anchor.innerHTML = `<span class="manage-tab-emoji">${escapeHtml(emoji)}</span><span class="manage-tab-label">${escapeHtml(displayName)}</span>`;
+                anchor.setAttribute('aria-label', `${emoji} ${displayName}`.trim());
+                anchor.setAttribute('title', displayName);
                 fragment.appendChild(anchor);
             });
             tabNavEl.replaceChildren(fragment);
