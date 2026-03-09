@@ -1,0 +1,704 @@
+/* Shared redesign styles for family-home and kid-practice-home. */
+
+body.home-redesign,
+body.practice-home-redesign {
+    padding: 18px;
+}
+
+.redesign-shell {
+    max-width: 1180px;
+    margin: 0 auto;
+}
+
+.redesign-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    color: #fff;
+    margin-bottom: 14px;
+}
+
+.redesign-brand {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    opacity: 0.9;
+    margin-bottom: 0.3rem;
+}
+
+.redesign-title {
+    margin: 0;
+    font-size: clamp(2rem, 3.6vw, 3.2rem);
+    line-height: 1.05;
+    font-weight: 850;
+}
+
+.redesign-subtitle {
+    margin: 0.45rem 0 0;
+    font-size: clamp(1rem, 1.5vw, 1.12rem);
+    color: rgba(255, 255, 255, 0.92);
+    max-width: 920px;
+    line-height: 1.35;
+}
+
+.redesign-soft-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 40px;
+    padding: 0.5rem 0.9rem;
+    border-radius: 12px;
+    border: 1px solid #c7d2fe;
+    background: rgba(255, 255, 255, 0.94);
+    color: #4f63cb;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.redesign-soft-btn:hover {
+    background: #fff;
+    color: #3e53bf;
+}
+
+.redesign-footer-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.redesign-ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.42rem;
+    min-height: 40px;
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.17);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.redesign-ghost-btn:hover {
+    background: rgba(255, 255, 255, 0.26);
+}
+
+.redesign-empty-state {
+    background: rgba(255, 255, 255, 0.93);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: 20px;
+    color: #55617f;
+    text-align: center;
+    padding: 2.2rem 1.2rem;
+}
+
+.redesign-error {
+    margin-top: 12px;
+}
+
+/* Family home: only kid bubble area */
+@media (min-width: 761px) {
+    .family-home-page .container {
+        width: min(1520px, calc(100vw - 32px));
+        max-width: min(1520px, calc(100vw - 32px)) !important;
+    }
+
+    .family-home-page .redesign-kid-grid {
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 18px;
+    }
+}
+
+.family-home-page header {
+    margin-bottom: clamp(14px, 2.6vw, 26px);
+}
+
+.family-home-page header h1 {
+    font-size: clamp(2rem, 5vw, 3.1rem);
+    line-height: 1.08;
+    margin-bottom: clamp(6px, 1.2vw, 12px);
+}
+
+.family-home-page header p {
+    font-size: clamp(1rem, 2.1vw, 1.45rem);
+    line-height: 1.28;
+    max-width: 780px;
+    margin: 0 auto;
+}
+
+.family-home-page .redesign-kid-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 16px;
+}
+
+.family-home-page .redesign-kid-card {
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.93);
+    box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
+    padding: 15px;
+    cursor: pointer;
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.family-home-page .redesign-kid-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 40px rgba(31, 45, 98, 0.2);
+}
+
+.family-home-page .redesign-kid-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.family-home-page .redesign-kid-name {
+    margin: 0;
+    color: #2a2f3d;
+    font-size: clamp(1.7rem, 2.4vw, 2.25rem);
+    line-height: 1.05;
+    font-weight: 850;
+}
+
+.family-home-page .redesign-kid-sub {
+    margin-top: 4px;
+    font-size: 0.82rem;
+    color: #687795;
+    font-weight: 600;
+}
+
+.family-home-page .redesign-star-total {
+    min-width: 70px;
+    min-height: 38px;
+    border-radius: 12px;
+    border: 1px solid #e5e8ff;
+    background: linear-gradient(90deg, #fff8cb, #ffe9f3, #e8f1ff);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #33405f;
+    padding: 0 10px;
+    flex: 0 0 auto;
+}
+
+.family-home-page .redesign-subject-list {
+    display: grid;
+    gap: 8px;
+}
+
+.family-home-page .redesign-subject-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 112px;
+    align-items: start;
+    gap: 10px;
+    border-radius: 16px;
+    border: 1px solid #edf1ff;
+    background: rgba(246, 249, 255, 0.9);
+    padding: 10px 11px;
+}
+
+.family-home-page .redesign-subject-main {
+    min-width: 0;
+}
+
+.family-home-page .redesign-subject-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #273551;
+    font-weight: 800;
+    font-size: 0.94rem;
+    line-height: 1.1;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.family-home-page .redesign-subject-emoji {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.family-home-page .redesign-subject-note {
+    margin-top: 4px;
+    color: #536486;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.family-home-page .redesign-progress-wrap {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+}
+
+.family-home-page .redesign-progress-track {
+    width: 100%;
+    height: 9px;
+    border-radius: 999px;
+    background: #e4e8f7;
+    overflow: hidden;
+    display: flex;
+}
+
+.family-home-page .redesign-progress-seg {
+    display: block;
+    height: 100%;
+    flex: 0 0 auto;
+}
+
+.family-home-page .redesign-progress-seg.mastered {
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6, #1dbf84);
+}
+
+.family-home-page .redesign-progress-seg.redo {
+    background: #f3b53f;
+    background-image: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.68) 0px,
+        rgba(255, 255, 255, 0.68) 6px,
+        transparent 6px,
+        transparent 12px
+    );
+}
+
+.family-home-page .redesign-progress-seg.unseen {
+    background: #e4e8f7;
+}
+
+.family-home-page .redesign-subject-right {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    align-self: start;
+    gap: 6px;
+    width: 112px;
+    min-width: 112px;
+}
+
+.family-home-page .redesign-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0.2rem 0.84rem;
+    border-radius: 999px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.family-home-page .redesign-status-pill.done {
+    background: #e9f8ef;
+    color: #157f42;
+    border: 1px solid #bfe8cc;
+}
+
+.family-home-page .redesign-status-pill.in-progress {
+    background: #fff3da;
+    color: #a16207;
+    border: 1px solid #eec981;
+}
+
+.family-home-page .redesign-status-pill.not-started {
+    background: #edf2f7;
+    color: #64748b;
+    border: 1px solid #d8e0ea;
+}
+
+.family-home-page .redesign-status-token {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    min-width: 32px;
+    border-radius: 999px;
+    line-height: 1;
+    font-size: 0.98rem;
+    font-weight: 800;
+}
+
+.family-home-page .redesign-status-token.star {
+    color: #b17700;
+    background: #fff3bf;
+    border: 1px solid #f0ce74;
+}
+
+.family-home-page .redesign-status-token.bonus {
+    min-width: 36px;
+    padding: 0 0.44rem;
+    color: #6e4bff;
+    background: linear-gradient(135deg, #ffdff0, #d9ddff, #d5f8ff);
+    border: 1px solid #d7dbff;
+}
+
+/* Kid practice home */
+.practice-home-redesign .practice-home-container {
+    margin: 0 auto;
+    max-width: 760px;
+}
+
+.practice-home-redesign .redesign-practice-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.practice-home-redesign .redesign-practice-option {
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.93);
+    box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
+    padding: 10px 12px;
+    text-align: left;
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.practice-home-redesign .redesign-practice-option:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 40px rgba(31, 45, 98, 0.2);
+}
+
+.practice-home-redesign .practice-row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.practice-home-redesign .practice-row-head h3 {
+    margin: 0;
+    color: #2a2f3d;
+    font-size: 2rem;
+    line-height: 1.06;
+    font-weight: 850;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.practice-home-redesign .practice-row-right {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.practice-home-redesign .practice-row-sub {
+    margin-top: 3px;
+    font-size: 0.96rem;
+    color: #4d5f83;
+    line-height: 1.2;
+}
+
+.practice-home-redesign .practice-row-badges {
+    margin-top: 6px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.practice-home-redesign .practice-row-mini-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    line-height: 1;
+    font-weight: 800;
+}
+
+.practice-home-redesign .practice-row-mini-badge.pink {
+    color: #b4236d;
+    background: #ffe9f5;
+    border: 1px solid #ffd3e9;
+}
+
+.practice-home-redesign .practice-row-mini-badge.amber {
+    color: #986000;
+    background: #fff2d8;
+    border: 1px solid #f0cd84;
+}
+
+.practice-home-redesign .practice-row-progress {
+    margin-top: 8px;
+    width: 100%;
+    height: 11px;
+    border-radius: 999px;
+    background: #e4e8f7;
+    overflow: hidden;
+    display: flex;
+}
+
+.practice-home-redesign .practice-row-seg {
+    display: block;
+    height: 100%;
+}
+
+.practice-home-redesign .practice-row-seg.mastered {
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6, #22c55e);
+}
+
+.practice-home-redesign .practice-row-seg.redo {
+    background: #f3b53f;
+    background-image: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.65) 0px,
+        rgba(255, 255, 255, 0.65) 6px,
+        transparent 6px,
+        transparent 12px
+    );
+}
+
+.practice-home-redesign .practice-row-seg.unseen {
+    background: #e4e8f7;
+}
+
+.practice-home-redesign .practice-row-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0.22rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.94rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.practice-home-redesign .practice-row-status-pill.in-progress {
+    background: #fff3da;
+    color: #a16207;
+    border: 1px solid #f0d6a0;
+}
+
+.practice-home-redesign .practice-row-status-pill.not-started {
+    background: #edf2f7;
+    color: #64748b;
+    border: 1px solid #d8e0ea;
+}
+
+.practice-home-redesign .practice-row-status-pill.done {
+    background: #e9f8ef;
+    color: #157f42;
+    border: 1px solid #bfe8cc;
+}
+
+.practice-home-redesign .practice-row-token-star,
+.practice-home-redesign .practice-row-token-bonus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    min-width: 32px;
+    border-radius: 999px;
+    line-height: 1;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.practice-home-redesign .practice-row-token-star {
+    color: #c38300;
+    background: #fff3bf;
+    border: 1px solid #f0ce74;
+}
+
+.practice-home-redesign .practice-row-token-bonus {
+    min-width: 38px;
+    padding: 0 0.45rem;
+    color: #6e4bff;
+    background: linear-gradient(135deg, #ffdff0, #d9ddff, #d5f8ff);
+    border: 1px solid #d7dbff;
+    font-size: 1rem;
+}
+
+.practice-home-redesign .redesign-summary-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.practice-home-redesign .redesign-summary-box {
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.93);
+    box-shadow: 0 10px 24px rgba(31, 45, 98, 0.14);
+}
+
+.practice-home-redesign .redesign-summary-label {
+    margin: 0;
+    color: #6b7796;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.64rem;
+    font-weight: 800;
+}
+
+.practice-home-redesign .redesign-summary-value {
+    margin: 0.14rem 0 0;
+    color: #233457;
+    font-size: 1.8rem;
+    font-weight: 850;
+    line-height: 1;
+}
+
+@media (max-width: 980px) {
+    .family-home-page .redesign-kid-grid,
+    .practice-home-redesign .redesign-practice-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    body.home-redesign,
+    body.practice-home-redesign {
+        padding: 12px;
+    }
+
+    .redesign-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .redesign-title {
+        font-size: 2.2rem;
+    }
+
+    .redesign-subtitle {
+        font-size: 1.05rem;
+    }
+
+    .family-home-page .redesign-kid-card,
+    .practice-home-redesign .redesign-practice-option {
+        border-radius: 18px;
+        padding: 10px;
+    }
+
+    .family-home-page header h1 {
+        font-size: clamp(1.62rem, 7.4vw, 2.05rem);
+        margin-bottom: 8px;
+    }
+
+    .family-home-page header p {
+        font-size: clamp(0.92rem, 4.2vw, 1.08rem);
+        line-height: 1.22;
+    }
+
+    .family-home-page .redesign-kid-name,
+    .practice-home-redesign .practice-row-head h3 {
+        font-size: 1.12rem;
+    }
+
+    .family-home-page .redesign-subject-row {
+        grid-template-columns: minmax(0, 1fr) 100px;
+        gap: 6px;
+        padding: 8px 9px;
+    }
+
+    .family-home-page .redesign-subject-right {
+        justify-content: flex-end;
+        align-self: start;
+        width: 100px;
+        min-width: 100px;
+    }
+
+    .practice-home-redesign .practice-row-head h3 {
+        font-size: 1.14rem;
+    }
+
+    .family-home-page .redesign-kid-sub {
+        margin-top: 2px;
+        font-size: 0.78rem;
+    }
+
+    .family-home-page .redesign-star-total {
+        min-width: 60px;
+        min-height: 34px;
+        font-size: 0.84rem;
+        padding: 0 8px;
+    }
+
+    .family-home-page .redesign-subject-title {
+        font-size: 0.83rem;
+        gap: 5px;
+    }
+
+    .family-home-page .redesign-subject-note {
+        margin-top: 2px;
+        font-size: 0.76rem;
+    }
+
+    .family-home-page .redesign-progress-wrap {
+        margin-top: 2px;
+    }
+
+    .family-home-page .redesign-progress-track {
+        height: 8px;
+    }
+
+    .family-home-page .redesign-status-pill {
+        min-height: 28px;
+        font-size: 0.8rem;
+        padding: 0.12rem 0.62rem;
+    }
+
+    .family-home-page .redesign-status-token {
+        min-height: 28px;
+        min-width: 28px;
+        font-size: 0.9rem;
+    }
+
+    .family-home-page .redesign-status-token.bonus {
+        min-width: 32px;
+        padding: 0 0.36rem;
+    }
+
+    .practice-home-redesign .redesign-summary-strip {
+        gap: 8px;
+    }
+
+    .practice-home-redesign .redesign-summary-box {
+        padding: 8px 10px;
+    }
+
+    .practice-home-redesign .redesign-summary-value {
+        font-size: 1.26rem;
+    }
+
+    .redesign-soft-btn {
+        min-height: 36px;
+        padding: 0.4rem 0.8rem;
+    }
+
+    .redesign-footer-actions {
+        margin-top: 14px;
+    }
+}

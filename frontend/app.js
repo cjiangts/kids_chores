@@ -10,6 +10,9 @@ const {
     getOptedInDeckCategoryKeys,
     getCategoryValueMap,
     getCategoryRawValueMap,
+    getDeckCategoryMetaMap,
+    getCategoryDisplayName,
+    getCategoryEmoji,
     normalizeCategoryKey,
 } = window.DeckCategoryCommon;
 const {
@@ -71,11 +74,109 @@ function formatDeckCategoryLabel(categoryKey) {
         .join(' ');
 }
 
+function toSafeNonNegativeInt(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return 0;
+    }
+    return parsed;
+}
+
+function buildFamilyProgressModel({
+    starsModel,
+    configuredTargetCount,
+    latestTargetCount,
+    latestTriedCount,
+    latestRightCount,
+}) {
+    const safeConfiguredTarget = toSafeNonNegativeInt(configuredTargetCount);
+    const safeLatestTarget = toSafeNonNegativeInt(latestTargetCount);
+    const safeTarget = safeLatestTarget > 0 ? safeLatestTarget : safeConfiguredTarget;
+    const latestPercent = Number.isFinite(starsModel?.latestPercentValue)
+        ? Math.max(0, Math.min(100, Math.round(starsModel.latestPercentValue)))
+        : 0;
+    const tiers = Array.isArray(starsModel?.tiers)
+        ? starsModel.tiers.map((tier) => String(tier || '').trim().toLowerCase())
+        : [];
+    let starCount = tiers.filter((tier) => tier !== 'half_silver').length;
+    if (tiers.length > 0) {
+        const latestTier = tiers[tiers.length - 1];
+        const latestPercent = Number.isFinite(starsModel?.latestPercentValue)
+            ? Math.max(0, Math.min(100, Math.round(starsModel.latestPercentValue)))
+            : 0;
+        if (latestTier !== 'half_silver' && latestPercent < 100) {
+            starCount = Math.max(0, starCount - 1);
+        }
+    }
+    const bonusCount = Math.max(0, starCount - 1);
+    const isWorkingOnNextStar = starCount > 0 && latestPercent < 100;
+    const isDoneToday = Boolean(starsModel?.isDoneToday);
+    const hasStarted = isDoneToday || latestPercent > 0;
+
+    let statusClass = 'not-started';
+    let statusText = 'Not started';
+    if (isDoneToday) {
+        statusClass = 'done';
+        statusText = 'Done';
+    } else if (latestPercent > 0) {
+        statusClass = 'in-progress';
+        statusText = 'In progress';
+    }
+
+    const safeTriedFromApi = toSafeNonNegativeInt(latestTriedCount);
+    const safeRightFromApi = toSafeNonNegativeInt(latestRightCount);
+    let seenCount = safeTriedFromApi;
+    let masteredCount = safeRightFromApi;
+    if (safeTarget > 0) {
+        seenCount = Math.min(safeTarget, Math.max(safeTriedFromApi, safeRightFromApi));
+        masteredCount = Math.min(safeTarget, safeRightFromApi);
+    } else {
+        seenCount = 0;
+        masteredCount = 0;
+    }
+    const redoCount = Math.max(0, seenCount - masteredCount);
+
+    const seenPercent = safeTarget > 0
+        ? Math.max(0, Math.min(100, (seenCount / safeTarget) * 100))
+        : (isDoneToday ? 100 : latestPercent);
+    const masteredPercent = safeTarget > 0
+        ? Math.max(0, Math.min(100, (masteredCount / safeTarget) * 100))
+        : (isDoneToday ? 100 : seenPercent);
+    const redoPercent = safeTarget > 0
+        ? Math.max(0, Math.min(100, (redoCount / safeTarget) * 100))
+        : 0;
+    const unseenPercent = Math.max(0, 100 - seenPercent);
+
+    let summaryText = 'Not started';
+    if (hasStarted && safeTarget > 0) {
+        summaryText = `${masteredCount} mastered · ${redoCount} redo · ${seenCount}/${safeTarget} seen`;
+    } else if (isDoneToday) {
+        summaryText = 'Done';
+    } else if (hasStarted) {
+        summaryText = `${latestPercent}% done`;
+    }
+
+    return {
+        statusClass,
+        statusText,
+        summaryText,
+        isDoneToday,
+        starCount,
+        bonusCount,
+        isWorkingOnNextStar,
+        segments: {
+            mastered: Math.max(0, Math.min(100, masteredPercent)),
+            redo: Math.max(0, Math.min(100, redoPercent)),
+            unseen: Math.max(0, Math.min(100, unseenPercent)),
+        },
+    };
+}
+
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
         kidsList.innerHTML = `
-            <div class="empty-state">
+            <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
                 <p>Click "New Kid" to add your first learner!</p>
             </div>
@@ -85,12 +186,17 @@ function displayKids(kids) {
 
     kidsList.innerHTML = kids.map(kid => {
         const optedInKeys = getOptedInDeckCategoryKeys(kid);
+        const categoryMetaMap = getDeckCategoryMetaMap(kid);
         const dailyCompletedByCategory = getCategoryValueMap(kid?.dailyCompletedByDeckCategory);
         const dailyStarTiersByCategory = getCategoryRawValueMap(kid?.dailyStarTiersByDeckCategory);
         const dailyPercentByCategory = getCategoryValueMap(kid?.dailyPercentByDeckCategory);
+        const dailyTargetByCategory = getCategoryValueMap(kid?.dailyTargetByDeckCategory);
+        const dailyTriedByCategory = getCategoryValueMap(kid?.dailyTriedByDeckCategory);
+        const dailyRightByCategory = getCategoryValueMap(kid?.dailyRightByDeckCategory);
         const practiceTargetByCategory = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
 
         const enabledRows = [];
+        let starsTotal = 0;
         optedInKeys.forEach((categoryKey) => {
             const targetCount = Number(practiceTargetByCategory[categoryKey] || 0);
             const completedCount = Number(dailyCompletedByCategory[categoryKey] || 0);
@@ -107,28 +213,73 @@ function displayKids(kids) {
                 doneMarkClass: 'practice-done-mark',
                 doneMarkText: '✅ Done',
             });
+            const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap) || formatDeckCategoryLabel(categoryKey);
+            const emoji = getCategoryEmoji(categoryKey, categoryMetaMap) || '🧩';
+            const progressModel = buildFamilyProgressModel({
+                starsModel,
+                configuredTargetCount: targetCount,
+                latestTargetCount: dailyTargetByCategory[categoryKey],
+                latestTriedCount: dailyTriedByCategory[categoryKey],
+                latestRightCount: dailyRightByCategory[categoryKey],
+            });
+            starsTotal += progressModel.starCount;
             enabledRows.push({
-                label: formatDeckCategoryLabel(categoryKey),
-                starsHtml: starsModel.starsHtml,
-                isStackedBadgeLayout: starsModel.isStackedBadgeLayout,
-                doneMarkHtml: starsModel.doneMarkHtml,
+                label: displayName,
+                emoji,
+                progressModel,
             });
         });
+        const doneCount = enabledRows.filter((row) => row.progressModel.isDoneToday).length;
+        const subjectRowsHtml = enabledRows.length > 0
+            ? enabledRows.map((row) => {
+                const statusClass = row.progressModel.statusClass;
+                const rightStatusHtml = row.progressModel.isDoneToday
+                    ? `
+                        <span class="redesign-status-token star" aria-hidden="true">★</span>
+                        ${row.progressModel.bonusCount > 0 ? `<span class="redesign-status-token bonus">+${row.progressModel.bonusCount}</span>` : ''}
+                    `
+                    : `<span class="redesign-status-pill ${statusClass}">${row.progressModel.statusText}</span>`;
+                return `<div class="redesign-subject-row ${statusClass}">
+                    <div class="redesign-subject-main">
+                        <div class="redesign-subject-title">
+                            <span class="redesign-subject-emoji">${escapeHtml(row.emoji)}</span>
+                            <span class="redesign-subject-name">${escapeHtml(row.label)}</span>
+                        </div>
+                        <div class="redesign-subject-note">${escapeHtml(row.progressModel.summaryText)}</div>
+                    </div>
+                    <div class="redesign-subject-right">
+                        ${rightStatusHtml}
+                    </div>
+                    <div class="redesign-progress-wrap">
+                        <div class="redesign-progress-track">
+                            <span class="redesign-progress-seg mastered" style="width:${row.progressModel.segments.mastered}%"></span>
+                            <span class="redesign-progress-seg redo" style="width:${row.progressModel.segments.redo}%"></span>
+                            <span class="redesign-progress-seg unseen" style="width:${row.progressModel.segments.unseen}%"></span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('')
+            : '<div class="redesign-subject-row"><div class="redesign-subject-main"><div class="redesign-subject-title"><span class="redesign-subject-name">No daily practices assigned</span></div></div></div>';
 
-        const dailyPracticeBadge = enabledRows.length > 0
-            ? `<div class="daily-stars">${
-                enabledRows.map((row) => (
-                    `<div class="daily-stars-row ${row.isStackedBadgeLayout ? 'daily-stars-row-stacked' : 'daily-stars-row-inline'}">
-                        <span class="daily-stars-label practice-star-badge">${escapeHtml(row.label)}:</span>
-                        <span class="daily-stars-strip">${row.starsHtml}${row.doneMarkHtml}</span>
-                    </div>`
-                )).join('')
-            }</div>`
-            : `<div class="daily-stars disabled">No daily practices assigned</div>`;
+        const summaryText = enabledRows.length > 0
+            ? `${doneCount}/${enabledRows.length} done`
+            : 'No daily practices';
+
         return `
-            <div class="kid-card" onclick="selectKid('${kid.id}')">
-                <h3>${escapeHtml(kid.name)}</h3>
-                ${dailyPracticeBadge}
+            <div class="redesign-kid-card" onclick="selectKid('${kid.id}')">
+                <div class="redesign-kid-top">
+                    <div>
+                        <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>
+                        <div class="redesign-kid-sub">${escapeHtml(summaryText)}</div>
+                    </div>
+                    <div class="redesign-star-total">
+                        <span>⭐</span>
+                        <span>${starsTotal}</span>
+                    </div>
+                </div>
+                <div class="redesign-subject-list">
+                    ${subjectRowsHtml}
+                </div>
             </div>
         `;
     }).join('');

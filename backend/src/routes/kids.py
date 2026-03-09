@@ -2092,10 +2092,13 @@ def get_kid_dashboard_stats(
     conn=None,
     family_timezone=None,
 ):
-    """Get today's completed counts by category key and ungraded type-III flag in one connection."""
+    """Get today's dashboard counts + latest session progress by category in one connection."""
     default_counts = defaultdict(int)
     default_star_tiers = defaultdict(list)
     default_latest_percent = defaultdict(float)
+    default_latest_target_count = defaultdict(int)
+    default_latest_tried_count = defaultdict(int)
+    default_latest_right_count = defaultdict(int)
     local_conn = conn
     owns_conn = False
     if local_conn is None:
@@ -2103,7 +2106,15 @@ def get_kid_dashboard_stats(
             local_conn = get_kid_connection_for(kid)
             owns_conn = True
         except Exception:
-            return default_counts, default_star_tiers, default_latest_percent, False
+            return (
+                default_counts,
+                default_star_tiers,
+                default_latest_percent,
+                default_latest_target_count,
+                default_latest_tried_count,
+                default_latest_right_count,
+                False,
+            )
 
     try:
         family_id = str(kid.get('familyId') or '')
@@ -2156,6 +2167,9 @@ def get_kid_dashboard_stats(
         today_counts = defaultdict(int)
         today_star_tiers = defaultdict(list)
         today_latest_percent = defaultdict(float)
+        today_latest_target_count = defaultdict(int)
+        today_latest_tried_count = defaultdict(int)
+        today_latest_right_count = defaultdict(int)
         for row in rows:
             session_type = normalize_shared_deck_tag(row[0])
             if not session_type or session_type not in effective_category_meta_by_key:
@@ -2189,6 +2203,15 @@ def get_kid_dashboard_stats(
             today_counts[session_type] += 1
             today_counts['total'] += 1
             today_latest_percent[session_type] = max(0.0, min(100.0, effective_percent))
+            today_latest_target_count[session_type] = int(target_answer_count)
+            today_latest_tried_count[session_type] = max(0, int(answer_count))
+            today_latest_right_count[session_type] = max(
+                0,
+                min(
+                    int(target_answer_count),
+                    int(effective_best_total),
+                ),
+            )
 
         has_ungraded = False
         if include_has_ungraded:
@@ -2220,9 +2243,25 @@ def get_kid_dashboard_stats(
                 ).fetchone()
                 has_ungraded = bool(ungraded_row)
 
-        return today_counts, today_star_tiers, today_latest_percent, has_ungraded
+        return (
+            today_counts,
+            today_star_tiers,
+            today_latest_percent,
+            today_latest_target_count,
+            today_latest_tried_count,
+            today_latest_right_count,
+            has_ungraded,
+        )
     except Exception:
-        return default_counts, default_star_tiers, default_latest_percent, False
+        return (
+            default_counts,
+            default_star_tiers,
+            default_latest_percent,
+            default_latest_target_count,
+            default_latest_tried_count,
+            default_latest_right_count,
+            False,
+        )
     finally:
         if owns_conn and local_conn is not None:
             local_conn.close()
@@ -2696,6 +2735,9 @@ def get_kids():
                     today_counts = defaultdict(int)
                     today_star_tiers = defaultdict(list)
                     today_latest_percent = defaultdict(float)
+                    today_latest_target_count = defaultdict(int)
+                    today_latest_tried_count = defaultdict(int)
+                    today_latest_right_count = defaultdict(int)
                     has_ungraded = get_kid_has_ungraded_type_iii(
                         kid,
                         type_iii_category_keys=type_iii_category_keys,
@@ -2705,7 +2747,15 @@ def get_kids():
                     daily_star_tiers_by_deck_category = {}
                     daily_percent_by_deck_category = {}
                 else:
-                    today_counts, today_star_tiers, today_latest_percent, has_ungraded = get_kid_dashboard_stats(
+                    (
+                        today_counts,
+                        today_star_tiers,
+                        today_latest_percent,
+                        today_latest_target_count,
+                        today_latest_tried_count,
+                        today_latest_right_count,
+                        has_ungraded,
+                    ) = get_kid_dashboard_stats(
                         kid,
                         category_meta_by_key=category_meta_by_key,
                         type_iii_category_keys=type_iii_category_keys,
@@ -2725,6 +2775,18 @@ def get_kids():
                         opted_in_category_keys,
                         today_latest_percent=today_latest_percent,
                     )
+                daily_target_by_deck_category = {
+                    key: int(today_latest_target_count.get(key, 0) or 0)
+                    for key in opted_in_category_keys
+                }
+                daily_tried_by_deck_category = {
+                    key: int(today_latest_tried_count.get(key, 0) or 0)
+                    for key in opted_in_category_keys
+                }
+                daily_right_by_deck_category = {
+                    key: int(today_latest_right_count.get(key, 0) or 0)
+                    for key in opted_in_category_keys
+                }
                 kid_with_progress = {
                     **kid,
                     'dailyCompletedCountToday': int(today_counts.get('total', 0) or 0),
@@ -2733,6 +2795,9 @@ def get_kids():
                     'dailyCompletedByDeckCategory': daily_completed_by_deck_category,
                     'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
                     'dailyPercentByDeckCategory': daily_percent_by_deck_category,
+                    'dailyTargetByDeckCategory': daily_target_by_deck_category,
+                    'dailyTriedByDeckCategory': daily_tried_by_deck_category,
+                    'dailyRightByDeckCategory': daily_right_by_deck_category,
                     'practiceTargetByDeckCategory': practice_target_by_deck_category,
                     'deckCategoryMetaByKey': category_meta_by_key,
                 }
@@ -2806,7 +2871,15 @@ def get_kid(kid_id):
             conn = None
         try:
             if include_dashboard_metrics:
-                today_counts, today_star_tiers, today_latest_percent, has_ungraded = get_kid_dashboard_stats(
+                (
+                    today_counts,
+                    today_star_tiers,
+                    today_latest_percent,
+                    today_latest_target_count,
+                    today_latest_tried_count,
+                    today_latest_right_count,
+                    has_ungraded,
+                ) = get_kid_dashboard_stats(
                     kid,
                     category_meta_by_key=category_meta_by_key,
                     type_iii_category_keys=get_type_iii_category_keys(category_meta_by_key),
@@ -2818,6 +2891,9 @@ def get_kid(kid_id):
                 today_counts = defaultdict(int)
                 today_star_tiers = defaultdict(list)
                 today_latest_percent = defaultdict(float)
+                today_latest_target_count = defaultdict(int)
+                today_latest_tried_count = defaultdict(int)
+                today_latest_right_count = defaultdict(int)
                 has_ungraded = False
             opted_in_category_keys = get_kid_opted_in_deck_category_keys(
                 kid,
@@ -2845,6 +2921,18 @@ def get_kid(kid_id):
             daily_completed_by_deck_category = {}
             daily_star_tiers_by_deck_category = {}
             daily_percent_by_deck_category = {}
+        daily_target_by_deck_category = {
+            key: int(today_latest_target_count.get(key, 0) or 0)
+            for key in opted_in_category_keys
+        }
+        daily_tried_by_deck_category = {
+            key: int(today_latest_tried_count.get(key, 0) or 0)
+            for key in opted_in_category_keys
+        }
+        daily_right_by_deck_category = {
+            key: int(today_latest_right_count.get(key, 0) or 0)
+            for key in opted_in_category_keys
+        }
         practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
             kid,
             opted_in_category_keys,
@@ -2858,6 +2946,9 @@ def get_kid(kid_id):
             'dailyCompletedByDeckCategory': daily_completed_by_deck_category,
             'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
             'dailyPercentByDeckCategory': daily_percent_by_deck_category,
+            'dailyTargetByDeckCategory': daily_target_by_deck_category,
+            'dailyTriedByDeckCategory': daily_tried_by_deck_category,
+            'dailyRightByDeckCategory': daily_right_by_deck_category,
             'practiceTargetByDeckCategory': practice_target_by_deck_category,
             'deckCategoryMetaByKey': category_meta_by_key,
         }

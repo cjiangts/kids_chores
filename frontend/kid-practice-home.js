@@ -10,24 +10,12 @@ const kidNameEl = document.getElementById('kidName');
 const kidBackBtn = document.getElementById('kidBackBtn');
 const errorMessage = document.getElementById('errorMessage');
 const practiceSection = document.getElementById('practiceSection');
+const practiceSummaryStrip = document.getElementById('practiceSummaryStrip');
 const practiceChooser = document.getElementById('practiceChooser');
 const chinesePracticeOption = document.getElementById('chinesePracticeOption');
 const writingPracticeOption = document.getElementById('writingPracticeOption');
-const writingPracticeTitle = writingPracticeOption
-    ? writingPracticeOption.querySelector('h3')
-    : null;
 const mathPracticeOption = document.getElementById('mathPracticeOption');
-const mathPracticeTitle = mathPracticeOption
-    ? mathPracticeOption.querySelector('h3')
-    : null;
 const lessonReadingPracticeOption = document.getElementById('lessonReadingPracticeOption');
-const lessonReadingPracticeTitle = lessonReadingPracticeOption
-    ? lessonReadingPracticeOption.querySelector('h3')
-    : null;
-const chineseStarBadge = document.getElementById('chineseStarBadge');
-const writingStarBadge = document.getElementById('writingStarBadge');
-const mathStarBadge = document.getElementById('mathStarBadge');
-const lessonReadingStarBadge = document.getElementById('lessonReadingStarBadge');
 const {
     buildCategoryStarsModel,
 } = window.PracticeStarBadgeCommon || {};
@@ -61,6 +49,15 @@ let activeTypeIICategoryKey = requestedCategoryKey;
 let activeTypeIIICategoryKey = requestedCategoryKey;
 const errorState = { lastMessage: '' };
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
+
+function escapeHtmlLocal(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function updatePageTitle() {
     const kidName = String(currentKid?.name || '').trim();
@@ -173,7 +170,16 @@ async function warmWritingCards() {
     }
 }
 
-function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory) {
+function buildCategoryProgressModel({
+    categoryKey,
+    dailyStarTiersByCategory,
+    dailyCompletedByCategory,
+    dailyPercentByCategory,
+    dailyTargetByCategory,
+    dailyTriedByCategory,
+    dailyRightByCategory,
+    practiceTargetByCategory,
+}) {
     const starsModel = buildCategoryStarsModel({
         categoryKey,
         dailyStarTiersByCategory,
@@ -183,23 +189,242 @@ function getCategoryStarsHtml(categoryKey, dailyStarTiersByCategory, dailyComple
         doneMarkClass: 'practice-done-mark',
         doneMarkText: '✅ Done',
     });
-    if (starsModel.tiers.length === 0) {
-        return 'Today: no stars yet<br><span class="practice-star-note practice-star-note-encourage practice-star-note-encourage-zero">0% · Let\'s start and earn a star!</span>';
+    const percentValueRaw = Number.isFinite(starsModel.percentValue)
+        ? Math.max(0, Math.round(starsModel.percentValue))
+        : 0;
+    const latestPercentValue = Number.isFinite(starsModel.latestPercentValue)
+        ? Math.max(0, Math.min(100, Math.round(starsModel.latestPercentValue)))
+        : 0;
+    const latestTargetRaw = Number.parseInt(dailyTargetByCategory?.[categoryKey], 10);
+    const configuredTargetRaw = Number.parseInt(practiceTargetByCategory?.[categoryKey], 10);
+    const targetCount = Number.isInteger(latestTargetRaw) && latestTargetRaw > 0
+        ? latestTargetRaw
+        : (Number.isInteger(configuredTargetRaw) && configuredTargetRaw > 0 ? configuredTargetRaw : 0);
+    const triedRaw = Number.parseInt(dailyTriedByCategory?.[categoryKey], 10);
+    const rightRaw = Number.parseInt(dailyRightByCategory?.[categoryKey], 10);
+    const triedCount = Number.isInteger(triedRaw) ? Math.max(0, triedRaw) : 0;
+    const rightCount = Number.isInteger(rightRaw) ? Math.max(0, rightRaw) : 0;
+    let seenCount = triedCount;
+    let masteredCount = rightCount;
+    if (targetCount > 0) {
+        seenCount = Math.min(targetCount, Math.max(triedCount, rightCount));
+        masteredCount = Math.min(targetCount, rightCount);
+    } else {
+        seenCount = 0;
+        masteredCount = 0;
     }
-    const doneMarkInline = starsModel.doneMarkHtml ? ` ${starsModel.doneMarkHtml}` : '';
-    const starsLine = starsModel.isStackedBadgeLayout
-        ? `Today:${doneMarkInline}<br>${starsModel.starsHtml}`
-        : `Today: <span class="daily-stars-strip">${starsModel.starsHtml}${starsModel.doneMarkHtml}</span>`;
-    if (starsModel.latestTier === 'half_silver') {
-        return `${starsLine}<br><span class="practice-star-note practice-star-note-encourage">${starsModel.percentValue}% · Finish session first.</span>`;
+    const redoCount = Math.max(0, seenCount - masteredCount);
+    const seenPercent = targetCount > 0
+        ? Math.max(0, Math.min(100, (seenCount / targetCount) * 100))
+        : 0;
+    const masteredPercent = targetCount > 0
+        ? Math.max(0, Math.min(100, (masteredCount / targetCount) * 100))
+        : 0;
+    const redoPercent = targetCount > 0
+        ? Math.max(0, Math.min(100, (redoCount / targetCount) * 100))
+        : 0;
+    const fillPercent = seenPercent;
+    const bonusPercent = Math.max(0, percentValueRaw - 100);
+    const tiers = Array.isArray(starsModel?.tiers)
+        ? starsModel.tiers.map((tier) => String(tier || '').trim().toLowerCase())
+        : [];
+    let starCount = tiers.filter((tier) => tier !== 'half_silver').length;
+    if (tiers.length > 0) {
+        const latestTier = tiers[tiers.length - 1];
+        const latestPercent = Number.isFinite(starsModel?.latestPercentValue)
+            ? Math.max(0, Math.min(100, Math.round(starsModel.latestPercentValue)))
+            : 0;
+        if (latestTier !== 'half_silver' && latestPercent < 100) {
+            starCount = Math.max(0, starCount - 1);
+        }
     }
-    if (starsModel.percentValue < 100) {
-        return `${starsLine}<br><span class="practice-star-note practice-star-note-encourage">${starsModel.percentValue}% · Keep trying, you can do it!</span>`;
+    const bonusCount = Math.max(0, starCount - 1);
+    const isWorkingOnNextStar = starCount > 0 && latestPercentValue < 100;
+
+    let statusClass = 'not-started';
+    let statusText = 'Not started';
+    if (starsModel.isDoneToday) {
+        statusClass = 'done';
+        statusText = 'Done';
+    } else if (fillPercent > 0) {
+        statusClass = 'in-progress';
+        statusText = 'In progress';
     }
-    if (starsModel.percentValue < 200) {
-        return `${starsLine}<br><span class="practice-star-note practice-star-note-good">${starsModel.percentValue}% · Good job!</span>`;
+
+    const subText = targetCount > 0
+        ? `${masteredCount} mastered · ${redoCount} redo · ${seenCount}/${targetCount} seen`
+        : 'Not started';
+    const unseenPercent = Math.max(0, 100 - seenPercent);
+
+    return {
+        statusClass,
+        statusText,
+        subText,
+        percentValue: percentValueRaw,
+        fillPercent,
+        bonusPercent,
+        latestPercentValue,
+        starCount,
+        bonusCount,
+        isWorkingOnNextStar,
+        targetCount,
+        seenCount,
+        masteredCount,
+        redoCount,
+        masteredPercent,
+        redoPercent,
+        unseenPercent,
+        isDoneToday: starsModel.isDoneToday,
+    };
+}
+
+function buildCategoryCardInnerHtml({
+    emoji,
+    displayName,
+    progressModel,
+}) {
+    let rightBadgeHtml = `<span class="practice-row-status-pill ${progressModel.statusClass}">${progressModel.statusText}</span>`;
+    if (progressModel.isDoneToday && progressModel.starCount > 0) {
+        rightBadgeHtml = `
+            <span class="practice-row-token-star">★</span>
+            ${progressModel.bonusCount > 0 ? `<span class="practice-row-token-bonus">+${progressModel.bonusCount}</span>` : ''}
+        `;
     }
-    return `${starsLine}<br><span class="practice-star-note practice-star-note-good">${starsModel.percentValue}% · Wow! Amazing work!</span>`;
+
+    const earnedBadgeHtml = (progressModel.isWorkingOnNextStar && progressModel.starCount > 0)
+        ? `<div class="practice-row-badges">
+            <span class="practice-row-mini-badge pink">${progressModel.starCount} star${progressModel.starCount === 1 ? '' : 's'} earned</span>
+            <span class="practice-row-mini-badge amber">Next: star ${progressModel.starCount + 1}</span>
+        </div>`
+        : '';
+
+    return `
+        <div class="practice-row-head">
+            <h3>${escapeHtmlLocal(emoji)} ${escapeHtmlLocal(displayName)}</h3>
+            <div class="practice-row-right">${rightBadgeHtml}</div>
+        </div>
+        <div class="practice-row-sub">${escapeHtmlLocal(progressModel.subText)}</div>
+        ${earnedBadgeHtml}
+        <div class="practice-row-progress">
+            <span class="practice-row-seg mastered" style="width:${progressModel.masteredPercent}%"></span>
+            <span class="practice-row-seg redo" style="width:${progressModel.redoPercent}%"></span>
+            <span class="practice-row-seg unseen" style="width:${progressModel.unseenPercent}%"></span>
+        </div>
+    `;
+}
+
+function renderPracticeOptionCard({
+    button,
+    categoryKey,
+    displayName,
+    emoji,
+    dailyStarTiersByCategory,
+    dailyCompletedByCategory,
+    dailyPercentByCategory,
+    dailyTargetByCategory,
+    dailyTriedByCategory,
+    dailyRightByCategory,
+    practiceTargetByCategory,
+}) {
+    if (!button) {
+        return null;
+    }
+    const model = buildCategoryProgressModel({
+        categoryKey,
+        dailyStarTiersByCategory,
+        dailyCompletedByCategory,
+        dailyPercentByCategory,
+        dailyTargetByCategory,
+        dailyTriedByCategory,
+        dailyRightByCategory,
+        practiceTargetByCategory,
+    });
+    button.innerHTML = buildCategoryCardInnerHtml({
+        emoji,
+        displayName,
+        progressModel: model,
+    });
+    return model;
+}
+
+function renderPracticeSummaryStrip({
+    optedInCategoryKeys,
+    categoryMetaMap,
+    dailyCompletedByCategory,
+    dailyStarTiersByCategory,
+    dailyPercentByCategory,
+    practiceTargetByCategory,
+    dailyTargetByCategory,
+    dailyTriedByCategory,
+    dailyRightByCategory,
+}) {
+    if (!practiceSummaryStrip) {
+        return;
+    }
+
+    let assignedCount = 0;
+    let doneCount = 0;
+    let inProgressCount = 0;
+    let starsTodayCount = 0;
+
+    optedInCategoryKeys.forEach((categoryKey) => {
+        const key = normalizeCategoryKey(categoryKey);
+        if (!key) {
+            return;
+        }
+        const meta = categoryMetaMap[key] || {};
+        const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
+        if (!VALID_BEHAVIOR_TYPES.has(behaviorType)) {
+            return;
+        }
+        const targetCount = Number.parseInt(practiceTargetByCategory?.[key], 10);
+        const completedCount = Number.parseInt(dailyCompletedByCategory?.[key], 10);
+        const safeTargetCount = Number.isInteger(targetCount) ? Math.max(0, targetCount) : 0;
+        const safeCompletedCount = Number.isInteger(completedCount) ? Math.max(0, completedCount) : 0;
+        if (safeTargetCount <= 0 && safeCompletedCount <= 0) {
+            return;
+        }
+
+        assignedCount += 1;
+        const model = buildCategoryProgressModel({
+            categoryKey: key,
+            dailyStarTiersByCategory,
+            dailyCompletedByCategory,
+            dailyPercentByCategory,
+            dailyTargetByCategory,
+            dailyTriedByCategory,
+            dailyRightByCategory,
+            practiceTargetByCategory,
+        });
+        starsTodayCount += model.starCount;
+        if (model.isDoneToday) {
+            doneCount += 1;
+        } else if (model.fillPercent > 0) {
+            inProgressCount += 1;
+        }
+    });
+
+    if (assignedCount <= 0) {
+        practiceSummaryStrip.classList.add('hidden');
+        practiceSummaryStrip.innerHTML = '';
+        return;
+    }
+
+    practiceSummaryStrip.innerHTML = `
+        <div class="redesign-summary-box">
+            <p class="redesign-summary-label">Stars today</p>
+            <p class="redesign-summary-value">${starsTodayCount}</p>
+        </div>
+        <div class="redesign-summary-box">
+            <p class="redesign-summary-label">Done</p>
+            <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
+        </div>
+        <div class="redesign-summary-box">
+            <p class="redesign-summary-label">In progress</p>
+            <p class="redesign-summary-value">${inProgressCount}</p>
+        </div>
+    `;
+    practiceSummaryStrip.classList.remove('hidden');
 }
 
 function getStaticPracticeOptionKeySet() {
@@ -228,6 +453,9 @@ function renderDynamicPracticeOptions({
     dailyStarTiersByCategory,
     dailyPercentByCategory,
     practiceTargetByCategory,
+    dailyTargetByCategory,
+    dailyTriedByCategory,
+    dailyRightByCategory,
 }) {
     clearDynamicPracticeOptions();
     let renderedCount = 0;
@@ -252,24 +480,24 @@ function renderDynamicPracticeOptions({
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'practice-option dynamic-practice-option';
+        button.className = 'practice-option redesign-practice-option dynamic-practice-option';
         button.addEventListener('click', () => {
             runDynamicPracticeByBehavior(key, behaviorType, Boolean(meta.has_chinese_specific_logic));
         });
 
-        const title = document.createElement('h3');
-        title.textContent = `${getCategoryEmoji(key, categoryMetaMap)} ${getCategoryDisplayName(key, categoryMetaMap)}`;
-        button.appendChild(title);
-
-        const stars = document.createElement('p');
-        stars.className = 'practice-star-badge';
-        stars.innerHTML = getCategoryStarsHtml(
-            key,
+        renderPracticeOptionCard({
+            button,
+            categoryKey: key,
+            displayName: getCategoryDisplayName(key, categoryMetaMap),
+            emoji: getCategoryEmoji(key, categoryMetaMap),
             dailyStarTiersByCategory,
             dailyCompletedByCategory,
             dailyPercentByCategory,
-        );
-        button.appendChild(stars);
+            dailyTargetByCategory,
+            dailyTriedByCategory,
+            dailyRightByCategory,
+            practiceTargetByCategory,
+        });
 
         practiceChooser.appendChild(button);
         renderedCount += 1;
@@ -288,6 +516,9 @@ function renderPracticeOptions() {
     const dailyCompletedByCategory = getCategoryValueMap(currentKid?.dailyCompletedByDeckCategory);
     const dailyStarTiersByCategory = getCategoryRawValueMap(currentKid?.dailyStarTiersByDeckCategory);
     const dailyPercentByCategory = getCategoryValueMap(currentKid?.dailyPercentByDeckCategory);
+    const dailyTargetByCategory = getCategoryValueMap(currentKid?.dailyTargetByDeckCategory);
+    const dailyTriedByCategory = getCategoryValueMap(currentKid?.dailyTriedByDeckCategory);
+    const dailyRightByCategory = getCategoryValueMap(currentKid?.dailyRightByDeckCategory);
     const practiceTargetByCategory = getCategoryValueMap(currentKid?.practiceTargetByDeckCategory);
     const typeIChineseKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
     activeChineseCategoryKey = typeIChineseKey;
@@ -346,14 +577,33 @@ function renderPracticeOptions() {
         ? getCategoryDisplayName(typeINonChineseKey, categoryMetaMap)
         : '';
     const typeINonChineseEmoji = typeINonChineseKey ? getCategoryEmoji(typeINonChineseKey, categoryMetaMap) : '';
-
-    chineseStarBadge.innerHTML = getCategoryStarsHtml(typeIChineseKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory);
-    writingStarBadge.innerHTML = getCategoryStarsHtml(typeIIKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory);
-    mathStarBadge.innerHTML = getCategoryStarsHtml(typeINonChineseKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory);
-    lessonReadingStarBadge.innerHTML = getCategoryStarsHtml(typeIIIKey, dailyStarTiersByCategory, dailyCompletedByCategory, dailyPercentByCategory);
+    renderPracticeSummaryStrip({
+        optedInCategoryKeys: optedInKeys,
+        categoryMetaMap,
+        dailyCompletedByCategory,
+        dailyStarTiersByCategory,
+        dailyPercentByCategory,
+        practiceTargetByCategory,
+        dailyTargetByCategory,
+        dailyTriedByCategory,
+        dailyRightByCategory,
+    });
     if (chinesePracticeOption) {
         if (typeIChineseKey) {
             chinesePracticeOption.setAttribute('data-category-key', typeIChineseKey);
+            renderPracticeOptionCard({
+                button: chinesePracticeOption,
+                categoryKey: typeIChineseKey,
+                displayName: typeIChineseDisplayName,
+                emoji: typeIChineseEmoji,
+                dailyStarTiersByCategory,
+                dailyCompletedByCategory,
+                dailyPercentByCategory,
+                dailyTargetByCategory,
+                dailyTriedByCategory,
+                dailyRightByCategory,
+                practiceTargetByCategory,
+            });
         } else {
             chinesePracticeOption.removeAttribute('data-category-key');
         }
@@ -361,35 +611,59 @@ function renderPracticeOptions() {
     if (mathPracticeOption) {
         if (typeINonChineseKey) {
             mathPracticeOption.setAttribute('data-category-key', typeINonChineseKey);
+            renderPracticeOptionCard({
+                button: mathPracticeOption,
+                categoryKey: typeINonChineseKey,
+                displayName: typeINonChineseDisplayName,
+                emoji: typeINonChineseEmoji,
+                dailyStarTiersByCategory,
+                dailyCompletedByCategory,
+                dailyPercentByCategory,
+                dailyTargetByCategory,
+                dailyTriedByCategory,
+                dailyRightByCategory,
+                practiceTargetByCategory,
+            });
         } else {
             mathPracticeOption.removeAttribute('data-category-key');
         }
     }
-    if (chinesePracticeOption) {
-        const chineseTitle = chinesePracticeOption.querySelector('h3');
-        if (chineseTitle) {
-            chineseTitle.textContent = `${typeIChineseEmoji} ${typeIChineseDisplayName}`;
-        }
-    }
-    if (mathPracticeTitle) {
-        mathPracticeTitle.textContent = `${typeINonChineseEmoji} ${typeINonChineseDisplayName}`;
-    }
-    if (lessonReadingPracticeTitle) {
-        lessonReadingPracticeTitle.textContent = `${typeIIIEmoji} ${typeIIIDisplayName}`;
-    }
     if (lessonReadingPracticeOption) {
         if (typeIIIKey) {
             lessonReadingPracticeOption.setAttribute('data-category-key', typeIIIKey);
+            renderPracticeOptionCard({
+                button: lessonReadingPracticeOption,
+                categoryKey: typeIIIKey,
+                displayName: typeIIIDisplayName,
+                emoji: typeIIIEmoji,
+                dailyStarTiersByCategory,
+                dailyCompletedByCategory,
+                dailyPercentByCategory,
+                dailyTargetByCategory,
+                dailyTriedByCategory,
+                dailyRightByCategory,
+                practiceTargetByCategory,
+            });
         } else {
             lessonReadingPracticeOption.removeAttribute('data-category-key');
         }
     }
-    if (writingPracticeTitle) {
-        writingPracticeTitle.textContent = `${typeIIEmoji} ${typeIIDisplayName}`;
-    }
     if (writingPracticeOption) {
         if (typeIIKey) {
             writingPracticeOption.setAttribute('data-category-key', typeIIKey);
+            renderPracticeOptionCard({
+                button: writingPracticeOption,
+                categoryKey: typeIIKey,
+                displayName: typeIIDisplayName,
+                emoji: typeIIEmoji,
+                dailyStarTiersByCategory,
+                dailyCompletedByCategory,
+                dailyPercentByCategory,
+                dailyTargetByCategory,
+                dailyTriedByCategory,
+                dailyRightByCategory,
+                practiceTargetByCategory,
+            });
         } else {
             writingPracticeOption.removeAttribute('data-category-key');
         }
@@ -407,6 +681,9 @@ function renderPracticeOptions() {
         dailyStarTiersByCategory,
         dailyPercentByCategory,
         practiceTargetByCategory,
+        dailyTargetByCategory,
+        dailyTriedByCategory,
+        dailyRightByCategory,
     });
     practiceSection.classList.remove('hidden');
     if (!chineseEnabled && !writingEnabled && !typeINonChineseEnabled && !typeIIIEnabled && dynamicOptionCount <= 0) {
