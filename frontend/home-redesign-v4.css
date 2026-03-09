@@ -387,8 +387,8 @@ body.practice-home-redesign {
 .practice-home-redesign .practice-row-head h3 {
     margin: 0;
     color: #2a2f3d;
-    font-size: 2rem;
-    line-height: 1.06;
+    font-size: clamp(1.15rem, 1.9vw, 1.45rem);
+    line-height: 1.08;
     font-weight: 850;
     min-width: 0;
     overflow: hidden;
@@ -556,14 +556,14 @@ body.practice-home-redesign {
     color: #6b7796;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    font-size: 0.64rem;
+    font-size: 0.6rem;
     font-weight: 800;
 }
 
 .practice-home-redesign .redesign-summary-value {
     margin: 0.14rem 0 0;
     color: #233457;
-    font-size: 1.8rem;
+    font-size: clamp(1.1rem, 2.1vw, 1.35rem);
     font-weight: 850;
     line-height: 1;
 }
@@ -631,7 +631,7 @@ body.practice-home-redesign {
     }
 
     .practice-home-redesign .practice-row-head h3 {
-        font-size: 1.14rem;
+        font-size: 1rem;
     }
 
     .family-home-page .redesign-kid-sub {
@@ -686,11 +686,11 @@ body.practice-home-redesign {
     }
 
     .practice-home-redesign .redesign-summary-box {
-        padding: 8px 10px;
+        padding: 7px 9px;
     }
 
     .practice-home-redesign .redesign-summary-value {
-        font-size: 1.26rem;
+        font-size: 1rem;
     }
 
     .redesign-soft-btn {
