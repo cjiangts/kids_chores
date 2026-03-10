@@ -21,6 +21,7 @@ const deckCategoryCancelBtn = document.getElementById('deckCategoryCancelBtn');
 const errorMessage = document.getElementById('errorMessage');
 const kidNameInput = document.getElementById('kidName');
 const manageDecksLink = document.getElementById('manageDecksLink');
+const parentLogoutLink = document.getElementById('parentLogoutLink');
 const {
     getOptedInDeckCategoryKeys,
     getOptedInDeckCategorySet,
@@ -82,6 +83,21 @@ if (deckCategoryOptedBubbles) {
 }
 if (deckCategoryConfirmBtn) {
     deckCategoryConfirmBtn.addEventListener('click', saveDeckCategoryOptIns);
+}
+if (parentLogoutLink) {
+    parentLogoutLink.addEventListener('click', async (event) => {
+        event.preventDefault();
+        try {
+            await fetch(`${API_BASE}/family-auth/logout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+        } catch (error) {
+            // ignore
+        }
+        window.location.href = '/index.html';
+    });
 }
 
 async function applySuperFamilyUi() {

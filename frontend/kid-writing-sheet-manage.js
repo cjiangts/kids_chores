@@ -7,7 +7,6 @@ const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLo
 const WRITING_SHEET_MAX_ROWS = 10;
 
 const pageTitleEl = document.getElementById('pageTitle');
-const pageSubtitleEl = document.getElementById('pageSubtitle');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 
@@ -76,14 +75,8 @@ function updatePageText() {
     const displayName = String(activeCategoryDisplayName || 'Chinese Writing').trim() || 'Chinese Writing';
     const kidName = String(activeKidName || '').trim();
     if (kidName) {
-        if (pageSubtitleEl) {
-            pageSubtitleEl.textContent = `${kidName} · ${displayName}`;
-        }
         document.title = `${kidName} - Printable work sheets (${displayName}) - Kids Daily Chores`;
     } else {
-        if (pageSubtitleEl) {
-            pageSubtitleEl.textContent = displayName;
-        }
         document.title = `Printable work sheets (${displayName}) - Kids Daily Chores`;
     }
     if (pageTitleEl) {

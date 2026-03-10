@@ -13,7 +13,7 @@
         }
 
         .manage-page .container {
-            max-width: min(1560px, calc(100vw - 28px));
+            max-width: 1000px;
         }
 
         body.modal-open {
@@ -1320,9 +1320,9 @@
         .compact-fold-btn {
             position: absolute;
             top: 0.5rem;
-            left: 0.5rem;
+            right: 0.5rem;
             border: 1px solid #c7d2ea;
-            background: #eef3ff;
+            background: #fff;
             color: #24468f;
             border-radius: 999px;
             min-width: 56px;
@@ -1384,7 +1384,8 @@
         }
 
         .card-item {
-            background: white;
+            background: #edf2ff;
+            border: 1px solid #b8c5ff;
             padding: 1.5rem;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -1440,7 +1441,7 @@
         .skip-toggle-btn {
             position: absolute;
             top: 0.5rem;
-            right: 0.5rem;
+            left: 0.5rem;
             background: #e8edf7;
             color: #355;
             border: 1px solid #c7d2ea;
@@ -1932,7 +1933,7 @@
                 </div>
                 <div class="deck-v2-actions">
                     <div class="deck-v2-action-row">
-                        <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply (+0/-0)</button>
+                        <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply</button>
                         <button id="cancelDeckOptInModalBtn" type="button" class="btn-secondary">Close</button>
                     </div>
                     <div id="deckChangeMessage" class="success hidden"></div>

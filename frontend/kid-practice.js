@@ -32,7 +32,6 @@ const recordingStatusText = document.getElementById('recordingStatusText');
 const reviewAudio = document.getElementById('reviewAudio');
 const startBtn = document.getElementById('startBtn');
 const finishEarlyBtn = document.getElementById('finishEarlyBtn');
-const resultStarBadge = document.getElementById('resultStarBadge');
 const resultSummary = document.getElementById('resultSummary');
 const sessionActionSlot = document.querySelector('.session-action-slot');
 const judgeModeRow = document.getElementById('judgeModeRow');
@@ -622,7 +621,6 @@ function resetBaseSessionState() {
 
     state.wrongCardsInSession = [];
     resetBonusGame();
-    renderResultStarStrip([]);
 }
 
 function resetToStartScreen(totalCards = 0) {
@@ -1755,10 +1753,6 @@ async function endType1Session(endedEarly = false) {
                 ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
                 : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
         );
-    let achievedGoldStar = state.wrongCount === 0;
-    let attemptStarTiers = [achievedGoldStar ? 'gold' : 'silver'];
-    let payloadTotalCorrectPercent = null;
-
     if (hasBonusGameForCategory()) {
         showBonusGameForWrongCards();
     } else {
@@ -1776,25 +1770,10 @@ async function endType1Session(endedEarly = false) {
         if (!response.ok) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
-        if (Number.isFinite(Number(payload?.total_correct_percentage))) {
-            payloadTotalCorrectPercent = Number(payload.total_correct_percentage);
-        }
-        if (typeof payload?.achieved_gold_star === 'boolean') {
-            achievedGoldStar = Boolean(payload.achieved_gold_star);
-        }
-        const payloadTiers = Array.isArray(payload?.attempt_star_tiers)
-            ? payload.attempt_star_tiers
-            : [];
-        if (payloadTiers.length > 0) {
-            attemptStarTiers = payloadTiers;
-        } else {
-            attemptStarTiers = [endedEarly ? 'half_silver' : 'gold'];
-        }
     } catch (error) {
         console.error('Error completing type-I session:', error);
         showError('Failed to save session results');
     }
-    renderResultStarStrip(attemptStarTiers, payloadTotalCorrectPercent);
 
     window.PracticeSession.clearSessionStart(state.activePendingSessionId);
     updateFinishEarlyButtonState();
@@ -1815,10 +1794,6 @@ async function endType2Session(endedEarly = false) {
     resultSummary.textContent = endedEarly
         ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
         : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`;
-    let achievedGoldStar = state.wrongCount === 0;
-    let attemptStarTiers = [achievedGoldStar ? 'gold' : 'silver'];
-    let payloadTotalCorrectPercent = null;
-
     try {
         const response = await window.PracticeSessionFlow.postCompleteSession(
             buildType2ApiUrl('/practice/complete'),
@@ -1830,25 +1805,10 @@ async function endType2Session(endedEarly = false) {
         if (!response.ok) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
-        if (Number.isFinite(Number(payload?.total_correct_percentage))) {
-            payloadTotalCorrectPercent = Number(payload.total_correct_percentage);
-        }
-        if (typeof payload?.achieved_gold_star === 'boolean') {
-            achievedGoldStar = Boolean(payload.achieved_gold_star);
-        }
-        const payloadTiers = Array.isArray(payload?.attempt_star_tiers)
-            ? payload.attempt_star_tiers
-            : [];
-        if (payloadTiers.length > 0) {
-            attemptStarTiers = payloadTiers;
-        } else {
-            attemptStarTiers = [endedEarly ? 'half_silver' : 'gold'];
-        }
     } catch (error) {
         console.error('Error completing type-II session:', error);
         showError('Failed to save session results');
     }
-    renderResultStarStrip(attemptStarTiers, payloadTotalCorrectPercent);
 
     window.PracticeSession.clearSessionStart(state.activePendingSessionId);
     updateFinishEarlyButtonState();
@@ -1871,7 +1831,6 @@ async function endType3Session(endedEarly = false) {
     resultSummary.textContent = endedEarly
         ? `Ended early · Completed: ${state.completedCount} cards`
         : `Completed: ${state.completedCount} cards`;
-    renderResultStarStrip([]);
 
     try {
         const payload = window.PracticeSession.buildCompletePayload(
@@ -1985,46 +1944,6 @@ function setResultBackToPracticeVisible(visible) {
         return;
     }
     resultBackToPractice.classList.toggle('hidden', !visible);
-}
-
-function renderProgressBadgeByTier(tier, fillPercent) {
-    const normalizedTier = String(tier || '').trim().toLowerCase();
-    const clampedFill = Number.isFinite(Number(fillPercent))
-        ? Math.max(0, Math.min(100, Math.round(Number(fillPercent))))
-        : 100;
-    if (clampedFill < 100) {
-        return `<span class="progress-badge-icon partial" aria-hidden="true" style="--badge-fill-pct:${clampedFill}%"></span>`;
-    }
-    if (normalizedTier === 'silver' || normalizedTier === 'half_silver') {
-        return '<span class="progress-badge-icon silver" aria-hidden="true" style="--badge-fill-pct:100%"></span>';
-    }
-    return `<span class="progress-badge-icon gold" aria-hidden="true" style="--badge-fill-pct:${clampedFill}%"></span>`;
-}
-
-function renderResultStarStrip(starTiers, halfSilverPercent = null) {
-    if (!resultStarBadge) {
-        return;
-    }
-    let tiers = Array.isArray(starTiers)
-        ? starTiers
-            .map((tier) => String(tier || '').trim().toLowerCase())
-            .filter((tier) => tier === 'gold' || tier === 'silver' || tier === 'half_silver')
-        : [];
-    if (tiers.length > 1) {
-        tiers = [tiers[tiers.length - 1]];
-    }
-    const rawHalfSilverPercent = Number.parseFloat(halfSilverPercent);
-    const clampedHalfSilverPercent = Number.isFinite(rawHalfSilverPercent)
-        ? Math.max(0, Math.min(100, Math.round(rawHalfSilverPercent)))
-        : 50;
-    if (tiers.length === 0) {
-        resultStarBadge.textContent = '';
-        resultStarBadge.classList.add('hidden');
-        return;
-    }
-    resultStarBadge.classList.remove('hidden');
-    const latestTier = tiers[tiers.length - 1];
-    resultStarBadge.innerHTML = `Today: <span class="progress-badge-strip">${renderProgressBadgeByTier(latestTier, clampedHalfSilverPercent)}</span>`;
 }
 
 function resetBonusGame() {

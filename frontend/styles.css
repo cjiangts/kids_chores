@@ -72,7 +72,7 @@ body {
 
 @media (min-width: 761px) {
     .family-home-page .container {
-        max-width: 720px;
+        max-width: 1000px;
     }
 }
 
@@ -320,10 +320,6 @@ body {
 .kid-card .daily-stars-strip .progress-badge-icon,
 .practice-star-badge .progress-badge-icon {
     --progress-star-size: 1.1rem;
-}
-
-#resultStarBadge .progress-badge-icon {
-    --progress-star-size: 1.85rem;
 }
 
 .practice-star-badge .progress-badge-strip {
@@ -947,19 +943,60 @@ header {
 }
 
 header h1 {
-    font-size: clamp(1.9rem, 4.6vw, 3rem);
+    font-size: clamp(1.45rem, 3.2vw, 2rem);
     margin-bottom: 10px;
-    line-height: 1.1;
+    line-height: 1.2;
 }
 
 .header h1 {
-    font-size: clamp(1.85rem, 4.2vw, 2.8rem);
-    line-height: 1.1;
+    font-size: clamp(1.45rem, 3.2vw, 2rem);
+    line-height: 1.2;
 }
 
 header p {
     font-size: 1.2em;
     opacity: 0.9;
+}
+
+.page-header-with-back {
+    margin-bottom: 28px;
+    color: #fff;
+}
+
+.page-header-with-back .page-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.7rem;
+    margin-bottom: 0;
+}
+
+.page-header-with-back .page-header-row h1 {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+}
+
+.page-header-with-back .page-header-back-btn {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.page-header-with-back .page-header-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+}
+
+.page-header-with-back .page-header-actions .page-header-back-btn {
+    margin-left: 0;
+}
+
+.page-header-with-back p {
+    margin: 0;
 }
 
 .actions {
@@ -1053,19 +1090,43 @@ header p {
 
 /* Keep manage-page titles responsive on all devices. */
 .manage-page .header h1 {
-    font-size: clamp(1.5rem, 3.6vw, 2.2rem);
+    font-size: clamp(1.45rem, 3.2vw, 2rem);
     line-height: 1.2;
 }
 
 @media (max-width: 760px) {
     header h1,
     .header h1 {
-        font-size: clamp(1.45rem, 7.4vw, 2.05rem);
-        line-height: 1.15;
+        font-size: clamp(1.45rem, 3.2vw, 2rem);
+        line-height: 1.2;
     }
 
     header p {
         font-size: clamp(0.95rem, 4.2vw, 1.08rem);
+    }
+
+    .page-header-with-back {
+        margin-bottom: 20px;
+    }
+
+    .page-header-with-back .page-header-row {
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .page-header-with-back .page-header-row h1 {
+        font-size: clamp(1.45rem, 3.2vw, 2rem);
+        line-height: 1.2;
+    }
+
+    .page-header-with-back .page-header-back-btn {
+        width: auto;
+        min-width: 92px;
+        text-align: center;
+    }
+
+    .page-header-with-back .page-header-actions {
+        gap: 0.4rem;
     }
 
     .manage-page .settings-row {
@@ -1084,18 +1145,22 @@ header p {
     }
 
     .manage-page .header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.75rem;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 0.65rem;
     }
 
     .manage-page .header h1 {
-        font-size: clamp(1.2rem, 6.2vw, 1.55rem);
-        line-height: 1.25;
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: clamp(1.45rem, 3.2vw, 2rem);
+        line-height: 1.2;
     }
 
     .manage-page .back-btn {
-        width: 100%;
+        width: auto;
+        min-width: 92px;
+        margin-left: auto;
         text-align: center;
     }
 

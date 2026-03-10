@@ -96,6 +96,22 @@ function hasPositiveDailyTarget(categoryKey, categoryMetaMap, practiceTargetByCa
     return toSafeNonNegativeInt(practiceTargetByCategory?.[key]) > 0;
 }
 
+function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
+    const safeCount = Math.max(0, Number.parseInt(starCount, 10) || 0);
+    if (safeCount <= 0) {
+        return '';
+    }
+    if (safeCount <= 5) {
+        return Array.from({ length: safeCount }, () => (
+            `<span class="${starClass}" aria-hidden="true">★</span>`
+        )).join('');
+    }
+    return `
+        <span class="${starClass}" aria-hidden="true">★</span>
+        <span class="${overflowClass}" aria-label="${safeCount} stars">x${safeCount}</span>
+    `;
+}
+
 function buildFamilyProgressModel({
     starsModel,
     configuredTargetCount,
@@ -122,7 +138,6 @@ function buildFamilyProgressModel({
             starCount = Math.max(0, starCount - 1);
         }
     }
-    const bonusCount = Math.max(0, starCount - 1);
     const isWorkingOnNextStar = starCount > 0 && latestPercent < 100;
     const isDoneToday = Boolean(starsModel?.isDoneToday);
     const hasStarted = isDoneToday || latestPercent > 0;
@@ -149,6 +164,9 @@ function buildFamilyProgressModel({
         masteredCount = 0;
     }
     const redoCount = Math.max(0, seenCount - masteredCount);
+    const unseenCount = safeTarget > 0
+        ? Math.max(0, safeTarget - seenCount)
+        : 0;
 
     const seenPercent = safeTarget > 0
         ? Math.max(0, Math.min(100, (seenCount / safeTarget) * 100))
@@ -176,8 +194,11 @@ function buildFamilyProgressModel({
         summaryText,
         isDoneToday,
         starCount,
-        bonusCount,
         isWorkingOnNextStar,
+        targetCount: safeTarget,
+        masteredCount,
+        redoCount,
+        unseenCount,
         segments: {
             mastered: Math.max(0, Math.min(100, masteredPercent)),
             redo: Math.max(0, Math.min(100, redoPercent)),
@@ -246,22 +267,38 @@ function displayKids(kids) {
             ? enabledRows.map((row) => {
                 const statusClass = row.progressModel.statusClass;
                 const rightStatusHtml = row.progressModel.isDoneToday
-                    ? `
-                        <span class="redesign-status-token star" aria-hidden="true">★</span>
-                        ${row.progressModel.bonusCount > 0 ? `<span class="redesign-status-token bonus">+${row.progressModel.bonusCount}</span>` : ''}
-                    `
+                    ? renderStarTokenSetHtml(row.progressModel.starCount, {
+                        starClass: 'redesign-status-token star',
+                        overflowClass: 'redesign-status-token overflow',
+                    })
                     : `<span class="redesign-status-pill ${statusClass}">${row.progressModel.statusText}</span>`;
+                const noteHtml = row.progressModel.targetCount > 0
+                    ? `<div class="redesign-subject-note redesign-subject-legend">
+                        <span class="redesign-subject-legend-item">
+                            <span class="redesign-subject-legend-dot mastered" aria-hidden="true"></span>
+                            ${escapeHtml(String(row.progressModel.masteredCount))} mastered
+                        </span>
+                        <span class="redesign-subject-legend-item">
+                            <span class="redesign-subject-legend-dot redo" aria-hidden="true"></span>
+                            ${escapeHtml(String(row.progressModel.redoCount))} redo
+                        </span>
+                        <span class="redesign-subject-legend-item">
+                            <span class="redesign-subject-legend-dot unseen" aria-hidden="true"></span>
+                            ${escapeHtml(String(row.progressModel.unseenCount))} out of ${escapeHtml(String(row.progressModel.targetCount))} unseen
+                        </span>
+                    </div>`
+                    : `<div class="redesign-subject-note">${escapeHtml(row.progressModel.summaryText)}</div>`;
                 return `<div class="redesign-subject-row ${statusClass}">
                     <div class="redesign-subject-main">
                         <div class="redesign-subject-title">
                             <span class="redesign-subject-emoji">${escapeHtml(row.emoji)}</span>
                             <span class="redesign-subject-name">${escapeHtml(row.label)}</span>
                         </div>
-                        <div class="redesign-subject-note">${escapeHtml(row.progressModel.summaryText)}</div>
                     </div>
                     <div class="redesign-subject-right">
                         ${rightStatusHtml}
                     </div>
+                    ${noteHtml}
                     <div class="redesign-progress-wrap">
                         <div class="redesign-progress-track">
                             <span class="redesign-progress-seg mastered" style="width:${row.progressModel.segments.mastered}%"></span>

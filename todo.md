@@ -126,3 +126,18 @@
 - No backend behavior changes unless required by frontend rename
 - No DB schema/migration work
 - No compatibility redirects unless explicitly requested
+
+## Deferred: Schema Cleanup (Not Today)
+
+1. Remove unused column `decks.updated_at` from kid DB schema
+- Confirmed no runtime reads/writes of this column in backend routes.
+
+2. Remove unused column `lesson_reading_audio.created_at` from kid DB schema
+- Confirmed no runtime reads/writes of this column in backend routes.
+
+3. Optional: remove `decks.description` after tiny route updates
+- Current code still writes this field in three `INSERT INTO decks (name, description, tags)` paths.
+- If removing it, update those inserts in:
+  - `backend/src/routes/kids.py` (orphan deck create)
+  - `backend/src/routes/kids.py` (type-I shared deck materialization)
+  - `backend/src/routes/kids.py` (type-II/III shared deck materialization)

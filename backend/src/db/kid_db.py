@@ -1,6 +1,7 @@
 """DuckDB connection manager for individual kid databases"""
 import duckdb
 import os
+import threading
 from typing import Optional
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '../../data')
@@ -8,6 +9,7 @@ SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'schema.sql')
 
 _schema_sql_cache: Optional[str] = None
 _initialized_dbs: set = set()
+_schema_init_lock = threading.Lock()
 
 def _get_schema_sql() -> str:
     """Read and cache schema.sql contents."""
@@ -19,11 +21,14 @@ def _get_schema_sql() -> str:
 
 def ensure_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
     """Ensure base schema is applied. Skips if already done for this db_path."""
-    if db_path and db_path in _initialized_dbs:
+    if db_path:
+        with _schema_init_lock:
+            if db_path in _initialized_dbs:
+                return
+            conn.execute(_get_schema_sql())
+            _initialized_dbs.add(db_path)
         return
     conn.execute(_get_schema_sql())
-    if db_path:
-        _initialized_dbs.add(db_path)
 
 def get_absolute_db_path(db_file_path: str) -> str:
     """Resolve a metadata dbFilePath (relative to backend/data) to absolute path."""
@@ -63,6 +68,7 @@ def delete_kid_database_by_path(db_file_path: str) -> bool:
     db_path = get_absolute_db_path(db_file_path)
     if os.path.exists(db_path):
         os.remove(db_path)
-        _initialized_dbs.discard(db_path)
+        with _schema_init_lock:
+            _initialized_dbs.discard(db_path)
         return True
     return False

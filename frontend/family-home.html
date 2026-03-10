@@ -10,9 +10,14 @@
 </head>
 <body class="family-home-page">
     <div class="container">
-        <header>
-            <h1>🎓 Kids Daily Chores</h1>
-            <p>Daily Chinese characters, Chinese writing, and math practice for ages 4+.</p>
+        <header class="page-header-with-back">
+            <div class="page-header-row">
+                <h1>🎓 Kids Daily Chores</h1>
+                <div class="page-header-actions">
+                    <a href="/admin.html" class="back-btn btn-secondary page-header-back-btn">👨‍👩‍👧 Parent Mode</a>
+                    <a href="#" id="familyLogoutLink" class="back-btn btn-secondary">🚪 Log Out</a>
+                </div>
+            </div>
         </header>
 
         <main>
@@ -22,11 +27,6 @@
 
             <div id="errorMessage" class="error redesign-error hidden"></div>
         </main>
-
-        <footer>
-            <a href="/admin.html" class="admin-link">👨‍👩‍👧 I'm a parent</a>
-            <a href="#" id="familyLogoutLink" class="admin-link" style="margin-left: 1rem;">🚪 Log Out</a>
-        </footer>
     </div>
 
     <script src="practice-manage-common.js"></script>

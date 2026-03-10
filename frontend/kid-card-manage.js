@@ -112,6 +112,7 @@ let baselineHardCardPercent = 0;
 let isQueueSettingsSaving = false;
 let queueSettingsSaveSuccessText = '';
 let previewQueueTimer = null;
+let hasLoadedSharedCardsOnce = false;
 const CARD_PAGE_SIZE_LONG = 10;
 const CARD_PAGE_SIZE_SHORT = 60;
 const ORPHAN_BUBBLE_ID = '__orphan__';
@@ -536,11 +537,19 @@ function renderDeckPendingInfo() {
     });
 
     const orphanPending = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue;
-    const pendingText = `+${toOptIn.length}/-${toOptOut.length}`;
-    const personalText = orphanPending
-        ? ` · Personal ${stagedIncludeOrphanInQueue ? 'in' : 'out'}`
-        : '';
-    const buttonText = `Apply (${pendingText}${personalText})`;
+    const pendingParts = [];
+    if (toOptIn.length > 0) {
+        pendingParts.push(`+${toOptIn.length} ${toOptIn.length === 1 ? 'deck' : 'decks'}`);
+    }
+    if (toOptOut.length > 0) {
+        pendingParts.push(`-${toOptOut.length} ${toOptOut.length === 1 ? 'deck' : 'decks'}`);
+    }
+    if (orphanPending) {
+        pendingParts.push(`Personal ${stagedIncludeOrphanInQueue ? 'in' : 'out'}`);
+    }
+    const buttonText = pendingParts.length > 0
+        ? `Apply (${pendingParts.join(' · ')})`
+        : 'Apply';
     if (toOptIn.length === 0 && toOptOut.length === 0 && !orphanPending) {
         applyDeckChangesBtn.disabled = true;
         applyDeckChangesBtn.textContent = buttonText;
@@ -1089,6 +1098,54 @@ function cancelQueuePreviewReload() {
     }
 }
 
+async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCount) {
+    if (!hasLoadedSharedCardsOnce) {
+        hasLoadedSharedCardsOnce = true;
+        return;
+    }
+    if (previousCardCount > 0 || nextCardCount <= 0) {
+        return;
+    }
+    const currentSessionCount = getSessionCardCountForMixLegend();
+    if (currentSessionCount > 0) {
+        return;
+    }
+
+    const defaultSessionCount = 10;
+    const hardPct = normalizeHardSliderValue();
+    if (sessionCardCountInput) {
+        sessionCardCountInput.value = String(defaultSessionCount);
+    }
+    updateQueueMixLegend();
+
+    const response = await fetch(`${API_BASE}/kids/${kidId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            ...buildSessionCountPayload(defaultSessionCount),
+            ...buildHardCardPercentPayload(hardPct),
+        }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to auto-set cards/day (HTTP ${response.status})`);
+    }
+
+    applySessionCountFromPayload(result);
+    const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
+    const persistedHard = getPersistedHardCardPercentFromPayload(result);
+    const safeTotal = Math.max(0, Math.min(200, persistedTotal));
+    const safeHard = Math.max(0, Math.min(100, Number.parseInt(persistedHard, 10) || 0));
+    if (sessionCardCountInput) {
+        sessionCardCountInput.value = String(safeTotal);
+    }
+    if (hardnessPercentSlider) {
+        hardnessPercentSlider.value = String(safeHard);
+    }
+    setQueueSettingsBaseline(safeTotal, safeHard);
+    updateQueueMixLegend();
+}
+
 function buildCardReportHref(card) {
     const qs = new URLSearchParams();
     qs.set('id', String(kidId || ''));
@@ -1216,6 +1273,14 @@ function getCardOverallWrongRateValue(card) {
     return null;
 }
 
+function getCardOverallCorrectRateValue(card) {
+    const wrongRate = getCardOverallWrongRateValue(card);
+    if (!Number.isFinite(wrongRate)) {
+        return null;
+    }
+    return 100 - wrongRate;
+}
+
 function getCardLastResponseTimeValue(card) {
     const explicit = Number(card && card.last_response_time_ms);
     if (Number.isFinite(explicit) && explicit > 0) {
@@ -1277,7 +1342,7 @@ function buildCardMarkup(card, options = {}) {
             : formatDeckPillName(sourceRaw)
     );
     const addedDateText = window.PracticeManageCommon.formatAddedDate(card && card.created_at);
-    const overallWrongRateText = formatMetricPercent(getCardOverallWrongRateValue(card));
+    const overallCorrectRateText = formatMetricPercent(getCardOverallCorrectRateValue(card));
     const lastResponseTimeText = formatMillisecondsAsSecondsOrMinutes(getCardLastResponseTimeValue(card));
     const lastResultText = formatCardLastResult(card);
 
@@ -1300,7 +1365,7 @@ function buildCardMarkup(card, options = {}) {
             </div>
             ${extraSectionHtml}
             ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
-            <div style="margin-top: 10px; color: #666; font-size: 0.82rem;">Overall wrong rate: ${escapeHtml(overallWrongRateText)}</div>
+            <div style="margin-top: 10px; color: #666; font-size: 0.82rem;">Overall correct rate: ${escapeHtml(overallCorrectRateText)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last response time: ${escapeHtml(lastResponseTimeText)}</div>
             <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${escapeHtml(String(addedDateText || '-'))}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
@@ -1539,7 +1604,9 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
             return;
         }
 
+        const previousCardCount = Array.isArray(currentCards) ? currentCards.length : 0;
         currentCards = Array.isArray(data.cards) ? data.cards : [];
+        await maybeAutoSetSessionCountForNewCards(previousCardCount, currentCards.length);
         updateQueueMixLegend();
 
         const skippedCount = Number.isInteger(Number.parseInt(data.skipped_card_count, 10))

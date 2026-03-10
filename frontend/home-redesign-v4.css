@@ -107,12 +107,12 @@ body.practice-home-redesign {
 /* Family home: only kid bubble area */
 @media (min-width: 761px) {
     .family-home-page .container {
-        width: min(1520px, calc(100vw - 32px));
-        max-width: min(1520px, calc(100vw - 32px)) !important;
+        width: min(1000px, calc(100vw - 40px));
+        max-width: min(1000px, calc(100vw - 40px)) !important;
     }
 
     .family-home-page .redesign-kid-grid {
-        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
         gap: 18px;
     }
 }
@@ -122,8 +122,8 @@ body.practice-home-redesign {
 }
 
 .family-home-page header h1 {
-    font-size: clamp(2rem, 5vw, 3.1rem);
-    line-height: 1.08;
+    font-size: clamp(1.45rem, 3.2vw, 2rem);
+    line-height: 1.2;
     margin-bottom: clamp(6px, 1.2vw, 12px);
 }
 
@@ -202,7 +202,7 @@ body.practice-home-redesign {
 
 .family-home-page .redesign-subject-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 112px;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
     gap: 10px;
     border-radius: 16px;
@@ -213,6 +213,11 @@ body.practice-home-redesign {
 
 .family-home-page .redesign-subject-main {
     min-width: 0;
+}
+
+.family-home-page .redesign-subject-row > .redesign-subject-note {
+    grid-column: 1 / -1;
+    margin-top: 0;
 }
 
 .family-home-page .redesign-subject-title {
@@ -242,6 +247,49 @@ body.practice-home-redesign {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.family-home-page .redesign-subject-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem 0.55rem;
+    flex-wrap: wrap;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.family-home-page .redesign-subject-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    white-space: nowrap;
+}
+
+.family-home-page .redesign-subject-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+
+.family-home-page .redesign-subject-legend-dot.mastered {
+    background: #4d85f3;
+}
+
+.family-home-page .redesign-subject-legend-dot.redo {
+    background: #f3b53f;
+    background-image: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.7) 0px,
+        rgba(255, 255, 255, 0.7) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+}
+
+.family-home-page .redesign-subject-legend-dot.unseen {
+    background: #cfd5e7;
 }
 
 .family-home-page .redesign-progress-wrap {
@@ -288,19 +336,19 @@ body.practice-home-redesign {
     align-items: center;
     justify-content: flex-end;
     align-self: start;
-    gap: 6px;
-    width: 112px;
-    min-width: 112px;
+    gap: 2px;
+    width: auto;
+    min-width: 0;
 }
 
 .family-home-page .redesign-status-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
-    padding: 0.2rem 0.84rem;
+    min-height: 22px;
+    padding: 0.04rem 0.46rem;
     border-radius: 999px;
-    font-size: 0.92rem;
+    font-size: 0.76rem;
     font-weight: 700;
     line-height: 1;
     white-space: nowrap;
@@ -342,12 +390,12 @@ body.practice-home-redesign {
     border: 1px solid #f0ce74;
 }
 
-.family-home-page .redesign-status-token.bonus {
+.family-home-page .redesign-status-token.overflow {
     min-width: 36px;
     padding: 0 0.44rem;
-    color: #6e4bff;
-    background: linear-gradient(135deg, #ffdff0, #d9ddff, #d5f8ff);
-    border: 1px solid #d7dbff;
+    color: #4b5a70;
+    background: #edf2f7;
+    border: 1px solid #d8e0ea;
 }
 
 /* Kid practice home */
@@ -412,35 +460,44 @@ body.practice-home-redesign {
     line-height: 1.2;
 }
 
-.practice-home-redesign .practice-row-badges {
-    margin-top: 6px;
-    display: inline-flex;
+.practice-home-redesign .practice-row-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem 0.55rem;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
 }
 
-.practice-home-redesign .practice-row-mini-badge {
+.practice-home-redesign .practice-row-legend-item {
     display: inline-flex;
     align-items: center;
-    min-height: 22px;
-    padding: 0.15rem 0.55rem;
+    gap: 0.34rem;
+    white-space: nowrap;
+}
+
+.practice-home-redesign .practice-row-legend-dot {
+    width: 9px;
+    height: 9px;
     border-radius: 999px;
-    font-size: 0.82rem;
-    line-height: 1;
-    font-weight: 800;
+    flex: 0 0 auto;
 }
 
-.practice-home-redesign .practice-row-mini-badge.pink {
-    color: #b4236d;
-    background: #ffe9f5;
-    border: 1px solid #ffd3e9;
+.practice-home-redesign .practice-row-legend-dot.mastered {
+    background: #4d85f3;
 }
 
-.practice-home-redesign .practice-row-mini-badge.amber {
-    color: #986000;
-    background: #fff2d8;
-    border: 1px solid #f0cd84;
+.practice-home-redesign .practice-row-legend-dot.redo {
+    background: #f3b53f;
+    background-image: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.7) 0px,
+        rgba(255, 255, 255, 0.7) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+}
+
+.practice-home-redesign .practice-row-legend-dot.unseen {
+    background: #cfd5e7;
 }
 
 .practice-home-redesign .practice-row-progress {
@@ -509,7 +566,7 @@ body.practice-home-redesign {
 }
 
 .practice-home-redesign .practice-row-token-star,
-.practice-home-redesign .practice-row-token-bonus {
+.practice-home-redesign .practice-row-token-overflow {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -527,12 +584,12 @@ body.practice-home-redesign {
     border: 1px solid #f0ce74;
 }
 
-.practice-home-redesign .practice-row-token-bonus {
+.practice-home-redesign .practice-row-token-overflow {
     min-width: 38px;
     padding: 0 0.45rem;
-    color: #6e4bff;
-    background: linear-gradient(135deg, #ffdff0, #d9ddff, #d5f8ff);
-    border: 1px solid #d7dbff;
+    color: #4b5a70;
+    background: #edf2f7;
+    border: 1px solid #d8e0ea;
     font-size: 1rem;
 }
 
@@ -603,7 +660,7 @@ body.practice-home-redesign {
     }
 
     .family-home-page header h1 {
-        font-size: clamp(1.62rem, 7.4vw, 2.05rem);
+        font-size: clamp(1.45rem, 3.2vw, 2rem);
         margin-bottom: 8px;
     }
 
@@ -618,7 +675,7 @@ body.practice-home-redesign {
     }
 
     .family-home-page .redesign-subject-row {
-        grid-template-columns: minmax(0, 1fr) 100px;
+        grid-template-columns: minmax(0, 1fr) auto;
         gap: 6px;
         padding: 8px 9px;
     }
@@ -626,8 +683,8 @@ body.practice-home-redesign {
     .family-home-page .redesign-subject-right {
         justify-content: flex-end;
         align-self: start;
-        width: 100px;
-        min-width: 100px;
+        width: auto;
+        min-width: 0;
     }
 
     .practice-home-redesign .practice-row-head h3 {
@@ -665,9 +722,9 @@ body.practice-home-redesign {
     }
 
     .family-home-page .redesign-status-pill {
-        min-height: 28px;
-        font-size: 0.8rem;
-        padding: 0.12rem 0.62rem;
+        min-height: 20px;
+        font-size: 0.68rem;
+        padding: 0.04rem 0.36rem;
     }
 
     .family-home-page .redesign-status-token {
@@ -676,7 +733,7 @@ body.practice-home-redesign {
         font-size: 0.9rem;
     }
 
-    .family-home-page .redesign-status-token.bonus {
+    .family-home-page .redesign-status-token.overflow {
         min-width: 32px;
         padding: 0 0.36rem;
     }

@@ -26,12 +26,6 @@
             line-height: 1.2;
         }
 
-        .worksheet-page-note {
-            margin: 0 0 0.9rem 0;
-            color: #e7ecff;
-            font-size: 0.95rem;
-        }
-
         .type2-sheet-layout {
             display: flex;
             flex-direction: column;
@@ -299,12 +293,21 @@
 
         @media (max-width: 760px) {
             .worksheet-manage-page .header {
-                flex-direction: column;
-                align-items: stretch;
+                flex-direction: row;
+                align-items: flex-start;
+                justify-content: space-between;
+            }
+
+            .worksheet-manage-page .header h1 {
+                flex: 1 1 auto;
+                min-width: 0;
+                margin-right: 0.35rem;
             }
 
             .worksheet-manage-page .back-btn {
-                width: 100%;
+                width: auto;
+                min-width: 92px;
+                margin-left: auto;
                 text-align: center;
             }
 
@@ -331,8 +334,6 @@
             <h1 id="pageTitle">Printable work sheets (Chinese Writing)</h1>
             <a id="backBtn" href="/admin.html" class="back-btn btn-secondary">← Back to Admin</a>
         </div>
-
-        <p id="pageSubtitle" class="worksheet-page-note"></p>
 
         <div id="errorMessage" class="error hidden"></div>
 

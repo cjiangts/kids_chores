@@ -170,6 +170,22 @@ async function warmWritingCards() {
     }
 }
 
+function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
+    const safeCount = Math.max(0, Number.parseInt(starCount, 10) || 0);
+    if (safeCount <= 0) {
+        return '';
+    }
+    if (safeCount <= 5) {
+        return Array.from({ length: safeCount }, () => (
+            `<span class="${starClass}" aria-hidden="true">★</span>`
+        )).join('');
+    }
+    return `
+        <span class="${starClass}" aria-hidden="true">★</span>
+        <span class="${overflowClass}" aria-label="${safeCount} stars">x${safeCount}</span>
+    `;
+}
+
 function buildCategoryProgressModel({
     categoryKey,
     dailyStarTiersByCategory,
@@ -238,7 +254,6 @@ function buildCategoryProgressModel({
             starCount = Math.max(0, starCount - 1);
         }
     }
-    const bonusCount = Math.max(0, starCount - 1);
     const isWorkingOnNextStar = starCount > 0 && latestPercentValue < 100;
 
     let statusClass = 'not-started';
@@ -254,6 +269,9 @@ function buildCategoryProgressModel({
     const subText = targetCount > 0
         ? `${masteredCount} mastered · ${redoCount} redo · ${seenCount}/${targetCount} seen`
         : 'Not started';
+    const unseenCount = targetCount > 0
+        ? Math.max(0, targetCount - seenCount)
+        : 0;
     const unseenPercent = Math.max(0, 100 - seenPercent);
 
     return {
@@ -265,12 +283,12 @@ function buildCategoryProgressModel({
         bonusPercent,
         latestPercentValue,
         starCount,
-        bonusCount,
         isWorkingOnNextStar,
         targetCount,
         seenCount,
         masteredCount,
         redoCount,
+        unseenCount,
         masteredPercent,
         redoPercent,
         unseenPercent,
@@ -285,26 +303,35 @@ function buildCategoryCardInnerHtml({
 }) {
     let rightBadgeHtml = `<span class="practice-row-status-pill ${progressModel.statusClass}">${progressModel.statusText}</span>`;
     if (progressModel.isDoneToday && progressModel.starCount > 0) {
-        rightBadgeHtml = `
-            <span class="practice-row-token-star">★</span>
-            ${progressModel.bonusCount > 0 ? `<span class="practice-row-token-bonus">+${progressModel.bonusCount}</span>` : ''}
-        `;
+        rightBadgeHtml = renderStarTokenSetHtml(progressModel.starCount, {
+            starClass: 'practice-row-token-star',
+            overflowClass: 'practice-row-token-overflow',
+        });
     }
 
-    const earnedBadgeHtml = (progressModel.isWorkingOnNextStar && progressModel.starCount > 0)
-        ? `<div class="practice-row-badges">
-            <span class="practice-row-mini-badge pink">${progressModel.starCount} star${progressModel.starCount === 1 ? '' : 's'} earned</span>
-            <span class="practice-row-mini-badge amber">Next: star ${progressModel.starCount + 1}</span>
+    const subTextHtml = progressModel.targetCount > 0
+        ? `<div class="practice-row-sub practice-row-legend">
+            <span class="practice-row-legend-item">
+                <span class="practice-row-legend-dot mastered" aria-hidden="true"></span>
+                ${escapeHtmlLocal(String(progressModel.masteredCount))} mastered
+            </span>
+            <span class="practice-row-legend-item">
+                <span class="practice-row-legend-dot redo" aria-hidden="true"></span>
+                ${escapeHtmlLocal(String(progressModel.redoCount))} redo
+            </span>
+            <span class="practice-row-legend-item">
+                <span class="practice-row-legend-dot unseen" aria-hidden="true"></span>
+                ${escapeHtmlLocal(String(progressModel.unseenCount))} out of ${escapeHtmlLocal(String(progressModel.targetCount))} unseen
+            </span>
         </div>`
-        : '';
+        : `<div class="practice-row-sub">${escapeHtmlLocal(progressModel.subText)}</div>`;
 
     return `
         <div class="practice-row-head">
             <h3>${escapeHtmlLocal(emoji)} ${escapeHtmlLocal(displayName)}</h3>
             <div class="practice-row-right">${rightBadgeHtml}</div>
         </div>
-        <div class="practice-row-sub">${escapeHtmlLocal(progressModel.subText)}</div>
-        ${earnedBadgeHtml}
+        ${subTextHtml}
         <div class="practice-row-progress">
             <span class="practice-row-seg mastered" style="width:${progressModel.masteredPercent}%"></span>
             <span class="practice-row-seg redo" style="width:${progressModel.redoPercent}%"></span>

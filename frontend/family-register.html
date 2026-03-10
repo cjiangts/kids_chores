@@ -30,16 +30,16 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🏠 Family Register</h1>
-            <p>Create your family account</p>
+        <header class="page-header-with-back">
+            <div class="page-header-row">
+                <h1>🏠 Family Register</h1>
+            </div>
         </header>
 
         <main>
             <div class="register-wrap">
                 <section class="auth-card">
                     <h2>Register New Family</h2>
-                    <p>Username + password.</p>
                     <form id="familyRegisterForm">
                         <div class="form-group">
                             <label for="registerUsername">Family Username</label>
@@ -55,10 +55,7 @@
                         </div>
                         <button type="submit" class="btn-primary">Register</button>
                     </form>
-                    <p style="margin-top: 0.9rem;">
-                        Already have an account?
-                        <a href="/index.html">Back to login</a>
-                    </p>
+                    <p style="margin-top: 0.9rem;">Already have an account? <a href="/index.html">Sign in</a></p>
                 </section>
             </div>
             <div id="errorMessage" class="error hidden"></div>
