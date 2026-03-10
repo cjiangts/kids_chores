@@ -3,13 +3,11 @@ const API_BASE = `${window.location.origin}/api`;
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
 const deckTableBody = document.getElementById('deckTableBody');
-const deckCountInfo = document.getElementById('deckCountInfo');
 const createDeckNavBtn = document.getElementById('createDeckNavBtn');
 const createDeckBulkNavBtn = document.getElementById('createDeckBulkNavBtn');
 const errorMessage = document.getElementById('errorMessage');
 const deckCategoryFilterWrap = document.getElementById('deckCategoryFilterWrap');
 const deckTagFilterInput = document.getElementById('deckTagFilter');
-const selectAllVisibleCheckbox = document.getElementById('selectAllVisibleCheckbox');
 const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 
 const DECK_RENDER_CHUNK_SIZE = 20;
@@ -42,14 +40,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    if (selectAllVisibleCheckbox) {
-        selectAllVisibleCheckbox.addEventListener('change', () => {
-            toggleSelectAllVisible(selectAllVisibleCheckbox.checked);
-        });
-    }
     if (deleteSelectedBtn) {
         deleteSelectedBtn.addEventListener('click', async () => {
-            await deleteSelectedDecks();
+            await deleteShownDecks();
         });
     }
     if (tableWrap) {
@@ -75,8 +68,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     updateBulkSelectionUi();
-    syncSelectAllVisibleCheckbox();
-    updateDeckCountInfo(0, 0);
     await loadDeckCategoryMeta();
     await loadMyDecks();
 });
@@ -354,9 +345,7 @@ function renderDecks() {
         tableWrap.classList.add('hidden');
         emptyState.textContent = 'No decks yet. Create your first one.';
         emptyState.classList.remove('hidden');
-        updateDeckCountInfo(0, 0);
         updateBulkSelectionUi();
-        syncSelectAllVisibleCheckbox();
         return;
     }
 
@@ -372,9 +361,7 @@ function renderDecks() {
         tableWrap.classList.add('hidden');
         emptyState.textContent = buildDeckEmptyStateMessage();
         emptyState.classList.remove('hidden');
-        updateDeckCountInfo(0, 0);
         updateBulkSelectionUi();
-        syncSelectAllVisibleCheckbox();
         return;
     }
 
@@ -389,7 +376,6 @@ function renderDecks() {
     fillTableViewport();
 
     updateBulkSelectionUi();
-    syncSelectAllVisibleCheckbox();
 }
 
 function renderDeckRowHtml(deck) {
@@ -400,12 +386,12 @@ function renderDeckRowHtml(deck) {
         : '-';
     return `
         <tr>
-            <td class="deck-id-col">${deckId}</td>
-            <td class="deck-tags-col">${tagHtml}</td>
-            <td>${Number(deck.card_count || 0)}</td>
             <td class="shared-report-table-action-cell">
                 <a class="tab-link secondary mini-link-btn table-action-btn" href="/deck-view.html?deckId=${encodeURIComponent(String(deckId))}">View</a>
             </td>
+            <td class="deck-id-col">${deckId}</td>
+            <td class="deck-tags-col">${tagHtml}</td>
+            <td>${Number(deck.card_count || 0)}</td>
         </tr>
     `;
 }
@@ -413,18 +399,15 @@ function renderDeckRowHtml(deck) {
 function appendNextDeckChunk() {
     const total = currentFilteredDecks.length;
     if (renderedDeckCount >= total) {
-        updateDeckCountInfo(total, total);
         return false;
     }
 
     const nextDecks = currentFilteredDecks.slice(renderedDeckCount, renderedDeckCount + DECK_RENDER_CHUNK_SIZE);
     if (nextDecks.length === 0) {
-        updateDeckCountInfo(total, renderedDeckCount);
         return false;
     }
     deckTableBody.insertAdjacentHTML('beforeend', nextDecks.map(renderDeckRowHtml).join(''));
     renderedDeckCount += nextDecks.length;
-    updateDeckCountInfo(total, renderedDeckCount);
     return true;
 }
 
@@ -459,65 +442,33 @@ function handleTableScroll() {
     }
 }
 
-function updateDeckCountInfo(total, shown) {
-    if (!deckCountInfo) {
-        return;
-    }
-    const safeTotal = Number.isFinite(total) ? Math.max(0, Math.trunc(total)) : 0;
-    const safeShown = Number.isFinite(shown) ? Math.max(0, Math.min(Math.trunc(shown), safeTotal)) : 0;
-    deckCountInfo.textContent = `Showing ${safeShown} of ${safeTotal} deck(s)`;
-}
-
-function toggleSelectAllVisible(checked) {
-    if (isBulkDeleting) {
-        return;
-    }
-    updateBulkSelectionUi();
-    syncSelectAllVisibleCheckbox();
-}
-
-function syncSelectAllVisibleCheckbox() {
-    if (!selectAllVisibleCheckbox) {
-        return;
-    }
-    const visibleCount = currentFilteredDeckIds.length;
-    selectAllVisibleCheckbox.disabled = visibleCount === 0 || isBulkDeleting;
-    if (visibleCount === 0) {
-        selectAllVisibleCheckbox.checked = false;
-    }
-    selectAllVisibleCheckbox.indeterminate = false;
-}
-
 function updateBulkSelectionUi() {
-    const allVisibleSelected = Boolean(selectAllVisibleCheckbox && selectAllVisibleCheckbox.checked);
-    const selectedCount = allVisibleSelected ? currentFilteredDeckIds.length : 0;
+    const shownCount = currentFilteredDeckIds.length;
 
     if (deleteSelectedBtn) {
-        deleteSelectedBtn.disabled = selectedCount === 0 || isBulkDeleting;
+        deleteSelectedBtn.disabled = shownCount === 0 || isBulkDeleting;
         deleteSelectedBtn.textContent = isBulkDeleting
             ? 'Deleting...'
-            : `Delete Selected (${selectedCount})`;
+            : `Delete Shown (${shownCount})`;
     }
 }
 
-async function deleteSelectedDecks() {
+async function deleteShownDecks() {
     if (isBulkDeleting) {
         return;
     }
-    const allVisibleSelected = Boolean(selectAllVisibleCheckbox && selectAllVisibleCheckbox.checked);
-    const targets = allVisibleSelected ? currentFilteredDeckIds.slice() : [];
+    const targets = currentFilteredDeckIds.slice();
     if (targets.length === 0) {
         return;
     }
 
-    const confirmed = window.confirm(`Delete ${targets.length} selected deck(s)? This cannot be undone.`);
+    const confirmed = window.confirm(`Delete ${targets.length} shown deck(s)? This cannot be undone.`);
     if (!confirmed) {
         return;
     }
 
     isBulkDeleting = true;
     updateBulkSelectionUi();
-    syncSelectAllVisibleCheckbox();
     showError('');
 
     const failures = [];

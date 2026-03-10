@@ -18,6 +18,7 @@ const {
 const {
     buildCategoryStarsModel,
 } = window.PracticeStarBadgeCommon || {};
+const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
 
 if (!buildCategoryStarsModel) {
     throw new Error('practice-star-badge-common.js is required for app');
@@ -80,6 +81,19 @@ function toSafeNonNegativeInt(value) {
         return 0;
     }
     return parsed;
+}
+
+function hasPositiveDailyTarget(categoryKey, categoryMetaMap, practiceTargetByCategory) {
+    const key = normalizeCategoryKey(categoryKey);
+    if (!key) {
+        return false;
+    }
+    const meta = categoryMetaMap?.[key] || {};
+    const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
+    if (!VALID_BEHAVIOR_TYPES.has(behaviorType)) {
+        return false;
+    }
+    return toSafeNonNegativeInt(practiceTargetByCategory?.[key]) > 0;
 }
 
 function buildFamilyProgressModel({
@@ -198,12 +212,10 @@ function displayKids(kids) {
         const enabledRows = [];
         let starsTotal = 0;
         optedInKeys.forEach((categoryKey) => {
-            const targetCount = Number(practiceTargetByCategory[categoryKey] || 0);
-            const completedCount = Number(dailyCompletedByCategory[categoryKey] || 0);
-            const isAssigned = targetCount > 0 || completedCount > 0;
-            if (!isAssigned) {
+            if (!hasPositiveDailyTarget(categoryKey, categoryMetaMap, practiceTargetByCategory)) {
                 return;
             }
+            const targetCount = toSafeNonNegativeInt(practiceTargetByCategory[categoryKey]);
             const starsModel = buildCategoryStarsModel({
                 categoryKey,
                 dailyStarTiersByCategory,

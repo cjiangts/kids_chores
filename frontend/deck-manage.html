@@ -70,14 +70,6 @@
             flex-wrap: wrap;
         }
 
-        .bulk-actions label {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.92rem;
-            color: #333;
-        }
-
         .deck-category-filter-row {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -175,14 +167,8 @@
                     </div>
                 </div>
 
-                <p id="deckCountInfo" class="deck-count-info">Showing 0 of 0 deck(s)</p>
-
                 <div class="bulk-actions">
-                    <label>
-                        <input id="selectAllVisibleCheckbox" type="checkbox">
-                        Select all visible
-                    </label>
-                    <button id="deleteSelectedBtn" type="button" class="btn-danger">Delete Selected</button>
+                    <button id="deleteSelectedBtn" type="button" class="btn-danger">Delete Shown (0)</button>
                 </div>
 
                 <div id="emptyState" class="deck-empty hidden">No decks yet. Create your first one.</div>
@@ -191,10 +177,10 @@
                     <table class="shared-report-table">
                         <thead>
                             <tr>
+                                <th class="shared-report-table-action-cell">Actions</th>
                                 <th class="deck-id-col">Deck ID</th>
                                 <th class="deck-tags-col">Tags</th>
                                 <th class="table-col-110">Cards</th>
-                                <th class="shared-report-table-action-cell">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="deckTableBody"></tbody>

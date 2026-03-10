@@ -133,9 +133,6 @@ function renderDeck(payload) {
     cardsTableBody.innerHTML = cards.map((card, index) => {
         return `
             <tr>
-                <td>${index + 1}</td>
-                <td>${escapeHtml(card.front || '')}</td>
-                <td>${escapeHtml(card.back || '')}</td>
                 <td>
                     <button
                         type="button"
@@ -144,6 +141,9 @@ function renderDeck(payload) {
                         data-card-id="${Number(card.id || 0)}"
                     >Delete</button>
                 </td>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(card.front || '')}</td>
+                <td>${escapeHtml(card.back || '')}</td>
             </tr>
         `;
     }).join('');
