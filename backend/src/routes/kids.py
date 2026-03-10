@@ -36,7 +36,7 @@ TYPE_I_NON_CHINESE_DECK_MIX_FIELD = 'sharedMathDeckMix'
 SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'sessionCardCountByCategory'
 HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'hardCardPercentageByCategory'
 INCLUDE_ORPHAN_BY_CATEGORY_FIELD = 'includeOrphanByCategory'
-MAX_WRITING_SHEET_ROWS = 10
+MAX_WRITING_SHEET_ROWS = 12
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
@@ -8660,8 +8660,8 @@ def preview_writing_sheet(kid_id):
 
         if requested_count < MIN_SESSION_CARD_COUNT or requested_count > MAX_SESSION_CARD_COUNT:
             return jsonify({'error': f'count must be between {MIN_SESSION_CARD_COUNT} and {MAX_SESSION_CARD_COUNT}'}), 400
-        if requested_rows < 1 or requested_rows > 10:
-            return jsonify({'error': 'rows_per_character must be between 1 and 10'}), 400
+        if requested_rows < 1 or requested_rows > MAX_WRITING_SHEET_ROWS:
+            return jsonify({'error': f'rows_per_character must be between 1 and {MAX_WRITING_SHEET_ROWS}'}), 400
         if requested_count * requested_rows > MAX_WRITING_SHEET_ROWS:
             max_cards = max(1, MAX_WRITING_SHEET_ROWS // requested_rows)
             return jsonify({
@@ -8738,8 +8738,8 @@ def finalize_writing_sheet(kid_id):
 
         if not isinstance(raw_ids, list) or len(raw_ids) == 0:
             return jsonify({'error': 'card_ids must be a non-empty list'}), 400
-        if requested_rows < 1 or requested_rows > 10:
-            return jsonify({'error': 'rows_per_character must be between 1 and 10'}), 400
+        if requested_rows < 1 or requested_rows > MAX_WRITING_SHEET_ROWS:
+            return jsonify({'error': f'rows_per_character must be between 1 and {MAX_WRITING_SHEET_ROWS}'}), 400
 
         normalized_ids = []
         for cid in raw_ids:
@@ -8861,8 +8861,8 @@ def create_writing_sheet(kid_id):
 
         if requested_count < MIN_SESSION_CARD_COUNT or requested_count > MAX_SESSION_CARD_COUNT:
             return jsonify({'error': f'count must be between {MIN_SESSION_CARD_COUNT} and {MAX_SESSION_CARD_COUNT}'}), 400
-        if requested_rows < 1 or requested_rows > 10:
-            return jsonify({'error': 'rows_per_character must be between 1 and 10'}), 400
+        if requested_rows < 1 or requested_rows > MAX_WRITING_SHEET_ROWS:
+            return jsonify({'error': f'rows_per_character must be between 1 and {MAX_WRITING_SHEET_ROWS}'}), 400
         total_rows_requested = requested_count * requested_rows
         if total_rows_requested > MAX_WRITING_SHEET_ROWS:
             max_cards = max(1, MAX_WRITING_SHEET_ROWS // requested_rows)

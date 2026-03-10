@@ -4,7 +4,7 @@ const params = new URLSearchParams(window.location.search);
 const kidId = String(params.get('id') || '').trim();
 const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 
-const WRITING_SHEET_MAX_ROWS = 10;
+const WRITING_SHEET_MAX_ROWS = 12;
 
 const pageTitleEl = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
@@ -20,10 +20,143 @@ const sheetRowsPerCharInput = document.getElementById('sheetRowsPerChar');
 const createSheetBtn = document.getElementById('createSheetBtn');
 const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 
+const MAX_SHEET_CARD_COUNT = 200;
 let activeCategoryKey = requestedCategoryKey;
 let activeCategoryDisplayName = 'Chinese Writing';
 let activeKidName = '';
 let state2Cards = [];
+let isCreateSheetInFlight = false;
+
+function parseIntegerInputValue(input) {
+    if (!input) {
+        return null;
+    }
+    const value = Number.parseInt(String(input.value || '').trim(), 10);
+    return Number.isInteger(value) ? value : null;
+}
+
+function buildSheetConfigState() {
+    const count = parseIntegerInputValue(sheetCardCountInput);
+    const rowsPerCharacter = parseIntegerInputValue(sheetRowsPerCharInput);
+    const candidateCount = Array.isArray(state2Cards) ? state2Cards.length : 0;
+    const hasZeroInput = count === 0 || rowsPerCharacter === 0;
+
+    const countInRange = Number.isInteger(count) && count >= 1 && count <= MAX_SHEET_CARD_COUNT;
+    const rowsInRange = Number.isInteger(rowsPerCharacter) && rowsPerCharacter >= 1 && rowsPerCharacter <= WRITING_SHEET_MAX_ROWS;
+    const usedRows = countInRange && rowsInRange ? count * rowsPerCharacter : null;
+    const overflowsPage = Number.isInteger(usedRows) && usedRows > WRITING_SHEET_MAX_ROWS;
+    const emptyRows = Number.isInteger(usedRows)
+        ? Math.max(0, WRITING_SHEET_MAX_ROWS - Math.min(WRITING_SHEET_MAX_ROWS, usedRows))
+        : null;
+    const maxCardsForRows = rowsInRange
+        ? Math.max(1, Math.floor(WRITING_SHEET_MAX_ROWS / rowsPerCharacter))
+        : 1;
+
+    let blockReason = '';
+    if (hasZeroInput) {
+        blockReason = 'zero';
+    } else if (!countInRange && !rowsInRange) {
+        blockReason = 'count_and_rows';
+    } else if (!countInRange) {
+        blockReason = 'count';
+    } else if (!rowsInRange) {
+        blockReason = 'rows';
+    } else if (overflowsPage) {
+        blockReason = 'overflow';
+    } else if (candidateCount <= 0) {
+        blockReason = 'empty_candidates';
+    }
+
+    const canSubmit = !isCreateSheetInFlight && !blockReason;
+
+    return {
+        count,
+        rowsPerCharacter,
+        countInRange,
+        rowsInRange,
+        candidateCount,
+        usedRows,
+        emptyRows,
+        overflowsPage,
+        maxCardsForRows,
+        blockReason,
+        canSubmit,
+    };
+}
+
+function getSheetConfigErrorMessage(config) {
+    if (!config || !config.blockReason) {
+        return '';
+    }
+    if (config.blockReason === 'zero') {
+        return 'No cards.';
+    }
+    if (config.blockReason === 'count_and_rows') {
+        return `Cards per sheet must be 1-${MAX_SHEET_CARD_COUNT}, and rows per card must be 1-${WRITING_SHEET_MAX_ROWS}.`;
+    }
+    if (config.blockReason === 'count') {
+        return `Cards per sheet must be between 1 and ${MAX_SHEET_CARD_COUNT}.`;
+    }
+    if (config.blockReason === 'rows') {
+        return `Rows per card must be between 1 and ${WRITING_SHEET_MAX_ROWS}.`;
+    }
+    if (config.blockReason === 'overflow') {
+        return `This setup does not fit in one page (${WRITING_SHEET_MAX_ROWS} rows max). With ${config.rowsPerCharacter} row(s) per card, max cards is ${config.maxCardsForRows}.`;
+    }
+    if (config.blockReason === 'empty_candidates') {
+        return 'No eligible cards to print right now.';
+    }
+    return 'Invalid sheet configuration.';
+}
+
+function getGenerateButtonText(config) {
+    if (isCreateSheetInFlight) {
+        return 'Generating...';
+    }
+    if (!config) {
+        return 'Generate';
+    }
+    if (config.blockReason === 'zero') {
+        return 'Generate (no cards)';
+    }
+    if (config.blockReason === 'count_and_rows') {
+        return `Generate (cards 1-${MAX_SHEET_CARD_COUNT}, rows 1-${WRITING_SHEET_MAX_ROWS})`;
+    }
+    if (config.blockReason === 'count') {
+        return `Generate (cards 1-${MAX_SHEET_CARD_COUNT})`;
+    }
+    if (config.blockReason === 'rows') {
+        return `Generate (rows 1-${WRITING_SHEET_MAX_ROWS})`;
+    }
+    if (config.blockReason === 'overflow') {
+        if (Number.isInteger(config.usedRows)) {
+            return `Generate (${config.usedRows}/${WRITING_SHEET_MAX_ROWS} rows can't fit in 1 page)`;
+        }
+        return 'Generate (does not fit in 1 page)';
+    }
+    if (config.blockReason === 'empty_candidates') {
+        return 'Generate (no cards)';
+    }
+    if (!Number.isInteger(config.emptyRows)) {
+        return 'Generate';
+    }
+    return `Generate (${config.emptyRows}/${WRITING_SHEET_MAX_ROWS} rows are empty)`;
+}
+
+function updateGenerateSheetButtonState() {
+    if (!createSheetBtn) {
+        return;
+    }
+    const config = buildSheetConfigState();
+    createSheetBtn.textContent = getGenerateButtonText(config);
+    createSheetBtn.disabled = !config.canSubmit;
+    const title = getSheetConfigErrorMessage(config);
+    if (title) {
+        createSheetBtn.title = title;
+        return;
+    }
+    createSheetBtn.removeAttribute('title');
+}
 
 function escapeHtml(text) {
     return String(text || '')
@@ -135,12 +268,14 @@ function applySuggestedType2SheetInputs() {
     if (candidateCount <= 0) {
         sheetCardCountInput.value = '1';
         sheetRowsPerCharInput.value = '1';
+        updateGenerateSheetButtonState();
         return;
     }
     const suggestedCards = Math.max(1, Math.min(WRITING_SHEET_MAX_ROWS, candidateCount));
     const suggestedRows = Math.max(1, Math.floor(WRITING_SHEET_MAX_ROWS / suggestedCards));
     sheetCardCountInput.value = String(suggestedCards);
     sheetRowsPerCharInput.value = String(suggestedRows);
+    updateGenerateSheetButtonState();
 }
 
 function renderSuggestedCards() {
@@ -220,6 +355,7 @@ async function loadSuggestedCards() {
     state2Cards = Array.isArray(data.practicing_cards) ? data.practicing_cards : [];
     renderSuggestedCards();
     applySuggestedType2SheetInputs();
+    updateGenerateSheetButtonState();
 }
 
 async function loadSheets() {
@@ -261,7 +397,7 @@ function renderSheets(sheets) {
         const finishedDay = isDone ? formatDate(sheet && sheet.completed_at) : '-';
         const finishedIn = isDone ? formatDuration(sheet && sheet.created_at, sheet && sheet.completed_at) : '-';
         const deleteBtnHtml = isPending
-            ? `<button type="button" class="sheet-delete-icon" data-sheet-action="delete" data-sheet-id="${safeSheetId}" aria-label="Delete sheet" title="Delete sheet">×</button>`
+            ? `<button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>`
             : '';
 
         return `
@@ -270,7 +406,6 @@ function renderSheets(sheets) {
                     <div>Sheet #${safeSheetId}</div>
                     <div class="sheet-head-right">
                         <span class="status ${statusClass}">${statusLabel}</span>
-                        ${deleteBtnHtml}
                     </div>
                 </div>
                 <div class="sheet-meta">
@@ -279,9 +414,10 @@ function renderSheets(sheets) {
                     Time to finish: ${escapeHtml(finishedIn)}
                 </div>
                 <div class="sheet-cards">${answersHtml}</div>
-                <div class="sheet-actions">
+                <div class="sheet-actions ${isPending ? 'pending' : 'done'}">
                     <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">Print</button>
                     ${isPending ? `<button type="button" class="done-btn" data-sheet-action="done" data-sheet-id="${safeSheetId}">Mark Done</button>` : ''}
+                    ${deleteBtnHtml}
                 </div>
             </article>
         `;
@@ -359,23 +495,16 @@ async function deleteSheet(sheetId) {
 async function createType2ChineseSheet() {
     try {
         showSheetError('');
-        const count = Number.parseInt(sheetCardCountInput ? sheetCardCountInput.value : '', 10);
-        const rowsPerCharacter = Number.parseInt(sheetRowsPerCharInput ? sheetRowsPerCharInput.value : '', 10);
+        const config = buildSheetConfigState();
+        if (!config.canSubmit) {
+            showSheetError(getSheetConfigErrorMessage(config));
+            return;
+        }
+        const count = config.count;
+        const rowsPerCharacter = config.rowsPerCharacter;
 
-        if (!Number.isInteger(count) || count < 1 || count > 200) {
-            showSheetError('Cards per sheet must be between 1 and 200.');
-            return;
-        }
-        if (!Number.isInteger(rowsPerCharacter) || rowsPerCharacter < 1 || rowsPerCharacter > 10) {
-            showSheetError('Rows per card must be between 1 and 10.');
-            return;
-        }
-        if (count * rowsPerCharacter > WRITING_SHEET_MAX_ROWS) {
-            const maxCards = Math.max(1, Math.floor(WRITING_SHEET_MAX_ROWS / rowsPerCharacter));
-            showSheetError(`One page max is ${WRITING_SHEET_MAX_ROWS} rows. With ${rowsPerCharacter} row(s) per card, max cards is ${maxCards}.`);
-            return;
-        }
-
+        isCreateSheetInFlight = true;
+        updateGenerateSheetButtonState();
         const response = await fetch(buildType2ApiUrl('/sheets'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -397,6 +526,9 @@ async function createType2ChineseSheet() {
     } catch (error) {
         console.error('Error generating Chinese writing sheet:', error);
         showSheetError(error.message || 'Failed to generate practice sheet.');
+    } finally {
+        isCreateSheetInFlight = false;
+        updateGenerateSheetButtonState();
     }
 }
 
@@ -409,6 +541,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (createSheetBtn) {
         createSheetBtn.addEventListener('click', async () => {
             await createType2ChineseSheet();
+        });
+    }
+    if (sheetCardCountInput) {
+        sheetCardCountInput.addEventListener('input', () => {
+            showSheetError('');
+            updateGenerateSheetButtonState();
+        });
+    }
+    if (sheetRowsPerCharInput) {
+        sheetRowsPerCharInput.addEventListener('input', () => {
+            showSheetError('');
+            updateGenerateSheetButtonState();
         });
     }
     if (sheetList) {
@@ -446,8 +590,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await loadKidInfo();
         await Promise.all([loadSuggestedCards(), loadSheets()]);
+        updateGenerateSheetButtonState();
     } catch (error) {
         console.error('Error loading worksheet manage page:', error);
         showError(error.message || 'Failed to load printable worksheets page.');
+        updateGenerateSheetButtonState();
     }
 });

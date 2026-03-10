@@ -29,12 +29,14 @@
             align-items: center;
             margin-bottom: 16px;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .toolbar-actions {
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            margin-left: auto;
         }
 
         .toolbar button,
@@ -51,6 +53,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            min-height: 40px;
+            white-space: nowrap;
         }
 
         .toolbar .toolbar-link.secondary {
@@ -61,6 +65,19 @@
         .sheet-title {
             font-size: 1.3rem;
             font-weight: 700;
+            line-height: 1.2;
+            min-width: 0;
+        }
+
+        @media (max-width: 760px) {
+            .sheet-title {
+                flex: 1 1 100%;
+            }
+
+            .toolbar-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
         }
 
         .sheet-meta {
@@ -148,12 +165,28 @@
         }
 
         @media print {
+            @page {
+                margin: 5mm;
+            }
+
             .toolbar {
                 display: none;
             }
 
             body {
-                padding: 10mm;
+                padding: 2mm;
+            }
+
+            .sheet-meta {
+                display: none;
+            }
+
+            .sheet-item + .sheet-item {
+                margin-top: 4px;
+            }
+
+            .sheet-item .grid-row + .grid-row {
+                margin-top: 6px;
             }
         }
     </style>

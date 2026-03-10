@@ -843,13 +843,13 @@ body {
     font-size: 0.8rem;
     font-weight: 400;
     color: #24468f;
-    background: #eef3ff;
+    background: #fff;
     border: 1px solid #cfdcfb;
     text-decoration: none;
 }
 
 .manage-page .card-report-link:hover {
-    background: #e2ebff;
+    background: #f7faff;
 }
 
 .manage-page .card-actions .card-report-link {
@@ -1127,6 +1127,22 @@ header p {
 
     .page-header-with-back .page-header-actions {
         gap: 0.4rem;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-row {
+        flex-wrap: wrap;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-row h1 {
+        flex: 1 1 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-actions {
+        width: 100%;
+        justify-content: flex-end;
     }
 
     .manage-page .settings-row {

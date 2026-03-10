@@ -1258,11 +1258,15 @@ function formatMillisecondsAsSecondsOrMinutes(value) {
 }
 
 function getCardOverallWrongRateValue(card) {
+    const attempts = Number.parseInt(card && card.lifetime_attempts, 10);
+    if (Number.isInteger(attempts) && attempts <= 0) {
+        return null;
+    }
+
     const explicit = Number(card && card.overall_wrong_rate);
     if (Number.isFinite(explicit)) {
         return explicit;
     }
-    const attempts = Number.parseInt(card && card.lifetime_attempts, 10);
     if (!Number.isInteger(attempts) || attempts <= 0) {
         return null;
     }
@@ -1419,9 +1423,9 @@ function buildCompactFoldButtonMarkup(cardId) {
             class="compact-fold-btn"
             data-action="collapse-compact"
             data-card-id="${escapeHtml(safeId)}"
-            title="Fold back to short view"
-            aria-label="Fold back to short view"
-        >Fold</button>
+            title="Minimize card"
+            aria-label="Minimize card"
+        >➖</button>
     `;
 }
 
