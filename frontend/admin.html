@@ -12,20 +12,49 @@
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
                 <h1>👨‍👩‍👧 Parent Admin</h1>
-                <div class="page-header-actions">
-                    <a href="/" class="back-btn btn-secondary page-header-back-btn">👦👧 Kid Mode</a>
-                    <a href="#" id="parentLogoutLink" class="back-btn btn-secondary">🚪 Log Out</a>
+                <div class="page-header-actions page-header-actions--admin">
+                    <button
+                        id="newKidBtn"
+                        class="btn-primary header-action-btn header-action-btn--compact"
+                        type="button"
+                        aria-label="Add New Kid"
+                        title="Add New Kid"
+                    >
+                        <span class="header-action-icon" aria-hidden="true">➕</span>
+                        <span class="header-action-label">Add New Kid</span>
+                    </button>
+                    <a
+                        href="/parent-settings.html"
+                        class="btn-secondary header-action-btn header-action-btn--compact"
+                        aria-label="Settings"
+                        title="Settings"
+                    >
+                        <span class="header-action-icon" aria-hidden="true">⚙️</span>
+                        <span class="header-action-label">Settings</span>
+                    </a>
+                    <a
+                        id="manageDecksLink"
+                        href="/deck-manage.html"
+                        class="btn-secondary header-action-btn header-action-btn--compact"
+                        aria-label="Manage Decks"
+                        title="Manage Decks"
+                    >
+                        <span class="header-action-icon" aria-hidden="true">🗂️</span>
+                        <span class="header-action-label">Manage Decks</span>
+                    </a>
+                    <a href="/" class="back-btn btn-secondary page-header-back-btn header-action-btn">
+                        <span class="header-action-icon" aria-hidden="true">👦👧</span>
+                        <span class="header-action-label">Kid Mode</span>
+                    </a>
+                    <a href="#" id="parentLogoutLink" class="back-btn btn-secondary header-action-btn">
+                        <span class="header-action-icon" aria-hidden="true">🚪</span>
+                        <span class="header-action-label">Log Out</span>
+                    </a>
                 </div>
             </div>
         </header>
 
         <main>
-            <div class="actions admin-actions">
-                <button id="newKidBtn" class="btn-primary">➕ Add New Kid</button>
-                <a href="/parent-settings.html" class="btn-secondary">⚙️ Settings</a>
-                <a id="manageDecksLink" href="/deck-manage.html" class="btn-secondary">🗂️ Manage Decks</a>
-            </div>
-
             <div id="kidsList" class="kids-grid">
                 <!-- Kids will be loaded here -->
             </div>

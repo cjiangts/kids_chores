@@ -1045,10 +1045,42 @@ header p {
     justify-content: flex-end;
     gap: 0.5rem;
     flex-wrap: nowrap;
+    min-width: 0;
 }
 
 .page-header-with-back .page-header-actions .page-header-back-btn {
     margin-left: 0;
+}
+
+.page-header-with-back .page-header-actions > * {
+    flex: 0 0 auto;
+}
+
+.header-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 0;
+    min-height: 2.5rem;
+}
+
+.header-action-icon {
+    flex: 0 0 auto;
+    line-height: 1;
+}
+
+.header-action-label {
+    min-width: 0;
+}
+
+.page-header-actions--admin {
+    gap: 0.4rem;
+}
+
+.page-header-actions--admin .header-action-btn {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
 }
 
 .page-header-with-back p {
@@ -1149,22 +1181,6 @@ header p {
     background: #218838;
 }
 
-.admin-actions {
-    flex-wrap: wrap;
-}
-
-.admin-actions > .btn-primary,
-.admin-actions > .btn-secondary {
-    padding: 0.65rem 1rem;
-}
-
-.admin-actions > a.btn-secondary {
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
 /* Keep manage-page titles responsive on all devices. */
 .manage-page .header h1 {
     font-size: clamp(1.45rem, 3.2vw, 2rem);
@@ -1220,6 +1236,27 @@ header p {
     .page-header-with-back.page-header-with-actions .page-header-actions {
         width: 100%;
         justify-content: flex-end;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-actions--admin {
+        gap: 0.35rem;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-actions--admin .header-action-btn {
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-actions--admin .header-action-btn--compact {
+        gap: 0;
+        width: 2.5rem;
+        min-width: 2.5rem;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-actions--admin .header-action-btn--compact .header-action-label {
+        display: none;
     }
 
     .practice-page .header.header-with-actions h1 {
@@ -1287,21 +1324,21 @@ header p {
         max-width: none;
     }
 
-    .admin-actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-    }
-
-    .admin-actions > * {
-        width: 100%;
-        text-align: center;
-    }
 }
 
-@media (max-width: 460px) {
-    .admin-actions {
-        grid-template-columns: 1fr;
+@media (max-width: 560px) {
+    .page-header-with-back.page-header-with-actions .page-header-actions--admin {
+        gap: 0.3rem;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-actions--admin .header-action-btn {
+        padding-left: 0.55rem;
+        padding-right: 0.55rem;
+    }
+
+    .page-header-with-back.page-header-with-actions .page-header-actions--admin .header-action-btn--compact {
+        width: 2.5rem;
+        min-width: 2.5rem;
     }
 }
 
