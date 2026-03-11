@@ -57,5 +57,9 @@ backend/scripts/cleanup_legacy_writing_audio.py
 backend/scripts/cleanup_writing_candidate_queue_tables_in_backup_zip.py
 
 # Local planning / preview artifacts
+debug.ipynb
 design.md
+frontend/badge-earned-preview.html
 frontend/kid-badges-preview.html
+frontend/kid-badges-sticker-preview.html
+frontend/assets

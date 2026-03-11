@@ -27,7 +27,6 @@ from src.security_rate_limit import (
 kids_bp = Blueprint('kids', __name__)
 
 MIN_SESSION_CARD_COUNT = 1
-MAX_SESSION_CARD_COUNT = 200
 DEFAULT_HARD_CARD_PERCENTAGE = 0
 MIN_HARD_CARD_PERCENTAGE = 0
 MAX_HARD_CARD_PERCENTAGE = 100
@@ -857,7 +856,7 @@ def hydrate_kid_category_config_from_db(
             continue
         session_by_category[key] = max(
             0,
-            min(MAX_SESSION_CARD_COUNT, int(row[2] or 0)),
+            int(row[2] or 0),
         )
         hard_pct_by_category[key] = _normalize_hard_card_percentage_value(row[3])
         include_orphan_by_category[key] = bool(row[4])
@@ -895,7 +894,7 @@ def get_category_session_card_count_for_kid(kid, category_key):
         parsed = int(raw_value)
     except (TypeError, ValueError):
         return 0
-    return max(0, min(MAX_SESSION_CARD_COUNT, parsed))
+    return max(0, parsed)
 
 
 def with_preview_session_count_for_category(kid, category_key, session_count):
@@ -908,7 +907,7 @@ def with_preview_session_count_for_category(kid, category_key, session_count):
         parsed = int(session_count)
     except (TypeError, ValueError):
         parsed = 0
-    parsed = max(0, min(MAX_SESSION_CARD_COUNT, parsed))
+    parsed = max(0, parsed)
 
     existing = kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
     merged = {}
@@ -3673,8 +3672,8 @@ def update_kid(kid_id):
                     parsed = int(raw_value)
                 except (TypeError, ValueError):
                     return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} must be an integer'}), 400
-                if parsed < 0 or parsed > MAX_SESSION_CARD_COUNT:
-                    return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} must be between 0 and {MAX_SESSION_CARD_COUNT}'}), 400
+                if parsed < 0:
+                    return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} must be 0 or more'}), 400
                 session_count_updates_by_key[key] = parsed
 
         if HARD_CARD_PERCENT_BY_CATEGORY_FIELD in data:
@@ -8658,8 +8657,8 @@ def preview_writing_sheet(kid_id):
         except (TypeError, ValueError):
             return jsonify({'error': 'rows_per_character must be an integer'}), 400
 
-        if requested_count < MIN_SESSION_CARD_COUNT or requested_count > MAX_SESSION_CARD_COUNT:
-            return jsonify({'error': f'count must be between {MIN_SESSION_CARD_COUNT} and {MAX_SESSION_CARD_COUNT}'}), 400
+        if requested_count < MIN_SESSION_CARD_COUNT:
+            return jsonify({'error': f'count must be at least {MIN_SESSION_CARD_COUNT}'}), 400
         if requested_rows < 1 or requested_rows > MAX_WRITING_SHEET_ROWS:
             return jsonify({'error': f'rows_per_character must be between 1 and {MAX_WRITING_SHEET_ROWS}'}), 400
         if requested_count * requested_rows > MAX_WRITING_SHEET_ROWS:
@@ -8859,8 +8858,8 @@ def create_writing_sheet(kid_id):
         except (TypeError, ValueError):
             return jsonify({'error': 'rows_per_character must be an integer'}), 400
 
-        if requested_count < MIN_SESSION_CARD_COUNT or requested_count > MAX_SESSION_CARD_COUNT:
-            return jsonify({'error': f'count must be between {MIN_SESSION_CARD_COUNT} and {MAX_SESSION_CARD_COUNT}'}), 400
+        if requested_count < MIN_SESSION_CARD_COUNT:
+            return jsonify({'error': f'count must be at least {MIN_SESSION_CARD_COUNT}'}), 400
         if requested_rows < 1 or requested_rows > MAX_WRITING_SHEET_ROWS:
             return jsonify({'error': f'rows_per_character must be between 1 and {MAX_WRITING_SHEET_ROWS}'}), 400
         total_rows_requested = requested_count * requested_rows

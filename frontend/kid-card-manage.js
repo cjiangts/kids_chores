@@ -119,6 +119,7 @@ const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
 const SHOW_DECK_COUNT_MISMATCH_WARNING = false;
+let currentSessionCardCountCap = null;
 
 const promptPreviewPlayer = (
     window.WritingAudioSequence && typeof window.WritingAudioSequence.createPlayer === 'function'
@@ -984,12 +985,56 @@ function getCardPageSize() {
     return currentCardViewMode === 'long' ? CARD_PAGE_SIZE_LONG : CARD_PAGE_SIZE_SHORT;
 }
 
-function getSessionCardCountForMixLegend() {
-    const parsed = Number.parseInt(sessionCardCountInput ? sessionCardCountInput.value : '', 10);
+function getSessionCardCountCap() {
+    const parsed = Number.parseInt(currentSessionCardCountCap, 10);
+    if (!Number.isInteger(parsed)) {
+        return null;
+    }
+    return Math.max(0, parsed);
+}
+
+function applySessionCardCountInputCap() {
+    if (!sessionCardCountInput) {
+        return;
+    }
+    const cap = getSessionCardCountCap();
+    if (cap === null) {
+        sessionCardCountInput.removeAttribute('max');
+        return;
+    }
+    sessionCardCountInput.max = String(cap);
+}
+
+function updateSessionCardCountCapFromCardsPayload(payload) {
+    const practiceActiveCount = Number.parseInt(payload && payload.practice_active_card_count, 10);
+    const activeCount = Number.parseInt(payload && payload.active_card_count, 10);
+    const fallbackFromCards = Array.isArray(payload && payload.cards)
+        ? payload.cards.filter((card) => !card.skip_practice).length
+        : null;
+    const resolved = Number.isInteger(practiceActiveCount)
+        ? practiceActiveCount
+        : (Number.isInteger(activeCount) ? activeCount : fallbackFromCards);
+    if (!Number.isInteger(resolved)) {
+        return;
+    }
+    currentSessionCardCountCap = Math.max(0, resolved);
+    applySessionCardCountInputCap();
+}
+
+function clampSessionCardCount(rawValue) {
+    const parsed = Number.parseInt(rawValue, 10);
     if (!Number.isInteger(parsed)) {
         return 0;
     }
-    return Math.max(0, Math.min(200, parsed));
+    const cap = getSessionCardCountCap();
+    if (cap === null) {
+        return Math.max(0, parsed);
+    }
+    return Math.max(0, Math.min(cap, parsed));
+}
+
+function getSessionCardCountForMixLegend() {
+    return clampSessionCardCount(sessionCardCountInput ? sessionCardCountInput.value : '');
 }
 
 function getHardCardPercentForMixLegend() {
@@ -1037,6 +1082,7 @@ function normalizeSessionCountInputValue() {
     const next = getSessionCardCountForMixLegend();
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(next);
+        applySessionCardCountInputCap();
     }
     return next;
 }
@@ -1050,7 +1096,7 @@ function normalizeHardSliderValue() {
 }
 
 function setQueueSettingsBaseline(sessionCount, hardPct) {
-    baselineSessionCardCount = Math.max(0, Math.min(200, Number.parseInt(sessionCount, 10) || 0));
+    baselineSessionCardCount = clampSessionCardCount(sessionCount);
     baselineHardCardPercent = Math.max(0, Math.min(100, Number.parseInt(hardPct, 10) || 0));
     queueSettingsSaveSuccessText = `Saved ${baselineHardCardPercent}% · ${baselineSessionCardCount}`;
     updateQueueSettingsSaveButtonState();
@@ -1111,7 +1157,8 @@ async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCo
         return;
     }
 
-    const defaultSessionCount = 10;
+    const cap = getSessionCardCountCap();
+    const defaultSessionCount = cap === null ? 10 : Math.min(10, cap);
     const hardPct = normalizeHardSliderValue();
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(defaultSessionCount);
@@ -1134,7 +1181,7 @@ async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCo
     applySessionCountFromPayload(result);
     const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
     const persistedHard = getPersistedHardCardPercentFromPayload(result);
-    const safeTotal = Math.max(0, Math.min(200, persistedTotal));
+    const safeTotal = clampSessionCardCount(persistedTotal);
     const safeHard = Math.max(0, Math.min(100, Number.parseInt(persistedHard, 10) || 0));
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(safeTotal);
@@ -1608,8 +1655,14 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
             return;
         }
 
+        const hadQueueSettingChanges = hasQueueSettingsChanges();
         const previousCardCount = Array.isArray(currentCards) ? currentCards.length : 0;
         currentCards = Array.isArray(data.cards) ? data.cards : [];
+        updateSessionCardCountCapFromCardsPayload(data);
+        const normalizedSessionCount = normalizeSessionCountInputValue();
+        if (!hadQueueSettingChanges) {
+            setQueueSettingsBaseline(normalizedSessionCount, getHardCardPercentForMixLegend());
+        }
         await maybeAutoSetSessionCountForNewCards(previousCardCount, currentCards.length);
         updateQueueMixLegend();
 
@@ -1958,7 +2011,7 @@ async function loadKidInfo() {
     kidNameEl.textContent = `${kid.name || 'Kid'} - ${displayName} Management`;
     includeOrphanByCategory = toCategoryMap(kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
     const total = getSessionCountFromKid(kid);
-    const safeTotal = Number.isInteger(total) ? Math.max(0, Math.min(200, total)) : 0;
+    const safeTotal = Number.isInteger(total) ? clampSessionCardCount(total) : 0;
     sessionCardCountInput.value = String(safeTotal);
     initialHardCardPercent = getInitialHardCardPercentFromKid(kid);
     const safeHard = Number.isInteger(initialHardCardPercent)
@@ -1992,7 +2045,7 @@ async function loadSharedType1Decks() {
 
     const responseTotal = Number.parseInt(result.session_card_count, 10);
     if (Number.isInteger(responseTotal)) {
-        const safeTotal = Math.max(0, Math.min(200, responseTotal));
+        const safeTotal = clampSessionCardCount(responseTotal);
         sessionCardCountInput.value = String(safeTotal);
         setQueueSettingsBaseline(safeTotal, baselineHardCardPercent);
     }
@@ -2011,8 +2064,13 @@ async function saveQueueSettings() {
 
     const total = normalizeSessionCountInputValue();
     const hardPct = normalizeHardSliderValue();
-    if (total < 0 || total > 200) {
-        showError(`${getCurrentCategoryDisplayName()} cards/day must be between 0 and 200.`);
+    const maxSessionCount = getSessionCardCountCap();
+    if (total < 0) {
+        showError(`${getCurrentCategoryDisplayName()} cards/day must be 0 or more.`);
+        return;
+    }
+    if (maxSessionCount !== null && total > maxSessionCount) {
+        showError(`${getCurrentCategoryDisplayName()} cards/day must be between 0 and ${maxSessionCount}.`);
         return;
     }
     if (hardPct < 0 || hardPct > 100) {
@@ -2042,7 +2100,7 @@ async function saveQueueSettings() {
         applySessionCountFromPayload(result);
         const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
         const persistedHard = getPersistedHardCardPercentFromPayload(result);
-        sessionCardCountInput.value = String(Math.max(0, Math.min(200, persistedTotal)));
+        sessionCardCountInput.value = String(clampSessionCardCount(persistedTotal));
         if (hardnessPercentSlider) {
             hardnessPercentSlider.value = String(Math.max(0, Math.min(100, persistedHard)));
         }
@@ -2422,12 +2480,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (sessionCardCountInput) {
         sessionCardCountInput.addEventListener('input', () => {
+            normalizeSessionCountInputValue();
             updateQueueMixLegend();
         });
         sessionCardCountInput.addEventListener('change', () => {
             normalizeSessionCountInputValue();
             updateQueueMixLegend();
         });
+        applySessionCardCountInputCap();
     }
 
     sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();
