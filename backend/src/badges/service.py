@@ -182,6 +182,56 @@ def _load_session_accuracy_by_id(kid_conn, tracking_start_dt: datetime):
     return data
 
 
+def _load_reading_speedup_counts(kid_conn, tracking_start_dt: datetime) -> Dict[str, int]:
+    rows = kid_conn.execute(
+        """
+        WITH reading_attempts AS (
+            SELECT
+                sr.card_id,
+                COALESCE(sr.response_time_ms, 0) AS response_time_ms,
+                ROW_NUMBER() OVER (
+                    PARTITION BY sr.card_id
+                    ORDER BY s.completed_at ASC, sr.id ASC
+                ) AS rn_first
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE s.completed_at IS NOT NULL
+              AND s.completed_at >= ?
+              AND COALESCE(s.type, '') = 'chinese_reading'
+              AND COALESCE(sr.correct, 0) > 0
+              AND COALESCE(sr.response_time_ms, 0) > 0
+        )
+        SELECT
+            card_id,
+            COUNT(*) AS attempts,
+            MAX(CASE WHEN rn_first = 1 THEN response_time_ms END) AS first_ms,
+            MIN(response_time_ms) AS best_ms
+        FROM reading_attempts
+        GROUP BY card_id
+        """,
+        [tracking_start_dt],
+    ).fetchall()
+
+    double_speed_cards = 0
+    triple_speed_cards = 0
+    for row in rows:
+        attempts = int(row[1] or 0)
+        first_ms = int(row[2] or 0)
+        best_ms = int(row[3] or 0)
+        if attempts < 2 or first_ms <= 0 or best_ms <= 0:
+            continue
+        ratio = float(first_ms) / float(best_ms)
+        if ratio >= 2.0:
+            double_speed_cards += 1
+        if ratio >= 3.0:
+            triple_speed_cards += 1
+
+    return {
+        'reading_cards_2x_faster': int(double_speed_cards),
+        'reading_cards_3x_faster': int(triple_speed_cards),
+    }
+
+
 def _is_session_strict_gold(*, planned_count: int, retry_count: int, total_count: int, correct_count: int) -> bool:
     if retry_count > 0:
         return False
@@ -215,8 +265,10 @@ def _compute_max_streak(practice_dates) -> int:
 def _collect_metrics(kid_conn, tracking_start_dt: datetime, family_timezone: str, assigned_categories: Set[str]):
     session_rows = _load_session_rows_since(kid_conn, tracking_start_dt)
     accuracy_by_session = _load_session_accuracy_by_id(kid_conn, tracking_start_dt)
+    reading_speedup_counts = _load_reading_speedup_counts(kid_conn, tracking_start_dt)
 
     completed_by_category: Counter = Counter()
+    cards_practiced_by_category: Counter = Counter()
     gold_by_category: Counter = Counter()
     practice_dates = set()
     categories_done_by_day = defaultdict(set)
@@ -246,6 +298,8 @@ def _collect_metrics(kid_conn, tracking_start_dt: datetime, family_timezone: str
         correct_count = int(session_accuracy.get('correct_count') or 0)
         response_ms = int(session_accuracy.get('total_response_ms') or 0)
         total_active_ms += max(0, response_ms)
+        if category_key and total_count > 0:
+            cards_practiced_by_category[category_key] += total_count
 
         if _is_session_strict_gold(
             planned_count=planned_count,
@@ -285,6 +339,7 @@ def _collect_metrics(kid_conn, tracking_start_dt: datetime, family_timezone: str
     return {
         'total_completed_sessions': int(len(session_rows)),
         'completed_sessions_in_category': completed_by_category,
+        'cards_practiced_in_category': cards_practiced_by_category,
         'total_active_minutes': max(0.0, total_active_ms / 60000.0),
         'completion_streak_days': int(_compute_max_streak(full_completion_days)),
         'all_assigned_done_days': int(len(full_completion_days)),
@@ -292,6 +347,8 @@ def _collect_metrics(kid_conn, tracking_start_dt: datetime, family_timezone: str
         'gold_sessions_in_category': gold_by_category,
         'retry_comebacks': int(retry_comebacks),
         'practice_days_total': int(len(practice_dates)),
+        'reading_cards_2x_faster': int(reading_speedup_counts['reading_cards_2x_faster']),
+        'reading_cards_3x_faster': int(reading_speedup_counts['reading_cards_3x_faster']),
     }
 
 
@@ -302,6 +359,8 @@ def _metric_value_for_definition(metrics: Dict, definition: BadgeAchievementDefi
         return float(metrics['completed_sessions_in_category'].get(category_key, 0))
     if rule_type == 'gold_sessions_in_category':
         return float(metrics['gold_sessions_in_category'].get(category_key, 0))
+    if rule_type == 'cards_practiced_in_category':
+        return float(metrics['cards_practiced_in_category'].get(category_key, 0))
     if rule_type == 'total_completed_sessions':
         return float(metrics['total_completed_sessions'])
     if rule_type == 'total_active_minutes':
@@ -316,6 +375,10 @@ def _metric_value_for_definition(metrics: Dict, definition: BadgeAchievementDefi
         return float(metrics['retry_comebacks'])
     if rule_type == 'practice_days_total':
         return float(metrics['practice_days_total'])
+    if rule_type == 'reading_cards_2x_faster':
+        return float(metrics['reading_cards_2x_faster'])
+    if rule_type == 'reading_cards_3x_faster':
+        return float(metrics['reading_cards_3x_faster'])
     return 0.0
 
 
@@ -480,6 +543,8 @@ def _serialize_badge_item(
     award_row,
     art_meta: Dict,
     progress_value: float,
+    *,
+    difficulty_rank: int,
 ):
     threshold_value = int(definition.threshold_value or 0)
     is_earned = award_row is not None
@@ -494,6 +559,7 @@ def _serialize_badge_item(
         'themeKey': str(definition.theme_key or DEFAULT_BADGE_THEME),
         'ruleType': str(definition.rule_type or ''),
         'thresholdValue': threshold_value,
+        'difficultyRank': int(difficulty_rank),
         'progressValue': max(0.0, float(progress_value)),
         'isEarned': bool(is_earned),
         'reasonText': str(award_row[4] or '') if award_row is not None else '',
@@ -582,6 +648,13 @@ def build_kid_badge_payload(
     new_award_count = 0
 
     relevant_definitions = list(DAY_ONE_BADGE_ACHIEVEMENTS)
+    definition_order_lookup = {
+        (
+            str(definition.achievement_key or '').strip(),
+            _normalize_category_key(definition.category_key),
+        ): index
+        for index, definition in enumerate(relevant_definitions)
+    }
 
     if tracking_enabled:
         metrics = _collect_metrics(kid_conn, tracking_start_dt, family_timezone, assigned_categories)
@@ -629,7 +702,13 @@ def build_kid_badge_payload(
             'license': '',
         })
         progress_value = _metric_value_for_definition(metrics, definition) if tracking_enabled else 0.0
-        item = _serialize_badge_item(definition, award_row, art_meta, progress_value)
+        item = _serialize_badge_item(
+            definition,
+            award_row,
+            art_meta,
+            progress_value,
+            difficulty_rank=definition_order_lookup.get(key, len(definition_order_lookup)),
+        )
         if award_row is not None:
             earned_badges.append(item)
             if not item['celebrationSeenAt']:
@@ -652,9 +731,8 @@ def build_kid_badge_payload(
     )
     coming_next.sort(
         key=lambda item: (
+            int(item.get('difficultyRank') or 0),
             int(item.get('thresholdValue') or 0),
-            str(item.get('achievementKey') or ''),
-            str(item.get('categoryKey') or ''),
         )
     )
 
@@ -748,6 +826,7 @@ def build_kid_pending_celebrations_payload(
                 award_row,
                 art_meta,
                 float(definition.threshold_value or 0),
+                difficulty_rank=0,
             )
         )
 

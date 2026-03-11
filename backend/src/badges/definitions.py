@@ -119,6 +119,64 @@ _CATEGORY_GOLD_LEVELS = (
     ('gold_25_in_category', 25, 'Gold 25'),
 )
 
+# Thresholds below were tuned from the local kid DB snapshot on March 11, 2026.
+# Observed answered cards per completed session:
+# - chinese_characters: ~61.7
+# - math: ~36.2
+# - chinese_writing: ~15.3
+# - chinese_reading: ~4.1
+_CATEGORY_CARD_THRESHOLDS = {
+    'chinese_characters': (100, 300, 600, 1200, 2500),
+    'chinese_writing': (25, 75, 150, 300, 600),
+    'chinese_reading': (5, 20, 40, 80, 160),
+    'math': (50, 150, 300, 600, 1200),
+}
+
+_CATEGORY_CARD_TITLES = {
+    'chinese_characters': {
+        100: 'Character Counter',
+        300: 'Hanzi Stacker',
+        600: 'Symbol Tower',
+        1200: 'Character Mountain',
+        2500: 'Hanzi Summit',
+    },
+    'chinese_writing': {
+        25: 'Stroke Counter',
+        75: 'Brush Stacker',
+        150: 'Script Tower',
+        300: 'Ink Mountain',
+        600: 'Writing Summit',
+    },
+    'chinese_reading': {
+        5: 'Page Counter',
+        20: 'Story Stacker',
+        40: 'Chapter Tower',
+        80: 'Book Mountain',
+        160: 'Library Summit',
+    },
+    'math': {
+        50: 'Number Counter',
+        150: 'Problem Stacker',
+        300: 'Equation Tower',
+        600: 'Math Mountain',
+        1200: 'Number Summit',
+    },
+}
+
+_READING_SPEED_2X_THRESHOLDS = (1, 3, 5, 10)
+_READING_SPEED_2X_TITLES = {
+    1: '2x Reading Boost',
+    3: '2x Reading Sprint',
+    5: '2x Reading Rocket',
+    10: '2x Reading Legend',
+}
+_READING_SPEED_3X_THRESHOLDS = (1, 3, 5)
+_READING_SPEED_3X_TITLES = {
+    1: '3x Reading Boost',
+    3: '3x Reading Rocket',
+    5: '3x Reading Legend',
+}
+
 _TOTAL_SESSION_THRESHOLDS = (10, 25, 50, 100, 200, 350, 700)
 _TOTAL_SESSION_TITLES = {
     10: 'Practice Spark',
@@ -178,6 +236,46 @@ _RETRY_COMEBACK_TITLES = {
     10: 'Second-Chance Star',
     25: 'Comeback Captain',
     50: 'Never-Give-Up Legend',
+}
+
+_CATEGORY_AVG_CARDS_PER_SESSION = {
+    'chinese_characters': 61.7,
+    'chinese_writing': 15.3,
+    'chinese_reading': 4.125,
+    'math': 36.2,
+}
+_CATEGORY_GOLD_RATE = {
+    'chinese_characters': 10.0 / 53.0,
+    'chinese_writing': 6.0 / 32.0,
+    'chinese_reading': 15.0 / 16.0,
+    'math': 10.0 / 16.0,
+}
+_AVG_ACTIVE_MINUTES_PER_SESSION = 5.2
+_AVG_SESSIONS_PER_KID_DAY = 2.6
+_OVERALL_GOLD_RATE = 0.3504
+_OVERALL_COMEBACK_RATE = 0.1538
+_READING_2X_CARD_RATE = 1.0 / 43.0
+_READING_3X_CARD_RATE = 1.0 / 43.0
+_CATEGORY_PRIORITY = {
+    'chinese_characters': 0,
+    'chinese_writing': 1,
+    'chinese_reading': 2,
+    'math': 3,
+    '': 9,
+}
+_RULE_TYPE_PRIORITY = {
+    'completed_sessions_in_category': 0,
+    'cards_practiced_in_category': 1,
+    'gold_sessions_in_category': 2,
+    'reading_cards_2x_faster': 3,
+    'reading_cards_3x_faster': 4,
+    'total_completed_sessions': 5,
+    'total_active_minutes': 6,
+    'practice_days_total': 7,
+    'total_gold_sessions': 8,
+    'retry_comebacks': 9,
+    'all_assigned_done_days': 10,
+    'completion_streak_days': 11,
 }
 
 
@@ -253,6 +351,58 @@ def _build_category_achievements():
                     ),
                 )
             )
+    return tuple(definitions)
+
+
+def _build_category_card_achievements():
+    definitions = []
+    for category_key, label, theme_key in _CATEGORY_SPECS:
+        for threshold_value in _CATEGORY_CARD_THRESHOLDS[category_key]:
+            definitions.append(
+                _definition(
+                    achievement_key=f'cards_{threshold_value}_in_category',
+                    category_key=category_key,
+                    title=_CATEGORY_CARD_TITLES[category_key][threshold_value],
+                    theme_key=theme_key,
+                    rule_type='cards_practiced_in_category',
+                    threshold_value=threshold_value,
+                    reason_text=f'Practiced {threshold_value} {label} cards.',
+                    goal_text=f'Practice {threshold_value} {label} cards.',
+                )
+            )
+    return tuple(definitions)
+
+
+def _build_reading_improvement_achievements():
+    definitions = []
+    for threshold_value in _READING_SPEED_2X_THRESHOLDS:
+        card_text = 'card' if threshold_value == 1 else 'cards'
+        definitions.append(
+            _definition(
+                achievement_key=f'reading_2x_speed_{threshold_value}_cards',
+                category_key='chinese_reading',
+                title=_READING_SPEED_2X_TITLES[threshold_value],
+                theme_key='reading',
+                rule_type='reading_cards_2x_faster',
+                threshold_value=threshold_value,
+                reason_text=f'Read {threshold_value} {card_text} 2x faster than the first correct try.',
+                goal_text=f'Read {threshold_value} {card_text} 2x faster than the first correct try.',
+            )
+        )
+    for threshold_value in _READING_SPEED_3X_THRESHOLDS:
+        card_text = 'card' if threshold_value == 1 else 'cards'
+        definitions.append(
+            _definition(
+                achievement_key=f'reading_3x_speed_{threshold_value}_cards',
+                category_key='chinese_reading',
+                title=_READING_SPEED_3X_TITLES[threshold_value],
+                theme_key='reading',
+                rule_type='reading_cards_3x_faster',
+                threshold_value=threshold_value,
+                reason_text=f'Read {threshold_value} {card_text} 3x faster than the first correct try.',
+                goal_text=f'Read {threshold_value} {card_text} 3x faster than the first correct try.',
+            )
+        )
     return tuple(definitions)
 
 
@@ -374,7 +524,67 @@ def _build_global_achievements():
     return tuple(definitions)
 
 
-DAY_ONE_BADGE_ACHIEVEMENTS = _build_category_achievements() + _build_global_achievements()
+def _estimated_session_difficulty(definition: BadgeAchievementDefinition) -> float:
+    rule_type = str(definition.rule_type or '').strip().lower()
+    category_key = str(definition.category_key or '').strip().lower()
+    threshold_value = float(definition.threshold_value or 0)
+    if rule_type == 'completed_sessions_in_category':
+        return threshold_value
+    if rule_type == 'cards_practiced_in_category':
+        return threshold_value / max(_CATEGORY_AVG_CARDS_PER_SESSION.get(category_key, 1.0), 1.0)
+    if rule_type == 'gold_sessions_in_category':
+        return threshold_value / max(_CATEGORY_GOLD_RATE.get(category_key, 0.05), 0.05)
+    if rule_type == 'total_completed_sessions':
+        return threshold_value
+    if rule_type == 'total_active_minutes':
+        return threshold_value / _AVG_ACTIVE_MINUTES_PER_SESSION
+    if rule_type == 'practice_days_total':
+        return threshold_value * _AVG_SESSIONS_PER_KID_DAY
+    if rule_type == 'total_gold_sessions':
+        return threshold_value / _OVERALL_GOLD_RATE
+    if rule_type == 'retry_comebacks':
+        return threshold_value / _OVERALL_COMEBACK_RATE
+    if rule_type == 'all_assigned_done_days':
+        return threshold_value * 5.0
+    if rule_type == 'completion_streak_days':
+        return threshold_value * 5.75
+    if rule_type == 'reading_cards_2x_faster':
+        return (
+            threshold_value
+            / _READING_2X_CARD_RATE
+            / max(_CATEGORY_AVG_CARDS_PER_SESSION['chinese_reading'], 1.0)
+        )
+    if rule_type == 'reading_cards_3x_faster':
+        return (
+            threshold_value
+            / _READING_3X_CARD_RATE
+            / max(_CATEGORY_AVG_CARDS_PER_SESSION['chinese_reading'], 1.0)
+            * 1.15
+        )
+    return threshold_value
+
+
+def _definition_difficulty_sort_key(definition: BadgeAchievementDefinition):
+    rule_type = str(definition.rule_type or '').strip().lower()
+    category_key = str(definition.category_key or '').strip().lower()
+    return (
+        round(_estimated_session_difficulty(definition), 6),
+        _RULE_TYPE_PRIORITY.get(rule_type, 99),
+        _CATEGORY_PRIORITY.get(category_key, 99),
+        int(definition.threshold_value or 0),
+        str(definition.achievement_key or ''),
+    )
+
+
+DAY_ONE_BADGE_ACHIEVEMENTS = tuple(sorted(
+    (
+        _build_category_achievements()
+        + _build_category_card_achievements()
+        + _build_reading_improvement_achievements()
+        + _build_global_achievements()
+    ),
+    key=_definition_difficulty_sort_key,
+))
 
 
 if len(DAY_ONE_BADGE_ACHIEVEMENTS) < 50:

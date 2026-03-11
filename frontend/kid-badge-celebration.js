@@ -107,16 +107,162 @@
         });
     }
 
+    function buildBadgeSlideMarkup(item, index) {
+        const imageUrl = resolveBadgeImageUrl(item);
+        const paletteKey = getPaletteKey(item);
+        const title = String(item && item.title ? item.title : 'New badge');
+        const reason = String(item && item.reasonText ? item.reasonText : 'You unlocked a new reward badge!');
+        return `
+            <article class="kid-badge-celebration-slide" data-slide-index="${index}">
+                <div class="kid-badge-celebration-art-wrap kid-badge-celebration-palette-${escapeHtml(paletteKey)}">
+                    ${
+    imageUrl
+        ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)} badge art">`
+        : '<span class="kid-badge-art-fallback">🏅</span>'
+}
+                </div>
+                <div class="kid-badge-celebration-slide-title">${escapeHtml(title)}</div>
+                <div class="kid-badge-celebration-slide-reason">${escapeHtml(reason)}</div>
+            </article>
+        `;
+    }
+
+    function scrollCelebrationCarouselToIndex(track, slides, index) {
+        if (!track || !Array.isArray(slides) || slides.length <= 0) {
+            return;
+        }
+        const nextIndex = Math.max(0, Math.min(slides.length - 1, index));
+        const targetSlide = slides[nextIndex];
+        if (!targetSlide) {
+            return;
+        }
+        targetSlide.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center',
+        });
+    }
+
+    function initializeCelebrationCarousel(overlay) {
+        if (!overlay) {
+            return;
+        }
+        const carousel = overlay.querySelector('.kid-badge-celebration-carousel');
+        const track = carousel ? carousel.querySelector('.kid-badge-celebration-track') : null;
+        if (!carousel || !track) {
+            return;
+        }
+        const slides = Array.from(track.querySelectorAll('.kid-badge-celebration-slide'));
+        if (slides.length <= 0) {
+            return;
+        }
+        const prevBtn = carousel.querySelector('[data-carousel-action="prev"]');
+        const nextBtn = carousel.querySelector('[data-carousel-action="next"]');
+        const counter = carousel.querySelector('.kid-badge-celebration-carousel-counter');
+        const dots = Array.from(carousel.querySelectorAll('[data-carousel-dot-index]'));
+
+        function getActiveIndex() {
+            const viewportCenter = track.scrollLeft + (track.clientWidth / 2);
+            let bestIndex = 0;
+            let bestDistance = Number.POSITIVE_INFINITY;
+            slides.forEach((slide, index) => {
+                const slideCenter = slide.offsetLeft + (slide.offsetWidth / 2);
+                const distance = Math.abs(slideCenter - viewportCenter);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestIndex = index;
+                }
+            });
+            return bestIndex;
+        }
+
+        function updateState() {
+            const activeIndex = getActiveIndex();
+            carousel.setAttribute('data-active-index', String(activeIndex));
+            if (counter) {
+                counter.textContent = `${activeIndex + 1} of ${slides.length}`;
+            }
+            if (prevBtn) {
+                prevBtn.disabled = activeIndex <= 0;
+            }
+            if (nextBtn) {
+                nextBtn.disabled = activeIndex >= slides.length - 1;
+            }
+            dots.forEach((dot) => {
+                const dotIndex = Number.parseInt(dot.getAttribute('data-carousel-dot-index') || '', 10);
+                const isActive = dotIndex === activeIndex;
+                dot.classList.toggle('active', isActive);
+                dot.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+        }
+
+        let scrollTimer = 0;
+        track.addEventListener('scroll', () => {
+            window.clearTimeout(scrollTimer);
+            scrollTimer = window.setTimeout(updateState, 50);
+        }, { passive: true });
+
+        track.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                scrollCelebrationCarouselToIndex(track, slides, getActiveIndex() - 1);
+                return;
+            }
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                scrollCelebrationCarouselToIndex(track, slides, getActiveIndex() + 1);
+            }
+        });
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                scrollCelebrationCarouselToIndex(track, slides, getActiveIndex() - 1);
+            });
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                scrollCelebrationCarouselToIndex(track, slides, getActiveIndex() + 1);
+            });
+        }
+        dots.forEach((dot) => {
+            dot.addEventListener('click', () => {
+                const dotIndex = Number.parseInt(dot.getAttribute('data-carousel-dot-index') || '', 10);
+                if (!Number.isInteger(dotIndex)) {
+                    return;
+                }
+                scrollCelebrationCarouselToIndex(track, slides, dotIndex);
+            });
+        });
+
+        window.setTimeout(updateState, 0);
+    }
+
     function buildOverlay({ kidId, apiBase, pendingCelebrations }) {
-        const first = pendingCelebrations[0] || {};
         const awardIds = pendingCelebrations
             .map((item) => Number.parseInt(item && item.awardId, 10))
             .filter((value) => Number.isInteger(value) && value > 0);
-        const imageUrl = resolveBadgeImageUrl(first);
-        const paletteKey = getPaletteKey(first);
-        const title = String(first.title || 'New badge');
-        const reason = String(first.reasonText || 'You unlocked a new reward badge!');
         const totalCount = Math.max(1, pendingCelebrations.length);
+        const titleText = totalCount === 1 ? 'New badge unlocked' : 'New badges unlocked';
+        const subText = totalCount === 1
+            ? 'Your hard work added a new reward to your badge shelf.'
+            : 'Swipe through your new rewards.';
+        const metaText = totalCount === 1
+            ? '1 new badge added to your shelf.'
+            : `${totalCount} new badges added to your shelf.`;
+        const slideMarkup = pendingCelebrations
+            .map((item, index) => buildBadgeSlideMarkup(item, index))
+            .join('');
+        const dotsMarkup = totalCount > 1
+            ? pendingCelebrations.map((item, index) => `
+                <button
+                    type="button"
+                    class="kid-badge-celebration-carousel-dot${index === 0 ? ' active' : ''}"
+                    data-carousel-dot-index="${index}"
+                    aria-label="Show badge ${index + 1}"
+                    aria-pressed="${index === 0 ? 'true' : 'false'}"
+                ></button>
+            `).join('')
+            : '';
 
         const overlay = document.createElement('div');
         overlay.className = 'kid-badge-celebration-overlay';
@@ -126,32 +272,28 @@
             </div>
             <div class="kid-badge-celebration-modal" role="dialog" aria-modal="true" aria-label="New badge unlocked">
                 <div class="kid-badge-celebration-kicker">Reward unlocked</div>
-                <h2 class="kid-badge-celebration-title">New badge unlocked</h2>
-                <p class="kid-badge-celebration-sub">Your hard work added a new reward to your badge shelf.</p>
-                <div class="kid-badge-celebration-art-stage">
-                    <span class="kid-badge-celebration-spark kid-badge-celebration-spark-1" aria-hidden="true"></span>
-                    <span class="kid-badge-celebration-spark kid-badge-celebration-spark-2" aria-hidden="true"></span>
-                    <span class="kid-badge-celebration-spark kid-badge-celebration-spark-3" aria-hidden="true"></span>
-                    <span class="kid-badge-celebration-spark kid-badge-celebration-spark-4" aria-hidden="true"></span>
-                    <span class="kid-badge-celebration-spark kid-badge-celebration-spark-5" aria-hidden="true"></span>
-                    <span class="kid-badge-celebration-spark kid-badge-celebration-spark-6" aria-hidden="true"></span>
-                    <div class="kid-badge-celebration-art-wrap kid-badge-celebration-palette-${escapeHtml(paletteKey)}">
-                        ${
-    imageUrl
-        ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)} badge art">`
-        : '<span class="kid-badge-art-fallback">🏅</span>'
-}
+                <h2 class="kid-badge-celebration-title">${escapeHtml(titleText)}</h2>
+                <p class="kid-badge-celebration-sub">${escapeHtml(subText)}</p>
+                <div class="kid-badge-celebration-carousel${totalCount === 1 ? ' kid-badge-celebration-carousel-single' : ''}" data-active-index="0">
+                    <div class="kid-badge-celebration-track" tabindex="0" aria-label="Unlocked badges">
+                        ${slideMarkup}
                     </div>
-                </div>
-                <div class="kid-badge-celebration-name">${escapeHtml(title)}</div>
-                <div class="kid-badge-celebration-reason">${escapeHtml(reason)}</div>
-                <div class="kid-badge-celebration-meta">
                     ${
     totalCount > 1
-        ? `${totalCount} new badges are waiting in the shelf.`
-        : '1 new badge added to your shelf.'
+        ? `
+                    <div class="kid-badge-celebration-carousel-controls">
+                        <button type="button" class="kid-badge-celebration-carousel-nav" data-carousel-action="prev" aria-label="Previous badge">Prev</button>
+                        <div class="kid-badge-celebration-carousel-counter">1 of ${totalCount}</div>
+                        <button type="button" class="kid-badge-celebration-carousel-nav" data-carousel-action="next" aria-label="Next badge">Next</button>
+                    </div>
+                    <div class="kid-badge-celebration-carousel-dots" aria-label="Badge pages">
+                        ${dotsMarkup}
+                    </div>
+        `
+        : ''
 }
                 </div>
+                <div class="kid-badge-celebration-meta">${escapeHtml(metaText)}</div>
                 <div class="kid-badge-celebration-actions">
                     <button type="button" class="control-btn start-btn" data-celebration-action="view">🏅 View Badges</button>
                     <button type="button" class="control-btn secondary-btn" data-celebration-action="close">Nice!</button>
@@ -191,6 +333,7 @@
                 await closeOverlay(overlay);
             });
         }
+        initializeCelebrationCarousel(overlay);
         return overlay;
     }
 
