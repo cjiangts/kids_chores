@@ -145,10 +145,19 @@ def _load_session_rows_since(kid_conn, tracking_start_dt: datetime):
             COALESCE(s.planned_count, 0) AS planned_count,
             COALESCE(s.retry_count, 0) AS retry_count,
             COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_correct_count,
-            s.completed_at
+            s.completed_at,
+            COUNT(sr.id) AS answer_count
         FROM sessions s
+        LEFT JOIN session_results sr ON sr.session_id = s.id
         WHERE s.completed_at IS NOT NULL
           AND s.completed_at >= ?
+        GROUP BY
+            s.id,
+            s.type,
+            s.planned_count,
+            s.retry_count,
+            s.retry_best_rety_correct_count,
+            s.completed_at
         ORDER BY s.completed_at ASC, s.id ASC
         """,
         [tracking_start_dt],
@@ -244,6 +253,14 @@ def _is_session_strict_gold(*, planned_count: int, retry_count: int, total_count
     return True
 
 
+def _is_session_complete_for_completion_awards(*, planned_count: int, answer_count: int) -> bool:
+    planned_target = max(0, int(planned_count or 0))
+    answered = max(0, int(answer_count or 0))
+    if planned_target > 0:
+        return answered >= planned_target
+    return answered > 0
+
+
 def _compute_max_streak(practice_dates) -> int:
     if not practice_dates:
         return 0
@@ -275,6 +292,7 @@ def _collect_metrics(kid_conn, tracking_start_dt: datetime, family_timezone: str
     retry_comebacks = 0
     total_gold = 0
     total_active_ms = 0
+    total_completed_sessions = 0
 
     for row in session_rows:
         session_id = int(row[0] or 0)
@@ -283,14 +301,21 @@ def _collect_metrics(kid_conn, tracking_start_dt: datetime, family_timezone: str
         retry_count = int(row[3] or 0)
         retry_best = int(row[4] or 0)
         completed_at = row[5]
+        answer_count = int(row[6] or 0)
+        is_completed_for_awards = _is_session_complete_for_completion_awards(
+            planned_count=planned_count,
+            answer_count=answer_count,
+        )
 
-        if category_key:
+        if is_completed_for_awards:
+            total_completed_sessions += 1
+        if category_key and is_completed_for_awards:
             completed_by_category[category_key] += 1
 
         local_day = _to_local_date(completed_at, family_timezone)
         if local_day is not None:
             practice_dates.add(local_day)
-            if category_key:
+            if category_key and is_completed_for_awards:
                 categories_done_by_day[local_day].add(category_key)
 
         session_accuracy = accuracy_by_session.get(session_id, {})
@@ -337,7 +362,7 @@ def _collect_metrics(kid_conn, tracking_start_dt: datetime, family_timezone: str
         full_completion_days = set()
 
     return {
-        'total_completed_sessions': int(len(session_rows)),
+        'total_completed_sessions': int(total_completed_sessions),
         'completed_sessions_in_category': completed_by_category,
         'cards_practiced_in_category': cards_practiced_by_category,
         'total_active_minutes': max(0.0, total_active_ms / 60000.0),

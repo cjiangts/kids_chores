@@ -140,7 +140,8 @@ body.practice-home-redesign {
     gap: 16px;
 }
 
-.family-home-page .redesign-kid-card {
+.family-home-page .redesign-kid-card,
+.parent-admin-page .redesign-kid-card {
     border: 1px solid rgba(255, 255, 255, 0.68);
     border-radius: 22px;
     background: rgba(255, 255, 255, 0.93);
@@ -150,12 +151,14 @@ body.practice-home-redesign {
     transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 
-.family-home-page .redesign-kid-card:hover {
+.family-home-page .redesign-kid-card:hover,
+.parent-admin-page .redesign-kid-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 18px 40px rgba(31, 45, 98, 0.2);
 }
 
-.family-home-page .redesign-kid-top {
+.family-home-page .redesign-kid-top,
+.parent-admin-page .redesign-kid-top {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -163,7 +166,8 @@ body.practice-home-redesign {
     margin-bottom: 10px;
 }
 
-.family-home-page .redesign-kid-name {
+.family-home-page .redesign-kid-name,
+.parent-admin-page .redesign-kid-name {
     margin: 0;
     color: #2a2f3d;
     font-size: clamp(1.7rem, 2.4vw, 2.25rem);
@@ -171,7 +175,8 @@ body.practice-home-redesign {
     font-weight: 850;
 }
 
-.family-home-page .redesign-kid-sub {
+.family-home-page .redesign-kid-sub,
+.parent-admin-page .redesign-kid-sub {
     margin-top: 4px;
     font-size: 0.82rem;
     color: #687795;
@@ -195,7 +200,8 @@ body.practice-home-redesign {
     flex: 0 0 auto;
 }
 
-.family-home-page .redesign-subject-list {
+.family-home-page .redesign-subject-list,
+.parent-admin-page .redesign-subject-list {
     display: grid;
     gap: 8px;
 }
@@ -228,7 +234,8 @@ body.practice-home-redesign {
     background: #f8faff;
 }
 
-.family-home-page .redesign-subject-row {
+.family-home-page .redesign-subject-row,
+.parent-admin-page .redesign-subject-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
@@ -239,16 +246,19 @@ body.practice-home-redesign {
     padding: 10px 11px;
 }
 
-.family-home-page .redesign-subject-main {
+.family-home-page .redesign-subject-main,
+.parent-admin-page .redesign-subject-main {
     min-width: 0;
 }
 
-.family-home-page .redesign-subject-row > .redesign-subject-note {
+.family-home-page .redesign-subject-row > .redesign-subject-note,
+.parent-admin-page .redesign-subject-row > .redesign-subject-note {
     grid-column: 1 / -1;
     margin-top: 0;
 }
 
-.family-home-page .redesign-subject-title {
+.family-home-page .redesign-subject-title,
+.parent-admin-page .redesign-subject-title {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -262,12 +272,14 @@ body.practice-home-redesign {
     text-overflow: ellipsis;
 }
 
-.family-home-page .redesign-subject-emoji {
+.family-home-page .redesign-subject-emoji,
+.parent-admin-page .redesign-subject-emoji {
     font-size: 1rem;
     line-height: 1;
 }
 
-.family-home-page .redesign-subject-note {
+.family-home-page .redesign-subject-note,
+.parent-admin-page .redesign-subject-note {
     margin-top: 4px;
     color: #536486;
     font-size: 0.9rem;
@@ -359,7 +371,8 @@ body.practice-home-redesign {
     background: #e4e8f7;
 }
 
-.family-home-page .redesign-subject-right {
+.family-home-page .redesign-subject-right,
+.parent-admin-page .redesign-subject-right {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
@@ -369,7 +382,8 @@ body.practice-home-redesign {
     min-width: 0;
 }
 
-.family-home-page .redesign-status-pill {
+.family-home-page .redesign-status-pill,
+.parent-admin-page .redesign-status-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -382,25 +396,29 @@ body.practice-home-redesign {
     white-space: nowrap;
 }
 
-.family-home-page .redesign-status-pill.done {
+.family-home-page .redesign-status-pill.done,
+.parent-admin-page .redesign-status-pill.done {
     background: #e9f8ef;
     color: #157f42;
     border: 1px solid #bfe8cc;
 }
 
-.family-home-page .redesign-status-pill.in-progress {
+.family-home-page .redesign-status-pill.in-progress,
+.parent-admin-page .redesign-status-pill.in-progress {
     background: #fff3da;
     color: #a16207;
     border: 1px solid #eec981;
 }
 
-.family-home-page .redesign-status-pill.not-started {
+.family-home-page .redesign-status-pill.not-started,
+.parent-admin-page .redesign-status-pill.not-started {
     background: #edf2f7;
     color: #64748b;
     border: 1px solid #d8e0ea;
 }
 
-.family-home-page .redesign-status-token {
+.family-home-page .redesign-status-token,
+.parent-admin-page .redesign-status-token {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -412,18 +430,261 @@ body.practice-home-redesign {
     font-weight: 800;
 }
 
-.family-home-page .redesign-status-token.star {
+.family-home-page .redesign-status-token.star,
+.parent-admin-page .redesign-status-token.star {
     color: #b17700;
     background: #fff3bf;
     border: 1px solid #f0ce74;
 }
 
-.family-home-page .redesign-status-token.overflow {
+.family-home-page .redesign-status-token.overflow,
+.parent-admin-page .redesign-status-token.overflow {
     min-width: 36px;
     padding: 0 0.44rem;
     color: #4b5a70;
     background: #edf2f7;
     border: 1px solid #d8e0ea;
+}
+
+/* Parent admin cards */
+.parent-admin-page .kids-grid {
+    margin-top: 8px;
+    gap: 16px;
+}
+
+.parent-admin-page .admin-kid-card {
+    cursor: default;
+    padding: 12px;
+}
+
+.parent-admin-page .redesign-kid-top {
+    margin-bottom: 8px;
+}
+
+.parent-admin-page .redesign-kid-name {
+    font-size: clamp(1.45rem, 2vw, 1.85rem);
+    line-height: 1.02;
+}
+
+.parent-admin-page .redesign-kid-sub {
+    margin-top: 2px;
+    font-size: 0.76rem;
+    line-height: 1.1;
+}
+
+.parent-admin-page .admin-records-pill {
+    min-width: 72px;
+    min-height: 36px;
+    border-radius: 12px;
+    border: 1px solid #e5e8ff;
+    background: linear-gradient(90deg, #fff8cb, #ffe9cf, #eef4ff);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
+    text-decoration: none;
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: #8a4f00;
+    white-space: nowrap;
+    box-shadow: 0 8px 18px rgba(31, 45, 98, 0.08);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.parent-admin-page .admin-records-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(31, 45, 98, 0.11);
+}
+
+.parent-admin-page .admin-records-pill-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.parent-admin-page .admin-deck-hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #49b34d, #42aa47);
+    color: #fff;
+    box-shadow: 0 12px 24px rgba(65, 140, 74, 0.22);
+}
+
+.parent-admin-page .admin-deck-hero-icon {
+    font-size: 1.18rem;
+    line-height: 1;
+}
+
+.parent-admin-page .admin-deck-hero-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.parent-admin-page .admin-deck-hero-title {
+    font-size: 0.94rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.parent-admin-page .admin-deck-hero-note {
+    margin-top: 1px;
+    font-size: 0.74rem;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.parent-admin-page .admin-deck-hero-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 0 0.68rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.parent-admin-page .admin-deck-hero-cta:hover {
+    background: rgba(255, 255, 255, 0.24);
+    border-color: rgba(255, 255, 255, 0.42);
+    transform: translateY(-1px);
+}
+
+.parent-admin-page .admin-deck-hero-cta:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.82);
+    outline-offset: 2px;
+}
+
+.parent-admin-page .admin-config-list {
+    margin-top: 8px;
+    gap: 6px;
+}
+
+.parent-admin-page .admin-config-row {
+    color: inherit;
+    text-decoration: none;
+    padding: 8px 10px;
+    cursor: default;
+}
+
+.parent-admin-page .redesign-subject-title {
+    font-size: 0.88rem;
+    line-height: 1.04;
+}
+
+.parent-admin-page .redesign-subject-note {
+    margin-top: 2px;
+    font-size: 0.78rem;
+    line-height: 1.1;
+}
+
+.parent-admin-page .admin-config-row-disabled,
+.parent-admin-page .admin-config-row-empty {
+    cursor: default;
+}
+
+.parent-admin-page .admin-row-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.28rem;
+    flex-wrap: wrap;
+}
+
+.parent-admin-page .admin-row-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 0.82rem;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #dbe3f8;
+    color: #4f63cb;
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.parent-admin-page .admin-row-pill-muted {
+    color: #64748b;
+    background: #edf2f7;
+    border-color: #d8e0ea;
+}
+
+.parent-admin-page .admin-row-pill-secondary {
+    font-size: 0.72rem;
+    min-height: 32px;
+    padding: 0 0.62rem;
+}
+
+.parent-admin-page .admin-row-pill-action:hover {
+    transform: translateY(-1px);
+    background: #f8faff;
+}
+
+.parent-admin-page .admin-row-pill-secondary:hover {
+    transform: translateY(-1px);
+}
+
+.parent-admin-page .admin-row-pill-print {
+    border-color: #b8d4ee;
+    background: #eff8ff;
+    color: #1f5379;
+}
+
+.parent-admin-page .admin-row-pill-audio {
+    border-color: #b8dfd1;
+    background: #effcf5;
+    color: #17634c;
+}
+
+.parent-admin-page .admin-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.parent-admin-page .admin-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.38rem;
+    min-height: 34px;
+    padding: 0.36rem 0.82rem;
+    border-radius: 999px;
+    border: 1px solid #f0b4af;
+    background: #fff4f3;
+    color: #c62828;
+    font-size: 0.82rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.parent-admin-page .admin-delete-btn:hover {
+    background: #ffe9e7;
+    transform: translateY(-1px);
 }
 
 /* Kid practice home */
@@ -719,6 +980,7 @@ body.practice-home-redesign {
     }
 
     .family-home-page .redesign-kid-card,
+    .parent-admin-page .redesign-kid-card,
     .practice-home-redesign .redesign-practice-option {
         border-radius: 18px;
         padding: 10px;
@@ -735,11 +997,13 @@ body.practice-home-redesign {
     }
 
     .family-home-page .redesign-kid-name,
+    .parent-admin-page .redesign-kid-name,
     .practice-home-redesign .practice-row-head h3 {
         font-size: 1.12rem;
     }
 
-    .family-home-page .redesign-subject-row {
+    .family-home-page .redesign-subject-row,
+    .parent-admin-page .redesign-subject-row {
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 6px;
         padding: 8px 9px;
@@ -755,20 +1019,42 @@ body.practice-home-redesign {
         font-size: 0.76rem;
     }
 
-    .family-home-page .redesign-subject-right {
+    .family-home-page .redesign-subject-right,
+    .parent-admin-page .redesign-subject-right {
         justify-content: flex-end;
         align-self: start;
         width: auto;
         min-width: 0;
     }
 
+    .parent-admin-page .admin-records-pill {
+        min-width: 0;
+        min-height: 32px;
+        padding: 0 9px;
+        font-size: 0.78rem;
+    }
+
+    .parent-admin-page .admin-deck-hero {
+        padding: 9px 10px;
+        gap: 8px;
+    }
+
+    .parent-admin-page .admin-deck-hero-title {
+        font-size: 0.88rem;
+    }
+
+    .parent-admin-page .admin-deck-hero-note {
+        font-size: 0.7rem;
+    }
+
     .practice-home-redesign .practice-row-head h3 {
         font-size: 1rem;
     }
 
-    .family-home-page .redesign-kid-sub {
+    .family-home-page .redesign-kid-sub,
+    .parent-admin-page .redesign-kid-sub {
         margin-top: 2px;
-        font-size: 0.78rem;
+        font-size: 0.72rem;
     }
 
     .family-home-page .redesign-star-total {
@@ -778,14 +1064,16 @@ body.practice-home-redesign {
         padding: 0 8px;
     }
 
-    .family-home-page .redesign-subject-title {
-        font-size: 0.83rem;
+    .family-home-page .redesign-subject-title,
+    .parent-admin-page .redesign-subject-title {
+        font-size: 0.79rem;
         gap: 5px;
     }
 
-    .family-home-page .redesign-subject-note {
+    .family-home-page .redesign-subject-note,
+    .parent-admin-page .redesign-subject-note {
         margin-top: 2px;
-        font-size: 0.76rem;
+        font-size: 0.7rem;
     }
 
     .family-home-page .redesign-progress-wrap {
@@ -840,6 +1128,39 @@ body.practice-home-redesign {
 }
 
 @media (max-width: 520px) {
+    .parent-admin-page .admin-records-pill {
+        min-width: 0;
+        min-height: 38px;
+        padding: 0 10px;
+        font-size: 0.84rem;
+    }
+
+    .parent-admin-page .admin-row-pill,
+    .parent-admin-page .admin-row-pill-secondary {
+        min-height: 36px;
+        padding: 0 0.8rem;
+        font-size: 0.76rem;
+    }
+
+    .parent-admin-page .admin-row-pill-secondary {
+        padding: 0 0.68rem;
+        font-size: 0.7rem;
+    }
+
+    .parent-admin-page .admin-deck-hero-cta {
+        min-height: 28px;
+        padding: 0 0.62rem;
+        font-size: 0.74rem;
+    }
+
+    .parent-admin-page .admin-card-footer {
+        justify-content: stretch;
+    }
+
+    .parent-admin-page .admin-delete-btn {
+        width: 100%;
+    }
+
     .practice-home-redesign .header {
         align-items: flex-start;
         gap: 10px;

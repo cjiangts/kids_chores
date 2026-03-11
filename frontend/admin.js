@@ -30,6 +30,7 @@ const {
     getCategoryDisplayName,
     getCategoryEmoji,
 } = window.DeckCategoryCommon;
+const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
 let isCreatingKid = false;
 let isSavingDeckCategories = false;
 let currentKids = [];
@@ -403,19 +404,18 @@ function getManageHrefByCategory(categoryKey, kidId, categoryMetaMap = {}) {
     return `${path}?${params.toString()}`;
 }
 
-function getPrintableWorksheetHref(kid, categoryMetaMap = {}) {
-    const optedInCategoryKeys = getOptedInDeckCategoryKeys(kid);
-    const chineseType2CategoryKeys = optedInCategoryKeys.filter((categoryKey) => {
-        const meta = categoryMetaMap?.[categoryKey] || {};
-        return String(meta.behavior_type || '').trim().toLowerCase() === 'type_ii'
-            && Boolean(meta.has_chinese_specific_logic);
-    });
-    if (chineseType2CategoryKeys.length <= 0) {
+function getPrintableWorksheetHrefForCategory(kid, categoryKey, categoryMetaMap = {}) {
+    const key = String(categoryKey || '').trim().toLowerCase();
+    if (!key) {
+        return '';
+    }
+    const meta = categoryMetaMap?.[key] || {};
+    if (String(meta.behavior_type || '').trim().toLowerCase() !== 'type_ii' || !Boolean(meta.has_chinese_specific_logic)) {
         return '';
     }
     const params = new URLSearchParams();
     params.set('id', String(kid?.id || ''));
-    params.set('categoryKey', String(chineseType2CategoryKeys[0] || ''));
+    params.set('categoryKey', key);
     return `/kid-writing-sheet-manage.html?${params.toString()}`;
 }
 
@@ -423,7 +423,7 @@ function getPrintableWorksheetHref(kid, categoryMetaMap = {}) {
 function displayKids(kids) {
     if (kids.length === 0) {
         kidsList.innerHTML = `
-            <div class="empty-state">
+            <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
                 <p>Click "Add New Kid" to add your first learner!</p>
             </div>
@@ -436,56 +436,90 @@ function displayKids(kids) {
         const practiceTargetByCategory = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
         const categoryMetaMap = getDeckCategoryMetaMap(kid);
         const optedInCategoryKeys = Array.from(optedInCategories).sort((a, b) => a.localeCompare(b));
+        const availableOptInCount = Object.entries(categoryMetaMap).filter(([categoryKey, meta]) => {
+            const normalizedKey = String(categoryKey || '').trim().toLowerCase();
+            const behaviorType = String(meta?.behavior_type || '').trim().toLowerCase();
+            return normalizedKey
+                && VALID_BEHAVIOR_TYPES.has(behaviorType)
+                && !optedInCategories.has(normalizedKey);
+        }).length;
+
+        const configuredDeckCount = optedInCategoryKeys.length;
+        const summaryText = configuredDeckCount > 0
+            ? `${configuredDeckCount} deck${configuredDeckCount === 1 ? '' : 's'} active`
+            : 'No deck categories yet';
+        const deckHeroNote = availableOptInCount > 0
+            ? `${availableOptInCount} to opt in`
+            : (configuredDeckCount > 0 ? 'All opted in' : 'Choose what this kid practices');
+        let worksheetToolAttached = false;
+        let reviewToolAttached = false;
 
         const manageRows = optedInCategoryKeys.map((categoryKey) => {
             const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap);
             const emoji = getCategoryEmoji(categoryKey, categoryMetaMap);
+            const meta = categoryMetaMap?.[categoryKey] || {};
+            const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
             const dailyTarget = Number.parseInt(practiceTargetByCategory[categoryKey], 10);
             const safeDailyTarget = Number.isInteger(dailyTarget) ? Math.max(0, dailyTarget) : 0;
-            const label = `${emoji} ${displayName} (${safeDailyTarget}/day)`;
+            const note = `${safeDailyTarget}/day target`;
             const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
-            if (href) {
-                return `
-                    <div class="practice-config-row">
-                        <a class="tab-link secondary practice-manage-btn" href="${href}">${label}</a>
-                    </div>
-                `;
+            const printableWorksheetHref = getPrintableWorksheetHrefForCategory(kid, categoryKey, categoryMetaMap);
+            const inlineToolHtml = printableWorksheetHref && !worksheetToolAttached
+                ? `<a class="admin-row-pill admin-row-pill-secondary admin-row-pill-print" href="${printableWorksheetHref}">🖨️ Printable sheets</a>`
+                : (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached
+                    ? `<button type="button" class="admin-row-pill admin-row-pill-secondary admin-row-pill-audio" onclick="goToLatestTypeIIIReviewSession('${kid.id}')">🎧 Review audio</button>`
+                    : '');
+            if (printableWorksheetHref && !worksheetToolAttached) {
+                worksheetToolAttached = true;
+            } else if (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached && inlineToolHtml) {
+                reviewToolAttached = true;
             }
+            const manageActionHtml = href
+                ? `<a class="admin-row-pill admin-row-pill-action" href="${href}">Manage</a>`
+                : `<span class="admin-row-pill admin-row-pill-muted">Soon</span>`;
             return `
-                <div class="practice-config-row">
-                    <button type="button" class="tab-link secondary practice-manage-btn" disabled title="Manage page not implemented yet">${label}</button>
+                <div class="redesign-subject-row admin-config-row${href ? '' : ' admin-config-row-disabled'}"${href ? '' : ' title="Manage page not implemented yet"'}>
+                    <div class="redesign-subject-main">
+                        <div class="redesign-subject-title">
+                            <span class="redesign-subject-emoji">${escapeHtml(emoji)}</span>
+                            <span class="redesign-subject-name">${escapeHtml(displayName)}</span>
+                        </div>
+                        <div class="redesign-subject-note">${escapeHtml(note)}</div>
+                    </div>
+                    <div class="redesign-subject-right admin-row-actions">
+                        ${inlineToolHtml}
+                        ${manageActionHtml}
+                    </div>
                 </div>
             `;
         });
-        const showTypeIIIReviewBtn = Boolean(kid.hasTypeIIIToReview);
-        const reviewTypeIIIRow = showTypeIIIReviewBtn
-            ? `<div class="practice-config-row">
-                        <button class="tab-link review-reading-btn" onclick="goToLatestTypeIIIReviewSession('${kid.id}')">🎧 Review Kid's Recording</button>
-                    </div>`
-            : '';
-        const printableWorksheetHref = getPrintableWorksheetHref(kid, categoryMetaMap);
-        const printableWorksheetRow = printableWorksheetHref
-            ? `<div class="practice-config-row">
-                        <a class="tab-link worksheet-btn" href="${printableWorksheetHref}">🖨️ Printable work sheets (Chinese Writing)</a>
-                    </div>`
-            : '';
+        const subjectRowsHtml = manageRows.join('');
         return `
-            <div class="kid-card">
-                <h3>${escapeHtml(kid.name)}</h3>
-                <div class="practice-config-list" onclick="event.stopPropagation()">
-                    <div class="practice-config-row">
-                        <a class="tab-link primary practice-manage-btn" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;">🧩 Opt-in Deck Category</a>
+            <div class="redesign-kid-card admin-kid-card">
+                <div class="redesign-kid-top">
+                    <div>
+                        <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>
+                        <div class="redesign-kid-sub">${escapeHtml(summaryText)}</div>
                     </div>
-                    ${manageRows.join('')}
-                    <div class="practice-config-row">
-                        <a class="tab-link report-btn" href="/kid-report.html?id=${kid.id}">📊 Records</a>
-                    </div>
-                    ${printableWorksheetRow}
-                    ${reviewTypeIIIRow}
+                    <a class="admin-records-pill" href="/kid-report.html?id=${kid.id}">
+                        <span class="admin-records-pill-icon" aria-hidden="true">📊</span>
+                        <span class="admin-records-pill-label">Records</span>
+                    </a>
                 </div>
-                <button class="delete-btn" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">
-                    🗑️ Delete
-                </button>
+                <div class="admin-deck-hero">
+                    <span class="admin-deck-hero-icon" aria-hidden="true">🧩</span>
+                    <span class="admin-deck-hero-copy">
+                        <span class="admin-deck-hero-title">Deck Categories</span>
+                        <span class="admin-deck-hero-note">${escapeHtml(deckHeroNote)}</span>
+                    </span>
+                    <button type="button" class="admin-deck-hero-cta" onclick="openDeckCategoryOptInModal('${kid.id}')">Edit</button>
+                </div>
+                ${subjectRowsHtml ? `<div class="redesign-subject-list admin-config-list">${subjectRowsHtml}</div>` : ''}
+                <div class="admin-card-footer">
+                    <button type="button" class="admin-delete-btn" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">
+                        🗑️ Delete
+                    </button>
+                </div>
             </div>
         `;
     }).join('');

@@ -74,7 +74,7 @@
         const cumulativePercent = (previousSessionCount * 100) + (
             hasLatestPercent ? latestPercentValue : fallbackLatestPercent
         );
-        const isDoneToday = cumulativePercent >= 100;
+        const isDoneToday = tiers.length > 0 && latestTier !== 'half_silver';
         const isStackedBadgeLayout = tiers.length > 1;
         const badgeStripClass = isStackedBadgeLayout
             ? 'progress-badge-strip progress-badge-strip-stacked'
