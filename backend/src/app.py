@@ -10,6 +10,7 @@ from src.routes.kids import (
     kids_bp,
 )
 from src.badges.admin import (
+    build_family_badge_art_payload,
     build_super_family_badge_art_payload,
     build_reward_tracking_status,
     clear_family_kid_badge_awards,
@@ -288,12 +289,16 @@ def create_app():
 
     @app.route('/api/parent-settings/rewards/badge-art', methods=['GET'])
     def get_parent_rewards_badge_art():
-        auth_err = require_super_family_auth()
+        auth_err = require_family_auth()
         if auth_err:
             return auth_err
+        family_id = str(session.get('family_id') or '')
+        is_super_family = metadata.is_super_family(family_id)
         shared_conn = get_shared_decks_connection()
         try:
-            return build_super_family_badge_art_payload(shared_conn), 200
+            if is_super_family:
+                return build_super_family_badge_art_payload(shared_conn), 200
+            return build_family_badge_art_payload(shared_conn), 200
         finally:
             shared_conn.close()
 

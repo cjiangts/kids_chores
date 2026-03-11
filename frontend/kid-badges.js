@@ -169,7 +169,7 @@
             : 'Not started';
         summaryEl.innerHTML = `
             <div class="kid-badge-summary-box">
-                <p class="kid-badge-summary-label">Tracking</p>
+                <p class="kid-badge-summary-label">Started</p>
                 <p class="kid-badge-summary-value">${escapeHtml(trackingStartedAt)}</p>
             </div>
             <div class="kid-badge-summary-box">
@@ -177,11 +177,11 @@
                 <p class="kid-badge-summary-value">${Number(summary.earnedCount || 0)}</p>
             </div>
             <div class="kid-badge-summary-box">
-                <p class="kid-badge-summary-label">Coming Next</p>
+                <p class="kid-badge-summary-label">Next</p>
                 <p class="kid-badge-summary-value">${Number(summary.comingCount || 0)}</p>
             </div>
             <div class="kid-badge-summary-box">
-                <p class="kid-badge-summary-label">New This Sync</p>
+                <p class="kid-badge-summary-label">New</p>
                 <p class="kid-badge-summary-value">${Number(summary.newAwardCount || 0)}</p>
             </div>
         `;

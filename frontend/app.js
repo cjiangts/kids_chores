@@ -220,6 +220,7 @@ function displayKids(kids) {
     }
 
     kidsList.innerHTML = kids.map(kid => {
+        const kidIdText = String(kid?.id ?? '').trim();
         const optedInKeys = getOptedInDeckCategoryKeys(kid);
         const categoryMetaMap = getDeckCategoryMetaMap(kid);
         const dailyCompletedByCategory = getCategoryValueMap(kid?.dailyCompletedByDeckCategory);

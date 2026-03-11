@@ -9,7 +9,6 @@
     <style>
         .deck-v2-panel h2 {
             margin: 0;
-            color: #2f3c7e;
         }
 
         .manage-page .container {
@@ -63,7 +62,6 @@
 
         .manage-popup-title-row h2 {
             margin: 0;
-            color: #2f3c7e;
         }
 
         .manage-popup-title-actions {
@@ -456,17 +454,12 @@
             display: none;
         }
 
-        .settings-main-section h2,
-        .cards-section h2 {
-            margin-bottom: 1rem;
-            color: #333;
-            font-size: 1.46rem;
-            line-height: 1.18;
+        .settings-main-section h2 {
+            margin-bottom: var(--card-section-title-margin-bottom);
         }
 
-        .cards-section .cards-title,
-        .cards-section .cards-title span {
-            color: #333;
+        .cards-section h2 {
+            margin-bottom: var(--card-section-title-margin-bottom);
         }
 
         .cards-section .cards-title {
@@ -1656,11 +1649,6 @@
         }
 
         @media (max-width: 640px) {
-            .settings-main-section h2,
-            .cards-section h2 {
-                font-size: 1.26rem;
-            }
-
             .deck-setup-summary-card {
                 padding: 0.44rem 0.48rem;
             }

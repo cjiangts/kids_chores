@@ -1,6 +1,7 @@
 """Reward admin helpers for family-level tracking start and reset."""
 from __future__ import annotations
 
+from collections import Counter
 import os
 from typing import Dict, Tuple
 
@@ -96,7 +97,34 @@ def list_noto_badge_art_catalog(shared_conn):
     return items
 
 
-def list_badge_art_assignments(shared_conn):
+def list_badge_art_assignments(shared_conn, *, include_earned_counts: bool = True):
+    earned_kid_count_by_key = Counter()
+    if include_earned_counts:
+        for kid in metadata.get_all_kids():
+            db_file_path = str(kid.get('dbFilePath') or '').strip()
+            if not db_file_path:
+                continue
+            conn = None
+            try:
+                conn = kid_db.get_kid_connection_by_path(db_file_path)
+                award_rows = conn.execute(
+                    """
+                    SELECT achievement_key, COALESCE(category_key, '')
+                    FROM kid_badge_award
+                    """
+                ).fetchall()
+            except Exception:
+                continue
+            finally:
+                if conn is not None:
+                    conn.close()
+            for award_row in award_rows:
+                achievement_key = str(award_row[0] or '').strip()
+                category_key = _normalize_category_key(award_row[1])
+                if not achievement_key:
+                    continue
+                earned_kid_count_by_key[(achievement_key, category_key)] += 1
+
     mapping_rows = shared_conn.execute(
         """
         SELECT
@@ -105,7 +133,8 @@ def list_badge_art_assignments(shared_conn):
             aba.badge_art_id,
             ba.image_path,
             ba.source_url,
-            ba.license
+            ba.license,
+            COALESCE(ba.is_active, FALSE)
         FROM achievement_badge_art aba
         LEFT JOIN badge_art ba ON ba.badge_art_id = aba.badge_art_id
         """
@@ -125,6 +154,7 @@ def list_badge_art_assignments(shared_conn):
             'label': _label_from_image_path(image_path),
             'sourceUrl': str(row[4] or '').strip(),
             'license': str(row[5] or '').strip(),
+            'isActive': bool(row[6]),
         }
 
     achievements = []
@@ -155,6 +185,9 @@ def list_badge_art_assignments(shared_conn):
             'currentImageLabel': str(current_art.get('label') or ''),
             'currentBadgeSourceUrl': str(current_art.get('sourceUrl') or ''),
             'currentBadgeLicense': str(current_art.get('license') or ''),
+            'currentBadgeIsActive': bool(current_art.get('isActive')),
+            'earnedKidCount': int(earned_kid_count_by_key.get(key, 0)) if include_earned_counts else 0,
+            'earnedByAnyKid': bool(earned_kid_count_by_key.get(key, 0)) if include_earned_counts else False,
         })
     return achievements
 
@@ -163,6 +196,22 @@ def build_super_family_badge_art_payload(shared_conn):
     return {
         'achievements': list_badge_art_assignments(shared_conn),
         'artCatalog': list_noto_badge_art_catalog(shared_conn),
+        'canEdit': True,
+    }
+
+
+def build_family_badge_art_payload(shared_conn):
+    achievements = []
+    for item in list_badge_art_assignments(shared_conn, include_earned_counts=False):
+        if int(item.get('currentBadgeArtId') or 0) <= 0:
+            continue
+        if not bool(item.get('currentBadgeIsActive')):
+            continue
+        achievements.append(item)
+    return {
+        'achievements': achievements,
+        'artCatalog': [],
+        'canEdit': False,
     }
 
 

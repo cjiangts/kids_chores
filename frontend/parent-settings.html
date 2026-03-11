@@ -20,9 +20,7 @@
         }
 
         .settings-card h2 {
-            margin-bottom: 0.75rem;
-            color: #2f3c7e;
-            font-size: 1.1rem;
+            margin-bottom: var(--card-section-title-margin-bottom);
         }
 
         .settings-row {
@@ -83,6 +81,21 @@
             justify-content: space-between;
             gap: 1rem;
             flex-wrap: wrap;
+            margin-top: 0.95rem;
+            padding-top: 0.95rem;
+            border-top: 1px solid #eef1f8;
+        }
+
+        .badge-art-launcher-title {
+            margin: 0;
+            color: #2f3c7e;
+            font-size: 0.98rem;
+            line-height: 1.15;
+            font-weight: 800;
+        }
+
+        .badge-art-launcher-note {
+            margin-top: 0.3rem;
         }
 
         .badge-art-studio-actions {
@@ -114,6 +127,14 @@
             font-size: clamp(1.4rem, 2.8vw, 1.9rem);
             line-height: 1.08;
             font-weight: 850;
+        }
+
+        .badge-art-modal-subtitle {
+            margin-top: 0.35rem;
+            color: #60708f;
+            font-size: 0.9rem;
+            line-height: 1.35;
+            font-weight: 600;
         }
 
         .badge-art-modal-top-actions {
@@ -216,6 +237,18 @@
         .badge-art-tile.selected {
             border-color: #aebef4;
             box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.16);
+        }
+
+        .badge-art-achievement-card.badge-art-earned {
+            border-color: #dd8a8a;
+            box-shadow: inset 0 0 0 1px rgba(214, 92, 92, 0.24);
+        }
+
+        .badge-art-achievement-card.badge-art-earned.selected {
+            border-color: #d77474;
+            box-shadow:
+                0 0 0 3px rgba(79, 131, 255, 0.14),
+                inset 0 0 0 1px rgba(214, 92, 92, 0.36);
         }
 
         .badge-art-tile.selected {
@@ -482,30 +515,26 @@
                 </section>
 
                 <section class="settings-card">
-                    <h2>Kid Rewards</h2>
-                    <div class="settings-note">Start or reset the badge reward system for this family.</div>
-                    <div class="warning-note">Both actions require the family password.</div>
-                    <div id="rewardsStatusText" class="settings-status">Loading reward status...</div>
+                    <h2>Rewards</h2>
+                    <div class="settings-note">Start or reset family badges.</div>
+                    <div id="rewardsStatusText" class="settings-status">Loading badges...</div>
                     <div id="rewardsStartPlanText" class="settings-note"></div>
                     <div class="settings-row actions-row">
-                        <button type="button" id="startRewardsBtn" class="btn-primary">Start Reward Tracking</button>
-                        <button type="button" id="resetRewardsBtn" class="btn-secondary">Reset Rewards</button>
+                        <button type="button" id="startRewardsBtn" class="btn-primary">Start</button>
+                        <button type="button" id="resetRewardsBtn" class="btn-secondary">Reset</button>
+                    </div>
+                    <div class="badge-art-studio-launcher">
+                        <div>
+                            <div id="badgeArtLauncherTitle" class="badge-art-launcher-title">Badges</div>
+                            <div id="badgeArtStudioLead" class="settings-note badge-art-launcher-note">Browse badges.</div>
+                            <div id="badgeArtStudioStatus" class="settings-status">Loading badges...</div>
+                        </div>
+                        <div class="settings-row badge-art-studio-actions">
+                            <button type="button" id="openBadgeArtStudioBtn" class="btn-secondary">View</button>
+                        </div>
                     </div>
                     <div id="rewardsError" class="error hidden"></div>
                     <div id="rewardsSuccess" class="success hidden"></div>
-                </section>
-
-                <section id="badgeArtStudioCard" class="settings-card hidden">
-                    <div class="badge-art-studio-launcher">
-                        <div>
-                            <h2>Badge Art Studio</h2>
-                            <div class="settings-note">Super-family only. Changes here update the global badge art for every family.</div>
-                            <div id="badgeArtStudioStatus" class="settings-status">Loading Noto badge bank...</div>
-                        </div>
-                        <div class="settings-row badge-art-studio-actions">
-                            <button type="button" id="openBadgeArtStudioBtn" class="btn-primary">Open Studio</button>
-                        </div>
-                    </div>
                 </section>
 
                 <section class="settings-card">
@@ -567,7 +596,8 @@
         <div class="modal-content modal-large badge-art-studio-modal">
                 <div class="badge-art-modal-top">
                     <div class="badge-art-modal-title-wrap">
-                        <h2>Badge Art Studio</h2>
+                        <h2 id="badgeArtStudioTitle">Badge Studio</h2>
+                        <div id="badgeArtStudioSubtitle" class="badge-art-modal-subtitle">Set badge art.</div>
                     </div>
                 <div class="badge-art-modal-top-actions">
                     <button type="button" id="badgeArtStudioClearBtn" class="btn-secondary">Clear All</button>
@@ -584,16 +614,16 @@
             <div class="badge-art-modal-sections">
                 <section class="badge-art-modal-section">
                     <div class="badge-art-modal-section-head">
-                        <h3>All Achievements</h3>
+                        <h3 id="badgeArtAchievementSectionTitle">All</h3>
                     </div>
                     <div id="badgeArtAchievementList" class="badge-art-achievement-list"></div>
                 </section>
 
                 <section class="badge-art-modal-section">
                     <div class="badge-art-modal-section-head">
-                        <h3>Available Noto Art</h3>
+                        <h3 id="badgeArtSelectionSectionTitle">Emoji</h3>
                     </div>
-                    <div id="badgeArtSelectionEmpty" class="badge-art-selection-empty">Select an achievement.</div>
+                    <div id="badgeArtSelectionEmpty" class="badge-art-selection-empty">Pick a badge.</div>
                     <div id="badgeArtSelectionPanel" class="badge-art-selection hidden">
                         <div class="badge-art-selection-top">
                             <div id="badgeArtSelectedPreview" class="badge-art-preview"></div>

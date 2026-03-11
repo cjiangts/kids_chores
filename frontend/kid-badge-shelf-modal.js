@@ -105,14 +105,14 @@
                 <div class="badge-modal-top">
                     <div class="badge-modal-title-wrap">
                         <h2 id="kidBadgeShelfTitle">Badges</h2>
-                        <p id="kidBadgeShelfSubtitle">Collect rewards by practicing every day.</p>
+                        <p id="kidBadgeShelfSubtitle">Earn badges by practicing.</p>
                     </div>
                     <button type="button" class="back-btn badge-modal-close" data-badge-action="close">Close</button>
                 </div>
 
                 <div class="badge-tab-nav" role="tablist" aria-label="Badge tabs">
                     <button type="button" class="badge-tab-btn active" data-badge-tab="earned" aria-selected="true">Earned (0)</button>
-                    <button type="button" class="badge-tab-btn" data-badge-tab="coming" aria-selected="false">Coming Next (0)</button>
+                    <button type="button" class="badge-tab-btn" data-badge-tab="coming" aria-selected="false">Next (0)</button>
                 </div>
 
                 <div id="kidBadgeShelfPanelEarned" class="badge-tab-panel"></div>
@@ -370,8 +370,8 @@
         const trackingEnabled = Boolean(payload.trackingEnabled);
         if (state.subtitleEl) {
             state.subtitleEl.textContent = trackingEnabled
-                ? 'Collect rewards by practicing every day.'
-                : 'Rewards are not started yet. Ask parent to enable in Settings.';
+                ? 'Earn badges by practicing.'
+                : 'Ask parent to start rewards.';
         }
         const earnedCount = Array.isArray(payload.earned) ? payload.earned.length : 0;
         const comingCount = Array.isArray(payload.comingNext) ? payload.comingNext.length : 0;
@@ -379,7 +379,7 @@
             state.tabEarnedBtn.textContent = `Earned (${earnedCount})`;
         }
         if (state.tabComingBtn) {
-            state.tabComingBtn.textContent = `Coming Next (${comingCount})`;
+            state.tabComingBtn.textContent = `Next (${comingCount})`;
         }
         renderPanel(state.activeTab);
         state.renderedTabs[state.activeTab] = true;
@@ -402,7 +402,7 @@
             state.tabEarnedBtn.textContent = 'Earned (...)';
         }
         if (state.tabComingBtn) {
-            state.tabComingBtn.textContent = 'Coming Next (...)';
+            state.tabComingBtn.textContent = 'Next (...)';
         }
     }
 

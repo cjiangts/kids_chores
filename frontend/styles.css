@@ -49,6 +49,10 @@
 :root {
     --font-kaiti: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
     --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --card-section-title-color: #2f3c7e;
+    --card-section-title-size: 1.1rem;
+    --card-section-title-line-height: 1.2;
+    --card-section-title-margin-bottom: 0.75rem;
     --control-border-color: #c8d1e1;
     --control-border-focus: #4f83ff;
     --control-height: 38px;
@@ -83,6 +87,31 @@ body {
 .practice-page .cards-title,
 .practice-page .cards-title span {
     color: #fff;
+}
+
+.settings-card h2,
+.manage-page .settings-section h2,
+.deck-panel h2,
+.deck-section-title,
+.chart-card h2,
+.history-card h2,
+.daily-chart-wrap h2,
+.shared-report-table-wrap .daily-chart-header h2,
+.detail-card h2,
+.section-title,
+.manage-popup-title-row h2,
+.collapsible-section-head h2,
+.deck-v2-panel h2,
+.manage-page .cards-section h2,
+.kid-badge-section-title {
+    color: var(--card-section-title-color);
+    font-size: var(--card-section-title-size);
+    line-height: var(--card-section-title-line-height);
+}
+
+.manage-page .cards-section .cards-title,
+.manage-page .cards-section .cards-title span {
+    color: var(--card-section-title-color);
 }
 
 .practice-page * {
@@ -718,16 +747,15 @@ body {
 
 .manage-page .settings-section {
     background: white;
-    padding: 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin-bottom: 1.2rem;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
 }
 
 .manage-page .settings-section h2 {
     margin-top: 0;
-    margin-bottom: 1rem;
-    color: #333;
+    margin-bottom: var(--card-section-title-margin-bottom);
 }
 
 .manage-page .settings-row {
@@ -1770,8 +1798,7 @@ header p {
 }
 
 .deck-section-title {
-    margin: 0 0 0.8rem 0;
-    color: #2f3c7e;
+    margin: 0 0 var(--card-section-title-margin-bottom) 0;
 }
 
 .table-col-70 { width: 70px; }
