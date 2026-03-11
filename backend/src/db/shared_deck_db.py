@@ -93,20 +93,16 @@ def _sync_noto_badge_bank(conn: duckdb.DuckDBPyConnection):
         """
     )
 
-
 def ensure_shared_deck_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
     """Ensure shared deck schema exists for a connection."""
     if db_path:
         with _schema_init_lock:
             if db_path in _initialized_dbs:
-                _sync_noto_badge_bank(conn)
                 return
             conn.execute(_get_schema_sql())
             _initialized_dbs.add(db_path)
-        _sync_noto_badge_bank(conn)
         return
     conn.execute(_get_schema_sql())
-    _sync_noto_badge_bank(conn)
 
 
 def init_shared_decks_database() -> str:
@@ -114,6 +110,7 @@ def init_shared_decks_database() -> str:
     os.makedirs(DATA_DIR, exist_ok=True)
     conn = duckdb.connect(SHARED_DB_PATH)
     ensure_shared_deck_schema(conn, SHARED_DB_PATH)
+    _sync_noto_badge_bank(conn)
     conn.close()
     return SHARED_DB_PATH
 
