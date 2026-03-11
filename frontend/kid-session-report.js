@@ -3,6 +3,7 @@ const API_BASE = `${window.location.origin}/api`;
 const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
 const sessionId = params.get('sessionId');
+const from = String(params.get('from') || '').trim().toLowerCase();
 
 const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
@@ -28,7 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/admin.html';
         return;
     }
-    backBtn.href = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
+    backBtn.href = from === 'kid-home'
+        ? `/kid-report.html?id=${encodeURIComponent(kidId)}&from=kid-home`
+        : `/kid-report.html?id=${encodeURIComponent(kidId)}`;
     bindLiveDurationBackfillUpdates();
     await loadReportTimezone();
     await loadSessionDetail();

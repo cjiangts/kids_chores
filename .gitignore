@@ -62,4 +62,8 @@ design.md
 frontend/badge-earned-preview.html
 frontend/kid-badges-preview.html
 frontend/kid-badges-sticker-preview.html
-frontend/assets
+frontend/assets/*
+!frontend/assets/badges-noto/
+!frontend/assets/badges-noto/**
+frontend/assets/badges-curated/
+frontend/assets/badges-preview/

@@ -17,6 +17,7 @@ from io import BytesIO
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
+from src.badges.session_sync import sync_badges_after_session_complete
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.security_rate_limit import (
@@ -4930,6 +4931,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
             conn.execute("COMMIT")
             conn.close()
+            sync_badges_after_session_complete(kid)
             updated_retry_count = int(updated_retry_row[0] or 0) if updated_retry_row else 0
             updated_retry_total_ms = int(updated_retry_row[1] or 0) if updated_retry_row else 0
             updated_best_retry_correct = int(updated_retry_row[2] or 0) if updated_retry_row else 0
@@ -5123,6 +5125,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
             conn.execute("COMMIT")
             conn.close()
+            sync_badges_after_session_complete(kid)
             if uses_type_iii_audio and isinstance(pending_type3_audio, dict):
                 leftovers = {}
                 for item in pending_type3_audio.values():
@@ -5259,6 +5262,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
         raise
 
     conn.close()
+    sync_badges_after_session_complete(kid)
     if uses_type_iii_audio and isinstance(pending_type3_audio, dict):
         leftovers = {}
         for item in pending_type3_audio.values():

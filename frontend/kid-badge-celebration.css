@@ -1,0 +1,581 @@
+.kid-badge-celebration-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    padding: 18px 14px;
+    background: rgba(39, 45, 95, 0.34);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    overflow: hidden;
+    animation: kidBadgeCelebrationOverlayIn 220ms ease-out;
+}
+
+.kid-badge-celebration-overlay::before,
+.kid-badge-celebration-overlay::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(24px);
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+.kid-badge-celebration-overlay::before {
+    width: 360px;
+    height: 360px;
+    top: 10%;
+    left: 9%;
+    background: radial-gradient(circle, rgba(255, 212, 112, 0.46) 0%, rgba(255, 212, 112, 0.08) 58%, rgba(255, 212, 112, 0) 75%);
+    animation: kidBadgeGlowFloat 10s ease-in-out infinite alternate;
+}
+
+.kid-badge-celebration-overlay::after {
+    width: 420px;
+    height: 420px;
+    right: 6%;
+    bottom: 4%;
+    background: radial-gradient(circle, rgba(117, 196, 255, 0.38) 0%, rgba(117, 196, 255, 0.08) 55%, rgba(117, 196, 255, 0) 76%);
+    animation: kidBadgeGlowFloat 12s ease-in-out infinite alternate-reverse;
+}
+
+.kid-badge-celebration-overlay.closing {
+    animation: kidBadgeCelebrationOverlayOut 200ms ease-in forwards;
+}
+
+.kid-badge-celebration-modal {
+    position: relative;
+    width: min(620px, calc(100vw - 28px));
+    border-radius: 22px;
+    border: 1px solid rgba(223, 230, 255, 0.9);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 26px 60px rgba(40, 34, 101, 0.32);
+    padding: 16px 16px 14px;
+    text-align: center;
+    overflow: hidden;
+    transform-origin: 50% 85%;
+    animation: kidBadgeCelebrationModalIn 560ms cubic-bezier(0.18, 0.9, 0.22, 1.14);
+}
+
+.kid-badge-celebration-overlay.closing .kid-badge-celebration-modal {
+    animation: kidBadgeCelebrationModalOut 180ms ease-in forwards;
+}
+
+.kid-badge-celebration-modal::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% -5%, rgba(255, 222, 129, 0.36), rgba(255, 222, 129, 0) 35%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.16));
+    pointer-events: none;
+}
+
+.kid-badge-celebration-modal::after {
+    content: "";
+    position: absolute;
+    top: -110%;
+    left: -28%;
+    width: 54%;
+    height: 280%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
+    opacity: 0.45;
+    transform: rotate(16deg);
+    animation: kidBadgeCelebrationSweep 3600ms ease-in-out infinite;
+    pointer-events: none;
+}
+
+.kid-badge-celebration-confetti {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.kid-badge-celebration-confetti-piece {
+    position: absolute;
+    top: -14%;
+    left: var(--piece-left, 50%);
+    width: var(--piece-width, 14px);
+    height: var(--piece-height, 24px);
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--piece-color-a, #ffd35f), var(--piece-color-b, #ff8a7c));
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(var(--piece-rotate, 0deg));
+    animation: kidBadgeConfettiFall var(--piece-duration, 3400ms) ease-in infinite;
+    animation-delay: var(--piece-delay, 0ms);
+    box-shadow: 0 2px 8px rgba(50, 40, 110, 0.12);
+}
+
+.kid-badge-celebration-confetti-piece:nth-child(3n) {
+    border-radius: 4px;
+}
+
+.kid-badge-celebration-kicker,
+.kid-badge-celebration-title,
+.kid-badge-celebration-sub,
+.kid-badge-celebration-art-stage,
+.kid-badge-celebration-name,
+.kid-badge-celebration-reason,
+.kid-badge-celebration-meta,
+.kid-badge-celebration-actions {
+    position: relative;
+    z-index: 1;
+    opacity: 0;
+    animation: kidBadgeCelebrationRiseIn 520ms ease-out forwards;
+}
+
+.kid-badge-celebration-kicker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.42rem 0.8rem;
+    margin: 0 auto 0.75rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #fff1b3, #ffc981);
+    color: #744526;
+    font-size: 0.8rem;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    box-shadow: 0 10px 18px rgba(255, 184, 89, 0.24);
+    animation-delay: 50ms;
+}
+
+.kid-badge-celebration-title {
+    margin: 0;
+    color: #233356;
+    font-size: clamp(1.7rem, 4vw, 2.4rem);
+    line-height: 1.06;
+    font-weight: 900;
+    animation-delay: 110ms;
+}
+
+.kid-badge-celebration-sub {
+    margin: 0.5rem auto 0;
+    color: #566887;
+    font-size: 0.95rem;
+    line-height: 1.3;
+    font-weight: 600;
+    animation-delay: 180ms;
+}
+
+.kid-badge-celebration-art-stage {
+    position: relative;
+    width: min(280px, 100%);
+    margin: 0.95rem auto 0.55rem;
+    display: grid;
+    place-items: center;
+    animation-delay: 260ms;
+}
+
+.kid-badge-celebration-art-stage::before,
+.kid-badge-celebration-art-stage::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    pointer-events: none;
+}
+
+.kid-badge-celebration-art-stage::before {
+    width: 212px;
+    height: 212px;
+    background: radial-gradient(circle, rgba(255, 229, 123, 0.5), rgba(255, 229, 123, 0.06) 58%, rgba(255, 229, 123, 0) 72%);
+    animation: kidBadgePulseHalo 2400ms ease-in-out infinite;
+}
+
+.kid-badge-celebration-art-stage::after {
+    width: 228px;
+    height: 228px;
+    border: 2px solid rgba(167, 205, 255, 0.42);
+    animation: kidBadgePulseRing 2400ms ease-in-out infinite;
+}
+
+.kid-badge-celebration-spark {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #fff6a6, #ffd56f);
+    box-shadow: 0 0 16px rgba(255, 211, 95, 0.34);
+    transform: rotate(45deg);
+    animation: kidBadgeSparkle 2200ms ease-in-out infinite;
+}
+
+.kid-badge-celebration-spark::before,
+.kid-badge-celebration-spark::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: inherit;
+}
+
+.kid-badge-celebration-spark::before {
+    transform: scaleX(0.28);
+}
+
+.kid-badge-celebration-spark::after {
+    transform: scaleY(0.28);
+}
+
+.kid-badge-celebration-spark-1 {
+    top: 12px;
+    left: 52px;
+    animation-delay: 100ms;
+}
+
+.kid-badge-celebration-spark-2 {
+    top: 34px;
+    right: 34px;
+    width: 12px;
+    height: 12px;
+    animation-delay: 560ms;
+}
+
+.kid-badge-celebration-spark-3 {
+    top: 118px;
+    left: 18px;
+    width: 10px;
+    height: 10px;
+    animation-delay: 940ms;
+}
+
+.kid-badge-celebration-spark-4 {
+    top: 148px;
+    right: 20px;
+    animation-delay: 1380ms;
+}
+
+.kid-badge-celebration-spark-5 {
+    bottom: 20px;
+    left: 54px;
+    width: 11px;
+    height: 11px;
+    animation-delay: 1680ms;
+}
+
+.kid-badge-celebration-spark-6 {
+    bottom: 42px;
+    right: 46px;
+    width: 13px;
+    height: 13px;
+    animation-delay: 420ms;
+}
+
+.kid-badge-celebration-art-wrap {
+    width: 160px;
+    height: 160px;
+    border-radius: 28px;
+    border: 2px solid #dfe8ff;
+    background: linear-gradient(180deg, #edf5ff, #dff0ff 62%, #eefcff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 18px 36px rgba(89, 69, 170, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    animation: kidBadgeArtBob 2800ms ease-in-out infinite;
+}
+
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-characters {
+    background: linear-gradient(180deg, #edf5ff, #dfeeff 62%, #eef8ff);
+}
+
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-writing {
+    background: linear-gradient(180deg, #fff7eb, #ffe7c8 62%, #fff7ee);
+}
+
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-reading {
+    background: linear-gradient(180deg, #fff2f8, #ffe1ee 62%, #fff4fa);
+}
+
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-math {
+    background: linear-gradient(180deg, #eefaf7, #d8f2ea 62%, #f2fcf8);
+}
+
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-global {
+    background: linear-gradient(180deg, #f6f0ff, #e7dcff 62%, #f7f2ff);
+}
+
+.kid-badge-celebration-art-wrap img {
+    width: 92px;
+    height: 92px;
+    object-fit: contain;
+    image-rendering: auto;
+    animation: kidBadgeArtPop 900ms cubic-bezier(0.16, 1.08, 0.3, 1) both 320ms;
+}
+
+.kid-badge-celebration-name {
+    color: #273551;
+    font-size: clamp(1.4rem, 2.8vw, 2rem);
+    line-height: 1.08;
+    font-weight: 850;
+    animation-delay: 330ms;
+}
+
+.kid-badge-celebration-reason {
+    margin: 0.45rem auto 0;
+    max-width: 500px;
+    color: #516185;
+    font-size: 0.93rem;
+    line-height: 1.32;
+    font-weight: 600;
+    animation-delay: 390ms;
+}
+
+.kid-badge-celebration-meta {
+    margin-top: 0.7rem;
+    color: #60708c;
+    font-size: 0.83rem;
+    line-height: 1.25;
+    font-weight: 700;
+    animation-delay: 450ms;
+}
+
+.kid-badge-celebration-actions {
+    margin-top: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    animation-delay: 520ms;
+}
+
+.kid-badge-celebration-actions .secondary-btn {
+    background: #eef2ff;
+    color: #3f4f86;
+    border: 1px solid #d6def8;
+}
+
+.kid-badge-celebration-actions .secondary-btn:hover {
+    background: #e7edff;
+}
+
+@keyframes kidBadgeCelebrationOverlayIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes kidBadgeCelebrationOverlayOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes kidBadgeCelebrationModalIn {
+    0% {
+        opacity: 0;
+        transform: translateY(22px) scale(0.92);
+    }
+    70% {
+        opacity: 1;
+        transform: translateY(-6px) scale(1.02);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes kidBadgeCelebrationModalOut {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+    }
+}
+
+@keyframes kidBadgeCelebrationRiseIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes kidBadgeCelebrationSweep {
+    0%,
+    22% {
+        transform: translateX(-10%) rotate(16deg);
+        opacity: 0;
+    }
+    38% {
+        opacity: 0.42;
+    }
+    54% {
+        transform: translateX(165%) rotate(16deg);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(165%) rotate(16deg);
+        opacity: 0;
+    }
+}
+
+@keyframes kidBadgeGlowFloat {
+    from {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+        transform: translate3d(24px, -18px, 0) scale(1.08);
+    }
+}
+
+@keyframes kidBadgeConfettiFall {
+    0% {
+        opacity: 0;
+        transform: translate3d(0, -4%, 0) rotate(var(--piece-rotate, 0deg));
+    }
+    10% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translate3d(var(--piece-drift, 26px), 122vh, 0) rotate(calc(var(--piece-rotate, 0deg) + 240deg));
+    }
+}
+
+@keyframes kidBadgePulseHalo {
+    0%,
+    100% {
+        transform: scale(0.92);
+        opacity: 0.58;
+    }
+    50% {
+        transform: scale(1.06);
+        opacity: 0.88;
+    }
+}
+
+@keyframes kidBadgePulseRing {
+    0%,
+    100% {
+        transform: scale(0.86);
+        opacity: 0.28;
+    }
+    50% {
+        transform: scale(1.04);
+        opacity: 0.7;
+    }
+}
+
+@keyframes kidBadgeSparkle {
+    0%,
+    100% {
+        opacity: 0.35;
+        transform: rotate(45deg) scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: rotate(45deg) scale(1.22);
+    }
+}
+
+@keyframes kidBadgeArtBob {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes kidBadgeArtPop {
+    0% {
+        opacity: 0;
+        transform: scale(0.7);
+    }
+    72% {
+        opacity: 1;
+        transform: scale(1.08);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kid-badge-celebration-overlay,
+    .kid-badge-celebration-modal,
+    .kid-badge-celebration-modal::after,
+    .kid-badge-celebration-confetti-piece,
+    .kid-badge-celebration-kicker,
+    .kid-badge-celebration-title,
+    .kid-badge-celebration-sub,
+    .kid-badge-celebration-art-stage,
+    .kid-badge-celebration-art-stage::before,
+    .kid-badge-celebration-art-stage::after,
+    .kid-badge-celebration-spark,
+    .kid-badge-celebration-art-wrap,
+    .kid-badge-celebration-art-wrap img,
+    .kid-badge-celebration-name,
+    .kid-badge-celebration-reason,
+    .kid-badge-celebration-meta,
+    .kid-badge-celebration-actions {
+        animation: none !important;
+    }
+
+    .kid-badge-celebration-kicker,
+    .kid-badge-celebration-title,
+    .kid-badge-celebration-sub,
+    .kid-badge-celebration-art-stage,
+    .kid-badge-celebration-name,
+    .kid-badge-celebration-reason,
+    .kid-badge-celebration-meta,
+    .kid-badge-celebration-actions {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .kid-badge-celebration-overlay {
+        padding: 12px;
+    }
+
+    .kid-badge-celebration-modal {
+        padding: 14px 12px 12px;
+    }
+
+    .kid-badge-celebration-art-wrap {
+        width: 140px;
+        height: 140px;
+    }
+
+    .kid-badge-celebration-art-stage::before {
+        width: 188px;
+        height: 188px;
+    }
+
+    .kid-badge-celebration-art-stage::after {
+        width: 204px;
+        height: 204px;
+    }
+
+    .kid-badge-celebration-art-wrap img {
+        width: 78px;
+        height: 78px;
+    }
+
+    .kid-badge-celebration-actions .control-btn {
+        width: 100%;
+    }
+}

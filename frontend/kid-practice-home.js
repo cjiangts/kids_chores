@@ -47,6 +47,12 @@ let activeChineseCategoryKey = requestedCategoryKey;
 let activeTypeINonChineseCategoryKey = requestedCategoryKey;
 let activeTypeIICategoryKey = requestedCategoryKey;
 let activeTypeIIICategoryKey = requestedCategoryKey;
+let badgeShelfSummary = {
+    loaded: false,
+    loading: false,
+    earnedCount: 0,
+    trackingEnabled: false,
+};
 const errorState = { lastMessage: '' };
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
 
@@ -64,6 +70,45 @@ function updatePageTitle() {
     document.title = kidName
         ? `${kidName} - Practice Home - Kids Daily Chores`
         : 'Practice Home - Kids Daily Chores';
+}
+
+function maybeShowBadgeCelebration() {
+    if (!kidId || !window.KidBadgeCelebration || typeof window.KidBadgeCelebration.maybeShowForKid !== 'function') {
+        return;
+    }
+    void window.KidBadgeCelebration.maybeShowForKid({
+        kidId,
+        apiBase: API_BASE,
+    });
+}
+
+async function openBadgeShelf() {
+    if (!kidId || !currentKid || !window.KidBadgeShelfModal || typeof window.KidBadgeShelfModal.open !== 'function') {
+        return;
+    }
+    const payload = await window.KidBadgeShelfModal.open({
+        kidId,
+        kidName: currentKid.name,
+        apiBase: API_BASE,
+        forceRefresh: true,
+    });
+    if (payload && typeof payload === 'object') {
+        const summary = payload.summary || {};
+        badgeShelfSummary = {
+            loaded: true,
+            loading: false,
+            earnedCount: Number(summary.earnedCount || 0),
+            trackingEnabled: Boolean(payload.trackingEnabled),
+        };
+        renderPracticeOptions();
+    }
+}
+
+function openProgressReport() {
+    if (!kidId) {
+        return;
+    }
+    window.location.href = `/kid-report.html?id=${encodeURIComponent(kidId)}&from=kid-home`;
 }
 
 function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpecificLogic) {
@@ -107,10 +152,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     kidBackBtn.href = '/';
     await loadKidInfo();
     renderPracticeOptions();
+    void loadBadgeShelfSummary();
+    maybeShowBadgeCelebration();
     window.setTimeout(() => {
         void warmWritingCards();
     }, 0);
 });
+
+if (practiceSummaryStrip) {
+    practiceSummaryStrip.addEventListener('click', (event) => {
+        const shelfBtn = event.target.closest('[data-practice-action="open-badge-shelf"]');
+        if (shelfBtn) {
+            void openBadgeShelf();
+            return;
+        }
+        const progressBtn = event.target.closest('[data-practice-action="open-progress-report"]');
+        if (progressBtn) {
+            openProgressReport();
+        }
+    });
+}
 
 async function loadKidInfo() {
     try {
@@ -168,6 +229,37 @@ async function warmWritingCards() {
     } finally {
         writingCardsLoading = false;
     }
+}
+
+async function loadBadgeShelfSummary({ forceRefresh = false } = {}) {
+    if (!kidId || !window.KidBadgeShelfModal || typeof window.KidBadgeShelfModal.getSummary !== 'function') {
+        return;
+    }
+    if (badgeShelfSummary.loading) {
+        return;
+    }
+    badgeShelfSummary.loading = true;
+    try {
+        const summary = await window.KidBadgeShelfModal.getSummary({
+            kidId,
+            apiBase: API_BASE,
+            forceRefresh,
+        });
+        badgeShelfSummary = {
+            loaded: Boolean(summary && summary.ok),
+            loading: false,
+            earnedCount: Number(summary && summary.earnedCount || 0),
+            trackingEnabled: Boolean(summary && summary.trackingEnabled),
+        };
+    } catch (error) {
+        badgeShelfSummary = {
+            loaded: false,
+            loading: false,
+            earnedCount: 0,
+            trackingEnabled: false,
+        };
+    }
+    renderPracticeOptions();
 }
 
 function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
@@ -391,8 +483,8 @@ function renderPracticeSummaryStrip({
 
     let assignedCount = 0;
     let doneCount = 0;
-    let inProgressCount = 0;
     let starsTodayCount = 0;
+    let progressCountToday = 0;
 
     optedInCategoryKeys.forEach((categoryKey) => {
         const key = normalizeCategoryKey(categoryKey);
@@ -413,6 +505,7 @@ function renderPracticeSummaryStrip({
         }
 
         assignedCount += 1;
+        progressCountToday += safeCompletedCount;
         const model = buildCategoryProgressModel({
             categoryKey: key,
             dailyStarTiersByCategory,
@@ -426,31 +519,58 @@ function renderPracticeSummaryStrip({
         starsTodayCount += model.starCount;
         if (model.isDoneToday) {
             doneCount += 1;
-        } else if (model.fillPercent > 0) {
-            inProgressCount += 1;
         }
     });
 
-    if (assignedCount <= 0) {
-        practiceSummaryStrip.classList.add('hidden');
-        practiceSummaryStrip.innerHTML = '';
-        return;
+    const summaryBoxes = [];
+    if (assignedCount > 0) {
+        summaryBoxes.push(`
+            <div class="redesign-summary-box">
+                <p class="redesign-summary-label">Stars today</p>
+                <p class="redesign-summary-value">${starsTodayCount}</p>
+            </div>
+        `);
+        summaryBoxes.push(`
+            <div class="redesign-summary-box">
+                <p class="redesign-summary-label">Done</p>
+                <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
+            </div>
+        `);
+    }
+    if (badgeShelfSummary.loaded && badgeShelfSummary.trackingEnabled) {
+        summaryBoxes.push(`
+            <button type="button" class="badge-summary-box" data-practice-action="open-badge-shelf">
+                <div class="badge-summary-main">
+                    <p class="redesign-summary-label">Badge Shelf</p>
+                    <p class="redesign-summary-value badge-summary-value">
+                        <span class="badge-summary-count">${
+                            `${Math.max(0, Number.parseInt(badgeShelfSummary.earnedCount, 10) || 0)} earned`
+                        }</span>
+                    </p>
+                </div>
+                <span class="badge-summary-medal" aria-hidden="true">🏅</span>
+            </button>
+        `);
+    } else if (badgeShelfSummary.loaded) {
+        summaryBoxes.push(`
+            <button type="button" class="redesign-summary-box progress-summary-box" data-practice-action="open-progress-report">
+                <div class="progress-summary-main">
+                    <p class="redesign-summary-label">Progress</p>
+                    <p class="redesign-summary-value">${Math.max(0, progressCountToday)} today</p>
+                </div>
+                <span class="progress-summary-chart" aria-hidden="true">📊</span>
+            </button>
+        `);
+    } else {
+        summaryBoxes.push(`
+            <div class="redesign-summary-box">
+                <p class="redesign-summary-label">Rewards</p>
+                <p class="redesign-summary-value">...</p>
+            </div>
+        `);
     }
 
-    practiceSummaryStrip.innerHTML = `
-        <div class="redesign-summary-box">
-            <p class="redesign-summary-label">Stars today</p>
-            <p class="redesign-summary-value">${starsTodayCount}</p>
-        </div>
-        <div class="redesign-summary-box">
-            <p class="redesign-summary-label">Done</p>
-            <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
-        </div>
-        <div class="redesign-summary-box">
-            <p class="redesign-summary-label">In progress</p>
-            <p class="redesign-summary-value">${inProgressCount}</p>
-        </div>
-    `;
+    practiceSummaryStrip.innerHTML = summaryBoxes.join('');
     practiceSummaryStrip.classList.remove('hidden');
 }
 

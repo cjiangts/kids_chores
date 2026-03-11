@@ -2,8 +2,10 @@ const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
+const from = String(params.get('from') || '').trim().toLowerCase();
 
 const reportTitle = document.getElementById('reportTitle');
+const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
 const dailyChartBody = document.getElementById('dailyChartBody');
@@ -43,6 +45,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
         window.location.href = '/admin.html';
         return;
+    }
+    if (backBtn) {
+        backBtn.href = from === 'kid-home'
+            ? `/kid-practice-home.html?id=${encodeURIComponent(kidId)}`
+            : '/admin.html';
     }
     if (dailyChartNewerBtn) {
         dailyChartNewerBtn.addEventListener('click', () => {
@@ -127,7 +134,7 @@ function renderTablePage() {
 
     reportBody.innerHTML = view.pageItems.map((session) => `
         <tr>
-            <td class="shared-report-table-action-cell"><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}" class="tab-link secondary mini-link-btn table-action-btn">View</a></td>
+            <td class="shared-report-table-action-cell"><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}${from === 'kid-home' ? '&from=kid-home' : ''}" class="tab-link secondary mini-link-btn table-action-btn">View</a></td>
             <td>${renderType(session.type, session)}</td>
             <td>${formatDateTime(session.started_at)}</td>
             <td>${formatResponseMinutes(session)}</td>

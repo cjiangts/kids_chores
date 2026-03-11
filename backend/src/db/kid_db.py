@@ -6,6 +6,7 @@ from typing import Optional
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '../../data')
 SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'schema.sql')
+BADGE_SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'schema_badges.sql')
 
 _schema_sql_cache: Optional[str] = None
 _initialized_dbs: set = set()
@@ -15,8 +16,13 @@ def _get_schema_sql() -> str:
     """Read and cache schema.sql contents."""
     global _schema_sql_cache
     if _schema_sql_cache is None:
-        with open(SCHEMA_FILE, 'r') as f:
-            _schema_sql_cache = f.read()
+        parts = []
+        for file_path in (SCHEMA_FILE, BADGE_SCHEMA_FILE):
+            if not os.path.exists(file_path):
+                continue
+            with open(file_path, 'r', encoding='utf-8') as f:
+                parts.append(f.read().strip())
+        _schema_sql_cache = '\n\n'.join(part for part in parts if part)
     return _schema_sql_cache
 
 def ensure_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):

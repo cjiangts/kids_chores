@@ -50,6 +50,21 @@
             flex: 1;
         }
 
+        .actions-row {
+            margin-top: 0.85rem;
+        }
+
+        .warning-note {
+            color: #8a2f2f;
+            font-weight: 600;
+        }
+
+        .settings-status {
+            margin-top: 0.45rem;
+            color: #4b5a70;
+            font-size: 0.9rem;
+        }
+
         .success {
             background: #2f9e44;
             color: #fff;
@@ -60,6 +75,384 @@
 
         .success.hidden {
             display: none;
+        }
+
+        .badge-art-studio-launcher {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .badge-art-studio-actions {
+            margin-left: auto;
+        }
+
+        .badge-art-studio-modal.modal-content {
+            max-width: 1240px;
+            width: min(1240px, 96vw);
+            max-height: min(90vh, 980px);
+            padding: 14px;
+            border-radius: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .badge-art-modal-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.9rem;
+            flex-wrap: nowrap;
+        }
+
+        .badge-art-modal-title-wrap h2 {
+            margin: 0;
+            color: #2a2f3d;
+            font-size: clamp(1.4rem, 2.8vw, 1.9rem);
+            line-height: 1.08;
+            font-weight: 850;
+        }
+
+        .badge-art-modal-top-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            flex-wrap: nowrap;
+            margin-left: auto;
+        }
+
+        .badge-art-modal-counts {
+            margin-top: 0.35rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .badge-art-count {
+            color: #60708f;
+            font-size: 0.84rem;
+            margin-top: 0;
+            font-weight: 700;
+        }
+
+        .badge-art-modal-sections {
+            margin-top: 0.7rem;
+            flex: 1 1 auto;
+            min-height: 0;
+            display: grid;
+            grid-template-rows: minmax(154px, 29%) minmax(320px, 71%);
+            gap: 0.7rem;
+        }
+
+        .badge-art-modal-section {
+            min-height: 0;
+            border-radius: 18px;
+            border: 1px solid #e5ebfb;
+            background: #f8faff;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .badge-art-modal-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .badge-art-modal-section-head h3 {
+            margin: 0;
+            color: #2a3552;
+            font-size: 0.94rem;
+            line-height: 1.1;
+            font-weight: 850;
+        }
+
+        .badge-art-achievement-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(52px, 52px));
+            justify-content: start;
+            gap: 5px;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 2px 6px 6px 0;
+            scrollbar-gutter: stable;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .badge-art-achievement-card {
+            appearance: none;
+            width: 52px;
+            min-width: 52px;
+            min-height: 52px;
+            border-radius: 12px;
+            border: 1px solid #dbe3f7;
+            background: #fff;
+            padding: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .badge-art-achievement-card:hover,
+        .badge-art-tile:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(49, 72, 128, 0.14);
+        }
+
+        .badge-art-achievement-card.selected,
+        .badge-art-tile.selected {
+            border-color: #aebef4;
+            box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.16);
+        }
+
+        .badge-art-tile.selected {
+            background: #f7faff;
+        }
+
+        .badge-art-achievement-card.badge-art-palette-characters {
+            background: linear-gradient(180deg, #edf6ff, #e2efff 62%, #eef7ff);
+        }
+
+        .badge-art-achievement-card.badge-art-palette-writing {
+            background: linear-gradient(180deg, #fff5e6, #ffebd3 62%, #fff6ea);
+        }
+
+        .badge-art-achievement-card.badge-art-palette-reading {
+            background: linear-gradient(180deg, #fff0f7, #ffe3ef 62%, #fff4f9);
+        }
+
+        .badge-art-achievement-card.badge-art-palette-math {
+            background: linear-gradient(180deg, #eefaf7, #dff4ef 62%, #f2fcf9);
+        }
+
+        .badge-art-achievement-card.badge-art-palette-global {
+            background: linear-gradient(180deg, #f5efff, #ebe1ff 62%, #f7f1ff);
+        }
+
+        .badge-art-preview {
+            width: 46px;
+            height: 46px;
+            margin: 0 auto;
+            border-radius: 11px;
+            border: 1px solid #dce3f5;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(236, 241, 255, 0.94));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+            overflow: hidden;
+        }
+
+        .badge-art-grid-preview {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+        }
+
+        .badge-art-selection-top .badge-art-preview {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+        }
+
+        .badge-art-preview.badge-art-palette-characters {
+            background: linear-gradient(145deg, #fafdff, #dcecff 92%);
+        }
+
+        .badge-art-preview.badge-art-palette-writing {
+            background: linear-gradient(145deg, #fffdf7, #ffe6c2 92%);
+        }
+
+        .badge-art-preview.badge-art-palette-reading {
+            background: linear-gradient(145deg, #fffafd, #ffdced 92%);
+        }
+
+        .badge-art-preview.badge-art-palette-math {
+            background: linear-gradient(145deg, #f8fffd, #d3f1e7 92%);
+        }
+
+        .badge-art-preview.badge-art-palette-global {
+            background: linear-gradient(145deg, #fbf8ff, #e2d7ff 92%);
+        }
+
+        .badge-art-grid-preview img,
+        .badge-art-tile img {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+            image-rendering: auto;
+            filter: drop-shadow(0 2px 4px rgba(34, 48, 94, 0.12));
+        }
+
+        .badge-art-selection-top .badge-art-preview img {
+            width: 46px;
+            height: 46px;
+        }
+
+        .badge-art-selection-empty {
+            margin: auto 0;
+            text-align: center;
+            color: #5b6b88;
+            font-size: 0.95rem;
+            line-height: 1.35;
+            font-weight: 600;
+        }
+
+        .badge-art-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow: hidden;
+        }
+
+        .badge-art-selection-top {
+            display: grid;
+            grid-template-columns: 64px minmax(0, 1fr);
+            gap: 0.65rem;
+            align-items: center;
+            flex: 0 0 auto;
+        }
+
+        .badge-art-selection-title {
+            font-size: 0.98rem;
+            font-weight: 800;
+            color: #25304d;
+            margin-bottom: 0.15rem;
+        }
+
+        .badge-art-selection-note {
+            color: #5d6c88;
+            font-size: 0.84rem;
+            line-height: 1.28;
+        }
+
+        .badge-art-bank-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(52px, 52px));
+            justify-content: start;
+            gap: 5px;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 2px 6px 6px 0;
+            scrollbar-gutter: stable;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .badge-art-tile {
+            appearance: none;
+            width: 52px;
+            min-width: 52px;
+            min-height: 52px;
+            border: 1px solid #dbe3f7;
+            border-radius: 12px;
+            background: #fff;
+            padding: 2px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .badge-art-tile[disabled] {
+            cursor: wait;
+            opacity: 0.8;
+        }
+
+        .badge-art-notice-modal.modal {
+            z-index: 1002;
+        }
+
+        .badge-art-notice-dialog.modal-content {
+            max-width: 430px;
+            width: min(430px, 92vw);
+            padding: 20px 22px 18px;
+            border-radius: 18px;
+        }
+
+        .badge-art-notice-title {
+            margin: 0;
+            color: #25304d;
+            font-size: 1.15rem;
+            line-height: 1.15;
+            font-weight: 850;
+        }
+
+        .badge-art-notice-text {
+            margin: 0.75rem 0 0;
+            color: #5b6b88;
+            font-size: 0.95rem;
+            line-height: 1.45;
+            font-weight: 600;
+        }
+
+        .badge-art-notice-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 900px) {
+            .badge-art-modal-sections {
+                grid-template-rows: minmax(160px, 30%) minmax(320px, 70%);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .badge-art-studio-actions {
+                margin-left: 0;
+            }
+
+            .badge-art-studio-modal.modal-content {
+                width: min(96vw, 96vw);
+                max-height: 92vh;
+                padding: 14px;
+            }
+
+            .badge-art-modal-top {
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+
+            .badge-art-modal-top-actions {
+                width: 100%;
+                justify-content: flex-end;
+                flex-wrap: wrap;
+            }
+
+            .badge-art-achievement-list,
+            .badge-art-bank-grid {
+                grid-template-columns: repeat(auto-fill, minmax(52px, 52px));
+            }
+
+            .badge-art-selection-top {
+                grid-template-columns: 64px minmax(0, 1fr);
+            }
+
+            .badge-art-selection-top .badge-art-preview {
+                width: 64px;
+                height: 64px;
+            }
+
+            .badge-art-selection-top .badge-art-preview img {
+                width: 48px;
+                height: 48px;
+            }
         }
     </style>
 </head>
@@ -86,6 +479,33 @@
                     <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
                     <div id="timezoneError" class="error hidden"></div>
                     <div id="timezoneSuccess" class="success hidden"></div>
+                </section>
+
+                <section class="settings-card">
+                    <h2>Kid Rewards</h2>
+                    <div class="settings-note">Start or reset the badge reward system for this family.</div>
+                    <div class="warning-note">Both actions require the family password.</div>
+                    <div id="rewardsStatusText" class="settings-status">Loading reward status...</div>
+                    <div id="rewardsStartPlanText" class="settings-note"></div>
+                    <div class="settings-row actions-row">
+                        <button type="button" id="startRewardsBtn" class="btn-primary">Start Reward Tracking</button>
+                        <button type="button" id="resetRewardsBtn" class="btn-secondary">Reset Rewards</button>
+                    </div>
+                    <div id="rewardsError" class="error hidden"></div>
+                    <div id="rewardsSuccess" class="success hidden"></div>
+                </section>
+
+                <section id="badgeArtStudioCard" class="settings-card hidden">
+                    <div class="badge-art-studio-launcher">
+                        <div>
+                            <h2>Badge Art Studio</h2>
+                            <div class="settings-note">Super-family only. Changes here update the global badge art for every family.</div>
+                            <div id="badgeArtStudioStatus" class="settings-status">Loading Noto badge bank...</div>
+                        </div>
+                        <div class="settings-row badge-art-studio-actions">
+                            <button type="button" id="openBadgeArtStudioBtn" class="btn-primary">Open Studio</button>
+                        </div>
+                    </div>
                 </section>
 
                 <section class="settings-card">
@@ -141,6 +561,63 @@
             <div id="successMessage" class="success hidden"></div>
             <div id="errorMessage" class="error hidden"></div>
         </main>
+    </div>
+
+    <div id="badgeArtStudioModal" class="modal hidden">
+        <div class="modal-content modal-large badge-art-studio-modal">
+                <div class="badge-art-modal-top">
+                    <div class="badge-art-modal-title-wrap">
+                        <h2>Badge Art Studio</h2>
+                    </div>
+                <div class="badge-art-modal-top-actions">
+                    <button type="button" id="badgeArtStudioClearBtn" class="btn-secondary">Clear All</button>
+                    <button type="button" id="badgeArtStudioSaveBtn" class="btn-primary">Save</button>
+                    <button type="button" class="btn-secondary" data-badge-art-action="close">Close</button>
+                </div>
+            </div>
+
+            <div class="badge-art-modal-counts">
+                <div id="badgeAchievementCount" class="badge-art-count"></div>
+                <div id="badgeArtBankCount" class="badge-art-count"></div>
+            </div>
+
+            <div class="badge-art-modal-sections">
+                <section class="badge-art-modal-section">
+                    <div class="badge-art-modal-section-head">
+                        <h3>All Achievements</h3>
+                    </div>
+                    <div id="badgeArtAchievementList" class="badge-art-achievement-list"></div>
+                </section>
+
+                <section class="badge-art-modal-section">
+                    <div class="badge-art-modal-section-head">
+                        <h3>Available Noto Art</h3>
+                    </div>
+                    <div id="badgeArtSelectionEmpty" class="badge-art-selection-empty">Select an achievement.</div>
+                    <div id="badgeArtSelectionPanel" class="badge-art-selection hidden">
+                        <div class="badge-art-selection-top">
+                            <div id="badgeArtSelectedPreview" class="badge-art-preview"></div>
+                            <div>
+                                <div id="badgeArtSelectedTitle" class="badge-art-selection-title"></div>
+                                <div id="badgeArtSelectedMeta" class="badge-art-selection-note"></div>
+                                <div id="badgeArtSelectedCurrent" class="badge-art-selection-note"></div>
+                            </div>
+                        </div>
+                        <div id="badgeArtBankGrid" class="badge-art-bank-grid"></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <div id="badgeArtStudioNoticeModal" class="modal badge-art-notice-modal hidden">
+        <div class="modal-content badge-art-notice-dialog" role="dialog" aria-modal="true" aria-labelledby="badgeArtStudioNoticeTitle">
+            <h2 id="badgeArtStudioNoticeTitle" class="badge-art-notice-title">Badge Art Studio</h2>
+            <p id="badgeArtStudioNoticeText" class="badge-art-notice-text"></p>
+            <div class="badge-art-notice-actions">
+                <button type="button" id="badgeArtStudioNoticeOkBtn" class="btn-primary">OK</button>
+            </div>
+        </div>
     </div>
 
     <script src="practice-manage-common.js"></script>

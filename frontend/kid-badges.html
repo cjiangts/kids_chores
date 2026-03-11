@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kid Badges - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="home-redesign-v4.css">
+    <link rel="stylesheet" href="kid-badges.css">
+</head>
+<body class="practice-page kid-badges-page">
+    <div class="container">
+        <header class="header kid-badge-header">
+            <h1 id="kidBadgeTitle">🏅 Badges</h1>
+            <div class="header-actions">
+                <a id="kidBadgeBackBtn" href="/" class="back-btn">← Back</a>
+            </div>
+        </header>
+
+        <div id="kidBadgeError" class="error redesign-error kid-badge-error hidden"></div>
+        <div id="kidBadgeLoading" class="kid-badge-loading">Loading badges...</div>
+
+        <section id="kidBadgeStartPanel" class="kid-badge-start-panel hidden">
+            <h2 class="kid-badge-start-title">Rewards Not Started</h2>
+            <p class="kid-badge-start-text">
+                Rewards are not enabled yet for this family. Ask your parent to turn this on in Parent Settings.
+            </p>
+        </section>
+
+        <section id="kidBadgeSummary" class="kid-badge-summary hidden"></section>
+
+        <section class="kid-badge-section">
+            <div class="kid-badge-section-head">
+                <h2 class="kid-badge-section-title">Earned</h2>
+                <span id="kidBadgeEarnedCount" class="kid-badge-section-sub">0</span>
+            </div>
+            <div id="kidBadgeEarnedGrid" class="kid-badge-grid"></div>
+        </section>
+
+        <section class="kid-badge-section">
+            <div class="kid-badge-section-head">
+                <h2 class="kid-badge-section-title">Coming Next</h2>
+                <span id="kidBadgeComingCount" class="kid-badge-section-sub">0</span>
+            </div>
+            <div id="kidBadgeComingGrid" class="kid-badge-grid"></div>
+        </section>
+    </div>
+
+    <div id="kidBadgeDetailModal" class="modal hidden" onclick="window.KidBadgesPage && window.KidBadgesPage.handleBackdrop(event)">
+        <div class="modal-content kid-badge-detail-modal">
+            <div class="kid-badge-detail-head">
+                <h2>Badge Details</h2>
+                <button id="kidBadgeDetailCloseBtn" type="button" class="back-btn">Close</button>
+            </div>
+            <div id="kidBadgeDetailBody" class="kid-badge-detail-body">
+                <div id="kidBadgeDetailArt" class="kid-badge-detail-art"></div>
+                <div>
+                    <div class="kid-badge-detail-title-row">
+                        <div id="kidBadgeDetailTitle" class="kid-badge-detail-title"></div>
+                        <span id="kidBadgeDetailState" class="kid-badge-detail-state"></span>
+                    </div>
+                    <div id="kidBadgeDetailMeta" class="kid-badge-detail-meta"></div>
+                    <div id="kidBadgeDetailText" class="kid-badge-detail-text"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="kid-badges.js"></script>
+</body>
+</html>

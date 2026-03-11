@@ -1,0 +1,489 @@
+.practice-home-redesign .badge-summary-box {
+    appearance: none;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    background: linear-gradient(135deg, rgba(255, 248, 203, 0.98), rgba(255, 237, 210, 0.95), rgba(240, 244, 255, 0.94));
+    box-shadow: 0 10px 24px rgba(31, 45, 98, 0.16);
+    padding: 8px 10px;
+    color: #2f3c7e;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    width: 100%;
+}
+
+.practice-home-redesign .badge-summary-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px rgba(31, 45, 98, 0.2);
+}
+
+.practice-home-redesign .badge-summary-main {
+    min-width: 0;
+}
+
+.practice-home-redesign .badge-summary-main .redesign-summary-label {
+    color: #7e5b12;
+}
+
+.practice-home-redesign .badge-summary-value.badge-summary-value {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #30446f;
+    font-size: clamp(1rem, 1.95vw, 1.28rem);
+    white-space: nowrap;
+}
+
+.practice-home-redesign .badge-summary-value .badge-summary-count {
+    font-weight: 850;
+}
+
+.practice-home-redesign .badge-summary-medal {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    border: 1px solid rgba(240, 206, 116, 0.9);
+    background: rgba(255, 255, 255, 0.72);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex: 0 0 auto;
+    align-self: flex-start;
+}
+
+.badge-modal-content {
+    --badge-panel-height: min(54vh, 520px);
+    max-width: 760px;
+    width: min(760px, 92vw);
+    padding: 20px;
+    border-radius: 20px;
+}
+
+.badge-modal-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.badge-modal-title-wrap h2 {
+    margin: 0;
+    color: #2a2f3d;
+    font-size: clamp(1.45rem, 2.8vw, 1.95rem);
+    line-height: 1.08;
+    font-weight: 850;
+}
+
+.badge-modal-title-wrap p {
+    margin: 0.3rem 0 0;
+    color: #5f6d89;
+    font-size: 0.92rem;
+    line-height: 1.3;
+}
+
+.badge-modal-close {
+    min-width: 96px;
+}
+
+.badge-tab-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    background: #eef2ff;
+    border: 1px solid #cfd8f8;
+    border-radius: 999px;
+    padding: 0.16rem;
+    margin: 0 0 0.8rem;
+}
+
+.badge-tab-btn {
+    border: 0;
+    background: transparent;
+    color: #334a97;
+    border-radius: 999px;
+    min-height: 30px;
+    padding: 0.22rem 0.78rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.badge-tab-btn.active {
+    background: #3d7ee6;
+    color: #fff;
+}
+
+.badge-tab-panel.hidden {
+    display: none;
+}
+
+.badge-tab-panel {
+    height: var(--badge-panel-height);
+    overflow: hidden;
+}
+
+.badge-panel-section {
+    border-radius: 18px;
+    border: 1px solid #e5ebfb;
+    background: #f8faff;
+    padding: 14px;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.badge-panel-empty {
+    color: #55617f;
+    font-size: 0.92rem;
+    line-height: 1.3;
+    padding: 0.3rem 0;
+    margin: auto 0;
+}
+
+.badge-detail-panel {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    border-radius: 18px;
+    border: 1px solid #dbe3f7;
+    background: linear-gradient(180deg, #ffffff, #f7faff);
+    padding: 12px;
+}
+
+.badge-detail-art {
+    width: 92px;
+    height: 92px;
+    border-radius: 22px;
+    border: 1px solid #dce3f5;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(236, 241, 255, 0.94));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    font-size: 2.1rem;
+    font-weight: 900;
+}
+
+.badge-art img,
+.badge-detail-art img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    image-rendering: auto;
+}
+
+.badge-art-mystery {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border-radius: 999px;
+    filter: none;
+}
+
+.badge-art-mystery-mark {
+    position: static;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.55rem;
+    line-height: 1;
+    font-weight: 900;
+    -webkit-text-stroke: 1.6px #5f6d89;
+    text-shadow: none;
+}
+
+.badge-detail-art img {
+    width: 72px;
+    height: 72px;
+}
+
+.badge-detail-art .badge-art-mystery {
+    width: 72px;
+    height: 72px;
+}
+
+.badge-detail-art .badge-art-mystery-mark {
+    font-size: 2.35rem;
+}
+
+.badge-detail-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.badge-detail-title {
+    color: #2a3552;
+    font-size: 1.02rem;
+    line-height: 1.12;
+    font-weight: 850;
+}
+
+.badge-detail-state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    line-height: 1;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.badge-detail-state.earned {
+    color: #157f42;
+    background: #e9f8ef;
+    border: 1px solid #bfe8cc;
+}
+
+.badge-detail-state.locked {
+    color: #64748b;
+    background: #edf2f7;
+    border: 1px solid #d8e0ea;
+}
+
+.badge-detail-date {
+    margin-top: 0.24rem;
+    color: #5f6d89;
+    font-size: 0.84rem;
+    line-height: 1.2;
+    font-weight: 700;
+}
+
+.badge-detail-reason {
+    margin-top: 0.48rem;
+    color: #4d5f83;
+    font-size: 0.9rem;
+    line-height: 1.3;
+    font-weight: 600;
+}
+
+.badge-scroll-area {
+    margin-top: 12px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    contain: layout;
+    padding: 4px 8px 8px 4px;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+.badge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(50px, 50px));
+    justify-content: start;
+    gap: 6px;
+}
+
+.badge-card {
+    width: 50px;
+    min-height: 50px;
+    border-radius: 12px;
+    border: 1px solid #dbe3f7;
+    padding: 1px;
+    cursor: pointer;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.badge-card:hover {
+    border-color: #bfcaf2;
+    box-shadow: 0 4px 10px rgba(49, 72, 128, 0.1);
+}
+
+.badge-card.selected {
+    border-color: #aebef4;
+    box-shadow: 0 0 0 2px rgba(79, 131, 255, 0.16);
+}
+
+.badge-card.locked {
+    background: linear-gradient(180deg, #f4f7fc, #eef3f8);
+}
+
+.badge-art {
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    border-radius: 6px;
+    border: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.65rem;
+    font-weight: 900;
+}
+
+.badge-card.badge-fill-characters,
+.badge-detail-panel.badge-fill-characters { background: linear-gradient(180deg, #edf5ff, #e3efff 62%, #eef7ff); }
+
+.badge-card.badge-fill-writing,
+.badge-detail-panel.badge-fill-writing { background: linear-gradient(180deg, #fff5df, #ffe9cd 64%, #fff3e8); }
+
+.badge-card.badge-fill-math,
+.badge-detail-panel.badge-fill-math { background: linear-gradient(180deg, #eefaf7, #dff4ef 62%, #f2fcf9); }
+
+.badge-card.badge-fill-reading,
+.badge-detail-panel.badge-fill-reading { background: linear-gradient(180deg, #fff0f8, #ffe5f2 62%, #fff4f9); }
+
+.badge-card.badge-fill-global,
+.badge-detail-panel.badge-fill-global { background: linear-gradient(180deg, #f5efff, #ebe1ff 62%, #f7f1ff); }
+
+.badge-theme-characters { color: #3b82f6; }
+.badge-theme-writing { color: #f59e0b; }
+.badge-theme-math { color: #14b8a6; }
+.badge-theme-reading { color: #ec4899; }
+.badge-theme-global { color: #8b5cf6; }
+
+.badge-footer-note {
+    margin-top: 12px;
+    color: #60708c;
+    font-size: 0.84rem;
+    line-height: 1.3;
+}
+
+@media (max-width: 760px) {
+    .badge-modal-content {
+        --badge-panel-height: min(56vh, 460px);
+    }
+
+    .practice-home-redesign .redesign-summary-strip {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .badge-modal-top {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 10px;
+    }
+
+    .badge-modal-title-wrap {
+        min-width: 0;
+    }
+
+    .badge-modal-close {
+        width: auto;
+        min-width: 84px;
+        align-self: start;
+        padding-inline: 0.8rem;
+    }
+
+    .badge-detail-panel {
+        grid-template-columns: 78px minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .badge-detail-art {
+        width: 78px;
+        height: 78px;
+        font-size: 1.8rem;
+    }
+
+    .badge-detail-art img {
+        width: 58px;
+        height: 58px;
+    }
+
+    .badge-detail-art .badge-art-mystery {
+        width: 58px;
+        height: 58px;
+    }
+
+    .badge-detail-art .badge-art-mystery-mark {
+        font-size: 1.85rem;
+    }
+
+    .badge-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 5px;
+    }
+
+    .badge-card {
+        width: 100%;
+    }
+}
+
+@media (max-width: 520px) {
+    .practice-home-redesign .badge-summary-box {
+        padding: 6px 7px;
+        gap: 6px;
+    }
+
+    .practice-home-redesign .badge-summary-main .redesign-summary-label {
+        font-size: 0.5rem;
+        letter-spacing: 0.09em;
+    }
+
+    .practice-home-redesign .badge-summary-value.badge-summary-value {
+        font-size: 0.88rem;
+        gap: 4px;
+    }
+
+    .practice-home-redesign .badge-summary-medal {
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+        font-size: 0.78rem;
+    }
+
+    .badge-detail-panel {
+        grid-template-columns: 70px minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .badge-detail-art {
+        width: 70px;
+        height: 70px;
+    }
+
+    .badge-art img {
+        width: 36px;
+        height: 36px;
+    }
+
+    .badge-art-mystery {
+        width: 36px;
+        height: 36px;
+    }
+
+    .badge-art-mystery-mark {
+        font-size: 1.25rem;
+    }
+
+    .badge-detail-art img {
+        width: 52px;
+        height: 52px;
+    }
+
+    .badge-detail-art .badge-art-mystery {
+        width: 52px;
+        height: 52px;
+    }
+}

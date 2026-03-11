@@ -1,5 +1,14 @@
 const API_BASE = `${window.location.origin}/api`;
 
+function badgeArtIdentityKeyFromPath(imagePath) {
+    const normalized = String(imagePath || '').trim().toLowerCase();
+    if (!normalized) {
+        return '';
+    }
+    const slashIndex = normalized.lastIndexOf('/');
+    return slashIndex >= 0 ? normalized.slice(slashIndex + 1) : normalized;
+}
+
 const passwordForm = document.getElementById('passwordForm');
 const currentPasswordInput = document.getElementById('currentPassword');
 const newPasswordInput = document.getElementById('newPassword');
@@ -9,6 +18,32 @@ const familyTimezoneSelect = document.getElementById('familyTimezone');
 const saveTimezoneBtn = document.getElementById('saveTimezoneBtn');
 const timezoneError = document.getElementById('timezoneError');
 const timezoneSuccess = document.getElementById('timezoneSuccess');
+const rewardsStatusText = document.getElementById('rewardsStatusText');
+const rewardsStartPlanText = document.getElementById('rewardsStartPlanText');
+const startRewardsBtn = document.getElementById('startRewardsBtn');
+const resetRewardsBtn = document.getElementById('resetRewardsBtn');
+const rewardsError = document.getElementById('rewardsError');
+const rewardsSuccess = document.getElementById('rewardsSuccess');
+const badgeArtStudioCard = document.getElementById('badgeArtStudioCard');
+const badgeArtStudioStatus = document.getElementById('badgeArtStudioStatus');
+const openBadgeArtStudioBtn = document.getElementById('openBadgeArtStudioBtn');
+const badgeArtStudioModal = document.getElementById('badgeArtStudioModal');
+const badgeArtStudioClearBtn = document.getElementById('badgeArtStudioClearBtn');
+const badgeArtStudioSaveBtn = document.getElementById('badgeArtStudioSaveBtn');
+const badgeArtStudioNoticeModal = document.getElementById('badgeArtStudioNoticeModal');
+const badgeArtStudioNoticeTitle = document.getElementById('badgeArtStudioNoticeTitle');
+const badgeArtStudioNoticeText = document.getElementById('badgeArtStudioNoticeText');
+const badgeArtStudioNoticeOkBtn = document.getElementById('badgeArtStudioNoticeOkBtn');
+const badgeAchievementCount = document.getElementById('badgeAchievementCount');
+const badgeArtAchievementList = document.getElementById('badgeArtAchievementList');
+const badgeArtSelectionEmpty = document.getElementById('badgeArtSelectionEmpty');
+const badgeArtSelectionPanel = document.getElementById('badgeArtSelectionPanel');
+const badgeArtSelectedPreview = document.getElementById('badgeArtSelectedPreview');
+const badgeArtSelectedTitle = document.getElementById('badgeArtSelectedTitle');
+const badgeArtSelectedMeta = document.getElementById('badgeArtSelectedMeta');
+const badgeArtSelectedCurrent = document.getElementById('badgeArtSelectedCurrent');
+const badgeArtBankCount = document.getElementById('badgeArtBankCount');
+const badgeArtBankGrid = document.getElementById('badgeArtBankGrid');
 const downloadBackupBtn = document.getElementById('downloadBackupBtn');
 const restoreBackupBtn = document.getElementById('restoreBackupBtn');
 const backupFileInput = document.getElementById('backupFileInput');
@@ -42,12 +77,59 @@ const COMMON_TIMEZONES = [
     'Australia/Sydney'
 ];
 let isSuperFamily = false;
+let rewardsTrackingStarted = false;
+let rewardsTrackingStartedAt = '';
+let rewardsFamilyTimezone = DEFAULT_FAMILY_TIMEZONE;
+let rewardsStatusState = 'loading';
+let badgeArtStudioPersistedData = {
+    achievements: [],
+    artCatalog: [],
+};
+let badgeArtStudioData = {
+    achievements: [],
+    artCatalog: [],
+};
+let badgeArtSelectedKey = '';
+let badgeArtStudioLoading = false;
+let badgeArtStudioSaving = false;
+let badgeArtStudioNoticeResolver = null;
+
+renderRewardsStatus();
+syncRewardsButtonsState('');
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function cloneBadgeArtStudioPayload(payload) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return {
+        achievements: Array.isArray(source.achievements) ? source.achievements.map((item) => ({ ...item })) : [],
+        artCatalog: Array.isArray(source.artCatalog) ? source.artCatalog.map((item) => ({ ...item })) : [],
+    };
+}
+
+function setBadgeArtStudioPayload(payload) {
+    badgeArtStudioPersistedData = cloneBadgeArtStudioPayload(payload);
+    badgeArtStudioData = cloneBadgeArtStudioPayload(payload);
+}
+
+function resetBadgeArtStudioDraft() {
+    badgeArtStudioData = cloneBadgeArtStudioPayload(badgeArtStudioPersistedData);
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadFamilyRole();
     initializeTimezoneOptions();
-    loadTimezoneSettings();
+    await loadTimezoneSettings();
+    await loadRewardsStatus();
     if (isSuperFamily) {
+        await loadBadgeArtStudio();
         loadBackupInfo();
         loadFamilyAccounts();
     }
@@ -80,6 +162,102 @@ restoreBackupBtn.addEventListener('click', async () => {
 
 saveTimezoneBtn.addEventListener('click', async () => {
     await saveTimezoneSettings();
+});
+
+if (startRewardsBtn) {
+    startRewardsBtn.addEventListener('click', async () => {
+        await startRewardsTracking();
+    });
+}
+
+if (resetRewardsBtn) {
+    resetRewardsBtn.addEventListener('click', async () => {
+        await resetRewardsTracking();
+    });
+}
+
+if (badgeArtAchievementList) {
+    badgeArtAchievementList.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-achievement-key][data-category-key]');
+        if (!button) {
+            return;
+        }
+        const achievementKey = String(button.getAttribute('data-achievement-key') || '').trim();
+        const categoryKey = String(button.getAttribute('data-category-key') || '').trim();
+        selectBadgeAchievement(achievementKey, categoryKey);
+    });
+}
+
+if (badgeArtBankGrid) {
+    badgeArtBankGrid.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-badge-art-id]');
+        if (!button) {
+            return;
+        }
+        const badgeArtId = Number.parseInt(button.getAttribute('data-badge-art-id') || '', 10);
+        if (!Number.isInteger(badgeArtId) || badgeArtId <= 0) {
+            return;
+        }
+        assignBadgeArtToSelectedAchievement(badgeArtId);
+    });
+}
+
+if (openBadgeArtStudioBtn) {
+    openBadgeArtStudioBtn.addEventListener('click', async () => {
+        await openBadgeArtStudio();
+    });
+}
+
+if (badgeArtStudioClearBtn) {
+    badgeArtStudioClearBtn.addEventListener('click', () => {
+        clearAllBadgeArtAssignments();
+    });
+}
+
+if (badgeArtStudioSaveBtn) {
+    badgeArtStudioSaveBtn.addEventListener('click', async () => {
+        await saveBadgeArtStudioAssignments();
+    });
+}
+
+if (badgeArtStudioNoticeOkBtn) {
+    badgeArtStudioNoticeOkBtn.addEventListener('click', () => {
+        closeBadgeArtStudioNoticeDialog();
+    });
+}
+
+if (badgeArtStudioModal) {
+    badgeArtStudioModal.addEventListener('click', (event) => {
+        if (event.target === badgeArtStudioModal) {
+            closeBadgeArtStudio({ discardDraft: true });
+            return;
+        }
+        const closeBtn = event.target.closest('[data-badge-art-action="close"]');
+        if (closeBtn) {
+            closeBadgeArtStudio({ discardDraft: true });
+        }
+    });
+}
+
+if (badgeArtStudioNoticeModal) {
+    badgeArtStudioNoticeModal.addEventListener('click', (event) => {
+        if (event.target === badgeArtStudioNoticeModal) {
+            closeBadgeArtStudioNoticeDialog();
+        }
+    });
+}
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && badgeArtStudioNoticeModal && !badgeArtStudioNoticeModal.classList.contains('hidden')) {
+        closeBadgeArtStudioNoticeDialog();
+        return;
+    }
+    if (handleBadgeArtStudioArrowKey(event)) {
+        return;
+    }
+    if (event.key === 'Escape' && badgeArtStudioModal && !badgeArtStudioModal.classList.contains('hidden')) {
+        closeBadgeArtStudio({ discardDraft: true });
+    }
 });
 
 backupFileInput.addEventListener('change', async (event) => {
@@ -130,6 +308,1066 @@ function initializeTimezoneOptions() {
     familyTimezoneSelect.innerHTML = list.map((tz) => `<option value="${tz}">${tz}</option>`).join('');
 }
 
+function parseApiTimestamp(value) {
+    const text = String(value || '').trim();
+    if (!text) {
+        return null;
+    }
+    const normalized = /[zZ]$|[+-]\d{2}:\d{2}$/.test(text) ? text : `${text}Z`;
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatStartedAt(value, timeZone = DEFAULT_FAMILY_TIMEZONE) {
+    const parsed = parseApiTimestamp(value);
+    if (!parsed) {
+        return String(value || '').trim();
+    }
+    try {
+        return parsed.toLocaleString([], {
+            timeZone: String(timeZone || DEFAULT_FAMILY_TIMEZONE),
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZoneName: 'short',
+        });
+    } catch (error) {
+        console.error('Error formatting reward timestamp:', error);
+    }
+    const fallback = parseApiTimestamp(value);
+    if (!fallback) {
+        return String(value || '').trim();
+    }
+    return fallback.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+
+function syncRewardsButtonsState(activeAction = '') {
+    const isStarting = activeAction === 'start';
+    const isResetting = activeAction === 'reset';
+    const isStatusReady = rewardsStatusState === 'ready';
+    if (startRewardsBtn) {
+        startRewardsBtn.disabled = !isStatusReady || rewardsTrackingStarted || isStarting || isResetting;
+        startRewardsBtn.textContent = isStarting
+            ? 'Starting...'
+            : (rewardsTrackingStarted ? 'Reward Tracking Started' : 'Start Reward Tracking');
+    }
+    if (resetRewardsBtn) {
+        resetRewardsBtn.disabled = !isStatusReady || !rewardsTrackingStarted || isStarting || isResetting;
+        resetRewardsBtn.textContent = isResetting ? 'Resetting...' : 'Reset Rewards';
+    }
+}
+
+function renderRewardsStatus() {
+    if (rewardsStatusText) {
+        if (rewardsStatusState === 'loading') {
+            rewardsStatusText.textContent = 'Loading reward status...';
+        } else if (rewardsStatusState === 'error') {
+            rewardsStatusText.textContent = 'Reward status unavailable.';
+        } else if (rewardsTrackingStarted) {
+            const startedAtText = formatStartedAt(rewardsTrackingStartedAt, rewardsFamilyTimezone);
+            rewardsStatusText.textContent = startedAtText
+                ? `Tracking started: ${startedAtText}`
+                : 'Tracking started.';
+        } else {
+            rewardsStatusText.textContent = 'Tracking not started yet.';
+        }
+    }
+
+    if (!rewardsStartPlanText) {
+        return;
+    }
+
+    if (rewardsStatusState !== 'ready') {
+        rewardsStartPlanText.textContent = '';
+        return;
+    }
+
+    if (rewardsTrackingStarted) {
+        rewardsStartPlanText.textContent = 'Reset will delete all reward awards for every kid in this family and clear the start timestamp.';
+        return;
+    }
+    rewardsStartPlanText.textContent = 'Start now to count future sessions and rewards from this moment forward.';
+}
+
+async function loadRewardsStatus() {
+    try {
+        rewardsStatusState = 'loading';
+        renderRewardsStatus();
+        syncRewardsButtonsState('');
+        showRewardsError('');
+        showRewardsSuccess('');
+        const response = await fetch(`${API_BASE}/parent-settings/rewards/status`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `HTTP ${response.status}`);
+        }
+        rewardsStatusState = 'ready';
+        rewardsTrackingStarted = Boolean(result.started);
+        rewardsTrackingStartedAt = String(result.startedAt || '');
+        rewardsFamilyTimezone = String(result.familyTimezone || rewardsFamilyTimezone || DEFAULT_FAMILY_TIMEZONE);
+        renderRewardsStatus();
+        syncRewardsButtonsState('');
+    } catch (error) {
+        console.error('Error loading rewards status:', error);
+        rewardsStatusState = 'error';
+        rewardsTrackingStarted = false;
+        rewardsTrackingStartedAt = '';
+        renderRewardsStatus();
+        syncRewardsButtonsState('');
+        showRewardsError('Failed to load reward tracking status.');
+    }
+}
+
+async function startRewardsTracking() {
+    if (rewardsTrackingStarted) {
+        return;
+    }
+    showRewardsError('');
+    showRewardsSuccess('');
+    const warningMessage = 'Reward tracking will begin immediately. Only sessions completed after you start will count.';
+    const password = await promptPasswordOnce('starting rewards', warningMessage);
+    if (!password) {
+        return;
+    }
+
+    try {
+        syncRewardsButtonsState('start');
+        const response = await fetch(`${API_BASE}/parent-settings/rewards/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirmPassword: password }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showRewardsError(result.error || 'Failed to start reward tracking.');
+            return;
+        }
+        rewardsTrackingStarted = Boolean(result.started);
+        rewardsTrackingStartedAt = String(result.startedAt || '');
+        rewardsFamilyTimezone = String(result.familyTimezone || rewardsFamilyTimezone || DEFAULT_FAMILY_TIMEZONE);
+        renderRewardsStatus();
+        syncRewardsButtonsState('');
+        const startedText = formatStartedAt(rewardsTrackingStartedAt, rewardsFamilyTimezone);
+        showRewardsSuccess(startedText ? `Reward tracking started at ${startedText}.` : 'Reward tracking started.');
+    } catch (error) {
+        console.error('Error starting rewards tracking:', error);
+        showRewardsError('Failed to start reward tracking.');
+        syncRewardsButtonsState('');
+    }
+}
+
+async function resetRewardsTracking() {
+    showRewardsError('');
+    showRewardsSuccess('');
+    const password = await promptPasswordOnce(
+        'resetting rewards',
+        'This will delete all reward awards for every kid in this family and clear the reward start timestamp.'
+    );
+    if (!password) {
+        return;
+    }
+
+    try {
+        syncRewardsButtonsState('reset');
+        const response = await fetch(`${API_BASE}/parent-settings/rewards/reset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirmPassword: password }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showRewardsError(result.error || 'Failed to reset rewards.');
+            return;
+        }
+        rewardsTrackingStarted = Boolean(result.started);
+        rewardsTrackingStartedAt = String(result.startedAt || '');
+        rewardsFamilyTimezone = String(result.familyTimezone || rewardsFamilyTimezone || DEFAULT_FAMILY_TIMEZONE);
+        renderRewardsStatus();
+        syncRewardsButtonsState('');
+        const deletedAwardCount = Number.isFinite(Number(result.deletedAwardCount))
+            ? Number(result.deletedAwardCount)
+            : 0;
+        showRewardsSuccess(`Rewards reset. Deleted ${deletedAwardCount} award(s).`);
+    } catch (error) {
+        console.error('Error resetting rewards:', error);
+        showRewardsError('Failed to reset rewards.');
+        syncRewardsButtonsState('');
+    }
+}
+
+function badgeAssignmentKey(achievementKey, categoryKey = '') {
+    return `${String(achievementKey || '').trim()}::${String(categoryKey || '').trim().toLowerCase()}`;
+}
+
+function getBadgeArtAssignedCount(items) {
+    return (Array.isArray(items) ? items : []).reduce((count, item) => (
+        Number(item && item.currentBadgeArtId || 0) > 0 ? count + 1 : count
+    ), 0);
+}
+
+function getPersistedBadgeAchievement(achievementKey, categoryKey = '') {
+    const achievements = Array.isArray(badgeArtStudioPersistedData.achievements)
+        ? badgeArtStudioPersistedData.achievements
+        : [];
+    const targetKey = badgeAssignmentKey(achievementKey, categoryKey);
+    return achievements.find((item) => badgeAssignmentKey(item.achievementKey, item.categoryKey) === targetKey) || null;
+}
+
+function getBadgeArtStudioDirtyAssignmentCount() {
+    const draftAchievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    return draftAchievements.reduce((count, item) => {
+        const persistedItem = getPersistedBadgeAchievement(item.achievementKey, item.categoryKey);
+        const draftBadgeArtId = Number(item && item.currentBadgeArtId || 0);
+        const persistedBadgeArtId = Number(persistedItem && persistedItem.currentBadgeArtId || 0);
+        return draftBadgeArtId !== persistedBadgeArtId ? count + 1 : count;
+    }, 0);
+}
+
+function hasBadgeArtStudioUnsavedChanges() {
+    return getBadgeArtStudioDirtyAssignmentCount() > 0;
+}
+
+function findBadgeArtCatalogItemById(badgeArtId) {
+    const normalizedBadgeArtId = Number(badgeArtId || 0);
+    const artCatalog = Array.isArray(badgeArtStudioData.artCatalog) ? badgeArtStudioData.artCatalog : [];
+    return artCatalog.find((item) => Number(item && item.badgeArtId || 0) === normalizedBadgeArtId) || null;
+}
+
+function findBadgeArtCatalogItemByIdentityKey(identityKey) {
+    const normalizedIdentityKey = String(identityKey || '').trim().toLowerCase();
+    if (!normalizedIdentityKey) {
+        return null;
+    }
+    const artCatalog = Array.isArray(badgeArtStudioData.artCatalog) ? badgeArtStudioData.artCatalog : [];
+    return artCatalog.find((item) => getBadgeArtIdentityKey(item) === normalizedIdentityKey) || null;
+}
+
+function getBadgeArtIdentityKey(item) {
+    if (!item || typeof item !== 'object') {
+        return '';
+    }
+    const imagePath = String(item.imagePath || item.currentImagePath || '').trim();
+    return badgeArtIdentityKeyFromPath(imagePath);
+}
+
+function resolveActiveNotoBadgeArtId(item) {
+    if (!item || typeof item !== 'object') {
+        return 0;
+    }
+    const currentBadgeArtId = Number(item.currentBadgeArtId || 0);
+    if (currentBadgeArtId > 0) {
+        const directMatch = findBadgeArtCatalogItemById(currentBadgeArtId);
+        if (directMatch) {
+            return currentBadgeArtId;
+        }
+    }
+    const identityKey = getBadgeArtIdentityKey(item);
+    if (!identityKey) {
+        return 0;
+    }
+    const matchedItem = findBadgeArtCatalogItemByIdentityKey(identityKey);
+    return Number(matchedItem && matchedItem.badgeArtId || 0);
+}
+
+function setDraftBadgeArtAssignment(item, badgeArtId) {
+    if (!item) {
+        return;
+    }
+    const normalizedBadgeArtId = Number(badgeArtId || 0);
+    if (!Number.isInteger(normalizedBadgeArtId) || normalizedBadgeArtId <= 0) {
+        item.currentBadgeArtId = 0;
+        item.currentImagePath = '';
+        item.currentImageUrl = '';
+        item.currentImageLabel = '';
+        item.currentBadgeSourceUrl = '';
+        item.currentBadgeLicense = '';
+        return;
+    }
+    const artItem = findBadgeArtCatalogItemById(normalizedBadgeArtId);
+    if (!artItem) {
+        return;
+    }
+    item.currentBadgeArtId = normalizedBadgeArtId;
+    item.currentImagePath = String(artItem.imagePath || '');
+    item.currentImageUrl = String(artItem.imageUrl || '');
+    item.currentImageLabel = String(artItem.label || '');
+    item.currentBadgeSourceUrl = String(artItem.sourceUrl || '');
+    item.currentBadgeLicense = String(artItem.license || '');
+}
+
+function normalizeSearchText(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function getBadgePaletteKey(item) {
+    const categoryKey = String(item && item.categoryKey ? item.categoryKey : '').trim().toLowerCase();
+    if (categoryKey === 'chinese_characters') {
+        return 'characters';
+    }
+    if (categoryKey === 'chinese_writing') {
+        return 'writing';
+    }
+    if (categoryKey === 'chinese_reading') {
+        return 'reading';
+    }
+    if (categoryKey === 'math') {
+        return 'math';
+    }
+    return 'global';
+}
+
+function resolveBadgeArtImageUrl(item) {
+    const imageUrl = String(item && item.imageUrl ? item.imageUrl : item && item.currentImageUrl ? item.currentImageUrl : '').trim();
+    if (imageUrl) {
+        return imageUrl;
+    }
+    const imagePath = String(item && item.imagePath ? item.imagePath : item && item.currentImagePath ? item.currentImagePath : '').trim();
+    if (!imagePath) {
+        return '';
+    }
+    return `/${imagePath.replace(/^\/+/, '')}`;
+}
+
+function renderBadgeArtPreview(item, altText) {
+    const imageUrl = resolveBadgeArtImageUrl(item);
+    if (!imageUrl) {
+        return '';
+    }
+    return `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(altText || 'Badge art')}" loading="lazy" decoding="async">`;
+}
+
+function buildBadgeAchievementCardTitle(item) {
+    return [
+        item.title || 'Badge',
+        item.goalText || '',
+        item.currentImageLabel ? `Current art: ${item.currentImageLabel}` : 'Current art: Unassigned',
+    ].filter(Boolean).join('\n');
+}
+
+function buildBadgeAchievementCardInnerMarkup(item) {
+    const paletteKey = getBadgePaletteKey(item);
+    return `
+        <div class="badge-art-preview badge-art-grid-preview badge-art-palette-${escapeHtml(paletteKey)}">
+            ${renderBadgeArtPreview(item, `${item.title} current art`)}
+        </div>
+    `;
+}
+
+function renderBadgeArtStudioStatus() {
+    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    const artCatalog = Array.isArray(badgeArtStudioData.artCatalog) ? badgeArtStudioData.artCatalog : [];
+    const assignedCount = getBadgeArtAssignedCount(achievements);
+    const dirtyCount = getBadgeArtStudioDirtyAssignmentCount();
+    if (badgeArtStudioStatus) {
+        badgeArtStudioStatus.textContent = dirtyCount > 0
+            ? `Loaded ${achievements.length} achievements, ${artCatalog.length} Noto images, ${assignedCount} in draft, ${dirtyCount} unsaved change${dirtyCount === 1 ? '' : 's'}.`
+            : `Loaded ${achievements.length} achievements, ${artCatalog.length} Noto images, ${assignedCount} assigned.`;
+    }
+    syncBadgeArtStudioControls();
+}
+
+function getFilteredBadgeAchievements() {
+    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    return achievements;
+}
+
+function getSelectedBadgeAchievement() {
+    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    if (!badgeArtSelectedKey) {
+        return null;
+    }
+    return achievements.find((item) => badgeAssignmentKey(item.achievementKey, item.categoryKey) === badgeArtSelectedKey) || null;
+}
+
+function getUsedBadgeArtIds(excludedMappingKey = '') {
+    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    const used = new Set();
+    achievements.forEach((item) => {
+        const mappingKey = badgeAssignmentKey(item.achievementKey, item.categoryKey);
+        const badgeArtId = Number(item.currentBadgeArtId || 0);
+        if (mappingKey === excludedMappingKey || !Number.isInteger(badgeArtId) || badgeArtId <= 0) {
+            return;
+        }
+        used.add(badgeArtId);
+    });
+    return used;
+}
+
+function getUsedBadgeArtIdentityKeys(excludedMappingKey = '') {
+    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    const used = new Set();
+    achievements.forEach((item) => {
+        const mappingKey = badgeAssignmentKey(item.achievementKey, item.categoryKey);
+        if (mappingKey === excludedMappingKey) {
+            return;
+        }
+        const identityKey = getBadgeArtIdentityKey(item);
+        if (identityKey) {
+            used.add(identityKey);
+        }
+    });
+    return used;
+}
+
+function getFilteredBadgeArtCatalog() {
+    const selected = getSelectedBadgeAchievement();
+    if (!selected) {
+        return [];
+    }
+    const artCatalog = Array.isArray(badgeArtStudioData.artCatalog) ? badgeArtStudioData.artCatalog : [];
+    const mappingKey = badgeAssignmentKey(selected.achievementKey, selected.categoryKey);
+    const usedByOthers = getUsedBadgeArtIds(mappingKey);
+    const usedIdentityKeysByOthers = getUsedBadgeArtIdentityKeys(mappingKey);
+    const currentBadgeArtId = Number(selected.currentBadgeArtId || 0);
+    const currentIdentityKey = getBadgeArtIdentityKey(selected);
+    return artCatalog
+        .filter((item) => {
+            const badgeArtId = Number(item.badgeArtId || 0);
+            const identityKey = getBadgeArtIdentityKey(item);
+            const isEquivalentToCurrent = Boolean(identityKey) && identityKey === currentIdentityKey;
+            if (badgeArtId > 0 && usedByOthers.has(badgeArtId) && badgeArtId !== currentBadgeArtId) {
+                return false;
+            }
+            if (identityKey && usedIdentityKeysByOthers.has(identityKey) && !isEquivalentToCurrent) {
+                return false;
+            }
+            return true;
+        })
+        .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
+}
+
+function syncBadgeArtStudioControls() {
+    const hasData = badgeArtStudioData.achievements.length > 0 || badgeArtStudioData.artCatalog.length > 0;
+    const isSaving = badgeArtStudioSaving;
+    const dirtyCount = getBadgeArtStudioDirtyAssignmentCount();
+    const assignedCount = getBadgeArtAssignedCount(badgeArtStudioData.achievements);
+    if (openBadgeArtStudioBtn) {
+        openBadgeArtStudioBtn.disabled = isSaving || badgeArtStudioLoading;
+        openBadgeArtStudioBtn.textContent = badgeArtStudioLoading
+            ? 'Loading...'
+            : (hasData ? 'Open Studio' : 'Retry Load');
+    }
+    if (badgeArtStudioClearBtn) {
+        badgeArtStudioClearBtn.disabled = badgeArtStudioLoading || isSaving || assignedCount <= 0;
+        badgeArtStudioClearBtn.textContent = 'Clear All';
+    }
+    if (badgeArtStudioSaveBtn) {
+        badgeArtStudioSaveBtn.disabled = badgeArtStudioLoading || isSaving || dirtyCount <= 0;
+        badgeArtStudioSaveBtn.textContent = isSaving
+            ? 'Saving...'
+            : (dirtyCount > 0
+                ? `Save ${dirtyCount} Change${dirtyCount === 1 ? '' : 's'}`
+                : 'Save');
+    }
+}
+
+function findBadgeAchievementCardElement(mappingKey) {
+    if (!badgeArtAchievementList || !mappingKey) {
+        return null;
+    }
+    return Array.from(badgeArtAchievementList.querySelectorAll('button[data-assignment-key]'))
+        .find((button) => String(button.getAttribute('data-assignment-key') || '') === mappingKey) || null;
+}
+
+function updateBadgeAchievementCardElement(item) {
+    if (!item) {
+        return;
+    }
+    const mappingKey = badgeAssignmentKey(item.achievementKey, item.categoryKey);
+    const button = findBadgeAchievementCardElement(mappingKey);
+    if (!button) {
+        return;
+    }
+    const paletteKey = getBadgePaletteKey(item);
+    const isSelected = mappingKey === badgeArtSelectedKey;
+    button.className = `badge-art-achievement-card badge-art-palette-${paletteKey}${isSelected ? ' selected' : ''}`;
+    button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    button.setAttribute('aria-label', String(item.title || 'Badge'));
+    button.setAttribute('title', buildBadgeAchievementCardTitle(item));
+    button.innerHTML = buildBadgeAchievementCardInnerMarkup(item);
+}
+
+function updateBadgeAchievementSelectionState(previousKey, nextKey) {
+    if (previousKey === nextKey) {
+        return;
+    }
+    const previousButton = findBadgeAchievementCardElement(previousKey);
+    if (previousButton) {
+        previousButton.classList.remove('selected');
+        previousButton.setAttribute('aria-pressed', 'false');
+    }
+    const nextButton = findBadgeAchievementCardElement(nextKey);
+    if (nextButton) {
+        nextButton.classList.add('selected');
+        nextButton.setAttribute('aria-pressed', 'true');
+    }
+}
+
+function updateAllBadgeAchievementCards() {
+    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    achievements.forEach((item) => {
+        updateBadgeAchievementCardElement(item);
+    });
+}
+
+function findBadgeArtTileElement(badgeArtId) {
+    if (!badgeArtBankGrid || !Number.isInteger(Number(badgeArtId)) || Number(badgeArtId) <= 0) {
+        return null;
+    }
+    return badgeArtBankGrid.querySelector(`button[data-badge-art-id="${Number(badgeArtId)}"]`);
+}
+
+function updateBadgeArtBankSelectionState(previousBadgeArtId, nextBadgeArtId) {
+    const previousTile = findBadgeArtTileElement(previousBadgeArtId);
+    if (previousTile) {
+        previousTile.classList.remove('selected');
+        previousTile.setAttribute('aria-pressed', 'false');
+    }
+    const nextTile = findBadgeArtTileElement(nextBadgeArtId);
+    if (nextTile) {
+        nextTile.classList.add('selected');
+        nextTile.setAttribute('aria-pressed', 'true');
+    }
+}
+
+function getBadgeAchievementButtons() {
+    if (!badgeArtAchievementList) {
+        return [];
+    }
+    return Array.from(badgeArtAchievementList.querySelectorAll('button[data-achievement-key][data-category-key]'));
+}
+
+function getBadgeArtBankButtons() {
+    if (!badgeArtBankGrid) {
+        return [];
+    }
+    return Array.from(badgeArtBankGrid.querySelectorAll('button[data-badge-art-id]'));
+}
+
+function moveBadgeAchievementSelectionBy(delta) {
+    const buttons = getBadgeAchievementButtons();
+    if (buttons.length <= 0) {
+        return false;
+    }
+    const activeButton = document.activeElement instanceof HTMLElement
+        ? document.activeElement.closest('#badgeArtAchievementList button[data-achievement-key][data-category-key]')
+        : null;
+    let currentIndex = buttons.findIndex((button) => button === activeButton);
+    if (currentIndex < 0) {
+        currentIndex = buttons.findIndex((button) => button.classList.contains('selected'));
+    }
+    if (currentIndex < 0) {
+        currentIndex = 0;
+    }
+    const nextIndex = Math.max(0, Math.min(buttons.length - 1, currentIndex + delta));
+    if (nextIndex === currentIndex) {
+        buttons[nextIndex].focus();
+        return true;
+    }
+    const targetButton = buttons[nextIndex];
+    selectBadgeAchievement(
+        String(targetButton.getAttribute('data-achievement-key') || '').trim(),
+        String(targetButton.getAttribute('data-category-key') || '').trim()
+    );
+    targetButton.focus();
+    return true;
+}
+
+function moveBadgeArtBankSelectionBy(delta) {
+    const buttons = getBadgeArtBankButtons();
+    if (buttons.length <= 0) {
+        return false;
+    }
+    const activeButton = document.activeElement instanceof HTMLElement
+        ? document.activeElement.closest('#badgeArtBankGrid button[data-badge-art-id]')
+        : null;
+    let currentIndex = buttons.findIndex((button) => button === activeButton);
+    if (currentIndex < 0) {
+        currentIndex = buttons.findIndex((button) => button.classList.contains('selected'));
+    }
+    if (currentIndex < 0) {
+        currentIndex = 0;
+    }
+    const nextIndex = Math.max(0, Math.min(buttons.length - 1, currentIndex + delta));
+    const targetButton = buttons[nextIndex];
+    if (nextIndex === currentIndex) {
+        targetButton.focus();
+        return true;
+    }
+    const badgeArtId = Number.parseInt(targetButton.getAttribute('data-badge-art-id') || '', 10);
+    if (!Number.isInteger(badgeArtId) || badgeArtId <= 0) {
+        return false;
+    }
+    assignBadgeArtToSelectedAchievement(badgeArtId);
+    targetButton.focus();
+    return true;
+}
+
+function handleBadgeArtStudioArrowKey(event) {
+    if (!badgeArtStudioModal || badgeArtStudioModal.classList.contains('hidden')) {
+        return false;
+    }
+    if (badgeArtStudioNoticeModal && !badgeArtStudioNoticeModal.classList.contains('hidden')) {
+        return false;
+    }
+    if (badgeArtStudioSaving || badgeArtStudioLoading) {
+        return false;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return false;
+    }
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+        return false;
+    }
+    if (window.innerWidth <= 640) {
+        return false;
+    }
+    const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const activeInsideModal = Boolean(activeElement && badgeArtStudioModal.contains(activeElement));
+    const activeInsideBank = Boolean(activeElement && activeElement.closest('#badgeArtBankGrid'));
+    const activeInsideTopGrid = Boolean(activeElement && activeElement.closest('#badgeArtAchievementList'));
+    if (activeElement && activeInsideModal) {
+        const tagName = activeElement.tagName;
+        if ((tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') && !activeInsideBank && !activeInsideTopGrid) {
+            return false;
+        }
+    }
+    const delta = event.key === 'ArrowRight' ? 1 : -1;
+    let handled = false;
+    if (activeInsideBank) {
+        handled = moveBadgeArtBankSelectionBy(delta);
+    } else if (activeInsideTopGrid || !activeInsideModal || activeElement === document.body || activeElement === null) {
+        handled = moveBadgeAchievementSelectionBy(delta);
+    }
+    if (handled) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    return handled;
+}
+
+function renderBadgeAchievementList() {
+    if (!badgeArtAchievementList || !badgeAchievementCount) {
+        return;
+    }
+    const total = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements.length : 0;
+    const achievements = getFilteredBadgeAchievements();
+    badgeAchievementCount.textContent = total > 0
+        ? `${total} achievement${total === 1 ? '' : 's'}`
+        : 'No achievements';
+    if (achievements.length <= 0) {
+        badgeArtAchievementList.innerHTML = '<div class="settings-note">No achievements available.</div>';
+        return;
+    }
+    badgeArtAchievementList.innerHTML = achievements.map((item) => {
+        const key = badgeAssignmentKey(item.achievementKey, item.categoryKey);
+        const isSelected = key === badgeArtSelectedKey;
+        const paletteKey = getBadgePaletteKey(item);
+        return `
+            <button
+                type="button"
+                class="badge-art-achievement-card badge-art-palette-${escapeHtml(paletteKey)} ${isSelected ? 'selected' : ''}"
+                data-assignment-key="${escapeHtml(key)}"
+                data-achievement-key="${escapeHtml(item.achievementKey)}"
+                data-category-key="${escapeHtml(item.categoryKey)}"
+                aria-pressed="${isSelected ? 'true' : 'false'}"
+                aria-label="${escapeHtml(item.title || 'Badge')}"
+                title="${escapeHtml(buildBadgeAchievementCardTitle(item))}"
+            >
+                ${buildBadgeAchievementCardInnerMarkup(item)}
+            </button>
+        `;
+    }).join('');
+}
+
+function renderSelectedBadgeAchievement() {
+    const selected = getSelectedBadgeAchievement();
+    if (!badgeArtSelectionEmpty || !badgeArtSelectionPanel) {
+        return;
+    }
+    if (!selected) {
+        badgeArtSelectionEmpty.classList.remove('hidden');
+        badgeArtSelectionPanel.classList.add('hidden');
+        badgeArtSelectedPreview.className = 'badge-art-preview';
+        badgeArtSelectedPreview.innerHTML = '';
+        badgeArtSelectedTitle.textContent = '';
+        badgeArtSelectedMeta.textContent = '';
+        badgeArtSelectedCurrent.textContent = '';
+        return;
+    }
+    badgeArtSelectionEmpty.classList.add('hidden');
+    badgeArtSelectionPanel.classList.remove('hidden');
+    const paletteKey = getBadgePaletteKey(selected);
+    badgeArtSelectedPreview.className = `badge-art-preview badge-art-palette-${paletteKey}`;
+    badgeArtSelectedPreview.innerHTML = renderBadgeArtPreview(selected, `${selected.title} current art`);
+    badgeArtSelectedTitle.textContent = String(selected.title || 'Badge');
+    badgeArtSelectedMeta.textContent = String(selected.goalText || '');
+    const persistedItem = getPersistedBadgeAchievement(selected.achievementKey, selected.categoryKey);
+    const hasUnsavedDraft = Number(selected.currentBadgeArtId || 0) !== Number(persistedItem && persistedItem.currentBadgeArtId || 0);
+    const currentLabel = String(selected.currentImageLabel || '').trim() || 'Unassigned';
+    const currentPath = String(selected.currentImagePath || '').trim();
+    const prefix = hasUnsavedDraft ? 'Draft' : 'Current';
+    const suffix = hasUnsavedDraft ? ' (not saved yet)' : '';
+    badgeArtSelectedCurrent.textContent = currentPath.startsWith('assets/badges-noto/')
+        ? `${prefix} emoji: ${currentLabel}${suffix}`
+        : `${prefix} art: ${currentLabel}${currentPath ? ` (${currentPath})` : ''}${suffix}`;
+}
+
+function renderBadgeArtBank(options = {}) {
+    if (!badgeArtBankGrid || !badgeArtBankCount) {
+        return;
+    }
+    const preserveScroll = Boolean(options.preserveScroll);
+    const previousScrollTop = preserveScroll ? badgeArtBankGrid.scrollTop : 0;
+    const selected = getSelectedBadgeAchievement();
+    if (!selected) {
+        badgeArtBankCount.textContent = 'Select an achievement above to browse unused Noto art.';
+        badgeArtBankGrid.innerHTML = '';
+        return;
+    }
+    const artCatalog = Array.isArray(badgeArtStudioData.artCatalog) ? badgeArtStudioData.artCatalog : [];
+    const mappingKey = badgeAssignmentKey(selected.achievementKey, selected.categoryKey);
+    const usedByOthers = getUsedBadgeArtIds(mappingKey);
+    const usedIdentityKeysByOthers = getUsedBadgeArtIdentityKeys(mappingKey);
+    const currentBadgeArtId = Number(selected.currentBadgeArtId || 0);
+    const highlightedBadgeArtId = resolveActiveNotoBadgeArtId(selected);
+    const currentIdentityKey = getBadgeArtIdentityKey(selected);
+    const hiddenByUsageCount = artCatalog.reduce((count, item) => {
+        const badgeArtId = Number(item.badgeArtId || 0);
+        const identityKey = getBadgeArtIdentityKey(item);
+        const isEquivalentToCurrent = Boolean(identityKey) && identityKey === currentIdentityKey;
+        if (badgeArtId > 0 && usedByOthers.has(badgeArtId) && badgeArtId !== currentBadgeArtId) {
+            return count + 1;
+        }
+        if (identityKey && usedIdentityKeysByOthers.has(identityKey) && !isEquivalentToCurrent) {
+            return count + 1;
+        }
+        return count;
+    }, 0);
+    const items = getFilteredBadgeArtCatalog();
+    const hiddenNote = hiddenByUsageCount > 0
+        ? ` • ${hiddenByUsageCount} used`
+        : '';
+    badgeArtBankCount.textContent = `${items.length} available emoji${items.length === 1 ? '' : 's'}${hiddenNote}`;
+    if (items.length <= 0) {
+        badgeArtBankGrid.innerHTML = '<div class="settings-note">No unused Noto art available right now.</div>';
+        return;
+    }
+    badgeArtBankGrid.innerHTML = items.map((item) => {
+        const badgeArtId = Number(item.badgeArtId || 0);
+        const isCurrent = badgeArtId > 0 && badgeArtId === highlightedBadgeArtId;
+        return `
+            <button
+                type="button"
+                class="badge-art-tile ${isCurrent ? 'selected' : ''}"
+                data-badge-art-id="${badgeArtId}"
+                aria-label="${escapeHtml(item.label || 'Noto badge art')}"
+                aria-pressed="${isCurrent ? 'true' : 'false'}"
+                title="${escapeHtml(item.label || '')}"
+                ${badgeArtStudioSaving ? 'disabled' : ''}
+            >
+                <span class="badge-art-preview badge-art-grid-preview">
+                    ${renderBadgeArtPreview(item, item.label || 'Noto badge art')}
+                </span>
+            </button>
+        `;
+    }).join('');
+    if (preserveScroll) {
+        const maxScrollTop = Math.max(0, badgeArtBankGrid.scrollHeight - badgeArtBankGrid.clientHeight);
+        badgeArtBankGrid.scrollTop = Math.min(previousScrollTop, maxScrollTop);
+    }
+}
+
+function renderBadgeArtStudio() {
+    renderBadgeArtStudioStatus();
+    renderBadgeAchievementList();
+    renderSelectedBadgeAchievement();
+    renderBadgeArtBank();
+}
+
+function selectBadgeAchievement(achievementKey, categoryKey) {
+    const nextKey = badgeAssignmentKey(achievementKey, categoryKey);
+    if (!nextKey || badgeArtSelectedKey === nextKey) {
+        return;
+    }
+    const previousKey = badgeArtSelectedKey;
+    badgeArtSelectedKey = nextKey;
+    showBadgeArtStudioSuccess('');
+    updateBadgeAchievementSelectionState(previousKey, nextKey);
+    renderSelectedBadgeAchievement();
+    renderBadgeArtBank();
+}
+
+async function loadBadgeArtStudio() {
+    if (!isSuperFamily) {
+        badgeArtStudioPersistedData = { achievements: [], artCatalog: [] };
+        badgeArtStudioData = { achievements: [], artCatalog: [] };
+        badgeArtSelectedKey = '';
+        return;
+    }
+    try {
+        badgeArtStudioLoading = true;
+        showBadgeArtStudioError('');
+        showBadgeArtStudioSuccess('');
+        if (badgeArtStudioStatus) {
+            badgeArtStudioStatus.textContent = 'Loading Noto badge bank...';
+        }
+        syncBadgeArtStudioControls();
+        const response = await fetch(`${API_BASE}/parent-settings/rewards/badge-art`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `HTTP ${response.status}`);
+        }
+        setBadgeArtStudioPayload({
+            achievements: Array.isArray(result.achievements) ? result.achievements : [],
+            artCatalog: Array.isArray(result.artCatalog) ? result.artCatalog : [],
+        });
+        const selectedStillExists = badgeArtStudioData.achievements.some(
+            (item) => badgeAssignmentKey(item.achievementKey, item.categoryKey) === badgeArtSelectedKey
+        );
+        if (!selectedStillExists) {
+            badgeArtSelectedKey = '';
+        }
+        renderBadgeArtStudio();
+    } catch (error) {
+        console.error('Error loading badge art studio:', error);
+        if (badgeArtStudioModal && !badgeArtStudioModal.classList.contains('hidden')) {
+            showBadgeArtStudioError('Failed to load the Noto badge bank.');
+        }
+        if (badgeArtStudioStatus) {
+            badgeArtStudioStatus.textContent = 'Noto badge bank unavailable.';
+        }
+    } finally {
+        badgeArtStudioLoading = false;
+        syncBadgeArtStudioControls();
+    }
+}
+
+function assignBadgeArtToSelectedAchievement(badgeArtId) {
+    const selected = getSelectedBadgeAchievement();
+    if (badgeArtStudioLoading || badgeArtStudioSaving || !selected || !Number.isInteger(Number(badgeArtId)) || Number(badgeArtId) <= 0) {
+        return;
+    }
+    const artItem = findBadgeArtCatalogItemById(badgeArtId);
+    if (!artItem) {
+        showBadgeArtStudioError('Selected art is no longer available.');
+        return;
+    }
+    showBadgeArtStudioError('');
+    showBadgeArtStudioSuccess('');
+    const mappingKey = badgeAssignmentKey(selected.achievementKey, selected.categoryKey);
+    const draftItem = badgeArtStudioData.achievements.find(
+        (item) => badgeAssignmentKey(item.achievementKey, item.categoryKey) === mappingKey
+    );
+    if (!draftItem) {
+        return;
+    }
+    const previousBadgeArtId = resolveActiveNotoBadgeArtId(draftItem);
+    setDraftBadgeArtAssignment(draftItem, badgeArtId);
+    const nextBadgeArtId = resolveActiveNotoBadgeArtId(draftItem);
+    renderBadgeArtStudioStatus();
+    updateBadgeAchievementCardElement(draftItem);
+    renderSelectedBadgeAchievement();
+    updateBadgeArtBankSelectionState(previousBadgeArtId, nextBadgeArtId);
+}
+
+function clearAllBadgeArtAssignments() {
+    if (!isSuperFamily || badgeArtStudioLoading || badgeArtStudioSaving) {
+        return;
+    }
+    showBadgeArtStudioError('');
+    badgeArtStudioData.achievements.forEach((item) => {
+        setDraftBadgeArtAssignment(item, 0);
+    });
+    renderBadgeArtStudioStatus();
+    updateAllBadgeAchievementCards();
+    renderSelectedBadgeAchievement();
+    renderBadgeArtBank();
+}
+
+function buildBadgeArtStudioSaveAssignments() {
+    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    const assignments = [];
+    const unresolved = [];
+    achievements.forEach((item) => {
+        const currentBadgeArtId = Number(item && item.currentBadgeArtId || 0);
+        if (currentBadgeArtId <= 0) {
+            return;
+        }
+        const resolvedBadgeArtId = resolveActiveNotoBadgeArtId(item);
+        if (resolvedBadgeArtId <= 0) {
+            unresolved.push(String(item.title || item.achievementKey || 'Badge').trim() || 'Badge');
+            return;
+        }
+        assignments.push({
+            achievementKey: String(item.achievementKey || '').trim(),
+            categoryKey: String(item.categoryKey || '').trim(),
+            badgeArtId: resolvedBadgeArtId,
+        });
+    });
+    return { assignments, unresolved };
+}
+
+async function requestBadgeArtStudioJson(url, options = {}) {
+    const response = await fetch(url, options);
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+    }
+    return result;
+}
+
+async function saveBadgeArtStudioAssignmentsBulk(savePayload) {
+    return requestBadgeArtStudioJson(`${API_BASE}/parent-settings/rewards/badge-art/bulk`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            assignments: savePayload.assignments,
+        }),
+    });
+}
+
+async function saveBadgeArtStudioAssignments() {
+    if (!isSuperFamily || badgeArtStudioLoading || badgeArtStudioSaving) {
+        return;
+    }
+    const dirtyCount = getBadgeArtStudioDirtyAssignmentCount();
+    if (dirtyCount <= 0) {
+        return;
+    }
+    const savePayload = buildBadgeArtStudioSaveAssignments();
+    if (savePayload.unresolved.length > 0) {
+        showBadgeArtStudioError(
+            `Some selected art cannot be saved yet: ${savePayload.unresolved.slice(0, 3).join(', ')}${savePayload.unresolved.length > 3 ? ', ...' : ''}.`
+        );
+        return;
+    }
+    badgeArtStudioSaving = true;
+    showBadgeArtStudioError('');
+    showBadgeArtStudioSuccess('');
+    syncBadgeArtStudioControls();
+    renderBadgeArtBank();
+    try {
+        const result = await saveBadgeArtStudioAssignmentsBulk(savePayload);
+        setBadgeArtStudioPayload({
+            achievements: Array.isArray(result.achievements) ? result.achievements : [],
+            artCatalog: Array.isArray(result.artCatalog) ? result.artCatalog : [],
+        });
+        const selectedStillExists = badgeArtStudioData.achievements.some(
+            (item) => badgeAssignmentKey(item.achievementKey, item.categoryKey) === badgeArtSelectedKey
+        );
+        if (!selectedStillExists) {
+            badgeArtSelectedKey = '';
+        }
+        const savedCount = Number.isFinite(Number(result.savedAssignmentCount))
+            ? Number(result.savedAssignmentCount)
+            : savePayload.assignments.length;
+        showBadgeArtStudioSuccess(`Saved ${dirtyCount} change${dirtyCount === 1 ? '' : 's'}. ${savedCount} badge${savedCount === 1 ? '' : 's'} assigned.`);
+        renderBadgeArtStudio();
+    } catch (error) {
+        console.error('Error saving badge art assignments:', error);
+        showBadgeArtStudioError(error.message || 'Failed to save badge art.');
+        renderBadgeArtStudio();
+    } finally {
+        badgeArtStudioSaving = false;
+        syncBadgeArtStudioControls();
+        renderBadgeArtBank();
+    }
+}
+
+async function openBadgeArtStudio() {
+    if (!isSuperFamily || !badgeArtStudioModal) {
+        return;
+    }
+    badgeArtStudioModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    if (!badgeArtStudioData.achievements.length && !badgeArtStudioData.artCatalog.length) {
+        await loadBadgeArtStudio();
+    } else {
+        renderBadgeArtStudio();
+    }
+    showBadgeArtStudioError('');
+}
+
+function closeBadgeArtStudio(options = {}) {
+    if (!badgeArtStudioModal) {
+        return false;
+    }
+    const shouldDiscardDraft = Boolean(options.discardDraft);
+    if (hasBadgeArtStudioUnsavedChanges() && shouldDiscardDraft) {
+        const confirmed = options.force === true || window.confirm(
+            'Discard unsaved badge art changes? Your draft selections will be lost.'
+        );
+        if (!confirmed) {
+            return false;
+        }
+        resetBadgeArtStudioDraft();
+        showBadgeArtStudioError('');
+        showBadgeArtStudioSuccess('');
+        renderBadgeArtStudio();
+    }
+    badgeArtStudioModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    return true;
+}
+
+function closeBadgeArtStudioNoticeDialog() {
+    if (!badgeArtStudioNoticeModal || badgeArtStudioNoticeModal.classList.contains('hidden')) {
+        return;
+    }
+    badgeArtStudioNoticeModal.classList.add('hidden');
+    const resolve = badgeArtStudioNoticeResolver;
+    badgeArtStudioNoticeResolver = null;
+    if (typeof resolve === 'function') {
+        resolve();
+    }
+}
+
+function showBadgeArtStudioNoticeDialog(message, title = 'Badge Art Studio') {
+    const text = String(message || '').trim();
+    if (!text) {
+        return Promise.resolve();
+    }
+    if (!badgeArtStudioNoticeModal || !badgeArtStudioNoticeTitle || !badgeArtStudioNoticeText || !badgeArtStudioNoticeOkBtn) {
+        window.alert(text);
+        return Promise.resolve();
+    }
+    if (!badgeArtStudioNoticeModal.classList.contains('hidden')) {
+        closeBadgeArtStudioNoticeDialog();
+    }
+    badgeArtStudioNoticeTitle.textContent = String(title || 'Badge Art Studio').trim() || 'Badge Art Studio';
+    badgeArtStudioNoticeText.textContent = text;
+    badgeArtStudioNoticeModal.classList.remove('hidden');
+    badgeArtStudioNoticeOkBtn.focus();
+    return new Promise((resolve) => {
+        badgeArtStudioNoticeResolver = resolve;
+    });
+}
+
+function showBadgeArtStudioError(message) {
+    const text = String(message || '').trim();
+    if (!text) {
+        return Promise.resolve();
+    }
+    return showBadgeArtStudioNoticeDialog(text, 'Badge Art Studio');
+}
+
+function showBadgeArtStudioSuccess(message) {
+    const text = String(message || '').trim();
+    if (!text) {
+        return Promise.resolve();
+    }
+    return showBadgeArtStudioNoticeDialog(text, 'Badge Art Studio');
+}
+
 async function loadTimezoneSettings() {
     try {
         showTimezoneError('');
@@ -174,6 +1412,8 @@ async function saveTimezoneSettings() {
         }
 
         familyTimezoneSelect.value = String(result.familyTimezone || timezoneName);
+        rewardsFamilyTimezone = familyTimezoneSelect.value || DEFAULT_FAMILY_TIMEZONE;
+        await loadRewardsStatus();
         showTimezoneSuccess('Family timezone saved.');
     } catch (error) {
         console.error('Error saving timezone settings:', error);
@@ -387,7 +1627,16 @@ async function loadFamilyRole() {
     if (familyAdminCard) {
         familyAdminCard.classList.toggle('hidden', !isSuperFamily);
     }
+    if (badgeArtStudioCard) {
+        badgeArtStudioCard.classList.toggle('hidden', !isSuperFamily);
+    }
     if (!isSuperFamily) {
+        closeBadgeArtStudio({ force: true, discardDraft: true });
+        badgeArtStudioPersistedData = { achievements: [], artCatalog: [] };
+        badgeArtStudioData = { achievements: [], artCatalog: [] };
+        badgeArtSelectedKey = '';
+        badgeArtStudioLoading = false;
+        badgeArtStudioSaving = false;
         if (familyAccountsList) {
             familyAccountsList.innerHTML = '';
         }
@@ -398,9 +1647,27 @@ async function loadFamilyRole() {
         if (familyAccountsEmpty) {
             familyAccountsEmpty.classList.add('hidden');
         }
+        if (badgeArtAchievementList) {
+            badgeArtAchievementList.innerHTML = '';
+        }
+        if (badgeArtBankGrid) {
+            badgeArtBankGrid.innerHTML = '';
+        }
+        if (badgeAchievementCount) {
+            badgeAchievementCount.textContent = '';
+        }
+        if (badgeArtBankCount) {
+            badgeArtBankCount.textContent = '';
+        }
+        if (badgeArtStudioStatus) {
+            badgeArtStudioStatus.textContent = '';
+        }
         showFamilyAdminError('');
         showFamilyAdminSuccess('');
+        showBadgeArtStudioError('');
+        showBadgeArtStudioSuccess('');
     }
+    syncBadgeArtStudioControls();
 }
 
 async function loadFamilyAccounts() {
@@ -650,5 +1917,37 @@ function showTimezoneSuccess(message) {
         timezoneSuccess.classList.remove('hidden');
     } else {
         timezoneSuccess.classList.add('hidden');
+    }
+}
+
+function showRewardsError(message) {
+    if (!rewardsError) {
+        return;
+    }
+    if (message) {
+        const text = String(message);
+        if (rewardsError) {
+            rewardsError.textContent = '';
+            rewardsError.classList.add('hidden');
+        }
+        if (showRewardsError._lastMessage !== text) {
+            window.alert(text);
+            showRewardsError._lastMessage = text;
+        }
+    } else {
+        showRewardsError._lastMessage = '';
+        rewardsError.classList.add('hidden');
+    }
+}
+
+function showRewardsSuccess(message) {
+    if (!rewardsSuccess) {
+        return;
+    }
+    if (message) {
+        rewardsSuccess.textContent = String(message);
+        rewardsSuccess.classList.remove('hidden');
+    } else {
+        rewardsSuccess.classList.add('hidden');
     }
 }
