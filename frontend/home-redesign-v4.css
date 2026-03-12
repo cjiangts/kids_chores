@@ -474,6 +474,20 @@ body.practice-home-redesign {
     --admin-row-pill-right-offset: clamp(6px, 1.8vw, 12px);
     --admin-row-pill-secondary-font-size: clamp(0.64rem, 2.1vw, 0.8rem);
     --admin-row-pill-secondary-pad-x: clamp(0.38rem, 1.4vw, 0.62rem);
+    --admin-special-pill-bg: linear-gradient(90deg, #fff8cb, #ffe9cf, #eef4ff);
+    --admin-special-pill-shadow: 0 8px 18px rgba(31, 45, 98, 0.08);
+    --admin-special-pill-shadow-hover: 0 12px 24px rgba(31, 45, 98, 0.11);
+    --admin-special-pill-font-size: 0.86rem;
+    --admin-special-pill-font-weight: 800;
+    --admin-special-pill-bg-blue: linear-gradient(90deg, #eef6ff, #edf4ff, #f8fbff);
+    --admin-special-pill-bg-green: linear-gradient(90deg, #eefaf2, #edf9f0, #f8fcf9);
+    --admin-special-pill-bg-red: linear-gradient(90deg, #fff4f2, #fff1ef, #fff9f8);
+    --admin-special-pill-border-blue: #d7e2ff;
+    --admin-special-pill-border-green: #cfe5d5;
+    --admin-special-pill-border-red: #efcdc7;
+    --admin-special-pill-border-blue-hover: #c9d8ff;
+    --admin-special-pill-border-green-hover: #c1ddc9;
+    --admin-special-pill-border-red-hover: #e8c0b8;
 }
 
 .parent-admin-page .kids-grid {
@@ -506,24 +520,24 @@ body.practice-home-redesign {
     min-height: 36px;
     border-radius: 12px;
     border: 1px solid #e5e8ff;
-    background: linear-gradient(90deg, #fff8cb, #ffe9cf, #eef4ff);
+    background: var(--admin-special-pill-bg);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     padding: 0 10px;
     text-decoration: none;
-    font-size: 0.86rem;
-    font-weight: 800;
+    font-size: var(--admin-special-pill-font-size);
+    font-weight: var(--admin-special-pill-font-weight);
     color: #8a4f00;
     white-space: nowrap;
-    box-shadow: 0 8px 18px rgba(31, 45, 98, 0.08);
+    box-shadow: var(--admin-special-pill-shadow);
     transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .parent-admin-page .admin-records-pill:hover {
     transform: translateY(-1px);
-    box-shadow: 0 12px 24px rgba(31, 45, 98, 0.11);
+    box-shadow: var(--admin-special-pill-shadow-hover);
 }
 
 .parent-admin-page .admin-records-pill-icon {
@@ -626,9 +640,21 @@ body.practice-home-redesign {
 }
 
 .parent-admin-page .admin-config-utility .admin-row-pill-secondary {
-    box-shadow: none;
+    box-shadow: var(--admin-special-pill-shadow);
     pointer-events: auto;
     border-radius: 999px;
+    font-size: var(--admin-special-pill-font-size);
+    font-weight: var(--admin-special-pill-font-weight);
+}
+
+.parent-admin-page .admin-config-utility .semantic-outline-btn--blue {
+    background: var(--admin-special-pill-bg-blue);
+    border-color: var(--admin-special-pill-border-blue);
+}
+
+.parent-admin-page .admin-config-utility .semantic-outline-btn--green {
+    background: var(--admin-special-pill-bg-green);
+    border-color: var(--admin-special-pill-border-green);
 }
 
 .parent-admin-page .admin-config-row {
@@ -702,6 +728,17 @@ body.practice-home-redesign {
 
 .parent-admin-page .admin-row-pill-secondary:hover {
     transform: translateY(-1px);
+    box-shadow: var(--admin-special-pill-shadow-hover);
+}
+
+.parent-admin-page .admin-config-utility .semantic-outline-btn--blue:hover {
+    background: var(--admin-special-pill-bg-blue);
+    border-color: var(--admin-special-pill-border-blue-hover);
+}
+
+.parent-admin-page .admin-config-utility .semantic-outline-btn--green:hover {
+    background: var(--admin-special-pill-bg-green);
+    border-color: var(--admin-special-pill-border-green-hover);
 }
 
 .parent-admin-page .admin-card-footer {
@@ -718,10 +755,19 @@ body.practice-home-redesign {
     min-height: 34px;
     padding: 0.36rem 0.82rem;
     border-radius: 999px;
-    font-size: 0.82rem;
-    font-weight: 400;
+    font-size: var(--admin-special-pill-font-size);
+    font-weight: var(--admin-special-pill-font-weight);
     cursor: pointer;
-    transition: background 0.18s ease, transform 0.18s ease;
+    background: var(--admin-special-pill-bg-red);
+    border-color: var(--admin-special-pill-border-red);
+    box-shadow: var(--admin-special-pill-shadow);
+    transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.parent-admin-page .admin-delete-btn:hover {
+    background: var(--admin-special-pill-bg-red);
+    border-color: var(--admin-special-pill-border-red-hover);
+    box-shadow: var(--admin-special-pill-shadow-hover);
 }
 
 /* Kid practice home */
