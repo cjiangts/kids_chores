@@ -544,11 +544,11 @@ body.practice-home-redesign {
     padding: 1rem;
     border: 2px dotted #c8d5fb;
     border-radius: var(--dashboard-chip-radius);
-    background: var(--dashboard-chip-bg);
+    background: var(--dashboard-panel-bg);
     color: #243351;
-    box-shadow: var(--dashboard-chip-shadow);
+    box-shadow: none;
     text-decoration: none;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .parent-admin-page .admin-deck-hero-link {
@@ -557,9 +557,8 @@ body.practice-home-redesign {
 
 .parent-admin-page .admin-deck-hero-link:hover {
     transform: translateY(-1px);
-    background: var(--dashboard-chip-hover-bg);
-    box-shadow: var(--dashboard-chip-hover-shadow);
     border-color: #b7c8fb;
+    box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.12);
 }
 
 .parent-admin-page .admin-deck-hero-link:focus-visible,
