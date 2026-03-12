@@ -465,31 +465,35 @@ function displayKids(kids) {
             const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
             const printableWorksheetHref = getPrintableWorksheetHrefForCategory(kid, categoryKey, categoryMetaMap);
             const inlineToolHtml = printableWorksheetHref && !worksheetToolAttached
-                ? `<a class="admin-row-pill admin-row-pill-secondary admin-row-pill-print" href="${printableWorksheetHref}">🖨️ Printable sheets</a>`
+                ? `<a class="admin-row-pill admin-row-pill-secondary admin-row-pill-print semantic-outline-btn semantic-outline-btn--blue" href="${printableWorksheetHref}">🖨️ Printable sheets</a>`
                 : (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached
-                    ? `<button type="button" class="admin-row-pill admin-row-pill-secondary admin-row-pill-audio" onclick="goToLatestTypeIIIReviewSession('${kid.id}')">🎧 Review audio</button>`
+                    ? `<button type="button" class="admin-row-pill admin-row-pill-secondary admin-row-pill-audio semantic-outline-btn semantic-outline-btn--green" onclick="goToLatestTypeIIIReviewSession('${kid.id}')">🎧 Review audio</button>`
                     : '');
             if (printableWorksheetHref && !worksheetToolAttached) {
                 worksheetToolAttached = true;
             } else if (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached && inlineToolHtml) {
                 reviewToolAttached = true;
             }
-            const manageActionHtml = href
-                ? `<a class="admin-row-pill admin-row-pill-action" href="${href}">Manage</a>`
+            const rowRightHtml = href
+                ? ''
                 : `<span class="admin-row-pill admin-row-pill-muted">Soon</span>`;
+            const rowInnerHtml = `
+                <div class="redesign-subject-main">
+                    <div class="redesign-subject-title">
+                        <span class="redesign-subject-emoji">${escapeHtml(emoji)}</span>
+                        <span class="redesign-subject-name">${escapeHtml(displayName)}</span>
+                    </div>
+                    <div class="redesign-subject-note">${escapeHtml(note)}</div>
+                </div>
+                ${rowRightHtml ? `<div class="redesign-subject-right">${rowRightHtml}</div>` : ''}
+            `;
+            const rowHtml = href
+                ? `<a class="redesign-subject-row admin-config-row admin-config-row-link" href="${href}">${rowInnerHtml}</a>`
+                : `<div class="redesign-subject-row admin-config-row admin-config-row-disabled" title="Manage page not implemented yet">${rowInnerHtml}</div>`;
             return `
-                <div class="redesign-subject-row admin-config-row${href ? '' : ' admin-config-row-disabled'}"${href ? '' : ' title="Manage page not implemented yet"'}>
-                    <div class="redesign-subject-main">
-                        <div class="redesign-subject-title">
-                            <span class="redesign-subject-emoji">${escapeHtml(emoji)}</span>
-                            <span class="redesign-subject-name">${escapeHtml(displayName)}</span>
-                        </div>
-                        <div class="redesign-subject-note">${escapeHtml(note)}</div>
-                    </div>
-                    <div class="redesign-subject-right admin-row-actions">
-                        ${inlineToolHtml}
-                        ${manageActionHtml}
-                    </div>
+                <div class="admin-config-item${inlineToolHtml ? ' admin-config-item-with-tool' : ''}">
+                    ${inlineToolHtml ? `<div class="admin-config-utility">${inlineToolHtml}</div>` : ''}
+                    ${rowHtml}
                 </div>
             `;
         });
@@ -506,17 +510,18 @@ function displayKids(kids) {
                         <span class="admin-records-pill-label">Records</span>
                     </a>
                 </div>
-                <div class="admin-deck-hero">
-                    <span class="admin-deck-hero-icon" aria-hidden="true">🧩</span>
-                    <span class="admin-deck-hero-copy">
-                        <span class="admin-deck-hero-title">Deck Categories</span>
-                        <span class="admin-deck-hero-note">${escapeHtml(deckHeroNote)}</span>
-                    </span>
-                    <button type="button" class="admin-deck-hero-cta" onclick="openDeckCategoryOptInModal('${kid.id}')">Edit</button>
+                <div class="admin-deck-hero-stack">
+                    <a class="admin-deck-hero admin-deck-hero-link" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;">
+                        <span class="admin-deck-hero-icon" aria-hidden="true">+</span>
+                        <span class="admin-deck-hero-copy">
+                            <span class="admin-deck-hero-title">Opt-in/out Deck Category</span>
+                            <span class="admin-deck-hero-note">${escapeHtml(deckHeroNote)}</span>
+                        </span>
+                    </a>
                 </div>
                 ${subjectRowsHtml ? `<div class="redesign-subject-list admin-config-list">${subjectRowsHtml}</div>` : ''}
                 <div class="admin-card-footer">
-                    <button type="button" class="admin-delete-btn" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">
+                    <button type="button" class="admin-delete-btn semantic-outline-btn semantic-outline-btn--red" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">
                         🗑️ Delete
                     </button>
                 </div>

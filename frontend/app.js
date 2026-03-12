@@ -213,7 +213,7 @@ function displayKids(kids) {
         kidsList.innerHTML = `
             <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
-                <p>Click "New Kid" to add your first learner!</p>
+                <p>Click 👨‍👩‍👧 Parent Mode to add your first learner.</p>
             </div>
         `;
         return;
@@ -314,9 +314,12 @@ function displayKids(kids) {
         const summaryText = enabledRows.length > 0
             ? `${doneCount}/${enabledRows.length} done`
             : 'No daily practices';
+        const isClickable = enabledRows.length > 0;
+        const cardClassName = `redesign-kid-card${isClickable ? '' : ' redesign-kid-card-disabled'}`;
+        const cardOpenAttr = isClickable ? ` onclick="selectKid('${kid.id}')"` : '';
 
         return `
-            <div class="redesign-kid-card" onclick="selectKid('${kid.id}')">
+            <div class="${cardClassName}"${cardOpenAttr}>
                 <div class="redesign-kid-top">
                     <div>
                         <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>

@@ -19,14 +19,10 @@ const saveTimezoneBtn = document.getElementById('saveTimezoneBtn');
 const timezoneError = document.getElementById('timezoneError');
 const timezoneSuccess = document.getElementById('timezoneSuccess');
 const rewardsStatusText = document.getElementById('rewardsStatusText');
-const rewardsStartPlanText = document.getElementById('rewardsStartPlanText');
 const startRewardsBtn = document.getElementById('startRewardsBtn');
 const resetRewardsBtn = document.getElementById('resetRewardsBtn');
 const rewardsError = document.getElementById('rewardsError');
 const rewardsSuccess = document.getElementById('rewardsSuccess');
-const badgeArtLauncherTitle = document.getElementById('badgeArtLauncherTitle');
-const badgeArtStudioLead = document.getElementById('badgeArtStudioLead');
-const badgeArtStudioStatus = document.getElementById('badgeArtStudioStatus');
 const openBadgeArtStudioBtn = document.getElementById('openBadgeArtStudioBtn');
 const badgeArtStudioModal = document.getElementById('badgeArtStudioModal');
 const badgeArtStudioTitle = document.getElementById('badgeArtStudioTitle');
@@ -148,14 +144,6 @@ function resetBadgeArtStudioState() {
 
 function syncBadgeArtStudioModeCopy() {
     const canEdit = badgeArtStudioIsEditable();
-    if (badgeArtLauncherTitle) {
-        badgeArtLauncherTitle.textContent = canEdit ? 'Badge Studio' : 'Badges';
-    }
-    if (badgeArtStudioLead) {
-        badgeArtStudioLead.textContent = canEdit
-            ? 'Manage badges.'
-            : 'Browse badges.';
-    }
     if (badgeArtStudioTitle) {
         badgeArtStudioTitle.textContent = canEdit ? 'Badge Studio' : 'Badges';
     }
@@ -420,33 +408,18 @@ function syncRewardsButtonsState(activeAction = '') {
 function renderRewardsStatus() {
     if (rewardsStatusText) {
         if (rewardsStatusState === 'loading') {
-            rewardsStatusText.textContent = 'Loading...';
+            rewardsStatusText.textContent = 'Loading rewards...';
         } else if (rewardsStatusState === 'error') {
-            rewardsStatusText.textContent = 'Status unavailable.';
+            rewardsStatusText.textContent = 'Reward tracking unavailable.';
         } else if (rewardsTrackingStarted) {
             const startedAtText = formatStartedAt(rewardsTrackingStartedAt, rewardsFamilyTimezone);
             rewardsStatusText.textContent = startedAtText
-                ? `Started: ${startedAtText}`
-                : 'Started.';
+                ? `Reward tracking started ${startedAtText}.`
+                : 'Reward tracking started.';
         } else {
-            rewardsStatusText.textContent = 'Not started.';
+            rewardsStatusText.textContent = 'Reward tracking not started.';
         }
     }
-
-    if (!rewardsStartPlanText) {
-        return;
-    }
-
-    if (rewardsStatusState !== 'ready') {
-        rewardsStartPlanText.textContent = '';
-        return;
-    }
-
-    if (rewardsTrackingStarted) {
-        rewardsStartPlanText.textContent = 'Reset clears all kid badges in this family.';
-        return;
-    }
-    rewardsStartPlanText.textContent = 'Start now to count future work only.';
 }
 
 async function loadRewardsStatus() {
@@ -769,28 +742,6 @@ function buildBadgeAchievementCardInnerMarkup(item) {
 
 function renderBadgeArtStudioStatus() {
     syncBadgeArtStudioModeCopy();
-    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
-    const artCatalog = Array.isArray(badgeArtStudioData.artCatalog) ? badgeArtStudioData.artCatalog : [];
-    const assignedCount = getBadgeArtAssignedCount(achievements);
-    const dirtyCount = getBadgeArtStudioDirtyAssignmentCount();
-    const canEdit = badgeArtStudioIsEditable();
-    if (badgeArtStudioStatus) {
-        if (badgeArtStudioLoading) {
-            badgeArtStudioStatus.textContent = 'Loading badges...';
-        } else if (!badgeArtStudioHasLoaded) {
-            badgeArtStudioStatus.textContent = canEdit
-                ? 'Open to load badges.'
-                : 'Open to view badges.';
-        } else if (canEdit) {
-            badgeArtStudioStatus.textContent = dirtyCount > 0
-                ? `${dirtyCount} unsaved · ${assignedCount} set`
-                : `${achievements.length} badges · ${assignedCount} set`;
-        } else {
-            badgeArtStudioStatus.textContent = achievements.length > 0
-                ? `${achievements.length} live`
-                : 'No live badges yet.';
-        }
-    }
     syncBadgeArtStudioControls();
 }
 
@@ -876,7 +827,7 @@ function syncBadgeArtStudioControls() {
         openBadgeArtStudioBtn.disabled = isSaving || badgeArtStudioLoading;
         openBadgeArtStudioBtn.textContent = badgeArtStudioLoading
             ? 'Loading...'
-            : (canEdit ? 'Open' : 'View');
+            : (canEdit ? 'Badge Studio' : 'View Badges');
     }
     if (badgeArtStudioClearBtn) {
         badgeArtStudioClearBtn.classList.toggle('hidden', !canEdit);
@@ -1899,16 +1850,25 @@ function renderFamilyAccounts(families, sharedStorage) {
         const canDelete = Boolean(family.canDelete);
         const deleteButton = canDelete
             ? `<button type="button" class="btn-secondary" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}">Delete</button>`
-            : '<span class="settings-note">Protected</span>';
+            : '<span class="family-account-protected">Protected</span>';
+        const flagsHtml = badgeText
+            ? `<span class="family-account-card-flags">${escapeHtml(badgeText)}</span>`
+            : '';
         return `
-            <div class="settings-row" style="justify-content: space-between; border-top: 1px solid #eef1f8; padding: 0.55rem 0;">
-                <div>
-                    <strong>${escapeHtml(username)}</strong> <code>#${escapeHtml(familyId)}</code>${escapeHtml(badgeText)}
-                    <div class="settings-note">Family total storage: ${formatBytes(familyStorageTotalBytes)}</div>
-                    <div class="settings-note">${kidDbLine}</div>
-                    <div class="settings-note">${audioLine}</div>
+            <div class="family-account-card">
+                <div class="family-account-card-top">
+                    <div>
+                        <div class="family-account-card-title">
+                            <strong>${escapeHtml(username)}</strong> <code>#${escapeHtml(familyId)}</code>${flagsHtml ? ` ${flagsHtml}` : ''}
+                        </div>
+                        <div class="family-account-card-lines">
+                            <div class="settings-note">Family total storage: ${formatBytes(familyStorageTotalBytes)}</div>
+                            <div class="settings-note">${kidDbLine}</div>
+                            <div class="settings-note">${audioLine}</div>
+                        </div>
+                    </div>
+                    <div class="family-account-card-action">${deleteButton}</div>
                 </div>
-                <div>${deleteButton}</div>
             </div>
         `;
     }).join('');

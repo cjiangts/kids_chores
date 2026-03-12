@@ -18,18 +18,27 @@
 
         .header h1 { color: #fff; }
 
+        .summary-shell {
+            background: var(--dashboard-panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.68);
+            border-radius: 12px;
+            box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 0.7rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0;
         }
 
         .summary-card {
-            background: #fff;
-            border-radius: 10px;
+            background: var(--dashboard-chip-bg);
+            border-radius: 12px;
             padding: 0.75rem;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
         .summary-card .label { color: #666; font-size: 0.82rem; }
@@ -42,10 +51,11 @@
         }
 
         .detail-card {
-            background: #fff;
-            border-radius: 10px;
-            padding: 0.8rem;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            background: var(--dashboard-panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.68);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
         }
 
         .detail-card h2 {
@@ -57,8 +67,10 @@
 
         .answer-item {
             border: 1px solid #eceff6;
-            border-radius: 8px;
-            padding: 0.5rem 0.6rem;
+            border-radius: 12px;
+            background: var(--dashboard-chip-bg);
+            box-shadow: var(--dashboard-chip-shadow);
+            padding: 0.6rem 0.7rem;
             margin-bottom: 0.45rem;
             font-size: 0.88rem;
             color: #333;
@@ -132,7 +144,7 @@
 
         .grade-btn {
             border: 1px solid #d5dcee;
-            border-radius: 999px;
+            border-radius: var(--control-radius);
             background: #fff;
             color: #2f3c7e;
             font-size: 0.78rem;
@@ -146,15 +158,15 @@
         }
 
         .grade-btn.active-pass {
-            background: #4cb780;
-            border-color: #4cb780;
-            color: #fff;
+            background: #fff;
+            border-color: #9dd6aa;
+            color: #2f9e44;
         }
 
         .grade-btn.active-fail {
-            background: #d95b5b;
-            border-color: #d95b5b;
-            color: #fff;
+            background: #fff;
+            border-color: #efb0a8;
+            color: #d63636;
         }
 
         .grade-note {
@@ -170,10 +182,11 @@
             justify-content: center;
             min-height: 26px;
             font-size: 0.78rem;
-            border-radius: 999px;
+            border-radius: var(--control-radius);
             padding: 0 0.58rem;
             line-height: 1;
-            color: #fff;
+            background: #fff;
+            border: 1px solid #d5dcee;
         }
 
         .answer-item .audio-play-btn,
@@ -201,11 +214,13 @@
         }
 
         .grade-status.pass {
-            background: #4cb780;
+            color: #2f9e44;
+            border-color: #9dd6aa;
         }
 
         .grade-status.fail {
-            background: #d95b5b;
+            color: #d63636;
+            border-color: #efb0a8;
         }
 
         @media (max-width: 760px) {
@@ -224,7 +239,9 @@
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
-        <div class="summary-grid" id="summaryGrid"></div>
+        <section class="summary-shell">
+            <div class="summary-grid" id="summaryGrid"></div>
+        </section>
 
         <div class="detail-grid">
             <section class="detail-card" id="wrongSection">
@@ -242,6 +259,7 @@
     <script src="deck-category-common.js"></script>
     <script src="simple-audio-player.js"></script>
     <script src="lesson-reading-duration-backfill.js"></script>
+    <script src="report-back-button-common.js"></script>
     <script src="kid-session-report.js"></script>
 </body>
 </html>

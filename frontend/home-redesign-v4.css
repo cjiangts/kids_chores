@@ -140,11 +140,21 @@ body.practice-home-redesign {
     gap: 16px;
 }
 
+.family-home-page,
+.parent-admin-page {
+    --dashboard-panel-bg: #f5f7ff;
+    --dashboard-chip-bg: #fff;
+    --dashboard-chip-radius: 10px;
+    --dashboard-chip-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    --dashboard-chip-hover-bg: #f8faff;
+    --dashboard-chip-hover-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
 .family-home-page .redesign-kid-card,
 .parent-admin-page .redesign-kid-card {
     border: 1px solid rgba(255, 255, 255, 0.68);
     border-radius: 22px;
-    background: rgba(255, 255, 255, 0.93);
+    background: var(--dashboard-panel-bg);
     box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
     padding: 15px;
     cursor: pointer;
@@ -155,6 +165,15 @@ body.practice-home-redesign {
 .parent-admin-page .redesign-kid-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 18px 40px rgba(31, 45, 98, 0.2);
+}
+
+.family-home-page .redesign-kid-card.redesign-kid-card-disabled {
+    cursor: default;
+}
+
+.family-home-page .redesign-kid-card.redesign-kid-card-disabled:hover {
+    transform: none;
+    box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
 }
 
 .family-home-page .redesign-kid-top,
@@ -240,10 +259,11 @@ body.practice-home-redesign {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
     gap: 10px;
-    border-radius: 16px;
-    border: 1px solid #edf1ff;
-    background: rgba(246, 249, 255, 0.9);
-    padding: 10px 11px;
+    border: none;
+    border-radius: var(--dashboard-chip-radius);
+    background: var(--dashboard-chip-bg);
+    box-shadow: var(--dashboard-chip-shadow);
+    padding: 1rem;
 }
 
 .family-home-page .redesign-subject-main,
@@ -447,6 +467,15 @@ body.practice-home-redesign {
 }
 
 /* Parent admin cards */
+.parent-admin-page {
+    --admin-row-pill-height: clamp(37px, 6.5vw, 42px);
+    --admin-row-pill-top-gap: clamp(8px, 2vw, 10px);
+    --admin-row-pill-offset: clamp(14px, 3.2vw, 19px);
+    --admin-row-pill-right-offset: clamp(6px, 1.8vw, 12px);
+    --admin-row-pill-secondary-font-size: clamp(0.64rem, 2.1vw, 0.8rem);
+    --admin-row-pill-secondary-pad-x: clamp(0.38rem, 1.4vw, 0.62rem);
+}
+
 .parent-admin-page .kids-grid {
     margin-top: 8px;
     gap: 16px;
@@ -502,21 +531,51 @@ body.practice-home-redesign {
     line-height: 1;
 }
 
+.parent-admin-page .admin-deck-hero-stack {
+    margin-top: 4px;
+}
+
 .parent-admin-page .admin-deck-hero {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
     gap: 10px;
-    margin-top: 4px;
-    padding: 10px 12px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #49b34d, #42aa47);
-    color: #fff;
-    box-shadow: 0 12px 24px rgba(65, 140, 74, 0.22);
+    margin-top: 0;
+    padding: 1rem;
+    border: 2px dotted #c8d5fb;
+    border-radius: var(--dashboard-chip-radius);
+    background: var(--dashboard-chip-bg);
+    color: #243351;
+    box-shadow: var(--dashboard-chip-shadow);
+    text-decoration: none;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.parent-admin-page .admin-deck-hero-link {
+    cursor: pointer;
+}
+
+.parent-admin-page .admin-deck-hero-link:hover {
+    transform: translateY(-1px);
+    background: var(--dashboard-chip-hover-bg);
+    box-shadow: var(--dashboard-chip-hover-shadow);
+    border-color: #b7c8fb;
+}
+
+.parent-admin-page .admin-deck-hero-link:focus-visible,
+.parent-admin-page .admin-config-row-link:focus-visible {
+    outline: 2px solid rgba(90, 111, 214, 0.65);
+    outline-offset: 3px;
 }
 
 .parent-admin-page .admin-deck-hero-icon {
-    font-size: 1.18rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #4f63cb;
     line-height: 1;
 }
 
@@ -527,50 +586,19 @@ body.practice-home-redesign {
 }
 
 .parent-admin-page .admin-deck-hero-title {
-    font-size: 0.94rem;
+    font-size: 0.88rem;
     font-weight: 800;
-    line-height: 1;
+    line-height: 1.04;
 }
 
 .parent-admin-page .admin-deck-hero-note {
-    margin-top: 1px;
-    font-size: 0.74rem;
-    color: rgba(255, 255, 255, 0.9);
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: #556581;
     line-height: 1.1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.parent-admin-page .admin-deck-hero-cta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 26px;
-    padding: 0 0.68rem;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 999px;
-    appearance: none;
-    background: rgba(255, 255, 255, 0.18);
-    color: #fff;
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.76rem;
-    font-weight: 800;
-    line-height: 1;
-    white-space: nowrap;
-    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
-}
-
-.parent-admin-page .admin-deck-hero-cta:hover {
-    background: rgba(255, 255, 255, 0.24);
-    border-color: rgba(255, 255, 255, 0.42);
-    transform: translateY(-1px);
-}
-
-.parent-admin-page .admin-deck-hero-cta:focus-visible {
-    outline: 2px solid rgba(255, 255, 255, 0.82);
-    outline-offset: 2px;
 }
 
 .parent-admin-page .admin-config-list {
@@ -578,11 +606,52 @@ body.practice-home-redesign {
     gap: 6px;
 }
 
+.parent-admin-page .admin-config-item {
+    position: relative;
+}
+
+.parent-admin-page .admin-config-item-with-tool {
+    padding-top: var(--admin-row-pill-top-gap);
+    margin-top: calc(-1 * var(--admin-row-pill-top-gap));
+}
+
+.parent-admin-page .admin-config-utility {
+    position: absolute;
+    top: var(--admin-row-pill-offset);
+    right: var(--admin-row-pill-right-offset);
+    z-index: 2;
+    display: flex;
+    justify-content: flex-end;
+    transform: translateY(0);
+    pointer-events: none;
+}
+
+.parent-admin-page .admin-config-utility .admin-row-pill-secondary {
+    box-shadow: none;
+    pointer-events: auto;
+    border-radius: 999px;
+}
+
 .parent-admin-page .admin-config-row {
     color: inherit;
     text-decoration: none;
-    padding: 8px 10px;
+    padding: 1rem;
     cursor: default;
+    border: none;
+    border-radius: var(--dashboard-chip-radius);
+    background: var(--dashboard-chip-bg);
+    box-shadow: var(--dashboard-chip-shadow);
+    transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.parent-admin-page .admin-config-row-link {
+    cursor: pointer;
+}
+
+.parent-admin-page .admin-config-row-link:hover {
+    transform: translateY(-1px);
+    background: var(--dashboard-chip-hover-bg);
+    box-shadow: var(--dashboard-chip-hover-shadow);
 }
 
 .parent-admin-page .redesign-subject-title {
@@ -601,27 +670,15 @@ body.practice-home-redesign {
     cursor: default;
 }
 
-.parent-admin-page .admin-row-actions {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.28rem;
-    flex-wrap: wrap;
-}
-
 .parent-admin-page .admin-row-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
+    min-height: var(--admin-row-pill-height);
     padding: 0 0.82rem;
-    border-radius: 999px;
-    background: #fff;
-    border: 1px solid #dbe3f8;
-    color: #4f63cb;
+    border-radius: var(--control-radius);
     font-size: 0.78rem;
-    font-weight: 800;
-    line-height: 1;
+    line-height: 1.2;
     white-space: nowrap;
     text-decoration: none;
 }
@@ -629,34 +686,23 @@ body.practice-home-redesign {
 .parent-admin-page .admin-row-pill-muted {
     color: #64748b;
     background: #edf2f7;
-    border-color: #d8e0ea;
+    border: 1px solid #d8e0ea;
+    font-weight: 600;
 }
 
 .parent-admin-page .admin-row-pill-secondary {
-    font-size: 0.72rem;
-    min-height: 32px;
-    padding: 0 0.62rem;
+    font-size: var(--admin-row-pill-secondary-font-size);
+    min-height: var(--admin-row-pill-height);
+    padding: 0 var(--admin-row-pill-secondary-pad-x);
+    font-weight: 400;
 }
 
 .parent-admin-page .admin-row-pill-action:hover {
     transform: translateY(-1px);
-    background: #f8faff;
 }
 
 .parent-admin-page .admin-row-pill-secondary:hover {
     transform: translateY(-1px);
-}
-
-.parent-admin-page .admin-row-pill-print {
-    border-color: #b8d4ee;
-    background: #eff8ff;
-    color: #1f5379;
-}
-
-.parent-admin-page .admin-row-pill-audio {
-    border-color: #b8dfd1;
-    background: #effcf5;
-    color: #17634c;
 }
 
 .parent-admin-page .admin-card-footer {
@@ -673,18 +719,10 @@ body.practice-home-redesign {
     min-height: 34px;
     padding: 0.36rem 0.82rem;
     border-radius: 999px;
-    border: 1px solid #f0b4af;
-    background: #fff4f3;
-    color: #c62828;
     font-size: 0.82rem;
-    font-weight: 800;
+    font-weight: 400;
     cursor: pointer;
     transition: background 0.18s ease, transform 0.18s ease;
-}
-
-.parent-admin-page .admin-delete-btn:hover {
-    background: #ffe9e7;
-    transform: translateY(-1px);
 }
 
 /* Kid practice home */
@@ -1035,12 +1073,12 @@ body.practice-home-redesign {
     }
 
     .parent-admin-page .admin-deck-hero {
-        padding: 9px 10px;
-        gap: 8px;
+        padding: 8px 10px;
+        gap: 7px;
     }
 
     .parent-admin-page .admin-deck-hero-title {
-        font-size: 0.88rem;
+        font-size: 0.79rem;
     }
 
     .parent-admin-page .admin-deck-hero-note {
@@ -1135,22 +1173,9 @@ body.practice-home-redesign {
         font-size: 0.84rem;
     }
 
-    .parent-admin-page .admin-row-pill,
-    .parent-admin-page .admin-row-pill-secondary {
-        min-height: 36px;
+    .parent-admin-page .admin-row-pill {
         padding: 0 0.8rem;
         font-size: 0.76rem;
-    }
-
-    .parent-admin-page .admin-row-pill-secondary {
-        padding: 0 0.68rem;
-        font-size: 0.7rem;
-    }
-
-    .parent-admin-page .admin-deck-hero-cta {
-        min-height: 28px;
-        padding: 0 0.62rem;
-        font-size: 0.74rem;
     }
 
     .parent-admin-page .admin-card-footer {

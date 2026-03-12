@@ -29,13 +29,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/admin.html';
         return;
     }
-    backBtn.href = from === 'kid-home'
-        ? `/kid-report.html?id=${encodeURIComponent(kidId)}&from=kid-home`
-        : `/kid-report.html?id=${encodeURIComponent(kidId)}`;
+    bindBackButton();
     bindLiveDurationBackfillUpdates();
     await loadReportTimezone();
     await loadSessionDetail();
 });
+
+function bindBackButton() {
+    window.ReportBackButtonCommon?.bindBackButton(backBtn, resolveBackHref());
+}
+
+function resolveBackHref() {
+    if (!kidId) {
+        return '/admin.html';
+    }
+    const qs = new URLSearchParams();
+    qs.set('id', String(kidId));
+    if (from === 'kid-home') {
+        qs.set('from', 'kid-home');
+    }
+    return `/kid-report.html?${qs.toString()}`;
+}
 
 async function loadReportTimezone() {
     try {

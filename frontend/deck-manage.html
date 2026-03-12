@@ -12,11 +12,7 @@
             margin: 0 auto;
         }
 
-        .deck-panel {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1rem;
+        .deck-manage-page .deck-panel {
             margin-bottom: 1rem;
         }
 
@@ -68,6 +64,16 @@
             align-items: center;
             margin: 0.35rem 0 0.9rem 0;
             flex-wrap: wrap;
+        }
+
+        .deck-manage-page .actions,
+        .deck-manage-page .bulk-actions {
+            gap: 0.75rem;
+        }
+
+        .deck-manage-page .actions .btn-secondary,
+        .deck-manage-page .bulk-actions .btn-secondary {
+            min-height: var(--control-height);
         }
 
         .deck-category-filter-row {
@@ -136,9 +142,21 @@
             vertical-align: -0.05em;
         }
 
+        .deck-delete-btn {
+            background: #fff;
+            color: #cc3528;
+            border: 1px solid #efb0a8;
+        }
+
+        .deck-delete-btn:hover {
+            background: #fff6f5;
+            border-color: #e78b82;
+            transform: translateY(-1px);
+        }
+
     </style>
 </head>
-<body class="manage-page">
+<body class="manage-page deck-manage-page">
     <div class="container deck-page">
         <header class="page-header-with-back">
             <div class="page-header-row">
@@ -148,11 +166,11 @@
         </header>
 
         <main>
-            <section class="deck-panel">
+            <section class="deck-panel settings-section">
                 <h2 class="deck-section-title">My Created Decks</h2>
                 <div class="actions">
-                    <button id="createDeckNavBtn" type="button" class="btn-primary">Create New Deck</button>
-                    <button id="createDeckBulkNavBtn" type="button" class="btn-primary">Bulk Create New Decks</button>
+                    <button id="createDeckNavBtn" type="button" class="btn-secondary">Create New Deck</button>
+                    <button id="createDeckBulkNavBtn" type="button" class="btn-secondary">Bulk Create New Decks</button>
                 </div>
 
                 <div id="deckCategoryFilterWrap" class="deck-category-filter-row"></div>
@@ -166,7 +184,7 @@
                 </div>
 
                 <div class="bulk-actions">
-                    <button id="deleteSelectedBtn" type="button" class="btn-danger">Delete Shown (0)</button>
+                    <button id="deleteSelectedBtn" type="button" class="btn-secondary deck-delete-btn">Delete Shown (0)</button>
                 </div>
 
                 <div id="emptyState" class="deck-empty hidden">No decks yet. Create your first one.</div>

@@ -18,18 +18,27 @@
 
         .header h1 { color: #fff; }
 
+        .summary-shell {
+            background: var(--dashboard-panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.68);
+            border-radius: 12px;
+            box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 0.7rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0;
         }
 
         .summary-card {
-            background: #fff;
-            border-radius: 10px;
+            background: var(--dashboard-chip-bg);
+            border-radius: 12px;
             padding: 0.75rem;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
         .summary-card .label { color: #666; font-size: 0.82rem; }
@@ -37,10 +46,11 @@
 
         .chart-card,
         .history-card {
-            background: #fff;
-            border-radius: 10px;
-            padding: 0.8rem;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            background: var(--dashboard-panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.68);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
             margin-bottom: 0.9rem;
         }
 
@@ -51,7 +61,7 @@
 
         .chart-wrap {
             overflow-x: auto;
-            padding-bottom: 0.25rem;
+            padding: 0;
         }
 
         .chart-empty {
@@ -66,9 +76,10 @@
             align-items: end;
             height: 190px;
             padding: 8px 6px 4px;
-            border-radius: 8px;
-            background: #f7f9ff;
+            border-radius: 12px;
+            background: var(--dashboard-chip-bg);
             border: 1px solid #e6ecff;
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
         .trend-col {
@@ -119,11 +130,12 @@
 
         .history-item {
             border: 1px solid #eceff6;
-            border-radius: 8px;
-            padding: 0.5rem 0.6rem;
+            border-radius: 12px;
+            padding: 0.6rem 0.7rem;
             font-size: 0.88rem;
             color: #333;
-            background: #fff;
+            background: var(--dashboard-chip-bg);
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
         .history-item .meta {
@@ -208,7 +220,9 @@
 
         <div id="errorMessage" class="error hidden"></div>
 
-        <div class="summary-grid" id="summaryGrid"></div>
+        <section class="summary-shell">
+            <div class="summary-grid" id="summaryGrid"></div>
+        </section>
 
         <section class="chart-card">
             <h2>Response Time Trend</h2>
@@ -225,6 +239,7 @@
     <script src="deck-category-common.js"></script>
     <script src="simple-audio-player.js"></script>
     <script src="lesson-reading-duration-backfill.js"></script>
+    <script src="report-back-button-common.js"></script>
     <script src="kid-card-report.js"></script>
 </body>
 </html>

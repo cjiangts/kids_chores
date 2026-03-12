@@ -333,8 +333,9 @@
         }
 
         .deck-v2-action-row .settings-save-btn:disabled {
-            background: #c9d0dc;
-            color: #f9fbff;
+            background: #e6ebf3;
+            color: #8e9ab1;
+            border: 1px solid #d5dceb;
             cursor: not-allowed;
             box-shadow: none;
         }
@@ -493,10 +494,11 @@
         }
 
         .deck-setup-summary-card {
-            background: #f7f9ff;
-            border: 1px solid #dbe1ff;
+            background: var(--dashboard-chip-bg);
+            border: 1px solid rgba(28, 42, 82, 0.08);
             border-radius: 12px;
             padding: 0.5rem 0.56rem;
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
         .deck-setup-summary-label {
@@ -541,10 +543,11 @@
 
         .settings-subgroup {
             margin-top: 0.72rem;
-            border: 1px solid #dbe1ff;
+            border: 1px solid rgba(28, 42, 82, 0.08);
             border-radius: 12px;
-            background: #f8f9ff;
+            background: var(--dashboard-chip-bg);
             padding: 0.54rem 0.62rem;
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
         .settings-subgroup .hardness-slider-block {
@@ -569,21 +572,25 @@
             }
         }
 
-        .card-status-filter {
+        .card-status-filter,
+        .card-view-mode {
             display: inline-flex;
             align-items: center;
             gap: 0.35rem;
-            background: #f7f9ff;
-            border: 1px solid #dbe1ff;
+            background: var(--dashboard-chip-bg);
+            border: 1px solid rgba(28, 42, 82, 0.08);
             border-radius: 999px;
-            padding: 0.18rem;
+            padding: 0.2rem;
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
-        .card-status-filter-btn {
+        .card-status-filter-btn,
+        .card-view-mode-btn {
             border: 0;
             border-radius: 999px;
-            padding: 0.36rem 0.72rem;
+            padding: 0.42rem 0.76rem;
             font-size: 0.88rem;
+            font-weight: 700;
             line-height: 1;
             color: #3a4e9d;
             background: transparent;
@@ -591,11 +598,13 @@
             white-space: nowrap;
         }
 
-        .card-status-filter-btn:hover {
+        .card-status-filter-btn:hover,
+        .card-view-mode-btn:hover {
             background: rgba(58, 78, 157, 0.08);
         }
 
-        .card-status-filter-btn.active {
+        .card-status-filter-btn.active,
+        .card-view-mode-btn.active {
             background: #3f7ee8;
             color: #fff;
         }
@@ -618,38 +627,6 @@
             white-space: nowrap;
         }
 
-        .card-view-mode {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.2rem;
-            background: #edf9f1;
-            border: 1px solid #9edeb4;
-            border-radius: 999px;
-            padding: 0.18rem;
-        }
-
-        .card-view-mode-btn {
-            border: 0;
-            border-radius: 999px;
-            padding: 0.34rem 0.65rem;
-            font-size: 0.84rem;
-            font-weight: 700;
-            line-height: 1;
-            color: #1f7a43;
-            background: transparent;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .card-view-mode-btn:hover {
-            background: rgba(43, 152, 86, 0.15);
-        }
-
-        .card-view-mode-btn.active {
-            background: #2ba35a;
-            color: #fff;
-        }
-
         .cards-visible-action-btn {
             min-height: 34px;
             height: 34px;
@@ -663,30 +640,6 @@
         .cards-visible-action-btn.skip,
         .cards-visible-action-btn.unskip {
             justify-self: stretch;
-        }
-
-        .cards-visible-action-btn.skip {
-            background: #f59e0b;
-            border-color: #f59e0b;
-            color: #fff;
-        }
-
-        .cards-visible-action-btn.skip:hover:enabled {
-            background: #dc8a08;
-            border-color: #dc8a08;
-            color: #fff;
-        }
-
-        .cards-visible-action-btn.unskip {
-            background: #3f7ee8;
-            border-color: #3f7ee8;
-            color: #fff;
-        }
-
-        .cards-visible-action-btn.unskip:hover:enabled {
-            background: #2f6fd9;
-            border-color: #2f6fd9;
-            color: #fff;
         }
 
         .cards-visible-action-btn:disabled {
@@ -772,13 +725,13 @@
 
             .cards-view-control .card-view-mode {
                 gap: 0.18rem;
-                padding: 0.14rem;
+                padding: 0.1rem;
                 overflow: visible;
             }
 
             .cards-view-control .card-view-mode-btn {
-                padding: 0.22rem 0.32rem;
-                font-size: 0.75rem;
+                padding: 0.18rem 0.28rem;
+                font-size: 0.72rem;
                 flex: 0 0 auto;
                 min-width: max-content;
             }
@@ -858,7 +811,8 @@
                 text-align: center;
             }
 
-            .manage-page .card-status-filter-btn {
+            .manage-page .card-status-filter-btn,
+            .manage-page .card-view-mode-btn {
                 padding: 0.24rem 0.36rem;
                 font-size: 0.76rem;
                 min-width: 0;
@@ -888,13 +842,13 @@
 
             .manage-page .card-status-filter-btn,
             .manage-page .card-view-mode-btn {
-                padding: 0.2rem 0.24rem;
-                font-size: 0.72rem;
+                padding: 0.16rem 0.22rem;
+                font-size: 0.7rem;
             }
 
             .cards-view-control .card-view-mode-btn {
-                padding: 0.18rem 0.22rem;
-                font-size: 0.68rem;
+                padding: 0.14rem 0.18rem;
+                font-size: 0.66rem;
                 flex: 0 0 auto;
                 min-width: max-content;
             }
@@ -1070,8 +1024,9 @@
         }
 
         .queue-save-row .settings-save-btn:disabled {
-            background: #c9d0dc;
-            color: #f9fbff;
+            background: #e6ebf3;
+            color: #8e9ab1;
+            border: 1px solid #d5dceb;
             cursor: not-allowed;
             box-shadow: none;
         }
@@ -1114,8 +1069,9 @@
         }
 
         .queue-settings-actions .settings-save-btn:disabled {
-            background: #c9d0dc;
-            color: #f9fbff;
+            background: #e6ebf3;
+            color: #8e9ab1;
+            border: 1px solid #d5dceb;
             cursor: not-allowed;
         }
 
@@ -1253,8 +1209,8 @@
             position: relative;
             appearance: none;
             -webkit-appearance: none;
-            border: 1px solid #b8c5ff;
-            background: #edf2ff;
+            border: 1px solid rgba(28, 42, 82, 0.08);
+            background: var(--dashboard-chip-bg);
             color: #2f3c7e;
             border-radius: 999px;
             padding: 0.3rem 0.68rem;
@@ -1265,6 +1221,7 @@
             overflow: visible;
             cursor: pointer;
             text-align: left;
+            box-shadow: 0 1px 3px rgba(31, 45, 98, 0.08);
         }
 
         .card-compact-pill:focus-visible {
@@ -1289,8 +1246,9 @@
             height: 0.82rem;
             padding: 0 0.18rem;
             border-radius: 999px;
-            background: #d6defa;
-            color: #3951a6;
+            background: #fff;
+            color: inherit;
+            box-shadow: 0 1px 3px rgba(31, 45, 98, 0.16);
             font-size: 0.58rem;
             font-weight: 700;
             line-height: 0.82rem;
@@ -1347,10 +1305,11 @@
         }
 
         .orphan-editor-panel {
-            background: #f8f9ff;
-            border: 1px solid #dbe1ff;
+            background: var(--dashboard-chip-bg);
+            border: 1px solid rgba(28, 42, 82, 0.08);
             border-radius: 10px;
             padding: 0.9rem;
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
         .orphan-editor-panel h3 {
@@ -1377,11 +1336,11 @@
         }
 
         .card-item {
-            background: #edf2ff;
-            border: 1px solid #b8c5ff;
+            background: var(--dashboard-chip-bg);
+            border: 1px solid rgba(28, 42, 82, 0.06);
             padding: 1.5rem;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: var(--dashboard-chip-shadow);
             text-align: center;
             position: relative;
         }

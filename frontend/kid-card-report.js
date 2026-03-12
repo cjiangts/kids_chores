@@ -30,34 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function bindBackButton() {
-    if (!backBtn) {
-        return;
-    }
-    const fallbackHref = resolveBackHref();
-    backBtn.href = fallbackHref;
-    backBtn.addEventListener('click', (event) => {
-        if (!canUseHistoryBack()) {
-            return;
-        }
-        event.preventDefault();
-        window.history.back();
-    });
-}
-
-function canUseHistoryBack() {
-    if (!window.history || window.history.length <= 1) {
-        return false;
-    }
-    const referrer = String(document.referrer || '').trim();
-    if (!referrer) {
-        return false;
-    }
-    try {
-        const refUrl = new URL(referrer, window.location.origin);
-        return refUrl.origin === window.location.origin;
-    } catch (error) {
-        return false;
-    }
+    window.ReportBackButtonCommon?.bindBackButton(backBtn, resolveBackHref());
 }
 
 function resolveBackHref() {
