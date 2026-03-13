@@ -213,7 +213,7 @@ function displayKids(kids) {
         kidsList.innerHTML = `
             <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
-                <p>Click → 👨‍👩‍👧 Parent to add your first learner.</p>
+                <p>Click 👔 Parent Mode to add your first learner.</p>
             </div>
         `;
         return;
