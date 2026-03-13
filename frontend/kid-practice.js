@@ -665,6 +665,7 @@ function resetToStartScreen(totalCards = 0) {
     startScreen.classList.remove('hidden');
     sessionScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
+    setHeaderBackToPracticeVisible(true);
 
     if (isType(BEHAVIOR_TYPE_I)) {
         initJudgeMode();
@@ -756,6 +757,7 @@ async function startType1Session() {
         startScreen.classList.add('hidden');
         resultScreen.classList.add('hidden');
         sessionScreen.classList.remove('hidden');
+        setHeaderBackToPracticeVisible(true);
 
         showCurrentQuestion();
         updateFinishEarlyButtonState();
@@ -791,6 +793,7 @@ async function startType2Session() {
         startScreen.classList.add('hidden');
         resultScreen.classList.add('hidden');
         sessionScreen.classList.remove('hidden');
+        setHeaderBackToPracticeVisible(true);
 
         showCurrentPrompt();
         updateFinishEarlyButtonState();
@@ -834,6 +837,7 @@ async function startType3Session() {
         startScreen.classList.add('hidden');
         resultScreen.classList.add('hidden');
         sessionScreen.classList.remove('hidden');
+        setHeaderBackToPracticeVisible(true);
 
         showCurrentType3Card();
         updateFinishEarlyButtonState();
@@ -1742,6 +1746,7 @@ async function endSession(endedEarly = false) {
 async function endType1Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
+    setHeaderBackToPracticeVisible(false);
     resultSummary.textContent = state.hasChineseSpecificLogic
         ? (
             endedEarly
@@ -1790,6 +1795,7 @@ async function endType2Session(endedEarly = false) {
 
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
+    setHeaderBackToPracticeVisible(false);
     setResultBackToPracticeVisible(true);
     resultSummary.textContent = endedEarly
         ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
@@ -1824,6 +1830,7 @@ async function endType2Session(endedEarly = false) {
 async function endType3Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
+    setHeaderBackToPracticeVisible(false);
     setResultBackToPracticeVisible(true);
     state.isSessionPaused = false;
     state.isRecordingPaused = false;
@@ -1897,6 +1904,13 @@ function stopAudioPlayback() {
 
 function clearAudioBlobCache() {
     promptPlayer.clearCache();
+}
+
+function setHeaderBackToPracticeVisible(visible) {
+    if (!backToPractice) {
+        return;
+    }
+    backToPractice.classList.toggle('hidden', !visible);
 }
 
 function requestEarlyFinish() {
@@ -2151,6 +2165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
     resultBackToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+    setHeaderBackToPracticeVisible(true);
     bindEventHandlers();
 
     try {

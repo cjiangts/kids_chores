@@ -5694,6 +5694,58 @@ def add_cards_bulk(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/cards/<card_id>', methods=['DELETE'])
+def delete_card(kid_id, card_id):
+    """Delete one type-I orphan card."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        category_key = resolve_kid_type_i_chinese_category_key(
+            kid,
+            request.args.get('categoryKey'),
+            allow_default=True,
+        )
+
+        conn = get_kid_connection_for(kid)
+        try:
+            deck_id = get_or_create_category_orphan_deck(conn, category_key)
+            row = conn.execute(
+                """
+                SELECT c.id
+                FROM cards c
+                WHERE c.id = ? AND c.deck_id = ?
+                LIMIT 1
+                """,
+                [card_id, deck_id]
+            ).fetchone()
+            if not row:
+                return jsonify({'error': 'Card not found'}), 404
+
+            practiced_count = int(conn.execute(
+                "SELECT COUNT(*) FROM session_results WHERE card_id = ?",
+                [card_id]
+            ).fetchone()[0] or 0)
+            if practiced_count > 0:
+                return jsonify({'error': 'Cards with practice history cannot be deleted'}), 400
+
+            conn.execute("DELETE FROM writing_sheet_cards WHERE card_id = ?", [card_id])
+            delete_card_from_deck_internal(conn, card_id)
+        finally:
+            conn.close()
+
+        return jsonify({
+            'category_key': category_key,
+            'card_id': int(card_id),
+            'deleted': True,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def build_type_i_shared_decks_payload(
     kid,
     category_key,
@@ -8576,9 +8628,6 @@ def download_type3_audio_as_mp3(kid_id, file_name):
 def delete_writing_card(kid_id, card_id):
     """Delete a type-II orphan card and remove its shared generated clip."""
     try:
-        auth_err = require_critical_password()
-        if auth_err:
-            return auth_err
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
@@ -8601,6 +8650,14 @@ def delete_writing_card(kid_id, card_id):
         if not row:
             conn.close()
             return jsonify({'error': 'Writing card not found'}), 404
+
+        practiced_count = int(conn.execute(
+            "SELECT COUNT(*) FROM session_results WHERE card_id = ?",
+            [card_id]
+        ).fetchone()[0] or 0)
+        if practiced_count > 0:
+            conn.close()
+            return jsonify({'error': 'Cards with practice history cannot be deleted'}), 400
 
         conn.execute("DELETE FROM writing_sheet_cards WHERE card_id = ?", [card_id])
         delete_card_from_deck_internal(conn, card_id)

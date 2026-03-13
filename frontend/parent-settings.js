@@ -14,6 +14,11 @@ const currentPasswordInput = document.getElementById('currentPassword');
 const newPasswordInput = document.getElementById('newPassword');
 const confirmPasswordInput = document.getElementById('confirmPassword');
 const changePasswordBtn = document.getElementById('changePasswordBtn');
+const familyManageDeckLink = document.getElementById('familyManageDeckLink');
+const openChangePasswordBtn = document.getElementById('openChangePasswordBtn');
+const familySettingsLogoutBtn = document.getElementById('familySettingsLogoutBtn');
+const changePasswordModal = document.getElementById('changePasswordModal');
+const closeChangePasswordBtn = document.getElementById('closeChangePasswordBtn');
 const familyTimezoneSelect = document.getElementById('familyTimezone');
 const saveTimezoneBtn = document.getElementById('saveTimezoneBtn');
 const timezoneError = document.getElementById('timezoneError');
@@ -27,7 +32,6 @@ const openBadgeArtStudioBtn = document.getElementById('openBadgeArtStudioBtn');
 const badgeArtStudioModal = document.getElementById('badgeArtStudioModal');
 const badgeArtStudioTitle = document.getElementById('badgeArtStudioTitle');
 const badgeArtStudioSubtitle = document.getElementById('badgeArtStudioSubtitle');
-const badgeArtStudioClearBtn = document.getElementById('badgeArtStudioClearBtn');
 const badgeArtStudioSaveBtn = document.getElementById('badgeArtStudioSaveBtn');
 const badgeArtStudioNoticeModal = document.getElementById('badgeArtStudioNoticeModal');
 const badgeArtStudioNoticeTitle = document.getElementById('badgeArtStudioNoticeTitle');
@@ -101,6 +105,15 @@ let badgeArtStudioAssetPreloadPromise = null;
 
 renderRewardsStatus();
 syncRewardsButtonsState('');
+
+function syncModalBodyLock() {
+    const shouldLock = [
+        changePasswordModal,
+        badgeArtStudioModal,
+        badgeArtStudioNoticeModal,
+    ].some((modal) => modal && !modal.classList.contains('hidden'));
+    document.body.style.overflow = shouldLock ? 'hidden' : '';
+}
 
 function escapeHtml(value) {
     return String(value || '')
@@ -180,6 +193,32 @@ passwordForm.addEventListener('submit', async (event) => {
     await changePassword();
 });
 
+if (openChangePasswordBtn) {
+    openChangePasswordBtn.addEventListener('click', () => {
+        openChangePasswordDialog();
+    });
+}
+
+if (closeChangePasswordBtn) {
+    closeChangePasswordBtn.addEventListener('click', () => {
+        closeChangePasswordDialog();
+    });
+}
+
+if (changePasswordModal) {
+    changePasswordModal.addEventListener('click', (event) => {
+        if (event.target === changePasswordModal) {
+            closeChangePasswordDialog();
+        }
+    });
+}
+
+if (familySettingsLogoutBtn) {
+    familySettingsLogoutBtn.addEventListener('click', async () => {
+        await logoutFamily();
+    });
+}
+
 downloadBackupBtn.addEventListener('click', async () => {
     await downloadBackup();
 });
@@ -235,7 +274,7 @@ if (badgeArtBankGrid) {
             return;
         }
         const badgeArtId = Number.parseInt(button.getAttribute('data-badge-art-id') || '', 10);
-        if (!Number.isInteger(badgeArtId) || badgeArtId <= 0) {
+        if (!Number.isInteger(badgeArtId) || badgeArtId < 0) {
             return;
         }
         assignBadgeArtToSelectedAchievement(badgeArtId);
@@ -245,12 +284,6 @@ if (badgeArtBankGrid) {
 if (openBadgeArtStudioBtn) {
     openBadgeArtStudioBtn.addEventListener('click', async () => {
         await openBadgeArtStudio();
-    });
-}
-
-if (badgeArtStudioClearBtn) {
-    badgeArtStudioClearBtn.addEventListener('click', () => {
-        clearAllBadgeArtAssignments();
     });
 }
 
@@ -288,6 +321,10 @@ if (badgeArtStudioNoticeModal) {
 }
 
 document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && changePasswordModal && !changePasswordModal.classList.contains('hidden')) {
+        closeChangePasswordDialog();
+        return;
+    }
     if (event.key === 'Escape' && badgeArtStudioNoticeModal && !badgeArtStudioNoticeModal.classList.contains('hidden')) {
         closeBadgeArtStudioNoticeDialog();
         return;
@@ -299,6 +336,50 @@ document.addEventListener('keydown', (event) => {
         closeBadgeArtStudio({ discardDraft: true });
     }
 });
+
+function resetPasswordDialogState() {
+    if (passwordForm) {
+        passwordForm.reset();
+    }
+    showPasswordError('');
+    showPasswordSuccess('');
+}
+
+function openChangePasswordDialog() {
+    if (!changePasswordModal) {
+        return;
+    }
+    resetPasswordDialogState();
+    changePasswordModal.classList.remove('hidden');
+    syncModalBodyLock();
+    window.requestAnimationFrame(() => {
+        if (currentPasswordInput) {
+            currentPasswordInput.focus();
+        }
+    });
+}
+
+function closeChangePasswordDialog() {
+    if (!changePasswordModal) {
+        return;
+    }
+    changePasswordModal.classList.add('hidden');
+    resetPasswordDialogState();
+    syncModalBodyLock();
+}
+
+async function logoutFamily() {
+    try {
+        await fetch(`${API_BASE}/family-auth/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+    } catch (error) {
+        // ignore
+    }
+    window.location.href = '/index.html';
+}
 
 backupFileInput.addEventListener('change', async (event) => {
     const file = event.target.files[0];
@@ -532,12 +613,6 @@ function badgeAssignmentKey(achievementKey, categoryKey = '') {
     return `${String(achievementKey || '').trim()}::${String(categoryKey || '').trim().toLowerCase()}`;
 }
 
-function getBadgeArtAssignedCount(items) {
-    return (Array.isArray(items) ? items : []).reduce((count, item) => (
-        Number(item && item.currentBadgeArtId || 0) > 0 ? count + 1 : count
-    ), 0);
-}
-
 function getPersistedBadgeAchievement(achievementKey, categoryKey = '') {
     const achievements = Array.isArray(badgeArtStudioPersistedData.achievements)
         ? badgeArtStudioPersistedData.achievements
@@ -656,6 +731,7 @@ function setDraftBadgeArtAssignment(item, badgeArtId) {
         item.currentImageLabel = '';
         item.currentBadgeSourceUrl = '';
         item.currentBadgeLicense = '';
+        item.currentBadgeIsActive = false;
         return;
     }
     const artItem = findBadgeArtCatalogItemById(normalizedBadgeArtId);
@@ -668,6 +744,7 @@ function setDraftBadgeArtAssignment(item, badgeArtId) {
     item.currentImageLabel = String(artItem.label || '');
     item.currentBadgeSourceUrl = String(artItem.sourceUrl || '');
     item.currentBadgeLicense = String(artItem.license || '');
+    item.currentBadgeIsActive = true;
 }
 
 function normalizeSearchText(value) {
@@ -758,6 +835,21 @@ function getSelectedBadgeAchievement() {
     return achievements.find((item) => badgeAssignmentKey(item.achievementKey, item.categoryKey) === badgeArtSelectedKey) || null;
 }
 
+function renderBadgeArtStudioCounts() {
+    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
+    const activeCount = achievements.filter((item) => (
+        Number(item && item.currentBadgeArtId || 0) > 0
+        && Boolean(item && item.currentBadgeIsActive)
+    )).length;
+    const inactiveCount = Math.max(0, achievements.length - activeCount);
+    if (badgeAchievementCount) {
+        badgeAchievementCount.textContent = `${activeCount} active badge${activeCount === 1 ? '' : 's'}`;
+    }
+    if (badgeArtBankCount) {
+        badgeArtBankCount.textContent = `${inactiveCount} inactive badge${inactiveCount === 1 ? '' : 's'}`;
+    }
+}
+
 function getUsedBadgeArtIds(excludedMappingKey = '') {
     const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
     const used = new Set();
@@ -822,17 +914,11 @@ function syncBadgeArtStudioControls() {
     const canEdit = badgeArtStudioIsEditable();
     const isSaving = badgeArtStudioSaving;
     const dirtyCount = getBadgeArtStudioDirtyAssignmentCount();
-    const assignedCount = getBadgeArtAssignedCount(badgeArtStudioData.achievements);
     if (openBadgeArtStudioBtn) {
         openBadgeArtStudioBtn.disabled = isSaving || badgeArtStudioLoading;
         openBadgeArtStudioBtn.textContent = badgeArtStudioLoading
             ? 'Loading...'
-            : (canEdit ? 'Badge Studio' : 'View Badges');
-    }
-    if (badgeArtStudioClearBtn) {
-        badgeArtStudioClearBtn.classList.toggle('hidden', !canEdit);
-        badgeArtStudioClearBtn.disabled = badgeArtStudioLoading || isSaving || assignedCount <= 0;
-        badgeArtStudioClearBtn.textContent = 'Clear All';
+            : (canEdit ? '🏅 Badge Studio' : '🏅 View Badges');
     }
     if (badgeArtStudioSaveBtn) {
         badgeArtStudioSaveBtn.classList.toggle('hidden', !canEdit);
@@ -888,15 +974,8 @@ function updateBadgeAchievementSelectionState(previousKey, nextKey) {
     }
 }
 
-function updateAllBadgeAchievementCards() {
-    const achievements = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements : [];
-    achievements.forEach((item) => {
-        updateBadgeAchievementCardElement(item);
-    });
-}
-
 function findBadgeArtTileElement(badgeArtId) {
-    if (!badgeArtBankGrid || !Number.isInteger(Number(badgeArtId)) || Number(badgeArtId) <= 0) {
+    if (!badgeArtBankGrid || !Number.isInteger(Number(badgeArtId)) || Number(badgeArtId) < 0) {
         return null;
     }
     return badgeArtBankGrid.querySelector(`button[data-badge-art-id="${Number(badgeArtId)}"]`);
@@ -980,7 +1059,7 @@ function moveBadgeArtBankSelectionBy(delta) {
         return true;
     }
     const badgeArtId = Number.parseInt(targetButton.getAttribute('data-badge-art-id') || '', 10);
-    if (!Number.isInteger(badgeArtId) || badgeArtId <= 0) {
+    if (!Number.isInteger(badgeArtId) || badgeArtId < 0) {
         return false;
     }
     assignBadgeArtToSelectedAchievement(badgeArtId);
@@ -1032,14 +1111,10 @@ function handleBadgeArtStudioArrowKey(event) {
 }
 
 function renderBadgeAchievementList() {
-    if (!badgeArtAchievementList || !badgeAchievementCount) {
+    if (!badgeArtAchievementList) {
         return;
     }
-    const total = Array.isArray(badgeArtStudioData.achievements) ? badgeArtStudioData.achievements.length : 0;
     const achievements = getFilteredBadgeAchievements();
-    badgeAchievementCount.textContent = total > 0
-        ? `${total} achievement${total === 1 ? '' : 's'}`
-        : 'No achievements';
     if (achievements.length <= 0) {
         badgeArtAchievementList.innerHTML = '<div class="settings-note">No achievements available.</div>';
         return;
@@ -1077,8 +1152,12 @@ function renderSelectedBadgeAchievement() {
         badgeArtSelectedPreview.className = 'badge-art-preview';
         badgeArtSelectedPreview.innerHTML = '';
         badgeArtSelectedTitle.textContent = '';
-        badgeArtSelectedMeta.textContent = '';
-        badgeArtSelectedCurrent.textContent = '';
+        if (badgeArtSelectedMeta) {
+            badgeArtSelectedMeta.textContent = '';
+        }
+        if (badgeArtSelectedCurrent) {
+            badgeArtSelectedCurrent.textContent = '';
+        }
         return;
     }
     badgeArtSelectionEmpty.classList.add('hidden');
@@ -1087,23 +1166,16 @@ function renderSelectedBadgeAchievement() {
     badgeArtSelectedPreview.className = `badge-art-preview badge-art-palette-${paletteKey}`;
     badgeArtSelectedPreview.innerHTML = renderBadgeArtPreview(selected, `${selected.title} current art`);
     badgeArtSelectedTitle.textContent = String(selected.title || 'Badge');
-    const earnedKidCount = Number(selected.earnedKidCount || 0);
-    badgeArtSelectedMeta.textContent = earnedKidCount > 0
-        ? `${String(selected.goalText || '')} Already earned by ${earnedKidCount} kid${earnedKidCount === 1 ? '' : 's'}.`
-        : String(selected.goalText || '');
-    const persistedItem = getPersistedBadgeAchievement(selected.achievementKey, selected.categoryKey);
-    const hasUnsavedDraft = Number(selected.currentBadgeArtId || 0) !== Number(persistedItem && persistedItem.currentBadgeArtId || 0);
-    const currentLabel = String(selected.currentImageLabel || '').trim() || 'Unassigned';
-    const currentPath = String(selected.currentImagePath || '').trim();
-    const prefix = hasUnsavedDraft ? 'Draft' : 'Current';
-    const suffix = hasUnsavedDraft ? ' (not saved yet)' : '';
-    badgeArtSelectedCurrent.textContent = currentPath.startsWith('assets/badges-noto/')
-        ? `${prefix} emoji: ${currentLabel}${suffix}`
-        : `${prefix} art: ${currentLabel}${currentPath ? ` (${currentPath})` : ''}${suffix}`;
+    if (badgeArtSelectedMeta) {
+        badgeArtSelectedMeta.textContent = String(selected.goalText || selected.reasonText || '').trim();
+    }
+    if (badgeArtSelectedCurrent) {
+        badgeArtSelectedCurrent.textContent = '';
+    }
 }
 
 function renderBadgeArtBank(options = {}) {
-    if (!badgeArtBankGrid || !badgeArtBankCount) {
+    if (!badgeArtBankGrid) {
         return;
     }
     const canEdit = badgeArtStudioIsEditable();
@@ -1112,14 +1184,10 @@ function renderBadgeArtBank(options = {}) {
     const selected = getSelectedBadgeAchievement();
     badgeArtBankGrid.classList.remove('hidden');
     if (!selected) {
-        badgeArtBankCount.textContent = canEdit
-            ? 'Select an achievement above to browse unused Noto art.'
-            : 'Select an achievement to preview its badge.';
         badgeArtBankGrid.innerHTML = '';
         return;
     }
     if (!canEdit) {
-        badgeArtBankCount.textContent = 'Assigned badge art';
         badgeArtBankGrid.innerHTML = '';
         badgeArtBankGrid.classList.add('hidden');
         return;
@@ -1131,28 +1199,43 @@ function renderBadgeArtBank(options = {}) {
     const currentBadgeArtId = Number(selected.currentBadgeArtId || 0);
     const highlightedBadgeArtId = resolveActiveNotoBadgeArtId(selected);
     const currentIdentityKey = getBadgeArtIdentityKey(selected);
-    const hiddenByUsageCount = artCatalog.reduce((count, item) => {
-        const badgeArtId = Number(item.badgeArtId || 0);
-        const identityKey = getBadgeArtIdentityKey(item);
-        const isEquivalentToCurrent = Boolean(identityKey) && identityKey === currentIdentityKey;
-        if (badgeArtId > 0 && usedByOthers.has(badgeArtId) && badgeArtId !== currentBadgeArtId) {
-            return count + 1;
-        }
-        if (identityKey && usedIdentityKeysByOthers.has(identityKey) && !isEquivalentToCurrent) {
-            return count + 1;
-        }
-        return count;
-    }, 0);
     const items = getFilteredBadgeArtCatalog();
-    const hiddenNote = hiddenByUsageCount > 0
-        ? ` • ${hiddenByUsageCount} used`
-        : '';
-    badgeArtBankCount.textContent = `${items.length} available emoji${items.length === 1 ? '' : 's'}${hiddenNote}`;
     if (items.length <= 0) {
-        badgeArtBankGrid.innerHTML = '<div class="settings-note">No unused Noto art available right now.</div>';
+        const isDeactivated = highlightedBadgeArtId <= 0;
+        badgeArtBankGrid.innerHTML = `
+            <button
+                type="button"
+                class="badge-art-tile badge-art-empty-tile ${isDeactivated ? 'selected' : ''}"
+                data-badge-art-id="0"
+                aria-label="Deactivate badge art"
+                aria-pressed="${isDeactivated ? 'true' : 'false'}"
+                title="Deactivate badge art"
+                ${badgeArtStudioSaving ? 'disabled' : ''}
+            >
+                <span class="badge-art-preview badge-art-grid-preview badge-art-empty-preview">
+                    <span class="badge-art-empty-icon" aria-hidden="true"></span>
+                </span>
+            </button>
+        `;
         return;
     }
-    badgeArtBankGrid.innerHTML = items.map((item) => {
+    const isDeactivated = highlightedBadgeArtId <= 0;
+    const deactivateTileMarkup = `
+        <button
+            type="button"
+            class="badge-art-tile badge-art-empty-tile ${isDeactivated ? 'selected' : ''}"
+            data-badge-art-id="0"
+            aria-label="Deactivate badge art"
+            aria-pressed="${isDeactivated ? 'true' : 'false'}"
+            title="Deactivate badge art"
+            ${badgeArtStudioSaving ? 'disabled' : ''}
+        >
+            <span class="badge-art-preview badge-art-grid-preview badge-art-empty-preview">
+                <span class="badge-art-empty-icon" aria-hidden="true"></span>
+            </span>
+        </button>
+    `;
+    badgeArtBankGrid.innerHTML = deactivateTileMarkup + items.map((item) => {
         const badgeArtId = Number(item.badgeArtId || 0);
         const isCurrent = badgeArtId > 0 && badgeArtId === highlightedBadgeArtId;
         return `
@@ -1179,6 +1262,7 @@ function renderBadgeArtBank(options = {}) {
 
 function renderBadgeArtStudio() {
     renderBadgeArtStudioStatus();
+    renderBadgeArtStudioCounts();
     renderBadgeAchievementList();
     renderSelectedBadgeAchievement();
     renderBadgeArtBank();
@@ -1247,13 +1331,15 @@ async function loadBadgeArtStudio() {
 
 function assignBadgeArtToSelectedAchievement(badgeArtId) {
     const selected = getSelectedBadgeAchievement();
-    if (!badgeArtStudioIsEditable() || badgeArtStudioLoading || badgeArtStudioSaving || !selected || !Number.isInteger(Number(badgeArtId)) || Number(badgeArtId) <= 0) {
+    if (!badgeArtStudioIsEditable() || badgeArtStudioLoading || badgeArtStudioSaving || !selected || !Number.isInteger(Number(badgeArtId)) || Number(badgeArtId) < 0) {
         return;
     }
-    const artItem = findBadgeArtCatalogItemById(badgeArtId);
-    if (!artItem) {
-        showBadgeArtStudioError('Selected art is no longer available.');
-        return;
+    if (Number(badgeArtId) > 0) {
+        const artItem = findBadgeArtCatalogItemById(badgeArtId);
+        if (!artItem) {
+            showBadgeArtStudioError('Selected art is no longer available.');
+            return;
+        }
     }
     showBadgeArtStudioError('');
     showBadgeArtStudioSuccess('');
@@ -1268,23 +1354,10 @@ function assignBadgeArtToSelectedAchievement(badgeArtId) {
     setDraftBadgeArtAssignment(draftItem, badgeArtId);
     const nextBadgeArtId = resolveActiveNotoBadgeArtId(draftItem);
     renderBadgeArtStudioStatus();
+    renderBadgeArtStudioCounts();
     updateBadgeAchievementCardElement(draftItem);
     renderSelectedBadgeAchievement();
     updateBadgeArtBankSelectionState(previousBadgeArtId, nextBadgeArtId);
-}
-
-function clearAllBadgeArtAssignments() {
-    if (!badgeArtStudioIsEditable() || badgeArtStudioLoading || badgeArtStudioSaving) {
-        return;
-    }
-    showBadgeArtStudioError('');
-    badgeArtStudioData.achievements.forEach((item) => {
-        setDraftBadgeArtAssignment(item, 0);
-    });
-    renderBadgeArtStudioStatus();
-    updateAllBadgeAchievementCards();
-    renderSelectedBadgeAchievement();
-    renderBadgeArtBank();
 }
 
 function buildBadgeArtStudioSaveAssignments() {
@@ -1383,7 +1456,7 @@ async function openBadgeArtStudio() {
         return;
     }
     badgeArtStudioModal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    syncModalBodyLock();
     syncBadgeArtStudioModeCopy();
     if (!badgeArtStudioHasLoaded) {
         await loadBadgeArtStudio();
@@ -1411,7 +1484,7 @@ function closeBadgeArtStudio(options = {}) {
         renderBadgeArtStudio();
     }
     badgeArtStudioModal.classList.add('hidden');
-    document.body.style.overflow = '';
+    syncModalBodyLock();
     return true;
 }
 
@@ -1420,6 +1493,7 @@ function closeBadgeArtStudioNoticeDialog() {
         return;
     }
     badgeArtStudioNoticeModal.classList.add('hidden');
+    syncModalBodyLock();
     const resolve = badgeArtStudioNoticeResolver;
     badgeArtStudioNoticeResolver = null;
     if (typeof resolve === 'function') {
@@ -1442,6 +1516,7 @@ function showBadgeArtStudioNoticeDialog(message, title = 'Badge Art Studio') {
     badgeArtStudioNoticeTitle.textContent = String(title || 'Badge Art Studio').trim() || 'Badge Art Studio';
     badgeArtStudioNoticeText.textContent = text;
     badgeArtStudioNoticeModal.classList.remove('hidden');
+    syncModalBodyLock();
     badgeArtStudioNoticeOkBtn.focus();
     return new Promise((resolve) => {
         badgeArtStudioNoticeResolver = resolve;
@@ -1723,6 +1798,9 @@ async function loadFamilyRole() {
     if (familyAdminCard) {
         familyAdminCard.classList.toggle('hidden', !isSuperFamily);
     }
+    if (familyManageDeckLink) {
+        familyManageDeckLink.classList.toggle('hidden', !isSuperFamily);
+    }
     resetBadgeArtStudioState();
     badgeArtStudioCanEdit = isSuperFamily;
     syncBadgeArtStudioModeCopy();
@@ -1963,22 +2041,17 @@ function showSuccess(message) {
 }
 
 function showPasswordError(message) {
-    if (message) {
-        const text = String(message);
-        if (passwordError) {
-            passwordError.textContent = '';
-            passwordError.classList.add('hidden');
-        }
-        if (showPasswordError._lastMessage !== text) {
-            window.alert(text);
-            showPasswordError._lastMessage = text;
-        }
-    } else {
-        showPasswordError._lastMessage = '';
-        if (passwordError) {
-            passwordError.classList.add('hidden');
-        }
+    if (!passwordError) {
+        return;
     }
+    const text = String(message || '').trim();
+    if (!text) {
+        passwordError.textContent = '';
+        passwordError.classList.add('hidden');
+        return;
+    }
+    passwordError.textContent = text;
+    passwordError.classList.remove('hidden');
 }
 
 function showPasswordSuccess(message) {

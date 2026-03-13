@@ -76,6 +76,27 @@
             margin-top: 0.85rem;
         }
 
+        .family-settings-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .family-settings-actions .manage-popup-btn {
+            min-height: 36px;
+            padding: 0.42rem 0.86rem;
+        }
+
+        .family-settings-actions .settings-save-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 180px;
+            text-decoration: none;
+        }
+
         .warning-note {
             color: #8a2f2f;
             font-weight: 600;
@@ -192,6 +213,11 @@
             flex-wrap: nowrap;
         }
 
+        .badge-art-modal-title-wrap {
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
         .badge-art-modal-title-wrap h2 {
             margin: 0;
             color: #2a2f3d;
@@ -215,6 +241,7 @@
             gap: 0.5rem;
             flex-wrap: nowrap;
             margin-left: auto;
+            flex: 0 0 auto;
         }
 
         .badge-art-modal-counts {
@@ -234,11 +261,11 @@
         }
 
         .badge-art-modal-sections {
-            margin-top: 0.7rem;
+            margin-top: 0.45rem;
             flex: 1 1 auto;
             min-height: 0;
             display: grid;
-            grid-template-rows: minmax(154px, 29%) minmax(320px, 71%);
+            grid-template-rows: minmax(139px, 29%) minmax(288px, 71%);
             gap: 0.7rem;
         }
 
@@ -290,7 +317,7 @@
             border-radius: 12px;
             border: 1px solid #dbe3f7;
             background: #fff;
-            padding: 2px;
+            padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -351,25 +378,51 @@
             height: 46px;
             margin: 0 auto;
             border-radius: 11px;
-            border: 1px solid #dce3f5;
             background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(236, 241, 255, 0.94));
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
             overflow: hidden;
         }
 
         .badge-art-grid-preview {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
+            width: 100%;
+            height: 100%;
+            border-radius: inherit;
         }
 
         .badge-art-selection-top .badge-art-preview {
             width: 64px;
             height: 64px;
             border-radius: 16px;
+        }
+
+        .badge-art-empty-preview {
+            border: 1px dashed #c4cfe8;
+            background:
+                linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 255, 0.94));
+        }
+
+        .badge-art-empty-icon {
+            position: relative;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #7787aa;
+            border-radius: 999px;
+            box-sizing: border-box;
+        }
+
+        .badge-art-empty-icon::after {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: -4px;
+            width: 2px;
+            height: 24px;
+            border-radius: 999px;
+            background: #7787aa;
+            transform: rotate(45deg);
+            transform-origin: center;
         }
 
         .badge-art-preview.badge-art-palette-characters {
@@ -465,7 +518,7 @@
             border: 1px solid #dbe3f7;
             border-radius: 12px;
             background: #fff;
-            padding: 2px;
+            padding: 0;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -511,9 +564,39 @@
             margin-top: 1rem;
         }
 
+        .password-modal.modal-content {
+            max-width: 430px;
+            width: min(430px, 92vw);
+            padding: 24px 22px;
+        }
+
+        .password-modal-copy {
+            margin: -0.4rem 0 1rem;
+            color: #5f6d88;
+            font-size: 0.94rem;
+            line-height: 1.4;
+        }
+
+        .password-modal .form-group:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .password-modal .error,
+        .password-modal .success {
+            margin-top: 0.8rem;
+        }
+
+        .password-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
         @media (max-width: 900px) {
             .badge-art-modal-sections {
-                grid-template-rows: minmax(160px, 30%) minmax(320px, 70%);
+                grid-template-rows: minmax(144px, 30%) minmax(288px, 70%);
             }
         }
 
@@ -526,6 +609,17 @@
                 margin-left: 0;
             }
 
+            .family-settings-actions {
+                display: grid;
+                grid-template-columns: 1fr;
+            }
+
+            .family-settings-actions .manage-popup-btn,
+            .family-settings-actions .settings-save-btn {
+                width: 100%;
+                min-width: 0;
+            }
+
             .badge-art-studio-modal.modal-content {
                 width: min(96vw, 96vw);
                 max-height: 92vh;
@@ -533,14 +627,33 @@
             }
 
             .badge-art-modal-top {
-                align-items: flex-start;
-                flex-wrap: wrap;
+                align-items: center;
+                flex-wrap: nowrap;
+                gap: 0.6rem;
+            }
+
+            .badge-art-modal-title-wrap {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+
+            .badge-art-modal-title-wrap h2 {
+                font-size: clamp(1.05rem, 5.8vw, 1.45rem);
+                line-height: 1.05;
             }
 
             .badge-art-modal-top-actions {
-                width: 100%;
+                width: auto;
                 justify-content: flex-end;
-                flex-wrap: wrap;
+                flex-wrap: nowrap;
+                gap: 0.4rem;
+                margin-left: 0;
+            }
+
+            .badge-art-modal-top-actions .btn-secondary {
+                min-height: 38px;
+                padding: 0.45rem 0.8rem;
+                font-size: 0.95rem;
             }
 
             .badge-art-achievement-list,
@@ -574,6 +687,22 @@
         </header>
 
         <main>
+            <div class="family-settings-actions" role="toolbar" aria-label="Family settings actions">
+                <a
+                    id="familyManageDeckLink"
+                    href="/deck-manage.html"
+                    class="settings-save-btn manage-popup-btn hidden"
+                >
+                    🗂️ Manage Deck
+                </a>
+                <button type="button" id="openChangePasswordBtn" class="settings-save-btn manage-popup-btn">
+                    🔑 Change Password
+                </button>
+                <button type="button" id="familySettingsLogoutBtn" class="settings-save-btn manage-popup-btn">
+                    🚪 Log Out
+                </button>
+            </div>
+
             <div class="settings-grid">
                 <section class="settings-card settings-section">
                     <div class="settings-card-body">
@@ -599,33 +728,10 @@
                         <div class="settings-row actions-row">
                             <button type="button" id="startRewardsBtn" class="btn-secondary">Start</button>
                             <button type="button" id="resetRewardsBtn" class="btn-secondary">Reset</button>
-                            <button type="button" id="openBadgeArtStudioBtn" class="btn-secondary">View Badges</button>
+                            <button type="button" id="openBadgeArtStudioBtn" class="btn-secondary">🏅 View Badges</button>
                         </div>
                         <div id="rewardsError" class="error hidden"></div>
                         <div id="rewardsSuccess" class="success hidden"></div>
-                    </div>
-                </section>
-
-                <section class="settings-card settings-section">
-                    <div class="settings-card-body">
-                        <h2>Change Password</h2>
-                        <form id="passwordForm">
-                            <div class="form-group">
-                                <label for="currentPassword">Current password</label>
-                                <input type="password" id="currentPassword" autocomplete="current-password" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="newPassword">New password</label>
-                                <input type="password" id="newPassword" autocomplete="new-password" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="confirmPassword">Repeat new password</label>
-                                <input type="password" id="confirmPassword" autocomplete="new-password" required>
-                            </div>
-                            <button type="submit" id="changePasswordBtn" class="btn-secondary">Update Password</button>
-                            <div id="passwordError" class="error hidden"></div>
-                            <div id="passwordSuccess" class="success hidden"></div>
-                        </form>
                     </div>
                 </section>
 
@@ -667,15 +773,40 @@
         </main>
     </div>
 
+    <div id="changePasswordModal" class="modal hidden">
+        <div class="modal-content password-modal" role="dialog" aria-modal="true" aria-labelledby="changePasswordModalTitle">
+            <h2 id="changePasswordModalTitle">Change Password</h2>
+            <p class="password-modal-copy">Update the family password.</p>
+            <form id="passwordForm">
+                <div class="form-group">
+                    <label for="currentPassword">Current password</label>
+                    <input type="password" id="currentPassword" autocomplete="current-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">New password</label>
+                    <input type="password" id="newPassword" autocomplete="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Repeat new password</label>
+                    <input type="password" id="confirmPassword" autocomplete="new-password" required>
+                </div>
+                <div id="passwordError" class="error hidden"></div>
+                <div id="passwordSuccess" class="success hidden"></div>
+                <div class="password-modal-actions">
+                    <button type="submit" id="changePasswordBtn" class="settings-save-btn">Update Password</button>
+                    <button type="button" id="closeChangePasswordBtn" class="btn-secondary">Close</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="badgeArtStudioModal" class="modal hidden">
         <div class="modal-content modal-large badge-art-studio-modal">
-                <div class="badge-art-modal-top">
+            <div class="badge-art-modal-top">
                     <div class="badge-art-modal-title-wrap">
                         <h2 id="badgeArtStudioTitle">Badge Studio</h2>
-                        <div id="badgeArtStudioSubtitle" class="badge-art-modal-subtitle">Set badge art.</div>
                     </div>
                 <div class="badge-art-modal-top-actions">
-                    <button type="button" id="badgeArtStudioClearBtn" class="btn-secondary">Clear All</button>
                     <button type="button" id="badgeArtStudioSaveBtn" class="btn-secondary">Save</button>
                     <button type="button" class="btn-secondary" data-badge-art-action="close">Close</button>
                 </div>
@@ -688,16 +819,10 @@
 
             <div class="badge-art-modal-sections">
                 <section class="badge-art-modal-section">
-                    <div class="badge-art-modal-section-head">
-                        <h3 id="badgeArtAchievementSectionTitle">All</h3>
-                    </div>
                     <div id="badgeArtAchievementList" class="badge-art-achievement-list"></div>
                 </section>
 
                 <section class="badge-art-modal-section">
-                    <div class="badge-art-modal-section-head">
-                        <h3 id="badgeArtSelectionSectionTitle">Emoji</h3>
-                    </div>
                     <div id="badgeArtSelectionEmpty" class="badge-art-selection-empty">Pick a badge.</div>
                     <div id="badgeArtSelectionPanel" class="badge-art-selection hidden">
                         <div class="badge-art-selection-top">
@@ -705,7 +830,6 @@
                             <div>
                                 <div id="badgeArtSelectedTitle" class="badge-art-selection-title"></div>
                                 <div id="badgeArtSelectedMeta" class="badge-art-selection-note"></div>
-                                <div id="badgeArtSelectedCurrent" class="badge-art-selection-note"></div>
                             </div>
                         </div>
                         <div id="badgeArtBankGrid" class="badge-art-bank-grid"></div>

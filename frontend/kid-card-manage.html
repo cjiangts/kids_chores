@@ -1460,6 +1460,45 @@
             font-weight: 700;
         }
 
+        .card-actions {
+            margin-top: 0.55rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .expanded-card-delete-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 74px;
+            height: 30px;
+            padding: 0 12px;
+            border: 1px solid #e6b0b6;
+            border-radius: 999px;
+            background: #fff1f3;
+            color: #b42318;
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .expanded-card-delete-btn:hover {
+            background: #ffe4e8;
+            border-color: #dc8f99;
+        }
+
+        .expanded-card-delete-btn:disabled {
+            opacity: 0.45;
+            background: #f4f5f7;
+            border-color: #d0d5dd;
+            color: #98a2b3;
+            cursor: not-allowed;
+        }
+
         .selected-audio-bar {
             margin: 0.55rem auto 0;
             padding: 0.48rem 0.52rem;

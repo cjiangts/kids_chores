@@ -357,8 +357,17 @@ function buildType2ApiUrl(pathSuffix) {
     });
 }
 
+function buildType1PersonalCardApiUrl(cardId) {
+    return withCategoryKey(new URL(`${API_BASE}/kids/${kidId}/cards/${encodeURIComponent(cardId)}`)).toString();
+}
+
 function isType2Behavior() {
     return currentBehaviorType === BEHAVIOR_TYPE_TYPE_II;
+}
+
+function supportsPersonalDeckEditor() {
+    return isChineseSpecificLogic
+        && (currentBehaviorType === BEHAVIOR_TYPE_TYPE_I || currentBehaviorType === BEHAVIOR_TYPE_TYPE_II);
 }
 
 function getSessionCountFromKid(kid) {
@@ -441,8 +450,7 @@ function updatePageTitle() {
 
 function applyCategoryUiText() {
     const displayName = getCurrentCategoryDisplayName();
-    const showOrphanEditor = isChineseSpecificLogic
-        && (currentBehaviorType === BEHAVIOR_TYPE_TYPE_I || currentBehaviorType === BEHAVIOR_TYPE_TYPE_II);
+    const showOrphanEditor = supportsPersonalDeckEditor();
     if (sessionCardCountLabel) {
         sessionCardCountLabel.textContent = 'Cards/day';
     }
@@ -1422,8 +1430,10 @@ function buildCardMarkup(card, options = {}) {
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last result: ${escapeHtml(lastResultText)}</div>
-            <a class="card-report-link" href="${buildCardReportHref(card)}">Records</a>
-            ${trailingActionHtml}
+            <div class="card-actions">
+                <a class="card-report-link" href="${buildCardReportHref(card)}">Records</a>
+                ${trailingActionHtml}
+            </div>
         </div>
     `;
 }
@@ -1476,6 +1486,41 @@ function buildCompactFoldButtonMarkup(cardId) {
     `;
 }
 
+function canDeleteExpandedCard(card) {
+    return supportsPersonalDeckEditor()
+        && Boolean(card && card.source_is_orphan)
+        && Number.isInteger(Number.parseInt(card && card.id, 10));
+}
+
+function hasPracticedCardAttempts(card) {
+    return Number.parseInt(card && card.lifetime_attempts, 10) > 0;
+}
+
+function buildExpandedCardDeleteButtonMarkup(card) {
+    if (!canDeleteExpandedCard(card)) {
+        return '';
+    }
+    const cardId = String(card && card.id ? card.id : '').trim();
+    if (!cardId) {
+        return '';
+    }
+    const isDisabled = hasPracticedCardAttempts(card);
+    const title = isDisabled
+        ? 'Cannot delete a card that already has practice history'
+        : 'Delete this Personal Deck card';
+    return `
+        <button
+            type="button"
+            class="expanded-card-delete-btn"
+            data-action="delete-personal-card"
+            data-card-id="${escapeHtml(cardId)}"
+            title="${escapeHtml(title)}"
+            aria-label="${escapeHtml(title)}"
+            ${isDisabled ? 'disabled aria-disabled="true"' : ''}
+        >Delete</button>
+    `;
+}
+
 function buildLongCardMarkup(card, options = {}) {
     if (isType2Behavior()) {
         return buildType2CardMarkup(card, options);
@@ -1516,7 +1561,9 @@ function displayCards(cards) {
     if (currentCardViewMode === 'long') {
         cardsGrid.classList.remove('short-view');
         cardsGrid.innerHTML = visibleCards
-            .map((card) => buildLongCardMarkup(card))
+            .map((card) => buildLongCardMarkup(card, {
+                trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
+            }))
             .join('');
         applyChineseCardFrontUniformSize();
         renderVisibleSkipActionButtons();
@@ -1542,6 +1589,7 @@ function displayCards(cards) {
             if (expandedCompactCardIds.has(cardId)) {
                 return `<div class="short-expanded-slot">${buildLongCardMarkup(card, {
                     prependControlsHtml: buildCompactFoldButtonMarkup(cardId),
+                    trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
                 })}</div>`;
             }
             return buildCompactCardMarkup(card);
@@ -1878,6 +1926,39 @@ async function editType2CardPrompt(cardId) {
     }
 }
 
+async function deleteExpandedPersonalCard(cardId) {
+    const targetCard = (Array.isArray(currentCards) ? currentCards : []).find((card) => String(card && card.id) === String(cardId));
+    if (!targetCard) {
+        showError('Card not found.');
+        return;
+    }
+    if (!canDeleteExpandedCard(targetCard)) {
+        showError('Only Personal Deck cards can be deleted here.');
+        return;
+    }
+    if (hasPracticedCardAttempts(targetCard)) {
+        showError('Cards with practice history cannot be deleted.');
+        return;
+    }
+
+    const requestUrl = isType2Behavior()
+        ? buildType2ApiUrl(`cards/${encodeURIComponent(cardId)}`)
+        : buildType1PersonalCardApiUrl(cardId);
+    const response = await fetch(requestUrl, {
+        method: 'DELETE',
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        showError(result.error || 'Failed to delete card.');
+        return;
+    }
+
+    expandedCompactCardIds.delete(String(cardId));
+    showError('');
+    showSuccess('Card deleted.');
+    await loadSharedType1Decks();
+}
+
 async function handleCardsGridClick(event) {
     const actionBtn = event.target.closest('[data-action]');
     if (!actionBtn) {
@@ -1939,6 +2020,20 @@ async function handleCardsGridClick(event) {
             return;
         }
         await editType2CardPrompt(cardId);
+        return;
+    }
+
+    if (action === 'delete-personal-card') {
+        const cardId = actionBtn.dataset.cardId;
+        if (!cardId) {
+            return;
+        }
+        try {
+            actionBtn.disabled = true;
+            await deleteExpandedPersonalCard(cardId);
+        } finally {
+            actionBtn.disabled = false;
+        }
         return;
     }
 
