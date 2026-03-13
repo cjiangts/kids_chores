@@ -30,6 +30,9 @@ const rewardsError = document.getElementById('rewardsError');
 const rewardsSuccess = document.getElementById('rewardsSuccess');
 const openBadgeArtStudioBtn = document.getElementById('openBadgeArtStudioBtn');
 const badgeArtStudioModal = document.getElementById('badgeArtStudioModal');
+const badgeArtStudioDialog = badgeArtStudioModal
+    ? badgeArtStudioModal.querySelector('.badge-art-studio-modal')
+    : null;
 const badgeArtStudioTitle = document.getElementById('badgeArtStudioTitle');
 const badgeArtStudioSubtitle = document.getElementById('badgeArtStudioSubtitle');
 const badgeArtStudioSaveBtn = document.getElementById('badgeArtStudioSaveBtn');
@@ -124,6 +127,20 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function getClosestEventTarget(event, selector) {
+    const rawTarget = event && event.target;
+    if (!rawTarget) {
+        return null;
+    }
+    const element = rawTarget instanceof Element
+        ? rawTarget
+        : rawTarget.parentElement;
+    if (!element) {
+        return null;
+    }
+    return element.closest(selector);
+}
+
 function cloneBadgeArtStudioPayload(payload) {
     const source = payload && typeof payload === 'object' ? payload : {};
     return {
@@ -157,6 +174,9 @@ function resetBadgeArtStudioState() {
 
 function syncBadgeArtStudioModeCopy() {
     const canEdit = badgeArtStudioIsEditable();
+    if (badgeArtStudioDialog) {
+        badgeArtStudioDialog.classList.toggle('badge-art-studio-modal--readonly', !canEdit);
+    }
     if (badgeArtStudioTitle) {
         badgeArtStudioTitle.textContent = canEdit ? 'Badge Studio' : 'Badges';
     }
@@ -257,7 +277,7 @@ if (resetRewardsBtn) {
 
 if (badgeArtAchievementList) {
     badgeArtAchievementList.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-achievement-key][data-category-key]');
+        const button = getClosestEventTarget(event, 'button[data-achievement-key][data-category-key]');
         if (!button) {
             return;
         }
@@ -269,7 +289,7 @@ if (badgeArtAchievementList) {
 
 if (badgeArtBankGrid) {
     badgeArtBankGrid.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-badge-art-id]');
+        const button = getClosestEventTarget(event, 'button[data-badge-art-id]');
         if (!button) {
             return;
         }
@@ -305,7 +325,7 @@ if (badgeArtStudioModal) {
             closeBadgeArtStudio({ discardDraft: true });
             return;
         }
-        const closeBtn = event.target.closest('[data-badge-art-action="close"]');
+        const closeBtn = getClosestEventTarget(event, '[data-badge-art-action="close"]');
         if (closeBtn) {
             closeBadgeArtStudio({ discardDraft: true });
         }
@@ -399,7 +419,7 @@ backupFileInput.addEventListener('change', async (event) => {
 
 if (familyAccountsList) {
     familyAccountsList.addEventListener('click', async (event) => {
-        const target = event.target.closest('button[data-action="delete-family"][data-family-id]');
+        const target = getClosestEventTarget(event, 'button[data-action="delete-family"][data-family-id]');
         if (!target) {
             return;
         }

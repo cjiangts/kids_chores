@@ -269,6 +269,10 @@
             gap: 0.7rem;
         }
 
+        .badge-art-studio-modal.badge-art-studio-modal--readonly .badge-art-modal-sections {
+            grid-template-rows: minmax(125px, 1fr) auto;
+        }
+
         .badge-art-modal-section {
             min-height: 0;
             border-radius: 18px;
@@ -477,6 +481,10 @@
             overflow: hidden;
         }
 
+        .badge-art-studio-modal.badge-art-studio-modal--readonly .badge-art-selection {
+            flex: 0 0 auto;
+        }
+
         .badge-art-selection-top {
             display: grid;
             grid-template-columns: 64px minmax(0, 1fr);
@@ -597,6 +605,10 @@
         @media (max-width: 900px) {
             .badge-art-modal-sections {
                 grid-template-rows: minmax(130px, 30%) minmax(259px, 70%);
+            }
+
+            .badge-art-studio-modal.badge-art-studio-modal--readonly .badge-art-modal-sections {
+                grid-template-rows: minmax(130px, 1fr) auto;
             }
         }
 
