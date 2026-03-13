@@ -12,10 +12,6 @@ const errorMessage = document.getElementById('errorMessage');
 const practiceSection = document.getElementById('practiceSection');
 const practiceSummaryStrip = document.getElementById('practiceSummaryStrip');
 const practiceChooser = document.getElementById('practiceChooser');
-const chinesePracticeOption = document.getElementById('chinesePracticeOption');
-const writingPracticeOption = document.getElementById('writingPracticeOption');
-const mathPracticeOption = document.getElementById('mathPracticeOption');
-const lessonReadingPracticeOption = document.getElementById('lessonReadingPracticeOption');
 const {
     buildCategoryStarsModel,
 } = window.PracticeStarBadgeCommon || {};
@@ -280,6 +276,7 @@ function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
 
 function buildCategoryProgressModel({
     categoryKey,
+    behaviorType,
     dailyStarTiersByCategory,
     dailyCompletedByCategory,
     dailyPercentByCategory,
@@ -308,6 +305,8 @@ function buildCategoryProgressModel({
     const targetCount = Number.isInteger(latestTargetRaw) && latestTargetRaw > 0
         ? latestTargetRaw
         : (Number.isInteger(configuredTargetRaw) && configuredTargetRaw > 0 ? configuredTargetRaw : 0);
+    const normalizedBehaviorType = String(behaviorType || '').trim().toLowerCase();
+    const isTypeIII = normalizedBehaviorType === 'type_iii';
     const triedRaw = Number.parseInt(dailyTriedByCategory?.[categoryKey], 10);
     const rightRaw = Number.parseInt(dailyRightByCategory?.[categoryKey], 10);
     const triedCount = Number.isInteger(triedRaw) ? Math.max(0, triedRaw) : 0;
@@ -325,12 +324,6 @@ function buildCategoryProgressModel({
     const seenPercent = targetCount > 0
         ? Math.max(0, Math.min(100, (seenCount / targetCount) * 100))
         : 0;
-    const masteredPercent = targetCount > 0
-        ? Math.max(0, Math.min(100, (masteredCount / targetCount) * 100))
-        : 0;
-    const redoPercent = targetCount > 0
-        ? Math.max(0, Math.min(100, (redoCount / targetCount) * 100))
-        : 0;
     const fillPercent = seenPercent;
     const bonusPercent = Math.max(0, percentValueRaw - 100);
     const tiers = Array.isArray(starsModel?.tiers)
@@ -347,23 +340,37 @@ function buildCategoryProgressModel({
         }
     }
     const isWorkingOnNextStar = starCount > 0 && latestPercentValue < 100;
+    const unseenCount = targetCount > 0
+        ? Math.max(0, targetCount - seenCount)
+        : 0;
+    const isTypeIIIRecordedComplete = isTypeIII && targetCount > 0 && seenCount > 0 && unseenCount <= 0;
+    const displayMasteredCount = isTypeIIIRecordedComplete ? seenCount : masteredCount;
+    const displayRedoCount = isTypeIIIRecordedComplete ? 0 : redoCount;
+    const masteredPercent = targetCount > 0
+        ? Math.max(0, Math.min(100, (displayMasteredCount / targetCount) * 100))
+        : 0;
+    const redoPercent = targetCount > 0
+        ? Math.max(0, Math.min(100, (displayRedoCount / targetCount) * 100))
+        : 0;
+    const isReview = !isTypeIIIRecordedComplete && targetCount > 0 && seenCount > 0 && unseenCount <= 0 && redoCount > 0;
+    const isFullyComplete = targetCount > 0
+        ? (isTypeIIIRecordedComplete || (seenCount > 0 && unseenCount <= 0 && redoCount <= 0))
+        : Boolean(starsModel.isDoneToday && latestPercentValue >= 100);
+    const hasStarted = isFullyComplete || isReview || fillPercent > 0 || seenCount > 0;
 
     let statusClass = 'not-started';
     let statusText = 'Not started';
-    if (starsModel.isDoneToday) {
-        statusClass = 'done';
-        statusText = 'Done';
-    } else if (fillPercent > 0) {
+    if (isReview) {
+        statusClass = 'review';
+        statusText = 'Review';
+    } else if (!isFullyComplete && hasStarted) {
         statusClass = 'in-progress';
         statusText = 'In progress';
     }
 
     const subText = targetCount > 0
-        ? `${masteredCount} mastered · ${redoCount} redo · ${seenCount}/${targetCount} seen`
+        ? `${displayMasteredCount} mastered · ${displayRedoCount} redo · ${seenCount}/${targetCount} seen`
         : 'Not started';
-    const unseenCount = targetCount > 0
-        ? Math.max(0, targetCount - seenCount)
-        : 0;
     const unseenPercent = Math.max(0, 100 - seenPercent);
 
     return {
@@ -378,12 +385,14 @@ function buildCategoryProgressModel({
         isWorkingOnNextStar,
         targetCount,
         seenCount,
-        masteredCount,
-        redoCount,
+        masteredCount: displayMasteredCount,
+        redoCount: displayRedoCount,
         unseenCount,
         masteredPercent,
         redoPercent,
         unseenPercent,
+        isFullyComplete,
+        isReview,
         isDoneToday: starsModel.isDoneToday,
     };
 }
@@ -394,8 +403,8 @@ function buildCategoryCardInnerHtml({
     progressModel,
 }) {
     let rightBadgeHtml = `<span class="practice-row-status-pill ${progressModel.statusClass}">${progressModel.statusText}</span>`;
-    if (progressModel.isDoneToday && progressModel.starCount > 0) {
-        rightBadgeHtml = renderStarTokenSetHtml(progressModel.starCount, {
+    if (progressModel.isFullyComplete) {
+        rightBadgeHtml = renderStarTokenSetHtml(Math.max(1, progressModel.starCount), {
             starClass: 'practice-row-token-star',
             overflowClass: 'practice-row-token-overflow',
         });
@@ -435,6 +444,7 @@ function buildCategoryCardInnerHtml({
 function renderPracticeOptionCard({
     button,
     categoryKey,
+    behaviorType,
     displayName,
     emoji,
     dailyStarTiersByCategory,
@@ -450,6 +460,7 @@ function renderPracticeOptionCard({
     }
     const model = buildCategoryProgressModel({
         categoryKey,
+        behaviorType,
         dailyStarTiersByCategory,
         dailyCompletedByCategory,
         dailyPercentByCategory,
@@ -517,7 +528,7 @@ function renderPracticeSummaryStrip({
             practiceTargetByCategory,
         });
         starsTodayCount += model.starCount;
-        if (model.isDoneToday) {
+        if (model.isFullyComplete) {
             doneCount += 1;
         }
     });
@@ -574,26 +585,14 @@ function renderPracticeSummaryStrip({
     practiceSummaryStrip.classList.remove('hidden');
 }
 
-function getStaticPracticeOptionKeySet() {
-    const keys = new Set();
-    const nodes = practiceChooser.querySelectorAll('.practice-option[data-category-key]');
-    nodes.forEach((node) => {
-        const key = normalizeCategoryKey(node.getAttribute('data-category-key'));
-        if (key) {
-            keys.add(key);
-        }
-    });
-    return keys;
+function clearPracticeOptionButtons() {
+    if (!practiceChooser) {
+        return;
+    }
+    practiceChooser.innerHTML = '';
 }
 
-function clearDynamicPracticeOptions() {
-    const dynamicOptions = practiceChooser.querySelectorAll('.dynamic-practice-option');
-    dynamicOptions.forEach((node) => {
-        node.remove();
-    });
-}
-
-function renderDynamicPracticeOptions({
+function renderPracticeOptionButtons({
     optedInCategoryKeys,
     categoryMetaMap,
     dailyCompletedByCategory,
@@ -604,12 +603,11 @@ function renderDynamicPracticeOptions({
     dailyTriedByCategory,
     dailyRightByCategory,
 }) {
-    clearDynamicPracticeOptions();
+    clearPracticeOptionButtons();
     let renderedCount = 0;
-    const staticOptionKeys = getStaticPracticeOptionKeySet();
     optedInCategoryKeys.forEach((categoryKey) => {
         const key = normalizeCategoryKey(categoryKey);
-        if (!key || staticOptionKeys.has(key)) {
+        if (!key) {
             return;
         }
         const meta = categoryMetaMap[key] || {};
@@ -627,7 +625,8 @@ function renderDynamicPracticeOptions({
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'practice-option redesign-practice-option dynamic-practice-option';
+        button.className = 'practice-option redesign-practice-option';
+        button.setAttribute('data-category-key', key);
         button.addEventListener('click', () => {
             runDynamicPracticeByBehavior(key, behaviorType, Boolean(meta.has_chinese_specific_logic));
         });
@@ -635,6 +634,7 @@ function renderDynamicPracticeOptions({
         renderPracticeOptionCard({
             button,
             categoryKey: key,
+            behaviorType,
             displayName: getCategoryDisplayName(key, categoryMetaMap),
             emoji: getCategoryEmoji(key, categoryMetaMap),
             dailyStarTiersByCategory,
@@ -657,7 +657,6 @@ function renderPracticeOptions() {
         return;
     }
 
-    const optedInSet = getOptedInDeckCategorySet(currentKid);
     const optedInKeys = getOptedInDeckCategoryKeys(currentKid);
     const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
     const dailyCompletedByCategory = getCategoryValueMap(currentKid?.dailyCompletedByDeckCategory);
@@ -669,61 +668,15 @@ function renderPracticeOptions() {
     const practiceTargetByCategory = getCategoryValueMap(currentKid?.practiceTargetByDeckCategory);
     const typeIChineseKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
     activeChineseCategoryKey = typeIChineseKey;
-    const typeIChineseSessionCount = Number.parseInt(
-        typeIChineseKey ? practiceTargetByCategory?.[typeIChineseKey] : 0,
-        10,
-    );
     const typeINonChineseKey = resolveTypeINonChinesePracticeCategoryKey(
         currentKid,
         activeTypeINonChineseCategoryKey,
     );
     activeTypeINonChineseCategoryKey = typeINonChineseKey;
-    const typeINonChineseSessionCount = Number.parseInt(
-        typeINonChineseKey ? practiceTargetByCategory?.[typeINonChineseKey] : 0,
-        10,
-    );
     const typeIIKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
     activeTypeIICategoryKey = typeIIKey;
-    const typeIISessionCount = Number.parseInt(
-        typeIIKey
-            ? practiceTargetByCategory?.[typeIIKey]
-            : 0,
-        10,
-    );
     const typeIIIKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
     activeTypeIIICategoryKey = typeIIIKey;
-    const typeIIISessionCount = Number.parseInt(typeIIIKey ? practiceTargetByCategory?.[typeIIIKey] : 0, 10);
-
-    const chineseEnabled = (
-        Boolean(typeIChineseKey)
-        && optedInSet.has(typeIChineseKey)
-        && Number.isInteger(typeIChineseSessionCount)
-        && typeIChineseSessionCount > 0
-    );
-    const writingEnabled = Boolean(typeIIKey)
-        && optedInSet.has(typeIIKey)
-        && Number.isInteger(typeIISessionCount)
-        && typeIISessionCount > 0;
-    const typeINonChineseEnabled = Boolean(typeINonChineseKey)
-        && optedInSet.has(typeINonChineseKey)
-        && Number.isInteger(typeINonChineseSessionCount)
-        && typeINonChineseSessionCount > 0;
-    const typeIIIEnabled = Boolean(typeIIIKey)
-        && optedInSet.has(typeIIIKey)
-        && Number.isInteger(typeIIISessionCount)
-        && typeIIISessionCount > 0;
-    const typeIIIDisplayName = typeIIIKey ? getCategoryDisplayName(typeIIIKey, categoryMetaMap) : '';
-    const typeIIIEmoji = typeIIIKey ? getCategoryEmoji(typeIIIKey, categoryMetaMap) : '';
-    const typeIIDisplayName = typeIIKey ? getCategoryDisplayName(typeIIKey, categoryMetaMap) : '';
-    const typeIIEmoji = typeIIKey ? getCategoryEmoji(typeIIKey, categoryMetaMap) : '';
-    const typeIChineseDisplayName = typeIChineseKey
-        ? getCategoryDisplayName(typeIChineseKey, categoryMetaMap)
-        : '';
-    const typeIChineseEmoji = typeIChineseKey ? getCategoryEmoji(typeIChineseKey, categoryMetaMap) : '';
-    const typeINonChineseDisplayName = typeINonChineseKey
-        ? getCategoryDisplayName(typeINonChineseKey, categoryMetaMap)
-        : '';
-    const typeINonChineseEmoji = typeINonChineseKey ? getCategoryEmoji(typeINonChineseKey, categoryMetaMap) : '';
     renderPracticeSummaryStrip({
         optedInCategoryKeys: optedInKeys,
         categoryMetaMap,
@@ -735,93 +688,7 @@ function renderPracticeOptions() {
         dailyTriedByCategory,
         dailyRightByCategory,
     });
-    if (chinesePracticeOption) {
-        if (typeIChineseKey) {
-            chinesePracticeOption.setAttribute('data-category-key', typeIChineseKey);
-            renderPracticeOptionCard({
-                button: chinesePracticeOption,
-                categoryKey: typeIChineseKey,
-                displayName: typeIChineseDisplayName,
-                emoji: typeIChineseEmoji,
-                dailyStarTiersByCategory,
-                dailyCompletedByCategory,
-                dailyPercentByCategory,
-                dailyTargetByCategory,
-                dailyTriedByCategory,
-                dailyRightByCategory,
-                practiceTargetByCategory,
-            });
-        } else {
-            chinesePracticeOption.removeAttribute('data-category-key');
-        }
-    }
-    if (mathPracticeOption) {
-        if (typeINonChineseKey) {
-            mathPracticeOption.setAttribute('data-category-key', typeINonChineseKey);
-            renderPracticeOptionCard({
-                button: mathPracticeOption,
-                categoryKey: typeINonChineseKey,
-                displayName: typeINonChineseDisplayName,
-                emoji: typeINonChineseEmoji,
-                dailyStarTiersByCategory,
-                dailyCompletedByCategory,
-                dailyPercentByCategory,
-                dailyTargetByCategory,
-                dailyTriedByCategory,
-                dailyRightByCategory,
-                practiceTargetByCategory,
-            });
-        } else {
-            mathPracticeOption.removeAttribute('data-category-key');
-        }
-    }
-    if (lessonReadingPracticeOption) {
-        if (typeIIIKey) {
-            lessonReadingPracticeOption.setAttribute('data-category-key', typeIIIKey);
-            renderPracticeOptionCard({
-                button: lessonReadingPracticeOption,
-                categoryKey: typeIIIKey,
-                displayName: typeIIIDisplayName,
-                emoji: typeIIIEmoji,
-                dailyStarTiersByCategory,
-                dailyCompletedByCategory,
-                dailyPercentByCategory,
-                dailyTargetByCategory,
-                dailyTriedByCategory,
-                dailyRightByCategory,
-                practiceTargetByCategory,
-            });
-        } else {
-            lessonReadingPracticeOption.removeAttribute('data-category-key');
-        }
-    }
-    if (writingPracticeOption) {
-        if (typeIIKey) {
-            writingPracticeOption.setAttribute('data-category-key', typeIIKey);
-            renderPracticeOptionCard({
-                button: writingPracticeOption,
-                categoryKey: typeIIKey,
-                displayName: typeIIDisplayName,
-                emoji: typeIIEmoji,
-                dailyStarTiersByCategory,
-                dailyCompletedByCategory,
-                dailyPercentByCategory,
-                dailyTargetByCategory,
-                dailyTriedByCategory,
-                dailyRightByCategory,
-                practiceTargetByCategory,
-            });
-        } else {
-            writingPracticeOption.removeAttribute('data-category-key');
-        }
-    }
-
-    chinesePracticeOption.classList.toggle('hidden', !chineseEnabled);
-    writingPracticeOption.classList.toggle('hidden', !writingEnabled);
-    mathPracticeOption.classList.toggle('hidden', !typeINonChineseEnabled);
-    lessonReadingPracticeOption.classList.toggle('hidden', !typeIIIEnabled);
-
-    const dynamicOptionCount = renderDynamicPracticeOptions({
+    const renderedOptionCount = renderPracticeOptionButtons({
         optedInCategoryKeys: optedInKeys,
         categoryMetaMap,
         dailyCompletedByCategory,
@@ -833,7 +700,7 @@ function renderPracticeOptions() {
         dailyRightByCategory,
     });
     practiceSection.classList.remove('hidden');
-    if (!chineseEnabled && !writingEnabled && !typeINonChineseEnabled && !typeIIIEnabled && dynamicOptionCount <= 0) {
+    if (renderedOptionCount <= 0) {
         showError('No daily practice is assigned. Ask your parent to set per-session counts above 0.');
     } else {
         showError('');

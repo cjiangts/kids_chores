@@ -425,7 +425,7 @@ function displayKids(kids) {
         kidsList.innerHTML = `
             <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
-                <p>Click "Add New Kid" to add your first learner!</p>
+                <p>Tap ➕️ Add Kid to add your first learner.</p>
             </div>
         `;
         return;
@@ -450,7 +450,7 @@ function displayKids(kids) {
             : 'No deck categories yet';
         const deckHeroNote = availableOptInCount > 0
             ? `${availableOptInCount} to opt in`
-            : (configuredDeckCount > 0 ? 'All opted in' : 'Choose what this kid practices');
+            : (configuredDeckCount > 0 ? 'All opted in' : 'Tap + to choose what this kid practices');
         let worksheetToolAttached = false;
         let reviewToolAttached = false;
 

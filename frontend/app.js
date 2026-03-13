@@ -114,6 +114,7 @@ function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
 
 function buildFamilyProgressModel({
     starsModel,
+    behaviorType,
     configuredTargetCount,
     latestTargetCount,
     latestTriedCount,
@@ -122,6 +123,8 @@ function buildFamilyProgressModel({
     const safeConfiguredTarget = toSafeNonNegativeInt(configuredTargetCount);
     const safeLatestTarget = toSafeNonNegativeInt(latestTargetCount);
     const safeTarget = safeLatestTarget > 0 ? safeLatestTarget : safeConfiguredTarget;
+    const normalizedBehaviorType = String(behaviorType || '').trim().toLowerCase();
+    const isTypeIII = normalizedBehaviorType === 'type_iii';
     const latestPercent = Number.isFinite(starsModel?.latestPercentValue)
         ? Math.max(0, Math.min(100, Math.round(starsModel.latestPercentValue)))
         : 0;
@@ -140,17 +143,6 @@ function buildFamilyProgressModel({
     }
     const isWorkingOnNextStar = starCount > 0 && latestPercent < 100;
     const isDoneToday = Boolean(starsModel?.isDoneToday);
-    const hasStarted = isDoneToday || latestPercent > 0;
-
-    let statusClass = 'not-started';
-    let statusText = 'Not started';
-    if (isDoneToday) {
-        statusClass = 'done';
-        statusText = 'Done';
-    } else if (latestPercent > 0) {
-        statusClass = 'in-progress';
-        statusText = 'In progress';
-    }
 
     const safeTriedFromApi = toSafeNonNegativeInt(latestTriedCount);
     const safeRightFromApi = toSafeNonNegativeInt(latestRightCount);
@@ -167,21 +159,39 @@ function buildFamilyProgressModel({
     const unseenCount = safeTarget > 0
         ? Math.max(0, safeTarget - seenCount)
         : 0;
+    const isTypeIIIRecordedComplete = isTypeIII && safeTarget > 0 && seenCount > 0 && unseenCount <= 0;
+    const displayMasteredCount = isTypeIIIRecordedComplete ? seenCount : masteredCount;
+    const displayRedoCount = isTypeIIIRecordedComplete ? 0 : redoCount;
+    const isReview = !isTypeIIIRecordedComplete && safeTarget > 0 && seenCount > 0 && unseenCount <= 0 && redoCount > 0;
+    const isFullyComplete = safeTarget > 0
+        ? (isTypeIIIRecordedComplete || (seenCount > 0 && unseenCount <= 0 && redoCount <= 0))
+        : Boolean(isDoneToday && latestPercent >= 100);
+    const hasStarted = isFullyComplete || isReview || latestPercent > 0 || seenCount > 0;
+
+    let statusClass = 'not-started';
+    let statusText = 'Not started';
+    if (isReview) {
+        statusClass = 'review';
+        statusText = 'Review';
+    } else if (!isFullyComplete && hasStarted) {
+        statusClass = 'in-progress';
+        statusText = 'In progress';
+    }
 
     const seenPercent = safeTarget > 0
         ? Math.max(0, Math.min(100, (seenCount / safeTarget) * 100))
         : (isDoneToday ? 100 : latestPercent);
     const masteredPercent = safeTarget > 0
-        ? Math.max(0, Math.min(100, (masteredCount / safeTarget) * 100))
+        ? Math.max(0, Math.min(100, (displayMasteredCount / safeTarget) * 100))
         : (isDoneToday ? 100 : seenPercent);
     const redoPercent = safeTarget > 0
-        ? Math.max(0, Math.min(100, (redoCount / safeTarget) * 100))
+        ? Math.max(0, Math.min(100, (displayRedoCount / safeTarget) * 100))
         : 0;
     const unseenPercent = Math.max(0, 100 - seenPercent);
 
     let summaryText = 'Not started';
     if (hasStarted && safeTarget > 0) {
-        summaryText = `${masteredCount} mastered · ${redoCount} redo · ${seenCount}/${safeTarget} seen`;
+        summaryText = `${displayMasteredCount} mastered · ${displayRedoCount} redo · ${seenCount}/${safeTarget} seen`;
     } else if (isDoneToday) {
         summaryText = 'Done';
     } else if (hasStarted) {
@@ -192,12 +202,14 @@ function buildFamilyProgressModel({
         statusClass,
         statusText,
         summaryText,
+        isFullyComplete,
+        isReview,
         isDoneToday,
         starCount,
         isWorkingOnNextStar,
         targetCount: safeTarget,
-        masteredCount,
-        redoCount,
+        masteredCount: displayMasteredCount,
+        redoCount: displayRedoCount,
         unseenCount,
         segments: {
             mastered: Math.max(0, Math.min(100, masteredPercent)),
@@ -213,7 +225,7 @@ function displayKids(kids) {
         kidsList.innerHTML = `
             <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
-                <p>Click 👔 Parent Mode to add your first learner.</p>
+                <p>Tap 👔 Parent Mode, then tap ➕️ Add Kid to add your first learner.</p>
             </div>
         `;
         return;
@@ -251,6 +263,7 @@ function displayKids(kids) {
             const emoji = getCategoryEmoji(categoryKey, categoryMetaMap) || '🧩';
             const progressModel = buildFamilyProgressModel({
                 starsModel,
+                behaviorType: categoryMetaMap?.[categoryKey]?.behavior_type,
                 configuredTargetCount: targetCount,
                 latestTargetCount: dailyTargetByCategory[categoryKey],
                 latestTriedCount: dailyTriedByCategory[categoryKey],
@@ -263,12 +276,12 @@ function displayKids(kids) {
                 progressModel,
             });
         });
-        const doneCount = enabledRows.filter((row) => row.progressModel.isDoneToday).length;
+        const doneCount = enabledRows.filter((row) => row.progressModel.isFullyComplete).length;
         const subjectRowsHtml = enabledRows.length > 0
             ? enabledRows.map((row) => {
                 const statusClass = row.progressModel.statusClass;
-                const rightStatusHtml = row.progressModel.isDoneToday
-                    ? renderStarTokenSetHtml(row.progressModel.starCount, {
+                const rightStatusHtml = row.progressModel.isFullyComplete
+                    ? renderStarTokenSetHtml(Math.max(1, row.progressModel.starCount), {
                         starClass: 'redesign-status-token star',
                         overflowClass: 'redesign-status-token overflow',
                     })

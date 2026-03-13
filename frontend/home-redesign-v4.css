@@ -416,18 +416,18 @@ body.practice-home-redesign {
     white-space: nowrap;
 }
 
-.family-home-page .redesign-status-pill.done,
-.parent-admin-page .redesign-status-pill.done {
-    background: #e9f8ef;
-    color: #157f42;
-    border: 1px solid #bfe8cc;
-}
-
 .family-home-page .redesign-status-pill.in-progress,
 .parent-admin-page .redesign-status-pill.in-progress {
     background: #fff3da;
     color: #a16207;
     border: 1px solid #eec981;
+}
+
+.family-home-page .redesign-status-pill.review,
+.parent-admin-page .redesign-status-pill.review {
+    background: #e9f0ff;
+    color: #2457c5;
+    border: 1px solid #bfd0fb;
 }
 
 .family-home-page .redesign-status-pill.not-started,
@@ -925,16 +925,16 @@ body.practice-home-redesign {
     border: 1px solid #f0d6a0;
 }
 
+.practice-home-redesign .practice-row-status-pill.review {
+    background: #e9f0ff;
+    color: #2457c5;
+    border: 1px solid #bfd0fb;
+}
+
 .practice-home-redesign .practice-row-status-pill.not-started {
     background: #edf2f7;
     color: #64748b;
     border: 1px solid #d8e0ea;
-}
-
-.practice-home-redesign .practice-row-status-pill.done {
-    background: #e9f8ef;
-    color: #157f42;
-    border: 1px solid #bfe8cc;
 }
 
 .practice-home-redesign .practice-row-token-star,
