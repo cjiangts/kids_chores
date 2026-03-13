@@ -3,19 +3,22 @@
  * Loaded before page-specific scripts that record or play audio.
  */
 window.AudioCommon = {
+    PREFERRED_AUDIO_BITRATE: 160000,
+    RECORDING_PROFILE_LABEL: 'High Quality',
+
     /**
      * Preferred audio constraints for voice recording.
-     * Mono, noise suppression + auto gain for clean voice in home environments.
-     * Echo cancellation off — not a call, can introduce artifacts.
+     * Keep browser voice DSP off so recordings stay closer to the raw mic capture.
      */
     getAudioConstraints() {
         return {
             audio: {
                 channelCount: { ideal: 1 },
                 sampleRate: { ideal: 48000 },
+                sampleSize: { ideal: 24 },
                 echoCancellation: false,
-                noiseSuppression: true,
-                autoGainControl: true,
+                noiseSuppression: false,
+                autoGainControl: false,
             }
         };
     },
@@ -25,10 +28,22 @@ window.AudioCommon = {
      * @returns {Promise<MediaStream>}
      */
     async getMicStream() {
+        const requestedConstraints = this.getAudioConstraints();
         try {
-            return await navigator.mediaDevices.getUserMedia(this.getAudioConstraints());
-        } catch (_constraintError) {
-            return await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia(requestedConstraints);
+            this.logMicDiagnostics(stream, {
+                requestedConstraints,
+                usedFallback: false,
+            });
+            return stream;
+        } catch (constraintError) {
+            console.warn('[AudioCommon] Preferred audio constraints unavailable, falling back to default mic capture.', constraintError);
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.logMicDiagnostics(stream, {
+                requestedConstraints,
+                usedFallback: true,
+            });
+            return stream;
         }
     },
 
@@ -61,11 +76,47 @@ window.AudioCommon = {
      */
     getRecorderOptions() {
         const mimeType = this.getPreferredMimeType();
-        const opts = { audioBitsPerSecond: 96000 };
+        const opts = { audioBitsPerSecond: this.PREFERRED_AUDIO_BITRATE };
         if (mimeType) {
             opts.mimeType = mimeType;
         }
         return opts;
+    },
+
+    logMicDiagnostics(stream, options = {}) {
+        const audioTrack = stream && typeof stream.getAudioTracks === 'function'
+            ? stream.getAudioTracks()[0]
+            : null;
+        const trackSettings = audioTrack && typeof audioTrack.getSettings === 'function'
+            ? audioTrack.getSettings()
+            : {};
+        const trackConstraints = audioTrack && typeof audioTrack.getConstraints === 'function'
+            ? audioTrack.getConstraints()
+            : {};
+        console.info('[AudioCommon] Microphone capture ready.', {
+            profile: this.RECORDING_PROFILE_LABEL,
+            usedFallback: Boolean(options.usedFallback),
+            requestedConstraints: options.requestedConstraints || this.getAudioConstraints(),
+            appliedConstraints: trackConstraints,
+            trackSettings,
+            trackLabel: audioTrack ? String(audioTrack.label || '') : '',
+        });
+    },
+
+    logRecorderDiagnostics(recorder, stream) {
+        const audioTrack = stream && typeof stream.getAudioTracks === 'function'
+            ? stream.getAudioTracks()[0]
+            : null;
+        const trackSettings = audioTrack && typeof audioTrack.getSettings === 'function'
+            ? audioTrack.getSettings()
+            : {};
+        console.info('[AudioCommon] MediaRecorder started.', {
+            profile: this.RECORDING_PROFILE_LABEL,
+            mimeType: String(recorder && recorder.mimeType ? recorder.mimeType : ''),
+            requestedBitsPerSecond: this.PREFERRED_AUDIO_BITRATE,
+            actualBitsPerSecond: Number(recorder && recorder.audioBitsPerSecond) || null,
+            trackSettings,
+        });
     },
 
     /**

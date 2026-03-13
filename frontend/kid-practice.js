@@ -1363,6 +1363,9 @@ async function toggleRecord() {
         };
 
         state.mediaRecorder.start(window.AudioCommon.TIMESLICE_MS);
+        if (window.AudioCommon && typeof window.AudioCommon.logRecorderDiagnostics === 'function') {
+            window.AudioCommon.logRecorderDiagnostics(state.mediaRecorder, state.mediaStream);
+        }
         state.recordingStartedAtMs = Date.now();
         state.isRecording = true;
         startRecordingVisualizer(state.mediaStream);
