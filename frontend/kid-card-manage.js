@@ -67,6 +67,7 @@ const cardSearchInput = document.getElementById('cardSearchInput');
 const skipVisibleCardsBtn = document.getElementById('skipVisibleCardsBtn');
 const unskipVisibleCardsBtn = document.getElementById('unskipVisibleCardsBtn');
 const cardsBulkActionMessage = document.getElementById('cardsBulkActionMessage');
+const cardsQueueLegend = document.getElementById('cardsQueueLegend');
 const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardStatusFilterButtons = [...document.querySelectorAll('button[data-card-status-filter]')];
@@ -119,6 +120,8 @@ const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
 const SHOW_DECK_COUNT_MISMATCH_WARNING = false;
+const NEXT_SESSION_HARD_COLOR = '#f59e0b';
+const NEXT_SESSION_LEAST_COLOR = '#22a45a';
 let currentSessionCardCountCap = null;
 
 const promptPreviewPlayer = (
@@ -924,9 +927,90 @@ function getSortedCardsForDisplay(cards) {
     return window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
 }
 
+function isNextSessionQueueOrderSelected() {
+    return String(viewOrderSelect && viewOrderSelect.value || '').trim().toLowerCase() === 'queue';
+}
+
+function getCardIdText(card) {
+    const raw = String(card && card.id ? card.id : '').trim();
+    return raw;
+}
+
+function getQueueHighlightMap(cards) {
+    if (!isNextSessionQueueOrderSelected()) {
+        return new Map();
+    }
+
+    const targetCount = getSessionCardCountForMixLegend();
+    if (targetCount <= 0) {
+        return new Map();
+    }
+
+    const orderedQueueCards = window.PracticeManageCommon.sortCardsForView(
+        (Array.isArray(cards) ? cards : []).filter((card) => {
+            if (!card || card.skip_practice) {
+                return false;
+            }
+            const rawNextOrder = card.next_session_order;
+            if (rawNextOrder === null || rawNextOrder === undefined || rawNextOrder === '') {
+                return false;
+            }
+            return Number.isFinite(Number(rawNextOrder));
+        }),
+        'queue'
+    );
+    const nextSessionCards = orderedQueueCards.slice(0, targetCount);
+    if (!nextSessionCards.length) {
+        return new Map();
+    }
+
+    let redPrefixCount = 0;
+    while (
+        redPrefixCount < nextSessionCards.length
+        && String(nextSessionCards[redPrefixCount] && nextSessionCards[redPrefixCount].last_result || '').toLowerCase() === 'wrong'
+    ) {
+        redPrefixCount += 1;
+    }
+
+    const remainingSlots = Math.max(0, nextSessionCards.length - redPrefixCount);
+    const hardPct = getHardCardPercentForMixLegend();
+    const hardTarget = hardPct <= 0
+        ? 0
+        : Math.min(remainingSlots, Math.ceil((remainingSlots * hardPct) / 100));
+
+    const highlights = new Map();
+    nextSessionCards.forEach((card, index) => {
+        const cardId = getCardIdText(card);
+        if (!cardId) {
+            return;
+        }
+        if (index < redPrefixCount) {
+            highlights.set(cardId, 'last-failed');
+            return;
+        }
+        if (index < redPrefixCount + hardTarget) {
+            highlights.set(cardId, 'hard');
+            return;
+        }
+        highlights.set(cardId, 'least');
+    });
+    return highlights;
+}
+
 function getVisibleCardsForDisplay(cards) {
     const sorted = getSortedCardsForDisplay(cards);
     return sorted.slice(0, visibleCardCount);
+}
+
+function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
+    if (!cardsQueueLegend) {
+        return;
+    }
+    const shouldShow = currentCardViewMode === 'short'
+        && isNextSessionQueueOrderSelected()
+        && Number.parseInt(cardCount, 10) > 0;
+    cardsQueueLegend.classList.toggle('hidden', !shouldShow);
+    cardsQueueLegend.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
 }
 
 function renderVisibleSkipActionButtons() {
@@ -1066,7 +1150,7 @@ function updateHardnessSliderTrack(hardPct) {
         return;
     }
     const hard = Math.max(0, Math.min(100, Number.parseInt(hardPct, 10) || 0));
-    hardnessPercentSlider.style.background = `linear-gradient(90deg, #f59e0b 0%, #f59e0b ${hard}%, #3f7ee8 ${hard}%, #3f7ee8 100%)`;
+    hardnessPercentSlider.style.background = `linear-gradient(90deg, ${NEXT_SESSION_HARD_COLOR} 0%, ${NEXT_SESSION_HARD_COLOR} ${hard}%, ${NEXT_SESSION_LEAST_COLOR} ${hard}%, ${NEXT_SESSION_LEAST_COLOR} 100%)`;
 }
 
 function updateQueueMixLegend() {
@@ -1150,6 +1234,13 @@ function cancelQueuePreviewReload() {
         window.clearTimeout(previewQueueTimer);
         previewQueueTimer = null;
     }
+}
+
+function rerenderCompactCardsForQueuePreview() {
+    if (currentCardViewMode !== 'short' || !Array.isArray(currentCards) || currentCards.length <= 0) {
+        return;
+    }
+    displayCards(currentCards);
 }
 
 async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCount) {
@@ -1445,7 +1536,7 @@ function getCompactCardText(card) {
     return String(card && (card.front || card.back || '')).trim();
 }
 
-function buildCompactCardMarkup(card) {
+function buildCompactCardMarkup(card, options = {}) {
     const text = getCompactCardText(card) || '(empty)';
     const classes = ['card-compact-pill'];
     if (card && card.skip_practice) {
@@ -1454,17 +1545,26 @@ function buildCompactCardMarkup(card) {
     if (isChineseSpecificLogic) {
         classes.push('chinese');
     }
+    const queueHighlight = String(options.queueHighlight || '').trim().toLowerCase();
+    if (queueHighlight) {
+        classes.push(`queue-${queueHighlight}`);
+    }
     const titlePrefix = isType2Behavior() ? 'Back' : 'Front';
     const totalPracticed = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
-    const cardId = String(card && card.id ? card.id : '');
+    const cardId = getCardIdText(card);
+    const highlightHint = queueHighlight === 'last-failed'
+        ? ' • Next session: last failed'
+        : (queueHighlight === 'hard'
+            ? ' • Next session: hard'
+            : (queueHighlight === 'least' ? ' • Next session: least practiced' : ''));
     return `
         <button
             type="button"
             class="${classes.join(' ')}"
             data-action="expand-compact"
             data-card-id="${escapeHtml(cardId)}"
-            title="${escapeHtml(`Open details • ${titlePrefix}: ${text}`)}"
-            aria-label="${escapeHtml(`Open card details: ${text}`)}"
+            title="${escapeHtml(`Open details • ${titlePrefix}: ${text}${highlightHint}`)}"
+            aria-label="${escapeHtml(`Open card details: ${text}${highlightHint}`)}"
         >
             <span class="card-compact-pill-text">${escapeHtml(text)}</span>
             <span class="card-compact-count-badge" aria-hidden="true">${totalPracticed}</span>
@@ -1544,6 +1644,8 @@ function applyChineseCardFrontUniformSize() {
 
 function displayCards(cards) {
     sortedCards = getSortedCardsForDisplay(cards);
+    const queueHighlightMap = getQueueHighlightMap(cards);
+    updateCardsQueueLegendVisibility(sortedCards.length);
 
     if (mathCardCount) {
         mathCardCount.textContent = `(${sortedCards.length})`;
@@ -1592,7 +1694,9 @@ function displayCards(cards) {
                     trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
                 })}</div>`;
             }
-            return buildCompactCardMarkup(card);
+            return buildCompactCardMarkup(card, {
+                queueHighlight: queueHighlightMap.get(cardId) || '',
+            });
         })
         .join('');
     if (hasExpandedCards) {
@@ -2565,11 +2669,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (hardnessPercentSlider) {
         hardnessPercentSlider.addEventListener('input', () => {
             updateQueueMixLegend();
+            rerenderCompactCardsForQueuePreview();
             scheduleQueuePreviewReload();
         });
         hardnessPercentSlider.addEventListener('change', () => {
             normalizeHardSliderValue();
             updateQueueMixLegend();
+            rerenderCompactCardsForQueuePreview();
             scheduleQueuePreviewReload();
         });
     }
@@ -2577,10 +2683,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         sessionCardCountInput.addEventListener('input', () => {
             normalizeSessionCountInputValue();
             updateQueueMixLegend();
+            rerenderCompactCardsForQueuePreview();
         });
         sessionCardCountInput.addEventListener('change', () => {
             normalizeSessionCountInputValue();
             updateQueueMixLegend();
+            rerenderCompactCardsForQueuePreview();
         });
         applySessionCardCountInputCap();
     }

@@ -653,6 +653,45 @@
             margin: -0.18rem 0 0.72rem;
         }
 
+        .cards-queue-legend {
+            display: flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0.22rem 0.5rem;
+            margin: -0.18rem 0 0.62rem;
+            color: #69758e;
+            font-size: 0.72rem;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .cards-queue-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.22rem;
+            min-width: 0;
+            white-space: nowrap;
+        }
+
+        .cards-queue-legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            flex: 0 0 auto;
+        }
+
+        .cards-queue-legend-item.failed .cards-queue-legend-dot {
+            background: #d76363;
+        }
+
+        .cards-queue-legend-item.hard .cards-queue-legend-dot {
+            background: #f59e0b;
+        }
+
+        .cards-queue-legend-item.least .cards-queue-legend-dot {
+            background: #22a45a;
+        }
+
         .cards-bulk-action-message-wrap .success,
         .cards-bulk-action-message-wrap .error {
             margin: 0;
@@ -708,6 +747,11 @@
 
             .manage-page .cards-toolbar #viewOrderSelect {
                 max-width: 240px;
+            }
+
+            .cards-queue-legend {
+                gap: 0.18rem 0.42rem;
+                font-size: 0.68rem;
             }
         }
 
@@ -785,6 +829,10 @@
             .cards-bulk-action-message-wrap {
                 justify-content: stretch;
                 margin-top: -0.08rem;
+            }
+
+            .cards-queue-legend {
+                margin-top: -0.06rem;
             }
 
             .cards-bulk-action-message-wrap .success,
@@ -934,7 +982,7 @@
         }
 
         .queue-mix-legend-item.least .queue-mix-swatch {
-            background: #3f7ee8;
+            background: #22a45a;
         }
 
         .mix-split-slider {
@@ -943,7 +991,7 @@
             height: 16px;
             border-radius: 999px;
             border: 1px solid #cfd8f0;
-            background: linear-gradient(90deg, #f59e0b 0%, #f59e0b 20%, #3f7ee8 20%, #3f7ee8 100%);
+            background: linear-gradient(90deg, #f59e0b 0%, #f59e0b 20%, #22a45a 20%, #22a45a 100%);
             outline: none;
         }
 
@@ -1258,14 +1306,29 @@
             z-index: 2;
         }
 
-        .card-compact-pill.skipped {
-            border-color: #f3c483;
-            background: #ffefd5;
-            color: #9a5a00;
-        }
-
         .card-compact-pill.skipped .card-compact-pill-text {
             text-decoration: line-through;
+        }
+
+        .card-compact-pill.queue-last-failed {
+            border-color: #efb2b2;
+            background: #fff0f0;
+            color: #a33333;
+            box-shadow: 0 1px 3px rgba(163, 51, 51, 0.12);
+        }
+
+        .card-compact-pill.queue-hard {
+            border-color: #f3c483;
+            background: #fff1d8;
+            color: #9a5a00;
+            box-shadow: 0 1px 3px rgba(154, 90, 0, 0.12);
+        }
+
+        .card-compact-pill.queue-least {
+            border-color: #b5dfbb;
+            background: #effaf1;
+            color: #227344;
+            box-shadow: 0 1px 3px rgba(34, 115, 68, 0.12);
         }
 
         .compact-fold-btn {
@@ -1408,9 +1471,9 @@
         }
 
         .skip-toggle-btn.on {
-            background: #ffefd5;
-            color: #9a5a00;
-            border-color: #f3c483;
+            background: #f5efff;
+            color: #6d3bb0;
+            border-color: #d5c0fb;
         }
 
         .skip-toggle-btn.off {
@@ -1430,7 +1493,7 @@
 
         .skipped-note {
             margin-top: 8px;
-            color: #9a5a00;
+            color: #6d3bb0;
             font-size: 0.8rem;
             font-weight: 600;
         }
@@ -1860,6 +1923,11 @@
                     <option value="lifetime_attempts_desc">Order: Lifetime Attempts (Desc)</option>
                     <option value="lifetime_attempts_asc">Order: Lifetime Attempts (Asc)</option>
                 </select>
+            </div>
+            <div id="cardsQueueLegend" class="cards-queue-legend hidden" aria-hidden="true">
+                <span class="cards-queue-legend-item failed"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Last failed</span>
+                <span class="cards-queue-legend-item hard"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Hard</span>
+                <span class="cards-queue-legend-item least"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Least practiced</span>
             </div>
             <div class="cards-bulk-action-message-wrap">
                 <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>
