@@ -21,6 +21,20 @@ THEME_KEYS = (
     'generic',
 )
 
+# `theme_key` is only a stable badge-art/theme label for definitions + DB validation.
+# The exact token text is not semantically important for category behavior:
+# - reward color buckets come from `paletteKey` / `get_badge_palette_key(category_key)`
+# - badge assignment is keyed by (achievement_key, category_key)
+# So `theme_key='math'` does not need to text-match `basic_math_facts`; we keep
+# readable names here unless/until theme_key is removed entirely.
+PALETTE_KEYS = (
+    'subject-a',
+    'subject-b',
+    'subject-c',
+    'subject-d',
+    'global',
+)
+
 
 @dataclass(frozen=True)
 class BadgeAchievementDefinition:
@@ -35,11 +49,21 @@ class BadgeAchievementDefinition:
 
 
 _CATEGORY_SPECS = (
-    ('chinese_characters', 'Chinese Characters', 'characters'),
-    ('chinese_writing', 'Chinese Writing', 'writing'),
-    ('chinese_reading', 'Chinese Reading', 'reading'),
-    ('math', 'Math', 'math'),
+    ('chinese_characters', 'Chinese Characters', 'characters', 'subject-a'),
+    ('chinese_writing', 'Chinese Writing', 'writing', 'subject-b'),
+    ('chinese_reading', 'Chinese Reading', 'reading', 'subject-c'),
+    ('basic_math_facts', 'Basic Math Facts', 'math', 'subject-d'),
 )
+
+_CATEGORY_PALETTE_BY_KEY = {
+    category_key: palette_key
+    for category_key, _label, _theme_key, palette_key in _CATEGORY_SPECS
+}
+
+
+def get_badge_palette_key(category_key: str) -> str:
+    normalized = str(category_key or '').strip().lower()
+    return _CATEGORY_PALETTE_BY_KEY.get(normalized, 'global')
 
 _CATEGORY_SESSION_TITLES = {
     'chinese_characters': {
@@ -69,14 +93,14 @@ _CATEGORY_SESSION_TITLES = {
         120: 'Story Captain',
         240: 'Library Legend',
     },
-    'math': {
+    'basic_math_facts': {
         1: 'Number Spark',
         5: 'Pattern Scout',
         15: 'Puzzle Chaser',
         30: 'Problem Builder',
         60: 'Equation Explorer',
         120: 'Number Navigator',
-        240: 'Math Legend',
+        240: 'Math Facts Legend',
     },
 }
 
@@ -96,7 +120,7 @@ _CATEGORY_GOLD_TITLES = {
         10: 'Golden Chapter',
         25: 'Golden Library',
     },
-    'math': {
+    'basic_math_facts': {
         3: 'Golden Numbers',
         10: 'Golden Puzzles',
         25: 'Golden Solver',
@@ -122,14 +146,14 @@ _CATEGORY_GOLD_LEVELS = (
 # Thresholds below were tuned from the local kid DB snapshot on March 11, 2026.
 # Observed answered cards per completed session:
 # - chinese_characters: ~61.7
-# - math: ~36.2
+# - basic_math_facts: ~36.2
 # - chinese_writing: ~15.3
 # - chinese_reading: ~4.1
 _CATEGORY_CARD_THRESHOLDS = {
     'chinese_characters': (100, 300, 600, 1200, 2500),
     'chinese_writing': (25, 75, 150, 300, 600),
     'chinese_reading': (5, 20, 40, 80, 160),
-    'math': (50, 150, 300, 600, 1200),
+    'basic_math_facts': (50, 150, 300, 600, 1200),
 }
 
 _CATEGORY_CARD_TITLES = {
@@ -154,11 +178,11 @@ _CATEGORY_CARD_TITLES = {
         80: 'Book Mountain',
         160: 'Library Summit',
     },
-    'math': {
+    'basic_math_facts': {
         50: 'Number Counter',
         150: 'Problem Stacker',
         300: 'Equation Tower',
-        600: 'Math Mountain',
+        600: 'Math Facts Mountain',
         1200: 'Number Summit',
     },
 }
@@ -242,13 +266,13 @@ _CATEGORY_AVG_CARDS_PER_SESSION = {
     'chinese_characters': 61.7,
     'chinese_writing': 15.3,
     'chinese_reading': 4.125,
-    'math': 36.2,
+    'basic_math_facts': 36.2,
 }
 _CATEGORY_GOLD_RATE = {
     'chinese_characters': 10.0 / 53.0,
     'chinese_writing': 6.0 / 32.0,
     'chinese_reading': 15.0 / 16.0,
-    'math': 10.0 / 16.0,
+    'basic_math_facts': 10.0 / 16.0,
 }
 _AVG_ACTIVE_MINUTES_PER_SESSION = 5.2
 _AVG_SESSIONS_PER_KID_DAY = 2.6
@@ -260,7 +284,7 @@ _CATEGORY_PRIORITY = {
     'chinese_characters': 0,
     'chinese_writing': 1,
     'chinese_reading': 2,
-    'math': 3,
+    'basic_math_facts': 3,
     '': 9,
 }
 _RULE_TYPE_PRIORITY = {
@@ -304,7 +328,7 @@ def _definition(
 
 def _build_category_achievements():
     definitions = []
-    for category_key, label, theme_key in _CATEGORY_SPECS:
+    for category_key, label, theme_key, _palette_key in _CATEGORY_SPECS:
         for achievement_key, threshold_value, title_suffix in _CATEGORY_SESSION_LEVELS:
             title = _CATEGORY_SESSION_TITLES[category_key][threshold_value]
             if threshold_value == 1:
@@ -356,7 +380,7 @@ def _build_category_achievements():
 
 def _build_category_card_achievements():
     definitions = []
-    for category_key, label, theme_key in _CATEGORY_SPECS:
+    for category_key, label, theme_key, _palette_key in _CATEGORY_SPECS:
         for threshold_value in _CATEGORY_CARD_THRESHOLDS[category_key]:
             definitions.append(
                 _definition(
@@ -598,3 +622,7 @@ if len({(item.achievement_key, item.category_key) for item in DAY_ONE_BADGE_ACHI
 for _definition in DAY_ONE_BADGE_ACHIEVEMENTS:
     if _definition.theme_key not in THEME_KEYS:
         raise ValueError(f'Unknown theme key: {_definition.theme_key}')
+
+    palette_key = get_badge_palette_key(_definition.category_key)
+    if palette_key not in PALETTE_KEYS:
+        raise ValueError(f'Unknown palette key: {palette_key}')

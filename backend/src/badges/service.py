@@ -7,7 +7,7 @@ import json
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 from zoneinfo import ZoneInfo
 
-from src.badges import BadgeAchievementDefinition, DAY_ONE_BADGE_ACHIEVEMENTS
+from src.badges import BadgeAchievementDefinition, DAY_ONE_BADGE_ACHIEVEMENTS, get_badge_palette_key
 
 DEFAULT_BADGE_THEME = 'generic'
 
@@ -582,6 +582,7 @@ def _serialize_badge_item(
         'categoryKey': _normalize_category_key(definition.category_key),
         'title': str(definition.title or ''),
         'themeKey': str(definition.theme_key or DEFAULT_BADGE_THEME),
+        'paletteKey': get_badge_palette_key(definition.category_key),
         'ruleType': str(definition.rule_type or ''),
         'thresholdValue': threshold_value,
         'difficultyRank': int(difficulty_rank),

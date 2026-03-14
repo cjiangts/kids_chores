@@ -5,7 +5,7 @@ from collections import Counter
 import os
 from typing import Dict, Tuple
 
-from src.badges import DAY_ONE_BADGE_ACHIEVEMENTS
+from src.badges import DAY_ONE_BADGE_ACHIEVEMENTS, get_badge_palette_key
 from src.db import kid_db, metadata
 
 
@@ -176,6 +176,7 @@ def list_badge_art_assignments(shared_conn, *, include_earned_counts: bool = Tru
             'categoryKey': key[1],
             'title': str(definition.title or '').strip(),
             'themeKey': str(definition.theme_key or '').strip(),
+            'paletteKey': get_badge_palette_key(definition.category_key),
             'thresholdValue': int(definition.threshold_value or 0),
             'goalText': str(definition.goal_text or '').strip(),
             'reasonText': str(definition.reason_text or '').strip(),

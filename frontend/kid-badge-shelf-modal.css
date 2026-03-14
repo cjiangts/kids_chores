@@ -340,25 +340,25 @@
     font-weight: 900;
 }
 
-.badge-card.badge-fill-characters,
-.badge-detail-panel.badge-fill-characters { background: linear-gradient(180deg, #edf5ff, #e3efff 62%, #eef7ff); }
+.badge-card.badge-fill-subject-a,
+.badge-detail-panel.badge-fill-subject-a { background: linear-gradient(180deg, #edf5ff, #e3efff 62%, #eef7ff); }
 
-.badge-card.badge-fill-writing,
-.badge-detail-panel.badge-fill-writing { background: linear-gradient(180deg, #fff5df, #ffe9cd 64%, #fff3e8); }
+.badge-card.badge-fill-subject-b,
+.badge-detail-panel.badge-fill-subject-b { background: linear-gradient(180deg, #fff5df, #ffe9cd 64%, #fff3e8); }
 
-.badge-card.badge-fill-math,
-.badge-detail-panel.badge-fill-math { background: linear-gradient(180deg, #eefaf7, #dff4ef 62%, #f2fcf9); }
+.badge-card.badge-fill-subject-d,
+.badge-detail-panel.badge-fill-subject-d { background: linear-gradient(180deg, #eefaf7, #dff4ef 62%, #f2fcf9); }
 
-.badge-card.badge-fill-reading,
-.badge-detail-panel.badge-fill-reading { background: linear-gradient(180deg, #fff0f8, #ffe5f2 62%, #fff4f9); }
+.badge-card.badge-fill-subject-c,
+.badge-detail-panel.badge-fill-subject-c { background: linear-gradient(180deg, #fff0f8, #ffe5f2 62%, #fff4f9); }
 
 .badge-card.badge-fill-global,
 .badge-detail-panel.badge-fill-global { background: linear-gradient(180deg, #f5efff, #ebe1ff 62%, #f7f1ff); }
 
-.badge-theme-characters { color: #3b82f6; }
-.badge-theme-writing { color: #f59e0b; }
-.badge-theme-math { color: #14b8a6; }
-.badge-theme-reading { color: #ec4899; }
+.badge-theme-subject-a { color: #3b82f6; }
+.badge-theme-subject-b { color: #f59e0b; }
+.badge-theme-subject-d { color: #14b8a6; }
+.badge-theme-subject-c { color: #ec4899; }
 .badge-theme-global { color: #8b5cf6; }
 
 .badge-footer-note {

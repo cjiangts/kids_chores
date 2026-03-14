@@ -301,19 +301,19 @@
     animation: kidBadgeArtBob 2800ms ease-in-out infinite;
 }
 
-.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-characters {
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-subject-a {
     background: linear-gradient(180deg, #edf5ff, #dfeeff 62%, #eef8ff);
 }
 
-.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-writing {
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-subject-b {
     background: linear-gradient(180deg, #fff7eb, #ffe7c8 62%, #fff7ee);
 }
 
-.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-reading {
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-subject-c {
     background: linear-gradient(180deg, #fff2f8, #ffe1ee 62%, #fff4fa);
 }
 
-.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-math {
+.kid-badge-celebration-art-wrap.kid-badge-celebration-palette-subject-d {
     background: linear-gradient(180deg, #eefaf7, #d8f2ea 62%, #f2fcf8);
 }
 

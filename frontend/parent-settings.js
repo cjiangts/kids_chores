@@ -772,20 +772,7 @@ function normalizeSearchText(value) {
 }
 
 function getBadgePaletteKey(item) {
-    const categoryKey = String(item && item.categoryKey ? item.categoryKey : '').trim().toLowerCase();
-    if (categoryKey === 'chinese_characters') {
-        return 'characters';
-    }
-    if (categoryKey === 'chinese_writing') {
-        return 'writing';
-    }
-    if (categoryKey === 'chinese_reading') {
-        return 'reading';
-    }
-    if (categoryKey === 'math') {
-        return 'math';
-    }
-    return 'global';
+    return String(item && item.paletteKey ? item.paletteKey : '').trim().toLowerCase() || 'global';
 }
 
 function resolveBadgeArtImageUrl(item, options = {}) {
