@@ -18,10 +18,14 @@ const {
     normalizeCategoryKey,
     normalizeBehaviorType,
 } = window.DeckCategoryCommon;
+const BEHAVIOR_TYPE_II = 'type_ii';
+const BEHAVIOR_TYPE_III = 'type_iii';
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
 let currentSessionBehaviorType = '';
 let currentSessionCategoryDisplayName = '';
+let currentSessionHasChineseSpecificLogic = false;
+let currentSessionRetryCount = 0;
 let liveDurationBackfillBound = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -81,25 +85,14 @@ async function loadSessionDetail() {
         currentSessionType = normalizeCategoryKey(session.type);
         currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type);
         currentSessionCategoryDisplayName = String(session.category_display_name || '').trim();
+        currentSessionHasChineseSpecificLogic = Boolean(session.has_chinese_specific_logic);
+        currentSessionRetryCount = Math.max(0, Number.parseInt(session.retry_count, 10) || 0);
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
         document.title = `${kidName} - Session #${session.id || sessionId} - Kids Daily Chores`;
 
         const answers = Array.isArray(data.answers) ? data.answers : [];
         renderSummary(session, answers);
-        if (isTypeIIIReviewSession()) {
-            wrongSection.style.display = 'none';
-            rightSection.style.display = '';
-            rightSectionTitle.textContent = 'Cards';
-            renderAnswerList(rightList, answers, false);
-        } else {
-            wrongSection.style.display = '';
-            rightSection.style.display = '';
-            rightSectionTitle.textContent = 'Right Cards';
-            const wrongCards = answers.filter((item) => Number(item?.correct_score) < 0);
-            const rightCards = answers.filter((item) => Number(item?.correct_score) > 0);
-            renderAnswerList(wrongList, wrongCards, true);
-            renderAnswerList(rightList, rightCards, true);
-        }
+        renderAnswerSections(answers);
     } catch (error) {
         console.error('Error loading session detail:', error);
         showError('Failed to load session detail.');
@@ -110,82 +103,102 @@ async function loadSessionDetail() {
 function renderSummary(session, answers) {
     const totalActiveMs = calculateSessionActiveMs(answers);
     summaryGrid.innerHTML = `
-        <div class="summary-card"><div class="label">Type</div><div class="value">${formatType(session.type)}</div></div>
+        <div class="summary-card"><div class="label">Type</div><div class="value">${currentSessionCategoryDisplayName}</div></div>
         <div class="summary-card"><div class="label">Started</div><div class="value">${formatDateTime(session.started_at)}</div></div>
         <div class="summary-card"><div class="label">Answered</div><div class="value">${safeNum(session.answer_count)}</div></div>
         <div class="summary-card"><div class="label">Active Time</div><div class="value" id="summaryActiveTimeValue">${formatActiveMinutes(totalActiveMs)}</div></div>
     `;
 }
 
-function renderAnswerList(container, cards, keepSingleGroupOrder) {
+function renderAnswerSections(answers) {
+    if (isTypeIIIReviewSession()) {
+        wrongSection.style.display = 'none';
+        rightSection.style.display = '';
+        rightSectionTitle.textContent = 'Cards';
+        renderAnswerList(rightList, answers, { compact: false, keepSingleGroupOrder: false });
+        return;
+    }
+    wrongSection.style.display = 'none';
+    rightSection.style.display = '';
+    rightSectionTitle.textContent = 'Cards';
+    renderAnswerList(rightList, answers, { compact: true, keepSingleGroupOrder: false });
+}
+
+function getAnswerSortRank(item) {
+    const score = Number(item?.correct_score);
+    if (score < 0) {
+        return 0;
+    }
+    if (score > 0) {
+        return 2;
+    }
+    return 1;
+}
+
+function renderAnswerList(container, cards, options = {}) {
     if (!Array.isArray(cards) || cards.length === 0) {
         container.innerHTML = `<div style="color:#666;font-size:0.86rem;">No cards.</div>`;
         return;
     }
 
+    const typeIII = isTypeIIIReviewSession();
+    const compact = !!options.compact;
+    const keepSingleGroupOrder = options.keepSingleGroupOrder !== false;
+    const reportFrom = getCardReportFromSession();
     const sorted = [...cards].sort((a, b) => {
         if (!keepSingleGroupOrder) {
-            const aCorrect = Number(a?.correct_score) > 0 ? 1 : (Number(a?.correct_score) < 0 ? -1 : 0);
-            const bCorrect = Number(b?.correct_score) > 0 ? 1 : (Number(b?.correct_score) < 0 ? -1 : 0);
-            if (aCorrect !== bCorrect) {
-                return aCorrect - bCorrect;
+            const rankDiff = getAnswerSortRank(a) - getAnswerSortRank(b);
+            if (rankDiff !== 0) {
+                return rankDiff;
             }
         }
-        const aMs = Math.max(0, Number(a?.response_time_ms) || 0);
-        const bMs = Math.max(0, Number(b?.response_time_ms) || 0);
-        return bMs - aMs;
+        return (Number(b?.response_time_ms) || 0) - (Number(a?.response_time_ms) || 0);
     });
     const maxMs = Math.max(...sorted.map((item) => Math.max(0, Number(item?.response_time_ms) || 0)), 1);
-
-    container.innerHTML = sorted.map((item) => {
-        const correctScore = Number(item?.correct_score);
-        const barClass = getAnswerBarClassByScore(correctScore);
-        const front = String(item.front || '').trim();
-        const back = String(item.back || '').trim();
-        const label = getCardDisplayLabel(front, back, currentSessionType) || '(blank)';
-        const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
-        const responseTimeLabel = formatResponseTime(rawMs);
-        const pct = Math.max(0, Math.min(100, (rawMs / maxMs) * 100));
-        const lessonReadingAudioAttrs = isTypeIIIReviewSession()
-            ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${rawMs}"`
+    const itemHtml = sorted.map((item) => {
+        const rawMs = Math.max(0, Number(item?.response_time_ms) || 0);
+        const resultId = Number(item?.result_id);
+        const answerClass = getAnswerBarClassByScore(item?.correct_score);
+        const seenCount = getAnswerSeenCount(item?.correct_score);
+        const displayLabel = getCardDisplayLabel(item?.front, item?.back) || '(blank)';
+        const reportHref = Number.isFinite(Number(item?.card_id)) && reportFrom
+            ? buildCardReportHref(item.card_id, reportFrom)
             : '';
-        const audioHtml = item.audio_url
-            ? `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>`
-            : '';
-        const gradingHtml = renderGradingControls(item);
-        const from = getCardReportFromSessionType(currentSessionType);
-        const canLink = !!from && Number.isFinite(Number(item.card_id));
-        const reportLinkParams = new URLSearchParams();
-        reportLinkParams.set('id', String(kidId || ''));
-        reportLinkParams.set('cardId', String(item.card_id || ''));
-        reportLinkParams.set('from', String(from || ''));
-        if (currentSessionType) {
-            reportLinkParams.set('categoryKey', String(currentSessionType));
-        }
-        const reportLinkHtml = canLink
-            ? `<a class="tab-link secondary mini-link-btn answer-report-link" href="/kid-card-report.html?${reportLinkParams.toString()}">Records</a>`
-            : '';
-        const cardIdValue = safeNum(item.card_id);
-        const resultIdAttr = Number.isFinite(Number(item?.result_id))
-            ? ` data-result-id="${Number(item.result_id)}"`
-            : '';
-        return `
-            <div class="answer-item"${resultIdAttr} data-card-id="${cardIdValue}" data-response-time-ms="${rawMs}">
-                <div class="answer-head-row">
-                    <div>${escapeHtml(label)}</div>
-                    ${reportLinkHtml}
-                </div>
+        const useCompactLink = compact && !!reportHref;
+        const tagName = useCompactLink ? 'a' : 'div';
+        const compactBodyHtml = compact
+            ? ''
+            : `
                 <div class="answer-bar-track">
-                    <div class="answer-bar-fill ${barClass}" style="width:${pct.toFixed(2)}%"></div>
+                    <div class="answer-bar-fill ${answerClass}" style="width:${Math.max(0, Math.min(100, (rawMs / maxMs) * 100)).toFixed(2)}%"></div>
                 </div>
-                <div class="meta">Card #${cardIdValue} · ${responseTimeLabel}</div>
-                ${audioHtml}
-                ${gradingHtml}
-            </div>
+                <div class="meta">Card #${safeNum(item?.card_id)} · ${formatResponseTime(rawMs)}</div>
+            `;
+        return `
+            <${tagName}
+                class="answer-item ${answerClass}"
+                ${useCompactLink ? `href="${reportHref}"` : ''}
+                ${useCompactLink ? `title="Open records for ${escapeHtml(displayLabel)} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}"` : ''}
+                ${Number.isFinite(resultId) ? ` data-result-id="${resultId}"` : ''}
+                data-card-id="${safeNum(item?.card_id)}"
+                data-response-time-ms="${rawMs}"
+            >
+                <div class="answer-head-row">
+                    <div class="answer-label${currentSessionHasChineseSpecificLogic ? ' chinese-specific' : ''}">${escapeHtml(displayLabel)}</div>
+                    ${compact ? `<span class="answer-seen-count-badge" aria-hidden="true">${seenCount}</span>` : ''}
+                    ${compact || !reportHref ? '' : `<a class="tab-link secondary mini-link-btn answer-report-link" href="${reportHref}">Records</a>`}
+                </div>
+                ${compactBodyHtml}
+                ${item?.audio_url ? `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${typeIII ? ` data-result-id="${Number.isFinite(resultId) ? resultId : ''}" data-response-time-ms="${rawMs}"` : ''}></audio>` : ''}
+                ${renderGradingControls(item)}
+            </${tagName}>
         `;
     }).join('');
+    container.innerHTML = compact
+        ? `<div class="answer-grid compact">${itemHtml}</div>`
+        : itemHtml;
 
-    if (isTypeIIIReviewSession() && window.LessonReadingDurationBackfill) {
+    if (typeIII && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
     }
     if (window.SimpleAudioPlayer) {
@@ -203,6 +216,21 @@ function getAnswerBarClassByScore(correctScore) {
         return 'wrong';
     }
     return 'pending';
+}
+
+function getAnswerSeenCount(correctScore) {
+    const score = Number(correctScore);
+    if (!Number.isFinite(score)) {
+        return 0;
+    }
+    const normalized = Math.trunc(score);
+    if (normalized <= -2) {
+        return Math.abs(normalized);
+    }
+    if (normalized < 0) {
+        return 1 + currentSessionRetryCount;
+    }
+    return Math.max(1, Math.abs(normalized));
 }
 
 function bindLiveDurationBackfillUpdates() {
@@ -283,13 +311,21 @@ function formatActiveMinutes(totalMs) {
 
 function formatResponseTime(ms) {
     const rawMs = Math.max(0, Number(ms) || 0);
-    if (normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii') {
+    if (isTypeIIIReviewSession()) {
         const totalSeconds = Math.floor(rawMs / 1000);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         return `${minutes}:${String(seconds).padStart(2, '0')}`;
     }
     return `${(rawMs / 1000).toFixed(2)}s`;
+}
+
+function renderGradeStatusHtml(grade) {
+    const normalized = String(grade || '').toLowerCase();
+    if (normalized !== 'pass' && normalized !== 'fail') {
+        return '';
+    }
+    return `<div class="grade-status ${normalized}">Status: ${normalized === 'pass' ? 'Pass' : 'Fail'}</div>`;
 }
 
 function renderGradingControls(item) {
@@ -300,26 +336,12 @@ function renderGradingControls(item) {
     if (!Number.isFinite(resultId)) {
         return '';
     }
-    const grade = String(item?.grade_status || '').toLowerCase();
-    if (grade === 'pass' || grade === 'fail') {
-        const label = grade === 'pass' ? 'Status: Pass' : 'Status: Fail';
-        return `<div class="grade-status ${grade}">${label}</div>`;
-    }
-    return `
+    return renderGradeStatusHtml(item?.grade_status) || `
         <div class="grade-row">
             <button class="grade-btn" data-result-id="${resultId}" data-grade="pass">Pass</button>
             <button class="grade-btn" data-result-id="${resultId}" data-grade="fail">Fail</button>
         </div>
     `;
-}
-
-function renderGradeStatusHtml(grade) {
-    const normalized = String(grade || '').toLowerCase();
-    if (normalized !== 'pass' && normalized !== 'fail') {
-        return '';
-    }
-    const label = normalized === 'pass' ? 'Status: Pass' : 'Status: Fail';
-    return `<div class="grade-status ${normalized}">${label}</div>`;
 }
 
 async function saveGrade(resultId, reviewGrade) {
@@ -384,31 +406,31 @@ document.addEventListener('click', async (event) => {
     }
 });
 
-function getCardReportFromSessionType(type) {
-    const behavior = normalizeBehaviorType(currentSessionBehaviorType);
-    if (behavior === 'type_ii') return 'type2';
-    if (behavior === 'type_iii') return 'lesson-reading';
-    if (behavior === 'type_i') return 'cards';
-    return '';
+function getCardReportFromSession() {
+    if (isTypeIIIReviewSession()) {
+        return 'lesson-reading';
+    }
+    return normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_II ? 'type2' : 'cards';
 }
 
-function getCardDisplayLabel(front, back, sessionType) {
-    const normalizedBehavior = normalizeBehaviorType(currentSessionBehaviorType);
-    if (normalizedBehavior === 'type_iii') {
-        return front || back;
+function buildCardReportHref(cardId, fromValue) {
+    const reportLinkParams = new URLSearchParams();
+    reportLinkParams.set('id', String(kidId || ''));
+    reportLinkParams.set('cardId', String(cardId || ''));
+    reportLinkParams.set('from', String(fromValue || ''));
+    if (currentSessionType) {
+        reportLinkParams.set('categoryKey', String(currentSessionType));
     }
-    if (normalizedBehavior === 'type_ii') {
-        return back || front;
-    }
-    return front || back;
+    return `/kid-card-report.html?${reportLinkParams.toString()}`;
 }
 
-function formatType(type) {
-    return currentSessionCategoryDisplayName;
+function getCardDisplayLabel(front, back) {
+    const primary = normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_II ? back : front;
+    return String(primary || front || back || '').trim();
 }
 
 function isTypeIIIReviewSession() {
-    return normalizeBehaviorType(currentSessionBehaviorType) === 'type_iii';
+    return normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_III;
 }
 
 function formatDateTime(iso) {
