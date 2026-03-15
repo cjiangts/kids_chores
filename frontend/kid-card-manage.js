@@ -8,9 +8,11 @@ const HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'hardCardPercentageByCategory';
 const BEHAVIOR_TYPE_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_TYPE_III = 'type_iii';
+const BEHAVIOR_TYPE_TYPE_IV = 'type_iv';
 const SHARED_SCOPE_CARDS = 'cards';
 const SHARED_SCOPE_TYPE2 = 'type2';
 const SHARED_SCOPE_LESSON_READING = 'lesson-reading';
+const SHARED_SCOPE_TYPE4 = 'type4';
 
 const {
     normalizeCategoryKey,
@@ -38,11 +40,30 @@ const mobileDeckTabSelectedBtn = document.getElementById('mobileDeckTabSelectedB
 const openPersonalDeckModalBtn = document.getElementById('openPersonalDeckModalBtn');
 const personalDeckModal = document.getElementById('personalDeckModal');
 const cancelPersonalDeckModalBtn = document.getElementById('cancelPersonalDeckModalBtn');
+const type4DeckCountsModal = document.getElementById('type4DeckCountsModal');
+const cancelType4DeckCountsModalBtn = document.getElementById('cancelType4DeckCountsModalBtn');
+const saveType4DeckCountsBtn = document.getElementById('saveType4DeckCountsBtn');
+const type4DeckCountsList = document.getElementById('type4DeckCountsList');
+const type4DeckCountsModalTotal = document.getElementById('type4DeckCountsModalTotal');
+const type4DeckCountsMessage = document.getElementById('type4DeckCountsMessage');
+const type4GeneratorModal = document.getElementById('type4GeneratorModal');
+const type4GeneratorHeading = document.getElementById('type4GeneratorHeading');
+const closeType4GeneratorModalBtn = document.getElementById('closeType4GeneratorModalBtn');
+const runType4GeneratorPreviewBtn = document.getElementById('runType4GeneratorPreviewBtn');
+const type4GeneratorDeckText = document.getElementById('type4GeneratorDeckText');
+const type4GeneratorCodeText = document.getElementById('type4GeneratorCodeText');
+const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEditor');
+const type4GeneratorSamples = document.getElementById('type4GeneratorSamples');
+const type4GeneratorMessage = document.getElementById('type4GeneratorMessage');
 const cardsSectionTitleText = document.getElementById('cardsSectionTitleText');
 const deckSetupDeckCountEl = document.getElementById('deckSetupDeckCount');
 const deckSetupCardCountEl = document.getElementById('deckSetupCardCount');
 const deckSetupSessionCountEl = document.getElementById('deckSetupSessionCount');
 const hardnessComputationHint = document.getElementById('hardnessComputationHint');
+const sessionMixSubgroup = document.getElementById('sessionMixSubgroup');
+const type4DailyTargetBlock = document.getElementById('type4DailyTargetBlock');
+const type4DailyTargetTotalText = document.getElementById('type4DailyTargetTotalText');
+const openType4DeckCountsModalBtn = document.getElementById('openType4DeckCountsModalBtn');
 
 const availableDecksEl = document.getElementById('availableDecks');
 const availableEmptyEl = document.getElementById('availableEmpty');
@@ -70,6 +91,8 @@ const cardsBulkActionMessage = document.getElementById('cardsBulkActionMessage')
 const cardsQueueLegend = document.getElementById('cardsQueueLegend');
 const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
+const cardsToolbar = document.querySelector('.cards-toolbar');
+const cardsViewControl = document.querySelector('.cards-view-control');
 const cardStatusFilterButtons = [...document.querySelectorAll('button[data-card-status-filter]')];
 const cardViewModeButtons = [...document.querySelectorAll('button[data-card-view-mode]')];
 const hardnessPercentSlider = document.getElementById('hardnessPercentSlider');
@@ -114,6 +137,10 @@ let isQueueSettingsSaving = false;
 let queueSettingsSaveSuccessText = '';
 let previewQueueTimer = null;
 let hasLoadedSharedCardsOnce = false;
+let isType4DeckCountsSaving = false;
+let activeType4GeneratorCardId = null;
+let isType4GeneratorPreviewLoading = false;
+let type4GeneratorAceViewer = null;
 const CARD_PAGE_SIZE_LONG = 10;
 const CARD_PAGE_SIZE_SHORT = 60;
 const ORPHAN_BUBBLE_ID = '__orphan__';
@@ -224,6 +251,33 @@ function showStatusMessage(message, isError = true) {
     }
 }
 
+function summarizeSkippedCardLabels(rawLabels) {
+    const counts = new Map();
+    for (const rawLabel of Array.isArray(rawLabels) ? rawLabels : []) {
+        const label = String(rawLabel || '').trim();
+        if (!label) {
+            continue;
+        }
+        counts.set(label, (counts.get(label) || 0) + 1);
+    }
+    return [...counts.entries()].map(([label, count]) => (
+        count > 1 ? `${label} (x${count})` : label
+    ));
+}
+
+function buildBulkAddStatusMessage(insertedCount, result) {
+    const inserted = Math.max(0, Number(insertedCount) || 0);
+    const skippedExistingCount = Math.max(0, Number(result?.skipped_existing_count) || 0);
+    if (skippedExistingCount <= 0) {
+        return `Added ${inserted} new card(s).`;
+    }
+    const skippedLabels = summarizeSkippedCardLabels(result?.skipped_existing_cards);
+    if (skippedLabels.length === 0) {
+        return `Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s).`;
+    }
+    return `Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s): ${skippedLabels.join(', ')}.`;
+}
+
 function showCardsBulkActionMessage(message, isError = false) {
     if (!cardsBulkActionMessage) {
         return;
@@ -247,7 +301,12 @@ function isModalOpen(modalEl) {
 }
 
 function syncModalBodyLock() {
-    const hasOpenModal = isModalOpen(deckOptInModal) || isModalOpen(personalDeckModal);
+    const hasOpenModal = (
+        isModalOpen(deckOptInModal)
+        || isModalOpen(type4DeckCountsModal)
+        || isModalOpen(type4GeneratorModal)
+        || isModalOpen(personalDeckModal)
+    );
     document.body.classList.toggle('modal-open', hasOpenModal);
 }
 
@@ -265,6 +324,14 @@ function handleModalBackdropClick(event) {
         return;
     }
     if (event.target === deckOptInModal) {
+        return;
+    }
+    if (event.target === type4DeckCountsModal) {
+        setManageModalOpen(type4DeckCountsModal, false);
+        return;
+    }
+    if (event.target === type4GeneratorModal) {
+        setManageModalOpen(type4GeneratorModal, false);
         return;
     }
     if (event.target === personalDeckModal) {
@@ -368,6 +435,10 @@ function isType2Behavior() {
     return currentBehaviorType === BEHAVIOR_TYPE_TYPE_II;
 }
 
+function isType4Behavior() {
+    return currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV;
+}
+
 function supportsPersonalDeckEditor() {
     return isChineseSpecificLogic
         && (currentBehaviorType === BEHAVIOR_TYPE_TYPE_I || currentBehaviorType === BEHAVIOR_TYPE_TYPE_II);
@@ -437,7 +508,213 @@ function getCurrentCategoryDisplayName() {
     return String(currentCategoryDisplayName || '').trim();
 }
 
+function getPersistedOptedInType4Decks() {
+    return (Array.isArray(allDecks) ? allDecks : []).filter((deck) => Boolean(deck && deck.opted_in));
+}
+
+function getType4DeckDailyTargetCount(deck) {
+    const parsed = Number.parseInt(deck && deck.daily_target_count, 10);
+    return Number.isInteger(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function getType4TotalCardsPerDay() {
+    return getPersistedOptedInType4Decks().reduce(
+        (sum, deck) => sum + getType4DeckDailyTargetCount(deck),
+        0
+    );
+}
+
+function showType4DeckCountsMessage(message, isError = false) {
+    if (!type4DeckCountsMessage) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        type4DeckCountsMessage.textContent = '';
+        type4DeckCountsMessage.classList.add('hidden');
+        type4DeckCountsMessage.classList.remove('error');
+        type4DeckCountsMessage.classList.add('success');
+        return;
+    }
+    type4DeckCountsMessage.textContent = text;
+    type4DeckCountsMessage.classList.remove('hidden');
+    type4DeckCountsMessage.classList.toggle('error', !!isError);
+    type4DeckCountsMessage.classList.toggle('success', !isError);
+}
+
+function showType4GeneratorMessage(message, isError = false) {
+    if (!type4GeneratorMessage) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        type4GeneratorMessage.textContent = '';
+        type4GeneratorMessage.classList.add('hidden');
+        type4GeneratorMessage.classList.remove('error');
+        type4GeneratorMessage.classList.add('success');
+        return;
+    }
+    type4GeneratorMessage.textContent = text;
+    type4GeneratorMessage.classList.remove('hidden');
+    type4GeneratorMessage.classList.toggle('error', !!isError);
+    type4GeneratorMessage.classList.toggle('success', !isError);
+}
+
+function getCurrentType4GeneratorCard() {
+    if (!activeType4GeneratorCardId) {
+        return null;
+    }
+    return (Array.isArray(currentCards) ? currentCards : []).find(
+        (card) => String(card && card.id ? card.id : '') === String(activeType4GeneratorCardId)
+    ) || null;
+}
+
+function initializeType4GeneratorCodeViewer() {
+    if (!type4GeneratorCodeText || !type4GeneratorCodeEditor) {
+        return;
+    }
+    const ace = window.ace;
+    if (!ace || typeof ace.edit !== 'function') {
+        return;
+    }
+    type4GeneratorAceViewer = ace.edit(type4GeneratorCodeEditor);
+    type4GeneratorAceViewer.setTheme('ace/theme/github_light_default');
+    type4GeneratorAceViewer.session.setMode('ace/mode/python');
+    type4GeneratorAceViewer.session.setUseSoftTabs(true);
+    type4GeneratorAceViewer.session.setTabSize(4);
+    type4GeneratorAceViewer.session.setUseWrapMode(true);
+    type4GeneratorAceViewer.setReadOnly(true);
+    type4GeneratorAceViewer.setHighlightActiveLine(false);
+    type4GeneratorAceViewer.setShowPrintMargin(false);
+    type4GeneratorAceViewer.setOption('fontFamily', 'ui-monospace, SFMono-Regular, Menlo, monospace');
+    type4GeneratorAceViewer.setOption('fontSize', '14px');
+    type4GeneratorAceViewer.setOption('wrap', true);
+    type4GeneratorAceViewer.setOption('showLineNumbers', true);
+    type4GeneratorAceViewer.setOption('highlightGutterLine', false);
+    type4GeneratorAceViewer.setOption('showFoldWidgets', false);
+    type4GeneratorAceViewer.setOption('displayIndentGuides', false);
+    type4GeneratorAceViewer.setOption('useWorker', false);
+    type4GeneratorAceViewer.renderer.setScrollMargin(8, 8);
+    type4GeneratorAceViewer.renderer.$cursorLayer.element.style.display = 'none';
+    type4GeneratorCodeText.classList.add('hidden');
+    type4GeneratorCodeText.setAttribute('aria-hidden', 'true');
+    type4GeneratorCodeEditor.classList.remove('hidden');
+    type4GeneratorCodeEditor.setAttribute('aria-hidden', 'false');
+}
+
+function setType4GeneratorCodeContent(codeText) {
+    const nextCode = String(codeText || '').trim() || 'Generator code unavailable.';
+    if (type4GeneratorCodeText) {
+        type4GeneratorCodeText.textContent = nextCode;
+    }
+    if (type4GeneratorAceViewer && typeof type4GeneratorAceViewer.setValue === 'function') {
+        type4GeneratorAceViewer.setValue(nextCode, -1);
+        type4GeneratorAceViewer.clearSelection();
+        type4GeneratorAceViewer.scrollToLine(0, true, false, () => {});
+        type4GeneratorAceViewer.gotoLine(1, 0, false);
+    }
+}
+
+function renderType4GeneratorSamples(samples = [], message = '') {
+    if (!type4GeneratorSamples) {
+        return;
+    }
+    const items = Array.isArray(samples) ? samples : [];
+    if (!items.length) {
+        type4GeneratorSamples.innerHTML = `<p class="type4-generator-empty">${escapeHtml(message || 'No example yet.')}</p>`;
+        return;
+    }
+    const sample = items[0] || {};
+    const prompt = String(sample && sample.prompt ? sample.prompt : '').trim();
+    const answer = String(sample && sample.answer ? sample.answer : '').trim();
+    const distractors = Array.isArray(sample && sample.distractors) ? sample.distractors : [];
+    const distractorMarkup = distractors.length > 0
+        ? distractors.map((item) => `<code>${escapeHtml(String(item || '').trim())}</code>`).join(', ')
+        : '<span class="type4-generator-empty">No distractors provided.</span>';
+    type4GeneratorSamples.innerHTML = `
+        <div class="type4-generator-sample-card">
+            <div class="type4-generator-sample-label">Prompt</div>
+            <div class="type4-generator-sample-prompt">${escapeHtml(prompt || '(empty prompt)')}</div>
+            <div class="type4-generator-sample-answer">Answer: <code>${escapeHtml(answer || '-')}</code></div>
+            <div class="type4-generator-sample-answer">Distractors: ${distractorMarkup}</div>
+        </div>
+    `;
+}
+
+function renderType4GeneratorModal(card) {
+    if (!type4GeneratorHeading || !type4GeneratorDeckText || !type4GeneratorCodeText) {
+        return;
+    }
+    const sourceName = resolveCardSourceDeckName(card);
+    type4GeneratorHeading.textContent = String(card && card.front ? card.front : 'Generator');
+    type4GeneratorDeckText.textContent = String(sourceName || '-');
+    setType4GeneratorCodeContent(card && card.type4_generator_code ? card.type4_generator_code : '');
+    renderType4GeneratorSamples([], 'No example yet.');
+    showType4GeneratorMessage('');
+    if (runType4GeneratorPreviewBtn) {
+        runType4GeneratorPreviewBtn.disabled = !card || !String(card.type4_generator_code || '').trim();
+        runType4GeneratorPreviewBtn.textContent = 'Run Example';
+    }
+}
+
+async function requestType4GeneratorPreview(card) {
+    const response = await fetch(buildSharedDeckApiUrl(`shared-decks/cards/${card.id}/generator-preview`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryKey }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to run generator (HTTP ${response.status})`);
+    }
+    return result;
+}
+
+function openType4GeneratorModal(card) {
+    if (!card) {
+        return;
+    }
+    activeType4GeneratorCardId = String(card.id || '');
+    renderType4GeneratorModal(card);
+    setManageModalOpen(type4GeneratorModal, true);
+    if (type4GeneratorAceViewer && typeof type4GeneratorAceViewer.resize === 'function') {
+        window.setTimeout(() => {
+            type4GeneratorAceViewer.resize();
+        }, 0);
+    }
+}
+
+async function runType4GeneratorPreview() {
+    const card = getCurrentType4GeneratorCard();
+    if (!card) {
+        showType4GeneratorMessage('Representative card not found.', true);
+        return;
+    }
+    if (isType4GeneratorPreviewLoading) {
+        return;
+    }
+    isType4GeneratorPreviewLoading = true;
+    if (runType4GeneratorPreviewBtn) {
+        runType4GeneratorPreviewBtn.disabled = true;
+        runType4GeneratorPreviewBtn.textContent = 'Running...';
+    }
+    showType4GeneratorMessage('');
+    try {
+        const result = await requestType4GeneratorPreview(card);
+        renderType4GeneratorSamples(result.samples || [], 'No example returned.');
+    } finally {
+        isType4GeneratorPreviewLoading = false;
+        if (runType4GeneratorPreviewBtn) {
+            runType4GeneratorPreviewBtn.disabled = false;
+            runType4GeneratorPreviewBtn.textContent = 'Run Example';
+        }
+    }
+}
+
 function getOptInDecksHelpText() {
+    if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV) {
+        return 'Click a deck bubble to opt in or opt out, then click Apply Deck Changes. Each opted-in deck adds one representative card to the bank, and practiced cards from opted-out decks stay visible under Personal Deck.';
+    }
     return 'Click a deck bubble to opt in or opt out, then click Apply Deck Changes. If you opt out, cards with practice history move to Personal Deck so progress is not lost. If you opt back in later, matching cards move from Personal Deck back into predefined decks.';
 }
 
@@ -454,6 +731,7 @@ function updatePageTitle() {
 function applyCategoryUiText() {
     const displayName = getCurrentCategoryDisplayName();
     const showOrphanEditor = supportsPersonalDeckEditor();
+    const showType4DeckTargetBlock = isType4Behavior();
     if (sessionCardCountLabel) {
         sessionCardCountLabel.textContent = 'Cards/day';
     }
@@ -461,10 +739,20 @@ function applyCategoryUiText() {
         optInDecksHeading.textContent = `Opt-in Predefined ${displayName} Decks`;
     }
     if (cardsSectionTitleText) {
-        cardsSectionTitleText.textContent = 'Cards';
+        cardsSectionTitleText.textContent = currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV
+            ? 'Representative Cards'
+            : 'Cards';
+    }
+    if (sessionMixSubgroup) {
+        sessionMixSubgroup.classList.toggle('hidden', showType4DeckTargetBlock);
+    }
+    if (openType4DeckCountsModalBtn) {
+        openType4DeckCountsModalBtn.classList.toggle('hidden', !showType4DeckTargetBlock);
     }
     if (hardnessComputationHint) {
-        if (isType2Behavior()) {
+        if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV) {
+            hardnessComputationHint.textContent = 'Each card here represents one generator deck, so its stats are aggregated at the deck-pattern level.';
+        } else if (isType2Behavior()) {
             hardnessComputationHint.textContent = 'Hard cards use overall correctness rate. Never-practiced cards count as hard.';
         } else {
             hardnessComputationHint.textContent = 'Hard cards are the ones that took longest on the most recent try.';
@@ -487,6 +775,8 @@ function applyCategoryUiText() {
             : '比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀';
     }
     document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);
+    syncType4CardOrderOptions();
+    syncType4RepresentativeCardsUi();
     updateAddReadingButtonCount();
     renderDeckSetupSummary();
     updatePageTitle();
@@ -506,6 +796,152 @@ function getDeckSetupDeckCount() {
     return optedDeckCount + (includePersonalDeck ? 1 : 0);
 }
 
+function getCurrentCardsPerDayCount() {
+    if (isType4Behavior()) {
+        return getType4TotalCardsPerDay();
+    }
+    return getSessionCardCountForMixLegend();
+}
+
+function syncType4CardOrderOptions() {
+    if (!viewOrderSelect) {
+        return;
+    }
+    const queueOption = viewOrderSelect.querySelector('option[value="queue"]');
+    const hardOption = viewOrderSelect.querySelector('option[value="hardness_desc"]');
+    const hideType4OnlyOptions = isType4Behavior();
+    [queueOption, hardOption].forEach((option) => {
+        if (!option) {
+            return;
+        }
+        option.hidden = hideType4OnlyOptions;
+        option.disabled = hideType4OnlyOptions;
+    });
+    if (!hideType4OnlyOptions) {
+        return;
+    }
+    const currentValue = String(viewOrderSelect.value || '').trim().toLowerCase();
+    if (currentValue === 'queue' || currentValue === 'hardness_desc') {
+        viewOrderSelect.value = 'added_time';
+    }
+}
+
+function syncType4RepresentativeCardsUi() {
+    const useType4 = isType4Behavior();
+    if (cardsViewControl) {
+        cardsViewControl.classList.toggle('hidden', useType4);
+    }
+    if (cardsToolbar) {
+        cardsToolbar.classList.toggle('hidden', useType4);
+    }
+    if (!useType4) {
+        return;
+    }
+    currentCardStatusFilter = 'all';
+    currentCardViewMode = 'long';
+    expandedCompactCardIds.clear();
+    if (cardSearchInput) {
+        cardSearchInput.value = '';
+    }
+    if (viewOrderSelect) {
+        viewOrderSelect.value = 'added_time';
+    }
+    renderCardStatusFilterButtons();
+    renderCardViewModeButtons();
+    updateCardsQueueLegendVisibility(0);
+}
+
+function renderType4DeckTargetControls() {
+    if (!type4DailyTargetTotalText && !openType4DeckCountsModalBtn) {
+        return;
+    }
+    const totalCardsPerDay = getType4TotalCardsPerDay();
+    const optedInCount = getPersistedOptedInType4Decks().length;
+    const hasPendingChanges = hasPendingDeckChanges();
+    if (type4DailyTargetTotalText) {
+        type4DailyTargetTotalText.textContent = String(totalCardsPerDay);
+    }
+    if (openType4DeckCountsModalBtn) {
+        openType4DeckCountsModalBtn.disabled = hasPendingChanges || optedInCount <= 0 || isType4DeckCountsSaving;
+        openType4DeckCountsModalBtn.textContent = isType4DeckCountsSaving ? 'Saving...' : 'Set Deck Counts';
+    }
+}
+
+function getType4DeckCountDraftValue(rawValue) {
+    const parsed = Number.parseInt(rawValue, 10);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+        return 0;
+    }
+    return Math.min(1000, parsed);
+}
+
+function updateType4DeckCountsModalTotal() {
+    if (!type4DeckCountsModalTotal || !type4DeckCountsList) {
+        return;
+    }
+    const inputs = [...type4DeckCountsList.querySelectorAll('input[data-type4-shared-deck-id]')];
+    const total = inputs.reduce(
+        (sum, input) => sum + getType4DeckCountDraftValue(input.value),
+        0
+    );
+    type4DeckCountsModalTotal.textContent = String(total);
+}
+
+function renderType4DeckCountsModal() {
+    if (!type4DeckCountsList) {
+        return;
+    }
+    const decks = getPersistedOptedInType4Decks();
+    if (decks.length <= 0) {
+        type4DeckCountsList.innerHTML = '<div class="empty-state"><h3>No opted-in decks yet</h3></div>';
+        updateType4DeckCountsModalTotal();
+        return;
+    }
+    type4DeckCountsList.innerHTML = decks.map((deck) => {
+        const sharedDeckId = Number.parseInt(deck && deck.deck_id, 10);
+        const label = getType1DeckBubbleLabel(deck) || String(deck && deck.name ? deck.name : 'Generator Deck');
+        const dailyTargetCount = getType4DeckDailyTargetCount(deck);
+        const tagLabels = getDeckTagLabels(deck);
+        const tagTail = tagLabels.length > 1 ? tagLabels.slice(1).join(' / ') : '';
+        return `
+            <label class="type4-deck-count-row">
+                <div class="type4-deck-count-copy">
+                    <div class="type4-deck-count-name">${escapeHtml(label)}</div>
+                    <div class="type4-deck-count-meta">${escapeHtml(tagTail || 'Representative card')}</div>
+                </div>
+                <input
+                    type="number"
+                    class="type4-deck-count-input"
+                    data-type4-shared-deck-id="${escapeHtml(String(sharedDeckId))}"
+                    min="0"
+                    max="1000"
+                    step="1"
+                    value="${escapeHtml(String(dailyTargetCount))}"
+                >
+            </label>
+        `;
+    }).join('');
+    updateType4DeckCountsModalTotal();
+}
+
+function collectType4DeckCountsPayload() {
+    if (!type4DeckCountsList) {
+        return {};
+    }
+    const inputs = [...type4DeckCountsList.querySelectorAll('input[data-type4-shared-deck-id]')];
+    const payload = {};
+    inputs.forEach((input) => {
+        const sharedDeckId = Number.parseInt(input.getAttribute('data-type4-shared-deck-id') || '', 10);
+        if (!Number.isInteger(sharedDeckId) || sharedDeckId <= 0) {
+            return;
+        }
+        const normalized = getType4DeckCountDraftValue(input.value);
+        input.value = String(normalized);
+        payload[String(sharedDeckId)] = normalized;
+    });
+    return payload;
+}
+
 function renderDeckSetupSummary() {
     if (deckSetupDeckCountEl) {
         deckSetupDeckCountEl.textContent = String(Math.max(0, getDeckSetupDeckCount()));
@@ -515,8 +951,9 @@ function renderDeckSetupSummary() {
         deckSetupCardCountEl.textContent = String(Math.max(0, cardsCount));
     }
     if (deckSetupSessionCountEl) {
-        deckSetupSessionCountEl.textContent = String(getSessionCardCountForMixLegend());
+        deckSetupSessionCountEl.textContent = String(getCurrentCardsPerDayCount());
     }
+    renderType4DeckTargetControls();
 }
 
 function hasPendingDeckChanges() {
@@ -680,6 +1117,7 @@ function renderDeckBubbleColumn(config = {}) {
         filterLabel: String(config.filterLabel || ''),
         noMatchTextPrefix: String(config.noMatchTextPrefix || ''),
         getLabel: typeof config.getLabel === 'function' ? config.getLabel : getType1DeckBubbleLabel,
+        getSuffix: typeof config.getSuffix === 'function' ? config.getSuffix : null,
         getBubbleClassName,
         bubbleTitle: String(config.bubbleTitle || ''),
         maxVisibleCount: MAX_DECK_BUBBLE_COUNT,
@@ -708,6 +1146,7 @@ function renderAvailableDecks() {
         emptyText: 'No available decks yet.',
         filterLabel: tagFilter.getDisplayLabel(),
         getLabel: getType1DeckBubbleLabel,
+        getSuffix: getDeckBubbleSuffix,
         getBubbleClassName: getPendingDeckBubbleClass,
         bubbleTitle: 'Click to stage opt-in',
         persistentHtmlBefore: shouldShowOrphan ? buildOrphanDeckBubbleHtml('in') : '',
@@ -752,12 +1191,35 @@ function stripCategoryFirstTagFromName(name) {
 }
 
 function getType1DeckBubbleLabel(deck) {
+    if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV) {
+        const tags = getDeckTags(deck);
+        const tagTail = tags.length > 1 && tags[0] === categoryKey
+            ? tags.slice(1).join('_')
+            : '';
+        const representativeFront = String(deck && deck.representative_front ? deck.representative_front : '').trim();
+        if (tagTail && representativeFront) {
+            return `${tagTail} · ${representativeFront}`;
+        }
+        if (tagTail) {
+            return tagTail;
+        }
+        if (representativeFront) {
+            return representativeFront;
+        }
+    }
     const tags = getDeckTags(deck);
     if (tags.length > 1 && tags[0] === categoryKey) {
         return tags.slice(1).join('_');
     }
     const stripped = stripCategoryFirstTagFromName(deck && deck.name);
     return stripped || String(deck && deck.name ? deck.name : '');
+}
+
+function getDeckBubbleSuffix(deck) {
+    if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV) {
+        return '';
+    }
+    return ` · ${Number(deck && deck.card_count ? deck.card_count : 0)} cards`;
 }
 
 function getPersonalDeckDisplayName() {
@@ -889,6 +1351,7 @@ function renderSelectedDecks() {
         filterLabel: tagFilter.getDisplayLabel(),
         noMatchTextPrefix: 'No opted-in deck matches tag',
         getLabel: getType1DeckBubbleLabel,
+        getSuffix: getDeckBubbleSuffix,
         getBubbleClassName: getPendingDeckBubbleClass,
         bubbleTitle: 'Click to stage opt-out',
         persistentHtmlBefore: showOrphanInSelected ? buildOrphanDeckBubbleHtml('out') : '',
@@ -922,6 +1385,12 @@ function filterCardsByStatus(cards, statusFilter) {
 }
 
 function getSortedCardsForDisplay(cards) {
+    if (isType4Behavior()) {
+        return window.PracticeManageCommon.sortCardsForView(
+            Array.isArray(cards) ? cards : [],
+            'added_time'
+        );
+    }
     const statusFilteredCards = filterCardsByStatus(cards, currentCardStatusFilter);
     const filteredCards = filterCardsByQuery(statusFilteredCards, cardSearchInput ? cardSearchInput.value : '');
     return window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
@@ -937,6 +1406,9 @@ function getCardIdText(card) {
 }
 
 function getQueueHighlightMap(cards) {
+    if (isType4Behavior()) {
+        return new Map();
+    }
     if (!isNextSessionQueueOrderSelected()) {
         return new Map();
     }
@@ -1006,7 +1478,8 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
     if (!cardsQueueLegend) {
         return;
     }
-    const shouldShow = currentCardViewMode === 'short'
+    const shouldShow = !isType4Behavior()
+        && currentCardViewMode === 'short'
         && isNextSessionQueueOrderSelected()
         && Number.parseInt(cardCount, 10) > 0;
     cardsQueueLegend.classList.toggle('hidden', !shouldShow);
@@ -1061,7 +1534,9 @@ function renderCardViewModeButtons() {
 
 function setCardViewMode(nextMode) {
     const mode = String(nextMode || '').trim().toLowerCase();
-    const resolved = mode === 'short' ? 'short' : 'long';
+    const resolved = isType4Behavior()
+        ? 'long'
+        : (mode === 'short' ? 'short' : 'long');
     if (resolved === currentCardViewMode) {
         return;
     }
@@ -1074,10 +1549,17 @@ function setCardViewMode(nextMode) {
 }
 
 function getCardPageSize() {
+    if (isType4Behavior()) {
+        const totalCards = Array.isArray(currentCards) ? currentCards.length : 0;
+        return Math.max(CARD_PAGE_SIZE_LONG, totalCards);
+    }
     return currentCardViewMode === 'long' ? CARD_PAGE_SIZE_LONG : CARD_PAGE_SIZE_SHORT;
 }
 
 function getSessionCardCountCap() {
+    if (isType4Behavior()) {
+        return null;
+    }
     const parsed = Number.parseInt(currentSessionCardCountCap, 10);
     if (!Number.isInteger(parsed)) {
         return null;
@@ -1098,6 +1580,11 @@ function applySessionCardCountInputCap() {
 }
 
 function updateSessionCardCountCapFromCardsPayload(payload) {
+    if (isType4Behavior()) {
+        currentSessionCardCountCap = null;
+        applySessionCardCountInputCap();
+        return;
+    }
     const practiceActiveCount = Number.parseInt(payload && payload.practice_active_card_count, 10);
     const activeCount = Number.parseInt(payload && payload.active_card_count, 10);
     const fallbackFromCards = Array.isArray(payload && payload.cards)
@@ -1126,10 +1613,16 @@ function clampSessionCardCount(rawValue) {
 }
 
 function getSessionCardCountForMixLegend() {
+    if (isType4Behavior()) {
+        return getType4TotalCardsPerDay();
+    }
     return clampSessionCardCount(sessionCardCountInput ? sessionCardCountInput.value : '');
 }
 
 function getHardCardPercentForMixLegend() {
+    if (isType4Behavior()) {
+        return 0;
+    }
     if (!hardnessPercentSlider) {
         return 0;
     }
@@ -1154,6 +1647,17 @@ function updateHardnessSliderTrack(hardPct) {
 }
 
 function updateQueueMixLegend() {
+    if (isType4Behavior()) {
+        if (leastRecentMixSummary) {
+            leastRecentMixSummary.textContent = 'n/a';
+        }
+        if (hardCardsMixSummary) {
+            hardCardsMixSummary.textContent = 'n/a';
+        }
+        updateQueueSettingsSaveButtonState();
+        renderDeckSetupSummary();
+        return;
+    }
     const totalCards = getSessionCardCountForMixLegend() || 0;
     const hardPct = getHardCardPercentForMixLegend();
     const leastPct = Math.max(0, 100 - hardPct);
@@ -1195,6 +1699,9 @@ function setQueueSettingsBaseline(sessionCount, hardPct) {
 }
 
 function hasQueueSettingsChanges() {
+    if (isType4Behavior()) {
+        return false;
+    }
     const currentSessionCount = getSessionCardCountForMixLegend();
     const currentHardPct = getHardCardPercentForMixLegend();
     return currentSessionCount !== baselineSessionCardCount || currentHardPct !== baselineHardCardPercent;
@@ -1202,6 +1709,11 @@ function hasQueueSettingsChanges() {
 
 function updateQueueSettingsSaveButtonState() {
     if (!queueSettingsSaveBtn) {
+        return;
+    }
+    if (isType4Behavior()) {
+        queueSettingsSaveBtn.disabled = true;
+        queueSettingsSaveBtn.textContent = 'Saved';
         return;
     }
     const hasChanges = hasQueueSettingsChanges();
@@ -1215,6 +1727,9 @@ function updateQueueSettingsSaveButtonState() {
 }
 
 function scheduleQueuePreviewReload() {
+    if (isType4Behavior()) {
+        return;
+    }
     if (isQueueSettingsSaving) {
         return;
     }
@@ -1244,6 +1759,10 @@ function rerenderCompactCardsForQueuePreview() {
 }
 
 async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCount) {
+    if (isType4Behavior()) {
+        hasLoadedSharedCardsOnce = true;
+        return;
+    }
     if (!hasLoadedSharedCardsOnce) {
         hasLoadedSharedCardsOnce = true;
         return;
@@ -1478,6 +1997,7 @@ function buildCardMarkup(card, options = {}) {
     if (card.skip_practice) {
         classes.push('skipped');
     }
+    const supportsSkipControl = !isType4Behavior();
     const primaryText = String(options.primaryText || '');
     const secondaryText = String(options.secondaryText || '');
     const showSecondary = options.showSecondary !== false && secondaryText.trim().length > 0;
@@ -1499,6 +2019,7 @@ function buildCardMarkup(card, options = {}) {
     return `
         <div class="${classes.filter(Boolean).join(' ')}">
             ${prependControlsHtml}
+            ${supportsSkipControl ? `
             <button
                 type="button"
                 class="skip-toggle-btn ${card.skip_practice ? 'on' : 'off'}"
@@ -1508,13 +2029,14 @@ function buildCardMarkup(card, options = {}) {
                 title="${card.skip_practice ? 'Turn skip off for this card' : 'Mark this card as skipped'}"
                 aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
             >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
+            ` : ''}
             <div class="card-front">${escapeHtml(primaryText)}</div>
             ${showSecondary ? `<div class="card-back">${escapeHtml(secondaryText)}</div>` : ''}
             <div class="card-deck-row">
                 <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
             </div>
             ${extraSectionHtml}
-            ${card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
+            ${supportsSkipControl && card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
             <div style="margin-top: 10px; color: #666; font-size: 0.82rem;">Overall correct rate: ${escapeHtml(overallCorrectRateText)}</div>
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last response time: ${escapeHtml(lastResponseTimeText)}</div>
             <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${escapeHtml(String(addedDateText || '-'))}</div>
@@ -1524,6 +2046,46 @@ function buildCardMarkup(card, options = {}) {
             <div class="card-actions">
                 <a class="card-report-link" href="${buildCardReportHref(card)}">Records</a>
                 ${trailingActionHtml}
+            </div>
+        </div>
+    `;
+}
+
+function buildType4RepresentativeCardMarkup(card) {
+    const sourceRaw = resolveCardSourceDeckName(card);
+    const sourceTitle = escapeHtml(sourceRaw);
+    const sourceDisplay = escapeHtml(
+        sourceRaw === getPersonalDeckDisplayName()
+            ? sourceRaw
+            : formatDeckPillName(sourceRaw)
+    );
+    const overallCorrectRateText = formatMetricPercent(getCardOverallCorrectRateValue(card));
+    const addedDateText = window.PracticeManageCommon.formatAddedDate(card && card.created_at);
+    const lastSeenText = window.PracticeManageCommon.formatLastSeenDays(card && card.last_seen_at);
+    const lifetimeAttempts = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
+    const hasGeneratorCode = String(card && card.type4_generator_code ? card.type4_generator_code : '').trim().length > 0;
+
+    return `
+        <div class="card-item type4-summary-card">
+            <div class="card-front">${escapeHtml(String(card && card.front ? card.front : ''))}</div>
+            <div class="card-deck-row">
+                <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
+            </div>
+            <div class="type4-summary-metrics">
+                <div>Overall correct rate: ${escapeHtml(overallCorrectRateText)}</div>
+                <div>Added: ${escapeHtml(String(addedDateText || '-'))}</div>
+                <div>Lifetime attempts: ${escapeHtml(String(lifetimeAttempts))}</div>
+                <div>Last seen: ${escapeHtml(String(lastSeenText || 'Never'))}</div>
+            </div>
+            <div class="card-actions type4-summary-actions">
+                <button
+                    type="button"
+                    class="card-report-link type4-generator-trigger"
+                    data-action="open-type4-generator"
+                    data-card-id="${escapeHtml(String(card && card.id ? card.id : ''))}"
+                    ${hasGeneratorCode ? '' : 'disabled aria-disabled="true"'}
+                >Generator</button>
+                <a class="card-report-link" href="${buildCardReportHref(card)}">Records</a>
             </div>
         </div>
     `;
@@ -1622,6 +2184,9 @@ function buildExpandedCardDeleteButtonMarkup(card) {
 }
 
 function buildLongCardMarkup(card, options = {}) {
+    if (isType4Behavior()) {
+        return buildType4RepresentativeCardMarkup(card);
+    }
     if (isType2Behavior()) {
         return buildType2CardMarkup(card, options);
     }
@@ -1942,10 +2507,9 @@ async function addOrphanCards() {
                 throw new Error(result.error || `Failed to add cards (HTTP ${response.status})`);
             }
             const inserted = Math.max(0, Number(result.inserted_count) || 0);
-            const skippedExistingCount = Math.max(0, Number(result.skipped_existing_count) || 0);
             addCardForm.reset();
             updateAddReadingButtonCount();
-            showStatusMessage(`Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s).`, false);
+            showStatusMessage(buildBulkAddStatusMessage(inserted, result), false);
             await loadSharedType1Decks();
             return;
         }
@@ -1971,10 +2535,9 @@ async function addOrphanCards() {
         }
 
         const inserted = Math.max(0, Number(result.created) || 0);
-        const skippedExistingCount = Math.max(0, Number(result.skipped_existing_count) || 0);
         addCardForm.reset();
         updateAddReadingButtonCount();
-        showStatusMessage(`Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s).`, false);
+        showStatusMessage(buildBulkAddStatusMessage(inserted, result), false);
         await loadSharedType1Decks();
     } catch (error) {
         console.error('Error adding orphan cards:', error);
@@ -2069,6 +2632,22 @@ async function handleCardsGridClick(event) {
         return;
     }
     const action = actionBtn.dataset.action;
+
+    if (action === 'open-type4-generator') {
+        const cardId = String(actionBtn.dataset.cardId || '').trim();
+        if (!cardId) {
+            return;
+        }
+        const card = (Array.isArray(currentCards) ? currentCards : []).find(
+            (item) => String(item && item.id ? item.id : '') === cardId
+        );
+        if (!card) {
+            showError('Representative card not found.');
+            return;
+        }
+        openType4GeneratorModal(card);
+        return;
+    }
 
     if (action === 'expand-compact') {
         const cardId = String(actionBtn.dataset.cardId || '').trim();
@@ -2183,14 +2762,20 @@ async function loadKidInfo() {
         behaviorType !== BEHAVIOR_TYPE_TYPE_I
         && behaviorType !== BEHAVIOR_TYPE_TYPE_II
         && behaviorType !== BEHAVIOR_TYPE_TYPE_III
+        && behaviorType !== BEHAVIOR_TYPE_TYPE_IV
     ) {
         throw new Error(`Unsupported manage behavior type: ${behaviorType || 'unknown'}`);
     }
     currentBehaviorType = behaviorType;
+    document.body.classList.toggle('type4-manage', behaviorType === BEHAVIOR_TYPE_TYPE_IV);
     currentSharedScope = (
-        behaviorType === BEHAVIOR_TYPE_TYPE_III
+        behaviorType === BEHAVIOR_TYPE_TYPE_IV
+            ? SHARED_SCOPE_TYPE4
+            : (
+                behaviorType === BEHAVIOR_TYPE_TYPE_III
             ? SHARED_SCOPE_LESSON_READING
-            : (behaviorType === BEHAVIOR_TYPE_TYPE_II ? SHARED_SCOPE_TYPE2 : SHARED_SCOPE_CARDS)
+                    : (behaviorType === BEHAVIOR_TYPE_TYPE_II ? SHARED_SCOPE_TYPE2 : SHARED_SCOPE_CARDS)
+            )
     );
 
     isChineseSpecificLogic = Boolean(categoryMeta && categoryMeta.has_chinese_specific_logic);
@@ -2211,7 +2796,9 @@ async function loadKidInfo() {
     includeOrphanByCategory = toCategoryMap(kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
     const total = getSessionCountFromKid(kid);
     const safeTotal = Number.isInteger(total) ? clampSessionCardCount(total) : 0;
-    sessionCardCountInput.value = String(safeTotal);
+    if (sessionCardCountInput) {
+        sessionCardCountInput.value = String(safeTotal);
+    }
     initialHardCardPercent = getInitialHardCardPercentFromKid(kid);
     const safeHard = Number.isInteger(initialHardCardPercent)
         ? Math.max(0, Math.min(100, initialHardCardPercent))
@@ -2219,6 +2806,7 @@ async function loadKidInfo() {
     if (hardnessPercentSlider) {
         hardnessPercentSlider.value = String(safeHard);
     }
+    syncType4CardOrderOptions();
     setQueueSettingsBaseline(safeTotal, safeHard);
     updateQueueMixLegend();
 }
@@ -2245,7 +2833,9 @@ async function loadSharedType1Decks() {
     const responseTotal = Number.parseInt(result.session_card_count, 10);
     if (Number.isInteger(responseTotal)) {
         const safeTotal = clampSessionCardCount(responseTotal);
-        sessionCardCountInput.value = String(safeTotal);
+        if (sessionCardCountInput) {
+            sessionCardCountInput.value = String(safeTotal);
+        }
         setQueueSettingsBaseline(safeTotal, baselineHardCardPercent);
     }
     baselineIncludeOrphanInQueue = Boolean(result && result.include_orphan_in_queue);
@@ -2259,6 +2849,9 @@ async function loadSharedType1Decks() {
 }
 
 async function saveQueueSettings() {
+    if (isType4Behavior()) {
+        return;
+    }
     showError('');
 
     const total = normalizeSessionCountInputValue();
@@ -2312,6 +2905,41 @@ async function saveQueueSettings() {
     }
 }
 
+async function saveType4DeckCounts() {
+    if (!isType4Behavior()) {
+        return;
+    }
+    if (isType4DeckCountsSaving) {
+        return;
+    }
+    const optedInDecks = getPersistedOptedInType4Decks();
+    if (optedInDecks.length <= 0) {
+        showType4DeckCountsMessage('Opt in at least one deck first.', true);
+        return;
+    }
+    isType4DeckCountsSaving = true;
+    renderType4DeckTargetControls();
+    if (saveType4DeckCountsBtn) {
+        saveType4DeckCountsBtn.disabled = true;
+        saveType4DeckCountsBtn.textContent = 'Saving...';
+    }
+    showType4DeckCountsMessage('');
+    try {
+        const payload = collectType4DeckCountsPayload();
+        await requestSaveType4DeckDailyTargets(payload);
+        await loadSharedType1Decks();
+        renderType4DeckCountsModal();
+        showType4DeckCountsMessage('Deck counts saved.');
+    } finally {
+        isType4DeckCountsSaving = false;
+        renderType4DeckTargetControls();
+        if (saveType4DeckCountsBtn) {
+            saveType4DeckCountsBtn.disabled = false;
+            saveType4DeckCountsBtn.textContent = 'Save';
+        }
+    }
+}
+
 async function requestOptInDeckIds(deckIds) {
     const body = { deck_ids: deckIds, categoryKey };
     const response = await fetch(buildSharedDeckApiUrl('shared-decks/opt-in'), {
@@ -2336,6 +2964,22 @@ async function requestOptOutDeckIds(deckIds) {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(result.error || `Failed to opt out decks (HTTP ${response.status})`);
+    }
+    return result;
+}
+
+async function requestSaveType4DeckDailyTargets(dailyCountsByDeckId) {
+    const response = await fetch(buildSharedDeckApiUrl('shared-decks/daily-targets'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            categoryKey,
+            dailyCountsByDeckId,
+        }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to save deck counts (HTTP ${response.status})`);
     }
     return result;
 }
@@ -2471,6 +3115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showError('Missing deck category. Open this page from Admin.');
         return;
     }
+    initializeType4GeneratorCodeViewer();
     if (openDeckOptInModalBtn) {
         openDeckOptInModalBtn.addEventListener('click', () => {
             if (isMobileDeckTabEnabled()) {
@@ -2479,9 +3124,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             setManageModalOpen(deckOptInModal, true);
         });
     }
+    if (openType4DeckCountsModalBtn) {
+        openType4DeckCountsModalBtn.addEventListener('click', () => {
+            if (!isType4Behavior() || hasPendingDeckChanges()) {
+                return;
+            }
+            renderType4DeckCountsModal();
+            showType4DeckCountsMessage('');
+            setManageModalOpen(type4DeckCountsModal, true);
+        });
+    }
     if (cancelDeckOptInModalBtn) {
         cancelDeckOptInModalBtn.addEventListener('click', () => {
             setManageModalOpen(deckOptInModal, false);
+        });
+    }
+    if (cancelType4DeckCountsModalBtn) {
+        cancelType4DeckCountsModalBtn.addEventListener('click', () => {
+            setManageModalOpen(type4DeckCountsModal, false);
+        });
+    }
+    if (closeType4GeneratorModalBtn) {
+        closeType4GeneratorModalBtn.addEventListener('click', () => {
+            setManageModalOpen(type4GeneratorModal, false);
+        });
+    }
+    if (saveType4DeckCountsBtn) {
+        saveType4DeckCountsBtn.addEventListener('click', async () => {
+            try {
+                await saveType4DeckCounts();
+            } catch (error) {
+                console.error('Error saving generator deck counts:', error);
+                showType4DeckCountsMessage(error.message || 'Failed to save deck counts.', true);
+            }
+        });
+    }
+    if (runType4GeneratorPreviewBtn) {
+        runType4GeneratorPreviewBtn.addEventListener('click', async () => {
+            try {
+                await runType4GeneratorPreview();
+            } catch (error) {
+                console.error('Error running generator preview:', error);
+                showType4GeneratorMessage(error.message || 'Failed to run generator.', true);
+            }
         });
     }
     if (openPersonalDeckModalBtn) {
@@ -2497,11 +3182,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (deckOptInModal) {
         deckOptInModal.addEventListener('click', handleModalBackdropClick);
     }
+    if (type4DeckCountsModal) {
+        type4DeckCountsModal.addEventListener('click', handleModalBackdropClick);
+    }
+    if (type4GeneratorModal) {
+        type4GeneratorModal.addEventListener('click', handleModalBackdropClick);
+    }
     if (personalDeckModal) {
         personalDeckModal.addEventListener('click', handleModalBackdropClick);
     }
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') {
+            return;
+        }
+        if (isModalOpen(type4GeneratorModal)) {
+            setManageModalOpen(type4GeneratorModal, false);
+            return;
+        }
+        if (isModalOpen(type4DeckCountsModal)) {
+            setManageModalOpen(type4DeckCountsModal, false);
             return;
         }
         if (isModalOpen(personalDeckModal)) {
@@ -2515,6 +3214,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (deckOptInModal) {
         deckOptInModal.classList.add('hidden');
         deckOptInModal.setAttribute('aria-hidden', 'true');
+    }
+    if (type4DeckCountsModal) {
+        type4DeckCountsModal.classList.add('hidden');
+        type4DeckCountsModal.setAttribute('aria-hidden', 'true');
+    }
+    if (type4GeneratorModal) {
+        type4GeneratorModal.classList.add('hidden');
+        type4GeneratorModal.setAttribute('aria-hidden', 'true');
     }
     if (personalDeckModal) {
         personalDeckModal.classList.add('hidden');
@@ -2691,6 +3398,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             rerenderCompactCardsForQueuePreview();
         });
         applySessionCardCountInputCap();
+    }
+    if (type4DeckCountsList) {
+        type4DeckCountsList.addEventListener('input', (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLInputElement) || !target.hasAttribute('data-type4-shared-deck-id')) {
+                return;
+            }
+            target.value = String(getType4DeckCountDraftValue(target.value));
+            updateType4DeckCountsModalTotal();
+        });
+        type4DeckCountsList.addEventListener('change', (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLInputElement) || !target.hasAttribute('data-type4-shared-deck-id')) {
+                return;
+            }
+            target.value = String(getType4DeckCountDraftValue(target.value));
+            updateType4DeckCountsModalTotal();
+        });
     }
 
     sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();

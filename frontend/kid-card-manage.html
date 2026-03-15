@@ -114,6 +114,79 @@
             font-size: 1rem;
         }
 
+        .type4-deck-counts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin: 0.6rem 0 0.9rem;
+        }
+
+        .type4-deck-count-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.65rem;
+            align-items: center;
+            padding: 0.55rem 0.75rem;
+            border: 1px solid #dde5f5;
+            border-radius: 12px;
+            background: #fbfcff;
+        }
+
+        .type4-deck-count-copy {
+            min-width: 0;
+        }
+
+        .type4-deck-count-name {
+            font-size: 0.94rem;
+            font-weight: 700;
+            color: #243b67;
+            word-break: break-word;
+            line-height: 1.15;
+        }
+
+        .type4-deck-count-meta {
+            margin-top: 0.12rem;
+            font-size: 0.8rem;
+            color: #6b7280;
+            line-height: 1.15;
+        }
+
+        .type4-deck-count-input {
+            width: 116px;
+            min-width: 116px;
+            max-width: 124px;
+            min-height: 36px;
+            padding: 0.32rem 0.62rem;
+            border: 1px solid var(--control-border-color);
+            border-radius: var(--control-radius);
+            background: var(--control-bg);
+            color: var(--control-text);
+            font-size: 0.92rem;
+            line-height: 1.2;
+            box-sizing: border-box;
+            text-align: right;
+            justify-self: end;
+            margin: 0;
+        }
+
+        .type4-deck-count-input:focus {
+            outline: none;
+            border-color: var(--control-border-focus);
+            box-shadow: var(--control-shadow-focus);
+        }
+
+        .type4-deck-count-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.8rem;
+            padding-top: 0.9rem;
+            border-top: 1px solid #e3e8f2;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #223557;
+        }
+
         .mix-bar {
             width: 100%;
             height: 18px;
@@ -656,12 +729,18 @@
         .cards-queue-legend {
             display: flex;
             align-items: center;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             gap: 0.22rem 0.5rem;
             margin: -0.18rem 0 0.62rem;
             color: #69758e;
             font-size: 0.72rem;
             line-height: 1.2;
+        }
+
+        .cards-queue-legend-sort {
+            display: inline-flex;
+            align-items: center;
+            color: #5e6982;
             white-space: nowrap;
         }
 
@@ -1142,6 +1221,7 @@
                 width: auto;
                 min-width: 104px;
             }
+
         }
 
         @media (max-width: 560px) {
@@ -1169,6 +1249,16 @@
             .manage-page .queue-session-count-group label {
                 white-space: nowrap;
                 font-size: 0.8rem;
+            }
+
+            .type4-deck-count-row {
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 0.65rem;
+            }
+
+            .type4-deck-count-input {
+                width: 96px;
+                min-width: 96px;
             }
 
             .queue-save-row .settings-save-btn {
@@ -1532,6 +1622,166 @@
             flex-wrap: wrap;
         }
 
+        .type4-summary-card .card-front {
+            text-align: center;
+        }
+
+        .type4-summary-card .card-deck-row {
+            justify-content: center;
+        }
+
+        .type4-summary-metrics {
+            margin-top: 0.7rem;
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.55;
+        }
+
+        .type4-summary-actions {
+            margin-top: 0.9rem;
+        }
+
+        .kid-card-manage-page.type4-manage .cards-header-row {
+            margin-bottom: 0.3rem;
+        }
+
+        .kid-card-manage-page.type4-manage .cards-bulk-action-message-wrap {
+            display: none;
+        }
+
+        .manage-page button.card-report-link {
+            cursor: pointer;
+            font-family: inherit;
+            line-height: 1;
+        }
+
+        .manage-page button.card-report-link:disabled {
+            opacity: 0.45;
+            background: #f4f5f7;
+            border-color: #d0d5dd;
+            color: #98a2b3;
+            cursor: not-allowed;
+        }
+
+        .type4-generator-layout {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .type4-generator-field {
+            display: grid;
+            gap: 0.42rem;
+        }
+
+        .type4-generator-field-label {
+            margin: 0;
+            font-size: 0.96rem;
+            font-weight: 700;
+            color: #334;
+        }
+
+        .type4-generator-label-chip {
+            display: inline-flex;
+            align-items: center;
+            max-width: fit-content;
+            border: 1px solid #b8c5ff;
+            background: #edf2ff;
+            color: #2f3c7e;
+            border-radius: 999px;
+            padding: 0.42rem 0.8rem;
+            font-size: 0.95rem;
+            line-height: 1.15;
+            font-weight: 700;
+        }
+
+        .type4-generator-deck-text {
+            font-size: 0.88rem;
+            color: #667085;
+            line-height: 1.25;
+            word-break: break-word;
+        }
+
+        .type4-generator-action-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .type4-generator-code {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 0.84rem;
+            line-height: 1.42;
+            color: #223557;
+            max-height: 180px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        .type4-generator-code.hidden {
+            display: none;
+        }
+
+        .type4-generator-code-editor {
+            width: 100%;
+            height: 180px;
+            border-radius: 10px;
+            border: 1px solid #d9e1f5;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .type4-generator-code-editor.hidden {
+            display: none;
+        }
+
+        .type4-generator-samples {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .type4-generator-sample-card {
+            border: 1px solid #d9e1f5;
+            border-radius: 10px;
+            background: #fff;
+            padding: 0.75rem 0.85rem;
+        }
+
+        .type4-generator-sample-label {
+            margin: 0 0 0.45rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #334;
+        }
+
+        .type4-generator-sample-row {
+            font-size: 0.9rem;
+            color: #51607b;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .type4-generator-sample-row + .type4-generator-sample-row {
+            margin-top: 0.18rem;
+        }
+
+        .type4-generator-sample-row strong {
+            color: #243b67;
+        }
+
+        .type4-generator-sample-row code {
+            font-size: 0.88rem;
+        }
+
+        .type4-generator-empty {
+            margin: 0;
+            font-size: 0.86rem;
+            color: #667085;
+        }
+
         .expanded-card-delete-btn {
             display: inline-flex;
             align-items: center;
@@ -1841,10 +2091,11 @@
                 </div>
                 <div class="deck-setup-actions">
                     <button id="openDeckOptInModalBtn" type="button" class="settings-save-btn manage-popup-btn">Manage Deck Opt-in</button>
+                    <button id="openType4DeckCountsModalBtn" type="button" class="settings-save-btn manage-popup-btn hidden">Set Deck Counts</button>
                     <button id="openPersonalDeckModalBtn" type="button" class="btn-secondary manage-popup-btn hidden">Personal Deck Editor</button>
                 </div>
             </div>
-            <div class="settings-subgroup session-mix-subgroup">
+            <div id="sessionMixSubgroup" class="settings-subgroup session-mix-subgroup">
                 <div class="hardness-slider-block">
                     <div class="hardness-slider-head">
                         <div class="hardness-slider-title">Next Session Mix</div>
@@ -1925,6 +2176,7 @@
                 </select>
             </div>
             <div id="cardsQueueLegend" class="cards-queue-legend hidden" aria-hidden="true">
+                <span class="cards-queue-legend-sort">Sorted: failed, then hard, then least practiced</span>
                 <span class="cards-queue-legend-item failed"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Last failed</span>
                 <span class="cards-queue-legend-item hard"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Hard</span>
                 <span class="cards-queue-legend-item least"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Least practiced</span>
@@ -1995,6 +2247,56 @@
         </div>
     </div>
 
+            <div id="type4DeckCountsModal" class="modal hidden manage-popup-modal" aria-hidden="true">
+        <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="type4DeckCountsHeading">
+            <div class="manage-popup-title-row">
+                <h2 id="type4DeckCountsHeading">Deck Counts</h2>
+            </div>
+            <div class="manage-popup-modal-body">
+                <div id="type4DeckCountsList" class="type4-deck-counts-list"></div>
+                <div class="type4-deck-count-summary">
+                    <span>Total cards/day</span>
+                    <strong id="type4DeckCountsModalTotal">0</strong>
+                </div>
+                <div class="deck-v2-actions">
+                    <div class="deck-v2-action-row">
+                        <button id="saveType4DeckCountsBtn" type="button" class="settings-save-btn">Save</button>
+                        <button id="cancelType4DeckCountsModalBtn" type="button" class="btn-secondary">Close</button>
+                    </div>
+                    <div id="type4DeckCountsMessage" class="success hidden"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="type4GeneratorModal" class="modal hidden manage-popup-modal" aria-hidden="true">
+        <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="type4GeneratorHeading">
+            <div class="manage-popup-title-row type4-generator-title-row">
+                <div class="type4-generator-title-copy">
+                    <h2 id="type4GeneratorHeading">Generator</h2>
+                    <div id="type4GeneratorDeckText" class="type4-generator-deck-text"></div>
+                </div>
+                <div class="manage-popup-title-actions">
+                    <button id="closeType4GeneratorModalBtn" type="button" class="btn-secondary manage-popup-btn">Close</button>
+                </div>
+            </div>
+            <div class="manage-popup-modal-body">
+                <div class="type4-generator-modal-section">
+                    <pre id="type4GeneratorCodeText" class="type4-generator-code input-mono"></pre>
+                    <div id="type4GeneratorCodeEditor" class="type4-generator-code-editor hidden" aria-hidden="true"></div>
+                </div>
+                <div class="type4-generator-modal-section">
+                    <div class="type4-generator-modal-head">
+                        <div class="type4-generator-preview-label">Example</div>
+                        <button id="runType4GeneratorPreviewBtn" type="button" class="settings-save-btn manage-popup-btn">Run Example</button>
+                    </div>
+                    <div id="type4GeneratorSamples" class="type4-generator-samples"></div>
+                    <div id="type4GeneratorMessage" class="success hidden" style="margin-top:0.55rem;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="personalDeckModal" class="modal hidden manage-popup-modal" aria-hidden="true">
         <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="personalDeckModalHeading">
             <div class="manage-popup-title-row">
@@ -2030,6 +2332,9 @@
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="writing-audio-sequence.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/ace.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/mode-python.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/theme-github_light_default.js"></script>
     <script src="kid-card-manage.js"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ import hashlib
 import math
 import json
 import os
+import random
 import shutil
 import subprocess
 import uuid
@@ -24,6 +25,7 @@ from src.security_rate_limit import (
     CRITICAL_PASSWORD_RATE_LIMITER,
     build_critical_password_limit_key,
 )
+from src.type4_generator_preview import preview_type4_generator, run_type4_generator
 
 kids_bp = Blueprint('kids', __name__)
 
@@ -43,15 +45,26 @@ FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
 DECK_CATEGORY_BEHAVIOR_TYPE_I = 'type_i'
 DECK_CATEGORY_BEHAVIOR_TYPE_II = 'type_ii'
 DECK_CATEGORY_BEHAVIOR_TYPE_III = 'type_iii'
+DECK_CATEGORY_BEHAVIOR_TYPE_IV = 'type_iv'
 DECK_CATEGORY_BEHAVIOR_TYPES = {
     DECK_CATEGORY_BEHAVIOR_TYPE_I,
     DECK_CATEGORY_BEHAVIOR_TYPE_II,
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
+    DECK_CATEGORY_BEHAVIOR_TYPE_IV,
 }
 MAX_SHARED_DECK_TAGS = 20
 MAX_SHARED_DECK_CARDS = 10000
 MAX_SHARED_TAG_LENGTH = 64
 MAX_SHARED_TAG_COMMENT_LENGTH = 120
+MAX_TYPE_IV_DISPLAY_LABEL_LENGTH = 120
+MAX_TYPE_IV_GENERATOR_CODE_LENGTH = 20000
+DEFAULT_TYPE_IV_DAILY_TARGET_COUNT = 10
+MAX_TYPE_IV_DAILY_TARGET_COUNT = 1000
+TYPE_IV_PREVIEW_SAMPLE_COUNT = 3
+TYPE_IV_DEFAULT_PRACTICE_MODE = 'input'
+TYPE_IV_PRACTICE_MODE_INPUT = 'input'
+TYPE_IV_PRACTICE_MODE_MULTI = 'multi'
+TYPE_IV_MAX_LOGGED_RESPONSE_TIME_MS = 2 * 60 * 1000
 MAX_SHARED_DECK_OPTIN_BATCH = 200
 MATERIALIZED_SHARED_DECK_NAME_PREFIX = 'shared_deck_'
 KID_DECK_CATEGORY_OPT_IN_TABLE = 'deck_category_opt_in'
@@ -66,19 +79,40 @@ WRITING_TTS_LANGUAGE_EN = 'en'
 PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
 TYPE_I_MAX_LOGGED_RESPONSE_TIME_MS = 20 * 1000
 TYPE_II_MAX_LOGGED_RESPONSE_TIME_MS = 2 * 60 * 1000
+SESSION_RESULT_CORRECT = 1
+SESSION_RESULT_WRONG_UNRESOLVED = -1
+# session_results.correct also carries retry-resolution metadata for type-I/type-II
+# star chains. Values mean:
+#   1   -> right on the initial session pass
+#  -1   -> still wrong and still eligible for another retry session
+#  -2   -> was wrong first, then fixed on retry round 1
+#  -3   -> was wrong first, then fixed on retry round 2
+#  -4   -> was wrong first, then fixed on retry round 3
+# and so on. In other words, any value <= -2 means "recovered in retry", and
+# abs(correct) - 1 tells us which retry round finally fixed the card.
+SESSION_RESULT_RETRY_FIXED_FIRST = -2
 MAX_LOGGED_RESPONSE_TIME_MS_BY_BEHAVIOR_TYPE = {
     DECK_CATEGORY_BEHAVIOR_TYPE_I: TYPE_I_MAX_LOGGED_RESPONSE_TIME_MS,
     DECK_CATEGORY_BEHAVIOR_TYPE_II: TYPE_II_MAX_LOGGED_RESPONSE_TIME_MS,
+    DECK_CATEGORY_BEHAVIOR_TYPE_IV: TYPE_IV_MAX_LOGGED_RESPONSE_TIME_MS,
 }
 _PENDING_SESSIONS = {}
 _PENDING_SESSIONS_LOCK = threading.Lock()
+_SHARED_DECK_MUTATION_LOCK = threading.RLock()
 PENDING_RETRY_SOURCE_SESSION_ID_KEY = 'retry_source_session_id'
 PENDING_CONTINUE_SOURCE_SESSION_ID_KEY = 'continue_source_session_id'
+_PYPINYIN_DICTS_LOADED = False
 
 
 def get_family_root(family_id):
     """Return filesystem root for one family."""
     return os.path.join(FAMILIES_ROOT, f'family_{family_id}')
+
+
+def encode_retry_recovered_session_result(existing_retry_count):
+    """Return the negative correct value for a card fixed in the next retry round."""
+    retry_count = max(0, int(existing_retry_count or 0))
+    return -(retry_count + 2)
 
 
 def get_kid_scoped_db_relpath(kid):
@@ -121,6 +155,15 @@ def build_writing_front_tts_text(front_text, back_text, has_chinese_specific_log
     if back_norm and back_norm != front_norm:
         return f"{back_norm}, {front_norm}"
     return front_norm
+
+
+def format_type2_bulk_card_text(front_text, back_text, has_chinese_specific_logic):
+    """Return one user-facing card label for type-II bulk-add status messages."""
+    front = str(front_text or '').strip()
+    back = str(back_text or '').strip()
+    if bool(has_chinese_specific_logic) or not back or back == front:
+        return front or back
+    return f'{front} -> {back}'
 
 
 def build_shared_writing_audio_file_name(front_text):
@@ -411,7 +454,7 @@ def extract_shared_deck_tags_and_labels(raw_tags):
 
 
 def normalize_shared_deck_category_behavior(raw_behavior):
-    """Normalize behavior input to canonical type_i/type_ii/type_iii."""
+    """Normalize behavior input to canonical type_i/type_ii/type_iii/type_iv."""
     text = str(raw_behavior or '').strip().lower()
     text = re.sub(r'[\s\-]+', '_', text)
     text = re.sub(r'_+', '_', text).strip('_')
@@ -450,6 +493,30 @@ def normalize_optional_emoji(value):
         return ''
     if len(text) > 16:
         raise ValueError('emoji is too long (max 16)')
+    return text
+
+
+def normalize_type_iv_display_label(value):
+    """Normalize required representative label for one type-IV deck."""
+    text = str(value or '').strip()
+    if not text:
+        raise ValueError('displayLabel is required for type_iv decks')
+    if len(text) > MAX_TYPE_IV_DISPLAY_LABEL_LENGTH:
+        raise ValueError(
+            f'displayLabel is too long (max {MAX_TYPE_IV_DISPLAY_LABEL_LENGTH})'
+        )
+    return text
+
+
+def normalize_type_iv_generator_code(value):
+    """Normalize required Python generator snippet for one type-IV deck."""
+    text = str(value or '').replace('\r\n', '\n').replace('\r', '\n').strip()
+    if not text:
+        raise ValueError('generatorCode is required for type_iv decks')
+    if len(text) > MAX_TYPE_IV_GENERATOR_CODE_LENGTH:
+        raise ValueError(
+            f'generatorCode is too long (max {MAX_TYPE_IV_GENERATOR_CODE_LENGTH} chars)'
+        )
     return text
 
 
@@ -655,6 +722,45 @@ def normalize_shared_deck_ids(deck_ids):
     return normalized
 
 
+def normalize_type_iv_daily_count(value, *, label='daily_count'):
+    """Normalize one type-IV per-deck daily count."""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f'{label} must be an integer') from None
+    if parsed < 0:
+        raise ValueError(f'{label} must be 0 or more')
+    if parsed > MAX_TYPE_IV_DAILY_TARGET_COUNT:
+        raise ValueError(
+            f'{label} must be {MAX_TYPE_IV_DAILY_TARGET_COUNT} or less'
+        )
+    return parsed
+
+
+def normalize_type_iv_daily_counts_payload(raw_map):
+    """Normalize shared-deck-id -> daily-count payload for type-IV settings."""
+    if not isinstance(raw_map, dict):
+        raise ValueError('dailyCountsByDeckId must be an object')
+
+    normalized = {}
+    for raw_key, raw_value in raw_map.items():
+        try:
+            shared_deck_id = int(str(raw_key or '').strip())
+        except (TypeError, ValueError):
+            raise ValueError('dailyCountsByDeckId keys must be shared deck ids') from None
+        if shared_deck_id <= 0:
+            raise ValueError('dailyCountsByDeckId keys must be shared deck ids')
+        normalized[shared_deck_id] = normalize_type_iv_daily_count(
+            raw_value,
+            label=f'dailyCountsByDeckId[{shared_deck_id}]',
+        )
+        if len(normalized) > MAX_SHARED_DECK_OPTIN_BATCH:
+            raise ValueError(
+                f'dailyCountsByDeckId exceeds max allowed ({MAX_SHARED_DECK_OPTIN_BATCH})'
+            )
+    return normalized
+
+
 def normalize_deck_category_keys(category_keys):
     """Validate and normalize deck-category keys for kid opt-in payloads."""
     if category_keys is None:
@@ -710,6 +816,94 @@ def build_materialized_shared_deck_tags(shared_tags):
     return tags
 
 
+def get_materialized_shared_deck_rows_by_shared_deck_id(conn, shared_deck_id):
+    """Return kid-local materialized deck rows for one shared deck id."""
+    try:
+        shared_id = int(shared_deck_id)
+    except (TypeError, ValueError):
+        return []
+    if shared_id <= 0:
+        return []
+    prefix = f"{MATERIALIZED_SHARED_DECK_NAME_PREFIX}{shared_id}__%"
+    return conn.execute(
+        """
+        SELECT id, name, tags
+        FROM decks
+        WHERE name LIKE ?
+        ORDER BY id ASC
+        """,
+        [prefix],
+    ).fetchall()
+
+
+def sync_materialized_shared_deck_metadata_for_kid(conn, shared_deck_id, shared_deck_name, shared_storage_tags):
+    """Align one kid DB's materialized deck metadata with the shared deck source."""
+    target_name = build_materialized_shared_deck_name(shared_deck_id, shared_deck_name)
+    target_tags = build_materialized_shared_deck_tags(shared_storage_tags)
+    rows = get_materialized_shared_deck_rows_by_shared_deck_id(conn, shared_deck_id)
+    if not rows:
+        return 0
+
+    changed_rows = []
+    for deck_id, name, tags in rows:
+        current_name = str(name or '')
+        current_tags = [str(item) for item in list(tags or [])]
+        if current_name == target_name and current_tags == target_tags:
+            continue
+        changed_rows.append(int(deck_id))
+
+    if not changed_rows:
+        return 0
+
+    conn.execute("BEGIN TRANSACTION")
+    try:
+        for deck_id in changed_rows:
+            conn.execute(
+                "UPDATE decks SET name = ?, tags = ? WHERE id = ?",
+                [target_name, target_tags, deck_id],
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return len(changed_rows)
+
+
+def sync_materialized_shared_deck_metadata_for_all_kids(shared_deck_id, shared_deck_name, shared_storage_tags):
+    """Propagate one shared deck's renamed metadata to every kid DB."""
+    updated_kid_ids = []
+    updated_deck_count = 0
+    failures = []
+    for kid in metadata.get_all_kids():
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            changed_count = sync_materialized_shared_deck_metadata_for_kid(
+                conn,
+                shared_deck_id,
+                shared_deck_name,
+                shared_storage_tags,
+            )
+            if changed_count > 0:
+                updated_kid_ids.append(str(kid.get('id') or ''))
+                updated_deck_count += changed_count
+        except Exception as e:
+            failures.append({
+                'kid_id': str(kid.get('id') or ''),
+                'kid_name': str(kid.get('name') or ''),
+                'error': str(e),
+            })
+        finally:
+            if conn is not None:
+                conn.close()
+    return {
+        'updated_kid_ids': updated_kid_ids,
+        'updated_kid_count': len(updated_kid_ids),
+        'updated_deck_count': int(updated_deck_count),
+        'failures': failures,
+    }
+
+
 def get_shared_deck_rows_by_first_tag(conn, first_tag):
     """Return shared decks with card counts filtered by required first tag."""
     required_tag = str(first_tag or '').strip()
@@ -753,6 +947,44 @@ def get_shared_type_ii_deck_rows(conn, category_key):
     if not first_tag:
         return []
     return get_shared_deck_rows_by_first_tag(conn, first_tag)
+
+
+def get_shared_type_iv_deck_rows(conn, category_key):
+    """Return type-IV shared decks with their representative-card label."""
+    first_tag = normalize_shared_deck_tag(category_key)
+    if not first_tag:
+        return []
+
+    decks = get_shared_deck_rows_by_first_tag(conn, first_tag)
+    deck_ids = [int(deck['deck_id']) for deck in decks]
+    if not deck_ids:
+        return decks
+
+    placeholders = ','.join(['?'] * len(deck_ids))
+    card_rows = conn.execute(
+        f"""
+        SELECT deck_id, front, back
+        FROM cards
+        WHERE deck_id IN ({placeholders})
+        ORDER BY deck_id ASC, id ASC
+        """,
+        deck_ids
+    ).fetchall()
+    representative_by_deck_id = {}
+    for row in card_rows:
+        deck_id = int(row[0])
+        if deck_id in representative_by_deck_id:
+            continue
+        representative_by_deck_id[deck_id] = {
+            'representative_front': str(row[1] or ''),
+            'representative_back': str(row[2] or ''),
+        }
+
+    for deck in decks:
+        representative = representative_by_deck_id.get(int(deck['deck_id'])) or {}
+        deck['representative_front'] = str(representative.get('representative_front') or '')
+        deck['representative_back'] = str(representative.get('representative_back') or '')
+    return decks
 
 
 def get_kid_materialized_shared_decks_by_first_tag(conn, first_tag):
@@ -963,12 +1195,6 @@ def get_category_orphan_deck_name(category_key):
     return f'{key}_orphan'
 
 
-def get_category_orphan_deck_description(category_key):
-    """Return orphan deck description for one category key."""
-    key = normalize_shared_deck_tag(category_key) or 'cards'
-    return f'Reserved deck for orphaned/manual {key} cards'
-
-
 def get_or_create_category_orphan_deck(conn, category_key):
     """Get/create orphan deck id for one category key."""
     key = normalize_shared_deck_tag(category_key)
@@ -977,7 +1203,6 @@ def get_or_create_category_orphan_deck(conn, category_key):
     return get_or_create_orphan_deck(
         conn,
         get_category_orphan_deck_name(key),
-        get_category_orphan_deck_description(key),
         key,
     )
 
@@ -1104,6 +1329,87 @@ def get_shared_type_ii_merged_source_decks_for_kid(conn, kid, category_key):
     )
 
 
+def get_shared_type_iv_merged_source_decks_for_kid(conn, category_key):
+    """Return type-IV source decks for merged bank view without any orphan deck."""
+    first_tag = normalize_shared_deck_tag(category_key)
+    if not first_tag:
+        return []
+
+    materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
+    sources = []
+    for local_deck_id in sorted(materialized_by_local_id.keys()):
+        entry = materialized_by_local_id[local_deck_id]
+        local_id = int(entry['local_deck_id'])
+        total_cards = int(conn.execute(
+            "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
+            [local_id]
+        ).fetchone()[0] or 0)
+        active_cards = int(conn.execute(
+            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
+            [local_id]
+        ).fetchone()[0] or 0)
+        sources.append(_build_shared_source_deck_entry(entry, total_cards, active_cards))
+    return sources
+
+
+def get_type_iv_bank_source_rows(conn, category_key):
+    """Return type-IV bank sources, including orphan cards for visibility only."""
+    sources = list(get_shared_type_iv_merged_source_decks_for_kid(conn, category_key))
+    orphan_deck_name = get_category_orphan_deck_name(category_key)
+    orphan_row = conn.execute(
+        "SELECT id, name, tags FROM decks WHERE name = ? LIMIT 1",
+        [orphan_deck_name]
+    ).fetchone()
+    if not orphan_row:
+        return sources
+
+    orphan_deck_id = int(orphan_row[0] or 0)
+    if orphan_deck_id <= 0:
+        return sources
+    orphan_total = int(conn.execute(
+        "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
+        [orphan_deck_id]
+    ).fetchone()[0] or 0)
+    if orphan_total <= 0:
+        return sources
+    orphan_active = int(conn.execute(
+        "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
+        [orphan_deck_id]
+    ).fetchone()[0] or 0)
+    orphan_entry = _build_orphan_source_deck_entry(
+        orphan_row,
+        orphan_deck_name,
+        orphan_total,
+        orphan_active,
+        False,
+    )
+    orphan_entry['included_in_bank'] = True
+    orphan_entry['included_in_queue'] = False
+    sources.append(orphan_entry)
+    return sources
+
+
+def get_type_iv_total_daily_target_for_category(conn, category_key):
+    """Return the sum of per-deck daily targets for one materialized type-IV category."""
+    first_tag = normalize_shared_deck_tag(category_key)
+    if not first_tag:
+        return 0
+    materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
+    local_deck_ids = [int(deck_id) for deck_id in materialized_by_local_id.keys()]
+    if not local_deck_ids:
+        return 0
+    placeholders = ','.join(['?'] * len(local_deck_ids))
+    total = conn.execute(
+        f"""
+        SELECT COALESCE(SUM(COALESCE(daily_target_count, 0)), 0)
+        FROM decks
+        WHERE id IN ({placeholders})
+        """,
+        local_deck_ids
+    ).fetchone()
+    return int((total[0] if total else 0) or 0)
+
+
 def get_shared_deck_owned_by_family(conn, deck_id, family_id_int):
     """Fetch one shared deck row if it belongs to the given family."""
     return conn.execute(
@@ -1114,6 +1420,19 @@ def get_shared_deck_owned_by_family(conn, deck_id, family_id_int):
         """,
         [deck_id, family_id_int]
     ).fetchone()
+
+
+def get_shared_deck_behavior_type_from_raw_tags(conn, raw_tags):
+    """Resolve behavior type for one shared deck row from its first tag."""
+    tags = extract_shared_deck_tags_and_labels(raw_tags)[0]
+    first_tag = normalize_shared_deck_tag(tags[0]) if tags else ''
+    if not first_tag:
+        return ''
+    row = conn.execute(
+        "SELECT behavior_type FROM deck_category WHERE category_key = ? LIMIT 1",
+        [first_tag],
+    ).fetchone()
+    return normalize_shared_deck_category_behavior(row[0] if row else '')
 
 
 def get_shared_deck_cards(conn, deck_id):
@@ -1134,17 +1453,112 @@ def get_shared_deck_cards(conn, deck_id):
     } for row in rows]
 
 
+def get_shared_deck_generator_definition(conn, deck_id):
+    """Return immutable generator definition for one shared type-IV deck."""
+    row = conn.execute(
+        """
+        SELECT code, created_at
+        FROM deck_generator_definition
+        WHERE deck_id = ?
+        LIMIT 1
+        """,
+        [deck_id],
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        'code': str(row[0] or ''),
+        'created_at': row[1].isoformat() if row[1] else None,
+    }
+
+
+def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
+    """Return immutable generator definitions by shared type-IV deck id."""
+    normalized_ids = []
+    seen = set()
+    for raw_id in list(deck_ids or []):
+        try:
+            deck_id = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if deck_id <= 0 or deck_id in seen:
+            continue
+        seen.add(deck_id)
+        normalized_ids.append(deck_id)
+    if not normalized_ids:
+        return {}
+
+    placeholders = ','.join(['?'] * len(normalized_ids))
+    rows = conn.execute(
+        f"""
+        SELECT deck_id, code, created_at
+        FROM deck_generator_definition
+        WHERE deck_id IN ({placeholders})
+        """,
+        normalized_ids,
+    ).fetchall()
+    definitions = {}
+    for row in rows:
+        definitions[int(row[0])] = {
+            'code': str(row[1] or ''),
+            'created_at': row[2].isoformat() if row[2] else None,
+        }
+    return definitions
+
+
+def build_type_iv_card_generator_details_by_shared_id(deck_ids):
+    """Return generator code keyed by shared type-IV deck id."""
+    shared_conn = None
+    try:
+        shared_conn = get_shared_decks_connection()
+        definitions_by_id = get_shared_deck_generator_definitions_by_deck_ids(shared_conn, deck_ids)
+    finally:
+        if shared_conn is not None:
+            shared_conn.close()
+
+    details_by_id = {}
+    for deck_id, definition in definitions_by_id.items():
+        code = str(definition.get('code') or '')
+        details_by_id[int(deck_id)] = {
+            'code': code,
+        }
+    return details_by_id
+
+
+def build_type_iv_generator_details_by_representative_front(category_key):
+    """Return generator details keyed by representative front label."""
+    shared_conn = None
+    try:
+        shared_conn = get_shared_decks_connection()
+        decks = get_shared_type_iv_deck_rows(shared_conn, category_key)
+        definitions_by_id = get_shared_deck_generator_definitions_by_deck_ids(
+            shared_conn,
+            [deck.get('deck_id') for deck in decks],
+        )
+    finally:
+        if shared_conn is not None:
+            shared_conn.close()
+
+    details_by_front = {}
+    for deck in decks:
+        representative_front = str(deck.get('representative_front') or '').strip()
+        if not representative_front or representative_front in details_by_front:
+            continue
+        shared_deck_id = int(deck.get('deck_id') or 0)
+        definition = definitions_by_id.get(shared_deck_id) or {}
+        code = str(definition.get('code') or '')
+        if shared_deck_id <= 0 or not code:
+            continue
+        details_by_front[representative_front] = {
+            'shared_deck_id': shared_deck_id,
+            'code': code,
+        }
+    return details_by_front
+
+
 def get_shared_deck_dedupe_key(conn, raw_tags):
     """Resolve dedupe key for one shared deck from its category behavior."""
-    tags = extract_shared_deck_tags_and_labels(raw_tags)[0]
-    first_tag = normalize_shared_deck_tag(tags[0]) if tags else ''
-    if not first_tag:
-        return 'front'
-    row = conn.execute(
-        "SELECT behavior_type FROM deck_category WHERE category_key = ? LIMIT 1",
-        [first_tag]
-    ).fetchone()
-    behavior_type = normalize_shared_deck_category_behavior(row[0] if row else '')
+    behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, raw_tags)
     if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II:
         return 'back'
     return 'front'
@@ -1258,16 +1672,44 @@ def format_shared_deck_tag_path(tags):
 
 
 def build_chinese_pinyin_text(text):
-    """Generate pinyin for Chinese text using pypinyin (lazy import)."""
+    """Generate pinyin for Chinese text using pypinyin (lazy import).
+
+    For single-character Chinese cards, include every distinct heteronym so
+    bulk-add auto-generation preserves valid multi-pronunciation cases like 还.
+    For longer text, keep the existing phrase-style single reading to avoid
+    exploding the output for multi-character words and phrases.
+    """
     normalized = str(text or '').strip()
     if not normalized:
         return ''
     try:
-        from pypinyin import lazy_pinyin, Style  # type: ignore
+        from pypinyin import lazy_pinyin, pinyin, Style  # type: ignore
     except Exception as exc:
         raise RuntimeError(
             'pypinyin is not installed. Install it in backend env: pip install pypinyin'
         ) from exc
+
+    ensure_pypinyin_dicts_loaded()
+
+    if len(normalized) == 1:
+        heteronyms = pinyin(
+            normalized,
+            style=Style.TONE,
+            heteronym=True,
+            neutral_tone_with_five=True,
+            strict=False,
+            errors='default',
+        )
+        first_group = heteronyms[0] if heteronyms else []
+        ordered = []
+        seen = set()
+        for item in list(first_group or []):
+            syllable = str(item or '').strip()
+            if not syllable or syllable in seen:
+                continue
+            ordered.append(syllable)
+            seen.add(syllable)
+        return ' / '.join(ordered)
 
     syllables = lazy_pinyin(
         normalized,
@@ -1279,6 +1721,23 @@ def build_chinese_pinyin_text(text):
     parts = [str(item or '').strip() for item in list(syllables or [])]
     parts = [item for item in parts if item]
     return ' '.join(parts)
+
+
+def ensure_pypinyin_dicts_loaded():
+    """Load optional dictionary upgrades for pypinyin once per process."""
+    global _PYPINYIN_DICTS_LOADED
+    if _PYPINYIN_DICTS_LOADED:
+        return
+    try:
+        from pypinyin_dict.phrase_pinyin_data import cc_cedict  # type: ignore
+        from pypinyin_dict.pinyin_data import kxhc1983  # type: ignore
+    except Exception as exc:
+        raise RuntimeError(
+            'pypinyin-dict is not installed. Install it in backend env: pip install pypinyin-dict'
+        ) from exc
+    cc_cedict.load()
+    kxhc1983.load()
+    _PYPINYIN_DICTS_LOADED = True
 
 
 @kids_bp.route('/shared-decks/categories', methods=['GET'])
@@ -1317,12 +1776,17 @@ def create_shared_deck_category():
 
         behavior_type = normalize_shared_deck_category_behavior(payload.get('behaviorType'))
         if behavior_type not in DECK_CATEGORY_BEHAVIOR_TYPES:
-            raise ValueError('behaviorType must be one of: type_i, type_ii, type_iii')
+            raise ValueError('behaviorType must be one of: type_i, type_ii, type_iii, type_iv')
         has_chinese_specific_logic = normalize_optional_bool(
             payload.get('hasChineseSpecificLogic'),
             'hasChineseSpecificLogic',
             False,
         )
+        if (
+            behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV
+            and has_chinese_specific_logic
+        ):
+            raise ValueError('type_iv categories do not support hasChineseSpecificLogic')
         display_name = normalize_optional_display_name(payload.get('displayName'))
         emoji = normalize_optional_emoji(payload.get('emoji'))
 
@@ -1464,6 +1928,13 @@ def shared_deck_name_availability():
         if auth_err:
             return auth_err
         requested_name = str(request.args.get('name') or '').strip()
+        exclude_deck_id_raw = str(request.args.get('excludeDeckId') or '').strip()
+        exclude_deck_id = None
+        if exclude_deck_id_raw:
+            try:
+                exclude_deck_id = int(exclude_deck_id_raw)
+            except (TypeError, ValueError):
+                return jsonify({'error': 'excludeDeckId must be an integer'}), 400
 
         conn = get_shared_decks_connection()
         try:
@@ -1482,10 +1953,16 @@ def shared_deck_name_availability():
             if not deck_name:
                 return jsonify({'error': 'name is required'}), 400
 
-            row = conn.execute(
-                "SELECT deck_id FROM deck WHERE name = ? LIMIT 1",
-                [deck_name]
-            ).fetchone()
+            if exclude_deck_id is not None and exclude_deck_id > 0:
+                row = conn.execute(
+                    "SELECT deck_id FROM deck WHERE name = ? AND deck_id <> ? LIMIT 1",
+                    [deck_name, exclude_deck_id]
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT deck_id FROM deck WHERE name = ? LIMIT 1",
+                    [deck_name]
+                ).fetchone()
             prefix_conflict_tags = (
                 find_shared_deck_tag_prefix_conflict(conn, tags)
                 if tags
@@ -1506,6 +1983,7 @@ def shared_deck_name_availability():
             'existing_deck_id': int(row[0]) if row else None,
             'conflict_type': conflict_type,
             'conflict_tags': prefix_conflict_tags,
+            'exclude_deck_id': exclude_deck_id,
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -1538,6 +2016,30 @@ def shared_deck_chinese_characters_pinyin():
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/shared-decks/type4/preview', methods=['POST'])
+def preview_shared_type4_generator():
+    """Run a Type IV generator snippet and return example outputs."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+
+        payload = request.get_json() or {}
+        generator_code = normalize_type_iv_generator_code(payload.get('generatorCode'))
+        samples = preview_type4_generator(
+            generator_code,
+            sample_count=TYPE_IV_PREVIEW_SAMPLE_COUNT,
+        )
+        return jsonify({
+            'sample_count': len(samples),
+            'samples': samples,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/shared-decks/category-card-overlap', methods=['POST'])
 def shared_deck_category_card_overlap():
     """Compare candidate cards with existing cards in one category."""
@@ -1564,6 +2066,8 @@ def shared_deck_category_card_overlap():
                 raise ValueError(f'Unknown categoryKey: {category_key}')
 
             behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
+            if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                raise ValueError('type_iv categories use Python generators, not static cards')
             dedupe_key = 'back' if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II else 'front'
             other_key = 'front' if dedupe_key == 'back' else 'back'
 
@@ -1737,7 +2241,13 @@ def get_shared_deck_details(deck_id):
             deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
             if not deck_row:
                 return jsonify({'error': 'Deck not found'}), 404
+            behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
             cards = get_shared_deck_cards(conn, deck_id)
+            generator_definition = (
+                get_shared_deck_generator_definition(conn, deck_id)
+                if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV
+                else None
+            )
         finally:
             conn.close()
 
@@ -1746,12 +2256,145 @@ def get_shared_deck_details(deck_id):
                 'deck_id': int(deck_row[0]),
                 'name': str(deck_row[1]),
                 'tags': extract_shared_deck_tags_and_labels(deck_row[2])[0],
+                'tag_labels': extract_shared_deck_tags_and_labels(deck_row[2])[1],
                 'creator_family_id': int(deck_row[3]),
                 'created_at': deck_row[4].isoformat() if deck_row[4] else None,
+                'behavior_type': behavior_type,
             },
             'card_count': len(cards),
             'cards': cards,
+            'generator_definition': generator_definition,
         }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/<int:deck_id>/tags', methods=['PUT'])
+def update_shared_deck_tags(deck_id):
+    """Rename one owned shared deck's tag path while keeping its first tag fixed."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        family_id_int = get_current_family_id_int()
+        if family_id_int is None:
+            if not current_family_id():
+                return jsonify({'error': 'Family login required'}), 401
+            return jsonify({'error': 'Invalid family id in session'}), 400
+
+        payload = request.get_json(silent=True) or {}
+        extra_tags_payload = payload.get('extraTags')
+
+        with _SHARED_DECK_MUTATION_LOCK:
+            conn = None
+            try:
+                conn = get_shared_decks_connection()
+                deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
+                if not deck_row:
+                    return jsonify({'error': 'Deck not found'}), 404
+
+                current_name = str(deck_row[1] or '').strip()
+                current_tags, _ = extract_shared_deck_tags_and_labels(deck_row[2])
+                current_first_tag = normalize_shared_deck_tag(current_tags[0] if current_tags else '')
+                if not current_first_tag:
+                    return jsonify({'error': 'Deck is missing a valid first tag'}), 400
+
+                allowed_first_tags = get_allowed_shared_deck_first_tags(conn)
+                tags, comments_by_tag = build_shared_deck_tags(
+                    current_first_tag,
+                    extra_tags_payload,
+                    allowed_first_tags=allowed_first_tags,
+                    include_comments=True,
+                )
+                if tags[0] != current_first_tag:
+                    return jsonify({'error': 'First tag cannot be changed here'}), 400
+
+                if tags != current_tags:
+                    prefix_conflict_tags = find_shared_deck_tag_prefix_conflict(conn, tags)
+                    if prefix_conflict_tags:
+                        raise ValueError(
+                            'Tag path conflicts with existing deck path '
+                            f'{format_shared_deck_tag_path(prefix_conflict_tags)}. '
+                            'Nested tag paths are not allowed.'
+                        )
+
+                next_name = '_'.join(tags)
+                storage_tags = [
+                    format_shared_deck_tag_display_label(tag, comments_by_tag.get(tag))
+                    for tag in tags
+                ]
+
+                existing_name_row = conn.execute(
+                    "SELECT deck_id FROM deck WHERE name = ? AND deck_id <> ? LIMIT 1",
+                    [next_name, deck_id],
+                ).fetchone()
+                if existing_name_row:
+                    return jsonify({'error': 'Deck name already exists. Please choose different tags.'}), 409
+
+                shared_updated = False
+                if next_name != current_name or storage_tags != [str(item) for item in list(deck_row[2] or [])]:
+                    conn.execute("BEGIN TRANSACTION")
+                    try:
+                        conn.execute(
+                            """
+                            UPDATE deck
+                            SET name = ?, tags = ?
+                            WHERE deck_id = ? AND creator_family_id = ?
+                            """,
+                            [next_name, storage_tags, deck_id, family_id_int],
+                        )
+                        conn.execute("COMMIT")
+                        shared_updated = True
+                    except Exception:
+                        conn.execute("ROLLBACK")
+                        raise
+            finally:
+                if conn is not None:
+                    conn.close()
+
+            sync_result = sync_materialized_shared_deck_metadata_for_all_kids(
+                deck_id,
+                next_name,
+                storage_tags,
+            )
+            if sync_result['failures']:
+                failed_labels = [
+                    item['kid_name'] or f"kid {item['kid_id']}"
+                    for item in sync_result['failures']
+                ]
+                return jsonify({
+                    'error': (
+                        'Shared deck tags were updated, but some kid DBs failed to sync: '
+                        + ', '.join(failed_labels)
+                        + '. Re-running the same rename will retry the kid sync.'
+                    ),
+                    'shared_updated': bool(shared_updated),
+                    'deck_id': int(deck_id),
+                    'deck': {
+                        'deck_id': int(deck_id),
+                        'name': next_name,
+                        'tags': tags,
+                        'tag_labels': storage_tags,
+                    },
+                    'updated_kid_count': int(sync_result['updated_kid_count']),
+                    'updated_deck_count': int(sync_result['updated_deck_count']),
+                    'kid_sync_failures': sync_result['failures'],
+                }), 500
+
+        return jsonify({
+            'updated': True,
+            'shared_updated': bool(shared_updated),
+            'deck': {
+                'deck_id': int(deck_id),
+                'name': next_name,
+                'tags': tags,
+                'tag_labels': storage_tags,
+            },
+            'updated_kid_count': int(sync_result['updated_kid_count']),
+            'updated_deck_count': int(sync_result['updated_deck_count']),
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1769,22 +2412,25 @@ def add_shared_deck_cards(deck_id):
                 return jsonify({'error': 'Family login required'}), 401
             return jsonify({'error': 'Invalid family id in session'}), 400
 
-        payload = request.get_json(silent=True) or {}
-        if isinstance(payload.get('cards'), list):
-            cards = normalize_shared_deck_cards(payload.get('cards'))
-        else:
-            front = str(payload.get('front') or '').strip()
-            back = str(payload.get('back') or '').strip()
-            if not front or not back:
-                return jsonify({'error': 'Provide cards[] or one front/back pair.'}), 400
-            cards = [{'front': front, 'back': back}]
-
         conn = None
         try:
             conn = get_shared_decks_connection()
             deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
             if not deck_row:
                 return jsonify({'error': 'Deck not found'}), 404
+            behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
+            if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                return jsonify({'error': 'type_iv decks are immutable and do not support card edits'}), 400
+
+            payload = request.get_json(silent=True) or {}
+            if isinstance(payload.get('cards'), list):
+                cards = normalize_shared_deck_cards(payload.get('cards'))
+            else:
+                front = str(payload.get('front') or '').strip()
+                back = str(payload.get('back') or '').strip()
+                if not front or not back:
+                    return jsonify({'error': 'Provide cards[] or one front/back pair.'}), 400
+                cards = [{'front': front, 'back': back}]
 
             dedupe_key = get_shared_deck_dedupe_key(conn, deck_row[2])
             cards = (
@@ -1871,6 +2517,9 @@ def delete_shared_deck_card(deck_id, card_id):
             deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
             if not deck_row:
                 return jsonify({'error': 'Deck not found'}), 404
+            behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
+            if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                return jsonify({'error': 'type_iv decks are immutable and do not support card edits'}), 400
 
             card_row = conn.execute(
                 "SELECT id FROM cards WHERE id = ? AND deck_id = ? LIMIT 1",
@@ -1914,20 +2563,21 @@ def delete_shared_deck(deck_id):
                 return jsonify({'error': 'Family login required'}), 401
             return jsonify({'error': 'Invalid family id in session'}), 400
 
-        conn = None
-        try:
-            conn = get_shared_decks_connection()
-            deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
-            if not deck_row:
-                return jsonify({'error': 'Deck not found'}), 404
-            # DuckDB currently raises a FK error for child->parent delete
-            # inside an explicit transaction even after child rows are removed.
-            # Run in autocommit mode: delete cards first, then deck.
-            conn.execute("DELETE FROM cards WHERE deck_id = ?", [deck_id])
-            conn.execute("DELETE FROM deck WHERE deck_id = ? AND creator_family_id = ?", [deck_id, family_id_int])
-        finally:
-            if conn is not None:
-                conn.close()
+        with _SHARED_DECK_MUTATION_LOCK:
+            conn = None
+            try:
+                conn = get_shared_decks_connection()
+                deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
+                if not deck_row:
+                    return jsonify({'error': 'Deck not found'}), 404
+                # Keep delete simple in autocommit mode: remove dependent shared rows,
+                # then delete the deck shell.
+                conn.execute("DELETE FROM deck_generator_definition WHERE deck_id = ?", [deck_id])
+                conn.execute("DELETE FROM cards WHERE deck_id = ?", [deck_id])
+                conn.execute("DELETE FROM deck WHERE deck_id = ? AND creator_family_id = ?", [deck_id, family_id_int])
+            finally:
+                if conn is not None:
+                    conn.close()
 
         return jsonify({
             'deleted': True,
@@ -1946,80 +2596,89 @@ def create_shared_deck():
             return auth_err
         family_id = current_family_id()
         payload = request.get_json() or {}
-        cards = normalize_shared_deck_cards(payload.get('cards'))
 
         try:
             family_id_int = int(family_id)
         except (TypeError, ValueError):
             return jsonify({'error': 'Invalid family id in session'}), 400
 
-        conn = None
-        try:
-            conn = get_shared_decks_connection()
-            allowed_first_tags = get_allowed_shared_deck_first_tags(conn)
-            tags, comments_by_tag = build_shared_deck_tags(
-                payload.get('firstTag'),
-                payload.get('extraTags'),
-                allowed_first_tags=allowed_first_tags,
-                include_comments=True,
-            )
-            prefix_conflict_tags = find_shared_deck_tag_prefix_conflict(conn, tags)
-            if prefix_conflict_tags:
-                raise ValueError(
-                    'Tag path conflicts with existing deck path '
-                    f'{format_shared_deck_tag_path(prefix_conflict_tags)}. '
-                    'Nested tag paths are not allowed.'
+        with _SHARED_DECK_MUTATION_LOCK:
+            conn = None
+            try:
+                conn = get_shared_decks_connection()
+                allowed_first_tags = get_allowed_shared_deck_first_tags(conn)
+                tags, comments_by_tag = build_shared_deck_tags(
+                    payload.get('firstTag'),
+                    payload.get('extraTags'),
+                    allowed_first_tags=allowed_first_tags,
+                    include_comments=True,
                 )
-            dedupe_by_back = False
-            if tags:
-                category_meta_by_key = get_shared_deck_category_meta_by_key()
-                first_tag = normalize_shared_deck_tag(tags[0])
-                category_meta = category_meta_by_key.get(first_tag) if first_tag else None
-                behavior_type = str((category_meta or {}).get('behavior_type') or '').strip().lower()
-                dedupe_by_back = (
-                    behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II
+                prefix_conflict_tags = find_shared_deck_tag_prefix_conflict(conn, tags)
+                if prefix_conflict_tags:
+                    raise ValueError(
+                        'Tag path conflicts with existing deck path '
+                        f'{format_shared_deck_tag_path(prefix_conflict_tags)}. '
+                        'Nested tag paths are not allowed.'
+                    )
+                behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, tags)
+                is_type_iv = behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV
+                if is_type_iv:
+                    display_label = normalize_type_iv_display_label(payload.get('displayLabel'))
+                    generator_code = normalize_type_iv_generator_code(payload.get('generatorCode'))
+                    preview_type4_generator(generator_code, sample_count=1)
+                    cards = [{'front': display_label, 'back': ''}]
+                else:
+                    dedupe_by_back = behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II
+                    cards = normalize_shared_deck_cards(payload.get('cards'))
+                    cards = (
+                        dedupe_shared_deck_cards_by_back(cards)
+                        if dedupe_by_back
+                        else dedupe_shared_deck_cards_by_front(cards)
+                    )
+                deck_name = '_'.join(tags)
+                storage_tags = [
+                    format_shared_deck_tag_display_label(tag, comments_by_tag.get(tag))
+                    for tag in tags
+                ]
+
+                conn.execute("BEGIN TRANSACTION")
+                deck_row = conn.execute(
+                    """
+                    INSERT INTO deck (name, tags, creator_family_id)
+                    VALUES (?, ?, ?)
+                    RETURNING deck_id, created_at
+                    """,
+                    [deck_name, storage_tags, family_id_int]
+                ).fetchone()
+                deck_id = int(deck_row[0])
+                created_at = deck_row[1].isoformat() if deck_row and deck_row[1] else None
+
+                conn.executemany(
+                    """
+                    INSERT INTO cards (deck_id, front, back)
+                    VALUES (?, ?, ?)
+                    """,
+                    [[deck_id, card['front'], card['back']] for card in cards]
                 )
-            cards = (
-                dedupe_shared_deck_cards_by_back(cards)
-                if dedupe_by_back
-                else dedupe_shared_deck_cards_by_front(cards)
-            )
-            deck_name = '_'.join(tags)
-            storage_tags = [
-                format_shared_deck_tag_display_label(tag, comments_by_tag.get(tag))
-                for tag in tags
-            ]
-
-            conn.execute("BEGIN TRANSACTION")
-            deck_row = conn.execute(
-                """
-                INSERT INTO deck (name, tags, creator_family_id)
-                VALUES (?, ?, ?)
-                RETURNING deck_id, created_at
-                """,
-                [deck_name, storage_tags, family_id_int]
-            ).fetchone()
-            deck_id = int(deck_row[0])
-            created_at = deck_row[1].isoformat() if deck_row and deck_row[1] else None
-
-            conn.executemany(
-                """
-                INSERT INTO cards (deck_id, front, back)
-                VALUES (?, ?, ?)
-                """,
-                [[deck_id, card['front'], card['back']] for card in cards]
-            )
-            conn.execute("COMMIT")
-        except Exception:
-            if conn is not None:
-                try:
-                    conn.execute("ROLLBACK")
-                except Exception:
-                    pass
-            raise
-        finally:
-            if conn is not None:
-                conn.close()
+                if is_type_iv:
+                    conn.execute(
+                        """
+                        INSERT INTO deck_generator_definition (deck_id, code)
+                        VALUES (?, ?)
+                        """,
+                        [deck_id, generator_code],
+                    )
+                conn.execute("COMMIT")
+            except Exception:
+                if conn is not None:
+                    try:
+                        conn.execute("ROLLBACK")
+                    except Exception:
+                        pass
+                raise
+            finally:
+                if conn is not None:
+                    conn.close()
 
         return jsonify({
             'created': True,
@@ -2029,6 +2688,7 @@ def create_shared_deck():
                 'tags': tags,
                 'creator_family_id': family_id_int,
                 'created_at': created_at,
+                'behavior_type': behavior_type,
             },
             'cards_added': len(cards),
         }), 201
@@ -2590,6 +3250,19 @@ def resolve_kid_type_ii_category_with_mode(kid, raw_category_key, *, allow_defau
     )
 
 
+def resolve_kid_type_iv_category_with_mode(kid, raw_category_key, *, allow_default=False):
+    """Resolve explicit type-IV category key and return its mode flag."""
+    return resolve_kid_category_with_mode(
+        kid,
+        raw_category_key,
+        DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+        allow_default=allow_default,
+        wrong_type_error='categoryKey must be a type-IV deck category',
+        no_match_error='Kid is not opted-in to a type-IV category',
+        multiple_match_error='categoryKey is required when multiple type-IV categories are opted-in',
+    )
+
+
 def get_kid_daily_completed_by_deck_category(kid, opted_in_category_keys, today_counts=None):
     """Build per-category daily completed session counts using practiced card tags."""
     counts = {}
@@ -2677,19 +3350,36 @@ def get_kid_daily_percent_by_deck_category(opted_in_category_keys, today_latest_
     return result
 
 
-def get_kid_practice_target_by_deck_category(kid, opted_in_category_keys, category_meta_by_key):
+def get_kid_practice_target_by_deck_category(
+    kid,
+    opted_in_category_keys,
+    category_meta_by_key,
+    *,
+    conn=None,
+):
     """Build per-category daily target counts for one kid."""
     targets = {}
     keys = [normalize_shared_deck_tag(key) for key in list(opted_in_category_keys or [])]
+    owned_conn = None
     for key in keys:
         if not key:
             continue
         category_meta = category_meta_by_key.get(key) if isinstance(category_meta_by_key, dict) else None
         behavior_type = str((category_meta or {}).get('behavior_type') or '').strip().lower()
+        if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+            target_conn = conn
+            if target_conn is None:
+                if owned_conn is None:
+                    owned_conn = get_kid_connection_for(kid)
+                target_conn = owned_conn
+            targets[key] = int(get_type_iv_total_daily_target_for_category(target_conn, key))
+            continue
         if behavior_type in DECK_CATEGORY_BEHAVIOR_TYPES:
             targets[key] = int(get_category_session_card_count_for_kid(kid, key))
             continue
         targets[key] = 0
+    if owned_conn is not None:
+        owned_conn.close()
     return targets
 
 
@@ -2730,6 +3420,7 @@ def get_kids():
                     kid,
                     opted_in_category_keys,
                     category_meta_by_key,
+                    conn=conn,
                 )
                 if is_admin_view:
                     today_counts = defaultdict(int)
@@ -2900,6 +3591,12 @@ def get_kid(kid_id):
                 category_meta_by_key=category_meta_by_key,
                 conn=conn,
             )
+            practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
+                kid,
+                opted_in_category_keys,
+                category_meta_by_key,
+                conn=conn,
+            )
         finally:
             if conn is not None:
                 conn.close()
@@ -2933,11 +3630,6 @@ def get_kid(kid_id):
             key: int(today_latest_right_count.get(key, 0) or 0)
             for key in opted_in_category_keys
         }
-        practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
-            kid,
-            opted_in_category_keys,
-            category_meta_by_key,
-        )
         kid_with_progress = {
             **kid,
             'dailyCompletedCountToday': int(today_counts.get('total', 0) or 0),
@@ -3227,10 +3919,14 @@ def get_kid_report_session_detail(kid_id, session_id):
                 c.front,
                 c.back,
                 lra.file_name,
-                lra.mime_type
+                lra.mime_type,
+                t4.prompt,
+                t4.answer,
+                t4.submitted_answers
             FROM session_results sr
             LEFT JOIN cards c ON c.id = sr.card_id
             LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
+            LEFT JOIN type4_result_item t4 ON t4.result_id = sr.id
             WHERE sr.session_id = ?
             ORDER BY sr.id ASC
             """,
@@ -3240,6 +3936,7 @@ def get_kid_report_session_detail(kid_id, session_id):
         session_type = normalize_shared_deck_tag(session_row[1])
         session_behavior_type = get_session_behavior_type(session_type)
         category_meta_by_key = get_shared_deck_category_meta_by_key()
+        session_category_meta = category_meta_by_key.get(session_type) or {}
         session_category_display_name = get_deck_category_display_name(session_type, category_meta_by_key)
 
         answers = []
@@ -3259,6 +3956,13 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'audio_file_name': row[7] or None,
                 'audio_mime_type': row[8] or None,
                 'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[7]}" if row[7] else None,
+                'materialized_prompt': str(row[9] or '').strip(),
+                'materialized_answer': str(row[10] or '').strip(),
+                'submitted_answers': [
+                    str(item).strip()
+                    for item in list(row[11] or [])
+                    if str(item or '').strip()
+                ],
             }
             answers.append(item)
             if item['correct_score'] > 0:
@@ -3275,6 +3979,7 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'id': int(session_row[0]),
                 'type': session_row[1],
                 'behavior_type': session_behavior_type,
+                'has_chinese_specific_logic': bool(session_category_meta.get('has_chinese_specific_logic')),
                 'category_display_name': session_category_display_name,
                 'started_at': session_row[2].isoformat() if session_row[2] else None,
                 'completed_at': session_row[3].isoformat() if session_row[3] else None,
@@ -3407,11 +4112,16 @@ def get_kid_report_card_detail(kid_id, card_id):
                 s.type AS session_type,
                 s.started_at,
                 s.completed_at,
+                COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
                 lra.file_name,
-                lra.mime_type
+                lra.mime_type,
+                t4.prompt,
+                t4.answer,
+                t4.submitted_answers
             FROM session_results sr
             JOIN sessions s ON s.id = sr.session_id
             LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
+            LEFT JOIN type4_result_item t4 ON t4.result_id = sr.id
             WHERE sr.card_id = ?
             ORDER BY COALESCE(s.completed_at, s.started_at, sr.timestamp) ASC, sr.id ASC
             """,
@@ -3430,25 +4140,44 @@ def get_kid_report_card_detail(kid_id, card_id):
             is_correct = correct_score > 0
             response_ms = int(row[2] or 0)
             session_type = normalize_shared_deck_tag(row[5])
+            session_behavior_type = get_session_behavior_type(session_type, category_meta_by_key)
+            materialized_prompt = str(row[11] or '').strip()
+            materialized_answer = str(row[12] or '').strip()
+            submitted_answers = [
+                str(item).strip()
+                for item in list(row[13] or [])
+                if str(item or '').strip()
+            ]
+            attempt_submission_count = max(1, len(submitted_answers)) if materialized_prompt else 1
+            avg_response_ms = float(response_ms)
+            if materialized_prompt and attempt_submission_count > 1:
+                avg_response_ms = (
+                    float(response_ms) + float(int(row[8] or 0))
+                ) / float(attempt_submission_count)
             attempts.append({
                 'result_id': int(row[0]),
                 'correct': is_correct,
                 'correct_score': correct_score,
                 'grade_status': ('pass' if correct_score > 0 else ('fail' if correct_score < 0 else 'ungraded')),
                 'response_time_ms': response_ms,
+                'avg_response_ms': avg_response_ms,
                 'timestamp': row[3].isoformat() if row[3] else None,
                 'session_id': int(row[4]) if row[4] is not None else None,
                 'session_type': row[5],
-                'session_behavior_type': get_session_behavior_type(session_type, category_meta_by_key),
+                'session_behavior_type': session_behavior_type,
                 'session_category_display_name': get_deck_category_display_name(session_type, category_meta_by_key),
                 'session_started_at': row[6].isoformat() if row[6] else None,
                 'session_completed_at': row[7].isoformat() if row[7] else None,
-                'audio_file_name': row[8] or None,
-                'audio_mime_type': row[9] or None,
-                'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[8]}" if row[8] else None,
+                'retry_total_response_ms': int(row[8] or 0),
+                'audio_file_name': row[9] or None,
+                'audio_mime_type': row[10] or None,
+                'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[9]}" if row[9] else None,
+                'materialized_prompt': materialized_prompt,
+                'materialized_answer': materialized_answer,
+                'submitted_answers': submitted_answers,
             })
-            response_sum_ms += response_ms
-            if correct_score > 0:
+            response_sum_ms += avg_response_ms
+            if correct_score > 0 or correct_score <= SESSION_RESULT_RETRY_FIXED_FIRST:
                 right_count += 1
             elif correct_score < 0:
                 wrong_count += 1
@@ -3821,8 +4550,8 @@ def delete_kid(kid_id):
 
 # Card routes
 
-def get_or_create_orphan_deck(conn, orphan_deck_name, orphan_description, first_tag):
-    """Get or create one reserved orphan deck by explicit name/tag/description."""
+def get_or_create_orphan_deck(conn, orphan_deck_name, first_tag):
+    """Get or create one reserved orphan deck by explicit name/tag."""
     deck_name = str(orphan_deck_name or '').strip()
     tag = normalize_shared_deck_tag(first_tag)
     if not deck_name or not tag:
@@ -3837,11 +4566,11 @@ def get_or_create_orphan_deck(conn, orphan_deck_name, orphan_description, first_
 
     row = conn.execute(
         """
-        INSERT INTO decks (name, description, tags)
-        VALUES (?, ?, ?)
+        INSERT INTO decks (name, tags)
+        VALUES (?, ?)
         RETURNING id
         """,
-        [deck_name, str(orphan_description or ''), [tag, 'orphan']]
+        [deck_name, [tag, 'orphan']]
     ).fetchone()
     return int(row[0])
 
@@ -4231,11 +4960,11 @@ def get_retry_source_wrong_card_ids(conn, source_session_id):
         SELECT DISTINCT card_id
         FROM session_results
         WHERE session_id = ?
-          AND correct = -1
+          AND correct = ?
           AND card_id IS NOT NULL
         ORDER BY card_id ASC
         """,
-        [int(source_session_id)],
+        [int(source_session_id), SESSION_RESULT_WRONG_UNRESOLVED],
     ).fetchall()
     wrong_card_ids = []
     for row in rows:
@@ -4790,7 +5519,11 @@ def complete_session_internal(kid, kid_id, session_type, data):
         continue_source_session_id = 0
     is_retry_session = (
         retry_source_session_id > 0
-        and session_behavior_type in (DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_II)
+        and session_behavior_type in (
+            DECK_CATEGORY_BEHAVIOR_TYPE_I,
+            DECK_CATEGORY_BEHAVIOR_TYPE_II,
+            DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+        )
     )
     is_continue_session = (
         continue_source_session_id > 0
@@ -4798,6 +5531,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
             DECK_CATEGORY_BEHAVIOR_TYPE_I,
             DECK_CATEGORY_BEHAVIOR_TYPE_II,
             DECK_CATEGORY_BEHAVIOR_TYPE_III,
+            DECK_CATEGORY_BEHAVIOR_TYPE_IV,
         )
     )
     if is_continue_session:
@@ -4809,6 +5543,23 @@ def complete_session_internal(kid, kid_id, session_type, data):
     if not isinstance(pending_type3_audio, dict):
         pending_type3_audio = {}
     written_type3_audio_paths = []
+
+    if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+        return complete_type_iv_session_internal(
+            conn,
+            kid,
+            session_type,
+            pending_session_id,
+            pending,
+            answers,
+            planned_count,
+            started_at_utc,
+            completed_at_utc,
+            is_retry_session,
+            retry_source_session_id,
+            is_continue_session,
+            continue_source_session_id,
+        )
 
     # Validate answers before starting transaction
     for answer in answers:
@@ -4853,6 +5604,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
             source_answer_count = int(source_row[1] or 0)
             source_right_count = int(source_row[2] or 0)
             source_wrong_count = int(source_row[3] or 0)
+            source_retry_count = int(source_row[4] or 0)
             source_target_answer_count = max(source_answer_count, source_right_count + source_wrong_count)
             if source_target_answer_count <= 0:
                 raise ValueError('Retry source session has no graded answers')
@@ -4881,15 +5633,21 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
             if retry_success_card_ids:
                 placeholders = ','.join(['?'] * len(retry_success_card_ids))
+                recovered_correct_value = encode_retry_recovered_session_result(source_retry_count)
                 conn.execute(
                     f"""
                     UPDATE session_results
-                    SET correct = -2
+                    SET correct = ?
                     WHERE session_id = ?
                       AND card_id IN ({placeholders})
-                      AND correct = -1
+                      AND correct = ?
                     """,
-                    [retry_source_session_id, *sorted(retry_success_card_ids)],
+                    [
+                        recovered_correct_value,
+                        retry_source_session_id,
+                        *sorted(retry_success_card_ids),
+                        SESSION_RESULT_WRONG_UNRESOLVED,
+                    ],
                 )
 
             best_retry_row = conn.execute(
@@ -4897,10 +5655,10 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 SELECT COUNT(DISTINCT card_id)
                 FROM session_results
                 WHERE session_id = ?
-                  AND correct = -2
+                  AND correct <= ?
                   AND card_id IS NOT NULL
                 """,
-                [retry_source_session_id],
+                [retry_source_session_id, SESSION_RESULT_RETRY_FIXED_FIRST],
             ).fetchone()
             candidate_best_retry_correct = max(0, int(best_retry_row[0] or 0)) if best_retry_row else 0
             conn.execute(
@@ -5005,7 +5763,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 if uses_type_iii_audio:
                     correct_value = 0
                 else:
-                    correct_value = 1 if bool(known) else -1
+                    correct_value = SESSION_RESULT_CORRECT if bool(known) else SESSION_RESULT_WRONG_UNRESOLVED
                 if correct_value > 0:
                     right_count += 1
                 elif correct_value < 0:
@@ -5184,7 +5942,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
             if uses_type_iii_audio:
                 correct_value = 0
             else:
-                correct_value = 1 if bool(known) else -1
+                correct_value = SESSION_RESULT_CORRECT if bool(known) else SESSION_RESULT_WRONG_UNRESOLVED
             if correct_value > 0:
                 right_count += 1
             elif correct_value < 0:
@@ -5660,12 +6418,14 @@ def add_cards_bulk(kid_id):
 
             created = []
             skipped_existing_count = 0
+            skipped_existing_cards = []
             for item in items:
                 front = (item.get('front') or '').strip()
                 if not front:
                     continue
                 if front in existing_fronts:
                     skipped_existing_count += 1
+                    skipped_existing_cards.append(front)
                     continue
                 existing_fronts.add(front)
 
@@ -5685,6 +6445,7 @@ def add_cards_bulk(kid_id):
         return jsonify({
             'created': len(created),
             'skipped_existing_count': skipped_existing_count,
+            'skipped_existing_cards': skipped_existing_cards,
             'cards': created,
             'category_key': category_key,
         }), 201
@@ -5914,6 +6675,165 @@ def build_type_i_shared_decks_payload(
     return payload
 
 
+def build_type_iv_shared_decks_payload(
+    kid,
+    category_key,
+    *,
+    session_card_count_override=None,
+    include_category_key=True,
+):
+    """Build shared-deck opt-in payload for one type-IV category."""
+    shared_conn = None
+    kid_conn = None
+    orphan_deck_payload = None
+    local_by_shared_id = {}
+    local_card_count_by_deck_id = {}
+    local_representative_front_by_deck_id = {}
+    local_daily_target_by_deck_id = {}
+    try:
+        shared_conn = get_shared_decks_connection()
+        decks = get_shared_type_iv_deck_rows(shared_conn, category_key)
+
+        kid_conn = get_kid_connection_for(kid)
+        materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
+            kid_conn,
+            category_key,
+        )
+        for entry in materialized_by_local_id.values():
+            shared_deck_id = int(entry['shared_deck_id'])
+            existing = local_by_shared_id.get(shared_deck_id)
+            if existing is None or int(entry['local_deck_id']) < int(existing['local_deck_id']):
+                local_by_shared_id[shared_deck_id] = entry
+
+        local_deck_ids = [int(deck_id) for deck_id in materialized_by_local_id.keys()]
+        if local_deck_ids:
+            placeholders = ','.join(['?'] * len(local_deck_ids))
+            card_rows = kid_conn.execute(
+                f"""
+                SELECT
+                    d.id AS deck_id,
+                    COALESCE(d.daily_target_count, 0) AS daily_target_count,
+                    COUNT(c.id) AS card_count,
+                    ARG_MIN(c.front, c.id) AS representative_front
+                FROM decks d
+                LEFT JOIN cards c ON c.deck_id = d.id
+                WHERE d.id IN ({placeholders})
+                GROUP BY d.id, d.daily_target_count
+                """,
+                local_deck_ids
+            ).fetchall()
+            for row in card_rows:
+                deck_id = int(row[0])
+                local_daily_target_by_deck_id[deck_id] = int(row[1] or 0)
+                local_card_count_by_deck_id[deck_id] = int(row[2] or 0)
+                local_representative_front_by_deck_id[deck_id] = str(row[3] or '')
+
+        orphan_deck_name = get_category_orphan_deck_name(category_key)
+        orphan_row = kid_conn.execute(
+            "SELECT id FROM decks WHERE name = ? LIMIT 1",
+            [orphan_deck_name]
+        ).fetchone()
+        if orphan_row and int(orphan_row[0] or 0) > 0:
+            candidate_payload = build_orphan_deck_payload(
+                kid_conn,
+                int(orphan_row[0]),
+                orphan_deck_name,
+            )
+            if int(candidate_payload.get('card_count') or 0) > 0:
+                orphan_deck_payload = candidate_payload
+    finally:
+        if kid_conn is not None:
+            kid_conn.close()
+        if shared_conn is not None:
+            shared_conn.close()
+
+    shared_deck_id_set = set()
+    for deck in decks:
+        shared_deck_id = int(deck['deck_id'])
+        shared_deck_id_set.add(shared_deck_id)
+        local_entry = local_by_shared_id.get(shared_deck_id)
+        materialized_name = (
+            str(local_entry['local_name'])
+            if local_entry
+            else build_materialized_shared_deck_name(deck['deck_id'], deck['name'])
+        )
+        materialized_deck_id = int(local_entry['local_deck_id']) if local_entry else None
+        shared_card_count = int(deck.get('card_count') or 0)
+        materialized_card_count = (
+            int(local_card_count_by_deck_id.get(materialized_deck_id, 0))
+            if materialized_deck_id is not None
+            else None
+        )
+        deck['materialized_name'] = materialized_name
+        deck['opted_in'] = local_entry is not None
+        deck['materialized_deck_id'] = materialized_deck_id
+        deck['shared_card_count'] = shared_card_count
+        deck['materialized_card_count'] = materialized_card_count
+        deck['has_update_warning'] = bool(
+            local_entry is not None
+            and materialized_card_count is not None
+            and materialized_card_count != shared_card_count
+        )
+        deck['update_warning_reason'] = (
+            'count_mismatch'
+            if bool(deck['has_update_warning'])
+            else ''
+        )
+        deck['mix_percent'] = 0
+        deck['session_cards'] = 0
+        deck['daily_target_count'] = (
+            int(local_daily_target_by_deck_id.get(materialized_deck_id, 0))
+            if materialized_deck_id is not None
+            else 0
+        )
+
+    # Keep kid-local materialized decks visible even if source shared deck was deleted.
+    for shared_deck_id, local_entry in local_by_shared_id.items():
+        if shared_deck_id in shared_deck_id_set:
+            continue
+        local_deck_id = int(local_entry['local_deck_id'])
+        local_name = str(local_entry.get('local_name') or '')
+        _, _, tail_name = local_name.partition('__')
+        display_name = tail_name.strip() or local_name
+        decks.append({
+            'deck_id': int(shared_deck_id),
+            'name': display_name,
+            'tags': extract_shared_deck_tags_and_labels(local_entry.get('tags') or [])[0],
+            'tag_labels': [str(tag) for tag in list(local_entry.get('tag_labels') or []) if str(tag or '').strip()],
+            'creator_family_id': None,
+            'created_at': None,
+            'card_count': int(local_card_count_by_deck_id.get(local_deck_id, 0)),
+            'representative_front': str(local_representative_front_by_deck_id.get(local_deck_id) or ''),
+            'materialized_name': local_name,
+            'opted_in': True,
+            'materialized_deck_id': local_deck_id,
+            'shared_card_count': None,
+            'materialized_card_count': int(local_card_count_by_deck_id.get(local_deck_id, 0)),
+            'has_update_warning': True,
+            'update_warning_reason': 'source_deleted',
+            'mix_percent': 0,
+            'session_cards': 0,
+            'daily_target_count': int(local_daily_target_by_deck_id.get(local_deck_id, 0)),
+            'source_deleted': True,
+        })
+
+    session_card_count = (
+        int(session_card_count_override)
+        if session_card_count_override is not None
+        else sum(int(deck.get('daily_target_count') or 0) for deck in decks if bool(deck.get('opted_in')))
+    )
+    payload = {
+        'decks': decks,
+        'deck_count': len(decks),
+        'session_card_count': session_card_count,
+        'include_orphan_in_queue': False,
+        'orphan_deck': orphan_deck_payload,
+    }
+    if include_category_key:
+        payload['category_key'] = category_key
+    return payload
+
+
 def _fetch_shared_decks_by_ids(shared_conn, deck_ids):
     """Load shared deck metadata by ids and report missing ids."""
     normalized_ids = [int(deck_id) for deck_id in list(deck_ids or [])]
@@ -6010,14 +6930,13 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
                 continue
 
             materialized_tags = build_materialized_shared_deck_tags(src_deck['tags'])
-            description = f"Materialized from shared deck #{src_deck_id}: {src_deck['name']}"
             inserted = kid_conn.execute(
                 """
-                INSERT INTO decks (name, description, tags)
-                VALUES (?, ?, ?)
+                INSERT INTO decks (name, tags)
+                VALUES (?, ?)
                 RETURNING id
                 """,
-                [materialized_name, description, materialized_tags]
+                [materialized_name, materialized_tags]
             ).fetchone()
             local_deck_id = int(inserted[0])
 
@@ -6309,6 +7228,309 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
     }
 
 
+def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
+    """Materialize selected shared decks for one type-IV category."""
+    shared_conn = None
+    kid_conn = None
+    try:
+        shared_conn = get_shared_decks_connection()
+        shared_by_id = {
+            int(deck['deck_id']): deck
+            for deck in get_shared_type_iv_deck_rows(shared_conn, category_key)
+        }
+        missing_ids = [deck_id for deck_id in deck_ids if deck_id not in shared_by_id]
+        if missing_ids:
+            return {
+                'error': f'Shared deck(s) not found: {", ".join(str(v) for v in missing_ids)}'
+            }, 404
+
+        representative_rows = shared_conn.execute(
+            f"""
+            SELECT deck_id, front, back
+            FROM cards
+            WHERE deck_id IN ({','.join(['?'] * len(deck_ids))})
+            ORDER BY deck_id ASC, id ASC
+            """,
+            deck_ids
+        ).fetchall()
+        representative_by_deck_id = {}
+        for row in representative_rows:
+            deck_id = int(row[0])
+            if deck_id in representative_by_deck_id:
+                continue
+            representative_by_deck_id[deck_id] = {
+                'front': str(row[1] or ''),
+                'back': str(row[2] or ''),
+            }
+
+        invalid_definition_ids = []
+        for deck_id in deck_ids:
+            representative = representative_by_deck_id.get(deck_id)
+            if not representative or not str(representative.get('front') or '').strip():
+                invalid_definition_ids.append(deck_id)
+        if invalid_definition_ids:
+            return {
+                'error': (
+                    'Type-IV deck(s) are missing their representative card: '
+                    f'{", ".join(str(v) for v in invalid_definition_ids)}'
+                )
+            }, 400
+
+        kid_conn = get_kid_connection_for(kid)
+        orphan_deck_id = None
+        orphan_deck_row = kid_conn.execute(
+            "SELECT id FROM decks WHERE name = ? LIMIT 1",
+            [get_category_orphan_deck_name(category_key)]
+        ).fetchone()
+        if orphan_deck_row:
+            orphan_deck_id = int(orphan_deck_row[0])
+        representative_fronts = []
+        seen_fronts = set()
+        for deck_id in deck_ids:
+            representative = representative_by_deck_id.get(deck_id) or {}
+            front = str(representative.get('front') or '')
+            if not front or front in seen_fronts:
+                continue
+            seen_fronts.add(front)
+            representative_fronts.append(front)
+
+        orphan_by_front = {}
+        if orphan_deck_id is not None and representative_fronts:
+            front_placeholders = ','.join(['?'] * len(representative_fronts))
+            orphan_rows = kid_conn.execute(
+                f"""
+                SELECT id, front, back, skip_practice, hardness_score, created_at
+                FROM cards
+                WHERE deck_id = ?
+                  AND front IN ({front_placeholders})
+                ORDER BY id ASC
+                """,
+                [orphan_deck_id, *representative_fronts]
+            ).fetchall()
+            for row in orphan_rows:
+                row_front = str(row[1] or '')
+                if row_front in orphan_by_front:
+                    continue
+                orphan_by_front[row_front] = row
+
+        created = []
+        already_opted_in = []
+        for src_deck_id in deck_ids:
+            src_deck = shared_by_id[src_deck_id]
+            materialized_name = build_materialized_shared_deck_name(src_deck_id, src_deck['name'])
+            existing = kid_conn.execute(
+                "SELECT id FROM decks WHERE name = ? LIMIT 1",
+                [materialized_name]
+            ).fetchone()
+            if existing:
+                already_opted_in.append({
+                    'shared_deck_id': src_deck_id,
+                    'shared_name': src_deck['name'],
+                    'materialized_name': materialized_name,
+                    'deck_id': int(existing[0]),
+                })
+                continue
+
+            materialized_tags = build_materialized_shared_deck_tags(src_deck['tags'])
+            inserted = kid_conn.execute(
+                """
+                INSERT INTO decks (name, tags, daily_target_count)
+                VALUES (?, ?, ?)
+                RETURNING id
+                """,
+                [
+                    materialized_name,
+                    materialized_tags,
+                    DEFAULT_TYPE_IV_DAILY_TARGET_COUNT,
+                ]
+            ).fetchone()
+            local_deck_id = int(inserted[0])
+
+            representative = representative_by_deck_id[src_deck_id]
+            representative_front = str(representative.get('front') or '')
+            representative_back = str(representative.get('back') or '')
+            orphan_row = orphan_by_front.pop(representative_front, None)
+            cards_moved_from_orphan = 0
+            if orphan_row is not None:
+                moved_card_id = int(orphan_row[0])
+                kid_conn.execute("DELETE FROM cards WHERE id = ?", [moved_card_id])
+                kid_conn.execute(
+                    """
+                    INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        moved_card_id,
+                        local_deck_id,
+                        representative_front,
+                        representative_back,
+                        bool(orphan_row[3]),
+                        float(orphan_row[4] or 0.0),
+                        orphan_row[5],
+                    ]
+                )
+                cards_moved_from_orphan = 1
+            else:
+                kid_conn.execute(
+                    "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
+                    [
+                        local_deck_id,
+                        representative_front,
+                        representative_back,
+                    ]
+                )
+            created.append({
+                'shared_deck_id': src_deck_id,
+                'shared_name': src_deck['name'],
+                'materialized_name': materialized_name,
+                'deck_id': local_deck_id,
+                'cards_added': 1,
+                'cards_moved_from_orphan': cards_moved_from_orphan,
+                'cards_total': 1,
+            })
+    finally:
+        if kid_conn is not None:
+            kid_conn.close()
+        if shared_conn is not None:
+            shared_conn.close()
+
+    return {
+        'requested_count': len(deck_ids),
+        'created_count': len(created),
+        'already_opted_in_count': len(already_opted_in),
+        'created': created,
+        'already_opted_in': already_opted_in,
+    }, 200
+
+
+def opt_out_type_iv_shared_decks(kid, category_key, deck_ids):
+    """Remove selected opted-in shared decks for one type-IV category."""
+    kid_conn = None
+    try:
+        kid_conn = get_kid_connection_for(kid)
+        materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
+            kid_conn,
+            category_key,
+        )
+        local_by_shared_id = {
+            int(entry['shared_deck_id']): {
+                'local_deck_id': int(entry['local_deck_id']),
+                'local_name': str(entry['local_name'] or ''),
+            }
+            for entry in materialized_by_local_id.values()
+        }
+
+        removed = []
+        already_opted_out = []
+        for shared_deck_id in deck_ids:
+            local_entry = local_by_shared_id.get(shared_deck_id)
+            if not local_entry:
+                already_opted_out.append({
+                    'shared_deck_id': int(shared_deck_id),
+                })
+                continue
+
+            local_deck_id = int(local_entry['local_deck_id'])
+            local_name = str(local_entry['local_name'])
+            card_rows = kid_conn.execute(
+                "SELECT id FROM cards WHERE deck_id = ?",
+                [local_deck_id]
+            ).fetchall()
+            card_ids = [int(row[0]) for row in card_rows]
+            card_count = len(card_ids)
+
+            practiced_card_ids = []
+            if card_ids:
+                placeholders = ','.join(['?'] * len(card_ids))
+                practiced_rows = kid_conn.execute(
+                    f"""
+                    SELECT DISTINCT card_id
+                    FROM session_results
+                    WHERE card_id IN ({placeholders})
+                    """,
+                    card_ids
+                ).fetchall()
+                practiced_card_ids = [int(row[0]) for row in practiced_rows]
+            had_practice_sessions = len(practiced_card_ids) > 0
+
+            if had_practice_sessions:
+                orphan_deck_id = get_or_create_category_orphan_deck(kid_conn, category_key)
+                practiced_placeholders = ','.join(['?'] * len(practiced_card_ids))
+                practiced_cards = kid_conn.execute(
+                    f"""
+                    SELECT id, front, back, skip_practice, hardness_score, created_at
+                    FROM cards
+                    WHERE id IN ({practiced_placeholders})
+                    """,
+                    practiced_card_ids
+                ).fetchall()
+                if practiced_cards:
+                    kid_conn.execute(
+                        f"DELETE FROM cards WHERE id IN ({practiced_placeholders})",
+                        practiced_card_ids
+                    )
+                    kid_conn.executemany(
+                        """
+                        INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        [
+                            [
+                                int(row[0]),
+                                orphan_deck_id,
+                                row[1],
+                                row[2],
+                                bool(row[3]),
+                                float(row[4] or 0.0),
+                                row[5],
+                            ]
+                            for row in practiced_cards
+                        ]
+                    )
+
+                practiced_card_id_set = set(practiced_card_ids)
+                unpracticed_ids = [card_id for card_id in card_ids if card_id not in practiced_card_id_set]
+                if unpracticed_ids:
+                    delete_shared_deck_related_rows(
+                        kid_conn,
+                        unpracticed_ids,
+                        delete_type3_audio=False,
+                    )
+                    unpracticed_placeholders = ','.join(['?'] * len(unpracticed_ids))
+                    kid_conn.execute(
+                        f"DELETE FROM cards WHERE id IN ({unpracticed_placeholders})",
+                        unpracticed_ids
+                    )
+            else:
+                if card_ids:
+                    delete_shared_deck_related_rows(
+                        kid_conn,
+                        card_ids,
+                        delete_type3_audio=False,
+                    )
+                    kid_conn.execute("DELETE FROM cards WHERE deck_id = ?", [local_deck_id])
+            kid_conn.execute("DELETE FROM decks WHERE id = ?", [local_deck_id])
+            removed.append({
+                'shared_deck_id': int(shared_deck_id),
+                'deck_id': local_deck_id,
+                'materialized_name': local_name,
+                'had_practice_sessions': had_practice_sessions,
+                'cards_removed': card_count - len(practiced_card_ids),
+                'cards_detached': len(practiced_card_ids),
+            })
+    finally:
+        if kid_conn is not None:
+            kid_conn.close()
+
+    return {
+        'requested_count': len(deck_ids),
+        'removed_count': len(removed),
+        'already_opted_out_count': len(already_opted_out),
+        'removed': removed,
+        'already_opted_out': already_opted_out,
+    }, 200
+
+
 def build_type_i_shared_cards_payload(
     kid,
     category_key,
@@ -6429,6 +7651,861 @@ def build_type_i_shared_cards_payload(
         'skipped_card_count': skipped_count,
         'cards': merged_cards
     }
+
+
+def build_type_iv_shared_cards_payload(
+    kid,
+    category_key,
+    preview_hard_pct=None,
+    *,
+    session_card_count_override=None,
+):
+    """Build merged cards payload for one type-IV category."""
+    category_meta_by_key = get_shared_deck_category_meta_by_key()
+    category_display_name = get_deck_category_display_name(category_key, category_meta_by_key)
+    effective_hard_pct = (
+        preview_hard_pct
+        if preview_hard_pct is not None
+        else 0
+    )
+
+    conn = get_kid_connection_for(kid)
+    try:
+        practice_sources = get_shared_type_iv_merged_source_decks_for_kid(conn, category_key)
+        sources = get_type_iv_bank_source_rows(conn, category_key)
+        generator_details_by_shared_id = build_type_iv_card_generator_details_by_shared_id(
+            [src.get('shared_deck_id') for src in practice_sources if src.get('shared_deck_id') is not None],
+        )
+        generator_details_by_front = build_type_iv_generator_details_by_representative_front(category_key)
+        session_card_count = (
+            int(session_card_count_override)
+            if session_card_count_override is not None
+            else get_type_iv_total_daily_target_for_category(conn, category_key)
+        )
+
+        def _source_label(source):
+            if bool(source.get('is_orphan')):
+                return 'orphan'
+            tags = extract_shared_deck_tags_and_labels(source.get('tags') or [])[0]
+            tail = tags[1:] if len(tags) > 1 else []
+            if tail:
+                return ' / '.join(tail)
+            return str(source.get('local_name') or '')
+
+        merged_cards = []
+        for src in sources:
+            local_deck_id = int(src['local_deck_id'])
+            shared_deck_id = int(src.get('shared_deck_id') or 0)
+            rows = get_cards_with_stats(conn, local_deck_id)
+            for row in rows:
+                mapped = map_card_row(row, {})
+                representative_front = str(mapped.get('front') or '').strip()
+                generator_details = generator_details_by_shared_id.get(shared_deck_id) or {}
+                if not generator_details and representative_front:
+                    generator_details = generator_details_by_front.get(representative_front) or {}
+                resolved_shared_deck_id = int(generator_details.get('shared_deck_id') or shared_deck_id or 0)
+                mapped['source_deck_id'] = local_deck_id
+                mapped['source_deck_name'] = str(src.get('local_name') or '')
+                mapped['source_deck_label'] = _source_label(src)
+                mapped['source_deck_tags'] = extract_shared_deck_tags_and_labels(src.get('tags') or [])[0]
+                mapped['source_is_orphan'] = bool(src.get('is_orphan'))
+                mapped['type4_shared_deck_id'] = resolved_shared_deck_id if resolved_shared_deck_id > 0 else None
+                mapped['type4_generator_code'] = str(generator_details.get('code') or '')
+                merged_cards.append(mapped)
+
+        practice_active_count = sum(int(src.get('active_card_count') or 0) for src in practice_sources)
+        active_count = sum(int(src.get('active_card_count') or 0) for src in sources)
+        skipped_count = sum(int(src.get('skipped_card_count') or 0) for src in sources)
+    finally:
+        conn.close()
+
+    return {
+        'is_merged_bank': True,
+        'category_key': category_key,
+        'deck_name': f'Merged {category_display_name} Bank',
+        'hard_card_percentage': int(effective_hard_pct),
+        'include_orphan_in_queue': False,
+        'practice_source_count': len(practice_sources),
+        'practice_active_card_count': int(practice_active_count),
+        'active_card_count': active_count,
+        'skipped_card_count': skipped_count,
+        'session_card_count': session_card_count,
+        'cards': merged_cards,
+    }
+
+
+def normalize_type_iv_practice_mode(raw_mode):
+    """Normalize generator practice mode to input or multi."""
+    text = str(raw_mode or '').strip().lower()
+    if text == TYPE_IV_PRACTICE_MODE_MULTI:
+        return TYPE_IV_PRACTICE_MODE_MULTI
+    return TYPE_IV_PRACTICE_MODE_INPUT
+
+
+def normalize_type_iv_submitted_answer(raw_value):
+    """Normalize one submitted generator answer for exact-string grading."""
+    if raw_value is None:
+        return ''
+    return str(raw_value).strip()
+
+
+def get_type_iv_practice_source_rows(conn, category_key):
+    """Return opted-in generator sources ready for session generation."""
+    sources = get_shared_type_iv_merged_source_decks_for_kid(conn, category_key)
+    local_deck_ids = [int(src['local_deck_id']) for src in sources if int(src.get('local_deck_id') or 0) > 0]
+    representative_by_deck_id = {}
+    if local_deck_ids:
+        placeholders = ','.join(['?'] * len(local_deck_ids))
+        rows = conn.execute(
+            f"""
+            SELECT c.id, c.deck_id, c.front, d.daily_target_count
+            FROM cards c
+            JOIN decks d ON d.id = c.deck_id
+            WHERE c.deck_id IN ({placeholders})
+            ORDER BY c.deck_id ASC, c.id ASC
+            """,
+            local_deck_ids,
+        ).fetchall()
+        for row in rows:
+            local_deck_id = int(row[1] or 0)
+            if local_deck_id in representative_by_deck_id:
+                continue
+            representative_by_deck_id[local_deck_id] = {
+                'representative_card_id': int(row[0] or 0),
+                'representative_front': str(row[2] or ''),
+                'daily_target_count': max(0, int(row[3] or 0)),
+            }
+
+    generator_details_by_shared_id = build_type_iv_card_generator_details_by_shared_id(
+        [src.get('shared_deck_id') for src in sources],
+    )
+
+    practice_sources = []
+    for src in sources:
+        local_deck_id = int(src.get('local_deck_id') or 0)
+        shared_deck_id = int(src.get('shared_deck_id') or 0)
+        representative = representative_by_deck_id.get(local_deck_id) or {}
+        generator_details = generator_details_by_shared_id.get(shared_deck_id) or {}
+        representative_card_id = int(representative.get('representative_card_id') or 0)
+        generator_code = str(generator_details.get('code') or '').strip()
+        if local_deck_id <= 0 or shared_deck_id <= 0 or representative_card_id <= 0 or not generator_code:
+            continue
+        practice_sources.append({
+            'local_deck_id': local_deck_id,
+            'shared_deck_id': shared_deck_id,
+            'local_name': str(src.get('local_name') or ''),
+            'tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
+            'representative_card_id': representative_card_id,
+            'representative_front': str(representative.get('representative_front') or ''),
+            'daily_target_count': max(0, int(representative.get('daily_target_count') or 0)),
+            'generator_code': generator_code,
+        })
+    return practice_sources
+
+
+def build_type_iv_choice_options(answer, distractor_answers, seed):
+    """Return one shuffled multiple-choice option list for a generator item."""
+    correct_answer = normalize_type_iv_submitted_answer(answer)
+    seen = set()
+    options = []
+    for text in [correct_answer, *list(distractor_answers or [])]:
+        normalized = normalize_type_iv_submitted_answer(text)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        options.append(normalized)
+    rng = random.Random(int(seed or 0))
+    rng.shuffle(options)
+    return options
+
+
+def map_type_iv_pending_item_to_response_card(item, practice_mode):
+    """Map one pending generator item to the kid-facing practice payload."""
+    response_card = {
+        'id': int(item.get('id') or 0),
+        'front': str(item.get('prompt') or ''),
+    }
+    if normalize_type_iv_practice_mode(practice_mode) == TYPE_IV_PRACTICE_MODE_MULTI:
+        response_card['choices'] = build_type_iv_choice_options(
+            item.get('answer'),
+            item.get('distractor_answers') or [],
+            seed=int(item.get('id') or 0),
+        )
+    return response_card
+
+
+def build_type_iv_pending_items_for_sources(
+    practice_sources,
+    count_by_deck_id,
+    practice_mode,
+    *,
+    pending_id_start=1,
+    seed_base=None,
+):
+    """Generate pending in-memory practice items from configured generator decks."""
+    pending_items = []
+    response_cards = []
+    next_pending_id = max(1, int(pending_id_start or 1))
+    try:
+        next_seed_base = int(seed_base)
+    except (TypeError, ValueError):
+        next_seed_base = int(time.time_ns() % 2_000_000_000)
+
+    for source in list(practice_sources or []):
+        local_deck_id = int(source.get('local_deck_id') or 0)
+        sample_count = max(0, int((count_by_deck_id or {}).get(local_deck_id, 0) or 0))
+        if local_deck_id <= 0 or sample_count <= 0:
+            continue
+        samples = run_type4_generator(
+            source.get('generator_code'),
+            sample_count=sample_count,
+            seed_base=next_seed_base,
+        )
+        next_seed_base += sample_count + 97
+        for sample in samples:
+            pending_item = {
+                'id': next_pending_id,
+                'representative_card_id': int(source.get('representative_card_id') or 0),
+                'deck_id': local_deck_id,
+                'prompt': str(sample.get('prompt') or ''),
+                'answer': str(sample.get('answer') or ''),
+                'distractor_answers': [str(item) for item in list(sample.get('distractors') or [])],
+            }
+            pending_items.append(pending_item)
+            response_cards.append(
+                map_type_iv_pending_item_to_response_card(pending_item, practice_mode)
+            )
+            next_pending_id += 1
+
+    return pending_items, response_cards
+
+
+def build_type_iv_continue_count_by_deck_id(practice_sources, target_count):
+    """Redistribute unfinished generator questions across currently opted-in decks."""
+    remaining_count = max(0, int(target_count or 0))
+    if remaining_count <= 0:
+        return {}
+
+    all_sources = [
+        source for source in list(practice_sources or [])
+        if int(source.get('local_deck_id') or 0) > 0
+    ]
+    if not all_sources:
+        return {}
+
+    weighted_sources = [
+        source for source in all_sources
+        if int(source.get('daily_target_count') or 0) > 0
+    ]
+    if not weighted_sources:
+        weighted_sources = list(all_sources)
+
+    source_entries = []
+    for source in weighted_sources:
+        local_deck_id = int(source.get('local_deck_id') or 0)
+        if local_deck_id <= 0:
+            continue
+        weight = max(1, int(source.get('daily_target_count') or 0))
+        source_entries.append({
+            'local_deck_id': local_deck_id,
+            'weight': weight,
+        })
+    if not source_entries:
+        return {}
+
+    total_weight = sum(entry['weight'] for entry in source_entries)
+    allocations = {entry['local_deck_id']: 0 for entry in source_entries}
+    fractional_entries = []
+    allocated_count = 0
+    for entry in source_entries:
+        exact_share = (remaining_count * entry['weight']) / float(max(1, total_weight))
+        base_share = int(math.floor(exact_share))
+        allocations[entry['local_deck_id']] = base_share
+        allocated_count += base_share
+        fractional_entries.append({
+            'local_deck_id': entry['local_deck_id'],
+            'weight': entry['weight'],
+            'fractional': exact_share - float(base_share),
+        })
+
+    remainder = max(0, remaining_count - allocated_count)
+    fractional_entries.sort(
+        key=lambda entry: (-entry['fractional'], -entry['weight'], entry['local_deck_id'])
+    )
+    while remainder > 0 and fractional_entries:
+        for entry in fractional_entries:
+            allocations[entry['local_deck_id']] += 1
+            remainder -= 1
+            if remainder <= 0:
+                break
+
+    return {
+        local_deck_id: count
+        for local_deck_id, count in allocations.items()
+        if int(count or 0) > 0
+    }
+
+
+def get_type_iv_retry_source_result_rows(conn, source_session_id, allowed_representative_card_ids):
+    """Return unresolved generator retry rows for one source session."""
+    normalized_card_ids = []
+    seen = set()
+    for raw_card_id in list(allowed_representative_card_ids or []):
+        try:
+            card_id = int(raw_card_id)
+        except (TypeError, ValueError):
+            continue
+        if card_id <= 0 or card_id in seen:
+            continue
+        seen.add(card_id)
+        normalized_card_ids.append(card_id)
+    if not normalized_card_ids:
+        return []
+
+    placeholders = ','.join(['?'] * len(normalized_card_ids))
+    rows = conn.execute(
+        f"""
+        SELECT
+            sr.id,
+            sr.card_id,
+            t4.prompt,
+            t4.answer,
+            t4.distractor_answers,
+            t4.submitted_answers
+        FROM session_results sr
+        JOIN type4_result_item t4 ON t4.result_id = sr.id
+        WHERE sr.session_id = ?
+          AND sr.correct = ?
+          AND sr.card_id IN ({placeholders})
+        ORDER BY sr.timestamp ASC, sr.id ASC
+        """,
+        [int(source_session_id), SESSION_RESULT_WRONG_UNRESOLVED, *normalized_card_ids],
+    ).fetchall()
+
+    result_rows = []
+    for row in rows:
+        result_id = int(row[0] or 0)
+        representative_card_id = int(row[1] or 0)
+        prompt = str(row[2] or '').strip()
+        answer = str(row[3] or '').strip()
+        if result_id <= 0 or representative_card_id <= 0 or not prompt or not answer:
+            continue
+        result_rows.append({
+            'result_id': result_id,
+            'representative_card_id': representative_card_id,
+            'prompt': prompt,
+            'answer': answer,
+            'distractor_answers': [str(item) for item in list(row[4] or []) if str(item or '').strip()],
+            'submitted_answers': [str(item) for item in list(row[5] or [])],
+        })
+    return result_rows
+
+
+def build_type_iv_special_session_ready_payload(conn, kid, category_key, practice_sources):
+    """Build continue/retry readiness metadata for one generator category."""
+    continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
+    if continue_source_session is not None:
+        missing_count = max(
+            0,
+            int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
+        )
+        continue_counts = build_type_iv_continue_count_by_deck_id(practice_sources, missing_count)
+        return {
+            'is_continue_session': True,
+            'continue_source_session_id': int(continue_source_session['session_id']),
+            'continue_card_count': sum(int(count or 0) for count in continue_counts.values()),
+            'is_retry_session': False,
+            'retry_source_session_id': None,
+            'retry_card_count': 0,
+        }
+
+    retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
+    if retry_source_session is None:
+        return {
+            'is_continue_session': False,
+            'continue_source_session_id': None,
+            'continue_card_count': 0,
+            'is_retry_session': False,
+            'retry_source_session_id': None,
+            'retry_card_count': 0,
+        }
+
+    retry_rows = get_type_iv_retry_source_result_rows(
+        conn,
+        retry_source_session['session_id'],
+        [source.get('representative_card_id') for source in list(practice_sources or [])],
+    )
+    return {
+        'is_continue_session': False,
+        'continue_source_session_id': None,
+        'continue_card_count': 0,
+        'is_retry_session': True,
+        'retry_source_session_id': int(retry_source_session['session_id']),
+        'retry_card_count': len(retry_rows),
+    }
+
+
+def insert_type4_result_item(conn, result_id, pending_item, submitted_answer):
+    """Insert one generator sidecar row for a saved session result."""
+    conn.execute(
+        """
+        INSERT INTO type4_result_item (result_id, prompt, answer, distractor_answers, submitted_answers)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        [
+            int(result_id),
+            str(pending_item.get('prompt') or ''),
+            str(pending_item.get('answer') or ''),
+            [str(item) for item in list(pending_item.get('distractor_answers') or [])],
+            [normalize_type_iv_submitted_answer(submitted_answer)],
+        ],
+    )
+
+
+def append_type4_result_submitted_answer(conn, result_id, submitted_answer):
+    """Append one submitted answer to an existing generator result sidecar row."""
+    row = conn.execute(
+        """
+        SELECT submitted_answers
+        FROM type4_result_item
+        WHERE result_id = ?
+        LIMIT 1
+        """,
+        [int(result_id)],
+    ).fetchone()
+    if row is None:
+        raise ValueError('Generator result details not found')
+
+    submitted_answers = [str(item) for item in list(row[0] or [])]
+    submitted_answers.append(normalize_type_iv_submitted_answer(submitted_answer))
+    conn.execute(
+        """
+        UPDATE type4_result_item
+        SET submitted_answers = ?
+        WHERE result_id = ?
+        """,
+        [submitted_answers, int(result_id)],
+    )
+
+
+def complete_type_iv_session_internal(
+    conn,
+    kid,
+    session_type,
+    pending_session_id,
+    pending,
+    answers,
+    planned_count,
+    started_at_utc,
+    completed_at_utc,
+    is_retry_session,
+    retry_source_session_id,
+    is_continue_session,
+    continue_source_session_id,
+):
+    """Complete one generator practice session using server-side grading."""
+    pending_cards = pending.get('cards')
+    if not isinstance(pending_cards, list) or len(pending_cards) == 0:
+        conn.close()
+        return {'error': 'Pending session is missing generated questions'}, 400
+
+    pending_by_id = {}
+    for item in pending_cards:
+        if not isinstance(item, dict):
+            continue
+        try:
+            item_id = int(item.get('id'))
+        except (TypeError, ValueError):
+            continue
+        if item_id <= 0:
+            continue
+        pending_by_id[item_id] = item
+    if len(pending_by_id) == 0:
+        conn.close()
+        return {'error': 'Pending session is missing generated questions'}, 400
+
+    normalized_answers = []
+    for answer in answers:
+        try:
+            item_id = int(answer.get('cardId'))
+        except (TypeError, ValueError):
+            conn.close()
+            return {'error': 'Each answer needs cardId (int)'}, 400
+        pending_item = pending_by_id.get(item_id)
+        if not pending_item:
+            conn.close()
+            return {'error': 'answers do not match this pending session'}, 400
+        response_time_ms = normalize_logged_response_time_ms(
+            answer.get('responseTimeMs'),
+            session_behavior_type=DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+        )
+        normalized_answers.append({
+            'item_id': item_id,
+            'pending_item': pending_item,
+            'submitted_answer': normalize_type_iv_submitted_answer(answer.get('submittedAnswer')),
+            'response_time_ms': response_time_ms,
+        })
+
+    try:
+        conn.execute("BEGIN TRANSACTION")
+
+        if is_retry_session:
+            source_row = conn.execute(
+                """
+                SELECT
+                    s.id,
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
+                    COALESCE(s.retry_count, 0) AS retry_count,
+                    COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
+                    COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                  AND s.type = ?
+                GROUP BY
+                    s.id,
+                    s.retry_count,
+                    s.retry_total_response_ms,
+                    s.retry_best_rety_correct_count
+                """,
+                [retry_source_session_id, session_type],
+            ).fetchone()
+            if not source_row:
+                raise ValueError('Retry source session not found')
+
+            source_answer_count = int(source_row[1] or 0)
+            source_right_count = int(source_row[2] or 0)
+            source_wrong_count = int(source_row[3] or 0)
+            source_retry_count = int(source_row[4] or 0)
+            source_target_answer_count = max(source_answer_count, source_right_count + source_wrong_count)
+            if source_target_answer_count <= 0:
+                raise ValueError('Retry source session has no graded answers')
+
+            retry_right_count = 0
+            retry_wrong_count = 0
+            retry_total_response_ms = 0
+            retry_success_result_ids = []
+            for answer in normalized_answers:
+                submitted_answer = answer['submitted_answer']
+                pending_item = answer['pending_item']
+                expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
+                is_correct = submitted_answer == expected_answer
+                if is_correct:
+                    retry_right_count += 1
+                    retry_success_result_ids.append(int(answer['item_id']))
+                else:
+                    retry_wrong_count += 1
+                retry_total_response_ms += int(answer['response_time_ms'] or 0)
+                append_type4_result_submitted_answer(
+                    conn,
+                    answer['item_id'],
+                    submitted_answer,
+                )
+
+            if retry_success_result_ids:
+                placeholders = ','.join(['?'] * len(retry_success_result_ids))
+                recovered_correct_value = encode_retry_recovered_session_result(source_retry_count)
+                conn.execute(
+                    f"""
+                    UPDATE session_results
+                    SET correct = ?
+                    WHERE id IN ({placeholders})
+                      AND session_id = ?
+                      AND correct = ?
+                    """,
+                    [
+                        recovered_correct_value,
+                        *sorted(retry_success_result_ids),
+                        int(retry_source_session_id),
+                        SESSION_RESULT_WRONG_UNRESOLVED,
+                    ],
+                )
+
+            best_retry_row = conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM session_results
+                WHERE session_id = ?
+                  AND correct <= ?
+                """,
+                [retry_source_session_id, SESSION_RESULT_RETRY_FIXED_FIRST],
+            ).fetchone()
+            candidate_best_retry_correct = max(0, int(best_retry_row[0] or 0)) if best_retry_row else 0
+            conn.execute(
+                """
+                UPDATE sessions
+                SET
+                    retry_count = COALESCE(retry_count, 0) + 1,
+                    retry_total_response_ms = COALESCE(retry_total_response_ms, 0) + ?,
+                    retry_best_rety_correct_count = GREATEST(
+                        COALESCE(retry_best_rety_correct_count, 0),
+                        ?
+                    )
+                WHERE id = ?
+                """,
+                [retry_total_response_ms, candidate_best_retry_correct, retry_source_session_id],
+            )
+            updated_retry_row = conn.execute(
+                """
+                SELECT
+                    COALESCE(retry_count, 0),
+                    COALESCE(retry_total_response_ms, 0),
+                    COALESCE(retry_best_rety_correct_count, 0)
+                FROM sessions
+                WHERE id = ?
+                """,
+                [retry_source_session_id],
+            ).fetchone()
+
+            conn.execute("COMMIT")
+            conn.close()
+            sync_badges_after_session_complete(kid)
+            updated_retry_count = int(updated_retry_row[0] or 0) if updated_retry_row else 0
+            updated_retry_total_ms = int(updated_retry_row[1] or 0) if updated_retry_row else 0
+            updated_best_retry_correct = int(updated_retry_row[2] or 0) if updated_retry_row else 0
+            total_correct_percent = (
+                float(source_right_count + updated_best_retry_correct) * 100.0 / float(source_target_answer_count)
+                if source_target_answer_count > 0 else 0.0
+            )
+            achieved_gold_star = total_correct_percent >= 100.0
+            attempt_count_today_for_chain = 1 + max(0, updated_retry_count)
+            return {
+                'session_id': int(retry_source_session_id),
+                'answer_count': len(normalized_answers),
+                'planned_count': planned_count,
+                'right_count': retry_right_count,
+                'wrong_count': retry_wrong_count,
+                'completed': True,
+                'is_continue_session': False,
+                'continue_source_session_id': None,
+                'is_retry_session': True,
+                'retry_source_session_id': int(retry_source_session_id),
+                'retry_count': updated_retry_count,
+                'retry_total_response_ms': updated_retry_total_ms,
+                'retry_best_rety_correct_count': updated_best_retry_correct,
+                'target_answer_count': int(source_target_answer_count),
+                'attempt_count_today_for_chain': int(attempt_count_today_for_chain),
+                'attempt_star_tiers': ['gold'],
+                'total_correct_percentage': float(total_correct_percent),
+                'achieved_gold_star': bool(achieved_gold_star),
+                'star_tier': 'gold',
+            }, 200
+
+        if is_continue_session:
+            source_row = conn.execute(
+                """
+                SELECT
+                    s.id,
+                    COALESCE(s.planned_count, 0) AS planned_count,
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                  AND s.type = ?
+                GROUP BY s.id, s.planned_count
+                """,
+                [continue_source_session_id, session_type],
+            ).fetchone()
+            if not source_row:
+                raise ValueError('Continue source session not found')
+
+            source_planned_count = max(0, int(source_row[1] or 0))
+            source_answer_count = max(0, int(source_row[2] or 0))
+            source_right_count = max(0, int(source_row[3] or 0))
+            source_wrong_count = max(0, int(source_row[4] or 0))
+            if source_planned_count <= 0:
+                raise ValueError('Continue source session has invalid planned count')
+
+            right_count = 0
+            wrong_count = 0
+            for answer in normalized_answers:
+                pending_item = answer['pending_item']
+                representative_card_id = int(pending_item.get('representative_card_id') or 0)
+                if representative_card_id <= 0:
+                    raise ValueError('Pending generator item is missing representative card')
+                submitted_answer = answer['submitted_answer']
+                expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
+                correct_value = (
+                    SESSION_RESULT_CORRECT
+                    if submitted_answer == expected_answer
+                    else SESSION_RESULT_WRONG_UNRESOLVED
+                )
+                if correct_value > 0:
+                    right_count += 1
+                else:
+                    wrong_count += 1
+                result_row = conn.execute(
+                    """
+                    INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
+                    VALUES (?, ?, ?, ?)
+                    RETURNING id
+                    """,
+                    [
+                        continue_source_session_id,
+                        representative_card_id,
+                        correct_value,
+                        int(answer['response_time_ms'] or 0),
+                    ],
+                ).fetchone()
+                insert_type4_result_item(
+                    conn,
+                    int(result_row[0]),
+                    pending_item,
+                    submitted_answer,
+                )
+
+            conn.execute(
+                """
+                UPDATE sessions
+                SET completed_at = ?
+                WHERE id = ?
+                """,
+                [completed_at_utc, continue_source_session_id],
+            )
+            updated_row = conn.execute(
+                """
+                SELECT
+                    COALESCE(planned_count, 0),
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                GROUP BY s.id, s.planned_count
+                """,
+                [continue_source_session_id],
+            ).fetchone()
+            updated_planned_count = max(0, int(updated_row[0] or 0)) if updated_row else source_planned_count
+            updated_answer_count = max(0, int(updated_row[1] or 0)) if updated_row else (source_answer_count + len(normalized_answers))
+            updated_right_count = max(0, int(updated_row[2] or 0)) if updated_row else (source_right_count + right_count)
+            updated_wrong_count = max(0, int(updated_row[3] or 0)) if updated_row else (source_wrong_count + wrong_count)
+            target_answer_count = max(updated_planned_count, updated_answer_count, updated_right_count + updated_wrong_count)
+            is_incomplete = updated_planned_count > 0 and updated_answer_count < updated_planned_count
+            total_correct_percentage = (
+                float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
+                if is_incomplete
+                else float(updated_right_count) * 100.0 / float(max(1, target_answer_count))
+            )
+            achieved_gold_star = (not is_incomplete) and total_correct_percentage >= 100.0
+            star_tier = 'half_silver' if is_incomplete else 'gold'
+            attempt_star_tiers = ['half_silver'] if is_incomplete else ['gold']
+
+            conn.execute("COMMIT")
+            conn.close()
+            sync_badges_after_session_complete(kid)
+            return {
+                'session_id': int(continue_source_session_id),
+                'answer_count': int(updated_answer_count),
+                'planned_count': int(updated_planned_count),
+                'right_count': int(updated_right_count),
+                'wrong_count': int(updated_wrong_count),
+                'completed': True,
+                'is_continue_session': True,
+                'continue_source_session_id': int(continue_source_session_id),
+                'is_retry_session': False,
+                'retry_source_session_id': None,
+                'retry_count': 0,
+                'retry_total_response_ms': 0,
+                'retry_best_rety_correct_count': 0,
+                'target_answer_count': int(target_answer_count),
+                'attempt_count_today_for_chain': 1,
+                'attempt_star_tiers': attempt_star_tiers,
+                'total_correct_percentage': float(total_correct_percentage),
+                'achieved_gold_star': bool(achieved_gold_star),
+                'star_tier': star_tier,
+            }, 200
+
+        right_count = 0
+        wrong_count = 0
+        session_id = conn.execute(
+            """
+            INSERT INTO sessions (type, planned_count, retry_count, retry_total_response_ms, retry_best_rety_correct_count, started_at, completed_at)
+            VALUES (?, ?, 0, 0, 0, ?, ?)
+            RETURNING id
+            """,
+            [session_type, planned_count, started_at_utc, completed_at_utc]
+        ).fetchone()[0]
+
+        for answer in normalized_answers:
+            pending_item = answer['pending_item']
+            representative_card_id = int(pending_item.get('representative_card_id') or 0)
+            if representative_card_id <= 0:
+                raise ValueError('Pending generator item is missing representative card')
+            submitted_answer = answer['submitted_answer']
+            expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
+            correct_value = (
+                SESSION_RESULT_CORRECT
+                if submitted_answer == expected_answer
+                else SESSION_RESULT_WRONG_UNRESOLVED
+            )
+            if correct_value > 0:
+                right_count += 1
+            else:
+                wrong_count += 1
+            result_row = conn.execute(
+                """
+                INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
+                VALUES (?, ?, ?, ?)
+                RETURNING id
+                """,
+                [
+                    session_id,
+                    representative_card_id,
+                    correct_value,
+                    int(answer['response_time_ms'] or 0),
+                ],
+            ).fetchone()
+            insert_type4_result_item(
+                conn,
+                int(result_row[0]),
+                pending_item,
+                submitted_answer,
+            )
+
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        conn.close()
+        raise
+
+    conn.close()
+    sync_badges_after_session_complete(kid)
+    target_answer_count = int(max(planned_count, len(normalized_answers), right_count + wrong_count))
+    is_incomplete = planned_count > 0 and len(normalized_answers) < planned_count
+    total_correct_percentage = (
+        float(len(normalized_answers)) * 100.0 / float(max(1, target_answer_count))
+        if is_incomplete
+        else float(right_count) * 100.0 / float(max(1, target_answer_count))
+    )
+    achieved_gold_star = (not is_incomplete) and total_correct_percentage >= 100.0
+    star_tier = 'half_silver' if is_incomplete else 'gold'
+    attempt_star_tiers = ['half_silver'] if is_incomplete else ['gold']
+    return {
+        'session_id': session_id,
+        'answer_count': len(normalized_answers),
+        'planned_count': planned_count,
+        'right_count': int(right_count),
+        'wrong_count': int(wrong_count),
+        'completed': True,
+        'is_continue_session': False,
+        'continue_source_session_id': None,
+        'is_retry_session': False,
+        'retry_source_session_id': None,
+        'retry_count': 0,
+        'retry_total_response_ms': 0,
+        'retry_best_rety_correct_count': 0,
+        'target_answer_count': target_answer_count,
+        'attempt_count_today_for_chain': 1,
+        'attempt_star_tiers': attempt_star_tiers,
+        'total_correct_percentage': float(total_correct_percentage),
+        'achieved_gold_star': bool(achieved_gold_star),
+        'star_tier': star_tier,
+    }, 200
 
 
 def start_type_i_practice_session_internal(
@@ -6623,6 +8700,7 @@ def start_type_i_practice_session_internal(
 SHARED_DECK_SCOPE_TYPE1 = 'cards'
 SHARED_DECK_SCOPE_TYPE3 = 'lesson-reading'
 SHARED_DECK_SCOPE_TYPE2 = 'type2'
+SHARED_DECK_SCOPE_TYPE4 = 'type4'
 
 SHARED_DECK_OP_GET = 'shared_decks_get'
 SHARED_DECK_OP_OPT_IN = 'shared_decks_opt_in'
@@ -6924,7 +9002,6 @@ def build_shared_decks_listing_payload(
     *,
     first_tag,
     orphan_deck_name,
-    orphan_deck_description,
     get_shared_decks_fn,
     get_materialized_decks_fn,
     session_card_count,
@@ -6968,7 +9045,6 @@ def build_shared_decks_listing_payload(
         orphan_deck_id = get_or_create_orphan_deck(
             kid_conn,
             orphan_deck_name,
-            orphan_deck_description,
             first_tag,
         )
         orphan_deck_payload = build_orphan_deck_payload(kid_conn, orphan_deck_id, orphan_deck_name)
@@ -7056,7 +9132,6 @@ def opt_in_shared_decks_internal(
     *,
     first_tag,
     orphan_deck_name,
-    orphan_deck_description,
     get_materialized_decks_fn,
     unique_key_field,
 ):
@@ -7109,7 +9184,6 @@ def opt_in_shared_decks_internal(
         orphan_deck_id = get_or_create_orphan_deck(
             kid_conn,
             orphan_deck_name,
-            orphan_deck_description,
             first_tag,
         )
 
@@ -7133,14 +9207,13 @@ def opt_in_shared_decks_internal(
                 continue
 
             materialized_tags = build_materialized_shared_deck_tags(src_deck['tags'])
-            description = f"Materialized from shared deck #{src_deck_id}: {src_deck['name']}"
             inserted = kid_conn.execute(
                 """
-                INSERT INTO decks (name, description, tags)
-                VALUES (?, ?, ?)
+                INSERT INTO decks (name, tags)
+                VALUES (?, ?)
                 RETURNING id
                 """,
-                [materialized_name, description, materialized_tags]
+                [materialized_name, materialized_tags]
             ).fetchone()
             local_deck_id = int(inserted[0])
 
@@ -7310,7 +9383,6 @@ def opt_out_shared_decks_internal(
     *,
     first_tag,
     orphan_deck_name,
-    orphan_deck_description,
     get_materialized_decks_fn,
     delete_type3_audio,
 ):
@@ -7358,7 +9430,6 @@ def opt_out_shared_decks_internal(
                 orphan_deck_id = get_or_create_orphan_deck(
                     kid_conn,
                     orphan_deck_name,
-                    orphan_deck_description,
                     first_tag,
                 )
                 practiced_placeholders = ','.join(['?'] * len(practiced_card_ids))
@@ -7448,7 +9519,6 @@ def resolve_type2_scope_context(kid, raw_category_key):
         'has_chinese_specific_logic': bool(has_chinese_specific_logic),
         'first_tag': category_key,
         'orphan_deck_name': get_category_orphan_deck_name(category_key),
-        'orphan_deck_description': get_category_orphan_deck_description(category_key),
         'unique_key_field': 'back' if has_chinese_specific_logic else 'front',
         'include_orphan_in_queue': get_category_include_orphan_for_kid(kid, category_key),
     }
@@ -7456,10 +9526,23 @@ def resolve_type2_scope_context(kid, raw_category_key):
 
 SHARED_SCOPE_MANAGEMENT_TYPE_I = 'type_i'
 SHARED_SCOPE_MANAGEMENT_TYPE_II = 'type_ii'
+SHARED_SCOPE_MANAGEMENT_TYPE_IV = 'type_iv'
 
 
 def resolve_shared_scope_management_context(kid, category, raw_category_key):
     """Resolve one shared-scope request into normalized management context."""
+    if str(category.get('kind') or '') == 'type4':
+        category_key, has_chinese_specific_logic = resolve_kid_type_iv_category_with_mode(
+            kid,
+            raw_category_key,
+        )
+        return {
+            'management_type': SHARED_SCOPE_MANAGEMENT_TYPE_IV,
+            'category_key': category_key,
+            'has_chinese_specific_logic': bool(has_chinese_specific_logic),
+            'include_orphan_in_queue': False,
+            'orphan_deck_name': '',
+        }
     if str(category.get('kind') or '') == 'type1':
         category_key, has_chinese_specific_logic = resolve_kid_type_i_category_with_mode(
             kid,
@@ -7471,7 +9554,6 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
             'has_chinese_specific_logic': bool(has_chinese_specific_logic),
             'include_orphan_in_queue': get_category_include_orphan_for_kid(kid, category_key),
             'orphan_deck_name': get_category_orphan_deck_name(category_key),
-            'orphan_deck_description': get_category_orphan_deck_description(category_key),
         }
     if bool(category.get('use_type_i_card_management')):
         category_key, _ = resolve_kid_type_iii_category_with_mode(
@@ -7484,7 +9566,6 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
             'has_chinese_specific_logic': False,
             'include_orphan_in_queue': get_category_include_orphan_for_kid(kid, category_key),
             'orphan_deck_name': get_category_orphan_deck_name(category_key),
-            'orphan_deck_description': get_category_orphan_deck_description(category_key),
         }
     if bool(category.get('use_type_ii_card_management')):
         return {
@@ -7517,12 +9598,18 @@ def get_shared_decks_for_scope(kid_id, category):
                 include_category_key=True,
             )
             return jsonify(payload), 200
+        if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_IV:
+            payload = build_type_iv_shared_decks_payload(
+                kid,
+                scope_context['category_key'],
+                include_category_key=True,
+            )
+            return jsonify(payload), 200
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
             payload = build_shared_decks_listing_payload(
                 kid,
                 first_tag=scope_context['first_tag'],
                 orphan_deck_name=scope_context['orphan_deck_name'],
-                orphan_deck_description=scope_context['orphan_deck_description'],
                 get_shared_decks_fn=lambda conn: get_shared_type_ii_deck_rows(
                     conn,
                     scope_context['category_key'],
@@ -7570,13 +9657,19 @@ def opt_in_shared_decks_for_scope(kid_id, category):
                 scope_context['has_chinese_specific_logic'],
             )
             return jsonify(payload), status_code
+        if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_IV:
+            payload, status_code = opt_in_type_iv_shared_decks(
+                kid,
+                scope_context['category_key'],
+                deck_ids,
+            )
+            return jsonify(payload), status_code
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
             payload, status_code = opt_in_shared_decks_internal(
                 kid,
                 deck_ids,
                 first_tag=scope_context['first_tag'],
                 orphan_deck_name=scope_context['orphan_deck_name'],
-                orphan_deck_description=scope_context['orphan_deck_description'],
                 get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_type_ii_decks(
                     conn,
                     scope_context['category_key'],
@@ -7614,13 +9707,19 @@ def opt_out_shared_decks_for_scope(kid_id, category):
                     deck_ids,
                 )
             ), 200
+        if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_IV:
+            payload, status_code = opt_out_type_iv_shared_decks(
+                kid,
+                scope_context['category_key'],
+                deck_ids,
+            )
+            return jsonify(payload), status_code
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
             payload, status_code = opt_out_shared_decks_internal(
                 kid,
                 deck_ids,
                 first_tag=scope_context['first_tag'],
                 orphan_deck_name=scope_context['orphan_deck_name'],
-                orphan_deck_description=scope_context['orphan_deck_description'],
                 get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_type_ii_decks(
                     conn,
                     scope_context['category_key'],
@@ -7681,6 +9780,7 @@ def get_decks_for_scope(kid_id, category):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        sources = []
         scope_context = resolve_shared_scope_management_context(
             kid,
             category,
@@ -7745,6 +9845,52 @@ def get_decks_for_scope(kid_id, category):
                 )
             finally:
                 conn.close()
+        elif scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_IV:
+            conn = get_kid_connection_for(kid)
+            try:
+                practice_sources = get_type_iv_practice_source_rows(
+                    conn,
+                    scope_context['category_key'],
+                )
+                special_ready_payload = build_type_iv_special_session_ready_payload(
+                    conn,
+                    kid,
+                    scope_context['category_key'],
+                    practice_sources,
+                )
+            finally:
+                conn.close()
+
+            listing_payload = build_type_iv_shared_decks_payload(
+                kid,
+                scope_context['category_key'],
+                include_category_key=True,
+            )
+            readiness_decks = []
+            for deck in list(listing_payload.get('decks') or []):
+                readiness_decks.append({
+                    'key': f"shared_{int(deck.get('deck_id') or 0)}",
+                    'label': str(deck.get('representative_front') or deck.get('name') or ''),
+                    'deck_id': int(deck.get('materialized_deck_id') or 0),
+                    'shared_deck_id': int(deck.get('deck_id') or 0),
+                    'total_cards': int(deck.get('card_count') or 0),
+                    'session_count': int(deck.get('daily_target_count') or 0) if bool(deck.get('opted_in')) else 0,
+                    'included_in_queue': bool(deck.get('opted_in')) and int(deck.get('daily_target_count') or 0) > 0,
+                    'is_orphan': False,
+                    'opted_in': bool(deck.get('opted_in')),
+                    'daily_target_count': int(deck.get('daily_target_count') or 0),
+                })
+            total_session_count = int(listing_payload.get('session_card_count') or 0)
+            return jsonify({
+                'category_key': scope_context['category_key'],
+                'decks': readiness_decks,
+                'total_session_count': total_session_count,
+                'configured_session_count': total_session_count,
+                'total_active_cards': sum(1 for deck in readiness_decks if bool(deck.get('opted_in'))),
+                'include_orphan_in_queue': False,
+                'has_chinese_specific_logic': False,
+                **special_ready_payload,
+            }), 200
         else:
             return jsonify({'error': 'Unsupported shared-deck operation for scope'}), 404
 
@@ -7835,6 +9981,185 @@ def get_shared_type3_cards(kid_id):
                 preview_hard_pct,
             )
         ), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def get_shared_type4_cards(kid_id):
+    """Get representative cards across opted-in type-IV decks."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        category_key, _ = resolve_kid_type_iv_category_with_mode(
+            kid,
+            request.args.get('categoryKey'),
+        )
+        preview_hard_pct = parse_optional_hard_card_percentage_arg()
+        return jsonify(
+            build_type_iv_shared_cards_payload(
+                kid,
+                category_key,
+                preview_hard_pct,
+            )
+        ), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/shared-decks/cards/<card_id>/generator-preview', methods=['POST'])
+def preview_type4_generator_for_card(kid_id, card_id):
+    """Run one opted-in type-IV deck generator and return fresh example rows."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        category_key, _ = resolve_kid_type_iv_category_with_mode(
+            kid,
+            (request.get_json(silent=True) or {}).get('categoryKey') or request.args.get('categoryKey'),
+        )
+        try:
+            card_id_int = int(card_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid card id'}), 400
+        if card_id_int <= 0:
+            return jsonify({'error': 'Invalid card id'}), 400
+
+        conn = get_kid_connection_for(kid)
+        try:
+            card_row = conn.execute(
+                """
+                SELECT c.id, c.front, c.deck_id
+                FROM cards c
+                WHERE c.id = ?
+                LIMIT 1
+                """,
+                [card_id_int],
+            ).fetchone()
+            if not card_row:
+                return jsonify({'error': 'Card not found'}), 404
+
+            local_deck_id = int(card_row[2] or 0)
+            materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
+                conn,
+                category_key,
+            )
+            source_entry = materialized_by_local_id.get(local_deck_id)
+            shared_deck_id = int(source_entry.get('shared_deck_id') or 0) if source_entry else 0
+        finally:
+            conn.close()
+
+        if shared_deck_id <= 0:
+            representative_front = str(card_row[1] or '').strip()
+            if representative_front:
+                generator_details_by_front = build_type_iv_generator_details_by_representative_front(category_key)
+                shared_deck_id = int(
+                    (generator_details_by_front.get(representative_front) or {}).get('shared_deck_id') or 0
+                )
+
+        if shared_deck_id <= 0:
+            return jsonify({'error': 'Shared generator deck not found for this card'}), 404
+
+        shared_conn = get_shared_decks_connection()
+        try:
+            generator_definition = get_shared_deck_generator_definition(shared_conn, shared_deck_id)
+        finally:
+            shared_conn.close()
+        if not generator_definition or not str(generator_definition.get('code') or '').strip():
+            return jsonify({'error': 'Generator definition not found for this deck'}), 404
+
+        seed_base = int(time.time_ns() % 2_000_000_000)
+        samples = preview_type4_generator(
+            generator_definition.get('code'),
+            sample_count=1,
+            seed_base=seed_base,
+        )
+        return jsonify({
+            'card_id': card_id_int,
+            'shared_deck_id': shared_deck_id,
+            'representative_label': str(card_row[1] or ''),
+            'code': str(generator_definition.get('code') or ''),
+            'samples': samples,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/shared-decks/daily-targets', methods=['PUT'])
+def update_type4_shared_deck_daily_targets(kid_id):
+    """Update per-deck daily target counts for one opted-in type-IV category."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload = request.get_json() or {}
+        category_key, _ = resolve_kid_type_iv_category_with_mode(
+            kid,
+            payload.get('categoryKey') or request.args.get('categoryKey'),
+        )
+        raw_counts = payload.get('dailyCountsByDeckId')
+        if raw_counts is None:
+            raw_counts = payload.get('daily_counts_by_deck_id')
+        daily_counts_by_shared_deck_id = normalize_type_iv_daily_counts_payload(raw_counts)
+
+        conn = get_kid_connection_for(kid)
+        try:
+            materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
+                conn,
+                category_key,
+            )
+            local_by_shared_id = {
+                int(entry['shared_deck_id']): int(entry['local_deck_id'])
+                for entry in materialized_by_local_id.values()
+            }
+            invalid_shared_ids = [
+                int(shared_deck_id)
+                for shared_deck_id in daily_counts_by_shared_deck_id.keys()
+                if shared_deck_id not in local_by_shared_id
+            ]
+            if invalid_shared_ids:
+                return jsonify({
+                    'error': (
+                        'dailyCountsByDeckId includes deck(s) that are not currently opted in: '
+                        f'{", ".join(str(v) for v in invalid_shared_ids)}'
+                    )
+                }), 400
+
+            updated = []
+            for shared_deck_id, local_deck_id in local_by_shared_id.items():
+                next_daily_count = int(daily_counts_by_shared_deck_id.get(shared_deck_id, 0))
+                conn.execute(
+                    "UPDATE decks SET daily_target_count = ? WHERE id = ?",
+                    [next_daily_count, local_deck_id]
+                )
+                updated.append({
+                    'shared_deck_id': int(shared_deck_id),
+                    'deck_id': int(local_deck_id),
+                    'daily_target_count': int(next_daily_count),
+                })
+            session_card_count = int(sum(item['daily_target_count'] for item in updated))
+        finally:
+            conn.close()
+
+        return jsonify({
+            'updated': True,
+            'category_key': category_key,
+            'updated_count': len(updated),
+            'session_card_count': session_card_count,
+            'daily_counts_by_deck_id': {
+                str(item['shared_deck_id']): int(item['daily_target_count'])
+                for item in updated
+            },
+            'decks': updated,
+        }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -8067,6 +10392,10 @@ CATEGORY_CONFIG.update({
         'kind': 'type2',
         'use_type_ii_card_management': True,
         'cards_handler': get_shared_type2_cards,
+    },
+    SHARED_DECK_SCOPE_TYPE4: {
+        'kind': 'type4',
+        'cards_handler': get_shared_type4_cards,
     },
 })
 
@@ -8326,6 +10655,7 @@ def add_writing_cards_bulk(kid_id):
 
         created = []
         skipped_existing = 0
+        skipped_existing_cards = []
         for front_text, back_text in rows_to_insert:
             dedupe_value = (
                 str(back_text or '').strip()
@@ -8336,6 +10666,9 @@ def add_writing_cards_bulk(kid_id):
                 continue
             if dedupe_value in existing_set:
                 skipped_existing += 1
+                skipped_existing_cards.append(
+                    format_type2_bulk_card_text(front_text, back_text, has_chinese_specific_logic)
+                )
                 continue
 
             row = conn.execute(
@@ -8372,6 +10705,7 @@ def add_writing_cards_bulk(kid_id):
             'input_token_count': len(rows_to_insert),
             'inserted_count': len(created),
             'skipped_existing_count': skipped_existing,
+            'skipped_existing_cards': skipped_existing_cards,
             'cards': created
         }), 201
     except ValueError as e:
@@ -9440,6 +11774,140 @@ def start_type1_practice_session(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/type4/practice/start', methods=['POST'])
+def start_type4_practice_session(kid_id):
+    """Start one generator practice session for an opted-in category."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        payload = request.get_json(silent=True) or {}
+        category_key, _ = resolve_kid_type_iv_category_with_mode(
+            kid,
+            payload.get('categoryKey') or request.args.get('categoryKey'),
+        )
+        practice_mode = normalize_type_iv_practice_mode(payload.get('practiceMode'))
+
+        conn = get_kid_connection_for(kid)
+        try:
+            practice_sources = get_type_iv_practice_source_rows(conn, category_key)
+            continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
+            is_continue_session = continue_source_session is not None
+            retry_source_session = None
+            is_retry_session = False
+            pending_items = []
+            response_cards = []
+
+            if is_continue_session:
+                missing_count = max(
+                    0,
+                    int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
+                )
+                count_by_deck_id = build_type_iv_continue_count_by_deck_id(
+                    practice_sources,
+                    missing_count,
+                )
+                pending_items, response_cards = build_type_iv_pending_items_for_sources(
+                    practice_sources,
+                    count_by_deck_id,
+                    practice_mode,
+                )
+            else:
+                retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
+                is_retry_session = retry_source_session is not None
+                if is_retry_session:
+                    retry_rows = get_type_iv_retry_source_result_rows(
+                        conn,
+                        retry_source_session['session_id'],
+                        [source.get('representative_card_id') for source in practice_sources],
+                    )
+                    pending_items = [{
+                        'id': int(row['result_id']),
+                        'representative_card_id': int(row['representative_card_id']),
+                        'prompt': str(row['prompt'] or ''),
+                        'answer': str(row['answer'] or ''),
+                        'distractor_answers': [str(item) for item in list(row.get('distractor_answers') or [])],
+                    } for row in retry_rows]
+                    response_cards = [
+                        map_type_iv_pending_item_to_response_card(item, practice_mode)
+                        for item in pending_items
+                    ]
+                else:
+                    count_by_deck_id = {
+                        int(source['local_deck_id']): int(source.get('daily_target_count') or 0)
+                        for source in practice_sources
+                        if int(source.get('daily_target_count') or 0) > 0
+                    }
+                    pending_items, response_cards = build_type_iv_pending_items_for_sources(
+                        practice_sources,
+                        count_by_deck_id,
+                        practice_mode,
+                    )
+
+            if len(response_cards) == 0:
+                return jsonify({
+                    'category_key': category_key,
+                    'pending_session_id': None,
+                    'cards': [],
+                    'planned_count': 0,
+                    'practice_mode': practice_mode,
+                    'is_continue_session': bool(is_continue_session),
+                    'continue_source_session_id': (
+                        int(continue_source_session['session_id'])
+                        if is_continue_session and continue_source_session is not None
+                        else None
+                    ),
+                    'is_retry_session': bool(is_retry_session),
+                    'retry_source_session_id': (
+                        int(retry_source_session['session_id'])
+                        if is_retry_session and retry_source_session is not None
+                        else None
+                    ),
+                }), 200
+
+            pending_session_payload = {
+                'kind': category_key,
+                'planned_count': len(response_cards),
+                'practice_mode': practice_mode,
+                'cards': pending_items,
+            }
+            if is_continue_session and continue_source_session is not None:
+                pending_session_payload[PENDING_CONTINUE_SOURCE_SESSION_ID_KEY] = int(continue_source_session['session_id'])
+            if is_retry_session and retry_source_session is not None:
+                pending_session_payload[PENDING_RETRY_SOURCE_SESSION_ID_KEY] = int(retry_source_session['session_id'])
+            pending_session_id = create_pending_session(
+                kid_id,
+                category_key,
+                pending_session_payload,
+            )
+        finally:
+            conn.close()
+
+        return jsonify({
+            'category_key': category_key,
+            'pending_session_id': pending_session_id,
+            'planned_count': len(response_cards),
+            'cards': response_cards,
+            'practice_mode': practice_mode,
+            'is_continue_session': bool(is_continue_session),
+            'continue_source_session_id': (
+                int(continue_source_session['session_id'])
+                if is_continue_session and continue_source_session is not None
+                else None
+            ),
+            'is_retry_session': bool(is_retry_session),
+            'retry_source_session_id': (
+                int(retry_source_session['session_id'])
+                if is_retry_session and retry_source_session is not None
+                else None
+            ),
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>/lesson-reading/practice/start', methods=['POST'])
 def start_type3_practice_session(kid_id):
     """Start a merged type-III session from opted-in decks (+ optional orphan)."""
@@ -9677,6 +12145,32 @@ def complete_writing_practice_session(kid_id):
 
         payload_data = request.get_json() or {}
         category_key, _ = resolve_kid_type_ii_category_with_mode(
+            kid,
+            payload_data.get('categoryKey') or request.args.get('categoryKey'),
+        )
+        payload, status_code = complete_session_internal(
+            kid,
+            kid_id,
+            category_key,
+            payload_data
+        )
+        return jsonify(payload), status_code
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/practice/complete', methods=['POST'])
+def complete_type4_practice_session(kid_id):
+    """Complete one generator practice session with server-side grading."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload_data = request.get_json() or {}
+        category_key, _ = resolve_kid_type_iv_category_with_mode(
             kid,
             payload_data.get('categoryKey') or request.args.get('categoryKey'),
         )

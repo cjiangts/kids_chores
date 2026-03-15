@@ -164,6 +164,11 @@
         (meta) => meta.behavior_type === 'type_iii',
     );
 
+    const getTypeIVCategoryKeys = (kid) => getCategoryKeysByPredicate(
+        kid,
+        (meta) => meta.behavior_type === 'type_iv',
+    );
+
     const resolveChinesePracticeCategoryKey = (kid, preferredKey = '') => resolvePreferredCategoryKey(
         getTypeIChineseSpecificCategoryKeys(kid),
         preferredKey,
@@ -184,9 +189,14 @@
         preferredKey,
     );
 
+    const resolveTypeIVPracticeCategoryKey = (kid, preferredKey = '') => resolvePreferredCategoryKey(
+        getTypeIVCategoryKeys(kid),
+        preferredKey,
+    );
+
     function normalizeBehaviorType(type) {
         const text = String(type || '').trim().toLowerCase();
-        if (text === 'type_i' || text === 'type_ii' || text === 'type_iii') {
+        if (text === 'type_i' || text === 'type_ii' || text === 'type_iii' || text === 'type_iv') {
             return text;
         }
         return '';
@@ -203,6 +213,9 @@
         if (normalized === 'type_iii') {
             return 'Type III';
         }
+        if (normalized === 'type_iv') {
+            return 'Generator';
+        }
         return '';
     }
 
@@ -210,6 +223,9 @@
         const behaviorLabel = getBehaviorTypeLabel(categoryMeta.behavior_type);
         if (!behaviorLabel) {
             return '';
+        }
+        if (normalizeBehaviorType(categoryMeta.behavior_type) === 'type_iv') {
+            return `${behaviorLabel} Dynamic`;
         }
         const logicLabel = categoryMeta.has_chinese_specific_logic ? 'Chinese' : 'Generic';
         return `${behaviorLabel} ${logicLabel}`;
@@ -377,6 +393,8 @@
         resolveTypeIIPracticeCategoryKey,
         getTypeIIICategoryKeys,
         resolveTypeIIIPracticeCategoryKey,
+        getTypeIVCategoryKeys,
+        resolveTypeIVPracticeCategoryKey,
         normalizeBehaviorType,
         getBehaviorTypeLabel,
         getCategoryDescriptor,

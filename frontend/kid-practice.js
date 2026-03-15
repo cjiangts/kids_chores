@@ -40,6 +40,9 @@ const knewRow = document.getElementById('knewRow');
 const knewBtn = document.getElementById('knewBtn');
 const doneRow = document.getElementById('doneRow');
 const doneBtn = document.getElementById('doneBtn');
+const type4InputRow = document.getElementById('type4InputRow');
+const type4AnswerInput = document.getElementById('type4AnswerInput');
+const type4AnswerDoneBtn = document.getElementById('type4AnswerDoneBtn');
 const multiChoiceRow = document.getElementById('multiChoiceRow');
 const multiChoiceGrid = document.getElementById('multiChoiceGrid');
 const judgeRow = document.getElementById('judgeRow');
@@ -67,8 +70,10 @@ const {
 const BEHAVIOR_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_III = 'type_iii';
-const VALID_BEHAVIOR_TYPES = new Set([BEHAVIOR_TYPE_I, BEHAVIOR_TYPE_II, BEHAVIOR_TYPE_III]);
+const BEHAVIOR_TYPE_IV = 'type_iv';
+const VALID_BEHAVIOR_TYPES = new Set([BEHAVIOR_TYPE_I, BEHAVIOR_TYPE_II, BEHAVIOR_TYPE_III, BEHAVIOR_TYPE_IV]);
 const JUDGE_MODE_STORAGE_KEY = 'practice_judge_mode_type1';
+const TYPE4_MODE_STORAGE_KEY = 'practice_judge_mode_type4';
 const TYPE1_MULTIPLE_CHOICE_OPTION_COUNT = 4;
 const PRACTICE_NAV_CACHE_KEY = 'kid_practice_nav_cache_v1';
 const PRACTICE_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -103,6 +108,7 @@ const state = {
     judgeMode: 'self',
     type1MultipleChoiceOptions: [],
     type1MultipleChoicePoolCards: [],
+    type4MultipleChoiceOptions: [],
     wrongCardsInSession: [],
     bonusSourceCards: [],
     bonusTiles: [],
@@ -222,6 +228,16 @@ function buildType3ApiUrl(pathSuffix) {
     return withCategoryKey(url).toString();
 }
 
+function buildType4ApiUrl(pathSuffix) {
+    return window.DeckCategoryCommon.buildKidScopedApiUrl({
+        kidId,
+        scope: 'type4',
+        path: pathSuffix,
+        categoryKey: state.categoryKey,
+        apiBase: API_BASE,
+    });
+}
+
 function getCurrentCategoryDisplayName() {
     return String(state.categoryDisplayName || '').trim();
 }
@@ -256,6 +272,7 @@ function applyPageTypeClasses() {
         'practice-type-i',
         'practice-type-ii',
         'practice-type-iii',
+        'practice-type-iv',
         'type2-chinese-font',
         'type3-chinese-font'
     );
@@ -274,16 +291,92 @@ function applyPageTypeClasses() {
 function hideAllSessionRows() {
     knewRow.classList.add('hidden');
     doneRow.classList.add('hidden');
+    type4InputRow.classList.add('hidden');
     multiChoiceRow.classList.add('hidden');
     judgeRow.classList.add('hidden');
     recordRow.classList.add('hidden');
     reviewControls.classList.add('hidden');
+    if (sessionActionSlot) {
+        sessionActionSlot.classList.remove('multi-choice-active');
+    }
+}
+
+function usesPracticeModePicker() {
+    return isType(BEHAVIOR_TYPE_I) || isType(BEHAVIOR_TYPE_IV);
+}
+
+function getJudgeModeButton(mode) {
+    return judgeModeToggleStart
+        ? judgeModeToggleStart.querySelector(`[data-judge-mode="${mode}"]`)
+        : null;
+}
+
+function setJudgeModeButtonContent(button, title, description) {
+    if (!button) {
+        return;
+    }
+    const titleEl = button.querySelector('.practice-mode-option-title');
+    const descEl = button.querySelector('.practice-mode-option-desc');
+    if (titleEl) {
+        titleEl.textContent = title;
+    }
+    if (descEl) {
+        descEl.textContent = description;
+    }
+}
+
+function configureJudgeModePickerForType() {
+    if (!judgeModeToggleStart) {
+        return;
+    }
+    const selfBtn = getJudgeModeButton('self');
+    const parentBtn = getJudgeModeButton('parent');
+    const multiBtn = getJudgeModeButton('multi');
+
+    if (isType(BEHAVIOR_TYPE_IV)) {
+        judgeModeToggleStart.classList.add('two-option-mode');
+        if (parentBtn) {
+            parentBtn.classList.add('hidden');
+        }
+        setJudgeModeButtonContent(
+            selfBtn,
+            'Type Answer',
+            'Kid types the answer. The system grades automatically.'
+        );
+        setJudgeModeButtonContent(
+            multiBtn,
+            'Multiple Choice',
+            'Pick one answer. The system grades automatically.'
+        );
+        return;
+    }
+
+    judgeModeToggleStart.classList.remove('two-option-mode');
+    if (parentBtn) {
+        parentBtn.classList.remove('hidden');
+    }
+    setJudgeModeButtonContent(
+        selfBtn,
+        'Kid Self',
+        'Kid reveals answer, then taps Right or Wrong.'
+    );
+    setJudgeModeButtonContent(
+        parentBtn,
+        'Parent Assist',
+        'Parent judges immediately and taps Right or Wrong.'
+    );
+    setJudgeModeButtonContent(
+        multiBtn,
+        'Multiple Choice',
+        'Pick 1 of 4 answers. System grades automatically.'
+    );
 }
 
 function configureTypeUi() {
     applyPageTypeClasses();
 
-    judgeModeRow.classList.toggle('hidden', !isType(BEHAVIOR_TYPE_I));
+    judgeModeRow.classList.toggle('hidden', !usesPracticeModePicker());
+    configureJudgeModePickerForType();
 
     hideAllSessionRows();
     showTypeSpecificCardSections();
@@ -302,7 +395,7 @@ function showTypeSpecificCardSections() {
     recordingViz.classList.add('hidden');
     reviewAudio.classList.add('hidden');
 
-    if (isType(BEHAVIOR_TYPE_I)) {
+    if (isType(BEHAVIOR_TYPE_I) || isType(BEHAVIOR_TYPE_IV)) {
         cardQuestion.classList.remove('hidden');
     } else if (isType(BEHAVIOR_TYPE_II)) {
         promptText.classList.remove('hidden');
@@ -315,7 +408,7 @@ function showTypeSpecificCardSections() {
 }
 
 function applyType1DisplayMode() {
-    const applyChineseMode = isType(BEHAVIOR_TYPE_I) && state.hasChineseSpecificLogic;
+    const applyChineseMode = (isType(BEHAVIOR_TYPE_I) || isType(BEHAVIOR_TYPE_IV)) && state.hasChineseSpecificLogic;
     cardQuestion.classList.toggle('chinese-text', applyChineseMode);
     cardAnswer.classList.toggle('chinese-text', applyChineseMode);
     flashcard.classList.toggle('chinese-mode', applyChineseMode);
@@ -445,6 +538,10 @@ async function loadReadyState() {
     }
     if (isType(BEHAVIOR_TYPE_III)) {
         await loadType3ReadyState();
+        return;
+    }
+    if (isType(BEHAVIOR_TYPE_IV)) {
+        await loadType4ReadyState();
     }
 }
 
@@ -586,6 +683,53 @@ async function loadType3ReadyState() {
     resetToStartScreen(total);
 }
 
+async function loadType4ReadyState() {
+    showError('');
+    const response = await fetch(buildType4ApiUrl('decks'));
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    resetReadyRetryState();
+    applyReadyRetryState(data);
+    state.configuredSessionCount = Number.parseInt(data.total_session_count, 10) || 0;
+    const deckList = Array.isArray(data.decks) ? data.decks : [];
+    const hasOptedInDeck = deckList.some((deck) => Boolean(deck && deck.opted_in));
+    const targetCount = state.readyIsContinueSession
+        ? state.readyContinueCardCount
+        : (state.readyIsRetrySession ? state.readyRetryCardCount : state.configuredSessionCount);
+
+    if (!state.readyIsContinueSession && !state.readyIsRetrySession && !hasOptedInDeck) {
+        practiceSection.classList.add('hidden');
+        showError(`No ${getCurrentCategoryDisplayName()} decks yet. Ask your parent to opt one in first.`);
+        return;
+    }
+
+    if (!state.readyIsContinueSession && !state.readyIsRetrySession && state.configuredSessionCount <= 0) {
+        practiceSection.classList.add('hidden');
+        showError(`${getCurrentCategoryDisplayName()} practice is off. Ask your parent to set deck counts in Manage ${getCurrentCategoryDisplayName()}.`);
+        return;
+    }
+
+    if (targetCount <= 0) {
+        practiceSection.classList.add('hidden');
+        if (state.readyIsContinueSession) {
+            showError('Continue session has no available questions right now. Ask your parent to check deck counts.');
+            return;
+        }
+        if (state.readyIsRetrySession) {
+            showError('Retry session has no available questions right now. Ask your parent to check deck counts.');
+            return;
+        }
+        showError(`No ${getCurrentCategoryDisplayName()} questions available for current deck counts.`);
+        return;
+    }
+
+    practiceSection.classList.remove('hidden');
+    resetToStartScreen(targetCount);
+}
+
 function resetBaseSessionState() {
     state.sessionCards = [];
     window.PracticeSession.clearSessionStart(state.activePendingSessionId);
@@ -603,6 +747,10 @@ function resetBaseSessionState() {
     state.sessionAnswers = [];
     state.type1MultipleChoiceOptions = [];
     state.type1MultipleChoicePoolCards = [];
+    state.type4MultipleChoiceOptions = [];
+    if (type4AnswerInput) {
+        type4AnswerInput.value = '';
+    }
 
     state.isSessionPaused = false;
     state.sessionRecordings = {};
@@ -639,7 +787,7 @@ function resetToStartScreen(totalCards = 0) {
         target = Math.min(Number.isInteger(sessionCount) ? sessionCount : 0, state.availableCards.length);
     }
 
-    if (isType(BEHAVIOR_TYPE_I) && !state.hasChineseSpecificLogic) {
+    if (isType(BEHAVIOR_TYPE_IV) || (isType(BEHAVIOR_TYPE_I) && !state.hasChineseSpecificLogic)) {
         sessionInfo.textContent = `Session: ${target} questions`;
     } else {
         sessionInfo.textContent = `Session: ${target} cards`;
@@ -651,10 +799,11 @@ function resetToStartScreen(totalCards = 0) {
             : `Ready for ${getCurrentCategoryDisplayName()}?`);
     if (retrySessionBadge) {
         retrySessionBadge.classList.toggle('hidden', !(state.readyIsContinueSession || state.readyIsRetrySession));
+        const retryItemNoun = isType(BEHAVIOR_TYPE_IV) ? 'questions' : 'cards';
         if (state.readyIsContinueSession) {
-            retrySessionBadge.textContent = 'Continue Session: finish remaining cards from earlier today.';
+            retrySessionBadge.textContent = `Continue Session: finish remaining ${retryItemNoun} from earlier today.`;
         } else if (state.readyIsRetrySession) {
-            retrySessionBadge.textContent = 'Retry Session: practice only cards missed earlier today.';
+            retrySessionBadge.textContent = `Retry Session: practice only ${retryItemNoun} missed earlier today.`;
         } else {
             retrySessionBadge.textContent = '';
         }
@@ -667,7 +816,7 @@ function resetToStartScreen(totalCards = 0) {
     resultScreen.classList.add('hidden');
     setHeaderBackToPracticeVisible(true);
 
-    if (isType(BEHAVIOR_TYPE_I)) {
+    if (usesPracticeModePicker()) {
         initJudgeMode();
         applyJudgeModeUi();
     }
@@ -676,15 +825,23 @@ function resetToStartScreen(totalCards = 0) {
 }
 
 function initJudgeMode() {
-    if (!isType(BEHAVIOR_TYPE_I) || !window.PracticeJudgeMode) {
+    if (!usesPracticeModePicker() || !window.PracticeJudgeMode) {
         return;
     }
+    const storageKey = isType(BEHAVIOR_TYPE_IV) ? TYPE4_MODE_STORAGE_KEY : JUDGE_MODE_STORAGE_KEY;
     state.judgeMode = window.PracticeJudgeMode.loadMode(
-        JUDGE_MODE_STORAGE_KEY,
+        storageKey,
         window.PracticeJudgeMode.SELF
     );
+    if (isType(BEHAVIOR_TYPE_IV) && state.judgeMode === window.PracticeJudgeMode.PARENT) {
+        state.judgeMode = window.PracticeJudgeMode.SELF;
+    }
     const setMode = (nextMode) => {
-        state.judgeMode = window.PracticeJudgeMode.saveMode(JUDGE_MODE_STORAGE_KEY, nextMode);
+        let resolvedMode = nextMode;
+        if (isType(BEHAVIOR_TYPE_IV) && nextMode === window.PracticeJudgeMode.PARENT) {
+            resolvedMode = window.PracticeJudgeMode.SELF;
+        }
+        state.judgeMode = window.PracticeJudgeMode.saveMode(storageKey, resolvedMode);
         syncJudgeModeToggles();
         applyJudgeModeUi();
     };
@@ -694,7 +851,7 @@ function initJudgeMode() {
 }
 
 function syncJudgeModeToggles() {
-    if (!window.PracticeJudgeMode || !isType(BEHAVIOR_TYPE_I)) {
+    if (!window.PracticeJudgeMode || !usesPracticeModePicker()) {
         return;
     }
     window.PracticeJudgeMode.renderToggleGroup(judgeModeToggleStart, state.judgeMode);
@@ -725,6 +882,10 @@ async function startSession() {
     }
     if (isType(BEHAVIOR_TYPE_III)) {
         await startType3Session();
+        return;
+    }
+    if (isType(BEHAVIOR_TYPE_IV)) {
+        await startType4Session();
     }
 }
 
@@ -843,6 +1004,48 @@ async function startType3Session() {
         updateFinishEarlyButtonState();
     } catch (error) {
         console.error('Error starting type-III session:', error);
+        showError(`Failed to start ${getCurrentCategoryDisplayName()} session`);
+    }
+}
+
+async function startType4Session() {
+    try {
+        showError('');
+        const practiceMode = window.PracticeJudgeMode?.isMultiMode(state.judgeMode)
+            ? 'multi'
+            : 'input';
+        const started = await window.PracticeSessionFlow.startShuffledSession(
+            buildType4ApiUrl('practice/start'),
+            {
+                categoryKey: state.categoryKey,
+                practiceMode,
+            }
+        );
+        state.activePendingSessionId = started.pendingSessionId;
+        state.activeIsRetrySession = Boolean(started?.data?.is_retry_session);
+        state.sessionCards = started.cards;
+
+        if (!window.PracticeSession.hasActiveSession(state.activePendingSessionId) || state.sessionCards.length === 0) {
+            state.activeIsRetrySession = false;
+            showError(`No ${getCurrentCategoryDisplayName()} questions available`);
+            return;
+        }
+
+        state.currentIndex = 0;
+        state.rightCount = 0;
+        state.wrongCount = 0;
+        state.sessionAnswers = [];
+        state.type4MultipleChoiceOptions = [];
+
+        startScreen.classList.add('hidden');
+        resultScreen.classList.add('hidden');
+        sessionScreen.classList.remove('hidden');
+        setHeaderBackToPracticeVisible(true);
+
+        showCurrentType4Item();
+        updateFinishEarlyButtonState();
+    } catch (error) {
+        console.error('Error starting generator practice session:', error);
         showError(`Failed to start ${getCurrentCategoryDisplayName()} session`);
     }
 }
@@ -1047,6 +1250,65 @@ function showCurrentType3Card() {
     updateFinishEarlyButtonState();
 }
 
+function getType4ChoiceOptions(card = null) {
+    const sourceCard = card || state.sessionCards[state.currentIndex] || {};
+    const rawChoices = Array.isArray(sourceCard.choices) ? sourceCard.choices : [];
+    return rawChoices
+        .map((choice) => String(choice ?? '').trim())
+        .filter(Boolean);
+}
+
+function renderType4MultipleChoiceOptions() {
+    if (!multiChoiceGrid || !isType(BEHAVIOR_TYPE_IV)) {
+        return;
+    }
+    const options = Array.isArray(state.type4MultipleChoiceOptions)
+        ? state.type4MultipleChoiceOptions
+        : [];
+    if (options.length === 0) {
+        multiChoiceGrid.innerHTML = '';
+        return;
+    }
+    multiChoiceGrid.innerHTML = options.map((text, index) => {
+        return `<button type="button" class="control-btn multi-choice-btn" data-choice-index="${index}">${escapeHtml(text)}</button>`;
+    }).join('');
+}
+
+function showCurrentType4Item() {
+    if (state.sessionCards.length === 0 || !isType(BEHAVIOR_TYPE_IV)) {
+        return;
+    }
+
+    showTypeSpecificCardSections();
+
+    const card = state.sessionCards[state.currentIndex];
+    renderPracticeProgress(
+        progress,
+        progressFill,
+        state.currentIndex + 1,
+        state.sessionCards.length,
+        'Question'
+    );
+    cardQuestion.textContent = String(card?.front || '');
+    cardAnswer.textContent = '';
+    state.answerRevealed = false;
+    state.cardShownAtMs = Date.now();
+    state.pausedDurationMs = 0;
+    state.pauseStartedAtMs = 0;
+    state.isPaused = false;
+    state.type4MultipleChoiceOptions = getType4ChoiceOptions(card);
+    if (type4AnswerInput) {
+        type4AnswerInput.value = '';
+    }
+    applyJudgeModeUi();
+    if (!window.PracticeJudgeMode?.isMultiMode(state.judgeMode) && type4AnswerInput) {
+        window.setTimeout(() => {
+            type4AnswerInput.focus();
+            type4AnswerInput.select();
+        }, 0);
+    }
+}
+
 function revealAnswer() {
     if (isType(BEHAVIOR_TYPE_I)) {
         revealType1Answer();
@@ -1201,7 +1463,78 @@ function answerType2Card(correct) {
     showCurrentPrompt();
 }
 
+function answerType4Item(submittedAnswer) {
+    if (!isType(BEHAVIOR_TYPE_IV) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
+        return;
+    }
+
+    const card = state.sessionCards[state.currentIndex];
+    const responseTimeMs = Math.max(0, Date.now() - state.cardShownAtMs);
+    state.sessionAnswers.push({
+        cardId: card.id,
+        submittedAnswer: String(submittedAnswer ?? ''),
+        responseTimeMs,
+    });
+    updateFinishEarlyButtonState();
+
+    if (state.currentIndex >= state.sessionCards.length - 1) {
+        void endSession();
+        return;
+    }
+
+    state.currentIndex += 1;
+    showCurrentType4Item();
+}
+
+function answerType4MultipleChoice(choiceIndex) {
+    if (!isType(BEHAVIOR_TYPE_IV)) {
+        return;
+    }
+    const index = Number.parseInt(choiceIndex, 10);
+    if (!Number.isInteger(index) || index < 0) {
+        return;
+    }
+    const options = Array.isArray(state.type4MultipleChoiceOptions)
+        ? state.type4MultipleChoiceOptions
+        : [];
+    const selected = options[index];
+    if (typeof selected !== 'string') {
+        return;
+    }
+    answerType4Item(selected);
+}
+
+function submitType4TypedAnswer() {
+    if (!isType(BEHAVIOR_TYPE_IV) || !type4AnswerInput) {
+        return;
+    }
+    answerType4Item(type4AnswerInput.value);
+}
+
 function applyJudgeModeUi() {
+    if (isType(BEHAVIOR_TYPE_IV)) {
+        const isMultiMode = Boolean(window.PracticeJudgeMode?.isMultiMode(state.judgeMode));
+        knewRow.classList.add('hidden');
+        doneRow.classList.add('hidden');
+        judgeRow.classList.add('hidden');
+        recordRow.classList.add('hidden');
+        reviewControls.classList.add('hidden');
+        type4InputRow.classList.toggle('hidden', isMultiMode);
+        multiChoiceRow.classList.toggle('hidden', !isMultiMode);
+        if (sessionActionSlot) {
+            sessionActionSlot.classList.toggle('multi-choice-active', isMultiMode);
+        }
+        if (isMultiMode) {
+            renderType4MultipleChoiceOptions();
+        } else if (multiChoiceGrid) {
+            multiChoiceGrid.innerHTML = '';
+        }
+        if (type4AnswerDoneBtn) {
+            type4AnswerDoneBtn.disabled = false;
+        }
+        return;
+    }
+
     if (!isType(BEHAVIOR_TYPE_I)) {
         return;
     }
@@ -1209,6 +1542,7 @@ function applyJudgeModeUi() {
     const judgeState = getJudgeModeUiState();
     knewRow.classList.toggle('hidden', !judgeState.showRevealAction);
     doneRow.classList.add('hidden');
+    type4InputRow.classList.add('hidden');
     multiChoiceRow.classList.toggle('hidden', !judgeState.showMultiChoiceActions);
     if (sessionActionSlot) {
         sessionActionSlot.classList.toggle('multi-choice-active', judgeState.showMultiChoiceActions);
@@ -1743,6 +2077,10 @@ async function endSession(endedEarly = false) {
     }
     if (isType(BEHAVIOR_TYPE_III)) {
         await endType3Session(endedEarly);
+        return;
+    }
+    if (isType(BEHAVIOR_TYPE_IV)) {
+        await endType4Session(endedEarly);
     }
 }
 
@@ -1894,6 +2232,48 @@ async function endType3Session(endedEarly = false) {
     updateFinishEarlyButtonState();
 
     state.sessionRecordings = {};
+    try {
+        await loadKidInfo();
+    } catch (error) {
+        console.error('Error refreshing kid info:', error);
+    }
+}
+
+async function endType4Session(endedEarly = false) {
+    sessionScreen.classList.add('hidden');
+    resultScreen.classList.remove('hidden');
+    setHeaderBackToPracticeVisible(false);
+    setResultBackToPracticeVisible(true);
+    resultSummary.textContent = endedEarly
+        ? 'Ended early... saving results'
+        : 'Saving results...';
+
+    try {
+        const response = await window.PracticeSessionFlow.postCompleteSession(
+            buildType4ApiUrl('practice/complete'),
+            state.activePendingSessionId,
+            state.sessionAnswers,
+            { categoryKey: state.categoryKey }
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        const wrongCount = Number.parseInt(payload?.wrong_count, 10) || 0;
+        const answeredCount = Number.parseInt(payload?.answer_count, 10) || state.sessionAnswers.length;
+        const targetCount = Number.parseInt(payload?.target_answer_count, 10) || answeredCount;
+        resultSummary.textContent = endedEarly
+            ? `Ended early · Wrong: ${wrongCount} of ${answeredCount} answered`
+            : `Wrong: ${wrongCount} of ${targetCount}`;
+    } catch (error) {
+        console.error('Error completing generator session:', error);
+        resultSummary.textContent = 'Could not save this session.';
+        showError('Failed to save session results');
+    }
+
+    window.PracticeSession.clearSessionStart(state.activePendingSessionId);
+    updateFinishEarlyButtonState();
+
     try {
         await loadKidInfo();
     } catch (error) {
@@ -2109,6 +2489,20 @@ function bindEventHandlers() {
     doneBtn.addEventListener('click', () => {
         revealAnswer();
     });
+    if (type4AnswerDoneBtn) {
+        type4AnswerDoneBtn.addEventListener('click', () => {
+            submitType4TypedAnswer();
+        });
+    }
+    if (type4AnswerInput) {
+        type4AnswerInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') {
+                return;
+            }
+            event.preventDefault();
+            submitType4TypedAnswer();
+        });
+    }
     wrongBtn.addEventListener('click', () => {
         answerCurrentCard(false);
     });
@@ -2122,6 +2516,10 @@ function bindEventHandlers() {
                 return;
             }
             event.preventDefault();
+            if (isType(BEHAVIOR_TYPE_IV)) {
+                answerType4MultipleChoice(target.getAttribute('data-choice-index'));
+                return;
+            }
             answerType1MultipleChoice(target.getAttribute('data-choice-index'));
         });
     }

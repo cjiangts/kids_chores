@@ -9,11 +9,18 @@ CREATE SEQUENCE IF NOT EXISTS writing_sheets_id_seq;
 CREATE TABLE IF NOT EXISTS decks (
   id INTEGER PRIMARY KEY DEFAULT nextval('decks_id_seq'),
   name VARCHAR NOT NULL,
-  description VARCHAR,
   tags VARCHAR[],
+  daily_target_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE decks
+ADD COLUMN IF NOT EXISTS daily_target_count INTEGER DEFAULT 0;
+
+UPDATE decks
+SET daily_target_count = 0
+WHERE daily_target_count IS NULL;
 
 -- Flashcards
 CREATE TABLE IF NOT EXISTS cards (
@@ -43,9 +50,17 @@ CREATE TABLE IF NOT EXISTS session_results (
   id INTEGER PRIMARY KEY DEFAULT nextval('session_results_id_seq'),
   session_id INTEGER NOT NULL,
   card_id INTEGER NOT NULL,
-  correct INTEGER NOT NULL,
+  correct INTEGER NOT NULL, -- 1=right first pass, -1=still wrong, <=-2=wrong first then fixed in retry round abs(correct)-1
   response_time_ms INTEGER,
   timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS type4_result_item (
+  result_id INTEGER PRIMARY KEY,
+  prompt VARCHAR NOT NULL,
+  answer VARCHAR NOT NULL,
+  distractor_answers VARCHAR[] NOT NULL DEFAULT [],
+  submitted_answers VARCHAR[] NOT NULL DEFAULT []
 );
 
 -- Type-III recording audio metadata (actual audio files are stored on disk)

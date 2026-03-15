@@ -5,6 +5,13 @@ const kidId = params.get('id');
 const cardId = params.get('cardId');
 const from = params.get('from');
 const categoryKey = window.DeckCategoryCommon.normalizeCategoryKey(params.get('categoryKey'));
+const hashResultMatch = String(window.location.hash || '').match(/^#result-(\d+)$/);
+const targetResultId = Number.parseInt(
+    params.get('resultId')
+    || (hashResultMatch ? hashResultMatch[1] : ''),
+    10
+);
+const BEHAVIOR_TYPE_IV = 'type_iv';
 
 const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
@@ -86,6 +93,7 @@ async function loadCardReport() {
         trendAttemptsFull = attempts;
         renderTrend(trendAttemptsFull);
         renderHistory(attempts);
+        scrollToTargetAttempt();
     } catch (error) {
         console.error('Error loading card report:', error);
         showError('Failed to load card report.');
@@ -113,19 +121,14 @@ function renderSummary(card, summary, attempts) {
     const attemptsCount = safeNum(summary.attempt_count);
     const right = safeNum(summary.right_count);
     const wrong = safeNum(summary.wrong_count);
-    const bestMs = Array.isArray(attempts) && attempts.length > 0
-        ? attempts.reduce((best, item) => {
-            const value = Math.max(0, Number(item?.response_time_ms) || 0);
-            return value < best ? value : best;
-        }, Number.POSITIVE_INFINITY)
-        : Number.POSITIVE_INFINITY;
-    const bestTimeLabel = Number.isFinite(bestMs) ? formatResponseTime(bestMs) : '-';
+    const avgMs = Math.max(0, Number(summary?.avg_response_ms) || 0);
+    const avgTimeLabel = avgMs > 0 ? formatResponseTime(avgMs) : '-';
 
     summaryGrid.innerHTML = `
         <div class="summary-card"><div class="label">Card</div><div class="value">${escapeHtml(getCardDisplayLabel(card.front, card.back, from) || '-')}</div></div>
         <div class="summary-card"><div class="label">Attempts</div><div class="value">${attemptsCount}</div></div>
         <div class="summary-card"><div class="label">Right / Wrong</div><div class="value">${right} / ${wrong}</div></div>
-        <div class="summary-card"><div class="label">Best Time</div><div class="value">${bestTimeLabel}</div></div>
+        <div class="summary-card"><div class="label">Avg Time</div><div class="value">${avgTimeLabel}</div></div>
     `;
 }
 
@@ -138,12 +141,12 @@ function renderTrend(attempts) {
     const totalCount = attempts.length;
     const shownAttempts = getTrendVisibleAttempts(attempts);
     const shownCount = shownAttempts.length;
-    const maxMs = Math.max(...shownAttempts.map((item) => Math.max(0, Number(item.response_time_ms) || 0)), 1);
+    const maxMs = Math.max(...shownAttempts.map((item) => getAttemptDisplayResponseMs(item)), 1);
     const trendUseMinutesUnit = maxMs >= 60000;
     const minHeight = 6;
     const firstVisibleIndex = totalCount - shownCount;
     const bars = shownAttempts.map((item, index) => {
-        const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
+        const rawMs = getAttemptDisplayResponseMs(item);
         const scaled = Math.max(minHeight, Math.round((rawMs / maxMs) * 170));
         const responseLabel = formatTrendResponseTime(rawMs, trendUseMinutesUnit);
         const label = `${formatResponseTime(rawMs)} · ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}`;
@@ -158,10 +161,19 @@ function renderTrend(attempts) {
     const windowNote = totalCount > shownCount
         ? ` Showing latest ${shownCount} of ${totalCount} attempts to fit screen.`
         : '';
+    const hasFixed = shownAttempts.some((item) => resolveCorrectness(item) === 'fixed');
+    const hasPending = shownAttempts.some((item) => resolveCorrectness(item) === 'pending');
+    const legendBits = ['Green = right first try', 'red = wrong'];
+    if (hasFixed) {
+        legendBits.push('yellow = fixed in retry');
+    }
+    if (hasPending) {
+        legendBits.push('gray = ungraded');
+    }
 
     trendChart.innerHTML = `
         <div class="trend-bars">${bars}</div>
-        <div class="chart-legend">Each bar is one attempt in time order. Height = response time. Green = right, red = wrong, yellow = ungraded.${windowNote}</div>
+        <div class="chart-legend">Each bar is one attempt in time order. Height = average response time. ${legendBits.join(', ')}.${windowNote}</div>
     `;
 }
 
@@ -227,13 +239,13 @@ function renderHistory(attempts) {
     });
 
     historyList.innerHTML = sorted.map((item) => {
-        const rawMs = Math.max(0, Number(item.response_time_ms) || 0);
+        const rawMs = getAttemptDisplayResponseMs(item);
         const responseTimeLabel = formatResponseTime(rawMs);
         const correctness = resolveCorrectness(item);
         const statusClass = correctness;
-        const statusText = correctness === 'right' ? 'Right' : (correctness === 'wrong' ? 'Wrong' : 'Ungraded');
+        const statusText = getCorrectnessLabel(correctness);
         const lessonReadingAudioAttrs = from === 'lesson-reading'
-            ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${rawMs}"`
+            ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
             : '';
         const downloadFilename = buildAudioDownloadFilename(item);
         const downloadUrl = buildAudioDownloadUrl(item, downloadFilename);
@@ -247,8 +259,42 @@ function renderHistory(attempts) {
                 </div>
             `
             : '';
+        if (isType4Attempt(item)) {
+            const prompt = getType4AttemptPrompt(item);
+            const answer = getType4AttemptAnswer(item) || '-';
+            const submittedText = getType4AttemptSubmittedText(item);
+            const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
+            return `
+                <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
+                    <div class="history-head-row">
+                        <div class="history-title-stack">
+                            <div class="history-primary">${escapeHtml(prompt)}</div>
+                            <div class="history-type4-details">
+                                <div class="history-type4-row">
+                                    <span class="history-type4-key">Right</span>
+                                    <span class="history-type4-value" title="${escapeHtml(answer)}">${escapeHtml(answer)}</span>
+                                </div>
+                                <div class="history-type4-row">
+                                    <span class="history-type4-key">Tried</span>
+                                    <span class="history-type4-value" title="${escapeHtml(submittedText)}">${escapeHtml(submittedText)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="history-status-side">
+                            <div class="history-time-badge">Avg ${escapeHtml(responseTimeLabel)}</div>
+                            <span class="pill ${statusClass}">${statusText}</span>
+                        </div>
+                    </div>
+                    <div class="meta">
+                        ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
+                        · Session #${safeNum(item.session_id)}
+                    </div>
+                </div>
+            `;
+        }
+        const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
         return `
-            <div class="history-item">
+            <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                 <div class="history-head-row">
                     <div>
                         ${formatType(item.session_category_display_name)} · ${responseTimeLabel}
@@ -273,10 +319,44 @@ function renderHistory(attempts) {
     }
 }
 
+function scrollToTargetAttempt() {
+    if (!Number.isFinite(targetResultId) || targetResultId <= 0 || !historyList) {
+        return;
+    }
+    const targetId = `result-${targetResultId}`;
+    const tryScroll = (behavior = 'smooth') => {
+        const target = document.getElementById(targetId)
+            || historyList.querySelector(`.history-item[data-result-id="${targetResultId}"]`);
+        if (!target) {
+            return false;
+        }
+        historyList.querySelectorAll('.history-item.targeted-history-item').forEach((node) => {
+            if (node !== target) {
+                node.classList.remove('targeted-history-item');
+            }
+        });
+        target.classList.add('targeted-history-item');
+        const rect = target.getBoundingClientRect();
+        const targetTop = Math.max(
+            0,
+            rect.top + window.scrollY - Math.max(24, (window.innerHeight - rect.height) / 2)
+        );
+        window.scrollTo({ top: targetTop, behavior });
+        return true;
+    };
+
+    window.requestAnimationFrame(() => {
+        tryScroll('auto');
+        window.setTimeout(() => { tryScroll('smooth'); }, 140);
+        window.setTimeout(() => { tryScroll('smooth'); }, 420);
+    });
+}
+
 function resolveCorrectness(item) {
     const scoreRaw = Number(item?.correct_score);
     if (Number.isFinite(scoreRaw)) {
         if (scoreRaw > 0) return 'right';
+        if (scoreRaw <= -2) return 'fixed';
         if (scoreRaw < 0) return 'wrong';
         return 'pending';
     }
@@ -287,6 +367,48 @@ function resolveCorrectness(item) {
         return 'wrong';
     }
     return 'pending';
+}
+
+function getCorrectnessLabel(correctness) {
+    if (correctness === 'right') {
+        return 'Right';
+    }
+    if (correctness === 'fixed') {
+        return 'Fixed';
+    }
+    if (correctness === 'wrong') {
+        return 'Wrong';
+    }
+    return 'Ungraded';
+}
+
+function getAttemptDisplayResponseMs(item) {
+    const avgMs = Math.max(0, Number(item?.avg_response_ms) || 0);
+    if (avgMs > 0) {
+        return avgMs;
+    }
+    return Math.max(0, Number(item?.response_time_ms) || 0);
+}
+
+function isType4Attempt(item) {
+    return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_IV;
+}
+
+function getType4AttemptPrompt(item) {
+    return String(item?.materialized_prompt || currentCardFront || 'Problem').trim() || 'Problem';
+}
+
+function getType4AttemptAnswer(item) {
+    return String(item?.materialized_answer || '').trim();
+}
+
+function getType4AttemptSubmittedText(item) {
+    const submittedAnswers = Array.isArray(item?.submitted_answers)
+        ? item.submitted_answers
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+        : [];
+    return submittedAnswers.length > 0 ? submittedAnswers.join(' / ') : '-';
 }
 
 function formatResponseTime(ms) {

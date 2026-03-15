@@ -23,8 +23,13 @@ CREATE TABLE IF NOT EXISTS cards (
   deck_id INTEGER NOT NULL,
   front VARCHAR NOT NULL,
   back VARCHAR NOT NULL,
-  FOREIGN KEY (deck_id) REFERENCES deck(deck_id),
   UNIQUE (deck_id, front)
+);
+
+CREATE TABLE IF NOT EXISTS deck_generator_definition (
+  deck_id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_cards_deck_id_front ON cards(deck_id, front);

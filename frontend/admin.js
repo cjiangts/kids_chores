@@ -30,7 +30,7 @@ const {
     getCategoryDisplayName,
     getCategoryEmoji,
 } = window.DeckCategoryCommon;
-const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
+const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 let isCreatingKid = false;
 let isSavingDeckCategories = false;
 let currentKids = [];
@@ -387,7 +387,7 @@ function getManagePathByCategory(categoryKey, categoryMetaMap = {}) {
     const key = String(categoryKey || '').trim().toLowerCase();
     const meta = categoryMetaMap?.[key] || {};
     const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
-    return ['type_i', 'type_ii', 'type_iii'].includes(behaviorType)
+    return ['type_i', 'type_ii', 'type_iii', 'type_iv'].includes(behaviorType)
         ? '/kid-card-manage.html'
         : '';
 }

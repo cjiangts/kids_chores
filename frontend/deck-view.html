@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
+        body.modal-open {
+            overflow: hidden;
+        }
+
         .deck-page {
             max-width: 1100px;
             margin: 0 auto;
@@ -23,6 +27,13 @@
         .deck-meta-row {
             margin: 0.35rem 0;
             color: #333;
+        }
+
+        .deck-meta-row-head {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
         }
 
         .deck-tags {
@@ -68,6 +79,104 @@
             gap: 0.55rem;
             flex-wrap: wrap;
         }
+
+        .deck-rename-inline-btn {
+            padding: 0.1rem 0.42rem;
+            font-size: 0.76rem;
+            line-height: 1.2;
+            min-height: 28px;
+        }
+
+        .rename-tags-modal {
+            width: min(560px, calc(100vw - 2rem));
+        }
+
+        .rename-tags-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.8rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .rename-tags-head h2 {
+            margin: 0;
+        }
+
+        .rename-tags-copy {
+            color: #555;
+            line-height: 1.4;
+            margin: 0 0 0.8rem 0;
+        }
+
+        .rename-tags-grid {
+            display: grid;
+            gap: 0.8rem;
+        }
+
+        .rename-tags-grid .form-group {
+            margin-bottom: 0;
+        }
+
+        .rename-tags-fixed-tag {
+            display: inline-flex;
+            align-items: center;
+            min-height: 38px;
+        }
+
+        .rename-add-tag-row {
+            flex-wrap: nowrap;
+            align-items: center;
+        }
+
+        .rename-add-tag-row input {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .rename-add-tag-row .btn-secondary {
+            flex: 0 0 auto;
+        }
+
+        .rename-tags-empty {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .rename-tag-remove-btn {
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            color: #2f3c7e;
+            font-size: 0.92rem;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .rename-name-status {
+            margin-top: -0.2rem;
+            font-size: 0.9rem;
+        }
+
+        .rename-name-status.ok {
+            color: #2b8a3e;
+        }
+
+        .rename-name-status.error {
+            color: #c92a2a;
+        }
+
+        .rename-name-status.note {
+            color: #555;
+        }
+
+        .rename-tags-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -85,19 +194,33 @@
                 <div id="deckMeta" class="hidden">
                     <div class="deck-meta-row"><strong>Deck ID:</strong> <span id="deckIdText"></span></div>
                     <div class="deck-meta-row"><strong>Name:</strong> <code id="deckNameText"></code></div>
-                    <div class="deck-meta-row"><strong>Tags:</strong> <span id="deckTagsText"></span></div>
+                    <div class="deck-meta-row">
+                        <span class="deck-meta-row-head">
+                            <strong>Tags:</strong>
+                            <span id="deckTagsText"></span>
+                            <button type="button" id="renameDeckTagsBtn" class="btn-secondary deck-rename-inline-btn">Rename</button>
+                        </span>
+                    </div>
+                    <div class="deck-meta-row"><strong>Behavior:</strong> <span id="deckBehaviorText"></span></div>
                     <div class="deck-meta-row"><strong>Created:</strong> <span id="deckCreatedAtText"></span></div>
                     <div class="deck-meta-row"><strong>Cards:</strong> <span id="cardCountText"></span></div>
                 </div>
             </section>
 
             <section class="deck-panel">
-                <h2 class="deck-section-title">Edit Cards</h2>
-                <p class="deck-edit-help">Add cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed. You can also delete existing cards below.</p>
-                <textarea id="cardsInput" class="deck-edit-textarea" placeholder="1+1,2&#10;2+3,5"></textarea>
-                <div class="deck-edit-row">
-                    <button type="button" id="addCardsBtn" class="btn-primary">Add Cards</button>
-                    <button type="button" id="clearCardsInputBtn" class="btn-secondary">Clear</button>
+                <h2 id="editorSectionTitle" class="deck-section-title">Edit Cards</h2>
+                <div id="staticDeckEditor">
+                    <p class="deck-edit-help">Add cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed. You can also delete existing cards below.</p>
+                    <textarea id="cardsInput" class="deck-edit-textarea" placeholder="1+1,2&#10;2+3,5"></textarea>
+                    <div class="deck-edit-row">
+                        <button type="button" id="addCardsBtn" class="btn-primary">Add Cards</button>
+                        <button type="button" id="clearCardsInputBtn" class="btn-secondary">Clear</button>
+                    </div>
+                </div>
+                <div id="type4DeckEditor" class="hidden">
+                    <p class="deck-edit-help">Generator decks are immutable after creation. The representative label lives on the single card row, and the Python snippet below is the stored generator definition.</p>
+                    <div class="deck-meta-row"><strong>Representative label:</strong> <span id="type4RepresentativeLabelText"></span></div>
+                    <pre id="type4GeneratorCodeText" class="deck-edit-textarea input-mono"></pre>
                 </div>
             </section>
 
@@ -124,6 +247,49 @@
         </main>
     </div>
 
+    <div id="renameTagsModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content rename-tags-modal" role="dialog" aria-modal="true" aria-labelledby="renameTagsModalTitle">
+            <div class="rename-tags-head">
+                <h2 id="renameTagsModalTitle">Rename Tags</h2>
+                <button type="button" id="closeRenameTagsModalBtn" class="btn-secondary">Close</button>
+            </div>
+            <p class="rename-tags-copy">
+                Keep the deck category fixed and update the remaining tag path.
+                Optional comments still work in the same format as deck creation: <code>tag(comment)</code>.
+            </p>
+            <div class="rename-tags-grid">
+                <div class="form-group">
+                    <label>Category</label>
+                    <div id="renameFixedFirstTag" class="deck-tag rename-tags-fixed-tag"></div>
+                </div>
+                <div class="form-group">
+                    <label for="renameNewTagInput">Add tag</label>
+                    <div class="deck-row rename-add-tag-row">
+                        <input
+                            type="text"
+                            id="renameNewTagInput"
+                            placeholder="e.g. unit3, week8, >100"
+                        >
+                        <button type="button" id="renameAddTagBtn" class="btn-secondary">Add Tag</button>
+                    </div>
+                </div>
+                <div id="renameTagsContainer" class="deck-tags"></div>
+                <div class="settings-note">The first tag stays locked. Use the same tag or <code>tag(comment)</code> format as deck creation.</div>
+                <div class="deck-meta-name">
+                    <strong>New name:</strong> <code id="renameDeckNamePreview"></code>
+                </div>
+                <div id="renameNameStatus" class="rename-name-status note">Checking name availability...</div>
+                <div id="renameTagsMessage" class="settings-note"></div>
+                <div id="renameTagsError" class="error hidden"></div>
+            </div>
+            <div class="rename-tags-actions">
+                <button type="button" id="cancelRenameTagsBtn" class="btn-secondary">Cancel</button>
+                <button type="button" id="saveRenameTagsBtn" class="btn-primary">Save Tags</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-view.js"></script>
 </body>

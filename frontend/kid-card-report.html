@@ -113,8 +113,12 @@
             background: #d95b5b;
         }
 
+        .trend-bar.fixed {
+            background: #e0ac2b;
+        }
+
         .trend-bar.pending {
-            background: #f3b43f;
+            background: #9aa4bb;
         }
 
         .chart-legend {
@@ -136,6 +140,14 @@
             color: #333;
             background: var(--dashboard-chip-bg);
             box-shadow: var(--dashboard-chip-shadow);
+            scroll-margin-top: 88px;
+            transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
+        }
+
+        .history-item.targeted-history-item {
+            border-color: #7c96e8;
+            box-shadow: 0 0 0 3px rgba(124, 150, 232, 0.18), var(--dashboard-chip-shadow);
+            transform: translateY(-1px);
         }
 
         .history-item .meta {
@@ -155,6 +167,70 @@
         .history-head-row > div:first-child {
             min-width: 0;
             overflow-wrap: anywhere;
+        }
+
+        .history-title-stack {
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .history-primary {
+            font-size: 1.02rem;
+            font-weight: 700;
+            color: #2f3c7e;
+            line-height: 1.14;
+            overflow-wrap: anywhere;
+        }
+
+        .history-status-side {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .history-time-badge {
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #5b6787;
+            background: #eef2fb;
+            border-radius: 999px;
+            padding: 0.16rem 0.48rem;
+            white-space: nowrap;
+        }
+
+        .history-type4-details {
+            margin-top: 0.3rem;
+            display: grid;
+            gap: 0.16rem;
+        }
+
+        .history-type4-row {
+            display: grid;
+            grid-template-columns: 2.6rem minmax(0, 1fr);
+            gap: 0.38rem;
+            align-items: start;
+            font-size: 0.8rem;
+            line-height: 1.2;
+        }
+
+        .history-type4-key {
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #6e7998;
+        }
+
+        .history-type4-value {
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            color: #2e395f;
+            font-weight: 700;
         }
 
         .audio-history-row {
@@ -200,14 +276,19 @@
             color: #176b2e;
         }
 
+        .pill.fixed {
+            background: #fff5dc;
+            color: #9a6200;
+        }
+
         .pill.wrong {
             background: #fdeaea;
             color: #9d2e2e;
         }
 
         .pill.pending {
-            background: #fff5dc;
-            color: #9a6200;
+            background: #eef2fb;
+            color: #5b6787;
         }
     </style>
 </head>

@@ -50,7 +50,7 @@ let badgeShelfSummary = {
     trackingEnabled: false,
 };
 const errorState = { lastMessage: '' };
-const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
+const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 
 function escapeHtmlLocal(text) {
     return String(text || '')
@@ -108,6 +108,10 @@ function openProgressReport() {
 }
 
 function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpecificLogic) {
+    if (behaviorType === 'type_iv') {
+        goType4Practice(categoryKey);
+        return;
+    }
     if (behaviorType === 'type_iii') {
         goType3Practice(categoryKey);
         return;
@@ -784,6 +788,26 @@ function goType3Practice(category) {
     const categoryKey = normalizeCategoryKey(category);
     if (!categoryKey) {
         showError('Type-III category is missing.');
+        return;
+    }
+    const optedInSet = getOptedInDeckCategorySet(currentKid);
+    if (!optedInSet.has(categoryKey)) {
+        const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
+        const label = getCategoryDisplayName(categoryKey, categoryMetaMap);
+        showError(`${label} practice is not opted in for this kid.`);
+        return;
+    }
+    const params = new URLSearchParams();
+    params.set('id', kidId);
+    params.set('categoryKey', categoryKey);
+    cacheKidForPracticeNavigation();
+    window.location.href = `/kid-practice.html?${params.toString()}`;
+}
+
+function goType4Practice(category) {
+    const categoryKey = normalizeCategoryKey(category);
+    if (!categoryKey) {
+        showError('Type-IV category is missing.');
         return;
     }
     const optedInSet = getOptedInDeckCategorySet(currentKid);

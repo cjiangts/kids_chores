@@ -20,6 +20,7 @@ const {
 } = window.DeckCategoryCommon;
 const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_III = 'type_iii';
+const BEHAVIOR_TYPE_IV = 'type_iv';
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
 let currentSessionBehaviorType = '';
@@ -126,13 +127,19 @@ function renderAnswerSections(answers) {
 
 function getAnswerSortRank(item) {
     const score = Number(item?.correct_score);
-    if (score < 0) {
+    if (score <= -2) {
+        return 1;
+    }
+    if (score === -1) {
         return 0;
+    }
+    if (score < 0) {
+        return 1;
     }
     if (score > 0) {
         return 2;
     }
-    return 1;
+    return 3;
 }
 
 function renderAnswerList(container, cards, options = {}) {
@@ -159,13 +166,18 @@ function renderAnswerList(container, cards, options = {}) {
         const rawMs = Math.max(0, Number(item?.response_time_ms) || 0);
         const resultId = Number(item?.result_id);
         const answerClass = getAnswerBarClassByScore(item?.correct_score);
-        const seenCount = getAnswerSeenCount(item?.correct_score);
-        const displayLabel = getCardDisplayLabel(item?.front, item?.back) || '(blank)';
+        const seenCount = getAnswerSeenCount(item);
+        const displayLabel = getAnswerPrimaryLabel(item) || '(blank)';
+        const secondaryLabel = getAnswerSecondaryLabel(item);
         const reportHref = Number.isFinite(Number(item?.card_id)) && reportFrom
-            ? buildCardReportHref(item.card_id, reportFrom)
+            ? buildCardReportHref(item.card_id, reportFrom, resultId)
             : '';
         const useCompactLink = compact && !!reportHref;
         const tagName = useCompactLink ? 'a' : 'div';
+        const compactTypeIVClass = compact && isTypeIVSession() ? ' type4-compact' : '';
+        const linkTitle = secondaryLabel
+            ? `Open records for ${displayLabel} • ${secondaryLabel} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}`
+            : `Open records for ${displayLabel} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}`;
         const compactBodyHtml = compact
             ? ''
             : `
@@ -176,9 +188,9 @@ function renderAnswerList(container, cards, options = {}) {
             `;
         return `
             <${tagName}
-                class="answer-item ${answerClass}"
+                class="answer-item ${answerClass}${compactTypeIVClass}"
                 ${useCompactLink ? `href="${reportHref}"` : ''}
-                ${useCompactLink ? `title="Open records for ${escapeHtml(displayLabel)} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}"` : ''}
+                ${useCompactLink ? `title="${escapeHtml(linkTitle)}"` : ''}
                 ${Number.isFinite(resultId) ? ` data-result-id="${resultId}"` : ''}
                 data-card-id="${safeNum(item?.card_id)}"
                 data-response-time-ms="${rawMs}"
@@ -188,6 +200,9 @@ function renderAnswerList(container, cards, options = {}) {
                     ${compact ? `<span class="answer-seen-count-badge" aria-hidden="true">${seenCount}</span>` : ''}
                     ${compact || !reportHref ? '' : `<a class="tab-link secondary mini-link-btn answer-report-link" href="${reportHref}">Records</a>`}
                 </div>
+                ${compact && isTypeIVSession()
+                    ? renderType4CompactDetails(item)
+                    : (compact && secondaryLabel ? `<div class="answer-secondary">${escapeHtml(secondaryLabel)}</div>` : '')}
                 ${compactBodyHtml}
                 ${item?.audio_url ? `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${typeIII ? ` data-result-id="${Number.isFinite(resultId) ? resultId : ''}" data-response-time-ms="${rawMs}"` : ''}></audio>` : ''}
                 ${renderGradingControls(item)}
@@ -195,7 +210,7 @@ function renderAnswerList(container, cards, options = {}) {
         `;
     }).join('');
     container.innerHTML = compact
-        ? `<div class="answer-grid compact">${itemHtml}</div>`
+        ? `<div class="answer-grid compact${isTypeIVSession() ? ' type4-compact-grid' : ''}">${itemHtml}</div>`
         : itemHtml;
 
     if (typeIII && window.LessonReadingDurationBackfill) {
@@ -212,14 +227,27 @@ function getAnswerBarClassByScore(correctScore) {
     if (score > 0) {
         return 'right';
     }
+    if (score <= -2) {
+        return 'fixed';
+    }
     if (score < 0) {
         return 'wrong';
     }
     return 'pending';
 }
 
-function getAnswerSeenCount(correctScore) {
-    const score = Number(correctScore);
+function getAnswerSeenCount(itemOrScore) {
+    if (itemOrScore && typeof itemOrScore === 'object') {
+        const submittedAnswers = getType4SubmittedAnswers(itemOrScore);
+        if (submittedAnswers.length > 0) {
+            return submittedAnswers.length;
+        }
+    }
+    const score = Number(
+        itemOrScore && typeof itemOrScore === 'object'
+            ? itemOrScore.correct_score
+            : itemOrScore
+    );
     if (!Number.isFinite(score)) {
         return 0;
     }
@@ -394,7 +422,7 @@ document.addEventListener('click', async (event) => {
                     ? Number(saved.correct_score)
                     : (saved?.grade_status === 'pass' ? 1 : (saved?.grade_status === 'fail' ? -1 : 0));
                 const nextClass = getAnswerBarClassByScore(score);
-                bar.classList.remove('right', 'wrong', 'pending');
+                bar.classList.remove('right', 'wrong', 'fixed', 'pending');
                 bar.classList.add(nextClass);
             }
         }
@@ -413,7 +441,7 @@ function getCardReportFromSession() {
     return normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_II ? 'type2' : 'cards';
 }
 
-function buildCardReportHref(cardId, fromValue) {
+function buildCardReportHref(cardId, fromValue, resultId = null) {
     const reportLinkParams = new URLSearchParams();
     reportLinkParams.set('id', String(kidId || ''));
     reportLinkParams.set('cardId', String(cardId || ''));
@@ -421,16 +449,75 @@ function buildCardReportHref(cardId, fromValue) {
     if (currentSessionType) {
         reportLinkParams.set('categoryKey', String(currentSessionType));
     }
-    return `/kid-card-report.html?${reportLinkParams.toString()}`;
+    if (Number.isFinite(Number(resultId))) {
+        reportLinkParams.set('resultId', String(resultId));
+    }
+    const hash = Number.isFinite(Number(resultId)) ? `#result-${Number(resultId)}` : '';
+    return `/kid-card-report.html?${reportLinkParams.toString()}${hash}`;
 }
 
-function getCardDisplayLabel(front, back) {
-    const primary = normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_II ? back : front;
-    return String(primary || front || back || '').trim();
+function getAnswerPrimaryLabel(item) {
+    if (isTypeIVSession()) {
+        return String(item?.materialized_prompt || item?.front || item?.back || '').trim();
+    }
+    const primary = normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_II
+        ? item?.back
+        : item?.front;
+    return String(primary || item?.front || item?.back || '').trim();
+}
+
+function getAnswerSecondaryLabel(item) {
+    if (!isTypeIVSession()) {
+        return '';
+    }
+    const expectedAnswer = getType4ExpectedAnswer(item);
+    const submittedAnswers = getType4SubmittedAnswers(item);
+    if (submittedAnswers.length === 0) {
+        return expectedAnswer ? `Right: ${expectedAnswer}` : '';
+    }
+    const triedText = submittedAnswers.join(' / ');
+    if (!expectedAnswer) {
+        return `Tried: ${triedText}`;
+    }
+    return `Right: ${expectedAnswer} | Tried: ${triedText}`;
+}
+
+function getType4ExpectedAnswer(item) {
+    return String(item?.materialized_answer || item?.back || '').trim();
+}
+
+function getType4SubmittedAnswers(item) {
+    return Array.isArray(item?.submitted_answers)
+        ? item.submitted_answers
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+        : [];
+}
+
+function renderType4CompactDetails(item) {
+    const expectedAnswer = getType4ExpectedAnswer(item) || '-';
+    const submittedAnswers = getType4SubmittedAnswers(item);
+    const triedText = submittedAnswers.length > 0 ? submittedAnswers.join(' / ') : '-';
+    return `
+        <div class="type4-answer-meta">
+            <div class="type4-answer-row type4-answer-row-right">
+                <div class="type4-answer-key">Right</div>
+                <div class="type4-answer-value" title="${escapeHtml(expectedAnswer)}">${escapeHtml(expectedAnswer)}</div>
+            </div>
+            <div class="type4-answer-row type4-answer-row-tried">
+                <div class="type4-answer-key">Tried</div>
+                <div class="type4-answer-value" title="${escapeHtml(triedText)}">${escapeHtml(triedText)}</div>
+            </div>
+        </div>
+    `;
 }
 
 function isTypeIIIReviewSession() {
     return normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_III;
+}
+
+function isTypeIVSession() {
+    return normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_IV;
 }
 
 function formatDateTime(iso) {

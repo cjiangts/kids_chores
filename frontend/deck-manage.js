@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateBulkSelectionUi();
     await loadDeckCategoryMeta();
     await loadMyDecks();
+    updateCreateActionButtons();
 });
 
 function buildCreateDeckUrl(path) {
@@ -197,6 +198,22 @@ function getCategoryLabel(categoryKey) {
     return displayName || key;
 }
 
+function isSelectedCategoryTypeIV() {
+    const meta = deckCategoryMetaByKey[normalizeCategoryKey(selectedCategoryFilterKey)] || null;
+    return String(meta && meta.behavior_type ? meta.behavior_type : '').trim().toLowerCase() === 'type_iv';
+}
+
+function updateCreateActionButtons() {
+    if (!createDeckBulkNavBtn) {
+        return;
+    }
+    const disableBulk = isSelectedCategoryTypeIV();
+    createDeckBulkNavBtn.disabled = disableBulk;
+    createDeckBulkNavBtn.title = disableBulk
+        ? 'Bulk create is not available for generator decks.'
+        : '';
+}
+
 function getCategorySortWeight(categoryKey) {
     const key = normalizeCategoryKey(categoryKey);
     const orderIndex = deckCategoryOrder.indexOf(key);
@@ -267,6 +284,7 @@ function renderCategoryFilters() {
     if (categoryItems.length === 0) {
         selectedCategoryFilterKey = '';
         deckCategoryFilterWrap.innerHTML = manageCategoryButtonHtml;
+        updateCreateActionButtons();
         return;
     }
     const validKeys = new Set(categoryItems.map((item) => item.key));
@@ -286,6 +304,7 @@ function renderCategoryFilters() {
     `).join('');
 
     deckCategoryFilterWrap.innerHTML = `${categoryButtonsHtml}${manageCategoryButtonHtml}`;
+    updateCreateActionButtons();
 }
 
 function getDecksByCategoryFilter() {

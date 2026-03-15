@@ -110,6 +110,10 @@
             gap: 0.55rem;
         }
 
+        .practice-mode-picker.two-option-mode {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
         .practice-mode-option {
             border: 1px solid #c8d1e1;
             border-radius: 10px;
@@ -269,6 +273,39 @@
             background: #1f6ce0;
         }
 
+        .type4-answer-form {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            width: 100%;
+            max-width: 460px;
+        }
+
+        .type4-answer-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            height: 56px;
+            border-radius: 16px;
+            border: 1px solid #c8d1e1;
+            padding: 0 1rem;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #233044;
+            background: #fff;
+            outline: none;
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+
+        .type4-answer-input:focus {
+            border-color: #4f83ff;
+            box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.16);
+        }
+
+        .type4-answer-done-btn {
+            min-width: 116px;
+            flex: 0 0 116px;
+        }
+
         @media (max-width: 520px) {
             .multi-choice-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -280,6 +317,18 @@
                 min-height: 52px;
                 padding: 0.62rem 0.45rem;
                 font-size: 0.94rem;
+            }
+
+            .type4-answer-form {
+                flex-direction: column;
+                max-width: none;
+            }
+
+            .type4-answer-input,
+            .type4-answer-done-btn {
+                width: 100%;
+                min-width: 0;
+                flex-basis: auto;
             }
         }
 
@@ -537,6 +586,21 @@
                             </div>
                             <div class="session-action-layer hidden" id="doneRow">
                                 <button class="control-btn done-btn session-action-btn session-single-btn" id="doneBtn">I'm done</button>
+                            </div>
+                            <div class="session-action-layer hidden" id="type4InputRow">
+                                <div class="type4-answer-form">
+                                    <input
+                                        id="type4AnswerInput"
+                                        class="type4-answer-input"
+                                        type="text"
+                                        autocomplete="off"
+                                        autocapitalize="off"
+                                        autocorrect="off"
+                                        spellcheck="false"
+                                        inputmode="text"
+                                    >
+                                    <button class="control-btn done-btn session-action-btn type4-answer-done-btn" id="type4AnswerDoneBtn">Done</button>
+                                </div>
                             </div>
                             <div class="session-action-layer hidden multi-choice-layer" id="multiChoiceRow">
                                 <div class="multi-choice-grid" id="multiChoiceGrid"></div>

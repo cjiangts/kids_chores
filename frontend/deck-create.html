@@ -265,6 +265,41 @@
             line-height: 1.35;
             color: #4b5a70;
         }
+
+        .type4-editor-grid {
+            display: grid;
+            gap: 0.8rem;
+        }
+
+        .type4-code-textarea {
+            min-height: 266px;
+            line-height: 1.45;
+            tab-size: 4;
+        }
+
+        .type4-code-editor {
+            width: 100%;
+            min-height: 294px;
+            height: 294px;
+            border: 1px solid var(--control-border-color);
+            border-radius: var(--control-radius);
+            background: var(--control-bg);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .type4-review-box {
+            border: 1px solid #d7deee;
+            border-radius: 10px;
+            background: #fbfcff;
+            padding: 0.8rem;
+        }
+
+        .type4-review-code {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -301,9 +336,32 @@
             </section>
 
             <section class="deck-panel">
-                <h2 id="cardsInputSectionTitle">2) Paste Cards CSV</h2>
-                <p id="cardsInputHelpText" class="muted-help-text">Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>
-                <textarea id="cardsCsv" class="deck-csv-textarea input-mono" placeholder="1+1,2&#10;2+3,5"></textarea>
+                <h2 id="cardsInputSectionTitle">2) Deck Content</h2>
+                <div id="staticCardsEditor">
+                    <p id="cardsInputHelpText" class="muted-help-text">Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>
+                    <textarea id="cardsCsv" class="deck-csv-textarea input-mono" placeholder="1+1,2&#10;2+3,5"></textarea>
+                </div>
+                <div id="type4Editor" class="hidden">
+                    <div class="type4-editor-grid">
+                        <div class="form-group">
+                            <label for="type4DisplayLabelInput">Representative label</label>
+                            <input type="text" id="type4DisplayLabelInput" placeholder="e.g. ?? + ??">
+                        </div>
+                        <div class="form-group">
+                            <label for="type4GeneratorCodeInput">Python generator snippet</label>
+                            <textarea id="type4GeneratorCodeInput" class="deck-csv-textarea input-mono type4-code-textarea" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">def generate(rng):
+    a = rng.randint(10, 99)
+    b = rng.randint(10, 99)
+    answer = str(a + b)
+    return {
+        "prompt": f"{a} + {b}",
+        "answer": answer,
+        "distractors": [str(a + b - 1), str(a + b + 1)],
+    }</textarea>
+                            <div id="type4GeneratorCodeEditor" class="type4-code-editor hidden" aria-hidden="true"></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="deck-row mt-07">
                     <button type="button" id="previewBtn" class="btn-primary">Preview Deck</button>
                     <button type="button" id="clearCsvBtn" class="btn-secondary">Clear</button>
@@ -317,7 +375,7 @@
                     <button type="button" id="createDeckBtn" class="btn-primary">Confirm & Create Deck</button>
                 </div>
                 <div id="dedupeSummary" class="deck-dedupe hidden"></div>
-                <div class="deck-review-table-wrap">
+                <div id="reviewTableWrap" class="deck-review-table-wrap">
                     <table class="deck-review-table">
                         <thead>
                             <tr>
@@ -330,6 +388,13 @@
                         <tbody id="reviewTableBody"></tbody>
                     </table>
                 </div>
+                <div id="type4ReviewBox" class="type4-review-box hidden">
+                    <div><strong>Representative label:</strong> <span id="type4ReviewLabel"></span></div>
+                    <div class="mt-07"><strong>Python generator:</strong></div>
+                    <pre id="type4ReviewCode" class="type4-review-code input-mono"></pre>
+                    <div class="mt-07"><strong>Example results:</strong></div>
+                    <div id="type4ReviewExamples"></div>
+                </div>
             </section>
 
             <div id="successMessage" class="success hidden"></div>
@@ -340,6 +405,9 @@
     <script src="practice-manage-common.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="deck-create-common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/ace.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/mode-python.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/theme-github_light_default.js"></script>
     <script src="deck-create.js"></script>
 </body>
 </html>

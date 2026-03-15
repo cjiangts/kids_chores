@@ -18,7 +18,7 @@ const {
 const {
     buildCategoryStarsModel,
 } = window.PracticeStarBadgeCommon || {};
-const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii']);
+const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 
 if (!buildCategoryStarsModel) {
     throw new Error('practice-star-badge-common.js is required for app');

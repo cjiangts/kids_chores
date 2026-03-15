@@ -8,15 +8,25 @@ const existingTagOptions = document.getElementById('existingTagOptions');
 const categoryPreselectNote = document.getElementById('categoryPreselectNote');
 const generatedNameEl = document.getElementById('generatedName');
 const nameStatus = document.getElementById('nameStatus');
+const staticCardsEditor = document.getElementById('staticCardsEditor');
 const cardsCsvInput = document.getElementById('cardsCsv');
 const cardsInputSectionTitle = document.getElementById('cardsInputSectionTitle');
 const cardsInputHelpText = document.getElementById('cardsInputHelpText');
+const type4Editor = document.getElementById('type4Editor');
+const type4DisplayLabelInput = document.getElementById('type4DisplayLabelInput');
+const type4GeneratorCodeInput = document.getElementById('type4GeneratorCodeInput');
+const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEditor');
 const previewBtn = document.getElementById('previewBtn');
 const clearCsvBtn = document.getElementById('clearCsvBtn');
 const reviewSection = document.getElementById('reviewSection');
 const reviewMeta = document.getElementById('reviewMeta');
 const dedupeSummary = document.getElementById('dedupeSummary');
+const reviewTableWrap = document.getElementById('reviewTableWrap');
 const reviewTableBody = document.getElementById('reviewTableBody');
+const type4ReviewBox = document.getElementById('type4ReviewBox');
+const type4ReviewLabel = document.getElementById('type4ReviewLabel');
+const type4ReviewCode = document.getElementById('type4ReviewCode');
+const type4ReviewExamples = document.getElementById('type4ReviewExamples');
 const createDeckBtn = document.getElementById('createDeckBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
@@ -34,10 +44,20 @@ const parseTagInput = deckCreateCommon.parseTagInput;
 const formatTagPayload = deckCreateCommon.formatTagPayload;
 const showError = (message) => deckCreateCommon.showMessage(errorMessage, message);
 const showSuccess = (message) => deckCreateCommon.showMessage(successMessage, message);
+const DEFAULT_TYPE4_GENERATOR_CODE = `def generate(rng):
+    a = rng.randint(10, 99)
+    b = rng.randint(10, 99)
+    answer = str(a + b)
+    return {
+        "prompt": f"{a} + {b}",
+        "answer": answer,
+        "distractors": [str(a + b - 1), str(a + b + 1)],
+    }`;
 
 let extraTags = [];
 let previewCards = [];
 let previewRows = [];
+let previewType4Definition = null;
 let isCreatingDeck = false;
 let nameAvailable = null;
 let lastNameChecked = '';
@@ -50,10 +70,12 @@ let deckCountByCategoryKey = {};
 let deckCategories = [];
 let deckCategoryKeySet = new Set();
 let reservedFirstTags = new Set();
+let type4AceEditor = null;
 const createUrlParams = new URLSearchParams(window.location.search);
 let lockedFirstTagFromQuery = normalizeTag(createUrlParams.get('categoryKey'));
 
 document.addEventListener('DOMContentLoaded', async () => {
+    initializeType4CodeEditor();
     const allowed = await deckCreateCommon.ensureSuperFamily(API_BASE);
     if (!allowed) {
         return;
@@ -100,6 +122,14 @@ previewBtn.addEventListener('click', async () => {
 });
 
 clearCsvBtn.addEventListener('click', () => {
+    if (isTypeIVDeckMode()) {
+        setType4GeneratorCodeValue(DEFAULT_TYPE4_GENERATOR_CODE);
+        if (type4DisplayLabelInput) {
+            type4DisplayLabelInput.value = '';
+            type4DisplayLabelInput.focus();
+        }
+        return;
+    }
     cardsCsvInput.value = '';
     cardsCsvInput.focus();
 });
@@ -124,15 +154,79 @@ function isTypeIIDeckMode() {
     return deckCreateCommon.isTypeIIDeckMode(getCurrentDeckCategory());
 }
 
+function isTypeIVDeckMode() {
+    return deckCreateCommon.isTypeIVDeckMode(getCurrentDeckCategory());
+}
+
+function getType4GeneratorCodeValue() {
+    if (type4AceEditor && typeof type4AceEditor.getValue === 'function') {
+        const nextValue = String(type4AceEditor.getValue() || '');
+        if (type4GeneratorCodeInput) {
+            type4GeneratorCodeInput.value = nextValue;
+        }
+        return nextValue;
+    }
+    return String(type4GeneratorCodeInput ? type4GeneratorCodeInput.value : '');
+}
+
+function setType4GeneratorCodeValue(value) {
+    const nextValue = String(value || '');
+    if (type4GeneratorCodeInput) {
+        type4GeneratorCodeInput.value = nextValue;
+    }
+    if (type4AceEditor && typeof type4AceEditor.setValue === 'function' && type4AceEditor.getValue() !== nextValue) {
+        type4AceEditor.setValue(nextValue, -1);
+        type4AceEditor.clearSelection();
+    }
+}
+
+function initializeType4CodeEditor() {
+    if (!type4GeneratorCodeInput || !type4GeneratorCodeEditor) {
+        return;
+    }
+    const ace = window.ace;
+    if (!ace || typeof ace.edit !== 'function') {
+        return;
+    }
+    type4AceEditor = ace.edit(type4GeneratorCodeEditor);
+    type4AceEditor.setTheme('ace/theme/github_light_default');
+    type4AceEditor.session.setMode('ace/mode/python');
+    type4AceEditor.session.setUseSoftTabs(true);
+    type4AceEditor.session.setTabSize(4);
+    type4AceEditor.session.setUseWrapMode(true);
+    type4AceEditor.setShowPrintMargin(false);
+    type4AceEditor.setHighlightActiveLine(true);
+    type4AceEditor.setOption('fontFamily', 'ui-monospace, SFMono-Regular, Menlo, monospace');
+    type4AceEditor.setOption('fontSize', '16px');
+    type4AceEditor.setOption('wrap', true);
+    type4AceEditor.setOption('showLineNumbers', true);
+    type4AceEditor.setOption('useWorker', false);
+    type4AceEditor.renderer.setScrollMargin(10, 10);
+    type4AceEditor.setValue(String(type4GeneratorCodeInput.value || ''), -1);
+    type4AceEditor.clearSelection();
+    type4AceEditor.session.on('change', () => {
+        type4GeneratorCodeInput.value = type4AceEditor.getValue();
+    });
+    type4GeneratorCodeInput.classList.add('hidden');
+    type4GeneratorCodeInput.setAttribute('aria-hidden', 'true');
+    type4GeneratorCodeEditor.classList.remove('hidden');
+    type4GeneratorCodeEditor.setAttribute('aria-hidden', 'false');
+}
+
 function setControlsDisabled(disabled) {
     deckCreateCommon.setControlsDisabled(disabled, {
         newTagInput: { element: newTagInput },
         addTagBtn: { element: addTagBtn },
         cardsCsvInput: { element: cardsCsvInput },
+        type4DisplayLabelInput: { element: type4DisplayLabelInput },
+        type4GeneratorCodeInput: { element: type4GeneratorCodeInput },
         previewBtn: { element: previewBtn },
         clearCsvBtn: { element: clearCsvBtn },
         createDeckBtn: { element: createDeckBtn, busyGuard: () => isCreatingDeck },
     });
+    if (type4AceEditor && typeof type4AceEditor.setReadOnly === 'function') {
+        type4AceEditor.setReadOnly(Boolean(disabled));
+    }
 }
 
 async function loadDeckCategories() {
@@ -216,6 +310,10 @@ function setCurrentFirstTag(tag) {
     }
     currentFirstTag = next;
     extraTags = extraTags.filter((item) => item.tag !== currentFirstTag);
+    previewCards = [];
+    previewRows = [];
+    previewType4Definition = null;
+    reviewSection.classList.add('hidden');
     renderTags();
     renderFirstTagToggle();
     updateCardsInputModeUi();
@@ -258,7 +356,22 @@ function updateGeneratedName() {
 }
 
 function updateCardsInputModeUi() {
-    if (!cardsCsvInput) {
+    if (!cardsCsvInput || !staticCardsEditor || !type4Editor) {
+        return;
+    }
+    const useTypeIV = isTypeIVDeckMode();
+    staticCardsEditor.classList.toggle('hidden', useTypeIV);
+    type4Editor.classList.toggle('hidden', !useTypeIV);
+    if (previewBtn) {
+        previewBtn.textContent = useTypeIV ? 'Review Deck' : 'Preview Deck';
+    }
+    if (clearCsvBtn) {
+        clearCsvBtn.textContent = useTypeIV ? 'Clear Fields' : 'Clear';
+    }
+    if (useTypeIV) {
+        if (cardsInputSectionTitle) {
+            cardsInputSectionTitle.textContent = '2) Define Generator Deck';
+        }
         return;
     }
     if (isChineseCharactersDeckMode()) {
@@ -484,12 +597,63 @@ async function parseCardsForCurrentMode() {
     }));
 }
 
+function parseType4Definition() {
+    const displayLabel = String(type4DisplayLabelInput ? type4DisplayLabelInput.value : '').trim();
+    const generatorCode = getType4GeneratorCodeValue()
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .trim();
+    if (!displayLabel) {
+        throw new Error('Representative label is required for generator decks.');
+    }
+    if (!generatorCode) {
+        throw new Error('Python generator snippet is required for generator decks.');
+    }
+    return {
+        displayLabel,
+        generatorCode,
+    };
+}
+
+async function fetchType4PreviewSamples(generatorCode) {
+    const response = await fetch(`${API_BASE}/shared-decks/type4/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ generatorCode }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to preview generator (HTTP ${response.status})`);
+    }
+    return Array.isArray(result && result.samples) ? result.samples : [];
+}
+
 async function previewDeckFromCsv() {
     showError('');
     showSuccess('');
     const available = await ensureNameAvailable();
     if (!available) {
         showError('Deck tags are not available. Fix the tag path and try again.');
+        return;
+    }
+
+    if (isTypeIVDeckMode()) {
+        try {
+            const definition = parseType4Definition();
+            const samples = await fetchType4PreviewSamples(definition.generatorCode);
+            previewType4Definition = {
+                ...definition,
+                samples,
+            };
+            previewCards = [];
+            previewRows = [];
+            previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
+            renderReview([], []);
+            reviewSection.classList.remove('hidden');
+        } catch (error) {
+            previewType4Definition = null;
+            showError(error.message || 'Failed to parse generator definition.');
+        }
         return;
     }
 
@@ -501,6 +665,7 @@ async function previewDeckFromCsv() {
         return;
     }
 
+    previewType4Definition = null;
     const dedupeKey = isTypeIIDeckMode() ? 'back' : 'front';
     const withinDeckDedup = [];
     const firstByKey = new Map();
@@ -580,6 +745,54 @@ async function previewDeckFromCsv() {
 function renderReview(cardsToCreate, allRows) {
     const deckName = getGeneratedName();
     const tags = getAllTags();
+    const isTypeIV = isTypeIVDeckMode();
+    if (reviewTableWrap) {
+        reviewTableWrap.classList.toggle('hidden', isTypeIV);
+    }
+    if (type4ReviewBox) {
+        type4ReviewBox.classList.toggle('hidden', !isTypeIV);
+    }
+    if (isTypeIV) {
+        const type4Definition = previewType4Definition || { displayLabel: '', generatorCode: '', samples: [] };
+        reviewMeta.innerHTML = `
+            <div><strong>Deck name:</strong> <code>${escapeHtml(deckName)}</code></div>
+            <div><strong>Tags:</strong> ${tags.map((tag) => `<code>${escapeHtml(tag)}</code>`).join(', ')}</div>
+            <div><strong>Behavior:</strong> Generator deck</div>
+            <div><strong>Representative cards:</strong> 1</div>
+        `;
+        dedupeSummary.innerHTML = '';
+        dedupeSummary.classList.add('hidden');
+        if (type4ReviewLabel) {
+            type4ReviewLabel.textContent = type4Definition.displayLabel;
+        }
+        if (type4ReviewCode) {
+            type4ReviewCode.textContent = type4Definition.generatorCode;
+        }
+        if (type4ReviewExamples) {
+            const samples = Array.isArray(type4Definition.samples) ? type4Definition.samples : [];
+            if (samples.length === 0) {
+                type4ReviewExamples.innerHTML = '<p class="muted-help-text">No preview samples returned.</p>';
+            } else {
+                type4ReviewExamples.innerHTML = samples.map((sample, index) => {
+                    const distractors = Array.isArray(sample && sample.distractors) ? sample.distractors : [];
+                    const distractorText = distractors.length > 0
+                        ? distractors.map((item) => `<code>${escapeHtml(item)}</code>`).join(', ')
+                        : '<span class="muted-help-text">None</span>';
+                    return `
+                        <div class="mt-07">
+                            <div><strong>Example ${index + 1}:</strong> <code>${escapeHtml(sample && sample.prompt ? sample.prompt : '')}</code></div>
+                            <div><strong>Answer:</strong> <code>${escapeHtml(sample && sample.answer ? sample.answer : '')}</code></div>
+                            <div><strong>Distractors:</strong> ${distractorText}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+        if (reviewTableBody) {
+            reviewTableBody.innerHTML = '';
+        }
+        return;
+    }
     const totalRows = Number(previewDiagnostics.totalRows || 0);
     const withinDeckDedupCount = Array.isArray(previewDiagnostics.dedupWithinDeck)
         ? previewDiagnostics.dedupWithinDeck.length
@@ -634,10 +847,6 @@ async function createDeck() {
     if (isCreatingDeck) {
         return;
     }
-    if (!Array.isArray(previewCards) || previewCards.length === 0) {
-        showError('Preview first before creating the deck.');
-        return;
-    }
     const available = await ensureNameAvailable();
     if (!available) {
         showError('Deck tags are not available. Fix the tag path before creating.');
@@ -647,8 +856,21 @@ async function createDeck() {
     const payload = {
         firstTag: currentFirstTag,
         extraTags: extraTags.map((item) => formatTagPayload(item)),
-        cards: previewCards,
     };
+    if (isTypeIVDeckMode()) {
+        if (!previewType4Definition) {
+            showError('Review the generator deck before creating it.');
+            return;
+        }
+        payload.displayLabel = previewType4Definition.displayLabel;
+        payload.generatorCode = previewType4Definition.generatorCode;
+    } else {
+        if (!Array.isArray(previewCards) || previewCards.length === 0) {
+            showError('Preview first before creating the deck.');
+            return;
+        }
+        payload.cards = previewCards;
+    }
 
     isCreatingDeck = true;
     createDeckBtn.disabled = true;
@@ -667,7 +889,12 @@ async function createDeck() {
             throw new Error(result.error || `Create failed (HTTP ${response.status})`);
         }
 
-        showSuccess(`Deck created: #${result.deck.deck_id} (${result.deck.name}), added ${result.cards_added} cards. Redirecting...`);
+        const isCreatedTypeIV = String(result && result.deck && result.deck.behavior_type ? result.deck.behavior_type : '').trim().toLowerCase() === 'type_iv';
+        showSuccess(
+            isCreatedTypeIV
+                ? `Generator deck created: #${result.deck.deck_id} (${result.deck.name}). Redirecting...`
+                : `Deck created: #${result.deck.deck_id} (${result.deck.name}), added ${result.cards_added} cards. Redirecting...`
+        );
         window.setTimeout(() => {
             window.location.href = '/deck-manage.html';
         }, 500);

@@ -81,6 +81,10 @@
         return Boolean(category && category.behavior_type === 'type_ii');
     }
 
+    function isTypeIVDeckMode(category) {
+        return Boolean(category && category.behavior_type === 'type_iv');
+    }
+
     function setControlsDisabled(disabled, controls = {}) {
         const isDisabled = Boolean(disabled);
         Object.values(controls || {}).forEach((item) => {
@@ -286,6 +290,7 @@
         isChineseCharactersDeckMode,
         isChineseWritingDeckMode,
         isTypeIIDeckMode,
+        isTypeIVDeckMode,
         setControlsDisabled,
         loadDeckCategories,
         renderFirstTagToggle,

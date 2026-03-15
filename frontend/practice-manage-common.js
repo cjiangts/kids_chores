@@ -1186,6 +1186,9 @@ window.PracticeManageCommon = {
             if (behaviorType === 'type_iii') {
                 return '/kid-card-manage.html';
             }
+            if (behaviorType === 'type_iv') {
+                return '/kid-card-manage.html';
+            }
             return routeByCategoryFromTabs[categoryKey] || '';
         };
         const getCategoryLabelParts = (rawCategoryKey) => {

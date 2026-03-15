@@ -10,6 +10,7 @@ const emptyState = document.getElementById('emptyState');
 const categoryTableBody = document.getElementById('categoryTableBody');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
+const chineseLogicNote = document.getElementById('chineseLogicNote');
 
 let isCreating = false;
 const sharingCategoryKeys = new Set();
@@ -19,6 +20,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!allowed) {
         return;
     }
+    bindBehaviorTypeUi();
+    syncBehaviorDependentInputs();
     await loadCategories();
 });
 
@@ -62,6 +65,7 @@ function resetBehaviorTypeSelection(defaultValue = 'type_i') {
     for (const option of options) {
         option.checked = String(option.value || '').trim() === defaultValue;
     }
+    syncBehaviorDependentInputs();
 }
 
 function getSelectedChineseSpecificLogic() {
@@ -74,6 +78,35 @@ function resetChineseSpecificLogicSelection(defaultValue = false) {
     const options = Array.from(document.querySelectorAll('input[name="hasChineseSpecificLogic"]'));
     for (const option of options) {
         option.checked = String(option.value || '').trim().toLowerCase() === defaultText;
+    }
+}
+
+function bindBehaviorTypeUi() {
+    const options = Array.from(document.querySelectorAll('input[name="behaviorType"]'));
+    options.forEach((option) => {
+        option.addEventListener('change', () => {
+            syncBehaviorDependentInputs();
+        });
+    });
+}
+
+function syncBehaviorDependentInputs() {
+    const isTypeIV = getSelectedBehaviorType() === 'type_iv';
+    const logicOptions = Array.from(document.querySelectorAll('input[name="hasChineseSpecificLogic"]'));
+    if (isTypeIV) {
+        resetChineseSpecificLogicSelection(false);
+    }
+    logicOptions.forEach((option) => {
+        option.disabled = isTypeIV;
+    });
+    if (chineseLogicNote) {
+        if (isTypeIV) {
+            chineseLogicNote.textContent = 'Generator categories always use generic logic in this first version.';
+            chineseLogicNote.classList.remove('hidden');
+        } else {
+            chineseLogicNote.textContent = '';
+            chineseLogicNote.classList.add('hidden');
+        }
     }
 }
 
