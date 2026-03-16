@@ -2807,7 +2807,7 @@ async function handleCardsGridClick(event) {
 }
 
 async function loadKidInfo() {
-    const response = await fetch(`${API_BASE}/kids/${kidId}`);
+    const response = await fetch(`${API_BASE}/kids/${kidId}?view=manage`);
     const kid = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(kid.error || `Failed to load kid (HTTP ${response.status})`);

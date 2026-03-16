@@ -38,6 +38,30 @@ def table_has_column(
     return bool(row)
 
 
+def get_sequence_last_value(conn: duckdb.DuckDBPyConnection, sequence_name: str) -> int | None:
+    row = conn.execute(
+        """
+        SELECT last_value
+        FROM duckdb_sequences()
+        WHERE schema_name = 'main'
+          AND sequence_name = ?
+        LIMIT 1
+        """,
+        [str(sequence_name or "").strip()],
+    ).fetchone()
+    if not row or row[0] is None:
+        return None
+    return int(row[0])
+
+
+def ensure_cards_sequence_at_or_above(conn: duckdb.DuckDBPyConnection, minimum_last_value: int) -> None:
+    target = max(0, int(minimum_last_value or 0))
+    current = get_sequence_last_value(conn, "cards_id_seq")
+    while current is None or current < target:
+        conn.execute("SELECT nextval('cards_id_seq')")
+        current = get_sequence_last_value(conn, "cards_id_seq")
+
+
 def migrate_kid_db(db_path: Path) -> bool:
     conn = duckdb.connect(str(db_path))
     try:
@@ -45,7 +69,41 @@ def migrate_kid_db(db_path: Path) -> bool:
             return False
         conn.execute("BEGIN TRANSACTION")
         try:
-            conn.execute("ALTER TABLE cards DROP COLUMN is_multichoice_only")
+            max_card_id_row = conn.execute("SELECT COALESCE(MAX(id), 0) FROM cards").fetchone()
+            max_card_id = int((max_card_id_row[0] if max_card_id_row else 0) or 0)
+            conn.execute("DROP INDEX IF EXISTS idx_cards_deck_id")
+            conn.execute("ALTER TABLE cards RENAME TO cards_old")
+            conn.execute(
+                """
+                CREATE TABLE cards (
+                  id INTEGER PRIMARY KEY DEFAULT nextval('cards_id_seq'),
+                  deck_id INTEGER,
+                  front VARCHAR NOT NULL,
+                  back VARCHAR NOT NULL,
+                  skip_practice BOOLEAN NOT NULL DEFAULT FALSE,
+                  hardness_score DOUBLE NOT NULL DEFAULT 0,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
+                SELECT
+                  id,
+                  deck_id,
+                  front,
+                  back,
+                  COALESCE(skip_practice, FALSE),
+                  COALESCE(hardness_score, 0),
+                  created_at
+                FROM cards_old
+                ORDER BY id ASC
+                """
+            )
+            conn.execute("DROP TABLE cards_old")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id)")
+            ensure_cards_sequence_at_or_above(conn, max_card_id)
             conn.execute("COMMIT")
             return True
         except Exception:

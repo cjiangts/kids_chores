@@ -2148,11 +2148,6 @@ async function endType1Session(endedEarly = false) {
         return;
     }
 
-    try {
-        await loadKidInfo();
-    } catch (error) {
-        console.error('Error refreshing kid info:', error);
-    }
 }
 
 async function endType2Session(endedEarly = false) {
@@ -2190,11 +2185,6 @@ async function endType2Session(endedEarly = false) {
         return;
     }
 
-    try {
-        await loadKidInfo();
-    } catch (error) {
-        console.error('Error refreshing kid info:', error);
-    }
     clearAudioBlobCache();
 }
 
@@ -2269,11 +2259,6 @@ async function endType3Session(endedEarly = false) {
         showError(error.message || 'Failed to save session results');
         return;
     }
-    try {
-        await loadKidInfo();
-    } catch (error) {
-        console.error('Error refreshing kid info:', error);
-    }
 }
 
 async function endType4Session(endedEarly = false) {
@@ -2315,11 +2300,6 @@ async function endType4Session(endedEarly = false) {
         return;
     }
 
-    try {
-        await loadKidInfo();
-    } catch (error) {
-        console.error('Error refreshing kid info:', error);
-    }
 }
 
 function stopAudioPlayback() {
