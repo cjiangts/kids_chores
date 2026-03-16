@@ -6706,9 +6706,7 @@ def get_cards(kid_id):
                 if bool(src.get('included_in_queue'))
             ]
 
-            cards = []
-            for deck_id in deck_ids:
-                cards.extend(get_cards_with_stats(conn, deck_id))
+            cards = get_cards_with_stats_for_deck_ids(conn, deck_ids)
         finally:
             conn.close()
 
@@ -8056,10 +8054,17 @@ def build_type_i_shared_cards_payload(
                 return 'orphan'
             return local_name
 
+        bank_deck_ids = [int(src['local_deck_id']) for src in bank_sources if int(src.get('local_deck_id') or 0) > 0]
+        card_rows_by_deck_id = {}
+        for row in get_cards_with_stats_for_deck_ids(conn, bank_deck_ids):
+            deck_id = int(row[1] or 0)
+            if deck_id > 0:
+                card_rows_by_deck_id.setdefault(deck_id, []).append(row)
+
         merged_cards = []
         for src in bank_sources:
             local_deck_id = int(src['local_deck_id'])
-            rows = get_cards_with_stats(conn, local_deck_id)
+            rows = card_rows_by_deck_id.get(local_deck_id) or []
             for row in rows:
                 mapped = map_card_row(row, preview_order)
                 mapped['source_deck_id'] = local_deck_id
@@ -10935,10 +10940,17 @@ def get_shared_type2_cards(kid_id):
                     return 'orphan'
                 return local_name
 
+            bank_deck_ids = [int(src['local_deck_id']) for src in bank_sources if int(src.get('local_deck_id') or 0) > 0]
+            card_rows_by_deck_id = {}
+            for row in get_cards_with_stats_for_deck_ids(conn, bank_deck_ids):
+                deck_id = int(row[1] or 0)
+                if deck_id > 0:
+                    card_rows_by_deck_id.setdefault(deck_id, []).append(row)
+
             merged_cards = []
             for src in bank_sources:
                 local_deck_id = int(src['local_deck_id'])
-                rows = get_cards_with_stats(conn, local_deck_id)
+                rows = card_rows_by_deck_id.get(local_deck_id) or []
                 for row in rows:
                     mapped = map_card_row(row, preview_order)
                     if not mapped.get('front') and mapped.get('back'):
