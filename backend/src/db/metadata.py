@@ -277,6 +277,7 @@ def register_family(username: str, password: str) -> Dict:
             'password': generate_password_hash(password, method=PASSWORD_HASH_METHOD),
             'familyTimezone': DEFAULT_FAMILY_TIMEZONE,
             'superFamily': len(families) == 0,
+            FAMILY_BADGE_TRACKING_STARTED_AT_FIELD: datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             'createdAt': datetime.now().isoformat(),
         }
         families.append(family)
