@@ -12,6 +12,9 @@ const staticDeckEditor = document.getElementById('staticDeckEditor');
 const type4DeckEditor = document.getElementById('type4DeckEditor');
 const type4RepresentativeLabelText = document.getElementById('type4RepresentativeLabelText');
 const type4GeneratorCodeText = document.getElementById('type4GeneratorCodeText');
+const saveType4GeneratorBtn = document.getElementById('saveType4GeneratorBtn');
+const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
+const type4PreviewExamples = document.getElementById('type4PreviewExamples');
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
 const cardsTableBody = document.getElementById('cardsTableBody');
@@ -48,6 +51,10 @@ let renameNameAvailable = null;
 let renameLastNameChecked = '';
 let renameNameCheckToken = 0;
 let renameNameCheckTimer = null;
+let currentType4SavedGeneratorCode = '';
+let currentType4PreviewSeedBase = Date.now();
+let isLoadingType4PreviewSamples = false;
+let isSavingType4Generator = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -149,6 +156,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+    if (regenType4ExamplesBtn) {
+        regenType4ExamplesBtn.addEventListener('click', async () => {
+            await regenerateType4PreviewSamples();
+        });
+    }
+    if (saveType4GeneratorBtn) {
+        saveType4GeneratorBtn.addEventListener('click', async () => {
+            await saveType4GeneratorCode();
+        });
+    }
+    if (type4GeneratorCodeText) {
+        type4GeneratorCodeText.addEventListener('input', () => {
+            updateType4GeneratorSaveState();
+        });
+        type4GeneratorCodeText.addEventListener('keydown', (event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                void saveType4GeneratorCode();
+            }
+        });
+    }
     await loadDeck();
 });
 
@@ -228,12 +256,26 @@ function renderDeck(payload) {
     }
     if (isTypeIV) {
         const representativeLabel = cards.length > 0 ? String(cards[0].front || '').trim() : '';
+        currentType4SavedGeneratorCode = normalizeType4GeneratorCodeText(
+            String(generatorDefinition && generatorDefinition.code ? generatorDefinition.code : '')
+        );
         if (type4RepresentativeLabelText) {
             type4RepresentativeLabelText.textContent = representativeLabel || '-';
         }
         if (type4GeneratorCodeText) {
-            type4GeneratorCodeText.textContent = String(generatorDefinition && generatorDefinition.code ? generatorDefinition.code : '');
+            type4GeneratorCodeText.value = currentType4SavedGeneratorCode;
         }
+        renderType4PreviewExamples([]);
+        setType4PreviewButtonState(false, 'Generate 3 Examples');
+        updateType4GeneratorSaveState();
+    } else {
+        currentType4SavedGeneratorCode = '';
+        if (type4GeneratorCodeText) {
+            type4GeneratorCodeText.value = '';
+        }
+        renderType4PreviewExamples([]);
+        setType4PreviewButtonState(false, 'Generate 3 Examples');
+        updateType4GeneratorSaveState();
     }
 
     if (cards.length === 0) {
@@ -331,6 +373,12 @@ function setMutating(isBusy) {
     }
     if (renameDeckTagsBtn) {
         renameDeckTagsBtn.disabled = isMutating || isRenamingTags;
+    }
+    if (saveType4GeneratorBtn) {
+        saveType4GeneratorBtn.disabled = isMutating || isSavingType4Generator || !isType4GeneratorDirty();
+    }
+    if (regenType4ExamplesBtn) {
+        regenType4ExamplesBtn.disabled = isMutating || isLoadingType4PreviewSamples || !getCurrentType4GeneratorCode();
     }
     if (cardsTableBody) {
         cardsTableBody.querySelectorAll('button[data-action="delete-card"]').forEach((btn) => {
@@ -871,4 +919,147 @@ function showSuccess(message) {
     }
     successMessage.textContent = text;
     successMessage.classList.remove('hidden');
+}
+
+function normalizeType4GeneratorCodeText(value) {
+    return String(value || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .trim();
+}
+
+function getCurrentType4GeneratorCode() {
+    return normalizeType4GeneratorCodeText(type4GeneratorCodeText ? type4GeneratorCodeText.value : '');
+}
+
+function isType4GeneratorDirty() {
+    return getCurrentType4GeneratorCode() !== currentType4SavedGeneratorCode;
+}
+
+function updateType4GeneratorSaveState() {
+    if (saveType4GeneratorBtn) {
+        saveType4GeneratorBtn.disabled = isMutating || isSavingType4Generator || !isType4GeneratorDirty();
+        saveType4GeneratorBtn.textContent = isSavingType4Generator ? 'Saving...' : 'Save Code';
+    }
+    if (regenType4ExamplesBtn) {
+        regenType4ExamplesBtn.disabled = isMutating || isLoadingType4PreviewSamples || !getCurrentType4GeneratorCode();
+    }
+}
+
+function nextType4PreviewSeedBase() {
+    currentType4PreviewSeedBase += 997;
+    return currentType4PreviewSeedBase;
+}
+
+function setType4PreviewButtonState(isBusy, idleLabel = 'Regen 3 Examples') {
+    if (!regenType4ExamplesBtn) {
+        return;
+    }
+    regenType4ExamplesBtn.disabled = Boolean(isBusy || isMutating || !getCurrentType4GeneratorCode());
+    regenType4ExamplesBtn.textContent = isBusy ? 'Generating...' : idleLabel;
+}
+
+function renderType4PreviewExamples(samples) {
+    if (!type4PreviewExamples) {
+        return;
+    }
+    const list = Array.isArray(samples) ? samples : [];
+    if (list.length === 0) {
+        type4PreviewExamples.innerHTML = '<p class="muted-help-text">Click Generate 3 Examples to preview this deck.</p>';
+        return;
+    }
+    type4PreviewExamples.innerHTML = list.map((sample, index) => {
+        const prompt = String(sample && sample.prompt ? sample.prompt : '').trim();
+        const answer = String(sample && sample.answer ? sample.answer : '').trim();
+        const distractors = Array.isArray(sample && sample.distractors) ? sample.distractors : [];
+        const distractorText = distractors.length > 0
+            ? distractors.map((item) => `<code>${escapeHtml(item)}</code>`).join(', ')
+            : '<span class="muted-help-text">None</span>';
+        return `
+            <div class="type4-preview-item">
+                <div><strong>Example ${index + 1}:</strong> <code>${escapeHtml(prompt)}</code></div>
+                <div><strong>Answer:</strong> <code>${escapeHtml(answer)}</code></div>
+                <div><strong>Distractors:</strong> ${distractorText}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function fetchType4PreviewSamples(generatorCode) {
+    const response = await fetch(`${API_BASE}/shared-decks/type4/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            generatorCode,
+            seedBase: nextType4PreviewSeedBase(),
+        }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to preview generator (HTTP ${response.status})`);
+    }
+    return Array.isArray(result && result.samples) ? result.samples : [];
+}
+
+async function regenerateType4PreviewSamples() {
+    const generatorCode = getCurrentType4GeneratorCode();
+    if (isLoadingType4PreviewSamples || !generatorCode) {
+        return;
+    }
+    showError('');
+    try {
+        isLoadingType4PreviewSamples = true;
+        setType4PreviewButtonState(true);
+        const samples = await fetchType4PreviewSamples(generatorCode);
+        renderType4PreviewExamples(samples);
+        setType4PreviewButtonState(false, 'Regen 3 Examples');
+    } catch (error) {
+        console.error('Error previewing type IV generator:', error);
+        showError(error.message || 'Failed to generate preview examples.');
+    } finally {
+        isLoadingType4PreviewSamples = false;
+        setType4PreviewButtonState(false, 'Regen 3 Examples');
+    }
+}
+
+async function saveType4GeneratorCode() {
+    if (isSavingType4Generator || !isType4GeneratorDirty()) {
+        return;
+    }
+    const generatorCode = getCurrentType4GeneratorCode();
+    if (!generatorCode) {
+        showError('Python generator snippet is required.');
+        return;
+    }
+    showError('');
+    showSuccess('');
+    try {
+        isSavingType4Generator = true;
+        updateType4GeneratorSaveState();
+        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/generator-definition`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ generatorCode }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to save generator code (HTTP ${response.status})`);
+        }
+        currentType4SavedGeneratorCode = normalizeType4GeneratorCodeText(
+            result && result.generator_definition && result.generator_definition.code
+                ? result.generator_definition.code
+                : generatorCode
+        );
+        if (type4GeneratorCodeText) {
+            type4GeneratorCodeText.value = currentType4SavedGeneratorCode;
+        }
+        updateType4GeneratorSaveState();
+        showSuccess('Generator code saved.');
+    } catch (error) {
+        console.error('Error saving type IV generator code:', error);
+        showError(error.message || 'Failed to save generator code.');
+    } finally {
+        isSavingType4Generator = false;
+        updateType4GeneratorSaveState();
+    }
 }

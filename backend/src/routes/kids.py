@@ -2503,6 +2503,62 @@ def update_shared_deck_tags(deck_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/shared-decks/<int:deck_id>/generator-definition', methods=['PUT'])
+def update_shared_deck_generator_definition(deck_id):
+    """Update the stored Python generator code for one owned type-IV shared deck."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        family_id_int = get_current_family_id_int()
+        if family_id_int is None:
+            if not current_family_id():
+                return jsonify({'error': 'Family login required'}), 401
+            return jsonify({'error': 'Invalid family id in session'}), 400
+
+        payload = request.get_json(silent=True) or {}
+        generator_code = normalize_type_iv_generator_code(payload.get('generatorCode'))
+        preview_type4_generator(generator_code, sample_count=1)
+
+        with _SHARED_DECK_MUTATION_LOCK:
+            conn = None
+            try:
+                conn = get_shared_decks_connection()
+                deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
+                if not deck_row:
+                    return jsonify({'error': 'Deck not found'}), 404
+                behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
+                if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                    return jsonify({'error': 'Only type_iv decks support generator code updates'}), 400
+                existing_definition = get_shared_deck_generator_definition(conn, deck_id)
+                if not existing_definition:
+                    return jsonify({'error': 'Generator definition not found for this deck'}), 404
+
+                conn.execute(
+                    """
+                    UPDATE deck_generator_definition
+                    SET code = ?
+                    WHERE deck_id = ?
+                    """,
+                    [generator_code, deck_id],
+                )
+            finally:
+                if conn is not None:
+                    conn.close()
+
+        return jsonify({
+            'updated': True,
+            'deck_id': int(deck_id),
+            'generator_definition': {
+                'code': generator_code,
+            },
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/shared-decks/<int:deck_id>/cards', methods=['POST'])
 def add_shared_deck_cards(deck_id):
     """Add cards to one owned shared deck with category-aware dedupe."""

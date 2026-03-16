@@ -80,6 +80,32 @@
             flex-wrap: wrap;
         }
 
+        .type4-preview-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-top: 0.8rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .type4-preview-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .type4-preview-item {
+            border: 1px solid #d7deee;
+            border-radius: 10px;
+            background: #fbfcff;
+            padding: 0.65rem 0.75rem;
+        }
+
+        .type4-preview-item code {
+            word-break: break-word;
+        }
+
         .deck-rename-inline-btn {
             padding: 0.1rem 0.42rem;
             font-size: 0.76rem;
@@ -247,9 +273,19 @@
                     </div>
                 </div>
                 <div id="type4DeckEditor" class="hidden">
-                    <p class="deck-edit-help">Generator decks are immutable after creation. The representative label lives on the single card row, and the Python snippet below is the stored generator definition.</p>
+                    <p class="deck-edit-help">The representative label stays on the single card row. You can refine the Python generator below, save it, and preview fresh samples here.</p>
                     <div class="deck-meta-row"><strong>Representative label:</strong> <span id="type4RepresentativeLabelText"></span></div>
-                    <pre id="type4GeneratorCodeText" class="deck-edit-textarea input-mono"></pre>
+                    <textarea id="type4GeneratorCodeText" class="deck-edit-textarea input-mono" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+                    <div class="deck-edit-row">
+                        <button type="button" id="saveType4GeneratorBtn" class="btn-primary">Save Code</button>
+                    </div>
+                    <div class="type4-preview-head">
+                        <strong>Example results</strong>
+                        <button type="button" id="regenType4ExamplesBtn" class="btn-secondary">Generate 3 Examples</button>
+                    </div>
+                    <div id="type4PreviewExamples" class="type4-preview-list">
+                        <p class="muted-help-text">Click Generate 3 Examples to preview this deck.</p>
+                    </div>
                 </div>
             </section>
 
