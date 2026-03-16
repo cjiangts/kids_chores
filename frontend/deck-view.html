@@ -275,9 +275,16 @@
                 <div id="type4DeckEditor" class="hidden">
                     <p class="deck-edit-help">The representative label stays on the single card row. You can refine the Python generator below, save it, and preview fresh samples here.</p>
                     <div class="deck-meta-row"><strong>Representative label:</strong> <span id="type4RepresentativeLabelText"></span></div>
+                    <label class="deck-edit-help" style="display:flex; align-items:flex-start; gap:0.6rem; margin:0.65rem 0 0.8rem;">
+                        <input type="checkbox" id="type4IsMultichoiceOnlyInput" style="margin-top:0.2rem; width:1rem; height:1rem;">
+                        <span>
+                            <strong style="display:block; color:#233044;">Always multiple choice</strong>
+                            <span>Use answer buttons for this deck even if the kid selected typing mode.</span>
+                        </span>
+                    </label>
                     <textarea id="type4GeneratorCodeText" class="deck-edit-textarea input-mono" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
                     <div class="deck-edit-row">
-                        <button type="button" id="saveType4GeneratorBtn" class="btn-primary">Save Code</button>
+                        <button type="button" id="saveType4GeneratorBtn" class="btn-primary">Save Generator</button>
                     </div>
                     <div class="type4-preview-head">
                         <strong>Example results</strong>
@@ -299,6 +306,7 @@
                                 <th class="table-col-120">Actions</th>
                                 <th class="table-col-80">#</th>
                                 <th>Front</th>
+                                <th id="type4CardsMultiChoiceHeader" class="hidden">Always multiple choice</th>
                                 <th>Back</th>
                             </tr>
                         </thead>

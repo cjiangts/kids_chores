@@ -1258,6 +1258,14 @@ function getType4ChoiceOptions(card = null) {
         .filter(Boolean);
 }
 
+function shouldUseType4MultipleChoiceUi(card = null) {
+    const sourceCard = card || state.sessionCards[state.currentIndex] || {};
+    return Boolean(
+        window.PracticeJudgeMode?.isMultiMode(state.judgeMode)
+        || sourceCard.isMultichoiceOnly
+    );
+}
+
 function renderType4MultipleChoiceOptions() {
     if (!multiChoiceGrid || !isType(BEHAVIOR_TYPE_IV)) {
         return;
@@ -1301,7 +1309,7 @@ function showCurrentType4Item() {
         type4AnswerInput.value = '';
     }
     applyJudgeModeUi();
-    if (!window.PracticeJudgeMode?.isMultiMode(state.judgeMode) && type4AnswerInput) {
+    if (!shouldUseType4MultipleChoiceUi(card) && type4AnswerInput) {
         window.setTimeout(() => {
             type4AnswerInput.focus();
             type4AnswerInput.select();
@@ -1513,7 +1521,7 @@ function submitType4TypedAnswer() {
 
 function applyJudgeModeUi() {
     if (isType(BEHAVIOR_TYPE_IV)) {
-        const isMultiMode = Boolean(window.PracticeJudgeMode?.isMultiMode(state.judgeMode));
+        const isMultiMode = shouldUseType4MultipleChoiceUi();
         knewRow.classList.add('hidden');
         doneRow.classList.add('hidden');
         judgeRow.classList.add('hidden');
@@ -1637,11 +1645,15 @@ function updatePauseSessionButtonState() {
     const shouldShow = hasActiveSessionScreen() && (state.isRecording || state.isRecordingPaused || state.isSessionPaused);
     pauseSessionBtn.classList.toggle('hidden', !shouldShow);
     if (!shouldShow) {
-        pauseSessionBtn.textContent = 'Pause';
+        pauseSessionBtn.textContent = '⏸';
+        pauseSessionBtn.setAttribute('aria-label', 'Pause');
+        pauseSessionBtn.setAttribute('title', 'Pause');
         pauseSessionBtn.disabled = true;
         return;
     }
-    pauseSessionBtn.textContent = state.isSessionPaused ? 'Resume' : 'Pause';
+    pauseSessionBtn.textContent = state.isSessionPaused ? '▶' : '⏸';
+    pauseSessionBtn.setAttribute('aria-label', state.isSessionPaused ? 'Resume' : 'Pause');
+    pauseSessionBtn.setAttribute('title', state.isSessionPaused ? 'Resume' : 'Pause');
     pauseSessionBtn.disabled = state.isUploadingRecording;
 }
 

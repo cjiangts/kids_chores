@@ -11,10 +11,12 @@ const editorSectionTitle = document.getElementById('editorSectionTitle');
 const staticDeckEditor = document.getElementById('staticDeckEditor');
 const type4DeckEditor = document.getElementById('type4DeckEditor');
 const type4RepresentativeLabelText = document.getElementById('type4RepresentativeLabelText');
+const type4IsMultichoiceOnlyInput = document.getElementById('type4IsMultichoiceOnlyInput');
 const type4GeneratorCodeText = document.getElementById('type4GeneratorCodeText');
 const saveType4GeneratorBtn = document.getElementById('saveType4GeneratorBtn');
 const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
 const type4PreviewExamples = document.getElementById('type4PreviewExamples');
+const type4CardsMultiChoiceHeader = document.getElementById('type4CardsMultiChoiceHeader');
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
 const cardsTableBody = document.getElementById('cardsTableBody');
@@ -52,6 +54,7 @@ let renameLastNameChecked = '';
 let renameNameCheckToken = 0;
 let renameNameCheckTimer = null;
 let currentType4SavedGeneratorCode = '';
+let currentType4SavedIsMultichoiceOnly = false;
 let currentType4PreviewSeedBase = Date.now();
 let isLoadingType4PreviewSamples = false;
 let isSavingType4Generator = false;
@@ -177,6 +180,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+    if (type4IsMultichoiceOnlyInput) {
+        type4IsMultichoiceOnlyInput.addEventListener('change', () => {
+            updateType4GeneratorSaveState();
+        });
+    }
     await loadDeck();
 });
 
@@ -265,17 +273,28 @@ function renderDeck(payload) {
         if (type4GeneratorCodeText) {
             type4GeneratorCodeText.value = currentType4SavedGeneratorCode;
         }
+        currentType4SavedIsMultichoiceOnly = Boolean(generatorDefinition && generatorDefinition.is_multichoice_only);
+        if (type4IsMultichoiceOnlyInput) {
+            type4IsMultichoiceOnlyInput.checked = currentType4SavedIsMultichoiceOnly;
+        }
         renderType4PreviewExamples([]);
         setType4PreviewButtonState(false, 'Generate 3 Examples');
         updateType4GeneratorSaveState();
     } else {
         currentType4SavedGeneratorCode = '';
+        currentType4SavedIsMultichoiceOnly = false;
         if (type4GeneratorCodeText) {
             type4GeneratorCodeText.value = '';
+        }
+        if (type4IsMultichoiceOnlyInput) {
+            type4IsMultichoiceOnlyInput.checked = false;
         }
         renderType4PreviewExamples([]);
         setType4PreviewButtonState(false, 'Generate 3 Examples');
         updateType4GeneratorSaveState();
+    }
+    if (type4CardsMultiChoiceHeader) {
+        type4CardsMultiChoiceHeader.classList.toggle('hidden', !isTypeIV);
     }
 
     if (cards.length === 0) {
@@ -298,6 +317,9 @@ function renderDeck(payload) {
                         data-card-id="${Number(card.id || 0)}"
                     >Delete</button>
                 `;
+        const multiChoiceCellHtml = isTypeIV
+            ? `<td>${currentType4SavedIsMultichoiceOnly ? 'Yes' : 'No'}</td>`
+            : '';
         return `
             <tr>
                 <td>
@@ -305,6 +327,7 @@ function renderDeck(payload) {
                 </td>
                 <td>${index + 1}</td>
                 <td>${escapeHtml(card.front || '')}</td>
+                ${multiChoiceCellHtml}
                 <td>${escapeHtml(card.back || '-')}</td>
             </tr>
         `;
@@ -932,14 +955,19 @@ function getCurrentType4GeneratorCode() {
     return normalizeType4GeneratorCodeText(type4GeneratorCodeText ? type4GeneratorCodeText.value : '');
 }
 
+function getCurrentType4IsMultichoiceOnly() {
+    return Boolean(type4IsMultichoiceOnlyInput && type4IsMultichoiceOnlyInput.checked);
+}
+
 function isType4GeneratorDirty() {
-    return getCurrentType4GeneratorCode() !== currentType4SavedGeneratorCode;
+    return getCurrentType4GeneratorCode() !== currentType4SavedGeneratorCode
+        || getCurrentType4IsMultichoiceOnly() !== currentType4SavedIsMultichoiceOnly;
 }
 
 function updateType4GeneratorSaveState() {
     if (saveType4GeneratorBtn) {
         saveType4GeneratorBtn.disabled = isMutating || isSavingType4Generator || !isType4GeneratorDirty();
-        saveType4GeneratorBtn.textContent = isSavingType4Generator ? 'Saving...' : 'Save Code';
+        saveType4GeneratorBtn.textContent = isSavingType4Generator ? 'Saving...' : 'Save Generator';
     }
     if (regenType4ExamplesBtn) {
         regenType4ExamplesBtn.disabled = isMutating || isLoadingType4PreviewSamples || !getCurrentType4GeneratorCode();
@@ -1027,6 +1055,7 @@ async function saveType4GeneratorCode() {
         return;
     }
     const generatorCode = getCurrentType4GeneratorCode();
+    const isMultichoiceOnly = getCurrentType4IsMultichoiceOnly();
     if (!generatorCode) {
         showError('Python generator snippet is required.');
         return;
@@ -1039,7 +1068,7 @@ async function saveType4GeneratorCode() {
         const response = await fetch(`${API_BASE}/shared-decks/${deckId}/generator-definition`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ generatorCode }),
+            body: JSON.stringify({ generatorCode, isMultichoiceOnly }),
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -1050,14 +1079,20 @@ async function saveType4GeneratorCode() {
                 ? result.generator_definition.code
                 : generatorCode
         );
+        currentType4SavedIsMultichoiceOnly = Boolean(
+            result && result.generator_definition && result.generator_definition.is_multichoice_only
+        );
         if (type4GeneratorCodeText) {
             type4GeneratorCodeText.value = currentType4SavedGeneratorCode;
         }
+        if (type4IsMultichoiceOnlyInput) {
+            type4IsMultichoiceOnlyInput.checked = currentType4SavedIsMultichoiceOnly;
+        }
         updateType4GeneratorSaveState();
-        showSuccess('Generator code saved.');
+        showSuccess('Generator saved.');
     } catch (error) {
         console.error('Error saving type IV generator code:', error);
-        showError(error.message || 'Failed to save generator code.');
+        showError(error.message || 'Failed to save generator settings.');
     } finally {
         isSavingType4Generator = false;
         updateType4GeneratorSaveState();

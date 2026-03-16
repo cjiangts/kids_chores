@@ -517,9 +517,23 @@ function getType4DeckDailyTargetCount(deck) {
     return Number.isInteger(parsed) ? Math.max(0, parsed) : 0;
 }
 
+function getPersistedType4DeckCountEntries() {
+    const entries = getPersistedOptedInType4Decks().map((deck) => ({
+        kind: 'shared',
+        deck,
+    }));
+    if (orphanDeck && stagedIncludeOrphanInQueue) {
+        entries.push({
+            kind: 'orphan',
+            deck: orphanDeck,
+        });
+    }
+    return entries;
+}
+
 function getType4TotalCardsPerDay() {
-    return getPersistedOptedInType4Decks().reduce(
-        (sum, deck) => sum + getType4DeckDailyTargetCount(deck),
+    return getPersistedType4DeckCountEntries().reduce(
+        (sum, entry) => sum + getType4DeckDailyTargetCount(entry && entry.deck),
         0
     );
 }
@@ -856,13 +870,13 @@ function renderType4DeckTargetControls() {
         return;
     }
     const totalCardsPerDay = getType4TotalCardsPerDay();
-    const optedInCount = getPersistedOptedInType4Decks().length;
+    const sourceCount = getPersistedType4DeckCountEntries().length;
     const hasPendingChanges = hasPendingDeckChanges();
     if (type4DailyTargetTotalText) {
         type4DailyTargetTotalText.textContent = String(totalCardsPerDay);
     }
     if (openType4DeckCountsModalBtn) {
-        openType4DeckCountsModalBtn.disabled = hasPendingChanges || optedInCount <= 0 || isType4DeckCountsSaving;
+        openType4DeckCountsModalBtn.disabled = hasPendingChanges || sourceCount <= 0 || isType4DeckCountsSaving;
         openType4DeckCountsModalBtn.textContent = isType4DeckCountsSaving ? 'Saving...' : 'Set Deck Counts';
     }
 }
@@ -879,7 +893,7 @@ function updateType4DeckCountsModalTotal() {
     if (!type4DeckCountsModalTotal || !type4DeckCountsList) {
         return;
     }
-    const inputs = [...type4DeckCountsList.querySelectorAll('input[data-type4-shared-deck-id]')];
+    const inputs = [...type4DeckCountsList.querySelectorAll('.type4-deck-count-input')];
     const total = inputs.reduce(
         (sum, input) => sum + getType4DeckCountDraftValue(input.value),
         0
@@ -891,18 +905,28 @@ function renderType4DeckCountsModal() {
     if (!type4DeckCountsList) {
         return;
     }
-    const decks = getPersistedOptedInType4Decks();
-    if (decks.length <= 0) {
+    const entries = getPersistedType4DeckCountEntries();
+    if (entries.length <= 0) {
         type4DeckCountsList.innerHTML = '<div class="empty-state"><h3>No opted-in decks yet</h3></div>';
         updateType4DeckCountsModalTotal();
         return;
     }
-    type4DeckCountsList.innerHTML = decks.map((deck) => {
+    type4DeckCountsList.innerHTML = entries.map((entry) => {
+        const deck = entry && entry.deck ? entry.deck : null;
+        const isOrphanEntry = entry && entry.kind === 'orphan';
         const sharedDeckId = Number.parseInt(deck && deck.deck_id, 10);
-        const label = getType1DeckBubbleLabel(deck) || String(deck && deck.name ? deck.name : 'Generator Deck');
+        const orphanDeckId = Number.parseInt(deck && deck.deck_id, 10);
+        const label = isOrphanEntry
+            ? `⭐ ${getPersonalDeckDisplayName()}`
+            : (getType1DeckBubbleLabel(deck) || String(deck && deck.name ? deck.name : 'Generator Deck'));
         const dailyTargetCount = getType4DeckDailyTargetCount(deck);
         const tagLabels = getDeckTagLabels(deck);
-        const tagTail = tagLabels.length > 1 ? tagLabels.slice(1).join(' / ') : '';
+        const tagTail = isOrphanEntry
+            ? `${Number(deck && deck.card_count ? deck.card_count : 0)} detached cards`
+            : (tagLabels.length > 1 ? tagLabels.slice(1).join(' / ') : '');
+        const inputAttrs = isOrphanEntry
+            ? `data-type4-orphan-deck-id="${escapeHtml(String(orphanDeckId || 0))}"`
+            : `data-type4-shared-deck-id="${escapeHtml(String(sharedDeckId))}"`;
         return `
             <label class="type4-deck-count-row">
                 <div class="type4-deck-count-copy">
@@ -912,7 +936,7 @@ function renderType4DeckCountsModal() {
                 <input
                     type="number"
                     class="type4-deck-count-input"
-                    data-type4-shared-deck-id="${escapeHtml(String(sharedDeckId))}"
+                    ${inputAttrs}
                     min="0"
                     max="1000"
                     step="1"
@@ -926,20 +950,32 @@ function renderType4DeckCountsModal() {
 
 function collectType4DeckCountsPayload() {
     if (!type4DeckCountsList) {
-        return {};
+        return {
+            dailyCountsByDeckId: {},
+            orphanDailyTargetCount: null,
+        };
     }
-    const inputs = [...type4DeckCountsList.querySelectorAll('input[data-type4-shared-deck-id]')];
-    const payload = {};
+    const inputs = [...type4DeckCountsList.querySelectorAll('.type4-deck-count-input')];
+    const dailyCountsByDeckId = {};
+    let orphanDailyTargetCount = null;
     inputs.forEach((input) => {
         const sharedDeckId = Number.parseInt(input.getAttribute('data-type4-shared-deck-id') || '', 10);
+        const orphanDeckId = Number.parseInt(input.getAttribute('data-type4-orphan-deck-id') || '', 10);
+        const normalized = getType4DeckCountDraftValue(input.value);
+        input.value = String(normalized);
+        if (Number.isInteger(orphanDeckId) && orphanDeckId > 0) {
+            orphanDailyTargetCount = normalized;
+            return;
+        }
         if (!Number.isInteger(sharedDeckId) || sharedDeckId <= 0) {
             return;
         }
-        const normalized = getType4DeckCountDraftValue(input.value);
-        input.value = String(normalized);
-        payload[String(sharedDeckId)] = normalized;
+        dailyCountsByDeckId[String(sharedDeckId)] = normalized;
     });
-    return payload;
+    return {
+        dailyCountsByDeckId,
+        orphanDailyTargetCount,
+    };
 }
 
 function renderDeckSetupSummary() {
@@ -1877,7 +1913,9 @@ function buildType2CardMarkup(card, options = {}) {
                     class="selected-audio-btn play"
                     data-action="load-play-audio"
                     data-card-id="${escapeHtml(card.id)}"
-                >Play</button>
+                    aria-label="Play"
+                    title="Play"
+                >▶</button>
             </div>
         </div>
         ${hasSavedAudio ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">Will auto-generate on first play</div>'}
@@ -2064,6 +2102,12 @@ function buildType4RepresentativeCardMarkup(card) {
     const lastSeenText = window.PracticeManageCommon.formatLastSeenDays(card && card.last_seen_at);
     const lifetimeAttempts = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
     const hasGeneratorCode = String(card && card.type4_generator_code ? card.type4_generator_code : '').trim().length > 0;
+    const isMultichoiceOnly = Boolean(
+        card && (
+            card.type4_is_multichoice_only
+            ?? card.is_multichoice_only
+        )
+    );
 
     return `
         <div class="card-item type4-summary-card">
@@ -2073,6 +2117,7 @@ function buildType4RepresentativeCardMarkup(card) {
             </div>
             <div class="type4-summary-metrics">
                 <div>Overall correct rate: ${escapeHtml(overallCorrectRateText)}</div>
+                <div>Multi-choice only: ${isMultichoiceOnly ? 'Yes' : 'No'}</div>
                 <div>Added: ${escapeHtml(String(addedDateText || '-'))}</div>
                 <div>Lifetime attempts: ${escapeHtml(String(lifetimeAttempts))}</div>
                 <div>Last seen: ${escapeHtml(String(lastSeenText || 'Never'))}</div>
@@ -2085,7 +2130,12 @@ function buildType4RepresentativeCardMarkup(card) {
                     data-card-id="${escapeHtml(String(card && card.id ? card.id : ''))}"
                     ${hasGeneratorCode ? '' : 'disabled aria-disabled="true"'}
                 >Generator</button>
-                <a class="card-report-link" href="${buildCardReportHref(card)}">Records</a>
+                <button
+                    type="button"
+                    class="card-report-link"
+                    data-action="open-card-records"
+                    data-card-id="${escapeHtml(String(card && card.id ? card.id : ''))}"
+                >Records</button>
             </div>
         </div>
     `;
@@ -2649,6 +2699,22 @@ async function handleCardsGridClick(event) {
         return;
     }
 
+    if (action === 'open-card-records') {
+        const cardId = String(actionBtn.dataset.cardId || '').trim();
+        if (!cardId) {
+            return;
+        }
+        const card = (Array.isArray(currentCards) ? currentCards : []).find(
+            (item) => String(item && item.id ? item.id : '') === cardId
+        );
+        if (!card) {
+            showError('Card not found.');
+            return;
+        }
+        window.location.href = buildCardReportHref(card);
+        return;
+    }
+
     if (action === 'expand-compact') {
         const cardId = String(actionBtn.dataset.cardId || '').trim();
         if (!cardId) {
@@ -2912,9 +2978,9 @@ async function saveType4DeckCounts() {
     if (isType4DeckCountsSaving) {
         return;
     }
-    const optedInDecks = getPersistedOptedInType4Decks();
-    if (optedInDecks.length <= 0) {
-        showType4DeckCountsMessage('Opt in at least one deck first.', true);
+    const countEntries = getPersistedType4DeckCountEntries();
+    if (countEntries.length <= 0) {
+        showType4DeckCountsMessage('Opt in at least one deck or Personal Deck first.', true);
         return;
     }
     isType4DeckCountsSaving = true;
@@ -2974,7 +3040,12 @@ async function requestSaveType4DeckDailyTargets(dailyCountsByDeckId) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             categoryKey,
-            dailyCountsByDeckId,
+            dailyCountsByDeckId: dailyCountsByDeckId && dailyCountsByDeckId.dailyCountsByDeckId
+                ? dailyCountsByDeckId.dailyCountsByDeckId
+                : {},
+            orphanDailyTargetCount: dailyCountsByDeckId && Object.prototype.hasOwnProperty.call(dailyCountsByDeckId, 'orphanDailyTargetCount')
+                ? dailyCountsByDeckId.orphanDailyTargetCount
+                : null,
         }),
     });
     const result = await response.json().catch(() => ({}));
@@ -3402,7 +3473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (type4DeckCountsList) {
         type4DeckCountsList.addEventListener('input', (event) => {
             const target = event.target;
-            if (!(target instanceof HTMLInputElement) || !target.hasAttribute('data-type4-shared-deck-id')) {
+            if (!(target instanceof HTMLInputElement) || !target.classList.contains('type4-deck-count-input')) {
                 return;
             }
             target.value = String(getType4DeckCountDraftValue(target.value));
@@ -3410,7 +3481,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         type4DeckCountsList.addEventListener('change', (event) => {
             const target = event.target;
-            if (!(target instanceof HTMLInputElement) || !target.hasAttribute('data-type4-shared-deck-id')) {
+            if (!(target instanceof HTMLInputElement) || !target.classList.contains('type4-deck-count-input')) {
                 return;
             }
             target.value = String(getType4DeckCountDraftValue(target.value));

@@ -17,7 +17,7 @@
         return 'pending';
     }
 
-    function wrapAudio(audioEl) {
+    function wrapAudio(audioEl, options = {}) {
         if (!audioEl || !(audioEl instanceof HTMLElement)) {
             return null;
         }
@@ -31,11 +31,18 @@
             wrapper.classList.add('hidden');
         }
 
+        const playLabel = String(options.playLabel || '▶');
+        const pauseLabel = String(options.pauseLabel || '⏸');
+        const playAriaLabel = String(options.playAriaLabel || 'Play');
+        const pauseAriaLabel = String(options.pauseAriaLabel || 'Pause');
+
         const playBtn = document.createElement('button');
         playBtn.type = 'button';
         playBtn.className = 'audio-play-btn';
-        playBtn.textContent = 'Play';
+        playBtn.textContent = playLabel;
         playBtn.setAttribute('data-audio-action', 'toggle');
+        playBtn.setAttribute('aria-label', audioEl.paused ? playAriaLabel : pauseAriaLabel);
+        playBtn.setAttribute('title', audioEl.paused ? playAriaLabel : pauseAriaLabel);
 
         const speedBtn = document.createElement('button');
         speedBtn.type = 'button';
@@ -85,7 +92,11 @@
             const ratio = duration > 0 ? Math.max(0, Math.min(1, current / duration)) : 0;
             progress.value = String(Math.round(ratio * 1000));
             timeLabel.textContent = `${formatDuration(current)} / ${formatDuration(duration)}`;
-            playBtn.textContent = audioEl.paused ? 'Play' : 'Pause';
+            const nextLabel = audioEl.paused ? playLabel : pauseLabel;
+            const nextAriaLabel = audioEl.paused ? playAriaLabel : pauseAriaLabel;
+            playBtn.textContent = nextLabel;
+            playBtn.setAttribute('aria-label', nextAriaLabel);
+            playBtn.setAttribute('title', nextAriaLabel);
         };
 
         playBtn.addEventListener('click', async () => {
@@ -138,7 +149,7 @@
         const selector = String(options.selector || 'audio.js-simple-audio').trim() || 'audio.js-simple-audio';
         const nodes = Array.from(scope.querySelectorAll(selector));
         nodes.forEach((audioEl) => {
-            wrapAudio(audioEl);
+            wrapAudio(audioEl, options);
         });
     }
 

@@ -174,21 +174,30 @@ function renderAnswerList(container, cards, options = {}) {
             : '';
         const useCompactLink = compact && !!reportHref;
         const tagName = useCompactLink ? 'a' : 'div';
-        const compactTypeIVClass = compact && isTypeIVSession() ? ' type4-compact' : '';
         const linkTitle = secondaryLabel
             ? `Open records for ${displayLabel} • ${secondaryLabel} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}`
             : `Open records for ${displayLabel} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}`;
-        const compactBodyHtml = compact
+        const headerActionsHtml = compact
+            ? `${compact ? `<span class="answer-seen-count-badge" aria-hidden="true">${seenCount}</span>` : ''}`
+            : `
+                <div class="answer-head-actions">
+                    ${typeIII ? renderGradingControls(item) : ''}
+                    ${!reportHref ? '' : `<a class="tab-link secondary mini-link-btn answer-report-link" href="${reportHref}">Records</a>`}
+                </div>
+            `;
+        const typeIIIDetailsHtml = (!compact && typeIII) ? renderTypeIIIAnswerDetails(item) : '';
+        const detailBodyHtml = compact
             ? ''
             : `
+                ${typeIII ? '' : `
                 <div class="answer-bar-track">
                     <div class="answer-bar-fill ${answerClass}" style="width:${Math.max(0, Math.min(100, (rawMs / maxMs) * 100)).toFixed(2)}%"></div>
-                </div>
-                <div class="meta">Card #${safeNum(item?.card_id)} · ${formatResponseTime(rawMs)}</div>
+                </div>`}
+                ${typeIII ? '' : `<div class="meta">Card #${safeNum(item?.card_id)} · ${formatResponseTime(rawMs)}</div>`}
             `;
         return `
             <${tagName}
-                class="answer-item ${answerClass}${compactTypeIVClass}"
+                class="answer-item ${answerClass}"
                 ${useCompactLink ? `href="${reportHref}"` : ''}
                 ${useCompactLink ? `title="${escapeHtml(linkTitle)}"` : ''}
                 ${Number.isFinite(resultId) ? ` data-result-id="${resultId}"` : ''}
@@ -197,27 +206,29 @@ function renderAnswerList(container, cards, options = {}) {
             >
                 <div class="answer-head-row">
                     <div class="answer-label${currentSessionHasChineseSpecificLogic ? ' chinese-specific' : ''}">${escapeHtml(displayLabel)}</div>
-                    ${compact ? `<span class="answer-seen-count-badge" aria-hidden="true">${seenCount}</span>` : ''}
-                    ${compact || !reportHref ? '' : `<a class="tab-link secondary mini-link-btn answer-report-link" href="${reportHref}">Records</a>`}
+                    ${headerActionsHtml}
                 </div>
-                ${compact && isTypeIVSession()
-                    ? renderType4CompactDetails(item)
-                    : (compact && secondaryLabel ? `<div class="answer-secondary">${escapeHtml(secondaryLabel)}</div>` : '')}
-                ${compactBodyHtml}
+                ${compact && !isTypeIVSession() && secondaryLabel ? `<div class="answer-secondary">${escapeHtml(secondaryLabel)}</div>` : ''}
+                ${typeIIIDetailsHtml}
+                ${detailBodyHtml}
                 ${item?.audio_url ? `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${typeIII ? ` data-result-id="${Number.isFinite(resultId) ? resultId : ''}" data-response-time-ms="${rawMs}"` : ''}></audio>` : ''}
-                ${renderGradingControls(item)}
+                ${typeIII ? '' : renderGradingControls(item)}
             </${tagName}>
         `;
     }).join('');
     container.innerHTML = compact
-        ? `<div class="answer-grid compact${isTypeIVSession() ? ' type4-compact-grid' : ''}">${itemHtml}</div>`
+        ? `<div class="answer-grid compact">${itemHtml}</div>`
         : itemHtml;
 
     if (typeIII && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
     }
     if (window.SimpleAudioPlayer) {
-        window.SimpleAudioPlayer.attach(container, { selector: 'audio.js-simple-audio' });
+        window.SimpleAudioPlayer.attach(container, {
+            selector: 'audio.js-simple-audio',
+            playLabel: typeIII ? '▶' : 'Play',
+            pauseLabel: typeIII ? '⏸' : 'Pause',
+        });
     }
     syncRenderedResponseTimeBars();
 }
@@ -494,22 +505,22 @@ function getType4SubmittedAnswers(item) {
         : [];
 }
 
-function renderType4CompactDetails(item) {
-    const expectedAnswer = getType4ExpectedAnswer(item) || '-';
-    const submittedAnswers = getType4SubmittedAnswers(item);
-    const triedText = submittedAnswers.length > 0 ? submittedAnswers.join('/') : '-';
-    return `
-        <div class="type4-answer-meta" title="Right: ${escapeHtml(expectedAnswer)} | Tried: ${escapeHtml(triedText)}">
-            <span class="type4-answer-bit type4-answer-bit-right">
-                <span class="type4-answer-key">Right</span>
-                <span class="type4-answer-value">${escapeHtml(expectedAnswer)}</span>
-            </span>
-            <span class="type4-answer-bit type4-answer-bit-tried">
-                <span class="type4-answer-key">Tried</span>
-                <span class="type4-answer-value">${escapeHtml(triedText)}</span>
-            </span>
-        </div>
-    `;
+function renderTypeIIIAnswerDetails(item) {
+    if (!isTypeIIIReviewSession()) {
+        return '';
+    }
+    const back = String(item?.back || '').trim();
+    const sourceDeck = String(item?.source_deck_label || item?.source_deck_name || '').trim();
+    const detailBits = [];
+    if (back) {
+        detailBits.push(`<span class="answer-type3-back">${escapeHtml(back)}</span>`);
+    }
+    if (sourceDeck) {
+        detailBits.push(`<span class="answer-type3-source">Source: ${escapeHtml(sourceDeck)}</span>`);
+    }
+    return detailBits.length
+        ? `<div class="answer-type3-details">${detailBits.join('<span class="answer-type3-sep" aria-hidden="true">·</span>')}</div>`
+        : '';
 }
 
 function isTypeIIIReviewSession() {

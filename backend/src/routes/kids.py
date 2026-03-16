@@ -472,6 +472,11 @@ def normalize_optional_bool(value, field_name, default=False):
     raise ValueError(f'{field_name} must be a boolean')
 
 
+def normalize_type_iv_multichoice_only(value, default=False):
+    """Normalize generator-deck multichoice-only flag."""
+    return normalize_optional_bool(value, 'isMultichoiceOnly', default=default)
+
+
 def normalize_optional_display_name(value):
     """Normalize optional deck-category display name."""
     if value is None:
@@ -900,6 +905,83 @@ def sync_materialized_shared_deck_metadata_for_all_kids(shared_deck_id, shared_d
         'updated_kid_ids': updated_kid_ids,
         'updated_kid_count': len(updated_kid_ids),
         'updated_deck_count': int(updated_deck_count),
+        'failures': failures,
+    }
+
+
+def sync_materialized_type_iv_card_flag_for_kid(conn, shared_deck_id, is_multichoice_only):
+    """Align one kid DB's attached type-IV representative card flag with the shared deck."""
+    rows = get_materialized_shared_deck_rows_by_shared_deck_id(conn, shared_deck_id)
+    if not rows:
+        return 0
+
+    target_value = bool(is_multichoice_only)
+    changed_deck_ids = []
+    for deck_id, _name, _tags in rows:
+        mismatch_row = conn.execute(
+            """
+            SELECT 1
+            FROM cards
+            WHERE deck_id = ?
+              AND COALESCE(is_multichoice_only, FALSE) <> ?
+            LIMIT 1
+            """,
+            [int(deck_id), target_value],
+        ).fetchone()
+        if mismatch_row:
+            changed_deck_ids.append(int(deck_id))
+
+    if not changed_deck_ids:
+        return 0
+
+    conn.execute("BEGIN TRANSACTION")
+    try:
+        for deck_id in changed_deck_ids:
+            conn.execute(
+                """
+                UPDATE cards
+                SET is_multichoice_only = ?
+                WHERE deck_id = ?
+                """,
+                [target_value, int(deck_id)],
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return len(changed_deck_ids)
+
+
+def sync_materialized_type_iv_card_flag_for_all_kids(shared_deck_id, is_multichoice_only):
+    """Propagate one shared type-IV flag update to all attached kid decks."""
+    updated_kid_ids = []
+    updated_card_count = 0
+    failures = []
+    for kid in metadata.get_all_kids():
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            changed_count = sync_materialized_type_iv_card_flag_for_kid(
+                conn,
+                shared_deck_id,
+                is_multichoice_only,
+            )
+            if changed_count > 0:
+                updated_kid_ids.append(str(kid.get('id') or ''))
+                updated_card_count += changed_count
+        except Exception as e:
+            failures.append({
+                'kid_id': str(kid.get('id') or ''),
+                'kid_name': str(kid.get('name') or ''),
+                'error': str(e),
+            })
+        finally:
+            if conn is not None:
+                conn.close()
+    return {
+        'updated_kid_ids': updated_kid_ids,
+        'updated_kid_count': len(updated_kid_ids),
+        'updated_card_count': int(updated_card_count),
         'failures': failures,
     }
 
@@ -1362,85 +1444,89 @@ def get_shared_type_ii_merged_source_decks_for_kid(conn, kid, category_key):
     )
 
 
-def get_shared_type_iv_merged_source_decks_for_kid(conn, category_key):
-    """Return type-IV source decks for merged bank view without any orphan deck."""
-    first_tag = normalize_shared_deck_tag(category_key)
-    if not first_tag:
-        return []
-
-    materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
-    sources = []
-    for local_deck_id in sorted(materialized_by_local_id.keys()):
-        entry = materialized_by_local_id[local_deck_id]
-        local_id = int(entry['local_deck_id'])
-        total_cards = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
-            [local_id]
-        ).fetchone()[0] or 0)
-        active_cards = int(conn.execute(
-            "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
-            [local_id]
-        ).fetchone()[0] or 0)
-        sources.append(_build_shared_source_deck_entry(entry, total_cards, active_cards))
-    return sources
-
-
-def get_type_iv_bank_source_rows(conn, category_key):
-    """Return type-IV bank sources, including orphan cards for visibility only."""
-    sources = list(get_shared_type_iv_merged_source_decks_for_kid(conn, category_key))
-    orphan_deck_name = get_category_orphan_deck_name(category_key)
-    orphan_row = conn.execute(
-        "SELECT id, name, tags FROM decks WHERE name = ? LIMIT 1",
-        [orphan_deck_name]
-    ).fetchone()
-    if not orphan_row:
-        return sources
-
-    orphan_deck_id = int(orphan_row[0] or 0)
-    if orphan_deck_id <= 0:
-        return sources
-    orphan_total = int(conn.execute(
-        "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
-        [orphan_deck_id]
-    ).fetchone()[0] or 0)
-    if orphan_total <= 0:
-        return sources
-    orphan_active = int(conn.execute(
-        "SELECT COUNT(*) FROM cards WHERE deck_id = ? AND COALESCE(skip_practice, FALSE) = FALSE",
-        [orphan_deck_id]
-    ).fetchone()[0] or 0)
-    orphan_entry = _build_orphan_source_deck_entry(
-        orphan_row,
-        orphan_deck_name,
-        orphan_total,
-        orphan_active,
-        False,
+def get_shared_type_iv_merged_source_decks_for_kid(
+    conn,
+    kid,
+    category_key,
+    *,
+    include_orphan_in_queue_override=None,
+):
+    """Return type-IV source decks for merged bank and merged practice queue."""
+    return get_shared_merged_source_decks_for_kid(
+        conn,
+        kid,
+        category_key,
+        get_materialized_func=get_kid_materialized_shared_decks_by_first_tag,
+        include_orphan_in_queue_override=include_orphan_in_queue_override,
     )
-    orphan_entry['included_in_bank'] = True
-    orphan_entry['included_in_queue'] = False
-    sources.append(orphan_entry)
+
+
+def get_type_iv_bank_source_rows(
+    conn,
+    kid,
+    category_key,
+    *,
+    include_orphan_in_queue_override=None,
+):
+    """Return type-IV bank sources currently included in the bank view."""
+    sources = []
+    for source in list(get_shared_type_iv_merged_source_decks_for_kid(
+        conn,
+        kid,
+        category_key,
+        include_orphan_in_queue_override=include_orphan_in_queue_override,
+    )):
+        if bool(source.get('is_orphan')):
+            if int(source.get('card_count') or 0) <= 0 or not bool(source.get('included_in_bank')):
+                continue
+            source = dict(source)
+            source['included_in_queue'] = bool(
+                source.get('included_in_queue')
+                and int(source.get('active_card_count') or 0) > 0
+            )
+        sources.append(source)
     return sources
 
 
-def get_type_iv_total_daily_target_for_category(conn, category_key):
-    """Return the sum of per-deck daily targets for one materialized type-IV category."""
+def get_type_iv_total_daily_target_for_category(
+    conn,
+    kid,
+    category_key,
+    *,
+    include_orphan_in_queue_override=None,
+):
+    """Return the sum of per-deck daily targets for one generator category."""
     first_tag = normalize_shared_deck_tag(category_key)
     if not first_tag:
         return 0
     materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
     local_deck_ids = [int(deck_id) for deck_id in materialized_by_local_id.keys()]
-    if not local_deck_ids:
-        return 0
-    placeholders = ','.join(['?'] * len(local_deck_ids))
-    total = conn.execute(
-        f"""
-        SELECT COALESCE(SUM(COALESCE(daily_target_count, 0)), 0)
-        FROM decks
-        WHERE id IN ({placeholders})
-        """,
-        local_deck_ids
+    total_count = 0
+    if local_deck_ids:
+        placeholders = ','.join(['?'] * len(local_deck_ids))
+        total = conn.execute(
+            f"""
+            SELECT COALESCE(SUM(COALESCE(daily_target_count, 0)), 0)
+            FROM decks
+            WHERE id IN ({placeholders})
+            """,
+            local_deck_ids
+        ).fetchone()
+        total_count += int((total[0] if total else 0) or 0)
+
+    include_orphan_in_queue = (
+        bool(include_orphan_in_queue_override)
+        if include_orphan_in_queue_override is not None
+        else get_category_include_orphan_for_kid(kid, first_tag)
+    )
+    if not include_orphan_in_queue:
+        return total_count
+
+    orphan_row = conn.execute(
+        "SELECT COALESCE(daily_target_count, 0) FROM decks WHERE name = ? LIMIT 1",
+        [get_category_orphan_deck_name(first_tag)],
     ).fetchone()
-    return int((total[0] if total else 0) or 0)
+    return total_count + int((orphan_row[0] if orphan_row else 0) or 0)
 
 
 def get_shared_deck_owned_by_family(conn, deck_id, family_id_int):
@@ -1486,22 +1572,57 @@ def get_shared_deck_cards(conn, deck_id):
     } for row in rows]
 
 
-def get_shared_deck_generator_definition(conn, deck_id):
-    """Return immutable generator definition for one shared type-IV deck."""
+def shared_deck_generator_definition_has_multichoice_only_column(conn):
+    """Return whether shared generator definitions already include the multichoice-only flag."""
     row = conn.execute(
         """
-        SELECT code, created_at
-        FROM deck_generator_definition
-        WHERE deck_id = ?
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'main'
+          AND table_name = 'deck_generator_definition'
+          AND column_name = 'is_multichoice_only'
         LIMIT 1
-        """,
-        [deck_id],
+        """
     ).fetchone()
+    return bool(row)
+
+
+def get_shared_deck_generator_definition(conn, deck_id):
+    """Return immutable generator definition for one shared type-IV deck."""
+    if shared_deck_generator_definition_has_multichoice_only_column(conn):
+        row = conn.execute(
+            """
+            SELECT code, is_multichoice_only, created_at
+            FROM deck_generator_definition
+            WHERE deck_id = ?
+            LIMIT 1
+            """,
+            [deck_id],
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT code, created_at
+            FROM deck_generator_definition
+            WHERE deck_id = ?
+            LIMIT 1
+            """,
+            [deck_id],
+        ).fetchone()
     if row is None:
         return None
+    if len(row) >= 3:
+        code = str(row[0] or '')
+        is_multichoice_only = bool(row[1]) if row[1] is not None else False
+        created_at = row[2]
+    else:
+        code = str(row[0] or '') if len(row) >= 1 else ''
+        is_multichoice_only = False
+        created_at = row[1] if len(row) >= 2 else None
     return {
-        'code': str(row[0] or ''),
-        'created_at': row[1].isoformat() if row[1] else None,
+        'code': code,
+        'is_multichoice_only': bool(is_multichoice_only),
+        'created_at': created_at.isoformat() if created_at else None,
     }
 
 
@@ -1522,19 +1643,41 @@ def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
         return {}
 
     placeholders = ','.join(['?'] * len(normalized_ids))
-    rows = conn.execute(
-        f"""
-        SELECT deck_id, code, created_at
-        FROM deck_generator_definition
-        WHERE deck_id IN ({placeholders})
-        """,
-        normalized_ids,
-    ).fetchall()
+    if shared_deck_generator_definition_has_multichoice_only_column(conn):
+        rows = conn.execute(
+            f"""
+            SELECT deck_id, code, is_multichoice_only, created_at
+            FROM deck_generator_definition
+            WHERE deck_id IN ({placeholders})
+            """,
+            normalized_ids,
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            f"""
+            SELECT deck_id, code, created_at
+            FROM deck_generator_definition
+            WHERE deck_id IN ({placeholders})
+            """,
+            normalized_ids,
+        ).fetchall()
     definitions = {}
     for row in rows:
-        definitions[int(row[0])] = {
-            'code': str(row[1] or ''),
-            'created_at': row[2].isoformat() if row[2] else None,
+        deck_id = int(row[0] or 0) if row else 0
+        if deck_id <= 0:
+            continue
+        if len(row) >= 4:
+            code = str(row[1] or '')
+            is_multichoice_only = bool(row[2]) if row[2] is not None else False
+            created_at = row[3]
+        else:
+            code = str(row[1] or '') if len(row) >= 2 else ''
+            is_multichoice_only = False
+            created_at = row[2] if len(row) >= 3 else None
+        definitions[deck_id] = {
+            'code': code,
+            'is_multichoice_only': bool(is_multichoice_only),
+            'created_at': created_at.isoformat() if created_at else None,
         }
     return definitions
 
@@ -1554,6 +1697,7 @@ def build_type_iv_card_generator_details_by_shared_id(deck_ids):
         code = str(definition.get('code') or '')
         details_by_id[int(deck_id)] = {
             'code': code,
+            'is_multichoice_only': bool(definition.get('is_multichoice_only')),
         }
     return details_by_id
 
@@ -1585,6 +1729,7 @@ def build_type_iv_generator_details_by_representative_front(category_key):
         details_by_front[representative_front] = {
             'shared_deck_id': shared_deck_id,
             'code': code,
+            'is_multichoice_only': bool(definition.get('is_multichoice_only')),
         }
     return details_by_front
 
@@ -2588,25 +2733,58 @@ def update_shared_deck_generator_definition(deck_id):
                 existing_definition = get_shared_deck_generator_definition(conn, deck_id)
                 if not existing_definition:
                     return jsonify({'error': 'Generator definition not found for this deck'}), 404
+                is_multichoice_only = normalize_type_iv_multichoice_only(
+                    payload.get('isMultichoiceOnly'),
+                    default=bool(existing_definition.get('is_multichoice_only')),
+                )
 
                 conn.execute(
                     """
                     UPDATE deck_generator_definition
-                    SET code = ?
+                    SET code = ?, is_multichoice_only = ?
                     WHERE deck_id = ?
                     """,
-                    [generator_code, deck_id],
+                    [generator_code, bool(is_multichoice_only), deck_id],
                 )
             finally:
                 if conn is not None:
                     conn.close()
+
+        sync_result = sync_materialized_type_iv_card_flag_for_all_kids(
+            deck_id,
+            is_multichoice_only,
+        )
+        if sync_result['failures']:
+            failed_labels = [
+                item['kid_name'] or f"kid {item['kid_id']}"
+                for item in sync_result['failures']
+            ]
+            return jsonify({
+                'error': (
+                    'Generator settings were saved, but some kid DBs failed to sync: '
+                    + ', '.join(failed_labels)
+                    + '. Saving again will retry the kid sync.'
+                ),
+                'updated': True,
+                'deck_id': int(deck_id),
+                'generator_definition': {
+                    'code': generator_code,
+                    'is_multichoice_only': bool(is_multichoice_only),
+                },
+                'updated_kid_count': int(sync_result['updated_kid_count']),
+                'updated_card_count': int(sync_result['updated_card_count']),
+                'kid_sync_failures': sync_result['failures'],
+            }), 500
 
         return jsonify({
             'updated': True,
             'deck_id': int(deck_id),
             'generator_definition': {
                 'code': generator_code,
+                'is_multichoice_only': bool(is_multichoice_only),
             },
+            'updated_kid_count': int(sync_result['updated_kid_count']),
+            'updated_card_count': int(sync_result['updated_card_count']),
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -2840,6 +3018,10 @@ def create_shared_deck():
                 if is_type_iv:
                     display_label = normalize_type_iv_display_label(payload.get('displayLabel'))
                     generator_code = normalize_type_iv_generator_code(payload.get('generatorCode'))
+                    is_multichoice_only = normalize_type_iv_multichoice_only(
+                        payload.get('isMultichoiceOnly'),
+                        default=False,
+                    )
                     label_conflict = find_shared_type_iv_representative_label_conflict(
                         conn,
                         tags[0],
@@ -2892,10 +3074,10 @@ def create_shared_deck():
                 if is_type_iv:
                     conn.execute(
                         """
-                        INSERT INTO deck_generator_definition (deck_id, code)
-                        VALUES (?, ?)
+                        INSERT INTO deck_generator_definition (deck_id, code, is_multichoice_only)
+                        VALUES (?, ?, ?)
                         """,
-                        [deck_id, generator_code],
+                        [deck_id, generator_code, bool(is_multichoice_only)],
                     )
                 conn.execute("COMMIT")
             except Exception:
@@ -3601,7 +3783,7 @@ def get_kid_practice_target_by_deck_category(
                 if owned_conn is None:
                     owned_conn = get_kid_connection_for(kid)
                 target_conn = owned_conn
-            targets[key] = int(get_type_iv_total_daily_target_for_category(target_conn, key))
+            targets[key] = int(get_type_iv_total_daily_target_for_category(target_conn, kid, key))
             continue
         if behavior_type in DECK_CATEGORY_BEHAVIOR_TYPES:
             targets[key] = int(get_category_session_card_count_for_kid(kid, key))
@@ -4137,6 +4319,15 @@ def get_kid_report_session_detail(kid_id, session_id):
             conn.close()
             return jsonify({'error': 'Session not found'}), 404
 
+        def _session_source_deck_label(local_deck_name):
+            local_name = str(local_deck_name or '').strip()
+            if not local_name:
+                return ''
+            if local_name == get_category_orphan_deck_name(session_type):
+                return 'Personal Deck'
+            _, _, tail_name = local_name.partition('__')
+            return tail_name.strip() or local_name
+
         result_rows = conn.execute(
             """
             SELECT
@@ -4147,6 +4338,7 @@ def get_kid_report_session_detail(kid_id, session_id):
                 sr.timestamp,
                 c.front,
                 c.back,
+                d.name,
                 lra.file_name,
                 lra.mime_type,
                 t4.prompt,
@@ -4154,6 +4346,7 @@ def get_kid_report_session_detail(kid_id, session_id):
                 t4.submitted_answers
             FROM session_results sr
             LEFT JOIN cards c ON c.id = sr.card_id
+            LEFT JOIN decks d ON d.id = c.deck_id
             LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
             LEFT JOIN type4_result_item t4 ON t4.result_id = sr.id
             WHERE sr.session_id = ?
@@ -4181,15 +4374,17 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'timestamp': row[4].isoformat() if row[4] else None,
                 'front': row[5] or '',
                 'back': row[6] or '',
+                'source_deck_name': str(row[7] or '').strip(),
+                'source_deck_label': _session_source_deck_label(row[7]),
                 'grade_status': ('pass' if int(row[2] or 0) > 0 else ('fail' if int(row[2] or 0) < 0 else 'unknown')),
-                'audio_file_name': row[7] or None,
-                'audio_mime_type': row[8] or None,
-                'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[7]}" if row[7] else None,
-                'materialized_prompt': str(row[9] or '').strip(),
-                'materialized_answer': str(row[10] or '').strip(),
+                'audio_file_name': row[8] or None,
+                'audio_mime_type': row[9] or None,
+                'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[8]}" if row[8] else None,
+                'materialized_prompt': str(row[10] or '').strip(),
+                'materialized_answer': str(row[11] or '').strip(),
                 'submitted_answers': [
                     str(item).strip()
-                    for item in list(row[11] or [])
+                    for item in list(row[12] or [])
                     if str(item or '').strip()
                 ],
             }
@@ -6316,6 +6511,7 @@ def get_cards_with_stats(conn, deck_id):
             c.deck_id,
             c.front,
             c.back,
+            COALESCE(c.is_multichoice_only, FALSE) AS is_multichoice_only,
             COALESCE(c.skip_practice, FALSE) AS skip_practice,
             c.hardness_score,
             c.created_at,
@@ -6345,7 +6541,7 @@ def get_cards_with_stats(conn, deck_id):
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.deck_id = ?
-        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.hardness_score, c.created_at
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.is_multichoice_only, c.skip_practice, c.hardness_score, c.created_at
         ORDER BY c.id ASC
         """,
         [deck_id]
@@ -6354,7 +6550,7 @@ def get_cards_with_stats(conn, deck_id):
 
 def map_card_row(row, preview_order):
     """Map raw card+stats row to API object."""
-    last_result_correct = row[11]
+    last_result_correct = row[12]
     if last_result_correct is None:
         last_result = None
     elif int(last_result_correct) > 0:
@@ -6368,14 +6564,15 @@ def map_card_row(row, preview_order):
         'deck_id': row[1],
         'front': row[2],
         'back': row[3],
-        'skip_practice': bool(row[4]),
-        'hardness_score': float(row[5]) if row[5] is not None else 0,
-        'created_at': row[6].isoformat() if row[6] else None,
+        'is_multichoice_only': bool(row[4]) if row[4] is not None else False,
+        'skip_practice': bool(row[5]),
+        'hardness_score': float(row[6]) if row[6] is not None else 0,
+        'created_at': row[7].isoformat() if row[7] else None,
         'next_session_order': preview_order.get(row[0]),
-        'lifetime_attempts': int(row[7]) if row[7] is not None else 0,
-        'last_seen_at': row[8].isoformat() if row[8] else None,
-        'overall_wrong_rate': float(row[9]) if row[9] is not None else None,
-        'last_response_time_ms': int(row[10]) if row[10] is not None else None,
+        'lifetime_attempts': int(row[8]) if row[8] is not None else 0,
+        'last_seen_at': row[9].isoformat() if row[9] else None,
+        'overall_wrong_rate': float(row[10]) if row[10] is not None else None,
+        'last_response_time_ms': int(row[11]) if row[11] is not None else None,
         'last_result': last_result,
     }
 
@@ -6910,6 +7107,7 @@ def build_type_iv_shared_decks_payload(
     *,
     session_card_count_override=None,
     include_category_key=True,
+    include_orphan_in_queue_override=None,
 ):
     """Build shared-deck opt-in payload for one type-IV category."""
     shared_conn = None
@@ -6975,6 +7173,12 @@ def build_type_iv_shared_decks_payload(
             kid_conn.close()
         if shared_conn is not None:
             shared_conn.close()
+
+    include_orphan_in_queue = (
+        bool(include_orphan_in_queue_override)
+        if include_orphan_in_queue_override is not None
+        else get_category_include_orphan_for_kid(kid, category_key)
+    )
 
     shared_deck_id_set = set()
     for deck in decks:
@@ -7049,13 +7253,22 @@ def build_type_iv_shared_decks_payload(
     session_card_count = (
         int(session_card_count_override)
         if session_card_count_override is not None
-        else sum(int(deck.get('daily_target_count') or 0) for deck in decks if bool(deck.get('opted_in')))
+        else (
+            sum(int(deck.get('daily_target_count') or 0) for deck in decks if bool(deck.get('opted_in')))
+            + (
+                int(orphan_deck_payload.get('daily_target_count') or 0)
+                if orphan_deck_payload is not None and include_orphan_in_queue
+                else 0
+            )
+        )
     )
+    if orphan_deck_payload is not None:
+        orphan_deck_payload['included_in_queue'] = bool(include_orphan_in_queue)
     payload = {
         'decks': decks,
         'deck_count': len(decks),
         'session_card_count': session_card_count,
-        'include_orphan_in_queue': False,
+        'include_orphan_in_queue': bool(include_orphan_in_queue),
         'orphan_deck': orphan_deck_payload,
     }
     if include_category_key:
@@ -7361,7 +7574,7 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
                 practiced_placeholders = ','.join(['?'] * len(practiced_card_ids))
                 practiced_cards = kid_conn.execute(
                     f"""
-                    SELECT id, front, back, skip_practice, hardness_score, created_at
+                    SELECT id, front, back, is_multichoice_only, skip_practice, hardness_score, created_at
                     FROM cards
                     WHERE id IN ({practiced_placeholders})
                     """,
@@ -7374,8 +7587,8 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
                     )
                     kid_conn.executemany(
                         """
-                        INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO cards (id, deck_id, front, back, is_multichoice_only, skip_practice, hardness_score, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         [
                             [
@@ -7383,9 +7596,10 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
                                 orphan_deck_id,
                                 row[1],
                                 row[2],
-                                bool(row[3]),
-                                float(row[4] or 0.0),
-                                row[5],
+                                bool(row[3]) if row[3] is not None else False,
+                                bool(row[4]),
+                                float(row[5] or 0.0),
+                                row[6],
                             ]
                             for row in practiced_cards
                         ]
@@ -7483,6 +7697,10 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
             deck_ids
         ).fetchall()
         representative_by_deck_id = {}
+        generator_definition_by_deck_id = get_shared_deck_generator_definitions_by_deck_ids(
+            shared_conn,
+            deck_ids,
+        )
         for row in representative_rows:
             deck_id = int(row[0])
             if deck_id in representative_by_deck_id:
@@ -7528,7 +7746,7 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
             front_placeholders = ','.join(['?'] * len(representative_fronts))
             orphan_rows = kid_conn.execute(
                 f"""
-                SELECT id, front, back, skip_practice, hardness_score, created_at
+                SELECT id, front, back, is_multichoice_only, skip_practice, hardness_score, created_at
                 FROM cards
                 WHERE deck_id = ?
                   AND front IN ({front_placeholders})
@@ -7576,6 +7794,8 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
             local_deck_id = int(inserted[0])
 
             representative = representative_by_deck_id[src_deck_id]
+            generator_definition = generator_definition_by_deck_id.get(src_deck_id) or {}
+            is_multichoice_only = bool(generator_definition.get('is_multichoice_only'))
             representative_front = str(representative.get('front') or '')
             representative_back = str(representative.get('back') or '')
             orphan_row = orphan_by_front.pop(representative_front, None)
@@ -7585,27 +7805,29 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
                 kid_conn.execute("DELETE FROM cards WHERE id = ?", [moved_card_id])
                 kid_conn.execute(
                     """
-                    INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO cards (id, deck_id, front, back, is_multichoice_only, skip_practice, hardness_score, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
                         moved_card_id,
                         local_deck_id,
                         representative_front,
                         representative_back,
-                        bool(orphan_row[3]),
-                        float(orphan_row[4] or 0.0),
-                        orphan_row[5],
+                        bool(is_multichoice_only),
+                        bool(orphan_row[4]),
+                        float(orphan_row[5] or 0.0),
+                        orphan_row[6],
                     ]
                 )
                 cards_moved_from_orphan = 1
             else:
                 kid_conn.execute(
-                    "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
+                    "INSERT INTO cards (deck_id, front, back, is_multichoice_only) VALUES (?, ?, ?, ?)",
                     [
                         local_deck_id,
                         representative_front,
                         representative_back,
+                        bool(is_multichoice_only),
                     ]
                 )
             created.append({
@@ -7900,8 +8122,19 @@ def build_type_iv_shared_cards_payload(
 
     conn = get_kid_connection_for(kid)
     try:
-        practice_sources = get_shared_type_iv_merged_source_decks_for_kid(conn, category_key)
-        sources = get_type_iv_bank_source_rows(conn, category_key)
+        include_orphan_in_queue = get_category_include_orphan_for_kid(kid, category_key)
+        practice_sources = get_type_iv_practice_source_rows(
+            conn,
+            kid,
+            category_key,
+            include_orphan_in_queue_override=include_orphan_in_queue,
+        )
+        sources = get_type_iv_bank_source_rows(
+            conn,
+            kid,
+            category_key,
+            include_orphan_in_queue_override=include_orphan_in_queue,
+        )
         generator_details_by_shared_id = build_type_iv_card_generator_details_by_shared_id(
             [src.get('shared_deck_id') for src in practice_sources if src.get('shared_deck_id') is not None],
         )
@@ -7909,7 +8142,12 @@ def build_type_iv_shared_cards_payload(
         session_card_count = (
             int(session_card_count_override)
             if session_card_count_override is not None
-            else get_type_iv_total_daily_target_for_category(conn, category_key)
+            else get_type_iv_total_daily_target_for_category(
+                conn,
+                kid,
+                category_key,
+                include_orphan_in_queue_override=include_orphan_in_queue,
+            )
         )
 
         def _source_label(source):
@@ -7940,6 +8178,11 @@ def build_type_iv_shared_cards_payload(
                 mapped['source_is_orphan'] = bool(src.get('is_orphan'))
                 mapped['type4_shared_deck_id'] = resolved_shared_deck_id if resolved_shared_deck_id > 0 else None
                 mapped['type4_generator_code'] = str(generator_details.get('code') or '')
+                mapped['type4_is_multichoice_only'] = bool(
+                    generator_details.get('is_multichoice_only')
+                    if generator_details
+                    else mapped.get('is_multichoice_only')
+                )
                 merged_cards.append(mapped)
 
         practice_active_count = sum(int(src.get('active_card_count') or 0) for src in practice_sources)
@@ -7953,7 +8196,7 @@ def build_type_iv_shared_cards_payload(
         'category_key': category_key,
         'deck_name': f'Merged {category_display_name} Bank',
         'hard_card_percentage': int(effective_hard_pct),
-        'include_orphan_in_queue': False,
+        'include_orphan_in_queue': bool(include_orphan_in_queue),
         'practice_source_count': len(practice_sources),
         'practice_active_card_count': int(practice_active_count),
         'active_card_count': active_count,
@@ -7978,16 +8221,40 @@ def normalize_type_iv_submitted_answer(raw_value):
     return str(raw_value).strip()
 
 
-def get_type_iv_practice_source_rows(conn, category_key):
+def get_type_iv_practice_source_rows(
+    conn,
+    kid,
+    category_key,
+    *,
+    include_orphan_in_queue_override=None,
+):
     """Return opted-in generator sources ready for session generation."""
-    sources = get_shared_type_iv_merged_source_decks_for_kid(conn, category_key)
+    sources = [
+        source for source in list(get_shared_type_iv_merged_source_decks_for_kid(
+            conn,
+            kid,
+            category_key,
+            include_orphan_in_queue_override=include_orphan_in_queue_override,
+        ))
+        if bool(source.get('included_in_queue'))
+    ]
     local_deck_ids = [int(src['local_deck_id']) for src in sources if int(src.get('local_deck_id') or 0) > 0]
-    representative_by_deck_id = {}
+    source_by_local_deck_id = {
+        int(src.get('local_deck_id') or 0): src
+        for src in sources
+        if int(src.get('local_deck_id') or 0) > 0
+    }
+    generator_details_by_shared_id = build_type_iv_card_generator_details_by_shared_id(
+        [src.get('shared_deck_id') for src in sources],
+    )
+    generator_details_by_front = build_type_iv_generator_details_by_representative_front(category_key)
+
+    practice_sources = []
     if local_deck_ids:
         placeholders = ','.join(['?'] * len(local_deck_ids))
         rows = conn.execute(
             f"""
-            SELECT c.id, c.deck_id, c.front, d.daily_target_count
+            SELECT c.id, c.deck_id, c.front, c.is_multichoice_only, d.daily_target_count
             FROM cards c
             JOIN decks d ON d.id = c.deck_id
             WHERE c.deck_id IN ({placeholders})
@@ -7995,40 +8262,50 @@ def get_type_iv_practice_source_rows(conn, category_key):
             """,
             local_deck_ids,
         ).fetchall()
+        seen_non_orphan_deck_ids = set()
         for row in rows:
+            representative_card_id = int(row[0] or 0)
             local_deck_id = int(row[1] or 0)
-            if local_deck_id in representative_by_deck_id:
+            source = source_by_local_deck_id.get(local_deck_id)
+            if representative_card_id <= 0 or local_deck_id <= 0 or not source:
                 continue
-            representative_by_deck_id[local_deck_id] = {
-                'representative_card_id': int(row[0] or 0),
-                'representative_front': str(row[2] or ''),
-                'daily_target_count': max(0, int(row[3] or 0)),
-            }
+            is_orphan = bool(source.get('is_orphan'))
+            if not is_orphan and local_deck_id in seen_non_orphan_deck_ids:
+                continue
+            if not is_orphan:
+                seen_non_orphan_deck_ids.add(local_deck_id)
 
-    generator_details_by_shared_id = build_type_iv_card_generator_details_by_shared_id(
-        [src.get('shared_deck_id') for src in sources],
-    )
+            raw_shared_deck_id = source.get('shared_deck_id')
+            shared_deck_id = int(raw_shared_deck_id or 0) if raw_shared_deck_id is not None else 0
+            representative_front = str(row[2] or '')
+            generator_details = generator_details_by_shared_id.get(shared_deck_id) or {}
+            if not generator_details and representative_front:
+                generator_details = generator_details_by_front.get(representative_front) or {}
+            resolved_shared_deck_id = int(generator_details.get('shared_deck_id') or shared_deck_id or 0)
+            generator_code = str(generator_details.get('code') or '').strip()
+            if not generator_code:
+                continue
 
-    practice_sources = []
-    for src in sources:
-        local_deck_id = int(src.get('local_deck_id') or 0)
-        shared_deck_id = int(src.get('shared_deck_id') or 0)
-        representative = representative_by_deck_id.get(local_deck_id) or {}
-        generator_details = generator_details_by_shared_id.get(shared_deck_id) or {}
-        representative_card_id = int(representative.get('representative_card_id') or 0)
-        generator_code = str(generator_details.get('code') or '').strip()
-        if local_deck_id <= 0 or shared_deck_id <= 0 or representative_card_id <= 0 or not generator_code:
-            continue
-        practice_sources.append({
-            'local_deck_id': local_deck_id,
-            'shared_deck_id': shared_deck_id,
-            'local_name': str(src.get('local_name') or ''),
-            'tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
-            'representative_card_id': representative_card_id,
-            'representative_front': str(representative.get('representative_front') or ''),
-            'daily_target_count': max(0, int(representative.get('daily_target_count') or 0)),
-            'generator_code': generator_code,
-        })
+            practice_sources.append({
+                'source_key': int(representative_card_id),
+                'local_deck_id': local_deck_id,
+                'shared_deck_id': resolved_shared_deck_id if resolved_shared_deck_id > 0 else None,
+                'local_name': str(source.get('local_name') or ''),
+                'tags': extract_shared_deck_tags_and_labels(source.get('tags') or [])[0],
+                'card_count': 1,
+                'active_card_count': 1,
+                'skipped_card_count': 0,
+                'representative_card_id': representative_card_id,
+                'representative_front': representative_front,
+                'daily_target_count': max(0, int(row[4] or 0)),
+                'generator_code': generator_code,
+                'is_multichoice_only': bool(
+                    generator_details.get('is_multichoice_only')
+                    if generator_details
+                    else row[3]
+                ),
+                'is_orphan': is_orphan,
+            })
     return practice_sources
 
 
@@ -8050,11 +8327,17 @@ def build_type_iv_choice_options(answer, distractor_answers, seed):
 
 def map_type_iv_pending_item_to_response_card(item, practice_mode):
     """Map one pending generator item to the kid-facing practice payload."""
+    is_multichoice_only = bool(item.get('is_multichoice_only'))
+    use_multi_choice = (
+        is_multichoice_only
+        or normalize_type_iv_practice_mode(practice_mode) == TYPE_IV_PRACTICE_MODE_MULTI
+    )
     response_card = {
         'id': int(item.get('id') or 0),
         'front': str(item.get('prompt') or ''),
+        'isMultichoiceOnly': bool(is_multichoice_only),
     }
-    if normalize_type_iv_practice_mode(practice_mode) == TYPE_IV_PRACTICE_MODE_MULTI:
+    if use_multi_choice:
         response_card['choices'] = build_type_iv_choice_options(
             item.get('answer'),
             item.get('distractor_answers') or [],
@@ -8065,7 +8348,7 @@ def map_type_iv_pending_item_to_response_card(item, practice_mode):
 
 def build_type_iv_pending_items_for_sources(
     practice_sources,
-    count_by_deck_id,
+    count_by_source_key,
     practice_mode,
     *,
     pending_id_start=1,
@@ -8082,7 +8365,8 @@ def build_type_iv_pending_items_for_sources(
 
     for source in list(practice_sources or []):
         local_deck_id = int(source.get('local_deck_id') or 0)
-        sample_count = max(0, int((count_by_deck_id or {}).get(local_deck_id, 0) or 0))
+        source_key = int(source.get('source_key') or source.get('representative_card_id') or 0)
+        sample_count = max(0, int((count_by_source_key or {}).get(source_key, 0) or 0))
         if local_deck_id <= 0 or sample_count <= 0:
             continue
         samples = run_type4_generator(
@@ -8099,6 +8383,7 @@ def build_type_iv_pending_items_for_sources(
                 'prompt': str(sample.get('prompt') or ''),
                 'answer': str(sample.get('answer') or ''),
                 'distractor_answers': [str(item) for item in list(sample.get('distractors') or [])],
+                'is_multichoice_only': bool(source.get('is_multichoice_only')),
             }
             pending_items.append(pending_item)
             response_cards.append(
@@ -8109,70 +8394,166 @@ def build_type_iv_pending_items_for_sources(
     return pending_items, response_cards
 
 
-def build_type_iv_continue_count_by_deck_id(practice_sources, target_count):
-    """Redistribute unfinished generator questions across currently opted-in decks."""
+def distribute_type_iv_random_count_across_sources(source_keys, total_count, rng):
+    """Spread one generator count randomly across source keys with minimal repetition."""
+    normalized_keys = []
+    seen = set()
+    for raw_key in list(source_keys or []):
+        try:
+            key = int(raw_key)
+        except (TypeError, ValueError):
+            continue
+        if key <= 0 or key in seen:
+            continue
+        seen.add(key)
+        normalized_keys.append(key)
+    if total_count <= 0 or not normalized_keys:
+        return {}
+
+    allocations = {key: 0 for key in normalized_keys}
+    shuffled_keys = list(normalized_keys)
+    rng.shuffle(shuffled_keys)
+    full_cycles, remainder = divmod(int(total_count), len(shuffled_keys))
+    if full_cycles > 0:
+        for key in shuffled_keys:
+            allocations[key] += full_cycles
+    if remainder > 0:
+        rng.shuffle(shuffled_keys)
+        for key in shuffled_keys[:remainder]:
+            allocations[key] += 1
+    return {
+        int(key): int(count)
+        for key, count in allocations.items()
+        if int(count or 0) > 0
+    }
+
+
+def build_type_iv_initial_count_by_source_key(practice_sources):
+    """Build one configured per-source count map for a fresh generator session."""
+    allocations = {}
+    orphan_source_keys_by_deck_id = {}
+    orphan_daily_target_by_deck_id = {}
+
+    for source in list(practice_sources or []):
+        local_deck_id = int(source.get('local_deck_id') or 0)
+        source_key = int(source.get('source_key') or source.get('representative_card_id') or 0)
+        daily_target_count = max(0, int(source.get('daily_target_count') or 0))
+        if local_deck_id <= 0 or source_key <= 0 or daily_target_count <= 0:
+            continue
+        if bool(source.get('is_orphan')):
+            orphan_source_keys_by_deck_id.setdefault(local_deck_id, []).append(source_key)
+            orphan_daily_target_by_deck_id[local_deck_id] = daily_target_count
+            continue
+        allocations[source_key] = daily_target_count
+
+    rng = random.Random(int(time.time_ns() % 2_000_000_000))
+    for local_deck_id, source_keys in orphan_source_keys_by_deck_id.items():
+        orphan_allocations = distribute_type_iv_random_count_across_sources(
+            source_keys,
+            int(orphan_daily_target_by_deck_id.get(local_deck_id) or 0),
+            rng,
+        )
+        for source_key, count in orphan_allocations.items():
+            allocations[int(source_key)] = int(count)
+
+    return allocations
+
+
+def build_type_iv_continue_count_by_source_key(practice_sources, target_count):
+    """Redistribute unfinished generator questions across current generator sources."""
     remaining_count = max(0, int(target_count or 0))
     if remaining_count <= 0:
         return {}
 
-    all_sources = [
-        source for source in list(practice_sources or [])
-        if int(source.get('local_deck_id') or 0) > 0
+    grouped_entries_by_key = {}
+    for source in list(practice_sources or []):
+        local_deck_id = int(source.get('local_deck_id') or 0)
+        source_key = int(source.get('source_key') or source.get('representative_card_id') or 0)
+        if local_deck_id <= 0 or source_key <= 0:
+            continue
+        is_orphan = bool(source.get('is_orphan'))
+        group_key = f"orphan_{local_deck_id}" if is_orphan else f"source_{source_key}"
+        entry = grouped_entries_by_key.get(group_key)
+        if entry is None:
+            entry = {
+                'group_key': group_key,
+                'weight': max(0, int(source.get('daily_target_count') or 0)),
+                'source_keys': [],
+                'is_orphan': is_orphan,
+            }
+            grouped_entries_by_key[group_key] = entry
+        entry['weight'] = max(entry['weight'], max(0, int(source.get('daily_target_count') or 0)))
+        entry['source_keys'].append(source_key)
+
+    all_entries = [
+        entry for entry in grouped_entries_by_key.values()
+        if list(entry.get('source_keys') or [])
     ]
-    if not all_sources:
+    if not all_entries:
         return {}
 
-    weighted_sources = [
-        source for source in all_sources
-        if int(source.get('daily_target_count') or 0) > 0
+    weighted_entries = [
+        entry for entry in all_entries
+        if int(entry.get('weight') or 0) > 0
     ]
-    if not weighted_sources:
-        weighted_sources = list(all_sources)
+    if not weighted_entries:
+        weighted_entries = list(all_entries)
 
-    source_entries = []
-    for source in weighted_sources:
-        local_deck_id = int(source.get('local_deck_id') or 0)
-        if local_deck_id <= 0:
-            continue
-        weight = max(1, int(source.get('daily_target_count') or 0))
-        source_entries.append({
-            'local_deck_id': local_deck_id,
-            'weight': weight,
-        })
+    source_entries = [{
+        'group_key': str(entry.get('group_key') or ''),
+        'weight': max(1, int(entry.get('weight') or 0)),
+        'source_keys': [int(key) for key in list(entry.get('source_keys') or []) if int(key) > 0],
+        'is_orphan': bool(entry.get('is_orphan')),
+    } for entry in weighted_entries]
     if not source_entries:
         return {}
 
     total_weight = sum(entry['weight'] for entry in source_entries)
-    allocations = {entry['local_deck_id']: 0 for entry in source_entries}
+    allocations = {entry['group_key']: 0 for entry in source_entries}
     fractional_entries = []
     allocated_count = 0
     for entry in source_entries:
         exact_share = (remaining_count * entry['weight']) / float(max(1, total_weight))
         base_share = int(math.floor(exact_share))
-        allocations[entry['local_deck_id']] = base_share
+        allocations[entry['group_key']] = base_share
         allocated_count += base_share
         fractional_entries.append({
-            'local_deck_id': entry['local_deck_id'],
+            'group_key': entry['group_key'],
             'weight': entry['weight'],
             'fractional': exact_share - float(base_share),
         })
 
     remainder = max(0, remaining_count - allocated_count)
     fractional_entries.sort(
-        key=lambda entry: (-entry['fractional'], -entry['weight'], entry['local_deck_id'])
+        key=lambda entry: (-entry['fractional'], -entry['weight'], entry['group_key'])
     )
     while remainder > 0 and fractional_entries:
         for entry in fractional_entries:
-            allocations[entry['local_deck_id']] += 1
+            allocations[entry['group_key']] += 1
             remainder -= 1
             if remainder <= 0:
                 break
 
-    return {
-        local_deck_id: count
-        for local_deck_id, count in allocations.items()
-        if int(count or 0) > 0
-    }
+    rng = random.Random(int(time.time_ns() % 2_000_000_000))
+    expanded_allocations = {}
+    for entry in source_entries:
+        allocated = int(allocations.get(entry['group_key']) or 0)
+        if allocated <= 0:
+            continue
+        if bool(entry.get('is_orphan')):
+            orphan_allocations = distribute_type_iv_random_count_across_sources(
+                entry.get('source_keys') or [],
+                allocated,
+                rng,
+            )
+            for source_key, count in orphan_allocations.items():
+                expanded_allocations[int(source_key)] = int(count)
+            continue
+        first_source_key = int((entry.get('source_keys') or [0])[0] or 0)
+        if first_source_key > 0:
+            expanded_allocations[first_source_key] = allocated
+
+    return expanded_allocations
 
 
 def get_type_iv_retry_source_result_rows(conn, source_session_id, allowed_representative_card_ids):
@@ -8238,7 +8619,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
             0,
             int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
         )
-        continue_counts = build_type_iv_continue_count_by_deck_id(practice_sources, missing_count)
+        continue_counts = build_type_iv_continue_count_by_source_key(practice_sources, missing_count)
         return {
             'is_continue_session': True,
             'continue_source_session_id': int(continue_source_session['session_id']),
@@ -9201,10 +9582,11 @@ def build_merged_source_decks_payload(sources, configured_count, include_orphan_
 def build_orphan_deck_payload(conn, orphan_deck_id, default_orphan_name):
     """Build one orphan deck summary payload."""
     orphan_row = conn.execute(
-        "SELECT id, name FROM decks WHERE id = ? LIMIT 1",
+        "SELECT id, name, COALESCE(daily_target_count, 0) FROM decks WHERE id = ? LIMIT 1",
         [orphan_deck_id]
     ).fetchone()
     orphan_name = str(orphan_row[1] or default_orphan_name) if orphan_row else str(default_orphan_name)
+    orphan_daily_target_count = int(orphan_row[2] or 0) if orphan_row and len(orphan_row) >= 3 else 0
     orphan_total = int(conn.execute(
         "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
         [orphan_deck_id]
@@ -9223,6 +9605,7 @@ def build_orphan_deck_payload(conn, orphan_deck_id, default_orphan_name):
         'card_count': orphan_total,
         'active_card_count': orphan_active,
         'skipped_card_count': orphan_skipped,
+        'daily_target_count': orphan_daily_target_count,
     }
 
 
@@ -9769,8 +10152,8 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
             'management_type': SHARED_SCOPE_MANAGEMENT_TYPE_IV,
             'category_key': category_key,
             'has_chinese_specific_logic': bool(has_chinese_specific_logic),
-            'include_orphan_in_queue': False,
-            'orphan_deck_name': '',
+            'include_orphan_in_queue': get_category_include_orphan_for_kid(kid, category_key),
+            'orphan_deck_name': get_category_orphan_deck_name(category_key),
         }
     if str(category.get('kind') or '') == 'type1':
         category_key, has_chinese_specific_logic = resolve_kid_type_i_category_with_mode(
@@ -9832,6 +10215,7 @@ def get_shared_decks_for_scope(kid_id, category):
                 kid,
                 scope_context['category_key'],
                 include_category_key=True,
+                include_orphan_in_queue_override=scope_context['include_orphan_in_queue'],
             )
             return jsonify(payload), 200
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
@@ -10079,7 +10463,9 @@ def get_decks_for_scope(kid_id, category):
             try:
                 practice_sources = get_type_iv_practice_source_rows(
                     conn,
+                    kid,
                     scope_context['category_key'],
+                    include_orphan_in_queue_override=scope_context['include_orphan_in_queue'],
                 )
                 special_ready_payload = build_type_iv_special_session_ready_payload(
                     conn,
@@ -10094,6 +10480,7 @@ def get_decks_for_scope(kid_id, category):
                 kid,
                 scope_context['category_key'],
                 include_category_key=True,
+                include_orphan_in_queue_override=scope_context['include_orphan_in_queue'],
             )
             readiness_decks = []
             for deck in list(listing_payload.get('decks') or []):
@@ -10109,14 +10496,37 @@ def get_decks_for_scope(kid_id, category):
                     'opted_in': bool(deck.get('opted_in')),
                     'daily_target_count': int(deck.get('daily_target_count') or 0),
                 })
+            orphan_payload = listing_payload.get('orphan_deck') if isinstance(listing_payload, dict) else None
+            if isinstance(orphan_payload, dict) and int(orphan_payload.get('card_count') or 0) > 0:
+                orphan_active_card_count = int(orphan_payload.get('active_card_count') or 0)
+                orphan_daily_target_count = int(orphan_payload.get('daily_target_count') or 0)
+                orphan_included = bool(scope_context['include_orphan_in_queue'])
+                readiness_decks.append({
+                    'key': 'orphan',
+                    'label': str(orphan_payload.get('name') or scope_context['orphan_deck_name'] or 'Personal Deck'),
+                    'deck_id': int(orphan_payload.get('deck_id') or 0),
+                    'shared_deck_id': None,
+                    'total_cards': orphan_active_card_count,
+                    'session_count': (
+                        orphan_daily_target_count
+                        if orphan_included and orphan_active_card_count > 0
+                        else 0
+                    ),
+                    'included_in_queue': bool(
+                        orphan_included and orphan_active_card_count > 0 and orphan_daily_target_count > 0
+                    ),
+                    'is_orphan': True,
+                    'opted_in': bool(orphan_included),
+                    'daily_target_count': orphan_daily_target_count,
+                })
             total_session_count = int(listing_payload.get('session_card_count') or 0)
             return jsonify({
                 'category_key': scope_context['category_key'],
                 'decks': readiness_decks,
                 'total_session_count': total_session_count,
                 'configured_session_count': total_session_count,
-                'total_active_cards': sum(1 for deck in readiness_decks if bool(deck.get('opted_in'))),
-                'include_orphan_in_queue': False,
+                'total_active_cards': sum(int(deck.get('total_cards') or 0) for deck in readiness_decks if bool(deck.get('included_in_queue'))),
+                'include_orphan_in_queue': bool(scope_context['include_orphan_in_queue']),
                 'has_chinese_specific_logic': False,
                 **special_ready_payload,
             }), 200
@@ -10338,6 +10748,15 @@ def update_type4_shared_deck_daily_targets(kid_id):
         if raw_counts is None:
             raw_counts = payload.get('daily_counts_by_deck_id')
         daily_counts_by_shared_deck_id = normalize_type_iv_daily_counts_payload(raw_counts)
+        raw_orphan_daily_target_count = payload.get('orphanDailyTargetCount')
+        if raw_orphan_daily_target_count is None and 'orphan_daily_target_count' in payload:
+            raw_orphan_daily_target_count = payload.get('orphan_daily_target_count')
+        orphan_daily_target_count = None
+        if raw_orphan_daily_target_count is not None:
+            try:
+                orphan_daily_target_count = max(0, min(1000, int(raw_orphan_daily_target_count)))
+            except (TypeError, ValueError):
+                return jsonify({'error': 'orphanDailyTargetCount must be an integer between 0 and 1000'}), 400
 
         conn = get_kid_connection_for(kid)
         try:
@@ -10374,7 +10793,26 @@ def update_type4_shared_deck_daily_targets(kid_id):
                     'deck_id': int(local_deck_id),
                     'daily_target_count': int(next_daily_count),
                 })
+            orphan_daily_target_saved = None
+            orphan_deck_name = get_category_orphan_deck_name(category_key)
+            orphan_row = conn.execute(
+                "SELECT id, COALESCE(daily_target_count, 0) FROM decks WHERE name = ? LIMIT 1",
+                [orphan_deck_name],
+            ).fetchone()
+            if orphan_row and int(orphan_row[0] or 0) > 0:
+                orphan_deck_id = int(orphan_row[0] or 0)
+                if orphan_daily_target_count is not None:
+                    conn.execute(
+                        "UPDATE decks SET daily_target_count = ? WHERE id = ?",
+                        [int(orphan_daily_target_count), orphan_deck_id],
+                    )
+                    orphan_daily_target_saved = int(orphan_daily_target_count)
+                else:
+                    orphan_daily_target_saved = int(orphan_row[1] or 0)
+            include_orphan_in_queue = get_category_include_orphan_for_kid(kid, category_key)
             session_card_count = int(sum(item['daily_target_count'] for item in updated))
+            if include_orphan_in_queue and orphan_daily_target_saved is not None:
+                session_card_count += int(orphan_daily_target_saved)
         finally:
             conn.close()
 
@@ -10387,6 +10825,7 @@ def update_type4_shared_deck_daily_targets(kid_id):
                 str(item['shared_deck_id']): int(item['daily_target_count'])
                 for item in updated
             },
+            'orphan_daily_target_count': orphan_daily_target_saved,
             'decks': updated,
         }), 200
     except ValueError as e:
@@ -12019,7 +12458,12 @@ def start_type4_practice_session(kid_id):
 
         conn = get_kid_connection_for(kid)
         try:
-            practice_sources = get_type_iv_practice_source_rows(conn, category_key)
+            practice_sources = get_type_iv_practice_source_rows(conn, kid, category_key)
+            practice_source_by_card_id = {
+                int(source.get('representative_card_id') or 0): source
+                for source in practice_sources
+                if int(source.get('representative_card_id') or 0) > 0
+            }
             continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
             is_continue_session = continue_source_session is not None
             retry_source_session = None
@@ -12032,13 +12476,13 @@ def start_type4_practice_session(kid_id):
                     0,
                     int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
                 )
-                count_by_deck_id = build_type_iv_continue_count_by_deck_id(
+                count_by_source_key = build_type_iv_continue_count_by_source_key(
                     practice_sources,
                     missing_count,
                 )
                 pending_items, response_cards = build_type_iv_pending_items_for_sources(
                     practice_sources,
-                    count_by_deck_id,
+                    count_by_source_key,
                     practice_mode,
                 )
             else:
@@ -12056,20 +12500,22 @@ def start_type4_practice_session(kid_id):
                         'prompt': str(row['prompt'] or ''),
                         'answer': str(row['answer'] or ''),
                         'distractor_answers': [str(item) for item in list(row.get('distractor_answers') or [])],
+                        'is_multichoice_only': bool(
+                            (
+                                practice_source_by_card_id.get(int(row['representative_card_id']))
+                                or {}
+                            ).get('is_multichoice_only')
+                        ),
                     } for row in retry_rows]
                     response_cards = [
                         map_type_iv_pending_item_to_response_card(item, practice_mode)
                         for item in pending_items
                     ]
                 else:
-                    count_by_deck_id = {
-                        int(source['local_deck_id']): int(source.get('daily_target_count') or 0)
-                        for source in practice_sources
-                        if int(source.get('daily_target_count') or 0) > 0
-                    }
+                    count_by_source_key = build_type_iv_initial_count_by_source_key(practice_sources)
                     pending_items, response_cards = build_type_iv_pending_items_for_sources(
                         practice_sources,
-                        count_by_deck_id,
+                        count_by_source_key,
                         practice_mode,
                     )
 

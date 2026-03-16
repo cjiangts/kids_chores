@@ -14,6 +14,7 @@ const cardsInputSectionTitle = document.getElementById('cardsInputSectionTitle')
 const cardsInputHelpText = document.getElementById('cardsInputHelpText');
 const type4Editor = document.getElementById('type4Editor');
 const type4DisplayLabelInput = document.getElementById('type4DisplayLabelInput');
+const type4IsMultichoiceOnlyInput = document.getElementById('type4IsMultichoiceOnlyInput');
 const type4GeneratorCodeInput = document.getElementById('type4GeneratorCodeInput');
 const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEditor');
 const previewBtn = document.getElementById('previewBtn');
@@ -25,6 +26,7 @@ const reviewTableWrap = document.getElementById('reviewTableWrap');
 const reviewTableBody = document.getElementById('reviewTableBody');
 const type4ReviewBox = document.getElementById('type4ReviewBox');
 const type4ReviewLabel = document.getElementById('type4ReviewLabel');
+const type4ReviewIsMultichoiceOnly = document.getElementById('type4ReviewIsMultichoiceOnly');
 const type4ReviewCode = document.getElementById('type4ReviewCode');
 const type4ReviewExamples = document.getElementById('type4ReviewExamples');
 const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
@@ -129,10 +131,14 @@ previewBtn.addEventListener('click', async () => {
 
 clearCsvBtn.addEventListener('click', () => {
     if (isTypeIVDeckMode()) {
+        invalidateType4Preview();
         setType4GeneratorCodeValue(DEFAULT_TYPE4_GENERATOR_CODE);
         if (type4DisplayLabelInput) {
             type4DisplayLabelInput.value = '';
             type4DisplayLabelInput.focus();
+        }
+        if (type4IsMultichoiceOnlyInput) {
+            type4IsMultichoiceOnlyInput.checked = false;
         }
         return;
     }
@@ -203,6 +209,16 @@ function bindType4PreviewInvalidation() {
             invalidateType4Preview();
         });
     }
+    if (type4IsMultichoiceOnlyInput) {
+        type4IsMultichoiceOnlyInput.addEventListener('change', () => {
+            invalidateType4Preview();
+        });
+    }
+    if (type4GeneratorCodeInput) {
+        type4GeneratorCodeInput.addEventListener('input', () => {
+            invalidateType4Preview();
+        });
+    }
 }
 
 function invalidateType4Preview() {
@@ -261,6 +277,7 @@ function setControlsDisabled(disabled) {
         addTagBtn: { element: addTagBtn },
         cardsCsvInput: { element: cardsCsvInput },
         type4DisplayLabelInput: { element: type4DisplayLabelInput },
+        type4IsMultichoiceOnlyInput: { element: type4IsMultichoiceOnlyInput },
         type4GeneratorCodeInput: { element: type4GeneratorCodeInput },
         previewBtn: { element: previewBtn },
         clearCsvBtn: { element: clearCsvBtn },
@@ -419,6 +436,11 @@ function applyClonedDeck(payload) {
 
     if (type4DisplayLabelInput) {
         type4DisplayLabelInput.value = String(cards[0] && cards[0].front ? cards[0].front : '').trim();
+    }
+    if (type4IsMultichoiceOnlyInput) {
+        type4IsMultichoiceOnlyInput.checked = Boolean(
+            generatorDefinition && generatorDefinition.is_multichoice_only
+        );
     }
     setType4GeneratorCodeValue(
         String(generatorDefinition && generatorDefinition.code ? generatorDefinition.code : '')
@@ -722,6 +744,7 @@ async function parseCardsForCurrentMode() {
 
 function parseType4Definition() {
     const displayLabel = String(type4DisplayLabelInput ? type4DisplayLabelInput.value : '').trim();
+    const isMultichoiceOnly = Boolean(type4IsMultichoiceOnlyInput && type4IsMultichoiceOnlyInput.checked);
     const generatorCode = getType4GeneratorCodeValue()
         .replace(/\r\n/g, '\n')
         .replace(/\r/g, '\n')
@@ -734,6 +757,7 @@ function parseType4Definition() {
     }
     return {
         displayLabel,
+        isMultichoiceOnly,
         generatorCode,
     };
 }
@@ -925,7 +949,12 @@ function renderReview(cardsToCreate, allRows) {
         type4ReviewBox.classList.toggle('hidden', !isTypeIV);
     }
     if (isTypeIV) {
-        const type4Definition = previewType4Definition || { displayLabel: '', generatorCode: '', samples: [] };
+        const type4Definition = previewType4Definition || {
+            displayLabel: '',
+            isMultichoiceOnly: false,
+            generatorCode: '',
+            samples: [],
+        };
         reviewMeta.innerHTML = `
             <div><strong>Deck name:</strong> <code>${escapeHtml(deckName)}</code></div>
             <div><strong>Tags:</strong> ${tags.map((tag) => `<code>${escapeHtml(tag)}</code>`).join(', ')}</div>
@@ -936,6 +965,9 @@ function renderReview(cardsToCreate, allRows) {
         dedupeSummary.classList.add('hidden');
         if (type4ReviewLabel) {
             type4ReviewLabel.textContent = type4Definition.displayLabel;
+        }
+        if (type4ReviewIsMultichoiceOnly) {
+            type4ReviewIsMultichoiceOnly.textContent = type4Definition.isMultichoiceOnly ? 'Yes' : 'No';
         }
         if (type4ReviewCode) {
             type4ReviewCode.textContent = type4Definition.generatorCode;
@@ -1036,6 +1068,7 @@ async function createDeck() {
             return;
         }
         payload.displayLabel = previewType4Definition.displayLabel;
+        payload.isMultichoiceOnly = Boolean(previewType4Definition.isMultichoiceOnly);
         payload.generatorCode = previewType4Definition.generatorCode;
     } else {
         if (!Array.isArray(previewCards) || previewCards.length === 0) {

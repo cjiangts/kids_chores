@@ -271,6 +271,38 @@
             gap: 0.8rem;
         }
 
+        .type4-flag-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            padding: 0.1rem 0 0.2rem;
+        }
+
+        .type4-flag-row input[type="checkbox"] {
+            margin-top: 0.15rem;
+            width: 1rem;
+            height: 1rem;
+            flex: 0 0 auto;
+        }
+
+        .type4-flag-copy {
+            min-width: 0;
+        }
+
+        .type4-flag-copy strong {
+            display: block;
+            font-size: 0.95rem;
+            color: #233044;
+        }
+
+        .type4-flag-copy span {
+            display: block;
+            margin-top: 0.15rem;
+            font-size: 0.84rem;
+            line-height: 1.35;
+            color: #4b5a70;
+        }
+
         .type4-code-textarea {
             min-height: 266px;
             line-height: 1.45;
@@ -357,6 +389,13 @@
                             <label for="type4DisplayLabelInput">Representative label</label>
                             <input type="text" id="type4DisplayLabelInput" placeholder="e.g. ?? + ??">
                         </div>
+                        <label class="type4-flag-row" for="type4IsMultichoiceOnlyInput">
+                            <input type="checkbox" id="type4IsMultichoiceOnlyInput">
+                            <span class="type4-flag-copy">
+                                <strong>Always multiple choice</strong>
+                                <span>Use answer buttons for this deck even if the kid selected typing mode.</span>
+                            </span>
+                        </label>
                         <div class="form-group">
                             <label for="type4GeneratorCodeInput">Python generator snippet</label>
                             <textarea id="type4GeneratorCodeInput" class="deck-csv-textarea input-mono type4-code-textarea" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">def generate(rng):
@@ -400,6 +439,7 @@
                 </div>
                 <div id="type4ReviewBox" class="type4-review-box hidden">
                     <div><strong>Representative label:</strong> <span id="type4ReviewLabel"></span></div>
+                    <div class="mt-07"><strong>Always multiple choice:</strong> <span id="type4ReviewIsMultichoiceOnly"></span></div>
                     <div class="mt-07"><strong>Python generator:</strong></div>
                     <pre id="type4ReviewCode" class="type4-review-code input-mono"></pre>
                     <div class="type4-review-examples-head">

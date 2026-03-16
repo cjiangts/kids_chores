@@ -13,6 +13,7 @@ const targetResultId = Number.parseInt(
 );
 const BEHAVIOR_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_II = 'type_ii';
+const BEHAVIOR_TYPE_III = 'type_iii';
 const BEHAVIOR_TYPE_IV = 'type_iv';
 
 const pageTitle = document.getElementById('pageTitle');
@@ -24,6 +25,8 @@ const historyList = document.getElementById('historyList');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentKidName = '';
 let currentCardFront = '';
+let currentCardBack = '';
+let currentDeckName = '';
 let trendAttemptsFull = [];
 let trendResizeRafId = 0;
 
@@ -86,6 +89,8 @@ async function loadCardReport() {
         const summary = data.summary || {};
         currentKidName = String(kidName || '').trim();
         currentCardFront = String(card.front || '').trim();
+        currentCardBack = String(card.back || '').trim();
+        currentDeckName = String(card.deck_name || '').trim();
 
         const cardLabel = getCardDisplayLabel(card.front, card.back, from) || `#${card.id || cardId}`;
         pageTitle.textContent = `${kidName} · Card ${cardLabel}`;
@@ -252,7 +257,7 @@ function renderHistory(attempts) {
         const downloadFilename = buildAudioDownloadFilename(item);
         const downloadUrl = buildAudioDownloadUrl(item, downloadFilename);
         const downloadButtonHtml = item.audio_url
-            ? `<a class="tab-link secondary mini-link-btn audio-download-link" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFilename)}">Download</a>`
+            ? `<a class="tab-link secondary mini-link-btn answer-report-link audio-download-link" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFilename)}">Download</a>`
             : '';
         const audioBlockHtml = item.audio_url
             ? `
@@ -261,6 +266,39 @@ function renderHistory(attempts) {
                 </div>
             `
             : '';
+        if (isType3Attempt(item)) {
+            const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
+            const sourceDeckLabel = formatSourceDeckLabel(currentDeckName);
+            const detailBits = [];
+            if (currentCardBack) {
+                detailBits.push(`<span class="answer-type3-back">${escapeHtml(currentCardBack)}</span>`);
+            }
+            if (sourceDeckLabel) {
+                detailBits.push(`<span class="answer-type3-source">Source: ${escapeHtml(sourceDeckLabel)}</span>`);
+            }
+            const detailHtml = detailBits.length
+                ? `<div class="answer-type3-details">${detailBits.join('<span class="answer-type3-sep" aria-hidden="true">·</span>')}</div>`
+                : '';
+            return `
+                <div class="history-item type3-history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
+                    <div class="history-head-row">
+                        <div class="history-title-stack">
+                            <div class="history-primary chinese-specific">${escapeHtml(currentCardFront || 'Card')}</div>
+                            ${detailHtml}
+                        </div>
+                        <div class="answer-head-actions">
+                            ${renderType3HistoryStatusHtml(correctness)}
+                            ${downloadButtonHtml}
+                        </div>
+                    </div>
+                    ${audioBlockHtml}
+                    <div class="meta">
+                        ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
+                        · Session #${safeNum(item.session_id)}
+                    </div>
+                </div>
+            `;
+        }
         if (isType4Attempt(item)) {
             const prompt = getType4AttemptPrompt(item);
             const answer = getType4AttemptAnswer(item) || '-';
@@ -404,6 +442,10 @@ function isType4Attempt(item) {
     return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_IV;
 }
 
+function isType3Attempt(item) {
+    return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_III;
+}
+
 function isType1OrType2Attempt(item) {
     const behaviorType = String(item?.session_behavior_type || '').trim().toLowerCase();
     return behaviorType === BEHAVIOR_TYPE_I || behaviorType === BEHAVIOR_TYPE_II;
@@ -445,6 +487,32 @@ function getType4AttemptSubmittedText(item) {
             .filter(Boolean)
         : [];
     return submittedAnswers.length > 0 ? submittedAnswers.join(' / ') : '-';
+}
+
+function getType3GradeStatusClass(correctness) {
+    if (correctness === 'right') {
+        return 'pass';
+    }
+    if (correctness === 'wrong' || correctness === 'fixed') {
+        return 'fail';
+    }
+    return 'pending';
+}
+
+function getType3GradeStatusText(correctness) {
+    const gradeClass = getType3GradeStatusClass(correctness);
+    if (gradeClass === 'pass') {
+        return 'Status: Pass';
+    }
+    if (gradeClass === 'fail') {
+        return 'Status: Fail';
+    }
+    return 'Status: Pending';
+}
+
+function renderType3HistoryStatusHtml(correctness) {
+    const gradeClass = getType3GradeStatusClass(correctness);
+    return `<div class="grade-status ${gradeClass}">${escapeHtml(getType3GradeStatusText(correctness))}</div>`;
 }
 
 function formatResponseTime(ms) {
@@ -522,6 +590,21 @@ function getCardDisplayLabel(front, back, source) {
     }
 
     return backText || frontText;
+}
+
+function formatSourceDeckLabel(deckName) {
+    const text = String(deckName || '').trim();
+    if (!text) {
+        return '';
+    }
+    if (categoryKey && text === `${categoryKey}_orphan`) {
+        return 'Personal Deck';
+    }
+    const materializedMatch = text.match(/^shared_deck_\d+__(.+)$/);
+    if (materializedMatch && String(materializedMatch[1] || '').trim()) {
+        return String(materializedMatch[1] || '').trim();
+    }
+    return text;
 }
 
 function formatDateTime(iso) {
