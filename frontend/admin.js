@@ -31,9 +31,13 @@ const {
     getCategoryEmoji,
 } = window.DeckCategoryCommon;
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
+const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
+const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
+const PARENT_NAV_CACHE_TTL_MS = 30 * 1000;
 let isCreatingKid = false;
 let isSavingDeckCategories = false;
 let currentKids = [];
+let currentFamilyId = '';
 let deckCategoryModalState = {
     kidId: '',
     availableKeys: [],
@@ -43,7 +47,7 @@ let deckCategoryModalState = {
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
     applySuperFamilyUi();
-    loadKids();
+    loadKids({ preferNavigationCache: true });
 });
 
 // Event Listeners
@@ -88,6 +92,7 @@ if (deckCategoryConfirmBtn) {
 if (parentLogoutLink) {
     parentLogoutLink.addEventListener('click', async (event) => {
         event.preventDefault();
+        clearCurrentFamilyNavigationPointer();
         try {
             await fetch(`${API_BASE}/family-auth/logout`, {
                 method: 'POST',
@@ -112,6 +117,8 @@ async function applySuperFamilyUi() {
             return;
         }
         const auth = await response.json().catch(() => ({}));
+        currentFamilyId = String(auth?.familyId || '').trim();
+        persistCurrentFamilyNavigationPointer(currentFamilyId);
         manageDecksLink.classList.toggle('hidden', !Boolean(auth.isSuperFamily));
     } catch (error) {
         manageDecksLink.classList.add('hidden');
@@ -119,10 +126,75 @@ async function applySuperFamilyUi() {
 }
 
 // API Functions
-async function loadKids() {
+function readKidsFromParentNavigationCache() {
+    try {
+        if (!window.sessionStorage) {
+            return null;
+        }
+        const familyId = String(currentFamilyId || readCurrentFamilyNavigationPointer() || '').trim();
+        if (!familyId) {
+            return null;
+        }
+        const raw = window.sessionStorage.getItem(buildParentNavCacheKey(familyId));
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        if (String(parsed?.familyId || '').trim() !== familyId) {
+            return null;
+        }
+        const cachedAtMs = Number(parsed?.cachedAtMs || 0);
+        if (!Number.isFinite(cachedAtMs) || cachedAtMs <= 0) {
+            return null;
+        }
+        if ((Date.now() - cachedAtMs) > PARENT_NAV_CACHE_TTL_MS) {
+            return null;
+        }
+        const kids = Array.isArray(parsed?.kids) ? parsed.kids : null;
+        return kids;
+    } catch (error) {
+        return null;
+    }
+}
+
+function cacheKidsForParentNavigation(kids) {
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        const list = Array.isArray(kids) ? kids : [];
+        const familyId = inferFamilyIdFromKids(list) || String(currentFamilyId || '').trim();
+        if (!familyId) {
+            return;
+        }
+        currentFamilyId = familyId;
+        persistCurrentFamilyNavigationPointer(familyId);
+        window.sessionStorage.setItem(buildParentNavCacheKey(familyId), JSON.stringify({
+            familyId,
+            cachedAtMs: Date.now(),
+            kids: list,
+        }));
+    } catch (error) {
+        // Best-effort cache only.
+    }
+}
+
+async function loadKids(options = {}) {
+    const preferNavigationCache = Boolean(options?.preferNavigationCache);
+    let usedNavigationCache = false;
     try {
         showError('');
-        kidsList.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+        if (preferNavigationCache) {
+            const cachedKids = readKidsFromParentNavigationCache();
+            if (cachedKids) {
+                currentKids = Array.isArray(cachedKids) ? cachedKids : [];
+                displayKids(currentKids);
+                usedNavigationCache = true;
+            }
+        }
+        if (!usedNavigationCache) {
+            kidsList.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+        }
         const response = await fetch(`${API_BASE}/kids?view=admin`);
 
         if (!response.ok) {
@@ -131,12 +203,61 @@ async function loadKids() {
 
         const kids = await response.json();
         currentKids = Array.isArray(kids) ? kids : [];
+        cacheKidsForParentNavigation(currentKids);
         displayKids(kids);
     } catch (error) {
         console.error('Error loading kids:', error);
-        currentKids = [];
-        showError('Failed to load kids. Make sure the backend server is running on port 5001.');
+        if (!usedNavigationCache) {
+            currentKids = [];
+            showError('Failed to load kids. Make sure the backend server is running on port 5001.');
+        }
     }
+}
+
+function inferFamilyIdFromKids(kids) {
+    const list = Array.isArray(kids) ? kids : [];
+    for (const kid of list) {
+        const familyId = String(kid?.familyId || '').trim();
+        if (familyId) {
+            return familyId;
+        }
+    }
+    return '';
+}
+
+function buildParentNavCacheKey(familyId) {
+    return `${PARENT_NAV_CACHE_KEY_PREFIX}::${String(familyId || '').trim()}`;
+}
+
+function readCurrentFamilyNavigationPointer() {
+    try {
+        if (!window.sessionStorage) {
+            return '';
+        }
+        return String(window.sessionStorage.getItem(CURRENT_FAMILY_ID_STORAGE_KEY) || '').trim();
+    } catch (error) {
+        return '';
+    }
+}
+
+function persistCurrentFamilyNavigationPointer(familyId) {
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        const normalized = String(familyId || '').trim();
+        if (!normalized) {
+            window.sessionStorage.removeItem(CURRENT_FAMILY_ID_STORAGE_KEY);
+            return;
+        }
+        window.sessionStorage.setItem(CURRENT_FAMILY_ID_STORAGE_KEY, normalized);
+    } catch (error) {
+        // ignore
+    }
+}
+
+function clearCurrentFamilyNavigationPointer() {
+    persistCurrentFamilyNavigationPointer('');
 }
 
 async function createKid() {

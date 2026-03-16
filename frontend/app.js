@@ -19,6 +19,8 @@ const {
     buildCategoryStarsModel,
 } = window.PracticeStarBadgeCommon || {};
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
+const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
+const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
 
 if (!buildCategoryStarsModel) {
     throw new Error('practice-star-badge-common.js is required for app');
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 if (familyLogoutLink) {
     familyLogoutLink.addEventListener('click', async (event) => {
         event.preventDefault();
+        clearCurrentFamilyNavigationPointer();
         try {
             await fetch(`${API_BASE}/family-auth/logout`, {
                 method: 'POST',
@@ -56,10 +59,58 @@ async function loadKids() {
         }
 
         const kids = await response.json();
+        cacheKidsForParentNavigation(kids);
         displayKids(kids);
     } catch (error) {
         console.error('Error loading kids:', error);
         showError('Failed to load kids. Make sure the backend server is running on port 5001.');
+    }
+}
+
+function cacheKidsForParentNavigation(kids) {
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        const list = Array.isArray(kids) ? kids : [];
+        const familyId = inferFamilyIdFromKids(list);
+        if (!familyId) {
+            return;
+        }
+        window.sessionStorage.setItem(buildParentNavCacheKey(familyId), JSON.stringify({
+            familyId,
+            cachedAtMs: Date.now(),
+            kids: list,
+        }));
+        window.sessionStorage.setItem(CURRENT_FAMILY_ID_STORAGE_KEY, familyId);
+    } catch (error) {
+        // Best-effort cache only.
+    }
+}
+
+function inferFamilyIdFromKids(kids) {
+    const list = Array.isArray(kids) ? kids : [];
+    for (const kid of list) {
+        const familyId = String(kid?.familyId || '').trim();
+        if (familyId) {
+            return familyId;
+        }
+    }
+    return '';
+}
+
+function buildParentNavCacheKey(familyId) {
+    return `${PARENT_NAV_CACHE_KEY_PREFIX}::${String(familyId || '').trim()}`;
+}
+
+function clearCurrentFamilyNavigationPointer() {
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        window.sessionStorage.removeItem(CURRENT_FAMILY_ID_STORAGE_KEY);
+    } catch (error) {
+        // ignore
     }
 }
 

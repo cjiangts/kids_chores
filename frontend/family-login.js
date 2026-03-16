@@ -4,6 +4,7 @@ const loginForm = document.getElementById('familyLoginForm');
 const errorMessage = document.getElementById('errorMessage');
 const params = new URLSearchParams(window.location.search);
 const next = params.get('next') || '/';
+const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
 
 document.addEventListener('DOMContentLoaded', async () => {
     await maybeRedirect();
@@ -44,9 +45,21 @@ async function submitAuth(endpoint, payload) {
             showError(data.error || 'Request failed');
             return;
         }
+        clearCurrentFamilyNavigationPointer();
         window.location.href = next;
     } catch (error) {
         showError('Request failed');
+    }
+}
+
+function clearCurrentFamilyNavigationPointer() {
+    try {
+        if (!window.sessionStorage) {
+            return;
+        }
+        window.sessionStorage.removeItem(CURRENT_FAMILY_ID_STORAGE_KEY);
+    } catch (error) {
+        // ignore
     }
 }
 
