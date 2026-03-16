@@ -28,18 +28,10 @@ CREATE TABLE IF NOT EXISTS cards (
   deck_id INTEGER,
   front VARCHAR NOT NULL,
   back VARCHAR NOT NULL,
-  is_multichoice_only BOOLEAN NOT NULL DEFAULT FALSE,
   skip_practice BOOLEAN NOT NULL DEFAULT FALSE,
   hardness_score DOUBLE NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-ALTER TABLE cards
-ADD COLUMN IF NOT EXISTS is_multichoice_only BOOLEAN DEFAULT FALSE;
-
-UPDATE cards
-SET is_multichoice_only = FALSE
-WHERE is_multichoice_only IS NULL;
 
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (

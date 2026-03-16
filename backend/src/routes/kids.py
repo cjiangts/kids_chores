@@ -829,16 +829,18 @@ def get_materialized_shared_deck_rows_by_shared_deck_id(conn, shared_deck_id):
         return []
     if shared_id <= 0:
         return []
-    prefix = f"{MATERIALIZED_SHARED_DECK_NAME_PREFIX}{shared_id}__%"
-    return conn.execute(
-        """
-        SELECT id, name, tags
-        FROM decks
-        WHERE name LIKE ?
-        ORDER BY id ASC
-        """,
-        [prefix],
+    rows = conn.execute(
+        "SELECT id, name, tags FROM decks WHERE name LIKE ? ORDER BY id ASC",
+        [f"{MATERIALIZED_SHARED_DECK_NAME_PREFIX}%"],
     ).fetchall()
+    matched = []
+    for row in rows:
+        local_name = str(row[1] or '')
+        parsed_shared_id = parse_shared_deck_id_from_materialized_name(local_name)
+        if parsed_shared_id != shared_id:
+            continue
+        matched.append(row)
+    return matched
 
 
 def sync_materialized_shared_deck_metadata_for_kid(conn, shared_deck_id, shared_deck_name, shared_storage_tags):
@@ -905,83 +907,6 @@ def sync_materialized_shared_deck_metadata_for_all_kids(shared_deck_id, shared_d
         'updated_kid_ids': updated_kid_ids,
         'updated_kid_count': len(updated_kid_ids),
         'updated_deck_count': int(updated_deck_count),
-        'failures': failures,
-    }
-
-
-def sync_materialized_type_iv_card_flag_for_kid(conn, shared_deck_id, is_multichoice_only):
-    """Align one kid DB's attached type-IV representative card flag with the shared deck."""
-    rows = get_materialized_shared_deck_rows_by_shared_deck_id(conn, shared_deck_id)
-    if not rows:
-        return 0
-
-    target_value = bool(is_multichoice_only)
-    changed_deck_ids = []
-    for deck_id, _name, _tags in rows:
-        mismatch_row = conn.execute(
-            """
-            SELECT 1
-            FROM cards
-            WHERE deck_id = ?
-              AND COALESCE(is_multichoice_only, FALSE) <> ?
-            LIMIT 1
-            """,
-            [int(deck_id), target_value],
-        ).fetchone()
-        if mismatch_row:
-            changed_deck_ids.append(int(deck_id))
-
-    if not changed_deck_ids:
-        return 0
-
-    conn.execute("BEGIN TRANSACTION")
-    try:
-        for deck_id in changed_deck_ids:
-            conn.execute(
-                """
-                UPDATE cards
-                SET is_multichoice_only = ?
-                WHERE deck_id = ?
-                """,
-                [target_value, int(deck_id)],
-            )
-        conn.execute("COMMIT")
-    except Exception:
-        conn.execute("ROLLBACK")
-        raise
-    return len(changed_deck_ids)
-
-
-def sync_materialized_type_iv_card_flag_for_all_kids(shared_deck_id, is_multichoice_only):
-    """Propagate one shared type-IV flag update to all attached kid decks."""
-    updated_kid_ids = []
-    updated_card_count = 0
-    failures = []
-    for kid in metadata.get_all_kids():
-        conn = None
-        try:
-            conn = get_kid_connection_for(kid)
-            changed_count = sync_materialized_type_iv_card_flag_for_kid(
-                conn,
-                shared_deck_id,
-                is_multichoice_only,
-            )
-            if changed_count > 0:
-                updated_kid_ids.append(str(kid.get('id') or ''))
-                updated_card_count += changed_count
-        except Exception as e:
-            failures.append({
-                'kid_id': str(kid.get('id') or ''),
-                'kid_name': str(kid.get('name') or ''),
-                'error': str(e),
-            })
-        finally:
-            if conn is not None:
-                conn.close()
-    return {
-        'updated_kid_ids': updated_kid_ids,
-        'updated_kid_count': len(updated_kid_ids),
-        'updated_card_count': int(updated_card_count),
         'failures': failures,
     }
 
@@ -2750,32 +2675,6 @@ def update_shared_deck_generator_definition(deck_id):
                 if conn is not None:
                     conn.close()
 
-        sync_result = sync_materialized_type_iv_card_flag_for_all_kids(
-            deck_id,
-            is_multichoice_only,
-        )
-        if sync_result['failures']:
-            failed_labels = [
-                item['kid_name'] or f"kid {item['kid_id']}"
-                for item in sync_result['failures']
-            ]
-            return jsonify({
-                'error': (
-                    'Generator settings were saved, but some kid DBs failed to sync: '
-                    + ', '.join(failed_labels)
-                    + '. Saving again will retry the kid sync.'
-                ),
-                'updated': True,
-                'deck_id': int(deck_id),
-                'generator_definition': {
-                    'code': generator_code,
-                    'is_multichoice_only': bool(is_multichoice_only),
-                },
-                'updated_kid_count': int(sync_result['updated_kid_count']),
-                'updated_card_count': int(sync_result['updated_card_count']),
-                'kid_sync_failures': sync_result['failures'],
-            }), 500
-
         return jsonify({
             'updated': True,
             'deck_id': int(deck_id),
@@ -2783,8 +2682,6 @@ def update_shared_deck_generator_definition(deck_id):
                 'code': generator_code,
                 'is_multichoice_only': bool(is_multichoice_only),
             },
-            'updated_kid_count': int(sync_result['updated_kid_count']),
-            'updated_card_count': int(sync_result['updated_card_count']),
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -6511,7 +6408,6 @@ def get_cards_with_stats(conn, deck_id):
             c.deck_id,
             c.front,
             c.back,
-            COALESCE(c.is_multichoice_only, FALSE) AS is_multichoice_only,
             COALESCE(c.skip_practice, FALSE) AS skip_practice,
             c.hardness_score,
             c.created_at,
@@ -6541,7 +6437,7 @@ def get_cards_with_stats(conn, deck_id):
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.deck_id = ?
-        GROUP BY c.id, c.deck_id, c.front, c.back, c.is_multichoice_only, c.skip_practice, c.hardness_score, c.created_at
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.hardness_score, c.created_at
         ORDER BY c.id ASC
         """,
         [deck_id]
@@ -6550,7 +6446,7 @@ def get_cards_with_stats(conn, deck_id):
 
 def map_card_row(row, preview_order):
     """Map raw card+stats row to API object."""
-    last_result_correct = row[12]
+    last_result_correct = row[11]
     if last_result_correct is None:
         last_result = None
     elif int(last_result_correct) > 0:
@@ -6564,15 +6460,14 @@ def map_card_row(row, preview_order):
         'deck_id': row[1],
         'front': row[2],
         'back': row[3],
-        'is_multichoice_only': bool(row[4]) if row[4] is not None else False,
-        'skip_practice': bool(row[5]),
-        'hardness_score': float(row[6]) if row[6] is not None else 0,
-        'created_at': row[7].isoformat() if row[7] else None,
+        'skip_practice': bool(row[4]),
+        'hardness_score': float(row[5]) if row[5] is not None else 0,
+        'created_at': row[6].isoformat() if row[6] else None,
         'next_session_order': preview_order.get(row[0]),
-        'lifetime_attempts': int(row[8]) if row[8] is not None else 0,
-        'last_seen_at': row[9].isoformat() if row[9] else None,
-        'overall_wrong_rate': float(row[10]) if row[10] is not None else None,
-        'last_response_time_ms': int(row[11]) if row[11] is not None else None,
+        'lifetime_attempts': int(row[7]) if row[7] is not None else 0,
+        'last_seen_at': row[8].isoformat() if row[8] else None,
+        'overall_wrong_rate': float(row[9]) if row[9] is not None else None,
+        'last_response_time_ms': int(row[10]) if row[10] is not None else None,
         'last_result': last_result,
     }
 
@@ -7574,7 +7469,7 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
                 practiced_placeholders = ','.join(['?'] * len(practiced_card_ids))
                 practiced_cards = kid_conn.execute(
                     f"""
-                    SELECT id, front, back, is_multichoice_only, skip_practice, hardness_score, created_at
+                    SELECT id, front, back, skip_practice, hardness_score, created_at
                     FROM cards
                     WHERE id IN ({practiced_placeholders})
                     """,
@@ -7587,8 +7482,8 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
                     )
                     kid_conn.executemany(
                         """
-                        INSERT INTO cards (id, deck_id, front, back, is_multichoice_only, skip_practice, hardness_score, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
                         """,
                         [
                             [
@@ -7596,10 +7491,9 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
                                 orphan_deck_id,
                                 row[1],
                                 row[2],
-                                bool(row[3]) if row[3] is not None else False,
-                                bool(row[4]),
-                                float(row[5] or 0.0),
-                                row[6],
+                                bool(row[3]),
+                                float(row[4] or 0.0),
+                                row[5],
                             ]
                             for row in practiced_cards
                         ]
@@ -7697,10 +7591,6 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
             deck_ids
         ).fetchall()
         representative_by_deck_id = {}
-        generator_definition_by_deck_id = get_shared_deck_generator_definitions_by_deck_ids(
-            shared_conn,
-            deck_ids,
-        )
         for row in representative_rows:
             deck_id = int(row[0])
             if deck_id in representative_by_deck_id:
@@ -7746,7 +7636,7 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
             front_placeholders = ','.join(['?'] * len(representative_fronts))
             orphan_rows = kid_conn.execute(
                 f"""
-                SELECT id, front, back, is_multichoice_only, skip_practice, hardness_score, created_at
+                SELECT id, front, back, skip_practice, hardness_score, created_at
                 FROM cards
                 WHERE deck_id = ?
                   AND front IN ({front_placeholders})
@@ -7794,8 +7684,6 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
             local_deck_id = int(inserted[0])
 
             representative = representative_by_deck_id[src_deck_id]
-            generator_definition = generator_definition_by_deck_id.get(src_deck_id) or {}
-            is_multichoice_only = bool(generator_definition.get('is_multichoice_only'))
             representative_front = str(representative.get('front') or '')
             representative_back = str(representative.get('back') or '')
             orphan_row = orphan_by_front.pop(representative_front, None)
@@ -7805,29 +7693,27 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
                 kid_conn.execute("DELETE FROM cards WHERE id = ?", [moved_card_id])
                 kid_conn.execute(
                     """
-                    INSERT INTO cards (id, deck_id, front, back, is_multichoice_only, skip_practice, hardness_score, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
                         moved_card_id,
                         local_deck_id,
                         representative_front,
                         representative_back,
-                        bool(is_multichoice_only),
-                        bool(orphan_row[4]),
-                        float(orphan_row[5] or 0.0),
-                        orphan_row[6],
+                        bool(orphan_row[3]),
+                        float(orphan_row[4] or 0.0),
+                        orphan_row[5],
                     ]
                 )
                 cards_moved_from_orphan = 1
             else:
                 kid_conn.execute(
-                    "INSERT INTO cards (deck_id, front, back, is_multichoice_only) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
                     [
                         local_deck_id,
                         representative_front,
                         representative_back,
-                        bool(is_multichoice_only),
                     ]
                 )
             created.append({
@@ -8178,11 +8064,7 @@ def build_type_iv_shared_cards_payload(
                 mapped['source_is_orphan'] = bool(src.get('is_orphan'))
                 mapped['type4_shared_deck_id'] = resolved_shared_deck_id if resolved_shared_deck_id > 0 else None
                 mapped['type4_generator_code'] = str(generator_details.get('code') or '')
-                mapped['type4_is_multichoice_only'] = bool(
-                    generator_details.get('is_multichoice_only')
-                    if generator_details
-                    else mapped.get('is_multichoice_only')
-                )
+                mapped['type4_is_multichoice_only'] = bool(generator_details.get('is_multichoice_only'))
                 merged_cards.append(mapped)
 
         practice_active_count = sum(int(src.get('active_card_count') or 0) for src in practice_sources)
@@ -8254,7 +8136,7 @@ def get_type_iv_practice_source_rows(
         placeholders = ','.join(['?'] * len(local_deck_ids))
         rows = conn.execute(
             f"""
-            SELECT c.id, c.deck_id, c.front, c.is_multichoice_only, d.daily_target_count
+            SELECT c.id, c.deck_id, c.front, d.daily_target_count
             FROM cards c
             JOIN decks d ON d.id = c.deck_id
             WHERE c.deck_id IN ({placeholders})
@@ -8297,13 +8179,9 @@ def get_type_iv_practice_source_rows(
                 'skipped_card_count': 0,
                 'representative_card_id': representative_card_id,
                 'representative_front': representative_front,
-                'daily_target_count': max(0, int(row[4] or 0)),
+                'daily_target_count': max(0, int(row[3] or 0)),
                 'generator_code': generator_code,
-                'is_multichoice_only': bool(
-                    generator_details.get('is_multichoice_only')
-                    if generator_details
-                    else row[3]
-                ),
+                'is_multichoice_only': bool(generator_details.get('is_multichoice_only')),
                 'is_orphan': is_orphan,
             })
     return practice_sources

@@ -2102,12 +2102,7 @@ function buildType4RepresentativeCardMarkup(card) {
     const lastSeenText = window.PracticeManageCommon.formatLastSeenDays(card && card.last_seen_at);
     const lifetimeAttempts = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
     const hasGeneratorCode = String(card && card.type4_generator_code ? card.type4_generator_code : '').trim().length > 0;
-    const isMultichoiceOnly = Boolean(
-        card && (
-            card.type4_is_multichoice_only
-            ?? card.is_multichoice_only
-        )
-    );
+    const isMultichoiceOnly = Boolean(card && card.type4_is_multichoice_only);
 
     return `
         <div class="card-item type4-summary-card">
