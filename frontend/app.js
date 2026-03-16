@@ -21,6 +21,7 @@ const {
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
 const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
+const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 
 if (!buildCategoryStarsModel) {
     throw new Error('practice-star-badge-common.js is required for app');
@@ -28,7 +29,7 @@ if (!buildCategoryStarsModel) {
 
 // Load kids on page load
 document.addEventListener('DOMContentLoaded', () => {
-    loadKids();
+    loadKids({ preferNavigationCache: true });
 });
 
 if (familyLogoutLink) {
@@ -49,9 +50,18 @@ if (familyLogoutLink) {
 }
 
 // API Functions
-async function loadKids() {
+async function loadKids(options = {}) {
+    const preferNavigationCache = Boolean(options?.preferNavigationCache);
+    let usedNavigationCache = false;
     try {
         showError('');
+        if (preferNavigationCache) {
+            const cachedKids = readKidsFromParentNavigationCache();
+            if (cachedKids) {
+                displayKids(cachedKids);
+                usedNavigationCache = true;
+            }
+        }
         const response = await fetch(`${API_BASE}/kids`);
 
         if (!response.ok) {
@@ -63,7 +73,50 @@ async function loadKids() {
         displayKids(kids);
     } catch (error) {
         console.error('Error loading kids:', error);
-        showError('Failed to load kids. Make sure the backend server is running on port 5001.');
+        if (!usedNavigationCache) {
+            showError('Failed to load kids. Make sure the backend server is running on port 5001.');
+        }
+    }
+}
+
+function readKidsFromParentNavigationCache() {
+    try {
+        if (!window.sessionStorage) {
+            return null;
+        }
+        const familyId = String(readCurrentFamilyNavigationPointer() || '').trim();
+        if (!familyId) {
+            return null;
+        }
+        const raw = window.sessionStorage.getItem(buildParentNavCacheKey(familyId));
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        if (String(parsed?.familyId || '').trim() !== familyId) {
+            return null;
+        }
+        const cachedAtMs = Number(parsed?.cachedAtMs || 0);
+        if (!Number.isFinite(cachedAtMs) || cachedAtMs <= 0) {
+            return null;
+        }
+        if ((Date.now() - cachedAtMs) > PARENT_NAV_CACHE_TTL_MS) {
+            return null;
+        }
+        return Array.isArray(parsed?.kids) ? parsed.kids : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function readCurrentFamilyNavigationPointer() {
+    try {
+        if (!window.sessionStorage) {
+            return '';
+        }
+        return String(window.sessionStorage.getItem(CURRENT_FAMILY_ID_STORAGE_KEY) || '').trim();
+    } catch (error) {
+        return '';
     }
 }
 

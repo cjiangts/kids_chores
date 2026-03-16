@@ -30,6 +30,7 @@ const {
     resolveTypeIIIPracticeCategoryKey,
 } = window.DeckCategoryCommon;
 const PRACTICE_NAV_CACHE_KEY = 'kid_practice_nav_cache_v1';
+const PRACTICE_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 
 if (!buildCategoryStarsModel) {
     throw new Error('practice-star-badge-common.js is required for kid-practice-home');
@@ -150,13 +151,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     kidBackBtn.href = '/';
-    await loadKidInfo();
-    renderPracticeOptions();
-    void loadBadgeShelfSummary();
-    maybeShowBadgeCelebration();
-    window.setTimeout(() => {
-        void warmWritingCards();
-    }, 0);
+    const cachedKid = readKidFromPracticeNavigationCache();
+    if (cachedKid) {
+        applyKidPayload(cachedKid);
+        renderPracticeOptions();
+        void loadBadgeShelfSummary();
+        maybeShowBadgeCelebration();
+        window.setTimeout(() => { void warmWritingCards(); }, 0);
+        // Revalidate in background — update UI silently when fresh data arrives
+        loadKidInfo().then(() => { renderPracticeOptions(); }).catch(() => {});
+    } else {
+        await loadKidInfo();
+        renderPracticeOptions();
+        void loadBadgeShelfSummary();
+        maybeShowBadgeCelebration();
+        window.setTimeout(() => { void warmWritingCards(); }, 0);
+    }
 });
 
 if (practiceSummaryStrip) {
@@ -173,32 +183,74 @@ if (practiceSummaryStrip) {
     });
 }
 
-async function loadKidInfo() {
+function applyKidPayload(kid) {
+    currentKid = kid;
+    activeChineseCategoryKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
+    activeTypeINonChineseCategoryKey = resolveTypeINonChinesePracticeCategoryKey(
+        currentKid,
+        activeTypeINonChineseCategoryKey,
+    );
+    activeTypeIICategoryKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
+    if (writingCardsLoadedCategoryKey && writingCardsLoadedCategoryKey !== activeTypeIICategoryKey) {
+        writingCards = null;
+        writingCardsLoadedCategoryKey = '';
+    }
+    activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
+    kidNameEl.textContent = `${currentKid.name}'s Practice`;
+    updatePageTitle();
+}
+
+function readKidFromPracticeNavigationCache() {
     try {
+        const raw = window.sessionStorage.getItem(PRACTICE_NAV_CACHE_KEY);
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            return null;
+        }
+        if (String(parsed.kidId || '').trim() !== kidId) {
+            return null;
+        }
+        const cachedAtMs = Number(parsed.cachedAtMs || 0);
+        if (!Number.isFinite(cachedAtMs) || cachedAtMs <= 0) {
+            return null;
+        }
+        if ((Date.now() - cachedAtMs) > PRACTICE_NAV_CACHE_TTL_MS) {
+            return null;
+        }
+        const kid = parsed.kid;
+        if (!kid || typeof kid !== 'object') {
+            return null;
+        }
+        return kid;
+    } catch (error) {
+        return null;
+    }
+}
+
+async function loadKidInfo() {
+    let usedCache = false;
+    try {
+        const cachedKid = readKidFromPracticeNavigationCache();
+        if (cachedKid) {
+            applyKidPayload(cachedKid);
+            usedCache = true;
+        }
         const response = await fetch(`${API_BASE}/kids/${kidId}?view=practice_home`);
         if (!response.ok) {
             throw new Error('Kid not found');
         }
-        currentKid = await response.json();
-        activeChineseCategoryKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
-        activeTypeINonChineseCategoryKey = resolveTypeINonChinesePracticeCategoryKey(
-            currentKid,
-            activeTypeINonChineseCategoryKey,
-        );
-        activeTypeIICategoryKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
-        if (writingCardsLoadedCategoryKey && writingCardsLoadedCategoryKey !== activeTypeIICategoryKey) {
-            writingCards = null;
-            writingCardsLoadedCategoryKey = '';
-        }
-        activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
-        kidNameEl.textContent = `${currentKid.name}'s Practice`;
-        updatePageTitle();
+        applyKidPayload(await response.json());
     } catch (error) {
         console.error('Error loading kid:', error);
-        showError('Failed to load kid information');
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 2000);
+        if (!usedCache) {
+            showError('Failed to load kid information');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        }
     }
 }
 

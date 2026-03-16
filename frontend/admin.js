@@ -33,7 +33,7 @@ const {
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
 const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
-const PARENT_NAV_CACHE_TTL_MS = 30 * 1000;
+const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 let isCreatingKid = false;
 let isSavingDeckCategories = false;
 let currentKids = [];

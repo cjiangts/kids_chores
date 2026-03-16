@@ -1974,6 +1974,7 @@ def create_shared_deck_category():
         finally:
             conn.close()
 
+        invalidate_category_meta_cache()
         return jsonify({
             'created': True,
             'category': {
@@ -2032,6 +2033,7 @@ def update_shared_deck_category_emoji(category_key):
         if row is None:
             return jsonify({'error': 'Category not found'}), 404
 
+        invalidate_category_meta_cache()
         return jsonify({
             'updated': True,
             'category': {
@@ -2117,6 +2119,8 @@ def share_deck_category_to_non_super(category_key):
         finally:
             conn.close()
 
+        if not already_shared:
+            invalidate_category_meta_cache()
         return jsonify({
             'shared': True,
             'updated': not already_shared,
@@ -3371,8 +3375,26 @@ def get_kid_has_ungraded_type_iii(kid, *, type_iii_category_keys=None, conn=None
             local_conn.close()
 
 
+_category_meta_cache = {'data': None, 'ts': 0}
+_CATEGORY_META_CACHE_TTL = 30
+
+
+def invalidate_category_meta_cache():
+    """Clear the in-memory category metadata cache."""
+    _category_meta_cache['data'] = None
+    _category_meta_cache['ts'] = 0
+
+
 def get_shared_deck_category_meta_by_key():
-    """Return deck_category metadata map keyed by normalized category key."""
+    """Return deck_category metadata map keyed by normalized category key.
+
+    Results are cached in memory for up to 30 seconds to avoid opening a
+    shared-DB connection on every single API call.
+    """
+    now = time.monotonic()
+    if _category_meta_cache['data'] is not None and (now - _category_meta_cache['ts']) < _CATEGORY_META_CACHE_TTL:
+        return _category_meta_cache['data']
+
     conn = get_shared_decks_connection()
     try:
         categories = get_shared_deck_categories(conn)
@@ -3390,6 +3412,8 @@ def get_shared_deck_category_meta_by_key():
             'display_name': str(item.get('display_name') or '').strip(),
             'emoji': str(item.get('emoji') or '').strip(),
         }
+    _category_meta_cache['data'] = metadata_by_key
+    _category_meta_cache['ts'] = now
     return metadata_by_key
 
 
