@@ -1644,7 +1644,7 @@ def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
     return definitions
 
 
-def build_type_iv_generator_detail_maps(category_key, deck_ids=None, *, shared_conn=None):
+def build_type_iv_generator_detail_maps(category_key, deck_ids=None, *, shared_conn=None, include_code=True):
     """Return generator details keyed by shared deck id and representative front."""
     should_close = shared_conn is None
     if should_close:
@@ -1666,7 +1666,7 @@ def build_type_iv_generator_detail_maps(category_key, deck_ids=None, *, shared_c
 
     details_by_id = {}
     for deck_id, definition in definitions_by_id.items():
-        code = str(definition.get('code') or '')
+        code = str(definition.get('code') or '') if include_code else ''
         details_by_id[int(deck_id)] = {
             'code': code,
             'is_multichoice_only': bool(definition.get('is_multichoice_only')),
@@ -1679,8 +1679,10 @@ def build_type_iv_generator_detail_maps(category_key, deck_ids=None, *, shared_c
             continue
         shared_deck_id = int(deck.get('deck_id') or 0)
         definition = definitions_by_id.get(shared_deck_id) or {}
-        code = str(definition.get('code') or '')
-        if shared_deck_id <= 0 or not code:
+        code = str(definition.get('code') or '') if include_code else ''
+        if shared_deck_id <= 0:
+            continue
+        if include_code and not code:
             continue
         details_by_front[representative_front] = {
             'shared_deck_id': shared_deck_id,
@@ -1696,6 +1698,7 @@ def build_type_iv_card_generator_details_by_shared_id(deck_ids, *, category_key=
         category_key,
         deck_ids=deck_ids,
         shared_conn=shared_conn,
+        include_code=True,
     )
     return details_by_id
 
@@ -1706,6 +1709,7 @@ def build_type_iv_generator_details_by_representative_front(category_key, *, dec
         category_key,
         deck_ids=deck_ids,
         shared_conn=shared_conn,
+        include_code=True,
     )
     return details_by_front
 
@@ -6450,10 +6454,25 @@ def delete_card_from_deck_internal(conn, card_id):
     conn.execute("DELETE FROM cards WHERE id = ?", [card_id])
 
 
-def get_cards_with_stats(conn, deck_id):
-    """Return cards with hardness / attempt / last-seen stats."""
+def get_cards_with_stats_for_deck_ids(conn, deck_ids):
+    """Return cards with hardness / attempt / last-seen stats for many decks."""
+    normalized_ids = []
+    seen = set()
+    for raw_id in list(deck_ids or []):
+        try:
+            deck_id = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if deck_id <= 0 or deck_id in seen:
+            continue
+        seen.add(deck_id)
+        normalized_ids.append(deck_id)
+    if not normalized_ids:
+        return []
+
+    placeholders = ','.join(['?'] * len(normalized_ids))
     return conn.execute(
-        """
+        f"""
         SELECT
             c.id,
             c.deck_id,
@@ -6487,12 +6506,17 @@ def get_cards_with_stats(conn, deck_id):
             ) AS last_result_correct
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
-        WHERE c.deck_id = ?
+        WHERE c.deck_id IN ({placeholders})
         GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.hardness_score, c.created_at
-        ORDER BY c.id ASC
+        ORDER BY c.deck_id ASC, c.id ASC
         """,
-        [deck_id]
+        normalized_ids,
     ).fetchall()
+
+
+def get_cards_with_stats(conn, deck_id):
+    """Return cards with hardness / attempt / last-seen stats."""
+    return get_cards_with_stats_for_deck_ids(conn, [deck_id])
 
 
 def map_card_row(row, preview_order):
@@ -8062,6 +8086,7 @@ def build_type_iv_shared_cards_payload(
         include_orphan_in_queue = get_category_include_orphan_for_kid(kid, category_key)
         generator_details_by_shared_id, generator_details_by_front = build_type_iv_generator_detail_maps(
             category_key,
+            include_code=False,
         )
         practice_sources = get_type_iv_practice_source_rows(
             conn,
@@ -8070,6 +8095,7 @@ def build_type_iv_shared_cards_payload(
             include_orphan_in_queue_override=include_orphan_in_queue,
             generator_details_by_shared_id=generator_details_by_shared_id,
             generator_details_by_front=generator_details_by_front,
+            include_generator_code=False,
         )
         sources = get_type_iv_bank_source_rows(
             conn,
@@ -8098,10 +8124,17 @@ def build_type_iv_shared_cards_payload(
             return str(source.get('local_name') or '')
 
         merged_cards = []
+        source_deck_ids = [int(src['local_deck_id']) for src in sources if int(src.get('local_deck_id') or 0) > 0]
+        card_rows_by_deck_id = {}
+        for row in get_cards_with_stats_for_deck_ids(conn, source_deck_ids):
+            deck_id = int(row[1] or 0)
+            if deck_id <= 0:
+                continue
+            card_rows_by_deck_id.setdefault(deck_id, []).append(row)
         for src in sources:
             local_deck_id = int(src['local_deck_id'])
             shared_deck_id = int(src.get('shared_deck_id') or 0)
-            rows = get_cards_with_stats(conn, local_deck_id)
+            rows = card_rows_by_deck_id.get(local_deck_id) or []
             for row in rows:
                 mapped = map_card_row(row, {})
                 representative_front = str(mapped.get('front') or '').strip()
@@ -8115,7 +8148,6 @@ def build_type_iv_shared_cards_payload(
                 mapped['source_deck_tags'] = extract_shared_deck_tags_and_labels(src.get('tags') or [])[0]
                 mapped['source_is_orphan'] = bool(src.get('is_orphan'))
                 mapped['type4_shared_deck_id'] = resolved_shared_deck_id if resolved_shared_deck_id > 0 else None
-                mapped['type4_generator_code'] = str(generator_details.get('code') or '')
                 mapped['type4_is_multichoice_only'] = bool(generator_details.get('is_multichoice_only'))
                 merged_cards.append(mapped)
 
@@ -8163,6 +8195,7 @@ def get_type_iv_practice_source_rows(
     include_orphan_in_queue_override=None,
     generator_details_by_shared_id=None,
     generator_details_by_front=None,
+    include_generator_code=True,
 ):
     """Return opted-in generator sources ready for session generation."""
     sources = [
@@ -8184,6 +8217,7 @@ def get_type_iv_practice_source_rows(
         generator_details_by_shared_id, generator_details_by_front = build_type_iv_generator_detail_maps(
             category_key,
             deck_ids=[src.get('shared_deck_id') for src in sources],
+            include_code=include_generator_code,
         )
 
     practice_sources = []
@@ -8220,7 +8254,7 @@ def get_type_iv_practice_source_rows(
                 generator_details = generator_details_by_front.get(representative_front) or {}
             resolved_shared_deck_id = int(generator_details.get('shared_deck_id') or shared_deck_id or 0)
             generator_code = str(generator_details.get('code') or '').strip()
-            if not generator_code:
+            if include_generator_code and not generator_code:
                 continue
 
             practice_sources.append({
@@ -8235,7 +8269,7 @@ def get_type_iv_practice_source_rows(
                 'representative_card_id': representative_card_id,
                 'representative_front': representative_front,
                 'daily_target_count': max(0, int(row[3] or 0)),
-                'generator_code': generator_code,
+                'generator_code': generator_code if include_generator_code else '',
                 'is_multichoice_only': bool(generator_details.get('is_multichoice_only')),
                 'is_orphan': is_orphan,
             })

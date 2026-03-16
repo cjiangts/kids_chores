@@ -46,6 +46,8 @@ const saveType4DeckCountsBtn = document.getElementById('saveType4DeckCountsBtn')
 const type4DeckCountsList = document.getElementById('type4DeckCountsList');
 const type4DeckCountsModalTotal = document.getElementById('type4DeckCountsModalTotal');
 const type4DeckCountsMessage = document.getElementById('type4DeckCountsMessage');
+const type4DeckCountsApplyAllInput = document.getElementById('type4DeckCountsApplyAllInput');
+const applyType4DeckCountsToAllBtn = document.getElementById('applyType4DeckCountsToAllBtn');
 const type4GeneratorModal = document.getElementById('type4GeneratorModal');
 const type4GeneratorHeading = document.getElementById('type4GeneratorHeading');
 const closeType4GeneratorModalBtn = document.getElementById('closeType4GeneratorModalBtn');
@@ -662,11 +664,13 @@ function renderType4GeneratorModal(card) {
     const sourceName = resolveCardSourceDeckName(card);
     type4GeneratorHeading.textContent = String(card && card.front ? card.front : 'Generator');
     type4GeneratorDeckText.textContent = String(sourceName || '-');
-    setType4GeneratorCodeContent(card && card.type4_generator_code ? card.type4_generator_code : '');
-    renderType4GeneratorSamples([], 'No example yet.');
+    const cachedCode = String(card && card.type4_generator_code ? card.type4_generator_code : '').trim();
+    const cachedSamples = Array.isArray(card && card.type4_generator_samples) ? card.type4_generator_samples : [];
+    setType4GeneratorCodeContent(cachedCode || 'Loading generator...');
+    renderType4GeneratorSamples(cachedSamples, cachedCode ? 'No example yet.' : 'Loading example...');
     showType4GeneratorMessage('');
     if (runType4GeneratorPreviewBtn) {
-        runType4GeneratorPreviewBtn.disabled = !card || !String(card.type4_generator_code || '').trim();
+        runType4GeneratorPreviewBtn.disabled = !card;
         runType4GeneratorPreviewBtn.textContent = 'Run Example';
     }
 }
@@ -696,6 +700,12 @@ function openType4GeneratorModal(card) {
             type4GeneratorAceViewer.resize();
         }, 0);
     }
+    if (!String(card.type4_generator_code || '').trim()) {
+        void runType4GeneratorPreview().catch((error) => {
+            console.error('Error loading generator details:', error);
+            showType4GeneratorMessage(error.message || 'Failed to load generator.', true);
+        });
+    }
 }
 
 async function runType4GeneratorPreview() {
@@ -715,6 +725,11 @@ async function runType4GeneratorPreview() {
     showType4GeneratorMessage('');
     try {
         const result = await requestType4GeneratorPreview(card);
+        if (card) {
+            card.type4_generator_code = String(result && result.code ? result.code : '');
+            card.type4_generator_samples = Array.isArray(result && result.samples) ? result.samples : [];
+        }
+        setType4GeneratorCodeContent(card && card.type4_generator_code ? card.type4_generator_code : '');
         renderType4GeneratorSamples(result.samples || [], 'No example returned.');
     } finally {
         isType4GeneratorPreviewLoading = false;
@@ -901,6 +916,21 @@ function updateType4DeckCountsModalTotal() {
     type4DeckCountsModalTotal.textContent = String(total);
 }
 
+function applyType4DeckCountToAllRows(rawValue) {
+    if (!type4DeckCountsList) {
+        return;
+    }
+    const normalized = getType4DeckCountDraftValue(rawValue);
+    const inputs = [...type4DeckCountsList.querySelectorAll('.type4-deck-count-input')];
+    inputs.forEach((input) => {
+        input.value = String(normalized);
+    });
+    if (type4DeckCountsApplyAllInput) {
+        type4DeckCountsApplyAllInput.value = String(normalized);
+    }
+    updateType4DeckCountsModalTotal();
+}
+
 function renderType4DeckCountsModal() {
     if (!type4DeckCountsList) {
         return;
@@ -908,6 +938,9 @@ function renderType4DeckCountsModal() {
     const entries = getPersistedType4DeckCountEntries();
     if (entries.length <= 0) {
         type4DeckCountsList.innerHTML = '<div class="empty-state"><h3>No opted-in decks yet</h3></div>';
+        if (type4DeckCountsApplyAllInput) {
+            type4DeckCountsApplyAllInput.value = '0';
+        }
         updateType4DeckCountsModalTotal();
         return;
     }
@@ -918,20 +951,18 @@ function renderType4DeckCountsModal() {
         const orphanDeckId = Number.parseInt(deck && deck.deck_id, 10);
         const label = isOrphanEntry
             ? `⭐ ${getPersonalDeckDisplayName()}`
-            : (getType1DeckBubbleLabel(deck) || String(deck && deck.name ? deck.name : 'Generator Deck'));
+            : String(deck && deck.representative_front ? deck.representative_front : '').trim();
         const dailyTargetCount = getType4DeckDailyTargetCount(deck);
-        const tagLabels = getDeckTagLabels(deck);
-        const tagTail = isOrphanEntry
-            ? `${Number(deck && deck.card_count ? deck.card_count : 0)} detached cards`
-            : (tagLabels.length > 1 ? tagLabels.slice(1).join(' / ') : '');
         const inputAttrs = isOrphanEntry
             ? `data-type4-orphan-deck-id="${escapeHtml(String(orphanDeckId || 0))}"`
             : `data-type4-shared-deck-id="${escapeHtml(String(sharedDeckId))}"`;
+        const titleText = isOrphanEntry
+            ? label
+            : `${label || 'Generator Deck'} (${String(deck && deck.name ? deck.name : '').trim() || 'Deck'})`;
         return `
-            <label class="type4-deck-count-row">
+            <label class="type4-deck-count-row" title="${escapeHtml(titleText)}">
                 <div class="type4-deck-count-copy">
-                    <div class="type4-deck-count-name">${escapeHtml(label)}</div>
-                    <div class="type4-deck-count-meta">${escapeHtml(tagTail || 'Representative card')}</div>
+                    <div class="type4-deck-count-name">${escapeHtml(label || 'Generator Deck')}</div>
                 </div>
                 <input
                     type="number"
@@ -945,6 +976,10 @@ function renderType4DeckCountsModal() {
             </label>
         `;
     }).join('');
+    if (type4DeckCountsApplyAllInput) {
+        const firstInput = type4DeckCountsList.querySelector('.type4-deck-count-input');
+        type4DeckCountsApplyAllInput.value = String(getType4DeckCountDraftValue(firstInput ? firstInput.value : 0));
+    }
     updateType4DeckCountsModalTotal();
 }
 
@@ -2101,7 +2136,6 @@ function buildType4RepresentativeCardMarkup(card) {
     const addedDateText = window.PracticeManageCommon.formatAddedDate(card && card.created_at);
     const lastSeenText = window.PracticeManageCommon.formatLastSeenDays(card && card.last_seen_at);
     const lifetimeAttempts = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
-    const hasGeneratorCode = String(card && card.type4_generator_code ? card.type4_generator_code : '').trim().length > 0;
     const isMultichoiceOnly = Boolean(card && card.type4_is_multichoice_only);
 
     return `
@@ -2123,7 +2157,6 @@ function buildType4RepresentativeCardMarkup(card) {
                     class="card-report-link type4-generator-trigger"
                     data-action="open-type4-generator"
                     data-card-id="${escapeHtml(String(card && card.id ? card.id : ''))}"
-                    ${hasGeneratorCode ? '' : 'disabled aria-disabled="true"'}
                 >Generator</button>
                 <button
                     type="button"
@@ -3208,6 +3241,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cancelType4DeckCountsModalBtn) {
         cancelType4DeckCountsModalBtn.addEventListener('click', () => {
             setManageModalOpen(type4DeckCountsModal, false);
+        });
+    }
+    if (applyType4DeckCountsToAllBtn) {
+        applyType4DeckCountsToAllBtn.addEventListener('click', () => {
+            applyType4DeckCountToAllRows(type4DeckCountsApplyAllInput ? type4DeckCountsApplyAllInput.value : 0);
+        });
+    }
+    if (type4DeckCountsApplyAllInput) {
+        type4DeckCountsApplyAllInput.addEventListener('input', () => {
+            type4DeckCountsApplyAllInput.value = String(getType4DeckCountDraftValue(type4DeckCountsApplyAllInput.value));
+        });
+        type4DeckCountsApplyAllInput.addEventListener('change', () => {
+            type4DeckCountsApplyAllInput.value = String(getType4DeckCountDraftValue(type4DeckCountsApplyAllInput.value));
+        });
+        type4DeckCountsApplyAllInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') {
+                return;
+            }
+            event.preventDefault();
+            applyType4DeckCountToAllRows(type4DeckCountsApplyAllInput.value);
         });
     }
     if (closeType4GeneratorModalBtn) {
