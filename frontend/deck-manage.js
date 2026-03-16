@@ -399,10 +399,15 @@ function renderDecks() {
 
 function renderDeckRowHtml(deck) {
     const deckId = Number(deck.deck_id || 0);
+    const cardCount = Number(deck.card_count || 0);
+    const singleCardFront = String(deck && deck.single_card_front ? deck.single_card_front : '').trim();
     const remainingTags = getDeckSecondaryTagLabels(deck);
     const tagHtml = remainingTags.length > 0
         ? `<div class="deck-tags">${remainingTags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
         : '-';
+    const cardsCellHtml = cardCount === 1 && singleCardFront
+        ? `<div class="deck-single-front">${escapeHtml(singleCardFront)}</div>`
+        : String(cardCount);
     return `
         <tr>
             <td class="shared-report-table-action-cell">
@@ -410,7 +415,7 @@ function renderDeckRowHtml(deck) {
             </td>
             <td class="deck-id-col">${deckId}</td>
             <td class="deck-tags-col">${tagHtml}</td>
-            <td>${Number(deck.card_count || 0)}</td>
+            <td class="deck-cards-col">${cardsCellHtml}</td>
         </tr>
     `;
 }

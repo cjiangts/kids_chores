@@ -88,7 +88,7 @@
         }
 
         .rename-tags-modal {
-            width: min(560px, calc(100vw - 2rem));
+            width: min(500px, calc(100vw - 2rem));
         }
 
         .rename-tags-head {
@@ -96,37 +96,52 @@
             align-items: flex-start;
             justify-content: space-between;
             gap: 0.8rem;
-            margin-bottom: 0.8rem;
+            margin-bottom: 0.45rem;
         }
 
         .rename-tags-head h2 {
             margin: 0;
         }
 
-        .rename-tags-copy {
-            color: #555;
-            line-height: 1.4;
-            margin: 0 0 0.8rem 0;
+        .rename-tags-head .btn-secondary,
+        .rename-tags-actions .btn-secondary,
+        .rename-add-tag-row .btn-secondary {
+            padding: 0.45rem 0.9rem;
+            min-height: 40px;
         }
 
         .rename-tags-grid {
             display: grid;
-            gap: 0.8rem;
+            gap: 0.6rem;
         }
 
         .rename-tags-grid .form-group {
             margin-bottom: 0;
         }
 
+        .rename-tags-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .rename-tags-meta-row label,
+        .rename-tags-grid label {
+            margin: 0;
+        }
+
         .rename-tags-fixed-tag {
             display: inline-flex;
             align-items: center;
-            min-height: 38px;
+            min-height: 34px;
         }
 
         .rename-add-tag-row {
+            display: flex;
             flex-wrap: nowrap;
             align-items: center;
+            gap: 0.45rem;
         }
 
         .rename-add-tag-row input {
@@ -136,11 +151,7 @@
 
         .rename-add-tag-row .btn-secondary {
             flex: 0 0 auto;
-        }
-
-        .rename-tags-empty {
-            color: #666;
-            font-size: 0.9rem;
+            white-space: nowrap;
         }
 
         .rename-tag-remove-btn {
@@ -154,8 +165,7 @@
         }
 
         .rename-name-status {
-            margin-top: -0.2rem;
-            font-size: 0.9rem;
+            font-size: 0.84rem;
         }
 
         .rename-name-status.ok {
@@ -170,21 +180,40 @@
             color: #555;
         }
 
+        .rename-name-status:empty {
+            display: none;
+        }
+
+        .rename-name-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        .rename-name-row code {
+            word-break: break-word;
+        }
+
         .rename-tags-actions {
             display: flex;
             justify-content: flex-end;
             gap: 0.55rem;
             flex-wrap: wrap;
-            margin-top: 1rem;
+            margin-top: 0.7rem;
         }
     </style>
 </head>
 <body class="manage-page">
     <div class="container deck-page">
-        <header class="page-header-with-back">
+        <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
                 <h1>📖 View Deck</h1>
-                <a href="/deck-manage.html" class="back-btn btn-secondary page-header-back-btn">← Back</a>
+                <div class="page-header-actions">
+                    <a id="cloneDeckBtn" href="/deck-create.html" class="back-btn btn-secondary hidden">Clone</a>
+                    <a href="/deck-manage.html" class="back-btn btn-secondary page-header-back-btn">← Back</a>
+                </div>
             </div>
         </header>
 
@@ -253,12 +282,8 @@
                 <h2 id="renameTagsModalTitle">Rename Tags</h2>
                 <button type="button" id="closeRenameTagsModalBtn" class="btn-secondary">Close</button>
             </div>
-            <p class="rename-tags-copy">
-                Keep the deck category fixed and update the remaining tag path.
-                Optional comments still work in the same format as deck creation: <code>tag(comment)</code>.
-            </p>
             <div class="rename-tags-grid">
-                <div class="form-group">
+                <div class="rename-tags-meta-row">
                     <label>Category</label>
                     <div id="renameFixedFirstTag" class="deck-tag rename-tags-fixed-tag"></div>
                 </div>
@@ -274,12 +299,12 @@
                     </div>
                 </div>
                 <div id="renameTagsContainer" class="deck-tags"></div>
-                <div class="settings-note">The first tag stays locked. Use the same tag or <code>tag(comment)</code> format as deck creation.</div>
-                <div class="deck-meta-name">
-                    <strong>New name:</strong> <code id="renameDeckNamePreview"></code>
+                <div class="rename-name-row">
+                    <div class="deck-meta-name">
+                        <strong>Name:</strong> <code id="renameDeckNamePreview"></code>
+                    </div>
+                    <div id="renameNameStatus" class="rename-name-status note"></div>
                 </div>
-                <div id="renameNameStatus" class="rename-name-status note">Checking name availability...</div>
-                <div id="renameTagsMessage" class="settings-note"></div>
                 <div id="renameTagsError" class="error hidden"></div>
             </div>
             <div class="rename-tags-actions">

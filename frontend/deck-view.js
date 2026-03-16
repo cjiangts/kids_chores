@@ -21,6 +21,7 @@ const clearCardsInputBtn = document.getElementById('clearCardsInputBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const renameDeckTagsBtn = document.getElementById('renameDeckTagsBtn');
+const cloneDeckBtn = document.getElementById('cloneDeckBtn');
 const renameTagsModal = document.getElementById('renameTagsModal');
 const closeRenameTagsModalBtn = document.getElementById('closeRenameTagsModalBtn');
 const cancelRenameTagsBtn = document.getElementById('cancelRenameTagsBtn');
@@ -31,7 +32,6 @@ const renameAddTagBtn = document.getElementById('renameAddTagBtn');
 const renameTagsContainer = document.getElementById('renameTagsContainer');
 const renameDeckNamePreview = document.getElementById('renameDeckNamePreview');
 const renameNameStatus = document.getElementById('renameNameStatus');
-const renameTagsMessage = document.getElementById('renameTagsMessage');
 const renameTagsError = document.getElementById('renameTagsError');
 const deckCategoryCommon = window.DeckCategoryCommon;
 
@@ -216,6 +216,7 @@ function renderDeck(payload) {
     }
     deckCreatedAtText.textContent = formatIsoTimestamp(deck.created_at);
     cardCountText.textContent = String(cardCount);
+    updateCloneDeckButton(deck, isTypeIV);
     if (editorSectionTitle) {
         editorSectionTitle.textContent = isTypeIV ? 'Generator Definition' : 'Edit Cards';
     }
@@ -267,6 +268,28 @@ function renderDeck(payload) {
         `;
     }).join('');
     setMutating(isMutating);
+}
+
+function updateCloneDeckButton(deck, isTypeIV) {
+    if (!cloneDeckBtn) {
+        return;
+    }
+    if (!isTypeIV) {
+        cloneDeckBtn.classList.add('hidden');
+        cloneDeckBtn.setAttribute('aria-hidden', 'true');
+        return;
+    }
+    const firstTag = Array.isArray(deck && deck.tags)
+        ? String(deck.tags[0] || '').trim().toLowerCase()
+        : '';
+    const params = new URLSearchParams();
+    if (firstTag) {
+        params.set('categoryKey', firstTag);
+    }
+    params.set('cloneDeckId', String(Number(deck && deck.deck_id ? deck.deck_id : deckId) || deckId));
+    cloneDeckBtn.href = `/deck-create.html?${params.toString()}`;
+    cloneDeckBtn.classList.remove('hidden');
+    cloneDeckBtn.removeAttribute('aria-hidden');
 }
 
 function parseCardsCsvInput(rawText) {
@@ -550,7 +573,7 @@ function renderRenameExtraTags() {
         return;
     }
     if (renameExtraTags.length === 0) {
-        renameTagsContainer.innerHTML = '<span class="rename-tags-empty">No additional tags yet.</span>';
+        renameTagsContainer.innerHTML = '';
         return;
     }
     renameTagsContainer.innerHTML = renameExtraTags.map((item) => {
@@ -616,25 +639,25 @@ function closeRenameTagsModal(force = false) {
 }
 
 function updateRenameTagsPreview() {
-    if (!renameDeckNamePreview || !renameTagsMessage || !renameNameStatus) {
+    if (!renameDeckNamePreview || !renameNameStatus) {
         return;
     }
     try {
         const parsed = buildRenameTagPayload();
         renameDeckNamePreview.textContent = parsed.generatedName || '(auto)';
         if (isRenameConfigUnchanged(parsed)) {
-            renameTagsMessage.textContent = 'No tag change yet.';
+            renameNameAvailable = true;
+            renameLastNameChecked = parsed.generatedName;
+            setRenameNameStatus('', 'note');
         } else {
-            renameTagsMessage.textContent = 'Save to update this shared deck and every materialized copy.';
+            scheduleRenameNameAvailabilityCheck();
         }
         showRenameTagsError('');
-        scheduleRenameNameAvailabilityCheck();
     } catch (error) {
         renameDeckNamePreview.textContent = '(invalid)';
-        renameTagsMessage.textContent = '';
         renameNameAvailable = false;
         renameLastNameChecked = '';
-        setRenameNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        setRenameNameStatus('Add tag.', 'note');
         showRenameTagsError('');
     }
 }
@@ -688,10 +711,10 @@ function scheduleRenameNameAvailabilityCheck() {
         window.clearTimeout(renameNameCheckTimer);
     }
     if (!hasEnoughRenameTags()) {
-        setRenameNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        setRenameNameStatus('Add tag.', 'note');
         return;
     }
-    setRenameNameStatus('Checking name availability...', 'note');
+    setRenameNameStatus('Checking...', 'note');
     renameNameCheckTimer = window.setTimeout(() => {
         renameNameCheckTimer = null;
         void checkRenameNameAvailability();
@@ -702,7 +725,7 @@ async function ensureRenameNameAvailable() {
     if (!hasEnoughRenameTags()) {
         renameNameAvailable = false;
         renameLastNameChecked = '';
-        setRenameNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        setRenameNameStatus('Add tag.', 'note');
         return false;
     }
     const currentName = buildRenameTagPayload().generatedName;
@@ -720,7 +743,7 @@ async function checkRenameNameAvailability() {
     } catch (error) {
         renameNameAvailable = false;
         renameLastNameChecked = '';
-        setRenameNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        setRenameNameStatus('Add tag.', 'note');
         return;
     }
 
@@ -738,14 +761,11 @@ async function checkRenameNameAvailability() {
         renameNameAvailable = Boolean(result.available);
         renameLastNameChecked = payload.generatedName;
         if (renameNameAvailable) {
-            setRenameNameStatus('Name available.', 'ok');
+            setRenameNameStatus('Available', 'ok');
         } else if (result && result.conflict_type === 'tag_prefix_conflict') {
-            setRenameNameStatus(
-                `Tag path conflicts with existing path ${result.conflict_tags ? `[${result.conflict_tags.join(', ')}]` : ''}.`,
-                'error',
-            );
+            setRenameNameStatus('Conflicts', 'error');
         } else {
-            setRenameNameStatus('Name already exists. Please change tags.', 'error');
+            setRenameNameStatus('Taken', 'error');
         }
     } catch (error) {
         if (token !== renameNameCheckToken) {
@@ -754,7 +774,7 @@ async function checkRenameNameAvailability() {
         console.error('Error checking rename name availability:', error);
         renameNameAvailable = null;
         renameLastNameChecked = '';
-        setRenameNameStatus('Could not verify name right now.', 'error');
+        setRenameNameStatus('Check failed', 'error');
     }
 }
 

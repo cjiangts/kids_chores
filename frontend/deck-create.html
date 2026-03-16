@@ -124,15 +124,15 @@
             font-size: 0.9rem;
         }
 
-        .deck-name-status.ok {
+        .deck-name-status.status-ok {
             color: #2b8a3e;
         }
 
-        .deck-name-status.error {
+        .deck-name-status.status-error {
             color: #c92a2a;
         }
 
-        .deck-name-status.note {
+        .deck-name-status.status-note {
             color: #555;
         }
 
@@ -300,6 +300,16 @@
             white-space: pre-wrap;
             word-break: break-word;
         }
+
+        .type4-review-examples-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-top: 0.7rem;
+            margin-bottom: 0.35rem;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -332,7 +342,7 @@
                 </div>
                 <div id="tagsContainer" class="deck-tags"></div>
                 <div class="deck-meta-name">Generated name: <code id="generatedName">(auto)</code></div>
-                <div id="nameStatus" class="deck-name-status note">Checking name availability...</div>
+                <div id="nameStatus" class="deck-name-status status-note">Checking name availability...</div>
             </section>
 
             <section class="deck-panel">
@@ -392,7 +402,10 @@
                     <div><strong>Representative label:</strong> <span id="type4ReviewLabel"></span></div>
                     <div class="mt-07"><strong>Python generator:</strong></div>
                     <pre id="type4ReviewCode" class="type4-review-code input-mono"></pre>
-                    <div class="mt-07"><strong>Example results:</strong></div>
+                    <div class="type4-review-examples-head">
+                        <strong>Example results:</strong>
+                        <button type="button" id="regenType4ExamplesBtn" class="btn-secondary">Regen 3 Examples</button>
+                    </div>
                     <div id="type4ReviewExamples"></div>
                 </div>
             </section>

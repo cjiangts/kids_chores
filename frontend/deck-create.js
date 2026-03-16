@@ -27,6 +27,7 @@ const type4ReviewBox = document.getElementById('type4ReviewBox');
 const type4ReviewLabel = document.getElementById('type4ReviewLabel');
 const type4ReviewCode = document.getElementById('type4ReviewCode');
 const type4ReviewExamples = document.getElementById('type4ReviewExamples');
+const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
 const createDeckBtn = document.getElementById('createDeckBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
@@ -71,8 +72,11 @@ let deckCategories = [];
 let deckCategoryKeySet = new Set();
 let reservedFirstTags = new Set();
 let type4AceEditor = null;
+let type4PreviewSeedBase = Date.now();
+let isRegeneratingType4Examples = false;
 const createUrlParams = new URLSearchParams(window.location.search);
 let lockedFirstTagFromQuery = normalizeTag(createUrlParams.get('categoryKey'));
+const cloneDeckIdFromQuery = Number(createUrlParams.get('cloneDeckId') || 0);
 
 document.addEventListener('DOMContentLoaded', async () => {
     initializeType4CodeEditor();
@@ -90,6 +94,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateGeneratedName();
     void loadAutocompleteTags();
     updateAutocompleteSuggestions();
+    await maybeLoadCloneDeck();
+    bindType4PreviewInvalidation();
 });
 
 if (firstTagToggle) {
@@ -138,6 +144,12 @@ createDeckBtn.addEventListener('click', async () => {
     await createDeck();
 });
 
+if (regenType4ExamplesBtn) {
+    regenType4ExamplesBtn.addEventListener('click', async () => {
+        await regenerateType4Examples();
+    });
+}
+
 function getCurrentDeckCategory() {
     return deckCreateCommon.getCurrentDeckCategory(currentFirstTag, deckCategories);
 }
@@ -180,6 +192,27 @@ function setType4GeneratorCodeValue(value) {
     }
 }
 
+function nextType4PreviewSeedBase() {
+    type4PreviewSeedBase += 997;
+    return type4PreviewSeedBase;
+}
+
+function bindType4PreviewInvalidation() {
+    if (type4DisplayLabelInput) {
+        type4DisplayLabelInput.addEventListener('input', () => {
+            invalidateType4Preview();
+        });
+    }
+}
+
+function invalidateType4Preview() {
+    if (!previewType4Definition) {
+        return;
+    }
+    previewType4Definition = null;
+    reviewSection.classList.add('hidden');
+}
+
 function initializeType4CodeEditor() {
     if (!type4GeneratorCodeInput || !type4GeneratorCodeEditor) {
         return;
@@ -206,11 +239,20 @@ function initializeType4CodeEditor() {
     type4AceEditor.clearSelection();
     type4AceEditor.session.on('change', () => {
         type4GeneratorCodeInput.value = type4AceEditor.getValue();
+        invalidateType4Preview();
     });
     type4GeneratorCodeInput.classList.add('hidden');
     type4GeneratorCodeInput.setAttribute('aria-hidden', 'true');
     type4GeneratorCodeEditor.classList.remove('hidden');
     type4GeneratorCodeEditor.setAttribute('aria-hidden', 'false');
+}
+
+function setRegenType4ExamplesButtonState(isBusy) {
+    if (!regenType4ExamplesBtn) {
+        return;
+    }
+    regenType4ExamplesBtn.disabled = Boolean(isBusy);
+    regenType4ExamplesBtn.textContent = isBusy ? 'Regenerating...' : 'Regen 3 Examples';
 }
 
 function setControlsDisabled(disabled) {
@@ -222,6 +264,7 @@ function setControlsDisabled(disabled) {
         type4GeneratorCodeInput: { element: type4GeneratorCodeInput },
         previewBtn: { element: previewBtn },
         clearCsvBtn: { element: clearCsvBtn },
+        regenType4ExamplesBtn: { element: regenType4ExamplesBtn, busyGuard: () => isRegeneratingType4Examples },
         createDeckBtn: { element: createDeckBtn, busyGuard: () => isCreatingDeck },
     });
     if (type4AceEditor && typeof type4AceEditor.setReadOnly === 'function') {
@@ -319,6 +362,86 @@ function setCurrentFirstTag(tag) {
     updateCardsInputModeUi();
     updateGeneratedName();
     updateAutocompleteSuggestions();
+}
+
+async function maybeLoadCloneDeck() {
+    if (!Number.isInteger(cloneDeckIdFromQuery) || cloneDeckIdFromQuery <= 0) {
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/${cloneDeckIdFromQuery}`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to load source deck (HTTP ${response.status})`);
+        }
+        applyClonedDeck(result);
+    } catch (error) {
+        console.error('Error loading clone source deck:', error);
+        showError(error.message || 'Failed to load clone source deck.');
+    }
+}
+
+function applyClonedDeck(payload) {
+    const deck = payload && typeof payload === 'object' ? payload.deck : null;
+    const cards = Array.isArray(payload && payload.cards) ? payload.cards : [];
+    const generatorDefinition = payload && typeof payload === 'object' ? payload.generator_definition : null;
+    if (!deck) {
+        throw new Error('Clone source deck is unavailable.');
+    }
+
+    const behaviorType = String(deck.behavior_type || '').trim().toLowerCase();
+    if (behaviorType !== 'type_iv') {
+        throw new Error('Only type IV decks can be cloned from this screen.');
+    }
+
+    const tags = Array.isArray(deck.tags) ? deck.tags : [];
+    const tagLabels = Array.isArray(deck.tag_labels) ? deck.tag_labels : [];
+    const firstTag = normalizeTag(tags[0]);
+    if (!firstTag) {
+        throw new Error('Clone source deck is missing its category tag.');
+    }
+    currentFirstTag = firstTag;
+    if (!lockedFirstTagFromQuery) {
+        lockedFirstTagFromQuery = firstTag;
+    }
+    extraTags = extractCloneExtraTags(tags, tagLabels);
+    previewCards = [];
+    previewRows = [];
+    previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
+    previewType4Definition = null;
+    reviewSection.classList.add('hidden');
+
+    renderFirstTagToggle();
+    renderTags();
+    updateCardsInputModeUi();
+    updateGeneratedName();
+    updateAutocompleteSuggestions();
+
+    if (type4DisplayLabelInput) {
+        type4DisplayLabelInput.value = String(cards[0] && cards[0].front ? cards[0].front : '').trim();
+    }
+    setType4GeneratorCodeValue(
+        String(generatorDefinition && generatorDefinition.code ? generatorDefinition.code : '')
+    );
+}
+
+function extractCloneExtraTags(tags, tagLabels) {
+    const seen = new Set();
+    return (Array.isArray(tags) ? tags : [])
+        .slice(1)
+        .map((rawTag, index) => {
+            const normalizedTag = normalizeTag(rawTag);
+            if (!normalizedTag || seen.has(normalizedTag)) {
+                return null;
+            }
+            const parsed = parseTagInput(tagLabels[index + 1] || rawTag);
+            seen.add(normalizedTag);
+            return {
+                tag: normalizedTag,
+                comment: parsed.tag === normalizedTag ? parsed.comment : '',
+            };
+        })
+        .filter(Boolean);
 }
 
 function getAllTags() {
@@ -616,16 +739,64 @@ function parseType4Definition() {
 }
 
 async function fetchType4PreviewSamples(generatorCode) {
+    const seedBase = nextType4PreviewSeedBase();
     const response = await fetch(`${API_BASE}/shared-decks/type4/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ generatorCode }),
+        body: JSON.stringify({ generatorCode, seedBase }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(result.error || `Failed to preview generator (HTTP ${response.status})`);
     }
     return Array.isArray(result && result.samples) ? result.samples : [];
+}
+
+async function ensureType4RepresentativeLabelAvailable(displayLabel) {
+    const response = await fetch(`${API_BASE}/shared-decks/type4/representative-label-availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            categoryKey: currentFirstTag,
+            displayLabel,
+        }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Failed to check representative label (HTTP ${response.status})`);
+    }
+    if (result && result.available) {
+        return;
+    }
+    const existingDeckName = String(result && result.existing_deck_name ? result.existing_deck_name : '').trim();
+    throw new Error(
+        existingDeckName
+            ? `Representative label already exists in this category: ${existingDeckName}.`
+            : 'Representative label already exists in this category.',
+    );
+}
+
+async function regenerateType4Examples() {
+    if (!isTypeIVDeckMode() || !previewType4Definition || isRegeneratingType4Examples) {
+        return;
+    }
+    showError('');
+    try {
+        isRegeneratingType4Examples = true;
+        setRegenType4ExamplesButtonState(true);
+        const definition = parseType4Definition();
+        const samples = await fetchType4PreviewSamples(definition.generatorCode);
+        previewType4Definition = {
+            ...definition,
+            samples,
+        };
+        renderReview([], []);
+    } catch (error) {
+        showError(error.message || 'Failed to regenerate preview samples.');
+    } finally {
+        isRegeneratingType4Examples = false;
+        setRegenType4ExamplesButtonState(false);
+    }
 }
 
 async function previewDeckFromCsv() {
@@ -640,6 +811,7 @@ async function previewDeckFromCsv() {
     if (isTypeIVDeckMode()) {
         try {
             const definition = parseType4Definition();
+            await ensureType4RepresentativeLabelAvailable(definition.displayLabel);
             const samples = await fetchType4PreviewSamples(definition.generatorCode);
             previewType4Definition = {
                 ...definition,
@@ -791,6 +963,7 @@ function renderReview(cardsToCreate, allRows) {
         if (reviewTableBody) {
             reviewTableBody.innerHTML = '';
         }
+        setRegenType4ExamplesButtonState(false);
         return;
     }
     const totalRows = Number(previewDiagnostics.totalRows || 0);
@@ -910,8 +1083,8 @@ async function createDeck() {
 
 function setNameStatus(text, state) {
     nameStatus.textContent = text;
-    nameStatus.classList.remove('ok', 'error', 'note');
-    nameStatus.classList.add(state);
+    nameStatus.classList.remove('status-ok', 'status-error', 'status-note');
+    nameStatus.classList.add(`status-${state}`);
 }
 
 function scheduleNameAvailabilityCheck() {

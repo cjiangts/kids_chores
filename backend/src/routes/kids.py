@@ -987,6 +987,39 @@ def get_shared_type_iv_deck_rows(conn, category_key):
     return decks
 
 
+def find_shared_type_iv_representative_label_conflict(
+    conn,
+    category_key,
+    representative_label,
+    *,
+    exclude_deck_id=None,
+):
+    """Find an existing type-IV deck in one category by representative label."""
+    category = normalize_shared_deck_tag(category_key)
+    label = normalize_type_iv_display_label(representative_label)
+    excluded = None
+    if exclude_deck_id is not None:
+        try:
+            excluded = int(exclude_deck_id)
+        except (TypeError, ValueError):
+            excluded = None
+
+    for deck in get_shared_type_iv_deck_rows(conn, category):
+        deck_id = int(deck.get('deck_id') or 0)
+        if excluded is not None and deck_id == excluded:
+            continue
+        if str(deck.get('representative_front') or '').strip() != label:
+            continue
+        return {
+            'deck_id': deck_id,
+            'deck_name': str(deck.get('name') or '').strip(),
+            'representative_label': label,
+            'tags': list(deck.get('tags') or []),
+            'tag_labels': list(deck.get('tag_labels') or []),
+        }
+    return None
+
+
 def get_kid_materialized_shared_decks_by_first_tag(conn, first_tag):
     """Return kid-local materialized shared decks keyed by local deck id."""
     required_tag = str(first_tag or '').strip()
@@ -2026,13 +2059,79 @@ def preview_shared_type4_generator():
 
         payload = request.get_json() or {}
         generator_code = normalize_type_iv_generator_code(payload.get('generatorCode'))
+        raw_seed_base = payload.get('seedBase')
+        if raw_seed_base in (None, ''):
+            seed_base = 1000
+        else:
+            seed_base = int(raw_seed_base)
         samples = preview_type4_generator(
             generator_code,
             sample_count=TYPE_IV_PREVIEW_SAMPLE_COUNT,
+            seed_base=seed_base,
         )
         return jsonify({
             'sample_count': len(samples),
             'samples': samples,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/type4/representative-label-availability', methods=['POST'])
+def shared_type4_representative_label_availability():
+    """Check whether a type-IV representative label is available in one category."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+
+        payload = request.get_json() or {}
+        category_key = normalize_shared_deck_tag(payload.get('categoryKey'))
+        if not category_key:
+            raise ValueError('categoryKey is required')
+        representative_label = normalize_type_iv_display_label(payload.get('displayLabel'))
+        exclude_deck_id_raw = payload.get('excludeDeckId')
+        exclude_deck_id = None
+        if exclude_deck_id_raw not in (None, ''):
+            try:
+                exclude_deck_id = int(exclude_deck_id_raw)
+            except (TypeError, ValueError):
+                raise ValueError('excludeDeckId must be an integer')
+
+        conn = get_shared_decks_connection()
+        try:
+            category_meta = None
+            for item in get_shared_deck_categories(conn):
+                key = normalize_shared_deck_tag(item.get('category_key'))
+                if key == category_key:
+                    category_meta = item
+                    break
+            if category_meta is None:
+                raise ValueError(f'Unknown categoryKey: {category_key}')
+            behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
+            if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                raise ValueError('Representative-label availability is only for type_iv categories')
+
+            conflict = find_shared_type_iv_representative_label_conflict(
+                conn,
+                category_key,
+                representative_label,
+                exclude_deck_id=exclude_deck_id,
+            )
+        finally:
+            conn.close()
+
+        return jsonify({
+            'category_key': category_key,
+            'display_label': representative_label,
+            'available': conflict is None,
+            'existing_deck_id': int(conflict['deck_id']) if conflict else None,
+            'existing_deck_name': str(conflict['deck_name']) if conflict else '',
+            'existing_tags': list(conflict['tags']) if conflict else [],
+            'existing_tag_labels': list(conflict['tag_labels']) if conflict else [],
+            'exclude_deck_id': exclude_deck_id,
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -2193,7 +2292,11 @@ def list_my_shared_decks():
                     d.tags,
                     d.creator_family_id,
                     d.created_at,
-                    CAST(COALESCE(COUNT(c.id), 0) AS INTEGER) AS card_count
+                    CAST(COALESCE(COUNT(c.id), 0) AS INTEGER) AS card_count,
+                    CASE
+                        WHEN COUNT(c.id) = 1 THEN MIN(c.front)
+                        ELSE NULL
+                    END AS single_card_front
                 FROM deck d
                 LEFT JOIN cards c ON c.deck_id = d.deck_id
                 WHERE d.creator_family_id = ?
@@ -2216,6 +2319,7 @@ def list_my_shared_decks():
                 'creator_family_id': int(row[3]),
                 'created_at': row[4].isoformat() if row[4] else None,
                 'card_count': int(row[5] or 0),
+                'single_card_front': str(row[6] or '').strip(),
             })
 
         return jsonify({'decks': decks}), 200
@@ -2625,6 +2729,20 @@ def create_shared_deck():
                 if is_type_iv:
                     display_label = normalize_type_iv_display_label(payload.get('displayLabel'))
                     generator_code = normalize_type_iv_generator_code(payload.get('generatorCode'))
+                    label_conflict = find_shared_type_iv_representative_label_conflict(
+                        conn,
+                        tags[0],
+                        display_label,
+                    )
+                    if label_conflict:
+                        return jsonify({
+                            'error': (
+                                'Representative label already exists in this category: '
+                                f"{label_conflict['deck_name']}"
+                            ),
+                            'existing_deck_id': int(label_conflict['deck_id']),
+                            'existing_deck_name': str(label_conflict['deck_name']),
+                        }), 409
                     preview_type4_generator(generator_code, sample_count=1)
                     cards = [{'front': display_label, 'back': ''}]
                 else:

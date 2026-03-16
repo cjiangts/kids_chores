@@ -11,6 +11,8 @@ const targetResultId = Number.parseInt(
     || (hashResultMatch ? hashResultMatch[1] : ''),
     10
 );
+const BEHAVIOR_TYPE_I = 'type_i';
+const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_IV = 'type_iv';
 
 const pageTitle = document.getElementById('pageTitle');
@@ -293,14 +295,22 @@ function renderHistory(attempts) {
             `;
         }
         const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
+        const retryFixCount = getRetryFixCount(item);
+        const retryBadgeHtml = retryFixCount > 0
+            ? `<span class="history-retry-badge" title="${escapeHtml(getRetryFixLabel(retryFixCount))}">${escapeHtml(getRetryFixShortLabel(retryFixCount))}</span>`
+            : '';
         return `
             <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                 <div class="history-head-row">
-                    <div>
-                        ${formatType(item.session_category_display_name)} · ${responseTimeLabel}
-                        <span class="pill ${statusClass}">${statusText}</span>
+                    <div class="history-title-stack">
+                        <div class="history-primary">${escapeHtml(formatType(item.session_category_display_name))}</div>
+                        <div class="meta-inline">${escapeHtml(responseTimeLabel)}</div>
                     </div>
-                    ${downloadButtonHtml}
+                    <div class="history-status-side">
+                        ${retryBadgeHtml}
+                        <span class="pill ${statusClass}">${statusText}</span>
+                        ${downloadButtonHtml}
+                    </div>
                 </div>
                 <div class="meta">
                     ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
@@ -392,6 +402,32 @@ function getAttemptDisplayResponseMs(item) {
 
 function isType4Attempt(item) {
     return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_IV;
+}
+
+function isType1OrType2Attempt(item) {
+    const behaviorType = String(item?.session_behavior_type || '').trim().toLowerCase();
+    return behaviorType === BEHAVIOR_TYPE_I || behaviorType === BEHAVIOR_TYPE_II;
+}
+
+function getRetryFixCount(item) {
+    if (!isType1OrType2Attempt(item)) {
+        return 0;
+    }
+    const scoreRaw = Number(item?.correct_score);
+    if (!Number.isFinite(scoreRaw) || scoreRaw > -2) {
+        return 0;
+    }
+    return Math.max(1, Math.abs(Math.trunc(scoreRaw)) - 1);
+}
+
+function getRetryFixLabel(retryFixCount) {
+    return retryFixCount === 1
+        ? 'Fixed after 1 retry'
+        : `Fixed after ${retryFixCount} retries`;
+}
+
+function getRetryFixShortLabel(retryFixCount) {
+    return retryFixCount === 1 ? '1 retry' : `${retryFixCount} retries`;
 }
 
 function getType4AttemptPrompt(item) {
