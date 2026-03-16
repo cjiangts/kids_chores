@@ -127,6 +127,70 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .category-emoji-cell {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+
+        .category-emoji-text {
+            min-width: 1.3rem;
+            font-size: 1.1rem;
+            line-height: 1;
+            flex: 0 0 auto;
+        }
+
+        .category-emoji-btn {
+            padding: 0.18rem 0.55rem;
+            min-height: 30px;
+            font-size: 0.78rem;
+            flex: 0 0 auto;
+        }
+
+        .emoji-modal {
+            width: min(420px, calc(100vw - 2rem));
+        }
+
+        .emoji-modal-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .emoji-modal-head h2 {
+            margin: 0;
+        }
+
+        .emoji-modal-grid {
+            display: grid;
+            gap: 0.65rem;
+        }
+
+        .emoji-modal-current {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #4b5a70;
+        }
+
+        .emoji-modal-current-emoji {
+            min-width: 1.4rem;
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
+        .emoji-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -239,6 +303,32 @@
             <div id="successMessage" class="success hidden"></div>
             <div id="errorMessage" class="error hidden"></div>
         </main>
+    </div>
+
+    <div id="editEmojiModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content emoji-modal" role="dialog" aria-modal="true" aria-labelledby="editEmojiModalTitle">
+            <div class="emoji-modal-head">
+                <h2 id="editEmojiModalTitle">Change Emoji</h2>
+                <button type="button" id="closeEditEmojiModalBtn" class="btn-secondary">Close</button>
+            </div>
+            <div class="emoji-modal-grid">
+                <div class="deck-meta-row"><strong>Category:</strong> <span id="editEmojiCategoryKeyText"></span></div>
+                <div class="emoji-modal-current">
+                    <strong>Current:</strong>
+                    <span id="editEmojiCurrentText" class="emoji-modal-current-emoji">-</span>
+                </div>
+                <div class="form-group">
+                    <label for="editEmojiInput">New emoji</label>
+                    <input type="text" id="editEmojiInput" placeholder="e.g. 🧪">
+                </div>
+                <p class="muted-help-text">Leave blank to clear the emoji.</p>
+                <div id="editEmojiError" class="error hidden"></div>
+            </div>
+            <div class="emoji-modal-actions">
+                <button type="button" id="cancelEditEmojiModalBtn" class="btn-secondary">Cancel</button>
+                <button type="button" id="saveEditEmojiBtn" class="btn-primary">Save Emoji</button>
+            </div>
+        </div>
     </div>
 
     <script src="practice-manage-common.js"></script>

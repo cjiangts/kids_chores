@@ -11,9 +11,20 @@ const categoryTableBody = document.getElementById('categoryTableBody');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const chineseLogicNote = document.getElementById('chineseLogicNote');
+const editEmojiModal = document.getElementById('editEmojiModal');
+const closeEditEmojiModalBtn = document.getElementById('closeEditEmojiModalBtn');
+const cancelEditEmojiModalBtn = document.getElementById('cancelEditEmojiModalBtn');
+const saveEditEmojiBtn = document.getElementById('saveEditEmojiBtn');
+const editEmojiCategoryKeyText = document.getElementById('editEmojiCategoryKeyText');
+const editEmojiCurrentText = document.getElementById('editEmojiCurrentText');
+const editEmojiInput = document.getElementById('editEmojiInput');
+const editEmojiError = document.getElementById('editEmojiError');
 
 let isCreating = false;
 const sharingCategoryKeys = new Set();
+let isSavingEmoji = false;
+let editingEmojiCategoryKey = '';
+let categoriesByKey = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -27,12 +38,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 if (categoryTableBody) {
     categoryTableBody.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-action="share-category"]');
+        const button = event.target.closest('button[data-action]');
         if (!button) {
             return;
         }
         const categoryKey = String(button.getAttribute('data-category-key') || '').trim();
         if (!categoryKey) {
+            return;
+        }
+        if (button.getAttribute('data-action') === 'edit-emoji') {
+            openEditEmojiModal(categoryKey);
             return;
         }
         void shareCategory(categoryKey);
@@ -43,6 +58,51 @@ if (createCategoryForm) {
     createCategoryForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         await createCategory();
+    });
+}
+
+if (closeEditEmojiModalBtn) {
+    closeEditEmojiModalBtn.addEventListener('click', () => {
+        closeEditEmojiModal();
+    });
+}
+
+if (cancelEditEmojiModalBtn) {
+    cancelEditEmojiModalBtn.addEventListener('click', () => {
+        closeEditEmojiModal();
+    });
+}
+
+if (saveEditEmojiBtn) {
+    saveEditEmojiBtn.addEventListener('click', async () => {
+        await saveEditedEmoji();
+    });
+}
+
+if (editEmojiInput) {
+    editEmojiInput.addEventListener('keydown', (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+            event.preventDefault();
+            void saveEditedEmoji();
+            return;
+        }
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            void saveEditedEmoji();
+            return;
+        }
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeEditEmojiModal();
+        }
+    });
+}
+
+if (editEmojiModal) {
+    editEmojiModal.addEventListener('click', (event) => {
+        if (event.target === editEmojiModal) {
+            closeEditEmojiModal();
+        }
     });
 }
 
@@ -151,6 +211,13 @@ async function loadCategories() {
 
 function renderCategories(categories) {
     const list = Array.isArray(categories) ? categories : [];
+    categoriesByKey = {};
+    list.forEach((item) => {
+        const key = String(item && item.category_key ? item.category_key : '').trim();
+        if (key) {
+            categoriesByKey[key] = item;
+        }
+    });
     if (list.length === 0) {
         if (tableWrap) {
             tableWrap.classList.add('hidden');
@@ -179,6 +246,7 @@ function renderCategories(categories) {
             const chineseSpecific = item.has_chinese_specific_logic ? 'Yes' : 'No';
             const sharedWithNonSuper = Boolean(item.is_shared_with_non_super_family);
             const isSharing = sharingCategoryKeys.has(key);
+            const isEditingEmoji = isSavingEmoji && editingEmojiCategoryKey === key;
             const shareButton = sharedWithNonSuper
                 ? `<button type="button" class="btn-secondary" disabled>Shared</button>`
                 : `<button type="button" class="btn-primary" data-action="share-category" data-category-key="${escapeHtml(key)}" ${isSharing ? 'disabled' : ''}>${isSharing ? 'Sharing...' : 'Share to Non-super'}</button>`;
@@ -186,7 +254,18 @@ function renderCategories(categories) {
                 <tr>
                     <td>${escapeHtml(key)}</td>
                     <td>${escapeHtml(displayName)}</td>
-                    <td>${escapeHtml(emoji)}</td>
+                    <td>
+                        <div class="category-emoji-cell">
+                            <span class="category-emoji-text">${escapeHtml(emoji || '—')}</span>
+                            <button
+                                type="button"
+                                class="btn-secondary category-emoji-btn"
+                                data-action="edit-emoji"
+                                data-category-key="${escapeHtml(key)}"
+                                ${isEditingEmoji ? 'disabled' : ''}
+                            >${isEditingEmoji ? 'Saving...' : 'Change'}</button>
+                        </div>
+                    </td>
                     <td>${escapeHtml(behavior)}</td>
                     <td>${escapeHtml(chineseSpecific)}</td>
                     <td>${sharedWithNonSuper ? 'Yes' : 'No'}</td>
@@ -297,6 +376,108 @@ async function shareCategory(categoryKey) {
         showError(error.message || 'Failed to share category.');
     } finally {
         sharingCategoryKeys.delete(key);
+        await loadCategories();
+    }
+}
+
+function showEditEmojiError(message) {
+    if (!editEmojiError) {
+        return;
+    }
+    const text = String(message || '').trim();
+    if (!text) {
+        editEmojiError.textContent = '';
+        editEmojiError.classList.add('hidden');
+        return;
+    }
+    editEmojiError.textContent = text;
+    editEmojiError.classList.remove('hidden');
+}
+
+function setEditEmojiBusy(isBusy) {
+    isSavingEmoji = Boolean(isBusy);
+    if (saveEditEmojiBtn) {
+        saveEditEmojiBtn.disabled = isSavingEmoji;
+        saveEditEmojiBtn.textContent = isSavingEmoji ? 'Saving...' : 'Save Emoji';
+    }
+    if (cancelEditEmojiModalBtn) {
+        cancelEditEmojiModalBtn.disabled = isSavingEmoji;
+    }
+    if (closeEditEmojiModalBtn) {
+        closeEditEmojiModalBtn.disabled = isSavingEmoji;
+    }
+    if (editEmojiInput) {
+        editEmojiInput.disabled = isSavingEmoji;
+    }
+}
+
+function openEditEmojiModal(categoryKey) {
+    const key = normalizeCategoryKey(categoryKey);
+    const category = categoriesByKey[key];
+    if (!category || !editEmojiModal) {
+        return;
+    }
+    editingEmojiCategoryKey = key;
+    if (editEmojiCategoryKeyText) {
+        editEmojiCategoryKeyText.textContent = key;
+    }
+    const currentEmoji = String(category.emoji || '').trim();
+    if (editEmojiCurrentText) {
+        editEmojiCurrentText.textContent = currentEmoji || '—';
+    }
+    if (editEmojiInput) {
+        editEmojiInput.value = currentEmoji;
+    }
+    showEditEmojiError('');
+    setEditEmojiBusy(false);
+    editEmojiModal.classList.remove('hidden');
+    editEmojiModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    window.setTimeout(() => {
+        editEmojiInput?.focus();
+        editEmojiInput?.select();
+    }, 0);
+}
+
+function closeEditEmojiModal(force = false) {
+    if (!editEmojiModal || (isSavingEmoji && !force)) {
+        return;
+    }
+    editEmojiModal.classList.add('hidden');
+    editEmojiModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    editingEmojiCategoryKey = '';
+    showEditEmojiError('');
+    setEditEmojiBusy(false);
+}
+
+async function saveEditedEmoji() {
+    const categoryKey = normalizeCategoryKey(editingEmojiCategoryKey);
+    if (!categoryKey || isSavingEmoji) {
+        return;
+    }
+    setEditEmojiBusy(true);
+    showEditEmojiError('');
+    showError('');
+    showSuccess('');
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/categories/${encodeURIComponent(categoryKey)}/emoji`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                emoji: String(editEmojiInput ? editEmojiInput.value : '').trim(),
+            }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to update emoji (HTTP ${response.status})`);
+        }
+        closeEditEmojiModal(true);
+        showSuccess(`Updated emoji for category: ${categoryKey}`);
+        await loadCategories();
+    } catch (error) {
+        showEditEmojiError(error.message || 'Failed to update emoji.');
+        setEditEmojiBusy(false);
         await loadCategories();
     }
 }
