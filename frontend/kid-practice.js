@@ -129,6 +129,8 @@ const state = {
     pendingRecordedMimeType: '',
     pendingRecordedUrl: '',
     isSessionPaused: false,
+    resultActionMode: 'back',
+    pendingResultEndedEarly: false,
 };
 
 const errorState = { lastMessage: '' };
@@ -761,6 +763,8 @@ function resetBaseSessionState() {
     state.isUploadingRecording = false;
     state.recordingStartedAtMs = 0;
     state.recordingPauseStartedAtMs = 0;
+    state.resultActionMode = 'back';
+    state.pendingResultEndedEarly = false;
     resetRecordingState();
     clearPendingRecordingPreview();
 
@@ -2100,24 +2104,13 @@ async function endType1Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
     setHeaderBackToPracticeVisible(false);
-    resultSummary.textContent = state.hasChineseSpecificLogic
-        ? (
-            endedEarly
-                ? `Ended early · Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
-                : `Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
-        )
-        : (
-            endedEarly
-                ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
-                : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
-        );
-    if (hasBonusGameForCategory()) {
-        showBonusGameForWrongCards();
-    } else {
-        resetBonusGame();
-    }
+    state.pendingResultEndedEarly = Boolean(endedEarly);
+    setResultActionMode('saving');
+    resetBonusGame();
+    resultSummary.textContent = endedEarly ? 'Ended early · Saving results...' : 'Saving results...';
 
     try {
+        showError('');
         const response = await window.PracticeSessionFlow.postCompleteSession(
             buildType1ApiUrl('practice/complete'),
             state.activePendingSessionId,
@@ -2128,13 +2121,32 @@ async function endType1Session(endedEarly = false) {
         if (!response.ok) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
+        resultSummary.textContent = state.hasChineseSpecificLogic
+            ? (
+                endedEarly
+                    ? `Ended early · Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
+                    : `Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
+            )
+            : (
+                endedEarly
+                    ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
+                    : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
+            );
+        window.PracticeSession.clearSessionStart(state.activePendingSessionId);
+        updateFinishEarlyButtonState();
+        setResultActionMode('back');
+        if (hasBonusGameForCategory()) {
+            showBonusGameForWrongCards();
+        } else {
+            resetBonusGame();
+        }
     } catch (error) {
         console.error('Error completing type-I session:', error);
+        resultSummary.textContent = 'Could not save this session yet.';
+        setResultActionMode('retry-save');
         showError('Failed to save session results');
+        return;
     }
-
-    window.PracticeSession.clearSessionStart(state.activePendingSessionId);
-    updateFinishEarlyButtonState();
 
     try {
         await loadKidInfo();
@@ -2149,11 +2161,11 @@ async function endType2Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
     setHeaderBackToPracticeVisible(false);
-    setResultBackToPracticeVisible(true);
-    resultSummary.textContent = endedEarly
-        ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
-        : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`;
+    state.pendingResultEndedEarly = Boolean(endedEarly);
+    setResultActionMode('saving');
+    resultSummary.textContent = endedEarly ? 'Ended early · Saving results...' : 'Saving results...';
     try {
+        showError('');
         const response = await window.PracticeSessionFlow.postCompleteSession(
             buildType2ApiUrl('/practice/complete'),
             state.activePendingSessionId,
@@ -2164,13 +2176,19 @@ async function endType2Session(endedEarly = false) {
         if (!response.ok) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
+        resultSummary.textContent = endedEarly
+            ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
+            : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`;
+        window.PracticeSession.clearSessionStart(state.activePendingSessionId);
+        updateFinishEarlyButtonState();
+        setResultActionMode('back');
     } catch (error) {
         console.error('Error completing type-II session:', error);
+        resultSummary.textContent = 'Could not save this session yet.';
+        setResultActionMode('retry-save');
         showError('Failed to save session results');
+        return;
     }
-
-    window.PracticeSession.clearSessionStart(state.activePendingSessionId);
-    updateFinishEarlyButtonState();
 
     try {
         await loadKidInfo();
@@ -2184,15 +2202,17 @@ async function endType3Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
     setHeaderBackToPracticeVisible(false);
-    setResultBackToPracticeVisible(true);
     state.isSessionPaused = false;
     state.isRecordingPaused = false;
     state.recordingPauseStartedAtMs = 0;
+    state.pendingResultEndedEarly = Boolean(endedEarly);
+    setResultActionMode('saving');
     resultSummary.textContent = endedEarly
-        ? `Ended early · Completed: ${state.completedCount} cards`
-        : `Completed: ${state.completedCount} cards`;
+        ? `Ended early · Saving ${state.completedCount} recordings...`
+        : `Saving ${state.completedCount} recordings...`;
 
     try {
+        showError('');
         const payload = window.PracticeSession.buildCompletePayload(
             state.activePendingSessionId,
             state.sessionAnswers,
@@ -2235,15 +2255,20 @@ async function endType3Session(endedEarly = false) {
         if (!response.ok) {
             throw new Error(result.error || `HTTP ${response.status}`);
         }
+        resultSummary.textContent = endedEarly
+            ? `Ended early · Completed: ${state.completedCount} cards`
+            : `Completed: ${state.completedCount} cards`;
+        window.PracticeSession.clearSessionStart(state.activePendingSessionId);
+        updateFinishEarlyButtonState();
+        setResultActionMode('back');
+        state.sessionRecordings = {};
     } catch (error) {
         console.error('Error completing type-III session:', error);
+        resultSummary.textContent = 'Could not save this session yet.';
+        setResultActionMode('retry-save');
         showError(error.message || 'Failed to save session results');
+        return;
     }
-
-    window.PracticeSession.clearSessionStart(state.activePendingSessionId);
-    updateFinishEarlyButtonState();
-
-    state.sessionRecordings = {};
     try {
         await loadKidInfo();
     } catch (error) {
@@ -2255,12 +2280,14 @@ async function endType4Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
     setHeaderBackToPracticeVisible(false);
-    setResultBackToPracticeVisible(true);
+    state.pendingResultEndedEarly = Boolean(endedEarly);
+    setResultActionMode('saving');
     resultSummary.textContent = endedEarly
         ? 'Ended early... saving results'
         : 'Saving results...';
 
     try {
+        showError('');
         const response = await window.PracticeSessionFlow.postCompleteSession(
             buildType4ApiUrl('practice/complete'),
             state.activePendingSessionId,
@@ -2277,14 +2304,16 @@ async function endType4Session(endedEarly = false) {
         resultSummary.textContent = endedEarly
             ? `Ended early · Wrong: ${wrongCount} of ${answeredCount} answered`
             : `Wrong: ${wrongCount} of ${targetCount}`;
+        window.PracticeSession.clearSessionStart(state.activePendingSessionId);
+        updateFinishEarlyButtonState();
+        setResultActionMode('back');
     } catch (error) {
         console.error('Error completing generator session:', error);
-        resultSummary.textContent = 'Could not save this session.';
+        resultSummary.textContent = 'Could not save this session yet.';
+        setResultActionMode('retry-save');
         showError('Failed to save session results');
+        return;
     }
-
-    window.PracticeSession.clearSessionStart(state.activePendingSessionId);
-    updateFinishEarlyButtonState();
 
     try {
         await loadKidInfo();
@@ -2355,6 +2384,23 @@ function setResultBackToPracticeVisible(visible) {
     resultBackToPractice.classList.toggle('hidden', !visible);
 }
 
+function setResultActionMode(mode) {
+    const nextMode = mode === 'retry-save' || mode === 'saving' ? mode : 'back';
+    state.resultActionMode = nextMode;
+    if (!resultBackToPractice) {
+        return;
+    }
+    if (nextMode === 'retry-save') {
+        resultBackToPractice.textContent = 'Retry Save';
+        resultBackToPractice.href = '#';
+        setResultBackToPracticeVisible(true);
+        return;
+    }
+    resultBackToPractice.textContent = '\u2190 Back';
+    resultBackToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+    setResultBackToPracticeVisible(nextMode === 'back');
+}
+
 function resetBonusGame() {
     state.bonusSourceCards = [];
     state.bonusTiles = [];
@@ -2364,7 +2410,7 @@ function resetBonusGame() {
     bonusGameHint.textContent = '';
     bonusGameStatus.textContent = '';
     bonusGameBoard.innerHTML = '';
-    setResultBackToPracticeVisible(true);
+    setResultActionMode(state.resultActionMode);
 }
 
 function showBonusGameForWrongCards() {
@@ -2548,6 +2594,17 @@ function bindEventHandlers() {
     continueBtn.addEventListener('click', () => {
         void confirmAndNext();
     });
+    resultBackToPractice.addEventListener('click', (event) => {
+        if (state.resultActionMode === 'saving') {
+            event.preventDefault();
+            return;
+        }
+        if (state.resultActionMode === 'retry-save') {
+            event.preventDefault();
+            showError('');
+            void endSession(state.pendingResultEndedEarly);
+        }
+    });
 
     bonusGameBoard.addEventListener('click', onBonusGameBoardClick);
 
@@ -2577,7 +2634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
-    resultBackToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+    setResultActionMode('back');
     setHeaderBackToPracticeVisible(true);
     bindEventHandlers();
 
