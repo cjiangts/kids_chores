@@ -497,17 +497,17 @@ function getType4SubmittedAnswers(item) {
 function renderType4CompactDetails(item) {
     const expectedAnswer = getType4ExpectedAnswer(item) || '-';
     const submittedAnswers = getType4SubmittedAnswers(item);
-    const triedText = submittedAnswers.length > 0 ? submittedAnswers.join(' / ') : '-';
+    const triedText = submittedAnswers.length > 0 ? submittedAnswers.join('/') : '-';
     return `
-        <div class="type4-answer-meta">
-            <div class="type4-answer-row type4-answer-row-right">
-                <div class="type4-answer-key">Right</div>
-                <div class="type4-answer-value" title="${escapeHtml(expectedAnswer)}">${escapeHtml(expectedAnswer)}</div>
-            </div>
-            <div class="type4-answer-row type4-answer-row-tried">
-                <div class="type4-answer-key">Tried</div>
-                <div class="type4-answer-value" title="${escapeHtml(triedText)}">${escapeHtml(triedText)}</div>
-            </div>
+        <div class="type4-answer-meta" title="Right: ${escapeHtml(expectedAnswer)} | Tried: ${escapeHtml(triedText)}">
+            <span class="type4-answer-bit type4-answer-bit-right">
+                <span class="type4-answer-key">Right</span>
+                <span class="type4-answer-value">${escapeHtml(expectedAnswer)}</span>
+            </span>
+            <span class="type4-answer-bit type4-answer-bit-tried">
+                <span class="type4-answer-key">Tried</span>
+                <span class="type4-answer-value">${escapeHtml(triedText)}</span>
+            </span>
         </div>
     `;
 }
