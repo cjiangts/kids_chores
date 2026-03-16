@@ -2905,7 +2905,7 @@ async function loadKidInfo() {
     updateQueueMixLegend();
 }
 
-async function loadSharedType1Decks() {
+async function loadSharedType1Decks(options = {}) {
     const response = await fetch(buildSharedDeckApiUrl('shared-decks'));
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -2939,7 +2939,9 @@ async function loadSharedType1Decks() {
     renderSelectedDecks();
     renderDeckPendingInfo();
     updateQueueMixLegend();
-    await loadSharedDeckCards();
+    if (!options.skipCards) {
+        await loadSharedDeckCards();
+    }
 }
 
 async function saveQueueSettings() {
@@ -3545,7 +3547,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadKidInfo();
         updateQueueMixLegend();
         updateQueueSettingsSaveButtonState();
-        await loadSharedType1Decks();
+        // Fire decks and cards fetches in parallel (both URLs depend only on kid info)
+        await Promise.all([
+            loadSharedType1Decks({ skipCards: true }),
+            loadSharedDeckCards(),
+        ]);
         updateAddReadingButtonCount();
     } catch (error) {
         console.error('Error initializing category manage:', error);
