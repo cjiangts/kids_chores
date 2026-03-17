@@ -29,6 +29,7 @@ const type4ReviewLabel = document.getElementById('type4ReviewLabel');
 const type4ReviewIsMultichoiceOnly = document.getElementById('type4ReviewIsMultichoiceOnly');
 const type4ReviewCode = document.getElementById('type4ReviewCode');
 const type4ReviewExamples = document.getElementById('type4ReviewExamples');
+const type4ValidateTestContainer = document.getElementById('type4ValidateTestContainer');
 const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
 const createDeckBtn = document.getElementById('createDeckBtn');
 const successMessage = document.getElementById('successMessage');
@@ -773,7 +774,10 @@ async function fetchType4PreviewSamples(generatorCode) {
     if (!response.ok) {
         throw new Error(result.error || `Failed to preview generator (HTTP ${response.status})`);
     }
-    return Array.isArray(result && result.samples) ? result.samples : [];
+    return {
+        samples: Array.isArray(result && result.samples) ? result.samples : [],
+        has_validate: Boolean(result && result.has_validate),
+    };
 }
 
 async function ensureType4RepresentativeLabelAvailable(displayLabel) {
@@ -809,10 +813,11 @@ async function regenerateType4Examples() {
         isRegeneratingType4Examples = true;
         setRegenType4ExamplesButtonState(true);
         const definition = parseType4Definition();
-        const samples = await fetchType4PreviewSamples(definition.generatorCode);
+        const previewResult = await fetchType4PreviewSamples(definition.generatorCode);
         previewType4Definition = {
             ...definition,
-            samples,
+            samples: previewResult.samples,
+            hasValidate: previewResult.has_validate,
         };
         renderReview([], []);
     } catch (error) {
@@ -836,10 +841,11 @@ async function previewDeckFromCsv() {
         try {
             const definition = parseType4Definition();
             await ensureType4RepresentativeLabelAvailable(definition.displayLabel);
-            const samples = await fetchType4PreviewSamples(definition.generatorCode);
+            const previewResult = await fetchType4PreviewSamples(definition.generatorCode);
             previewType4Definition = {
                 ...definition,
-                samples,
+                samples: previewResult.samples,
+                hasValidate: previewResult.has_validate,
             };
             previewCards = [];
             previewRows = [];
@@ -990,6 +996,16 @@ function renderReview(cardsToCreate, allRows) {
                         </div>
                     `;
                 }).join('');
+            }
+        }
+        const hasValidate = Boolean(previewType4Definition && previewType4Definition.hasValidate);
+        const pmc = window.PracticeManageCommon;
+        if (pmc && type4ValidateTestContainer) {
+            pmc.showOrHideValidateTestBox(type4ValidateTestContainer, hasValidate);
+            if (hasValidate) {
+                pmc.renderValidateTestBox(type4ValidateTestContainer, {
+                    getGeneratorCode: () => getType4GeneratorCodeValue(),
+                });
             }
         }
         if (reviewTableBody) {

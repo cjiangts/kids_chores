@@ -399,13 +399,28 @@
                         <div class="form-group">
                             <label for="type4GeneratorCodeInput">Python generator snippet</label>
                             <textarea id="type4GeneratorCodeInput" class="deck-csv-textarea input-mono type4-code-textarea" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">def generate(rng):
-    a = rng.randint(10, 99)
-    b = rng.randint(10, 99)
-    answer = str(a + b)
+    d1 = rng.choice([2, 3, 4, 5, 6, 8, 10])
+    d2 = rng.choice([2, 3, 4, 5, 6, 8, 10])
+    n1 = rng.randint(1, d1 - 1)
+    n2 = rng.randint(1, d2 - 1)
+    f1 = Fraction(n1, d1)
+    f2 = Fraction(n2, d2)
+    result = f1 + f2
+
+    def validate(submitted, expected):
+        try:
+            if Fraction(submitted) == Fraction(expected):
+                if submitted == expected:
+                    return 1   # exact reduced form
+                return 2       # correct but unreduced (half credit)
+        except (ValueError, ZeroDivisionError):
+            pass
+        return 0
+
     return {
-        "prompt": f"{a} + {b}",
-        "answer": answer,
-        "distractors": [str(a + b - 1), str(a + b + 1)],
+        "prompt": f"{f1} + {f2} = ?",
+        "answer": str(result),
+        "validate": validate,
     }</textarea>
                             <div id="type4GeneratorCodeEditor" class="type4-code-editor hidden" aria-hidden="true"></div>
                         </div>
@@ -447,6 +462,7 @@
                         <button type="button" id="regenType4ExamplesBtn" class="btn-secondary">Regen 3 Examples</button>
                     </div>
                     <div id="type4ReviewExamples"></div>
+                    <div id="type4ValidateTestContainer" class="hidden"></div>
                 </div>
             </section>
 

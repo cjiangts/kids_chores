@@ -25,7 +25,7 @@ from src.security_rate_limit import (
     CRITICAL_PASSWORD_RATE_LIMITER,
     build_critical_password_limit_key,
 )
-from src.type4_generator_preview import preview_type4_generator, run_type4_generator
+from src.type4_generator_preview import preview_type4_generator, run_type4_generator, test_type4_validate
 
 kids_bp = Blueprint('kids', __name__)
 
@@ -2249,7 +2249,7 @@ def preview_shared_type4_generator():
             seed_base = 1000
         else:
             seed_base = int(raw_seed_base)
-        samples = preview_type4_generator(
+        samples, has_validate = preview_type4_generator(
             generator_code,
             sample_count=TYPE_IV_PREVIEW_SAMPLE_COUNT,
             seed_base=seed_base,
@@ -2257,7 +2257,33 @@ def preview_shared_type4_generator():
         return jsonify({
             'sample_count': len(samples),
             'samples': samples,
+            'has_validate': has_validate,
         }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/type4/test-validate', methods=['POST'])
+def test_shared_type4_validate():
+    """Test a Type IV generator's validate function against a submitted answer."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+
+        payload = request.get_json() or {}
+        generator_code = normalize_type_iv_generator_code(payload.get('generatorCode'))
+        submitted_answer = str(payload.get('submittedAnswer') or '').strip()
+        expected_answer = str(payload.get('expectedAnswer') or '').strip()
+        if not submitted_answer:
+            return jsonify({'error': 'submittedAnswer is required'}), 400
+        if not expected_answer:
+            return jsonify({'error': 'expectedAnswer is required'}), 400
+
+        result = test_type4_validate(generator_code, submitted_answer, expected_answer)
+        return jsonify(result), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -10783,7 +10809,7 @@ def preview_type4_generator_for_card(kid_id, card_id):
             return jsonify({'error': 'Generator definition not found for this deck'}), 404
 
         seed_base = int(time.time_ns() % 2_000_000_000)
-        samples = preview_type4_generator(
+        samples, has_validate = preview_type4_generator(
             generator_definition.get('code'),
             sample_count=1,
             seed_base=seed_base,
@@ -10794,6 +10820,7 @@ def preview_type4_generator_for_card(kid_id, card_id):
             'representative_label': str(card_row[1] or ''),
             'code': str(generator_definition.get('code') or ''),
             'samples': samples,
+            'has_validate': has_validate,
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

@@ -16,6 +16,7 @@ const type4GeneratorCodeText = document.getElementById('type4GeneratorCodeText')
 const saveType4GeneratorBtn = document.getElementById('saveType4GeneratorBtn');
 const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
 const type4PreviewExamples = document.getElementById('type4PreviewExamples');
+const type4ValidateTestContainer = document.getElementById('type4ValidateTestContainer');
 const type4CardsMultiChoiceHeader = document.getElementById('type4CardsMultiChoiceHeader');
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
@@ -1026,7 +1027,10 @@ async function fetchType4PreviewSamples(generatorCode) {
     if (!response.ok) {
         throw new Error(result.error || `Failed to preview generator (HTTP ${response.status})`);
     }
-    return Array.isArray(result && result.samples) ? result.samples : [];
+    return {
+        samples: Array.isArray(result && result.samples) ? result.samples : [],
+        has_validate: Boolean(result && result.has_validate),
+    };
 }
 
 async function regenerateType4PreviewSamples() {
@@ -1038,8 +1042,9 @@ async function regenerateType4PreviewSamples() {
     try {
         isLoadingType4PreviewSamples = true;
         setType4PreviewButtonState(true);
-        const samples = await fetchType4PreviewSamples(generatorCode);
-        renderType4PreviewExamples(samples);
+        const previewResult = await fetchType4PreviewSamples(generatorCode);
+        renderType4PreviewExamples(previewResult.samples);
+        showOrHideType4ValidateTestBox(previewResult.has_validate);
         setType4PreviewButtonState(false, 'Regen 3 Examples');
     } catch (error) {
         console.error('Error previewing type IV generator:', error);
@@ -1047,6 +1052,17 @@ async function regenerateType4PreviewSamples() {
     } finally {
         isLoadingType4PreviewSamples = false;
         setType4PreviewButtonState(false, 'Regen 3 Examples');
+    }
+}
+
+function showOrHideType4ValidateTestBox(hasValidate) {
+    const pmc = window.PracticeManageCommon;
+    if (!pmc || !type4ValidateTestContainer) return;
+    pmc.showOrHideValidateTestBox(type4ValidateTestContainer, hasValidate);
+    if (hasValidate) {
+        pmc.renderValidateTestBox(type4ValidateTestContainer, {
+            getGeneratorCode: () => getCurrentType4GeneratorCode(),
+        });
     }
 }
 

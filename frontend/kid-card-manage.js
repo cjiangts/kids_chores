@@ -56,6 +56,7 @@ const type4GeneratorDeckText = document.getElementById('type4GeneratorDeckText')
 const type4GeneratorCodeText = document.getElementById('type4GeneratorCodeText');
 const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEditor');
 const type4GeneratorSamples = document.getElementById('type4GeneratorSamples');
+const type4GeneratorValidateTestContainer = document.getElementById('type4GeneratorValidateTestContainer');
 const type4GeneratorMessage = document.getElementById('type4GeneratorMessage');
 const cardsSectionTitleText = document.getElementById('cardsSectionTitleText');
 const deckSetupDeckCountEl = document.getElementById('deckSetupDeckCount');
@@ -669,6 +670,10 @@ function renderType4GeneratorModal(card) {
     setType4GeneratorCodeContent(cachedCode || 'Loading generator...');
     renderType4GeneratorSamples(cachedSamples, cachedCode ? 'No example yet.' : 'Loading example...');
     showType4GeneratorMessage('');
+    if (type4GeneratorValidateTestContainer) {
+        type4GeneratorValidateTestContainer.classList.add('hidden');
+        type4GeneratorValidateTestContainer.innerHTML = '';
+    }
     if (runType4GeneratorPreviewBtn) {
         runType4GeneratorPreviewBtn.disabled = !card;
         runType4GeneratorPreviewBtn.textContent = 'Run Example';
@@ -731,6 +736,16 @@ async function runType4GeneratorPreview() {
         }
         setType4GeneratorCodeContent(card && card.type4_generator_code ? card.type4_generator_code : '');
         renderType4GeneratorSamples(result.samples || [], 'No example returned.');
+        const pmc = window.PracticeManageCommon;
+        if (pmc && type4GeneratorValidateTestContainer) {
+            const hasValidate = Boolean(result && result.has_validate);
+            pmc.showOrHideValidateTestBox(type4GeneratorValidateTestContainer, hasValidate);
+            if (hasValidate) {
+                pmc.renderValidateTestBox(type4GeneratorValidateTestContainer, {
+                    getGeneratorCode: () => String(card && card.type4_generator_code ? card.type4_generator_code : ''),
+                });
+            }
+        }
     } finally {
         isType4GeneratorPreviewLoading = false;
         if (runType4GeneratorPreviewBtn) {

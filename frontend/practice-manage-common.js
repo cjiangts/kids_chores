@@ -1302,4 +1302,160 @@ window.PracticeManageCommon = {
             }
         });
     },
+
+    _validateTestStyleInjected: false,
+
+    _ensureValidateTestStyles() {
+        if (this._validateTestStyleInjected) return;
+        const style = document.createElement('style');
+        style.textContent = `
+            .validate-test-box {
+                margin-top: 0.7rem;
+                border: 1px solid #d7deee;
+                border-radius: 10px;
+                background: #fbfcff;
+                padding: 0.7rem 0.8rem;
+            }
+            .validate-test-box h4 {
+                margin: 0 0 0.45rem 0;
+                font-size: 0.92rem;
+                color: #2f3c7e;
+            }
+            .validate-test-row {
+                display: flex;
+                gap: 0.45rem;
+                align-items: end;
+                flex-wrap: wrap;
+            }
+            .validate-test-row .form-group {
+                flex: 1;
+                margin-bottom: 0;
+                min-width: 100px;
+            }
+            .validate-test-row label {
+                font-size: 0.82rem;
+                color: #555;
+                margin-bottom: 0.15rem;
+                display: block;
+            }
+            .validate-test-row input {
+                width: 100%;
+                padding: 0.4rem 0.55rem;
+                border: 1px solid #ccd2e0;
+                border-radius: 8px;
+                font-size: 0.9rem;
+            }
+            .validate-test-row button {
+                white-space: nowrap;
+                flex: 0 0 auto;
+            }
+            .validate-test-result {
+                margin-top: 0.4rem;
+                font-size: 0.88rem;
+                font-weight: 600;
+            }
+            .validate-test-result.grade-correct {
+                color: #2b8a3e;
+            }
+            .validate-test-result.grade-half {
+                color: #5b3e99;
+            }
+            .validate-test-result.grade-wrong {
+                color: #c92a2a;
+            }
+        `;
+        document.head.appendChild(style);
+        this._validateTestStyleInjected = true;
+    },
+
+    renderValidateTestBox(containerEl, opts = {}) {
+        if (!containerEl) return;
+        this._ensureValidateTestStyles();
+        containerEl.innerHTML = `
+            <div class="validate-test-box">
+                <h4>Test Validate Function</h4>
+                <div class="validate-test-row">
+                    <div class="form-group">
+                        <label>Submitted answer</label>
+                        <input type="text" class="validate-test-submitted" placeholder="e.g. 5/6">
+                    </div>
+                    <div class="form-group">
+                        <label>Expected answer</label>
+                        <input type="text" class="validate-test-expected" placeholder="e.g. 5/6">
+                    </div>
+                    <button type="button" class="btn-secondary validate-test-btn">Validate</button>
+                </div>
+                <div class="validate-test-result"></div>
+            </div>
+        `;
+        const btn = containerEl.querySelector('.validate-test-btn');
+        const submittedInput = containerEl.querySelector('.validate-test-submitted');
+        const expectedInput = containerEl.querySelector('.validate-test-expected');
+        const resultEl = containerEl.querySelector('.validate-test-result');
+        const runValidate = async () => {
+            const generatorCode = typeof opts.getGeneratorCode === 'function' ? opts.getGeneratorCode() : '';
+            const submitted = submittedInput.value.trim();
+            const expected = expectedInput.value.trim();
+            if (!submitted || !expected) {
+                resultEl.textContent = 'Enter both answers.';
+                resultEl.className = 'validate-test-result';
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            resultEl.textContent = '';
+            resultEl.className = 'validate-test-result';
+            try {
+                const apiBase = `${window.location.origin}/api`;
+                const response = await fetch(`${apiBase}/shared-decks/type4/test-validate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        generatorCode,
+                        submittedAnswer: submitted,
+                        expectedAnswer: expected,
+                    }),
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.error || 'Validate test failed');
+                }
+                const grade = Number(result.grade);
+                const label = String(result.label || '');
+                if (grade === 1) {
+                    resultEl.className = 'validate-test-result grade-correct';
+                    resultEl.textContent = `Result: ${label} (grade 1)`;
+                } else if (grade === 2) {
+                    resultEl.className = 'validate-test-result grade-half';
+                    resultEl.textContent = `Result: ${label} (grade 2)`;
+                } else {
+                    resultEl.className = 'validate-test-result grade-wrong';
+                    resultEl.textContent = `Result: ${label} (grade ${grade})`;
+                }
+            } catch (error) {
+                resultEl.className = 'validate-test-result grade-wrong';
+                resultEl.textContent = error.message || 'Validate test failed.';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Validate';
+            }
+        };
+        btn.addEventListener('click', runValidate);
+        submittedInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); void runValidate(); }
+        });
+        expectedInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); void runValidate(); }
+        });
+    },
+
+    showOrHideValidateTestBox(containerEl, hasValidate) {
+        if (!containerEl) return;
+        if (hasValidate) {
+            containerEl.classList.remove('hidden');
+        } else {
+            containerEl.classList.add('hidden');
+            containerEl.innerHTML = '';
+        }
+    },
 };

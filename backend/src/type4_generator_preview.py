@@ -163,6 +163,26 @@ def preview_type4_generator(generator_code, sample_count=3, seed_base=1000):
         seed_base=seed_base,
         max_samples=TYPE4_PREVIEW_MAX_SAMPLES,
     )
+    has_validate = any(sample.get('validate') is not None for sample in samples)
     for sample in samples:
         sample.pop('validate', None)
-    return samples
+    return samples, has_validate
+
+
+def test_type4_validate(generator_code, submitted_answer, expected_answer):
+    """Run validate function from generator against a submitted/expected answer pair."""
+    samples = run_type4_generator(
+        generator_code,
+        sample_count=1,
+        seed_base=0,
+        max_samples=1,
+    )
+    if not samples or samples[0].get('validate') is None:
+        raise ValueError('Generator does not define a validate function')
+    validate_fn = samples[0]['validate']
+    result = validate_fn(str(submitted_answer), str(expected_answer))
+    if result == 1 or result is True:
+        return {'grade': 1, 'label': 'Correct'}
+    if result == 2:
+        return {'grade': 2, 'label': 'Half correct'}
+    return {'grade': -1, 'label': 'Wrong'}
