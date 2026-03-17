@@ -23,7 +23,7 @@ let renderedDeckCount = 0;
 let isBulkDeleting = false;
 let deckCategoryMetaByKey = {};
 let deckCategoryOrder = [];
-let selectedCategoryFilterKey = '';
+let selectedCategoryFilterKey = localStorage.getItem('deckManage_selectedCategory') || '';
 let secondaryTagFilterController = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             selectedCategoryFilterKey = nextKey;
+            localStorage.setItem('deckManage_selectedCategory', nextKey);
             renderDecks();
         });
     }
