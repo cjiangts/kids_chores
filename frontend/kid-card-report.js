@@ -169,10 +169,14 @@ function renderTrend(attempts) {
         ? ` Showing latest ${shownCount} of ${totalCount} attempts to fit screen.`
         : '';
     const hasFixed = shownAttempts.some((item) => resolveCorrectness(item) === 'fixed');
+    const hasHalf = shownAttempts.some((item) => resolveCorrectness(item) === 'half');
     const hasPending = shownAttempts.some((item) => resolveCorrectness(item) === 'pending');
     const legendBits = ['Green = right first try', 'red = wrong'];
     if (hasFixed) {
         legendBits.push('yellow = fixed in retry');
+    }
+    if (hasHalf) {
+        legendBits.push('purple = half right');
     }
     if (hasPending) {
         legendBits.push('gray = ungraded');
@@ -302,22 +306,15 @@ function renderHistory(attempts) {
         if (isType4Attempt(item)) {
             const prompt = getType4AttemptPrompt(item);
             const answer = getType4AttemptAnswer(item) || '-';
-            const submittedText = getType4AttemptSubmittedText(item);
+            const submittedPills = getType4AttemptSubmittedPills(item);
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
             return `
                 <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                     <div class="history-head-row">
                         <div class="history-title-stack">
-                            <div class="history-primary">${escapeHtml(prompt)}</div>
+                            <div class="history-primary">${escapeHtml(prompt)} <span class="history-type4-pill answer-pill">${escapeHtml(answer)}</span></div>
                             <div class="history-type4-details">
-                                <div class="history-type4-row">
-                                    <span class="history-type4-key">Right</span>
-                                    <span class="history-type4-value" title="${escapeHtml(answer)}">${escapeHtml(answer)}</span>
-                                </div>
-                                <div class="history-type4-row">
-                                    <span class="history-type4-key">Tried</span>
-                                    <span class="history-type4-value" title="${escapeHtml(submittedText)}">${escapeHtml(submittedText)}</span>
-                                </div>
+                                ${submittedPills}
                             </div>
                         </div>
                         <div class="history-status-side">
@@ -403,7 +400,8 @@ function scrollToTargetAttempt() {
 function resolveCorrectness(item) {
     const scoreRaw = Number(item?.correct_score);
     if (Number.isFinite(scoreRaw)) {
-        if (scoreRaw > 0) return 'right';
+        if (scoreRaw === 1) return 'right';
+        if (scoreRaw === 2) return 'half';
         if (scoreRaw <= -2) return 'fixed';
         if (scoreRaw < 0) return 'wrong';
         return 'pending';
@@ -420,6 +418,9 @@ function resolveCorrectness(item) {
 function getCorrectnessLabel(correctness) {
     if (correctness === 'right') {
         return 'Right';
+    }
+    if (correctness === 'half') {
+        return 'Half';
     }
     if (correctness === 'fixed') {
         return 'Fixed';
@@ -480,13 +481,38 @@ function getType4AttemptAnswer(item) {
     return String(item?.materialized_answer || '').trim();
 }
 
-function getType4AttemptSubmittedText(item) {
+function getType4AttemptSubmittedPills(item) {
     const submittedAnswers = Array.isArray(item?.submitted_answers)
         ? item.submitted_answers
             .map((value) => String(value || '').trim())
             .filter(Boolean)
         : [];
-    return submittedAnswers.length > 0 ? submittedAnswers.join(' / ') : '-';
+    if (submittedAnswers.length === 0) {
+        return '<span class="history-type4-pill tried-pill">-</span>';
+    }
+    const grades = Array.isArray(item?.submitted_grades) ? item.submitted_grades : [];
+    const hasGrades = grades.length > 0;
+    const score = Number(item?.correct_score);
+    const isResolved = score === 1 || score <= -2;
+    const expectedAnswer = getType4AttemptAnswer(item);
+    return submittedAnswers
+        .map((a, i) => {
+            let cls = 'tried-pill';
+            if (hasGrades) {
+                const grade = Number(grades[i]);
+                if (grade === 1 || grade <= -2) cls = 'answer-pill';
+                else if (grade === 2) cls = 'partial-pill';
+            } else {
+                const isLast = i === submittedAnswers.length - 1;
+                if (a === expectedAnswer) {
+                    cls = isLast && isResolved ? 'answer-pill' : 'answer-pill';
+                } else if (isLast && isResolved) {
+                    cls = 'partial-pill';
+                }
+            }
+            return `<span class="history-type4-pill ${cls}">${escapeHtml(a)}</span>`;
+        })
+        .join('');
 }
 
 function getType3GradeStatusClass(correctness) {

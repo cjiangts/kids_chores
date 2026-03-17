@@ -117,6 +117,10 @@
             background: #e0ac2b;
         }
 
+        .trend-bar.half {
+            background: #8b6fc0;
+        }
+
         .trend-bar.pending {
             background: #9aa4bb;
         }
@@ -233,35 +237,34 @@
 
         .history-type4-details {
             margin-top: 0.3rem;
-            display: grid;
-            gap: 0.16rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            align-items: center;
         }
 
-        .history-type4-row {
-            display: grid;
-            grid-template-columns: 2.6rem minmax(0, 1fr);
-            gap: 0.38rem;
-            align-items: start;
-            font-size: 0.8rem;
-            line-height: 1.2;
-        }
-
-        .history-type4-key {
-            font-size: 0.68rem;
-            font-weight: 800;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: #6e7998;
-        }
-
-        .history-type4-value {
-            min-width: 0;
-            overflow-x: auto;
-            overflow-y: hidden;
-            white-space: nowrap;
-            scrollbar-width: thin;
-            color: #2e395f;
+        .history-type4-pill {
+            display: inline-block;
+            border-radius: 999px;
+            font-size: 0.75rem;
             font-weight: 700;
+            padding: 0.15rem 0.55rem;
+            white-space: nowrap;
+        }
+
+        .history-type4-pill.answer-pill {
+            background: #e6f8ea;
+            color: #176b2e;
+        }
+
+        .history-type4-pill.tried-pill {
+            background: #fdeaea;
+            color: #9d2e2e;
+        }
+
+        .history-type4-pill.partial-pill {
+            background: #f3eeff;
+            color: #5b3e99;
         }
 
         .audio-history-row {
@@ -425,6 +428,11 @@
         .pill.fixed {
             background: #fff5dc;
             color: #9a6200;
+        }
+
+        .pill.half {
+            background: #f3eeff;
+            color: #5b3e99;
         }
 
         .pill.wrong {

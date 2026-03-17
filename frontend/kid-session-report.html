@@ -137,6 +137,13 @@
             box-shadow: 0 4px 10px rgba(234, 178, 47, 0.12);
         }
 
+        .answer-grid.compact .answer-item.half {
+            border-color: #c4b5e0;
+            background: #f3eeff;
+            color: #5b3e99;
+            box-shadow: 0 4px 10px rgba(127, 90, 200, 0.1);
+        }
+
         .answer-grid.compact .answer-item.pending {
             border-color: #f2d18b;
             background: #fff7e6;
@@ -170,8 +177,41 @@
             background: #e0ac2b;
         }
 
+        .answer-bar-fill.half {
+            background: #8b6fc0;
+        }
+
         .answer-bar-fill.pending {
             background: #f3b43f;
+        }
+
+        .card-color-legend {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .legend-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 2px;
+            vertical-align: middle;
+        }
+
+        .legend-dot.right { background: #4cb780; }
+        .legend-dot.half { background: #8b6fc0; }
+        .legend-dot.fixed { background: #e0ac2b; }
+        .legend-dot.wrong { background: #d95b5b; }
+        .legend-dot.pending { background: #c0c8d8; }
+
+        .legend-sep {
+            color: #ccc;
+            margin: 0 0.1rem;
         }
 
         .answer-item .meta {

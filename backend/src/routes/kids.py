@@ -80,6 +80,7 @@ PENDING_SESSION_TTL_SECONDS = 60 * 60 * 6
 TYPE_I_MAX_LOGGED_RESPONSE_TIME_MS = 20 * 1000
 TYPE_II_MAX_LOGGED_RESPONSE_TIME_MS = 2 * 60 * 1000
 SESSION_RESULT_CORRECT = 1
+SESSION_RESULT_PARTIAL = 2
 SESSION_RESULT_WRONG_UNRESOLVED = -1
 # session_results.correct also carries retry-resolution metadata for type-I/type-II
 # star chains. Values mean:
@@ -3172,8 +3173,8 @@ def get_kid_dashboard_stats(
                 s.type,
                 COALESCE(s.planned_count, 0) AS planned_count,
                 COUNT(sr.id) AS answer_count,
-                COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
+                COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count,
                 COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
@@ -4198,8 +4199,8 @@ def get_kid_report(kid_id):
                     SELECT
                         session_id,
                         COUNT(*) AS answer_count,
-                        COALESCE(SUM(CASE WHEN correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                        COALESCE(SUM(CASE WHEN correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
+                        COALESCE(SUM(CASE WHEN correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                        COALESCE(SUM(CASE WHEN correct < 0 OR correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count,
                         COALESCE(SUM(CASE WHEN response_time_ms IS NULL THEN 0 ELSE response_time_ms END), 0) AS total_response_ms
                     FROM session_results
                     GROUP BY session_id
@@ -4319,7 +4320,8 @@ def get_kid_report_session_detail(kid_id, session_id):
                 lra.mime_type,
                 t4.prompt,
                 t4.answer,
-                t4.submitted_answers
+                t4.submitted_answers,
+                t4.submitted_grades
             FROM session_results sr
             LEFT JOIN cards c ON c.id = sr.card_id
             LEFT JOIN decks d ON d.id = c.deck_id
@@ -4341,33 +4343,40 @@ def get_kid_report_session_detail(kid_id, session_id):
         right_cards = []
         wrong_cards = []
         for row in result_rows:
+            correct_score = int(row[2] or 0)
             item = {
                 'result_id': int(row[0]),
                 'card_id': int(row[1]) if row[1] is not None else None,
-                'correct_score': int(row[2] or 0),
-                'correct': int(row[2] or 0) > 0,
+                'correct_score': correct_score,
+                'correct': correct_score == 1 or correct_score <= -2,
                 'response_time_ms': int(row[3] or 0),
                 'timestamp': row[4].isoformat() if row[4] else None,
                 'front': row[5] or '',
                 'back': row[6] or '',
                 'source_deck_name': str(row[7] or '').strip(),
                 'source_deck_label': _session_source_deck_label(row[7]),
-                'grade_status': ('pass' if int(row[2] or 0) > 0 else ('fail' if int(row[2] or 0) < 0 else 'unknown')),
+                'grade_status': (
+                    'pass' if correct_score == 1 or correct_score <= -2
+                    else ('partial' if correct_score == 2 else ('fail' if correct_score < 0 else 'unknown'))
+                ),
                 'audio_file_name': row[8] or None,
                 'audio_mime_type': row[9] or None,
                 'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[8]}" if row[8] else None,
                 'materialized_prompt': str(row[10] or '').strip(),
                 'materialized_answer': str(row[11] or '').strip(),
                 'submitted_answers': [
-                    str(item).strip()
-                    for item in list(row[12] or [])
-                    if str(item or '').strip()
+                    str(a).strip()
+                    for a in list(row[12] or [])
+                    if str(a or '').strip()
+                ],
+                'submitted_grades': [
+                    int(g) for g in list(row[13] or [])
                 ],
             }
             answers.append(item)
-            if item['correct_score'] > 0:
+            if correct_score == 1 or correct_score <= -2:
                 right_cards.append(item)
-            elif item['correct_score'] < 0:
+            elif correct_score < 0 or correct_score == 2:
                 wrong_cards.append(item)
 
         return jsonify({
@@ -4517,7 +4526,8 @@ def get_kid_report_card_detail(kid_id, card_id):
                 lra.mime_type,
                 t4.prompt,
                 t4.answer,
-                t4.submitted_answers
+                t4.submitted_answers,
+                t4.submitted_grades
             FROM session_results sr
             JOIN sessions s ON s.id = sr.session_id
             LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
@@ -4537,17 +4547,18 @@ def get_kid_report_card_detail(kid_id, card_id):
         response_sum_ms = 0
         for row in attempts_rows:
             correct_score = int(row[1] or 0)
-            is_correct = correct_score > 0
+            is_correct = correct_score == 1 or correct_score <= -2
             response_ms = int(row[2] or 0)
             session_type = normalize_shared_deck_tag(row[5])
             session_behavior_type = get_session_behavior_type(session_type, category_meta_by_key)
             materialized_prompt = str(row[11] or '').strip()
             materialized_answer = str(row[12] or '').strip()
             submitted_answers = [
-                str(item).strip()
-                for item in list(row[13] or [])
-                if str(item or '').strip()
+                str(a).strip()
+                for a in list(row[13] or [])
+                if str(a or '').strip()
             ]
+            submitted_grades = [int(g) for g in list(row[14] or [])]
             attempt_submission_count = max(1, len(submitted_answers)) if materialized_prompt else 1
             avg_response_ms = float(response_ms)
             if materialized_prompt and attempt_submission_count > 1:
@@ -4558,7 +4569,10 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'result_id': int(row[0]),
                 'correct': is_correct,
                 'correct_score': correct_score,
-                'grade_status': ('pass' if correct_score > 0 else ('fail' if correct_score < 0 else 'ungraded')),
+                'grade_status': (
+                    'pass' if is_correct
+                    else ('partial' if correct_score == 2 else ('fail' if correct_score < 0 else 'ungraded'))
+                ),
                 'response_time_ms': response_ms,
                 'avg_response_ms': avg_response_ms,
                 'timestamp': row[3].isoformat() if row[3] else None,
@@ -4575,9 +4589,10 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'materialized_prompt': materialized_prompt,
                 'materialized_answer': materialized_answer,
                 'submitted_answers': submitted_answers,
+                'submitted_grades': submitted_grades,
             })
             response_sum_ms += avg_response_ms
-            if correct_score > 0 or correct_score <= SESSION_RESULT_RETRY_FIXED_FIRST:
+            if correct_score == 1 or correct_score <= SESSION_RESULT_RETRY_FIXED_FIRST:
                 right_count += 1
             elif correct_score < 0:
                 wrong_count += 1
@@ -5173,8 +5188,8 @@ def get_latest_retry_source_session_for_today(conn, kid, session_type):
             s.id,
             COALESCE(s.planned_count, 0) AS planned_count,
             COUNT(sr.id) AS answer_count,
-            COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-            COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
+            COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+            COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count,
             COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
         FROM sessions s
         LEFT JOIN session_results sr ON sr.session_id = s.id
@@ -5186,7 +5201,7 @@ def get_latest_retry_source_session_for_today(conn, kid, session_type):
         ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
         LIMIT 1
         """,
-        [session_key, day_start_utc, day_end_utc],
+        [SESSION_RESULT_PARTIAL, session_key, day_start_utc, day_end_utc],
     ).fetchone()
     if not row:
         return None
@@ -5227,8 +5242,8 @@ def get_latest_unfinished_session_for_today(conn, kid, session_type):
             s.id,
             COALESCE(s.planned_count, 0) AS planned_count,
             COUNT(sr.id) AS answer_count,
-            COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-            COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+            COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+            COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
         FROM sessions s
         LEFT JOIN session_results sr ON sr.session_id = s.id
         WHERE s.type = ?
@@ -5856,7 +5871,7 @@ def _update_hardness_after_session(
         FROM (
             SELECT
                 sr.card_id,
-                COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct > 0 THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
+                COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct = 1 THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
             FROM session_results sr
             JOIN sessions s ON s.id = sr.session_id
             WHERE s.type = ?
@@ -5981,8 +5996,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 SELECT
                     s.id,
                     COUNT(sr.id) AS answer_count,
-                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count,
                     COALESCE(s.retry_count, 0) AS retry_count,
                     COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
                     COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
@@ -6129,8 +6144,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
                     s.id,
                     COALESCE(s.planned_count, 0) AS planned_count,
                     COUNT(sr.id) AS answer_count,
-                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
                 FROM sessions s
                 LEFT JOIN session_results sr ON sr.session_id = s.id
                 WHERE s.id = ?
@@ -6245,8 +6260,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 SELECT
                     COALESCE(planned_count, 0),
                     COUNT(sr.id) AS answer_count,
-                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
                 FROM sessions s
                 LEFT JOIN session_results sr ON sr.session_id = s.id
                 WHERE s.id = ?
@@ -6510,7 +6525,7 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
             100.0 * AVG(
                 CASE
                     WHEN sr.id IS NULL THEN NULL
-                    WHEN sr.correct > 0 THEN 0.0
+                    WHEN sr.correct = 1 THEN 0.0
                     ELSE 1.0
                 END
             ) AS overall_wrong_rate,
@@ -8216,6 +8231,28 @@ def normalize_type_iv_submitted_answer(raw_value):
     return str(raw_value).strip()
 
 
+def grade_type_iv_answer(submitted_answer, expected_answer, validate_fn=None):
+    """Grade a type IV answer, returning SESSION_RESULT_CORRECT / PARTIAL / WRONG.
+
+    If a custom validate function is provided, it is called with (submitted, expected).
+    Return values: 1 or True = correct, 2 = partial, 0 or False = wrong.
+    Falls back to exact string comparison if no validate function.
+    """
+    if validate_fn is not None:
+        try:
+            result = validate_fn(submitted_answer, expected_answer)
+        except Exception:
+            return SESSION_RESULT_WRONG_UNRESOLVED
+        if result == 2:
+            return SESSION_RESULT_PARTIAL
+        if result == 1 or result is True:
+            return SESSION_RESULT_CORRECT
+        return SESSION_RESULT_WRONG_UNRESOLVED
+    if submitted_answer == expected_answer:
+        return SESSION_RESULT_CORRECT
+    return SESSION_RESULT_WRONG_UNRESOLVED
+
+
 def get_type_iv_practice_source_rows(
     conn,
     kid,
@@ -8333,6 +8370,12 @@ def map_type_iv_pending_item_to_response_card(item, practice_mode):
         'front': str(item.get('prompt') or ''),
         'isMultichoiceOnly': bool(is_multichoice_only),
     }
+    previous_answers = item.get('previous_answers')
+    if previous_answers:
+        response_card['previousAnswers'] = list(previous_answers)
+    previous_grades = item.get('previous_grades')
+    if previous_grades:
+        response_card['previousGrades'] = list(previous_grades)
     if use_multi_choice:
         response_card['choices'] = build_type_iv_choice_options(
             item.get('answer'),
@@ -8381,6 +8424,8 @@ def build_type_iv_pending_items_for_sources(
                 'distractor_answers': [str(item) for item in list(sample.get('distractors') or [])],
                 'is_multichoice_only': bool(source.get('is_multichoice_only')),
             }
+            if sample.get('validate') is not None:
+                pending_item['validate'] = sample['validate']
             pending_items.append(pending_item)
             response_cards.append(
                 map_type_iv_pending_item_to_response_card(pending_item, practice_mode)
@@ -8577,15 +8622,16 @@ def get_type_iv_retry_source_result_rows(conn, source_session_id, allowed_repres
             t4.prompt,
             t4.answer,
             t4.distractor_answers,
-            t4.submitted_answers
+            t4.submitted_answers,
+            t4.submitted_grades
         FROM session_results sr
         JOIN type4_result_item t4 ON t4.result_id = sr.id
         WHERE sr.session_id = ?
-          AND sr.correct = ?
+          AND sr.correct IN (?, ?)
           AND sr.card_id IN ({placeholders})
         ORDER BY sr.timestamp ASC, sr.id ASC
         """,
-        [int(source_session_id), SESSION_RESULT_WRONG_UNRESOLVED, *normalized_card_ids],
+        [int(source_session_id), SESSION_RESULT_WRONG_UNRESOLVED, SESSION_RESULT_PARTIAL, *normalized_card_ids],
     ).fetchall()
 
     result_rows = []
@@ -8603,6 +8649,7 @@ def get_type_iv_retry_source_result_rows(conn, source_session_id, allowed_repres
             'answer': answer,
             'distractor_answers': [str(item) for item in list(row[4] or []) if str(item or '').strip()],
             'submitted_answers': [str(item) for item in list(row[5] or [])],
+            'submitted_grades': [int(g) for g in list(row[6] or [])],
         })
     return result_rows
 
@@ -8651,12 +8698,12 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
     }
 
 
-def insert_type4_result_item(conn, result_id, pending_item, submitted_answer):
+def insert_type4_result_item(conn, result_id, pending_item, submitted_answer, grade):
     """Insert one generator sidecar row for a saved session result."""
     conn.execute(
         """
-        INSERT INTO type4_result_item (result_id, prompt, answer, distractor_answers, submitted_answers)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO type4_result_item (result_id, prompt, answer, distractor_answers, submitted_answers, submitted_grades)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         [
             int(result_id),
@@ -8664,15 +8711,16 @@ def insert_type4_result_item(conn, result_id, pending_item, submitted_answer):
             str(pending_item.get('answer') or ''),
             [str(item) for item in list(pending_item.get('distractor_answers') or [])],
             [normalize_type_iv_submitted_answer(submitted_answer)],
+            [int(grade)],
         ],
     )
 
 
-def append_type4_result_submitted_answer(conn, result_id, submitted_answer):
+def append_type4_result_submitted_answer(conn, result_id, submitted_answer, grade):
     """Append one submitted answer to an existing generator result sidecar row."""
     row = conn.execute(
         """
-        SELECT submitted_answers
+        SELECT submitted_answers, submitted_grades
         FROM type4_result_item
         WHERE result_id = ?
         LIMIT 1
@@ -8684,13 +8732,15 @@ def append_type4_result_submitted_answer(conn, result_id, submitted_answer):
 
     submitted_answers = [str(item) for item in list(row[0] or [])]
     submitted_answers.append(normalize_type_iv_submitted_answer(submitted_answer))
+    submitted_grades = [int(g) for g in list(row[1] or [])]
+    submitted_grades.append(int(grade))
     conn.execute(
         """
         UPDATE type4_result_item
-        SET submitted_answers = ?
+        SET submitted_answers = ?, submitted_grades = ?
         WHERE result_id = ?
         """,
-        [submitted_answers, int(result_id)],
+        [submitted_answers, submitted_grades, int(result_id)],
     )
 
 
@@ -8761,8 +8811,8 @@ def complete_type_iv_session_internal(
                 SELECT
                     s.id,
                     COUNT(sr.id) AS answer_count,
-                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count,
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count,
                     COALESCE(s.retry_count, 0) AS retry_count,
                     COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
                     COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
@@ -8776,7 +8826,7 @@ def complete_type_iv_session_internal(
                     s.retry_total_response_ms,
                     s.retry_best_rety_correct_count
                 """,
-                [retry_source_session_id, session_type],
+                [SESSION_RESULT_PARTIAL, retry_source_session_id, session_type],
             ).fetchone()
             if not source_row:
                 raise ValueError('Retry source session not found')
@@ -8791,13 +8841,21 @@ def complete_type_iv_session_internal(
 
             retry_right_count = 0
             retry_wrong_count = 0
+            retry_partial_count = 0
             retry_total_response_ms = 0
             retry_success_result_ids = []
+            retry_partial_result_ids = []
             for answer in normalized_answers:
                 submitted_answer = answer['submitted_answer']
                 pending_item = answer['pending_item']
                 expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
-                is_correct = submitted_answer == expected_answer
+                retry_correct_value = grade_type_iv_answer(
+                    submitted_answer, expected_answer, pending_item.get('validate')
+                )
+                is_correct = retry_correct_value == SESSION_RESULT_CORRECT
+                if retry_correct_value == SESSION_RESULT_PARTIAL:
+                    retry_partial_count += 1
+                    retry_partial_result_ids.append(int(answer['item_id']))
                 if is_correct:
                     retry_right_count += 1
                     retry_success_result_ids.append(int(answer['item_id']))
@@ -8808,6 +8866,7 @@ def complete_type_iv_session_internal(
                     conn,
                     answer['item_id'],
                     submitted_answer,
+                    retry_correct_value,
                 )
 
             if retry_success_result_ids:
@@ -8819,11 +8878,30 @@ def complete_type_iv_session_internal(
                     SET correct = ?
                     WHERE id IN ({placeholders})
                       AND session_id = ?
-                      AND correct = ?
+                      AND correct IN (?, ?)
                     """,
                     [
                         recovered_correct_value,
                         *sorted(retry_success_result_ids),
+                        int(retry_source_session_id),
+                        SESSION_RESULT_WRONG_UNRESOLVED,
+                        SESSION_RESULT_PARTIAL,
+                    ],
+                )
+
+            if retry_partial_result_ids:
+                partial_placeholders = ','.join(['?'] * len(retry_partial_result_ids))
+                conn.execute(
+                    f"""
+                    UPDATE session_results
+                    SET correct = ?
+                    WHERE id IN ({partial_placeholders})
+                      AND session_id = ?
+                      AND correct = ?
+                    """,
+                    [
+                        SESSION_RESULT_PARTIAL,
+                        *sorted(retry_partial_result_ids),
                         int(retry_source_session_id),
                         SESSION_RESULT_WRONG_UNRESOLVED,
                     ],
@@ -8883,6 +8961,7 @@ def complete_type_iv_session_internal(
                 'planned_count': planned_count,
                 'right_count': retry_right_count,
                 'wrong_count': retry_wrong_count,
+                'partial_count': retry_partial_count,
                 'completed': True,
                 'is_continue_session': False,
                 'continue_source_session_id': None,
@@ -8906,8 +8985,8 @@ def complete_type_iv_session_internal(
                     s.id,
                     COALESCE(s.planned_count, 0) AS planned_count,
                     COUNT(sr.id) AS answer_count,
-                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
                 FROM sessions s
                 LEFT JOIN session_results sr ON sr.session_id = s.id
                 WHERE s.id = ?
@@ -8928,6 +9007,7 @@ def complete_type_iv_session_internal(
 
             right_count = 0
             wrong_count = 0
+            partial_count = 0
             for answer in normalized_answers:
                 pending_item = answer['pending_item']
                 representative_card_id = int(pending_item.get('representative_card_id') or 0)
@@ -8935,12 +9015,12 @@ def complete_type_iv_session_internal(
                     raise ValueError('Pending generator item is missing representative card')
                 submitted_answer = answer['submitted_answer']
                 expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
-                correct_value = (
-                    SESSION_RESULT_CORRECT
-                    if submitted_answer == expected_answer
-                    else SESSION_RESULT_WRONG_UNRESOLVED
+                correct_value = grade_type_iv_answer(
+                    submitted_answer, expected_answer, pending_item.get('validate')
                 )
-                if correct_value > 0:
+                if correct_value == SESSION_RESULT_PARTIAL:
+                    partial_count += 1
+                elif correct_value > 0:
                     right_count += 1
                 else:
                     wrong_count += 1
@@ -8962,6 +9042,7 @@ def complete_type_iv_session_internal(
                     int(result_row[0]),
                     pending_item,
                     submitted_answer,
+                    correct_value,
                 )
 
             conn.execute(
@@ -8977,8 +9058,8 @@ def complete_type_iv_session_internal(
                 SELECT
                     COALESCE(planned_count, 0),
                     COUNT(sr.id) AS answer_count,
-                    COALESCE(SUM(CASE WHEN sr.correct > 0 THEN 1 ELSE 0 END), 0) AS right_count,
-                    COALESCE(SUM(CASE WHEN sr.correct < 0 THEN 1 ELSE 0 END), 0) AS wrong_count
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
                 FROM sessions s
                 LEFT JOIN session_results sr ON sr.session_id = s.id
                 WHERE s.id = ?
@@ -9010,6 +9091,7 @@ def complete_type_iv_session_internal(
                 'planned_count': int(updated_planned_count),
                 'right_count': int(updated_right_count),
                 'wrong_count': int(updated_wrong_count),
+                'partial_count': int(partial_count),
                 'completed': True,
                 'is_continue_session': True,
                 'continue_source_session_id': int(continue_source_session_id),
@@ -9028,6 +9110,7 @@ def complete_type_iv_session_internal(
 
         right_count = 0
         wrong_count = 0
+        partial_count = 0
         session_id = conn.execute(
             """
             INSERT INTO sessions (type, planned_count, retry_count, retry_total_response_ms, retry_best_rety_correct_count, started_at, completed_at)
@@ -9044,12 +9127,12 @@ def complete_type_iv_session_internal(
                 raise ValueError('Pending generator item is missing representative card')
             submitted_answer = answer['submitted_answer']
             expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
-            correct_value = (
-                SESSION_RESULT_CORRECT
-                if submitted_answer == expected_answer
-                else SESSION_RESULT_WRONG_UNRESOLVED
+            correct_value = grade_type_iv_answer(
+                submitted_answer, expected_answer, pending_item.get('validate')
             )
-            if correct_value > 0:
+            if correct_value == SESSION_RESULT_PARTIAL:
+                partial_count += 1
+            elif correct_value > 0:
                 right_count += 1
             else:
                 wrong_count += 1
@@ -9071,6 +9154,7 @@ def complete_type_iv_session_internal(
                 int(result_row[0]),
                 pending_item,
                 submitted_answer,
+                correct_value,
             )
 
         conn.execute("COMMIT")
@@ -9081,7 +9165,7 @@ def complete_type_iv_session_internal(
 
     conn.close()
     sync_badges_after_session_complete(kid)
-    target_answer_count = int(max(planned_count, len(normalized_answers), right_count + wrong_count))
+    target_answer_count = int(max(planned_count, len(normalized_answers), right_count + wrong_count + partial_count))
     is_incomplete = planned_count > 0 and len(normalized_answers) < planned_count
     total_correct_percentage = (
         float(len(normalized_answers)) * 100.0 / float(max(1, target_answer_count))
@@ -9097,6 +9181,7 @@ def complete_type_iv_session_internal(
         'planned_count': planned_count,
         'right_count': int(right_count),
         'wrong_count': int(wrong_count),
+        'partial_count': int(partial_count),
         'completed': True,
         'is_continue_session': False,
         'continue_source_session_id': None,
@@ -12486,19 +12571,35 @@ def start_type4_practice_session(kid_id):
                         retry_source_session['session_id'],
                         [source.get('representative_card_id') for source in practice_sources],
                     )
-                    pending_items = [{
-                        'id': int(row['result_id']),
-                        'representative_card_id': int(row['representative_card_id']),
-                        'prompt': str(row['prompt'] or ''),
-                        'answer': str(row['answer'] or ''),
-                        'distractor_answers': [str(item) for item in list(row.get('distractor_answers') or [])],
-                        'is_multichoice_only': bool(
-                            (
-                                practice_source_by_card_id.get(int(row['representative_card_id']))
-                                or {}
-                            ).get('is_multichoice_only')
-                        ),
-                    } for row in retry_rows]
+                    validate_by_card_id = {}
+                    for source in practice_sources:
+                        src_card_id = int(source.get('representative_card_id') or 0)
+                        if src_card_id <= 0 or src_card_id in validate_by_card_id:
+                            continue
+                        try:
+                            probe = run_type4_generator(source.get('generator_code'), sample_count=1, seed_base=0)
+                            if probe and probe[0].get('validate') is not None:
+                                validate_by_card_id[src_card_id] = probe[0]['validate']
+                        except Exception:
+                            pass
+                    pending_items = []
+                    for row in retry_rows:
+                        card_id = int(row['representative_card_id'])
+                        item = {
+                            'id': int(row['result_id']),
+                            'representative_card_id': card_id,
+                            'prompt': str(row['prompt'] or ''),
+                            'answer': str(row['answer'] or ''),
+                            'distractor_answers': [str(d) for d in list(row.get('distractor_answers') or [])],
+                            'is_multichoice_only': bool(
+                                (practice_source_by_card_id.get(card_id) or {}).get('is_multichoice_only')
+                            ),
+                            'previous_answers': [str(a) for a in list(row.get('submitted_answers') or []) if str(a or '').strip()],
+                            'previous_grades': [int(g) for g in list(row.get('submitted_grades') or [])],
+                        }
+                        if card_id in validate_by_card_id:
+                            item['validate'] = validate_by_card_id[card_id]
+                        pending_items.append(item)
                     response_cards = [
                         map_type_iv_pending_item_to_response_card(item, practice_mode)
                         for item in pending_items

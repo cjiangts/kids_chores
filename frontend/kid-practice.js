@@ -1301,7 +1301,32 @@ function showCurrentType4Item() {
         state.sessionCards.length,
         'Question'
     );
-    cardQuestion.textContent = String(card?.front || '');
+    const questionText = String(card?.front || '');
+    const prevAnswers = !card.isMultichoiceOnly && Array.isArray(card.previousAnswers)
+        ? card.previousAnswers : [];
+    const prevGrades = Array.isArray(card.previousGrades) ? card.previousGrades : [];
+    if (prevAnswers.length > 0) {
+        const hasWrong = prevGrades.some((g) => g === -1);
+        const hasHalf = prevGrades.some((g) => g === 2);
+        const hasRight = prevGrades.some((g) => g === 1 || g <= -2);
+        const legendParts = [];
+        if (hasRight) legendParts.push('<span class="prev-answer-right">●</span> right');
+        if (hasHalf) legendParts.push('<span class="prev-answer-half">●</span> half');
+        if (hasWrong) legendParts.push('<span class="prev-answer-wrong">●</span> wrong');
+        const legendHtml = legendParts.length > 0
+            ? `<div class="prev-answers-legend">${legendParts.join(' ')}</div>`
+            : '';
+        const pills = prevAnswers.map((a, i) => {
+            const grade = Number(prevGrades[i]);
+            let cls = 'prev-answer-wrong';
+            if (grade === 1 || grade <= -2) cls = 'prev-answer-right';
+            else if (grade === 2) cls = 'prev-answer-half';
+            return `<span class="${cls}">${escapeHtml(a)}</span>`;
+        }).join(' ');
+        cardQuestion.innerHTML = `${escapeHtml(questionText)}<div class="prev-answers-label">Your previous answers:</div><div class="prev-answers-row">${pills}</div>${legendHtml}`;
+    } else {
+        cardQuestion.textContent = questionText;
+    }
     cardAnswer.textContent = '';
     state.answerRevealed = false;
     state.cardShownAtMs = Date.now();
@@ -1312,6 +1337,7 @@ function showCurrentType4Item() {
     if (type4AnswerInput) {
         type4AnswerInput.value = '';
     }
+    syncType4DoneBtnState();
     applyJudgeModeUi();
     if (!shouldUseType4MultipleChoiceUi(card) && type4AnswerInput) {
         window.setTimeout(() => {
@@ -1516,8 +1542,19 @@ function answerType4MultipleChoice(choiceIndex) {
     answerType4Item(selected);
 }
 
+function syncType4DoneBtnState() {
+    if (type4AnswerDoneBtn && type4AnswerInput) {
+        const empty = !type4AnswerInput.value.trim();
+        type4AnswerDoneBtn.disabled = empty;
+        type4AnswerDoneBtn.style.opacity = empty ? '0.45' : '';
+    }
+}
+
 function submitType4TypedAnswer() {
     if (!isType(BEHAVIOR_TYPE_IV) || !type4AnswerInput) {
+        return;
+    }
+    if (!type4AnswerInput.value.trim()) {
         return;
     }
     answerType4Item(type4AnswerInput.value);
@@ -2284,11 +2321,13 @@ async function endType4Session(endedEarly = false) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
         const wrongCount = Number.parseInt(payload?.wrong_count, 10) || 0;
+        const partialCount = Number.parseInt(payload?.partial_count, 10) || 0;
         const answeredCount = Number.parseInt(payload?.answer_count, 10) || state.sessionAnswers.length;
         const targetCount = Number.parseInt(payload?.target_answer_count, 10) || answeredCount;
+        const partialSuffix = partialCount > 0 ? ` · Half: ${partialCount}` : '';
         resultSummary.textContent = endedEarly
-            ? `Ended early · Wrong: ${wrongCount} of ${answeredCount} answered`
-            : `Wrong: ${wrongCount} of ${targetCount}`;
+            ? `Ended early · Wrong: ${wrongCount} of ${answeredCount} answered${partialSuffix}`
+            : `Wrong: ${wrongCount} of ${targetCount}${partialSuffix}`;
         window.PracticeSession.clearSessionStart(state.activePendingSessionId);
         updateFinishEarlyButtonState();
         setResultActionMode('back');
@@ -2540,6 +2579,7 @@ function bindEventHandlers() {
             event.preventDefault();
             submitType4TypedAnswer();
         });
+        type4AnswerInput.addEventListener('input', syncType4DoneBtnState);
     }
     wrongBtn.addEventListener('click', () => {
         answerCurrentCard(false);

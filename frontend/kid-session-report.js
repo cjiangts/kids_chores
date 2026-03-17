@@ -216,9 +216,21 @@ function renderAnswerList(container, cards, options = {}) {
             </${tagName}>
         `;
     }).join('');
-    container.innerHTML = compact
-        ? `<div class="answer-grid compact">${itemHtml}</div>`
-        : itemHtml;
+    if (compact) {
+        const legendParts = [];
+        const classes = sorted.map((item) => getAnswerBarClassByScore(item?.correct_score));
+        if (classes.includes('right')) legendParts.push('<span class="legend-dot right"></span> Right');
+        if (classes.includes('half')) legendParts.push('<span class="legend-dot half"></span> Half');
+        if (classes.includes('fixed')) legendParts.push('<span class="legend-dot fixed"></span> Fixed');
+        if (classes.includes('wrong')) legendParts.push('<span class="legend-dot wrong"></span> Wrong');
+        if (classes.includes('pending')) legendParts.push('<span class="legend-dot pending"></span> Ungraded');
+        const legendHtml = legendParts.length > 0
+            ? `<div class="card-color-legend">${legendParts.join('<span class="legend-sep">·</span>')}</div>`
+            : '';
+        container.innerHTML = `${legendHtml}<div class="answer-grid compact">${itemHtml}</div>`;
+    } else {
+        container.innerHTML = itemHtml;
+    }
 
     if (typeIII && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
@@ -235,8 +247,11 @@ function renderAnswerList(container, cards, options = {}) {
 
 function getAnswerBarClassByScore(correctScore) {
     const score = Number(correctScore);
-    if (score > 0) {
+    if (score === 1) {
         return 'right';
+    }
+    if (score === 2) {
+        return 'half';
     }
     if (score <= -2) {
         return 'fixed';
@@ -433,7 +448,7 @@ document.addEventListener('click', async (event) => {
                     ? Number(saved.correct_score)
                     : (saved?.grade_status === 'pass' ? 1 : (saved?.grade_status === 'fail' ? -1 : 0));
                 const nextClass = getAnswerBarClassByScore(score);
-                bar.classList.remove('right', 'wrong', 'fixed', 'pending');
+                bar.classList.remove('right', 'wrong', 'fixed', 'half', 'pending');
                 bar.classList.add(nextClass);
             }
         }
@@ -486,7 +501,7 @@ function getAnswerSecondaryLabel(item) {
     if (submittedAnswers.length === 0) {
         return expectedAnswer ? `Right: ${expectedAnswer}` : '';
     }
-    const triedText = submittedAnswers.join(' / ');
+    const triedText = submittedAnswers.join(' | ');
     if (!expectedAnswer) {
         return `Tried: ${triedText}`;
     }

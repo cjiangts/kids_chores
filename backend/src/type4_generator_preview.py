@@ -40,7 +40,6 @@ TYPE4_DISALLOWED_NODES = (
     ast.Yield,
     ast.YieldFrom,
     ast.Raise,
-    ast.Try,
     ast.With,
     ast.AsyncWith,
     ast.Delete,
@@ -87,11 +86,18 @@ def _normalize_type4_sample(raw_result, index):
         seen.add(text)
         distractors.append(text)
 
-    return {
+    validate = raw_result.get('validate')
+    if validate is not None and not callable(validate):
+        raise ValueError(f'Sample {index} validate must be a callable')
+
+    result = {
         'prompt': prompt,
         'answer': answer,
         'distractors': distractors,
     }
+    if validate is not None:
+        result['validate'] = validate
+    return result
 
 
 def _load_type4_generate_function(generator_code):
@@ -151,9 +157,12 @@ def run_type4_generator(generator_code, sample_count=1, seed_base=1000, *, max_s
 
 def preview_type4_generator(generator_code, sample_count=3, seed_base=1000):
     """Run one generator snippet in-process for preview."""
-    return run_type4_generator(
+    samples = run_type4_generator(
         generator_code,
         sample_count=sample_count,
         seed_base=seed_base,
         max_samples=TYPE4_PREVIEW_MAX_SAMPLES,
     )
+    for sample in samples:
+        sample.pop('validate', None)
+    return samples

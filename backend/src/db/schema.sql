@@ -60,8 +60,12 @@ CREATE TABLE IF NOT EXISTS type4_result_item (
   prompt VARCHAR NOT NULL,
   answer VARCHAR NOT NULL,
   distractor_answers VARCHAR[] NOT NULL DEFAULT [],
-  submitted_answers VARCHAR[] NOT NULL DEFAULT []
+  submitted_answers VARCHAR[] NOT NULL DEFAULT [],
+  submitted_grades INTEGER[] NOT NULL DEFAULT []
 );
+
+ALTER TABLE type4_result_item
+ADD COLUMN IF NOT EXISTS submitted_grades INTEGER[] DEFAULT [];
 
 -- Type-III recording audio metadata (actual audio files are stored on disk)
 CREATE TABLE IF NOT EXISTS lesson_reading_audio (
