@@ -1248,6 +1248,14 @@ def get_or_create_category_orphan_deck(conn, category_key):
     )
 
 
+def get_category_orphan_deck(conn, category_key):
+    """Look up orphan deck id for one category key (read-only, no auto-create)."""
+    key = normalize_shared_deck_tag(category_key)
+    if not key:
+        raise ValueError('categoryKey is required')
+    return get_orphan_deck(conn, get_category_orphan_deck_name(key))
+
+
 def _build_shared_source_deck_entry(entry, total_cards, active_cards):
     """Build one non-orphan merged-source payload."""
     skipped_cards = max(0, total_cards - active_cards)
@@ -1305,7 +1313,7 @@ def get_shared_merged_source_decks_for_kid(
 
     deck_ids_to_summarize = [int(deck_id) for deck_id in materialized_by_local_id.keys()]
     orphan_deck_name = get_category_orphan_deck_name(first_tag)
-    orphan_deck_id = get_or_create_category_orphan_deck(conn, first_tag)
+    orphan_deck_id = get_category_orphan_deck(conn, first_tag)
     if orphan_deck_id > 0:
         deck_ids_to_summarize.append(int(orphan_deck_id))
     counts_by_deck_id = get_card_count_summary_by_deck_ids(conn, deck_ids_to_summarize)
@@ -4420,6 +4428,8 @@ def update_kid_deck_categories(kid_id):
                     """,
                     [[key] for key in category_keys],
                 )
+                for key in category_keys:
+                    get_or_create_category_orphan_deck(kid_conn, key)
         finally:
             kid_conn.close()
 
@@ -5217,6 +5227,18 @@ def delete_kid(kid_id):
 
 
 # Card routes
+
+def get_orphan_deck(conn, orphan_deck_name):
+    """Look up orphan deck id by name (read-only, no auto-create). Returns 0 if missing."""
+    deck_name = str(orphan_deck_name or '').strip()
+    if not deck_name:
+        return 0
+    result = conn.execute(
+        "SELECT id FROM decks WHERE name = ?",
+        [deck_name]
+    ).fetchone()
+    return int(result[0]) if result else 0
+
 
 def get_or_create_orphan_deck(conn, orphan_deck_name, first_tag):
     """Get or create one reserved orphan deck by explicit name/tag."""
@@ -9977,11 +9999,7 @@ def build_shared_decks_listing_payload(
                 for row in card_count_rows
             }
 
-        orphan_deck_id = get_or_create_orphan_deck(
-            kid_conn,
-            orphan_deck_name,
-            first_tag,
-        )
+        orphan_deck_id = get_orphan_deck(kid_conn, orphan_deck_name)
         orphan_deck_payload = build_orphan_deck_payload(kid_conn, orphan_deck_id, orphan_deck_name)
     finally:
         if kid_conn is not None:
@@ -11348,7 +11366,7 @@ def get_shared_type2_cards(kid_id):
             active_count = sum(int(src.get('active_card_count') or 0) for src in bank_sources)
             skipped_count = sum(int(src.get('skipped_card_count') or 0) for src in bank_sources)
             practice_active_count = sum(int(src.get('active_card_count') or 0) for src in practice_sources)
-            orphan_deck_id = get_or_create_category_orphan_deck(conn, category_key)
+            orphan_deck_id = get_category_orphan_deck(conn, category_key)
         finally:
             conn.close()
 
