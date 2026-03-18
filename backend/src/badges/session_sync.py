@@ -19,7 +19,7 @@ def sync_badges_after_session_complete(kid, *, raise_errors: bool = False):
 
         family_timezone = metadata.get_family_timezone(family_id)
         kid_conn = kid_db.get_kid_connection_by_path(db_path)
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         try:
             result = sync_kid_badges_awards(
                 kid_conn,

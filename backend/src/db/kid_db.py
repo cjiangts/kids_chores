@@ -82,13 +82,14 @@ def init_kid_database_by_path(db_file_path: str) -> str:
     return db_path
 
 
-def get_kid_connection_by_path(db_file_path: str) -> duckdb.DuckDBPyConnection:
+def get_kid_connection_by_path(db_file_path: str, read_only: bool = False) -> duckdb.DuckDBPyConnection:
     """Get connection using dbFilePath metadata."""
     db_path = get_absolute_db_path(db_file_path)
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database not found at {db_file_path}")
-    conn = duckdb.connect(db_path)
-    ensure_schema(conn, db_path)
+    conn = duckdb.connect(db_path, read_only=read_only)
+    if not read_only:
+        ensure_schema(conn, db_path)
     return conn
 
 

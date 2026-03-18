@@ -106,7 +106,7 @@ def list_badge_art_assignments(shared_conn, *, include_earned_counts: bool = Tru
                 continue
             conn = None
             try:
-                conn = kid_db.get_kid_connection_by_path(db_file_path)
+                conn = kid_db.get_kid_connection_by_path(db_file_path, read_only=True)
                 award_rows = conn.execute(
                     """
                     SELECT achievement_key, COALESCE(category_key, '')

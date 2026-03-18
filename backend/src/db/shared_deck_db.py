@@ -136,10 +136,11 @@ def init_shared_decks_database() -> str:
     return SHARED_DB_PATH
 
 
-def get_shared_decks_connection() -> duckdb.DuckDBPyConnection:
+def get_shared_decks_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     """Get connection to shared decks database."""
     if not os.path.exists(SHARED_DB_PATH):
         init_shared_decks_database()
-    conn = duckdb.connect(SHARED_DB_PATH)
-    ensure_shared_deck_schema(conn, SHARED_DB_PATH)
+    conn = duckdb.connect(SHARED_DB_PATH, read_only=read_only)
+    if not read_only:
+        ensure_shared_deck_schema(conn, SHARED_DB_PATH)
     return conn

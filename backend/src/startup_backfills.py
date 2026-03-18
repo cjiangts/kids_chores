@@ -50,7 +50,7 @@ def _get_first_normalized_tag(raw_tags):
 
 def _get_chinese_type_i_category_keys():
     """Return category keys that should use Chinese-character polyphone backfill."""
-    conn = get_shared_decks_connection()
+    conn = get_shared_decks_connection(read_only=True)
     try:
         rows = conn.execute(
             """
@@ -135,7 +135,7 @@ def _collect_shared_db_candidates(chinese_category_keys):
     """Collect stale shared-deck cards that still use the old single-reading pinyin."""
     if not os.path.exists(SHARED_DB_PATH):
         return []
-    conn = get_shared_decks_connection()
+    conn = get_shared_decks_connection(read_only=True)
     try:
         return _collect_stale_card_candidates_from_conn(
             conn,

@@ -294,7 +294,7 @@ def create_app():
             return auth_err
         family_id = str(session.get('family_id') or '')
         is_super_family = metadata.is_super_family(family_id)
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         try:
             if is_super_family:
                 return build_super_family_badge_art_payload(shared_conn), 200

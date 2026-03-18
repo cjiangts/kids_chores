@@ -364,10 +364,10 @@ def get_kid_for_family(kid_id):
     return metadata.get_kid_by_id(kid_id, family_id=family_id)
 
 
-def get_kid_connection_for(kid):
+def get_kid_connection_for(kid, read_only: bool = False):
     """Open kid database connection by scoped dbFilePath."""
     rel = kid.get('dbFilePath')
-    return kid_db.get_kid_connection_by_path(rel)
+    return kid_db.get_kid_connection_by_path(rel, read_only=read_only)
 
 
 def require_critical_password():
@@ -1106,7 +1106,7 @@ def hydrate_kid_category_config_from_db(
     local_conn = conn
     owns_conn = False
     if local_conn is None:
-        local_conn = get_kid_connection_for(kid)
+        local_conn = get_kid_connection_for(kid, read_only=True)
         owns_conn = True
     try:
         rows = local_conn.execute(
@@ -1718,7 +1718,7 @@ def build_type_iv_generator_detail_maps(category_key, deck_ids=None, *, shared_c
     """Return generator details keyed by shared deck id and representative front."""
     should_close = shared_conn is None
     if should_close:
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
     try:
         decks = get_shared_type_iv_deck_rows(shared_conn, category_key)
         lookup_ids = {int(deck.get('deck_id') or 0) for deck in decks if int(deck.get('deck_id') or 0) > 0}
@@ -1976,7 +1976,7 @@ def list_shared_deck_categories():
         if auth_err:
             return auth_err
 
-        conn = get_shared_decks_connection()
+        conn = get_shared_decks_connection(read_only=True)
         try:
             categories = get_shared_deck_categories(conn)
         finally:
@@ -2223,7 +2223,7 @@ def shared_deck_name_availability():
             except (TypeError, ValueError):
                 return jsonify({'error': 'excludeDeckId must be an integer'}), 400
 
-        conn = get_shared_decks_connection()
+        conn = get_shared_decks_connection(read_only=True)
         try:
             tags = None
             first_tag_raw = request.args.get('firstTag')
@@ -2380,7 +2380,7 @@ def shared_type4_representative_label_availability():
             except (TypeError, ValueError):
                 raise ValueError('excludeDeckId must be an integer')
 
-        conn = get_shared_decks_connection()
+        conn = get_shared_decks_connection(read_only=True)
         try:
             category_meta = None
             for item in get_shared_deck_categories(conn):
@@ -2433,7 +2433,7 @@ def shared_deck_category_card_overlap():
             raise ValueError('categoryKey is required')
         cards = normalize_shared_deck_cards(payload.get('cards'))
 
-        conn = get_shared_decks_connection()
+        conn = get_shared_decks_connection(read_only=True)
         try:
             category_meta = None
             for item in get_shared_deck_categories(conn):
@@ -2536,7 +2536,7 @@ def shared_deck_tags():
         if auth_err:
             return auth_err
 
-        conn = get_shared_decks_connection()
+        conn = get_shared_decks_connection(read_only=True)
         try:
             tag_paths = get_all_shared_deck_tag_paths(conn)
         finally:
@@ -2562,7 +2562,7 @@ def list_my_shared_decks():
         except (TypeError, ValueError):
             return jsonify({'error': 'Invalid family id in session'}), 400
 
-        conn = get_shared_decks_connection()
+        conn = get_shared_decks_connection(read_only=True)
         try:
             has_print = shared_deck_generator_definition_has_print_sheet_columns(conn)
             if has_print:
@@ -2653,7 +2653,7 @@ def get_shared_deck_details(deck_id):
                 return jsonify({'error': 'Family login required'}), 401
             return jsonify({'error': 'Invalid family id in session'}), 400
 
-        conn = get_shared_decks_connection()
+        conn = get_shared_decks_connection(read_only=True)
         try:
             deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
             if not deck_row:
@@ -2965,7 +2965,7 @@ def generate_shared_deck_print_problems(deck_id):
 
         conn = None
         try:
-            conn = get_shared_decks_connection()
+            conn = get_shared_decks_connection(read_only=True)
             deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
             if not deck_row:
                 return jsonify({'error': 'Deck not found'}), 404
@@ -3384,7 +3384,7 @@ def get_kid_dashboard_stats(
     owns_conn = False
     if local_conn is None:
         try:
-            local_conn = get_kid_connection_for(kid)
+            local_conn = get_kid_connection_for(kid, read_only=True)
             owns_conn = True
         except Exception:
             return (
@@ -3603,7 +3603,7 @@ def get_kid_has_ungraded_type_iii(kid, *, type_iii_category_keys=None, conn=None
     owns_conn = False
     if local_conn is None:
         try:
-            local_conn = get_kid_connection_for(kid)
+            local_conn = get_kid_connection_for(kid, read_only=True)
             owns_conn = True
         except Exception:
             return False
@@ -3649,7 +3649,7 @@ def get_shared_deck_category_meta_by_key():
     if _category_meta_cache['data'] is not None and (now - _category_meta_cache['ts']) < _CATEGORY_META_CACHE_TTL:
         return _category_meta_cache['data']
 
-    conn = get_shared_decks_connection()
+    conn = get_shared_decks_connection(read_only=True)
     try:
         categories = get_shared_deck_categories(conn)
     finally:
@@ -3920,7 +3920,7 @@ def get_kid_daily_completed_by_deck_category(kid, opted_in_category_keys, today_
     counts = {key: 0 for key in keys}
     conn = None
     try:
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         family_id = str(kid.get('familyId') or '')
         family_timezone = metadata.get_family_timezone(family_id)
         tzinfo = ZoneInfo(family_timezone)
@@ -4011,7 +4011,7 @@ def get_kid_practice_target_by_deck_category(
             target_conn = conn
             if target_conn is None:
                 if owned_conn is None:
-                    owned_conn = get_kid_connection_for(kid)
+                    owned_conn = get_kid_connection_for(kid, read_only=True)
                 target_conn = owned_conn
             targets[key] = int(get_type_iv_total_daily_target_for_category(target_conn, kid, key))
             continue
@@ -4048,7 +4048,7 @@ def get_kids():
         for kid in kids:
             conn = None
             try:
-                conn = get_kid_connection_for(kid)
+                conn = get_kid_connection_for(kid, read_only=True)
             except Exception:
                 conn = None
             try:
@@ -4198,7 +4198,7 @@ def get_kid(kid_id):
         }
         conn = None
         try:
-            conn = get_kid_connection_for(kid)
+            conn = get_kid_connection_for(kid, read_only=True)
         except Exception:
             conn = None
         try:
@@ -4301,7 +4301,7 @@ def get_kid_deck_categories(kid_id):
         family_id = str(kid.get('familyId') or '').strip()
         is_super = is_super_family_id(family_id)
 
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         try:
             all_categories = get_shared_deck_categories(shared_conn)
         finally:
@@ -4334,7 +4334,7 @@ def get_kid_deck_categories(kid_id):
                 'is_shared_with_non_super_family': bool(item.get('is_shared_with_non_super_family')),
             }
 
-        kid_conn = get_kid_connection_for(kid)
+        kid_conn = get_kid_connection_for(kid, read_only=True)
         try:
             rows = kid_conn.execute(
                 f"""
@@ -4383,7 +4383,7 @@ def update_kid_deck_categories(kid_id):
         payload = request.get_json() or {}
         category_keys = normalize_deck_category_keys(payload.get('categoryKeys'))
 
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         try:
             allowed_keys = {
                 normalize_shared_deck_tag(item.get('category_key'))
@@ -4444,7 +4444,7 @@ def get_kid_report(kid_id):
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         try:
             rows = conn.execute(
                 """
@@ -4528,7 +4528,7 @@ def get_kid_report_session_detail(kid_id, session_id):
         except (TypeError, ValueError):
             return jsonify({'error': 'Invalid session id'}), 400
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         session_row = conn.execute(
             """
             SELECT
@@ -4690,7 +4690,7 @@ def get_kid_type_iii_next_to_grade(kid_id):
             }), 200
 
         placeholders = ', '.join(['?'] * len(type_iii_category_keys))
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
 
         ungraded_row = conn.execute(
             f"""
@@ -4742,7 +4742,7 @@ def get_kid_report_card_detail(kid_id, card_id):
         except (TypeError, ValueError):
             return jsonify({'error': 'Invalid card id'}), 400
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         card_row = conn.execute(
             """
             SELECT
@@ -7208,10 +7208,10 @@ def build_type_i_shared_decks_payload(
     local_by_shared_id = {}
     local_card_count_by_deck_id = {}
     try:
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         decks = get_shared_deck_rows_by_first_tag(shared_conn, category_key)
 
-        kid_conn = get_kid_connection_for(kid)
+        kid_conn = get_kid_connection_for(kid, read_only=True)
         materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
             kid_conn,
             category_key,
@@ -7378,10 +7378,10 @@ def build_type_iv_shared_decks_payload(
     local_representative_front_by_deck_id = {}
     local_daily_target_by_deck_id = {}
     try:
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         decks = get_shared_type_iv_deck_rows(shared_conn, category_key)
 
-        kid_conn = get_kid_connection_for(kid)
+        kid_conn = get_kid_connection_for(kid, read_only=True)
         materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
             kid_conn,
             category_key,
@@ -7567,7 +7567,7 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
     shared_conn = None
     kid_conn = None
     try:
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         shared_by_id, missing_ids = _fetch_shared_decks_by_ids(shared_conn, deck_ids)
         if missing_ids:
             return {
@@ -7935,7 +7935,7 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
     shared_conn = None
     kid_conn = None
     try:
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         shared_by_id = {
             int(deck['deck_id']): deck
             for deck in get_shared_type_iv_deck_rows(shared_conn, category_key)
@@ -8261,7 +8261,7 @@ def build_type_i_shared_cards_payload(
         else get_category_include_orphan_for_kid(kid, category_key)
     )
 
-    conn = get_kid_connection_for(kid)
+    conn = get_kid_connection_for(kid, read_only=True)
     try:
         sources = get_shared_type_i_merged_source_decks_for_kid(
             conn,
@@ -8378,7 +8378,7 @@ def build_type_iv_shared_cards_payload(
         else 0
     )
 
-    conn = get_kid_connection_for(kid)
+    conn = get_kid_connection_for(kid, read_only=True)
     try:
         include_orphan_in_queue = get_category_include_orphan_for_kid(kid, category_key)
         generator_details_by_shared_id, generator_details_by_front = build_type_iv_generator_detail_maps(
@@ -9949,10 +9949,10 @@ def build_shared_decks_listing_payload(
     local_by_shared_id = {}
     local_card_count_by_deck_id = {}
     try:
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         decks = get_shared_decks_fn(shared_conn)
 
-        kid_conn = get_kid_connection_for(kid)
+        kid_conn = get_kid_connection_for(kid, read_only=True)
         materialized_by_local_id = get_materialized_decks_fn(kid_conn)
         for entry in materialized_by_local_id.values():
             shared_deck_id = int(entry['shared_deck_id'])
@@ -10074,7 +10074,7 @@ def opt_in_shared_decks_internal(
     shared_conn = None
     kid_conn = None
     try:
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         shared_by_id, missing_ids = _fetch_shared_decks_by_ids(shared_conn, deck_ids)
         if missing_ids:
             return {
@@ -10731,7 +10731,7 @@ def get_decks_for_scope(kid_id, category):
             'retry_card_count': 0,
         }
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_I:
-            conn = get_kid_connection_for(kid)
+            conn = get_kid_connection_for(kid, read_only=True)
             try:
                 sources = get_shared_type_i_merged_source_decks_for_kid(
                     conn,
@@ -10754,7 +10754,7 @@ def get_decks_for_scope(kid_id, category):
             finally:
                 conn.close()
         elif scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
-            conn = get_kid_connection_for(kid)
+            conn = get_kid_connection_for(kid, read_only=True)
             try:
                 sources = get_shared_type_ii_merged_source_decks_for_kid(
                     conn,
@@ -10782,7 +10782,7 @@ def get_decks_for_scope(kid_id, category):
             finally:
                 conn.close()
         elif scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_IV:
-            conn = get_kid_connection_for(kid)
+            conn = get_kid_connection_for(kid, read_only=True)
             try:
                 practice_sources = get_type_iv_practice_source_rows(
                     conn,
@@ -10992,7 +10992,7 @@ def preview_type4_generator_for_card(kid_id, card_id):
         if card_id_int <= 0:
             return jsonify({'error': 'Invalid card id'}), 400
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         try:
             card_row = conn.execute(
                 """
@@ -11027,7 +11027,7 @@ def preview_type4_generator_for_card(kid_id, card_id):
         if shared_deck_id <= 0:
             return jsonify({'error': 'Shared generator deck not found for this card'}), 404
 
-        shared_conn = get_shared_decks_connection()
+        shared_conn = get_shared_decks_connection(read_only=True)
         try:
             generator_definition = get_shared_deck_generator_definition(shared_conn, shared_deck_id)
         finally:
@@ -11179,7 +11179,7 @@ def get_shared_type2_cards(kid_id):
             get_shared_deck_category_meta_by_key(),
         )
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         try:
             sources = get_shared_type_ii_merged_source_decks_for_kid(
                 conn,
@@ -11728,7 +11728,7 @@ def get_writing_audio(kid_id, file_name):
         if file_name != os.path.basename(file_name):
             return jsonify({'error': 'Invalid file name'}), 400
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         try:
             # Keep this endpoint read-only. Do not create orphan decks while serving audio.
             materialized_by_local_id = get_kid_materialized_shared_type_ii_decks(conn, category_key)
@@ -11813,7 +11813,7 @@ def get_type3_audio(kid_id, file_name):
         if not os.path.exists(audio_path):
             return jsonify({'error': 'Audio file not found'}), 404
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         row = conn.execute(
             """
             SELECT lra.mime_type, s.type
@@ -11887,7 +11887,7 @@ def download_type3_audio_as_m4a(kid_id, file_name):
         if not os.path.exists(audio_path):
             return jsonify({'error': 'Audio file not found'}), 404
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         row = conn.execute(
             """
             SELECT lra.mime_type, s.type
@@ -12357,7 +12357,7 @@ def get_writing_sheets(kid_id):
         if not has_chinese_specific_logic:
             return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         rows = conn.execute(
             """
             SELECT
@@ -12420,7 +12420,7 @@ def get_writing_sheet_detail(kid_id, sheet_id):
         if not has_chinese_specific_logic:
             return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         rows = conn.execute(
             """
             SELECT
@@ -12572,12 +12572,12 @@ def get_type4_print_config(kid_id):
         shared_conn = None
         kid_conn = None
         try:
-            shared_conn = get_shared_decks_connection()
+            shared_conn = get_shared_decks_connection(read_only=True)
             decks = get_shared_type_iv_deck_rows(shared_conn, category_key)
             shared_deck_ids = [int(d['deck_id']) for d in decks]
             definitions = get_shared_deck_generator_definitions_by_deck_ids(shared_conn, shared_deck_ids)
 
-            kid_conn = get_kid_connection_for(kid)
+            kid_conn = get_kid_connection_for(kid, read_only=True)
             materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
                 kid_conn, category_key,
             )
@@ -12650,7 +12650,7 @@ def create_math_practice_sheet(kid_id):
 
         shared_conn = None
         try:
-            shared_conn = get_shared_decks_connection()
+            shared_conn = get_shared_decks_connection(read_only=True)
             defn = get_shared_deck_generator_definition(shared_conn, shared_deck_id)
             if not defn or not defn.get('code'):
                 return jsonify({'error': 'Generator definition not found for this deck'}), 404
@@ -12704,7 +12704,7 @@ def get_math_practice_sheets(kid_id):
             allow_default=True,
         )
 
-        conn = get_kid_connection_for(kid)
+        conn = get_kid_connection_for(kid, read_only=True)
         rows = conn.execute(
             """
             SELECT id, shared_deck_id, category_key, layout, problem_count,
@@ -12722,7 +12722,7 @@ def get_math_practice_sheets(kid_id):
         deck_names = {}
         deck_display_names = {}
         if shared_deck_ids:
-            shared_conn = get_shared_decks_connection()
+            shared_conn = get_shared_decks_connection(read_only=True)
             try:
                 placeholders = ','.join(['?'] * len(shared_deck_ids))
                 name_rows = shared_conn.execute(

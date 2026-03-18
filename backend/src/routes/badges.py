@@ -35,8 +35,8 @@ def _build_response_payload(kid):
 
     tracking_started_at = metadata.get_family_badge_tracking_started_at(family_id)
     family_timezone = metadata.get_family_timezone(family_id)
-    kid_conn = kid_db.get_kid_connection_by_path(db_path)
-    shared_conn = get_shared_decks_connection()
+    kid_conn = kid_db.get_kid_connection_by_path(db_path, read_only=True)
+    shared_conn = get_shared_decks_connection(read_only=True)
     try:
         payload = build_kid_badge_payload(
             kid_conn,
@@ -62,7 +62,7 @@ def _build_summary_payload(kid):
         raise ValueError('Kid database path is missing')
 
     tracking_started_at = metadata.get_family_badge_tracking_started_at(family_id)
-    kid_conn = kid_db.get_kid_connection_by_path(db_path)
+    kid_conn = kid_db.get_kid_connection_by_path(db_path, read_only=True)
     try:
         payload = build_kid_badge_summary_payload(
             kid_conn,
@@ -85,7 +85,7 @@ def _build_pending_celebrations_payload(kid):
         raise ValueError('Kid database path is missing')
 
     tracking_started_at = metadata.get_family_badge_tracking_started_at(family_id)
-    kid_conn = kid_db.get_kid_connection_by_path(db_path)
+    kid_conn = kid_db.get_kid_connection_by_path(db_path, read_only=True)
     shared_conn = None
     try:
         summary_payload = build_kid_badge_summary_payload(
@@ -94,7 +94,7 @@ def _build_pending_celebrations_payload(kid):
         )
         pending_count = int((summary_payload.get('summary') or {}).get('pendingCelebrationCount', 0))
         if pending_count > 0 and bool(summary_payload.get('trackingEnabled')):
-            shared_conn = get_shared_decks_connection()
+            shared_conn = get_shared_decks_connection(read_only=True)
             payload = build_kid_pending_celebrations_payload(
                 kid_conn,
                 shared_conn,
