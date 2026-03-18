@@ -1371,17 +1371,15 @@ window.PracticeManageCommon = {
     renderValidateTestBox(containerEl, opts = {}) {
         if (!containerEl) return;
         this._ensureValidateTestStyles();
+        const expectedAnswer = typeof opts.getExpectedAnswer === 'function' ? opts.getExpectedAnswer() : '';
         containerEl.innerHTML = `
             <div class="validate-test-box">
                 <h4>Test Validate Function</h4>
+                <div style="font-size:0.85rem;color:#555;margin-bottom:0.4rem;">Expected answer from generated example: <code>${escapeHtml(expectedAnswer || '(none)')}</code></div>
                 <div class="validate-test-row">
                     <div class="form-group">
                         <label>Submitted answer</label>
                         <input type="text" class="validate-test-submitted" placeholder="e.g. 5/6">
-                    </div>
-                    <div class="form-group">
-                        <label>Expected answer</label>
-                        <input type="text" class="validate-test-expected" placeholder="e.g. 5/6">
                     </div>
                     <button type="button" class="btn-secondary validate-test-btn">Validate</button>
                 </div>
@@ -1390,14 +1388,18 @@ window.PracticeManageCommon = {
         `;
         const btn = containerEl.querySelector('.validate-test-btn');
         const submittedInput = containerEl.querySelector('.validate-test-submitted');
-        const expectedInput = containerEl.querySelector('.validate-test-expected');
         const resultEl = containerEl.querySelector('.validate-test-result');
         const runValidate = async () => {
             const generatorCode = typeof opts.getGeneratorCode === 'function' ? opts.getGeneratorCode() : '';
+            const expected = typeof opts.getExpectedAnswer === 'function' ? opts.getExpectedAnswer() : '';
             const submitted = submittedInput.value.trim();
-            const expected = expectedInput.value.trim();
-            if (!submitted || !expected) {
-                resultEl.textContent = 'Enter both answers.';
+            if (!submitted) {
+                resultEl.textContent = 'Enter a submitted answer.';
+                resultEl.className = 'validate-test-result';
+                return;
+            }
+            if (!expected) {
+                resultEl.textContent = 'Generate an example first.';
                 resultEl.className = 'validate-test-result';
                 return;
             }
@@ -1442,9 +1444,6 @@ window.PracticeManageCommon = {
         };
         btn.addEventListener('click', runValidate);
         submittedInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); void runValidate(); }
-        });
-        expectedInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); void runValidate(); }
         });
     },

@@ -229,6 +229,50 @@
             flex-wrap: wrap;
             margin-top: 0.7rem;
         }
+
+        .print-config-section {
+            margin-top: 1rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #e4e9f2;
+        }
+
+        .print-config-section strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #233044;
+        }
+
+        .print-config-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.45rem;
+            font-size: 0.92rem;
+            color: #555;
+        }
+
+        .print-config-row input[type="number"] {
+            width: 60px;
+            text-align: center;
+            padding: 0.3rem 0.4rem;
+            border: 1px solid #cfd7ea;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .print-config-actions {
+            display: flex;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            margin-top: 0.55rem;
+        }
+
+        .print-config-actions .btn-secondary {
+            font-size: 0.85rem;
+            padding: 0.35rem 0.75rem;
+            min-height: 32px;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -283,17 +327,30 @@
                         </span>
                     </label>
                     <textarea id="type4GeneratorCodeText" class="deck-edit-textarea input-mono" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+                    <div id="type4GeneratorCodeEditor" class="hidden" style="width:100%;min-height:200px;border:1px solid #cfd7ea;border-radius:8px;margin-bottom:0.7rem;"></div>
                     <div class="deck-edit-row">
                         <button type="button" id="saveType4GeneratorBtn" class="btn-primary">Save Generator</button>
                     </div>
                     <div class="type4-preview-head">
                         <strong>Example results</strong>
-                        <button type="button" id="regenType4ExamplesBtn" class="btn-secondary">Generate 3 Examples</button>
+                        <button type="button" id="regenType4ExamplesBtn" class="btn-secondary">Generate Example</button>
                     </div>
                     <div id="type4PreviewExamples" class="type4-preview-list">
-                        <p class="muted-help-text">Click Generate 3 Examples to preview this deck.</p>
+                        <p class="muted-help-text">Click Generate Example to preview this deck.</p>
                     </div>
                     <div id="type4ValidateTestContainer" class="hidden"></div>
+                    <div id="type4PrintConfig" class="print-config-section">
+                        <strong>Printable Sheets</strong>
+                        <div class="print-config-row">
+                            <span>Vertical answer rows (0 = disabled):</span>
+                            <input type="number" id="verticalAnswerRows" min="0" max="10" step="0.1" value="0" style="width:50px;">
+                        </div>
+                        <div class="print-config-actions">
+                            <button type="button" id="savePrintConfigBtn" class="btn-primary" style="font-size:0.85rem;padding:0.35rem 0.75rem;min-height:32px;">Save Print Config</button>
+                            <a id="printPreviewHorizontalBtn" class="btn-secondary" target="_blank">Preview Horizontal</a>
+                            <a id="printPreviewVerticalBtn" class="btn-secondary" target="_blank">Preview Vertical</a>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -361,6 +418,9 @@
 
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/ace.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/mode-python.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/theme-github_light_default.js"></script>
     <script src="deck-view.js"></script>
 </body>
 </html>

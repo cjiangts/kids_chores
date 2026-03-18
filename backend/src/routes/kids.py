@@ -60,7 +60,7 @@ MAX_TYPE_IV_DISPLAY_LABEL_LENGTH = 120
 MAX_TYPE_IV_GENERATOR_CODE_LENGTH = 20000
 DEFAULT_TYPE_IV_DAILY_TARGET_COUNT = 10
 MAX_TYPE_IV_DAILY_TARGET_COUNT = 1000
-TYPE_IV_PREVIEW_SAMPLE_COUNT = 3
+TYPE_IV_PREVIEW_SAMPLE_COUNT = 1
 TYPE_IV_DEFAULT_PRACTICE_MODE = 'input'
 TYPE_IV_PRACTICE_MODE_INPUT = 'input'
 TYPE_IV_PRACTICE_MODE_MULTI = 'multi'
@@ -1550,9 +1550,48 @@ def shared_deck_generator_definition_has_multichoice_only_column(conn):
     return bool(row)
 
 
+def shared_deck_generator_definition_has_print_sheet_columns(conn):
+    """Return whether shared generator definitions include the vertical_answer_rows column."""
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'main'
+          AND table_name = 'deck_generator_definition'
+          AND column_name = 'vertical_answer_rows'
+        LIMIT 1
+        """
+    ).fetchone()
+    return bool(row)
+
+
+def _safe_positive_int_or_none(val):
+    """Return a positive int or None."""
+    if val is None:
+        return None
+    try:
+        v = int(val)
+        return v if v > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
 def get_shared_deck_generator_definition(conn, deck_id):
     """Return immutable generator definition for one shared type-IV deck."""
-    if shared_deck_generator_definition_has_multichoice_only_column(conn):
+    has_multichoice = shared_deck_generator_definition_has_multichoice_only_column(conn)
+    has_print = shared_deck_generator_definition_has_print_sheet_columns(conn)
+    if has_multichoice and has_print:
+        row = conn.execute(
+            """
+            SELECT code, is_multichoice_only, created_at,
+                   vertical_answer_rows, horizontal_capacity, vertical_capacity
+            FROM deck_generator_definition
+            WHERE deck_id = ?
+            LIMIT 1
+            """,
+            [deck_id],
+        ).fetchone()
+    elif has_multichoice:
         row = conn.execute(
             """
             SELECT code, is_multichoice_only, created_at
@@ -1574,7 +1613,7 @@ def get_shared_deck_generator_definition(conn, deck_id):
         ).fetchone()
     if row is None:
         return None
-    if len(row) >= 3:
+    if has_multichoice:
         code = str(row[0] or '')
         is_multichoice_only = bool(row[1]) if row[1] is not None else False
         created_at = row[2]
@@ -1582,11 +1621,20 @@ def get_shared_deck_generator_definition(conn, deck_id):
         code = str(row[0] or '') if len(row) >= 1 else ''
         is_multichoice_only = False
         created_at = row[1] if len(row) >= 2 else None
-    return {
+    result = {
         'code': code,
         'is_multichoice_only': bool(is_multichoice_only),
         'created_at': created_at.isoformat() if created_at else None,
     }
+    if has_print:
+        result['vertical_answer_rows'] = float(row[3]) if row[3] is not None else None
+        result['horizontal_capacity'] = int(row[4]) if row[4] is not None else None
+        result['vertical_capacity'] = int(row[5]) if row[5] is not None else None
+    else:
+        result['vertical_answer_rows'] = None
+        result['horizontal_capacity'] = None
+        result['vertical_capacity'] = None
+    return result
 
 
 def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
@@ -1605,8 +1653,20 @@ def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
     if not normalized_ids:
         return {}
 
+    has_multichoice = shared_deck_generator_definition_has_multichoice_only_column(conn)
+    has_print = shared_deck_generator_definition_has_print_sheet_columns(conn)
     placeholders = ','.join(['?'] * len(normalized_ids))
-    if shared_deck_generator_definition_has_multichoice_only_column(conn):
+    if has_multichoice and has_print:
+        rows = conn.execute(
+            f"""
+            SELECT deck_id, code, is_multichoice_only, created_at,
+                   vertical_answer_rows, horizontal_capacity, vertical_capacity
+            FROM deck_generator_definition
+            WHERE deck_id IN ({placeholders})
+            """,
+            normalized_ids,
+        ).fetchall()
+    elif has_multichoice:
         rows = conn.execute(
             f"""
             SELECT deck_id, code, is_multichoice_only, created_at
@@ -1629,7 +1689,7 @@ def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
         deck_id = int(row[0] or 0) if row else 0
         if deck_id <= 0:
             continue
-        if len(row) >= 4:
+        if has_multichoice:
             code = str(row[1] or '')
             is_multichoice_only = bool(row[2]) if row[2] is not None else False
             created_at = row[3]
@@ -1637,11 +1697,20 @@ def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
             code = str(row[1] or '') if len(row) >= 2 else ''
             is_multichoice_only = False
             created_at = row[2] if len(row) >= 3 else None
-        definitions[deck_id] = {
+        defn = {
             'code': code,
             'is_multichoice_only': bool(is_multichoice_only),
             'created_at': created_at.isoformat() if created_at else None,
         }
+        if has_print and has_multichoice:
+            defn['vertical_answer_rows'] = float(row[4]) if row[4] is not None else None
+            defn['horizontal_capacity'] = int(row[5]) if row[5] is not None else None
+            defn['vertical_capacity'] = int(row[6]) if row[6] is not None else None
+        else:
+            defn['vertical_answer_rows'] = None
+            defn['horizontal_capacity'] = None
+            defn['vertical_capacity'] = None
+        definitions[deck_id] = defn
     return definitions
 
 
@@ -2495,34 +2564,62 @@ def list_my_shared_decks():
 
         conn = get_shared_decks_connection()
         try:
-            rows = conn.execute(
-                """
-                SELECT
-                    d.deck_id,
-                    d.name,
-                    d.tags,
-                    d.creator_family_id,
-                    d.created_at,
-                    CAST(COALESCE(COUNT(c.id), 0) AS INTEGER) AS card_count,
-                    CASE
-                        WHEN COUNT(c.id) = 1 THEN MIN(c.front)
-                        ELSE NULL
-                    END AS single_card_front
-                FROM deck d
-                LEFT JOIN cards c ON c.deck_id = d.deck_id
-                WHERE d.creator_family_id = ?
-                GROUP BY d.deck_id, d.name, d.tags, d.creator_family_id, d.created_at
-                ORDER BY d.created_at DESC, d.deck_id DESC
-                """,
-                [family_id_int]
-            ).fetchall()
+            has_print = shared_deck_generator_definition_has_print_sheet_columns(conn)
+            if has_print:
+                rows = conn.execute(
+                    """
+                    SELECT
+                        d.deck_id,
+                        d.name,
+                        d.tags,
+                        d.creator_family_id,
+                        d.created_at,
+                        CAST(COALESCE(COUNT(c.id), 0) AS INTEGER) AS card_count,
+                        CASE
+                            WHEN COUNT(c.id) = 1 THEN MIN(c.front)
+                            ELSE NULL
+                        END AS single_card_front,
+                        MAX(g.vertical_answer_rows) AS vertical_answer_rows,
+                        MAX(g.horizontal_capacity) AS horizontal_capacity,
+                        MAX(g.vertical_capacity) AS vertical_capacity
+                    FROM deck d
+                    LEFT JOIN cards c ON c.deck_id = d.deck_id
+                    LEFT JOIN deck_generator_definition g ON g.deck_id = d.deck_id
+                    WHERE d.creator_family_id = ?
+                    GROUP BY d.deck_id, d.name, d.tags, d.creator_family_id, d.created_at
+                    ORDER BY d.created_at DESC, d.deck_id DESC
+                    """,
+                    [family_id_int]
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT
+                        d.deck_id,
+                        d.name,
+                        d.tags,
+                        d.creator_family_id,
+                        d.created_at,
+                        CAST(COALESCE(COUNT(c.id), 0) AS INTEGER) AS card_count,
+                        CASE
+                            WHEN COUNT(c.id) = 1 THEN MIN(c.front)
+                            ELSE NULL
+                        END AS single_card_front
+                    FROM deck d
+                    LEFT JOIN cards c ON c.deck_id = d.deck_id
+                    WHERE d.creator_family_id = ?
+                    GROUP BY d.deck_id, d.name, d.tags, d.creator_family_id, d.created_at
+                    ORDER BY d.created_at DESC, d.deck_id DESC
+                    """,
+                    [family_id_int]
+                ).fetchall()
         finally:
             conn.close()
 
         decks = []
         for row in rows:
             tags, tag_labels = extract_shared_deck_tags_and_labels(row[2])
-            decks.append({
+            deck_entry = {
                 'deck_id': int(row[0]),
                 'name': str(row[1]),
                 'tags': tags,
@@ -2531,7 +2628,12 @@ def list_my_shared_decks():
                 'created_at': row[4].isoformat() if row[4] else None,
                 'card_count': int(row[5] or 0),
                 'single_card_front': str(row[6] or '').strip(),
-            })
+            }
+            if has_print:
+                deck_entry['vertical_answer_rows'] = float(row[7]) if row[7] is not None else None
+                deck_entry['horizontal_capacity'] = int(row[8]) if row[8] is not None else None
+                deck_entry['vertical_capacity'] = int(row[9]) if row[9] is not None else None
+            decks.append(deck_entry)
 
         return jsonify({'decks': decks}), 200
     except Exception as e:
@@ -2749,14 +2851,40 @@ def update_shared_deck_generator_definition(deck_id):
                     default=bool(existing_definition.get('is_multichoice_only')),
                 )
 
-                conn.execute(
-                    """
-                    UPDATE deck_generator_definition
-                    SET code = ?, is_multichoice_only = ?
-                    WHERE deck_id = ?
-                    """,
-                    [generator_code, bool(is_multichoice_only), deck_id],
-                )
+                raw_answer_rows = payload.get('verticalAnswerRows')
+                if raw_answer_rows is not None:
+                    try:
+                        vertical_answer_rows = float(raw_answer_rows)
+                        if vertical_answer_rows < 0 or vertical_answer_rows > 10:
+                            return jsonify({'error': 'verticalAnswerRows must be between 0 and 10'}), 400
+                        if vertical_answer_rows == 0:
+                            vertical_answer_rows = None
+                    except (TypeError, ValueError):
+                        return jsonify({'error': 'verticalAnswerRows must be a number'}), 400
+                else:
+                    vertical_answer_rows = existing_definition.get('vertical_answer_rows')
+
+                if shared_deck_generator_definition_has_print_sheet_columns(conn):
+                    conn.execute(
+                        """
+                        UPDATE deck_generator_definition
+                        SET code = ?, is_multichoice_only = ?,
+                            vertical_answer_rows = ?
+                        WHERE deck_id = ?
+                        """,
+                        [generator_code, bool(is_multichoice_only),
+                         vertical_answer_rows,
+                         deck_id],
+                    )
+                else:
+                    conn.execute(
+                        """
+                        UPDATE deck_generator_definition
+                        SET code = ?, is_multichoice_only = ?
+                        WHERE deck_id = ?
+                        """,
+                        [generator_code, bool(is_multichoice_only), deck_id],
+                    )
             finally:
                 if conn is not None:
                     conn.close()
@@ -2767,7 +2895,106 @@ def update_shared_deck_generator_definition(deck_id):
             'generator_definition': {
                 'code': generator_code,
                 'is_multichoice_only': bool(is_multichoice_only),
+                'vertical_answer_rows': vertical_answer_rows,
             },
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/<int:deck_id>/print-capacity', methods=['PUT'])
+def update_shared_deck_print_capacity(deck_id):
+    """Store computed layout capacity for a print mode (called after preview)."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        payload = request.get_json() or {}
+        mode = str(payload.get('mode', '')).strip().lower()
+        capacity = int(payload.get('capacity', 0))
+        if mode not in ('horizontal', 'vertical'):
+            return jsonify({'error': "mode must be 'horizontal' or 'vertical'"}), 400
+        if capacity < 1 or capacity > 500:
+            return jsonify({'error': 'capacity must be between 1 and 500'}), 400
+        col = 'horizontal_capacity' if mode == 'horizontal' else 'vertical_capacity'
+        conn = get_shared_decks_connection()
+        try:
+            conn.execute(
+                f"UPDATE deck_generator_definition SET {col} = ? WHERE deck_id = ?",
+                [capacity, deck_id],
+            )
+        finally:
+            conn.close()
+        return jsonify({'updated': True, 'mode': mode, 'capacity': capacity}), 200
+    except (ValueError, TypeError) as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/<int:deck_id>/print-problems', methods=['POST'])
+def generate_shared_deck_print_problems(deck_id):
+    """Generate math problems from a type-IV deck generator for printable sheets."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        family_id_int = get_current_family_id_int()
+        if family_id_int is None:
+            if not current_family_id():
+                return jsonify({'error': 'Family login required'}), 401
+            return jsonify({'error': 'Invalid family id in session'}), 400
+
+        payload = request.get_json(silent=True) or {}
+        count = _safe_positive_int_or_none(payload.get('count'))
+        if count is None or count <= 0:
+            return jsonify({'error': 'count is required and must be a positive integer'}), 400
+        if count > 200:
+            return jsonify({'error': 'count must be at most 200'}), 400
+
+        seed_base = payload.get('seedBase')
+        if seed_base is None:
+            seed_base = int(time.time_ns() % 2_000_000_000)
+        else:
+            try:
+                seed_base = int(seed_base)
+            except (TypeError, ValueError):
+                return jsonify({'error': 'seedBase must be an integer'}), 400
+
+        conn = None
+        try:
+            conn = get_shared_decks_connection()
+            deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
+            if not deck_row:
+                return jsonify({'error': 'Deck not found'}), 404
+            behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
+            if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                return jsonify({'error': 'Only type_iv decks support print problems'}), 400
+            definition = get_shared_deck_generator_definition(conn, deck_id)
+            if not definition or not definition.get('code'):
+                return jsonify({'error': 'Generator definition not found for this deck'}), 404
+        finally:
+            if conn is not None:
+                conn.close()
+
+        samples = run_type4_generator(
+            definition['code'],
+            sample_count=count,
+            seed_base=seed_base,
+        )
+        problems = []
+        for sample in samples:
+            problems.append({
+                'prompt': str(sample.get('prompt', '')),
+                'answer': str(sample.get('answer', '')),
+            })
+
+        return jsonify({
+            'deck_id': int(deck_id),
+            'problems': problems,
+            'seed_base': seed_base,
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -12324,6 +12551,347 @@ def withdraw_writing_sheet(kid_id, sheet_id):
 
         conn.close()
         return jsonify({'sheet_id': int(sheet_id), 'deleted': True}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/print-config', methods=['GET'])
+def get_type4_print_config(kid_id):
+    """Return type-IV deck print configurations for a kid's category."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        category_key, _ = resolve_kid_type_iv_category_with_mode(
+            kid,
+            request.args.get('categoryKey'),
+            allow_default=True,
+        )
+        shared_conn = None
+        kid_conn = None
+        try:
+            shared_conn = get_shared_decks_connection()
+            decks = get_shared_type_iv_deck_rows(shared_conn, category_key)
+            shared_deck_ids = [int(d['deck_id']) for d in decks]
+            definitions = get_shared_deck_generator_definitions_by_deck_ids(shared_conn, shared_deck_ids)
+
+            kid_conn = get_kid_connection_for(kid)
+            materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
+                kid_conn, category_key,
+            )
+            local_by_shared_id = {}
+            for entry in materialized_by_local_id.values():
+                sid = int(entry['shared_deck_id'])
+                existing = local_by_shared_id.get(sid)
+                if existing is None or int(entry['local_deck_id']) < int(existing['local_deck_id']):
+                    local_by_shared_id[sid] = entry
+
+            result_decks = []
+            for deck_info in decks:
+                deck_id = int(deck_info['deck_id'])
+                deck_name = str(deck_info.get('name') or f'Deck {deck_id}')
+                defn = definitions.get(deck_id) or {}
+                is_materialized = deck_id in local_by_shared_id
+                var = defn.get('vertical_answer_rows')
+                display_name = str(deck_info.get('representative_front') or '').strip() or deck_name
+                result_decks.append({
+                    'shared_deck_id': deck_id,
+                    'name': deck_name,
+                    'display_name': display_name,
+                    'opted_in': is_materialized,
+                    'vertical_answer_rows': var,
+                    'horizontal_capacity': defn.get('horizontal_capacity'),
+                    'vertical_capacity': defn.get('vertical_capacity'),
+                })
+        finally:
+            if shared_conn is not None:
+                shared_conn.close()
+            if kid_conn is not None:
+                kid_conn.close()
+
+        return jsonify({
+            'category_key': category_key,
+            'decks': result_decks,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/math-sheets', methods=['POST'])
+def create_math_practice_sheet(kid_id):
+    """Create a printable math practice sheet from a type-IV generator deck."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        data = request.get_json() or {}
+        category_key, _ = resolve_kid_type_iv_category_with_mode(
+            kid,
+            data.get('categoryKey') or request.args.get('categoryKey'),
+            allow_default=True,
+        )
+        shared_deck_id = _safe_positive_int_or_none(data.get('shared_deck_id'))
+        if not shared_deck_id:
+            return jsonify({'error': 'shared_deck_id is required'}), 400
+
+        layout = str(data.get('layout', '')).strip().lower()
+        if layout not in ('vertical', 'horizontal'):
+            return jsonify({'error': "layout must be 'vertical' or 'horizontal'"}), 400
+
+        raw_count = data.get('problem_count')
+        problem_count = int(raw_count) if raw_count is not None else 0
+        if problem_count < 0 or problem_count > 200:
+            return jsonify({'error': 'problem_count must be between 0 and 200'}), 400
+
+        shared_conn = None
+        try:
+            shared_conn = get_shared_decks_connection()
+            defn = get_shared_deck_generator_definition(shared_conn, shared_deck_id)
+            if not defn or not defn.get('code'):
+                return jsonify({'error': 'Generator definition not found for this deck'}), 404
+            cap_key = 'vertical_capacity' if layout == 'vertical' else 'horizontal_capacity'
+            if not defn.get(cap_key):
+                return jsonify({'error': f'{layout.title()} printing not yet previewed for this deck'}), 400
+        finally:
+            if shared_conn is not None:
+                shared_conn.close()
+
+        seed_base = int(time.time_ns() % 2_000_000_000)
+        vertical_answer_rows = defn.get('vertical_answer_rows') if layout == 'vertical' else None
+
+        conn = get_kid_connection_for(kid)
+        sheet_id = conn.execute(
+            """
+            INSERT INTO math_practice_sheets
+                (shared_deck_id, category_key, layout, problem_count, seed_base, vertical_answer_rows, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'preview')
+            RETURNING id
+            """,
+            [shared_deck_id, category_key, layout, problem_count, seed_base, vertical_answer_rows],
+        ).fetchone()[0]
+        conn.close()
+
+        return jsonify({
+            'created': True,
+            'sheet_id': int(sheet_id),
+            'shared_deck_id': shared_deck_id,
+            'layout': layout,
+            'problem_count': problem_count,
+            'seed_base': seed_base,
+            'vertical_answer_rows': vertical_answer_rows,
+        }), 201
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/math-sheets', methods=['GET'])
+def get_math_practice_sheets(kid_id):
+    """List all math practice sheets for a kid, optionally filtered by category."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        category_key, _ = resolve_kid_type_iv_category_with_mode(
+            kid,
+            request.args.get('categoryKey'),
+            allow_default=True,
+        )
+
+        conn = get_kid_connection_for(kid)
+        rows = conn.execute(
+            """
+            SELECT id, shared_deck_id, category_key, layout, problem_count,
+                   seed_base, vertical_answer_rows, status, created_at, completed_at,
+                   incorrect_count
+            FROM math_practice_sheets
+            WHERE category_key = ?
+            ORDER BY created_at DESC
+            """,
+            [category_key],
+        ).fetchall()
+        conn.close()
+
+        shared_deck_ids = list(set(int(r[1]) for r in rows))
+        deck_names = {}
+        deck_display_names = {}
+        if shared_deck_ids:
+            shared_conn = get_shared_decks_connection()
+            try:
+                placeholders = ','.join(['?'] * len(shared_deck_ids))
+                name_rows = shared_conn.execute(
+                    f"SELECT deck_id, name FROM deck WHERE deck_id IN ({placeholders})",
+                    shared_deck_ids,
+                ).fetchall()
+                for nr in name_rows:
+                    deck_names[int(nr[0])] = str(nr[1] or '')
+                card_rows = shared_conn.execute(
+                    f"""
+                    SELECT deck_id, front
+                    FROM cards
+                    WHERE deck_id IN ({placeholders})
+                    ORDER BY deck_id ASC, id ASC
+                    """,
+                    shared_deck_ids,
+                ).fetchall()
+                for cr in card_rows:
+                    did = int(cr[0])
+                    if did not in deck_display_names:
+                        label = str(cr[1] or '').strip()
+                        if label:
+                            deck_display_names[did] = label
+            finally:
+                shared_conn.close()
+
+        sheets = []
+        for row in rows:
+            sid = int(row[1])
+            deck_name = deck_names.get(sid, f'Deck {sid}')
+            sheets.append({
+                'id': int(row[0]),
+                'shared_deck_id': sid,
+                'deck_name': deck_name,
+                'display_name': deck_display_names.get(sid, deck_name),
+                'category_key': row[2],
+                'layout': row[3],
+                'problem_count': int(row[4]),
+                'seed_base': int(row[5]),
+                'vertical_answer_rows': float(row[6]) if row[6] is not None else None,
+                'status': row[7],
+                'created_at': row[8].isoformat() if row[8] else None,
+                'completed_at': row[9].isoformat() if row[9] else None,
+                'incorrect_count': int(row[10]) if row[10] is not None else None,
+            })
+
+        return jsonify({'sheets': sheets}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/math-sheets/<int:sheet_id>/complete', methods=['POST'])
+def complete_math_practice_sheet(kid_id, sheet_id):
+    """Mark a math practice sheet as done."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        payload = request.get_json(silent=True) or {}
+        incorrect_count = payload.get('incorrect_count')
+        if incorrect_count is not None:
+            incorrect_count = int(incorrect_count)
+            if incorrect_count < 0:
+                incorrect_count = 0
+        conn = get_kid_connection_for(kid)
+        row = conn.execute(
+            "SELECT id, status FROM math_practice_sheets WHERE id = ?",
+            [sheet_id],
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Sheet not found'}), 404
+        if row[1] != 'done':
+            conn.execute(
+                "UPDATE math_practice_sheets SET status = 'done', incorrect_count = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                [incorrect_count, sheet_id],
+            )
+        conn.close()
+        return jsonify({'sheet_id': int(sheet_id), 'status': 'done'}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/math-sheets/<int:sheet_id>/withdraw', methods=['POST'])
+def withdraw_math_practice_sheet(kid_id, sheet_id):
+    """Withdraw (delete) a pending math practice sheet."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        conn = get_kid_connection_for(kid)
+        row = conn.execute(
+            "SELECT id, status FROM math_practice_sheets WHERE id = ?",
+            [sheet_id],
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Sheet not found'}), 404
+        if row[1] not in ('pending', 'preview'):
+            conn.close()
+            return jsonify({'error': 'Only pending or preview sheets can be withdrawn'}), 400
+        conn.execute("DELETE FROM math_practice_sheets WHERE id = ?", [sheet_id])
+        conn.close()
+        return jsonify({'sheet_id': int(sheet_id), 'deleted': True}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/math-sheets/<int:sheet_id>/regenerate', methods=['POST'])
+def regenerate_math_practice_sheet(kid_id, sheet_id):
+    """Regenerate a preview math practice sheet with a new seed."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        conn = get_kid_connection_for(kid)
+        row = conn.execute(
+            "SELECT id, status FROM math_practice_sheets WHERE id = ?",
+            [sheet_id],
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Sheet not found'}), 404
+        if row[1] != 'preview':
+            conn.close()
+            return jsonify({'error': 'Only preview sheets can be regenerated'}), 400
+        new_seed = int(time.time_ns() % 2_000_000_000)
+        conn.execute(
+            "UPDATE math_practice_sheets SET seed_base = ? WHERE id = ?",
+            [new_seed, sheet_id],
+        )
+        conn.close()
+        return jsonify({'sheet_id': int(sheet_id), 'seed_base': new_seed}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type4/math-sheets/<int:sheet_id>/finalize', methods=['POST'])
+def finalize_math_practice_sheet(kid_id, sheet_id):
+    """Finalize a preview math practice sheet to pending (practicing) status."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        conn = get_kid_connection_for(kid)
+        row = conn.execute(
+            "SELECT id, status FROM math_practice_sheets WHERE id = ?",
+            [sheet_id],
+        ).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'error': 'Sheet not found'}), 404
+        if row[1] != 'preview':
+            conn.close()
+            return jsonify({'error': 'Only preview sheets can be finalized'}), 400
+        conn.execute(
+            "UPDATE math_practice_sheets SET status = 'pending' WHERE id = ?",
+            [sheet_id],
+        )
+        conn.close()
+        return jsonify({'sheet_id': int(sheet_id), 'status': 'pending'}), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:

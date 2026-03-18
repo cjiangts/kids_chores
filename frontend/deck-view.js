@@ -18,6 +18,10 @@ const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
 const type4PreviewExamples = document.getElementById('type4PreviewExamples');
 const type4ValidateTestContainer = document.getElementById('type4ValidateTestContainer');
 const type4CardsMultiChoiceHeader = document.getElementById('type4CardsMultiChoiceHeader');
+const verticalAnswerRowsInput = document.getElementById('verticalAnswerRows');
+const savePrintConfigBtn = document.getElementById('savePrintConfigBtn');
+const printPreviewHorizontalBtn = document.getElementById('printPreviewHorizontalBtn');
+const printPreviewVerticalBtn = document.getElementById('printPreviewVerticalBtn');
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
 const cardsTableBody = document.getElementById('cardsTableBody');
@@ -56,9 +60,15 @@ let renameNameCheckToken = 0;
 let renameNameCheckTimer = null;
 let currentType4SavedGeneratorCode = '';
 let currentType4SavedIsMultichoiceOnly = false;
+let savedVerticalAnswerRows = 0;
+let savedHorizontalCapacity = 0;
+let savedVerticalCapacity = 0;
 let currentType4PreviewSeedBase = Date.now();
 let isLoadingType4PreviewSamples = false;
 let isSavingType4Generator = false;
+let type4AceEditor = null;
+let lastType4PreviewAnswer = '';
+const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEditor');
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -186,8 +196,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateType4GeneratorSaveState();
         });
     }
+    if (verticalAnswerRowsInput) {
+        verticalAnswerRowsInput.addEventListener('input', () => {
+            updatePrintPreviewLinks();
+            updatePrintConfigSaveState();
+        });
+    }
+    if (savePrintConfigBtn) {
+        savePrintConfigBtn.addEventListener('click', async () => {
+            await savePrintConfig();
+        });
+    }
+    initializeType4CodeEditor();
     await loadDeck();
 });
+
+function initializeType4CodeEditor() {
+    if (!type4GeneratorCodeText || !type4GeneratorCodeEditor) return;
+    const ace = window.ace;
+    if (!ace || typeof ace.edit !== 'function') return;
+    type4AceEditor = ace.edit(type4GeneratorCodeEditor);
+    type4AceEditor.setTheme('ace/theme/github_light_default');
+    type4AceEditor.session.setMode('ace/mode/python');
+    type4AceEditor.session.setUseSoftTabs(true);
+    type4AceEditor.session.setTabSize(4);
+    type4AceEditor.session.setUseWrapMode(true);
+    type4AceEditor.setShowPrintMargin(false);
+    type4AceEditor.setHighlightActiveLine(true);
+    type4AceEditor.setOption('fontFamily', 'ui-monospace, SFMono-Regular, Menlo, monospace');
+    type4AceEditor.setOption('fontSize', '16px');
+    type4AceEditor.setOption('wrap', true);
+    type4AceEditor.setOption('showLineNumbers', true);
+    type4AceEditor.setOption('useWorker', false);
+    type4AceEditor.renderer.setScrollMargin(10, 10);
+    type4AceEditor.setValue(String(type4GeneratorCodeText.value || ''), -1);
+    type4AceEditor.clearSelection();
+    type4AceEditor.session.on('change', () => {
+        type4GeneratorCodeText.value = type4AceEditor.getValue();
+        updateType4GeneratorSaveState();
+    });
+    type4GeneratorCodeText.classList.add('hidden');
+    type4GeneratorCodeText.setAttribute('aria-hidden', 'true');
+    type4GeneratorCodeEditor.classList.remove('hidden');
+    type4GeneratorCodeEditor.setAttribute('aria-hidden', 'false');
+}
 
 async function ensureSuperFamily() {
     try {
@@ -274,12 +326,25 @@ function renderDeck(payload) {
         if (type4GeneratorCodeText) {
             type4GeneratorCodeText.value = currentType4SavedGeneratorCode;
         }
+        if (type4AceEditor) {
+            type4AceEditor.setValue(currentType4SavedGeneratorCode, -1);
+            type4AceEditor.clearSelection();
+        }
         currentType4SavedIsMultichoiceOnly = Boolean(generatorDefinition && generatorDefinition.is_multichoice_only);
         if (type4IsMultichoiceOnlyInput) {
             type4IsMultichoiceOnlyInput.checked = currentType4SavedIsMultichoiceOnly;
         }
+        savedVerticalAnswerRows = (generatorDefinition && generatorDefinition.vertical_answer_rows != null)
+            ? generatorDefinition.vertical_answer_rows : 0;
+        savedHorizontalCapacity = (generatorDefinition && generatorDefinition.horizontal_capacity) || 0;
+        savedVerticalCapacity = (generatorDefinition && generatorDefinition.vertical_capacity) || 0;
+        if (verticalAnswerRowsInput) {
+            verticalAnswerRowsInput.value = String(savedVerticalAnswerRows);
+        }
+        updatePrintPreviewLinks();
+        updatePrintConfigSaveState();
         renderType4PreviewExamples([]);
-        setType4PreviewButtonState(false, 'Generate 3 Examples');
+        setType4PreviewButtonState(false, 'Generate Example');
         updateType4GeneratorSaveState();
     } else {
         currentType4SavedGeneratorCode = '';
@@ -291,7 +356,7 @@ function renderDeck(payload) {
             type4IsMultichoiceOnlyInput.checked = false;
         }
         renderType4PreviewExamples([]);
-        setType4PreviewButtonState(false, 'Generate 3 Examples');
+        setType4PreviewButtonState(false, 'Generate Example');
         updateType4GeneratorSaveState();
     }
     if (type4CardsMultiChoiceHeader) {
@@ -960,6 +1025,32 @@ function getCurrentType4IsMultichoiceOnly() {
     return Boolean(type4IsMultichoiceOnlyInput && type4IsMultichoiceOnlyInput.checked);
 }
 
+function updatePrintPreviewLinks() {
+    if (!deckId) return;
+    if (printPreviewHorizontalBtn) {
+        printPreviewHorizontalBtn.href = `/math-sheet-print.html?deckId=${deckId}&mode=horizontal`;
+        const hLabel = savedHorizontalCapacity ? `Preview Horizontal (${savedHorizontalCapacity})` : 'Preview Horizontal';
+        printPreviewHorizontalBtn.textContent = hLabel;
+    }
+    if (printPreviewVerticalBtn) {
+        const answerRows = parseFloat((verticalAnswerRowsInput && verticalAnswerRowsInput.value) || '2') || 2;
+        printPreviewVerticalBtn.href = `/math-sheet-print.html?deckId=${deckId}&mode=vertical&answerRows=${answerRows}`;
+        const vLabel = savedVerticalCapacity ? `Preview Vertical (${savedVerticalCapacity})` : 'Preview Vertical';
+        printPreviewVerticalBtn.textContent = vLabel;
+    }
+}
+
+function isPrintConfigDirty() {
+    const curRows = verticalAnswerRowsInput ? (parseFloat(verticalAnswerRowsInput.value) || 0) : 0;
+    return curRows !== savedVerticalAnswerRows;
+}
+
+function updatePrintConfigSaveState() {
+    if (savePrintConfigBtn) {
+        savePrintConfigBtn.disabled = !isPrintConfigDirty();
+    }
+}
+
 function isType4GeneratorDirty() {
     return getCurrentType4GeneratorCode() !== currentType4SavedGeneratorCode
         || getCurrentType4IsMultichoiceOnly() !== currentType4SavedIsMultichoiceOnly;
@@ -980,7 +1071,7 @@ function nextType4PreviewSeedBase() {
     return currentType4PreviewSeedBase;
 }
 
-function setType4PreviewButtonState(isBusy, idleLabel = 'Regen 3 Examples') {
+function setType4PreviewButtonState(isBusy, idleLabel = 'Regen Example') {
     if (!regenType4ExamplesBtn) {
         return;
     }
@@ -994,7 +1085,7 @@ function renderType4PreviewExamples(samples) {
     }
     const list = Array.isArray(samples) ? samples : [];
     if (list.length === 0) {
-        type4PreviewExamples.innerHTML = '<p class="muted-help-text">Click Generate 3 Examples to preview this deck.</p>';
+        type4PreviewExamples.innerHTML = '<p class="muted-help-text">Click Generate Example to preview this deck.</p>';
         return;
     }
     type4PreviewExamples.innerHTML = list.map((sample, index) => {
@@ -1044,14 +1135,17 @@ async function regenerateType4PreviewSamples() {
         setType4PreviewButtonState(true);
         const previewResult = await fetchType4PreviewSamples(generatorCode);
         renderType4PreviewExamples(previewResult.samples);
+        lastType4PreviewAnswer = previewResult.samples.length > 0
+            ? String(previewResult.samples[0].answer || '').trim()
+            : '';
         showOrHideType4ValidateTestBox(previewResult.has_validate);
-        setType4PreviewButtonState(false, 'Regen 3 Examples');
+        setType4PreviewButtonState(false, 'Regen Example');
     } catch (error) {
         console.error('Error previewing type IV generator:', error);
         showError(error.message || 'Failed to generate preview examples.');
     } finally {
         isLoadingType4PreviewSamples = false;
-        setType4PreviewButtonState(false, 'Regen 3 Examples');
+        setType4PreviewButtonState(false, 'Regen Example');
     }
 }
 
@@ -1062,6 +1156,7 @@ function showOrHideType4ValidateTestBox(hasValidate) {
     if (hasValidate) {
         pmc.renderValidateTestBox(type4ValidateTestContainer, {
             getGeneratorCode: () => getCurrentType4GeneratorCode(),
+            getExpectedAnswer: () => lastType4PreviewAnswer,
         });
     }
 }
@@ -1090,16 +1185,15 @@ async function saveType4GeneratorCode() {
         if (!response.ok) {
             throw new Error(result.error || `Failed to save generator code (HTTP ${response.status})`);
         }
-        currentType4SavedGeneratorCode = normalizeType4GeneratorCodeText(
-            result && result.generator_definition && result.generator_definition.code
-                ? result.generator_definition.code
-                : generatorCode
-        );
-        currentType4SavedIsMultichoiceOnly = Boolean(
-            result && result.generator_definition && result.generator_definition.is_multichoice_only
-        );
+        const gd = (result && result.generator_definition) || {};
+        currentType4SavedGeneratorCode = normalizeType4GeneratorCodeText(gd.code || generatorCode);
+        currentType4SavedIsMultichoiceOnly = Boolean(gd.is_multichoice_only);
         if (type4GeneratorCodeText) {
             type4GeneratorCodeText.value = currentType4SavedGeneratorCode;
+        }
+        if (type4AceEditor) {
+            type4AceEditor.setValue(currentType4SavedGeneratorCode, -1);
+            type4AceEditor.clearSelection();
         }
         if (type4IsMultichoiceOnlyInput) {
             type4IsMultichoiceOnlyInput.checked = currentType4SavedIsMultichoiceOnly;
@@ -1112,5 +1206,44 @@ async function saveType4GeneratorCode() {
     } finally {
         isSavingType4Generator = false;
         updateType4GeneratorSaveState();
+    }
+}
+
+async function savePrintConfig() {
+    if (!deckId) return;
+    showError('');
+    showSuccess('');
+    const verticalAnswerRows = verticalAnswerRowsInput ? parseFloat(verticalAnswerRowsInput.value) || 0 : 0;
+    if (savePrintConfigBtn) { savePrintConfigBtn.disabled = true; savePrintConfigBtn.textContent = 'Saving...'; }
+    try {
+        const generatorCode = getCurrentType4GeneratorCode();
+        const isMultichoiceOnly = getCurrentType4IsMultichoiceOnly();
+        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/generator-definition`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                generatorCode,
+                isMultichoiceOnly,
+                verticalAnswerRows,
+            }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Failed to save print config (HTTP ${response.status})`);
+        const gd = (result && result.generator_definition) || {};
+        savedVerticalAnswerRows = gd.vertical_answer_rows != null ? gd.vertical_answer_rows : 0;
+        savedHorizontalCapacity = gd.horizontal_capacity || 0;
+        savedVerticalCapacity = gd.vertical_capacity || 0;
+        if (verticalAnswerRowsInput) verticalAnswerRowsInput.value = String(savedVerticalAnswerRows);
+        currentType4SavedGeneratorCode = normalizeType4GeneratorCodeText(gd.code || generatorCode);
+        currentType4SavedIsMultichoiceOnly = Boolean(gd.is_multichoice_only);
+        updateType4GeneratorSaveState();
+        updatePrintPreviewLinks();
+        showSuccess('Print config saved.');
+    } catch (error) {
+        console.error('Error saving print config:', error);
+        showError(error.message || 'Failed to save print config.');
+    } finally {
+        if (savePrintConfigBtn) { savePrintConfigBtn.textContent = 'Save Print Config'; }
+        updatePrintConfigSaveState();
     }
 }

@@ -155,7 +155,7 @@ def run_type4_generator(generator_code, sample_count=1, seed_base=1000, *, max_s
     return samples
 
 
-def preview_type4_generator(generator_code, sample_count=3, seed_base=1000):
+def preview_type4_generator(generator_code, sample_count=1, seed_base=1000):
     """Run one generator snippet in-process for preview."""
     samples = run_type4_generator(
         generator_code,

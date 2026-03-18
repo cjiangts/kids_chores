@@ -269,7 +269,7 @@ function setRegenType4ExamplesButtonState(isBusy) {
         return;
     }
     regenType4ExamplesBtn.disabled = Boolean(isBusy);
-    regenType4ExamplesBtn.textContent = isBusy ? 'Regenerating...' : 'Regen 3 Examples';
+    regenType4ExamplesBtn.textContent = isBusy ? 'Regenerating...' : 'Regen Example';
 }
 
 function setControlsDisabled(disabled) {
@@ -1003,8 +1003,13 @@ function renderReview(cardsToCreate, allRows) {
         if (pmc && type4ValidateTestContainer) {
             pmc.showOrHideValidateTestBox(type4ValidateTestContainer, hasValidate);
             if (hasValidate) {
+                const previewSamples = Array.isArray(type4Definition.samples) ? type4Definition.samples : [];
+                const previewAnswer = previewSamples.length > 0
+                    ? String(previewSamples[0].answer || '').trim()
+                    : '';
                 pmc.renderValidateTestBox(type4ValidateTestContainer, {
                     getGeneratorCode: () => getType4GeneratorCodeValue(),
+                    getExpectedAnswer: () => previewAnswer,
                 });
             }
         }

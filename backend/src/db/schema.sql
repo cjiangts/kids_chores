@@ -90,6 +90,23 @@ CREATE TABLE IF NOT EXISTS writing_sheet_cards (
   PRIMARY KEY (sheet_id, card_id)
 );
 
+-- Printable math practice sheets (type-IV generators)
+CREATE SEQUENCE IF NOT EXISTS math_practice_sheets_id_seq;
+
+CREATE TABLE IF NOT EXISTS math_practice_sheets (
+  id INTEGER PRIMARY KEY DEFAULT nextval('math_practice_sheets_id_seq'),
+  shared_deck_id INTEGER NOT NULL,
+  category_key VARCHAR NOT NULL,
+  layout VARCHAR NOT NULL,           -- 'vertical' or 'horizontal'
+  problem_count INTEGER NOT NULL,
+  seed_base BIGINT NOT NULL,
+  vertical_answer_rows DOUBLE,
+  status VARCHAR NOT NULL DEFAULT 'pending',  -- 'preview', 'pending' or 'done'
+  incorrect_count INTEGER DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP
+);
+
 -- Kid-local opted-in deck categories (controls which manage buttons show in admin UI)
 CREATE TABLE IF NOT EXISTS deck_category_opt_in (
   category_key VARCHAR PRIMARY KEY,

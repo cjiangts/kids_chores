@@ -25,6 +25,27 @@ def _get_schema_sql() -> str:
         _schema_sql_cache = '\n\n'.join(part for part in parts if part)
     return _schema_sql_cache
 
+def _migrate_kid_schema(conn: duckdb.DuckDBPyConnection):
+    """Add columns that may be missing from older kid databases."""
+    try:
+        cols = {
+            row[0].lower()
+            for row in conn.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'math_practice_sheets'"
+            ).fetchall()
+        }
+        if not cols:
+            return
+        new_cols = {
+            'incorrect_count': 'INTEGER DEFAULT NULL',
+        }
+        for col_name, col_def in new_cols.items():
+            if col_name not in cols:
+                conn.execute(f"ALTER TABLE math_practice_sheets ADD COLUMN {col_name} {col_def}")
+    except Exception:
+        pass
+
+
 def ensure_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
     """Ensure base schema is applied. Skips if already done for this db_path."""
     if db_path:
@@ -32,9 +53,11 @@ def ensure_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
             if db_path in _initialized_dbs:
                 return
             conn.execute(_get_schema_sql())
+            _migrate_kid_schema(conn)
             _initialized_dbs.add(db_path)
         return
     conn.execute(_get_schema_sql())
+    _migrate_kid_schema(conn)
 
 def get_absolute_db_path(db_file_path: str) -> str:
     """Resolve a metadata dbFilePath (relative to backend/data) to absolute path."""

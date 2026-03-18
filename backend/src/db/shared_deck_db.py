@@ -93,6 +93,25 @@ def _sync_noto_badge_bank(conn: duckdb.DuckDBPyConnection):
         """
     )
 
+def _migrate_shared_deck_schema(conn: duckdb.DuckDBPyConnection):
+    """Run ALTER TABLE migrations for columns added after initial schema."""
+    new_cols = {
+        'vertical_answer_rows': 'DOUBLE DEFAULT NULL',
+        'horizontal_capacity': 'INTEGER DEFAULT NULL',
+        'vertical_capacity': 'INTEGER DEFAULT NULL',
+    }
+    for col, col_type in new_cols.items():
+        has = conn.execute(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema='main' AND table_name='deck_generator_definition' "
+            f"AND column_name='{col}' LIMIT 1"
+        ).fetchone()
+        if not has:
+            conn.execute(
+                f"ALTER TABLE deck_generator_definition ADD COLUMN {col} {col_type}"
+            )
+
+
 def ensure_shared_deck_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
     """Ensure shared deck schema exists for a connection."""
     if db_path:
@@ -100,9 +119,11 @@ def ensure_shared_deck_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''
             if db_path in _initialized_dbs:
                 return
             conn.execute(_get_schema_sql())
+            _migrate_shared_deck_schema(conn)
             _initialized_dbs.add(db_path)
         return
     conn.execute(_get_schema_sql())
+    _migrate_shared_deck_schema(conn)
 
 
 def init_shared_decks_database() -> str:

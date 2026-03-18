@@ -406,9 +406,14 @@ function renderDeckRowHtml(deck) {
     const tagHtml = remainingTags.length > 0
         ? `<div class="deck-tags">${remainingTags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
         : '-';
-    const cardsCellHtml = cardCount === 1 && singleCardFront
-        ? `<div class="deck-single-front">${escapeHtml(singleCardFront)}</div>`
-        : String(cardCount);
+    const hasH = Boolean(deck.horizontal_capacity);
+    const hasV = Boolean(deck.vertical_capacity);
+    const printBadge = (hasH || hasV)
+        ? ` <span class="deck-tag" style="font-size:0.75rem;">🖨️${[hasH ? 'H' : '', hasV ? 'V' : ''].filter(Boolean).join(' ')}</span>`
+        : '';
+    let cardsCellHtml = cardCount === 1 && singleCardFront
+        ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;white-space:nowrap;"><span class="deck-single-front">${escapeHtml(singleCardFront)}</span>${printBadge}</span>`
+        : `<span style="white-space:nowrap;">${cardCount}${printBadge}</span>`;
     return `
         <tr>
             <td class="shared-report-table-action-cell">

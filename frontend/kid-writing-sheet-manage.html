@@ -234,6 +234,11 @@
             color: #206633;
         }
 
+        .status.preview {
+            background: #e0e7ff;
+            color: #3b4c99;
+        }
+
         .sheet-cards {
             display: flex;
             flex-wrap: wrap;
@@ -273,6 +278,10 @@
             gap: 0.45rem;
         }
 
+        .sheet-actions.preview {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
         .sheet-actions.pending {
             grid-template-columns: repeat(3, minmax(0, 1fr));
         }
@@ -287,6 +296,73 @@
 
         .sheet-item .print-btn {
             margin-right: 0;
+        }
+
+        .math-deck-row {
+            display: flex;
+            gap: 0.55rem;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid #e0e8f5;
+        }
+
+        .math-deck-row:last-child {
+            border-bottom: none;
+        }
+
+        .math-deck-row-name {
+            font-weight: 700;
+            color: #24457e;
+            font-size: 1rem;
+            min-width: 80px;
+            flex: 1 1 auto;
+        }
+
+        .math-deck-row .form-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+
+        .math-deck-row .form-group label {
+            margin: 0;
+            font-size: 0.88rem;
+            color: #2f4f87;
+            font-weight: 600;
+        }
+
+        .math-deck-row .form-group input[type="number"],
+        .math-deck-row-buttons input[type="number"] {
+            width: 64px;
+            min-width: 64px;
+            max-width: 72px;
+            margin: 0;
+            padding: 0.32rem 0.35rem;
+            text-align: center;
+            border: 1px solid #b8c8e6;
+            border-radius: 8px;
+            background: #fff;
+            font-size: 0.92rem;
+        }
+
+        .math-deck-row-buttons {
+            display: inline-flex;
+            gap: 0.4rem;
+        }
+
+        .math-deck-row-buttons .settings-save-btn {
+            min-width: 100px;
+            font-size: 0.9rem;
+            padding: 0.38rem 0.65rem;
+        }
+
+        .math-deck-row-buttons .settings-save-btn:disabled {
+            background: #aeb7c9;
+            cursor: not-allowed;
+            opacity: 1;
         }
 
         @media (max-width: 760px) {
@@ -361,7 +437,8 @@
         <div id="errorMessage" class="error hidden"></div>
 
         <div class="type2-sheet-layout">
-            <div class="sheet-subgroup sheet-subgroup-suggested">
+            <!-- Chinese writing mode sections -->
+            <div id="chineseSuggestedSection" class="sheet-subgroup sheet-subgroup-suggested">
                 <div class="sheet-subgroup-head">
                     <h3>Suggested Cards <span id="practicingDeckCount">(0)</span></h3>
                 </div>
@@ -370,7 +447,7 @@
                 <p id="practicingDeckEmpty" class="practicing-deck-empty">No suggested candidate cards.</p>
             </div>
 
-            <div class="sheet-subgroup sheet-subgroup-generate">
+            <div id="chineseGenerateSection" class="sheet-subgroup sheet-subgroup-generate">
                 <div class="sheet-subgroup-head">
                     <h3>Generate Practice Sheet（生成田字格）</h3>
                 </div>
@@ -386,6 +463,16 @@
                     <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
                 </div>
                 <div id="sheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
+            </div>
+
+            <!-- Math mode generate section -->
+            <div id="mathGenerateSection" class="sheet-subgroup sheet-subgroup-generate hidden">
+                <div class="sheet-subgroup-head">
+                    <h3>Generate Practice Sheet</h3>
+                </div>
+                <p class="sheet-subgroup-note">Choose a deck and layout to generate a printable math sheet.</p>
+                <div id="mathDeckRows"></div>
+                <div id="mathSheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
             </div>
 
             <div class="sheet-subgroup sheet-subgroup-generate">

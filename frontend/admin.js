@@ -531,7 +531,10 @@ function getPrintableWorksheetHrefForCategory(kid, categoryKey, categoryMetaMap 
         return '';
     }
     const meta = categoryMetaMap?.[key] || {};
-    if (String(meta.behavior_type || '').trim().toLowerCase() !== 'type_ii' || !Boolean(meta.has_chinese_specific_logic)) {
+    const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
+    const isChinese = behaviorType === 'type_ii' && Boolean(meta.has_chinese_specific_logic);
+    const isMath = behaviorType === 'type_iv';
+    if (!isChinese && !isMath) {
         return '';
     }
     const params = new URLSearchParams();
@@ -572,7 +575,6 @@ function displayKids(kids) {
         const deckHeroNote = availableOptInCount > 0
             ? `${availableOptInCount} to opt in`
             : (configuredDeckCount > 0 ? 'All opted in' : 'Tap + to choose what this kid practices');
-        let worksheetToolAttached = false;
         let reviewToolAttached = false;
 
         const manageRows = optedInCategoryKeys.map((categoryKey) => {
@@ -585,14 +587,12 @@ function displayKids(kids) {
             const note = `${safeDailyTarget}/day target`;
             const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
             const printableWorksheetHref = getPrintableWorksheetHrefForCategory(kid, categoryKey, categoryMetaMap);
-            const inlineToolHtml = printableWorksheetHref && !worksheetToolAttached
+            const inlineToolHtml = printableWorksheetHref
                 ? `<a class="admin-row-pill admin-row-pill-secondary admin-row-pill-print semantic-outline-btn semantic-outline-btn--blue" href="${printableWorksheetHref}">🖨️ Printable sheets</a>`
                 : (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached
                     ? `<button type="button" class="admin-row-pill admin-row-pill-secondary admin-row-pill-audio semantic-outline-btn semantic-outline-btn--green" onclick="goToLatestTypeIIIReviewSession('${kid.id}')">🎧 Review audio</button>`
                     : '');
-            if (printableWorksheetHref && !worksheetToolAttached) {
-                worksheetToolAttached = true;
-            } else if (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached && inlineToolHtml) {
+            if (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached && inlineToolHtml) {
                 reviewToolAttached = true;
             }
             const rowRightHtml = href

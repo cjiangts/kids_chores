@@ -2445,7 +2445,7 @@ function showBonusGameForWrongCards() {
     setResultBackToPracticeVisible(false);
     state.bonusSourceCards = wrongCards;
     bonusGameSection.classList.remove('hidden');
-    bonusGameHint.textContent = `Tap two boxes to pair each wrong card with its answer (${wrongCards.length} pair${wrongCards.length === 1 ? '' : 's'}).`;
+    bonusGameHint.textContent = `Tap two boxes to match each missed card with its correct answer (${wrongCards.length} pair${wrongCards.length === 1 ? '' : 's'}).`;
     startBonusGame(wrongCards);
 }
 

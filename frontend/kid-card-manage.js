@@ -741,8 +741,13 @@ async function runType4GeneratorPreview() {
             const hasValidate = Boolean(result && result.has_validate);
             pmc.showOrHideValidateTestBox(type4GeneratorValidateTestContainer, hasValidate);
             if (hasValidate) {
+                const previewSamples = Array.isArray(result && result.samples) ? result.samples : [];
+                const previewAnswer = previewSamples.length > 0
+                    ? String(previewSamples[0].answer || '').trim()
+                    : '';
                 pmc.renderValidateTestBox(type4GeneratorValidateTestContainer, {
                     getGeneratorCode: () => String(card && card.type4_generator_code ? card.type4_generator_code : ''),
+                    getExpectedAnswer: () => previewAnswer,
                 });
             }
         }
