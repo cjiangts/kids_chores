@@ -811,6 +811,10 @@
             background: #22a45a;
         }
 
+        .cards-queue-legend-item.not-included .cards-queue-legend-dot {
+            background: #c5cad6;
+        }
+
         .cards-bulk-action-message-wrap .success,
         .cards-bulk-action-message-wrap .error {
             margin: 0;
@@ -1587,35 +1591,6 @@
             text-overflow: ellipsis;
         }
 
-        .skip-toggle-btn {
-            position: absolute;
-            top: 0.5rem;
-            left: 0.5rem;
-            background: #e8edf7;
-            color: #355;
-            border: 1px solid #c7d2ea;
-            border-radius: 999px;
-            min-width: 68px;
-            height: 26px;
-            padding: 0 8px;
-            cursor: pointer;
-            font-size: 0.72rem;
-            font-weight: 700;
-            line-height: 1;
-        }
-
-        .skip-toggle-btn.on {
-            background: #f5efff;
-            color: #6d3bb0;
-            border-color: #d5c0fb;
-        }
-
-        .skip-toggle-btn.off {
-            background: #e6f8ea;
-            color: #176b2e;
-            border-color: #a8dfb6;
-        }
-
         .card-item.skipped {
             opacity: 0.62;
         }
@@ -1708,21 +1683,19 @@
         .manage-page button.card-report-link {
             appearance: none;
             -webkit-appearance: none;
+            box-sizing: border-box;
             cursor: pointer;
             font-family: inherit;
             font-size: 0.8rem;
             font-weight: 400;
             line-height: 1;
             margin: 0;
+            padding: 0.35rem 0.62rem;
+            border: 1px solid #cfdcfb;
+            border-radius: 6px;
+            background: #fff;
+            color: #24468f;
             text-align: center;
-        }
-
-        .manage-page button.card-report-link:disabled {
-            opacity: 0.45;
-            background: #f4f5f7;
-            border-color: #d0d5dd;
-            color: #98a2b3;
-            cursor: not-allowed;
         }
 
         .type4-generator-layout {
@@ -2238,10 +2211,10 @@
                 </select>
             </div>
             <div id="cardsQueueLegend" class="cards-queue-legend hidden" aria-hidden="true">
-                <span class="cards-queue-legend-sort">Sorted: failed, then hard, then least practiced</span>
                 <span class="cards-queue-legend-item failed"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Last failed</span>
                 <span class="cards-queue-legend-item hard"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Hard</span>
                 <span class="cards-queue-legend-item least"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Least practiced</span>
+                <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
             </div>
             <div class="cards-bulk-action-message-wrap">
                 <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>

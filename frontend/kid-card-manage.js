@@ -762,9 +762,9 @@ async function runType4GeneratorPreview() {
 
 function getOptInDecksHelpText() {
     if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV) {
-        return 'Click a deck bubble to opt in or opt out, then click Apply Deck Changes. Each opted-in deck adds one representative card to the bank, and practiced cards from opted-out decks stay visible under Personal Deck.';
+        return 'Tap a deck to toggle it on or off, then tap Apply Deck Changes.\n\nYou can freely add or remove decks at any time — all practice records are always kept.';
     }
-    return 'Click a deck bubble to opt in or opt out, then click Apply Deck Changes. If you opt out, cards with practice history move to Personal Deck so progress is not lost. If you opt back in later, matching cards move from Personal Deck back into predefined decks.';
+    return 'Tap a deck to toggle it on or off, then tap Apply Deck Changes.\n\nYou can freely add or remove decks at any time — all practice records are always kept. Cards you\'ve already practiced will stay visible under Personal Deck so nothing is lost.';
 }
 
 function updatePageTitle() {
@@ -2112,17 +2112,6 @@ function buildCardMarkup(card, options = {}) {
     return `
         <div class="${classes.filter(Boolean).join(' ')}">
             ${prependControlsHtml}
-            ${supportsSkipControl ? `
-            <button
-                type="button"
-                class="skip-toggle-btn ${card.skip_practice ? 'on' : 'off'}"
-                data-action="toggle-skip"
-                data-card-id="${card.id}"
-                data-skipped="${card.skip_practice ? 'true' : 'false'}"
-                title="${card.skip_practice ? 'Turn skip off for this card' : 'Mark this card as skipped'}"
-                aria-label="${card.skip_practice ? 'Skip is on' : 'Skip is off'}"
-            >Skip ${card.skip_practice ? 'ON' : 'OFF'}</button>
-            ` : ''}
             <div class="card-front">${escapeHtml(primaryText)}</div>
             ${showSecondary ? `<div class="card-back">${escapeHtml(secondaryText)}</div>` : ''}
             <div class="card-deck-row">
@@ -2138,6 +2127,13 @@ function buildCardMarkup(card, options = {}) {
             <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last result: ${escapeHtml(lastResultText)}</div>
             <div class="card-actions">
                 <a class="card-report-link" href="${buildCardReportHref(card)}">Records</a>
+                ${supportsSkipControl ? `<a
+                    class="card-report-link"
+                    href="#"
+                    data-action="toggle-skip"
+                    data-card-id="${card.id}"
+                    data-skipped="${card.skip_practice ? 'true' : 'false'}"
+                >${card.skip_practice ? 'Unskip' : 'Skip'}</a>` : ''}
                 ${trailingActionHtml}
             </div>
         </div>
@@ -2837,6 +2833,7 @@ async function handleCardsGridClick(event) {
     if (action !== 'toggle-skip') {
         return;
     }
+    event.preventDefault();
 
     const cardId = actionBtn.dataset.cardId;
     if (!cardId) {

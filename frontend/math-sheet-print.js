@@ -107,7 +107,12 @@ function findWorstCaseVerticalCell(problems) {
         const parsed = parseArithmetic(p.prompt);
         let w = p.answer.length;
         if (parsed) {
-            w = Math.max(w, parsed.a.length, parsed.b.length + 2);
+            if (parsed.sign === '÷') {
+                /* Long division: divisor + bracket + dividend */
+                w = Math.max(w, parsed.b.length + 1 + parsed.a.length);
+            } else {
+                w = Math.max(w, parsed.a.length, parsed.b.length + 2);
+            }
         }
         if (w > maxW) {
             maxW = w;
@@ -150,6 +155,24 @@ function renderVerticalCell(p) {
         </div>`;
     }
     const { a, sign, b } = parsed;
+
+    /* Division: classic long division bracket layout */
+    if (sign === '÷') {
+        const dividend = a;
+        const divisor = b;
+        const blankSpace = `<div class="div-blank-space" style="min-height:${verticalAnswerRows * 2}em;"></div>`;
+        return `<div class="math-cell-div">
+            <div class="div-answer-row"><span class="div-quotient">${escapeHtml(p.answer)}</span></div>
+            <div class="div-main-row">
+                <span class="div-divisor">${escapeHtml(divisor)}</span>
+                <span class="div-bracket">)</span>
+                <span class="div-dividend">${escapeHtml(dividend)}</span>
+            </div>
+            ${blankSpace}
+        </div>`;
+    }
+
+    /* +, -, × : standard stacked layout */
     const numWidth = Math.max(a.length, b.length);
     const paddedA = a.padStart(numWidth);
     const paddedB = b.padStart(numWidth);
