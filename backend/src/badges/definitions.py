@@ -115,11 +115,6 @@ _CATEGORY_GOLD_TITLES = {
         10: 'Golden Ink',
         25: 'Golden Scroll',
     },
-    'chinese_reading': {
-        3: 'Golden Story',
-        10: 'Golden Chapter',
-        25: 'Golden Library',
-    },
     'basic_math_facts': {
         3: 'Golden Numbers',
         10: 'Golden Puzzles',
@@ -358,6 +353,10 @@ def _build_category_achievements():
                 )
             )
 
+        # Chinese Reading sessions are graded later by a parent, so
+        # "perfect on the first try" gold badges don't apply.
+        if category_key == 'chinese_reading':
+            continue
         for achievement_key, threshold_value, title_suffix in _CATEGORY_GOLD_LEVELS:
             definitions.append(
                 _definition(
