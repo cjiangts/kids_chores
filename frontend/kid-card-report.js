@@ -128,7 +128,16 @@ function renderSummary(card, summary, attempts) {
     const attemptsCount = safeNum(summary.attempt_count);
     const right = safeNum(summary.right_count);
     const wrong = safeNum(summary.wrong_count);
-    const avgMs = Math.max(0, Number(summary?.avg_response_ms) || 0);
+    let avgMs = Math.max(0, Number(summary?.avg_response_ms) || 0);
+    if (from === 'lesson-reading' && Array.isArray(attempts) && attempts.length) {
+        const passed = attempts.filter((a) => a?.grade_status === 'pass');
+        if (passed.length) {
+            const sum = passed.reduce((s, a) => s + getAttemptDisplayResponseMs(a), 0);
+            avgMs = sum / passed.length;
+        } else {
+            avgMs = 0;
+        }
+    }
     const avgTimeLabel = avgMs > 0 ? formatResponseTime(avgMs) : '-';
 
     summaryGrid.innerHTML = `
@@ -232,7 +241,10 @@ function bindTrendResize() {
 function formatTrendResponseTime(ms, useMinutesUnit) {
     const rawMs = Math.max(0, Number(ms) || 0);
     if (useMinutesUnit) {
-        return `${(rawMs / 60000).toFixed(1)} min`;
+        const totalSeconds = Math.round(rawMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
     return `${(rawMs / 1000).toFixed(1)}s`;
 }
