@@ -12,7 +12,7 @@ ENGLISH_MEANING_MARKER = "\nEN: "
 SINGLE_CHINESE_CHAR_RE = re.compile(r"^[\u3400-\u9FFF\uF900-\uFAFF]$")
 DATA_FILE_PATH = os.path.join(
     os.path.dirname(__file__),
-    "data",
+    "resources",
     "chinese_character_meanings.json",
 )
 
