@@ -402,18 +402,17 @@ function renderDeckRowHtml(deck) {
     const deckId = Number(deck.deck_id || 0);
     const cardCount = Number(deck.card_count || 0);
     const singleCardFront = String(deck && deck.single_card_front ? deck.single_card_front : '').trim();
+    const hasPrintCellDesign = Boolean(deck && deck.has_print_cell_design);
     const remainingTags = getDeckSecondaryTagLabels(deck);
     const tagHtml = remainingTags.length > 0
         ? `<div class="deck-tags">${remainingTags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
         : '-';
-    const hasH = Boolean(deck.horizontal_capacity);
-    const hasV = Boolean(deck.vertical_capacity);
-    const printBadge = (hasH || hasV)
-        ? ` <span class="deck-tag" style="font-size:0.75rem;">🖨️${[hasH ? 'H' : '', hasV ? 'V' : ''].filter(Boolean).join(' ')}</span>`
+    const printMarkerHtml = hasPrintCellDesign
+        ? '<span class="deck-print-marker" title="Printable cell design saved" aria-label="Printable cell design saved">&#128424;</span>'
         : '';
     let cardsCellHtml = cardCount === 1 && singleCardFront
-        ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;white-space:nowrap;"><span class="deck-single-front">${escapeHtml(singleCardFront)}</span>${printBadge}</span>`
-        : `<span style="white-space:nowrap;">${cardCount}${printBadge}</span>`;
+        ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;white-space:nowrap;"><span class="deck-single-front">${escapeHtml(singleCardFront)}</span>${printMarkerHtml}</span>`
+        : `<span style="white-space:nowrap;">${cardCount}</span>`;
     return `
         <tr>
             <td class="shared-report-table-action-cell">

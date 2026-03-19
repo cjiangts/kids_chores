@@ -90,18 +90,15 @@ CREATE TABLE IF NOT EXISTS writing_sheet_cards (
   PRIMARY KEY (sheet_id, card_id)
 );
 
--- Printable math practice sheets (type-IV generators)
-CREATE SEQUENCE IF NOT EXISTS math_practice_sheets_id_seq;
+-- Persisted printable math sheets built from type-IV generator decks
+CREATE SEQUENCE IF NOT EXISTS type4_print_sheets_id_seq;
 
-CREATE TABLE IF NOT EXISTS math_practice_sheets (
-  id INTEGER PRIMARY KEY DEFAULT nextval('math_practice_sheets_id_seq'),
-  shared_deck_id INTEGER NOT NULL,
+CREATE TABLE IF NOT EXISTS type4_print_sheets (
+  id INTEGER PRIMARY KEY DEFAULT nextval('type4_print_sheets_id_seq'),
   category_key VARCHAR NOT NULL,
-  layout VARCHAR NOT NULL,           -- 'vertical' or 'horizontal'
-  problem_count INTEGER NOT NULL,
+  layout_json VARCHAR NOT NULL,
   seed_base BIGINT NOT NULL,
-  vertical_answer_rows DOUBLE,
-  status VARCHAR NOT NULL DEFAULT 'pending',  -- 'preview', 'pending' or 'done'
+  status VARCHAR NOT NULL DEFAULT 'preview',  -- 'preview', 'pending', 'done'
   incorrect_count INTEGER DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP

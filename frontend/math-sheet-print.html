@@ -5,16 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Math Practice Sheet - Kids Daily Chores</title>
     <style>
+        :root {
+            --math-mono-font: 'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace;
+            --sheet-page-width: 210mm;
+            --sheet-page-height: 297mm;
+            --sheet-page-margin: 5mm;
+            --sheet-extra-safe-margin: 9mm;
+            --sheet-safe-width: calc(var(--sheet-page-width) - (2 * var(--sheet-page-margin)));
+            --sheet-safe-height: calc(var(--sheet-page-height) - (2 * var(--sheet-page-margin)));
+            --sheet-box-width: calc(var(--sheet-safe-width) - (2 * var(--sheet-extra-safe-margin)));
+            --sheet-box-height: calc(var(--sheet-safe-height) - (2 * var(--sheet-extra-safe-margin)));
+            --sheet-header-font-size: 10px;
+            --sheet-header-line-height: 12px;
+            --sheet-header-gap: 4px;
+        }
+
         * {
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         body {
             margin: 0;
             padding: 16px;
-            background: #fff;
+            background: #f5f7fb;
             color: #222;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         .toolbar {
@@ -31,13 +46,14 @@
             align-items: center;
             gap: 8px;
             margin-left: auto;
+            flex-wrap: wrap;
         }
 
         .toolbar button,
         .toolbar .toolbar-link {
             border: none;
-            border-radius: 6px;
-            padding: 8px 12px;
+            border-radius: 8px;
+            padding: 9px 13px;
             cursor: pointer;
             background: #2d7ef7;
             color: #fff;
@@ -64,31 +80,87 @@
             min-width: 0;
         }
 
-        @media (max-width: 760px) {
-            .sheet-title {
-                flex: 1 1 100%;
-            }
+        .sheet-preview-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 12px;
+        }
 
-            .toolbar-actions {
-                width: 100%;
-                justify-content: flex-end;
-            }
+        .sheet-page {
+            width: var(--sheet-box-width);
+            height: var(--sheet-box-height);
+            background: #fff;
+            border: 1px solid #d8dfef;
+            box-shadow: 0 4px 18px rgba(38, 54, 96, 0.12);
+            overflow: hidden;
+            flex: 0 0 auto;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .sheet-printable-area {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
         }
 
         .print-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            font-size: 1rem;
-            color: #333;
-            margin-bottom: 6px;
-            padding: 0 2px;
+            display: none;
         }
 
         .sheet-meta {
-            color: #666;
-            margin-bottom: 14px;
+            color: #5b6783;
             font-size: 0.9rem;
+        }
+
+        .sheet-content {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .sheet-render-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .math-print-row {
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: space-between;
+            width: 100%;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .math-print-cell {
+            overflow: hidden;
+            border: none;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .math-print-cell-inner {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+
+        .math-print-cell-transform {
+            position: absolute;
+            left: 0;
+            top: 0;
+            transform-origin: top left;
+        }
+
+        .math-print-cell-offset {
+            position: absolute;
+            width: max-content;
         }
 
         .error {
@@ -96,134 +168,83 @@
             font-weight: 600;
         }
 
-        /* ── Shared grid ── */
-        .math-grid {
-            display: grid;
-            column-gap: 24px;
-            row-gap: 0;
-            width: 100%;
-        }
-
-        /* ── Horizontal mode ── */
-        .math-cell-h {
-            border: none;
-            padding: 2px 14px;
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-            min-height: 36px;
-            text-align: left;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1.4rem;
-            letter-spacing: 0.06em;
-        }
-
-        .math-cell-h .cell-prompt {
-            font-weight: 500;
-            white-space: nowrap;
-        }
-
-        .math-cell-h .cell-answer {
-            display: none;
-            color: #2b8a3e;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        .show-answers .math-cell-h .cell-answer {
-            display: inline;
-        }
-
-        /* ── Vertical mode ── */
         .math-cell-v {
+            --v-row-width-ch: 6;
+            --v-gap-ch: 3;
             border: none;
-            padding: 4px 16px 6px;
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1.6rem;
-            letter-spacing: 0.08em;
-            line-height: 1.15;
-            min-height: 100px;
+            justify-content: flex-start;
+            width: calc(var(--v-row-width-ch) * 1ch);
+            color: #222;
+            font-family: var(--math-mono-font);
+            font-size: 1.56rem;
+            line-height: 1.18;
+            letter-spacing: 0;
+            font-variant-numeric: tabular-nums lining-nums;
+            font-feature-settings: 'tnum' 1, 'lnum' 1;
+            font-variant-ligatures: none;
+            font-kerning: none;
         }
 
         .v-row {
+            display: block;
+            white-space: pre;
+            min-height: 1.18em;
+            width: 100%;
+        }
+
+        .v-row-top {
+            text-align: right;
+        }
+
+        .v-row-op {
             display: flex;
             align-items: baseline;
             justify-content: flex-end;
-            width: 100%;
-            white-space: pre;
+            white-space: normal;
         }
 
-        .v-sign {
-            width: 1.2em;
-            text-align: left;
-            flex-shrink: 0;
-            position: relative;
-            left: -1.0em;
+        .v-op {
+            flex: 0 0 1ch;
+            width: 1ch;
+            text-align: center;
         }
 
-        .v-sign-spacer {
-            width: 1.2em;
-            flex-shrink: 0;
+        .v-gap {
+            flex: 0 0 calc(var(--v-gap-ch) * 1ch);
+            width: calc(var(--v-gap-ch) * 1ch);
+            min-width: calc(var(--v-gap-ch) * 1ch);
         }
 
-        .v-num {
+        .v-row-bottom-num {
+            flex: 0 0 auto;
             text-align: right;
+            white-space: pre;
         }
 
         .v-line {
             width: 100%;
-            border: none;
-            border-top: 2px solid #222;
-            margin: 2px 0 0;
+            border-top: 2px solid currentColor;
+            margin-top: 0.08em;
         }
 
-        .v-blank-line {
-            width: 100%;
-            min-height: 2em;
-        }
-
-        .v-answer {
-            display: none;
-            text-align: right;
-            width: 100%;
-            color: #2b8a3e;
-            font-weight: 600;
-        }
-
-        .show-answers .v-answer {
-            display: block;
-        }
-
-        /* ── Long division mode ── */
         .math-cell-div {
             border: none;
-            padding: 4px 16px 6px;
             display: inline-flex;
             flex-direction: column;
             align-items: flex-start;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1.6rem;
-            letter-spacing: 0.08em;
-            line-height: 1.15;
-            min-height: 100px;
-        }
-
-        .div-answer-row {
-            height: 1.4em;
-            margin-top: 2.8em;
-        }
-
-        .div-quotient {
-            visibility: hidden;
-            color: #2b8a3e;
-            font-weight: 600;
-        }
-
-        .show-answers .div-quotient {
-            visibility: visible;
+            width: max-content;
+            color: #222;
+            font-family: var(--math-mono-font);
+            font-size: 1.56rem;
+            line-height: 1.18;
+            letter-spacing: 0;
+            font-variant-numeric: tabular-nums lining-nums;
+            font-feature-settings: 'tnum' 1, 'lnum' 1;
+            font-variant-ligatures: none;
+            font-kerning: none;
         }
 
         .div-main-row {
@@ -233,69 +254,101 @@
         }
 
         .div-divisor {
-            padding-right: 1px;
-        }
-
-        .div-bracket {
-            margin-right: -1px;
-            display: inline-block;
-            transform: scaleY(1.4);
-            transform-origin: bottom;
+            padding-right: 0.08em;
         }
 
         .div-dividend {
             position: relative;
-            padding: 0.22em 4px 0 3px;
+            padding: 0.18em 0.18em 0 0.15em;
+            margin-left: 0.55em;
+            border-top: 2px solid currentColor;
         }
 
-        .div-dividend::after {
-            content: '';
+        .div-bracket-svg {
             position: absolute;
-            top: 0.00em;
-            left: -0.37em;
-            right: 0;
-            border-top: 2px solid #222;
+            right: calc(100% - 1px);
+            top: -2px;
+            width: 0.55em;
+            height: 1.35em;
+            overflow: visible;
         }
 
-        .div-blank-space {
-            width: 100%;
-        }
-
-        /* ── Fallback for unparseable vertical ── */
         .math-cell-v-fallback {
             border: none;
-            padding: 10px 14px;
             text-align: left;
-            font-size: 1.4rem;
-            min-height: 70px;
+            font-family: var(--math-mono-font);
+            font-size: 1.34rem;
+            line-height: 1.24;
+            font-variant-numeric: tabular-nums lining-nums;
+            font-feature-settings: 'tnum' 1, 'lnum' 1;
         }
 
-        .math-cell-v-fallback .cell-answer {
-            display: none;
-            color: #2b8a3e;
-            font-weight: 600;
-            margin-top: 4px;
-        }
+        @media (max-width: 860px) {
+            .sheet-title {
+                flex: 1 1 100%;
+            }
 
-        .show-answers .math-cell-v-fallback .cell-answer {
-            display: block;
+            .toolbar-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            .sheet-page {
+                width: 688px;
+                height: 1017px;
+            }
         }
 
         @media print {
             @page {
+                size: A4 portrait;
                 margin: 5mm;
+            }
+
+            body {
+                margin: 0;
+                background: #fff;
+                padding: 0;
             }
 
             .toolbar {
                 display: none;
             }
 
+            .sheet-page {
+                width: 100%;
+                height: auto;
+                border: none;
+                box-shadow: none;
+                margin: 0;
+                overflow: visible;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
             .sheet-meta {
                 display: none;
             }
 
-            body {
-                padding: 2mm;
+            .sheet-preview-wrap {
+                padding: 0;
+                width: var(--sheet-box-width);
+                height: auto;
+                overflow: visible;
+                display: block;
+            }
+
+            .sheet-printable-area,
+            .sheet-content,
+            .math-print-row {
+                max-width: none;
+                height: auto;
+            }
+
+            .sheet-render-canvas {
+                width: 100% !important;
+                height: auto !important;
+                max-width: none;
             }
         }
     </style>
@@ -311,9 +364,17 @@
             <a id="backBtn" class="toolbar-link secondary" href="/">← Back</a>
         </div>
     </div>
-    <div id="printHeader" class="print-header"></div>
+
     <div id="sheetMeta" class="sheet-meta"></div>
-    <div id="sheetContent"></div>
+
+    <div class="sheet-preview-wrap">
+        <div class="sheet-page">
+            <div id="sheetPrintableArea" class="sheet-printable-area">
+                <div id="printHeader" class="print-header"></div>
+                <div id="sheetContent" class="sheet-content"></div>
+            </div>
+        </div>
+    </div>
 
     <script src="math-sheet-print.js"></script>
 </body>

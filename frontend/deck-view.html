@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
+        :root {
+            --math-mono-font: 'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace;
+        }
+
         body.modal-open {
             overflow: hidden;
         }
@@ -104,6 +108,255 @@
 
         .type4-preview-item code {
             word-break: break-word;
+        }
+
+        .type4-cell-design-panel {
+            margin-top: 1rem;
+            padding-top: 0.9rem;
+            border-top: 1px solid #e4e9f2;
+        }
+
+        .type4-cell-design-preview {
+            border: 1px solid #d8e0f5;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+            min-height: 120px;
+            padding: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        .type4-cell-design-preview-card {
+            position: relative;
+            border: 2px dashed #667eea;
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+            overflow: hidden;
+            flex: 0 0 auto;
+        }
+
+        .type4-cell-design-preview-offset {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: max-content;
+        }
+
+        .math-cell-v {
+            --v-row-width-ch: 6;
+            --v-gap-ch: 3;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-start;
+            width: calc(var(--v-row-width-ch) * 1ch);
+            color: #222;
+            font-family: var(--math-mono-font);
+            font-size: 1.56rem;
+            line-height: 1.18;
+            letter-spacing: 0;
+            font-variant-numeric: tabular-nums lining-nums;
+            font-feature-settings: 'tnum' 1, 'lnum' 1;
+            font-variant-ligatures: none;
+            font-kerning: none;
+        }
+
+        .v-row {
+            display: block;
+            white-space: pre;
+            min-height: 1.18em;
+            width: 100%;
+        }
+
+        .v-row-top {
+            text-align: right;
+        }
+
+        .v-row-op {
+            display: flex;
+            align-items: baseline;
+            justify-content: flex-end;
+            white-space: normal;
+        }
+
+        .v-op {
+            flex: 0 0 1ch;
+            width: 1ch;
+            text-align: center;
+        }
+
+        .v-gap {
+            flex: 0 0 calc(var(--v-gap-ch) * 1ch);
+            width: calc(var(--v-gap-ch) * 1ch);
+            min-width: calc(var(--v-gap-ch) * 1ch);
+        }
+
+        .v-row-bottom-num {
+            flex: 0 0 auto;
+            text-align: right;
+            white-space: pre;
+        }
+
+        .v-line {
+            width: 100%;
+            border-top: 2px solid currentColor;
+            margin-top: 0.08em;
+        }
+
+        .math-cell-div {
+            border: none;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            width: max-content;
+            color: #222;
+            font-family: var(--math-mono-font);
+            font-size: 1.56rem;
+            line-height: 1.18;
+            letter-spacing: 0;
+            font-variant-numeric: tabular-nums lining-nums;
+            font-feature-settings: 'tnum' 1, 'lnum' 1;
+            font-variant-ligatures: none;
+            font-kerning: none;
+        }
+
+        .div-main-row {
+            display: flex;
+            align-items: baseline;
+            white-space: pre;
+        }
+
+        .div-divisor {
+            padding-right: 0.08em;
+        }
+
+        .div-dividend {
+            position: relative;
+            padding: 0.18em 0.18em 0 0.15em;
+            margin-left: 0.55em;
+            border-top: 2px solid currentColor;
+        }
+
+        .div-bracket-svg {
+            position: absolute;
+            right: calc(100% - 1px);
+            top: -2px;
+            width: 0.55em;
+            height: 1.35em;
+            overflow: visible;
+        }
+
+        .math-cell-v-fallback {
+            border: none;
+            text-align: left;
+            font-family: var(--math-mono-font);
+            font-size: 1.34rem;
+            line-height: 1.24;
+            font-variant-numeric: tabular-nums lining-nums;
+            font-feature-settings: 'tnum' 1, 'lnum' 1;
+        }
+
+        #cellDesignCanvas {
+            display: flex;
+            justify-content: center;
+            padding: 0.5rem 0 0.25rem;
+        }
+
+        #cellDesignBox {
+            position: absolute;
+            border: 2px dashed #667eea;
+            overflow: hidden;
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+            min-width: 0;
+            min-height: 0;
+        }
+
+        #cellDesignContent {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        #cellDesignStage {
+            position: relative;
+            width: min(344px, calc(100vw - 120px));
+            height: min(552px, calc(100vh - 220px));
+            min-width: 300px;
+            min-height: 320px;
+            border: 1px solid #d8e0f5;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65);
+        }
+
+        #cellDesignWorkArea {
+            position: absolute;
+            inset: 46px 52px;
+        }
+
+        .cell-design-side-controls {
+            position: absolute;
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cell-design-side-controls.top {
+            top: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            flex-direction: row;
+        }
+
+        .cell-design-side-controls.bottom {
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            flex-direction: row;
+        }
+
+        .cell-design-side-controls.left {
+            left: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            flex-direction: column;
+        }
+
+        .cell-design-side-controls.right {
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            flex-direction: column;
+        }
+
+        .cell-design-edge-btn {
+            width: 34px;
+            height: 34px;
+            border: 1px solid #bfd0f7;
+            border-radius: 999px;
+            background: #eef4ff;
+            color: #2e56a1;
+            font-size: 1rem;
+            font-weight: 700;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(73, 103, 166, 0.08);
+        }
+
+        .cell-design-edge-btn:hover {
+            background: #e2ecff;
+        }
+
+        .cell-design-edge-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #f4f7ff;
         }
 
         .deck-rename-inline-btn {
@@ -230,49 +483,6 @@
             margin-top: 0.7rem;
         }
 
-        .print-config-section {
-            margin-top: 1rem;
-            padding-top: 0.8rem;
-            border-top: 1px solid #e4e9f2;
-        }
-
-        .print-config-section strong {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #233044;
-        }
-
-        .print-config-row {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            flex-wrap: wrap;
-            margin-bottom: 0.45rem;
-            font-size: 0.92rem;
-            color: #555;
-        }
-
-        .print-config-row input[type="number"] {
-            width: 60px;
-            text-align: center;
-            padding: 0.3rem 0.4rem;
-            border: 1px solid #cfd7ea;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-
-        .print-config-actions {
-            display: flex;
-            gap: 0.55rem;
-            flex-wrap: wrap;
-            margin-top: 0.55rem;
-        }
-
-        .print-config-actions .btn-secondary {
-            font-size: 0.85rem;
-            padding: 0.35rem 0.75rem;
-            min-height: 32px;
-        }
     </style>
 </head>
 <body class="manage-page">
@@ -339,17 +549,16 @@
                         <p class="muted-help-text">Click Generate Example to preview this deck.</p>
                     </div>
                     <div id="type4ValidateTestContainer" class="hidden"></div>
-                    <div id="type4PrintConfig" class="print-config-section">
-                        <strong>Printable Sheets</strong>
-                        <div class="print-config-row">
-                            <span>Vertical answer rows (0 = disabled):</span>
-                            <input type="number" id="verticalAnswerRows" min="0" max="10" step="0.1" value="0" style="width:50px;">
+                    <div class="type4-cell-design-panel">
+                        <div class="type4-preview-head">
+                            <strong>Printable Cell</strong>
+                            <button type="button" id="openType4CellDesignBtn" class="btn-secondary">Design Cell</button>
                         </div>
-                        <div class="print-config-actions">
-                            <button type="button" id="savePrintConfigBtn" class="btn-primary" style="font-size:0.85rem;padding:0.35rem 0.75rem;min-height:32px;">Save Print Config</button>
-                            <a id="printPreviewHorizontalBtn" class="btn-secondary" target="_blank">Preview Horizontal</a>
-                            <a id="printPreviewVerticalBtn" class="btn-secondary" target="_blank">Preview Vertical</a>
-                        </div>
+                        <p id="type4CellDesignStatusText" class="muted-help-text">No printable cell design saved yet.</p>
+                        <div id="type4CellDesignPreview" class="type4-cell-design-preview hidden"></div>
+                        <p class="muted-help-text" style="margin-top:0.7rem;">
+                            Printable Worksheets (Math Problems) uses this saved cell when building sheets.
+                        </p>
                     </div>
                 </div>
             </section>
@@ -412,6 +621,45 @@
             <div class="rename-tags-actions">
                 <button type="button" id="cancelRenameTagsBtn" class="btn-secondary">Cancel</button>
                 <button type="button" id="saveRenameTagsBtn" class="btn-primary">Save Tags</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cellDesignModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content" style="max-width:720px; padding:1.2rem 1.4rem;">
+            <h2 id="cellDesignModalTitle" style="margin:0 0 0.3rem;">Design Cell</h2>
+            <p style="margin:0 0 0.8rem; color:#666; font-size:0.9rem;">Each side has two arrows: outward grows that edge, inward shrinks that edge.</p>
+            <div style="display:flex; gap:0.7rem; flex-wrap:wrap; align-items:center; margin-bottom:0.8rem;">
+                <span id="cellDesignDimensions" style="font-size:0.88rem; color:#555; margin-left:auto; font-weight:600;"></span>
+            </div>
+            <div id="cellDesignCanvas">
+                <div id="cellDesignStage">
+                    <div class="cell-design-side-controls top">
+                        <button type="button" class="cell-design-edge-btn" data-cell-resize="grow-n" aria-label="Grow top edge upward">↑</button>
+                        <button type="button" class="cell-design-edge-btn" data-cell-resize="shrink-n" aria-label="Shrink top edge downward">↓</button>
+                    </div>
+                    <div class="cell-design-side-controls bottom">
+                        <button type="button" class="cell-design-edge-btn" data-cell-resize="grow-s" aria-label="Grow bottom edge downward">↓</button>
+                        <button type="button" class="cell-design-edge-btn" data-cell-resize="shrink-s" aria-label="Shrink bottom edge upward">↑</button>
+                    </div>
+                    <div class="cell-design-side-controls left">
+                        <button type="button" class="cell-design-edge-btn" data-cell-resize="grow-w" aria-label="Grow left edge outward">←</button>
+                        <button type="button" class="cell-design-edge-btn" data-cell-resize="shrink-w" aria-label="Shrink left edge inward">→</button>
+                    </div>
+                    <div class="cell-design-side-controls right">
+                        <button type="button" class="cell-design-edge-btn" data-cell-resize="grow-e" aria-label="Grow right edge outward">→</button>
+                        <button type="button" class="cell-design-edge-btn" data-cell-resize="shrink-e" aria-label="Shrink right edge inward">←</button>
+                    </div>
+                    <div id="cellDesignWorkArea">
+                        <div id="cellDesignBox">
+                            <div id="cellDesignContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:1rem;">
+                <button type="button" id="cellDesignCancelBtn" class="btn-secondary">Cancel</button>
+                <button type="button" id="cellDesignSaveBtn" class="btn-primary">Save Cell Design</button>
             </div>
         </div>
     </div>

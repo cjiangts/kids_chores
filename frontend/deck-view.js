@@ -17,11 +17,10 @@ const saveType4GeneratorBtn = document.getElementById('saveType4GeneratorBtn');
 const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
 const type4PreviewExamples = document.getElementById('type4PreviewExamples');
 const type4ValidateTestContainer = document.getElementById('type4ValidateTestContainer');
+const openType4CellDesignBtn = document.getElementById('openType4CellDesignBtn');
+const type4CellDesignStatusText = document.getElementById('type4CellDesignStatusText');
+const type4CellDesignPreview = document.getElementById('type4CellDesignPreview');
 const type4CardsMultiChoiceHeader = document.getElementById('type4CardsMultiChoiceHeader');
-const verticalAnswerRowsInput = document.getElementById('verticalAnswerRows');
-const savePrintConfigBtn = document.getElementById('savePrintConfigBtn');
-const printPreviewHorizontalBtn = document.getElementById('printPreviewHorizontalBtn');
-const printPreviewVerticalBtn = document.getElementById('printPreviewVerticalBtn');
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
 const cardsTableBody = document.getElementById('cardsTableBody');
@@ -60,15 +59,25 @@ let renameNameCheckToken = 0;
 let renameNameCheckTimer = null;
 let currentType4SavedGeneratorCode = '';
 let currentType4SavedIsMultichoiceOnly = false;
-let savedVerticalAnswerRows = 0;
-let savedHorizontalCapacity = 0;
-let savedVerticalCapacity = 0;
 let currentType4PreviewSeedBase = Date.now();
 let isLoadingType4PreviewSamples = false;
 let isSavingType4Generator = false;
 let type4AceEditor = null;
 let lastType4PreviewAnswer = '';
+let currentType4CellDesign = null;
+let currentType4CellDesignSample = null;
 const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEditor');
+
+const MIN_CELL_DESIGN_W = 90;
+const MIN_CELL_DESIGN_H = 72;
+const DEFAULT_CELL_CONTENT_X = 0;
+const DEFAULT_CELL_CONTENT_Y = 0;
+const CELL_DESIGN_SIZE_STEP = 8;
+const CELL_DESIGN_CANVAS_VERSION = 2;
+const CELL_DESIGN_MIN_LEFT_PAD = 3;
+const CELL_DESIGN_MIN_TOP_PAD = 3;
+const CELL_DESIGN_MIN_RIGHT_PAD = 6;
+const CELL_DESIGN_MIN_BOTTOM_PAD = 6;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -196,17 +205,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateType4GeneratorSaveState();
         });
     }
-    if (verticalAnswerRowsInput) {
-        verticalAnswerRowsInput.addEventListener('input', () => {
-            updatePrintPreviewLinks();
-            updatePrintConfigSaveState();
+    if (openType4CellDesignBtn) {
+        openType4CellDesignBtn.addEventListener('click', () => {
+            void openType4CellDesigner();
         });
     }
-    if (savePrintConfigBtn) {
-        savePrintConfigBtn.addEventListener('click', async () => {
-            await savePrintConfig();
-        });
-    }
+    document.getElementById('cellDesignSaveBtn')?.addEventListener('click', saveType4CellDesign);
+    document.getElementById('cellDesignCancelBtn')?.addEventListener('click', closeType4CellDesignModal);
+    document.getElementById('cellDesignStage')?.addEventListener('click', (event) => {
+        const resizeBtn = event.target.closest('[data-cell-resize]');
+        if (!resizeBtn) return;
+        const action = String(resizeBtn.getAttribute('data-cell-resize') || '').trim().toLowerCase();
+        if (action) resizeType4CellDesignCanvas(action);
+    });
+    document.getElementById('cellDesignModal')?.addEventListener('click', (event) => {
+        if (event.target === event.currentTarget) {
+            closeType4CellDesignModal();
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (!renameTagsModal?.classList.contains('hidden')) return;
+        const cellDesignModal = document.getElementById('cellDesignModal');
+        if (cellDesignModal && !cellDesignModal.classList.contains('hidden')) {
+            closeType4CellDesignModal();
+        }
+    });
     initializeType4CodeEditor();
     await loadDeck();
 });
@@ -320,6 +344,9 @@ function renderDeck(payload) {
         currentType4SavedGeneratorCode = normalizeType4GeneratorCodeText(
             String(generatorDefinition && generatorDefinition.code ? generatorDefinition.code : '')
         );
+        currentType4CellDesign = generatorDefinition && generatorDefinition.cell_design
+            ? normalizeSavedType4CellDesign(generatorDefinition.cell_design)
+            : null;
         if (type4RepresentativeLabelText) {
             type4RepresentativeLabelText.textContent = representativeLabel || '-';
         }
@@ -334,21 +361,14 @@ function renderDeck(payload) {
         if (type4IsMultichoiceOnlyInput) {
             type4IsMultichoiceOnlyInput.checked = currentType4SavedIsMultichoiceOnly;
         }
-        savedVerticalAnswerRows = (generatorDefinition && generatorDefinition.vertical_answer_rows != null)
-            ? generatorDefinition.vertical_answer_rows : 0;
-        savedHorizontalCapacity = (generatorDefinition && generatorDefinition.horizontal_capacity) || 0;
-        savedVerticalCapacity = (generatorDefinition && generatorDefinition.vertical_capacity) || 0;
-        if (verticalAnswerRowsInput) {
-            verticalAnswerRowsInput.value = String(savedVerticalAnswerRows);
-        }
-        updatePrintPreviewLinks();
-        updatePrintConfigSaveState();
         renderType4PreviewExamples([]);
         setType4PreviewButtonState(false, 'Generate Example');
         updateType4GeneratorSaveState();
+        renderType4CellDesignPanel();
     } else {
         currentType4SavedGeneratorCode = '';
         currentType4SavedIsMultichoiceOnly = false;
+        currentType4CellDesign = null;
         if (type4GeneratorCodeText) {
             type4GeneratorCodeText.value = '';
         }
@@ -358,6 +378,7 @@ function renderDeck(payload) {
         renderType4PreviewExamples([]);
         setType4PreviewButtonState(false, 'Generate Example');
         updateType4GeneratorSaveState();
+        renderType4CellDesignPanel();
     }
     if (type4CardsMultiChoiceHeader) {
         type4CardsMultiChoiceHeader.classList.toggle('hidden', !isTypeIV);
@@ -1025,32 +1046,6 @@ function getCurrentType4IsMultichoiceOnly() {
     return Boolean(type4IsMultichoiceOnlyInput && type4IsMultichoiceOnlyInput.checked);
 }
 
-function updatePrintPreviewLinks() {
-    if (!deckId) return;
-    if (printPreviewHorizontalBtn) {
-        printPreviewHorizontalBtn.href = `/math-sheet-print.html?deckId=${deckId}&mode=horizontal`;
-        const hLabel = savedHorizontalCapacity ? `Preview Horizontal (${savedHorizontalCapacity})` : 'Preview Horizontal';
-        printPreviewHorizontalBtn.textContent = hLabel;
-    }
-    if (printPreviewVerticalBtn) {
-        const answerRows = parseFloat((verticalAnswerRowsInput && verticalAnswerRowsInput.value) || '2') || 2;
-        printPreviewVerticalBtn.href = `/math-sheet-print.html?deckId=${deckId}&mode=vertical&answerRows=${answerRows}`;
-        const vLabel = savedVerticalCapacity ? `Preview Vertical (${savedVerticalCapacity})` : 'Preview Vertical';
-        printPreviewVerticalBtn.textContent = vLabel;
-    }
-}
-
-function isPrintConfigDirty() {
-    const curRows = verticalAnswerRowsInput ? (parseFloat(verticalAnswerRowsInput.value) || 0) : 0;
-    return curRows !== savedVerticalAnswerRows;
-}
-
-function updatePrintConfigSaveState() {
-    if (savePrintConfigBtn) {
-        savePrintConfigBtn.disabled = !isPrintConfigDirty();
-    }
-}
-
 function isType4GeneratorDirty() {
     return getCurrentType4GeneratorCode() !== currentType4SavedGeneratorCode
         || getCurrentType4IsMultichoiceOnly() !== currentType4SavedIsMultichoiceOnly;
@@ -1209,41 +1204,404 @@ async function saveType4GeneratorCode() {
     }
 }
 
-async function savePrintConfig() {
-    if (!deckId) return;
+function normalizeSavedType4CellDesign(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const cellWidth = Number.parseInt(raw.cell_width, 10);
+    const cellHeight = Number.parseInt(raw.cell_height, 10);
+    if (!Number.isFinite(cellWidth) || !Number.isFinite(cellHeight) || cellWidth <= 0 || cellHeight <= 0) {
+        return null;
+    }
+    const sampleProblem = raw.sample_problem && typeof raw.sample_problem === 'object'
+        ? {
+            prompt: String(raw.sample_problem.prompt || ''),
+            answer: String(raw.sample_problem.answer || ''),
+        }
+        : null;
+    return {
+        cellWidth,
+        cellHeight,
+        contentOffsetX: Number.parseInt(raw.content_offset_x, 10) || 0,
+        contentOffsetY: Number.parseInt(raw.content_offset_y, 10) || 0,
+        canvasVersion: Number.parseInt(raw.canvas_version, 10) || CELL_DESIGN_CANVAS_VERSION,
+        sampleProblem,
+    };
+}
+
+const TYPE4_CELL_OPERATOR_PATTERN = /^(.+?)\s*([+\-×x*÷\/])\s*(.+?)(?:\s*=\s*[?？_\s]*)?\s*$/;
+
+function parseType4CellArithmetic(prompt) {
+    const match = String(prompt || '').match(TYPE4_CELL_OPERATOR_PATTERN);
+    if (!match) return null;
+    const a = match[1].trim();
+    const rawOp = match[2];
+    const b = match[3].trim();
+    if (!a || !b) return null;
+    let sign = rawOp;
+    if (rawOp === '*' || rawOp === 'x') sign = '×';
+    if (rawOp === '/' || rawOp === '÷') sign = '÷';
+    return { a, sign, b };
+}
+
+function buildType4CellVerticalRows(a, b, sign) {
+    const topDigits = String(a || '');
+    const bottomDigits = String(b || '');
+    let gapCh = 1;
+    if (sign === '×') {
+        gapCh = Math.max(1, topDigits.length);
+    } else if (sign === '+' || sign === '-') {
+        gapCh = Math.max(1, topDigits.length - bottomDigits.length + 1);
+    }
+    return {
+        topDigits,
+        bottomDigits,
+        sign,
+        gapCh,
+        rowWidthCh: 1 + gapCh + bottomDigits.length,
+    };
+}
+
+function renderType4CellPrompt(problem) {
+    if (!problem) return '<div class="math-cell-v-fallback"></div>';
+    const parsed = parseType4CellArithmetic(problem.prompt);
+    if (!parsed) {
+        return `<div class="math-cell-v-fallback"><div>${escapeHtml(problem.prompt || '')}</div></div>`;
+    }
+    const { a, sign, b } = parsed;
+    if (sign === '÷') {
+        return `<div class="math-cell-div">
+            <div class="div-main-row">
+                <span class="div-divisor">${escapeHtml(b)}</span>
+                <span class="div-dividend"><svg class="div-bracket-svg" viewBox="0 0 10 28" aria-hidden="true"><path d="M 1 27 Q 7 26, 7 21 L 7 0" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>${escapeHtml(a)}</span>
+            </div>
+        </div>`;
+    }
+    const rows = buildType4CellVerticalRows(a, b, sign);
+    return `<div class="math-cell-v" style="--v-row-width-ch:${rows.rowWidthCh};--v-gap-ch:${rows.gapCh};">
+        <div class="v-row v-row-top">${escapeHtml(rows.topDigits)}</div>
+        <div class="v-row v-row-op">
+            <span class="v-op">${escapeHtml(rows.sign)}</span>
+            <span class="v-gap" aria-hidden="true"></span>
+            <span class="v-row-bottom-num">${escapeHtml(rows.bottomDigits)}</span>
+        </div>
+        <div class="v-line" aria-hidden="true"></div>
+    </div>`;
+}
+
+function measureType4RenderedCell(html) {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
+    probe.innerHTML = html;
+    document.body.appendChild(probe);
+    const cell = probe.firstElementChild;
+    const width = cell ? Math.ceil(cell.offsetWidth) : MIN_CELL_DESIGN_W;
+    const height = cell ? Math.ceil(cell.offsetHeight) : MIN_CELL_DESIGN_H;
+    document.body.removeChild(probe);
+    return { width, height };
+}
+
+function getType4CellDesignOffsets(cellDesign) {
+    if (!cellDesign || Number(cellDesign.canvasVersion || 0) < CELL_DESIGN_CANVAS_VERSION) {
+        return { x: DEFAULT_CELL_CONTENT_X, y: DEFAULT_CELL_CONTENT_Y };
+    }
+    return {
+        x: Math.max(0, Number(cellDesign.contentOffsetX) || 0),
+        y: Math.max(0, Number(cellDesign.contentOffsetY) || 0),
+    };
+}
+
+function renderType4CellDesignPanel() {
+    const isTypeIV = String(currentDeck && currentDeck.behavior_type || '').trim().toLowerCase() === 'type_iv';
+    if (openType4CellDesignBtn) {
+        openType4CellDesignBtn.classList.toggle('hidden', !isTypeIV);
+        openType4CellDesignBtn.textContent = currentType4CellDesign ? 'Redesign Cell' : 'Design Cell';
+    }
+    if (!type4CellDesignStatusText || !type4CellDesignPreview) return;
+    if (!isTypeIV) {
+        type4CellDesignStatusText.textContent = '';
+        type4CellDesignPreview.classList.add('hidden');
+        type4CellDesignPreview.innerHTML = '';
+        return;
+    }
+    if (!currentType4CellDesign) {
+        type4CellDesignStatusText.textContent = 'No printable cell design saved yet.';
+        type4CellDesignPreview.classList.add('hidden');
+        type4CellDesignPreview.innerHTML = '';
+        return;
+    }
+    const offsets = getType4CellDesignOffsets(currentType4CellDesign);
+    const sampleProblem = currentType4CellDesign.sampleProblem || { prompt: '58 + 21 = ?', answer: '79' };
+    type4CellDesignStatusText.textContent = `Saved canvas: ${currentType4CellDesign.cellWidth} x ${currentType4CellDesign.cellHeight}px`;
+    type4CellDesignPreview.innerHTML = `<div class="type4-cell-design-preview-card" style="width:${currentType4CellDesign.cellWidth}px;height:${currentType4CellDesign.cellHeight}px;">
+        <div class="type4-cell-design-preview-offset" style="left:${offsets.x}px;top:${offsets.y}px;">
+            ${renderType4CellPrompt(sampleProblem)}
+        </div>
+    </div>`;
+    type4CellDesignPreview.classList.remove('hidden');
+}
+
+function updateType4CellDesignDimensions() {
+    const box = document.getElementById('cellDesignBox');
+    const display = document.getElementById('cellDesignDimensions');
+    if (!box || !display) return;
+    display.textContent = `${Math.round(box.offsetWidth)} × ${Math.round(box.offsetHeight)} px`;
+    updateType4CellDesignResizeButtons();
+}
+
+function getType4CellDesignMinSize() {
+    const contentEl = document.getElementById('cellDesignContent');
+    if (!contentEl) return { width: MIN_CELL_DESIGN_W, height: MIN_CELL_DESIGN_H };
+    const offsetX = Math.max(CELL_DESIGN_MIN_LEFT_PAD, parseFloat(contentEl.style.left || '0'));
+    const offsetY = Math.max(CELL_DESIGN_MIN_TOP_PAD, parseFloat(contentEl.style.top || '0'));
+    return {
+        width: Math.ceil(contentEl.offsetWidth + offsetX + CELL_DESIGN_MIN_RIGHT_PAD),
+        height: Math.ceil(contentEl.offsetHeight + offsetY + CELL_DESIGN_MIN_BOTTOM_PAD),
+    };
+}
+
+function updateType4CellDesignResizeButtons() {
+    const workAreaEl = document.getElementById('cellDesignWorkArea');
+    const boxEl = document.getElementById('cellDesignBox');
+    const contentEl = document.getElementById('cellDesignContent');
+    if (!workAreaEl || !boxEl || !contentEl) return;
+    const boxLeft = parseFloat(boxEl.style.left || '0');
+    const boxTop = parseFloat(boxEl.style.top || '0');
+    const canGrowN = boxTop > 0;
+    const canGrowS = (boxTop + boxEl.offsetHeight) < workAreaEl.clientHeight;
+    const canGrowW = boxLeft > 0;
+    const canGrowE = (boxLeft + boxEl.offsetWidth) < workAreaEl.clientWidth;
+    const contentLeft = Math.max(0, parseFloat(contentEl.style.left || '0'));
+    const contentTop = Math.max(0, parseFloat(contentEl.style.top || '0'));
+    const contentWidth = Math.ceil(contentEl.offsetWidth);
+    const contentHeight = Math.ceil(contentEl.offsetHeight);
+    const extraRight = Math.max(0, boxEl.offsetWidth - (contentWidth + contentLeft));
+    const extraBottom = Math.max(0, boxEl.offsetHeight - (contentHeight + contentTop));
+    const setDisabled = (action, disabled) => {
+        const btn = document.querySelector(`[data-cell-resize="${action}"]`);
+        if (btn) btn.disabled = Boolean(disabled);
+    };
+    setDisabled('grow-n', !canGrowN);
+    setDisabled('grow-s', !canGrowS);
+    setDisabled('grow-w', !canGrowW);
+    setDisabled('grow-e', !canGrowE);
+    setDisabled('shrink-n', contentTop <= CELL_DESIGN_MIN_TOP_PAD);
+    setDisabled('shrink-s', extraBottom <= CELL_DESIGN_MIN_BOTTOM_PAD);
+    setDisabled('shrink-w', contentLeft <= CELL_DESIGN_MIN_LEFT_PAD);
+    setDisabled('shrink-e', extraRight <= CELL_DESIGN_MIN_RIGHT_PAD);
+}
+
+function clampType4CellDesignBoxToWorkArea() {
+    const workAreaEl = document.getElementById('cellDesignWorkArea');
+    const boxEl = document.getElementById('cellDesignBox');
+    if (!workAreaEl || !boxEl) return;
+    const maxLeft = Math.max(0, workAreaEl.clientWidth - boxEl.offsetWidth);
+    const maxTop = Math.max(0, workAreaEl.clientHeight - boxEl.offsetHeight);
+    const nextLeft = Math.min(maxLeft, Math.max(0, parseFloat(boxEl.style.left || '0')));
+    const nextTop = Math.min(maxTop, Math.max(0, parseFloat(boxEl.style.top || '0')));
+    boxEl.style.left = `${nextLeft}px`;
+    boxEl.style.top = `${nextTop}px`;
+}
+
+function centerType4CellDesignBox() {
+    const workAreaEl = document.getElementById('cellDesignWorkArea');
+    const boxEl = document.getElementById('cellDesignBox');
+    if (!workAreaEl || !boxEl) return;
+    const nextLeft = Math.max(0, Math.round((workAreaEl.clientWidth - boxEl.offsetWidth) / 2));
+    const nextTop = Math.max(0, Math.round((workAreaEl.clientHeight - boxEl.offsetHeight) / 2));
+    boxEl.style.left = `${nextLeft}px`;
+    boxEl.style.top = `${nextTop}px`;
+}
+
+function resizeType4CellDesignCanvas(action) {
+    const workAreaEl = document.getElementById('cellDesignWorkArea');
+    const boxEl = document.getElementById('cellDesignBox');
+    const contentEl = document.getElementById('cellDesignContent');
+    if (!workAreaEl || !boxEl || !contentEl) return;
+    const [mode, side] = String(action || '').split('-');
+    if (!mode || !side) return;
+    const grow = mode === 'grow';
+    let nextWidth = boxEl.offsetWidth;
+    let nextHeight = boxEl.offsetHeight;
+    let nextBoxLeft = parseFloat(boxEl.style.left || '0');
+    let nextBoxTop = parseFloat(boxEl.style.top || '0');
+    let nextContentLeft = Math.max(0, parseFloat(contentEl.style.left || '0'));
+    let nextContentTop = Math.max(0, parseFloat(contentEl.style.top || '0'));
+    const contentWidth = Math.ceil(contentEl.offsetWidth);
+    const contentHeight = Math.ceil(contentEl.offsetHeight);
+
+    if (side === 'w' || side === 'e') {
+        const currentWidth = boxEl.offsetWidth;
+        if (side === 'w') {
+            if (grow) {
+                const appliedDelta = Math.min(CELL_DESIGN_SIZE_STEP, nextBoxLeft);
+                nextWidth = currentWidth + appliedDelta;
+                nextBoxLeft -= appliedDelta;
+                nextContentLeft += appliedDelta;
+            } else {
+                const appliedDelta = Math.min(
+                    CELL_DESIGN_SIZE_STEP,
+                    Math.max(0, nextContentLeft - CELL_DESIGN_MIN_LEFT_PAD),
+                );
+                nextWidth = currentWidth - appliedDelta;
+                nextBoxLeft += appliedDelta;
+                nextContentLeft -= appliedDelta;
+            }
+        } else if (grow) {
+            const maxGrow = Math.max(0, workAreaEl.clientWidth - (nextBoxLeft + currentWidth));
+            const appliedDelta = Math.min(CELL_DESIGN_SIZE_STEP, maxGrow);
+            nextWidth = currentWidth + appliedDelta;
+        } else {
+            const minWidth = contentWidth + nextContentLeft + CELL_DESIGN_MIN_RIGHT_PAD;
+            const appliedDelta = Math.min(CELL_DESIGN_SIZE_STEP, Math.max(0, currentWidth - minWidth));
+            nextWidth = currentWidth - appliedDelta;
+        }
+    } else if (side === 'n' || side === 's') {
+        const currentHeight = boxEl.offsetHeight;
+        if (side === 'n') {
+            if (grow) {
+                const appliedDelta = Math.min(CELL_DESIGN_SIZE_STEP, nextBoxTop);
+                nextHeight = currentHeight + appliedDelta;
+                nextBoxTop -= appliedDelta;
+                nextContentTop += appliedDelta;
+            } else {
+                const appliedDelta = Math.min(
+                    CELL_DESIGN_SIZE_STEP,
+                    Math.max(0, nextContentTop - CELL_DESIGN_MIN_TOP_PAD),
+                );
+                nextHeight = currentHeight - appliedDelta;
+                nextBoxTop += appliedDelta;
+                nextContentTop -= appliedDelta;
+            }
+        } else if (grow) {
+            const maxGrow = Math.max(0, workAreaEl.clientHeight - (nextBoxTop + currentHeight));
+            const appliedDelta = Math.min(CELL_DESIGN_SIZE_STEP, maxGrow);
+            nextHeight = currentHeight + appliedDelta;
+        } else {
+            const minHeight = contentHeight + nextContentTop + CELL_DESIGN_MIN_BOTTOM_PAD;
+            const appliedDelta = Math.min(CELL_DESIGN_SIZE_STEP, Math.max(0, currentHeight - minHeight));
+            nextHeight = currentHeight - appliedDelta;
+        }
+    }
+
+    boxEl.style.width = `${nextWidth}px`;
+    boxEl.style.height = `${nextHeight}px`;
+    boxEl.style.left = `${nextBoxLeft}px`;
+    boxEl.style.top = `${nextBoxTop}px`;
+    contentEl.style.left = `${nextContentLeft}px`;
+    contentEl.style.top = `${nextContentTop}px`;
+    clampType4CellDesignBoxToWorkArea();
+    updateType4CellDesignDimensions();
+}
+
+async function openType4CellDesigner() {
+    if (!currentDeck || String(currentDeck.behavior_type || '').trim().toLowerCase() !== 'type_iv') {
+        return;
+    }
+    const modal = document.getElementById('cellDesignModal');
+    const titleEl = document.getElementById('cellDesignModalTitle');
+    const boxEl = document.getElementById('cellDesignBox');
+    const contentEl = document.getElementById('cellDesignContent');
+    if (!modal || !titleEl || !boxEl || !contentEl) return;
+
+    titleEl.textContent = `Design Cell — ${String(currentDeck.name || `Deck ${deckId}`)}`;
+
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/print-problems`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ count: 1 }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        currentType4CellDesignSample = (data.problems || [])[0] || null;
+    } catch (error) {
+        console.error('Failed to fetch type IV cell-design sample:', error);
+        currentType4CellDesignSample = currentType4CellDesign?.sampleProblem || { prompt: '123 + 45 = ?', answer: '168' };
+    }
+
+    const savedOffsets = getType4CellDesignOffsets(currentType4CellDesign);
+    const hasSavedCanvas = Boolean(currentType4CellDesign && Number(currentType4CellDesign.canvasVersion || 0) >= CELL_DESIGN_CANVAS_VERSION);
+    const nextOffsetX = hasSavedCanvas
+        ? Math.max(savedOffsets.x, CELL_DESIGN_MIN_LEFT_PAD)
+        : Math.max(DEFAULT_CELL_CONTENT_X, CELL_DESIGN_MIN_LEFT_PAD);
+    const nextOffsetY = hasSavedCanvas
+        ? Math.max(savedOffsets.y, CELL_DESIGN_MIN_TOP_PAD)
+        : Math.max(DEFAULT_CELL_CONTENT_Y, CELL_DESIGN_MIN_TOP_PAD);
+    const naturalSize = measureType4RenderedCell(renderType4CellPrompt(currentType4CellDesignSample));
+    const minRequiredWidth = naturalSize.width + Math.max(0, nextOffsetX) + CELL_DESIGN_MIN_RIGHT_PAD;
+    const minRequiredHeight = naturalSize.height + Math.max(0, nextOffsetY) + CELL_DESIGN_MIN_BOTTOM_PAD;
+    const nextWidth = hasSavedCanvas ? Math.max(currentType4CellDesign.cellWidth, minRequiredWidth) : minRequiredWidth;
+    const nextHeight = hasSavedCanvas ? Math.max(currentType4CellDesign.cellHeight, minRequiredHeight) : minRequiredHeight;
+
+    contentEl.innerHTML = renderType4CellPrompt(currentType4CellDesignSample);
+    contentEl.style.left = `${nextOffsetX}px`;
+    contentEl.style.top = `${nextOffsetY}px`;
+    boxEl.style.width = `${nextWidth}px`;
+    boxEl.style.height = `${nextHeight}px`;
+
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    centerType4CellDesignBox();
+    updateType4CellDesignDimensions();
+}
+
+function closeType4CellDesignModal() {
+    const modal = document.getElementById('cellDesignModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+}
+
+async function saveType4CellDesign() {
+    const boxEl = document.getElementById('cellDesignBox');
+    const contentEl = document.getElementById('cellDesignContent');
+    const saveBtn = document.getElementById('cellDesignSaveBtn');
+    if (!boxEl || !contentEl || !saveBtn) return;
+
+    const payload = {
+        cellWidth: Math.round(boxEl.offsetWidth),
+        cellHeight: Math.round(boxEl.offsetHeight),
+        contentOffsetX: Math.round(parseFloat(contentEl.style.left || '0') || 0),
+        contentOffsetY: Math.round(parseFloat(contentEl.style.top || '0') || 0),
+        canvasVersion: CELL_DESIGN_CANVAS_VERSION,
+        sampleProblem: currentType4CellDesignSample ? {
+            prompt: String(currentType4CellDesignSample.prompt || ''),
+            answer: String(currentType4CellDesignSample.answer || ''),
+        } : null,
+    };
+
+    saveBtn.disabled = true;
+    const oldText = saveBtn.textContent;
+    saveBtn.textContent = 'Saving...';
     showError('');
     showSuccess('');
-    const verticalAnswerRows = verticalAnswerRowsInput ? parseFloat(verticalAnswerRowsInput.value) || 0 : 0;
-    if (savePrintConfigBtn) { savePrintConfigBtn.disabled = true; savePrintConfigBtn.textContent = 'Saving...'; }
     try {
-        const generatorCode = getCurrentType4GeneratorCode();
-        const isMultichoiceOnly = getCurrentType4IsMultichoiceOnly();
-        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/generator-definition`, {
+        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/print-cell-design`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                generatorCode,
-                isMultichoiceOnly,
-                verticalAnswerRows,
-            }),
+            body: JSON.stringify({ cellDesign: payload }),
         });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || `Failed to save print config (HTTP ${response.status})`);
-        const gd = (result && result.generator_definition) || {};
-        savedVerticalAnswerRows = gd.vertical_answer_rows != null ? gd.vertical_answer_rows : 0;
-        savedHorizontalCapacity = gd.horizontal_capacity || 0;
-        savedVerticalCapacity = gd.vertical_capacity || 0;
-        if (verticalAnswerRowsInput) verticalAnswerRowsInput.value = String(savedVerticalAnswerRows);
-        currentType4SavedGeneratorCode = normalizeType4GeneratorCodeText(gd.code || generatorCode);
-        currentType4SavedIsMultichoiceOnly = Boolean(gd.is_multichoice_only);
-        updateType4GeneratorSaveState();
-        updatePrintPreviewLinks();
-        showSuccess('Print config saved.');
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to save cell design (HTTP ${response.status})`);
+        }
+        currentType4CellDesign = normalizeSavedType4CellDesign(result && result.cell_design) || {
+            cellWidth: payload.cellWidth,
+            cellHeight: payload.cellHeight,
+            contentOffsetX: payload.contentOffsetX,
+            contentOffsetY: payload.contentOffsetY,
+            canvasVersion: payload.canvasVersion,
+            sampleProblem: payload.sampleProblem,
+        };
+        closeType4CellDesignModal();
+        renderType4CellDesignPanel();
+        showSuccess('Printable cell design saved.');
     } catch (error) {
-        console.error('Error saving print config:', error);
-        showError(error.message || 'Failed to save print config.');
+        console.error('Error saving type IV cell design:', error);
+        showError(error.message || 'Failed to save printable cell design.');
     } finally {
-        if (savePrintConfigBtn) { savePrintConfigBtn.textContent = 'Save Print Config'; }
-        updatePrintConfigSaveState();
+        saveBtn.disabled = false;
+        saveBtn.textContent = oldText;
     }
 }

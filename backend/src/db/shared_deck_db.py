@@ -1,6 +1,5 @@
 """DuckDB connection manager for shared, family-created decks."""
 import os
-import threading
 from typing import Optional
 
 import duckdb
@@ -19,8 +18,6 @@ ACHIEVEMENT_BADGE_MAP_SCHEMA_FILE = os.path.join(
 )
 
 _schema_sql_cache: Optional[str] = None
-_initialized_dbs: set = set()
-_schema_init_lock = threading.Lock()
 
 
 def _get_schema_sql() -> str:
@@ -93,44 +90,11 @@ def _sync_noto_badge_bank(conn: duckdb.DuckDBPyConnection):
         """
     )
 
-def _migrate_shared_deck_schema(conn: duckdb.DuckDBPyConnection):
-    """Run ALTER TABLE migrations for columns added after initial schema."""
-    new_cols = {
-        'vertical_answer_rows': 'DOUBLE DEFAULT NULL',
-        'horizontal_capacity': 'INTEGER DEFAULT NULL',
-        'vertical_capacity': 'INTEGER DEFAULT NULL',
-    }
-    for col, col_type in new_cols.items():
-        has = conn.execute(
-            "SELECT 1 FROM information_schema.columns "
-            "WHERE table_schema='main' AND table_name='deck_generator_definition' "
-            f"AND column_name='{col}' LIMIT 1"
-        ).fetchone()
-        if not has:
-            conn.execute(
-                f"ALTER TABLE deck_generator_definition ADD COLUMN {col} {col_type}"
-            )
-
-
-def ensure_shared_deck_schema(conn: duckdb.DuckDBPyConnection, db_path: str = ''):
-    """Ensure shared deck schema exists for a connection."""
-    if db_path:
-        with _schema_init_lock:
-            if db_path in _initialized_dbs:
-                return
-            conn.execute(_get_schema_sql())
-            _migrate_shared_deck_schema(conn)
-            _initialized_dbs.add(db_path)
-        return
-    conn.execute(_get_schema_sql())
-    _migrate_shared_deck_schema(conn)
-
-
 def init_shared_decks_database() -> str:
     """Initialize shared decks database file and schema."""
     os.makedirs(DATA_DIR, exist_ok=True)
     conn = duckdb.connect(SHARED_DB_PATH)
-    ensure_shared_deck_schema(conn, SHARED_DB_PATH)
+    conn.execute(_get_schema_sql())
     _sync_noto_badge_bank(conn)
     conn.close()
     return SHARED_DB_PATH
@@ -140,7 +104,4 @@ def get_shared_decks_connection(read_only: bool = False) -> duckdb.DuckDBPyConne
     """Get connection to shared decks database."""
     if not os.path.exists(SHARED_DB_PATH):
         init_shared_decks_database()
-    conn = duckdb.connect(SHARED_DB_PATH, read_only=read_only)
-    if not read_only:
-        ensure_shared_deck_schema(conn, SHARED_DB_PATH)
-    return conn
+    return duckdb.connect(SHARED_DB_PATH, read_only=read_only)

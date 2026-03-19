@@ -30,9 +30,7 @@ CREATE TABLE IF NOT EXISTS deck_generator_definition (
   deck_id INTEGER PRIMARY KEY,
   code TEXT NOT NULL,
   is_multichoice_only BOOLEAN NOT NULL DEFAULT FALSE,
-  vertical_answer_rows DOUBLE DEFAULT NULL,
-  horizontal_capacity INTEGER DEFAULT NULL,
-  vertical_capacity INTEGER DEFAULT NULL,
+  print_cell_design_json VARCHAR DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
