@@ -176,6 +176,27 @@
             : {};
     }
 
+    async function fetchChineseCharacterBackMap(apiBase, texts) {
+        if (!Array.isArray(texts) || texts.length === 0) {
+            return {};
+        }
+        const response = await fetch(`${String(apiBase || `${window.location.origin}/api`).replace(/\/+$/, '')}/shared-decks/chinese-characters/pinyin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ texts }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to generate Chinese readings (HTTP ${response.status})`);
+        }
+        if (result && typeof result.back_by_text === 'object' && result.back_by_text) {
+            return result.back_by_text;
+        }
+        return result && typeof result.pinyin_by_text === 'object' && result.pinyin_by_text
+            ? result.pinyin_by_text
+            : {};
+    }
+
     async function fetchCategoryCardOverlap(apiBase, categoryKey, cards) {
         if (!Array.isArray(cards) || cards.length === 0) {
             return { dedupeKey: 'front', otherKey: 'back', overlaps: [] };
@@ -297,6 +318,7 @@
         normalizeNextFirstTag,
         formatTagPath,
         fetchChineseCharacterPinyinMap,
+        fetchChineseCharacterBackMap,
         fetchCategoryCardOverlap,
         toOverlapByValue,
         formatDeckNameList,

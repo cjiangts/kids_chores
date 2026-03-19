@@ -43,6 +43,7 @@ const renameDeckNamePreview = document.getElementById('renameDeckNamePreview');
 const renameNameStatus = document.getElementById('renameNameStatus');
 const renameTagsError = document.getElementById('renameTagsError');
 const deckCategoryCommon = window.DeckCategoryCommon;
+const chineseCardBackCommon = window.ChineseCardBackCommon || null;
 
 if (!deckCategoryCommon) {
     throw new Error('deck-category-common.js is required for deck-view');
@@ -78,6 +79,21 @@ const CELL_DESIGN_MIN_LEFT_PAD = 3;
 const CELL_DESIGN_MIN_TOP_PAD = 3;
 const CELL_DESIGN_MIN_RIGHT_PAD = 6;
 const CELL_DESIGN_MIN_BOTTOM_PAD = 6;
+
+function isChineseType1Deck() {
+    const behaviorType = String(currentDeck && currentDeck.behavior_type || '').trim().toLowerCase();
+    return behaviorType === 'type_i' && Boolean(currentDeck && currentDeck.has_chinese_specific_logic);
+}
+
+function formatDeckCardBackHtml(rawBack) {
+    if (!isChineseType1Deck()) {
+        return escapeHtml(rawBack || '-');
+    }
+    if (chineseCardBackCommon && typeof chineseCardBackCommon.buildStackHtml === 'function') {
+        return chineseCardBackCommon.buildStackHtml(rawBack, escapeHtml);
+    }
+    return escapeHtml(rawBack || '-');
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -415,7 +431,7 @@ function renderDeck(payload) {
                 <td>${index + 1}</td>
                 <td>${escapeHtml(card.front || '')}</td>
                 ${multiChoiceCellHtml}
-                <td>${escapeHtml(card.back || '-')}</td>
+                <td>${formatDeckCardBackHtml(card.back || '-')}</td>
             </tr>
         `;
     }).join('');

@@ -21,6 +21,7 @@ const {
     getDeckCategoryMetaMap,
 } = window.DeckCategoryCommon;
 const categoryKey = normalizeCategoryKey(params.get('categoryKey'));
+const chineseCardBackCommon = window.ChineseCardBackCommon || null;
 
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
@@ -153,6 +154,33 @@ const SHOW_DECK_COUNT_MISMATCH_WARNING = false;
 const NEXT_SESSION_HARD_COLOR = '#f59e0b';
 const NEXT_SESSION_LEAST_COLOR = '#22a45a';
 let currentSessionCardCountCap = null;
+
+function getChineseCardBackSearchText(rawBack) {
+    if (chineseCardBackCommon && typeof chineseCardBackCommon.getSearchText === 'function') {
+        return chineseCardBackCommon.getSearchText(rawBack);
+    }
+    return String(rawBack || '');
+}
+
+function getChineseCardBackHtml(rawBack) {
+    if (chineseCardBackCommon && typeof chineseCardBackCommon.buildStackHtml === 'function') {
+        return chineseCardBackCommon.buildStackHtml(rawBack, escapeHtml);
+    }
+    return escapeHtml(String(rawBack || '').trim());
+}
+
+function getChineseCardBackParts(rawBack) {
+    if (chineseCardBackCommon && typeof chineseCardBackCommon.splitBack === 'function') {
+        return chineseCardBackCommon.splitBack(rawBack);
+    }
+    const text = String(rawBack || '').trim();
+    return {
+        raw: text,
+        pinyin: text,
+        meaning: '',
+        hasMeaning: false,
+    };
+}
 
 const promptPreviewPlayer = (
     window.WritingAudioSequence && typeof window.WritingAudioSequence.createPlayer === 'function'
@@ -1458,7 +1486,9 @@ function filterCardsByQuery(cards, rawQuery) {
     }
     return cards.filter((card) => {
         const front = String(card.front || '');
-        const back = String(card.back || '');
+        const back = isChineseSpecificLogic && isType1Behavior()
+            ? getChineseCardBackSearchText(card.back)
+            : String(card.back || '');
         const source = String(resolveCardSourceDeckName(card) || '');
         return front.includes(query) || back.includes(query) || source.includes(query);
     });
@@ -1917,11 +1947,12 @@ function buildCardReportHref(card) {
 }
 
 function buildChineseCardMarkup(card, options = {}) {
+    const backParts = getChineseCardBackParts(card.back);
     return buildCardMarkup(card, {
         cardClassNames: ['type1-chinese-card', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])],
         primaryText: card.front,
-        secondaryText: card.back,
-        showSecondary: String(card.back || '').trim().length > 0,
+        secondaryHtml: getChineseCardBackHtml(card.back),
+        showSecondary: backParts.pinyin.length > 0 || backParts.meaning.length > 0,
         includeAddedDate: true,
         prependControlsHtml: options.prependControlsHtml,
         trailingActionHtml: options.trailingActionHtml,
@@ -2093,7 +2124,9 @@ function buildCardMarkup(card, options = {}) {
     const supportsSkipControl = !isType4Behavior();
     const primaryText = String(options.primaryText || '');
     const secondaryText = String(options.secondaryText || '');
-    const showSecondary = options.showSecondary !== false && secondaryText.trim().length > 0;
+    const secondaryHtml = String(options.secondaryHtml || '');
+    const showSecondary = options.showSecondary !== false
+        && (secondaryHtml.trim().length > 0 || secondaryText.trim().length > 0);
     const extraSectionHtml = String(options.extraSectionHtml || '');
     const prependControlsHtml = String(options.prependControlsHtml || '');
     const trailingActionHtml = String(options.trailingActionHtml || '');
@@ -2113,7 +2146,7 @@ function buildCardMarkup(card, options = {}) {
         <div class="${classes.filter(Boolean).join(' ')}">
             ${prependControlsHtml}
             <div class="card-front">${escapeHtml(primaryText)}</div>
-            ${showSecondary ? `<div class="card-back">${escapeHtml(secondaryText)}</div>` : ''}
+            ${showSecondary ? `<div class="card-back">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
             <div class="card-deck-row">
                 <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
             </div>

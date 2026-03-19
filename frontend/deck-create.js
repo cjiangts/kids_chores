@@ -525,7 +525,7 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Chinese Text';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Paste Chinese text. The system will tokenize into individual Chinese characters as <code>front</code> and auto-generate pinyin as <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Paste Chinese text. The system will tokenize into individual Chinese characters as <code>front</code> and auto-generate pinyin plus a short English meaning as <code>back</code>.';
         }
         cardsCsvInput.placeholder = '比如：春眠不觉晓，处处闻啼鸟。';
         return;
@@ -736,10 +736,10 @@ async function parseCardsForCurrentMode() {
         uniqueTexts.push(card.front);
     });
 
-    const pinyinByText = await deckCreateCommon.fetchChineseCharacterPinyinMap(API_BASE, uniqueTexts);
+    const backByText = await deckCreateCommon.fetchChineseCharacterBackMap(API_BASE, uniqueTexts);
     return cards.map((card) => ({
         ...card,
-        back: String(pinyinByText[card.front] || '').trim() || card.front,
+        back: String(backByText[card.front] || '').trim() || card.front,
     }));
 }
 

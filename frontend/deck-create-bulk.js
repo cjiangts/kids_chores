@@ -275,7 +275,7 @@ function updateInputModeUi() {
             bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Text)';
         }
         if (bulkInputHelpText) {
-            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then paste Chinese text lines only. The system auto-extracts Chinese characters as <code>front</code> and auto-generates pinyin as <code>back</code>. Separate blocks with a blank line.';
+            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then paste Chinese text lines only. The system auto-extracts Chinese characters as <code>front</code> and auto-generates pinyin plus a short English meaning as <code>back</code>. Separate blocks with a blank line.';
         }
         bulkDeckInput.placeholder = 'ma3(马立平3年级)_book1_week1\n春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。\n\nma3(马立平3年级)_book1_week2\n床前明月光，疑是地上霜。';
         return;
@@ -481,14 +481,14 @@ async function enrichChineseCharactersBacks(blocks) {
     if (uniqueFronts.length === 0) {
         return;
     }
-    const pinyinByText = await deckCreateCommon.fetchChineseCharacterPinyinMap(API_BASE, uniqueFronts);
+    const backByText = await deckCreateCommon.fetchChineseCharacterBackMap(API_BASE, uniqueFronts);
     blocks.forEach((block) => {
         block.cards = (Array.isArray(block.cards) ? block.cards : []).map((card) => {
             const front = String(card && card.front ? card.front : '').trim();
-            const pinyin = String(pinyinByText[front] || '').trim();
+            const back = String(backByText[front] || '').trim();
             return {
                 front,
-                back: pinyin || front,
+                back: back || front,
             };
         });
     });

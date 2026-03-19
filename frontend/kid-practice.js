@@ -66,6 +66,7 @@ const {
     resolveTypeIIPracticeCategoryKey,
     resolveTypeIIIPracticeCategoryKey,
 } = window.DeckCategoryCommon || {};
+const chineseCardBackCommon = window.ChineseCardBackCommon || null;
 
 const BEHAVIOR_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_II = 'type_ii';
@@ -134,6 +135,31 @@ const state = {
 };
 
 const errorState = { lastMessage: '' };
+
+function getChineseType1BackParts(rawBack) {
+    if (chineseCardBackCommon && typeof chineseCardBackCommon.splitBack === 'function') {
+        return chineseCardBackCommon.splitBack(rawBack);
+    }
+    const text = String(rawBack || '').trim();
+    return {
+        raw: text,
+        pinyin: text,
+        meaning: '',
+        hasMeaning: false,
+    };
+}
+
+function getChineseType1PinyinText(rawBack) {
+    const parts = getChineseType1BackParts(rawBack);
+    return parts.pinyin || parts.meaning || '';
+}
+
+function getChineseType1BackHtml(rawBack) {
+    if (chineseCardBackCommon && typeof chineseCardBackCommon.buildStackHtml === 'function') {
+        return chineseCardBackCommon.buildStackHtml(rawBack, escapeHtml);
+    }
+    return escapeHtml(String(rawBack || '').trim());
+}
 
 const promptPlayer = window.WritingAudioSequence.createPlayer({
     preload: 'auto',
@@ -1080,9 +1106,11 @@ function showCurrentQuestion() {
         'Card'
     );
     cardQuestion.textContent = card.front;
-    cardAnswer.textContent = state.hasChineseSpecificLogic
-        ? String(card.back || '').trim()
-        : String(card.back || '');
+    if (state.hasChineseSpecificLogic) {
+        cardAnswer.innerHTML = getChineseType1BackHtml(card.back);
+    } else {
+        cardAnswer.textContent = String(card.back || '');
+    }
 
     state.answerRevealed = false;
     state.cardShownAtMs = Date.now();
@@ -1112,7 +1140,9 @@ function shuffleCopy(list) {
 }
 
 function buildType1MultipleChoiceOptions(card) {
-    const correctText = normalizeType1ChoiceText(card?.back);
+    const correctText = normalizeType1ChoiceText(
+        state.hasChineseSpecificLogic ? getChineseType1PinyinText(card?.back) : card?.back
+    );
     if (!correctText) {
         return [];
     }
@@ -1133,7 +1163,9 @@ function buildType1MultipleChoiceOptions(card) {
         ) {
             return;
         }
-        const normalized = normalizeType1ChoiceText(item?.back);
+        const normalized = normalizeType1ChoiceText(
+            state.hasChineseSpecificLogic ? getChineseType1PinyinText(item?.back) : item?.back
+        );
         if (!normalized || normalized === correctText) {
             return;
         }
@@ -2460,7 +2492,14 @@ function startBonusGame(sourceCards) {
     cardsList.forEach((card) => {
         const key = String(card.pairKey || '');
         tiles.push({ pairKey: key, side: 'front', text: String(card.front || '?'), matched: false });
-        tiles.push({ pairKey: key, side: 'back', text: String(card.back || '(answer)'), matched: false });
+        tiles.push({
+            pairKey: key,
+            side: 'back',
+            text: state.hasChineseSpecificLogic
+                ? (getChineseType1PinyinText(card.back) || '(answer)')
+                : String(card.back || '(answer)'),
+            matched: false,
+        });
     });
     state.bonusTiles = window.PracticeUiCommon.shuffleCards(tiles);
     state.bonusSelectedTileIndexes = [];

@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 
 from src.db import kid_db, metadata
 from src.db.shared_deck_db import SHARED_DB_PATH, get_shared_decks_connection
-from src.routes.kids import build_chinese_pinyin_text, extract_shared_deck_tags_and_labels
+from src.routes.kids import build_chinese_auto_back_text, build_chinese_pinyin_text, extract_shared_deck_tags_and_labels
 
-TEMP_POLYPHONE_PINYIN_BACKFILL_VERSION = 'v1'
+TEMP_POLYPHONE_PINYIN_BACKFILL_VERSION = 'v2'
 TEMP_BACKFILL_DIR = os.path.join(kid_db.DATA_DIR, 'startup_backfills')
 TEMP_POLYPHONE_PINYIN_SENTINEL = os.path.join(
     TEMP_BACKFILL_DIR,
@@ -120,7 +120,7 @@ def _apply_backfill_updates(db_path, candidates):
     try:
         update_rows = []
         for item in candidates:
-            new_back = str(build_chinese_pinyin_text(item['front']) or '').strip()
+            new_back = str(build_chinese_auto_back_text(item['front']) or '').strip()
             if not new_back or new_back == item['old_back']:
                 continue
             update_rows.append([new_back, int(item['card_id'])])

@@ -19,6 +19,7 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.badges.session_sync import sync_badges_after_session_complete
+from src.chinese_character_meanings import build_single_character_back, is_single_chinese_character
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.security_rate_limit import (
@@ -2270,6 +2271,21 @@ def ensure_pypinyin_dicts_loaded():
     _PYPINYIN_DICTS_LOADED = True
 
 
+def build_chinese_auto_back_text(text, generated_pinyin=None):
+    """Build the stored back text for Chinese auto-population flows."""
+    normalized = str(text or '').strip()
+    if not normalized:
+        return ''
+    pinyin_text = str(
+        generated_pinyin
+        if generated_pinyin is not None
+        else build_chinese_pinyin_text(normalized)
+    ).strip()
+    if is_single_chinese_character(normalized):
+        return str(build_single_character_back(normalized, pinyin_text) or pinyin_text or normalized).strip()
+    return pinyin_text or normalized
+
+
 @kids_bp.route('/shared-decks/categories', methods=['GET'])
 def list_shared_deck_categories():
     """Return all deck categories for shared deck creation."""
@@ -2582,7 +2598,7 @@ def shared_deck_name_availability():
 
 @kids_bp.route('/shared-decks/chinese-characters/pinyin', methods=['POST'])
 def shared_deck_chinese_characters_pinyin():
-    """Return pinyin mapping for requested Chinese character strings."""
+    """Return pinyin and composed back-text mappings for requested Chinese text."""
     try:
         auth_err = require_super_family()
         if auth_err:
@@ -2591,11 +2607,16 @@ def shared_deck_chinese_characters_pinyin():
         payload = request.get_json() or {}
         texts = normalize_shared_deck_fronts(payload.get('texts'))
         pinyin_by_text = {}
+        back_by_text = {}
         for text in texts:
-            pinyin_by_text[str(text)] = build_chinese_pinyin_text(text)
+            key = str(text)
+            generated_pinyin = build_chinese_pinyin_text(text)
+            pinyin_by_text[key] = generated_pinyin
+            back_by_text[key] = build_chinese_auto_back_text(text, generated_pinyin=generated_pinyin)
         return jsonify({
             'count': len(texts),
             'pinyin_by_text': pinyin_by_text,
+            'back_by_text': back_by_text,
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -7296,8 +7317,7 @@ def add_card(kid_id):
 
         back = str(data.get('back') or '').strip()
         if not back:
-            generated = str(build_chinese_pinyin_text(front) or '').strip()
-            back = generated or front
+            back = build_chinese_auto_back_text(front)
 
         conn = get_kid_connection_for(kid)
         try:
@@ -7404,8 +7424,7 @@ def add_cards_bulk(kid_id):
 
                 back = str(item.get('back') or '').strip()
                 if not back:
-                    generated = str(build_chinese_pinyin_text(front) or '').strip()
-                    back = generated or front
+                    back = build_chinese_auto_back_text(front)
 
                 card_id = conn.execute(
                     "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?) RETURNING id",

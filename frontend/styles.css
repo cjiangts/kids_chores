@@ -46,6 +46,26 @@
     background: rgba(47, 60, 126, 0.08);
 }
 
+.chinese-back-stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.12em;
+    max-width: 100%;
+    line-height: 1.15;
+}
+
+.chinese-back-pinyin,
+.chinese-back-meaning {
+    display: block;
+}
+
+.chinese-back-meaning {
+    font-size: 0.72em;
+    font-weight: 600;
+    color: #4c6a3a;
+}
+
 :root {
     --font-kaiti: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
     --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
