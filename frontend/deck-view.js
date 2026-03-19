@@ -1513,12 +1513,9 @@ async function openType4CellDesigner() {
         return;
     }
     const modal = document.getElementById('cellDesignModal');
-    const titleEl = document.getElementById('cellDesignModalTitle');
     const boxEl = document.getElementById('cellDesignBox');
     const contentEl = document.getElementById('cellDesignContent');
-    if (!modal || !titleEl || !boxEl || !contentEl) return;
-
-    titleEl.textContent = `Design Cell — ${String(currentDeck.name || `Deck ${deckId}`)}`;
+    if (!modal || !boxEl || !contentEl) return;
 
     try {
         const response = await fetch(`${API_BASE}/shared-decks/${deckId}/print-problems`, {

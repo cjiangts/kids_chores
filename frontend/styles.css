@@ -630,19 +630,10 @@ body {
 .shared-report-table,
 .deck-review-table,
 .deck-table {
-    width: 100%;
+    width: auto;
     border-collapse: collapse;
     font-size: 0.9rem;
     background: #fff;
-}
-
-.shared-report-table {
-    min-width: 800px;
-}
-
-.deck-review-table,
-.deck-table {
-    min-width: 640px;
 }
 
 .shared-report-table th,

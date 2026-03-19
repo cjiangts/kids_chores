@@ -868,11 +868,8 @@ async function openCellDesigner(deckId) {
     _cellDesignDeckName = deck.display_name || deck.name;
 
     const modal = document.getElementById('cellDesignModal');
-    const titleEl = document.getElementById('cellDesignModalTitle');
     const boxEl = document.getElementById('cellDesignBox');
     const contentEl = document.getElementById('cellDesignContent');
-
-    titleEl.textContent = `Design Cell — ${_cellDesignDeckName}`;
 
     /* Load previous design or defaults */
     const prev = cellDesigns.get(deckId);
