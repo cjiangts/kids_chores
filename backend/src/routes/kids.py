@@ -4328,7 +4328,6 @@ def get_kids():
         view = str(request.args.get('view') or '').strip().lower()
         is_admin_view = (view == 'admin')
         kids = metadata.get_all_kids(family_id=family_id)
-        family_timezone = metadata.get_family_timezone(family_id)
         is_super = is_super_family_id(family_id)
         all_category_meta_by_key = get_shared_deck_category_meta_by_key()
         category_meta_by_key = {
@@ -4338,6 +4337,45 @@ def get_kids():
         }
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
 
+        if is_admin_view:
+            kids_with_admin_summary = []
+            for kid in kids:
+                conn = None
+                try:
+                    conn = get_kid_connection_for(kid, read_only=True)
+                except Exception:
+                    conn = None
+                try:
+                    opted_in_category_keys = get_kid_opted_in_deck_category_keys(
+                        kid,
+                        category_meta_by_key=category_meta_by_key,
+                        conn=conn,
+                    )
+                    practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
+                        kid,
+                        opted_in_category_keys,
+                        category_meta_by_key,
+                        conn=conn,
+                    )
+                    has_ungraded = get_kid_has_ungraded_type_iii(
+                        kid,
+                        type_iii_category_keys=type_iii_category_keys,
+                        conn=conn,
+                    )
+                    kids_with_admin_summary.append({
+                        **kid,
+                        'hasTypeIIIToReview': has_ungraded,
+                        'optedInDeckCategoryKeys': opted_in_category_keys,
+                        'practiceTargetByDeckCategory': practice_target_by_deck_category,
+                        'deckCategoryMetaByKey': category_meta_by_key,
+                    })
+                finally:
+                    if conn is not None:
+                        conn.close()
+
+            return jsonify(kids_with_admin_summary), 200
+
+        family_timezone = metadata.get_family_timezone(family_id)
         kids_with_progress = []
         for kid in kids:
             conn = None
@@ -4357,50 +4395,34 @@ def get_kids():
                     category_meta_by_key,
                     conn=conn,
                 )
-                if is_admin_view:
-                    today_counts = defaultdict(int)
-                    today_star_tiers = defaultdict(list)
-                    today_latest_percent = defaultdict(float)
-                    today_latest_target_count = defaultdict(int)
-                    today_latest_tried_count = defaultdict(int)
-                    today_latest_right_count = defaultdict(int)
-                    has_ungraded = get_kid_has_ungraded_type_iii(
-                        kid,
-                        type_iii_category_keys=type_iii_category_keys,
-                        conn=conn,
-                    )
-                    daily_completed_by_deck_category = {}
-                    daily_star_tiers_by_deck_category = {}
-                    daily_percent_by_deck_category = {}
-                else:
-                    (
-                        today_counts,
-                        today_star_tiers,
-                        today_latest_percent,
-                        today_latest_target_count,
-                        today_latest_tried_count,
-                        today_latest_right_count,
-                        has_ungraded,
-                    ) = get_kid_dashboard_stats(
-                        kid,
-                        category_meta_by_key=category_meta_by_key,
-                        type_iii_category_keys=type_iii_category_keys,
-                        conn=conn,
-                        family_timezone=family_timezone,
-                    )
-                    daily_completed_by_deck_category = get_kid_daily_completed_by_deck_category(
-                        kid,
-                        opted_in_category_keys,
-                        today_counts=today_counts,
-                    )
-                    daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
-                        opted_in_category_keys,
-                        today_star_tiers=today_star_tiers,
-                    )
-                    daily_percent_by_deck_category = get_kid_daily_percent_by_deck_category(
-                        opted_in_category_keys,
-                        today_latest_percent=today_latest_percent,
-                    )
+                (
+                    today_counts,
+                    today_star_tiers,
+                    today_latest_percent,
+                    today_latest_target_count,
+                    today_latest_tried_count,
+                    today_latest_right_count,
+                    has_ungraded,
+                ) = get_kid_dashboard_stats(
+                    kid,
+                    category_meta_by_key=category_meta_by_key,
+                    type_iii_category_keys=type_iii_category_keys,
+                    conn=conn,
+                    family_timezone=family_timezone,
+                )
+                daily_completed_by_deck_category = get_kid_daily_completed_by_deck_category(
+                    kid,
+                    opted_in_category_keys,
+                    today_counts=today_counts,
+                )
+                daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
+                    opted_in_category_keys,
+                    today_star_tiers=today_star_tiers,
+                )
+                daily_percent_by_deck_category = get_kid_daily_percent_by_deck_category(
+                    opted_in_category_keys,
+                    today_latest_percent=today_latest_percent,
+                )
                 daily_target_by_deck_category = {
                     key: int(today_latest_target_count.get(key, 0) or 0)
                     for key in opted_in_category_keys
