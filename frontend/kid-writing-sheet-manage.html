@@ -572,6 +572,7 @@
             border-radius: 16px;
             background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
             box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65);
+            touch-action: manipulation;
         }
         #cellDesignWorkArea {
             position: absolute;
@@ -852,10 +853,10 @@
                 <div class="sheet-subgroup-head">
                     <h3>Build Math Sheet</h3>
                 </div>
-                <p class="sheet-subgroup-note">Use the Design Cell button in the View Deck page first, then build a printable sheet from the saved card designs.</p>
-                <p id="mathBuildInfo" class="sheet-subgroup-note" style="margin-top:-0.2rem;"></p>
-                <div style="margin-top:0.8rem;">
+                <p id="mathBuildInfo" class="sheet-subgroup-note"></p>
+                <div style="margin-top:0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
                     <button type="button" id="buildSheetBtn" class="settings-save-btn" disabled>Build Sheet</button>
+                    <button type="button" id="buildInlineSheetBtn" class="settings-save-btn" disabled>Build Horizontal Sheet</button>
                 </div>
                 <div id="mathSheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
             </div>
@@ -910,12 +911,14 @@
 
     <!-- Sheet Builder Modal -->
     <div id="sheetBuilderModal" class="modal hidden" aria-hidden="true">
-        <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 30px); padding:1rem 1.2rem; display:flex; flex-direction:column; overflow:hidden;">
-            <h2 style="margin:0 0 0.3rem;">Build Sheet</h2>
-            <p style="margin:0 0 0.7rem; color:#666; font-size:0.9rem;">Click the dotted row box to choose a card design. Use the row controls to scale, duplicate, or delete each row.</p>
-            <div style="flex:1; min-height:0; overflow:auto; padding:0.5rem; position:relative;">
+        <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 15px); padding:0.5rem 0.8rem; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:baseline; gap:0.6rem; margin:0 0 0.3rem;">
+                <h2 style="margin:0;">Build Sheet</h2>
+                <span id="sheetBuilderQuestionCount" style="font-size:0.88rem; color:#666;"></span>
+            </div>
+            <div style="flex:1; min-height:0; overflow:auto; position:relative;">
                 <div style="display:flex; justify-content:center; min-width:max-content;">
-                    <div id="sheetBuilderA4" style="position:relative; background:#fff; border:1px solid #bbb; box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
+                    <div id="sheetBuilderA4" style="position:relative; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
                 </div>
                 <div id="sheetBuilderPicker" class="sb-picker-backdrop hidden" aria-hidden="true">
                     <div class="sb-picker-card">
@@ -928,9 +931,37 @@
                     </div>
                 </div>
             </div>
-            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.8rem; flex-shrink:0;">
-                <button type="button" id="sheetBuilderCloseBtn" class="sheet-manage-btn">Close</button>
-                <button type="button" id="sheetBuilderDoneBtn" class="settings-save-btn">Done</button>
+            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
+                <button type="button" id="sheetBuilderCloseBtn" class="settings-save-btn">Close</button>
+                <button type="button" id="sheetBuilderDoneBtn" class="sheet-manage-btn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inline Sheet Builder Modal -->
+    <div id="inlineSheetBuilderModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 15px); padding:0.5rem 0.8rem; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:baseline; gap:0.6rem; margin:0 0 0.3rem;">
+                <h2 style="margin:0;">Build Horizontal Sheet</h2>
+                <span id="inlineSheetQuestionCount" style="font-size:0.88rem; color:#666;"></span>
+            </div>
+            <div style="flex:1; min-height:0; overflow:auto; position:relative;">
+                <div style="display:flex; justify-content:center; min-width:max-content;">
+                    <div id="inlineSheetA4" style="position:relative; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
+                </div>
+                <div id="inlineSheetPicker" class="sb-picker-backdrop hidden" aria-hidden="true">
+                    <div class="sb-picker-card">
+                        <h3 class="sb-picker-title">Choose Deck</h3>
+                        <div id="inlineSheetPickerOptions" class="sb-picker-options"></div>
+                        <div class="sb-picker-actions">
+                            <button type="button" id="inlineSheetPickerCancelBtn" class="sheet-manage-btn">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
+                <button type="button" id="inlineSheetCloseBtn" class="settings-save-btn">Close</button>
+                <button type="button" id="inlineSheetDoneBtn" class="sheet-manage-btn">Done</button>
             </div>
         </div>
     </div>

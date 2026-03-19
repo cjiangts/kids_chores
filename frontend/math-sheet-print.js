@@ -231,6 +231,10 @@ function getCanvasRowLayout(sheet) {
 }
 
 function drawSheetRows(ctx, sheet, withAnswers) {
+    if (String((sheet && sheet.layout_format) || '') === 'inline') {
+        drawInlineSheetRows(ctx, sheet, withAnswers);
+        return;
+    }
     const { baseRows, pageScale } = getCanvasRowLayout(sheet);
     let currentY = CONTENT_TOP;
     baseRows.forEach((item) => {
@@ -247,6 +251,73 @@ function drawSheetRows(ctx, sheet, withAnswers) {
             drawSheetCell(ctx, problem, item.row, cellX, currentY, cellWidth, cellHeight, finalScale, withAnswers);
         }
         currentY += cellHeight;
+    });
+}
+
+function drawInlineSheetRows(ctx, sheet, withAnswers) {
+    const layoutRows = Array.isArray(sheet && sheet.layout_rows) ? sheet.layout_rows : [];
+    const inlineFontSize = 14;
+    const lineHeight = Math.ceil(inlineFontSize * 1.4);
+    const cellPad = 6;
+    const opGap = inlineFontSize * 0.25; // tight gap around operator
+
+    let currentY = CONTENT_TOP;
+    layoutRows.forEach((row) => {
+        const problems = Array.isArray(row && row.problems) ? row.problems : [];
+        const colCount = Math.max(1, Number.parseInt(row && row.col_count, 10) || 1);
+        const cellWidth = PAGE_BOX_WIDTH / colCount;
+
+        for (let i = 0; i < colCount; i++) {
+            const problem = problems[i] || { prompt: '', answer: '' };
+            const cellX = i * cellWidth;
+            const textX = cellX + cellPad;
+            const textY = currentY + lineHeight;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(cellX, currentY, cellWidth, lineHeight + 4);
+            ctx.clip();
+
+            const rawPrompt = String(problem.prompt || '').replace(/\s*=\s*[?？_\s]*$/, '');
+            const answer = String(problem.answer || '').trim();
+            const parsed = rawPrompt.match(OPERATOR_PATTERN);
+
+            ctx.font = `${inlineFontSize}px ${MATH_FONT_FAMILY}`;
+            ctx.fillStyle = '#222';
+            ctx.textBaseline = 'alphabetic';
+            ctx.textAlign = 'left';
+
+            let promptEndX;
+            if (parsed) {
+                const a = parsed[1].trim();
+                let op = parsed[2];
+                if (op === '*' || op === 'x') op = '×';
+                if (op === '/' || op === '÷') op = '÷';
+                const b = parsed[3].trim();
+                let cx = textX;
+                ctx.fillText(a, cx, textY);
+                cx += ctx.measureText(a).width + opGap;
+                ctx.fillText(op, cx, textY);
+                cx += ctx.measureText(op).width + opGap;
+                ctx.fillText(b, cx, textY);
+                cx += ctx.measureText(b).width + opGap * 1.5;
+                ctx.fillText('=', cx, textY);
+                promptEndX = cx + ctx.measureText('= ').width;
+            } else {
+                ctx.fillText(`${rawPrompt} =`, textX, textY);
+                promptEndX = textX + ctx.measureText(`${rawPrompt} = `).width;
+            }
+
+            if (withAnswers && answer) {
+                ctx.font = `bold ${inlineFontSize}px ${MATH_FONT_FAMILY}`;
+                ctx.fillStyle = '#2b8a3e';
+                ctx.textAlign = 'left';
+                ctx.fillText(answer, promptEndX, textY);
+            }
+
+            ctx.restore();
+        }
+        currentY += lineHeight + 4;
     });
 }
 

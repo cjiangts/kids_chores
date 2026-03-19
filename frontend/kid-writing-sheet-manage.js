@@ -431,15 +431,7 @@ function renderMathBuildInfo() {
     if (!mathBuildInfoEl) return;
     const totalDecks = mathPrintConfigDecks.length;
     const designedDecks = getDesignedMathDecks().length;
-    if (totalDecks <= 0) {
-        mathBuildInfoEl.textContent = 'No opted-in generator decks found for this category.';
-        return;
-    }
-    if (designedDecks <= 0) {
-        mathBuildInfoEl.textContent = 'No deck has a saved cell design yet. Open the deck in the View Deck page first and use Design Cell there.';
-        return;
-    }
-    mathBuildInfoEl.textContent = `${designedDecks} of ${totalDecks} opted-in deck${totalDecks === 1 ? '' : 's'} already have saved cell designs.`;
+    mathBuildInfoEl.textContent = `${designedDecks} of ${totalDecks} opted-in deck${totalDecks === 1 ? '' : 's'} printable.`;
 }
 
 async function loadMathSheets() {
@@ -502,9 +494,10 @@ function renderMathSheets(sheets) {
         )
             ? `<br>Incorrect: ${incorrectCount} / ${problemCount} · Correct rate: ${Math.round(((problemCount - incorrectCount) / problemCount) * 100)}%`
             : '';
+        const formatLabel = String(sheet.layout_format || '') === 'inline' ? ' (Horizontal)' : '';
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div>Sheet #${safeSheetId}</div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span></div></div>
+                <div class="sheet-head"><div>Sheet #${safeSheetId}${formatLabel}</div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span></div></div>
                 <div class="sheet-meta">Rows: ${layoutRows.length} · Problems: ${problemCount}<br>Printed: ${escapeHtml(printedDay)}<br>Finished: ${escapeHtml(finishedDay)}<br>Time to finish: ${escapeHtml(finishedIn)}${accuracyLine}</div>
                 <div class="sheet-cards">${rowPillsHtml}</div>
                 ${actionBtns ? `<div class="sheet-actions ${statusClass}">${actionBtns}</div>` : ''}
@@ -694,8 +687,8 @@ function getCellDesignOffsets(cellDef) {
 /* ── Cell Designer ── */
 
 function updateBuildSheetButton() {
-    if (!buildSheetBtn) return;
-    buildSheetBtn.disabled = cellDesigns.size === 0;
+    if (buildSheetBtn) buildSheetBtn.disabled = cellDesigns.size === 0;
+    updateBuildInlineSheetButton();
 }
 
 function updateCellDesignDimensions() {
@@ -1064,8 +1057,9 @@ function canFitSheetRows(rows) {
 function canUseRowScale(rowIndex, nextScale) {
     if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= sheetRows.length) return false;
     if (nextScale < MIN_ROW_SCALE || nextScale > MAX_ROW_SCALE) return false;
-    const nextRows = sheetRows.map((row, idx) => (
-        idx === rowIndex ? Object.assign({}, row, { scale: clampRowScale(nextScale) }) : row
+    const targetDeckId = sheetRows[rowIndex].deckId;
+    const nextRows = sheetRows.map((row) => (
+        row.deckId === targetDeckId ? Object.assign({}, row, { scale: clampRowScale(nextScale) }) : row
     ));
     return canFitSheetRows(nextRows);
 }
@@ -1158,6 +1152,12 @@ function renderA4Content(scale) {
 
     html += '</div>';
     a4El.innerHTML = html;
+
+    const totalQuestions = sheetRows.reduce((sum, row) => sum + getSheetRowMetrics(row).colCount, 0);
+    const countEl = document.getElementById('sheetBuilderQuestionCount');
+    if (countEl) {
+        countEl.textContent = totalQuestions > 0 ? `${totalQuestions} questions` : '';
+    }
 }
 
 function renderSheetBuilderPickerOptions() {
@@ -1245,7 +1245,12 @@ function updateSheetRowScale(rowIndex, direction) {
         return;
     }
     showMathSheetError('');
-    sheetRows[rowIndex] = Object.assign({}, row, { scale: nextScale });
+    const targetDeckId = row.deckId;
+    for (let i = 0; i < sheetRows.length; i++) {
+        if (sheetRows[i].deckId === targetDeckId) {
+            sheetRows[i] = Object.assign({}, sheetRows[i], { scale: nextScale });
+        }
+    }
     renderA4Content(currentSheetScale);
 }
 
@@ -1360,6 +1365,293 @@ async function saveSheetFromBuilder() {
     }
 }
 
+/* ── Inline (Horizontal) Sheet Builder ── */
+
+const buildInlineSheetBtn = document.getElementById('buildInlineSheetBtn');
+let inlineSheetRows = [];
+let currentInlineSheetScale = 0.5;
+let inlineSheetPickerRowIndex = null;
+
+const INLINE_FONT_SIZE = 14;
+const INLINE_LINE_HEIGHT = 1.4;
+const INLINE_CELL_H = Math.ceil(INLINE_FONT_SIZE * INLINE_LINE_HEIGHT) + 4;
+const INLINE_CHAR_W = INLINE_FONT_SIZE * 0.6;
+const INLINE_CELL_PAD = 6;
+
+function getInlineCellWidth(problem) {
+    const prompt = String((problem && problem.prompt) || '').replace(/\s*=\s*[?？_\s]*$/, '').trim();
+    const answer = String((problem && problem.answer) || '').trim();
+    // Tighter spacing: strip original spaces, add ~0.5 char gap per operator gap
+    const compactLen = prompt.replace(/\s+/g, '').length + 2; // operators + digits + " ="
+    const answerSpace = Math.max(5, answer.length + 3); // more room for writing
+    return Math.ceil((compactLen + answerSpace) * INLINE_CHAR_W + INLINE_CELL_PAD * 2);
+}
+
+function getInlineRowMetrics(row) {
+    if (!row || !row.sampleProblem) {
+        return { cellWidth: 120, cellHeight: INLINE_CELL_H, colCount: 1, repeatCount: 1, totalHeight: INLINE_CELL_H };
+    }
+    const cellWidth = getInlineCellWidth(row.sampleProblem);
+    const colCount = Math.max(1, Math.floor(A4_SAFE_BOX_W / cellWidth));
+    const repeatCount = Math.max(1, row.repeatCount || 1);
+    return { cellWidth, cellHeight: INLINE_CELL_H, colCount, repeatCount, totalHeight: INLINE_CELL_H * repeatCount };
+}
+
+function canFitInlineSheetRows(rows) {
+    const h = rows.reduce((sum, row) => sum + getInlineRowMetrics(row).totalHeight, 0);
+    return h <= BUILDER_SAFE_GRID_H;
+}
+
+function renderInlineA4Content(scale) {
+    const a4El = document.getElementById('inlineSheetA4');
+    if (!a4El) return;
+    const marginPx = Math.round(A4_MARGIN * scale);
+    const safeMarginPx = Math.round(A4_EXTRA_SAFE_MARGIN * scale);
+    const gridWidthPx = Math.round(A4_SAFE_BOX_W * scale);
+    const headerHeightPx = Math.round(A4_HEADER_H * scale);
+    const contentLeftPx = marginPx + safeMarginPx;
+    const contentTopPx = marginPx + safeMarginPx;
+    const gridTopPx = contentTopPx + headerHeightPx;
+    const gridHeightPx = Math.round(BUILDER_GRID_H * scale);
+
+    let html = '';
+    html += `<div class="sb-margin" style="top:0;left:0;right:0;height:${marginPx}px;"></div>`;
+    html += `<div class="sb-margin" style="bottom:0;left:0;right:0;height:${marginPx}px;"></div>`;
+    html += `<div class="sb-margin" style="top:${marginPx}px;left:0;width:${marginPx}px;bottom:${marginPx}px;"></div>`;
+    html += `<div class="sb-margin" style="top:${marginPx}px;right:0;width:${marginPx}px;bottom:${marginPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginPx}px;left:${marginPx}px;width:${safeMarginPx}px;bottom:${marginPx + safeMarginPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginPx}px;right:${marginPx}px;width:${safeMarginPx}px;bottom:${marginPx + safeMarginPx}px;"></div>`;
+    html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;font-size:${Math.max(8, Math.round(10 * scale))}px;line-height:${headerHeightPx}px;">`;
+    html += '<span>Name: ________</span><span>Sheet #___</span>';
+    html += '</div>';
+    html += `<div class="sb-grid-area" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
+
+    let usedHeight = 0;
+    inlineSheetRows.forEach((row, idx) => {
+        const metrics = getInlineRowMetrics(row);
+        const previewLineH = Math.max(1, Math.round(metrics.cellHeight * scale));
+        const previewTotalH = Math.max(1, Math.round(metrics.totalHeight * scale));
+        const previewCellWidth = Math.round(metrics.cellWidth * scale);
+        const canShrink = metrics.repeatCount > 1;
+        const testGrow = Object.assign({}, row, { repeatCount: metrics.repeatCount + 1 });
+        const canGrow = canFitInlineSheetRows([
+            ...inlineSheetRows.slice(0, idx),
+            testGrow,
+            ...inlineSheetRows.slice(idx + 1),
+        ]);
+        const canDuplicate = canFitInlineSheetRows([
+            ...inlineSheetRows.slice(0, idx + 1),
+            Object.assign({}, row),
+            ...inlineSheetRows.slice(idx + 1),
+        ]);
+        html += `<div class="sb-row-wrap" data-sb-row-idx="${idx}" style="height:${previewTotalH}px;z-index:${inlineSheetRows.length - idx};">`;
+        html += `<div class="sb-row-tools">
+            <button type="button" class="sb-row-tool-btn" data-isb-row-repeat="-1" data-row-idx="${idx}" title="Fewer rows (${metrics.repeatCount})" ${canShrink ? '' : 'disabled'}>-</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-repeat="1" data-row-idx="${idx}" title="More rows (${metrics.repeatCount})" ${canGrow ? '' : 'disabled'}>+</button>
+            <button type="button" class="sb-row-tool-btn duplicate" data-isb-row-duplicate="${idx}" title="Duplicate this row below" ${canDuplicate ? '' : 'disabled'}>⧉</button>
+            <button type="button" class="sb-row-tool-btn delete" data-isb-row-delete="${idx}" title="Delete this row">x</button>
+        </div>`;
+        const rawPrompt = String(row.sampleProblem.prompt || '').replace(/\s*=\s*[?？_\s]*$/, '');
+        const compactPrompt = rawPrompt.replace(/\s*([+\-×x*÷\/])\s*/g, ' $1 ').replace(/\s{2,}/g, ' ').trim();
+        for (let r = 0; r < metrics.repeatCount; r++) {
+            html += `<div class="sb-row" style="height:${previewLineH}px;">`;
+            for (let c = 0; c < metrics.colCount; c++) {
+                html += `<div class="sb-row-cell" style="width:${previewCellWidth}px;height:${previewLineH}px;">
+                    <div class="sb-row-content" style="display:flex;align-items:center;padding:0 ${Math.round(INLINE_CELL_PAD * scale)}px;">
+                        <span style="font-family:'Courier New',Courier,monospace;font-size:${Math.max(6, Math.round(INLINE_FONT_SIZE * scale))}px;white-space:nowrap;letter-spacing:-0.5px;">${escapeHtml(compactPrompt)} =</span>
+                    </div>
+                </div>`;
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+        usedHeight += metrics.totalHeight;
+    });
+
+    const remainingHeight = BUILDER_SAFE_GRID_H - usedHeight;
+    const addRowPreviewHeight = Math.round(remainingHeight * scale);
+    if (remainingHeight >= INLINE_CELL_H && mathPrintConfigDecks.length > 0) {
+        html += `<button type="button" class="sb-add-row-box" data-isb-add-row="1" style="height:${Math.max(24, Math.min(addRowPreviewHeight, 70))}px;">Click to choose a deck for a new row</button>`;
+    }
+
+    html += '</div>';
+    a4El.innerHTML = html;
+
+    const totalQuestions = inlineSheetRows.reduce((sum, row) => {
+        const m = getInlineRowMetrics(row);
+        return sum + m.colCount * m.repeatCount;
+    }, 0);
+    const countEl = document.getElementById('inlineSheetQuestionCount');
+    if (countEl) {
+        countEl.textContent = totalQuestions > 0 ? `${totalQuestions} questions` : '';
+    }
+}
+
+function openInlineSheetBuilder() {
+    if (mathPrintConfigDecks.length === 0) {
+        showMathSheetError('No opted-in decks found.');
+        return;
+    }
+    currentInlineSheetScale = computeA4Scale();
+    inlineSheetRows = [];
+    showMathSheetError('');
+    const a4El = document.getElementById('inlineSheetA4');
+    a4El.style.width = Math.round(A4_W * currentInlineSheetScale) + 'px';
+    a4El.style.height = Math.round(A4_H * currentInlineSheetScale) + 'px';
+    renderInlineA4Content(currentInlineSheetScale);
+    closeInlineSheetPicker();
+    document.getElementById('inlineSheetBuilderModal').classList.remove('hidden');
+    document.body.classList.add('modal-open');
+}
+
+function closeInlineSheetBuilder() {
+    closeInlineSheetPicker();
+    document.getElementById('inlineSheetBuilderModal').classList.add('hidden');
+    document.body.classList.remove('modal-open');
+}
+
+function openInlineSheetPicker() {
+    const el = document.getElementById('inlineSheetPicker');
+    const optionsEl = document.getElementById('inlineSheetPickerOptions');
+    if (!el || !optionsEl) return;
+    optionsEl.innerHTML = mathPrintConfigDecks.map((deck) => {
+        const deckId = deck.shared_deck_id;
+        return `<button type="button" class="sb-picker-option" data-isb-picker-deck-id="${deckId}">
+            <span class="sb-picker-option-name">${escapeHtml(deck.display_name || deck.name)}</span>
+        </button>`;
+    }).join('');
+    el.classList.remove('hidden');
+}
+
+function closeInlineSheetPicker() {
+    const el = document.getElementById('inlineSheetPicker');
+    if (el) el.classList.add('hidden');
+}
+
+async function handleInlineSheetDeckChoice(deckId) {
+    closeInlineSheetPicker();
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/print-problems`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ count: 1 }),
+        });
+        const data = await response.json().catch(() => ({}));
+        const sample = Array.isArray(data.problems) && data.problems[0]
+            ? data.problems[0]
+            : { prompt: '? + ? = ?', answer: '?' };
+        const deck = mathPrintConfigDecks.find((d) => d.shared_deck_id === deckId);
+        if (!deck) { showMathSheetError('Deck not found.'); return; }
+        const row = {
+            deckId,
+            deckName: deck.display_name || deck.name,
+            sampleProblem: sample,
+            repeatCount: 1,
+        };
+        const nextRows = [...inlineSheetRows, row];
+        if (!canFitInlineSheetRows(nextRows)) {
+            showMathSheetError('No more room on this page.');
+            return;
+        }
+        showMathSheetError('');
+        inlineSheetRows = nextRows;
+        renderInlineA4Content(currentInlineSheetScale);
+    } catch (error) {
+        showMathSheetError(error.message || 'Failed to load sample problem.');
+    }
+}
+
+function updateInlineRowRepeat(idx, direction) {
+    if (idx < 0 || idx >= inlineSheetRows.length) return;
+    const row = inlineSheetRows[idx];
+    const current = Math.max(1, row.repeatCount || 1);
+    const next = current + direction;
+    if (next < 1) return;
+    const testRow = Object.assign({}, row, { repeatCount: next });
+    const testRows = [
+        ...inlineSheetRows.slice(0, idx),
+        testRow,
+        ...inlineSheetRows.slice(idx + 1),
+    ];
+    if (!canFitInlineSheetRows(testRows)) {
+        showMathSheetError('No more room on this page.');
+        return;
+    }
+    showMathSheetError('');
+    inlineSheetRows[idx] = testRow;
+    renderInlineA4Content(currentInlineSheetScale);
+}
+
+function duplicateInlineSheetRow(idx) {
+    if (idx < 0 || idx >= inlineSheetRows.length) return;
+    const nextRows = [
+        ...inlineSheetRows.slice(0, idx + 1),
+        Object.assign({}, inlineSheetRows[idx]),
+        ...inlineSheetRows.slice(idx + 1),
+    ];
+    if (!canFitInlineSheetRows(nextRows)) {
+        showMathSheetError('No more room on this page.');
+        return;
+    }
+    showMathSheetError('');
+    inlineSheetRows = nextRows;
+    renderInlineA4Content(currentInlineSheetScale);
+}
+
+function removeInlineSheetRow(idx) {
+    if (idx < 0 || idx >= inlineSheetRows.length) return;
+    inlineSheetRows.splice(idx, 1);
+    showMathSheetError('');
+    renderInlineA4Content(currentInlineSheetScale);
+}
+
+async function saveInlineSheetFromBuilder() {
+    if (inlineSheetRows.length === 0) {
+        showMathSheetError('Add at least one row before saving.');
+        return;
+    }
+    const doneBtn = document.getElementById('inlineSheetDoneBtn');
+    if (doneBtn) { doneBtn.disabled = true; doneBtn.textContent = 'Saving...'; }
+    try {
+        showMathSheetError('');
+        const response = await fetch(buildType4ApiUrl('/math-sheets'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                layoutFormat: 'inline',
+                rows: inlineSheetRows.flatMap((row) => {
+                    const metrics = getInlineRowMetrics(row);
+                    const single = {
+                        sharedDeckId: row.deckId,
+                        scale: 1,
+                        inlineCellWidth: metrics.cellWidth,
+                        inlineCellHeight: metrics.cellHeight,
+                        colCount: metrics.colCount,
+                    };
+                    return Array.from({ length: metrics.repeatCount }, () => single);
+                }),
+                categoryKey: activeCategoryKey,
+            }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Failed to save sheet (HTTP ${response.status})`);
+        closeInlineSheetBuilder();
+        await loadMathSheets();
+    } catch (error) {
+        console.error('Error saving inline sheet:', error);
+        showMathSheetError(error.message || 'Failed to save inline sheet.');
+    } finally {
+        if (doneBtn) { doneBtn.disabled = false; doneBtn.textContent = 'Done'; }
+    }
+}
+
+function updateBuildInlineSheetButton() {
+    if (!buildInlineSheetBtn) return;
+    buildInlineSheetBtn.disabled = mathPrintConfigDecks.length === 0;
+}
+
 /* ── Init ── */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1437,31 +1729,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     window.addEventListener('resize', () => {
         const modal = document.getElementById('sheetBuilderModal');
-        if (!modal || modal.classList.contains('hidden')) return;
-        currentSheetScale = computeA4Scale();
-        const a4El = document.getElementById('sheetBuilderA4');
-        if (!a4El) return;
-        a4El.style.width = Math.round(A4_W * currentSheetScale) + 'px';
-        a4El.style.height = Math.round(A4_H * currentSheetScale) + 'px';
-        renderA4Content(currentSheetScale);
+        if (modal && !modal.classList.contains('hidden')) {
+            currentSheetScale = computeA4Scale();
+            const a4El = document.getElementById('sheetBuilderA4');
+            if (a4El) {
+                a4El.style.width = Math.round(A4_W * currentSheetScale) + 'px';
+                a4El.style.height = Math.round(A4_H * currentSheetScale) + 'px';
+                renderA4Content(currentSheetScale);
+            }
+        }
+        const inlineModal = document.getElementById('inlineSheetBuilderModal');
+        if (inlineModal && !inlineModal.classList.contains('hidden')) {
+            currentInlineSheetScale = computeA4Scale();
+            const a4El = document.getElementById('inlineSheetA4');
+            if (a4El) {
+                a4El.style.width = Math.round(A4_W * currentInlineSheetScale) + 'px';
+                a4El.style.height = Math.round(A4_H * currentInlineSheetScale) + 'px';
+                renderInlineA4Content(currentInlineSheetScale);
+            }
+        }
     });
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
         const picker = document.getElementById('sheetBuilderPicker');
+        const inlinePicker = document.getElementById('inlineSheetPicker');
         const cellModal = document.getElementById('cellDesignModal');
         const builderModal = document.getElementById('sheetBuilderModal');
-        if (picker && !picker.classList.contains('hidden')) {
-            closeSheetBuilderPicker();
-            return;
-        }
-        if (cellModal && !cellModal.classList.contains('hidden')) {
-            closeCellDesignModal();
-            return;
-        }
-        if (builderModal && !builderModal.classList.contains('hidden')) {
-            closeSheetBuilder();
-            return;
-        }
+        const inlineModal = document.getElementById('inlineSheetBuilderModal');
+        if (picker && !picker.classList.contains('hidden')) { closeSheetBuilderPicker(); return; }
+        if (inlinePicker && !inlinePicker.classList.contains('hidden')) { closeInlineSheetPicker(); return; }
+        if (cellModal && !cellModal.classList.contains('hidden')) { closeCellDesignModal(); return; }
+        if (builderModal && !builderModal.classList.contains('hidden')) { closeSheetBuilder(); return; }
+        if (inlineModal && !inlineModal.classList.contains('hidden')) { closeInlineSheetBuilder(); return; }
     });
     document.getElementById('cellDesignModal')?.addEventListener('click', (event) => {
         if (event.target === event.currentTarget) closeCellDesignModal();
@@ -1470,6 +1769,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         const picker = document.getElementById('sheetBuilderPicker');
         if (picker && !picker.classList.contains('hidden')) return;
         if (event.target === event.currentTarget) closeSheetBuilder();
+    });
+
+    /* Inline Sheet Builder */
+    if (buildInlineSheetBtn) buildInlineSheetBtn.addEventListener('click', openInlineSheetBuilder);
+    document.getElementById('inlineSheetCloseBtn')?.addEventListener('click', closeInlineSheetBuilder);
+    document.getElementById('inlineSheetDoneBtn')?.addEventListener('click', saveInlineSheetFromBuilder);
+    document.getElementById('inlineSheetA4')?.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('[data-isb-add-row]');
+        if (addBtn) { openInlineSheetPicker(); return; }
+        const repeatBtn = e.target.closest('[data-isb-row-repeat]');
+        if (repeatBtn) {
+            const idx = Number.parseInt(repeatBtn.getAttribute('data-row-idx'), 10);
+            const dir = Number.parseInt(repeatBtn.getAttribute('data-isb-row-repeat'), 10);
+            if (Number.isInteger(idx) && Number.isInteger(dir)) updateInlineRowRepeat(idx, dir);
+            return;
+        }
+        const duplicateBtn = e.target.closest('[data-isb-row-duplicate]');
+        if (duplicateBtn) {
+            const idx = Number.parseInt(duplicateBtn.getAttribute('data-isb-row-duplicate'), 10);
+            if (Number.isInteger(idx)) duplicateInlineSheetRow(idx);
+            return;
+        }
+        const deleteBtn = e.target.closest('[data-isb-row-delete]');
+        if (deleteBtn) {
+            const idx = Number.parseInt(deleteBtn.getAttribute('data-isb-row-delete'), 10);
+            if (Number.isInteger(idx)) removeInlineSheetRow(idx);
+            return;
+        }
+    });
+    document.getElementById('inlineSheetPickerOptions')?.addEventListener('click', (event) => {
+        const optionBtn = event.target.closest('[data-isb-picker-deck-id]');
+        if (!optionBtn) return;
+        const deckId = Number.parseInt(optionBtn.getAttribute('data-isb-picker-deck-id'), 10);
+        if (Number.isInteger(deckId)) handleInlineSheetDeckChoice(deckId);
+    });
+    document.getElementById('inlineSheetPickerCancelBtn')?.addEventListener('click', closeInlineSheetPicker);
+    document.getElementById('inlineSheetPicker')?.addEventListener('click', (event) => {
+        if (event.target === event.currentTarget) closeInlineSheetPicker();
+    });
+    document.getElementById('inlineSheetBuilderModal')?.addEventListener('click', (event) => {
+        const picker = document.getElementById('inlineSheetPicker');
+        if (picker && !picker.classList.contains('hidden')) return;
+        if (event.target === event.currentTarget) closeInlineSheetBuilder();
     });
 
     /* Sheet list action delegation (shared) */

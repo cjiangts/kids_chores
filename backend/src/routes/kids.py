@@ -634,7 +634,7 @@ def normalize_type_iv_print_sheet_row_scale(value):
     return parsed
 
 
-def normalize_type_iv_print_sheet_rows(value):
+def normalize_type_iv_print_sheet_rows(value, layout_format='vertical'):
     """Normalize one custom math-sheet row list from the builder."""
     if not isinstance(value, list):
         raise ValueError('rows must be an array')
@@ -645,10 +645,20 @@ def normalize_type_iv_print_sheet_rows(value):
         shared_deck_id = _safe_positive_int_or_none(item.get('sharedDeckId'))
         if not shared_deck_id:
             raise ValueError(f'rows[{index}].sharedDeckId is required')
-        normalized_rows.append({
+        row = {
             'shared_deck_id': int(shared_deck_id),
             'scale': normalize_type_iv_print_sheet_row_scale(item.get('scale', 1)),
-        })
+        }
+        if layout_format == 'inline':
+            inline_w = _safe_positive_int_or_none(item.get('inlineCellWidth'))
+            inline_h = _safe_positive_int_or_none(item.get('inlineCellHeight'))
+            inline_col = _safe_positive_int_or_none(item.get('colCount'))
+            if not inline_w or not inline_h or not inline_col:
+                raise ValueError(f'rows[{index}] missing inline cell dimensions')
+            row['inline_cell_width'] = int(inline_w)
+            row['inline_cell_height'] = int(inline_h)
+            row['col_count'] = int(inline_col)
+        normalized_rows.append(row)
     if not normalized_rows:
         raise ValueError('rows must include at least one row')
     if len(normalized_rows) > TYPE_IV_PRINT_SHEET_MAX_ROWS:
@@ -1781,7 +1791,7 @@ def get_type_iv_print_sheet_row_metrics(cell_design, scale):
     }
 
 
-def build_type_iv_print_sheet_layout_payload(rows, deck_rows_by_id, definitions_by_id):
+def build_type_iv_print_sheet_layout_payload(rows, deck_rows_by_id, definitions_by_id, layout_format='vertical'):
     """Build persisted custom-sheet layout JSON from builder rows."""
     used_height = 0.0
     layout_rows = []
@@ -1792,34 +1802,61 @@ def build_type_iv_print_sheet_layout_payload(rows, deck_rows_by_id, definitions_
         deck_info = deck_rows_by_id.get(shared_deck_id)
         if not deck_info:
             raise ValueError(f'rows[{index}] references a deck outside this category')
-        definition = definitions_by_id.get(shared_deck_id) or {}
-        cell_design = build_shared_deck_print_cell_design(definition.get('cell_design'))
-        if not cell_design:
-            raise ValueError(
-                f'"{str(deck_info.get("representative_front") or deck_info.get("name") or shared_deck_id)}" '
-                'does not have a saved cell design'
-            )
-        scale = normalize_type_iv_print_sheet_row_scale(row.get('scale', 1))
-        metrics = get_type_iv_print_sheet_row_metrics(cell_design, scale)
-        used_height += metrics['scaled_height']
-        if used_height > float(TYPE_IV_PRINT_SHEET_SAFE_GRID_HEIGHT) + 0.001:
-            raise ValueError('This sheet does not fit on one printable page')
         display_name = str(deck_info.get('representative_front') or deck_info.get('name') or '').strip()
         if not display_name:
             display_name = f'Deck {shared_deck_id}'
-        layout_rows.append({
-            'shared_deck_id': shared_deck_id,
-            'deck_name': display_name,
-            'scale': scale,
-            'col_count': int(metrics['col_count']),
-            'cell_design': cell_design,
-        })
+
+        if layout_format == 'inline':
+            inline_w = int(row.get('inline_cell_width') or 0)
+            inline_h = int(row.get('inline_cell_height') or 0)
+            col_count = int(row.get('col_count') or 0)
+            if inline_w <= 0 or inline_h <= 0 or col_count <= 0:
+                raise ValueError(f'rows[{index}] has invalid inline dimensions')
+            used_height += float(inline_h)
+            if used_height > float(TYPE_IV_PRINT_SHEET_SAFE_GRID_HEIGHT) + 0.001:
+                raise ValueError('This sheet does not fit on one printable page')
+            layout_rows.append({
+                'shared_deck_id': shared_deck_id,
+                'deck_name': display_name,
+                'scale': 1,
+                'col_count': col_count,
+                'cell_design': {
+                    'cell_width': inline_w,
+                    'cell_height': inline_h,
+                    'content_offset_x': 0,
+                    'content_offset_y': 0,
+                    'canvas_version': 0,
+                },
+            })
+        else:
+            definition = definitions_by_id.get(shared_deck_id) or {}
+            cell_design = build_shared_deck_print_cell_design(definition.get('cell_design'))
+            if not cell_design:
+                raise ValueError(
+                    f'"{str(deck_info.get("representative_front") or deck_info.get("name") or shared_deck_id)}" '
+                    'does not have a saved cell design'
+                )
+            scale = normalize_type_iv_print_sheet_row_scale(row.get('scale', 1))
+            metrics = get_type_iv_print_sheet_row_metrics(cell_design, scale)
+            used_height += metrics['scaled_height']
+            if used_height > float(TYPE_IV_PRINT_SHEET_SAFE_GRID_HEIGHT) + 0.001:
+                raise ValueError('This sheet does not fit on one printable page')
+            layout_rows.append({
+                'shared_deck_id': shared_deck_id,
+                'deck_name': display_name,
+                'scale': scale,
+                'col_count': int(metrics['col_count']),
+                'cell_design': cell_design,
+            })
     if not layout_rows:
         raise ValueError('rows must include at least one row')
-    return {
+    result = {
         'version': TYPE_IV_PRINT_SHEET_LAYOUT_VERSION,
         'rows': layout_rows,
     }
+    if layout_format == 'inline':
+        result['layout_format'] = 'inline'
+    return result
 
 
 def build_type_iv_print_sheet_layout(raw_payload):
@@ -1872,10 +1909,14 @@ def build_type_iv_print_sheet_layout(raw_payload):
         })
     if not rows:
         return None
-    return {
+    result = {
         'version': int(payload.get('version') or TYPE_IV_PRINT_SHEET_LAYOUT_VERSION),
         'rows': rows,
     }
+    layout_format = str(payload.get('layout_format') or '').strip().lower()
+    if layout_format and layout_format != 'vertical':
+        result['layout_format'] = layout_format
+    return result
 
 
 def build_type_iv_print_sheet_row_seed(seed_base, row_index, shared_deck_id):
@@ -12958,7 +12999,10 @@ def create_type4_print_sheet(kid_id):
             payload.get('categoryKey') or request.args.get('categoryKey'),
             allow_default=True,
         )
-        requested_rows = normalize_type_iv_print_sheet_rows(payload.get('rows'))
+        layout_format = str(payload.get('layoutFormat') or 'vertical').strip().lower()
+        if layout_format not in ('vertical', 'inline'):
+            layout_format = 'vertical'
+        requested_rows = normalize_type_iv_print_sheet_rows(payload.get('rows'), layout_format=layout_format)
 
         kid_conn = None
         shared_conn = None
@@ -12994,6 +13038,7 @@ def create_type4_print_sheet(kid_id):
                 requested_rows,
                 deck_rows_by_id,
                 definitions_by_id,
+                layout_format=layout_format,
             )
         finally:
             if kid_conn is not None:
@@ -13090,7 +13135,9 @@ def list_type4_print_sheets(kid_id):
                 'created_at': row[6].isoformat() if row[6] else None,
                 'completed_at': row[7].isoformat() if row[7] else None,
             }
-            layout_rows = list((sheet.get('layout') or {}).get('rows') or [])
+            sheet_layout = sheet.get('layout') or {}
+            layout_rows = list(sheet_layout.get('rows') or [])
+            sheet_layout_format = str(sheet_layout.get('layout_format') or 'vertical')
             sheets.append({
                 'id': sheet['id'],
                 'category_key': sheet['category_key'],
@@ -13101,6 +13148,7 @@ def list_type4_print_sheets(kid_id):
                 'completed_at': sheet['completed_at'],
                 'row_count': len(layout_rows),
                 'problem_count': sum(int(item.get('col_count') or 0) for item in layout_rows),
+                'layout_format': sheet_layout_format,
                 'layout_rows': [
                     {
                         'shared_deck_id': int(item.get('shared_deck_id') or 0),
@@ -13187,6 +13235,7 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
                 'problems': problems,
             })
 
+        layout_format = str((sheet.get('layout') or {}).get('layout_format') or 'vertical')
         return jsonify({
             'sheet': {
                 'id': sheet['id'],
@@ -13200,6 +13249,7 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
                 'problem_count': sum(int(row.get('col_count') or 0) for row in rendered_rows),
                 'kid_name': str(kid.get('name') or ''),
                 'layout_rows': rendered_rows,
+                'layout_format': layout_format,
             },
         }), 200
     except ValueError as e:
