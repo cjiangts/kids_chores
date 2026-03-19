@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 COPY . /app
 
 # Create data directory for DuckDB files
-RUN mkdir -p /app/data
+RUN mkdir -p /app/backend/data
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -30,5 +30,5 @@ ENV FLASK_ENV=production
 # Expose port
 EXPOSE 5001
 
-# Run the Flask app
-CMD ["python", "backend/src/app.py"]
+# Run the Flask app with a production WSGI server
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5001} --workers 1 --threads 8 --timeout 120 --access-logfile - --error-logfile - 'src.app:create_app()'"]

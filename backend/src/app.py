@@ -1,10 +1,11 @@
 """Main Flask application"""
 from urllib.parse import quote
-from flask import Flask, send_from_directory, request, redirect, session, jsonify
+from flask import Flask, send_from_directory, request, redirect, session, jsonify, g
 from flask_cors import CORS
 import os
 import secrets
 import shutil
+import time
 
 from src.routes.kids import (
     kids_bp,
@@ -48,6 +49,9 @@ def create_app():
         # Secure by default on Railway/prod; local HTTP dev stays usable.
         session_cookie_secure = bool(os.environ.get('RAILWAY_ENVIRONMENT')) or os.environ.get('FLASK_ENV') == 'production'
     app.config['SESSION_COOKIE_SECURE'] = session_cookie_secure
+    app.config['SLOW_REQUEST_LOG_THRESHOLD_MS'] = float(
+        os.environ.get('SLOW_REQUEST_LOG_THRESHOLD_MS') or 800
+    )
     # Shared user-created decks live in a single DB shared by all families.
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
@@ -98,6 +102,7 @@ def create_app():
 
     @app.before_request
     def enforce_family_auth():
+        g.request_started_at = time.perf_counter()
         path = request.path
         if path == '/health':
             return None
@@ -128,6 +133,30 @@ def create_app():
             return redirect(f"/family-login.html?next={quote(next_path)}")
 
         return None
+
+    @app.after_request
+    def log_slow_requests(response):
+        started_at = getattr(g, 'request_started_at', None)
+        if started_at is None:
+            return response
+        duration_ms = (time.perf_counter() - started_at) * 1000.0
+        threshold_ms = float(app.config.get('SLOW_REQUEST_LOG_THRESHOLD_MS') or 800)
+        should_log = (
+            duration_ms >= threshold_ms
+            or response.status_code >= 500
+            or request.path.startswith('/api/')
+        )
+        if should_log:
+            log_method = app.logger.warning if duration_ms >= threshold_ms or response.status_code >= 500 else app.logger.info
+            log_method(
+                'request completed: method=%s path=%s status=%s duration_ms=%.1f remote=%s',
+                request.method,
+                request.full_path.rstrip('?'),
+                response.status_code,
+                duration_ms,
+                request.headers.get('X-Forwarded-For', request.remote_addr),
+            )
+        return response
 
     # Register blueprints
     app.register_blueprint(kids_bp, url_prefix='/api')
