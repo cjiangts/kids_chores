@@ -21,6 +21,7 @@ from src.routes.badges import badges_bp
 from src.routes.backup import backup_bp
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection
+from src.startup_backfills import drop_legacy_math_practice_sheets_tables
 from src.security_rate_limit import (
     LOGIN_RATE_LIMITER,
     CRITICAL_PASSWORD_RATE_LIMITER,
@@ -55,6 +56,7 @@ def create_app():
     # Shared user-created decks live in a single DB shared by all families.
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
+    drop_legacy_math_practice_sheets_tables(app.logger)
 
     def is_family_authenticated():
         return bool(session.get('family_id'))

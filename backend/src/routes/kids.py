@@ -65,10 +65,10 @@ MAX_TYPE_IV_PRINT_CANVAS_VERSION = 1000
 MAX_TYPE_IV_PRINT_SAMPLE_PROMPT_LENGTH = 500
 MAX_TYPE_IV_PRINT_SAMPLE_ANSWER_LENGTH = 200
 TYPE_IV_PRINT_SHEET_LAYOUT_VERSION = 1
-TYPE_IV_PRINT_SHEET_MAX_ROWS = 24
 TYPE_IV_PRINT_SHEET_MIN_SCALE = 0.5
 TYPE_IV_PRINT_SHEET_MAX_SCALE = 1.7
 TYPE_IV_PRINT_SHEET_MAX_ROW_PROBLEMS = 200
+TYPE_IV_PRINT_SHEET_MAX_REPEAT_COUNT = 1000
 TYPE_IV_PRINT_SHEET_A4_WIDTH = 794
 TYPE_IV_PRINT_SHEET_A4_HEIGHT = 1123
 TYPE_IV_PRINT_SHEET_MARGIN = 19
@@ -661,9 +661,24 @@ def normalize_type_iv_print_sheet_rows(value, layout_format='vertical'):
         normalized_rows.append(row)
     if not normalized_rows:
         raise ValueError('rows must include at least one row')
-    if len(normalized_rows) > TYPE_IV_PRINT_SHEET_MAX_ROWS:
-        raise ValueError(f'rows must contain at most {TYPE_IV_PRINT_SHEET_MAX_ROWS} rows')
     return normalized_rows
+
+
+def normalize_type_iv_print_sheet_repeat_count(value):
+    """Normalize one persisted custom-sheet repeat count."""
+    if value in (None, ''):
+        return 1
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError('repeatCount must be an integer')
+    if parsed < 1:
+        raise ValueError('repeatCount must be at least 1')
+    if parsed > TYPE_IV_PRINT_SHEET_MAX_REPEAT_COUNT:
+        raise ValueError(
+            f'repeatCount must be at most {TYPE_IV_PRINT_SHEET_MAX_REPEAT_COUNT}'
+        )
+    return parsed
 
 
 def get_shared_deck_categories(conn):
@@ -1791,7 +1806,13 @@ def get_type_iv_print_sheet_row_metrics(cell_design, scale):
     }
 
 
-def build_type_iv_print_sheet_layout_payload(rows, deck_rows_by_id, definitions_by_id, layout_format='vertical'):
+def build_type_iv_print_sheet_layout_payload(
+    rows,
+    deck_rows_by_id,
+    definitions_by_id,
+    layout_format='vertical',
+    repeat_count=1,
+):
     """Build persisted custom-sheet layout JSON from builder rows."""
     used_height = 0.0
     layout_rows = []
@@ -1852,6 +1873,7 @@ def build_type_iv_print_sheet_layout_payload(rows, deck_rows_by_id, definitions_
         raise ValueError('rows must include at least one row')
     result = {
         'version': TYPE_IV_PRINT_SHEET_LAYOUT_VERSION,
+        'repeat_count': normalize_type_iv_print_sheet_repeat_count(repeat_count),
         'rows': layout_rows,
     }
     if layout_format == 'inline':
@@ -1909,8 +1931,13 @@ def build_type_iv_print_sheet_layout(raw_payload):
         })
     if not rows:
         return None
+    try:
+        repeat_count = normalize_type_iv_print_sheet_repeat_count(payload.get('repeat_count'))
+    except ValueError:
+        return None
     result = {
         'version': int(payload.get('version') or TYPE_IV_PRINT_SHEET_LAYOUT_VERSION),
+        'repeat_count': repeat_count,
         'rows': rows,
     }
     layout_format = str(payload.get('layout_format') or '').strip().lower()
@@ -1923,6 +1950,49 @@ def build_type_iv_print_sheet_row_seed(seed_base, row_index, shared_deck_id):
     """Derive one deterministic per-row seed from the sheet seed."""
     base = int(seed_base or 0)
     return int((base + ((int(row_index) + 1) * 1_000_003) + (int(shared_deck_id) * 97_307)) % 2_000_000_000)
+
+
+def build_type_iv_print_sheet_display_number(sheet_id, repeat_index=0, repeat_count=1):
+    """Return one user-facing sheet number label, with repeat suffix when needed."""
+    base_id = int(sheet_id or 0)
+    total_repeats = max(1, int(repeat_count or 1))
+    if total_repeats <= 1:
+        return str(base_id)
+    return f'{base_id}.{int(repeat_index) + 1}'
+
+
+def build_type_iv_print_sheet_rendered_rows(layout_rows, definitions_by_id, seed_base):
+    """Render one page of generated math problems from one persisted sheet layout."""
+    rendered_rows = []
+    for index, row in enumerate(layout_rows):
+        shared_deck_id = int(row['shared_deck_id'])
+        definition = definitions_by_id.get(shared_deck_id) or {}
+        generator_code = str(definition.get('code') or '').strip()
+        if not generator_code:
+            raise LookupError(f'Generator definition not found for deck {shared_deck_id}')
+        row_seed = build_type_iv_print_sheet_row_seed(
+            seed_base,
+            index,
+            shared_deck_id,
+        )
+        samples = run_type4_generator(
+            generator_code,
+            sample_count=int(row.get('col_count') or 0),
+            seed_base=row_seed,
+        )
+        problems = [{
+            'prompt': str(sample.get('prompt') or ''),
+            'answer': str(sample.get('answer') or ''),
+        } for sample in samples]
+        rendered_rows.append({
+            'shared_deck_id': shared_deck_id,
+            'deck_name': str(row.get('deck_name') or ''),
+            'scale': float(row.get('scale') or 1),
+            'col_count': int(row.get('col_count') or 0),
+            'cell_design': row.get('cell_design'),
+            'problems': problems,
+        })
+    return rendered_rows
 
 
 def get_type_iv_print_sheet_record(conn, sheet_id):
@@ -1938,10 +2008,12 @@ def get_type_iv_print_sheet_record(conn, sheet_id):
     ).fetchone()
     if not row:
         return None
+    layout = build_type_iv_print_sheet_layout(row[2])
     return {
         'id': int(row[0]),
         'category_key': str(row[1] or '').strip().lower(),
-        'layout': build_type_iv_print_sheet_layout(row[2]),
+        'layout': layout,
+        'repeat_count': int((layout or {}).get('repeat_count') or 1),
         'seed_base': int(row[3] or 0),
         'status': str(row[4] or '').strip().lower(),
         'incorrect_count': int(row[5]) if row[5] is not None else None,
@@ -13002,6 +13074,7 @@ def create_type4_print_sheet(kid_id):
         layout_format = str(payload.get('layoutFormat') or 'vertical').strip().lower()
         if layout_format not in ('vertical', 'inline'):
             layout_format = 'vertical'
+        repeat_count = normalize_type_iv_print_sheet_repeat_count(payload.get('repeatCount'))
         requested_rows = normalize_type_iv_print_sheet_rows(payload.get('rows'), layout_format=layout_format)
 
         kid_conn = None
@@ -13039,6 +13112,7 @@ def create_type4_print_sheet(kid_id):
                 deck_rows_by_id,
                 definitions_by_id,
                 layout_format=layout_format,
+                repeat_count=repeat_count,
             )
         finally:
             if kid_conn is not None:
@@ -13074,6 +13148,7 @@ def create_type4_print_sheet(kid_id):
                 'id': int(sheet_id),
                 'status': 'preview',
                 'category_key': category_key,
+                'repeat_count': repeat_count,
                 'row_count': len(layout_rows),
                 'problem_count': sum(int(row.get('col_count') or 0) for row in layout_rows),
                 'layout_rows': [
@@ -13146,6 +13221,8 @@ def list_type4_print_sheets(kid_id):
                 'incorrect_count': sheet['incorrect_count'],
                 'created_at': sheet['created_at'],
                 'completed_at': sheet['completed_at'],
+                'repeat_count': int(sheet_layout.get('repeat_count') or 1),
+                'page_count': int(sheet_layout.get('repeat_count') or 1),
                 'row_count': len(layout_rows),
                 'problem_count': sum(int(item.get('col_count') or 0) for item in layout_rows),
                 'layout_format': sheet_layout_format,
@@ -13188,6 +13265,10 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
             return jsonify({'error': 'Sheet layout is invalid'}), 500
 
         layout_rows = list(sheet['layout'].get('rows') or [])
+        saved_repeat_count = int((sheet.get('layout') or {}).get('repeat_count') or 1)
+        repeat_count = saved_repeat_count
+        if sheet.get('status') == 'preview' and request.args.get('repeatCount') not in (None, ''):
+            repeat_count = normalize_type_iv_print_sheet_repeat_count(request.args.get('repeatCount'))
         shared_deck_ids = list({
             int(row['shared_deck_id'])
             for row in layout_rows
@@ -13205,36 +13286,42 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
             if shared_conn is not None:
                 shared_conn.close()
 
-        rendered_rows = []
-        for index, row in enumerate(layout_rows):
-            shared_deck_id = int(row['shared_deck_id'])
-            definition = definitions_by_id.get(shared_deck_id) or {}
-            generator_code = str(definition.get('code') or '').strip()
-            if not generator_code:
-                return jsonify({'error': f'Generator definition not found for deck {shared_deck_id}'}), 404
-            row_seed = build_type_iv_print_sheet_row_seed(
-                sheet['seed_base'],
-                index,
-                shared_deck_id,
-            )
-            samples = run_type4_generator(
-                generator_code,
-                sample_count=int(row.get('col_count') or 0),
-                seed_base=row_seed,
-            )
-            problems = [{
-                'prompt': str(sample.get('prompt') or ''),
-                'answer': str(sample.get('answer') or ''),
-            } for sample in samples]
-            rendered_rows.append({
-                'shared_deck_id': shared_deck_id,
-                'deck_name': str(row.get('deck_name') or ''),
-                'scale': float(row.get('scale') or 1),
-                'col_count': int(row.get('col_count') or 0),
-                'cell_design': row.get('cell_design'),
-                'problems': problems,
-            })
+        layout_format = str((sheet.get('layout') or {}).get('layout_format') or 'vertical')
+        kid_name = str(kid.get('name') or '')
+        pages = []
+        try:
+            for repeat_index in range(repeat_count):
+                page_seed_base = int(sheet['seed_base']) + repeat_index
+                rendered_rows = build_type_iv_print_sheet_rendered_rows(
+                    layout_rows,
+                    definitions_by_id,
+                    page_seed_base,
+                )
+                pages.append({
+                    'id': sheet['id'],
+                    'sheet_id': sheet['id'],
+                    'page_index': repeat_index + 1,
+                    'display_sheet_number': build_type_iv_print_sheet_display_number(
+                        sheet['id'],
+                        repeat_index=repeat_index,
+                        repeat_count=repeat_count,
+                    ),
+                    'seed_base': page_seed_base,
+                    'row_count': len(rendered_rows),
+                    'problem_count': sum(int(row.get('col_count') or 0) for row in rendered_rows),
+                    'kid_name': kid_name,
+                    'layout_rows': rendered_rows,
+                    'layout_format': layout_format,
+                })
+        except LookupError as exc:
+            return jsonify({'error': str(exc)}), 404
 
+        first_page = pages[0] if pages else {
+            'display_sheet_number': build_type_iv_print_sheet_display_number(sheet['id']),
+            'row_count': 0,
+            'problem_count': 0,
+            'layout_rows': [],
+        }
         layout_format = str((sheet.get('layout') or {}).get('layout_format') or 'vertical')
         return jsonify({
             'sheet': {
@@ -13245,11 +13332,17 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
                 'incorrect_count': sheet['incorrect_count'],
                 'created_at': sheet['created_at'],
                 'completed_at': sheet['completed_at'],
-                'row_count': len(rendered_rows),
-                'problem_count': sum(int(row.get('col_count') or 0) for row in rendered_rows),
-                'kid_name': str(kid.get('name') or ''),
-                'layout_rows': rendered_rows,
+                'repeat_count': repeat_count,
+                'saved_repeat_count': saved_repeat_count,
+                'page_count': len(pages),
+                'display_sheet_number': str(first_page.get('display_sheet_number') or sheet['id']),
+                'row_count': int(first_page.get('row_count') or 0),
+                'problem_count': int(first_page.get('problem_count') or 0),
+                'total_problem_count': sum(int(page.get('problem_count') or 0) for page in pages),
+                'kid_name': kid_name,
+                'layout_rows': list(first_page.get('layout_rows') or []),
                 'layout_format': layout_format,
+                'pages': pages,
             },
         }), 200
     except ValueError as e:
@@ -13375,27 +13468,40 @@ def finalize_type4_print_sheet(kid_id, sheet_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
+        payload = request.get_json(silent=True) or {}
 
         conn = None
         try:
             conn = get_kid_connection_for(kid)
             row = conn.execute(
-                "SELECT id, status FROM type4_print_sheets WHERE id = ?",
+                "SELECT id, status, layout_json FROM type4_print_sheets WHERE id = ?",
                 [sheet_id],
             ).fetchone()
             if not row:
                 return jsonify({'error': 'Sheet not found'}), 404
             if str(row[1] or '').strip().lower() != 'preview':
                 return jsonify({'error': 'Only preview sheets can be finalized'}), 400
+            layout = build_type_iv_print_sheet_layout(row[2])
+            if not layout:
+                return jsonify({'error': 'Sheet layout is invalid'}), 500
+            repeat_count = normalize_type_iv_print_sheet_repeat_count(
+                payload.get('repeatCount') if payload.get('repeatCount') not in (None, '') else layout.get('repeat_count')
+            )
+            layout['repeat_count'] = repeat_count
+            layout_json = json.dumps(layout, ensure_ascii=False, separators=(',', ':'))
             conn.execute(
-                "UPDATE type4_print_sheets SET status = 'pending' WHERE id = ?",
-                [sheet_id],
+                "UPDATE type4_print_sheets SET status = 'pending', layout_json = ? WHERE id = ?",
+                [layout_json, sheet_id],
             )
         finally:
             if conn is not None:
                 conn.close()
 
-        return jsonify({'sheet_id': int(sheet_id), 'status': 'pending'}), 200
+        return jsonify({
+            'sheet_id': int(sheet_id),
+            'status': 'pending',
+            'repeat_count': repeat_count,
+        }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:

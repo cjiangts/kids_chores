@@ -49,6 +49,32 @@
             flex-wrap: wrap;
         }
 
+        .repeat-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border: 1px solid #d8dfef;
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        .repeat-control label {
+            color: #5b6783;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .repeat-control input {
+            width: 76px;
+            border: 1px solid #c9d4ec;
+            border-radius: 8px;
+            padding: 7px 9px;
+            font: inherit;
+            color: #234b9a;
+            background: #f8fbff;
+        }
+
         .toolbar button,
         .toolbar .toolbar-link {
             border: none;
@@ -303,6 +329,10 @@
                 justify-content: flex-end;
             }
 
+            .repeat-control {
+                margin-left: 0;
+            }
+
             .sheet-preview-wrap {
                 align-items: stretch;
                 padding-bottom: 8px;
@@ -339,6 +369,15 @@
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 6px;
+            }
+
+            .repeat-control {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .repeat-control input {
+                width: 88px;
             }
 
             .toolbar button,
@@ -393,6 +432,13 @@
                 overflow: visible;
                 break-inside: avoid;
                 page-break-inside: avoid;
+                break-after: page;
+                page-break-after: always;
+            }
+
+            .sheet-page:last-child {
+                break-after: auto;
+                page-break-after: auto;
             }
 
             .sheet-meta {
@@ -425,6 +471,10 @@
 <body>
     <div class="toolbar">
         <div class="sheet-title" id="sheetTitle">Math Practice Sheet</div>
+        <div id="repeatControl" class="repeat-control" style="display:none;">
+            <label for="repeatCountInput">Print Sheets</label>
+            <input id="repeatCountInput" type="number" min="1" step="1" value="1" inputmode="numeric">
+        </div>
         <div class="toolbar-actions">
             <button id="showAnswersBtn" type="button" class="secondary">Show Answers</button>
             <button id="regenerateBtn" type="button" class="secondary">Regenerate</button>
@@ -436,14 +486,7 @@
 
     <div id="sheetMeta" class="sheet-meta"></div>
 
-    <div class="sheet-preview-wrap">
-        <div class="sheet-page">
-            <div id="sheetPrintableArea" class="sheet-printable-area">
-                <div id="printHeader" class="print-header"></div>
-                <div id="sheetContent" class="sheet-content"></div>
-            </div>
-        </div>
-    </div>
+    <div id="sheetPreviewWrap" class="sheet-preview-wrap"></div>
 
     <script src="math-sheet-print.js"></script>
 </body>

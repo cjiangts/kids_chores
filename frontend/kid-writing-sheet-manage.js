@@ -104,6 +104,11 @@ function formatDuration(start, end) {
     return `${minutes}m`;
 }
 
+function parseTimestamp(value) {
+    const parsed = new Date(value || '').getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function buildType2ApiUrl(path) {
     return window.DeckCategoryCommon.buildType2ApiUrl({
         kidId, path, categoryKey: activeCategoryKey, apiBase: API_BASE,
@@ -181,7 +186,7 @@ function applyPageMode() {
         if (mathGenerateSection) mathGenerateSection.classList.remove('hidden');
         if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
         if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Sheets';
-        if (sheetHistoryNote) sheetHistoryNote.textContent = 'Preview, print, mark done, or delete saved math sheets here.';
+        if (sheetHistoryNote) sheetHistoryNote.textContent = 'Newest first. Preview, print, mark done, or delete saved math sheets here.';
     } else {
         if (chineseSuggestedSection) chineseSuggestedSection.classList.remove('hidden');
         if (chineseGenerateSection) chineseGenerateSection.classList.remove('hidden');
@@ -361,7 +366,12 @@ function renderChineseSheets(sheets) {
         sheetList.innerHTML = '<article class="sheet-item"><p>No sheets yet.</p></article>';
         return;
     }
-    sheetList.innerHTML = sheets.map((sheet) => {
+    const orderedSheets = [...sheets].sort((a, b) => {
+        const createdDiff = parseTimestamp(b && b.created_at) - parseTimestamp(a && a.created_at);
+        if (createdDiff !== 0) return createdDiff;
+        return (Number.parseInt(b && b.id, 10) || 0) - (Number.parseInt(a && a.id, 10) || 0);
+    });
+    sheetList.innerHTML = orderedSheets.map((sheet) => {
         const sheetId = Number.parseInt(sheet && sheet.id, 10);
         const safeSheetId = Number.isInteger(sheetId) && sheetId > 0 ? sheetId : 0;
         const cards = Array.isArray(sheet && sheet.cards) ? sheet.cards : [];
@@ -423,15 +433,30 @@ async function loadMathPrintConfig() {
             sampleProblem,
         });
     });
-    renderMathBuildInfo();
     updateBuildSheetButton();
 }
 
 function renderMathBuildInfo() {
-    if (!mathBuildInfoEl) return;
     const totalDecks = mathPrintConfigDecks.length;
     const designedDecks = getDesignedMathDecks().length;
-    mathBuildInfoEl.textContent = `${designedDecks} of ${totalDecks} opted-in deck${totalDecks === 1 ? '' : 's'} printable.`;
+    const printableSummary = `${designedDecks} of ${totalDecks} opted-in deck${totalDecks === 1 ? '' : 's'} printable.`;
+    const inlineSummary = `${totalDecks} opted-in deck${totalDecks === 1 ? '' : 's'} available to print inline.`;
+    if (mathBuildInfoEl) {
+        mathBuildInfoEl.textContent = '';
+        mathBuildInfoEl.classList.add('hidden');
+    }
+    if (buildSheetBtn) {
+        buildSheetBtn.innerHTML = `
+            <span class="sheet-build-btn-title">Build Vertical Sheet</span>
+            <span class="sheet-build-btn-meta">${escapeHtml(printableSummary)}</span>
+        `;
+    }
+    if (buildInlineSheetBtn) {
+        buildInlineSheetBtn.innerHTML = `
+            <span class="sheet-build-btn-title">Build Inline Sheet</span>
+            <span class="sheet-build-btn-meta">${escapeHtml(inlineSummary)}</span>
+        `;
+    }
 }
 
 async function loadMathSheets() {
@@ -448,7 +473,12 @@ function renderMathSheets(sheets) {
         sheetList.innerHTML = '<article class="sheet-item"><p>No sheets yet.</p></article>';
         return;
     }
-    sheetList.innerHTML = sheets.map((sheet) => {
+    const orderedSheets = [...sheets].sort((a, b) => {
+        const createdDiff = parseTimestamp(b && b.created_at) - parseTimestamp(a && a.created_at);
+        if (createdDiff !== 0) return createdDiff;
+        return (Number.parseInt(b && b.id, 10) || 0) - (Number.parseInt(a && a.id, 10) || 0);
+    });
+    sheetList.innerHTML = orderedSheets.map((sheet) => {
         const sheetId = Number.parseInt(sheet && sheet.id, 10);
         const safeSheetId = Number.isInteger(sheetId) && sheetId > 0 ? sheetId : 0;
         const status = String(sheet && sheet.status || '').trim().toLowerCase();
@@ -457,6 +487,8 @@ function renderMathSheets(sheets) {
         const isDone = status === 'done';
         const statusClass = isDone ? 'done' : (isPreview ? 'preview' : 'pending');
         const statusLabel = isDone ? 'done' : (isPreview ? 'preview' : 'practicing');
+        const layoutKey = String(sheet && sheet.layout_format || '').trim().toLowerCase() === 'inline' ? 'inline' : 'vertical';
+        const layoutLabel = layoutKey === 'inline' ? 'Inline' : 'Vertical';
         const layoutRows = Array.isArray(sheet && sheet.layout_rows) ? sheet.layout_rows : [];
         const cardTotals = new Map();
         layoutRows.forEach((row) => {
@@ -470,6 +502,10 @@ function renderMathSheets(sheets) {
             ).join('')
             : '<span class="sheet-card-empty">(no rows)</span>';
         const problemCount = Number.parseInt(sheet && sheet.problem_count, 10) || 0;
+        const repeatCount = Math.max(
+            1,
+            Number.parseInt(sheet && (sheet.repeat_count ?? sheet.page_count), 10) || 1,
+        );
         const incorrectCount = Number.isInteger(sheet && sheet.incorrect_count)
             ? Number(sheet.incorrect_count)
             : null;
@@ -494,11 +530,10 @@ function renderMathSheets(sheets) {
         )
             ? `<br>Incorrect: ${incorrectCount} / ${problemCount} · Correct rate: ${Math.round(((problemCount - incorrectCount) / problemCount) * 100)}%`
             : '';
-        const formatLabel = String(sheet.layout_format || '') === 'inline' ? ' (Horizontal)' : '';
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div>Sheet #${safeSheetId}${formatLabel}</div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span></div></div>
-                <div class="sheet-meta">Rows: ${layoutRows.length} · Problems: ${problemCount}<br>Printed: ${escapeHtml(printedDay)}<br>Finished: ${escapeHtml(finishedDay)}<br>Time to finish: ${escapeHtml(finishedIn)}${accuracyLine}</div>
+                <div class="sheet-head"><div class="sheet-head-left"><div>Sheet #${safeSheetId}</div><span class="sheet-layout-tag">${layoutLabel}</span><span class="sheet-problem-tag">${problemCount} problem${problemCount === 1 ? '' : 's'}</span><span class="sheet-repeat-tag">x${repeatCount}</span></div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span></div></div>
+                <div class="sheet-meta">Printed: ${escapeHtml(printedDay)}<br>Finished: ${escapeHtml(finishedDay)}<br>Time to finish: ${escapeHtml(finishedIn)}${accuracyLine}</div>
                 <div class="sheet-cards">${rowPillsHtml}</div>
                 ${actionBtns ? `<div class="sheet-actions ${statusClass}">${actionBtns}</div>` : ''}
             </article>`;
@@ -688,6 +723,7 @@ function getCellDesignOffsets(cellDef) {
 
 function updateBuildSheetButton() {
     if (buildSheetBtn) buildSheetBtn.disabled = cellDesigns.size === 0;
+    renderMathBuildInfo();
     updateBuildInlineSheetButton();
 }
 
@@ -1017,6 +1053,34 @@ function getDesignedMathDecks() {
     return mathPrintConfigDecks.filter((deck) => cellDesigns.has(deck.shared_deck_id));
 }
 
+function getUsedVerticalSheetDeckIds(excludedRowIndex = null) {
+    const usedDeckIds = new Set();
+    sheetRows.forEach((row, index) => {
+        if (!row || !Number.isInteger(row.deckId)) return;
+        if (Number.isInteger(excludedRowIndex) && index === excludedRowIndex) return;
+        usedDeckIds.add(row.deckId);
+    });
+    return usedDeckIds;
+}
+
+function getAvailableVerticalSheetDecks(excludedRowIndex = null) {
+    const usedDeckIds = getUsedVerticalSheetDeckIds(excludedRowIndex);
+    return getDesignedMathDecks().filter((deck) => !usedDeckIds.has(deck.shared_deck_id));
+}
+
+function getUsedInlineSheetDeckIds() {
+    const usedDeckIds = new Set();
+    inlineSheetRows.forEach((row) => {
+        if (row && Number.isInteger(row.deckId)) usedDeckIds.add(row.deckId);
+    });
+    return usedDeckIds;
+}
+
+function getAvailableInlineSheetDecks() {
+    const usedDeckIds = getUsedInlineSheetDeckIds();
+    return mathPrintConfigDecks.filter((deck) => !usedDeckIds.has(deck.shared_deck_id));
+}
+
 function buildSheetRow(deckId, scale = 1) {
     const cellDef = cellDesigns.get(deckId);
     if (!cellDef) return null;
@@ -1065,7 +1129,7 @@ function canUseRowScale(rowIndex, nextScale) {
 }
 
 function canAddAnySheetRow() {
-    return getDesignedMathDecks().some((deck) => {
+    return getAvailableVerticalSheetDecks().some((deck) => {
         const nextRow = buildSheetRow(deck.shared_deck_id, 1);
         if (!nextRow) return false;
         return canFitSheetRows([...sheetRows, nextRow]);
@@ -1163,9 +1227,13 @@ function renderA4Content(scale) {
 function renderSheetBuilderPickerOptions() {
     const optionsEl = document.getElementById('sheetBuilderPickerOptions');
     if (!optionsEl) return;
-    const decks = getDesignedMathDecks();
+    const decks = getAvailableVerticalSheetDecks(sheetBuilderPickerRowIndex);
     if (decks.length === 0) {
-        optionsEl.innerHTML = '<div class="sb-add-row-box sb-empty-box">Design a card first.</div>';
+        optionsEl.innerHTML = `<div class="sb-add-row-box sb-empty-box">${
+            Number.isInteger(sheetBuilderPickerRowIndex)
+                ? 'All other designed cards are already on this sheet.'
+                : 'All designed cards are already on this sheet.'
+        }</div>`;
         return;
     }
     optionsEl.innerHTML = decks.map((deck) => {
@@ -1188,6 +1256,15 @@ function openSheetBuilderPicker(rowIndex) {
         return;
     }
     sheetBuilderPickerRowIndex = Number.isInteger(rowIndex) ? rowIndex : null;
+    const availableDecks = getAvailableVerticalSheetDecks(sheetBuilderPickerRowIndex);
+    if (availableDecks.length === 0) {
+        showMathSheetError(
+            Number.isInteger(sheetBuilderPickerRowIndex)
+                ? 'All other designed cards are already used on this sheet.'
+                : 'All designed cards are already used on this sheet.'
+        );
+        return;
+    }
     titleEl.textContent = Number.isInteger(sheetBuilderPickerRowIndex) ? 'Reselect Card' : 'Choose Card';
     renderSheetBuilderPickerOptions();
     pickerEl.classList.remove('hidden');
@@ -1472,7 +1549,7 @@ function renderInlineA4Content(scale) {
 
     const remainingHeight = BUILDER_SAFE_GRID_H - usedHeight;
     const addRowPreviewHeight = Math.round(remainingHeight * scale);
-    if (remainingHeight >= INLINE_CELL_H && mathPrintConfigDecks.length > 0) {
+    if (remainingHeight >= INLINE_CELL_H && getAvailableInlineSheetDecks().length > 0) {
         html += `<button type="button" class="sb-add-row-box" data-isb-add-row="1" style="height:${Math.max(24, Math.min(addRowPreviewHeight, 70))}px;">Click to choose a deck for a new row</button>`;
     }
 
@@ -1516,7 +1593,13 @@ function openInlineSheetPicker() {
     const el = document.getElementById('inlineSheetPicker');
     const optionsEl = document.getElementById('inlineSheetPickerOptions');
     if (!el || !optionsEl) return;
-    optionsEl.innerHTML = mathPrintConfigDecks.map((deck) => {
+    const availableDecks = getAvailableInlineSheetDecks();
+    if (availableDecks.length === 0) {
+        showMathSheetError('All opted-in decks are already used on this sheet.');
+        optionsEl.innerHTML = '<div class="sb-add-row-box sb-empty-box">All opted-in decks are already on this sheet.</div>';
+        return;
+    }
+    optionsEl.innerHTML = availableDecks.map((deck) => {
         const deckId = deck.shared_deck_id;
         return `<button type="button" class="sb-picker-option" data-isb-picker-deck-id="${deckId}">
             <span class="sb-picker-option-name">${escapeHtml(deck.display_name || deck.name)}</span>

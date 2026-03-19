@@ -1,10 +1,10 @@
 const API_BASE = `${window.location.origin}/api`;
 
 const sheetTitle = document.getElementById('sheetTitle');
-const printHeader = document.getElementById('printHeader');
 const sheetMeta = document.getElementById('sheetMeta');
-const sheetContent = document.getElementById('sheetContent');
-const sheetPrintableArea = document.getElementById('sheetPrintableArea');
+const sheetPreviewWrap = document.getElementById('sheetPreviewWrap');
+const repeatControl = document.getElementById('repeatControl');
+const repeatCountInput = document.getElementById('repeatCountInput');
 const regenerateBtn = document.getElementById('regenerateBtn');
 const finalizeBtn = document.getElementById('finalizeBtn');
 const printBtn = document.getElementById('printBtn');
@@ -17,10 +17,11 @@ const sheetId = parseInt(params.get('sheet') || '0', 10);
 const fromContext = (params.get('from') || '').toLowerCase();
 const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 const isFromManage = fromContext === 'worksheets';
+const initialRepeatCount = Number.parseInt(params.get('repeatCount') || '', 10);
 
 let currentSheetStatus = '';
-let currentRenderedCanvas = null;
 let currentSheetData = null;
+let currentRepeatCount = Number.isInteger(initialRepeatCount) && initialRepeatCount > 0 ? initialRepeatCount : 1;
 let showAnswers = false;
 const PAGE_BOX_WIDTH = 688;
 const PAGE_BOX_HEIGHT = 1017;
@@ -43,6 +44,36 @@ function buildType4ApiUrl(path) {
     if (categoryKey) qs.set('categoryKey', categoryKey);
     const suffix = qs.toString();
     return `${API_BASE}/kids/${encodeURIComponent(kidId)}${path}${suffix ? `?${suffix}` : ''}`;
+}
+
+function buildSheetDetailsUrl(repeatCountOverride) {
+    const url = new URL(buildType4ApiUrl(`/type4/math-sheets/${sheetId}`));
+    const normalized = Number.parseInt(repeatCountOverride, 10);
+    if (Number.isInteger(normalized) && normalized > 0) {
+        url.searchParams.set('repeatCount', String(normalized));
+    } else {
+        url.searchParams.delete('repeatCount');
+    }
+    return url.toString();
+}
+
+function syncRepeatCountUrl() {
+    const url = new URL(window.location.href);
+    if (currentRepeatCount > 1) {
+        url.searchParams.set('repeatCount', String(currentRepeatCount));
+    } else {
+        url.searchParams.delete('repeatCount');
+    }
+    window.history.replaceState({}, '', url.toString());
+}
+
+function setRepeatCountValue(value) {
+    const parsed = Number.parseInt(value, 10);
+    currentRepeatCount = Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+    if (repeatCountInput) {
+        repeatCountInput.value = String(currentRepeatCount);
+    }
+    syncRepeatCountUrl();
 }
 
 function goBack() {
@@ -136,6 +167,9 @@ function updateToolbarButtons(status) {
     const isPreview = status === 'preview';
     if (regenerateBtn) regenerateBtn.style.display = (isFromManage && isPreview) ? '' : 'none';
     if (finalizeBtn) finalizeBtn.style.display = (isFromManage && isPreview) ? '' : 'none';
+    if (printBtn) printBtn.style.display = isPreview ? 'none' : '';
+    if (repeatControl) repeatControl.style.display = isPreview ? '' : 'none';
+    if (repeatCountInput) repeatCountInput.disabled = !isPreview;
 }
 
 function createSheetCanvas(sheet, withAnswers) {
@@ -186,10 +220,13 @@ function drawSheetHeader(ctx, sheet) {
     ctx.font = `${HEADER_FONT_SIZE}px ${HEADER_FONT_FAMILY}`;
     ctx.textBaseline = 'alphabetic';
     const kidName = String((sheet && sheet.kid_name) || '').trim();
+    const displaySheetNumber = String(
+        (sheet && (sheet.display_sheet_number || sheet.id || '')) || ''
+    ).trim();
     ctx.textAlign = 'left';
     ctx.fillText(`Name: ${kidName || '________'}`, 2, HEADER_FONT_SIZE);
     ctx.textAlign = 'right';
-    ctx.fillText(`Sheet #${sheet.id}`, PAGE_BOX_WIDTH - 2, HEADER_FONT_SIZE);
+    ctx.fillText(`Sheet #${displaySheetNumber || '___'}`, PAGE_BOX_WIDTH - 2, HEADER_FONT_SIZE);
 
     const cardInfo = buildCardInfoText(sheet && sheet.layout_rows);
     if (cardInfo) {
@@ -431,22 +468,46 @@ function drawAnswer(ctx, problem, cellX, cellY, cellWidth, cellHeight, scale) {
     ctx.restore();
 }
 
+function renderSheetPreview(sheet) {
+    if (!sheetPreviewWrap) return;
+    const pages = Array.isArray(sheet && sheet.pages) && sheet.pages.length > 0
+        ? sheet.pages
+        : (sheet ? [sheet] : []);
+    if (pages.length === 0) {
+        sheetPreviewWrap.innerHTML = '<p class="error">Sheet has no pages to render.</p>';
+        return;
+    }
+    sheetPreviewWrap.innerHTML = '';
+    pages.forEach((page) => {
+        const pageEl = document.createElement('div');
+        pageEl.className = 'sheet-page';
+        const contentEl = document.createElement('div');
+        contentEl.className = 'sheet-content';
+        contentEl.appendChild(createSheetCanvas(page, showAnswers));
+        pageEl.appendChild(contentEl);
+        sheetPreviewWrap.appendChild(pageEl);
+    });
+}
+
 function rerenderCanvas() {
-    if (!currentSheetData || !sheetContent) return;
-    sheetContent.innerHTML = '';
-    currentRenderedCanvas = createSheetCanvas(currentSheetData, showAnswers);
-    sheetContent.appendChild(currentRenderedCanvas);
+    if (!currentSheetData) return;
+    renderSheetPreview(currentSheetData);
 }
 
 async function loadAndRender() {
     if (!kidId || !sheetId) {
-        sheetContent.innerHTML = '<p class="error">Missing kid or sheet id.</p>';
+        if (sheetPreviewWrap) {
+            sheetPreviewWrap.innerHTML = '<p class="error">Missing kid or sheet id.</p>';
+        }
         return;
     }
     if (printBtn) printBtn.disabled = true;
-    sheetContent.innerHTML = '<p>Loading...</p>';
+    if (repeatCountInput) repeatCountInput.disabled = true;
+    if (sheetPreviewWrap) {
+        sheetPreviewWrap.innerHTML = '<p>Loading...</p>';
+    }
     try {
-        const payload = await fetchJson(buildType4ApiUrl(`/type4/math-sheets/${sheetId}`));
+        const payload = await fetchJson(buildSheetDetailsUrl(currentRepeatCount));
         const sheet = payload && payload.sheet ? payload.sheet : null;
         if (!sheet) {
             throw new Error('Sheet not found');
@@ -457,6 +518,7 @@ async function loadAndRender() {
             if (showAnswersBtn) showAnswersBtn.textContent = 'Hide Answers';
         }
         updateToolbarButtons(currentSheetStatus);
+        setRepeatCountValue(sheet.repeat_count);
 
         if (sheetTitle) {
             sheetTitle.textContent = currentSheetStatus === 'preview'
@@ -465,20 +527,28 @@ async function loadAndRender() {
         }
         if (sheetMeta) {
             const label = currentSheetStatus === 'preview' ? 'Preview' : (currentSheetStatus === 'done' ? 'Done' : 'Ready to print');
-            sheetMeta.textContent = `${label} · ${sheet.problem_count || 0} problems · ${sheet.row_count || 0} rows`;
+            const pageCount = Math.max(1, Number.parseInt(sheet.page_count, 10) || 1);
+            if (pageCount > 1) {
+                const totalProblemCount = Math.max(
+                    Number.parseInt(sheet.total_problem_count, 10) || 0,
+                    (Number.parseInt(sheet.problem_count, 10) || 0) * pageCount,
+                );
+                sheetMeta.textContent = `${label} · ${pageCount} pages · ${sheet.problem_count || 0} problems/page · ${totalProblemCount} total`;
+            } else {
+                sheetMeta.textContent = `${label} · ${sheet.problem_count || 0} problems · ${sheet.row_count || 0} rows`;
+            }
         }
         currentSheetData = sheet;
-        if (sheetContent) {
-            sheetContent.innerHTML = '';
-            currentRenderedCanvas = createSheetCanvas(sheet, showAnswers);
-            sheetContent.appendChild(currentRenderedCanvas);
-        }
+        renderSheetPreview(sheet);
     } catch (error) {
         console.error('Error loading math sheet:', error);
-        currentRenderedCanvas = null;
-        sheetContent.innerHTML = `<p class="error">${escapeHtml(error.message || 'Failed to load sheet.')}</p>`;
+        currentSheetData = null;
+        if (sheetPreviewWrap) {
+            sheetPreviewWrap.innerHTML = `<p class="error">${escapeHtml(error.message || 'Failed to load sheet.')}</p>`;
+        }
     } finally {
         if (printBtn) printBtn.disabled = false;
+        updateToolbarButtons(currentSheetStatus);
     }
 }
 
@@ -516,7 +586,7 @@ async function handleFinalize() {
         await fetchJson(buildType4ApiUrl(`/type4/math-sheets/${sheetId}/finalize`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
+            body: JSON.stringify({ repeatCount: currentRepeatCount }),
         });
         await loadAndRender();
     } catch (error) {
@@ -528,6 +598,18 @@ async function handleFinalize() {
             finalizeBtn.textContent = 'Finalize';
         }
     }
+}
+
+async function handleRepeatCountChange() {
+    if (currentSheetStatus !== 'preview') return;
+    const nextValue = Number.parseInt(repeatCountInput && repeatCountInput.value, 10);
+    const nextRepeatCount = Number.isInteger(nextValue) && nextValue > 0 ? nextValue : 1;
+    if (nextRepeatCount === currentRepeatCount) {
+        setRepeatCountValue(currentRepeatCount);
+        return;
+    }
+    setRepeatCountValue(nextRepeatCount);
+    await loadAndRender();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -548,6 +630,12 @@ document.addEventListener('DOMContentLoaded', () => {
             showAnswers = !showAnswers;
             showAnswersBtn.textContent = showAnswers ? 'Hide Answers' : 'Show Answers';
             rerenderCanvas();
+        });
+    }
+    if (repeatCountInput) {
+        repeatCountInput.value = String(currentRepeatCount);
+        repeatCountInput.addEventListener('change', () => {
+            void handleRepeatCountChange();
         });
     }
     if (regenerateBtn) {

@@ -89,6 +89,37 @@
             color: #47628f;
         }
 
+        .sheet-build-actions {
+            margin-top: 0.8rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .sheet-build-actions .settings-save-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            flex: 1 1 260px;
+            min-width: 0;
+            white-space: normal;
+            text-align: left;
+            line-height: 1.25;
+        }
+
+        .sheet-build-btn-title {
+            display: block;
+            font-weight: 600;
+        }
+
+        .sheet-build-btn-meta {
+            display: block;
+            margin-top: 0.18rem;
+            font-size: 0.84rem;
+            color: #5872a8;
+        }
+
         .sheet-manage-btn {
             border: 1px solid #b9cdf9;
             background: #eef3ff;
@@ -225,6 +256,13 @@
             margin-bottom: 0.5rem;
         }
 
+        .sheet-head-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
         .sheet-head-right {
             display: inline-flex;
             align-items: center;
@@ -251,6 +289,33 @@
         .status.preview {
             background: #e0e7ff;
             color: #3b4c99;
+        }
+
+        .sheet-layout-tag {
+            font-size: 0.82rem;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.2rem 0.55rem;
+            background: #edf2ff;
+            color: #2f59a7;
+        }
+
+        .sheet-problem-tag {
+            font-size: 0.82rem;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.2rem 0.55rem;
+            background: #fff0d6;
+            color: #8a5400;
+        }
+
+        .sheet-repeat-tag {
+            font-size: 0.82rem;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.2rem 0.55rem;
+            background: #e3f7ef;
+            color: #176746;
         }
 
         .sheet-cards {
@@ -853,10 +918,10 @@
                 <div class="sheet-subgroup-head">
                     <h3>Build Math Sheet</h3>
                 </div>
-                <p id="mathBuildInfo" class="sheet-subgroup-note"></p>
-                <div style="margin-top:0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-                    <button type="button" id="buildSheetBtn" class="settings-save-btn" disabled>Build Sheet</button>
-                    <button type="button" id="buildInlineSheetBtn" class="settings-save-btn" disabled>Build Horizontal Sheet</button>
+                <p id="mathBuildInfo" class="sheet-subgroup-note hidden"></p>
+                <div class="sheet-build-actions">
+                    <button type="button" id="buildSheetBtn" class="settings-save-btn" disabled>Build Vertical Sheet</button>
+                    <button type="button" id="buildInlineSheetBtn" class="settings-save-btn" disabled>Build Inline Sheet</button>
                 </div>
                 <div id="mathSheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
             </div>
@@ -913,7 +978,7 @@
     <div id="sheetBuilderModal" class="modal hidden" aria-hidden="true">
         <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 15px); padding:0.5rem 0.8rem; display:flex; flex-direction:column; overflow:hidden;">
             <div style="display:flex; align-items:baseline; gap:0.6rem; margin:0 0 0.3rem;">
-                <h2 style="margin:0;">Build Sheet</h2>
+                <h2 style="margin:0;">Build Vertical Sheet</h2>
                 <span id="sheetBuilderQuestionCount" style="font-size:0.88rem; color:#666;"></span>
             </div>
             <div style="flex:1; min-height:0; overflow:auto; position:relative;">
@@ -942,7 +1007,7 @@
     <div id="inlineSheetBuilderModal" class="modal hidden" aria-hidden="true">
         <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 15px); padding:0.5rem 0.8rem; display:flex; flex-direction:column; overflow:hidden;">
             <div style="display:flex; align-items:baseline; gap:0.6rem; margin:0 0 0.3rem;">
-                <h2 style="margin:0;">Build Horizontal Sheet</h2>
+                <h2 style="margin:0;">Build Inline Sheet</h2>
                 <span id="inlineSheetQuestionCount" style="font-size:0.88rem; color:#666;"></span>
             </div>
             <div style="flex:1; min-height:0; overflow:auto; position:relative;">
