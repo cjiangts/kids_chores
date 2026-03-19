@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "gunicorn --bind 0.0.0.0:${PORT:-5001} --workers 1 --threads 8 --timeout 120 --access-logfile - --error-logfile - 'src.app:create_app()'",
+    "startCommand": "sh -c 'gunicorn --bind 0.0.0.0:${PORT:-5001} --workers 1 --threads 8 --timeout 120 --access-logfile - --error-logfile - \"src.app:create_app()\"'",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
