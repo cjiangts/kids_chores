@@ -602,19 +602,14 @@ let sheetBuilderPickerRowIndex = null;
 let _cellDesignDeckId = 0;
 let _cellDesignDeckName = '';
 let _cellDesignSample = null;
-
-const A4_W = 794;
-const A4_H = 1123;
-const A4_MARGIN = 19;
-const A4_GRID_W = A4_W - 2 * A4_MARGIN;
-const A4_GRID_H = A4_H - 2 * A4_MARGIN;
-const A4_EXTRA_SAFE_MARGIN = 34;
-const A4_SAFE_BOX_W = A4_GRID_W - (2 * A4_EXTRA_SAFE_MARGIN);
-const A4_SAFE_BOX_H = A4_GRID_H - (2 * A4_EXTRA_SAFE_MARGIN);
-const A4_HEADER_H = 24;
-const BUILDER_GRID_H = A4_SAFE_BOX_H - A4_HEADER_H;
+const DEFAULT_MATH_PAPER_SIZE = 'letter';
+const PRINTABLE_AREA_DEBUG_BORDER_INSET = 2;
+const PAPER_MARGIN = 19;
+const PAPER_EXTRA_SAFE_MARGIN_X = 34;
+const PAPER_EXTRA_SAFE_MARGIN_TOP = 42;
+const PAPER_EXTRA_SAFE_MARGIN_BOTTOM = 42;
+const PAPER_HEADER_HEIGHT = 24;
 const PRINT_FIT_SAFETY_PX = 12;
-const BUILDER_SAFE_GRID_H = BUILDER_GRID_H - PRINT_FIT_SAFETY_PX;
 const MIN_CELL_DESIGN_W = 90;
 const MIN_CELL_DESIGN_H = 72;
 const DEFAULT_CELL_CONTENT_X = 0;
@@ -628,8 +623,67 @@ const CELL_DESIGN_MIN_BOTTOM_PAD = 6;
 const MIN_ROW_SCALE = 0.5;
 const MAX_ROW_SCALE = 1.7;
 const ROW_SCALE_STEP = 0.1;
+const PAPER_SPECS = Object.freeze({
+    letter: buildMathPaperSpec('letter', 816, 1056, '8.5 x 11 (US Letter)'),
+    a4: buildMathPaperSpec('a4', 794, 1123, '8.27 x 11.69 (A4)'),
+});
+
+let currentMathPaperSize = DEFAULT_MATH_PAPER_SIZE;
 
 const buildSheetBtn = document.getElementById('buildSheetBtn');
+const sheetBuilderPaperSizeSelect = document.getElementById('sheetBuilderPaperSize');
+const inlineSheetPaperSizeSelect = document.getElementById('inlineSheetPaperSize');
+
+function buildMathPaperSpec(key, pageWidth, pageHeight, label) {
+    const gridWidth = pageWidth - (2 * PAPER_MARGIN);
+    const gridHeight = pageHeight - (2 * PAPER_MARGIN);
+    const boxWidth = gridWidth - (2 * PAPER_EXTRA_SAFE_MARGIN_X);
+    const boxHeight = gridHeight - PAPER_EXTRA_SAFE_MARGIN_TOP - PAPER_EXTRA_SAFE_MARGIN_BOTTOM;
+    const builderGridHeight = boxHeight - PAPER_HEADER_HEIGHT;
+    return Object.freeze({
+        key,
+        label,
+        pageWidth,
+        pageHeight,
+        margin: PAPER_MARGIN,
+        extraSafeMarginX: PAPER_EXTRA_SAFE_MARGIN_X,
+        extraSafeMarginTop: PAPER_EXTRA_SAFE_MARGIN_TOP,
+        extraSafeMarginBottom: PAPER_EXTRA_SAFE_MARGIN_BOTTOM,
+        headerHeight: PAPER_HEADER_HEIGHT,
+        safeBoxWidth: boxWidth,
+        safeBoxHeight: boxHeight,
+        builderGridHeight,
+        builderSafeGridHeight: builderGridHeight - PRINT_FIT_SAFETY_PX,
+    });
+}
+
+function normalizeMathPaperSize(value, fallback = DEFAULT_MATH_PAPER_SIZE) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (raw === 'letter' || raw === 'us-letter' || raw === 'us_letter' || raw === 'us letter') {
+        return 'letter';
+    }
+    if (raw === 'a4') {
+        return 'a4';
+    }
+    return String(fallback || DEFAULT_MATH_PAPER_SIZE);
+}
+
+function getMathPaperSpec(paperSize = currentMathPaperSize, fallback = DEFAULT_MATH_PAPER_SIZE) {
+    const key = normalizeMathPaperSize(paperSize, fallback);
+    return PAPER_SPECS[key] || PAPER_SPECS[DEFAULT_MATH_PAPER_SIZE];
+}
+
+function syncMathPaperSizeSelects() {
+    if (sheetBuilderPaperSizeSelect) sheetBuilderPaperSizeSelect.value = currentMathPaperSize;
+    if (inlineSheetPaperSizeSelect) inlineSheetPaperSizeSelect.value = currentMathPaperSize;
+}
+
+function applyBuilderPageFrame(pageEl, scale, paperSize = currentMathPaperSize) {
+    if (!pageEl) return;
+    const paperSpec = getMathPaperSpec(paperSize);
+    pageEl.style.width = Math.round(paperSpec.pageWidth * scale) + 'px';
+    pageEl.style.height = Math.round(paperSpec.pageHeight * scale) + 'px';
+}
 
 /* ── Vertical cell rendering ── */
 
@@ -1035,10 +1089,11 @@ async function saveCellDesign() {
 
 /* ── Sheet Builder ── */
 
-function computeA4Scale() {
+function computeSheetPreviewScale(paperSize = currentMathPaperSize) {
+    const paperSpec = getMathPaperSpec(paperSize);
     const maxW = Math.min(window.innerWidth - 120, 780);
     const maxH = window.innerHeight - 200;
-    return Math.min(maxW / A4_W, maxH / A4_H, 0.6);
+    return Math.min(maxW / paperSpec.pageWidth, maxH / paperSpec.pageHeight, 0.6);
 }
 
 function roundRowScale(scale) {
@@ -1097,10 +1152,11 @@ function getSheetRowMetrics(row) {
     if (!row || !row.cellDef) {
         return { scale: 1, cellWidth: 0, cellHeight: 0, colCount: 1, rowWidth: 0 };
     }
+    const paperSpec = getMathPaperSpec();
     const scale = clampRowScale(row.scale || 1);
     const cellWidth = Math.ceil(row.cellDef.cellWidth * scale);
     const cellHeight = Math.ceil(row.cellDef.cellHeight * scale);
-    const colCount = Math.max(1, Math.floor(A4_SAFE_BOX_W / cellWidth));
+    const colCount = Math.max(1, Math.floor(paperSpec.safeBoxWidth / cellWidth));
     return {
         scale,
         cellWidth,
@@ -1115,7 +1171,7 @@ function getSheetRowsHeight(rows = sheetRows) {
 }
 
 function canFitSheetRows(rows) {
-    return getSheetRowsHeight(rows) <= BUILDER_SAFE_GRID_H;
+    return getSheetRowsHeight(rows) <= getMathPaperSpec().builderSafeGridHeight;
 }
 
 function canUseRowScale(rowIndex, nextScale) {
@@ -1155,29 +1211,54 @@ function renderSheetBuilderCell(problem, cellDef, totalScale) {
 function getRowScaleLabel(scale) {
     return `${Math.round(scale * 100)}%`;
 }
-function renderA4Content(scale) {
+
+function buildBuilderDeckSummaryText(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return '';
+    const names = [];
+    const seen = new Set();
+    rows.forEach((row) => {
+        const name = String(row && row.deckName || '').trim();
+        if (!name || seen.has(name)) return;
+        seen.add(name);
+        names.push(name);
+    });
+    return names.join(' · ');
+}
+
+function renderSheetBuilderContent(scale) {
     const a4El = document.getElementById('sheetBuilderA4');
     if (!a4El) return;
-    const marginPx = Math.round(A4_MARGIN * scale);
-    const safeMarginPx = Math.round(A4_EXTRA_SAFE_MARGIN * scale);
-    const gridWidthPx = Math.round(A4_SAFE_BOX_W * scale);
-    const headerHeightPx = Math.round(A4_HEADER_H * scale);
-    const contentLeftPx = marginPx + safeMarginPx;
-    const contentTopPx = marginPx + safeMarginPx;
+    const paperSpec = getMathPaperSpec();
+    const marginPx = Math.round(paperSpec.margin * scale);
+    const safeMarginXPx = Math.round(paperSpec.extraSafeMarginX * scale);
+    const safeMarginTopPx = Math.round(paperSpec.extraSafeMarginTop * scale);
+    const safeMarginBottomPx = Math.round(paperSpec.extraSafeMarginBottom * scale);
+    const gridWidthPx = Math.round(paperSpec.safeBoxWidth * scale);
+    const headerHeightPx = Math.round(paperSpec.headerHeight * scale);
+    const contentLeftPx = marginPx + safeMarginXPx;
+    const contentTopPx = marginPx + safeMarginTopPx;
     const gridTopPx = contentTopPx + headerHeightPx;
-    const gridHeightPx = Math.round(BUILDER_GRID_H * scale);
+    const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
+    const printableHeightPx = Math.round(paperSpec.safeBoxHeight * scale);
+    const borderInsetPx = Math.round(PRINTABLE_AREA_DEBUG_BORDER_INSET * scale);
+    const headerFontPx = Math.max(10, Math.round(12 * scale));
+    const headerDeckFontPx = Math.max(9, Math.round(11 * scale));
+    const deckSummaryText = buildBuilderDeckSummaryText(sheetRows);
 
     let html = '';
     html += `<div class="sb-margin" style="top:0;left:0;right:0;height:${marginPx}px;"></div>`;
     html += `<div class="sb-margin" style="bottom:0;left:0;right:0;height:${marginPx}px;"></div>`;
     html += `<div class="sb-margin" style="top:${marginPx}px;left:0;width:${marginPx}px;bottom:${marginPx}px;"></div>`;
     html += `<div class="sb-margin" style="top:${marginPx}px;right:0;width:${marginPx}px;bottom:${marginPx}px;"></div>`;
-    html += `<div class="sb-safe-margin" style="top:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginPx}px;"></div>`;
-    html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginPx}px;"></div>`;
-    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginPx}px;left:${marginPx}px;width:${safeMarginPx}px;bottom:${marginPx + safeMarginPx}px;"></div>`;
-    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginPx}px;right:${marginPx}px;width:${safeMarginPx}px;bottom:${marginPx + safeMarginPx}px;"></div>`;
-    html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;font-size:${Math.max(8, Math.round(10 * scale))}px;line-height:${headerHeightPx}px;">`;
-    html += '<span>Name: ________</span><span>Sheet #___</span>';
+    html += `<div class="sb-safe-margin" style="top:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginTopPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;left:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-printable-border" style="top:${contentTopPx + borderInsetPx}px;left:${contentLeftPx + borderInsetPx}px;width:${Math.max(1, gridWidthPx - (2 * borderInsetPx))}px;height:${Math.max(1, printableHeightPx - (2 * borderInsetPx))}px;"></div>`;
+    html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
+    html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
+    html += `<span class="sb-header-decks" style="font-size:${headerDeckFontPx}px;" title="${escapeHtml(deckSummaryText)}">${escapeHtml(deckSummaryText)}</span>`;
+    html += `<span class="sb-header-sheetno" style="font-size:${headerFontPx}px;">Sheet #___</span>`;
     html += '</div>';
     html += `<div id="sheetBuilderGridArea" class="sb-grid-area" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
 
@@ -1208,7 +1289,7 @@ function renderA4Content(scale) {
         usedHeight += metrics.cellHeight;
     });
 
-    const remainingHeight = BUILDER_SAFE_GRID_H - usedHeight;
+    const remainingHeight = paperSpec.builderSafeGridHeight - usedHeight;
     const addRowPreviewHeight = Math.round(remainingHeight * scale);
     if (remainingHeight >= 48 && canAddAnySheetRow()) {
         html += `<button type="button" class="sb-add-row-box" data-sb-add-row="1" style="height:${Math.max(24, Math.min(addRowPreviewHeight, 70))}px;">Click to choose a card for a new row</button>`;
@@ -1289,7 +1370,7 @@ function addSheetRow(deckId) {
     }
     showMathSheetError('');
     sheetRows = nextRows;
-    renderA4Content(currentSheetScale);
+    renderSheetBuilderContent(currentSheetScale);
     return true;
 }
 
@@ -1304,7 +1385,7 @@ function replaceSheetRowDeck(rowIndex, deckId) {
         if (canFitSheetRows(nextRows)) {
             showMathSheetError('');
             sheetRows = nextRows;
-            renderA4Content(currentSheetScale);
+            renderSheetBuilderContent(currentSheetScale);
             return true;
         }
     }
@@ -1328,7 +1409,7 @@ function updateSheetRowScale(rowIndex, direction) {
             sheetRows[i] = Object.assign({}, sheetRows[i], { scale: nextScale });
         }
     }
-    renderA4Content(currentSheetScale);
+    renderSheetBuilderContent(currentSheetScale);
 }
 
 function duplicateSheetRow(rowIndex) {
@@ -1345,14 +1426,14 @@ function duplicateSheetRow(rowIndex) {
     }
     showMathSheetError('');
     sheetRows = nextRows;
-    renderA4Content(currentSheetScale);
+    renderSheetBuilderContent(currentSheetScale);
 }
 
 function removeSheetRow(rowIndex) {
     if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= sheetRows.length) return;
     showMathSheetError('');
     sheetRows.splice(rowIndex, 1);
-    renderA4Content(currentSheetScale);
+    renderSheetBuilderContent(currentSheetScale);
 }
 
 function handleSheetBuilderDeckChoice(deckId) {
@@ -1367,13 +1448,13 @@ function openSheetBuilder() {
         showMathSheetError('Design at least one printable cell in deck view before building a sheet.');
         return;
     }
-    currentSheetScale = computeA4Scale();
+    syncMathPaperSizeSelects();
+    currentSheetScale = computeSheetPreviewScale();
     sheetRows = [];
     showMathSheetError('');
     const a4El = document.getElementById('sheetBuilderA4');
-    a4El.style.width = Math.round(A4_W * currentSheetScale) + 'px';
-    a4El.style.height = Math.round(A4_H * currentSheetScale) + 'px';
-    renderA4Content(currentSheetScale);
+    applyBuilderPageFrame(a4El, currentSheetScale);
+    renderSheetBuilderContent(currentSheetScale);
     closeSheetBuilderPicker();
     document.getElementById('sheetBuilderModal').classList.remove('hidden');
     document.body.classList.add('modal-open');
@@ -1383,6 +1464,31 @@ function closeSheetBuilder() {
     closeSheetBuilderPicker();
     document.getElementById('sheetBuilderModal').classList.add('hidden');
     document.body.classList.remove('modal-open');
+}
+
+function handleMathPaperSizeChange(nextPaperSize) {
+    currentMathPaperSize = normalizeMathPaperSize(nextPaperSize);
+    syncMathPaperSizeSelects();
+    let nextError = '';
+
+    const verticalModal = document.getElementById('sheetBuilderModal');
+    if (verticalModal && !verticalModal.classList.contains('hidden')) {
+        currentSheetScale = computeSheetPreviewScale();
+        applyBuilderPageFrame(document.getElementById('sheetBuilderA4'), currentSheetScale);
+        renderSheetBuilderContent(currentSheetScale);
+        if (sheetRows.length > 0 && !canFitSheetRows(sheetRows)) {
+            nextError = 'Current vertical layout no longer fits on the selected paper size.';
+        }
+    }
+
+    const inlineModal = document.getElementById('inlineSheetBuilderModal');
+    if (inlineModal && !inlineModal.classList.contains('hidden')) {
+        currentInlineSheetScale = computeSheetPreviewScale();
+        applyBuilderPageFrame(document.getElementById('inlineSheetA4'), currentInlineSheetScale);
+        renderInlineSheetBuilderContent(currentInlineSheetScale);
+    }
+
+    showMathSheetError(nextError);
 }
 
 /* ── Save from Sheet Builder ── */
@@ -1427,6 +1533,7 @@ async function saveSheetFromBuilder() {
                     sharedDeckId: row.deckId,
                     scale: clampRowScale(row.scale || 1),
                 })),
+                paperSize: currentMathPaperSize,
                 categoryKey: activeCategoryKey,
             }),
         });
@@ -1450,60 +1557,160 @@ let currentInlineSheetScale = 0.5;
 let inlineSheetPickerRowIndex = null;
 
 const INLINE_FONT_SIZE = 14;
+const INLINE_MIN_FONT_SCALE = 0.8;
+const INLINE_MAX_FONT_SCALE = 3.0;
+const INLINE_FONT_SCALE_STEP = 0.1;
 const INLINE_LINE_HEIGHT = 1.4;
 const INLINE_CELL_H = Math.ceil(INLINE_FONT_SIZE * INLINE_LINE_HEIGHT) + 4;
 const INLINE_CHAR_W = INLINE_FONT_SIZE * 0.6;
 const INLINE_CELL_PAD = 6;
 
-function getInlineCellWidth(problem) {
+function roundInlineFontScale(scale) {
+    return Math.round(scale * 10) / 10;
+}
+
+function clampInlineFontScale(scale) {
+    return Math.min(INLINE_MAX_FONT_SCALE, Math.max(INLINE_MIN_FONT_SCALE, roundInlineFontScale(scale)));
+}
+
+function getInlineFontScaleLabel(scale) {
+    return `${Math.round(clampInlineFontScale(scale) * 100)}%`;
+}
+
+function getInlineCellWidth(problem, fontScale = 1) {
     const prompt = String((problem && problem.prompt) || '').replace(/\s*=\s*[?？_\s]*$/, '').trim();
     const answer = String((problem && problem.answer) || '').trim();
+    const effectiveScale = clampInlineFontScale(fontScale);
+    const charWidth = INLINE_CHAR_W * effectiveScale;
+    const cellPad = Math.max(4, Math.round(INLINE_CELL_PAD * effectiveScale));
     // Tighter spacing: strip original spaces, add ~0.5 char gap per operator gap
     const compactLen = prompt.replace(/\s+/g, '').length + 2; // operators + digits + " ="
     const answerSpace = Math.max(5, answer.length + 3); // more room for writing
-    return Math.ceil((compactLen + answerSpace) * INLINE_CHAR_W + INLINE_CELL_PAD * 2);
+    return Math.ceil((compactLen + answerSpace) * charWidth + cellPad * 2);
 }
 
 function getInlineRowMetrics(row) {
     if (!row || !row.sampleProblem) {
-        return { cellWidth: 120, cellHeight: INLINE_CELL_H, colCount: 1, repeatCount: 1, totalHeight: INLINE_CELL_H };
+        return {
+            fontScale: 1,
+            fontSize: INLINE_FONT_SIZE,
+            cellWidth: 120,
+            cellHeight: INLINE_CELL_H,
+            colCount: 1,
+            repeatCount: 1,
+            totalHeight: INLINE_CELL_H,
+            cellPad: INLINE_CELL_PAD,
+        };
     }
-    const cellWidth = getInlineCellWidth(row.sampleProblem);
-    const colCount = Math.max(1, Math.floor(A4_SAFE_BOX_W / cellWidth));
-    const repeatCount = Math.max(1, row.repeatCount || 1);
-    return { cellWidth, cellHeight: INLINE_CELL_H, colCount, repeatCount, totalHeight: INLINE_CELL_H * repeatCount };
+    const paperSpec = getMathPaperSpec();
+    const fontScale = clampInlineFontScale(row.fontScale || 1);
+    const fontSize = Math.max(8, Math.round(INLINE_FONT_SIZE * fontScale));
+    const cellHeight = Math.ceil(fontSize * INLINE_LINE_HEIGHT) + 4;
+    const cellPad = Math.max(4, Math.round(INLINE_CELL_PAD * fontScale));
+    const cellWidth = getInlineCellWidth(row.sampleProblem, fontScale);
+    const colCount = Math.max(1, Math.floor(paperSpec.safeBoxWidth / cellWidth));
+    const repeatCount = Math.max(1, Number.parseInt(row.repeatCount, 10) || 1);
+    return {
+        fontScale,
+        fontSize,
+        cellWidth,
+        cellHeight,
+        colCount,
+        repeatCount,
+        totalHeight: cellHeight * repeatCount,
+        cellPad,
+    };
 }
 
 function canFitInlineSheetRows(rows) {
     const h = rows.reduce((sum, row) => sum + getInlineRowMetrics(row).totalHeight, 0);
-    return h <= BUILDER_SAFE_GRID_H;
+    return h <= getMathPaperSpec().builderSafeGridHeight;
 }
 
-function renderInlineA4Content(scale) {
+function getInlineSheetPageCount(rows) {
+    const safeHeight = getMathPaperSpec().builderSafeGridHeight;
+    if (!Array.isArray(rows) || rows.length === 0 || safeHeight <= 0) {
+        return 1;
+    }
+    let pageCount = 1;
+    let usedHeight = 0;
+    rows.forEach((row) => {
+        const rowHeight = getInlineRowMetrics(row).totalHeight;
+        if (usedHeight > 0 && (usedHeight + rowHeight) > safeHeight) {
+            pageCount += 1;
+            usedHeight = 0;
+        }
+        usedHeight += rowHeight;
+    });
+    return Math.max(1, pageCount);
+}
+
+function getInlineSheetPageLayoutInfo(rows) {
+    const paperSpec = getMathPaperSpec();
+    const safeHeight = paperSpec.builderSafeGridHeight;
+    const visibleHeight = paperSpec.builderGridHeight;
+    if (!Array.isArray(rows) || rows.length === 0 || safeHeight <= 0 || visibleHeight <= 0) {
+        return {
+            pageCount: 1,
+            usedHeightOnLastPage: 0,
+            remainingSafeHeightOnLastPage: safeHeight,
+            remainingVisibleHeightOnLastPage: visibleHeight,
+        };
+    }
+    let pageCount = 1;
+    let usedHeight = 0;
+    rows.forEach((row) => {
+        const rowHeight = getInlineRowMetrics(row).totalHeight;
+        if (usedHeight > 0 && (usedHeight + rowHeight) > safeHeight) {
+            pageCount += 1;
+            usedHeight = 0;
+        }
+        usedHeight += rowHeight;
+    });
+    return {
+        pageCount: Math.max(1, pageCount),
+        usedHeightOnLastPage: usedHeight,
+        remainingSafeHeightOnLastPage: Math.max(0, safeHeight - usedHeight),
+        remainingVisibleHeightOnLastPage: Math.max(0, visibleHeight - usedHeight),
+    };
+}
+
+function renderInlineSheetBuilderContent(scale) {
     const a4El = document.getElementById('inlineSheetA4');
     if (!a4El) return;
-    const marginPx = Math.round(A4_MARGIN * scale);
-    const safeMarginPx = Math.round(A4_EXTRA_SAFE_MARGIN * scale);
-    const gridWidthPx = Math.round(A4_SAFE_BOX_W * scale);
-    const headerHeightPx = Math.round(A4_HEADER_H * scale);
-    const contentLeftPx = marginPx + safeMarginPx;
-    const contentTopPx = marginPx + safeMarginPx;
+    const paperSpec = getMathPaperSpec();
+    const marginPx = Math.round(paperSpec.margin * scale);
+    const safeMarginXPx = Math.round(paperSpec.extraSafeMarginX * scale);
+    const safeMarginTopPx = Math.round(paperSpec.extraSafeMarginTop * scale);
+    const safeMarginBottomPx = Math.round(paperSpec.extraSafeMarginBottom * scale);
+    const gridWidthPx = Math.round(paperSpec.safeBoxWidth * scale);
+    const headerHeightPx = Math.round(paperSpec.headerHeight * scale);
+    const contentLeftPx = marginPx + safeMarginXPx;
+    const contentTopPx = marginPx + safeMarginTopPx;
     const gridTopPx = contentTopPx + headerHeightPx;
-    const gridHeightPx = Math.round(BUILDER_GRID_H * scale);
+    const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
+    const printableHeightPx = Math.round(paperSpec.safeBoxHeight * scale);
+    const borderInsetPx = Math.round(PRINTABLE_AREA_DEBUG_BORDER_INSET * scale);
+    const headerFontPx = Math.max(10, Math.round(12 * scale));
+    const headerDeckFontPx = Math.max(9, Math.round(11 * scale));
+    const deckSummaryText = buildBuilderDeckSummaryText(inlineSheetRows);
 
     let html = '';
     html += `<div class="sb-margin" style="top:0;left:0;right:0;height:${marginPx}px;"></div>`;
     html += `<div class="sb-margin" style="bottom:0;left:0;right:0;height:${marginPx}px;"></div>`;
     html += `<div class="sb-margin" style="top:${marginPx}px;left:0;width:${marginPx}px;bottom:${marginPx}px;"></div>`;
     html += `<div class="sb-margin" style="top:${marginPx}px;right:0;width:${marginPx}px;bottom:${marginPx}px;"></div>`;
-    html += `<div class="sb-safe-margin" style="top:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginPx}px;"></div>`;
-    html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginPx}px;"></div>`;
-    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginPx}px;left:${marginPx}px;width:${safeMarginPx}px;bottom:${marginPx + safeMarginPx}px;"></div>`;
-    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginPx}px;right:${marginPx}px;width:${safeMarginPx}px;bottom:${marginPx + safeMarginPx}px;"></div>`;
-    html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;font-size:${Math.max(8, Math.round(10 * scale))}px;line-height:${headerHeightPx}px;">`;
-    html += '<span>Name: ________</span><span>Sheet #___</span>';
+    html += `<div class="sb-safe-margin" style="top:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginTopPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;left:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-printable-border" style="top:${contentTopPx + borderInsetPx}px;left:${contentLeftPx + borderInsetPx}px;width:${Math.max(1, gridWidthPx - (2 * borderInsetPx))}px;height:${Math.max(1, printableHeightPx - (2 * borderInsetPx))}px;"></div>`;
+    html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
+    html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
+    html += `<span class="sb-header-decks" style="font-size:${headerDeckFontPx}px;" title="${escapeHtml(deckSummaryText)}">${escapeHtml(deckSummaryText)}</span>`;
+    html += `<span class="sb-header-sheetno" style="font-size:${headerFontPx}px;">Sheet #___</span>`;
     html += '</div>';
-    html += `<div class="sb-grid-area" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
+    html += `<div class="sb-grid-area sb-grid-area-inline" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
 
     let usedHeight = 0;
     inlineSheetRows.forEach((row, idx) => {
@@ -1511,33 +1718,25 @@ function renderInlineA4Content(scale) {
         const previewLineH = Math.max(1, Math.round(metrics.cellHeight * scale));
         const previewTotalH = Math.max(1, Math.round(metrics.totalHeight * scale));
         const previewCellWidth = Math.round(metrics.cellWidth * scale);
-        const canShrink = metrics.repeatCount > 1;
-        const testGrow = Object.assign({}, row, { repeatCount: metrics.repeatCount + 1 });
-        const canGrow = canFitInlineSheetRows([
-            ...inlineSheetRows.slice(0, idx),
-            testGrow,
-            ...inlineSheetRows.slice(idx + 1),
-        ]);
-        const canDuplicate = canFitInlineSheetRows([
-            ...inlineSheetRows.slice(0, idx + 1),
-            Object.assign({}, row),
-            ...inlineSheetRows.slice(idx + 1),
-        ]);
+        const canFontShrink = metrics.fontScale > INLINE_MIN_FONT_SCALE;
+        const testGrow = Object.assign({}, row, { fontScale: clampInlineFontScale(metrics.fontScale + INLINE_FONT_SCALE_STEP) });
+        const canFontGrow = testGrow.fontScale > metrics.fontScale;
+        const canRepeatGrow = true;
         html += `<div class="sb-row-wrap" data-sb-row-idx="${idx}" style="height:${previewTotalH}px;z-index:${inlineSheetRows.length - idx};">`;
         html += `<div class="sb-row-tools">
-            <button type="button" class="sb-row-tool-btn" data-isb-row-repeat="-1" data-row-idx="${idx}" title="Fewer rows (${metrics.repeatCount})" ${canShrink ? '' : 'disabled'}>-</button>
-            <button type="button" class="sb-row-tool-btn" data-isb-row-repeat="1" data-row-idx="${idx}" title="More rows (${metrics.repeatCount})" ${canGrow ? '' : 'disabled'}>+</button>
-            <button type="button" class="sb-row-tool-btn duplicate" data-isb-row-duplicate="${idx}" title="Duplicate this row below" ${canDuplicate ? '' : 'disabled'}>⧉</button>
-            <button type="button" class="sb-row-tool-btn delete" data-isb-row-delete="${idx}" title="Delete this row">x</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-font="-1" data-row-idx="${idx}" title="Smaller text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Smaller text" ${canFontShrink ? '' : 'disabled'}>A-</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-font="1" data-row-idx="${idx}" title="Larger text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Larger text" ${canFontGrow ? '' : 'disabled'}>A+</button>
+            <button type="button" class="sb-row-tool-btn duplicate" data-isb-row-repeat="1" data-row-idx="${idx}" title="Add one more printed line in this row (${metrics.repeatCount})" aria-label="Add one more printed line in this row" ${canRepeatGrow ? '' : 'disabled'}>⊞</button>
+            <button type="button" class="sb-row-tool-btn delete" data-isb-row-repeat="-1" data-row-idx="${idx}" title="${metrics.repeatCount > 1 ? `Remove one printed line from this row (${metrics.repeatCount})` : 'Remove this row'}" aria-label="${metrics.repeatCount > 1 ? 'Remove one printed line from this row' : 'Remove this row'}">⊟</button>
         </div>`;
         const rawPrompt = String(row.sampleProblem.prompt || '').replace(/\s*=\s*[?？_\s]*$/, '');
         const compactPrompt = rawPrompt.replace(/\s*([+\-×x*÷\/])\s*/g, ' $1 ').replace(/\s{2,}/g, ' ').trim();
-        for (let r = 0; r < metrics.repeatCount; r++) {
+        for (let repeatIndex = 0; repeatIndex < metrics.repeatCount; repeatIndex += 1) {
             html += `<div class="sb-row" style="height:${previewLineH}px;">`;
             for (let c = 0; c < metrics.colCount; c++) {
                 html += `<div class="sb-row-cell" style="width:${previewCellWidth}px;height:${previewLineH}px;">
-                    <div class="sb-row-content" style="display:flex;align-items:center;padding:0 ${Math.round(INLINE_CELL_PAD * scale)}px;">
-                        <span style="font-family:'Courier New',Courier,monospace;font-size:${Math.max(6, Math.round(INLINE_FONT_SIZE * scale))}px;white-space:nowrap;letter-spacing:-0.5px;">${escapeHtml(compactPrompt)} =</span>
+                    <div class="sb-row-content" style="display:flex;align-items:center;padding:0 ${Math.round(metrics.cellPad * scale)}px;">
+                        <span style="font-family:'Courier New',Courier,monospace;font-size:${Math.max(6, Math.round(metrics.fontSize * scale))}px;white-space:nowrap;letter-spacing:-0.5px;">${escapeHtml(compactPrompt)} =</span>
                     </div>
                 </div>`;
             }
@@ -1547,10 +1746,13 @@ function renderInlineA4Content(scale) {
         usedHeight += metrics.totalHeight;
     });
 
-    const remainingHeight = BUILDER_SAFE_GRID_H - usedHeight;
-    const addRowPreviewHeight = Math.round(remainingHeight * scale);
-    if (remainingHeight >= INLINE_CELL_H && getAvailableInlineSheetDecks().length > 0) {
-        html += `<button type="button" class="sb-add-row-box" data-isb-add-row="1" style="height:${Math.max(24, Math.min(addRowPreviewHeight, 70))}px;">Click to choose a deck for a new row</button>`;
+    const pageLayout = getInlineSheetPageLayoutInfo(inlineSheetRows);
+    const addRowPreviewHeight = Math.max(28, Math.round(48 * scale));
+    if (getAvailableInlineSheetDecks().length > 0) {
+        if (inlineSheetRows.length > 0 && pageLayout.remainingSafeHeightOnLastPage < INLINE_CELL_H) {
+            html += `<div aria-hidden="true" style="height:${Math.max(0, Math.round(pageLayout.remainingVisibleHeightOnLastPage * scale))}px;"></div>`;
+        }
+        html += `<button type="button" class="sb-add-row-box" data-isb-add-row="1" style="height:${addRowPreviewHeight}px;">Click to choose a deck for a new row</button>`;
     }
 
     html += '</div>';
@@ -1558,11 +1760,18 @@ function renderInlineA4Content(scale) {
 
     const totalQuestions = inlineSheetRows.reduce((sum, row) => {
         const m = getInlineRowMetrics(row);
-        return sum + m.colCount * m.repeatCount;
+        return sum + (m.colCount * m.repeatCount);
     }, 0);
     const countEl = document.getElementById('inlineSheetQuestionCount');
     if (countEl) {
-        countEl.textContent = totalQuestions > 0 ? `${totalQuestions} questions` : '';
+        if (totalQuestions <= 0) {
+            countEl.textContent = '';
+        } else {
+            const pageCount = pageLayout.pageCount;
+            countEl.textContent = pageCount > 1
+                ? `${totalQuestions} questions · ${pageCount} pages`
+                : `${totalQuestions} questions`;
+        }
     }
 }
 
@@ -1571,13 +1780,13 @@ function openInlineSheetBuilder() {
         showMathSheetError('No opted-in decks found.');
         return;
     }
-    currentInlineSheetScale = computeA4Scale();
+    syncMathPaperSizeSelects();
+    currentInlineSheetScale = computeSheetPreviewScale();
     inlineSheetRows = [];
     showMathSheetError('');
     const a4El = document.getElementById('inlineSheetA4');
-    a4El.style.width = Math.round(A4_W * currentInlineSheetScale) + 'px';
-    a4El.style.height = Math.round(A4_H * currentInlineSheetScale) + 'px';
-    renderInlineA4Content(currentInlineSheetScale);
+    applyBuilderPageFrame(a4El, currentInlineSheetScale);
+    renderInlineSheetBuilderContent(currentInlineSheetScale);
     closeInlineSheetPicker();
     document.getElementById('inlineSheetBuilderModal').classList.remove('hidden');
     document.body.classList.add('modal-open');
@@ -1632,62 +1841,53 @@ async function handleInlineSheetDeckChoice(deckId) {
             deckName: deck.display_name || deck.name,
             sampleProblem: sample,
             repeatCount: 1,
+            fontScale: 1,
         };
         const nextRows = [...inlineSheetRows, row];
-        if (!canFitInlineSheetRows(nextRows)) {
-            showMathSheetError('No more room on this page.');
-            return;
-        }
         showMathSheetError('');
         inlineSheetRows = nextRows;
-        renderInlineA4Content(currentInlineSheetScale);
+        renderInlineSheetBuilderContent(currentInlineSheetScale);
     } catch (error) {
         showMathSheetError(error.message || 'Failed to load sample problem.');
     }
 }
 
-function updateInlineRowRepeat(idx, direction) {
+function updateInlineRowFontScale(idx, direction) {
     if (idx < 0 || idx >= inlineSheetRows.length) return;
     const row = inlineSheetRows[idx];
-    const current = Math.max(1, row.repeatCount || 1);
-    const next = current + direction;
-    if (next < 1) return;
-    const testRow = Object.assign({}, row, { repeatCount: next });
+    const current = clampInlineFontScale(row.fontScale || 1);
+    const next = clampInlineFontScale(current + (direction * INLINE_FONT_SCALE_STEP));
+    if (next === current) return;
+    const testRow = Object.assign({}, row, { fontScale: next });
     const testRows = [
         ...inlineSheetRows.slice(0, idx),
         testRow,
         ...inlineSheetRows.slice(idx + 1),
     ];
-    if (!canFitInlineSheetRows(testRows)) {
-        showMathSheetError('No more room on this page.');
-        return;
-    }
     showMathSheetError('');
-    inlineSheetRows[idx] = testRow;
-    renderInlineA4Content(currentInlineSheetScale);
+    inlineSheetRows = testRows;
+    renderInlineSheetBuilderContent(currentInlineSheetScale);
 }
 
-function duplicateInlineSheetRow(idx) {
+function updateInlineRowRepeat(idx, direction) {
     if (idx < 0 || idx >= inlineSheetRows.length) return;
+    const row = inlineSheetRows[idx];
+    const current = Math.max(1, Number.parseInt(row.repeatCount, 10) || 1);
+    const next = current + direction;
+    if (next < 1) {
+        inlineSheetRows.splice(idx, 1);
+        showMathSheetError('');
+        renderInlineSheetBuilderContent(currentInlineSheetScale);
+        return;
+    }
     const nextRows = [
-        ...inlineSheetRows.slice(0, idx + 1),
-        Object.assign({}, inlineSheetRows[idx]),
+        ...inlineSheetRows.slice(0, idx),
+        Object.assign({}, row, { repeatCount: next }),
         ...inlineSheetRows.slice(idx + 1),
     ];
-    if (!canFitInlineSheetRows(nextRows)) {
-        showMathSheetError('No more room on this page.');
-        return;
-    }
     showMathSheetError('');
     inlineSheetRows = nextRows;
-    renderInlineA4Content(currentInlineSheetScale);
-}
-
-function removeInlineSheetRow(idx) {
-    if (idx < 0 || idx >= inlineSheetRows.length) return;
-    inlineSheetRows.splice(idx, 1);
-    showMathSheetError('');
-    renderInlineA4Content(currentInlineSheetScale);
+    renderInlineSheetBuilderContent(currentInlineSheetScale);
 }
 
 async function saveInlineSheetFromBuilder() {
@@ -1704,6 +1904,7 @@ async function saveInlineSheetFromBuilder() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 layoutFormat: 'inline',
+                paperSize: currentMathPaperSize,
                 rows: inlineSheetRows.flatMap((row) => {
                     const metrics = getInlineRowMetrics(row);
                     const single = {
@@ -1712,8 +1913,9 @@ async function saveInlineSheetFromBuilder() {
                         inlineCellWidth: metrics.cellWidth,
                         inlineCellHeight: metrics.cellHeight,
                         colCount: metrics.colCount,
+                        inlineFontScale: metrics.fontScale,
                     };
-                    return Array.from({ length: metrics.repeatCount }, () => single);
+                    return Array.from({ length: metrics.repeatCount }, () => Object.assign({}, single));
                 }),
                 categoryKey: activeCategoryKey,
             }),
@@ -1739,6 +1941,7 @@ function updateBuildInlineSheetButton() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) { window.location.href = '/admin.html'; return; }
+    syncMathPaperSizeSelects();
 
     /* Chinese mode listeners */
     if (createSheetBtn) createSheetBtn.addEventListener('click', () => createType2ChineseSheet());
@@ -1810,25 +2013,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('sheetBuilderPicker')?.addEventListener('click', (event) => {
         if (event.target === event.currentTarget) closeSheetBuilderPicker();
     });
+    sheetBuilderPaperSizeSelect?.addEventListener('change', (event) => {
+        handleMathPaperSizeChange(event.target.value);
+    });
+    inlineSheetPaperSizeSelect?.addEventListener('change', (event) => {
+        handleMathPaperSizeChange(event.target.value);
+    });
     window.addEventListener('resize', () => {
         const modal = document.getElementById('sheetBuilderModal');
         if (modal && !modal.classList.contains('hidden')) {
-            currentSheetScale = computeA4Scale();
+            currentSheetScale = computeSheetPreviewScale();
             const a4El = document.getElementById('sheetBuilderA4');
             if (a4El) {
-                a4El.style.width = Math.round(A4_W * currentSheetScale) + 'px';
-                a4El.style.height = Math.round(A4_H * currentSheetScale) + 'px';
-                renderA4Content(currentSheetScale);
+                applyBuilderPageFrame(a4El, currentSheetScale);
+                renderSheetBuilderContent(currentSheetScale);
             }
         }
         const inlineModal = document.getElementById('inlineSheetBuilderModal');
         if (inlineModal && !inlineModal.classList.contains('hidden')) {
-            currentInlineSheetScale = computeA4Scale();
+            currentInlineSheetScale = computeSheetPreviewScale();
             const a4El = document.getElementById('inlineSheetA4');
             if (a4El) {
-                a4El.style.width = Math.round(A4_W * currentInlineSheetScale) + 'px';
-                a4El.style.height = Math.round(A4_H * currentInlineSheetScale) + 'px';
-                renderInlineA4Content(currentInlineSheetScale);
+                applyBuilderPageFrame(a4El, currentInlineSheetScale);
+                renderInlineSheetBuilderContent(currentInlineSheetScale);
             }
         }
     });
@@ -1861,23 +2068,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('inlineSheetA4')?.addEventListener('click', (e) => {
         const addBtn = e.target.closest('[data-isb-add-row]');
         if (addBtn) { openInlineSheetPicker(); return; }
+        const fontBtn = e.target.closest('[data-isb-row-font]');
+        if (fontBtn) {
+            const idx = Number.parseInt(fontBtn.getAttribute('data-row-idx'), 10);
+            const dir = Number.parseInt(fontBtn.getAttribute('data-isb-row-font'), 10);
+            if (Number.isInteger(idx) && Number.isInteger(dir)) updateInlineRowFontScale(idx, dir);
+            return;
+        }
         const repeatBtn = e.target.closest('[data-isb-row-repeat]');
         if (repeatBtn) {
             const idx = Number.parseInt(repeatBtn.getAttribute('data-row-idx'), 10);
             const dir = Number.parseInt(repeatBtn.getAttribute('data-isb-row-repeat'), 10);
             if (Number.isInteger(idx) && Number.isInteger(dir)) updateInlineRowRepeat(idx, dir);
-            return;
-        }
-        const duplicateBtn = e.target.closest('[data-isb-row-duplicate]');
-        if (duplicateBtn) {
-            const idx = Number.parseInt(duplicateBtn.getAttribute('data-isb-row-duplicate'), 10);
-            if (Number.isInteger(idx)) duplicateInlineSheetRow(idx);
-            return;
-        }
-        const deleteBtn = e.target.closest('[data-isb-row-delete]');
-        if (deleteBtn) {
-            const idx = Number.parseInt(deleteBtn.getAttribute('data-isb-row-delete'), 10);
-            if (Number.isInteger(idx)) removeInlineSheetRow(idx);
             return;
         }
     });

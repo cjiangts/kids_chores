@@ -67,23 +67,54 @@ MAX_TYPE_IV_PRINT_SAMPLE_ANSWER_LENGTH = 200
 TYPE_IV_PRINT_SHEET_LAYOUT_VERSION = 1
 TYPE_IV_PRINT_SHEET_MIN_SCALE = 0.5
 TYPE_IV_PRINT_SHEET_MAX_SCALE = 1.7
+TYPE_IV_PRINT_SHEET_MIN_INLINE_FONT_SCALE = 0.8
+TYPE_IV_PRINT_SHEET_MAX_INLINE_FONT_SCALE = 3.0
 TYPE_IV_PRINT_SHEET_MAX_ROW_PROBLEMS = 200
 TYPE_IV_PRINT_SHEET_MAX_REPEAT_COUNT = 1000
+TYPE_IV_PRINT_SHEET_PAPER_SIZE_A4 = 'a4'
+TYPE_IV_PRINT_SHEET_PAPER_SIZE_LETTER = 'letter'
+DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE = TYPE_IV_PRINT_SHEET_PAPER_SIZE_LETTER
 TYPE_IV_PRINT_SHEET_A4_WIDTH = 794
 TYPE_IV_PRINT_SHEET_A4_HEIGHT = 1123
+TYPE_IV_PRINT_SHEET_LETTER_WIDTH = 816
+TYPE_IV_PRINT_SHEET_LETTER_HEIGHT = 1056
 TYPE_IV_PRINT_SHEET_MARGIN = 19
-TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN = 34
+TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN_X = 34
+TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN_TOP = 42
+TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN_BOTTOM = 42
 TYPE_IV_PRINT_SHEET_HEADER_HEIGHT = 24
-TYPE_IV_PRINT_SHEET_GRID_WIDTH = TYPE_IV_PRINT_SHEET_A4_WIDTH - (2 * TYPE_IV_PRINT_SHEET_MARGIN)
-TYPE_IV_PRINT_SHEET_GRID_HEIGHT = (
-    TYPE_IV_PRINT_SHEET_A4_HEIGHT
-    - (2 * TYPE_IV_PRINT_SHEET_MARGIN)
-)
-TYPE_IV_PRINT_SHEET_BOX_WIDTH = TYPE_IV_PRINT_SHEET_GRID_WIDTH - (2 * TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN)
-TYPE_IV_PRINT_SHEET_BOX_HEIGHT = TYPE_IV_PRINT_SHEET_GRID_HEIGHT - (2 * TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN)
-TYPE_IV_PRINT_SHEET_CONTENT_HEIGHT = TYPE_IV_PRINT_SHEET_BOX_HEIGHT - TYPE_IV_PRINT_SHEET_HEADER_HEIGHT
 TYPE_IV_PRINT_SHEET_FIT_SAFETY_PX = 12
-TYPE_IV_PRINT_SHEET_SAFE_GRID_HEIGHT = TYPE_IV_PRINT_SHEET_CONTENT_HEIGHT - TYPE_IV_PRINT_SHEET_FIT_SAFETY_PX
+TYPE_IV_PRINT_SHEET_PAPER_SPECS = {
+    TYPE_IV_PRINT_SHEET_PAPER_SIZE_A4: {
+        'page_width': TYPE_IV_PRINT_SHEET_A4_WIDTH,
+        'page_height': TYPE_IV_PRINT_SHEET_A4_HEIGHT,
+    },
+    TYPE_IV_PRINT_SHEET_PAPER_SIZE_LETTER: {
+        'page_width': TYPE_IV_PRINT_SHEET_LETTER_WIDTH,
+        'page_height': TYPE_IV_PRINT_SHEET_LETTER_HEIGHT,
+    },
+}
+for _type_iv_paper_spec in TYPE_IV_PRINT_SHEET_PAPER_SPECS.values():
+    _type_iv_paper_spec['grid_width'] = (
+        _type_iv_paper_spec['page_width'] - (2 * TYPE_IV_PRINT_SHEET_MARGIN)
+    )
+    _type_iv_paper_spec['grid_height'] = (
+        _type_iv_paper_spec['page_height'] - (2 * TYPE_IV_PRINT_SHEET_MARGIN)
+    )
+    _type_iv_paper_spec['box_width'] = (
+        _type_iv_paper_spec['grid_width'] - (2 * TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN_X)
+    )
+    _type_iv_paper_spec['box_height'] = (
+        _type_iv_paper_spec['grid_height']
+        - TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN_TOP
+        - TYPE_IV_PRINT_SHEET_EXTRA_SAFE_MARGIN_BOTTOM
+    )
+    _type_iv_paper_spec['content_height'] = (
+        _type_iv_paper_spec['box_height'] - TYPE_IV_PRINT_SHEET_HEADER_HEIGHT
+    )
+    _type_iv_paper_spec['safe_grid_height'] = (
+        _type_iv_paper_spec['content_height'] - TYPE_IV_PRINT_SHEET_FIT_SAFETY_PX
+    )
 DEFAULT_TYPE_IV_DAILY_TARGET_COUNT = 10
 MAX_TYPE_IV_DAILY_TARGET_COUNT = 1000
 TYPE_IV_PREVIEW_SAMPLE_COUNT = 1
@@ -634,6 +665,28 @@ def normalize_type_iv_print_sheet_row_scale(value):
     return parsed
 
 
+def normalize_type_iv_print_sheet_inline_font_scale(value):
+    """Normalize one inline-row font scale."""
+    if value in (None, ''):
+        return 1.0
+    try:
+        parsed = round(float(value), 1)
+    except (TypeError, ValueError):
+        raise ValueError('inlineFontScale must be a number')
+    if not math.isfinite(parsed):
+        raise ValueError('inlineFontScale must be finite')
+    if (
+        parsed < TYPE_IV_PRINT_SHEET_MIN_INLINE_FONT_SCALE
+        or parsed > TYPE_IV_PRINT_SHEET_MAX_INLINE_FONT_SCALE
+    ):
+        raise ValueError(
+            'inlineFontScale must be between '
+            f'{TYPE_IV_PRINT_SHEET_MIN_INLINE_FONT_SCALE} and '
+            f'{TYPE_IV_PRINT_SHEET_MAX_INLINE_FONT_SCALE}'
+        )
+    return parsed
+
+
 def normalize_type_iv_print_sheet_rows(value, layout_format='vertical'):
     """Normalize one custom math-sheet row list from the builder."""
     if not isinstance(value, list):
@@ -658,6 +711,9 @@ def normalize_type_iv_print_sheet_rows(value, layout_format='vertical'):
             row['inline_cell_width'] = int(inline_w)
             row['inline_cell_height'] = int(inline_h)
             row['col_count'] = int(inline_col)
+            row['inline_font_scale'] = normalize_type_iv_print_sheet_inline_font_scale(
+                item.get('inlineFontScale')
+            )
         normalized_rows.append(row)
     if not normalized_rows:
         raise ValueError('rows must include at least one row')
@@ -679,6 +735,52 @@ def normalize_type_iv_print_sheet_repeat_count(value):
             f'repeatCount must be at most {TYPE_IV_PRINT_SHEET_MAX_REPEAT_COUNT}'
         )
     return parsed
+
+
+def normalize_type_iv_print_sheet_paper_size(
+    value,
+    *,
+    default=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
+):
+    """Normalize one persisted custom-sheet paper size."""
+    raw_value = str(value or '').strip().lower()
+    if not raw_value:
+        return str(default or DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE)
+    if raw_value in {
+        TYPE_IV_PRINT_SHEET_PAPER_SIZE_A4,
+        '8.27x11.69',
+        '8.27×11.69',
+        '210x297',
+    }:
+        return TYPE_IV_PRINT_SHEET_PAPER_SIZE_A4
+    if raw_value in {
+        TYPE_IV_PRINT_SHEET_PAPER_SIZE_LETTER,
+        'us_letter',
+        'us-letter',
+        'us letter',
+        '8.5x11',
+        '8.5×11',
+        '8.50x11.00',
+    }:
+        return TYPE_IV_PRINT_SHEET_PAPER_SIZE_LETTER
+    raise ValueError('paperSize must be "letter" or "a4"')
+
+
+def get_type_iv_print_sheet_paper_spec(
+    paper_size,
+    *,
+    default=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
+):
+    """Return one normalized custom-sheet paper spec."""
+    normalized_size = normalize_type_iv_print_sheet_paper_size(
+        paper_size,
+        default=default,
+    )
+    spec = dict(TYPE_IV_PRINT_SHEET_PAPER_SPECS.get(normalized_size) or {})
+    if not spec:
+        raise ValueError('paperSize must be "letter" or "a4"')
+    spec['key'] = normalized_size
+    return spec
 
 
 def get_shared_deck_categories(conn):
@@ -1779,10 +1881,14 @@ def build_shared_deck_print_cell_design(
     }
 
 
-def get_type_iv_print_sheet_row_metrics(cell_design, scale):
+def get_type_iv_print_sheet_row_metrics(cell_design, scale, paper_size=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE):
     """Return one persisted custom-sheet row's derived dimensions."""
     if not isinstance(cell_design, dict):
         raise ValueError('row cell design is missing')
+    paper_spec = get_type_iv_print_sheet_paper_spec(
+        paper_size,
+        default=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
+    )
     try:
         cell_width = int(cell_design.get('cell_width'))
         cell_height = int(cell_design.get('cell_height'))
@@ -1794,7 +1900,7 @@ def get_type_iv_print_sheet_row_metrics(cell_design, scale):
     scaled_height = int(math.ceil(float(cell_height) * float(scale)))
     if scaled_width <= 0 or scaled_height <= 0:
         raise ValueError('row scale is invalid')
-    col_count = max(1, int(math.floor(TYPE_IV_PRINT_SHEET_BOX_WIDTH / scaled_width)))
+    col_count = max(1, int(math.floor(float(paper_spec['box_width']) / scaled_width)))
     if col_count > TYPE_IV_PRINT_SHEET_MAX_ROW_PROBLEMS:
         raise ValueError(
             f'row produces too many problems ({col_count}); make the card wider before building'
@@ -1812,8 +1918,10 @@ def build_type_iv_print_sheet_layout_payload(
     definitions_by_id,
     layout_format='vertical',
     repeat_count=1,
+    paper_size=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
 ):
     """Build persisted custom-sheet layout JSON from builder rows."""
+    paper_spec = get_type_iv_print_sheet_paper_spec(paper_size)
     used_height = 0.0
     layout_rows = []
     for index, row in enumerate(list(rows or [])):
@@ -1831,15 +1939,16 @@ def build_type_iv_print_sheet_layout_payload(
             inline_w = int(row.get('inline_cell_width') or 0)
             inline_h = int(row.get('inline_cell_height') or 0)
             col_count = int(row.get('col_count') or 0)
+            inline_font_scale = normalize_type_iv_print_sheet_inline_font_scale(
+                row.get('inline_font_scale')
+            )
             if inline_w <= 0 or inline_h <= 0 or col_count <= 0:
                 raise ValueError(f'rows[{index}] has invalid inline dimensions')
-            used_height += float(inline_h)
-            if used_height > float(TYPE_IV_PRINT_SHEET_SAFE_GRID_HEIGHT) + 0.001:
-                raise ValueError('This sheet does not fit on one printable page')
             layout_rows.append({
                 'shared_deck_id': shared_deck_id,
                 'deck_name': display_name,
                 'scale': 1,
+                'inline_font_scale': inline_font_scale,
                 'col_count': col_count,
                 'cell_design': {
                     'cell_width': inline_w,
@@ -1858,9 +1967,13 @@ def build_type_iv_print_sheet_layout_payload(
                     'does not have a saved cell design'
                 )
             scale = normalize_type_iv_print_sheet_row_scale(row.get('scale', 1))
-            metrics = get_type_iv_print_sheet_row_metrics(cell_design, scale)
+            metrics = get_type_iv_print_sheet_row_metrics(
+                cell_design,
+                scale,
+                paper_size=paper_spec['key'],
+            )
             used_height += metrics['scaled_height']
-            if used_height > float(TYPE_IV_PRINT_SHEET_SAFE_GRID_HEIGHT) + 0.001:
+            if used_height > float(paper_spec['safe_grid_height']) + 0.001:
                 raise ValueError('This sheet does not fit on one printable page')
             layout_rows.append({
                 'shared_deck_id': shared_deck_id,
@@ -1873,6 +1986,7 @@ def build_type_iv_print_sheet_layout_payload(
         raise ValueError('rows must include at least one row')
     result = {
         'version': TYPE_IV_PRINT_SHEET_LAYOUT_VERSION,
+        'paper_size': paper_spec['key'],
         'repeat_count': normalize_type_iv_print_sheet_repeat_count(repeat_count),
         'rows': layout_rows,
     }
@@ -1894,6 +2008,18 @@ def build_type_iv_print_sheet_layout(raw_payload):
             return None
     if not isinstance(payload, dict):
         return None
+    layout_format = str(payload.get('layout_format') or '').strip().lower()
+    try:
+        paper_size = normalize_type_iv_print_sheet_paper_size(
+            payload.get('paper_size'),
+            default=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
+        )
+    except ValueError:
+        return None
+    paper_spec = get_type_iv_print_sheet_paper_spec(
+        paper_size,
+        default=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
+    )
     raw_rows = payload.get('rows')
     if not isinstance(raw_rows, list):
         return None
@@ -1915,12 +2041,32 @@ def build_type_iv_print_sheet_layout(raw_payload):
         cell_design = build_shared_deck_print_cell_design(raw_row.get('cell_design'))
         if not cell_design:
             return None
+        if layout_format == 'inline':
+            try:
+                inline_font_scale = normalize_type_iv_print_sheet_inline_font_scale(
+                    raw_row.get('inline_font_scale')
+                )
+            except ValueError:
+                return None
+            rows.append({
+                'shared_deck_id': int(shared_deck_id),
+                'deck_name': str(raw_row.get('deck_name') or '').strip() or f'Deck {shared_deck_id}',
+                'scale': scale,
+                'col_count': col_count,
+                'cell_design': cell_design,
+                'inline_font_scale': inline_font_scale,
+            })
+            continue
         try:
-            metrics = get_type_iv_print_sheet_row_metrics(cell_design, scale)
+            metrics = get_type_iv_print_sheet_row_metrics(
+                cell_design,
+                scale,
+                paper_size=paper_spec['key'],
+            )
         except ValueError:
             return None
         used_height += metrics['scaled_height']
-        if used_height > float(TYPE_IV_PRINT_SHEET_SAFE_GRID_HEIGHT) + 0.001:
+        if used_height > float(paper_spec['safe_grid_height']) + 0.001:
             return None
         rows.append({
             'shared_deck_id': int(shared_deck_id),
@@ -1937,10 +2083,10 @@ def build_type_iv_print_sheet_layout(raw_payload):
         return None
     result = {
         'version': int(payload.get('version') or TYPE_IV_PRINT_SHEET_LAYOUT_VERSION),
+        'paper_size': paper_spec['key'],
         'repeat_count': repeat_count,
         'rows': rows,
     }
-    layout_format = str(payload.get('layout_format') or '').strip().lower()
     if layout_format and layout_format != 'vertical':
         result['layout_format'] = layout_format
     return result
@@ -1952,13 +2098,48 @@ def build_type_iv_print_sheet_row_seed(seed_base, row_index, shared_deck_id):
     return int((base + ((int(row_index) + 1) * 1_000_003) + (int(shared_deck_id) * 97_307)) % 2_000_000_000)
 
 
-def build_type_iv_print_sheet_display_number(sheet_id, repeat_index=0, repeat_count=1):
-    """Return one user-facing sheet number label, with repeat suffix when needed."""
+def build_type_iv_print_sheet_display_number(sheet_id, page_index=0, total_pages=1):
+    """Return one user-facing sheet number label, with page suffix when needed."""
     base_id = int(sheet_id or 0)
-    total_repeats = max(1, int(repeat_count or 1))
-    if total_repeats <= 1:
+    page_total = max(1, int(total_pages or 1))
+    if page_total <= 1:
         return str(base_id)
-    return f'{base_id}.{int(repeat_index) + 1}'
+    return f'{base_id}.{int(page_index) + 1}'
+
+
+def paginate_type_iv_print_sheet_rendered_rows(
+    rendered_rows,
+    *,
+    paper_size=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
+    layout_format='vertical',
+):
+    """Split rendered rows into one or more printable pages."""
+    rows = list(rendered_rows or [])
+    if not rows:
+        return [[]]
+    if str(layout_format or 'vertical').strip().lower() != 'inline':
+        return [rows]
+    paper_spec = get_type_iv_print_sheet_paper_spec(paper_size)
+    max_height = float(paper_spec['safe_grid_height'])
+    pages = []
+    current_page_rows = []
+    used_height = 0.0
+    for row in rows:
+        cell_design = row.get('cell_design') if isinstance(row, dict) else {}
+        try:
+            row_height = int((cell_design or {}).get('cell_height') or 0)
+        except (TypeError, ValueError):
+            row_height = 0
+        row_height = max(1, row_height)
+        if current_page_rows and (used_height + float(row_height)) > max_height + 0.001:
+            pages.append(current_page_rows)
+            current_page_rows = []
+            used_height = 0.0
+        current_page_rows.append(row)
+        used_height += float(row_height)
+    if current_page_rows:
+        pages.append(current_page_rows)
+    return pages or [[]]
 
 
 def build_type_iv_print_sheet_rendered_rows(layout_rows, definitions_by_id, seed_base):
@@ -1988,6 +2169,7 @@ def build_type_iv_print_sheet_rendered_rows(layout_rows, definitions_by_id, seed
             'shared_deck_id': shared_deck_id,
             'deck_name': str(row.get('deck_name') or ''),
             'scale': float(row.get('scale') or 1),
+            'inline_font_scale': float(row.get('inline_font_scale') or 1),
             'col_count': int(row.get('col_count') or 0),
             'cell_design': row.get('cell_design'),
             'problems': problems,
@@ -13074,6 +13256,7 @@ def create_type4_print_sheet(kid_id):
         layout_format = str(payload.get('layoutFormat') or 'vertical').strip().lower()
         if layout_format not in ('vertical', 'inline'):
             layout_format = 'vertical'
+        paper_size = normalize_type_iv_print_sheet_paper_size(payload.get('paperSize'))
         repeat_count = normalize_type_iv_print_sheet_repeat_count(payload.get('repeatCount'))
         requested_rows = normalize_type_iv_print_sheet_rows(payload.get('rows'), layout_format=layout_format)
 
@@ -13113,6 +13296,7 @@ def create_type4_print_sheet(kid_id):
                 definitions_by_id,
                 layout_format=layout_format,
                 repeat_count=repeat_count,
+                paper_size=paper_size,
             )
         finally:
             if kid_conn is not None:
@@ -13148,6 +13332,7 @@ def create_type4_print_sheet(kid_id):
                 'id': int(sheet_id),
                 'status': 'preview',
                 'category_key': category_key,
+                'paper_size': str(layout_payload.get('paper_size') or paper_size),
                 'repeat_count': repeat_count,
                 'row_count': len(layout_rows),
                 'problem_count': sum(int(row.get('col_count') or 0) for row in layout_rows),
@@ -13221,6 +13406,7 @@ def list_type4_print_sheets(kid_id):
                 'incorrect_count': sheet['incorrect_count'],
                 'created_at': sheet['created_at'],
                 'completed_at': sheet['completed_at'],
+                'paper_size': str(sheet_layout.get('paper_size') or DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE),
                 'repeat_count': int(sheet_layout.get('repeat_count') or 1),
                 'page_count': int(sheet_layout.get('repeat_count') or 1),
                 'row_count': len(layout_rows),
@@ -13265,6 +13451,10 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
             return jsonify({'error': 'Sheet layout is invalid'}), 500
 
         layout_rows = list(sheet['layout'].get('rows') or [])
+        paper_size = str(
+            (sheet.get('layout') or {}).get('paper_size')
+            or DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE
+        ).strip().lower()
         saved_repeat_count = int((sheet.get('layout') or {}).get('repeat_count') or 1)
         repeat_count = saved_repeat_count
         if sheet.get('status') == 'preview' and request.args.get('repeatCount') not in (None, ''):
@@ -13288,7 +13478,7 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
 
         layout_format = str((sheet.get('layout') or {}).get('layout_format') or 'vertical')
         kid_name = str(kid.get('name') or '')
-        pages = []
+        rendered_page_batches = []
         try:
             for repeat_index in range(repeat_count):
                 page_seed_base = int(sheet['seed_base']) + repeat_index
@@ -13297,24 +13487,50 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
                     definitions_by_id,
                     page_seed_base,
                 )
-                pages.append({
-                    'id': sheet['id'],
-                    'sheet_id': sheet['id'],
-                    'page_index': repeat_index + 1,
-                    'display_sheet_number': build_type_iv_print_sheet_display_number(
-                        sheet['id'],
-                        repeat_index=repeat_index,
-                        repeat_count=repeat_count,
-                    ),
+                rendered_page_batches.append({
                     'seed_base': page_seed_base,
-                    'row_count': len(rendered_rows),
-                    'problem_count': sum(int(row.get('col_count') or 0) for row in rendered_rows),
-                    'kid_name': kid_name,
-                    'layout_rows': rendered_rows,
-                    'layout_format': layout_format,
+                    'pages': paginate_type_iv_print_sheet_rendered_rows(
+                        rendered_rows,
+                        paper_size=paper_size,
+                        layout_format=layout_format,
+                    ),
                 })
         except LookupError as exc:
             return jsonify({'error': str(exc)}), 404
+
+        total_page_count = sum(
+            len(batch.get('pages') or [])
+            for batch in rendered_page_batches
+        )
+        pages = []
+        for page_number, batch in enumerate(
+            [
+                {
+                    'seed_base': batch['seed_base'],
+                    'layout_rows': layout_rows_page,
+                }
+                for batch in rendered_page_batches
+                for layout_rows_page in list(batch.get('pages') or [])
+            ]
+        ):
+            page_rows = list(batch.get('layout_rows') or [])
+            pages.append({
+                'id': sheet['id'],
+                'sheet_id': sheet['id'],
+                'page_index': page_number + 1,
+                'display_sheet_number': build_type_iv_print_sheet_display_number(
+                    sheet['id'],
+                    page_index=page_number,
+                    total_pages=total_page_count,
+                ),
+                'seed_base': batch['seed_base'],
+                'row_count': len(page_rows),
+                'problem_count': sum(int(row.get('col_count') or 0) for row in page_rows),
+                'kid_name': kid_name,
+                'layout_rows': page_rows,
+                'layout_format': layout_format,
+                'paper_size': paper_size,
+            })
 
         first_page = pages[0] if pages else {
             'display_sheet_number': build_type_iv_print_sheet_display_number(sheet['id']),
@@ -13332,6 +13548,7 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
                 'incorrect_count': sheet['incorrect_count'],
                 'created_at': sheet['created_at'],
                 'completed_at': sheet['completed_at'],
+                'paper_size': paper_size,
                 'repeat_count': repeat_count,
                 'saved_repeat_count': saved_repeat_count,
                 'page_count': len(pages),

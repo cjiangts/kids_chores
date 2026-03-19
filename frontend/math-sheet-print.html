@@ -7,17 +7,17 @@
     <style>
         :root {
             --math-mono-font: 'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace;
-            --sheet-page-width: 210mm;
-            --sheet-page-height: 297mm;
+            --sheet-page-width: 215.9mm;
+            --sheet-page-height: 279.4mm;
             --sheet-page-margin: 5mm;
-            --sheet-extra-safe-margin: 9mm;
+            --sheet-extra-safe-margin-x: 9mm;
+            --sheet-extra-safe-margin-top: 11.1mm;
+            --sheet-extra-safe-margin-bottom: 11.1mm;
             --sheet-safe-width: calc(var(--sheet-page-width) - (2 * var(--sheet-page-margin)));
             --sheet-safe-height: calc(var(--sheet-page-height) - (2 * var(--sheet-page-margin)));
-            --sheet-box-width: calc(var(--sheet-safe-width) - (2 * var(--sheet-extra-safe-margin)));
-            --sheet-box-height: calc(var(--sheet-safe-height) - (2 * var(--sheet-extra-safe-margin)));
-            --sheet-header-font-size: 10px;
-            --sheet-header-line-height: 12px;
-            --sheet-header-gap: 4px;
+            --sheet-box-width: calc(var(--sheet-safe-width) - (2 * var(--sheet-extra-safe-margin-x)));
+            --sheet-box-height: calc(var(--sheet-safe-height) - var(--sheet-extra-safe-margin-top) - var(--sheet-extra-safe-margin-bottom));
+            --sheet-print-height: calc(var(--sheet-safe-height) - 1mm);
         }
 
         * {
@@ -127,6 +127,10 @@
             page-break-inside: avoid;
         }
 
+        .sheet-print-wrap {
+            display: none;
+        }
+
         .sheet-printable-area {
             width: 100%;
             height: 100%;
@@ -151,7 +155,9 @@
             overflow: hidden;
         }
 
-        .sheet-render-canvas {
+        .sheet-render-canvas,
+        .sheet-render-image,
+        .sheet-print-image {
             display: block;
             width: 100%;
             height: 100%;
@@ -345,7 +351,8 @@
                 margin: 0 auto;
             }
 
-            .sheet-render-canvas {
+            .sheet-render-canvas,
+            .sheet-render-image {
                 width: 100% !important;
                 height: 100% !important;
             }
@@ -409,7 +416,7 @@
 
         @media print {
             @page {
-                size: A4 portrait;
+                size: 8.5in 11in;
                 margin: 5mm;
             }
 
@@ -425,20 +432,13 @@
 
             .sheet-page {
                 width: 100%;
-                height: auto;
+                height: var(--sheet-print-height);
                 border: none;
                 box-shadow: none;
-                margin: 0;
-                overflow: visible;
-                break-inside: avoid;
-                page-break-inside: avoid;
-                break-after: page;
-                page-break-after: always;
-            }
-
-            .sheet-page:last-child {
-                break-after: auto;
-                page-break-after: auto;
+                margin: 0 auto;
+                overflow: hidden;
+                break-inside: auto;
+                page-break-inside: auto;
             }
 
             .sheet-meta {
@@ -447,23 +447,46 @@
 
             .sheet-preview-wrap {
                 padding: 0;
-                width: var(--sheet-box-width);
+                width: auto;
                 height: auto;
                 overflow: visible;
                 display: block;
             }
 
-            .sheet-printable-area,
-            .sheet-content,
-            .math-print-row {
-                max-width: none;
-                height: auto;
+            .sheet-print-wrap {
+                display: block;
             }
 
-            .sheet-render-canvas {
-                width: 100% !important;
-                height: auto !important;
+            .sheet-preview-wrap {
+                display: none;
+            }
+
+            .sheet-print-page {
+                width: var(--sheet-safe-width);
+                height: var(--sheet-print-height);
+                margin: 0 auto calc(var(--sheet-safe-height) - var(--sheet-print-height));
+                overflow: hidden;
+            }
+
+            .sheet-print-page:last-child {
+                margin-bottom: 0;
+            }
+
+            .sheet-print-page-content {
+                width: 100%;
+                overflow: hidden;
+            }
+
+            .sheet-render-canvas,
+            .sheet-render-image,
+            .sheet-print-image {
+                width: auto !important;
+                height: var(--sheet-print-height) !important;
                 max-width: none;
+                display: block;
+                margin: 0 auto;
+                break-inside: auto;
+                page-break-inside: auto;
             }
         }
     </style>
@@ -487,6 +510,7 @@
     <div id="sheetMeta" class="sheet-meta"></div>
 
     <div id="sheetPreviewWrap" class="sheet-preview-wrap"></div>
+    <div id="sheetPrintWrap" class="sheet-print-wrap"></div>
 
     <script src="math-sheet-print.js"></script>
 </body>
