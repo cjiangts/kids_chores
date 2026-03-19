@@ -9,56 +9,6 @@
     <style>
         * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .header h1 { color: #fff; }
-
-        .summary-shell {
-            background: var(--dashboard-panel-bg);
-            border: 1px solid rgba(255, 255, 255, 0.68);
-            border-radius: 12px;
-            box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 0.7rem;
-            margin-bottom: 0;
-        }
-
-        .summary-card {
-            background: var(--dashboard-chip-bg);
-            border-radius: 12px;
-            padding: 0.75rem;
-            box-shadow: var(--dashboard-chip-shadow);
-        }
-
-        .summary-card .label { color: #666; font-size: 0.82rem; }
-        .summary-card .value { color: #2f3c7e; font-size: 1.1rem; font-weight: 700; margin-top: 0.2rem; }
-
-        .chart-card,
-        .history-card {
-            background: var(--dashboard-panel-bg);
-            border: 1px solid rgba(255, 255, 255, 0.68);
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
-            margin-bottom: 0.9rem;
-        }
-
-        .chart-card h2,
-        .history-card h2 {
-            margin-bottom: var(--card-section-title-margin-bottom);
-        }
-
         .chart-wrap {
             overflow-x: auto;
             padding: 0;

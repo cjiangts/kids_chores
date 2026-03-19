@@ -2437,10 +2437,15 @@ function showBonusGameForWrongCards() {
         resetBonusGame();
         return;
     }
-    const wrongCards = getUniqueWrongCards(state.wrongCardsInSession);
+    let wrongCards = getUniqueWrongCards(state.wrongCardsInSession);
     if (wrongCards.length === 0) {
         resetBonusGame();
         return;
+    }
+    // Cap at 10 pairs so the board isn't overwhelming; pick a random subset
+    const MAX_BONUS_PAIRS = 10;
+    if (wrongCards.length > MAX_BONUS_PAIRS) {
+        wrongCards = window.PracticeUiCommon.shuffleCards([...wrongCards]).slice(0, MAX_BONUS_PAIRS);
     }
     setResultBackToPracticeVisible(false);
     state.bonusSourceCards = wrongCards;

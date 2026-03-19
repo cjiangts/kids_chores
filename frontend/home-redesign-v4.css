@@ -140,6 +140,16 @@ body.practice-home-redesign {
     gap: 16px;
 }
 
+@media (max-width: 520px) {
+    .family-home-page header {
+        margin-bottom: 6px;
+    }
+
+    .family-home-page .redesign-kid-grid {
+        gap: 6px;
+    }
+}
+
 .family-home-page,
 .parent-admin-page {
     --dashboard-panel-bg: #f5f7ff;
@@ -495,6 +505,13 @@ body.practice-home-redesign {
     gap: 16px;
 }
 
+@media (max-width: 520px) {
+    .parent-admin-page .kids-grid {
+        margin-top: 6px;
+        gap: 6px;
+    }
+}
+
 .parent-admin-page .admin-kid-card {
     cursor: default;
     padding: 12px;
@@ -556,7 +573,7 @@ body.practice-home-redesign {
     gap: 10px;
     margin-top: 0;
     padding: 1rem;
-    border: 2px dotted #c8d5fb;
+    border: 1px dashed #86a6ee;
     border-radius: var(--dashboard-chip-radius);
     background: var(--dashboard-panel-bg);
     color: #243351;
@@ -571,7 +588,7 @@ body.practice-home-redesign {
 
 .parent-admin-page .admin-deck-hero-link:hover {
     transform: translateY(-1px);
-    border-color: #b7c8fb;
+    border-color: #4f83ff;
     box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.12);
 }
 

@@ -115,6 +115,8 @@
         .sheet-meta {
             color: #5b6783;
             font-size: 0.9rem;
+            margin-bottom: 10px;
+            line-height: 1.35;
         }
 
         .sheet-content {
@@ -284,6 +286,14 @@
         }
 
         @media (max-width: 860px) {
+            body {
+                padding: 10px;
+            }
+
+            .toolbar {
+                margin-bottom: 10px;
+            }
+
             .sheet-title {
                 flex: 1 1 100%;
             }
@@ -293,9 +303,68 @@
                 justify-content: flex-end;
             }
 
+            .sheet-preview-wrap {
+                align-items: stretch;
+                padding-bottom: 8px;
+            }
+
             .sheet-page {
-                width: 688px;
-                height: 1017px;
+                width: min(100%, 688px);
+                height: auto;
+                aspect-ratio: 688 / 1017;
+                margin: 0 auto;
+            }
+
+            .sheet-render-canvas {
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
+
+        @media (max-width: 520px) {
+            body {
+                padding: 6px;
+            }
+
+            .toolbar {
+                gap: 6px;
+                margin-bottom: 6px;
+            }
+
+            .sheet-title {
+                font-size: 1.05rem;
+            }
+
+            .toolbar-actions {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px;
+            }
+
+            .toolbar button,
+            .toolbar .toolbar-link {
+                width: 100%;
+                min-width: 0;
+                min-height: 36px;
+                padding: 0.55rem 0.65rem;
+                font-size: 0.88rem;
+                white-space: normal;
+                text-align: center;
+            }
+
+            .sheet-meta {
+                margin-bottom: 6px;
+                font-size: 0.8rem;
+            }
+
+            .sheet-preview-wrap {
+                gap: 6px;
+                padding-bottom: 6px;
+            }
+
+            .sheet-page {
+                border-radius: 10px;
+                overflow: hidden;
             }
         }
 

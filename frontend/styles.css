@@ -49,6 +49,7 @@
 :root {
     --font-kaiti: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
     --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mobile-panel-padding: 0.55rem;
     --card-section-title-color: #2f3c7e;
     --card-section-title-size: 1.1rem;
     --card-section-title-line-height: 1.2;
@@ -72,6 +73,13 @@ body {
     min-height: 100vh;
     padding: 20px;
 }
+
+@media (max-width: 760px) {
+    body {
+        padding: 6px;
+    }
+}
+
 
 .container {
     max-width: 1000px;
@@ -127,6 +135,12 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
+}
+
+@media (max-width: 520px) {
+    .practice-page .header {
+        margin-bottom: 6px;
+    }
 }
 
 .practice-page .header-actions {
@@ -565,6 +579,12 @@ body {
     margin-bottom: 2rem;
 }
 
+@media (max-width: 520px) {
+    .manage-page .header {
+        margin-bottom: 6px;
+    }
+}
+
 .manage-page .tab-nav {
     display: flex;
     flex-wrap: wrap;
@@ -760,6 +780,18 @@ body {
     border-radius: 12px;
     box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
     margin-bottom: 1rem;
+}
+
+@media (max-width: 520px) {
+    body.manage-page .deck-panel,
+    .manage-page .settings-section {
+        padding: var(--mobile-panel-padding);
+        margin-bottom: 6px;
+    }
+
+    .manage-page .tab-nav {
+        margin-bottom: 6px;
+    }
 }
 
 .manage-page .settings-section h2 {
@@ -1091,7 +1123,7 @@ header p {
 .actions {
     display: flex;
     gap: 10px;
-    margin-bottom: 30px;
+    margin-bottom: 0.75rem;
 }
 
 .btn-primary,
@@ -1361,11 +1393,24 @@ header p {
     }
 }
 
+@media (max-width: 520px) {
+    .page-header-with-back {
+        margin-bottom: 6px;
+    }
+}
+
 .kids-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 20px;
     margin-top: 20px;
+}
+
+@media (max-width: 520px) {
+    .kids-grid {
+        gap: 6px;
+        margin-top: 6px;
+    }
 }
 
 @media (min-width: 761px) {
@@ -1939,4 +1984,156 @@ footer {
 .admin-link:hover {
     background: rgba(255, 255, 255, 0.3);
     transform: translateY(-2px);
+}
+
+/* Report pages (kid-report, kid-session-report, kid-card-report) */
+.report-page .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.report-page .header h1 {
+    color: #fff;
+}
+
+.report-page .summary-shell {
+    background: var(--dashboard-panel-bg);
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.report-page .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.7rem;
+    margin-bottom: 1rem;
+}
+
+.report-page .summary-shell .summary-grid {
+    margin-bottom: 0;
+}
+
+.report-page .summary-card {
+    background: var(--dashboard-chip-bg);
+    border-radius: 12px;
+    padding: 0.75rem;
+    box-shadow: var(--dashboard-chip-shadow);
+}
+
+.report-page .summary-card .label {
+    color: #666;
+    font-size: 0.82rem;
+}
+
+.report-page .summary-card .value {
+    color: #2f3c7e;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-top: 0.2rem;
+}
+
+.report-page .detail-card,
+.report-page .chart-card,
+.report-page .history-card,
+.report-page .daily-chart-wrap {
+    background: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
+}
+
+.report-page .detail-card h2,
+.report-page .chart-card h2,
+.report-page .history-card h2,
+.report-page .daily-chart-wrap h2 {
+    margin-bottom: var(--card-section-title-margin-bottom);
+}
+
+.report-page .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+}
+
+@media (max-width: 760px) {
+    body.report-page {
+        padding: 10px;
+    }
+
+    .report-page .container {
+        max-width: none;
+    }
+
+    .report-page .header {
+        margin-bottom: 0.56rem;
+        gap: 0.5rem;
+    }
+
+    .report-page .summary-shell,
+    .report-page .detail-card,
+    .report-page .chart-card,
+    .report-page .history-card,
+    .report-page .daily-chart-wrap {
+        padding: 0.44rem;
+    }
+
+    .report-page .summary-grid {
+        gap: 0.34rem;
+    }
+
+    .report-page .summary-card {
+        padding: 0.42rem;
+    }
+
+    .report-page .summary-card .label {
+        font-size: 0.72rem;
+    }
+
+    .report-page .summary-card .value {
+        font-size: 0.88rem;
+    }
+
+    .report-page .detail-grid {
+        gap: 0.46rem;
+    }
+
+    .report-page .detail-card h2,
+    .report-page .chart-card h2,
+    .report-page .history-card h2,
+    .report-page .daily-chart-wrap h2 {
+        margin-bottom: 0.36rem;
+    }
+}
+
+@media (max-width: 520px) {
+    body.report-page {
+        padding: 6px;
+    }
+
+    .report-page .header {
+        margin-bottom: 6px;
+    }
+
+    .report-page .summary-shell,
+    .report-page .summary-grid {
+        margin-bottom: 6px;
+    }
+
+    .report-page .detail-card,
+    .report-page .chart-card,
+    .report-page .history-card,
+    .report-page .daily-chart-wrap {
+        margin-bottom: 6px;
+    }
+
+    .report-page .detail-grid {
+        gap: 6px;
+    }
 }

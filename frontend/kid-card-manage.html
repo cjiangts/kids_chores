@@ -441,18 +441,6 @@
             margin-left: auto;
         }
 
-        .deck-v2-action-row .btn-secondary {
-            min-height: 36px;
-        }
-
-        .deck-v2-action-row .settings-save-btn:disabled {
-            background: #e6ebf3;
-            color: #8e9ab1;
-            border: 1px solid #d5dceb;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-
         .deck-v2-actions .success,
         .deck-v2-actions .error {
             margin-bottom: 0;
@@ -2011,6 +1999,7 @@
             .manage-page .tab-nav {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 0.42rem;
+                margin-bottom: 6px;
             }
 
             .manage-page .tab-nav .manage-tab {
@@ -2089,7 +2078,7 @@
                 min-width: 0;
             }
 
-            #deckOptInModal .deck-v2-action-row .btn-secondary {
+            #deckOptInModal .deck-v2-action-row .btn-secondary:not(.settings-save-btn) {
                 flex: 0 0 auto;
             }
         }
@@ -2273,7 +2262,7 @@
                 </div>
                 <div class="deck-v2-actions">
                     <div class="deck-v2-action-row">
-                        <button id="applyDeckChangesBtn" type="button" class="settings-save-btn" disabled>Apply</button>
+                        <button id="applyDeckChangesBtn" type="button" class="btn-secondary settings-save-btn" disabled>Apply</button>
                         <button id="cancelDeckOptInModalBtn" type="button" class="btn-secondary">Close</button>
                     </div>
                     <div id="deckChangeMessage" class="success hidden"></div>

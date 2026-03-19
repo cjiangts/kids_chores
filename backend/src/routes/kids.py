@@ -7527,7 +7527,7 @@ def build_type_i_shared_decks_payload(
             }
 
         orphan_deck_name = get_category_orphan_deck_name(category_key)
-        orphan_deck_id = get_or_create_category_orphan_deck(kid_conn, category_key)
+        orphan_deck_id = get_category_orphan_deck(kid_conn, category_key)
         orphan_row = kid_conn.execute(
             "SELECT id, name, tags FROM decks WHERE id = ? LIMIT 1",
             [orphan_deck_id]

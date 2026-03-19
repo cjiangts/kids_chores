@@ -16,6 +16,13 @@
             margin-bottom: 1rem;
         }
 
+
+        @media (max-width: 520px) {
+            .deck-manage-page .deck-panel {
+                margin-bottom: 6px;
+            }
+        }
+
         .deck-tags {
             display: inline-flex;
             flex-wrap: wrap;
@@ -37,15 +44,12 @@
         }
 
         .deck-tags-col {
-            width: 240px;
+            width: 190px;
         }
 
-        .deck-id-col {
-            width: 70px;
-        }
 
         .deck-cards-col {
-            width: 170px;
+            width: 118px;
         }
 
         .deck-single-front {
@@ -60,31 +64,59 @@
             opacity: 0.9;
         }
 
-        .available-filter {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            margin: 0.6rem 0 0.9rem 0;
-            flex-wrap: wrap;
-        }
-
-        .available-filter .form-group {
-            flex: 1;
-            margin-bottom: 0;
-            min-width: 240px;
-        }
-
-        .bulk-actions {
+        .filter-delete-row {
             display: flex;
             gap: 0.55rem;
             align-items: center;
-            margin: 0.35rem 0 0.9rem 0;
+            margin: 0.35rem 0 0.55rem;
             flex-wrap: wrap;
         }
 
-        .deck-manage-page .actions,
-        .deck-manage-page .bulk-actions {
+        .filter-delete-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+            min-width: 200px;
+        }
+
+        .deck-manage-page .actions {
             gap: 0.75rem;
+        }
+
+        @media (max-width: 520px) {
+            .deck-manage-page .actions {
+                gap: 0.4rem;
+                margin-bottom: 6px;
+            }
+
+            .deck-manage-page .deck-category-filter-row {
+                gap: 0.4rem;
+                margin-bottom: 6px;
+                padding: var(--mobile-panel-padding);
+            }
+
+            .deck-manage-page .deck-category-filter-row:empty {
+                display: none;
+            }
+
+            .deck-manage-page .filter-delete-row {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: start;
+                gap: 0.4rem;
+                margin: 0 0 6px;
+            }
+
+            .deck-manage-page .filter-delete-row .form-group {
+                min-width: 0;
+            }
+
+            .deck-manage-page .deck-tags-col {
+                width: 150px;
+            }
+
+            .deck-manage-page .deck-cards-col {
+                width: 96px;
+            }
         }
 
         .deck-manage-page .actions .btn-secondary,
@@ -96,7 +128,12 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 0.55rem;
-            margin: 0.35rem 0 0.8rem;
+            margin: 0 0 0.8rem;
+            padding: 0.75rem;
+            background: var(--dashboard-panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.68);
+            border-radius: 12px;
+            box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
         }
 
         .deck-category-filter-btn {
@@ -182,24 +219,20 @@
         </header>
 
         <main>
-            <section class="deck-panel settings-section">
-                <h2 class="deck-section-title">My Created Decks</h2>
-                <div class="actions">
-                    <button id="createDeckNavBtn" type="button" class="btn-secondary">Create New Deck</button>
-                    <button id="createDeckBulkNavBtn" type="button" class="btn-secondary">Bulk Create New Decks</button>
-                </div>
+            <div class="actions">
+                <button id="createDeckNavBtn" type="button" class="btn-secondary">Create New Deck</button>
+                <button id="createDeckBulkNavBtn" type="button" class="btn-secondary">Bulk Create New Decks</button>
+            </div>
 
-                <div id="deckCategoryFilterWrap" class="deck-category-filter-row"></div>
+            <div id="deckCategoryFilterWrap" class="deck-category-filter-row"></div>
 
-                <div class="available-filter">
+            <section class="deck-panel settings-section deck-list-section">
+                <div class="filter-delete-row">
                     <div class="form-group">
                         <select id="deckTagFilter" class="sort-select">
                             <option value="">Filter by secondary tag...</option>
                         </select>
                     </div>
-                </div>
-
-                <div class="bulk-actions">
                     <button id="deleteSelectedBtn" type="button" class="btn-secondary deck-delete-btn">Delete Shown (0)</button>
                 </div>
 
@@ -210,7 +243,6 @@
                         <thead>
                             <tr>
                                 <th class="shared-report-table-action-cell">Actions</th>
-                                <th class="deck-id-col">Deck ID</th>
                                 <th class="deck-tags-col">Tags</th>
                                 <th class="deck-cards-col">Cards</th>
                             </tr>

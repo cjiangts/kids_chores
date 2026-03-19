@@ -238,8 +238,8 @@ function renderAnswerList(container, cards, options = {}) {
     if (window.SimpleAudioPlayer) {
         window.SimpleAudioPlayer.attach(container, {
             selector: 'audio.js-simple-audio',
-            playLabel: typeIII ? '▶' : 'Play',
-            pauseLabel: typeIII ? '⏸' : 'Pause',
+            playLabel: '▶',
+            pauseLabel: '⏸',
         });
     }
     syncRenderedResponseTimeBars();

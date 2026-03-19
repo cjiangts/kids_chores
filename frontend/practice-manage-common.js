@@ -807,7 +807,7 @@ window.PracticeManageCommon = {
                 }
             });
 
-            const filterRow = selectEl.closest('.deck-filter-row, .available-filter');
+            const filterRow = selectEl.closest('.deck-filter-row, .available-filter, .filter-delete-row');
             if (filterRow && filterRow.parentElement) {
                 filterRow.insertAdjacentElement('afterend', chipsEl);
             } else {

@@ -411,14 +411,13 @@ function renderDeckRowHtml(deck) {
         ? '<span class="deck-print-marker" title="Printable cell design saved" aria-label="Printable cell design saved">&#128424;</span>'
         : '';
     let cardsCellHtml = cardCount === 1 && singleCardFront
-        ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;white-space:nowrap;"><span class="deck-single-front">${escapeHtml(singleCardFront)}</span>${printMarkerHtml}</span>`
+        ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;max-width:100%;flex-wrap:wrap;"><span class="deck-single-front">${escapeHtml(singleCardFront)}</span>${printMarkerHtml}</span>`
         : `<span style="white-space:nowrap;">${cardCount}</span>`;
     return `
         <tr>
             <td class="shared-report-table-action-cell">
                 <a class="tab-link secondary mini-link-btn table-action-btn" href="/deck-view.html?deckId=${encodeURIComponent(String(deckId))}">View</a>
             </td>
-            <td class="deck-id-col">${deckId}</td>
             <td class="deck-tags-col">${tagHtml}</td>
             <td class="deck-cards-col">${cardsCellHtml}</td>
         </tr>
