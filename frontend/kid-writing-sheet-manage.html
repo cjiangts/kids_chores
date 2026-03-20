@@ -171,57 +171,6 @@
             background: #e3ecff;
         }
 
-        .practicing-bucket-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.55rem;
-            margin-top: 0.65rem;
-        }
-
-        .practicing-deck-empty {
-            color: #7a6a3f;
-            font-size: 0.9rem;
-            margin-top: 0.6rem;
-        }
-
-        .suggested-card-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.35rem 0.55rem;
-        }
-
-        .suggested-card-row-label {
-            font-weight: 700;
-            color: #5f4b12;
-            font-size: 1.02rem;
-        }
-
-        .suggested-card-pill-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.42rem;
-            align-items: center;
-        }
-
-        .suggested-card-pill {
-            display: inline-flex;
-            align-items: center;
-            border: 1px solid #e5c276;
-            background: #fff3d1;
-            color: #5f4b12;
-            border-radius: 999px;
-            padding: 0.18rem 0.62rem;
-            font-size: 0.95rem;
-            line-height: 1.22;
-            word-break: break-word;
-        }
-
-        .suggested-card-empty {
-            font-size: 0.95rem;
-            color: #7a6a3f;
-        }
-
         .sheet-row {
             display: flex;
             gap: 0.75rem;
@@ -943,6 +892,49 @@
             justify-content: flex-end;
             margin-top: 0.8rem;
         }
+        /* ── Chinese writing grid cell (田字格) ── */
+        .cw-grid-cell {
+            position: relative;
+            border: 1.5px solid #4caf50;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .cw-grid-cell::before,
+        .cw-grid-cell::after {
+            content: '';
+            position: absolute;
+            pointer-events: none;
+        }
+        .cw-grid-cell::before {
+            /* horizontal dashed midline */
+            top: 50%;
+            left: 0;
+            right: 0;
+            border-top: 1px dashed #a5d6a7;
+        }
+        .cw-grid-cell::after {
+            /* vertical dashed midline */
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            border-left: 1px dashed #a5d6a7;
+        }
+        .cw-grid-char {
+            position: relative;
+            z-index: 1;
+            color: #bbb;
+            font-weight: 400;
+            text-align: center;
+            line-height: 1;
+        }
+        .cw-grid-char-first {
+            color: #333;
+            font-weight: 600;
+        }
+
         @media (max-width: 900px) {
             .sb-row-tools {
                 top: auto;
@@ -961,30 +953,15 @@
         <div id="errorMessage" class="error hidden"></div>
 
         <div class="type2-sheet-layout">
-            <!-- Chinese writing mode sections -->
-            <div id="chineseSuggestedSection" class="sheet-subgroup sheet-subgroup-suggested">
-                <div class="sheet-subgroup-head">
-                    <h3>Suggested Cards <span id="practicingDeckCount">(0)</span></h3>
-                </div>
-                <p class="sheet-subgroup-note">Cards are auto-selected from newly added and last failed cards. Cards already on an active sheet are excluded.</p>
-                <div id="practicingDeckGrid" class="practicing-bucket-list"></div>
-                <p id="practicingDeckEmpty" class="practicing-deck-empty">No suggested candidate cards.</p>
-            </div>
-
             <div id="chineseGenerateSection" class="sheet-subgroup sheet-subgroup-generate">
                 <div class="sheet-subgroup-head">
                     <h3>Generate Practice Sheet（生成田字格）</h3>
                 </div>
-                <div class="sheet-row">
-                    <div class="form-group">
-                        <label for="sheetCardCount">Cards Per Sheet</label>
-                        <input type="number" id="sheetCardCount" min="1" max="200" step="1" value="10" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="sheetRowsPerChar">Rows Per Card</label>
-                        <input type="number" id="sheetRowsPerChar" min="1" max="12" step="1" value="1" required>
-                    </div>
-                    <button type="button" id="createSheetBtn" class="settings-save-btn">Generate</button>
+                <div class="sheet-build-actions">
+                    <button type="button" id="buildChineseSheetBtn" class="settings-save-btn" disabled>
+                        <span class="sheet-build-btn-title">Build Writing Sheet</span>
+                        <span class="sheet-build-btn-meta" id="buildChineseSheetBtnMeta">Choose which characters go where</span>
+                    </button>
                 </div>
                 <div id="sheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
             </div>
@@ -1008,6 +985,58 @@
                 </div>
                 <p id="sheetHistoryNote" class="sheet-subgroup-note">Print, mark done, or delete pending sheets here.</p>
                 <div id="sheetList" class="sheet-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chinese Writing Sheet Builder Modal -->
+    <div id="chineseSheetBuilderModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 15px); padding:0.5rem 0.8rem; display:flex; flex-direction:column; overflow:hidden;">
+            <div class="sheet-builder-head">
+                <div class="sheet-builder-title-row">
+                    <h2 style="margin:0;">Build Writing Sheet</h2>
+                    <span id="chineseSheetCharCount" style="font-size:0.88rem; color:#666;"></span>
+                </div>
+                <div style="display:inline-flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+                    <span class="sheet-builder-paper-control">
+                        <span>Size</span>
+                        <button type="button" id="cwGlobalScaleDown" class="cell-design-edge-btn" style="width:28px;height:28px;font-size:0.92rem;" title="Smaller">-</button>
+                        <span id="cwGlobalScaleLabel" style="min-width:36px; text-align:center;">130%</span>
+                        <button type="button" id="cwGlobalScaleUp" class="cell-design-edge-btn" style="width:28px;height:28px;font-size:0.92rem;" title="Larger">+</button>
+                    </span>
+                    <span class="sheet-builder-paper-control">
+                        <span>Practice</span>
+                        <button type="button" id="cwEmptyCountDown" class="cell-design-edge-btn" style="width:28px;height:28px;font-size:0.92rem;" title="Fewer practice boxes">-</button>
+                        <span id="cwEmptyCountLabel" style="min-width:20px; text-align:center;">1</span>
+                        <button type="button" id="cwEmptyCountUp" class="cell-design-edge-btn" style="width:28px;height:28px;font-size:0.92rem;" title="More practice boxes">+</button>
+                    </span>
+                    <label class="sheet-builder-paper-control" for="chineseSheetPaperSize">
+                        <span>Paper</span>
+                        <select id="chineseSheetPaperSize">
+                            <option value="letter">8.5 x 11 (US Letter)</option>
+                            <option value="a4">8.27 x 11.69 (A4)</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            <div style="flex:1; min-height:0; overflow:auto; position:relative;">
+                <div style="display:flex; justify-content:center; min-width:max-content;">
+                    <div id="chineseSheetA4" style="position:relative; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
+                </div>
+                <div id="chineseSheetPicker" class="sb-picker-backdrop hidden" aria-hidden="true">
+                    <div class="sb-picker-card">
+                        <h3 class="sb-picker-title" id="chineseSheetPickerTitle">Choose Character</h3>
+                        <p class="sb-picker-note">Pick a character for this row.</p>
+                        <div id="chineseSheetPickerOptions" class="sb-picker-options"></div>
+                        <div class="sb-picker-actions">
+                            <button type="button" id="chineseSheetPickerCancelBtn" class="sheet-manage-btn">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
+                <button type="button" id="chineseSheetCloseBtn" class="settings-save-btn">Close</button>
+                <button type="button" id="chineseSheetDoneBtn" class="sheet-manage-btn">Done</button>
             </div>
         </div>
     </div>

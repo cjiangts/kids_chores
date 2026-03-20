@@ -61,7 +61,7 @@ async function loadKid() {
 async function loadSheets() {
     try {
         showError('');
-        const response = await fetch(buildType2ApiUrl('/sheets'));
+        const response = await fetch(buildType2ApiUrl('/chinese-print-sheets'));
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -80,7 +80,8 @@ function renderSheets(sheets) {
     }
 
     sheetList.innerHTML = sheets.map((sheet) => {
-        const answers = sheet.cards.map((card) => card.back || card.front || '').join(' · ');
+        const cardLabels = Array.isArray(sheet.card_labels) ? sheet.card_labels : [];
+        const answers = cardLabels.join(' · ');
         const isDone = sheet.status === 'done';
         const isPending = sheet.status === 'pending';
         const statusClass = isDone ? 'done' : 'pending';
@@ -118,7 +119,7 @@ function renderSheets(sheets) {
 
 async function markDone(sheetId) {
     try {
-        const response = await fetch(buildType2ApiUrl(`/sheets/${sheetId}/complete`), {
+        const response = await fetch(buildType2ApiUrl(`/chinese-print-sheets/${sheetId}/complete`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
@@ -135,7 +136,7 @@ async function markDone(sheetId) {
 
 async function deleteSheet(sheetId) {
     try {
-        const response = await fetch(buildType2ApiUrl(`/sheets/${sheetId}/withdraw`), {
+        const response = await fetch(buildType2ApiUrl(`/chinese-print-sheets/${sheetId}/withdraw`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})

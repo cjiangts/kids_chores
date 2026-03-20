@@ -409,8 +409,10 @@ function closeDeckCategoryModal() {
 }
 
 function renderDeckCategoryModalLists() {
-    renderDeckCategoryBubbleList(deckCategoryAvailableBubbles, deckCategoryModalState.availableKeys, false);
-    renderDeckCategoryBubbleList(deckCategoryOptedBubbles, deckCategoryModalState.optedInKeys, true);
+    const kid = currentKids.find((item) => String(item?.id || '') === String(deckCategoryModalState.kidId || ''));
+    const categoryMetaMap = getDeckCategoryMetaMap(kid);
+    renderDeckCategoryBubbleList(deckCategoryAvailableBubbles, deckCategoryModalState.availableKeys, false, categoryMetaMap);
+    renderDeckCategoryBubbleList(deckCategoryOptedBubbles, deckCategoryModalState.optedInKeys, true, categoryMetaMap);
     if (deckCategoryAvailableTitle) {
         deckCategoryAvailableTitle.textContent = `Available Deck Categories (${deckCategoryModalState.availableKeys.length})`;
     }
@@ -425,7 +427,7 @@ function renderDeckCategoryModalLists() {
     }
 }
 
-function renderDeckCategoryBubbleList(containerEl, keys, selected) {
+function renderDeckCategoryBubbleList(containerEl, keys, selected, categoryMetaMap = {}) {
     if (!containerEl) {
         return;
     }
@@ -433,11 +435,15 @@ function renderDeckCategoryBubbleList(containerEl, keys, selected) {
     const bubbleClass = selected ? 'deck-category-bubble selected' : 'deck-category-bubble';
     const bubbleTitle = selected ? 'Click to move back to Available' : 'Click to opt in';
     containerEl.innerHTML = sortedKeys
-        .map((key) => `
+        .map((key) => {
+            const emoji = getCategoryEmoji(key, categoryMetaMap);
+            const label = getCategoryDisplayName(key, categoryMetaMap) || key;
+            return `
             <button type="button" class="${bubbleClass}" data-category-key="${escapeHtml(key)}" title="${bubbleTitle}">
-                ${escapeHtml(key)}
+                ${escapeHtml(`${emoji} ${label}`)}
             </button>
-        `)
+        `;
+        })
         .join('');
 }
 

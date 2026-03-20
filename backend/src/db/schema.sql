@@ -3,7 +3,6 @@ CREATE SEQUENCE IF NOT EXISTS decks_id_seq;
 CREATE SEQUENCE IF NOT EXISTS cards_id_seq;
 CREATE SEQUENCE IF NOT EXISTS sessions_id_seq;
 CREATE SEQUENCE IF NOT EXISTS session_results_id_seq;
-CREATE SEQUENCE IF NOT EXISTS writing_sheets_id_seq;
 
 -- Flashcard decks
 CREATE TABLE IF NOT EXISTS decks (
@@ -75,21 +74,6 @@ CREATE TABLE IF NOT EXISTS lesson_reading_audio (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Printable writing practice sheets
-CREATE TABLE IF NOT EXISTS writing_sheets (
-  id INTEGER PRIMARY KEY DEFAULT nextval('writing_sheets_id_seq'),
-  status VARCHAR NOT NULL DEFAULT 'pending', -- 'pending' or 'done'
-  practice_rows INTEGER NOT NULL DEFAULT 1,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  completed_at TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS writing_sheet_cards (
-  sheet_id INTEGER NOT NULL,
-  card_id INTEGER NOT NULL,
-  PRIMARY KEY (sheet_id, card_id)
-);
-
 -- Persisted printable math sheets built from type-IV generator decks
 CREATE SEQUENCE IF NOT EXISTS type4_print_sheets_id_seq;
 
@@ -100,6 +84,18 @@ CREATE TABLE IF NOT EXISTS type4_print_sheets (
   seed_base BIGINT NOT NULL,
   status VARCHAR NOT NULL DEFAULT 'preview',  -- 'preview', 'pending', 'done'
   incorrect_count INTEGER DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP
+);
+
+-- Persisted printable Chinese writing sheets built from sheet builder
+CREATE SEQUENCE IF NOT EXISTS type2_chinese_print_sheets_id_seq;
+
+CREATE TABLE IF NOT EXISTS type2_chinese_print_sheets (
+  id INTEGER PRIMARY KEY DEFAULT nextval('type2_chinese_print_sheets_id_seq'),
+  category_key VARCHAR NOT NULL,
+  layout_json VARCHAR NOT NULL,
+  status VARCHAR NOT NULL DEFAULT 'preview',  -- 'preview', 'pending', 'done'
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP
 );

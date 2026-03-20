@@ -161,7 +161,7 @@ Kid reads passage aloud while recording (live waveform visualizer). Review phase
 
 **`shared_decks.duckdb`:** Tables: `deck`, `deck_category`, `cards`. Schema applied once per process via `_initialized_dbs` set. Connection opened fresh per request (DuckDB embedded, no pool needed).
 
-**`kid_{id}.db`:** Tables: `decks`, `cards`, `sessions`, `session_results`, `lesson_reading_audio`, `writing_sheets`, `writing_sheet_cards`, `deck_category_opt_in`. `deck_category_opt_in` stores per-category session count, hard-card percentage, include-orphan flag. No FK constraint on `cards.deck_id` — integrity enforced in application code.
+**`kid_{id}.db`:** Tables: `decks`, `cards`, `sessions`, `session_results`, `lesson_reading_audio`, `type4_print_sheets`, `type2_chinese_print_sheets`, `deck_category_opt_in`. `deck_category_opt_in` stores per-category session count, hard-card percentage, include-orphan flag. No FK constraint on `cards.deck_id` — integrity enforced in application code.
 
 ---
 

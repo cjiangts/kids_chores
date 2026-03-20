@@ -4,6 +4,7 @@ from pathlib import Path
 from src.db import kid_db
 
 LEGACY_MATH_PRACTICE_SHEETS_TABLE = 'math_practice_sheets'
+STARTUP_CLEANUP_SQL_FILE = Path(__file__).resolve().parent / 'db' / 'startup_cleanup.sql'
 
 
 def _iter_kid_db_paths():
@@ -26,6 +27,41 @@ def _table_exists(conn, table_name):
         [str(table_name or '').strip()],
     ).fetchone()
     return bool(row)
+
+
+def _read_startup_cleanup_sql():
+    """Return SQL statements to run against existing kid DBs at startup."""
+    if not STARTUP_CLEANUP_SQL_FILE.exists():
+        return ''
+    return STARTUP_CLEANUP_SQL_FILE.read_text(encoding='utf-8').strip()
+
+
+def ensure_kid_db_schema(logger):
+    """Apply the current kid DB schema to every existing kid DB at startup."""
+    updated_paths = []
+    errors = []
+
+    for db_path in _iter_kid_db_paths() or []:
+        try:
+            kid_db.ensure_kid_database_schema_by_path(str(db_path))
+            updated_paths.append(str(db_path))
+        except Exception as exc:
+            errors.append(f'{db_path}: {exc}')
+
+    if updated_paths:
+        logger.info(
+            'Applied current kid DB schema to %s DB(s): %s',
+            len(updated_paths),
+            ', '.join(updated_paths),
+        )
+    else:
+        logger.info('No kid DB files found for startup schema sync.')
+
+    if errors:
+        logger.error(
+            'Errors while applying current kid DB schema at startup: %s',
+            '; '.join(errors),
+        )
 
 
 def drop_legacy_math_practice_sheets_tables(logger):
@@ -64,5 +100,43 @@ def drop_legacy_math_practice_sheets_tables(logger):
         logger.error(
             'Errors while dropping legacy %s table: %s',
             LEGACY_MATH_PRACTICE_SHEETS_TABLE,
+            '; '.join(errors),
+        )
+
+
+def run_kid_db_startup_cleanup_sql(logger):
+    """Execute startup cleanup SQL against every existing kid DB."""
+    cleanup_sql = _read_startup_cleanup_sql()
+    if not cleanup_sql:
+        logger.info('No kid DB startup cleanup SQL found.')
+        return
+
+    cleaned_paths = []
+    errors = []
+
+    for db_path in _iter_kid_db_paths() or []:
+        conn = None
+        try:
+            conn = kid_db.duckdb.connect(str(db_path))
+            conn.execute(cleanup_sql)
+            cleaned_paths.append(str(db_path))
+        except Exception as exc:
+            errors.append(f'{db_path}: {exc}')
+        finally:
+            if conn is not None:
+                conn.close()
+
+    if cleaned_paths:
+        logger.info(
+            'Executed kid DB startup cleanup SQL for %s DB(s): %s',
+            len(cleaned_paths),
+            ', '.join(cleaned_paths),
+        )
+    else:
+        logger.info('No kid DB files found for startup cleanup SQL.')
+
+    if errors:
+        logger.error(
+            'Errors while executing kid DB startup cleanup SQL: %s',
             '; '.join(errors),
         )

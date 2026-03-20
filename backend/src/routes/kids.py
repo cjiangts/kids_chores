@@ -39,7 +39,6 @@ TYPE_I_NON_CHINESE_DECK_MIX_FIELD = 'sharedMathDeckMix'
 SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'sessionCardCountByCategory'
 HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'hardCardPercentageByCategory'
 INCLUDE_ORPHAN_BY_CATEGORY_FIELD = 'includeOrphanByCategory'
-MAX_WRITING_SHEET_ROWS = 12
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
@@ -7559,17 +7558,115 @@ def get_writing_candidate_card_ids(conn, deck_ids, session_type, excluded_card_i
     return [int(row[0]) for row in rows]
 
 
+def _load_type2_chinese_print_sheet_layout(layout_json):
+    """Parse one saved Chinese print-sheet layout payload."""
+    try:
+        layout = json.loads(layout_json) if layout_json else {}
+    except (json.JSONDecodeError, TypeError):
+        return {}, []
+    rows = layout.get('rows')
+    if not isinstance(rows, list):
+        return layout, []
+    return layout, rows
+
+
+def _get_type2_chinese_print_sheet_row_card_id(row):
+    """Return the normalized card id stored in one Chinese print-sheet row."""
+    if not isinstance(row, dict):
+        return None
+    raw_card_id = row.get('card_id')
+    if raw_card_id is None:
+        raw_card_id = row.get('cardId')
+    try:
+        card_id = int(raw_card_id)
+    except (TypeError, ValueError):
+        return None
+    return card_id if card_id > 0 else None
+
+
 def get_pending_writing_card_ids(conn):
-    """Return card ids currently blocked by pending writing sheets."""
+    """Return card ids currently blocked by pending Chinese print sheets."""
     rows = conn.execute(
         """
-        SELECT DISTINCT wsc.card_id
-        FROM writing_sheet_cards wsc
-        JOIN writing_sheets ws ON ws.id = wsc.sheet_id
-        WHERE ws.status = 'pending'
+        SELECT layout_json
+        FROM type2_chinese_print_sheets
+        WHERE status = 'pending'
         """
     ).fetchall()
-    return [int(row[0]) for row in rows]
+    pending_card_ids = []
+    seen = set()
+    for row in rows:
+        _, layout_rows = _load_type2_chinese_print_sheet_layout(row[0])
+        for layout_row in layout_rows:
+            card_id = _get_type2_chinese_print_sheet_row_card_id(layout_row)
+            if card_id is None or card_id in seen:
+                continue
+            seen.add(card_id)
+            pending_card_ids.append(card_id)
+    return pending_card_ids
+
+
+def remove_cards_from_type2_chinese_print_sheets(conn, card_ids, *, statuses=('preview', 'pending')):
+    """Remove selected cards from saved in-progress Chinese print sheets."""
+    normalized_card_ids = []
+    for raw in list(card_ids or []):
+        try:
+            card_id = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if card_id <= 0 or card_id in normalized_card_ids:
+            continue
+        normalized_card_ids.append(card_id)
+
+    normalized_statuses = []
+    for raw in list(statuses or []):
+        status = str(raw or '').strip().lower()
+        if not status or status in normalized_statuses:
+            continue
+        normalized_statuses.append(status)
+
+    if not normalized_card_ids or not normalized_statuses:
+        return
+
+    status_placeholders = ','.join(['?'] * len(normalized_statuses))
+    rows = conn.execute(
+        f"""
+        SELECT id, layout_json
+        FROM type2_chinese_print_sheets
+        WHERE status IN ({status_placeholders})
+        """,
+        normalized_statuses,
+    ).fetchall()
+
+    blocked_card_set = set(normalized_card_ids)
+    for row in rows:
+        sheet_id = int(row[0] or 0)
+        if sheet_id <= 0:
+            continue
+        layout, layout_rows = _load_type2_chinese_print_sheet_layout(row[1])
+        if not layout_rows:
+            continue
+
+        kept_rows = []
+        removed_any = False
+        for layout_row in layout_rows:
+            card_id = _get_type2_chinese_print_sheet_row_card_id(layout_row)
+            if card_id is not None and card_id in blocked_card_set:
+                removed_any = True
+                continue
+            kept_rows.append(layout_row)
+
+        if not removed_any:
+            continue
+        if len(kept_rows) == 0:
+            conn.execute("DELETE FROM type2_chinese_print_sheets WHERE id = ?", [sheet_id])
+            continue
+
+        layout['rows'] = kept_rows
+        conn.execute(
+            "UPDATE type2_chinese_print_sheets SET layout_json = ? WHERE id = ?",
+            [json.dumps(layout, ensure_ascii=False, separators=(',', ':')), sheet_id],
+        )
 
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
@@ -7800,7 +7897,7 @@ def delete_card(kid_id, card_id):
             if practiced_count > 0:
                 return jsonify({'error': 'Cards with practice history cannot be deleted'}), 400
 
-            conn.execute("DELETE FROM writing_sheet_cards WHERE card_id = ?", [card_id])
+            remove_cards_from_type2_chinese_print_sheets(conn, [card_id])
             delete_card_from_deck_internal(conn, card_id)
         finally:
             conn.close()
@@ -8494,10 +8591,7 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
                 ]
                 if unpracticed_ids:
                     unpracticed_placeholders = ','.join(['?'] * len(unpracticed_ids))
-                    kid_conn.execute(
-                        f"DELETE FROM writing_sheet_cards WHERE card_id IN ({unpracticed_placeholders})",
-                        unpracticed_ids
-                    )
+                    remove_cards_from_type2_chinese_print_sheets(kid_conn, unpracticed_ids)
                     kid_conn.execute(
                         f"""
                         DELETE FROM lesson_reading_audio
@@ -8519,10 +8613,7 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
                 # No practice yet: hard-delete cards and related rows.
                 if card_ids:
                     placeholders = ','.join(['?'] * len(card_ids))
-                    kid_conn.execute(
-                        f"DELETE FROM writing_sheet_cards WHERE card_id IN ({placeholders})",
-                        card_ids
-                    )
+                    remove_cards_from_type2_chinese_print_sheets(kid_conn, card_ids)
                     # Safety no-op in clean state; prevents FK errors from stale rows.
                     kid_conn.execute(
                         f"DELETE FROM session_results WHERE card_id IN ({placeholders})",
@@ -10911,10 +11002,7 @@ def delete_shared_deck_related_rows(conn, card_ids, *, delete_type3_audio):
     if not card_ids:
         return
     placeholders = ','.join(['?'] * len(card_ids))
-    conn.execute(
-        f"DELETE FROM writing_sheet_cards WHERE card_id IN ({placeholders})",
-        card_ids
-    )
+    remove_cards_from_type2_chinese_print_sheets(conn, card_ids)
     if delete_type3_audio:
         conn.execute(
             f"""
@@ -12626,7 +12714,7 @@ def delete_writing_card(kid_id, card_id):
             conn.close()
             return jsonify({'error': 'Cards with practice history cannot be deleted'}), 400
 
-        conn.execute("DELETE FROM writing_sheet_cards WHERE card_id = ?", [card_id])
+        remove_cards_from_type2_chinese_print_sheets(conn, [card_id])
         delete_card_from_deck_internal(conn, card_id)
         conn.close()
 
@@ -12648,533 +12736,6 @@ def delete_writing_card(kid_id, card_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
-def select_writing_sheet_candidates(conn, deck_ids, session_type, requested_count, excluded_card_ids=None):
-    """Select candidate writing cards (newly added or latest failed) for sheet generation."""
-    return get_writing_candidate_rows(
-        conn,
-        deck_ids,
-        session_type,
-        excluded_card_ids=excluded_card_ids,
-        limit=requested_count
-    )
-
-
-@kids_bp.route('/kids/<kid_id>/type2/sheets/preview', methods=['POST'])
-def preview_writing_sheet(kid_id):
-    """Preview writing sheet cards without persisting a sheet record."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-
-        data = request.get_json() or {}
-        category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
-            kid,
-            data.get('categoryKey') or request.args.get('categoryKey'),
-        )
-        if not has_chinese_specific_logic:
-            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
-        try:
-            requested_count = int(data.get('count', get_category_session_card_count_for_kid(kid, category_key)))
-        except (TypeError, ValueError):
-            return jsonify({'error': 'count must be an integer'}), 400
-        try:
-            requested_rows = int(data.get('rows_per_character', 1))
-        except (TypeError, ValueError):
-            return jsonify({'error': 'rows_per_character must be an integer'}), 400
-
-        if requested_count < MIN_SESSION_CARD_COUNT:
-            return jsonify({'error': f'count must be at least {MIN_SESSION_CARD_COUNT}'}), 400
-        if requested_rows < 1 or requested_rows > MAX_WRITING_SHEET_ROWS:
-            return jsonify({'error': f'rows_per_character must be between 1 and {MAX_WRITING_SHEET_ROWS}'}), 400
-        if requested_count * requested_rows > MAX_WRITING_SHEET_ROWS:
-            max_cards = max(1, MAX_WRITING_SHEET_ROWS // requested_rows)
-            return jsonify({
-                'error': (
-                    f'Sheet exceeds one-page limit ({MAX_WRITING_SHEET_ROWS} rows). '
-                    f'With {requested_rows} row(s) per card, max cards is {max_cards}.'
-                )
-            }), 400
-
-        conn = get_kid_connection_for(kid)
-        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
-            conn,
-            kid,
-            category_key,
-        )
-        bank_deck_ids = [
-            int(src['local_deck_id'])
-            for src in source_decks
-            if int(src.get('card_count') or 0) > 0
-        ]
-        pending_card_ids = get_pending_writing_card_ids(conn)
-        candidates = select_writing_sheet_candidates(
-            conn,
-            bank_deck_ids,
-            category_key,
-            requested_count,
-            pending_card_ids,
-        )
-        conn.close()
-
-        if len(candidates) == 0:
-            return jsonify({
-                'preview': False,
-                'cards': [],
-                'message': 'No suggested candidate cards are available to print right now.'
-            }), 200
-
-        return jsonify({
-            'category_key': category_key,
-            'preview': True,
-            'rows_per_character': requested_rows,
-            'cards': [{
-                'id': int(row[0]),
-                'front': row[1],
-                'back': row[2]
-            } for row in candidates]
-        }), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/kids/<kid_id>/type2/sheets/finalize', methods=['POST'])
-def finalize_writing_sheet(kid_id):
-    """Persist a previously previewed writing sheet once parent confirms print."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-
-        data = request.get_json() or {}
-        category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
-            kid,
-            data.get('categoryKey') or request.args.get('categoryKey'),
-        )
-        if not has_chinese_specific_logic:
-            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
-        raw_ids = data.get('card_ids') or []
-        try:
-            requested_rows = int(data.get('rows_per_character', 1))
-        except (TypeError, ValueError):
-            return jsonify({'error': 'rows_per_character must be an integer'}), 400
-
-        if not isinstance(raw_ids, list) or len(raw_ids) == 0:
-            return jsonify({'error': 'card_ids must be a non-empty list'}), 400
-        if requested_rows < 1 or requested_rows > MAX_WRITING_SHEET_ROWS:
-            return jsonify({'error': f'rows_per_character must be between 1 and {MAX_WRITING_SHEET_ROWS}'}), 400
-
-        normalized_ids = []
-        for cid in raw_ids:
-            try:
-                normalized_ids.append(int(cid))
-            except (TypeError, ValueError):
-                return jsonify({'error': 'card_ids must contain integers'}), 400
-        normalized_ids = list(dict.fromkeys(normalized_ids))
-
-        if len(normalized_ids) * requested_rows > MAX_WRITING_SHEET_ROWS:
-            max_cards = max(1, MAX_WRITING_SHEET_ROWS // requested_rows)
-            return jsonify({
-                'error': (
-                    f'Sheet exceeds one-page limit ({MAX_WRITING_SHEET_ROWS} rows). '
-                    f'With {requested_rows} row(s) per card, max cards is {max_cards}.'
-                )
-            }), 400
-
-        conn = get_kid_connection_for(kid)
-        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
-            conn,
-            kid,
-            category_key,
-        )
-        bank_deck_ids = [
-            int(src['local_deck_id'])
-            for src in source_decks
-            if int(src.get('card_count') or 0) > 0
-        ]
-
-        pending_set = set(get_pending_writing_card_ids(conn))
-        if any(card_id in pending_set for card_id in normalized_ids):
-            conn.close()
-            return jsonify({'error': 'Some selected cards are already practicing in another sheet'}), 409
-        state2_set = set(get_writing_candidate_card_ids(
-            conn,
-            bank_deck_ids,
-            category_key,
-            excluded_card_ids=list(pending_set)
-        ))
-        if any(card_id not in state2_set for card_id in normalized_ids):
-            conn.close()
-            return jsonify({'error': 'Some selected cards are no longer in State 2 (ready for sheet)'}), 409
-
-        placeholders = ','.join(['?'] * len(normalized_ids))
-        deck_placeholders = ','.join(['?'] * len(bank_deck_ids))
-        if not deck_placeholders:
-            conn.close()
-            return jsonify({'error': 'Some selected cards are no longer available'}), 409
-        rows = conn.execute(
-            f"""
-            SELECT id, front, back
-            FROM cards
-            WHERE deck_id IN ({deck_placeholders})
-              AND id IN ({placeholders})
-            """,
-            [*bank_deck_ids, *normalized_ids]
-        ).fetchall()
-        rows_by_id = {int(row[0]): row for row in rows}
-        if len(rows_by_id) != len(normalized_ids):
-            conn.close()
-            return jsonify({'error': 'Some selected cards are no longer available'}), 409
-
-        sheet_id = conn.execute(
-            "INSERT INTO writing_sheets (status, practice_rows) VALUES ('pending', ?) RETURNING id",
-            [requested_rows]
-        ).fetchone()[0]
-
-        for card_id in normalized_ids:
-            conn.execute(
-                """
-                INSERT INTO writing_sheet_cards (sheet_id, card_id)
-                VALUES (?, ?)
-                """,
-                [sheet_id, card_id]
-            )
-
-        conn.close()
-        return jsonify({
-            'category_key': category_key,
-            'created': True,
-            'sheet_id': int(sheet_id),
-            'rows_per_character': requested_rows,
-            'cards': [{
-                'id': card_id,
-                'front': rows_by_id[card_id][1],
-                'back': rows_by_id[card_id][2]
-            } for card_id in normalized_ids]
-        }), 201
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/kids/<kid_id>/type2/sheets', methods=['POST'])
-def create_writing_sheet(kid_id):
-    """Create a printable writing sheet from State-2 (ready) cards."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-
-        data = request.get_json() or {}
-        category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
-            kid,
-            data.get('categoryKey') or request.args.get('categoryKey'),
-        )
-        if not has_chinese_specific_logic:
-            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
-        try:
-            requested_count = int(data.get('count', get_category_session_card_count_for_kid(kid, category_key)))
-        except (TypeError, ValueError):
-            return jsonify({'error': 'count must be an integer'}), 400
-        try:
-            requested_rows = int(data.get('rows_per_character', 1))
-        except (TypeError, ValueError):
-            return jsonify({'error': 'rows_per_character must be an integer'}), 400
-
-        if requested_count < MIN_SESSION_CARD_COUNT:
-            return jsonify({'error': f'count must be at least {MIN_SESSION_CARD_COUNT}'}), 400
-        if requested_rows < 1 or requested_rows > MAX_WRITING_SHEET_ROWS:
-            return jsonify({'error': f'rows_per_character must be between 1 and {MAX_WRITING_SHEET_ROWS}'}), 400
-        total_rows_requested = requested_count * requested_rows
-        if total_rows_requested > MAX_WRITING_SHEET_ROWS:
-            max_cards = max(1, MAX_WRITING_SHEET_ROWS // requested_rows)
-            return jsonify({
-                'error': (
-                    f'Sheet exceeds one-page limit ({MAX_WRITING_SHEET_ROWS} rows). '
-                    f'With {requested_rows} row(s) per card, max cards is {max_cards}.'
-                )
-            }), 400
-
-        conn = get_kid_connection_for(kid)
-        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
-            conn,
-            kid,
-            category_key,
-        )
-        bank_deck_ids = [
-            int(src['local_deck_id'])
-            for src in source_decks
-            if int(src.get('card_count') or 0) > 0
-        ]
-        pending_card_ids = get_pending_writing_card_ids(conn)
-
-        candidates = select_writing_sheet_candidates(
-            conn,
-            bank_deck_ids,
-            category_key,
-            requested_count,
-            pending_card_ids,
-        )
-
-        if len(candidates) == 0:
-            conn.close()
-            return jsonify({
-                'sheet_id': None,
-                'cards': [],
-                'created': False,
-                'message': 'No suggested candidate cards are available to print right now.'
-            }), 200
-
-        sheet_id = conn.execute(
-            "INSERT INTO writing_sheets (status, practice_rows) VALUES ('pending', ?) RETURNING id",
-            [requested_rows]
-        ).fetchone()[0]
-
-        for row in candidates:
-            conn.execute(
-                """
-                INSERT INTO writing_sheet_cards (sheet_id, card_id)
-                VALUES (?, ?)
-                """,
-                [sheet_id, row[0]]
-            )
-
-        conn.close()
-        return jsonify({
-            'category_key': category_key,
-            'created': True,
-            'sheet_id': int(sheet_id),
-            'rows_per_character': requested_rows,
-            'cards': [{
-                'id': int(row[0]),
-                'front': row[1],
-                'back': row[2]
-            } for row in candidates]
-        }), 201
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/kids/<kid_id>/type2/sheets', methods=['GET'])
-def get_writing_sheets(kid_id):
-    """List all writing sheets with cards."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-        _, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
-            kid,
-            request.args.get('categoryKey'),
-        )
-        if not has_chinese_specific_logic:
-            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
-
-        conn = get_kid_connection_for(kid, read_only=True)
-        rows = conn.execute(
-            """
-            SELECT
-                ws.id,
-                ws.status,
-                ws.practice_rows,
-                ws.created_at,
-                ws.completed_at,
-                c.id,
-                c.front,
-                c.back
-            FROM writing_sheets ws
-            LEFT JOIN writing_sheet_cards wsc ON wsc.sheet_id = ws.id
-            LEFT JOIN cards c ON c.id = wsc.card_id
-            ORDER BY ws.created_at DESC, c.id ASC
-            """
-        ).fetchall()
-        conn.close()
-
-        sheets_by_id = {}
-        ordered_ids = []
-        for row in rows:
-            sheet_id = int(row[0])
-            if sheet_id not in sheets_by_id:
-                sheets_by_id[sheet_id] = {
-                    'id': sheet_id,
-                    'status': row[1],
-                    'practice_rows': int(row[2] or 1),
-                    'created_at': row[3].isoformat() if row[3] else None,
-                    'completed_at': row[4].isoformat() if row[4] else None,
-                    'cards': []
-                }
-                ordered_ids.append(sheet_id)
-
-            if row[5] is not None:
-                sheets_by_id[sheet_id]['cards'].append({
-                    'id': int(row[5]),
-                    'front': row[6],
-                    'back': row[7]
-                })
-
-        return jsonify({'sheets': [sheets_by_id[sid] for sid in ordered_ids]}), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/kids/<kid_id>/type2/sheets/<sheet_id>', methods=['GET'])
-def get_writing_sheet_detail(kid_id, sheet_id):
-    """Get one writing sheet with cards."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-        _, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
-            kid,
-            request.args.get('categoryKey'),
-        )
-        if not has_chinese_specific_logic:
-            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
-
-        conn = get_kid_connection_for(kid, read_only=True)
-        rows = conn.execute(
-            """
-            SELECT
-                ws.id,
-                ws.status,
-                ws.practice_rows,
-                ws.created_at,
-                ws.completed_at,
-                c.id,
-                c.front,
-                c.back
-            FROM writing_sheets ws
-            LEFT JOIN writing_sheet_cards wsc ON wsc.sheet_id = ws.id
-            LEFT JOIN cards c ON c.id = wsc.card_id
-            WHERE ws.id = ?
-            ORDER BY c.id ASC
-            """,
-            [sheet_id]
-        ).fetchall()
-        conn.close()
-
-        if len(rows) == 0:
-            return jsonify({'error': 'Sheet not found'}), 404
-
-        sheet = {
-            'id': int(rows[0][0]),
-            'status': rows[0][1],
-            'practice_rows': int(rows[0][2] or 1),
-            'created_at': rows[0][3].isoformat() if rows[0][3] else None,
-            'completed_at': rows[0][4].isoformat() if rows[0][4] else None,
-            'cards': []
-        }
-        for row in rows:
-            if row[5] is None:
-                continue
-            sheet['cards'].append({
-                'id': int(row[5]),
-                'front': row[6],
-                'back': row[7]
-            })
-
-        return jsonify(sheet), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/kids/<kid_id>/type2/sheets/<sheet_id>/complete', methods=['POST'])
-def complete_writing_sheet(kid_id, sheet_id):
-    """Mark a writing sheet as done."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-        _, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
-            kid,
-            request.args.get('categoryKey'),
-        )
-        if not has_chinese_specific_logic:
-            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
-
-        conn = get_kid_connection_for(kid)
-        row = conn.execute(
-            "SELECT id, status FROM writing_sheets WHERE id = ?",
-            [sheet_id]
-        ).fetchone()
-        if not row:
-            conn.close()
-            return jsonify({'error': 'Sheet not found'}), 404
-
-        if row[1] != 'done':
-            conn.execute(
-                """
-                UPDATE writing_sheets
-                SET status = 'done', completed_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-                """,
-                [sheet_id]
-            )
-        conn.close()
-        return jsonify({'sheet_id': int(sheet_id), 'status': 'done'}), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/kids/<kid_id>/type2/sheets/<sheet_id>/withdraw', methods=['POST'])
-def withdraw_writing_sheet(kid_id, sheet_id):
-    """Withdraw a pending writing sheet by deleting it."""
-    try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-        _, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
-            kid,
-            request.args.get('categoryKey'),
-        )
-        if not has_chinese_specific_logic:
-            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
-
-        conn = get_kid_connection_for(kid)
-        row = conn.execute(
-            "SELECT id, status FROM writing_sheets WHERE id = ?",
-            [sheet_id]
-        ).fetchone()
-        if not row:
-            conn.close()
-            return jsonify({'error': 'Sheet not found'}), 404
-
-        status = row[1]
-        if status != 'pending':
-            conn.close()
-            return jsonify({'error': 'Only practicing sheets can be withdrawn'}), 400
-
-        conn.execute(
-            "DELETE FROM writing_sheet_cards WHERE sheet_id = ?",
-            [sheet_id]
-        )
-        conn.execute(
-            """
-            DELETE FROM writing_sheets
-            WHERE id = ?
-            """,
-            [sheet_id]
-        )
-
-        conn.close()
-        return jsonify({'sheet_id': int(sheet_id), 'deleted': True}), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
 @kids_bp.route('/kids/<kid_id>/type4/print-config', methods=['GET'])
 def get_type4_print_config(kid_id):
@@ -13719,6 +13280,316 @@ def finalize_type4_print_sheet(kid_id, sheet_id):
             'status': 'pending',
             'repeat_count': repeat_count,
         }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+## ── Type-2 Chinese print sheets (builder) ──────────────────────────────────
+
+
+@kids_bp.route('/kids/<kid_id>/type2/chinese-print-sheets', methods=['POST'])
+def create_chinese_print_sheet(kid_id):
+    """Persist one custom printable Chinese writing sheet."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload = request.get_json(silent=True) or {}
+        category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
+            kid,
+            payload.get('categoryKey') or request.args.get('categoryKey'),
+        )
+        if not has_chinese_specific_logic:
+            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
+
+        rows = payload.get('rows')
+        if not isinstance(rows, list) or len(rows) == 0:
+            return jsonify({'error': 'rows must be a non-empty array'}), 400
+
+        paper_size = str(payload.get('paperSize') or 'us-letter').strip().lower()
+        if paper_size not in ('us-letter', 'a4'):
+            paper_size = 'us-letter'
+
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            card_ids = []
+            for row in rows:
+                if not isinstance(row, dict):
+                    return jsonify({'error': 'rows must contain objects'}), 400
+                try:
+                    card_id = int(row.get('cardId'))
+                except (TypeError, ValueError):
+                    return jsonify({'error': 'rows must contain valid cardId values'}), 400
+                if card_id <= 0:
+                    return jsonify({'error': 'rows must contain valid cardId values'}), 400
+                if card_id not in card_ids:
+                    card_ids.append(card_id)
+
+            source_decks = get_shared_type_ii_merged_source_decks_for_kid(
+                conn,
+                kid,
+                category_key,
+            )
+            bank_deck_ids = [
+                int(src['local_deck_id'])
+                for src in source_decks
+                if int(src.get('card_count') or 0) > 0
+            ]
+            if len(bank_deck_ids) == 0:
+                return jsonify({'error': 'No writing cards are available for this category'}), 409
+
+            pending_card_ids = get_pending_writing_card_ids(conn)
+            pending_card_set = set(pending_card_ids)
+            if any(card_id in pending_card_set for card_id in card_ids):
+                return jsonify({'error': 'Some selected cards are already practicing in another sheet'}), 409
+
+            candidate_card_set = set(get_writing_candidate_card_ids(
+                conn,
+                bank_deck_ids,
+                category_key,
+                excluded_card_ids=pending_card_ids,
+            ))
+            if any(card_id not in candidate_card_set for card_id in card_ids):
+                return jsonify({'error': 'Some selected cards are no longer in the suggested card list'}), 409
+
+            deck_placeholders = ','.join(['?'] * len(bank_deck_ids))
+            card_placeholders = ','.join(['?'] * len(card_ids))
+            found = conn.execute(
+                f"""
+                SELECT id, front, back
+                FROM cards
+                WHERE deck_id IN ({deck_placeholders})
+                  AND id IN ({card_placeholders})
+                """,
+                [*bank_deck_ids, *card_ids],
+            ).fetchall()
+            found_map = {
+                int(row[0]): {'id': int(row[0]), 'front': row[1], 'back': row[2]}
+                for row in found
+            }
+            if len(found_map) != len(card_ids):
+                return jsonify({'error': 'Some selected cards are no longer available'}), 409
+
+            layout_rows = []
+            for row in rows:
+                card_id = int(row.get('cardId'))
+                card = found_map.get(card_id)
+                if not card:
+                    return jsonify({'error': f'Card {card_id} not found'}), 404
+                layout_rows.append({
+                    'card_id': card_id,
+                    'front': card['front'],
+                    'back': card['back'],
+                    'empty_count': max(1, min(9, int(row.get('emptyCount') or 1))),
+                    'scale': round(max(0.5, min(2.0, float(row.get('scale') or 1.0))), 2),
+                })
+
+            layout_json = json.dumps({
+                'paper_size': paper_size,
+                'rows': layout_rows,
+            }, ensure_ascii=False, separators=(',', ':'))
+            sheet_id = conn.execute(
+                """
+                INSERT INTO type2_chinese_print_sheets (category_key, layout_json, status)
+                VALUES (?, ?, 'pending')
+                RETURNING id
+                """,
+                [category_key, layout_json],
+            ).fetchone()[0]
+        finally:
+            if conn is not None:
+                conn.close()
+
+        return jsonify({
+            'created': True,
+            'sheet_id': int(sheet_id),
+            'status': 'pending',
+        }), 201
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type2/chinese-print-sheets', methods=['GET'])
+def list_chinese_print_sheets(kid_id):
+    """List persisted custom printable Chinese writing sheets for one kid/category."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
+            kid,
+            request.args.get('categoryKey'),
+        )
+        if not has_chinese_specific_logic:
+            return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
+
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid, read_only=True)
+            rows = conn.execute(
+                """
+                SELECT id, category_key, layout_json, status, created_at, completed_at
+                FROM type2_chinese_print_sheets
+                WHERE category_key = ?
+                ORDER BY created_at DESC, id DESC
+                """,
+                [category_key],
+            ).fetchall()
+        finally:
+            if conn is not None:
+                conn.close()
+
+        sheets = []
+        for row in rows:
+            layout = {}
+            try:
+                layout = json.loads(row[2]) if row[2] else {}
+            except (json.JSONDecodeError, TypeError):
+                pass
+            layout_rows = list(layout.get('rows') or [])
+            card_labels = []
+            for lr in layout_rows:
+                label = str(lr.get('back') or lr.get('front') or '')
+                if label and label not in card_labels:
+                    card_labels.append(label)
+            sheets.append({
+                'id': int(row[0]),
+                'category_key': str(row[1] or ''),
+                'status': str(row[3] or 'pending'),
+                'created_at': row[4].isoformat() if row[4] else None,
+                'completed_at': row[5].isoformat() if row[5] else None,
+                'paper_size': str(layout.get('paper_size') or 'us-letter'),
+                'row_count': len(layout_rows),
+                'card_labels': card_labels,
+            })
+
+        return jsonify({'sheets': sheets}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type2/chinese-print-sheets/<int:sheet_id>', methods=['GET'])
+def get_chinese_print_sheet_detail(kid_id, sheet_id):
+    """Return one persisted Chinese writing sheet with layout for print."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid, read_only=True)
+            row = conn.execute(
+                """
+                SELECT id, category_key, layout_json, status, created_at, completed_at
+                FROM type2_chinese_print_sheets
+                WHERE id = ?
+                """,
+                [sheet_id],
+            ).fetchone()
+        finally:
+            if conn is not None:
+                conn.close()
+
+        if not row:
+            return jsonify({'error': 'Sheet not found'}), 404
+
+        layout = {}
+        try:
+            layout = json.loads(row[2]) if row[2] else {}
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        kid_name = str(kid.get('name') or '')
+        return jsonify({
+            'sheet': {
+                'id': int(row[0]),
+                'category_key': str(row[1] or ''),
+                'status': str(row[3] or 'pending'),
+                'created_at': row[4].isoformat() if row[4] else None,
+                'completed_at': row[5].isoformat() if row[5] else None,
+                'kid_name': kid_name,
+                'layout': layout,
+            },
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type2/chinese-print-sheets/<int:sheet_id>/complete', methods=['POST'])
+def complete_chinese_print_sheet(kid_id, sheet_id):
+    """Mark one Chinese print sheet as done."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            row = conn.execute(
+                "SELECT id, status FROM type2_chinese_print_sheets WHERE id = ?",
+                [sheet_id],
+            ).fetchone()
+            if not row:
+                return jsonify({'error': 'Sheet not found'}), 404
+            if str(row[1] or '').strip().lower() != 'done':
+                conn.execute(
+                    """
+                    UPDATE type2_chinese_print_sheets
+                    SET status = 'done', completed_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    [sheet_id],
+                )
+        finally:
+            if conn is not None:
+                conn.close()
+
+        return jsonify({'sheet_id': int(sheet_id), 'status': 'done'}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/type2/chinese-print-sheets/<int:sheet_id>/withdraw', methods=['POST'])
+def withdraw_chinese_print_sheet(kid_id, sheet_id):
+    """Delete one pending Chinese print sheet."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = None
+        try:
+            conn = get_kid_connection_for(kid)
+            row = conn.execute(
+                "SELECT id, status FROM type2_chinese_print_sheets WHERE id = ?",
+                [sheet_id],
+            ).fetchone()
+            if not row:
+                return jsonify({'error': 'Sheet not found'}), 404
+            status = str(row[1] or '').strip().lower()
+            if status == 'done':
+                return jsonify({'error': 'Completed sheets cannot be withdrawn'}), 400
+            conn.execute("DELETE FROM type2_chinese_print_sheets WHERE id = ?", [sheet_id])
+        finally:
+            if conn is not None:
+                conn.close()
+
+        return jsonify({'sheet_id': int(sheet_id), 'deleted': True}), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:

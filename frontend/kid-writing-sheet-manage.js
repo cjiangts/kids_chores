@@ -4,13 +4,10 @@ const params = new URLSearchParams(window.location.search);
 const kidId = String(params.get('id') || '').trim();
 const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 
-const WRITING_SHEET_MAX_ROWS = 12;
-
 const pageTitleEl = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 
-const chineseSuggestedSection = document.getElementById('chineseSuggestedSection');
 const chineseGenerateSection = document.getElementById('chineseGenerateSection');
 const mathGenerateSection = document.getElementById('mathGenerateSection');
 const sheetHistorySection = document.getElementById('sheetHistorySection');
@@ -20,22 +17,14 @@ const mathDeckRowsEl = document.getElementById('mathDeckRows');
 const mathBuildInfoEl = document.getElementById('mathBuildInfo');
 const mathSheetErrorMessage = document.getElementById('mathSheetErrorMessage');
 
-const practicingDeckCount = document.getElementById('practicingDeckCount');
-const practicingDeckGrid = document.getElementById('practicingDeckGrid');
-const practicingDeckEmpty = document.getElementById('practicingDeckEmpty');
 const sheetList = document.getElementById('sheetList');
 
-const sheetCardCountInput = document.getElementById('sheetCardCount');
-const sheetRowsPerCharInput = document.getElementById('sheetRowsPerChar');
-const createSheetBtn = document.getElementById('createSheetBtn');
 const sheetErrorMessage = document.getElementById('sheetErrorMessage');
 
-const MAX_SHEET_CARD_COUNT = 200;
 let activeCategoryKey = requestedCategoryKey;
 let activeCategoryDisplayName = '';
 let activeKidName = '';
 let state2Cards = [];
-let isCreateSheetInFlight = false;
 
 /* 'chinese' or 'math' */
 let pageMode = 'chinese';
@@ -51,12 +40,6 @@ function escapeHtml(text) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
-}
-
-function parseIntegerInputValue(input) {
-    if (!input) return null;
-    const value = Number.parseInt(String(input.value || '').trim(), 10);
-    return Number.isInteger(value) ? value : null;
 }
 
 function showError(message) {
@@ -181,14 +164,12 @@ async function loadKidInfo() {
 
 function applyPageMode() {
     if (pageMode === 'math') {
-        if (chineseSuggestedSection) chineseSuggestedSection.classList.add('hidden');
         if (chineseGenerateSection) chineseGenerateSection.classList.add('hidden');
         if (mathGenerateSection) mathGenerateSection.classList.remove('hidden');
         if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
         if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Sheets';
         if (sheetHistoryNote) sheetHistoryNote.textContent = 'Newest first. Preview, print, mark done, or delete saved math sheets here.';
     } else {
-        if (chineseSuggestedSection) chineseSuggestedSection.classList.remove('hidden');
         if (chineseGenerateSection) chineseGenerateSection.classList.remove('hidden');
         if (mathGenerateSection) mathGenerateSection.classList.add('hidden');
         if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
@@ -199,117 +180,6 @@ function applyPageMode() {
 
 /* ── Chinese writing mode (existing) ── */
 
-function buildSheetConfigState() {
-    const count = parseIntegerInputValue(sheetCardCountInput);
-    const rowsPerCharacter = parseIntegerInputValue(sheetRowsPerCharInput);
-    const candidateCount = Array.isArray(state2Cards) ? state2Cards.length : 0;
-    const hasZeroInput = count === 0 || rowsPerCharacter === 0;
-    const countInRange = Number.isInteger(count) && count >= 1 && count <= MAX_SHEET_CARD_COUNT;
-    const rowsInRange = Number.isInteger(rowsPerCharacter) && rowsPerCharacter >= 1 && rowsPerCharacter <= WRITING_SHEET_MAX_ROWS;
-    const usedRows = countInRange && rowsInRange ? count * rowsPerCharacter : null;
-    const overflowsPage = Number.isInteger(usedRows) && usedRows > WRITING_SHEET_MAX_ROWS;
-    const emptyRows = Number.isInteger(usedRows)
-        ? Math.max(0, WRITING_SHEET_MAX_ROWS - Math.min(WRITING_SHEET_MAX_ROWS, usedRows))
-        : null;
-    const maxCardsForRows = rowsInRange ? Math.max(1, Math.floor(WRITING_SHEET_MAX_ROWS / rowsPerCharacter)) : 1;
-    let blockReason = '';
-    if (hasZeroInput) blockReason = 'zero';
-    else if (!countInRange && !rowsInRange) blockReason = 'count_and_rows';
-    else if (!countInRange) blockReason = 'count';
-    else if (!rowsInRange) blockReason = 'rows';
-    else if (overflowsPage) blockReason = 'overflow';
-    else if (candidateCount <= 0) blockReason = 'empty_candidates';
-    return { count, rowsPerCharacter, countInRange, rowsInRange, candidateCount, usedRows, emptyRows, overflowsPage, maxCardsForRows, blockReason, canSubmit: !isCreateSheetInFlight && !blockReason };
-}
-
-function getSheetConfigErrorMessage(config) {
-    if (!config || !config.blockReason) return '';
-    if (config.blockReason === 'zero') return 'No cards.';
-    if (config.blockReason === 'count_and_rows') return `Cards per sheet must be 1-${MAX_SHEET_CARD_COUNT}, and rows per card must be 1-${WRITING_SHEET_MAX_ROWS}.`;
-    if (config.blockReason === 'count') return `Cards per sheet must be between 1 and ${MAX_SHEET_CARD_COUNT}.`;
-    if (config.blockReason === 'rows') return `Rows per card must be between 1 and ${WRITING_SHEET_MAX_ROWS}.`;
-    if (config.blockReason === 'overflow') return `This setup does not fit in one page (${WRITING_SHEET_MAX_ROWS} rows max). With ${config.rowsPerCharacter} row(s) per card, max cards is ${config.maxCardsForRows}.`;
-    if (config.blockReason === 'empty_candidates') return 'No eligible cards to print right now.';
-    return 'Invalid sheet configuration.';
-}
-
-function getGenerateButtonText(config) {
-    if (isCreateSheetInFlight) return 'Generating...';
-    if (!config) return 'Generate';
-    if (config.blockReason === 'zero') return 'Generate (no cards)';
-    if (config.blockReason === 'count_and_rows') return `Generate (cards 1-${MAX_SHEET_CARD_COUNT}, rows 1-${WRITING_SHEET_MAX_ROWS})`;
-    if (config.blockReason === 'count') return `Generate (cards 1-${MAX_SHEET_CARD_COUNT})`;
-    if (config.blockReason === 'rows') return `Generate (rows 1-${WRITING_SHEET_MAX_ROWS})`;
-    if (config.blockReason === 'overflow') {
-        if (Number.isInteger(config.usedRows)) return `Generate (${config.usedRows}/${WRITING_SHEET_MAX_ROWS} rows can't fit in 1 page)`;
-        return 'Generate (does not fit in 1 page)';
-    }
-    if (config.blockReason === 'empty_candidates') return 'Generate (no cards)';
-    if (!Number.isInteger(config.emptyRows)) return 'Generate';
-    return `Generate (${config.emptyRows}/${WRITING_SHEET_MAX_ROWS} rows are empty)`;
-}
-
-function updateGenerateSheetButtonState() {
-    if (!createSheetBtn) return;
-    const config = buildSheetConfigState();
-    createSheetBtn.textContent = getGenerateButtonText(config);
-    createSheetBtn.disabled = !config.canSubmit;
-    const title = getSheetConfigErrorMessage(config);
-    if (title) { createSheetBtn.title = title; return; }
-    createSheetBtn.removeAttribute('title');
-}
-
-function applySuggestedType2SheetInputs() {
-    if (!sheetCardCountInput || !sheetRowsPerCharInput) return;
-    const candidateCount = Number(state2Cards.length || 0);
-    if (candidateCount <= 0) {
-        sheetCardCountInput.value = '1';
-        sheetRowsPerCharInput.value = '1';
-        updateGenerateSheetButtonState();
-        return;
-    }
-    const suggestedCards = Math.max(1, Math.min(WRITING_SHEET_MAX_ROWS, candidateCount));
-    const suggestedRows = Math.max(1, Math.floor(WRITING_SHEET_MAX_ROWS / suggestedCards));
-    sheetCardCountInput.value = String(suggestedCards);
-    sheetRowsPerCharInput.value = String(suggestedRows);
-    updateGenerateSheetButtonState();
-}
-
-function renderSuggestedCards() {
-    if (!practicingDeckGrid || !practicingDeckEmpty) return;
-    const cards = [...state2Cards];
-    if (practicingDeckCount) practicingDeckCount.textContent = `(${cards.length})`;
-    if (cards.length === 0) {
-        practicingDeckGrid.innerHTML = '';
-        practicingDeckEmpty.textContent = 'No suggested candidate cards.';
-        practicingDeckEmpty.classList.remove('hidden');
-        return;
-    }
-    practicingDeckEmpty.classList.add('hidden');
-    const neverSeenLabels = [], lastFailedLabels = [], otherLabels = [];
-    cards.forEach((card) => {
-        const label = String(card.back || card.front || '').trim();
-        if (!label) return;
-        const reason = String(card.practicing_reason || '').trim();
-        if (reason === 'never_seen') { neverSeenLabels.push(label); return; }
-        if (reason === 'last_failed') { lastFailedLabels.push(label); return; }
-        otherLabels.push(label);
-    });
-    const renderBucketRow = (title, labels) => {
-        const safeLabels = (labels || []).map((item) => String(item || '').trim()).filter(Boolean);
-        const pillsHtml = safeLabels.length > 0
-            ? safeLabels.map((l) => `<span class="suggested-card-pill">${escapeHtml(l)}</span>`).join('')
-            : '<span class="suggested-card-empty">No cards.</span>';
-        return `<div class="suggested-card-row"><span class="suggested-card-row-label">${escapeHtml(title)}:</span><div class="suggested-card-pill-list">${pillsHtml}</div></div>`;
-    };
-    const rows = [
-        renderBucketRow(`Newly added (${neverSeenLabels.length})`, neverSeenLabels),
-        renderBucketRow(`Last failed (${lastFailedLabels.length})`, lastFailedLabels),
-    ];
-    if (otherLabels.length > 0) rows.push(renderBucketRow(`Other (${otherLabels.length})`, otherLabels));
-    practicingDeckGrid.innerHTML = rows.join('');
-}
-
 async function loadSuggestedCards() {
     showError('');
     const response = await fetch(buildType2ApiUrl('/cards'));
@@ -317,44 +187,14 @@ async function loadSuggestedCards() {
     if (!response.ok) throw new Error(data.error || `Failed to load Chinese Writing cards (HTTP ${response.status})`);
     if (!Boolean(data.has_chinese_specific_logic)) throw new Error('This category does not support printable Chinese writing sheets.');
     state2Cards = Array.isArray(data.practicing_cards) ? data.practicing_cards : [];
-    renderSuggestedCards();
-    applySuggestedType2SheetInputs();
-    updateGenerateSheetButtonState();
-}
-
-async function createType2ChineseSheet() {
-    try {
-        showSheetError('');
-        const config = buildSheetConfigState();
-        if (!config.canSubmit) { showSheetError(getSheetConfigErrorMessage(config)); return; }
-        isCreateSheetInFlight = true;
-        updateGenerateSheetButtonState();
-        const response = await fetch(buildType2ApiUrl('/sheets'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ count: config.count, rows_per_character: config.rowsPerCharacter, categoryKey: activeCategoryKey }),
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
-        if (!result.created || !Array.isArray(result.cards) || result.cards.length === 0) {
-            showSheetError(result.message || 'No eligible cards to print right now.');
-            return;
-        }
-        await Promise.all([loadChineseSheets(), loadSuggestedCards()]);
-    } catch (error) {
-        console.error('Error generating Chinese writing sheet:', error);
-        showSheetError(error.message || 'Failed to generate practice sheet.');
-    } finally {
-        isCreateSheetInFlight = false;
-        updateGenerateSheetButtonState();
-    }
+    updateBuildChineseSheetButton();
 }
 
 /* ── Chinese sheets list ── */
 
 async function loadChineseSheets() {
     if (!sheetList) return;
-    const response = await fetch(buildType2ApiUrl('/sheets'));
+    const response = await fetch(buildType2ApiUrl('/chinese-print-sheets'));
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `Failed to load sheets (HTTP ${response.status})`);
     renderChineseSheets(Array.isArray(data.sheets) ? data.sheets : []);
@@ -374,10 +214,9 @@ function renderChineseSheets(sheets) {
     sheetList.innerHTML = orderedSheets.map((sheet) => {
         const sheetId = Number.parseInt(sheet && sheet.id, 10);
         const safeSheetId = Number.isInteger(sheetId) && sheetId > 0 ? sheetId : 0;
-        const cards = Array.isArray(sheet && sheet.cards) ? sheet.cards : [];
-        const answerLabels = cards.map((card) => String(card && (card.back || card.front) || '').trim()).filter(Boolean);
-        const answersHtml = answerLabels.length > 0
-            ? answerLabels.map((label) => `<span class="sheet-card-pill">${escapeHtml(label)}</span>`).join('')
+        const cardLabels = Array.isArray(sheet && sheet.card_labels) ? sheet.card_labels : [];
+        const answersHtml = cardLabels.length > 0
+            ? cardLabels.map((label) => `<span class="sheet-card-pill">${escapeHtml(label)}</span>`).join('')
             : '<span class="sheet-card-empty">(no cards)</span>';
         const isDone = String(sheet && sheet.status || '').trim().toLowerCase() === 'done';
         const isPending = !isDone;
@@ -563,7 +402,7 @@ function goToChineseSheetPrint(sheetId) {
 async function markSheetDone(sheetId, extraBody) {
     const url = pageMode === 'math'
         ? buildType4ApiUrl(`/math-sheets/${sheetId}/complete`)
-        : buildType2ApiUrl(`/sheets/${sheetId}/complete`);
+        : buildType2ApiUrl(`/chinese-print-sheets/${sheetId}/complete`);
     const body = Object.assign({}, extraBody || {});
     const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const payload = await response.json().catch(() => ({}));
@@ -573,7 +412,7 @@ async function markSheetDone(sheetId, extraBody) {
 async function deleteSheet(sheetId) {
     const url = pageMode === 'math'
         ? buildType4ApiUrl(`/math-sheets/${sheetId}/withdraw`)
-        : buildType2ApiUrl(`/sheets/${sheetId}/withdraw`);
+        : buildType2ApiUrl(`/chinese-print-sheets/${sheetId}/withdraw`);
     const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Failed to delete sheet (HTTP ${response.status})`);
@@ -676,6 +515,7 @@ function getMathPaperSpec(paperSize = currentMathPaperSize, fallback = DEFAULT_M
 function syncMathPaperSizeSelects() {
     if (sheetBuilderPaperSizeSelect) sheetBuilderPaperSizeSelect.value = currentMathPaperSize;
     if (inlineSheetPaperSizeSelect) inlineSheetPaperSizeSelect.value = currentMathPaperSize;
+    if (chineseSheetPaperSizeSelect) chineseSheetPaperSizeSelect.value = currentMathPaperSize;
 }
 
 function applyBuilderPageFrame(pageEl, scale, paperSize = currentMathPaperSize) {
@@ -1937,16 +1777,513 @@ function updateBuildInlineSheetButton() {
     buildInlineSheetBtn.disabled = mathPrintConfigDecks.length === 0;
 }
 
+/* ── Chinese Writing Sheet Builder ── */
+
+const buildChineseSheetBtn = document.getElementById('buildChineseSheetBtn');
+const buildChineseSheetBtnMeta = document.getElementById('buildChineseSheetBtnMeta');
+const chineseSheetPaperSizeSelect = document.getElementById('chineseSheetPaperSize');
+let chineseSheetRows = [];       /* { cardId, character, emptyCount, scale } */
+let currentChineseSheetScale = 0.5;
+let chineseSheetPickerRowIndex = null;
+let cwGlobalEmptyCount = 1;     /* shared default for new rows */
+
+const CW_CELL_SIZE = 52;       /* px at scale=1 — single 田字格 square */
+const CW_FONT_RATIO = 0.72;    /* character font-size as fraction of cell size */
+const CW_CHINESE_FONT = "var(--font-kaiti)";
+const CW_DEFAULT_EMPTY_COUNT = 1;
+const CW_MIN_EMPTY_COUNT = 1;
+const CW_MAX_EMPTY_COUNT = 9;
+const CW_ROW_GAP = 4;          /* px gap between rows at scale=1 */
+const CW_DEFAULT_SCALE = 1.3;
+const CW_MIN_SCALE = 0.5;
+const CW_MAX_SCALE = 2.0;
+const CW_SCALE_STEP = 0.1;
+
+function cwClampScale(s) { return Math.min(CW_MAX_SCALE, Math.max(CW_MIN_SCALE, Math.round(s * 10) / 10)); }
+function cwCurrentGlobalScale() {
+    return chineseSheetRows.length > 0 ? cwClampScale(chineseSheetRows[0].scale || CW_DEFAULT_SCALE) : CW_DEFAULT_SCALE;
+}
+function cwScaleLabel(s) { return `${Math.round(cwClampScale(s) * 100)}%`; }
+
+function getCwScaledCellSize(row) {
+    return Math.ceil(CW_CELL_SIZE * cwClampScale(row.scale || 1));
+}
+
+function getChineseSheetColCount(row) {
+    const paperSpec = getMathPaperSpec();
+    const cellSize = getCwScaledCellSize(row);
+    return Math.max(1, Math.floor(paperSpec.safeBoxWidth / cellSize));
+}
+
+/* Each card row is exactly 1 grid line + gap */
+function getChineseSheetRowHeight(row) {
+    return getCwScaledCellSize(row) + CW_ROW_GAP;
+}
+
+/* Build the cell pattern for a row: repeating [demo, empty x N] filling all columns.
+   If a demo char would land on the last column, show empty instead. */
+function buildChineseRowCells(row) {
+    const chars = [...(row.character || '')];
+    if (chars.length === 0) return [];
+    const empty = Math.max(CW_MIN_EMPTY_COUNT, Math.min(CW_MAX_EMPTY_COUNT, row.emptyCount ?? CW_DEFAULT_EMPTY_COUNT));
+    const colCount = getChineseSheetColCount(row);
+    const groupSize = 1 + empty; /* one demo + N empties */
+    const cells = [];
+    let charIdx = 0;
+    for (let c = 0; c < colCount; c++) {
+        const posInGroup = c % groupSize;
+        if (posInGroup === 0) {
+            /* Demo slot — but if this is the last column, show empty instead */
+            if (c === colCount - 1) {
+                cells.push({ type: 'empty' });
+            } else {
+                cells.push({ type: 'demo', char: chars[charIdx % chars.length] });
+                charIdx++;
+            }
+        } else {
+            cells.push({ type: 'empty' });
+        }
+    }
+    return cells;
+}
+
+function getChineseSheetRowsTotalHeight(rows) {
+    return rows.reduce((sum, row) => sum + getChineseSheetRowHeight(row), 0);
+}
+
+function canFitChineseSheetRows(rows) {
+    return getChineseSheetRowsTotalHeight(rows) <= getMathPaperSpec().builderSafeGridHeight;
+}
+
+function getAvailableChineseCharacters(excludedRowIndex) {
+    const usedCardIds = new Set();
+    chineseSheetRows.forEach((row, idx) => {
+        if (Number.isInteger(excludedRowIndex) && idx === excludedRowIndex) return;
+        if (row.cardId) usedCardIds.add(row.cardId);
+    });
+    return state2Cards.filter((card) => !usedCardIds.has(card.id));
+}
+
+function updateBuildChineseSheetButton() {
+    if (!buildChineseSheetBtn) return;
+    const candidateCount = Array.isArray(state2Cards) ? state2Cards.length : 0;
+    buildChineseSheetBtn.disabled = candidateCount === 0;
+    if (buildChineseSheetBtnMeta) {
+        buildChineseSheetBtnMeta.textContent = candidateCount > 0
+            ? `${candidateCount} candidate character${candidateCount === 1 ? '' : 's'} available`
+            : 'No candidate characters available';
+    }
+}
+
+function renderChineseSheetBuilderContent(scale) {
+    const a4El = document.getElementById('chineseSheetA4');
+    if (!a4El) return;
+    const paperSpec = getMathPaperSpec();
+    const marginPx = Math.round(paperSpec.margin * scale);
+    const safeMarginXPx = Math.round(paperSpec.extraSafeMarginX * scale);
+    const safeMarginTopPx = Math.round(paperSpec.extraSafeMarginTop * scale);
+    const safeMarginBottomPx = Math.round(paperSpec.extraSafeMarginBottom * scale);
+    const gridWidthPx = Math.round(paperSpec.safeBoxWidth * scale);
+    const headerHeightPx = Math.round(paperSpec.headerHeight * scale);
+    const contentLeftPx = marginPx + safeMarginXPx;
+    const contentTopPx = marginPx + safeMarginTopPx;
+    const gridTopPx = contentTopPx + headerHeightPx;
+    const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
+    const printableHeightPx = Math.round(paperSpec.safeBoxHeight * scale);
+    const borderInsetPx = Math.round(PRINTABLE_AREA_DEBUG_BORDER_INSET * scale);
+    const headerFontPx = Math.max(10, Math.round(12 * scale));
+    let html = '';
+    /* margins & border — reuse same visual frame as math builder */
+    html += `<div class="sb-margin" style="top:0;left:0;right:0;height:${marginPx}px;"></div>`;
+    html += `<div class="sb-margin" style="bottom:0;left:0;right:0;height:${marginPx}px;"></div>`;
+    html += `<div class="sb-margin" style="top:${marginPx}px;left:0;width:${marginPx}px;bottom:${marginPx}px;"></div>`;
+    html += `<div class="sb-margin" style="top:${marginPx}px;right:0;width:${marginPx}px;bottom:${marginPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginTopPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;left:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
+    html += `<div class="sb-printable-border" style="top:${contentTopPx + borderInsetPx}px;left:${contentLeftPx + borderInsetPx}px;width:${Math.max(1, gridWidthPx - (2 * borderInsetPx))}px;height:${Math.max(1, printableHeightPx - (2 * borderInsetPx))}px;"></div>`;
+    /* header */
+    html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
+    html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
+    html += `<span class="sb-header-decks"></span>`;
+    html += `<span class="sb-header-sheetno" style="font-size:${headerFontPx}px;">Sheet #___</span>`;
+    html += '</div>';
+
+    /* grid area */
+    html += `<div class="sb-grid-area sb-grid-area-inline" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
+
+    /* Compute cell size from the global scale (all rows share same scale) */
+    const globalRowScale = chineseSheetRows.length > 0 ? cwClampScale(chineseSheetRows[0].scale || 1) : CW_DEFAULT_SCALE;
+    const cellSize = Math.ceil(CW_CELL_SIZE * globalRowScale);
+    const cellSizePx = Math.round(cellSize * scale);
+    const fontSizePx = Math.max(6, Math.round(cellSize * CW_FONT_RATIO * scale));
+    const gapPx = Math.round(CW_ROW_GAP * scale);
+
+    chineseSheetRows.forEach((row, idx) => {
+        const rowHeightPx = cellSizePx + gapPx;
+        const canDuplicate = canFitChineseSheetRows([
+            ...chineseSheetRows.slice(0, idx + 1),
+            Object.assign({}, row),
+            ...chineseSheetRows.slice(idx + 1),
+        ]);
+
+        html += `<div class="sb-row-wrap" data-cwb-row-idx="${idx}" style="height:${rowHeightPx}px;z-index:${chineseSheetRows.length - idx};">`;
+        html += `<div class="sb-row-tools">
+            <button type="button" class="sb-row-tool-btn duplicate" data-cwb-row-duplicate="${idx}" title="Duplicate this row" aria-label="Duplicate" ${canDuplicate ? '' : 'disabled'}>⧉</button>
+            <button type="button" class="sb-row-tool-btn delete" data-cwb-row-delete="1" data-row-idx="${idx}" title="Remove this card" aria-label="Remove row">x</button>
+        </div>`;
+
+        const cells = buildChineseRowCells(row);
+        html += `<div class="sb-row" style="height:${cellSizePx}px;">`;
+        cells.forEach((cell) => {
+            html += `<div class="cw-grid-cell" style="width:${cellSizePx}px;height:${cellSizePx}px;">`;
+            if (cell.type === 'demo') {
+                html += `<span class="cw-grid-char cw-grid-char-first" style="font-size:${fontSizePx}px;font-family:${CW_CHINESE_FONT};">${escapeHtml(cell.char)}</span>`;
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+        html += '</div>';
+    });
+
+    /* add-row button */
+    const remainingHeight = paperSpec.builderSafeGridHeight - getChineseSheetRowsTotalHeight(chineseSheetRows);
+    const addRowPreviewHeight = Math.max(28, Math.min(Math.round(remainingHeight * scale), 70));
+    if (getAvailableChineseCharacters(null).length > 0 && remainingHeight >= CW_CELL_SIZE) {
+        html += `<button type="button" class="sb-add-row-box" data-cwb-add-row="1" style="height:${addRowPreviewHeight}px;">Click to choose a character for a new row</button>`;
+    }
+
+    html += '</div>';
+    a4El.innerHTML = html;
+
+    /* update character count */
+    const totalChars = chineseSheetRows.length;
+    const countEl = document.getElementById('chineseSheetCharCount');
+    if (countEl) {
+        countEl.textContent = totalChars > 0 ? `${totalChars} character${totalChars === 1 ? '' : 's'}` : '';
+    }
+    updateCwScaleButtons();
+    updateCwEmptyCountButtons();
+}
+
+function openChineseSheetBuilder() {
+    if (!Array.isArray(state2Cards) || state2Cards.length === 0) {
+        showSheetError('No candidate characters available to build a sheet.');
+        return;
+    }
+    if (chineseSheetPaperSizeSelect) chineseSheetPaperSizeSelect.value = currentMathPaperSize;
+    currentChineseSheetScale = computeSheetPreviewScale();
+    chineseSheetRows = [];
+    showSheetError('');
+    const a4El = document.getElementById('chineseSheetA4');
+    applyBuilderPageFrame(a4El, currentChineseSheetScale);
+    renderChineseSheetBuilderContent(currentChineseSheetScale);
+    closeChineseSheetPicker();
+    document.getElementById('chineseSheetBuilderModal').classList.remove('hidden');
+    document.body.classList.add('modal-open');
+}
+
+function closeChineseSheetBuilder() {
+    closeChineseSheetPicker();
+    document.getElementById('chineseSheetBuilderModal').classList.add('hidden');
+    document.body.classList.remove('modal-open');
+}
+
+function countFillPageCards() {
+    const available = getAvailableChineseCharacters(null);
+    let testRows = [...chineseSheetRows];
+    let count = 0;
+    for (const card of available) {
+        const label = String(card.back || card.front || '').trim();
+        if (!label) continue;
+        const candidate = { cardId: card.id, character: label, emptyCount: cwGlobalEmptyCount, scale: cwCurrentGlobalScale() };
+        const nextRows = [...testRows, candidate];
+        if (!canFitChineseSheetRows(nextRows)) break;
+        testRows = nextRows;
+        count++;
+    }
+    return count;
+}
+
+function fillPageWithCards() {
+    const available = getAvailableChineseCharacters(null);
+    let added = 0;
+    for (const card of available) {
+        const label = String(card.back || card.front || '').trim();
+        if (!label) continue;
+        const candidate = { cardId: card.id, character: label, emptyCount: cwGlobalEmptyCount, scale: cwCurrentGlobalScale() };
+        const nextRows = [...chineseSheetRows, candidate];
+        if (!canFitChineseSheetRows(nextRows)) break;
+        chineseSheetRows = nextRows;
+        added++;
+    }
+    if (added === 0) {
+        showSheetError('No more characters fit on this page.');
+        return;
+    }
+    showSheetError('');
+    closeChineseSheetPicker();
+    renderChineseSheetBuilderContent(currentChineseSheetScale);
+}
+
+function renderChineseSheetPickerOptions() {
+    const optionsEl = document.getElementById('chineseSheetPickerOptions');
+    if (!optionsEl) return;
+    const available = getAvailableChineseCharacters(chineseSheetPickerRowIndex);
+    if (available.length === 0) {
+        optionsEl.innerHTML = '<div class="sb-add-row-box sb-empty-box">All candidate characters are already on this sheet.</div>';
+        return;
+    }
+    let fillBtnHtml = '';
+    if (!Number.isInteger(chineseSheetPickerRowIndex)) {
+        const fillCount = countFillPageCards();
+        if (fillCount > 1) {
+            fillBtnHtml = `<button type="button" class="sb-picker-option" data-cwb-fill-page="1" style="background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32;">
+                <span class="sb-picker-option-name">Fill page (top ${fillCount})</span>
+                <span class="sb-picker-option-meta">Add the first ${fillCount} characters to fill the page</span>
+            </button>`;
+        }
+    }
+    optionsEl.innerHTML = fillBtnHtml + available.map((card) => {
+        const label = String(card.back || card.front || '').trim();
+        const reason = String(card.practicing_reason || '').trim();
+        const reasonLabel = reason === 'never_seen' ? 'Newly added' : (reason === 'last_failed' ? 'Last failed' : '');
+        return `<button type="button" class="sb-picker-option" data-cwb-picker-card-id="${card.id}">
+            <span class="sb-picker-option-name">${escapeHtml(label)}</span>
+            ${reasonLabel ? `<span class="sb-picker-option-meta">${escapeHtml(reasonLabel)}</span>` : ''}
+        </button>`;
+    }).join('');
+}
+
+function openChineseSheetPicker(rowIndex) {
+    const pickerEl = document.getElementById('chineseSheetPicker');
+    const titleEl = document.getElementById('chineseSheetPickerTitle');
+    if (!pickerEl || !titleEl) return;
+    chineseSheetPickerRowIndex = Number.isInteger(rowIndex) ? rowIndex : null;
+    titleEl.textContent = Number.isInteger(chineseSheetPickerRowIndex) ? 'Replace Character' : 'Choose Character';
+    renderChineseSheetPickerOptions();
+    pickerEl.classList.remove('hidden');
+    pickerEl.setAttribute('aria-hidden', 'false');
+}
+
+function closeChineseSheetPicker() {
+    const pickerEl = document.getElementById('chineseSheetPicker');
+    if (!pickerEl) return;
+    pickerEl.classList.add('hidden');
+    pickerEl.setAttribute('aria-hidden', 'true');
+    chineseSheetPickerRowIndex = null;
+}
+
+function addChineseSheetRow(card) {
+    const label = String(card.back || card.front || '').trim();
+    if (!label) return false;
+    const nextRow = { cardId: card.id, character: label, emptyCount: cwGlobalEmptyCount, scale: cwCurrentGlobalScale() };
+    const nextRows = [...chineseSheetRows, nextRow];
+    if (!canFitChineseSheetRows(nextRows)) {
+        showSheetError('That character does not fit in the remaining printable area.');
+        return false;
+    }
+    showSheetError('');
+    chineseSheetRows = nextRows;
+    renderChineseSheetBuilderContent(currentChineseSheetScale);
+    return true;
+}
+
+function replaceChineseSheetRow(rowIndex, card) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= chineseSheetRows.length) return false;
+    const label = String(card.back || card.front || '').trim();
+    if (!label) return false;
+    showSheetError('');
+    chineseSheetRows[rowIndex] = Object.assign({}, chineseSheetRows[rowIndex], { cardId: card.id, character: label });
+    renderChineseSheetBuilderContent(currentChineseSheetScale);
+    return true;
+}
+
+function removeChineseSheetRow(rowIndex) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= chineseSheetRows.length) return;
+    showSheetError('');
+    chineseSheetRows.splice(rowIndex, 1);
+    renderChineseSheetBuilderContent(currentChineseSheetScale);
+}
+
+function updateChineseSheetGlobalScale(direction) {
+    if (chineseSheetRows.length === 0) return;
+    const current = cwClampScale(chineseSheetRows[0].scale || 1);
+    const next = cwClampScale(current + direction * CW_SCALE_STEP);
+    if (next === current) return;
+    const nextRows = chineseSheetRows.map((r) => Object.assign({}, r, { scale: next }));
+    if (!canFitChineseSheetRows(nextRows)) {
+        showSheetError('That size does not fit in the printable area.');
+        return;
+    }
+    showSheetError('');
+    chineseSheetRows = nextRows;
+    renderChineseSheetBuilderContent(currentChineseSheetScale);
+    updateCwScaleButtons();
+}
+
+function updateCwScaleButtons() {
+    const minusBtn = document.getElementById('cwGlobalScaleDown');
+    const plusBtn = document.getElementById('cwGlobalScaleUp');
+    const labelEl = document.getElementById('cwGlobalScaleLabel');
+    if (!minusBtn && !plusBtn) return;
+    const current = chineseSheetRows.length > 0 ? cwClampScale(chineseSheetRows[0].scale || 1) : CW_DEFAULT_SCALE;
+    const canDown = current > CW_MIN_SCALE && (chineseSheetRows.length === 0 || canFitChineseSheetRows(
+        chineseSheetRows.map((r) => Object.assign({}, r, { scale: cwClampScale(current - CW_SCALE_STEP) }))
+    ));
+    const canUp = current < CW_MAX_SCALE && (chineseSheetRows.length === 0 || canFitChineseSheetRows(
+        chineseSheetRows.map((r) => Object.assign({}, r, { scale: cwClampScale(current + CW_SCALE_STEP) }))
+    ));
+    if (minusBtn) minusBtn.disabled = !canDown;
+    if (plusBtn) plusBtn.disabled = !canUp;
+    if (labelEl) labelEl.textContent = cwScaleLabel(current);
+}
+
+function updateCwGlobalEmptyCount(direction) {
+    const next = Math.max(CW_MIN_EMPTY_COUNT, Math.min(CW_MAX_EMPTY_COUNT, cwGlobalEmptyCount + direction));
+    if (next === cwGlobalEmptyCount) return;
+    cwGlobalEmptyCount = next;
+    chineseSheetRows = chineseSheetRows.map((r) => Object.assign({}, r, { emptyCount: next }));
+    renderChineseSheetBuilderContent(currentChineseSheetScale);
+    updateCwEmptyCountButtons();
+}
+
+function updateCwEmptyCountButtons() {
+    const minusBtn = document.getElementById('cwEmptyCountDown');
+    const plusBtn = document.getElementById('cwEmptyCountUp');
+    const labelEl = document.getElementById('cwEmptyCountLabel');
+    if (minusBtn) minusBtn.disabled = cwGlobalEmptyCount <= CW_MIN_EMPTY_COUNT;
+    if (plusBtn) plusBtn.disabled = cwGlobalEmptyCount >= CW_MAX_EMPTY_COUNT;
+    if (labelEl) labelEl.textContent = String(cwGlobalEmptyCount);
+}
+
+function duplicateChineseSheetRow(rowIndex) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= chineseSheetRows.length) return;
+    const clonedRow = Object.assign({}, chineseSheetRows[rowIndex]);
+    const nextRows = [
+        ...chineseSheetRows.slice(0, rowIndex + 1),
+        clonedRow,
+        ...chineseSheetRows.slice(rowIndex + 1),
+    ];
+    if (!canFitChineseSheetRows(nextRows)) {
+        showSheetError('There is not enough space to duplicate this row.');
+        return;
+    }
+    showSheetError('');
+    chineseSheetRows = nextRows;
+    renderChineseSheetBuilderContent(currentChineseSheetScale);
+}
+
+function handleChineseSheetPickerChoice(cardId) {
+    const card = state2Cards.find((c) => c.id === cardId);
+    if (!card) return;
+    const ok = Number.isInteger(chineseSheetPickerRowIndex)
+        ? replaceChineseSheetRow(chineseSheetPickerRowIndex, card)
+        : addChineseSheetRow(card);
+    if (ok) closeChineseSheetPicker();
+}
+
+function handleChineseSheetPaperSizeChange(nextPaperSize) {
+    currentMathPaperSize = normalizeMathPaperSize(nextPaperSize);
+    if (chineseSheetPaperSizeSelect) chineseSheetPaperSizeSelect.value = currentMathPaperSize;
+    syncMathPaperSizeSelects();
+    const modal = document.getElementById('chineseSheetBuilderModal');
+    if (modal && !modal.classList.contains('hidden')) {
+        currentChineseSheetScale = computeSheetPreviewScale();
+        applyBuilderPageFrame(document.getElementById('chineseSheetA4'), currentChineseSheetScale);
+        renderChineseSheetBuilderContent(currentChineseSheetScale);
+        if (chineseSheetRows.length > 0 && !canFitChineseSheetRows(chineseSheetRows)) {
+            showSheetError('Current layout no longer fits on the selected paper size.');
+        }
+    }
+}
+
+async function saveChineseSheetFromBuilder() {
+    if (chineseSheetRows.length === 0) {
+        showSheetError('Add at least one character before saving this sheet.');
+        return;
+    }
+    const doneBtn = document.getElementById('chineseSheetDoneBtn');
+    if (doneBtn) { doneBtn.disabled = true; doneBtn.textContent = 'Saving...'; }
+
+    try {
+        showSheetError('');
+        const response = await fetch(buildType2ApiUrl('/chinese-print-sheets'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                rows: chineseSheetRows.map((row) => ({
+                    cardId: row.cardId,
+                    emptyCount: row.emptyCount ?? CW_DEFAULT_EMPTY_COUNT,
+                    scale: cwClampScale(row.scale || 1),
+                })),
+                paperSize: currentMathPaperSize,
+                categoryKey: activeCategoryKey,
+            }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Failed to save sheet (HTTP ${response.status})`);
+        closeChineseSheetBuilder();
+        await Promise.all([loadChineseSheets(), loadSuggestedCards()]);
+    } catch (error) {
+        console.error('Error saving Chinese writing sheet from builder:', error);
+        showSheetError(error.message || 'Failed to save writing sheet.');
+    } finally {
+        if (doneBtn) { doneBtn.disabled = false; doneBtn.textContent = 'Done'; }
+    }
+}
+
 /* ── Init ── */
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) { window.location.href = '/admin.html'; return; }
     syncMathPaperSizeSelects();
 
-    /* Chinese mode listeners */
-    if (createSheetBtn) createSheetBtn.addEventListener('click', () => createType2ChineseSheet());
-    if (sheetCardCountInput) sheetCardCountInput.addEventListener('input', () => { showSheetError(''); updateGenerateSheetButtonState(); });
-    if (sheetRowsPerCharInput) sheetRowsPerCharInput.addEventListener('input', () => { showSheetError(''); updateGenerateSheetButtonState(); });
+    /* Chinese Sheet Builder */
+    if (buildChineseSheetBtn) buildChineseSheetBtn.addEventListener('click', openChineseSheetBuilder);
+    document.getElementById('chineseSheetCloseBtn')?.addEventListener('click', closeChineseSheetBuilder);
+    document.getElementById('cwGlobalScaleDown')?.addEventListener('click', () => updateChineseSheetGlobalScale(-1));
+    document.getElementById('cwGlobalScaleUp')?.addEventListener('click', () => updateChineseSheetGlobalScale(1));
+    document.getElementById('chineseSheetDoneBtn')?.addEventListener('click', saveChineseSheetFromBuilder);
+    document.getElementById('chineseSheetA4')?.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('[data-cwb-add-row]');
+        if (addBtn) { openChineseSheetPicker(null); return; }
+        const duplicateBtn = e.target.closest('[data-cwb-row-duplicate]');
+        if (duplicateBtn) {
+            const idx = Number.parseInt(duplicateBtn.getAttribute('data-cwb-row-duplicate'), 10);
+            if (Number.isInteger(idx)) duplicateChineseSheetRow(idx);
+            return;
+        }
+        const deleteBtn = e.target.closest('[data-cwb-row-delete]');
+        if (deleteBtn) {
+            const idx = Number.parseInt(deleteBtn.getAttribute('data-row-idx'), 10);
+            if (Number.isInteger(idx)) removeChineseSheetRow(idx);
+            return;
+        }
+    });
+    document.getElementById('chineseSheetPickerOptions')?.addEventListener('click', (event) => {
+        const fillBtn = event.target.closest('[data-cwb-fill-page]');
+        if (fillBtn) { fillPageWithCards(); return; }
+        const optionBtn = event.target.closest('[data-cwb-picker-card-id]');
+        if (!optionBtn) return;
+        const cardId = Number.parseInt(optionBtn.getAttribute('data-cwb-picker-card-id'), 10);
+        if (Number.isInteger(cardId)) handleChineseSheetPickerChoice(cardId);
+    });
+    document.getElementById('chineseSheetPickerCancelBtn')?.addEventListener('click', closeChineseSheetPicker);
+    document.getElementById('chineseSheetPicker')?.addEventListener('click', (event) => {
+        if (event.target === event.currentTarget) closeChineseSheetPicker();
+    });
+    chineseSheetPaperSizeSelect?.addEventListener('change', (event) => {
+        handleChineseSheetPaperSizeChange(event.target.value);
+    });
+    document.getElementById('cwEmptyCountDown')?.addEventListener('click', () => updateCwGlobalEmptyCount(-1));
+    document.getElementById('cwEmptyCountUp')?.addEventListener('click', () => updateCwGlobalEmptyCount(1));
+    document.getElementById('chineseSheetBuilderModal')?.addEventListener('click', (event) => {
+        const picker = document.getElementById('chineseSheetPicker');
+        if (picker && !picker.classList.contains('hidden')) return;
+        if (event.target === event.currentTarget) closeChineseSheetBuilder();
+    });
 
     /* Math mode design-cell button delegation */
     if (mathDeckRowsEl) {
@@ -2020,6 +2357,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         handleMathPaperSizeChange(event.target.value);
     });
     window.addEventListener('resize', () => {
+        const chineseModal = document.getElementById('chineseSheetBuilderModal');
+        if (chineseModal && !chineseModal.classList.contains('hidden')) {
+            currentChineseSheetScale = computeSheetPreviewScale();
+            const a4El = document.getElementById('chineseSheetA4');
+            if (a4El) {
+                applyBuilderPageFrame(a4El, currentChineseSheetScale);
+                renderChineseSheetBuilderContent(currentChineseSheetScale);
+            }
+        }
         const modal = document.getElementById('sheetBuilderModal');
         if (modal && !modal.classList.contains('hidden')) {
             currentSheetScale = computeSheetPreviewScale();
@@ -2041,14 +2387,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
+        const chinesePicker = document.getElementById('chineseSheetPicker');
         const picker = document.getElementById('sheetBuilderPicker');
         const inlinePicker = document.getElementById('inlineSheetPicker');
         const cellModal = document.getElementById('cellDesignModal');
+        const chineseBuilderModal = document.getElementById('chineseSheetBuilderModal');
         const builderModal = document.getElementById('sheetBuilderModal');
         const inlineModal = document.getElementById('inlineSheetBuilderModal');
+        if (chinesePicker && !chinesePicker.classList.contains('hidden')) { closeChineseSheetPicker(); return; }
         if (picker && !picker.classList.contains('hidden')) { closeSheetBuilderPicker(); return; }
         if (inlinePicker && !inlinePicker.classList.contains('hidden')) { closeInlineSheetPicker(); return; }
         if (cellModal && !cellModal.classList.contains('hidden')) { closeCellDesignModal(); return; }
+        if (chineseBuilderModal && !chineseBuilderModal.classList.contains('hidden')) { closeChineseSheetBuilder(); return; }
         if (builderModal && !builderModal.classList.contains('hidden')) { closeSheetBuilder(); return; }
         if (inlineModal && !inlineModal.classList.contains('hidden')) { closeInlineSheetBuilder(); return; }
     });
@@ -2132,11 +2482,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             await Promise.all([loadMathPrintConfig(), loadMathSheets()]);
         } else {
             await Promise.all([loadSuggestedCards(), loadChineseSheets()]);
-            updateGenerateSheetButtonState();
+            updateBuildChineseSheetButton();
         }
     } catch (error) {
         console.error('Error loading worksheet manage page:', error);
         showError(error.message || 'Failed to load printable worksheets page.');
-        if (pageMode === 'chinese') updateGenerateSheetButtonState();
     }
 });
