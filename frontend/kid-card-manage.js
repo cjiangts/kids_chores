@@ -459,6 +459,10 @@ function buildType1PersonalCardApiUrl(cardId) {
     return withCategoryKey(new URL(`${API_BASE}/kids/${kidId}/cards/${encodeURIComponent(cardId)}`)).toString();
 }
 
+function isType1Behavior() {
+    return currentBehaviorType === BEHAVIOR_TYPE_TYPE_I;
+}
+
 function isType2Behavior() {
     return currentBehaviorType === BEHAVIOR_TYPE_TYPE_II;
 }
