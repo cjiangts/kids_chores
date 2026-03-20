@@ -1049,7 +1049,7 @@
             white-space: nowrap;
         }
 
-        .cards-visible-action-btn {
+        .manage-page .cards-toolbar .cards-visible-action-btn {
             min-height: 34px;
             height: 34px;
             padding: 0.35rem 0.64rem;
@@ -1214,7 +1214,7 @@
             }
 
             .manage-page .cards-toolbar {
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                grid-template-columns: minmax(0, 1fr) max-content max-content;
                 gap: 0.5rem;
             }
 
@@ -1237,7 +1237,7 @@
             }
 
             .manage-page .cards-toolbar .cards-search-input {
-                grid-column: 1 / -1;
+                grid-column: 1 / 2;
                 min-width: 0;
                 width: 100%;
                 max-width: none;
@@ -1245,11 +1245,13 @@
             }
 
             .manage-page .cards-toolbar .cards-visible-action-btn.skip {
-                grid-column: 1 / 2;
+                grid-column: 2 / 3;
+                width: auto;
             }
 
             .manage-page .cards-toolbar .cards-visible-action-btn.unskip {
-                grid-column: 2 / 3;
+                grid-column: 3 / 4;
+                width: auto;
             }
 
             .manage-page .cards-toolbar #viewOrderSelect {
@@ -1312,7 +1314,36 @@
 
         }
 
+        @media (max-width: 360px) {
+            .manage-page .cards-toolbar {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            }
+
+            .manage-page .cards-toolbar .cards-search-input {
+                grid-column: 1 / -1;
+            }
+
+            .manage-page .cards-toolbar .cards-visible-action-btn.skip {
+                grid-column: 1 / 2;
+                width: 100%;
+            }
+
+            .manage-page .cards-toolbar .cards-visible-action-btn.unskip {
+                grid-column: 2 / 3;
+                width: 100%;
+            }
+        }
+
         @media (max-width: 420px) {
+            .manage-page .cards-toolbar {
+                gap: 0.35rem;
+            }
+
+            .manage-page .cards-toolbar .cards-visible-action-btn {
+                min-height: 32px;
+                height: 32px;
+            }
+
             .cards-header-row {
                 gap: 0.3rem;
             }

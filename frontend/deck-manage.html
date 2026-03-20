@@ -13,6 +13,9 @@
         }
 
         .deck-manage-page .deck-panel {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            box-shadow: none;
             margin-bottom: 1rem;
         }
 
@@ -23,59 +26,10 @@
             }
         }
 
-        .deck-tags {
-            display: inline-flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-        }
-
-        .deck-tag {
-            background: #eef3ff;
-            color: #2f3c7e;
-            border-radius: 999px;
-            padding: 0.2rem 0.55rem;
-            font-size: 0.82rem;
-        }
-
         .deck-empty {
             color: #666;
             font-size: 0.95rem;
             padding: 0.4rem 0;
-        }
-
-        .deck-tags-col {
-            width: 190px;
-        }
-
-
-        .deck-cards-col {
-            width: 118px;
-        }
-
-        .deck-single-front {
-            color: #2f3c7e;
-            font-weight: 600;
-            word-break: break-word;
-        }
-
-        .deck-print-marker {
-            font-size: 0.9rem;
-            line-height: 1;
-            opacity: 0.9;
-        }
-
-        .filter-delete-row {
-            display: flex;
-            gap: 0.55rem;
-            align-items: center;
-            margin: 0.35rem 0 0.55rem;
-            flex-wrap: wrap;
-        }
-
-        .filter-delete-row .form-group {
-            flex: 1;
-            margin-bottom: 0;
-            min-width: 200px;
         }
 
         .deck-manage-page .actions {
@@ -96,26 +50,6 @@
 
             .deck-manage-page .deck-category-filter-row:empty {
                 display: none;
-            }
-
-            .deck-manage-page .filter-delete-row {
-                display: grid;
-                grid-template-columns: minmax(0, 1fr) auto;
-                align-items: start;
-                gap: 0.4rem;
-                margin: 0 0 6px;
-            }
-
-            .deck-manage-page .filter-delete-row .form-group {
-                min-width: 0;
-            }
-
-            .deck-manage-page .deck-tags-col {
-                width: 150px;
-            }
-
-            .deck-manage-page .deck-cards-col {
-                width: 96px;
             }
         }
 
@@ -195,16 +129,274 @@
             vertical-align: -0.05em;
         }
 
-        .deck-delete-btn {
-            background: #fff;
-            color: #cc3528;
-            border: 1px solid #efb0a8;
+        .deck-tree-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin-bottom: 0.78rem;
+            flex-wrap: nowrap;
         }
 
-        .deck-delete-btn:hover {
-            background: #fff6f5;
-            border-color: #e78b82;
-            transform: translateY(-1px);
+        .deck-tree-search-wrap {
+            display: flex;
+            align-items: center;
+            flex: 1 1 0;
+            min-width: 0;
+        }
+
+        .deck-tree-search-input {
+            width: 100%;
+            min-width: 0;
+            min-height: 36px;
+            height: 36px;
+            padding: 0.35rem 0.76rem;
+            border: 1px solid #ccd3e0;
+            border-radius: 10px;
+            font-size: 0.92rem;
+            background: #f8f9fb;
+            color: #334;
+            outline: none;
+        }
+
+        .deck-tree-search-input:focus {
+            border-color: #3d7ee6;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(61, 126, 230, 0.12);
+        }
+
+        .deck-tree-toolbar-btn {
+            flex: 0 0 auto;
+            min-height: 36px;
+            height: 36px;
+            padding: 0.35rem 0.72rem;
+            border: 1px solid #d7dbe3;
+            border-radius: 10px;
+            background: #fff;
+            color: #333;
+            font-size: 0.88rem;
+            line-height: 1;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.12s ease, border-color 0.12s ease;
+        }
+
+        .deck-tree-toolbar-btn:hover {
+            background: #f6f7f9;
+            border-color: #c7ccd6;
+        }
+
+        .deck-tree-toolbar-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .deck-tree-toolbar-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex: 0 0 auto;
+        }
+
+        .deck-tree-container {
+            overflow: visible;
+            padding: 0.18rem 0 0;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .deck-tree-node {
+            user-select: none;
+        }
+
+        .deck-tree-node.search-hidden {
+            display: none;
+        }
+
+        .deck-tree-row {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            min-height: 42px;
+        }
+
+        .deck-tree-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 42px;
+            flex: 0 0 36px;
+            border: 0;
+            background: none;
+            color: #888;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: transform 0.16s ease, color 0.16s ease;
+        }
+
+        .deck-tree-toggle:hover {
+            color: #444;
+        }
+
+        .deck-tree-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .deck-tree-toggle.leaf-spacer {
+            visibility: hidden;
+            width: 20px;
+            flex-basis: 20px;
+        }
+
+        .deck-tree-row-body {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.45rem;
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 42px;
+            padding: 0.25rem 0.6rem 0.25rem 0.35rem;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            text-align: left;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+            transition: background 0.12s ease, box-shadow 0.12s ease;
+        }
+
+        .deck-tree-row-body:hover {
+            background: #f0f3ff;
+        }
+
+        .deck-tree-row-body:focus-visible {
+            outline: none;
+            background: #f0f3ff;
+            box-shadow: 0 0 0 2px rgba(61, 126, 230, 0.12);
+        }
+
+        .deck-tree-row-link:hover .deck-tree-label,
+        .deck-tree-row-link:focus-visible .deck-tree-label {
+            text-decoration: underline;
+            text-underline-offset: 0.12em;
+        }
+
+        .deck-tree-copy {
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .deck-tree-label {
+            font-size: 0.92rem;
+            color: #334;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .deck-tree-label-tag {
+            font-weight: 600;
+        }
+
+        .deck-tree-row-meta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex: 0 0 auto;
+            min-width: 0;
+            font-size: 0.78rem;
+            color: #888;
+            white-space: nowrap;
+        }
+
+        .deck-tree-printable-emoji {
+            font-size: 0.95rem;
+            line-height: 1;
+        }
+
+        .deck-tree-link-cue {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.12rem;
+            color: #4b5565;
+            font-weight: 600;
+        }
+
+        .deck-tree-link-cue-arrow {
+            font-size: 0.9rem;
+            line-height: 1;
+            transition: transform 0.12s ease;
+        }
+
+        .deck-tree-row-link:hover .deck-tree-link-cue-arrow,
+        .deck-tree-row-link:focus-visible .deck-tree-link-cue-arrow {
+            transform: translateX(2px);
+        }
+
+        .deck-tree-children {
+            margin-left: 1.05rem;
+            padding-left: 0.7rem;
+            border-left: 1px solid #e8ecf2;
+        }
+
+        .deck-tree-children.collapsed {
+            display: none;
+        }
+
+        @media (max-width: 720px) {
+            .deck-tree-toolbar {
+                gap: 0.35rem;
+            }
+
+            .deck-tree-search-wrap {
+                flex: 1 1 0;
+            }
+
+            .deck-tree-toolbar-actions {
+                gap: 0.25rem;
+            }
+
+            .deck-tree-toolbar-btn {
+                min-height: 34px;
+                height: 34px;
+                padding: 0.32rem 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            .deck-tree-row-body {
+                padding: 0.32rem 0.62rem 0.32rem 0.38rem;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .deck-tree-search-input {
+                min-height: 34px;
+                height: 34px;
+                padding: 0.32rem 0.68rem;
+                font-size: 0.9rem;
+            }
+
+            .deck-tree-row {
+                min-height: 44px;
+            }
+
+            .deck-tree-toggle {
+                width: 34px;
+                height: 44px;
+                flex-basis: 34px;
+            }
+
+            .deck-tree-row-body {
+                min-height: 44px;
+                border-radius: 10px;
+            }
+
+            .deck-tree-children {
+                margin-left: 0.95rem;
+                padding-left: 0.58rem;
+            }
         }
 
     </style>
@@ -227,29 +419,24 @@
             <div id="deckCategoryFilterWrap" class="deck-category-filter-row"></div>
 
             <section class="deck-panel settings-section deck-list-section">
-                <div class="filter-delete-row">
-                    <div class="form-group">
-                        <select id="deckTagFilter" class="sort-select">
-                            <option value="">Filter by secondary tag...</option>
-                        </select>
+                <div id="deckTreeToolbar" class="deck-tree-toolbar hidden">
+                    <label class="deck-tree-search-wrap">
+                        <input
+                            id="deckTreeSearchInput"
+                            type="text"
+                            class="deck-tree-search-input"
+                            placeholder="Search decks or tags..."
+                            aria-label="Search decks or tags"
+                        >
+                    </label>
+                    <div id="deckTreeToolbarActions" class="deck-tree-toolbar-actions hidden">
+                        <button id="deckTreeExpandAllBtn" type="button" class="deck-tree-toolbar-btn">Expand All</button>
+                        <button id="deckTreeCollapseAllBtn" type="button" class="deck-tree-toolbar-btn">Collapse All</button>
                     </div>
-                    <button id="deleteSelectedBtn" type="button" class="btn-secondary deck-delete-btn">Delete Shown (0)</button>
                 </div>
 
                 <div id="emptyState" class="deck-empty hidden">No decks yet. Create your first one.</div>
-
-                <div id="tableWrap" class="shared-report-table-wrap hidden">
-                    <table class="shared-report-table">
-                        <thead>
-                            <tr>
-                                <th class="shared-report-table-action-cell">Actions</th>
-                                <th class="deck-tags-col">Tags</th>
-                                <th class="deck-cards-col">Cards</th>
-                            </tr>
-                        </thead>
-                        <tbody id="deckTableBody"></tbody>
-                    </table>
-                </div>
+                <div id="deckTreeContainer" class="deck-tree-container hidden"></div>
             </section>
 
             <div id="errorMessage" class="error hidden"></div>

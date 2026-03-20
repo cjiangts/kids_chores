@@ -1,53 +1,47 @@
 const API_BASE = `${window.location.origin}/api`;
 
-const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
-const deckTableBody = document.getElementById('deckTableBody');
 const createDeckNavBtn = document.getElementById('createDeckNavBtn');
 const createDeckBulkNavBtn = document.getElementById('createDeckBulkNavBtn');
 const errorMessage = document.getElementById('errorMessage');
 const deckCategoryFilterWrap = document.getElementById('deckCategoryFilterWrap');
-const deckTagFilterInput = document.getElementById('deckTagFilter');
-const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+const deckTreeToolbar = document.getElementById('deckTreeToolbar');
+const deckTreeSearchInput = document.getElementById('deckTreeSearchInput');
+const deckTreeToolbarActions = document.getElementById('deckTreeToolbarActions');
+const deckTreeExpandAllBtn = document.getElementById('deckTreeExpandAllBtn');
+const deckTreeCollapseAllBtn = document.getElementById('deckTreeCollapseAllBtn');
+const deckTreeContainer = document.getElementById('deckTreeContainer');
 
-const DECK_RENDER_CHUNK_SIZE = 20;
 const deckCategoryCommon = window.DeckCategoryCommon;
 if (!deckCategoryCommon) {
     throw new Error('deck-category-common.js is required for deck-manage');
 }
 
 let allDecks = [];
-let currentFilteredDeckIds = [];
-let currentFilteredDecks = [];
-let renderedDeckCount = 0;
-let isBulkDeleting = false;
 let deckCategoryMetaByKey = {};
 let deckCategoryOrder = [];
 let selectedCategoryFilterKey = localStorage.getItem('deckManage_selectedCategory') || '';
-let secondaryTagFilterController = null;
+let treeExpandedPaths = null;
+let currentTreeBranchPathKeys = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
     if (!allowed) {
         return;
     }
-    createDeckNavBtn.addEventListener('click', () => {
-        window.location.href = buildCreateDeckUrl('/deck-create.html');
-    });
+
+    if (createDeckNavBtn) {
+        createDeckNavBtn.addEventListener('click', () => {
+            window.location.href = buildCreateDeckUrl('/deck-create.html');
+        });
+    }
+
     if (createDeckBulkNavBtn) {
         createDeckBulkNavBtn.addEventListener('click', () => {
             window.location.href = buildCreateDeckUrl('/deck-create-bulk.html');
         });
     }
 
-    if (deleteSelectedBtn) {
-        deleteSelectedBtn.addEventListener('click', async () => {
-            await deleteShownDecks();
-        });
-    }
-    if (tableWrap) {
-        tableWrap.addEventListener('scroll', handleTableScroll);
-    }
     if (deckCategoryFilterWrap) {
         deckCategoryFilterWrap.addEventListener('click', (event) => {
             const manageButton = event.target.closest('[data-category-action="manage-category"]');
@@ -55,20 +49,42 @@ document.addEventListener('DOMContentLoaded', async () => {
                 window.location.href = '/deck-category-create.html';
                 return;
             }
+
             const button = event.target.closest('[data-category-filter-key]');
             if (!button) {
                 return;
             }
+
             const nextKey = normalizeCategoryKey(button.getAttribute('data-category-filter-key'));
             if (nextKey === selectedCategoryFilterKey) {
                 return;
             }
+
             selectedCategoryFilterKey = nextKey;
             localStorage.setItem('deckManage_selectedCategory', nextKey);
+            treeExpandedPaths = null;
             renderDecks();
         });
     }
-    updateBulkSelectionUi();
+
+    if (deckTreeContainer) {
+        deckTreeContainer.addEventListener('click', handleTreeContainerClick);
+    }
+
+    if (deckTreeSearchInput) {
+        deckTreeSearchInput.addEventListener('input', () => {
+            applyDeckTreeSearch(deckTreeSearchInput.value);
+        });
+    }
+
+    if (deckTreeExpandAllBtn) {
+        deckTreeExpandAllBtn.addEventListener('click', expandAllBranches);
+    }
+
+    if (deckTreeCollapseAllBtn) {
+        deckTreeCollapseAllBtn.addEventListener('click', collapseAllBranches);
+    }
+
     await loadDeckCategoryMeta();
     await loadMyDecks();
     updateCreateActionButtons();
@@ -155,7 +171,7 @@ async function loadDeckCategoryMeta() {
         deckCategoryMetaByKey = next;
         deckCategoryOrder = nextOrder;
     } catch (error) {
-        console.error('Error loading deck categories for manage table:', error);
+        console.error('Error loading deck categories for manage tree:', error);
         deckCategoryMetaByKey = {};
         deckCategoryOrder = [];
     }
@@ -282,16 +298,21 @@ function renderCategoryFilters() {
             <span class="deck-category-filter-desc">Create and configure deck categories.</span>
         </button>
     `;
+
     if (categoryItems.length === 0) {
         selectedCategoryFilterKey = '';
+        localStorage.removeItem('deckManage_selectedCategory');
         deckCategoryFilterWrap.innerHTML = manageCategoryButtonHtml;
         updateCreateActionButtons();
         return;
     }
+
     const validKeys = new Set(categoryItems.map((item) => item.key));
     if (!selectedCategoryFilterKey || !validKeys.has(selectedCategoryFilterKey)) {
         selectedCategoryFilterKey = categoryItems[0].key;
+        localStorage.setItem('deckManage_selectedCategory', selectedCategoryFilterKey);
     }
+
     const categoryButtonsHtml = categoryItems.map((item) => `
         <button
             type="button"
@@ -309,229 +330,505 @@ function renderCategoryFilters() {
 }
 
 function getDecksByCategoryFilter() {
+    if (!selectedCategoryFilterKey) {
+        return allDecks.filter((deck) => !getDeckPrimaryCategoryKey(deck));
+    }
     return allDecks.filter((deck) => getDeckPrimaryCategoryKey(deck) === selectedCategoryFilterKey);
-}
-
-function ensureSecondaryTagFilterController() {
-    if (secondaryTagFilterController) {
-        return secondaryTagFilterController;
-    }
-
-    if (!window.PracticeManageCommon || typeof window.PracticeManageCommon.createHierarchicalTagFilterController !== 'function') {
-        secondaryTagFilterController = {
-            sync: () => {},
-            matchesDeck: () => true,
-            getDisplayLabel: () => '',
-        };
-        return secondaryTagFilterController;
-    }
-
-    secondaryTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
-        selectEl: deckTagFilterInput,
-        getDecks: getDecksByCategoryFilter,
-        getDeckTags: getDeckSecondaryTags,
-        onFilterChanged: () => {
-            renderDecks();
-        },
-    });
-    return secondaryTagFilterController;
-}
-
-function matchesSecondaryTagFilter(deck) {
-    return ensureSecondaryTagFilterController().matchesDeck(deck);
 }
 
 function buildDeckEmptyStateMessage() {
     const categoryLabel = getCategoryLabel(selectedCategoryFilterKey);
-    const secondaryFilterLabel = ensureSecondaryTagFilterController().getDisplayLabel();
-    if (selectedCategoryFilterKey && secondaryFilterLabel) {
-        return `No decks in "${categoryLabel}" match secondary tag "${secondaryFilterLabel}".`;
-    }
     if (selectedCategoryFilterKey) {
-        return `No decks in "${categoryLabel}".`;
+        return `No decks in "${categoryLabel}" yet.`;
     }
-    return 'No decks match the selected filters.';
+    return 'No decks yet. Create your first one.';
+}
+
+function getDeckCardCount(deck) {
+    return Number.isFinite(Number(deck && deck.card_count)) ? Number(deck.card_count) : 0;
+}
+
+function formatCount(value, singular, plural) {
+    const count = Number.isFinite(Number(value)) ? Number(value) : 0;
+    return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function normalizeCompareText(value) {
+    return String(value || '').trim().toLowerCase().replace(/[\s_]+/g, ' ');
+}
+
+function stripCategoryPrefixFromDeckName(name) {
+    const text = String(name || '').trim();
+    if (!text) {
+        return '';
+    }
+    const categoryKey = normalizeCategoryKey(selectedCategoryFilterKey);
+    if (!categoryKey) {
+        return text;
+    }
+    if (normalizeCategoryKey(text) === categoryKey) {
+        return '';
+    }
+    const lowerText = text.toLowerCase();
+    const prefix = `${categoryKey}_`;
+    if (lowerText.startsWith(prefix)) {
+        return text.slice(prefix.length);
+    }
+    return text;
+}
+
+function getDeckLeafLabel(deck) {
+    const singleCardFront = String(deck && deck.single_card_front ? deck.single_card_front : '').trim();
+    const strippedName = stripCategoryPrefixFromDeckName(deck && deck.name);
+    const secondaryLabels = getDeckSecondaryTagLabels(deck);
+    const fullPathLabel = secondaryLabels.join(' / ');
+
+    if (secondaryLabels.length > 0) {
+        const lastLabel = secondaryLabels[secondaryLabels.length - 1];
+        if (strippedName && normalizeCompareText(strippedName) !== normalizeCompareText(fullPathLabel)) {
+            return strippedName;
+        }
+        return lastLabel;
+    }
+
+    if (strippedName) {
+        return strippedName;
+    }
+
+    if (singleCardFront) {
+        return singleCardFront;
+    }
+
+    const deckId = Number(deck && deck.deck_id);
+    return deckId > 0 ? `Deck ${deckId}` : 'Deck';
+}
+
+function buildDeckTree(decks) {
+    const root = {
+        tag: null,
+        label: null,
+        pathKey: '',
+        children: new Map(),
+        decks: [],
+    };
+
+    decks.forEach((deck) => {
+        const pathTags = getDeckSecondaryTags(deck);
+        const pathLabels = getDeckSecondaryTagLabels(deck);
+
+        if (pathTags.length === 0) {
+            root.decks.push(deck);
+            return;
+        }
+
+        let node = root;
+        const pathParts = [];
+        pathTags.forEach((tag, index) => {
+            const tagKey = String(tag || '').trim().toLowerCase();
+            if (!tagKey) {
+                return;
+            }
+
+            pathParts.push(tagKey);
+            if (!node.children.has(tagKey)) {
+                node.children.set(tagKey, {
+                    tag: tagKey,
+                    label: String(pathLabels[index] || tagKey).trim(),
+                    pathKey: pathParts.join('__'),
+                    children: new Map(),
+                    decks: [],
+                });
+            }
+
+            node = node.children.get(tagKey);
+        });
+
+        node.decks.push(deck);
+    });
+
+    return root;
+}
+
+function sortTreeChildren(node) {
+    return Array.from(node.children.values()).sort((a, b) => {
+        const labelA = String(a.label || a.tag || '');
+        const labelB = String(b.label || b.tag || '');
+        return labelA.localeCompare(labelB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+}
+
+function sortTreeDecks(decks) {
+    return [...decks].sort((a, b) => {
+        const labelA = getDeckLeafLabel(a);
+        const labelB = getDeckLeafLabel(b);
+        const labelCompare = labelA.localeCompare(labelB, undefined, { numeric: true, sensitivity: 'base' });
+        if (labelCompare !== 0) {
+            return labelCompare;
+        }
+        return Number(a && a.deck_id ? a.deck_id : 0) - Number(b && b.deck_id ? b.deck_id : 0);
+    });
+}
+
+function getTreeNodeStats(node) {
+    let deckCount = node.decks.length;
+    let cardCount = node.decks.reduce((sum, deck) => sum + getDeckCardCount(deck), 0);
+
+    node.children.forEach((child) => {
+        const childStats = getTreeNodeStats(child);
+        deckCount += childStats.deckCount;
+        cardCount += childStats.cardCount;
+    });
+
+    return { deckCount, cardCount };
+}
+
+function getAllBranchPathKeys(node) {
+    const keys = [];
+    sortTreeChildren(node).forEach((child) => {
+        if (child.pathKey) {
+            keys.push(child.pathKey);
+        }
+        keys.push(...getAllBranchPathKeys(child));
+    });
+    return keys;
+}
+
+function renderDeckLeafRow(deck, labelOverride = '') {
+    const deckId = Number(deck && deck.deck_id ? deck.deck_id : 0);
+    if (!(deckId > 0)) {
+        return '';
+    }
+
+    const mainLabel = String(labelOverride || getDeckLeafLabel(deck) || `Deck ${deckId}`).trim();
+    const metaParts = [];
+    if (Boolean(deck && deck.has_print_cell_design)) {
+        metaParts.push('<span class="deck-tree-printable-emoji" role="img" aria-label="Printable deck" title="Printable deck">🖨️</span>');
+    }
+    metaParts.push(escapeHtml(formatCount(getDeckCardCount(deck), 'card', 'cards')));
+    metaParts.push('<span class="deck-tree-link-cue">Open <span class="deck-tree-link-cue-arrow" aria-hidden="true">›</span></span>');
+
+    return `
+        <div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${deckId}">
+            <div class="deck-tree-row">
+                <span class="deck-tree-toggle leaf-spacer" aria-hidden="true"></span>
+                <a class="deck-tree-row-body deck-tree-row-link" href="/deck-view.html?deckId=${encodeURIComponent(String(deckId))}">
+                    <span class="deck-tree-copy">
+                        <span class="deck-tree-label">${escapeHtml(mainLabel)}</span>
+                    </span>
+                    <span class="deck-tree-row-meta">
+                        ${metaParts.join(' ')}
+                    </span>
+                </a>
+            </div>
+        </div>
+    `;
+}
+
+function renderDeckTreeNode(node, depth) {
+    const hasChildren = node.children.size > 0;
+    const hasDecks = node.decks.length > 0;
+    if (!hasChildren && !hasDecks) {
+        return '';
+    }
+
+    if (node.tag !== null && !hasChildren && node.decks.length === 1) {
+        return renderDeckLeafRow(node.decks[0], node.label || node.tag);
+    }
+
+    const childHtml = sortTreeChildren(node).map((child) => renderDeckTreeNode(child, depth + 1)).join('');
+    const deckHtml = sortTreeDecks(node.decks).map((deck) => renderDeckLeafRow(deck)).join('');
+
+    if (node.tag === null) {
+        return `${childHtml}${deckHtml}`;
+    }
+
+    const stats = getTreeNodeStats(node);
+    const deckCountText = formatCount(stats.deckCount, 'deck', 'decks');
+    const cardCountText = formatCount(stats.cardCount, 'card', 'cards');
+    const isExpanded = isTreeNodeExpanded(node.pathKey, depth);
+
+    return `
+        <div class="deck-tree-node" data-tree-path="${escapeHtml(node.pathKey)}">
+            <div class="deck-tree-row">
+                <button
+                    type="button"
+                    class="deck-tree-toggle${isExpanded ? ' expanded' : ''}"
+                    aria-label="${isExpanded ? 'Collapse' : 'Expand'}"
+                >
+                    &#9654;
+                </button>
+                <button
+                    type="button"
+                    class="deck-tree-row-body deck-tree-branch-btn"
+                    data-tree-action="branch"
+                    data-tree-path="${escapeHtml(node.pathKey)}"
+                    aria-expanded="${isExpanded ? 'true' : 'false'}"
+                >
+                    <span class="deck-tree-copy">
+                        <span class="deck-tree-label deck-tree-label-tag">${escapeHtml(node.label || node.tag)}</span>
+                    </span>
+                    <span class="deck-tree-row-meta">${escapeHtml(`${deckCountText} · ${cardCountText}`)}</span>
+                </button>
+            </div>
+            <div class="deck-tree-children${isExpanded ? '' : ' collapsed'}">
+                ${childHtml}${deckHtml}
+            </div>
+        </div>
+    `;
+}
+
+function captureTreeExpandState() {
+    if (!deckTreeContainer) {
+        return;
+    }
+
+    const expanded = new Set();
+    const branchNodes = deckTreeContainer.querySelectorAll('.deck-tree-node[data-tree-path]');
+    if (branchNodes.length === 0) {
+        return;
+    }
+
+    branchNodes.forEach((nodeEl) => {
+        const pathKey = nodeEl.getAttribute('data-tree-path');
+        const childrenEl = nodeEl.querySelector(':scope > .deck-tree-children');
+        if (pathKey && childrenEl && !childrenEl.classList.contains('collapsed')) {
+            expanded.add(pathKey);
+        }
+    });
+    treeExpandedPaths = expanded;
+    updateDeckTreeExpandButtons();
+}
+
+function isTreeNodeExpanded(pathKey, depth) {
+    if (treeExpandedPaths === null) {
+        return false;
+    }
+    return treeExpandedPaths.has(pathKey);
+}
+
+function areAllBranchesExpanded() {
+    if (!Array.isArray(currentTreeBranchPathKeys) || currentTreeBranchPathKeys.length === 0) {
+        return false;
+    }
+    if (!(treeExpandedPaths instanceof Set)) {
+        return false;
+    }
+    return currentTreeBranchPathKeys.every((pathKey) => treeExpandedPaths.has(pathKey));
+}
+
+function hasAnyExpandedBranches() {
+    return treeExpandedPaths instanceof Set && treeExpandedPaths.size > 0;
+}
+
+function updateDeckTreeExpandButtons() {
+    if (!deckTreeToolbarActions && !deckTreeExpandAllBtn && !deckTreeCollapseAllBtn) {
+        return;
+    }
+
+    const hasBranches = Array.isArray(currentTreeBranchPathKeys) && currentTreeBranchPathKeys.length > 0;
+    if (deckTreeToolbarActions) {
+        deckTreeToolbarActions.classList.toggle('hidden', !hasBranches);
+    }
+    if (deckTreeExpandAllBtn) {
+        deckTreeExpandAllBtn.disabled = !hasBranches || areAllBranchesExpanded();
+    }
+    if (deckTreeCollapseAllBtn) {
+        deckTreeCollapseAllBtn.disabled = !hasBranches || !hasAnyExpandedBranches();
+    }
+}
+
+function renderDeckTree(decks) {
+    if (!deckTreeContainer) {
+        return;
+    }
+
+    const tree = buildDeckTree(decks);
+    currentTreeBranchPathKeys = getAllBranchPathKeys(tree);
+    deckTreeContainer.innerHTML = renderDeckTreeNode(tree, 0);
+    updateDeckTreeExpandButtons();
+
+    if (deckTreeSearchInput && deckTreeSearchInput.value.trim()) {
+        applyDeckTreeSearch(deckTreeSearchInput.value);
+    }
 }
 
 function renderDecks() {
     renderCategoryFilters();
-    ensureSecondaryTagFilterController().sync();
 
     if (!Array.isArray(allDecks) || allDecks.length === 0) {
-        currentFilteredDecks = [];
-        renderedDeckCount = 0;
-        currentFilteredDeckIds = [];
-        deckTableBody.innerHTML = '';
-        tableWrap.classList.add('hidden');
+        if (deckTreeToolbar) {
+            deckTreeToolbar.classList.add('hidden');
+        }
+        if (deckTreeContainer) {
+            deckTreeContainer.classList.add('hidden');
+            deckTreeContainer.innerHTML = '';
+        }
+        currentTreeBranchPathKeys = [];
+        updateDeckTreeExpandButtons();
         emptyState.textContent = 'No decks yet. Create your first one.';
         emptyState.classList.remove('hidden');
-        updateBulkSelectionUi();
         return;
     }
 
     const decksByCategory = getDecksByCategoryFilter();
-    const filteredDecks = decksByCategory.filter(matchesSecondaryTagFilter);
-    currentFilteredDecks = filteredDecks;
-    currentFilteredDeckIds = filteredDecks
-        .map((deck) => Number(deck.deck_id || 0))
-        .filter((deckId) => deckId > 0);
-    if (filteredDecks.length === 0) {
-        renderedDeckCount = 0;
-        deckTableBody.innerHTML = '';
-        tableWrap.classList.add('hidden');
+    if (decksByCategory.length === 0) {
+        if (deckTreeToolbar) {
+            deckTreeToolbar.classList.add('hidden');
+        }
+        if (deckTreeContainer) {
+            deckTreeContainer.classList.add('hidden');
+            deckTreeContainer.innerHTML = '';
+        }
+        currentTreeBranchPathKeys = [];
+        updateDeckTreeExpandButtons();
         emptyState.textContent = buildDeckEmptyStateMessage();
         emptyState.classList.remove('hidden');
-        updateBulkSelectionUi();
         return;
     }
 
     emptyState.classList.add('hidden');
-    tableWrap.classList.remove('hidden');
-    deckTableBody.innerHTML = '';
-    renderedDeckCount = 0;
-    if (tableWrap) {
-        tableWrap.scrollTop = 0;
+    if (deckTreeToolbar) {
+        deckTreeToolbar.classList.remove('hidden');
     }
-    appendNextDeckChunk();
-    fillTableViewport();
-
-    updateBulkSelectionUi();
+    if (deckTreeContainer) {
+        deckTreeContainer.classList.remove('hidden');
+    }
+    renderDeckTree(decksByCategory);
 }
 
-function renderDeckRowHtml(deck) {
-    const deckId = Number(deck.deck_id || 0);
-    const cardCount = Number(deck.card_count || 0);
-    const singleCardFront = String(deck && deck.single_card_front ? deck.single_card_front : '').trim();
-    const hasPrintCellDesign = Boolean(deck && deck.has_print_cell_design);
-    const remainingTags = getDeckSecondaryTagLabels(deck);
-    const tagHtml = remainingTags.length > 0
-        ? `<div class="deck-tags">${remainingTags.map((tag) => `<span class="deck-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
-        : '-';
-    const printMarkerHtml = hasPrintCellDesign
-        ? '<span class="deck-print-marker" title="Printable cell design saved" aria-label="Printable cell design saved">&#128424;</span>'
-        : '';
-    let cardsCellHtml = cardCount === 1 && singleCardFront
-        ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;max-width:100%;flex-wrap:wrap;"><span class="deck-single-front">${escapeHtml(singleCardFront)}</span>${printMarkerHtml}</span>`
-        : `<span style="white-space:nowrap;">${cardCount}</span>`;
-    return `
-        <tr>
-            <td class="shared-report-table-action-cell">
-                <a class="tab-link secondary mini-link-btn table-action-btn" href="/deck-view.html?deckId=${encodeURIComponent(String(deckId))}">View</a>
-            </td>
-            <td class="deck-tags-col">${tagHtml}</td>
-            <td class="deck-cards-col">${cardsCellHtml}</td>
-        </tr>
-    `;
-}
-
-function appendNextDeckChunk() {
-    const total = currentFilteredDecks.length;
-    if (renderedDeckCount >= total) {
-        return false;
-    }
-
-    const nextDecks = currentFilteredDecks.slice(renderedDeckCount, renderedDeckCount + DECK_RENDER_CHUNK_SIZE);
-    if (nextDecks.length === 0) {
-        return false;
-    }
-    deckTableBody.insertAdjacentHTML('beforeend', nextDecks.map(renderDeckRowHtml).join(''));
-    renderedDeckCount += nextDecks.length;
-    return true;
-}
-
-function fillTableViewport() {
-    if (!tableWrap) {
+function expandAllBranches() {
+    if (!Array.isArray(currentTreeBranchPathKeys) || currentTreeBranchPathKeys.length === 0) {
         return;
     }
-    let guard = 0;
-    while (
-        renderedDeckCount < currentFilteredDecks.length
-        && tableWrap.scrollHeight <= tableWrap.clientHeight + 16
-        && guard < 20
-    ) {
-        if (!appendNextDeckChunk()) {
-            break;
+    treeExpandedPaths = new Set(currentTreeBranchPathKeys);
+    renderDeckTree(getDecksByCategoryFilter());
+}
+
+function collapseAllBranches() {
+    if (!Array.isArray(currentTreeBranchPathKeys) || currentTreeBranchPathKeys.length === 0) {
+        return;
+    }
+    treeExpandedPaths = new Set();
+    renderDeckTree(getDecksByCategoryFilter());
+}
+
+function toggleTreeNodeExpanded(nodeEl, forceExpanded = null) {
+    if (!nodeEl) {
+        return;
+    }
+
+    const childrenEl = nodeEl.querySelector(':scope > .deck-tree-children');
+    if (!childrenEl) {
+        return;
+    }
+
+    const currentExpanded = !childrenEl.classList.contains('collapsed');
+    const nextExpanded = forceExpanded === null ? !currentExpanded : Boolean(forceExpanded);
+    const toggleBtn = nodeEl.querySelector(':scope > .deck-tree-row > .deck-tree-toggle');
+    const branchBtn = nodeEl.querySelector(':scope > .deck-tree-row > [data-tree-action="branch"]');
+
+    childrenEl.classList.toggle('collapsed', !nextExpanded);
+    if (toggleBtn) {
+        toggleBtn.classList.toggle('expanded', nextExpanded);
+        toggleBtn.setAttribute('aria-label', nextExpanded ? 'Collapse' : 'Expand');
+    }
+    if (branchBtn) {
+        branchBtn.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+    }
+
+    captureTreeExpandState();
+}
+
+function handleTreeContainerClick(event) {
+    const toggleBtn = event.target.closest('.deck-tree-toggle:not(.leaf-spacer)');
+    if (toggleBtn) {
+        const nodeEl = toggleBtn.closest('.deck-tree-node[data-tree-path]');
+        toggleTreeNodeExpanded(nodeEl);
+        return;
+    }
+
+    const branchBtn = event.target.closest('[data-tree-action="branch"][data-tree-path]');
+    if (branchBtn) {
+        const nodeEl = branchBtn.closest('.deck-tree-node[data-tree-path]');
+        toggleTreeNodeExpanded(nodeEl);
+    }
+}
+
+function applyDeckTreeSearch(query) {
+    if (!deckTreeContainer) {
+        return;
+    }
+
+    const q = String(query || '').trim().toLowerCase();
+    const allNodes = deckTreeContainer.querySelectorAll('.deck-tree-node');
+
+    if (!q) {
+        allNodes.forEach((node) => node.classList.remove('search-hidden'));
+        return;
+    }
+
+    allNodes.forEach((node) => node.classList.add('search-hidden'));
+
+    function expandChildList(childListEl) {
+        if (!childListEl || !childListEl.classList.contains('collapsed')) {
+            return;
         }
-        guard += 1;
-    }
-}
-
-function handleTableScroll() {
-    if (!tableWrap || tableWrap.classList.contains('hidden')) {
-        return;
-    }
-    if (renderedDeckCount >= currentFilteredDecks.length) {
-        return;
-    }
-    const thresholdPx = 140;
-    const reachedBottom = tableWrap.scrollTop + tableWrap.clientHeight >= tableWrap.scrollHeight - thresholdPx;
-    if (reachedBottom) {
-        appendNextDeckChunk();
-    }
-}
-
-function updateBulkSelectionUi() {
-    const shownCount = currentFilteredDeckIds.length;
-
-    if (deleteSelectedBtn) {
-        deleteSelectedBtn.disabled = shownCount === 0 || isBulkDeleting;
-        deleteSelectedBtn.textContent = isBulkDeleting
-            ? 'Deleting...'
-            : `Delete Shown (${shownCount})`;
-    }
-}
-
-async function deleteShownDecks() {
-    if (isBulkDeleting) {
-        return;
-    }
-    const targets = currentFilteredDeckIds.slice();
-    if (targets.length === 0) {
-        return;
+        childListEl.classList.remove('collapsed');
+        const branchNode = childListEl.parentElement;
+        if (!branchNode) {
+            return;
+        }
+        const toggleBtn = branchNode.querySelector(':scope > .deck-tree-row > .deck-tree-toggle');
+        const branchBtn = branchNode.querySelector(':scope > .deck-tree-row > [data-tree-action="branch"]');
+        if (toggleBtn) {
+            toggleBtn.classList.add('expanded');
+            toggleBtn.setAttribute('aria-label', 'Collapse');
+        }
+        if (branchBtn) {
+            branchBtn.setAttribute('aria-expanded', 'true');
+        }
     }
 
-    const confirmed = window.confirm(`Delete ${targets.length} shown deck(s)? This cannot be undone.`);
-    if (!confirmed) {
-        return;
-    }
-
-    isBulkDeleting = true;
-    updateBulkSelectionUi();
-    showError('');
-
-    const failures = [];
-    try {
-        for (const deckId of targets) {
-            try {
-                const response = await fetch(`${API_BASE}/shared-decks/${deckId}`, {
-                    method: 'DELETE',
-                });
-                const result = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(result.error || `Delete failed (HTTP ${response.status})`);
-                }
-            } catch (error) {
-                failures.push({
-                    deckId,
-                    message: String(error.message || 'Delete failed'),
-                });
+    function showNodeAndAncestors(node) {
+        node.classList.remove('search-hidden');
+        let parent = node.parentElement;
+        while (parent && parent !== deckTreeContainer) {
+            if (parent.classList.contains('deck-tree-node')) {
+                parent.classList.remove('search-hidden');
             }
+            if (parent.classList.contains('deck-tree-children')) {
+                expandChildList(parent);
+            }
+            parent = parent.parentElement;
         }
-    } finally {
-        isBulkDeleting = false;
     }
 
-    await loadMyDecks();
-
-    if (failures.length > 0) {
-        const summary = failures
-            .slice(0, 2)
-            .map((item) => `#${item.deckId}: ${item.message}`)
-            .join(' | ');
-        const extraCount = failures.length > 2 ? ` (+${failures.length - 2} more)` : '';
-        showError(`${failures.length} deck(s) failed to delete. ${summary}${extraCount}`);
-        renderDecks();
+    function showAllDescendants(node) {
+        node.querySelectorAll('.deck-tree-node').forEach((child) => {
+            child.classList.remove('search-hidden');
+        });
+        node.querySelectorAll('.deck-tree-children').forEach((childList) => {
+            expandChildList(childList);
+        });
     }
+
+    deckTreeContainer.querySelectorAll('.deck-tree-leaf').forEach((leaf) => {
+        const text = leaf.textContent.toLowerCase();
+        if (text.includes(q)) {
+            showNodeAndAncestors(leaf);
+        }
+    });
+
+    deckTreeContainer.querySelectorAll('.deck-tree-node[data-tree-path]').forEach((branch) => {
+        const branchBody = branch.querySelector(':scope > .deck-tree-row > .deck-tree-row-body');
+        const text = branchBody ? branchBody.textContent.toLowerCase() : '';
+        if (text.includes(q)) {
+            showNodeAndAncestors(branch);
+            showAllDescendants(branch);
+        }
+    });
+
+    captureTreeExpandState();
 }
 
 function showError(message) {
