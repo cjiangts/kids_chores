@@ -1993,15 +1993,9 @@ function buildGenericType1CardMarkup(card, options = {}) {
 
 function buildType2CardMarkup(card, options = {}) {
     const hasSavedAudio = !!card.audio_url;
-    const primaryText = isChineseSpecificLogic
-        ? String(card.back || card.front || '')
-        : String(card.front || '');
-    const secondaryText = isChineseSpecificLogic
-        ? String(card.front || '')
-        : String(card.back || '');
-    const showSecondary = isChineseSpecificLogic
-        ? secondaryText.length > 0 && secondaryText !== primaryText
-        : secondaryText.length > 0;
+    const primaryText = String(card.back || card.front || '');
+    const secondaryText = String(card.front || '');
+    const showSecondary = secondaryText.length > 0 && secondaryText !== primaryText;
     const audioActionsHtml = `
         <div class="selected-audio-bar">
             <div class="selected-audio-title">Prompt</div>
@@ -2026,6 +2020,7 @@ function buildType2CardMarkup(card, options = {}) {
     `;
     return buildCardMarkup(card, {
         cardClassNames: [
+            ...(!isChineseSpecificLogic ? ['type2-non-chinese-card'] : []),
             ...(isChineseSpecificLogic ? ['type1-chinese-card'] : []),
             ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : []),
         ],
