@@ -25,6 +25,28 @@
             font-size: 0.9rem;
         }
 
+        .manage-popup-card-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            text-align: left;
+            line-height: 1.25;
+            white-space: normal;
+        }
+
+        .manage-popup-btn-title {
+            display: block;
+            font-weight: 600;
+        }
+
+        .manage-popup-btn-meta {
+            display: block;
+            margin-top: 0.18rem;
+            font-size: 0.84rem;
+            color: #5872a8;
+        }
+
         .manage-popup-modal {
             z-index: 1300;
         }
@@ -439,6 +461,22 @@
 
         .deck-v2-action-row .settings-save-btn {
             margin-left: auto;
+        }
+
+        #applyDeckChangesBtn {
+            background: #28a745;
+            color: #fff;
+            border: none;
+        }
+
+        #applyDeckChangesBtn:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        #applyDeckChangesBtn:disabled {
+            background: #aeb7c9;
+            color: #fff;
+            cursor: not-allowed;
         }
 
         .deck-v2-actions .success,
@@ -1488,26 +1526,6 @@
             font-weight: 400;
         }
 
-        .orphan-editor-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-
-        .orphan-editor-panel {
-            background: var(--dashboard-chip-bg);
-            border: 1px solid rgba(28, 42, 82, 0.08);
-            border-radius: 10px;
-            padding: 0.9rem;
-            box-shadow: var(--dashboard-chip-shadow);
-        }
-
-        .orphan-editor-panel h3 {
-            margin: 0 0 0.7rem 0;
-            color: #334;
-            font-size: 1rem;
-        }
-
         .orphan-editor-action-row {
             display: flex;
             gap: 0.55rem;
@@ -1977,10 +1995,6 @@
             .mix-row .mix-cards {
                 text-align: left;
             }
-
-            .orphan-editor-grid {
-                grid-template-columns: 1fr;
-            }
         }
 
         @media (max-width: 640px) {
@@ -2115,9 +2129,18 @@
                     </div>
                 </div>
                 <div class="deck-setup-actions">
-                    <button id="openDeckOptInModalBtn" type="button" class="settings-save-btn manage-popup-btn">Manage Deck Opt-in</button>
-                    <button id="openType4DeckCountsModalBtn" type="button" class="settings-save-btn manage-popup-btn hidden">Set Deck Counts</button>
-                    <button id="openPersonalDeckModalBtn" type="button" class="btn-secondary manage-popup-btn hidden">Personal Deck Editor</button>
+                    <button id="openDeckOptInModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn">
+                        <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
+                        <span class="manage-popup-btn-meta">0 decks available to opt in</span>
+                    </button>
+                    <button id="openType4DeckCountsModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
+                        <span class="manage-popup-btn-title">Set Deck Counts</span>
+                        <span class="manage-popup-btn-meta">Choose how many cards each deck adds per day</span>
+                    </button>
+                    <button id="openPersonalDeckModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
+                        <span class="manage-popup-btn-title">Personal Deck Editor</span>
+                        <span class="manage-popup-btn-meta">Add your own custom cards</span>
+                    </button>
                 </div>
             </div>
             <div id="sessionMixSubgroup" class="settings-subgroup session-mix-subgroup">
@@ -2338,28 +2361,23 @@
                 <h2 id="personalDeckModalHeading">Personal Deck Editor</h2>
             </div>
             <div class="manage-popup-modal-body">
-                <p class="deck-v2-note">Add custom cards to the Personal Deck.</p>
-                <div class="orphan-editor-grid">
-                    <div class="orphan-editor-panel">
-                        <h3 id="orphanEditorTitle">Bulk Add Chinese Characters</h3>
-                        <form id="addCardForm">
-                            <div class="form-group">
-                                <div class="bulk-import-wrap">
-                                    <textarea
-                                        id="chineseChar"
-                                        placeholder="比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀"
-                                        required
-                                    ></textarea>
-                                </div>
-                            </div>
-                            <div class="orphan-editor-action-row">
-                                <button type="submit" id="addReadingBtn" class="submit-btn">Bulk Add</button>
-                                <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary">Close</button>
-                            </div>
-                            <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
-                        </form>
+                <p id="personalDeckModalNote" class="deck-v2-note">Bulk add Chinese characters to the Personal Deck.</p>
+                <form id="addCardForm">
+                    <div class="form-group">
+                        <div class="bulk-import-wrap">
+                            <textarea
+                                id="chineseChar"
+                                placeholder="比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀"
+                                required
+                            ></textarea>
+                        </div>
                     </div>
-                </div>
+                    <div class="orphan-editor-action-row">
+                        <button type="submit" id="addReadingBtn" class="submit-btn" disabled>Bulk Add</button>
+                        <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary">Close</button>
+                    </div>
+                    <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
+                </form>
             </div>
         </div>
     </div>

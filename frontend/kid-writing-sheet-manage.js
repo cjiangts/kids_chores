@@ -29,6 +29,7 @@ let state2Cards = [];
 /* 'chinese' or 'math' */
 let pageMode = 'chinese';
 let mathPrintConfigDecks = [];
+let mathSheetsById = new Map();
 let canDesignMathCells = false;
 
 /* ── Shared utilities ── */
@@ -154,13 +155,13 @@ function applyPageMode() {
         if (mathGenerateSection) mathGenerateSection.classList.remove('hidden');
         if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
         if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Sheets';
-        if (sheetHistoryNote) sheetHistoryNote.textContent = 'Newest first. Preview, print, mark done, or delete saved math sheets here.';
+        if (sheetHistoryNote) sheetHistoryNote.classList.add('hidden');
     } else {
         if (chineseGenerateSection) chineseGenerateSection.classList.remove('hidden');
         if (mathGenerateSection) mathGenerateSection.classList.add('hidden');
         if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
         if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Practice Sheets';
-        if (sheetHistoryNote) sheetHistoryNote.textContent = 'Print, mark done, or delete pending sheets here.';
+        if (sheetHistoryNote) sheetHistoryNote.classList.add('hidden');
     }
 }
 
@@ -217,7 +218,7 @@ function renderChineseSheets(sheets) {
                 <div class="sheet-cards">${answersHtml}</div>
                 <div class="sheet-actions ${isPending ? 'pending' : 'done'}">
                     <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">Print</button>
-                    ${isPending ? `<button type="button" class="done-btn" data-sheet-action="done" data-sheet-id="${safeSheetId}">Mark Done</button>` : ''}
+                    ${isPending ? `<button type="button" class="done-btn" data-sheet-action="done" data-sheet-id="${safeSheetId}">Done</button>` : ''}
                     ${deleteBtnHtml}
                 </div>
             </article>`;
@@ -292,6 +293,7 @@ async function loadMathSheets() {
 
 function renderMathSheets(sheets) {
     if (!sheetList) return;
+    mathSheetsById = new Map();
     if (!Array.isArray(sheets) || sheets.length === 0) {
         sheetList.innerHTML = '<article class="sheet-item"><p>No sheets yet.</p></article>';
         return;
@@ -301,6 +303,12 @@ function renderMathSheets(sheets) {
         if (createdDiff !== 0) return createdDiff;
         return (Number.parseInt(b && b.id, 10) || 0) - (Number.parseInt(a && a.id, 10) || 0);
     });
+    orderedSheets.forEach((sheet) => {
+        const sheetId = Number.parseInt(sheet && sheet.id, 10);
+        if (Number.isInteger(sheetId) && sheetId > 0) {
+            mathSheetsById.set(sheetId, sheet);
+        }
+    });
     sheetList.innerHTML = orderedSheets.map((sheet) => {
         const sheetId = Number.parseInt(sheet && sheet.id, 10);
         const safeSheetId = Number.isInteger(sheetId) && sheetId > 0 ? sheetId : 0;
@@ -309,7 +317,6 @@ function renderMathSheets(sheets) {
         const isPending = status === 'pending';
         const isDone = status === 'done';
         const statusClass = isDone ? 'done' : (isPreview ? 'preview' : 'pending');
-        const statusLabel = isDone ? 'done' : (isPreview ? 'preview' : 'practicing');
         const layoutKey = String(sheet && sheet.layout_format || '').trim().toLowerCase() === 'inline' ? 'inline' : 'vertical';
         const layoutLabel = layoutKey === 'inline' ? 'Inline' : 'Vertical';
         const layoutRows = Array.isArray(sheet && sheet.layout_rows) ? sheet.layout_rows : [];
@@ -329,6 +336,7 @@ function renderMathSheets(sheets) {
             1,
             Number.parseInt(sheet && (sheet.repeat_count ?? sheet.page_count), 10) || 1,
         );
+        const cloneBtnHtml = `<button type="button" class="clone-btn" data-sheet-action="clone" data-sheet-id="${safeSheetId}">Clone</button>`;
         const incorrectCount = Number.isInteger(sheet && sheet.incorrect_count)
             ? Number(sheet.incorrect_count)
             : null;
@@ -336,12 +344,16 @@ function renderMathSheets(sheets) {
         if (isPreview) {
             actionBtns = `
                 <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">Preview</button>
-                <button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>`;
+                <button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>
+                ${cloneBtnHtml}`;
         } else if (isPending) {
             actionBtns = `
-                <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">Print</button>
-                <button type="button" class="done-btn" data-sheet-action="done" data-sheet-id="${safeSheetId}">Mark Done</button>
-                <button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>`;
+                <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">View</button>
+                <button type="button" class="done-btn" data-sheet-action="done" data-sheet-id="${safeSheetId}">Done</button>
+                <button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>
+                ${cloneBtnHtml}`;
+        } else if (isDone) {
+            actionBtns = cloneBtnHtml;
         }
         const accuracyLine = (
             isDone
@@ -356,7 +368,7 @@ function renderMathSheets(sheets) {
             : `Printed: ${escapeHtml(printedDay)}`;
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div class="sheet-head-left"><div>Sheet #${safeSheetId}</div><span class="sheet-layout-tag">${layoutLabel}</span><span class="sheet-problem-tag">${problemCount} problem${problemCount === 1 ? '' : 's'}</span><span class="sheet-repeat-tag">x${repeatCount}</span></div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span></div></div>
+                <div class="sheet-head"><div class="sheet-head-left"><div>Sheet #${safeSheetId}</div><span class="sheet-layout-tag">${layoutLabel}</span><span class="sheet-problem-tag">${problemCount} problem${problemCount === 1 ? '' : 's'}</span><span class="sheet-repeat-tag">x${repeatCount}</span></div></div>
                 <div class="sheet-meta">${sheetMetaHtml}</div>
                 <div class="sheet-cards">${rowPillsHtml}</div>
                 ${actionBtns ? `<div class="sheet-actions ${statusClass}">${actionBtns}</div>` : ''}
@@ -973,6 +985,120 @@ function buildSheetRow(deckId, scale = 1) {
     };
 }
 
+function getVerticalCloneSourceRows(sheet) {
+    const layoutFormat = String(sheet && sheet.layout_format || '').trim().toLowerCase() === 'inline' ? 'inline' : 'vertical';
+    const layoutRows = Array.isArray(sheet && sheet.layout_rows) ? sheet.layout_rows : [];
+    if (layoutFormat !== 'inline') return layoutRows;
+    const collapsedRows = [];
+    layoutRows.forEach((row) => {
+        const deckId = Number.parseInt(row && row.shared_deck_id, 10);
+        if (!Number.isInteger(deckId) || deckId <= 0) return;
+        const scale = clampRowScale(Number.parseFloat(row && row.scale) || 1);
+        const previousRow = collapsedRows[collapsedRows.length - 1];
+        if (
+            previousRow
+            && previousRow.shared_deck_id === deckId
+            && previousRow.scale === scale
+        ) {
+            return;
+        }
+        collapsedRows.push(Object.assign({}, row, {
+            shared_deck_id: deckId,
+            scale,
+        }));
+    });
+    return collapsedRows;
+}
+
+function buildVerticalCloneRowsFromMathSheet(sheet) {
+    const cloneSourceRows = getVerticalCloneSourceRows(sheet);
+    if (!cloneSourceRows.length) {
+        throw new Error('This saved math sheet has no rows to clone.');
+    }
+    const missingDeckNames = [];
+    const nextRows = [];
+    cloneSourceRows.forEach((row) => {
+        const deckId = Number.parseInt(row && row.shared_deck_id, 10);
+        if (!Number.isInteger(deckId) || deckId <= 0) return;
+        const nextRow = buildSheetRow(deckId, Number.parseFloat(row && row.scale) || 1);
+        if (!nextRow) {
+            const deckName = String(row && row.deck_name || `Deck ${deckId}`).trim();
+            if (!missingDeckNames.includes(deckName)) missingDeckNames.push(deckName);
+            return;
+        }
+        nextRows.push(nextRow);
+    });
+    if (!nextRows.length) {
+        throw new Error('Design at least one printable cell before cloning this sheet into the vertical builder.');
+    }
+    if (missingDeckNames.length > 0) {
+        throw new Error(`Design printable cells for these decks before cloning: ${missingDeckNames.join(', ')}.`);
+    }
+    return nextRows;
+}
+
+async function loadMathSheetDetails(sheetId) {
+    const response = await fetch(buildType4ApiUrl(`/math-sheets/${sheetId}`));
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Failed to load math sheet (HTTP ${response.status})`);
+    return data && data.sheet ? data.sheet : null;
+}
+
+function buildInlineCloneRowsFromMathSheetDetails(sheet) {
+    const pages = Array.isArray(sheet && sheet.pages) ? sheet.pages : [];
+    const renderedRows = pages.flatMap((page) => (
+        Array.isArray(page && page.layout_rows) ? page.layout_rows : []
+    ));
+    const sourceRows = renderedRows.length > 0
+        ? renderedRows
+        : (Array.isArray(sheet && sheet.layout_rows) ? sheet.layout_rows : []);
+    if (!sourceRows.length) {
+        throw new Error('This saved inline math sheet has no rows to clone.');
+    }
+    const missingDeckNames = [];
+    const nextRows = [];
+    sourceRows.forEach((row) => {
+        const deckId = Number.parseInt(row && row.shared_deck_id, 10);
+        if (!Number.isInteger(deckId) || deckId <= 0) return;
+        const deck = mathPrintConfigDecks.find((item) => item.shared_deck_id === deckId);
+        if (!deck) {
+            const deckName = String(row && row.deck_name || `Deck ${deckId}`).trim();
+            if (!missingDeckNames.includes(deckName)) missingDeckNames.push(deckName);
+            return;
+        }
+        const fontScale = clampInlineFontScale(Number.parseFloat(row && row.inline_font_scale) || 1);
+        const lastRow = nextRows[nextRows.length - 1];
+        if (
+            lastRow
+            && lastRow.deckId === deckId
+            && lastRow.fontScale === fontScale
+            && lastRow.repeatCount < INLINE_DEFAULT_REPEAT_COUNT
+        ) {
+            lastRow.repeatCount += 1;
+            return;
+        }
+        const problems = Array.isArray(row && row.problems) ? row.problems : [];
+        const firstProblem = problems[0] && typeof problems[0] === 'object' ? problems[0] : null;
+        nextRows.push({
+            deckId,
+            deckName: deck.display_name || deck.name || String(row && row.deck_name || `Deck ${deckId}`),
+            sampleProblem: {
+                prompt: String(firstProblem && firstProblem.prompt || '? + ? = ?'),
+                answer: String(firstProblem && firstProblem.answer || '?'),
+            },
+            repeatCount: 1,
+            fontScale,
+        });
+    });
+    if (!nextRows.length) {
+        throw new Error('This saved inline math sheet has no rows to clone.');
+    }
+    if (missingDeckNames.length > 0) {
+        throw new Error(`Opt these decks back in before cloning: ${missingDeckNames.join(', ')}.`);
+    }
+    return nextRows;
+}
+
 function getSheetRowMetrics(row) {
     if (!row || !row.cellDef) {
         return { scale: 1, cellWidth: 0, cellHeight: 0, colCount: 1, rowWidth: 0 };
@@ -1268,14 +1394,15 @@ function handleSheetBuilderDeckChoice(deckId) {
     if (ok) closeSheetBuilderPicker();
 }
 
-function openSheetBuilder() {
+function openVerticalSheetBuilder(rows = [], paperSize = currentMathPaperSize) {
     if (cellDesigns.size === 0) {
         showMathSheetError('Design at least one printable cell in deck view before building a sheet.');
         return;
     }
+    currentMathPaperSize = normalizeMathPaperSize(paperSize);
     syncMathPaperSizeSelects();
     currentSheetScale = computeSheetPreviewScale();
-    sheetRows = [];
+    sheetRows = Array.isArray(rows) ? rows.map((row) => Object.assign({}, row)) : [];
     showMathSheetError('');
     const a4El = document.getElementById('sheetBuilderA4');
     applyBuilderPageFrame(a4El, currentSheetScale);
@@ -1283,6 +1410,29 @@ function openSheetBuilder() {
     closeSheetBuilderPicker();
     document.getElementById('sheetBuilderModal').classList.remove('hidden');
     document.body.classList.add('modal-open');
+}
+
+function openSheetBuilder() {
+    openVerticalSheetBuilder([], currentMathPaperSize);
+}
+
+async function openClonedMathSheetBuilder(sheetId) {
+    const sheet = mathSheetsById.get(sheetId);
+    if (!sheet) {
+        throw new Error('Saved math sheet not found.');
+    }
+    const layoutFormat = String(sheet && sheet.layout_format || '').trim().toLowerCase() === 'inline' ? 'inline' : 'vertical';
+    if (layoutFormat === 'inline') {
+        const sheetDetails = await loadMathSheetDetails(sheetId);
+        const nextRows = buildInlineCloneRowsFromMathSheetDetails(sheetDetails || sheet);
+        openPreparedInlineSheetBuilder(nextRows, (sheetDetails && sheetDetails.paper_size) || (sheet && sheet.paper_size));
+        return;
+    }
+    const nextRows = buildVerticalCloneRowsFromMathSheet(sheet);
+    openVerticalSheetBuilder(nextRows, sheet && sheet.paper_size);
+    if (!canFitSheetRows(nextRows)) {
+        showMathSheetError('This cloned layout is taller than one vertical page. Delete rows or use - to shrink them.');
+    }
 }
 
 function closeSheetBuilder() {
@@ -1385,6 +1535,7 @@ const INLINE_FONT_SIZE = 14;
 const INLINE_MIN_FONT_SCALE = 0.8;
 const INLINE_MAX_FONT_SCALE = 3.0;
 const INLINE_FONT_SCALE_STEP = 0.1;
+const INLINE_DEFAULT_REPEAT_COUNT = 5;
 const INLINE_LINE_HEIGHT = 1.4;
 const INLINE_CELL_H = Math.ceil(INLINE_FONT_SIZE * INLINE_LINE_HEIGHT) + 4;
 const INLINE_CHAR_W = INLINE_FONT_SIZE * 0.6;
@@ -1500,6 +1651,10 @@ function getInlineSheetPageLayoutInfo(rows) {
     };
 }
 
+function getInlineAddRowPreviewHeight(scale = 1) {
+    return Math.max(28, Math.round(INLINE_CELL_H * INLINE_DEFAULT_REPEAT_COUNT * scale));
+}
+
 function renderInlineSheetBuilderContent(scale) {
     const a4El = document.getElementById('inlineSheetA4');
     if (!a4El) return;
@@ -1546,13 +1701,12 @@ function renderInlineSheetBuilderContent(scale) {
         const canFontShrink = metrics.fontScale > INLINE_MIN_FONT_SCALE;
         const testGrow = Object.assign({}, row, { fontScale: clampInlineFontScale(metrics.fontScale + INLINE_FONT_SCALE_STEP) });
         const canFontGrow = testGrow.fontScale > metrics.fontScale;
-        const canRepeatGrow = true;
         html += `<div class="sb-row-wrap" data-sb-row-idx="${idx}" style="height:${previewTotalH}px;z-index:${inlineSheetRows.length - idx};">`;
         html += `<div class="sb-row-tools">
-            <button type="button" class="sb-row-tool-btn" data-isb-row-font="-1" data-row-idx="${idx}" title="Smaller text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Smaller text" ${canFontShrink ? '' : 'disabled'}>A-</button>
-            <button type="button" class="sb-row-tool-btn" data-isb-row-font="1" data-row-idx="${idx}" title="Larger text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Larger text" ${canFontGrow ? '' : 'disabled'}>A+</button>
-            <button type="button" class="sb-row-tool-btn duplicate" data-isb-row-repeat="1" data-row-idx="${idx}" title="Add one more printed line in this row (${metrics.repeatCount})" aria-label="Add one more printed line in this row" ${canRepeatGrow ? '' : 'disabled'}>⊞</button>
-            <button type="button" class="sb-row-tool-btn delete" data-isb-row-repeat="-1" data-row-idx="${idx}" title="${metrics.repeatCount > 1 ? `Remove one printed line from this row (${metrics.repeatCount})` : 'Remove this row'}" aria-label="${metrics.repeatCount > 1 ? 'Remove one printed line from this row' : 'Remove this row'}">⊟</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-font="-1" data-row-idx="${idx}" title="Smaller text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Smaller text" ${canFontShrink ? '' : 'disabled'}>-</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-font="1" data-row-idx="${idx}" title="Larger text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Larger text" ${canFontGrow ? '' : 'disabled'}>+</button>
+            <button type="button" class="sb-row-tool-btn duplicate" data-isb-row-duplicate="${idx}" title="Duplicate this row below" aria-label="Duplicate this row below">⧉</button>
+            <button type="button" class="sb-row-tool-btn delete" data-isb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">x</button>
         </div>`;
         const rawPrompt = String(row.sampleProblem.prompt || '').replace(/\s*=\s*[?？_\s]*$/, '');
         const compactPrompt = rawPrompt.replace(/\s*([+\-×x*÷\/])\s*/g, ' $1 ').replace(/\s{2,}/g, ' ').trim();
@@ -1572,9 +1726,9 @@ function renderInlineSheetBuilderContent(scale) {
     });
 
     const pageLayout = getInlineSheetPageLayoutInfo(inlineSheetRows);
-    const addRowPreviewHeight = Math.max(28, Math.round(48 * scale));
+    const addRowPreviewHeight = getInlineAddRowPreviewHeight(scale);
     if (getAvailableInlineSheetDecks().length > 0) {
-        if (inlineSheetRows.length > 0 && pageLayout.remainingSafeHeightOnLastPage < INLINE_CELL_H) {
+        if (inlineSheetRows.length > 0 && pageLayout.remainingSafeHeightOnLastPage < (INLINE_CELL_H * INLINE_DEFAULT_REPEAT_COUNT)) {
             html += `<div aria-hidden="true" style="height:${Math.max(0, Math.round(pageLayout.remainingVisibleHeightOnLastPage * scale))}px;"></div>`;
         }
         html += `<button type="button" class="sb-add-row-box" data-isb-add-row="1" style="height:${addRowPreviewHeight}px;">Click to choose a deck for a new row</button>`;
@@ -1600,14 +1754,20 @@ function renderInlineSheetBuilderContent(scale) {
     }
 }
 
-function openInlineSheetBuilder() {
+function openPreparedInlineSheetBuilder(rows = [], paperSize = currentMathPaperSize) {
     if (mathPrintConfigDecks.length === 0) {
         showMathSheetError('No opted-in decks found.');
         return;
     }
+    currentMathPaperSize = normalizeMathPaperSize(paperSize);
     syncMathPaperSizeSelects();
     currentInlineSheetScale = computeSheetPreviewScale();
-    inlineSheetRows = [];
+    inlineSheetRows = Array.isArray(rows) ? rows.map((row) => Object.assign({}, row, {
+        sampleProblem: row && row.sampleProblem ? {
+            prompt: String(row.sampleProblem.prompt || ''),
+            answer: String(row.sampleProblem.answer || ''),
+        } : { prompt: '? + ? = ?', answer: '?' },
+    })) : [];
     showMathSheetError('');
     const a4El = document.getElementById('inlineSheetA4');
     applyBuilderPageFrame(a4El, currentInlineSheetScale);
@@ -1615,6 +1775,10 @@ function openInlineSheetBuilder() {
     closeInlineSheetPicker();
     document.getElementById('inlineSheetBuilderModal').classList.remove('hidden');
     document.body.classList.add('modal-open');
+}
+
+function openInlineSheetBuilder() {
+    openPreparedInlineSheetBuilder([], currentMathPaperSize);
 }
 
 function closeInlineSheetBuilder() {
@@ -1665,7 +1829,7 @@ async function handleInlineSheetDeckChoice(deckId) {
             deckId,
             deckName: deck.display_name || deck.name,
             sampleProblem: sample,
-            repeatCount: 1,
+            repeatCount: INLINE_DEFAULT_REPEAT_COUNT,
             fontScale: 1,
         };
         const nextRows = [...inlineSheetRows, row];
@@ -1694,24 +1858,22 @@ function updateInlineRowFontScale(idx, direction) {
     renderInlineSheetBuilderContent(currentInlineSheetScale);
 }
 
-function updateInlineRowRepeat(idx, direction) {
-    if (idx < 0 || idx >= inlineSheetRows.length) return;
-    const row = inlineSheetRows[idx];
-    const current = Math.max(1, Number.parseInt(row.repeatCount, 10) || 1);
-    const next = current + direction;
-    if (next < 1) {
-        inlineSheetRows.splice(idx, 1);
-        showMathSheetError('');
-        renderInlineSheetBuilderContent(currentInlineSheetScale);
-        return;
-    }
-    const nextRows = [
-        ...inlineSheetRows.slice(0, idx),
-        Object.assign({}, row, { repeatCount: next }),
-        ...inlineSheetRows.slice(idx + 1),
+function duplicateInlineSheetRow(rowIndex) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= inlineSheetRows.length) return;
+    const clonedRow = Object.assign({}, inlineSheetRows[rowIndex]);
+    inlineSheetRows = [
+        ...inlineSheetRows.slice(0, rowIndex + 1),
+        clonedRow,
+        ...inlineSheetRows.slice(rowIndex + 1),
     ];
     showMathSheetError('');
-    inlineSheetRows = nextRows;
+    renderInlineSheetBuilderContent(currentInlineSheetScale);
+}
+
+function removeInlineSheetRow(rowIndex) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= inlineSheetRows.length) return;
+    showMathSheetError('');
+    inlineSheetRows.splice(rowIndex, 1);
     renderInlineSheetBuilderContent(currentInlineSheetScale);
 }
 
@@ -2418,11 +2580,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (Number.isInteger(idx) && Number.isInteger(dir)) updateInlineRowFontScale(idx, dir);
             return;
         }
-        const repeatBtn = e.target.closest('[data-isb-row-repeat]');
-        if (repeatBtn) {
-            const idx = Number.parseInt(repeatBtn.getAttribute('data-row-idx'), 10);
-            const dir = Number.parseInt(repeatBtn.getAttribute('data-isb-row-repeat'), 10);
-            if (Number.isInteger(idx) && Number.isInteger(dir)) updateInlineRowRepeat(idx, dir);
+        const duplicateBtn = e.target.closest('[data-isb-row-duplicate]');
+        if (duplicateBtn) {
+            const idx = Number.parseInt(duplicateBtn.getAttribute('data-isb-row-duplicate'), 10);
+            if (Number.isInteger(idx)) duplicateInlineSheetRow(idx);
+            return;
+        }
+        const deleteBtn = e.target.closest('[data-isb-row-delete]');
+        if (deleteBtn) {
+            const idx = Number.parseInt(deleteBtn.getAttribute('data-isb-row-delete'), 10);
+            if (Number.isInteger(idx)) removeInlineSheetRow(idx);
             return;
         }
     });
@@ -2455,6 +2622,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (action === 'print') {
                     if (pageMode === 'math') goToMathSheetPreview(sheetId);
                     else goToChineseSheetPrint(sheetId);
+                    return;
+                }
+                if (action === 'clone') {
+                    if (pageMode !== 'math') return;
+                    await openClonedMathSheetBuilder(sheetId);
                     return;
                 }
                 if (action === 'done') await markSheetDone(sheetId);

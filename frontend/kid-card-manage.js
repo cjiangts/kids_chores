@@ -81,7 +81,7 @@ const selectedDecksTitle = document.getElementById('selectedDecksTitle');
 const optOutAllSelectedBtn = document.getElementById('optOutAllSelectedBtn');
 const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
 const deckChangeMessage = document.getElementById('deckChangeMessage');
-const orphanEditorTitle = document.getElementById('orphanEditorTitle');
+const personalDeckModalNote = document.getElementById('personalDeckModalNote');
 const addCardForm = document.getElementById('addCardForm');
 const chineseCharInput = document.getElementById('chineseChar');
 const addReadingBtn = document.getElementById('addReadingBtn');
@@ -842,10 +842,10 @@ function applyCategoryUiText() {
     if (!showOrphanEditor) {
         setManageModalOpen(personalDeckModal, false);
     }
-    if (orphanEditorTitle) {
-        orphanEditorTitle.textContent = isType2Behavior()
-            ? 'Bulk Add Chinese Words/Phrases'
-            : 'Bulk Add Chinese Characters';
+    if (personalDeckModalNote) {
+        personalDeckModalNote.textContent = isType2Behavior()
+            ? 'Bulk add Chinese words and phrases to the Personal Deck.'
+            : 'Bulk add Chinese characters to the Personal Deck.';
     }
     if (chineseCharInput) {
         chineseCharInput.placeholder = isType2Behavior()
@@ -941,7 +941,14 @@ function renderType4DeckTargetControls() {
     }
     if (openType4DeckCountsModalBtn) {
         openType4DeckCountsModalBtn.disabled = hasPendingChanges || sourceCount <= 0 || isType4DeckCountsSaving;
-        openType4DeckCountsModalBtn.textContent = isType4DeckCountsSaving ? 'Saving...' : 'Set Deck Counts';
+        const titleText = isType4DeckCountsSaving ? 'Saving...' : 'Set Deck Counts';
+        const metaText = sourceCount > 0
+            ? `Choose cards per day for ${sourceCount} opted-in deck${sourceCount === 1 ? '' : 's'}`
+            : 'Opt in decks first to set daily counts';
+        openType4DeckCountsModalBtn.innerHTML = `
+            <span class="manage-popup-btn-title">${escapeHtml(titleText)}</span>
+            <span class="manage-popup-btn-meta">${escapeHtml(metaText)}</span>
+        `;
     }
 }
 
@@ -1073,7 +1080,26 @@ function renderDeckSetupSummary() {
     if (deckSetupSessionCountEl) {
         deckSetupSessionCountEl.textContent = String(getCurrentCardsPerDayCount());
     }
+    renderDeckSetupActionButtons();
     renderType4DeckTargetControls();
+}
+
+function renderDeckSetupActionButtons() {
+    const availableDeckCount = getAvailableDeckCandidatesForTagFilter().length
+        + (Boolean(orphanDeck) && !stagedIncludeOrphanInQueue ? 1 : 0);
+    if (openDeckOptInModalBtn) {
+        const optInMeta = `${availableDeckCount} deck${availableDeckCount === 1 ? '' : 's'} available to opt in`;
+        openDeckOptInModalBtn.innerHTML = `
+            <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
+            <span class="manage-popup-btn-meta">${escapeHtml(optInMeta)}</span>
+        `;
+    }
+    if (openPersonalDeckModalBtn) {
+        openPersonalDeckModalBtn.innerHTML = `
+            <span class="manage-popup-btn-title">Personal Deck Editor</span>
+            <span class="manage-popup-btn-meta">Add your own custom cards</span>
+        `;
+    }
 }
 
 function hasPendingDeckChanges() {
@@ -2401,12 +2427,14 @@ function updateAddReadingButtonCount() {
     }
     if (isReadingBulkAdding) {
         addReadingBtn.textContent = 'Adding...';
+        addReadingBtn.disabled = true;
         return;
     }
     const isType2 = isType2Behavior();
     const dedupStats = isType2
         ? getType2ChineseBulkInputStats(chineseCharInput.value)
         : getType1ChineseBulkInputStats(chineseCharInput.value);
+    addReadingBtn.disabled = dedupStats.uniqueCount <= 0;
     if (dedupStats.uniqueCount > 0) {
         const countText = dedupStats.dedupedCount > 0
             ? `${dedupStats.uniqueCount}, dedup ${dedupStats.dedupedCount}`

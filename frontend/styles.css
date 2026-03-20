@@ -918,7 +918,7 @@ body {
 }
 
 .manage-page .bulk-import-wrap textarea {
-    min-height: 110px;
+    min-height: 165px;
     resize: vertical;
 }
 
@@ -973,7 +973,8 @@ body {
 .semantic-outline-btn,
 .sheet-item .done-btn,
 .sheet-item .print-btn,
-.sheet-item .delete-btn {
+.sheet-item .delete-btn,
+.sheet-item .clone-btn {
     background: #fff;
     border: 1px solid #d2d9eb;
     border-radius: var(--control-radius);
@@ -1033,6 +1034,17 @@ body {
 .sheet-item .delete-btn:hover {
     background: #fff6f5;
     border-color: #e78b82;
+    transform: translateY(-1px);
+}
+
+.sheet-item .clone-btn {
+    color: #7a4be0;
+    border-color: #d1b7fb;
+}
+
+.sheet-item .clone-btn:hover {
+    background: #faf6ff;
+    border-color: #ba95f8;
     transform: translateY(-1px);
 }
 
@@ -1229,6 +1241,16 @@ header p {
 
 .submit-btn:hover {
     background: #218838;
+}
+
+.submit-btn:disabled {
+    background: #aeb7c9;
+    color: #fff;
+    cursor: not-allowed;
+}
+
+.submit-btn:disabled:hover {
+    background: #aeb7c9;
 }
 
 /* Keep manage-page titles responsive on all devices. */
