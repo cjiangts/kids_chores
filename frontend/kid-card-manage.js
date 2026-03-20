@@ -30,14 +30,16 @@ const successMessage = document.getElementById('successMessage');
 const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
 const sessionCardCountLabel = document.getElementById('sessionCardCountLabel');
-const optInDecksHeading = document.getElementById('optInDecksHeading');
-const optInDecksNoteBtn = document.getElementById('optInDecksNoteBtn');
 const openDeckOptInModalBtn = document.getElementById('openDeckOptInModalBtn');
-const deckOptInModal = document.getElementById('deckOptInModal');
-const cancelDeckOptInModalBtn = document.getElementById('cancelDeckOptInModalBtn');
-const mobileDeckTabs = document.getElementById('mobileDeckTabs');
-const mobileDeckTabAvailableBtn = document.getElementById('mobileDeckTabAvailableBtn');
-const mobileDeckTabSelectedBtn = document.getElementById('mobileDeckTabSelectedBtn');
+const deckTreeModal = document.getElementById('deckTreeModal');
+const deckTreeContainer = document.getElementById('deckTreeContainer');
+const deckTreeSearchInput = document.getElementById('deckTreeSearchInput');
+const deckTreeCounter = document.getElementById('deckTreeCounter');
+const deckTreeClearBtn = document.getElementById('deckTreeClearBtn');
+const deckTreeInfoBtn = document.getElementById('deckTreeInfoBtn');
+const applyDeckTreeChangesBtn = document.getElementById('applyDeckTreeChangesBtn');
+const cancelDeckTreeModalBtn = document.getElementById('cancelDeckTreeModalBtn');
+const deckTreeChangeMessage = document.getElementById('deckTreeChangeMessage');
 const openPersonalDeckModalBtn = document.getElementById('openPersonalDeckModalBtn');
 const personalDeckModal = document.getElementById('personalDeckModal');
 const cancelPersonalDeckModalBtn = document.getElementById('cancelPersonalDeckModalBtn');
@@ -69,18 +71,6 @@ const type4DailyTargetBlock = document.getElementById('type4DailyTargetBlock');
 const type4DailyTargetTotalText = document.getElementById('type4DailyTargetTotalText');
 const openType4DeckCountsModalBtn = document.getElementById('openType4DeckCountsModalBtn');
 
-const availableDecksEl = document.getElementById('availableDecks');
-const availableEmptyEl = document.getElementById('availableEmpty');
-const availableTagFilterInput = document.getElementById('availableTagFilter');
-const availableDecksTitle = document.getElementById('availableDecksTitle');
-const optInAllAvailableBtn = document.getElementById('optInAllAvailableBtn');
-const selectedDecksEl = document.getElementById('selectedDecks');
-const selectedEmptyEl = document.getElementById('selectedEmpty');
-const selectedTagFilterInput = document.getElementById('selectedTagFilter');
-const selectedDecksTitle = document.getElementById('selectedDecksTitle');
-const optOutAllSelectedBtn = document.getElementById('optOutAllSelectedBtn');
-const applyDeckChangesBtn = document.getElementById('applyDeckChangesBtn');
-const deckChangeMessage = document.getElementById('deckChangeMessage');
 const personalDeckModalNote = document.getElementById('personalDeckModalNote');
 const addCardForm = document.getElementById('addCardForm');
 const chineseCharInput = document.getElementById('chineseChar');
@@ -111,10 +101,6 @@ let sortedCards = [];
 let isDeckMoveInFlight = false;
 let baselineOptedDeckIdSet = new Set();
 let stagedOptedDeckIdSet = new Set();
-let availableTagFilterController = null;
-let optInAllAvailableController = null;
-let selectedTagFilterController = null;
-let optOutAllSelectedController = null;
 let baselineIncludeOrphanInQueue = false;
 let stagedIncludeOrphanInQueue = false;
 let sharedDeckCardsResponseTracker = null;
@@ -129,7 +115,6 @@ let currentSkippedCardCount = 0;
 let currentCardStatusFilter = 'all';
 let currentCardViewMode = 'short';
 let expandedCompactCardIds = new Set();
-let currentMobileDeckTab = 'available';
 let isBulkSkipActionInFlight = false;
 let sessionCardCountByCategory = {};
 let includeOrphanByCategory = {};
@@ -236,21 +221,21 @@ function showSuccess(message) {
 }
 
 function showDeckChangeMessage(message, isError = false) {
-    if (!deckChangeMessage) {
+    if (!deckTreeChangeMessage) {
         return;
     }
     const text = String(message || '').trim();
     if (!text) {
-        deckChangeMessage.textContent = '';
-        deckChangeMessage.classList.add('hidden');
-        deckChangeMessage.classList.remove('error');
-        deckChangeMessage.classList.add('success');
+        deckTreeChangeMessage.textContent = '';
+        deckTreeChangeMessage.classList.add('hidden');
+        deckTreeChangeMessage.classList.remove('error');
+        deckTreeChangeMessage.classList.add('success');
         return;
     }
-    deckChangeMessage.textContent = text;
-    deckChangeMessage.classList.remove('hidden');
-    deckChangeMessage.classList.toggle('error', isError);
-    deckChangeMessage.classList.toggle('success', !isError);
+    deckTreeChangeMessage.textContent = text;
+    deckTreeChangeMessage.classList.remove('hidden');
+    deckTreeChangeMessage.classList.toggle('error', isError);
+    deckTreeChangeMessage.classList.toggle('success', !isError);
 }
 
 function showStatusMessage(message, isError = true) {
@@ -330,7 +315,7 @@ function isModalOpen(modalEl) {
 
 function syncModalBodyLock() {
     const hasOpenModal = (
-        isModalOpen(deckOptInModal)
+        isModalOpen(deckTreeModal)
         || isModalOpen(type4DeckCountsModal)
         || isModalOpen(type4GeneratorModal)
         || isModalOpen(personalDeckModal)
@@ -351,7 +336,7 @@ function handleModalBackdropClick(event) {
     if (!(event.target instanceof HTMLElement)) {
         return;
     }
-    if (event.target === deckOptInModal) {
+    if (event.target === deckTreeModal) {
         return;
     }
     if (event.target === type4DeckCountsModal) {
@@ -365,65 +350,6 @@ function handleModalBackdropClick(event) {
     if (event.target === personalDeckModal) {
         setManageModalOpen(personalDeckModal, false);
     }
-}
-
-function isMobileDeckTabEnabled() {
-    return window.matchMedia('(max-width: 880px)').matches;
-}
-
-function getDeckBubbleCount(containerEl) {
-    if (!containerEl) {
-        return 0;
-    }
-    return containerEl.querySelectorAll('button[data-deck-id]').length;
-}
-
-function updateMobileDeckTabLabels() {
-    if (!mobileDeckTabAvailableBtn || !mobileDeckTabSelectedBtn) {
-        return;
-    }
-    const availableCount = getDeckBubbleCount(availableDecksEl);
-    const selectedCount = getDeckBubbleCount(selectedDecksEl);
-    mobileDeckTabAvailableBtn.textContent = `Available (${availableCount})`;
-    mobileDeckTabSelectedBtn.textContent = `Opted-in (${selectedCount})`;
-}
-
-function renderMobileDeckTabButtons() {
-    if (!mobileDeckTabAvailableBtn || !mobileDeckTabSelectedBtn) {
-        return;
-    }
-    const onAvailable = currentMobileDeckTab !== 'selected';
-    mobileDeckTabAvailableBtn.classList.toggle('active', onAvailable);
-    mobileDeckTabAvailableBtn.setAttribute('aria-selected', onAvailable ? 'true' : 'false');
-    mobileDeckTabSelectedBtn.classList.toggle('active', !onAvailable);
-    mobileDeckTabSelectedBtn.setAttribute('aria-selected', onAvailable ? 'false' : 'true');
-}
-
-function setMobileDeckTab(nextTab) {
-    const resolved = String(nextTab || '').trim().toLowerCase() === 'selected' ? 'selected' : 'available';
-    currentMobileDeckTab = resolved;
-    renderMobileDeckTabButtons();
-    if (!deckOptInModal) {
-        return;
-    }
-    if (!isMobileDeckTabEnabled()) {
-        deckOptInModal.removeAttribute('data-mobile-deck-tab');
-        return;
-    }
-    deckOptInModal.setAttribute('data-mobile-deck-tab', currentMobileDeckTab);
-}
-
-function syncMobileDeckTabsForViewport() {
-    if (!mobileDeckTabs || !deckOptInModal) {
-        return;
-    }
-    if (isMobileDeckTabEnabled()) {
-        deckOptInModal.setAttribute('data-mobile-deck-tab', currentMobileDeckTab);
-    } else {
-        deckOptInModal.removeAttribute('data-mobile-deck-tab');
-    }
-    renderMobileDeckTabButtons();
-    updateMobileDeckTabLabels();
 }
 
 function withCategoryKey(url) {
@@ -813,9 +739,6 @@ function applyCategoryUiText() {
     if (sessionCardCountLabel) {
         sessionCardCountLabel.textContent = 'Cards/day';
     }
-    if (optInDecksHeading) {
-        optInDecksHeading.textContent = `Opt-in Predefined ${displayName} Decks`;
-    }
     if (cardsSectionTitleText) {
         cardsSectionTitleText.textContent = currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV
             ? 'Representative Cards'
@@ -1085,10 +1008,10 @@ function renderDeckSetupSummary() {
 }
 
 function renderDeckSetupActionButtons() {
-    const availableDeckCount = getAvailableDeckCandidatesForTagFilter().length
-        + (Boolean(orphanDeck) && !stagedIncludeOrphanInQueue ? 1 : 0);
+    const totalDecks = (Array.isArray(allDecks) ? allDecks : []).length;
+    const optedCount = stagedOptedDeckIdSet.size + (Boolean(orphanDeck) && stagedIncludeOrphanInQueue ? 1 : 0);
     if (openDeckOptInModalBtn) {
-        const optInMeta = `${availableDeckCount} deck${availableDeckCount === 1 ? '' : 's'} available to opt in`;
+        const optInMeta = `${optedCount} / ${totalDecks + (orphanDeck ? 1 : 0)} decks opted in`;
         openDeckOptInModalBtn.innerHTML = `
             <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
             <span class="manage-popup-btn-meta">${escapeHtml(optInMeta)}</span>
@@ -1118,188 +1041,9 @@ function hasPendingDeckChanges() {
 }
 
 function renderDeckPendingInfo() {
-    const toOptIn = [];
-    const toOptOut = [];
-    stagedOptedDeckIdSet.forEach((deckId) => {
-        if (!baselineOptedDeckIdSet.has(deckId)) {
-            toOptIn.push(deckId);
-        }
-    });
-    baselineOptedDeckIdSet.forEach((deckId) => {
-        if (!stagedOptedDeckIdSet.has(deckId)) {
-            toOptOut.push(deckId);
-        }
-    });
-
-    const orphanPending = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue;
-    const pendingParts = [];
-    if (toOptIn.length > 0) {
-        pendingParts.push(`+${toOptIn.length} ${toOptIn.length === 1 ? 'deck' : 'decks'}`);
-    }
-    if (toOptOut.length > 0) {
-        pendingParts.push(`-${toOptOut.length} ${toOptOut.length === 1 ? 'deck' : 'decks'}`);
-    }
-    if (orphanPending) {
-        pendingParts.push(`Personal ${stagedIncludeOrphanInQueue ? 'in' : 'out'}`);
-    }
-    const buttonText = pendingParts.length > 0
-        ? `Apply (${pendingParts.join(' · ')})`
-        : 'Apply';
-    if (toOptIn.length === 0 && toOptOut.length === 0 && !orphanPending) {
-        applyDeckChangesBtn.disabled = true;
-        applyDeckChangesBtn.textContent = buttonText;
-        renderDeckSetupSummary();
-        if (optInAllAvailableController) {
-            optInAllAvailableController.render();
-        }
-        if (optOutAllSelectedController) {
-            optOutAllSelectedController.render();
-        }
-        return;
-    }
-
-    applyDeckChangesBtn.disabled = isDeckMoveInFlight;
-    applyDeckChangesBtn.textContent = isDeckMoveInFlight ? 'Applying...' : buttonText;
     renderDeckSetupSummary();
-    if (optInAllAvailableController) {
-        optInAllAvailableController.render();
-    }
-    if (optOutAllSelectedController) {
-        optOutAllSelectedController.render();
-    }
 }
 
-function buildOrphanDeckBubbleHtml(direction) {
-    const normalizedDirection = String(direction || '').trim().toLowerCase();
-    if (!orphanDeck || (normalizedDirection !== 'in' && normalizedDirection !== 'out')) {
-        return '';
-    }
-    const pendingClass = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue ? ' pending-change' : '';
-    const orphanName = `⭐ ${getPersonalDeckDisplayName()}`;
-    const orphanCount = Number(orphanDeck && orphanDeck.card_count ? orphanDeck.card_count : 0);
-    const action = normalizedDirection === 'in' ? 'opt-in' : 'opt-out';
-    return `
-        <button
-            type="button"
-            class="deck-bubble personal-deck-bubble${pendingClass}"
-            data-deck-id="${ORPHAN_BUBBLE_ID}"
-            data-orphan-toggle="${normalizedDirection}"
-            title="Click to stage Personal Deck ${action}"
-        >${escapeHtml(orphanName)}${escapeHtml(` · ${orphanCount} cards`)}</button>
-    `;
-}
-
-function hasPendingDeckMembershipChange(deckId) {
-    const numericDeckId = Number(deckId);
-    if (!(numericDeckId > 0)) {
-        return false;
-    }
-    return baselineOptedDeckIdSet.has(numericDeckId) !== stagedOptedDeckIdSet.has(numericDeckId);
-}
-
-function getPendingDeckBubbleClass(deck) {
-    const deckId = Number(deck && deck.deck_id ? deck.deck_id : 0);
-    return hasPendingDeckMembershipChange(deckId) ? 'pending-change' : '';
-}
-
-function sortDecksPendingFirst(decks) {
-    const list = Array.isArray(decks) ? decks : [];
-    return list
-        .map((deck, index) => ({
-            deck,
-            index,
-            pending: hasPendingDeckMembershipChange(deck && deck.deck_id) ? 1 : 0,
-        }))
-        .sort((a, b) => {
-            if (b.pending !== a.pending) {
-                return b.pending - a.pending;
-            }
-            return a.index - b.index;
-        })
-        .map((entry) => entry.deck);
-}
-
-function renderDeckBubbleColumn(config = {}) {
-    const titleEl = config.titleEl || null;
-    const titleText = String(config.titleText || 'Decks').trim() || 'Decks';
-    const titleSuffix = String(config.titleSuffix || '');
-    const totalCount = Number.parseInt(String(config.totalCount), 10);
-    if (titleEl) {
-        const resolvedTotal = Number.isInteger(totalCount) && totalCount >= 0 ? totalCount : 0;
-        titleEl.textContent = `${titleText} (${resolvedTotal}${titleSuffix})`;
-    }
-
-    const bulkController = config.bulkController || null;
-    const filteredDecks = Array.isArray(config.filteredDecks) ? config.filteredDecks : [];
-    const getBubbleClassName = typeof config.getBubbleClassName === 'function'
-        ? config.getBubbleClassName
-        : null;
-    const orderedDecks = getBubbleClassName
-        ? filteredDecks
-            .map((deck, index) => {
-                const className = String(getBubbleClassName(deck) || '').trim();
-                const isPending = className.split(/\s+/).includes('pending-change');
-                return { deck, index, isPending };
-            })
-            .sort((a, b) => {
-                if (a.isPending !== b.isPending) {
-                    return a.isPending ? -1 : 1;
-                }
-                return a.index - b.index;
-            })
-            .map((item) => item.deck)
-        : filteredDecks;
-
-    if (bulkController && typeof bulkController.render === 'function') {
-        bulkController.render(orderedDecks.length);
-    }
-
-    window.PracticeManageCommon.renderLimitedAvailableDecks({
-        containerEl: config.containerEl,
-        emptyEl: config.emptyEl,
-        allAvailableDecks: Array.isArray(config.allDecks) ? config.allDecks : [],
-        filteredDecks: orderedDecks,
-        emptyText: String(config.emptyText || ''),
-        filterLabel: String(config.filterLabel || ''),
-        noMatchTextPrefix: String(config.noMatchTextPrefix || ''),
-        getLabel: typeof config.getLabel === 'function' ? config.getLabel : getType1DeckBubbleLabel,
-        getSuffix: typeof config.getSuffix === 'function' ? config.getSuffix : null,
-        getBubbleClassName,
-        bubbleTitle: String(config.bubbleTitle || ''),
-        maxVisibleCount: MAX_DECK_BUBBLE_COUNT,
-        persistentHtmlBefore: String(config.persistentHtmlBefore || ''),
-        persistentItemCount: Number.parseInt(String(config.persistentItemCount ?? 0), 10) || 0,
-    });
-}
-
-function renderAvailableDecks() {
-    const tagFilter = ensureAvailableTagFilterController();
-    tagFilter.sync();
-    const allAvailableDecks = getAvailableDeckCandidatesForTagFilter();
-    const deckList = sortDecksPendingFirst(allAvailableDecks.filter(matchesAvailableTagFilter));
-    const shouldShowOrphan = Boolean(orphanDeck) && !stagedIncludeOrphanInQueue;
-    const availableDeckCount = deckList.length + (shouldShowOrphan ? 1 : 0);
-
-    renderDeckBubbleColumn({
-        titleEl: availableDecksTitle,
-        titleText: 'Available Decks',
-        totalCount: availableDeckCount,
-        bulkController: optInAllAvailableController,
-        containerEl: availableDecksEl,
-        emptyEl: availableEmptyEl,
-        allDecks: allAvailableDecks,
-        filteredDecks: deckList,
-        emptyText: 'No available decks yet.',
-        filterLabel: tagFilter.getDisplayLabel(),
-        getLabel: getType1DeckBubbleLabel,
-        getSuffix: getDeckBubbleSuffix,
-        getBubbleClassName: getPendingDeckBubbleClass,
-        bubbleTitle: 'Click to stage opt-in',
-        persistentHtmlBefore: shouldShowOrphan ? buildOrphanDeckBubbleHtml('in') : '',
-        persistentItemCount: shouldShowOrphan ? 1 : 0,
-    });
-    updateMobileDeckTabLabels();
-}
 
 function getDeckTags(deck) {
     return Array.isArray(deck.tags)
@@ -1410,56 +1154,6 @@ function getDeckCountMismatchWarningText(deck) {
     return `Shared deck changed (${sharedCount} shared vs ${materializedCount} local).`;
 }
 
-function getAvailableDeckCandidatesForTagFilter() {
-    return (Array.isArray(allDecks) ? allDecks : []).filter(
-        (deck) => !stagedOptedDeckIdSet.has(Number(deck.deck_id))
-    );
-}
-
-function getSelectedDeckCandidatesForTagFilter() {
-    return getOptedDecks();
-}
-
-function ensureAvailableTagFilterController() {
-    if (availableTagFilterController) {
-        return availableTagFilterController;
-    }
-    availableTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
-        selectEl: availableTagFilterInput,
-        getDecks: getAvailableDeckCandidatesForTagFilter,
-        getDeckTags,
-        getDeckTagLabels,
-        onFilterChanged: () => {
-            renderAvailableDecks();
-        },
-    });
-    return availableTagFilterController;
-}
-
-function matchesAvailableTagFilter(deck) {
-    return ensureAvailableTagFilterController().matchesDeck(deck);
-}
-
-function ensureSelectedTagFilterController() {
-    if (selectedTagFilterController) {
-        return selectedTagFilterController;
-    }
-    selectedTagFilterController = window.PracticeManageCommon.createHierarchicalTagFilterController({
-        selectEl: selectedTagFilterInput,
-        getDecks: getSelectedDeckCandidatesForTagFilter,
-        getDeckTags,
-        getDeckTagLabels,
-        onFilterChanged: () => {
-            renderSelectedDecks();
-        },
-    });
-    return selectedTagFilterController;
-}
-
-function matchesSelectedTagFilter(deck) {
-    return ensureSelectedTagFilterController().matchesDeck(deck);
-}
-
 function clearDeckSelectionMessages() {
     showError('');
     showSuccess('');
@@ -1467,43 +1161,8 @@ function clearDeckSelectionMessages() {
 }
 
 async function refreshDeckSelectionViews() {
-    renderAvailableDecks();
-    renderSelectedDecks();
     renderDeckPendingInfo();
     await loadSharedDeckCards();
-}
-
-function renderSelectedDecks() {
-    const tagFilter = ensureSelectedTagFilterController();
-    tagFilter.sync();
-    const optedDecks = getSelectedDeckCandidatesForTagFilter();
-    const deckList = sortDecksPendingFirst(optedDecks.filter(matchesSelectedTagFilter));
-    const showOrphanInSelected = Boolean(orphanDeck) && stagedIncludeOrphanInQueue;
-    const warningCount = deckList.filter((deck) => hasDeckCountMismatchWarning(deck)).length;
-    const warningSuffix = warningCount > 0 ? ` · ⚠ ${warningCount}` : '';
-    const selectedDeckCount = deckList.length + (showOrphanInSelected ? 1 : 0);
-
-    renderDeckBubbleColumn({
-        titleEl: selectedDecksTitle,
-        titleText: 'Opted-in Decks',
-        titleSuffix: warningSuffix,
-        totalCount: selectedDeckCount,
-        bulkController: optOutAllSelectedController,
-        containerEl: selectedDecksEl,
-        emptyEl: selectedEmptyEl,
-        allDecks: optedDecks,
-        filteredDecks: deckList,
-        emptyText: 'No deck opted in.',
-        filterLabel: tagFilter.getDisplayLabel(),
-        noMatchTextPrefix: 'No opted-in deck matches tag',
-        getLabel: getType1DeckBubbleLabel,
-        getSuffix: getDeckBubbleSuffix,
-        getBubbleClassName: getPendingDeckBubbleClass,
-        bubbleTitle: 'Click to stage opt-out',
-        persistentHtmlBefore: showOrphanInSelected ? buildOrphanDeckBubbleHtml('out') : '',
-        persistentItemCount: showOrphanInSelected ? 1 : 0,
-    });
-    updateMobileDeckTabLabels();
 }
 
 function filterCardsByQuery(cards, rawQuery) {
@@ -2972,7 +2631,6 @@ async function loadSharedType1Decks(options = {}) {
     orphanDeck = result && typeof result.orphan_deck === 'object' && result.orphan_deck
         ? result.orphan_deck
         : null;
-    ensureAvailableTagFilterController().sync();
 
     const responseTotal = Number.parseInt(result.session_card_count, 10);
     if (Number.isInteger(responseTotal)) {
@@ -2985,8 +2643,6 @@ async function loadSharedType1Decks(options = {}) {
     baselineIncludeOrphanInQueue = Boolean(result && result.include_orphan_in_queue);
     stagedIncludeOrphanInQueue = baselineIncludeOrphanInQueue;
 
-    renderAvailableDecks();
-    renderSelectedDecks();
     renderDeckPendingInfo();
     updateQueueMixLegend();
     if (!options.skipCards) {
@@ -3135,6 +2791,502 @@ async function requestSaveType4DeckDailyTargets(dailyCountsByDeckId) {
     return result;
 }
 
+/* ── Tree-view deck opt-in (tap-to-select, no checkboxes) ── */
+
+let treeOptedDeckIdSet = new Set();
+let treeIncludeOrphan = false;
+let treeExpandedTags = null; // null = use default; Set = persisted state
+
+function buildDeckTree() {
+    const root = { tag: null, label: null, children: new Map(), decks: [] };
+    const decks = Array.isArray(allDecks) ? allDecks : [];
+
+    decks.forEach((deck) => {
+        const tags = getDeckTags(deck);
+        const labels = getDeckTagLabels(deck);
+        if (tags.length === 0) {
+            root.decks.push(deck);
+            return;
+        }
+        const pathTags = tags[0] === categoryKey ? tags.slice(1) : tags;
+        const pathLabels = tags[0] === categoryKey ? labels.slice(1) : labels;
+        if (pathTags.length === 0) {
+            root.decks.push(deck);
+            return;
+        }
+        let node = root;
+        pathTags.forEach((tag, index) => {
+            if (!node.children.has(tag)) {
+                node.children.set(tag, {
+                    tag,
+                    label: pathLabels[index] || tag,
+                    children: new Map(),
+                    decks: [],
+                });
+            }
+            node = node.children.get(tag);
+        });
+        node.decks.push(deck);
+    });
+    return root;
+}
+
+function getAllDeckIdsUnder(node) {
+    const ids = [];
+    node.decks.forEach((deck) => {
+        const deckId = Number(deck.deck_id);
+        if (deckId > 0) {
+            ids.push(deckId);
+        }
+    });
+    for (const child of node.children.values()) {
+        ids.push(...getAllDeckIdsUnder(child));
+    }
+    return ids;
+}
+
+function getTreeNodeSelectionState(node) {
+    const allIds = getAllDeckIdsUnder(node);
+    if (allIds.length === 0) {
+        return 'none';
+    }
+    const selectedCount = allIds.filter((id) => treeOptedDeckIdSet.has(id)).length;
+    if (selectedCount === 0) {
+        return 'none';
+    }
+    if (selectedCount === allIds.length) {
+        return 'all';
+    }
+    return 'some';
+}
+
+function getDeckPendingBadgeHtml(deckId) {
+    const id = Number(deckId);
+    const wasOptedIn = baselineOptedDeckIdSet.has(id);
+    const isNowOptedIn = treeOptedDeckIdSet.has(id);
+    if (wasOptedIn === isNowOptedIn) {
+        return '';
+    }
+    if (isNowOptedIn) {
+        return '<span class="deck-tree-badge opt-in">+ opt-in</span>';
+    }
+    return '<span class="deck-tree-badge opt-out">- opt-out</span>';
+}
+
+function getBranchPendingBadgesHtml(allIds) {
+    let optInCount = 0;
+    let optOutCount = 0;
+    allIds.forEach((id) => {
+        const wasIn = baselineOptedDeckIdSet.has(id);
+        const nowIn = treeOptedDeckIdSet.has(id);
+        if (wasIn !== nowIn) {
+            if (nowIn) {
+                optInCount += 1;
+            } else {
+                optOutCount += 1;
+            }
+        }
+    });
+    let html = '';
+    if (optInCount > 0) {
+        html += `<span class="deck-tree-badge opt-in">+${optInCount}</span>`;
+    }
+    if (optOutCount > 0) {
+        html += `<span class="deck-tree-badge opt-out">-${optOutCount}</span>`;
+    }
+    return html;
+}
+
+function renderDeckTreeNode(node, depth) {
+    const hasChildren = node.children.size > 0;
+    const hasDecks = node.decks.length > 0;
+    if (!hasChildren && !hasDecks) {
+        return '';
+    }
+    let html = '';
+
+    // Merged leaf: a branch with exactly 1 deck and no sub-branches → render as single leaf row
+    if (node.tag !== null && !hasChildren && node.decks.length === 1) {
+        const deck = node.decks[0];
+        const deckId = Number(deck.deck_id);
+        const isSelected = treeOptedDeckIdSet.has(deckId);
+        const suffix = getDeckBubbleSuffix(deck);
+
+        const rowClasses = ['deck-tree-row'];
+        if (isSelected) {
+            rowClasses.push('selected');
+        }
+
+        html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${deckId}">`;
+        html += `<div class="${rowClasses.join(' ')}">`;
+        html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
+        html += `<div class="deck-tree-row-body" data-tree-action="leaf" data-tree-deck-id="${deckId}">`;
+        html += `<span class="deck-tree-label">${escapeHtml(node.label || node.tag)}${escapeHtml(suffix)}</span>`;
+        html += getDeckPendingBadgeHtml(deckId);
+        if (isSelected) {
+            html += `<span class="deck-tree-check">&#10003;</span>`;
+        }
+        html += `</div>`;
+        html += `</div>`;
+        html += `</div>`;
+        return html;
+    }
+
+    if (node.tag !== null) {
+        const allIds = getAllDeckIdsUnder(node);
+        const selState = getTreeNodeSelectionState(node);
+        const totalCount = allIds.length;
+        const selectedCount = allIds.filter((id) => treeOptedDeckIdSet.has(id)).length;
+        const isExpanded = isTreeNodeExpanded(node.tag, depth);
+
+        const rowClasses = ['deck-tree-row'];
+        if (selState === 'all') {
+            rowClasses.push('selected');
+        } else if (selState === 'some') {
+            rowClasses.push('partial');
+        }
+
+        html += `<div class="deck-tree-node" data-tree-tag="${escapeHtml(node.tag)}">`;
+        html += `<div class="${rowClasses.join(' ')}">`;
+        html += `<button type="button" class="deck-tree-toggle${isExpanded ? ' expanded' : ''}" aria-label="Toggle">&#9654;</button>`;
+        html += `<div class="deck-tree-row-body" data-tree-action="branch" data-tree-tag="${escapeHtml(node.tag)}">`;
+        html += `<span class="deck-tree-label deck-tree-label-tag">${escapeHtml(node.label || node.tag)}</span>`;
+        html += `<span class="deck-tree-meta">${selectedCount}/${totalCount}</span>`;
+        html += getBranchPendingBadgesHtml(allIds);
+        if (selState === 'all') {
+            html += `<span class="deck-tree-check">&#10003;</span>`;
+        }
+        html += `</div>`;
+        html += `</div>`;
+        html += `<div class="deck-tree-children${isExpanded ? '' : ' collapsed'}">`;
+    }
+
+    for (const child of node.children.values()) {
+        html += renderDeckTreeNode(child, depth + 1);
+    }
+
+    node.decks.forEach((deck) => {
+        const deckId = Number(deck.deck_id);
+        const isSelected = treeOptedDeckIdSet.has(deckId);
+        const label = getType1DeckBubbleLabel(deck);
+        const suffix = getDeckBubbleSuffix(deck);
+
+        const rowClasses = ['deck-tree-row'];
+        if (isSelected) {
+            rowClasses.push('selected');
+        }
+
+        html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${deckId}">`;
+        html += `<div class="${rowClasses.join(' ')}">`;
+        html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
+        html += `<div class="deck-tree-row-body" data-tree-action="leaf" data-tree-deck-id="${deckId}">`;
+        html += `<span class="deck-tree-label">${escapeHtml(label)}${escapeHtml(suffix)}</span>`;
+        html += getDeckPendingBadgeHtml(deckId);
+        if (isSelected) {
+            html += `<span class="deck-tree-check">&#10003;</span>`;
+        }
+        html += `</div>`;
+        html += `</div>`;
+        html += `</div>`;
+    });
+
+    if (node.tag !== null) {
+        html += `</div></div>`;
+    }
+
+    return html;
+}
+
+function getTreeTotalDeckCount() {
+    const decks = Array.isArray(allDecks) ? allDecks : [];
+    let count = decks.filter((d) => Number(d.deck_id) > 0).length;
+    if (orphanDeck) {
+        count += 1;
+    }
+    return count;
+}
+
+function getTreeSelectedCount() {
+    let count = treeOptedDeckIdSet.size;
+    if (orphanDeck && treeIncludeOrphan) {
+        count += 1;
+    }
+    return count;
+}
+
+function captureTreeExpandState() {
+    if (!deckTreeContainer) {
+        return;
+    }
+    const expanded = new Set();
+    deckTreeContainer.querySelectorAll('.deck-tree-node[data-tree-tag]').forEach((nodeEl) => {
+        const tag = nodeEl.getAttribute('data-tree-tag');
+        const childrenEl = nodeEl.querySelector(':scope > .deck-tree-children');
+        if (childrenEl && !childrenEl.classList.contains('collapsed')) {
+            expanded.add(tag);
+        }
+    });
+    treeExpandedTags = expanded;
+}
+
+function isTreeNodeExpanded(tag, depth) {
+    if (treeExpandedTags === null) {
+        return depth < 2;
+    }
+    return treeExpandedTags.has(tag);
+}
+
+function renderDeckTree() {
+    if (!deckTreeContainer) {
+        return;
+    }
+    captureTreeExpandState();
+    const tree = buildDeckTree();
+    let html = '';
+
+    // Personal deck at the top
+    if (orphanDeck) {
+        const isSelected = treeIncludeOrphan;
+        const isPending = treeIncludeOrphan !== baselineIncludeOrphanInQueue;
+        const orphanCount = Number(orphanDeck.card_count || 0);
+
+        const rowClasses = ['deck-tree-row'];
+        if (isSelected) {
+            rowClasses.push('selected');
+        }
+
+        let orphanBadge = '';
+        if (isPending) {
+            orphanBadge = isSelected
+                ? '<span class="deck-tree-badge opt-in">+ opt-in</span>'
+                : '<span class="deck-tree-badge opt-out">- opt-out</span>';
+        }
+
+        html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${ORPHAN_BUBBLE_ID}">`;
+        html += `<div class="${rowClasses.join(' ')}">`;
+        html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
+        html += `<div class="deck-tree-row-body" data-tree-action="orphan">`;
+        html += `<span class="deck-tree-label deck-tree-label-tag">&#11088; ${escapeHtml(getPersonalDeckDisplayName())} &middot; ${orphanCount} cards</span>`;
+        html += orphanBadge;
+        if (isSelected) {
+            html += `<span class="deck-tree-check">&#10003;</span>`;
+        }
+        html += `</div>`;
+        html += `</div></div>`;
+    }
+
+    html += renderDeckTreeNode(tree, 0);
+    deckTreeContainer.innerHTML = html;
+
+    updateTreeCounter();
+    updateTreeApplyButton();
+}
+
+function updateTreeCounter() {
+    if (!deckTreeCounter) {
+        return;
+    }
+    deckTreeCounter.textContent = `${getTreeSelectedCount()} / ${getTreeTotalDeckCount()}`;
+}
+
+function updateTreeApplyButton() {
+    if (!applyDeckTreeChangesBtn) {
+        return;
+    }
+    const toOptIn = [...treeOptedDeckIdSet].filter((id) => !baselineOptedDeckIdSet.has(id));
+    const toOptOut = [...baselineOptedDeckIdSet].filter((id) => !treeOptedDeckIdSet.has(id));
+    const orphanChanged = treeIncludeOrphan !== baselineIncludeOrphanInQueue;
+    const parts = [];
+    if (toOptIn.length > 0) {
+        parts.push(`+${toOptIn.length}`);
+    }
+    if (toOptOut.length > 0) {
+        parts.push(`-${toOptOut.length}`);
+    }
+    if (orphanChanged) {
+        parts.push('~1');
+    }
+    const hasPending = parts.length > 0;
+    applyDeckTreeChangesBtn.disabled = isDeckMoveInFlight || !hasPending;
+    applyDeckTreeChangesBtn.textContent = hasPending
+        ? `Apply (${parts.join(' · ')})`
+        : 'Apply';
+}
+
+function toggleBranchSelection(bodyEl) {
+    const nodeEl = bodyEl.closest('.deck-tree-node[data-tree-tag]');
+    if (!nodeEl) {
+        return;
+    }
+    // Collect all leaf deck IDs under this specific branch node
+    const leafBodies = nodeEl.querySelectorAll('[data-tree-action="leaf"][data-tree-deck-id]');
+    const ids = [];
+    leafBodies.forEach((body) => {
+        const id = Number(body.getAttribute('data-tree-deck-id'));
+        if (id > 0) {
+            ids.push(id);
+        }
+    });
+    if (ids.length === 0) {
+        return;
+    }
+    // If all are selected, deselect all; otherwise select all
+    const allSelected = ids.every((id) => treeOptedDeckIdSet.has(id));
+    ids.forEach((id) => {
+        if (allSelected) {
+            treeOptedDeckIdSet.delete(id);
+        } else {
+            treeOptedDeckIdSet.add(id);
+        }
+    });
+    renderDeckTree();
+}
+
+function toggleLeafSelection(deckId) {
+    const id = Number(deckId);
+    if (!(id > 0)) {
+        return;
+    }
+    if (treeOptedDeckIdSet.has(id)) {
+        treeOptedDeckIdSet.delete(id);
+    } else {
+        treeOptedDeckIdSet.add(id);
+    }
+    renderDeckTree();
+}
+
+function toggleOrphanSelection() {
+    treeIncludeOrphan = !treeIncludeOrphan;
+    renderDeckTree();
+}
+
+function handleTreeContainerClick(event) {
+    // Handle chevron toggle
+    const toggle = event.target.closest('.deck-tree-toggle:not(.leaf-spacer)');
+    if (toggle) {
+        const treeNode = toggle.closest('.deck-tree-node');
+        if (treeNode) {
+            const childrenEl = treeNode.querySelector(':scope > .deck-tree-children');
+            if (childrenEl) {
+                const isExpanded = !childrenEl.classList.contains('collapsed');
+                childrenEl.classList.toggle('collapsed', isExpanded);
+                toggle.classList.toggle('expanded', !isExpanded);
+            }
+        }
+        return;
+    }
+
+    // Handle row body tap
+    const body = event.target.closest('.deck-tree-row-body');
+    if (!body) {
+        return;
+    }
+    const action = body.getAttribute('data-tree-action');
+    if (action === 'orphan') {
+        toggleOrphanSelection();
+    } else if (action === 'leaf') {
+        toggleLeafSelection(body.getAttribute('data-tree-deck-id'));
+    } else if (action === 'branch') {
+        toggleBranchSelection(body);
+    }
+}
+
+function applyTreeSearch(query) {
+    if (!deckTreeContainer) {
+        return;
+    }
+    const q = String(query || '').trim().toLowerCase();
+    const allNodes = deckTreeContainer.querySelectorAll('.deck-tree-node');
+
+    if (!q) {
+        allNodes.forEach((node) => node.classList.remove('search-hidden'));
+        return;
+    }
+
+    allNodes.forEach((node) => node.classList.add('search-hidden'));
+
+    function showNodeAndAncestors(node) {
+        node.classList.remove('search-hidden');
+        let parent = node.parentElement;
+        while (parent && parent !== deckTreeContainer) {
+            if (parent.classList.contains('deck-tree-node')) {
+                parent.classList.remove('search-hidden');
+            }
+            if (parent.classList.contains('deck-tree-children') && parent.classList.contains('collapsed')) {
+                parent.classList.remove('collapsed');
+                const toggle = parent.previousElementSibling?.querySelector('.deck-tree-toggle');
+                if (toggle) {
+                    toggle.classList.add('expanded');
+                }
+            }
+            parent = parent.parentElement;
+        }
+    }
+
+    function showAllDescendants(node) {
+        node.querySelectorAll('.deck-tree-node').forEach((child) => {
+            child.classList.remove('search-hidden');
+        });
+    }
+
+    // Match leaf nodes by their label text
+    const leafNodes = deckTreeContainer.querySelectorAll('.deck-tree-leaf');
+    leafNodes.forEach((leaf) => {
+        const labelEl = leaf.querySelector('.deck-tree-label');
+        const text = (labelEl ? labelEl.textContent : '').toLowerCase();
+        if (text.includes(q)) {
+            showNodeAndAncestors(leaf);
+        }
+    });
+
+    // Match branch nodes by their tag label
+    const branchNodes = deckTreeContainer.querySelectorAll('.deck-tree-node[data-tree-tag]');
+    branchNodes.forEach((branch) => {
+        const labelEl = branch.querySelector(':scope > .deck-tree-row > .deck-tree-row-body > .deck-tree-label');
+        if (!labelEl) {
+            return;
+        }
+        const text = labelEl.textContent.toLowerCase();
+        if (text.includes(q)) {
+            showNodeAndAncestors(branch);
+            showAllDescendants(branch);
+        }
+    });
+}
+
+function resetTreeToBaseline() {
+    treeOptedDeckIdSet = new Set(baselineOptedDeckIdSet);
+    treeIncludeOrphan = baselineIncludeOrphanInQueue;
+    renderDeckTree();
+}
+
+function openDeckTreeModal() {
+    treeOptedDeckIdSet = new Set(stagedOptedDeckIdSet);
+    treeIncludeOrphan = stagedIncludeOrphanInQueue;
+    treeExpandedTags = null;
+    if (deckTreeSearchInput) {
+        deckTreeSearchInput.value = '';
+    }
+    renderDeckTree();
+    setManageModalOpen(deckTreeModal, true);
+}
+
+function closeDeckTreeModal() {
+    setManageModalOpen(deckTreeModal, false);
+}
+
+async function applyDeckTreeChanges() {
+    if (isDeckMoveInFlight) {
+        return;
+    }
+    stagedOptedDeckIdSet = new Set(treeOptedDeckIdSet);
+    stagedIncludeOrphanInQueue = treeIncludeOrphan;
+    closeDeckTreeModal();
+    clearDeckSelectionMessages();
+    await applyDeckMembershipChanges();
+    await refreshDeckSelectionViews();
+}
+
 async function stageDeckMembershipChange(deckId, direction) {
     if (isDeckMoveInFlight) {
         return;
@@ -3175,40 +3327,6 @@ async function stageOrphanInclusion(includeOrphan) {
     stagedIncludeOrphanInQueue = nextValue;
     clearDeckSelectionMessages();
     await refreshDeckSelectionViews();
-}
-
-async function onAvailableDeckClick(event) {
-    const bubble = event.target.closest('button[data-deck-id]');
-    if (!bubble) {
-        return;
-    }
-    const orphanToggle = String(bubble.getAttribute('data-orphan-toggle') || '').trim().toLowerCase();
-    if (orphanToggle === 'in') {
-        await stageOrphanInclusion(true);
-        return;
-    }
-    const deckId = Number(bubble.getAttribute('data-deck-id') || 0);
-    if (!(deckId > 0)) {
-        return;
-    }
-    await stageDeckMembershipChange(deckId, 'in');
-}
-
-async function onSelectedDeckClick(event) {
-    const bubble = event.target.closest('button[data-deck-id]');
-    if (!bubble) {
-        return;
-    }
-    const orphanToggle = String(bubble.getAttribute('data-orphan-toggle') || '').trim().toLowerCase();
-    if (orphanToggle === 'out') {
-        await stageOrphanInclusion(false);
-        return;
-    }
-    const deckId = Number(bubble.getAttribute('data-deck-id') || 0);
-    if (!(deckId > 0)) {
-        return;
-    }
-    await stageDeckMembershipChange(deckId, 'out');
 }
 
 async function applyDeckMembershipChanges() {
@@ -3268,11 +3386,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     initializeType4GeneratorCodeViewer();
     if (openDeckOptInModalBtn) {
-        openDeckOptInModalBtn.addEventListener('click', () => {
-            if (isMobileDeckTabEnabled()) {
-                setMobileDeckTab('available');
+        openDeckOptInModalBtn.addEventListener('click', openDeckTreeModal);
+    }
+    if (cancelDeckTreeModalBtn) {
+        cancelDeckTreeModalBtn.addEventListener('click', closeDeckTreeModal);
+    }
+    if (applyDeckTreeChangesBtn) {
+        applyDeckTreeChangesBtn.addEventListener('click', async () => {
+            await applyDeckTreeChanges();
+        });
+    }
+    if (deckTreeClearBtn) {
+        deckTreeClearBtn.addEventListener('click', resetTreeToBaseline);
+    }
+    if (deckTreeInfoBtn) {
+        deckTreeInfoBtn.addEventListener('click', () => {
+            const existing = document.querySelector('.deck-tree-info-popover');
+            if (existing) {
+                existing.remove();
+                return;
             }
-            setManageModalOpen(deckOptInModal, true);
+            const popover = document.createElement('div');
+            popover.className = 'deck-tree-info-popover';
+            popover.textContent = getOptInDecksHelpText();
+            deckTreeInfoBtn.parentElement.appendChild(popover);
+            const dismiss = (e) => {
+                if (!popover.contains(e.target) && e.target !== deckTreeInfoBtn) {
+                    popover.remove();
+                    document.removeEventListener('click', dismiss);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', dismiss), 0);
+        });
+    }
+    if (deckTreeContainer) {
+        deckTreeContainer.addEventListener('click', handleTreeContainerClick);
+    }
+    if (deckTreeSearchInput) {
+        deckTreeSearchInput.addEventListener('input', () => {
+            applyTreeSearch(deckTreeSearchInput.value);
         });
     }
     if (openType4DeckCountsModalBtn) {
@@ -3283,11 +3435,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderType4DeckCountsModal();
             showType4DeckCountsMessage('');
             setManageModalOpen(type4DeckCountsModal, true);
-        });
-    }
-    if (cancelDeckOptInModalBtn) {
-        cancelDeckOptInModalBtn.addEventListener('click', () => {
-            setManageModalOpen(deckOptInModal, false);
         });
     }
     if (cancelType4DeckCountsModalBtn) {
@@ -3350,8 +3497,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             setManageModalOpen(personalDeckModal, false);
         });
     }
-    if (deckOptInModal) {
-        deckOptInModal.addEventListener('click', handleModalBackdropClick);
+    if (deckTreeModal) {
+        deckTreeModal.addEventListener('click', handleModalBackdropClick);
     }
     if (type4DeckCountsModal) {
         type4DeckCountsModal.addEventListener('click', handleModalBackdropClick);
@@ -3378,13 +3525,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             setManageModalOpen(personalDeckModal, false);
             return;
         }
-        if (isModalOpen(deckOptInModal)) {
-            setManageModalOpen(deckOptInModal, false);
+        if (isModalOpen(deckTreeModal)) {
+            closeDeckTreeModal();
         }
     });
-    if (deckOptInModal) {
-        deckOptInModal.classList.add('hidden');
-        deckOptInModal.setAttribute('aria-hidden', 'true');
+    if (deckTreeModal) {
+        deckTreeModal.classList.add('hidden');
+        deckTreeModal.setAttribute('aria-hidden', 'true');
     }
     if (type4DeckCountsModal) {
         type4DeckCountsModal.classList.add('hidden');
@@ -3398,29 +3545,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         personalDeckModal.classList.add('hidden');
         personalDeckModal.setAttribute('aria-hidden', 'true');
     }
-    if (mobileDeckTabAvailableBtn) {
-        mobileDeckTabAvailableBtn.addEventListener('click', () => {
-            if (!isMobileDeckTabEnabled()) {
-                return;
-            }
-            setMobileDeckTab('available');
-        });
-    }
-    if (mobileDeckTabSelectedBtn) {
-        mobileDeckTabSelectedBtn.addEventListener('click', () => {
-            if (!isMobileDeckTabEnabled()) {
-                return;
-            }
-            setMobileDeckTab('selected');
-        });
-    }
-    syncMobileDeckTabsForViewport();
     syncModalBodyLock();
-    if (optInDecksNoteBtn) {
-        optInDecksNoteBtn.addEventListener('click', () => {
-            window.alert(getOptInDecksHelpText());
-        });
-    }
     applyCategoryUiText();
 
     window.PracticeManageCommon.applyKidManageTabVisibility({
@@ -3430,52 +3555,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
     });
 
-    optInAllAvailableController = window.PracticeManageCommon.createSetBackedOptInAllAvailableController({
-        buttonEl: optInAllAvailableBtn,
-        isBusy: () => isDeckMoveInFlight,
-        getFilteredDecks: () => getAvailableDeckCandidatesForTagFilter().filter(matchesAvailableTagFilter),
-        getDeckIdSet: () => stagedOptedDeckIdSet,
-        clearMessages: clearDeckSelectionMessages,
-        onChanged: refreshDeckSelectionViews,
-    });
-    optOutAllSelectedController = window.PracticeManageCommon.createOptInAllAvailableController({
-        buttonEl: optOutAllSelectedBtn,
-        buttonText: 'Opt-out All',
-        isBusy: () => isDeckMoveInFlight,
-        getFilteredDecks: () => getSelectedDeckCandidatesForTagFilter().filter(matchesSelectedTagFilter),
-        hasDeckId: (deckId) => !stagedOptedDeckIdSet.has(Number(deckId)),
-        addDeckId: (deckId) => {
-            stagedOptedDeckIdSet.delete(Number(deckId));
-        },
-        clearMessages: clearDeckSelectionMessages,
-        onChanged: refreshDeckSelectionViews,
-    });
-
-    availableDecksEl.addEventListener('click', async (event) => {
-        await onAvailableDeckClick(event);
-    });
-    if (optInAllAvailableBtn && optInAllAvailableController) {
-        optInAllAvailableBtn.addEventListener('click', async () => {
-            await optInAllAvailableController.optInAll();
-        });
-    }
-    if (optOutAllSelectedBtn && optOutAllSelectedController) {
-        optOutAllSelectedBtn.addEventListener('click', async () => {
-            await optOutAllSelectedController.optInAll();
-        });
-    }
-    ensureAvailableTagFilterController();
-    ensureSelectedTagFilterController();
-    selectedDecksEl.addEventListener('click', async (event) => {
-        await onSelectedDeckClick(event);
-    });
-    applyDeckChangesBtn.addEventListener('click', async () => {
-        await applyDeckMembershipChanges();
-    });
     cardsGrid.addEventListener('click', handleCardsGridClick);
     window.addEventListener('resize', () => {
         applyChineseCardFrontUniformSize();
-        syncMobileDeckTabsForViewport();
     });
     if (document.fonts && typeof document.fonts.addEventListener === 'function') {
         document.fonts.addEventListener('loadingdone', () => {
