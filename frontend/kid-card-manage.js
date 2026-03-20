@@ -108,7 +108,6 @@ let allDecks = [];
 let orphanDeck = null;
 let currentCards = [];
 let sortedCards = [];
-let visibleCardCount = 10;
 let isDeckMoveInFlight = false;
 let baselineOptedDeckIdSet = new Set();
 let stagedOptedDeckIdSet = new Set();
@@ -145,8 +144,6 @@ let isType4DeckCountsSaving = false;
 let activeType4GeneratorCardId = null;
 let isType4GeneratorPreviewLoading = false;
 let type4GeneratorAceViewer = null;
-const CARD_PAGE_SIZE_LONG = 10;
-const CARD_PAGE_SIZE_SHORT = 60;
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
@@ -1591,8 +1588,7 @@ function getQueueHighlightMap(cards) {
 }
 
 function getVisibleCardsForDisplay(cards) {
-    const sorted = getSortedCardsForDisplay(cards);
-    return sorted.slice(0, visibleCardCount);
+    return getSortedCardsForDisplay(cards);
 }
 
 function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
@@ -1667,14 +1663,6 @@ function setCardViewMode(nextMode) {
     }
     renderCardViewModeButtons();
     resetAndDisplayCards(currentCards);
-}
-
-function getCardPageSize() {
-    if (isType4Behavior()) {
-        const totalCards = Array.isArray(currentCards) ? currentCards.length : 0;
-        return Math.max(CARD_PAGE_SIZE_LONG, totalCards);
-    }
-    return currentCardViewMode === 'long' ? CARD_PAGE_SIZE_LONG : CARD_PAGE_SIZE_SHORT;
 }
 
 function getSessionCardCountCap() {
@@ -2351,7 +2339,7 @@ function displayCards(cards) {
         return;
     }
 
-    const visibleCards = sortedCards.slice(0, visibleCardCount);
+    const visibleCards = sortedCards;
     if (currentCardViewMode === 'long') {
         cardsGrid.classList.remove('short-view');
         cardsGrid.innerHTML = visibleCards
@@ -2400,22 +2388,7 @@ function displayCards(cards) {
 }
 
 function resetAndDisplayCards(cards) {
-    visibleCardCount = getCardPageSize();
     displayCards(cards);
-}
-
-function maybeLoadMoreCards() {
-    if (sortedCards.length <= visibleCardCount) {
-        return;
-    }
-
-    const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
-    if (!nearBottom) {
-        return;
-    }
-
-    visibleCardCount += getCardPageSize();
-    displayCards(currentCards);
 }
 
 function updateAddReadingButtonCount() {
@@ -3473,9 +3446,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         await applyDeckMembershipChanges();
     });
     cardsGrid.addEventListener('click', handleCardsGridClick);
-    window.addEventListener('scroll', () => {
-        maybeLoadMoreCards();
-    });
     window.addEventListener('resize', () => {
         applyChineseCardFrontUniformSize();
         syncMobileDeckTabsForViewport();
