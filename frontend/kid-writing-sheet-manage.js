@@ -73,20 +73,6 @@ function formatDate(value) {
     return date.toLocaleString();
 }
 
-function formatDuration(start, end) {
-    if (!start || !end) return '-';
-    const startMs = new Date(start).getTime();
-    const endMs = new Date(end).getTime();
-    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) return '-';
-    const totalMinutes = Math.round((endMs - startMs) / 60000);
-    const days = Math.floor(totalMinutes / (60 * 24));
-    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-    const minutes = totalMinutes % 60;
-    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
-}
-
 function parseTimestamp(value) {
     const parsed = new Date(value || '').getTime();
     return Number.isNaN(parsed) ? 0 : parsed;
@@ -223,13 +209,11 @@ function renderChineseSheets(sheets) {
         const statusClass = isDone ? 'done' : 'pending';
         const statusLabel = isDone ? 'done' : 'practicing';
         const printedDay = formatDate(sheet && sheet.created_at);
-        const finishedDay = isDone ? formatDate(sheet && sheet.completed_at) : '-';
-        const finishedIn = isDone ? formatDuration(sheet && sheet.created_at, sheet && sheet.completed_at) : '-';
         const deleteBtnHtml = isPending ? `<button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>` : '';
         return `
             <article class="sheet-item">
                 <div class="sheet-head"><div>Sheet #${safeSheetId}</div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span></div></div>
-                <div class="sheet-meta">Printed: ${escapeHtml(printedDay)}<br>Finished: ${escapeHtml(finishedDay)}<br>Time to finish: ${escapeHtml(finishedIn)}</div>
+                <div class="sheet-meta">Printed: ${escapeHtml(printedDay)}</div>
                 <div class="sheet-cards">${answersHtml}</div>
                 <div class="sheet-actions ${isPending ? 'pending' : 'done'}">
                     <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">Print</button>
@@ -348,9 +332,6 @@ function renderMathSheets(sheets) {
         const incorrectCount = Number.isInteger(sheet && sheet.incorrect_count)
             ? Number(sheet.incorrect_count)
             : null;
-        const printedDay = formatDate(sheet && sheet.created_at);
-        const finishedDay = isDone ? formatDate(sheet && sheet.completed_at) : '-';
-        const finishedIn = isDone ? formatDuration(sheet && sheet.created_at, sheet && sheet.completed_at) : '-';
         let actionBtns = '';
         if (isPreview) {
             actionBtns = `
@@ -367,12 +348,16 @@ function renderMathSheets(sheets) {
             && incorrectCount != null
             && problemCount > 0
         )
-            ? `<br>Incorrect: ${incorrectCount} / ${problemCount} · Correct rate: ${Math.round(((problemCount - incorrectCount) / problemCount) * 100)}%`
+            ? `Incorrect: ${incorrectCount} / ${problemCount} · Correct rate: ${Math.round(((problemCount - incorrectCount) / problemCount) * 100)}%`
             : '';
+        const printedDay = formatDate(sheet && sheet.created_at);
+        const sheetMetaHtml = accuracyLine
+            ? `Printed: ${escapeHtml(printedDay)}<br>${escapeHtml(accuracyLine)}`
+            : `Printed: ${escapeHtml(printedDay)}`;
         return `
             <article class="sheet-item">
                 <div class="sheet-head"><div class="sheet-head-left"><div>Sheet #${safeSheetId}</div><span class="sheet-layout-tag">${layoutLabel}</span><span class="sheet-problem-tag">${problemCount} problem${problemCount === 1 ? '' : 's'}</span><span class="sheet-repeat-tag">x${repeatCount}</span></div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span></div></div>
-                <div class="sheet-meta">Printed: ${escapeHtml(printedDay)}<br>Finished: ${escapeHtml(finishedDay)}<br>Time to finish: ${escapeHtml(finishedIn)}${accuracyLine}</div>
+                <div class="sheet-meta">${sheetMetaHtml}</div>
                 <div class="sheet-cards">${rowPillsHtml}</div>
                 ${actionBtns ? `<div class="sheet-actions ${statusClass}">${actionBtns}</div>` : ''}
             </article>`;
@@ -2029,31 +2014,40 @@ function fillPageWithCards() {
 
 function renderChineseSheetPickerOptions() {
     const optionsEl = document.getElementById('chineseSheetPickerOptions');
+    const fillBtn = document.getElementById('chineseSheetPickerFillBtn');
     if (!optionsEl) return;
     const available = getAvailableChineseCharacters(chineseSheetPickerRowIndex);
+    let fillCount = 0;
+    if (!Number.isInteger(chineseSheetPickerRowIndex)) {
+        fillCount = countFillPageCards();
+    }
+    if (fillBtn) {
+        fillBtn.textContent = fillCount > 1 ? `Fill page (top ${fillCount})` : 'Fill page';
+        fillBtn.classList.toggle('hidden', fillCount <= 1);
+    }
     if (available.length === 0) {
         optionsEl.innerHTML = '<div class="sb-add-row-box sb-empty-box">All candidate characters are already on this sheet.</div>';
         return;
     }
-    let fillBtnHtml = '';
-    if (!Number.isInteger(chineseSheetPickerRowIndex)) {
-        const fillCount = countFillPageCards();
-        if (fillCount > 1) {
-            fillBtnHtml = `<button type="button" class="sb-picker-option" data-cwb-fill-page="1" style="background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32;">
-                <span class="sb-picker-option-name">Fill page (top ${fillCount})</span>
-                <span class="sb-picker-option-meta">Add the first ${fillCount} characters to fill the page</span>
-            </button>`;
-        }
-    }
-    optionsEl.innerHTML = fillBtnHtml + available.map((card) => {
+    optionsEl.innerHTML = available.map((card) => {
         const label = String(card.back || card.front || '').trim();
-        const reason = String(card.practicing_reason || '').trim();
-        const reasonLabel = reason === 'never_seen' ? 'Newly added' : (reason === 'last_failed' ? 'Last failed' : '');
-        return `<button type="button" class="sb-picker-option" data-cwb-picker-card-id="${card.id}">
+        const reasonMeta = getChineseSheetPickerReasonMeta(card);
+        const optionTitle = reasonMeta.label ? `${label} · ${reasonMeta.label}` : label;
+        return `<button type="button" class="sb-picker-option sb-picker-bubble ${reasonMeta.className}" data-cwb-picker-card-id="${card.id}" title="${escapeHtml(optionTitle)}" aria-label="${escapeHtml(optionTitle)}">
             <span class="sb-picker-option-name">${escapeHtml(label)}</span>
-            ${reasonLabel ? `<span class="sb-picker-option-meta">${escapeHtml(reasonLabel)}</span>` : ''}
         </button>`;
     }).join('');
+}
+
+function getChineseSheetPickerReasonMeta(card) {
+    const reason = String(card?.practicing_reason || '').trim();
+    if (reason === 'never_seen') {
+        return { label: 'Newly added', className: 'reason-new' };
+    }
+    if (reason === 'last_failed') {
+        return { label: 'Last failed', className: 'reason-failed' };
+    }
+    return { label: 'Candidate', className: 'reason-default' };
 }
 
 function openChineseSheetPicker(rowIndex) {
@@ -2263,13 +2257,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     document.getElementById('chineseSheetPickerOptions')?.addEventListener('click', (event) => {
-        const fillBtn = event.target.closest('[data-cwb-fill-page]');
-        if (fillBtn) { fillPageWithCards(); return; }
         const optionBtn = event.target.closest('[data-cwb-picker-card-id]');
         if (!optionBtn) return;
         const cardId = Number.parseInt(optionBtn.getAttribute('data-cwb-picker-card-id'), 10);
         if (Number.isInteger(cardId)) handleChineseSheetPickerChoice(cardId);
     });
+    document.getElementById('chineseSheetPickerFillBtn')?.addEventListener('click', fillPageWithCards);
     document.getElementById('chineseSheetPickerCancelBtn')?.addEventListener('click', closeChineseSheetPicker);
     document.getElementById('chineseSheetPicker')?.addEventListener('click', (event) => {
         if (event.target === event.currentTarget) closeChineseSheetPicker();

@@ -862,6 +862,12 @@
             max-height: min(50vh, 320px);
             overflow-y: auto;
         }
+        .sb-picker-options.sb-picker-options-bubbles {
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            gap: 0.42rem;
+        }
         .sb-picker-option {
             width: 100%;
             border: 1px solid #ccd8fb;
@@ -876,6 +882,16 @@
             background: #eef3ff;
             border-color: #9eb4eb;
         }
+        .sb-picker-option.sb-picker-bubble {
+            display: inline-flex;
+            align-items: center;
+            width: auto;
+            max-width: min(100%, 220px);
+            min-height: 0;
+            border-radius: 999px;
+            padding: 0.32rem 0.74rem;
+            box-shadow: 0 1px 3px rgba(31, 45, 98, 0.08);
+        }
         .sb-picker-option-name {
             display: block;
             font-size: 0.94rem;
@@ -887,10 +903,72 @@
             font-size: 0.8rem;
             color: #6c7b95;
         }
+        .sb-picker-option.sb-picker-bubble .sb-picker-option-name {
+            margin-bottom: 0;
+            min-width: 0;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: var(--font-kaiti);
+            font-weight: 400;
+            font-size: 1.24rem;
+            line-height: 1.06;
+        }
+        .sb-picker-legend {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem 0.6rem;
+            margin: 0 0 0.75rem;
+            font-size: 0.78rem;
+            color: #666;
+        }
+        .sb-picker-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.28rem;
+            white-space: nowrap;
+        }
+        .sb-picker-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .sb-picker-legend-dot.reason-new {
+            background: #5f82d8;
+        }
+        .sb-picker-legend-dot.reason-failed {
+            background: #d89238;
+        }
+        .sb-picker-option.sb-picker-bubble.reason-new {
+            border-color: #b7c9fa;
+            background: #eef3ff;
+            color: #31508d;
+        }
+        .sb-picker-option.sb-picker-bubble.reason-failed {
+            border-color: #f0cb98;
+            background: #fff3e3;
+            color: #9a5924;
+        }
+        .sb-picker-option.sb-picker-bubble.reason-default {
+            border-color: rgba(28, 42, 82, 0.08);
+            background: #f7f9ff;
+            color: #2f3c7e;
+        }
         .sb-picker-actions {
             display: flex;
             justify-content: flex-end;
+            gap: 0.6rem;
             margin-top: 0.8rem;
+        }
+        .sb-picker-actions .settings-save-btn,
+        .sb-picker-actions .sheet-manage-btn {
+            margin: 0;
+        }
+        .sb-picker-actions .settings-save-btn.hidden {
+            display: none;
         }
         /* ── Chinese writing grid cell (田字格) ── */
         .cw-grid-cell {
@@ -1027,8 +1105,13 @@
                     <div class="sb-picker-card">
                         <h3 class="sb-picker-title" id="chineseSheetPickerTitle">Choose Character</h3>
                         <p class="sb-picker-note">Pick a character for this row.</p>
-                        <div id="chineseSheetPickerOptions" class="sb-picker-options"></div>
+                        <div class="sb-picker-legend" aria-label="Character source legend">
+                            <span class="sb-picker-legend-item"><span class="sb-picker-legend-dot reason-new" aria-hidden="true"></span>Newly added</span>
+                            <span class="sb-picker-legend-item"><span class="sb-picker-legend-dot reason-failed" aria-hidden="true"></span>Last failed</span>
+                        </div>
+                        <div id="chineseSheetPickerOptions" class="sb-picker-options sb-picker-options-bubbles"></div>
                         <div class="sb-picker-actions">
+                            <button type="button" id="chineseSheetPickerFillBtn" class="settings-save-btn hidden">Fill page</button>
                             <button type="button" id="chineseSheetPickerCancelBtn" class="sheet-manage-btn">Cancel</button>
                         </div>
                     </div>
