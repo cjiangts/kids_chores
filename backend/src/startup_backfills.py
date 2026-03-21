@@ -9,7 +9,7 @@ from src.db.shared_deck_db import get_shared_decks_connection
 
 LEGACY_MATH_PRACTICE_SHEETS_TABLE = 'math_practice_sheets'
 STARTUP_CLEANUP_SQL_FILE = Path(__file__).resolve().parent / 'db' / 'startup_cleanup.sql'
-CHINESE_MEANINGS_JSON = Path(__file__).resolve().parent / 'resources' / 'chinese_character_meanings.json'
+CHINESE_BANK_JSON = Path(__file__).resolve().parent / 'resources' / 'chinese_character_bank.json'
 SINGLE_CHINESE_CHAR_RE = re.compile(r'^[\u3400-\u9FFF\uF900-\uFAFF]$')
 
 
@@ -149,56 +149,26 @@ def run_kid_db_startup_cleanup_sql(logger):
 
 
 def _populate_chinese_character_bank(conn, logger):
-    """Populate chinese_character_bank from JSON meanings + pypinyin."""
+    """Populate chinese_character_bank from pre-built JSON (no pypinyin needed at runtime)."""
     try:
-        with open(CHINESE_MEANINGS_JSON, 'r', encoding='utf-8') as f:
-            meanings = json.load(f)
+        with open(CHINESE_BANK_JSON, 'r', encoding='utf-8') as f:
+            bank = json.load(f)
     except Exception as exc:
-        logger.error('Failed to load chinese_character_meanings.json: %s', exc)
-        return
-
-    try:
-        from pypinyin import pinyin, Style
-        from pypinyin_dict.phrase_pinyin_data import cc_cedict
-        from pypinyin_dict.pinyin_data import kxhc1983
-        cc_cedict.load()
-        kxhc1983.load()
-    except Exception as exc:
-        logger.error('pypinyin not available for character bank population: %s', exc)
+        logger.error('Failed to load chinese_character_bank.json: %s', exc)
         return
 
     rows = []
-    for char, en in meanings.items():
-        char = char.strip()
-        en = en.strip()
-        if not char or not en:
-            continue
-        readings = pinyin(
-            char,
-            style=Style.TONE,
-            heteronym=True,
-            neutral_tone_with_five=True,
-            strict=False,
-            errors='default',
-        )
-        first_group = readings[0] if readings else []
-        seen = set()
-        ordered = []
-        for item in first_group:
-            syllable = str(item or '').strip()
-            if syllable and syllable not in seen:
-                ordered.append(syllable)
-                seen.add(syllable)
-        pinyin_str = ' / '.join(ordered) if ordered else ''
-        if not pinyin_str:
-            continue
-        rows.append((char, pinyin_str, en))
+    for char, data in bank.items():
+        pinyin_str = str(data.get('pinyin') or '').strip()
+        en = str(data.get('en') or '').strip()
+        if char and pinyin_str and en:
+            rows.append((char, pinyin_str, en))
 
     conn.executemany(
         "INSERT INTO chinese_character_bank (character, pinyin, en) VALUES (?, ?, ?)",
         rows,
     )
-    logger.info('Populated chinese_character_bank with %s characters from JSON + pypinyin.', len(rows))
+    logger.info('Populated chinese_character_bank with %s characters from pre-built JSON.', len(rows))
 
 
 def ensure_chinese_character_bank(logger):
