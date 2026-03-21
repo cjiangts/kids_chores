@@ -239,7 +239,6 @@ function renderHistory(attempts) {
                 <div class="history-item type3-history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                     <div class="history-head-row">
                         <div class="history-title-stack">
-                            <div class="history-primary chinese-specific">${escapeHtml(currentCardFront || 'Card')}</div>
                             ${detailHtml}
                         </div>
                         <div class="answer-head-actions">
