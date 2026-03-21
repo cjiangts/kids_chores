@@ -161,7 +161,7 @@ function syncBehaviorDependentInputs() {
     });
     if (chineseLogicNote) {
         if (isTypeIV) {
-            chineseLogicNote.textContent = 'Generator categories always use generic logic in this first version.';
+            chineseLogicNote.textContent = 'Type IV categories always use generic logic in this first version.';
             chineseLogicNote.classList.remove('hidden');
         } else {
             chineseLogicNote.textContent = '';

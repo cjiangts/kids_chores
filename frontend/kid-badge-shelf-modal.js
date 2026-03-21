@@ -3,7 +3,6 @@
         apiBase: `${window.location.origin}/api`,
         modalEl: null,
         titleEl: null,
-        subtitleEl: null,
         tabEarnedBtn: null,
         tabComingBtn: null,
         panelEarnedEl: null,
@@ -92,7 +91,6 @@
                 <div class="badge-modal-top">
                     <div class="badge-modal-title-wrap">
                         <h2 id="kidBadgeShelfTitle">Badges</h2>
-                        <p id="kidBadgeShelfSubtitle">Earn badges by practicing.</p>
                     </div>
                     <button type="button" class="back-btn badge-modal-close" data-badge-action="close">Close</button>
                 </div>
@@ -109,7 +107,6 @@
         document.body.appendChild(wrapper);
         state.modalEl = wrapper;
         state.titleEl = wrapper.querySelector('#kidBadgeShelfTitle');
-        state.subtitleEl = wrapper.querySelector('#kidBadgeShelfSubtitle');
         state.tabEarnedBtn = wrapper.querySelector('[data-badge-tab="earned"]');
         state.tabComingBtn = wrapper.querySelector('[data-badge-tab="coming"]');
         state.panelEarnedEl = wrapper.querySelector('#kidBadgeShelfPanelEarned');
@@ -355,11 +352,6 @@
             state.titleEl.textContent = `${kidName}'s Badges`;
         }
         const trackingEnabled = Boolean(payload.trackingEnabled);
-        if (state.subtitleEl) {
-            state.subtitleEl.textContent = trackingEnabled
-                ? 'Earn badges by practicing.'
-                : 'Ask parent to start rewards.';
-        }
         const earnedCount = Array.isArray(payload.earned) ? payload.earned.length : 0;
         const comingCount = Array.isArray(payload.comingNext) ? payload.comingNext.length : 0;
         if (state.tabEarnedBtn) {

@@ -214,7 +214,7 @@
             return 'Type III';
         }
         if (normalized === 'type_iv') {
-            return 'Generator';
+            return 'Type IV';
         }
         return '';
     }

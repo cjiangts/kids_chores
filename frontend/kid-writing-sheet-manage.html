@@ -1078,7 +1078,6 @@
             <div class="sheet-builder-head">
                 <div class="sheet-builder-title-row">
                     <h2 style="margin:0;">Build Writing Sheet</h2>
-                    <span id="chineseSheetCharCount" style="font-size:0.88rem; color:#666;"></span>
                 </div>
                 <div style="display:inline-flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
                     <span class="sheet-builder-paper-control">
@@ -1116,15 +1115,15 @@
                         </div>
                         <div id="chineseSheetPickerOptions" class="sb-picker-options sb-picker-options-bubbles"></div>
                         <div class="sb-picker-actions">
-                            <button type="button" id="chineseSheetPickerFillBtn" class="settings-save-btn hidden">Fill page</button>
-                            <button type="button" id="chineseSheetPickerCancelBtn" class="sheet-manage-btn">Cancel</button>
+                            <button type="button" id="chineseSheetPickerFillBtn" class="btn-primary hidden">Fill page</button>
+                            <button type="button" id="chineseSheetPickerCancelBtn" class="btn-secondary">Cancel</button>
                         </div>
                     </div>
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="chineseSheetCloseBtn" class="settings-save-btn">Close</button>
-                <button type="button" id="chineseSheetDoneBtn" class="sheet-manage-btn">Done</button>
+                <button type="button" id="chineseSheetDoneBtn" class="btn-primary" disabled>Done</button>
+                <button type="button" id="chineseSheetCloseBtn" class="btn-secondary">Close</button>
             </div>
         </div>
     </div>
@@ -1161,8 +1160,8 @@
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:1rem;">
-                <button type="button" id="cellDesignCancelBtn" class="sheet-manage-btn">Cancel</button>
-                <button type="button" id="cellDesignSaveBtn" class="settings-save-btn">Save Cell Design</button>
+                <button type="button" id="cellDesignSaveBtn" class="btn-primary">Save Cell Design</button>
+                <button type="button" id="cellDesignCancelBtn" class="btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
@@ -1173,7 +1172,6 @@
             <div class="sheet-builder-head">
                 <div class="sheet-builder-title-row">
                     <h2 style="margin:0;">Build Vertical Sheet</h2>
-                    <span id="sheetBuilderQuestionCount" style="font-size:0.88rem; color:#666;"></span>
                 </div>
                 <label class="sheet-builder-paper-control" for="sheetBuilderPaperSize">
                     <span>Paper</span>
@@ -1193,14 +1191,14 @@
                         <p class="sb-picker-note">Pick one of the card designs you already prepared.</p>
                         <div id="sheetBuilderPickerOptions" class="sb-picker-options"></div>
                         <div class="sb-picker-actions">
-                            <button type="button" id="sheetBuilderPickerCancelBtn" class="sheet-manage-btn">Cancel</button>
+                            <button type="button" id="sheetBuilderPickerCancelBtn" class="btn-secondary">Cancel</button>
                         </div>
                     </div>
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="sheetBuilderCloseBtn" class="settings-save-btn">Close</button>
-                <button type="button" id="sheetBuilderDoneBtn" class="sheet-manage-btn">Done</button>
+                <button type="button" id="sheetBuilderDoneBtn" class="btn-primary" disabled>Done</button>
+                <button type="button" id="sheetBuilderCloseBtn" class="btn-secondary">Close</button>
             </div>
         </div>
     </div>
@@ -1211,7 +1209,6 @@
             <div class="sheet-builder-head">
                 <div class="sheet-builder-title-row">
                     <h2 style="margin:0;">Build Inline Sheet</h2>
-                    <span id="inlineSheetQuestionCount" style="font-size:0.88rem; color:#666;"></span>
                 </div>
                 <label class="sheet-builder-paper-control" for="inlineSheetPaperSize">
                     <span>Paper</span>
@@ -1230,14 +1227,14 @@
                         <h3 class="sb-picker-title">Choose Deck</h3>
                         <div id="inlineSheetPickerOptions" class="sb-picker-options"></div>
                         <div class="sb-picker-actions">
-                            <button type="button" id="inlineSheetPickerCancelBtn" class="sheet-manage-btn">Cancel</button>
+                            <button type="button" id="inlineSheetPickerCancelBtn" class="btn-secondary">Cancel</button>
                         </div>
                     </div>
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="inlineSheetCloseBtn" class="settings-save-btn">Close</button>
-                <button type="button" id="inlineSheetDoneBtn" class="sheet-manage-btn">Done</button>
+                <button type="button" id="inlineSheetDoneBtn" class="btn-primary" disabled>Done</button>
+                <button type="button" id="inlineSheetCloseBtn" class="btn-secondary">Close</button>
             </div>
         </div>
     </div>

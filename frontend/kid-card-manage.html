@@ -123,12 +123,9 @@
             width: 1.5rem;
             height: 1.5rem;
             padding: 0;
-            font-size: 0.82rem;
-            line-height: 1;
-            border-radius: 50%;
-            border: 1px solid #bbb;
-            background: #f5f5f5;
-            color: #555;
+            border: none;
+            background: none;
+            color: #888;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -187,6 +184,7 @@
         .type4-deck-counts-scroll {
             flex: 1 1 auto;
             min-height: 0;
+            max-height: min(50vh, 420px);
             overflow-y: auto;
             padding-right: 0.15rem;
             -webkit-overflow-scrolling: touch;
@@ -699,11 +697,11 @@
         }
 
         .deck-tree-row.partial > .deck-tree-row-body {
-            background: #fff8ee;
+            background: #e8f9ee;
         }
 
         .deck-tree-row.partial > .deck-tree-row-body:hover {
-            background: #fff2de;
+            background: #dcf5e4;
         }
 
         .deck-tree-badge {
@@ -2493,7 +2491,7 @@
             <div class="deck-tree-header">
                 <div class="deck-tree-header-left">
                     <h2 id="deckTreeHeading" style="margin:0">Deck Opt-in</h2>
-                    <button id="deckTreeInfoBtn" type="button" class="optin-note-btn" title="How deck opt-in works">ℹ</button>
+                    <button id="deckTreeInfoBtn" type="button" class="optin-note-btn" title="How deck opt-in works"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="9"/><line x1="10" y1="9" x2="10" y2="15"/><circle cx="10" cy="6" r="0.5" fill="currentColor" stroke="none"/></svg></button>
                     <span id="deckTreeCounter" class="deck-tree-counter">0 / 0</span>
                 </div>
                 <label class="deck-tree-search-wrap">

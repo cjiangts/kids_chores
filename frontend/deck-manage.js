@@ -227,7 +227,7 @@ function updateCreateActionButtons() {
     const disableBulk = isSelectedCategoryTypeIV();
     createDeckBulkNavBtn.disabled = disableBulk;
     createDeckBulkNavBtn.title = disableBulk
-        ? 'Bulk create is not available for generator decks.'
+        ? 'Bulk create is not available for Type IV decks.'
         : '';
 }
 
@@ -505,20 +505,23 @@ function renderDeckLeafRow(deck, labelOverride = '') {
         metaParts.push('<span class="deck-tree-printable-emoji" role="img" aria-label="Printable deck" title="Printable deck">🖨️</span>');
     }
     metaParts.push(escapeHtml(formatCount(getDeckCardCount(deck), 'card', 'cards')));
-    metaParts.push('<span class="deck-tree-link-cue">Open <span class="deck-tree-link-cue-arrow" aria-hidden="true">›</span></span>');
 
     return `
         <div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${deckId}">
             <div class="deck-tree-row">
                 <span class="deck-tree-toggle leaf-spacer" aria-hidden="true"></span>
-                <a class="deck-tree-row-body deck-tree-row-link" href="/deck-view.html?deckId=${encodeURIComponent(String(deckId))}">
+                <div class="deck-tree-row-body deck-tree-branch-body">
                     <span class="deck-tree-copy">
                         <span class="deck-tree-label">${escapeHtml(mainLabel)}</span>
                     </span>
                     <span class="deck-tree-row-meta">
                         ${metaParts.join(' ')}
+                        <span class="deck-tree-leaf-actions">
+                            ${isSelectedCategoryTypeIV() ? '' : `<button type="button" class="deck-tree-leaf-btn" data-leaf-action="preview" data-deck-id="${deckId}">Preview</button>`}
+                            <button type="button" class="deck-tree-leaf-btn" data-leaf-action="edit" data-deck-id="${deckId}">Edit</button>
+                        </span>
                     </span>
-                </a>
+                </div>
             </div>
         </div>
     `;
@@ -557,9 +560,8 @@ function renderDeckTreeNode(node, depth) {
                 >
                     &#9654;
                 </button>
-                <button
-                    type="button"
-                    class="deck-tree-row-body deck-tree-branch-btn"
+                <div
+                    class="deck-tree-row-body deck-tree-branch-body"
                     data-tree-action="branch"
                     data-tree-path="${escapeHtml(node.pathKey)}"
                     aria-expanded="${isExpanded ? 'true' : 'false'}"
@@ -568,7 +570,7 @@ function renderDeckTreeNode(node, depth) {
                         <span class="deck-tree-label deck-tree-label-tag">${escapeHtml(node.label || node.tag)}</span>
                     </span>
                     <span class="deck-tree-row-meta">${escapeHtml(`${deckCountText} · ${cardCountText}`)}</span>
-                </button>
+                </div>
             </div>
             <div class="deck-tree-children${isExpanded ? '' : ' collapsed'}">
                 ${childHtml}${deckHtml}
@@ -747,11 +749,84 @@ function handleTreeContainerClick(event) {
         return;
     }
 
-    const branchBtn = event.target.closest('[data-tree-action="branch"][data-tree-path]');
-    if (branchBtn) {
-        const nodeEl = branchBtn.closest('.deck-tree-node[data-tree-path]');
-        toggleTreeNodeExpanded(nodeEl);
+    const leafBtn = event.target.closest('[data-leaf-action]');
+    if (leafBtn) {
+        const action = leafBtn.getAttribute('data-leaf-action');
+        const deckId = Number(leafBtn.getAttribute('data-deck-id') || 0);
+        if (!(deckId > 0)) return;
+        if (action === 'edit') {
+            window.location.href = `/deck-view.html?deckId=${encodeURIComponent(String(deckId))}`;
+        } else if (action === 'preview') {
+            void toggleLeafPreview(deckId, leafBtn);
+        }
+        return;
     }
+}
+
+const leafPreviewCache = {};
+
+async function toggleLeafPreview(deckId, btn) {
+    const leafNode = btn.closest('.deck-tree-leaf');
+    if (!leafNode) return;
+
+    const existing = leafNode.querySelector('.deck-tree-preview-pills, .deck-tree-preview-loading');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    if (leafPreviewCache[deckId]) {
+        renderLeafPreviewPills(leafNode, leafPreviewCache[deckId]);
+        return;
+    }
+
+    const loadingEl = document.createElement('div');
+    loadingEl.className = 'deck-tree-preview-loading';
+    loadingEl.textContent = 'Loading...';
+    leafNode.appendChild(loadingEl);
+
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/${deckId}`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to load');
+        }
+        const cards = Array.isArray(result.cards) ? result.cards : [];
+        const fronts = cards.map((c) => String(c.front || '').trim()).filter(Boolean);
+        leafPreviewCache[deckId] = fronts;
+
+        const stillLoading = leafNode.querySelector('.deck-tree-preview-loading');
+        if (stillLoading) stillLoading.remove();
+
+        renderLeafPreviewPills(leafNode, fronts);
+    } catch (error) {
+        console.error('Error loading deck preview:', error);
+        const stillLoading = leafNode.querySelector('.deck-tree-preview-loading');
+        if (stillLoading) {
+            stillLoading.textContent = 'Failed to load preview.';
+            setTimeout(() => stillLoading.remove(), 2000);
+        }
+    }
+}
+
+function renderLeafPreviewPills(leafNode, fronts) {
+    if (!fronts || fronts.length === 0) {
+        const emptyEl = document.createElement('div');
+        emptyEl.className = 'deck-tree-preview-loading';
+        emptyEl.textContent = 'No cards in this deck.';
+        leafNode.appendChild(emptyEl);
+        return;
+    }
+    const container = document.createElement('div');
+    container.className = 'deck-tree-preview-pills';
+    fronts.forEach((front) => {
+        const pill = document.createElement('span');
+        pill.className = 'deck-tree-preview-pill';
+        pill.textContent = front;
+        pill.title = front;
+        container.appendChild(pill);
+    });
+    leafNode.appendChild(container);
 }
 
 function applyDeckTreeSearch(query) {

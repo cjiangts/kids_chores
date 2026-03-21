@@ -1334,7 +1334,7 @@ function showCurrentType4Item() {
         'Question'
     );
     const questionText = String(card?.front || '');
-    const prevAnswers = !card.isMultichoiceOnly && Array.isArray(card.previousAnswers)
+    const prevAnswers = !shouldUseType4MultipleChoiceUi(card) && Array.isArray(card.previousAnswers)
         ? card.previousAnswers : [];
     const prevGrades = Array.isArray(card.previousGrades) ? card.previousGrades : [];
     if (prevAnswers.length > 0) {
@@ -1717,14 +1717,16 @@ function updatePauseSessionButtonState() {
     }
     const shouldShow = hasActiveSessionScreen() && (state.isRecording || state.isRecordingPaused || state.isSessionPaused);
     pauseSessionBtn.classList.toggle('hidden', !shouldShow);
+    const pauseIcon = '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>';
+    const playIcon = '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg>';
     if (!shouldShow) {
-        pauseSessionBtn.textContent = '⏸';
+        pauseSessionBtn.innerHTML = pauseIcon;
         pauseSessionBtn.setAttribute('aria-label', 'Pause');
         pauseSessionBtn.setAttribute('title', 'Pause');
         pauseSessionBtn.disabled = true;
         return;
     }
-    pauseSessionBtn.textContent = state.isSessionPaused ? '▶' : '⏸';
+    pauseSessionBtn.innerHTML = state.isSessionPaused ? playIcon : pauseIcon;
     pauseSessionBtn.setAttribute('aria-label', state.isSessionPaused ? 'Resume' : 'Pause');
     pauseSessionBtn.setAttribute('title', state.isSessionPaused ? 'Resume' : 'Pause');
     pauseSessionBtn.disabled = state.isUploadingRecording;
@@ -2356,10 +2358,12 @@ async function endType4Session(endedEarly = false) {
         const partialCount = Number.parseInt(payload?.partial_count, 10) || 0;
         const answeredCount = Number.parseInt(payload?.answer_count, 10) || state.sessionAnswers.length;
         const targetCount = Number.parseInt(payload?.target_answer_count, 10) || answeredCount;
+        const isRetry = Boolean(payload?.is_retry_session);
+        const displayTotal = isRetry ? answeredCount : targetCount;
         const partialSuffix = partialCount > 0 ? ` · Half: ${partialCount}` : '';
         resultSummary.textContent = endedEarly
             ? `Ended early · Wrong: ${wrongCount} of ${answeredCount} answered${partialSuffix}`
-            : `Wrong: ${wrongCount} of ${targetCount}${partialSuffix}`;
+            : `Wrong: ${wrongCount} of ${displayTotal}${partialSuffix}`;
         window.PracticeSession.clearSessionStart(state.activePendingSessionId);
         updateFinishEarlyButtonState();
         setResultActionMode('back');

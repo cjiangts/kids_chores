@@ -752,7 +752,7 @@ function applyCategoryUiText() {
     }
     if (hardnessComputationHint) {
         if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV) {
-            hardnessComputationHint.textContent = 'Each card here represents one generator deck, so its stats are aggregated at the deck-pattern level.';
+            hardnessComputationHint.textContent = 'Each card here represents one Type IV deck, so its stats are aggregated at the deck-pattern level.';
         } else if (isType2Behavior()) {
             hardnessComputationHint.textContent = 'Hard cards use overall correctness rate. Never-practiced cards count as hard.';
         } else {
@@ -1672,7 +1672,7 @@ function buildType2CardMarkup(card, options = {}) {
                     data-card-id="${escapeHtml(card.id)}"
                     aria-label="Play"
                     title="Play"
-                >▶</button>
+                ><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg></button>
             </div>
         </div>
         ${hasSavedAudio ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">Will auto-generate on first play</div>'}
@@ -3362,9 +3362,7 @@ async function applyDeckMembershipChanges() {
             }
             applyIncludeOrphanFromPayload(result);
         }
-        const orphanSummary = orphanChanged ? `, Personal Deck ${stagedIncludeOrphanInQueue ? 'opt-in' : 'opt-out'}` : '';
-        const summary = `Applied deck changes: ${toOptIn.length} opt-in, ${toOptOut.length} opt-out${orphanSummary}.`;
-        showDeckChangeMessage(summary);
+        showDeckChangeMessage('');
         await loadSharedType1Decks();
     } catch (error) {
         console.error('Error applying deck membership changes:', error);

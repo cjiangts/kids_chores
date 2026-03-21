@@ -3,7 +3,6 @@ const API_BASE = `${window.location.origin}/api`;
 const sheetTitle = document.getElementById('sheetTitle');
 const sheetMeta = document.getElementById('sheetMeta');
 const sheetPreviewWrap = document.getElementById('sheetPreviewWrap');
-const sheetPrintWrap = document.getElementById('sheetPrintWrap');
 const repeatControl = document.getElementById('repeatControl');
 const repeatCountInput = document.getElementById('repeatCountInput');
 const regenerateBtn = document.getElementById('regenerateBtn');
@@ -339,179 +338,39 @@ function getPrintablePages(sheet) {
         : (sheet ? [sheet] : []);
 }
 
-function buildPrintImageSources(sheet, withAnswers) {
-    return getPrintablePages(sheet).map((page) => createSheetCanvas(page, withAnswers, false).toDataURL('image/png'));
-}
-
-function buildDedicatedPrintDocumentHtml(title, imageSources) {
-    const safeWidthMm = `${currentPaperSpec.safeWidthMm}mm`;
-    const printHeightMm = `${currentPaperSpec.safeHeightMm - 1}mm`;
-    const escapedTitle = escapeHtml(title || 'Math Sheet Print');
-    const pageMarkup = imageSources.map((src) => (
-        `<div class="print-page"><img class="print-image" src="${src}" alt=""></div>`
-    )).join('');
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${escapedTitle}</title>
-    <style>
-        @page {
-            size: ${currentPaperSpec.cssPageSize};
-            margin: 5mm;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html, body {
-            margin: 0;
-            padding: 0;
-            background: #fff;
-        }
-
-        body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .screen-toolbar {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            padding: 12px;
-            background: #f5f7fb;
-            border-bottom: 1px solid #d8dfef;
-            position: sticky;
-            top: 0;
-        }
-
-        .screen-toolbar button {
-            border: none;
-            border-radius: 8px;
-            padding: 9px 13px;
-            cursor: pointer;
-            background: #2d7ef7;
-            color: #fff;
-            font-size: 0.95rem;
-        }
-
-        .print-wrap {
-            padding: 16px 0;
-            background: #f5f7fb;
-        }
-
-        .print-page {
-            width: ${safeWidthMm};
-            margin: 0 auto 12px;
-            background: #fff;
-            overflow: hidden;
-            break-after: page;
-            page-break-after: always;
-        }
-
-        .print-page:last-child {
-            break-after: auto;
-            page-break-after: auto;
-            margin-bottom: 0;
-        }
-
-        .print-image {
-            display: block;
-            width: auto;
-            height: ${printHeightMm};
-            margin: 0 auto;
-        }
-
-        @media print {
-            .screen-toolbar {
-                display: none;
-            }
-
-            .print-wrap {
-                padding: 0;
-                background: #fff;
-            }
-
-            .print-page {
-                margin: 0 auto;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="screen-toolbar">
-        <button type="button" id="popupPrintBtn">Print</button>
-        <button type="button" id="popupCloseBtn">Close</button>
-    </div>
-    <div class="print-wrap">${pageMarkup}</div>
-    <script>
-        (function () {
-            const printNow = () => {
-                window.focus();
-                setTimeout(() => window.print(), 250);
-            };
-            const waitForImages = () => {
-                const images = Array.from(document.images);
-                if (images.length === 0) {
-                    printNow();
-                    return;
-                }
-                let remaining = images.length;
-                const done = () => {
-                    remaining -= 1;
-                    if (remaining <= 0) {
-                        printNow();
-                    }
-                };
-                images.forEach((img) => {
-                    if (img.complete) {
-                        done();
-                    } else {
-                        img.addEventListener('load', done, { once: true });
-                        img.addEventListener('error', done, { once: true });
-                    }
-                });
-            };
-            window.addEventListener('load', waitForImages, { once: true });
-            window.addEventListener('afterprint', () => {
-                setTimeout(() => window.close(), 250);
-            });
-            const popupPrintBtn = document.getElementById('popupPrintBtn');
-            if (popupPrintBtn) {
-                popupPrintBtn.addEventListener('click', printNow);
-            }
-            const popupCloseBtn = document.getElementById('popupCloseBtn');
-            if (popupCloseBtn) {
-                popupCloseBtn.addEventListener('click', () => window.close());
-            }
-        }());
-    </script>
-</body>
-</html>`;
-}
-
 function handlePrint() {
     const pages = currentSheetData ? getPrintablePages(currentSheetData) : [];
     if (pages.length === 0) {
-        window.print();
         return;
     }
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-        alert('Please allow pop-ups for printing.');
+    if (typeof window.jspdf === 'undefined') {
+        alert('PDF library is still loading. Please try again.');
         return;
     }
-    const title = sheetTitle && sheetTitle.textContent
-        ? sheetTitle.textContent.trim()
-        : `Sheet #${sheetId}`;
-    const imageSources = buildPrintImageSources(currentSheetData, showAnswers);
-    printWindow.document.open();
-    printWindow.document.write(buildDedicatedPrintDocumentHtml(title, imageSources));
-    printWindow.document.close();
+    const { jsPDF } = window.jspdf;
+    const pageWidthMm = currentPaperSpec.pageWidthMm;
+    const pageHeightMm = currentPaperSpec.pageHeightMm;
+    const marginMm = PAPER_MARGIN_MM;
+    const safeWidthMm = currentPaperSpec.safeWidthMm;
+    const safeHeightMm = currentPaperSpec.safeHeightMm;
+    const orientation = pageWidthMm > pageHeightMm ? 'landscape' : 'portrait';
+    const doc = new jsPDF({
+        orientation,
+        unit: 'mm',
+        format: [pageWidthMm, pageHeightMm],
+        compress: true,
+    });
+    const canvases = pages.map((page) => createSheetCanvas(page, showAnswers, false));
+    canvases.forEach((canvas, i) => {
+        if (i > 0) {
+            doc.addPage([pageWidthMm, pageHeightMm], orientation);
+        }
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        doc.addImage(imgData, 'JPEG', marginMm, marginMm, safeWidthMm, safeHeightMm);
+    });
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.location.href = url;
 }
 
 function buildDeckSummaryText(layoutRows) {
@@ -820,15 +679,9 @@ function renderSheetPreview(sheet) {
         : (sheet ? [sheet] : []);
     if (pages.length === 0) {
         sheetPreviewWrap.innerHTML = '<p class="error">Sheet has no pages to render.</p>';
-        if (sheetPrintWrap) {
-            sheetPrintWrap.innerHTML = '';
-        }
         return;
     }
     sheetPreviewWrap.innerHTML = '';
-    if (sheetPrintWrap) {
-        sheetPrintWrap.innerHTML = '';
-    }
     pages.forEach((page, index) => {
         const pageEl = document.createElement('div');
         pageEl.className = 'sheet-page';
@@ -838,18 +691,6 @@ function renderSheetPreview(sheet) {
         contentEl.appendChild(previewImage);
         pageEl.appendChild(contentEl);
         sheetPreviewWrap.appendChild(pageEl);
-
-        if (sheetPrintWrap) {
-            const printPageEl = document.createElement('div');
-            printPageEl.className = 'sheet-print-page';
-            const printContentEl = document.createElement('div');
-            printContentEl.className = 'sheet-print-page-content';
-            const printImage = previewImage.cloneNode(true);
-            printImage.className = 'sheet-print-image';
-            printContentEl.appendChild(printImage);
-            printPageEl.appendChild(printContentEl);
-            sheetPrintWrap.appendChild(printPageEl);
-        }
     });
 }
 
@@ -869,9 +710,6 @@ async function loadAndRender() {
     if (repeatCountInput) repeatCountInput.disabled = true;
     if (sheetPreviewWrap) {
         sheetPreviewWrap.innerHTML = '<p>Loading...</p>';
-    }
-    if (sheetPrintWrap) {
-        sheetPrintWrap.innerHTML = '';
     }
     try {
         const payload = await fetchJson(buildSheetDetailsUrl(currentRepeatCount));
@@ -917,9 +755,6 @@ async function loadAndRender() {
         currentSheetData = null;
         if (sheetPreviewWrap) {
             sheetPreviewWrap.innerHTML = `<p class="error">${escapeHtml(error.message || 'Failed to load sheet.')}</p>`;
-        }
-        if (sheetPrintWrap) {
-            sheetPrintWrap.innerHTML = '';
         }
     } finally {
         if (printBtn) printBtn.disabled = false;

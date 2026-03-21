@@ -21,16 +21,19 @@ const openType4CellDesignBtn = document.getElementById('openType4CellDesignBtn')
 const type4CellDesignStatusText = document.getElementById('type4CellDesignStatusText');
 const type4CellDesignPreview = document.getElementById('type4CellDesignPreview');
 const type4CardsMultiChoiceHeader = document.getElementById('type4CardsMultiChoiceHeader');
+const cardsSection = document.getElementById('cardsSection');
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
 const cardsTableBody = document.getElementById('cardsTableBody');
 const cardsInput = document.getElementById('cardsInput');
-const addCardsBtn = document.getElementById('addCardsBtn');
-const clearCardsInputBtn = document.getElementById('clearCardsInputBtn');
+const previewCsvBtn = document.getElementById('previewCsvBtn');
+const resetCsvBtn = document.getElementById('resetCsvBtn');
+const applyCsvBtn = document.getElementById('applyCsvBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const renameDeckTagsBtn = document.getElementById('renameDeckTagsBtn');
 const cloneDeckBtn = document.getElementById('cloneDeckBtn');
+const deleteDeckBtn = document.getElementById('deleteDeckBtn');
 const renameTagsModal = document.getElementById('renameTagsModal');
 const closeRenameTagsModalBtn = document.getElementById('closeRenameTagsModalBtn');
 const cancelRenameTagsBtn = document.getElementById('cancelRenameTagsBtn');
@@ -52,6 +55,8 @@ if (!deckCategoryCommon) {
 let deckId = 0;
 let isMutating = false;
 let currentDeck = null;
+let currentCards = [];
+let isPreviewingCsvDiff = false;
 let isRenamingTags = false;
 let renameExtraTags = [];
 let renameNameAvailable = null;
@@ -106,43 +111,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         showError('Invalid or missing deckId in URL.');
         return;
     }
-    if (addCardsBtn) {
-        addCardsBtn.addEventListener('click', async () => {
-            await addCardsFromInput();
+    if (previewCsvBtn) {
+        previewCsvBtn.addEventListener('click', () => {
+            previewCsvChanges();
         });
     }
-    if (clearCardsInputBtn) {
-        clearCardsInputBtn.addEventListener('click', () => {
+    if (resetCsvBtn) {
+        resetCsvBtn.addEventListener('click', () => {
             if (cardsInput) {
-                cardsInput.value = '';
+                cardsInput.value = cardsToCsv(currentCards);
                 cardsInput.focus();
             }
+            isPreviewingCsvDiff = false;
+            renderCardsTable(currentCards, false);
+            syncPreviewCsvBtnState();
+            syncApplyCsvBtn();
+        });
+    }
+    if (applyCsvBtn) {
+        applyCsvBtn.addEventListener('click', () => {
+            void applyCsvChanges();
         });
     }
     if (cardsInput) {
         cardsInput.addEventListener('keydown', (event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
                 event.preventDefault();
-                void addCardsFromInput();
+                previewCsvChanges();
             }
         });
-    }
-    if (cardsTableBody) {
-        cardsTableBody.addEventListener('click', (event) => {
-            const target = event.target.closest('button[data-action="delete-card"]');
-            if (!target) {
-                return;
-            }
-            const cardId = Number(target.getAttribute('data-card-id') || 0);
-            if (!Number.isInteger(cardId) || cardId <= 0) {
-                return;
-            }
-            void deleteCard(cardId);
+        cardsInput.addEventListener('input', () => {
+            syncPreviewCsvBtnState();
         });
     }
     if (renameDeckTagsBtn) {
         renameDeckTagsBtn.addEventListener('click', () => {
             openRenameTagsModal();
+        });
+    }
+    if (deleteDeckBtn) {
+        deleteDeckBtn.addEventListener('click', () => {
+            void deleteDeck();
         });
     }
     if (closeRenameTagsModalBtn) {
@@ -281,6 +290,30 @@ function initializeType4CodeEditor() {
     type4GeneratorCodeEditor.setAttribute('aria-hidden', 'false');
 }
 
+async function deleteDeck() {
+    if (isMutating || !currentDeck) return;
+    const deckName = currentDeck.name || `Deck #${deckId}`;
+    const pmc = window.PracticeManageCommon;
+    if (!pmc || typeof pmc.requestWithPasswordDialog !== 'function') {
+        showError('Password dialog is unavailable.');
+        return;
+    }
+    const result = await pmc.requestWithPasswordDialog(
+        `delete deck "${deckName}"`,
+        (password) => fetch(`${API_BASE}/shared-decks/${deckId}`, {
+            method: 'DELETE',
+            headers: pmc.buildPasswordHeaders(password),
+        }),
+        { warningMessage: `This will permanently delete "${deckName}" and all its cards.` },
+    );
+    if (result.cancelled) return;
+    if (!result.ok) {
+        showError(result.error || 'Failed to delete deck.');
+        return;
+    }
+    window.location.href = '/deck-manage.html';
+}
+
 async function ensureSuperFamily() {
     try {
         const response = await fetch(`${API_BASE}/family-auth/status`);
@@ -324,6 +357,8 @@ function renderDeck(payload) {
     const cards = Array.isArray(payload && payload.cards) ? payload.cards : [];
     const cardCount = Number(payload && payload.card_count ? payload.card_count : 0);
     const generatorDefinition = payload && typeof payload === 'object' ? payload.generator_definition : null;
+    currentCards = cards;
+    isPreviewingCsvDiff = false;
 
     if (!deck) {
         showError('Deck details are unavailable.');
@@ -337,8 +372,8 @@ function renderDeck(payload) {
     deckIdText.textContent = String(deck.deck_id || deckId);
     deckNameText.textContent = String(deck.name || '');
     deckTagsText.innerHTML = renderTags(
-        Array.isArray(deck.tags) ? deck.tags : [],
-        Array.isArray(deck.tag_labels) ? deck.tag_labels : [],
+        Array.isArray(deck.tags) ? deck.tags.slice(1) : [],
+        Array.isArray(deck.tag_labels) ? deck.tag_labels.slice(1) : [],
     );
     if (deckBehaviorText) {
         deckBehaviorText.textContent = formatBehaviorType(behaviorType);
@@ -347,13 +382,21 @@ function renderDeck(payload) {
     cardCountText.textContent = String(cardCount);
     updateCloneDeckButton(deck, isTypeIV);
     if (editorSectionTitle) {
-        editorSectionTitle.textContent = isTypeIV ? 'Generator Definition' : 'Edit Cards';
+        editorSectionTitle.textContent = isTypeIV ? 'Type IV Definition' : 'Edit Cards';
     }
     if (staticDeckEditor) {
         staticDeckEditor.classList.toggle('hidden', isTypeIV);
     }
+    if (!isTypeIV && cardsInput) {
+        cardsInput.value = cardsToCsv(cards);
+        syncPreviewCsvBtnState();
+        syncApplyCsvBtn();
+    }
     if (type4DeckEditor) {
         type4DeckEditor.classList.toggle('hidden', !isTypeIV);
+    }
+    if (cardsSection) {
+        cardsSection.classList.toggle('hidden', isTypeIV);
     }
     if (isTypeIV) {
         const representativeLabel = cards.length > 0 ? String(cards[0].front || '').trim() : '';
@@ -400,42 +443,7 @@ function renderDeck(payload) {
         type4CardsMultiChoiceHeader.classList.toggle('hidden', !isTypeIV);
     }
 
-    if (cards.length === 0) {
-        cardsTableBody.innerHTML = '';
-        tableWrap.classList.add('hidden');
-        emptyState.classList.remove('hidden');
-        return;
-    }
-
-    emptyState.classList.add('hidden');
-    tableWrap.classList.remove('hidden');
-    cardsTableBody.innerHTML = cards.map((card, index) => {
-        const actionHtml = isTypeIV
-            ? '<span class="muted">Immutable</span>'
-            : `
-                    <button
-                        type="button"
-                        class="btn-secondary"
-                        data-action="delete-card"
-                        data-card-id="${Number(card.id || 0)}"
-                    >Delete</button>
-                `;
-        const multiChoiceCellHtml = isTypeIV
-            ? `<td>${currentType4SavedIsMultichoiceOnly ? 'Yes' : 'No'}</td>`
-            : '';
-        return `
-            <tr>
-                <td>
-                    ${actionHtml}
-                </td>
-                <td>${index + 1}</td>
-                <td>${escapeHtml(card.front || '')}</td>
-                ${multiChoiceCellHtml}
-                <td>${formatDeckCardBackHtml(card.back || '-')}</td>
-            </tr>
-        `;
-    }).join('');
-    setMutating(isMutating);
+    renderCardsTable(cards, isTypeIV);
 }
 
 function updateCloneDeckButton(deck, isTypeIV) {
@@ -485,14 +493,196 @@ function parseCardsCsvInput(rawText) {
     return cards;
 }
 
+function cardsToCsv(cards) {
+    return cards.map((c) => `${String(c.front || '').trim()},${String(c.back || '').trim()}`).join('\n');
+}
+
+function syncPreviewCsvBtnState() {
+    if (!previewCsvBtn) return;
+    const current = cardsToCsv(currentCards);
+    const edited = String(cardsInput ? cardsInput.value : '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
+    previewCsvBtn.disabled = isMutating || (edited === current);
+}
+
+function syncApplyCsvBtn() {
+    if (!applyCsvBtn) return;
+    if (!isPreviewingCsvDiff) {
+        applyCsvBtn.disabled = true;
+        applyCsvBtn.textContent = 'Apply Changes';
+    } else {
+        applyCsvBtn.disabled = false;
+        applyCsvBtn.textContent = 'Apply Changes';
+    }
+}
+
+function renderCardsTable(cards, isTypeIV) {
+    if (cards.length === 0) {
+        cardsTableBody.innerHTML = '';
+        tableWrap.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        return;
+    }
+
+    emptyState.classList.add('hidden');
+    tableWrap.classList.remove('hidden');
+    cardsTableBody.innerHTML = cards.map((card, index) => {
+        const rowClass = card._diffStatus === 'added' ? ' class="diff-row-added"'
+            : card._diffStatus === 'updated' ? ' class="diff-row-updated"'
+            : card._diffStatus === 'removed' ? ' class="diff-row-removed"'
+            : '';
+        const statusLabel = card._diffStatus === 'added' ? 'New'
+            : card._diffStatus === 'updated' ? 'Updated'
+            : card._diffStatus === 'removed' ? 'Removed'
+            : '';
+        const actionHtml = isTypeIV
+            ? '<span class="muted">Immutable</span>'
+            : (statusLabel || `<span class="muted">&mdash;</span>`);
+        const multiChoiceCellHtml = isTypeIV
+            ? `<td>${currentType4SavedIsMultichoiceOnly ? 'Yes' : 'No'}</td>`
+            : '';
+        return `
+            <tr${rowClass}>
+                <td>${actionHtml}</td>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(card.front || '')}</td>
+                ${multiChoiceCellHtml}
+                <td>${formatDeckCardBackHtml(card.back || '-')}</td>
+            </tr>
+        `;
+    }).join('');
+    setMutating(isMutating);
+}
+
+function previewCsvChanges() {
+    showError('');
+    showSuccess('');
+
+    let newCards;
+    const rawText = String(cardsInput ? cardsInput.value : '').trim();
+    if (!rawText) {
+        newCards = [];
+    } else {
+        try {
+            newCards = parseCardsCsvInput(rawText);
+        } catch (error) {
+            showError(error.message || 'Failed to parse cards input.');
+            return;
+        }
+    }
+
+    const isTypeII = String(currentDeck && currentDeck.behavior_type || '').trim().toLowerCase() === 'type_ii';
+    const keyField = isTypeII ? 'back' : 'front';
+    const valueField = isTypeII ? 'front' : 'back';
+
+    // Build lookup: primary key -> { front, back } for old cards
+    const oldByKey = new Map();
+    for (const card of currentCards) {
+        const k = String(card[keyField] || '').trim();
+        if (k) oldByKey.set(k, { front: String(card.front || '').trim(), back: String(card.back || '').trim() });
+    }
+
+    const diffRows = [];
+    const seenKeys = new Set();
+
+    for (const card of newCards) {
+        const k = String(card[keyField] || '').trim();
+        seenKeys.add(k);
+        const old = oldByKey.get(k);
+        if (!old) {
+            diffRows.push({ front: card.front, back: card.back, _diffStatus: 'added' });
+        } else if (String(old[valueField] || '') !== String(card[valueField] || '')) {
+            diffRows.push({ front: card.front, back: card.back, _diffStatus: 'updated' });
+        } else {
+            diffRows.push({ front: card.front, back: card.back, _diffStatus: '' });
+        }
+    }
+
+    // Cards in old whose key is not in new => removed
+    for (const card of currentCards) {
+        const k = String(card[keyField] || '').trim();
+        if (!seenKeys.has(k)) {
+            diffRows.push({ front: card.front, back: card.back, _diffStatus: 'removed' });
+        }
+    }
+
+    const addedCount = diffRows.filter((r) => r._diffStatus === 'added').length;
+    const updatedCount = diffRows.filter((r) => r._diffStatus === 'updated').length;
+    const removedCount = diffRows.filter((r) => r._diffStatus === 'removed').length;
+
+    if (addedCount === 0 && updatedCount === 0 && removedCount === 0) {
+        isPreviewingCsvDiff = false;
+        renderCardsTable(currentCards, false);
+        syncApplyCsvBtn();
+        return;
+    }
+
+    isPreviewingCsvDiff = true;
+    const parts = [];
+    if (addedCount) parts.push(`${addedCount} to add`);
+    if (updatedCount) parts.push(`${updatedCount} to update`);
+    if (removedCount) parts.push(`${removedCount} to remove`);
+    renderCardsTable(diffRows, false);
+    if (applyCsvBtn) {
+        applyCsvBtn.disabled = false;
+        applyCsvBtn.textContent = `Apply: ${parts.join(', ')}`;
+    }
+}
+
+async function applyCsvChanges() {
+    if (isMutating || !isPreviewingCsvDiff) return;
+
+    let newCards;
+    const rawText = String(cardsInput ? cardsInput.value : '').trim();
+    if (!rawText) {
+        newCards = [];
+    } else {
+        try {
+            newCards = parseCardsCsvInput(rawText);
+        } catch (error) {
+            showError(error.message || 'Failed to parse cards input.');
+            return;
+        }
+    }
+
+    showError('');
+    showSuccess('');
+    setMutating(true);
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/cards/replace`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cards: newCards }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to apply changes (HTTP ${response.status})`);
+        }
+        isPreviewingCsvDiff = false;
+        const resultParts = [];
+        if (result.added) resultParts.push(`${result.added} added`);
+        if (result.updated) resultParts.push(`${result.updated} updated`);
+        if (result.removed) resultParts.push(`${result.removed} removed`);
+        const resultText = resultParts.length ? resultParts.join(', ') : 'Done';
+        await loadDeck();
+        if (applyCsvBtn) {
+            applyCsvBtn.disabled = true;
+            applyCsvBtn.textContent = resultText;
+        }
+    } catch (error) {
+        showError(error.message || 'Failed to apply card changes.');
+    } finally {
+        setMutating(false);
+    }
+}
+
 function setMutating(isBusy) {
     isMutating = Boolean(isBusy);
-    if (addCardsBtn) {
-        addCardsBtn.disabled = isMutating;
-        addCardsBtn.textContent = isMutating ? 'Saving...' : 'Add Cards';
+    syncPreviewCsvBtnState();
+    if (resetCsvBtn) {
+        resetCsvBtn.disabled = isMutating;
     }
-    if (clearCardsInputBtn) {
-        clearCardsInputBtn.disabled = isMutating;
+    if (applyCsvBtn && isMutating) {
+        applyCsvBtn.disabled = true;
     }
     if (cardsInput) {
         cardsInput.disabled = isMutating;
@@ -505,11 +695,6 @@ function setMutating(isBusy) {
     }
     if (regenType4ExamplesBtn) {
         regenType4ExamplesBtn.disabled = isMutating || isLoadingType4PreviewSamples || !getCurrentType4GeneratorCode();
-    }
-    if (cardsTableBody) {
-        cardsTableBody.querySelectorAll('button[data-action="delete-card"]').forEach((btn) => {
-            btn.disabled = isMutating;
-        });
     }
 }
 
@@ -538,77 +723,6 @@ function setRenameBusy(isBusy) {
         renameTagsContainer.querySelectorAll('button[data-remove-rename-tag]').forEach((btn) => {
             btn.disabled = isRenamingTags;
         });
-    }
-}
-
-async function addCardsFromInput() {
-    if (isMutating) {
-        return;
-    }
-    showError('');
-    showSuccess('');
-
-    let cards;
-    try {
-        cards = parseCardsCsvInput(cardsInput ? cardsInput.value : '');
-    } catch (error) {
-        showError(error.message || 'Failed to parse cards input.');
-        return;
-    }
-
-    setMutating(true);
-    try {
-        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/cards`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cards }),
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(result.error || `Failed to add cards (HTTP ${response.status})`);
-        }
-
-        const inserted = Number.parseInt(result.inserted_count, 10) || 0;
-        const skipped = Number.parseInt(result.skipped_existing_count, 10) || 0;
-        showSuccess(`Added ${inserted} card(s). Skipped ${skipped} existing card(s).`);
-        if (cardsInput) {
-            cardsInput.value = '';
-        }
-        await loadDeck();
-    } catch (error) {
-        console.error('Error adding deck cards:', error);
-        showError(error.message || 'Failed to add cards.');
-    } finally {
-        setMutating(false);
-    }
-}
-
-async function deleteCard(cardId) {
-    if (isMutating) {
-        return;
-    }
-    const confirmed = window.confirm('Delete this card from the deck?');
-    if (!confirmed) {
-        return;
-    }
-    showError('');
-    showSuccess('');
-    setMutating(true);
-    try {
-        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/cards/${cardId}`, {
-            method: 'DELETE',
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(result.error || `Failed to delete card (HTTP ${response.status})`);
-        }
-        showSuccess('Card deleted.');
-        await loadDeck();
-    } catch (error) {
-        console.error('Error deleting deck card:', error);
-        showError(error.message || 'Failed to delete card.');
-    } finally {
-        setMutating(false);
     }
 }
 
@@ -819,7 +933,8 @@ function updateRenameTagsPreview() {
     try {
         const parsed = buildRenameTagPayload();
         renameDeckNamePreview.textContent = parsed.generatedName || '(auto)';
-        if (isRenameConfigUnchanged(parsed)) {
+        const unchanged = isRenameConfigUnchanged(parsed);
+        if (unchanged) {
             renameNameAvailable = true;
             renameLastNameChecked = parsed.generatedName;
             setRenameNameStatus('', 'note');
@@ -857,6 +972,9 @@ function setRenameNameStatus(text, state) {
     renameNameStatus.textContent = String(text || '').trim();
     renameNameStatus.classList.remove('ok', 'error', 'note');
     renameNameStatus.classList.add(state);
+    if (saveRenameTagsBtn && !isRenamingTags) {
+        saveRenameTagsBtn.disabled = state !== 'ok';
+    }
 }
 
 function buildRenameNameAvailabilityQueryParams(payload) {

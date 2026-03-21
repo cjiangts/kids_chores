@@ -3741,6 +3741,109 @@ def delete_shared_deck_card(deck_id, card_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/shared-decks/<int:deck_id>/cards/replace', methods=['PUT'])
+def replace_shared_deck_cards(deck_id):
+    """Replace all cards in one owned shared deck with a new set, using key-aware diff."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        family_id_int = get_current_family_id_int()
+        if family_id_int is None:
+            if not current_family_id():
+                return jsonify({'error': 'Family login required'}), 401
+            return jsonify({'error': 'Invalid family id in session'}), 400
+
+        conn = None
+        try:
+            conn = get_shared_decks_connection()
+            deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
+            if not deck_row:
+                return jsonify({'error': 'Deck not found'}), 404
+            behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
+            if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                return jsonify({'error': 'type_iv decks are immutable and do not support card edits'}), 400
+
+            payload = request.get_json(silent=True) or {}
+            new_cards = normalize_shared_deck_cards(payload.get('cards'))
+
+            dedupe_key = get_shared_deck_dedupe_key(conn, deck_row[2])
+            new_cards = (
+                dedupe_shared_deck_cards_by_back(new_cards)
+                if dedupe_key == 'back'
+                else dedupe_shared_deck_cards_by_front(new_cards)
+            )
+
+            existing_rows = conn.execute(
+                "SELECT id, front, back FROM cards WHERE deck_id = ? ORDER BY id ASC",
+                [deck_id]
+            ).fetchall()
+
+            old_by_key = {}
+            for row in existing_rows:
+                card_id = int(row[0])
+                front = str(row[1] or '')
+                back = str(row[2] or '')
+                k = back if dedupe_key == 'back' else front
+                old_by_key[k] = {'id': card_id, 'front': front, 'back': back}
+
+            added = 0
+            updated = 0
+            removed = 0
+            seen_keys = set()
+
+            for card in new_cards:
+                front = str(card.get('front') or '')
+                back = str(card.get('back') or '')
+                k = back if dedupe_key == 'back' else front
+                seen_keys.add(k)
+                old = old_by_key.get(k)
+                if old is None:
+                    conn.execute(
+                        "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
+                        [deck_id, front, back]
+                    )
+                    added += 1
+                else:
+                    value_field = 'front' if dedupe_key == 'back' else 'back'
+                    old_value = old[value_field]
+                    new_value = front if dedupe_key == 'back' else back
+                    if old_value != new_value:
+                        conn.execute(
+                            f"UPDATE cards SET {value_field} = ? WHERE id = ? AND deck_id = ?",
+                            [new_value, old['id'], deck_id]
+                        )
+                        updated += 1
+
+            for k, old in old_by_key.items():
+                if k not in seen_keys:
+                    conn.execute(
+                        "DELETE FROM cards WHERE id = ? AND deck_id = ?",
+                        [old['id'], deck_id]
+                    )
+                    removed += 1
+
+            card_count = int(conn.execute(
+                "SELECT COUNT(*) FROM cards WHERE deck_id = ?",
+                [deck_id]
+            ).fetchone()[0] or 0)
+        finally:
+            if conn is not None:
+                conn.close()
+
+        return jsonify({
+            'deck_id': int(deck_id),
+            'added': added,
+            'updated': updated,
+            'removed': removed,
+            'card_count': card_count,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/shared-decks/<int:deck_id>', methods=['DELETE'])
 def delete_shared_deck(deck_id):
     """Delete one owned shared deck and all of its cards."""
@@ -3748,6 +3851,9 @@ def delete_shared_deck(deck_id):
         auth_err = require_super_family()
         if auth_err:
             return auth_err
+        pwd_err = require_critical_password()
+        if pwd_err:
+            return pwd_err
         family_id_int = get_current_family_id_int()
         if family_id_int is None:
             if not current_family_id():
@@ -11161,7 +11267,7 @@ def resolve_type2_scope_context(kid, raw_category_key):
         'has_chinese_specific_logic': bool(has_chinese_specific_logic),
         'first_tag': category_key,
         'orphan_deck_name': get_category_orphan_deck_name(category_key),
-        'unique_key_field': 'back' if has_chinese_specific_logic else 'front',
+        'unique_key_field': 'back',
         'include_orphan_in_queue': get_category_include_orphan_for_kid(kid, category_key),
     }
 
@@ -12578,9 +12684,9 @@ def resolve_ffmpeg_executable():
     return ''
 
 
-@kids_bp.route('/kids/<kid_id>/lesson-reading/audio/<path:file_name>/download-m4a', methods=['GET'])
-def download_type3_audio_as_m4a(kid_id, file_name):
-    """Download one type-III recording as M4A/AAC (transcoded on demand)."""
+@kids_bp.route('/kids/<kid_id>/lesson-reading/audio/<path:file_name>/download-mp3', methods=['GET'])
+def download_type3_audio_as_mp3(kid_id, file_name):
+    """Download one type-III recording as MP3 (transcoded on demand)."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
@@ -12617,20 +12723,20 @@ def download_type3_audio_as_m4a(kid_id, file_name):
             requested_name or os.path.splitext(file_name)[0],
             fallback='recording'
         )
-        output_name = f'{base_stem}.m4a'
+        output_name = f'{base_stem}.mp3'
         passthrough_ext = os.path.splitext(file_name)[1] or '.webm'
         passthrough_name = f'{base_stem}{passthrough_ext}'
         passthrough_mime = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
         source_ext = os.path.splitext(file_name)[1].lower()
-        source_is_m4a_compatible = (
-            source_ext in {'.m4a', '.mp4'}
-            or stored_mime_type in {'audio/mp4', 'audio/x-m4a'}
+        source_is_mp3 = (
+            source_ext == '.mp3'
+            or stored_mime_type == 'audio/mpeg'
         )
 
-        if source_is_m4a_compatible:
+        if source_is_mp3:
             return send_file(
                 audio_path,
-                mimetype='audio/mp4',
+                mimetype='audio/mpeg',
                 as_attachment=True,
                 download_name=output_name,
             )
@@ -12649,10 +12755,9 @@ def download_type3_audio_as_m4a(kid_id, file_name):
             '-v', 'error',
             '-i', audio_path,
             '-vn',
-            '-c:a', 'aac',
+            '-c:a', 'libmp3lame',
             '-b:a', '160k',
-            '-movflags', '+frag_keyframe+empty_moov',
-            '-f', 'mp4',
+            '-f', 'mp3',
             'pipe:1',
         ]
         process = subprocess.run(
@@ -12671,7 +12776,7 @@ def download_type3_audio_as_m4a(kid_id, file_name):
 
         return send_file(
             BytesIO(process.stdout),
-            mimetype='audio/mp4',
+            mimetype='audio/mpeg',
             as_attachment=True,
             download_name=output_name,
         )

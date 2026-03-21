@@ -276,10 +276,12 @@
             box-shadow: 0 0 0 2px rgba(61, 126, 230, 0.12);
         }
 
-        .deck-tree-row-link:hover .deck-tree-label,
-        .deck-tree-row-link:focus-visible .deck-tree-label {
-            text-decoration: underline;
-            text-underline-offset: 0.12em;
+        .deck-tree-branch-body {
+            cursor: default;
+        }
+
+        .deck-tree-branch-body:hover {
+            background: transparent;
         }
 
         .deck-tree-copy {
@@ -316,25 +318,6 @@
             line-height: 1;
         }
 
-        .deck-tree-link-cue {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.12rem;
-            color: #4b5565;
-            font-weight: 600;
-        }
-
-        .deck-tree-link-cue-arrow {
-            font-size: 0.9rem;
-            line-height: 1;
-            transition: transform 0.12s ease;
-        }
-
-        .deck-tree-row-link:hover .deck-tree-link-cue-arrow,
-        .deck-tree-row-link:focus-visible .deck-tree-link-cue-arrow {
-            transform: translateX(2px);
-        }
-
         .deck-tree-children {
             margin-left: 1.05rem;
             padding-left: 0.7rem;
@@ -343,6 +326,60 @@
 
         .deck-tree-children.collapsed {
             display: none;
+        }
+
+        .deck-tree-leaf-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            flex: 0 0 auto;
+        }
+
+        .deck-tree-leaf-btn {
+            border: 1px solid #d0d7e3;
+            border-radius: 6px;
+            background: #f8f9fb;
+            color: #4b5a70;
+            font-size: 0.76rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            cursor: pointer;
+            white-space: nowrap;
+            line-height: 1.3;
+        }
+
+        .deck-tree-leaf-btn:hover {
+            background: #eef3ff;
+            border-color: #4f83ff;
+            color: #2f5fc6;
+        }
+
+        .deck-tree-preview-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            padding: 0.35rem 0 0.35rem 56px;
+        }
+
+        .deck-tree-preview-pill {
+            display: inline-block;
+            background: #eef3ff;
+            color: #2a345d;
+            border: 1px solid #d0daf0;
+            border-radius: 999px;
+            padding: 0.18rem 0.55rem;
+            font-size: 0.78rem;
+            line-height: 1.3;
+            white-space: nowrap;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .deck-tree-preview-loading {
+            color: #888;
+            font-size: 0.8rem;
+            padding: 0.35rem 0 0.35rem 56px;
         }
 
         @media (max-width: 720px) {

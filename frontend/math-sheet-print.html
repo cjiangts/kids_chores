@@ -127,10 +127,6 @@
             page-break-inside: avoid;
         }
 
-        .sheet-print-wrap {
-            display: none;
-        }
-
         .sheet-printable-area {
             width: 100%;
             height: 100%;
@@ -156,8 +152,7 @@
         }
 
         .sheet-render-canvas,
-        .sheet-render-image,
-        .sheet-print-image {
+        .sheet-render-image {
             display: block;
             width: 100%;
             height: 100%;
@@ -415,78 +410,8 @@
         }
 
         @media print {
-            @page {
-                size: 8.5in 11in;
-                margin: 5mm;
-            }
-
-            body {
-                margin: 0;
-                background: #fff;
-                padding: 0;
-            }
-
             .toolbar {
-                display: none;
-            }
-
-            .sheet-page {
-                width: 100%;
-                height: var(--sheet-print-height);
-                border: none;
-                box-shadow: none;
-                margin: 0 auto;
-                overflow: hidden;
-                break-inside: auto;
-                page-break-inside: auto;
-            }
-
-            .sheet-meta {
-                display: none;
-            }
-
-            .sheet-preview-wrap {
-                padding: 0;
-                width: auto;
-                height: auto;
-                overflow: visible;
-                display: block;
-            }
-
-            .sheet-print-wrap {
-                display: block;
-            }
-
-            .sheet-preview-wrap {
-                display: none;
-            }
-
-            .sheet-print-page {
-                width: var(--sheet-safe-width);
-                height: var(--sheet-print-height);
-                margin: 0 auto calc(var(--sheet-safe-height) - var(--sheet-print-height));
-                overflow: hidden;
-            }
-
-            .sheet-print-page:last-child {
-                margin-bottom: 0;
-            }
-
-            .sheet-print-page-content {
-                width: 100%;
-                overflow: hidden;
-            }
-
-            .sheet-render-canvas,
-            .sheet-render-image,
-            .sheet-print-image {
-                width: auto !important;
-                height: var(--sheet-print-height) !important;
-                max-width: none;
-                display: block;
-                margin: 0 auto;
-                break-inside: auto;
-                page-break-inside: auto;
+                display: none !important;
             }
         }
     </style>
@@ -510,8 +435,7 @@
     <div id="sheetMeta" class="sheet-meta"></div>
 
     <div id="sheetPreviewWrap" class="sheet-preview-wrap"></div>
-    <div id="sheetPrintWrap" class="sheet-print-wrap"></div>
-
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="math-sheet-print.js"></script>
 </body>
 </html>

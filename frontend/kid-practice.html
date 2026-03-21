@@ -371,15 +371,12 @@
             }
 
             .type4-answer-form {
-                flex-direction: column;
                 max-width: none;
             }
 
-            .type4-answer-input,
             .type4-answer-done-btn {
-                width: 100%;
-                min-width: 0;
-                flex-basis: auto;
+                min-width: 80px;
+                flex: 0 0 80px;
             }
         }
 
@@ -661,7 +658,7 @@
                                 <button class="control-btn right-btn session-action-btn session-single-btn session-pair-long" id="rightBtn" aria-label="Right" title="Right" disabled>✓</button>
                             </div>
                             <div class="session-action-layer hidden" id="recordRow">
-                                <button class="control-btn session-pause-btn session-action-btn session-pair-short hidden" id="pauseSessionBtn" aria-label="Pause" title="Pause">⏸</button>
+                                <button class="control-btn session-pause-btn session-action-btn session-pair-short hidden" id="pauseSessionBtn" aria-label="Pause" title="Pause"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg></button>
                                 <button class="control-btn record-btn session-action-btn session-single-btn session-pair-long" id="recordBtn">Start Recording</button>
                             </div>
                             <div id="reviewControls" class="session-action-layer review-controls hidden">

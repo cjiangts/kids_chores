@@ -271,37 +271,7 @@
             gap: 0.8rem;
         }
 
-        .type4-flag-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.6rem;
-            padding: 0.1rem 0 0.2rem;
-        }
-
-        .type4-flag-row input[type="checkbox"] {
-            margin-top: 0.15rem;
-            width: 1rem;
-            height: 1rem;
-            flex: 0 0 auto;
-        }
-
-        .type4-flag-copy {
-            min-width: 0;
-        }
-
-        .type4-flag-copy strong {
-            display: block;
-            font-size: 0.95rem;
-            color: #233044;
-        }
-
-        .type4-flag-copy span {
-            display: block;
-            margin-top: 0.15rem;
-            font-size: 0.84rem;
-            line-height: 1.35;
-            color: #4b5a70;
-        }
+        /* toggle-row styles are in styles.css */
 
         .type4-code-textarea {
             min-height: 266px;
@@ -363,16 +333,16 @@
                         </div>
                         <p id="categoryPreselectNote" class="category-preselect-note hidden"></p>
                     </fieldset>
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom:0;">
                         <label for="newTagInput">Add tag</label>
                         <div class="deck-row add-tag-row">
                             <input type="text" id="newTagInput" list="existingTagOptions" placeholder="e.g. grade3, unit1, maliping">
                             <datalist id="existingTagOptions"></datalist>
                             <button type="button" id="addTagBtn" class="btn-secondary">Add Tag</button>
                         </div>
+                        <div id="tagsContainer" class="deck-tags" style="margin-top:0.3rem;"></div>
                     </div>
                 </div>
-                <div id="tagsContainer" class="deck-tags"></div>
                 <div class="deck-meta-name">Generated name: <code id="generatedName">(auto)</code></div>
                 <div id="nameStatus" class="deck-name-status status-note">Checking name availability...</div>
             </section>
@@ -389,12 +359,13 @@
                             <label for="type4DisplayLabelInput">Representative label</label>
                             <input type="text" id="type4DisplayLabelInput" placeholder="e.g. ?? + ??">
                         </div>
-                        <label class="type4-flag-row" for="type4IsMultichoiceOnlyInput">
+                        <label class="toggle-row" for="type4IsMultichoiceOnlyInput">
                             <input type="checkbox" id="type4IsMultichoiceOnlyInput">
-                            <span class="type4-flag-copy">
+                            <span class="toggle-copy">
                                 <strong>Always multiple choice</strong>
                                 <span>Use answer buttons for this deck even if the kid selected typing mode.</span>
                             </span>
+                            <span class="toggle-switch"></span>
                         </label>
                         <div class="form-group">
                             <label for="type4GeneratorCodeInput">Python generator snippet</label>

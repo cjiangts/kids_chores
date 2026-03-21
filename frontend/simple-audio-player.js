@@ -31,15 +31,15 @@
             wrapper.classList.add('hidden');
         }
 
-        const playLabel = String(options.playLabel || '▶');
-        const pauseLabel = String(options.pauseLabel || '⏸');
+        const playLabel = String(options.playLabel || '<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg>');
+        const pauseLabel = String(options.pauseLabel || '<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>');
         const playAriaLabel = String(options.playAriaLabel || 'Play');
         const pauseAriaLabel = String(options.pauseAriaLabel || 'Pause');
 
         const playBtn = document.createElement('button');
         playBtn.type = 'button';
         playBtn.className = 'audio-play-btn';
-        playBtn.textContent = playLabel;
+        playBtn.innerHTML = playLabel;
         playBtn.setAttribute('data-audio-action', 'toggle');
         playBtn.setAttribute('aria-label', audioEl.paused ? playAriaLabel : pauseAriaLabel);
         playBtn.setAttribute('title', audioEl.paused ? playAriaLabel : pauseAriaLabel);
@@ -94,7 +94,7 @@
             timeLabel.textContent = `${formatDuration(current)} / ${formatDuration(duration)}`;
             const nextLabel = audioEl.paused ? playLabel : pauseLabel;
             const nextAriaLabel = audioEl.paused ? playAriaLabel : pauseAriaLabel;
-            playBtn.textContent = nextLabel;
+            playBtn.innerHTML = nextLabel;
             playBtn.setAttribute('aria-label', nextAriaLabel);
             playBtn.setAttribute('title', nextAriaLabel);
         };

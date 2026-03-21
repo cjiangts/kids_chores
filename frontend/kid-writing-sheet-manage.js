@@ -1249,11 +1249,16 @@ function renderSheetBuilderContent(scale) {
     html += '</div>';
     a4El.innerHTML = html;
 
+    updateSheetBuilderDoneBtn();
+}
+
+function updateSheetBuilderDoneBtn() {
+    const doneBtn = document.getElementById('sheetBuilderDoneBtn');
+    if (!doneBtn) return;
     const totalQuestions = sheetRows.reduce((sum, row) => sum + getSheetRowMetrics(row).colCount, 0);
-    const countEl = document.getElementById('sheetBuilderQuestionCount');
-    if (countEl) {
-        countEl.textContent = totalQuestions > 0 ? `${totalQuestions} questions` : '';
-    }
+    const hasRows = sheetRows.length > 0;
+    doneBtn.disabled = !hasRows;
+    doneBtn.textContent = hasRows ? `Done (${totalQuestions} question${totalQuestions === 1 ? '' : 's'})` : 'Done';
 }
 
 function renderSheetBuilderPickerOptions() {
@@ -1520,7 +1525,7 @@ async function saveSheetFromBuilder() {
         console.error('Error saving built sheet:', error);
         showMathSheetError(error.message || 'Failed to save built sheet.');
     } finally {
-        if (doneBtn) { doneBtn.disabled = false; doneBtn.textContent = 'Done'; }
+        updateSheetBuilderDoneBtn();
     }
 }
 
@@ -1737,20 +1742,25 @@ function renderInlineSheetBuilderContent(scale) {
     html += '</div>';
     a4El.innerHTML = html;
 
+    updateInlineSheetDoneBtn(pageLayout);
+}
+
+function updateInlineSheetDoneBtn(pageLayout) {
+    const doneBtn = document.getElementById('inlineSheetDoneBtn');
+    if (!doneBtn) return;
     const totalQuestions = inlineSheetRows.reduce((sum, row) => {
         const m = getInlineRowMetrics(row);
         return sum + (m.colCount * m.repeatCount);
     }, 0);
-    const countEl = document.getElementById('inlineSheetQuestionCount');
-    if (countEl) {
-        if (totalQuestions <= 0) {
-            countEl.textContent = '';
-        } else {
-            const pageCount = pageLayout.pageCount;
-            countEl.textContent = pageCount > 1
-                ? `${totalQuestions} questions · ${pageCount} pages`
-                : `${totalQuestions} questions`;
-        }
+    const hasRows = inlineSheetRows.length > 0;
+    doneBtn.disabled = !hasRows;
+    if (!hasRows) {
+        doneBtn.textContent = 'Done';
+    } else {
+        const pageCount = pageLayout ? pageLayout.pageCount : 1;
+        doneBtn.textContent = pageCount > 1
+            ? `Done (${totalQuestions} questions · ${pageCount} pages)`
+            : `Done (${totalQuestions} questions)`;
     }
 }
 
@@ -1915,7 +1925,7 @@ async function saveInlineSheetFromBuilder() {
         console.error('Error saving inline sheet:', error);
         showMathSheetError(error.message || 'Failed to save inline sheet.');
     } finally {
-        if (doneBtn) { doneBtn.disabled = false; doneBtn.textContent = 'Done'; }
+        updateInlineSheetDoneBtn(null);
     }
 }
 
@@ -2104,14 +2114,22 @@ function renderChineseSheetBuilderContent(scale) {
     html += '</div>';
     a4El.innerHTML = html;
 
-    /* update character count */
-    const totalChars = chineseSheetRows.length;
-    const countEl = document.getElementById('chineseSheetCharCount');
-    if (countEl) {
-        countEl.textContent = totalChars > 0 ? `${totalChars} character${totalChars === 1 ? '' : 's'}` : '';
-    }
+    /* update Done button with empty practice box count */
+    updateChineseSheetDoneBtn();
     updateCwScaleButtons();
     updateCwEmptyCountButtons();
+}
+
+function updateChineseSheetDoneBtn() {
+    const doneBtn = document.getElementById('chineseSheetDoneBtn');
+    if (!doneBtn) return;
+    const totalEmpty = chineseSheetRows.reduce((sum, row) => {
+        const cells = buildChineseRowCells(row);
+        return sum + cells.filter((c) => c.type === 'empty').length;
+    }, 0);
+    const hasRows = chineseSheetRows.length > 0;
+    doneBtn.disabled = !hasRows;
+    doneBtn.textContent = hasRows ? `Done (${totalEmpty} characters)` : 'Done';
 }
 
 function openChineseSheetBuilder() {
@@ -2386,7 +2404,7 @@ async function saveChineseSheetFromBuilder() {
         console.error('Error saving Chinese writing sheet from builder:', error);
         showSheetError(error.message || 'Failed to save writing sheet.');
     } finally {
-        if (doneBtn) { doneBtn.disabled = false; doneBtn.textContent = 'Done'; }
+        updateChineseSheetDoneBtn();
     }
 }
 

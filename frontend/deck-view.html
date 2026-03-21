@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Deck - Kids Daily Chores</title>
+    <title>Edit Deck - Kids Daily Chores</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -360,11 +360,11 @@
             background: #f4f7ff;
         }
 
-        .deck-rename-inline-btn {
-            padding: 0.1rem 0.42rem;
-            font-size: 0.76rem;
-            line-height: 1.2;
-            min-height: 28px;
+        .deck-rename-inline-btn.btn-secondary {
+            padding: 0.2rem 0.55rem;
+            font-size: 0.82rem;
+            line-height: 1;
+            min-height: 0;
         }
 
         .rename-tags-modal {
@@ -392,7 +392,7 @@
 
         .rename-tags-grid {
             display: grid;
-            gap: 0.6rem;
+            gap: 0.45rem;
         }
 
         .rename-tags-grid .form-group {
@@ -434,6 +434,7 @@
             white-space: nowrap;
         }
 
+
         .rename-tag-remove-btn {
             border: 0;
             background: transparent;
@@ -454,6 +455,10 @@
 
         .rename-name-status.error {
             color: #c92a2a;
+            background: none;
+            padding: 0;
+            margin: 0;
+            border-radius: 0;
         }
 
         .rename-name-status.note {
@@ -484,15 +489,23 @@
             margin-top: 0.7rem;
         }
 
+        .diff-row-added { background: #e6ffed; }
+        .diff-row-updated { background: #fff8e1; }
+        .diff-row-removed { background: #ffeef0; }
+        .diff-row-removed td { text-decoration: line-through; color: #999; }
+
     </style>
 </head>
 <body class="manage-page">
     <div class="container deck-page">
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
-                <h1>📖 View Deck</h1>
+                <h1>📖 Edit Deck</h1>
                 <div class="page-header-actions">
-                    <a id="cloneDeckBtn" href="/deck-create.html" class="back-btn btn-secondary hidden">Clone</a>
+                    <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+                        <a id="cloneDeckBtn" href="/deck-create.html" class="back-btn btn-secondary hidden">Clone</a>
+                        <button type="button" id="deleteDeckBtn" class="back-btn btn-secondary" style="background:#fef0f0; color:#c92a2a; border-color:#f5c6c6;">Delete</button>
+                    </span>
                     <a href="/deck-manage.html" class="back-btn btn-secondary page-header-back-btn">← Back</a>
                 </div>
             </div>
@@ -520,21 +533,22 @@
             <section class="deck-panel">
                 <h2 id="editorSectionTitle" class="deck-section-title">Edit Cards</h2>
                 <div id="staticDeckEditor">
-                    <p class="deck-edit-help">Add cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed. You can also delete existing cards below.</p>
+                    <p class="deck-edit-help">Edit cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>
                     <textarea id="cardsInput" class="deck-edit-textarea" placeholder="1+1,2&#10;2+3,5"></textarea>
                     <div class="deck-edit-row">
-                        <button type="button" id="addCardsBtn" class="btn-primary">Add Cards</button>
-                        <button type="button" id="clearCardsInputBtn" class="btn-secondary">Clear</button>
+                        <button type="button" id="previewCsvBtn" class="btn-primary">Preview Changes</button>
+                        <button type="button" id="resetCsvBtn" class="btn-secondary">Reset</button>
                     </div>
                 </div>
                 <div id="type4DeckEditor" class="hidden">
                     <div class="deck-meta-row"><strong>Representative label:</strong> <span id="type4RepresentativeLabelText"></span></div>
-                    <label class="deck-edit-help" style="display:flex; align-items:flex-start; gap:0.6rem; margin:0.65rem 0 0.8rem;">
-                        <input type="checkbox" id="type4IsMultichoiceOnlyInput" style="margin-top:0.2rem; width:1rem; height:1rem;">
-                        <span>
-                            <strong style="display:block; color:#233044;">Always multiple choice</strong>
+                    <label class="toggle-row" for="type4IsMultichoiceOnlyInput" style="margin:0.65rem 0 0.8rem;">
+                        <input type="checkbox" id="type4IsMultichoiceOnlyInput">
+                        <span class="toggle-copy">
+                            <strong>Always multiple choice</strong>
                             <span>Use answer buttons for this deck even if the kid selected typing mode.</span>
                         </span>
+                        <span class="toggle-switch"></span>
                     </label>
                     <textarea id="type4GeneratorCodeText" class="deck-edit-textarea input-mono" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
                     <div id="type4GeneratorCodeEditor" class="hidden" style="width:100%;min-height:200px;border:1px solid #cfd7ea;border-radius:8px;margin-bottom:0.7rem;"></div>
@@ -563,14 +577,14 @@
                 </div>
             </section>
 
-            <section class="deck-panel">
+            <section id="cardsSection" class="deck-panel">
                 <h2 class="deck-section-title">Cards</h2>
                 <div id="emptyState" class="deck-empty hidden">No cards in this deck.</div>
                 <div id="tableWrap" class="deck-table-wrap hidden">
                     <table class="deck-table">
                         <thead>
                             <tr>
-                                <th class="table-col-120">Actions</th>
+                                <th class="table-col-120">Status</th>
                                 <th class="table-col-80">#</th>
                                 <th>Front</th>
                                 <th id="type4CardsMultiChoiceHeader" class="hidden">Always multiple choice</th>
@@ -579,6 +593,9 @@
                         </thead>
                         <tbody id="cardsTableBody"></tbody>
                     </table>
+                </div>
+                <div class="deck-edit-row" style="margin-top:0.7rem;">
+                    <button type="button" id="applyCsvBtn" class="btn-primary">Apply Changes</button>
                 </div>
             </section>
 
@@ -608,8 +625,8 @@
                         >
                         <button type="button" id="renameAddTagBtn" class="btn-secondary">Add Tag</button>
                     </div>
+                    <div id="renameTagsContainer" class="deck-tags" style="margin-top:0.3rem;"></div>
                 </div>
-                <div id="renameTagsContainer" class="deck-tags"></div>
                 <div class="rename-name-row">
                     <div class="deck-meta-name">
                         <strong>Name:</strong> <code id="renameDeckNamePreview"></code>
@@ -619,8 +636,8 @@
                 <div id="renameTagsError" class="error hidden"></div>
             </div>
             <div class="rename-tags-actions">
-                <button type="button" id="cancelRenameTagsBtn" class="btn-secondary">Cancel</button>
                 <button type="button" id="saveRenameTagsBtn" class="btn-primary">Save Tags</button>
+                <button type="button" id="cancelRenameTagsBtn" class="btn-secondary">Cancel</button>
             </div>
         </div>
     </div>

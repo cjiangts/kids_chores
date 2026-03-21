@@ -577,7 +577,7 @@ function sanitizeFilenamePart(value, fallback) {
 }
 
 function resolveAudioExtension(item) {
-    return '.m4a';
+    return '.mp3';
 }
 
 function buildAudioDownloadFilename(item) {
@@ -610,9 +610,9 @@ function buildAudioDownloadUrl(item, downloadFilename) {
     if (!fileName) {
         return String(item?.audio_url || '').trim();
     }
-    const path = `/api/kids/${encodeURIComponent(String(kidId || ''))}/lesson-reading/audio/${encodeURIComponent(fileName)}/download-m4a`;
+    const path = `/api/kids/${encodeURIComponent(String(kidId || ''))}/lesson-reading/audio/${encodeURIComponent(fileName)}/download-mp3`;
     const query = new URLSearchParams();
-    query.set('downloadName', String(downloadFilename || '').replace(/\.m4a$/i, ''));
+    query.set('downloadName', String(downloadFilename || '').replace(/\.mp3$/i, ''));
     return `${path}?${query.toString()}`;
 }
 

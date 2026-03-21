@@ -238,8 +238,8 @@ function renderAnswerList(container, cards, options = {}) {
     if (window.SimpleAudioPlayer) {
         window.SimpleAudioPlayer.attach(container, {
             selector: 'audio.js-simple-audio',
-            playLabel: '▶',
-            pauseLabel: '⏸',
+            playLabel: '<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg>',
+            pauseLabel: '<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>',
         });
     }
     syncRenderedResponseTimeBars();

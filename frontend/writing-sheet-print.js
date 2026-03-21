@@ -192,9 +192,11 @@ function buildSheetPageMarkup(sheet, scale, { showDebugBorder }) {
         html += `<div class="sb-printable-border" style="top:${contentTopPx + borderInsetPx}px;left:${contentLeftPx + borderInsetPx}px;width:${Math.max(1, gridWidthPx - (2 * borderInsetPx))}px;height:${Math.max(1, printableHeightPx - (2 * borderInsetPx))}px;"></div>`;
     }
     html += `<div class="sb-header-row" style="top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
-    html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
+    const kidName = String(sheet?.kid_name || '').trim();
+    const displaySheetNumber = String(sheet?.id || '').trim();
+    html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ${escapeHtml(kidName || '________')}</span>`;
     html += '<span class="sb-header-decks"></span>';
-    html += `<span class="sb-header-sheetno" style="font-size:${headerFontPx}px;">Sheet #___</span>`;
+    html += `<span class="sb-header-sheetno" style="font-size:${headerFontPx}px;">Sheet #${escapeHtml(displaySheetNumber || '___')}</span>`;
     html += '</div>';
     html += `<div class="sb-grid-area" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
 
@@ -233,280 +235,67 @@ function renderSheetPreview(sheet) {
     sheetPreviewWrap.innerHTML = buildSheetPageMarkup(sheet, previewScale, { showDebugBorder: true });
 }
 
-function buildDedicatedPrintDocumentHtml(title, pageMarkup) {
-    const escapedTitle = escapeHtml(title || 'Writing Sheet Print');
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${escapedTitle}</title>
-    <link rel="stylesheet" href="${window.location.origin}/fonts-local.css">
-    <style>
-        :root {
-            --font-kaiti: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
-        }
-
-        @page {
-            size: ${currentPaperSpec.cssPageSize};
-            margin: 0;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html, body {
-            margin: 0;
-            padding: 0;
-            background: #fff;
-        }
-
-        body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .screen-toolbar {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            padding: 12px;
-            background: #f5f7fb;
-            border-bottom: 1px solid #d8dfef;
-            position: sticky;
-            top: 0;
-        }
-
-        .screen-toolbar button {
-            border: none;
-            border-radius: 8px;
-            padding: 9px 13px;
-            cursor: pointer;
-            background: #2d7ef7;
-            color: #fff;
-            font-size: 0.95rem;
-        }
-
-        .print-wrap {
-            padding: 16px 0;
-            background: #f5f7fb;
-        }
-
-        .print-page {
-            width: ${currentPaperSpec.pageWidthMm}mm;
-            height: ${currentPaperSpec.pageHeightMm}mm;
-            margin: 0 auto 12px;
-            background: #fff;
-            overflow: hidden;
-            break-after: page;
-            page-break-after: always;
-        }
-
-        .print-page:last-child {
-            break-after: auto;
-            page-break-after: auto;
-            margin-bottom: 0;
-        }
-
-        .sheet-page {
-            position: relative;
-            background: #fff;
-            overflow: hidden;
-            width: ${currentPaperSpec.pageWidth}px !important;
-            height: ${currentPaperSpec.pageHeight}px !important;
-        }
-
-        .sheet-content {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .sb-margin,
-        .sb-safe-margin {
-            position: absolute;
-            background: transparent;
-            pointer-events: none;
-        }
-
-        .sb-printable-border {
-            position: absolute;
-            border: 2px dashed rgba(209, 31, 31, 0.65);
-            pointer-events: none;
-            box-sizing: border-box;
-            z-index: 0;
-        }
-
-        .sb-header-row {
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            align-items: center;
-            gap: 8px;
-            color: #333;
-            padding: 0 2px;
-            position: absolute;
-        }
-
-        .sb-header-name,
-        .sb-header-sheetno {
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .sb-header-sheetno {
-            text-align: right;
-        }
-
-        .sb-header-decks {
-            min-width: 0;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: #58647b;
-            font-weight: 600;
-        }
-
-        .sb-grid-area {
-            position: absolute;
-            overflow: hidden;
-        }
-
-        .sb-row-wrap {
-            position: relative;
-            z-index: 1;
-        }
-
-        .sb-row {
-            display: flex;
-            flex-wrap: nowrap;
-            position: relative;
-            width: 100%;
-            justify-content: space-between;
-        }
-
-        .cw-grid-cell {
-            position: relative;
-            border: 1.5px solid #4caf50;
-            box-sizing: border-box;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-
-        .cw-grid-cell::before,
-        .cw-grid-cell::after {
-            content: '';
-            position: absolute;
-            pointer-events: none;
-        }
-
-        .cw-grid-cell::before {
-            top: 50%;
-            left: 0;
-            right: 0;
-            border-top: 1px dashed #a5d6a7;
-        }
-
-        .cw-grid-cell::after {
-            left: 50%;
-            top: 0;
-            bottom: 0;
-            border-left: 1px dashed #a5d6a7;
-        }
-
-        .cw-grid-char {
-            position: relative;
-            z-index: 1;
-            color: #bbb;
-            font-weight: 400;
-            text-align: center;
-            line-height: 1;
-        }
-
-        .cw-grid-char-first {
-            color: #333;
-            font-weight: 600;
-        }
-
-        @media print {
-            .screen-toolbar {
-                display: none;
-            }
-
-            .print-wrap {
-                padding: 0;
-                background: #fff;
-            }
-
-            .print-page {
-                margin: 0;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="screen-toolbar">
-        <button type="button" id="popupPrintBtn">Print</button>
-        <button type="button" id="popupCloseBtn">Close</button>
-    </div>
-    <div class="print-wrap">
-        <div class="print-page">${pageMarkup}</div>
-    </div>
-    <script>
-        (function () {
-            const printNow = () => {
-                window.focus();
-                setTimeout(() => window.print(), 250);
-            };
-            const waitForReady = async () => {
-                try {
-                    if (document.fonts && document.fonts.ready) {
-                        await document.fonts.ready;
-                    }
-                } catch (error) {}
-                setTimeout(printNow, 80);
-            };
-            window.addEventListener('load', () => { waitForReady(); }, { once: true });
-            window.addEventListener('afterprint', () => {
-                setTimeout(() => window.close(), 250);
-            });
-            const popupPrintBtn = document.getElementById('popupPrintBtn');
-            if (popupPrintBtn) {
-                popupPrintBtn.addEventListener('click', printNow);
-            }
-            const popupCloseBtn = document.getElementById('popupCloseBtn');
-            if (popupCloseBtn) {
-                popupCloseBtn.addEventListener('click', () => window.close());
-            }
-        }());
-    </script>
-</body>
-</html>`;
-}
-
-function handlePrint() {
+async function handlePrint() {
     if (!currentSheetData) {
-        window.print();
         return;
     }
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-        alert('Please allow pop-ups for printing.');
+    if (typeof window.html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+        alert('PDF libraries are still loading. Please try again.');
         return;
     }
-    const title = sheetTitle && sheetTitle.textContent
-        ? sheetTitle.textContent.trim()
-        : `Sheet #${sheetId}`;
-    const pageMarkup = buildSheetPageMarkup(currentSheetData, 1, { showDebugBorder: false });
-    printWindow.document.open();
-    printWindow.document.write(buildDedicatedPrintDocumentHtml(title, pageMarkup));
-    printWindow.document.close();
+    if (printBtn) {
+        printBtn.disabled = true;
+        printBtn.textContent = 'Generating PDF...';
+    }
+    try {
+        const pageMarkup = buildSheetPageMarkup(currentSheetData, 1, { showDebugBorder: false });
+        const offscreen = document.createElement('div');
+        offscreen.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
+        offscreen.innerHTML = pageMarkup;
+        document.body.appendChild(offscreen);
+        const sheetEl = offscreen.querySelector('.sheet-page');
+        if (!sheetEl) {
+            document.body.removeChild(offscreen);
+            alert('Failed to render sheet for PDF.');
+            return;
+        }
+        try {
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+        } catch (e) {}
+        const dpr = Math.max(2, Math.ceil(window.devicePixelRatio || 1));
+        const canvas = await window.html2canvas(sheetEl, {
+            scale: dpr,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+        });
+        document.body.removeChild(offscreen);
+        const { jsPDF } = window.jspdf;
+        const pageWidthMm = currentPaperSpec.pageWidthMm;
+        const pageHeightMm = currentPaperSpec.pageHeightMm;
+        const orientation = pageWidthMm > pageHeightMm ? 'landscape' : 'portrait';
+        const doc = new jsPDF({
+            orientation,
+            unit: 'mm',
+            format: [pageWidthMm, pageHeightMm],
+            compress: true,
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        doc.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, pageHeightMm);
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        window.location.href = url;
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Failed to generate PDF: ' + (error.message || 'Unknown error'));
+    } finally {
+        if (printBtn) {
+            printBtn.disabled = false;
+            printBtn.textContent = 'Print';
+        }
+    }
 }
 
 async function loadAndRender() {

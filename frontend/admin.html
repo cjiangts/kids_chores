@@ -51,11 +51,10 @@
                     <h2>Add Kid</h2>
                     <form id="kidForm">
                         <div class="form-group">
-                            <label for="kidName">Name:</label>
                             <input type="text" id="kidName" required placeholder="Enter kid's name">
                         </div>
                         <div class="form-actions">
-                            <button type="submit" class="btn-secondary">Save</button>
+                            <button type="submit" id="kidFormSaveBtn" class="btn-primary" disabled>Save</button>
                             <button type="button" id="cancelBtn" class="btn-secondary">Close</button>
                         </div>
                     </form>
@@ -64,24 +63,11 @@
 
             <!-- Deck Category Opt-in Modal -->
             <div id="deckCategoryModal" class="modal hidden">
-                <div class="modal-content modal-large">
-                    <h2>Opt-in Deck Categories</h2>
-                    <p id="deckCategoryKidLabel" class="modal-subtitle"></p>
-                    <p class="modal-subtitle">Click a category to move between Available and Opted-in.</p>
-                    <div class="deck-category-grid">
-                        <div class="deck-category-column">
-                            <h3 id="deckCategoryAvailableTitle">Available Deck Categories (0)</h3>
-                            <div id="deckCategoryAvailableBubbles" class="deck-category-bubble-wrap"></div>
-                            <p id="deckCategoryAvailableEmpty" class="deck-category-empty hidden">No available deck category.</p>
-                        </div>
-                        <div class="deck-category-column">
-                            <h3 id="deckCategoryOptedTitle">Opted-in Deck Categories (0)</h3>
-                            <div id="deckCategoryOptedBubbles" class="deck-category-bubble-wrap"></div>
-                            <p id="deckCategoryOptedEmpty" class="deck-category-empty">Tap a deck category on the left to opt it in.</p>
-                        </div>
-                    </div>
+                <div class="modal-content deck-cat-modal-content">
+                    <h2 id="deckCategoryHeading">Opt-in Deck Categories</h2>
+                    <div id="deckCategoryList" class="deck-cat-list"></div>
                     <div class="form-actions">
-                        <button type="button" id="deckCategoryConfirmBtn" class="btn-secondary">Confirm</button>
+                        <button type="button" id="deckCategoryConfirmBtn" class="btn-primary">Confirm</button>
                         <button type="button" id="deckCategoryCancelBtn" class="btn-secondary">Close</button>
                     </div>
                 </div>

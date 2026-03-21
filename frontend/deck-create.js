@@ -516,7 +516,7 @@ function updateCardsInputModeUi() {
     }
     if (useTypeIV) {
         if (cardsInputSectionTitle) {
-            cardsInputSectionTitle.textContent = '2) Define Generator Deck';
+            cardsInputSectionTitle.textContent = '2) Define Type IV Deck';
         }
         return;
     }
@@ -751,10 +751,10 @@ function parseType4Definition() {
         .replace(/\r/g, '\n')
         .trim();
     if (!displayLabel) {
-        throw new Error('Representative label is required for generator decks.');
+        throw new Error('Representative label is required for Type IV decks.');
     }
     if (!generatorCode) {
-        throw new Error('Python generator snippet is required for generator decks.');
+        throw new Error('Python generator snippet is required for Type IV decks.');
     }
     return {
         displayLabel,
@@ -854,7 +854,7 @@ async function previewDeckFromCsv() {
             reviewSection.classList.remove('hidden');
         } catch (error) {
             previewType4Definition = null;
-            showError(error.message || 'Failed to parse generator definition.');
+            showError(error.message || 'Failed to parse Type IV definition.');
         }
         return;
     }
@@ -964,7 +964,7 @@ function renderReview(cardsToCreate, allRows) {
         reviewMeta.innerHTML = `
             <div><strong>Deck name:</strong> <code>${escapeHtml(deckName)}</code></div>
             <div><strong>Tags:</strong> ${tags.map((tag) => `<code>${escapeHtml(tag)}</code>`).join(', ')}</div>
-            <div><strong>Behavior:</strong> Generator deck</div>
+            <div><strong>Behavior:</strong> Type IV deck</div>
             <div><strong>Representative cards:</strong> 1</div>
         `;
         dedupeSummary.innerHTML = '';
@@ -1085,7 +1085,7 @@ async function createDeck() {
     };
     if (isTypeIVDeckMode()) {
         if (!previewType4Definition) {
-            showError('Review the generator deck before creating it.');
+            showError('Review the Type IV deck before creating it.');
             return;
         }
         payload.displayLabel = previewType4Definition.displayLabel;
@@ -1119,7 +1119,7 @@ async function createDeck() {
         const isCreatedTypeIV = String(result && result.deck && result.deck.behavior_type ? result.deck.behavior_type : '').trim().toLowerCase() === 'type_iv';
         showSuccess(
             isCreatedTypeIV
-                ? `Generator deck created: #${result.deck.deck_id} (${result.deck.name}). Redirecting...`
+                ? `Type IV deck created: #${result.deck.deck_id} (${result.deck.name}). Redirecting...`
                 : `Deck created: #${result.deck.deck_id} (${result.deck.name}), added ${result.cards_added} cards. Redirecting...`
         );
         window.setTimeout(() => {
@@ -1253,20 +1253,17 @@ function getContextualAutocompleteTags() {
         return [];
     }
 
+    const depth = currentPath.length;
+    const category = currentPath[0];
     const suggestions = new Set();
     autocompleteTagPaths.forEach((path) => {
-        if (!Array.isArray(path) || path.length <= currentPath.length) {
+        if (!Array.isArray(path) || path.length <= depth) {
             return;
         }
-        if (path[0] !== currentPath[0]) {
+        if (path[0] !== category) {
             return;
         }
-        for (let i = 0; i < currentPath.length; i += 1) {
-            if (path[i] !== currentPath[i]) {
-                return;
-            }
-        }
-        const nextTag = normalizeTag(path[currentPath.length]);
+        const nextTag = normalizeTag(path[depth]);
         if (!nextTag || reservedFirstTags.has(nextTag)) {
             return;
         }

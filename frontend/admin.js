@@ -9,13 +9,8 @@ const kidModal = document.getElementById('kidModal');
 const kidForm = document.getElementById('kidForm');
 const cancelBtn = document.getElementById('cancelBtn');
 const deckCategoryModal = document.getElementById('deckCategoryModal');
-const deckCategoryKidLabel = document.getElementById('deckCategoryKidLabel');
-const deckCategoryAvailableTitle = document.getElementById('deckCategoryAvailableTitle');
-const deckCategoryOptedTitle = document.getElementById('deckCategoryOptedTitle');
-const deckCategoryAvailableBubbles = document.getElementById('deckCategoryAvailableBubbles');
-const deckCategoryOptedBubbles = document.getElementById('deckCategoryOptedBubbles');
-const deckCategoryAvailableEmpty = document.getElementById('deckCategoryAvailableEmpty');
-const deckCategoryOptedEmpty = document.getElementById('deckCategoryOptedEmpty');
+const deckCategoryHeading = document.getElementById('deckCategoryHeading');
+const deckCategoryList = document.getElementById('deckCategoryList');
 const deckCategoryConfirmBtn = document.getElementById('deckCategoryConfirmBtn');
 const deckCategoryCancelBtn = document.getElementById('deckCategoryCancelBtn');
 const errorMessage = document.getElementById('errorMessage');
@@ -40,8 +35,9 @@ let currentKids = [];
 let currentFamilyId = '';
 let deckCategoryModalState = {
     kidId: '',
-    availableKeys: [],
-    optedInKeys: [],
+    allKeys: [],
+    optedInKeys: new Set(),
+    baselineKeys: new Set(),
 };
 
 // Load kids on page load
@@ -51,14 +47,28 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Event Listeners
+const kidFormSaveBtn = document.getElementById('kidFormSaveBtn');
+
+function syncKidFormSaveBtn() {
+    if (kidFormSaveBtn) {
+        kidFormSaveBtn.disabled = !kidNameInput || !kidNameInput.value.trim();
+    }
+}
+
 newKidBtn.addEventListener('click', () => {
     kidModal.classList.remove('hidden');
+    syncKidFormSaveBtn();
 });
 
 cancelBtn.addEventListener('click', () => {
     kidModal.classList.add('hidden');
     kidForm.reset();
+    syncKidFormSaveBtn();
 });
+
+if (kidNameInput) {
+    kidNameInput.addEventListener('input', syncKidFormSaveBtn);
+}
 
 kidForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -68,22 +78,13 @@ kidForm.addEventListener('submit', async (e) => {
 if (deckCategoryCancelBtn) {
     deckCategoryCancelBtn.addEventListener('click', closeDeckCategoryModal);
 }
-if (deckCategoryAvailableBubbles) {
-    deckCategoryAvailableBubbles.addEventListener('click', (event) => {
+if (deckCategoryList) {
+    deckCategoryList.addEventListener('click', (event) => {
         const button = event.target.closest('button[data-category-key]');
         if (!button) {
             return;
         }
-        moveDeckCategoryByKey(button.getAttribute('data-category-key'), 'toOpted');
-    });
-}
-if (deckCategoryOptedBubbles) {
-    deckCategoryOptedBubbles.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-category-key]');
-        if (!button) {
-            return;
-        }
-        moveDeckCategoryByKey(button.getAttribute('data-category-key'), 'toAvailable');
+        toggleDeckCategoryByKey(button.getAttribute('data-category-key'));
     });
 }
 if (deckCategoryConfirmBtn) {
@@ -364,13 +365,14 @@ async function openDeckCategoryOptInModal(kidId) {
         }
         const kid = currentKids.find((item) => String(item?.id || '') === kidIdText);
         const kidName = kid?.name ? String(kid.name) : 'Kid';
-        if (deckCategoryKidLabel) {
-            deckCategoryKidLabel.textContent = `Kid: ${kidName}`;
+        if (deckCategoryHeading) {
+            deckCategoryHeading.textContent = `${kidName}'s Deck Categories`;
         }
         deckCategoryModalState = {
             kidId: kidIdText,
-            availableKeys: [],
-            optedInKeys: [],
+            allKeys: [],
+            optedInKeys: new Set(),
+            baselineKeys: new Set(),
         };
         renderDeckCategoryModalLists();
         if (deckCategoryModal) {
@@ -390,8 +392,10 @@ async function openDeckCategoryOptInModal(kidId) {
             ? data.opted_in_category_keys.map((value) => String(value || '').trim()).filter(Boolean)
             : [];
 
-        deckCategoryModalState.availableKeys = availableKeys;
-        deckCategoryModalState.optedInKeys = optedInKeys;
+        const allKeysSet = new Set([...optedInKeys, ...availableKeys]);
+        deckCategoryModalState.allKeys = Array.from(allKeysSet).sort((a, b) => a.localeCompare(b));
+        deckCategoryModalState.optedInKeys = new Set(optedInKeys);
+        deckCategoryModalState.baselineKeys = new Set(optedInKeys);
         renderDeckCategoryModalLists();
     } catch (error) {
         console.error('Error loading deck categories:', error);
@@ -409,61 +413,47 @@ function closeDeckCategoryModal() {
 }
 
 function renderDeckCategoryModalLists() {
-    const kid = currentKids.find((item) => String(item?.id || '') === String(deckCategoryModalState.kidId || ''));
-    const categoryMetaMap = getDeckCategoryMetaMap(kid);
-    renderDeckCategoryBubbleList(deckCategoryAvailableBubbles, deckCategoryModalState.availableKeys, false, categoryMetaMap);
-    renderDeckCategoryBubbleList(deckCategoryOptedBubbles, deckCategoryModalState.optedInKeys, true, categoryMetaMap);
-    if (deckCategoryAvailableTitle) {
-        deckCategoryAvailableTitle.textContent = `Available Deck Categories (${deckCategoryModalState.availableKeys.length})`;
-    }
-    if (deckCategoryOptedTitle) {
-        deckCategoryOptedTitle.textContent = `Opted-in Deck Categories (${deckCategoryModalState.optedInKeys.length})`;
-    }
-    if (deckCategoryAvailableEmpty) {
-        deckCategoryAvailableEmpty.classList.toggle('hidden', deckCategoryModalState.availableKeys.length > 0);
-    }
-    if (deckCategoryOptedEmpty) {
-        deckCategoryOptedEmpty.classList.toggle('hidden', deckCategoryModalState.optedInKeys.length > 0);
-    }
-}
-
-function renderDeckCategoryBubbleList(containerEl, keys, selected, categoryMetaMap = {}) {
-    if (!containerEl) {
+    if (!deckCategoryList) {
         return;
     }
-    const sortedKeys = [...keys].sort((a, b) => a.localeCompare(b));
-    const bubbleClass = selected ? 'deck-category-bubble selected' : 'deck-category-bubble';
-    const bubbleTitle = selected ? 'Click to move back to Available' : 'Click to opt in';
-    containerEl.innerHTML = sortedKeys
+    const kid = currentKids.find((item) => String(item?.id || '') === String(deckCategoryModalState.kidId || ''));
+    const categoryMetaMap = getDeckCategoryMetaMap(kid);
+    const { allKeys, optedInKeys, baselineKeys } = deckCategoryModalState;
+    deckCategoryList.innerHTML = allKeys
         .map((key) => {
+            const isSelected = optedInKeys.has(key);
+            const wasSelected = baselineKeys.has(key);
             const emoji = getCategoryEmoji(key, categoryMetaMap);
             const label = getCategoryDisplayName(key, categoryMetaMap) || key;
-            return `
-            <button type="button" class="${bubbleClass}" data-category-key="${escapeHtml(key)}" title="${bubbleTitle}">
-                ${escapeHtml(`${emoji} ${label}`)}
-            </button>
-        `;
+            const checkHtml = isSelected ? '<span class="deck-cat-check">&#10003;</span>' : '<span class="deck-cat-check"></span>';
+            let badgeHtml = '';
+            if (isSelected !== wasSelected) {
+                badgeHtml = isSelected
+                    ? '<span class="deck-cat-badge opt-in">+ opt-in</span>'
+                    : '<span class="deck-cat-badge opt-out">- opt-out</span>';
+            }
+            const rowClass = isSelected !== wasSelected
+                ? (isSelected ? 'deck-cat-row newly-opted-in' : 'deck-cat-row newly-opted-out')
+                : (isSelected ? 'deck-cat-row selected' : 'deck-cat-row');
+            return `<button type="button" class="${rowClass}" data-category-key="${escapeHtml(key)}">
+                <span class="deck-cat-label">${escapeHtml(`${emoji} ${label}`)}</span>
+                ${badgeHtml}
+                ${checkHtml}
+            </button>`;
         })
         .join('');
+    setDeckCategoryConfirmButtonState();
 }
 
-function moveDeckCategoryByKey(rawKey, direction) {
+function toggleDeckCategoryByKey(rawKey) {
     const key = String(rawKey || '').trim();
     if (!key) {
         return;
     }
-    if (direction === 'toOpted') {
-        const removeSet = new Set([key]);
-        deckCategoryModalState.availableKeys = deckCategoryModalState.availableKeys.filter((key) => !removeSet.has(key));
-        const next = new Set(deckCategoryModalState.optedInKeys);
-        next.add(key);
-        deckCategoryModalState.optedInKeys = Array.from(next);
+    if (deckCategoryModalState.optedInKeys.has(key)) {
+        deckCategoryModalState.optedInKeys.delete(key);
     } else {
-        const removeSet = new Set([key]);
-        deckCategoryModalState.optedInKeys = deckCategoryModalState.optedInKeys.filter((key) => !removeSet.has(key));
-        const next = new Set(deckCategoryModalState.availableKeys);
-        next.add(key);
-        deckCategoryModalState.availableKeys = Array.from(next);
+        deckCategoryModalState.optedInKeys.add(key);
     }
     renderDeckCategoryModalLists();
 }
@@ -502,12 +492,39 @@ async function saveDeckCategoryOptIns() {
     }
 }
 
+function getDeckCategoryChangeCounts() {
+    const { allKeys, optedInKeys, baselineKeys } = deckCategoryModalState;
+    let optIn = 0;
+    let optOut = 0;
+    allKeys.forEach((key) => {
+        const now = optedInKeys.has(key);
+        const was = baselineKeys.has(key);
+        if (now && !was) optIn++;
+        if (!now && was) optOut++;
+    });
+    return { optIn, optOut };
+}
+
 function setDeckCategoryConfirmButtonState() {
     if (!deckCategoryConfirmBtn) {
         return;
     }
-    deckCategoryConfirmBtn.disabled = isSavingDeckCategories;
-    deckCategoryConfirmBtn.textContent = isSavingDeckCategories ? 'Saving...' : 'Confirm';
+    if (isSavingDeckCategories) {
+        deckCategoryConfirmBtn.disabled = true;
+        deckCategoryConfirmBtn.textContent = 'Saving...';
+        return;
+    }
+    const { optIn, optOut } = getDeckCategoryChangeCounts();
+    const hasChanges = optIn > 0 || optOut > 0;
+    deckCategoryConfirmBtn.disabled = !hasChanges;
+    if (!hasChanges) {
+        deckCategoryConfirmBtn.textContent = 'Confirm';
+    } else {
+        const parts = [];
+        if (optIn > 0) parts.push(`+${optIn}`);
+        if (optOut > 0) parts.push(`-${optOut}`);
+        deckCategoryConfirmBtn.textContent = `Confirm (${parts.join(', ')})`;
+    }
 }
 
 function getManagePathByCategory(categoryKey, categoryMetaMap = {}) {
