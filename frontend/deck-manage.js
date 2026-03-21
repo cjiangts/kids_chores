@@ -581,7 +581,10 @@ function renderDeckTreeNode(node, depth) {
                     <span class="deck-tree-copy">
                         <span class="deck-tree-label deck-tree-label-tag">${escapeHtml(node.label || node.tag)}</span>
                     </span>
-                    <span class="deck-tree-row-meta">${escapeHtml(`${deckCountText} · ${cardCountText}`)}</span>
+                    <span class="deck-tree-row-meta">
+                        ${escapeHtml(`${deckCountText} · ${cardCountText}`)}
+                        ${isSuperFamily ? `<span class="deck-tree-leaf-actions"><button type="button" class="deck-tree-leaf-btn" data-branch-action="rename" data-branch-tag="${escapeHtml(node.tag)}" data-branch-label="${escapeHtml(node.label || node.tag)}" data-branch-tag-index="${depth}">Rename</button></span>` : ''}
+                    </span>
                 </div>
             </div>
             <div class="deck-tree-children${isExpanded ? '' : ' collapsed'}">
@@ -761,6 +764,18 @@ function handleTreeContainerClick(event) {
         return;
     }
 
+    const branchBtn = event.target.closest('[data-branch-action="rename"]');
+    if (branchBtn) {
+        event.stopPropagation();
+        const oldTag = branchBtn.getAttribute('data-branch-tag') || '';
+        const oldLabel = branchBtn.getAttribute('data-branch-label') || oldTag;
+        const tagIndex = Number(branchBtn.getAttribute('data-branch-tag-index') || 0);
+        if (oldTag && tagIndex >= 1) {
+            void promptRenameBranchTag(oldTag, oldLabel, tagIndex);
+        }
+        return;
+    }
+
     const leafBtn = event.target.closest('[data-leaf-action]');
     if (leafBtn) {
         const action = leafBtn.getAttribute('data-leaf-action');
@@ -772,6 +787,37 @@ function handleTreeContainerClick(event) {
             void toggleLeafPreview(deckId, leafBtn);
         }
         return;
+    }
+}
+
+async function promptRenameBranchTag(oldTag, oldLabel, tagIndex) {
+    const input = window.prompt(`Rename tag "${oldLabel}" to:`, oldLabel);
+    if (input === null) return;
+    const trimmed = input.trim();
+    if (!trimmed) {
+        window.alert('Tag name cannot be empty.');
+        return;
+    }
+
+    try {
+        const resp = await fetch(`${API_BASE}/shared-decks/rename-tag`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                oldTag,
+                newTag: trimmed,
+                tagIndex,
+            }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            window.alert(data.error || 'Rename failed');
+            return;
+        }
+        window.alert(`Renamed "${oldLabel}" → "${trimmed}" across ${data.renamed_deck_count} deck(s).`);
+        await loadMyDecks();
+    } catch (err) {
+        window.alert('Network error: ' + (err.message || err));
     }
 }
 

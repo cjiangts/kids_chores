@@ -3425,6 +3425,131 @@ def update_shared_deck_tags(deck_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/shared-decks/rename-tag', methods=['POST'])
+def rename_shared_deck_tag():
+    """Rename a tag across all decks that contain it at the specified position."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        family_id_int = get_current_family_id_int()
+        if family_id_int is None:
+            if not current_family_id():
+                return jsonify({'error': 'Family login required'}), 401
+            return jsonify({'error': 'Invalid family id in session'}), 400
+
+        payload = request.get_json(silent=True) or {}
+        old_tag_raw = str(payload.get('oldTag') or '').strip()
+        new_tag_raw = str(payload.get('newTag') or '').strip()
+        tag_index = int(payload.get('tagIndex', -1))
+
+        old_tag = normalize_shared_deck_tag(old_tag_raw)
+        new_tag_parsed, new_comment = parse_shared_deck_tag_with_comment(new_tag_raw)
+        if not old_tag:
+            return jsonify({'error': 'oldTag is required'}), 400
+        if not new_tag_parsed:
+            return jsonify({'error': 'newTag is required'}), 400
+        if tag_index < 1:
+            return jsonify({'error': 'tagIndex must be >= 1 (cannot rename first tag)'}), 400
+        if old_tag == new_tag_parsed and not new_comment:
+            return jsonify({'error': 'New tag is the same as the old tag'}), 400
+
+        new_label = format_shared_deck_tag_display_label(new_tag_parsed, new_comment)
+
+        with _SHARED_DECK_MUTATION_LOCK:
+            conn = None
+            try:
+                conn = get_shared_decks_connection()
+                all_rows = conn.execute(
+                    "SELECT deck_id, name, tags, creator_family_id FROM deck WHERE creator_family_id = ?",
+                    [family_id_int],
+                ).fetchall()
+
+                matching_decks = []
+                for row in all_rows:
+                    deck_id = row[0]
+                    raw_tags = row[2]
+                    tags, _ = extract_shared_deck_tags_and_labels(raw_tags)
+                    if tag_index < len(tags) and tags[tag_index] == old_tag:
+                        matching_decks.append((deck_id, row[1], raw_tags, tags))
+
+                if not matching_decks:
+                    return jsonify({'error': f'No decks found with tag "{old_tag}" at position {tag_index}'}), 404
+
+                # Check for name conflicts before making any changes
+                for deck_id, current_name, raw_tags, tags in matching_decks:
+                    new_tags = list(tags)
+                    new_tags[tag_index] = new_tag_parsed
+                    new_name = '_'.join(new_tags)
+                    if new_name != current_name:
+                        conflict = conn.execute(
+                            "SELECT deck_id FROM deck WHERE name = ? AND deck_id <> ? LIMIT 1",
+                            [new_name, deck_id],
+                        ).fetchone()
+                        if conflict:
+                            return jsonify({
+                                'error': f'Renaming would create duplicate deck name "{new_name}"',
+                            }), 409
+
+                # Apply all renames in a single transaction
+                conn.execute("BEGIN TRANSACTION")
+                try:
+                    updated_decks = []
+                    for deck_id, current_name, raw_tags, tags in matching_decks:
+                        new_tags = list(tags)
+                        new_tags[tag_index] = new_tag_parsed
+                        new_name = '_'.join(new_tags)
+
+                        storage_tags = list(raw_tags or [])
+                        if tag_index < len(storage_tags):
+                            storage_tags[tag_index] = new_label
+
+                        conn.execute(
+                            "UPDATE deck SET name = ?, tags = ? WHERE deck_id = ? AND creator_family_id = ?",
+                            [new_name, storage_tags, deck_id, family_id_int],
+                        )
+                        updated_decks.append({
+                            'deck_id': int(deck_id),
+                            'name': new_name,
+                            'tags': new_tags,
+                            'tag_labels': storage_tags,
+                        })
+                    conn.execute("COMMIT")
+                except Exception:
+                    conn.execute("ROLLBACK")
+                    raise
+            finally:
+                if conn is not None:
+                    conn.close()
+
+            # Sync each renamed deck to kid DBs
+            total_kid_updates = 0
+            total_deck_updates = 0
+            sync_failures = []
+            for deck_info in updated_decks:
+                result = sync_materialized_shared_deck_metadata_for_all_kids(
+                    deck_info['deck_id'],
+                    deck_info['name'],
+                    deck_info['tag_labels'],
+                )
+                total_kid_updates += result['updated_kid_count']
+                total_deck_updates += result['updated_deck_count']
+                sync_failures.extend(result['failures'])
+
+        return jsonify({
+            'updated': True,
+            'renamed_deck_count': len(updated_decks),
+            'updated_kid_count': total_kid_updates,
+            'updated_deck_count': total_deck_updates,
+            'decks': updated_decks,
+            'sync_failures': sync_failures,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/shared-decks/<int:deck_id>/generator-definition', methods=['PUT'])
 def update_shared_deck_generator_definition(deck_id):
     """Update the stored Python generator code for one owned type-IV shared deck."""
