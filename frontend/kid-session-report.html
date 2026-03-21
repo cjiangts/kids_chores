@@ -341,6 +341,63 @@
             color: #d63636;
         }
 
+        .rt-chart-section {
+            margin-bottom: 0;
+        }
+
+        .rt-chart-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 0.28rem;
+        }
+
+        .rt-chart-label {
+            flex: 0 0 3.2rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #333;
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .rt-chart-label.chinese-specific {
+            font-family: var(--font-kaiti);
+            font-weight: 400;
+            font-size: 0.92rem;
+        }
+
+        .rt-chart-track {
+            flex: 1 1 0;
+            height: 20px;
+            background: #f0f2f8;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .rt-chart-fill {
+            height: 100%;
+            border-radius: 4px;
+            min-width: 2px;
+        }
+
+        .rt-chart-fill.right { background: #4cb780; }
+        .rt-chart-fill.half { background: #8b6fc0; }
+        .rt-chart-fill.fixed { background: #e0ac2b; }
+        .rt-chart-fill.wrong { background: #d95b5b; }
+        .rt-chart-fill.pending { background: #c0c8d8; }
+
+        .rt-chart-time {
+            flex: 0 0 auto;
+            font-size: 0.72rem;
+            color: #666;
+            min-width: 2.8rem;
+            text-align: right;
+        }
+
         .grade-note {
             font-size: 0.74rem;
             color: #666;
@@ -446,6 +503,12 @@
         <div id="errorMessage" class="error hidden"></div>
         <section class="summary-shell">
             <div class="summary-grid" id="summaryGrid"></div>
+        </section>
+
+        <section class="detail-card rt-chart-section" id="rtChartSection" style="display:none;">
+            <h2 class="section-title">Response Time</h2>
+            <div class="card-color-legend" id="rtChartLegend"></div>
+            <div id="rtChartBody"></div>
         </section>
 
         <div class="detail-grid">

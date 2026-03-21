@@ -14,6 +14,9 @@ const rightSection = document.getElementById('rightSection');
 const rightSectionTitle = document.getElementById('rightSectionTitle');
 const wrongList = document.getElementById('wrongList');
 const rightList = document.getElementById('rightList');
+const rtChartSection = document.getElementById('rtChartSection');
+const rtChartBody = document.getElementById('rtChartBody');
+const rtChartLegend = document.getElementById('rtChartLegend');
 const {
     normalizeCategoryKey,
     normalizeBehaviorType,
@@ -117,12 +120,56 @@ function renderAnswerSections(answers) {
         rightSection.style.display = '';
         rightSectionTitle.textContent = 'Cards';
         renderAnswerList(rightList, answers, { compact: false, keepSingleGroupOrder: false });
+        renderResponseTimeChart(answers);
         return;
     }
     wrongSection.style.display = 'none';
     rightSection.style.display = '';
     rightSectionTitle.textContent = 'Cards';
     renderAnswerList(rightList, answers, { compact: true, keepSingleGroupOrder: false });
+    renderResponseTimeChart(answers);
+}
+
+function renderResponseTimeChart(answers) {
+    if (!rtChartSection || !rtChartBody) return;
+    if (!Array.isArray(answers) || answers.length === 0) {
+        rtChartSection.style.display = 'none';
+        return;
+    }
+
+    const sorted = [...answers]
+        .filter((item) => (Number(item?.response_time_ms) || 0) > 0)
+        .sort((a, b) => (Number(b?.response_time_ms) || 0) - (Number(a?.response_time_ms) || 0));
+
+    if (sorted.length === 0) {
+        rtChartSection.style.display = 'none';
+        return;
+    }
+
+    rtChartSection.style.display = '';
+    const maxMs = Math.max(Number(sorted[0]?.response_time_ms) || 1, 1);
+
+    const legendClasses = new Set(sorted.map((item) => getAnswerBarClassByScore(item?.correct_score)));
+    const legendParts = [];
+    if (legendClasses.has('right')) legendParts.push('<span class="legend-dot right"></span> Right');
+    if (legendClasses.has('half')) legendParts.push('<span class="legend-dot half"></span> Half');
+    if (legendClasses.has('fixed')) legendParts.push('<span class="legend-dot fixed"></span> Fixed');
+    if (legendClasses.has('wrong')) legendParts.push('<span class="legend-dot wrong"></span> Wrong');
+    if (legendClasses.has('pending')) legendParts.push('<span class="legend-dot pending"></span> Ungraded');
+    rtChartLegend.innerHTML = legendParts.join('<span class="legend-sep">·</span>');
+
+    rtChartBody.innerHTML = sorted.map((item) => {
+        const rawMs = Math.max(0, Number(item?.response_time_ms) || 0);
+        const pct = Math.max(1, (rawMs / maxMs) * 100).toFixed(1);
+        const answerClass = getAnswerBarClassByScore(item?.correct_score);
+        const label = getAnswerPrimaryLabel(item) || '?';
+        const chineseClass = currentSessionHasChineseSpecificLogic ? ' chinese-specific' : '';
+        return `<div class="rt-chart-bar-row">
+            <div class="rt-chart-label${chineseClass}" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+            <div class="rt-chart-track"><div class="rt-chart-fill ${answerClass}" style="width:${pct}%"></div></div>
+            <div class="rt-chart-time">${formatResponseTime(rawMs)}</div>
+        </div>`;
+    }).join('');
 }
 
 function getAnswerSortRank(item) {
