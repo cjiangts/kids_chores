@@ -136,6 +136,67 @@
             display: inline-block;
         }
 
+        .type-pill-link {
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .type-pill-link:hover .type-pill {
+            filter: brightness(0.88);
+        }
+
+        .report-bottom-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .report-bottom-row .daily-chart-wrap,
+        .report-bottom-row .shared-report-table-wrap {
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 960px) {
+            .report-bottom-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .daily-chart-wrap h2 {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .shared-report-table {
+            width: 100%;
+        }
+
+        .shared-report-table th {
+            font-size: 0.78rem;
+        }
+
+        .shared-report-table td {
+            font-size: 0.78rem;
+        }
+
+        .shared-report-table th:first-child,
+        .shared-report-table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+        }
+
+        .shared-report-table th:first-child {
+            background: #f7f9ff;
+            z-index: 2;
+        }
+
+        .shared-report-table td:first-child {
+            background: #fff;
+        }
+
         .type-reading {
             background: #e7f0ff;
             color: #2f5aa8;
@@ -163,6 +224,7 @@
 
         <div class="summary-grid" id="summaryGrid"></div>
 
+        <div class="report-bottom-row">
         <div class="daily-chart-wrap">
             <div class="daily-chart-header">
                 <h2>Daily Practice Active Minutes</h2>
@@ -177,27 +239,19 @@
         </div>
 
         <div class="shared-report-table-wrap">
-            <div class="daily-chart-header">
-                <h2>Per Session Records</h2>
-            </div>
             <table class="shared-report-table">
                 <thead>
                     <tr>
-                        <th class="shared-report-table-action-cell">Details</th>
-                        <th>Type</th>
+                        <th>Sessions</th>
                         <th id="startedHeader">Started</th>
-                        <th>Active Minutes</th>
-                        <th>Planned</th>
-                        <th>Answered</th>
-                        <th>Right</th>
-                        <th>Wrong</th>
-                        <th>Retry Minutes</th>
-                        <th>Retry Count</th>
-                        <th>Retry Fixed</th>
+                        <th>Mins</th>
+                        <th>Result</th>
+                        <th>Retries</th>
                     </tr>
                 </thead>
                 <tbody id="reportBody"></tbody>
             </table>
+        </div>
         </div>
     </div>
 

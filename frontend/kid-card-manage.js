@@ -327,6 +327,9 @@ function setManageModalOpen(modalEl, shouldOpen) {
     if (!modalEl) {
         return;
     }
+    if (!shouldOpen && modalEl.contains(document.activeElement)) {
+        document.activeElement.blur();
+    }
     modalEl.classList.toggle('hidden', !shouldOpen);
     modalEl.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     syncModalBodyLock();
@@ -883,6 +886,33 @@ function getType4DeckCountDraftValue(rawValue) {
     return Math.min(1000, parsed);
 }
 
+let type4DeckCountsBaseline = {};
+
+function snapshotType4DeckCountsBaseline() {
+    type4DeckCountsBaseline = {};
+    if (!type4DeckCountsList) return;
+    const inputs = [...type4DeckCountsList.querySelectorAll('.type4-deck-count-input')];
+    inputs.forEach((input) => {
+        const key = input.dataset.type4SharedDeckId || ('orphan_' + (input.dataset.type4OrphanDeckId || '0'));
+        type4DeckCountsBaseline[key] = getType4DeckCountDraftValue(input.value);
+    });
+}
+
+function updateType4DeckCountsSaveBtn() {
+    if (!saveType4DeckCountsBtn || isType4DeckCountsSaving) return;
+    if (!type4DeckCountsList) return;
+    const inputs = [...type4DeckCountsList.querySelectorAll('.type4-deck-count-input')];
+    let changed = false;
+    for (const input of inputs) {
+        const key = input.dataset.type4SharedDeckId || ('orphan_' + (input.dataset.type4OrphanDeckId || '0'));
+        if (getType4DeckCountDraftValue(input.value) !== (type4DeckCountsBaseline[key] ?? 0)) {
+            changed = true;
+            break;
+        }
+    }
+    saveType4DeckCountsBtn.disabled = !changed;
+}
+
 function updateType4DeckCountsModalTotal() {
     if (!type4DeckCountsModalTotal || !type4DeckCountsList) {
         return;
@@ -893,6 +923,7 @@ function updateType4DeckCountsModalTotal() {
         0
     );
     type4DeckCountsModalTotal.textContent = String(total);
+    updateType4DeckCountsSaveBtn();
 }
 
 function applyType4DeckCountToAllRows(rawValue) {
@@ -908,6 +939,7 @@ function applyType4DeckCountToAllRows(rawValue) {
         type4DeckCountsApplyAllInput.value = String(normalized);
     }
     updateType4DeckCountsModalTotal();
+    updateType4DeckCountsSaveBtn();
 }
 
 function renderType4DeckCountsModal() {
@@ -960,6 +992,7 @@ function renderType4DeckCountsModal() {
         type4DeckCountsApplyAllInput.value = String(getType4DeckCountDraftValue(firstInput ? firstInput.value : 0));
     }
     updateType4DeckCountsModalTotal();
+    snapshotType4DeckCountsBaseline();
 }
 
 function collectType4DeckCountsPayload() {
@@ -2736,9 +2769,9 @@ async function saveType4DeckCounts() {
         isType4DeckCountsSaving = false;
         renderType4DeckTargetControls();
         if (saveType4DeckCountsBtn) {
-            saveType4DeckCountsBtn.disabled = false;
             saveType4DeckCountsBtn.textContent = 'Save';
         }
+        updateType4DeckCountsSaveBtn();
     }
 }
 
@@ -2949,7 +2982,8 @@ function renderDeckTreeNode(node, depth) {
         html += `<div class="deck-tree-node" data-tree-tag="${escapeHtml(node.tag)}">`;
         html += `<div class="${rowClasses.join(' ')}">`;
         html += `<button type="button" class="deck-tree-toggle${isExpanded ? ' expanded' : ''}" aria-label="Toggle">&#9654;</button>`;
-        html += `<div class="deck-tree-row-body" data-tree-action="branch" data-tree-tag="${escapeHtml(node.tag)}">`;
+        const pct = totalCount > 0 ? Math.round((selectedCount / totalCount) * 100) : 0;
+        html += `<div class="deck-tree-row-body" data-tree-action="branch" data-tree-tag="${escapeHtml(node.tag)}" style="background:linear-gradient(to right, rgba(76,175,80,0.13) ${pct}%, transparent ${pct}%);">`;
         html += `<span class="deck-tree-label deck-tree-label-tag">${escapeHtml(node.label || node.tag)}</span>`;
         html += `<span class="deck-tree-meta">${selectedCount}/${totalCount}</span>`;
         html += getBranchPendingBadgesHtml(allIds);
@@ -3423,6 +3457,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (deckTreeSearchInput) {
         deckTreeSearchInput.addEventListener('input', () => {
             applyTreeSearch(deckTreeSearchInput.value);
+        });
+    }
+    const deckTreeExpandAllBtn = document.getElementById('deckTreeExpandAllBtn');
+    const deckTreeCollapseAllBtn = document.getElementById('deckTreeCollapseAllBtn');
+    if (deckTreeExpandAllBtn) {
+        deckTreeExpandAllBtn.addEventListener('click', () => {
+            if (!deckTreeContainer) return;
+            deckTreeContainer.querySelectorAll('.deck-tree-children.collapsed').forEach((el) => el.classList.remove('collapsed'));
+            deckTreeContainer.querySelectorAll('.deck-tree-toggle').forEach((el) => el.classList.add('expanded'));
+        });
+    }
+    if (deckTreeCollapseAllBtn) {
+        deckTreeCollapseAllBtn.addEventListener('click', () => {
+            if (!deckTreeContainer) return;
+            deckTreeContainer.querySelectorAll('.deck-tree-children').forEach((el) => el.classList.add('collapsed'));
+            deckTreeContainer.querySelectorAll('.deck-tree-toggle').forEach((el) => el.classList.remove('expanded'));
         });
     }
     if (openType4DeckCountsModalBtn) {

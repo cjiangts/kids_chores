@@ -62,11 +62,16 @@ def ensure_kid_database_schema_by_path(db_file_path: str) -> str:
 
 
 def get_kid_connection_by_path(db_file_path: str, read_only: bool = False) -> duckdb.DuckDBPyConnection:
-    """Get connection using dbFilePath metadata."""
+    """Get connection using dbFilePath metadata.
+
+    Note: read_only parameter is accepted but ignored. DuckDB does not allow
+    mixing read-only and read-write connections to the same file, which causes
+    'different configuration' errors under concurrent requests.
+    """
     db_path = get_absolute_db_path(db_file_path)
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database not found at {db_file_path}")
-    return duckdb.connect(db_path, read_only=read_only)
+    return duckdb.connect(db_path)
 
 
 def delete_kid_database_by_path(db_file_path: str) -> bool:

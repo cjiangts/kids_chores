@@ -605,9 +605,19 @@
             margin-top: 0.5rem;
         }
 
+        .deck-tree-search-row {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
         .deck-tree-search-wrap {
             display: inline-flex;
             align-items: center;
+            flex: 1 1 auto;
+            min-width: 0;
         }
 
         .deck-tree-search-input {
@@ -626,6 +636,30 @@
             border-color: #3d7ee6;
             background: #fff;
             box-shadow: 0 0 0 2px rgba(61, 126, 230, 0.12);
+        }
+
+        .deck-tree-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 34px;
+            flex: 0 0 auto;
+            padding: 0 0.55rem;
+            border: 1px solid #d7dbe3;
+            border-radius: 8px;
+            background: #fff;
+            color: #666;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.12s, border-color 0.12s, color 0.12s;
+        }
+
+        .deck-tree-icon-btn:hover {
+            background: #f0f3ff;
+            border-color: #b8c4e0;
+            color: #333;
         }
 
         .deck-tree-node {
@@ -771,42 +805,16 @@
             display: none;
         }
 
-        @media (max-width: 880px) {
-            #deckTreeModal .modal-content {
-                width: 100vw;
-                max-width: 100vw;
-                height: 100vh;
-                height: 100dvh;
-                max-height: 100vh;
-                max-height: 100dvh;
-                border-radius: 0;
-                padding: 0.85rem 0.72rem 0.7rem;
-            }
+        #deckTreeModal .modal-content {
+            max-width: 560px;
+        }
 
-            #deckTreeModal .manage-popup-modal-body {
-                display: flex;
-                flex-direction: column;
-                min-height: 0;
-                overflow: hidden;
-            }
+        #deckTreeModal .deck-tree-container {
+            max-height: min(55vh, 480px);
+            overflow-y: auto;
+        }
 
-            #deckTreeModal .deck-tree-container {
-                max-height: none;
-                flex: 1 1 auto;
-                min-height: 0;
-                overflow-y: auto;
-            }
-
-            #deckTreeModal .deck-v2-actions {
-                position: static;
-                margin-top: 0.72rem;
-                padding-top: 0.62rem;
-                padding-bottom: calc(0.2rem + env(safe-area-inset-bottom, 0px));
-                border-top: 1px solid #dbe1ff;
-                background: #fff;
-                flex: 0 0 auto;
-            }
-
+        @media (max-width: 520px) {
             .deck-tree-search-input {
                 width: 100%;
                 min-width: 0;
@@ -2494,9 +2502,13 @@
                     <button id="deckTreeInfoBtn" type="button" class="optin-note-btn" title="How deck opt-in works"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="9"/><line x1="10" y1="9" x2="10" y2="15"/><circle cx="10" cy="6" r="0.5" fill="currentColor" stroke="none"/></svg></button>
                     <span id="deckTreeCounter" class="deck-tree-counter">0 / 0</span>
                 </div>
-                <label class="deck-tree-search-wrap">
-                    <input id="deckTreeSearchInput" type="text" class="deck-tree-search-input" placeholder="Search decks...">
-                </label>
+                <div class="deck-tree-search-row">
+                    <label class="deck-tree-search-wrap">
+                        <input id="deckTreeSearchInput" type="text" class="deck-tree-search-input" placeholder="Search decks...">
+                    </label>
+                    <button id="deckTreeExpandAllBtn" type="button" class="deck-tree-icon-btn" title="Expand all">Expand</button>
+                    <button id="deckTreeCollapseAllBtn" type="button" class="deck-tree-icon-btn" title="Collapse all">Collapse</button>
+                </div>
             </div>
             <div class="manage-popup-modal-body">
                 <div id="deckTreeContainer" class="deck-tree-container"></div>
@@ -2534,7 +2546,7 @@
                 </div>
                 <div class="deck-v2-actions">
                     <div class="deck-v2-action-row">
-                        <button id="saveType4DeckCountsBtn" type="button" class="settings-save-btn">Save</button>
+                        <button id="saveType4DeckCountsBtn" type="button" class="btn-primary" disabled>Save</button>
                         <button id="cancelType4DeckCountsModalBtn" type="button" class="btn-secondary">Close</button>
                     </div>
                     <div id="type4DeckCountsMessage" class="success hidden"></div>

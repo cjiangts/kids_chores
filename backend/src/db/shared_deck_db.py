@@ -101,7 +101,12 @@ def init_shared_decks_database() -> str:
 
 
 def get_shared_decks_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
-    """Get connection to shared decks database."""
+    """Get connection to shared decks database.
+
+    Note: read_only parameter is accepted but ignored. DuckDB does not allow
+    mixing read-only and read-write connections to the same file, which causes
+    'different configuration' errors under concurrent requests.
+    """
     if not os.path.exists(SHARED_DB_PATH):
         init_shared_decks_database()
-    return duckdb.connect(SHARED_DB_PATH, read_only=read_only)
+    return duckdb.connect(SHARED_DB_PATH)

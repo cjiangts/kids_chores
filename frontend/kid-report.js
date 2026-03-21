@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     if (startedHeader) {
-        startedHeader.textContent = `Started (${reportTimezone})`;
+        startedHeader.textContent = 'Started';
     }
     await loadReport();
 });
@@ -87,7 +87,7 @@ async function loadReport() {
             reportTimezone = familyTimezone;
         }
         if (startedHeader) {
-            startedHeader.textContent = `Started (${reportTimezone})`;
+            startedHeader.textContent = 'Started';
         }
         const kidName = (data.kid && data.kid.name) ? data.kid.name : 'Kid';
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
@@ -128,25 +128,21 @@ function renderTablePage() {
     const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
 
     if (sessions.length === 0 || view.pageItems.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="11" style="color:#666;">No practice sessions yet.</td></tr>`;
+        reportBody.innerHTML = `<tr><td colspan="5" style="color:#666;">No practice sessions yet.</td></tr>`;
         return;
     }
 
-    reportBody.innerHTML = view.pageItems.map((session) => `
+    reportBody.innerHTML = view.pageItems.map((session) => {
+        const sessionUrl = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}${from === 'kid-home' ? '&from=kid-home' : ''}`;
+        return `
         <tr>
-            <td class="shared-report-table-action-cell"><a href="/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}${from === 'kid-home' ? '&from=kid-home' : ''}" class="tab-link secondary mini-link-btn table-action-btn">View</a></td>
-            <td>${renderType(session.type, session)}</td>
+            <td><a href="${sessionUrl}" class="type-pill-link">${renderType(session.type, session)}</a></td>
             <td>${formatDateTime(session.started_at)}</td>
-            <td>${formatResponseMinutes(session)}</td>
-            <td>${safeNum(session.planned_count)}</td>
-            <td>${safeNum(session.answer_count)}</td>
-            <td>${safeNum(session.right_count)}</td>
-            <td>${safeNum(session.wrong_count)}</td>
-            <td>${formatRetryMinutes(session)}</td>
+            <td>${formatTotalMinutes(session)}</td>
+            <td><span style="color:#2e7d32">${safeNum(session.right_count)}</span>${safeNum(session.wrong_count) > 0 ? ` / <span style="color:#c62828">${safeNum(session.wrong_count)}</span>` : ''}</td>
             <td>${safeNum(session.retry_count)}</td>
-            <td>${safeNum(session.retry_best_rety_correct_count)}</td>
         </tr>
-    `).join('');
+    `;}).join('');
 }
 
 function renderDailyMinutesChart(sessions) {
@@ -397,21 +393,31 @@ function renderType(type, session = null) {
 function formatDateTime(iso) {
     const dt = parseUtcTimestamp(iso);
     if (Number.isNaN(dt.getTime())) return '-';
-    return dt.toLocaleString(undefined, {
+    const datePart = dt.toLocaleDateString(undefined, {
         timeZone: reportTimezone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
+    });
+    const timePart = dt.toLocaleTimeString(undefined, {
+        timeZone: reportTimezone,
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
         hour12: false,
     });
+    return `${datePart}<br>${timePart}`;
 }
 
 function formatResponseMinutes(session) {
     const minutes = getSessionResponseMinutes(session);
     return minutes.toFixed(1);
+}
+
+function formatTotalMinutes(session) {
+    const active = getSessionResponseMinutes(session);
+    const retry = getSessionRetryResponseMinutes(session);
+    return (active + retry).toFixed(1);
 }
 
 function formatRetryMinutes(session) {
