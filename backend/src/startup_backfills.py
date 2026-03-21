@@ -224,6 +224,10 @@ def ensure_chinese_character_bank(logger):
                 )
             """)
             logger.info('Created chinese_character_bank table.')
+
+        # Populate if table is empty (new or created empty by schema)
+        count = conn.execute("SELECT COUNT(*) FROM chinese_character_bank").fetchone()[0]
+        if count == 0:
             _populate_chinese_character_bank(conn, logger)
 
         # Collect all used Chinese characters from shared deck cards
