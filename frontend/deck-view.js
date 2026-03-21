@@ -1411,7 +1411,7 @@ function renderType4CellPrompt(problem) {
     if (!problem) return '<div class="math-cell-v-fallback"></div>';
     const parsed = parseType4CellArithmetic(problem.prompt);
     if (!parsed) {
-        return `<div class="math-cell-v-fallback"><div>${escapeHtml(problem.prompt || '')}</div></div>`;
+        return `<div class="math-cell-v-fallback"><div>${renderMathHtml(problem.prompt || '')}</div></div>`;
     }
     const { a, sign, b } = parsed;
     if (sign === '÷') {

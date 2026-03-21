@@ -43,6 +43,16 @@ function escapeHtml(text) {
         .replace(/'/g, '&#39;');
 }
 
+function renderMathNotation(text) {
+    const raw = String(text || '');
+    if (!raw) return '';
+    const escaped = escapeHtml(raw);
+    return escaped.replace(/\^(\([^)]+\)|\d+|[a-zA-Z])/g, (_match, exp) => {
+        const inner = exp.startsWith('(') && exp.endsWith(')') ? exp.slice(1, -1) : exp;
+        return `<sup>${escapeHtml(inner)}</sup>`;
+    });
+}
+
 function showError(message) {
     const text = String(message || '').trim();
     if (!errorMessage) return;
@@ -563,7 +573,7 @@ function renderVerticalPromptCell(p) {
     const parsed = parseArithmetic(p.prompt);
     if (!parsed) {
         return `<div class="math-cell-v-fallback">
-            <div>${escapeHtml(p.prompt)}</div>
+            <div>${renderMathNotation(p.prompt)}</div>
             <div class="cell-answer">${escapeHtml(p.answer)}</div>
         </div>`;
     }
@@ -1720,7 +1730,7 @@ function renderInlineSheetBuilderContent(scale) {
             for (let c = 0; c < metrics.colCount; c++) {
                 html += `<div class="sb-row-cell" style="width:${previewCellWidth}px;height:${previewLineH}px;">
                     <div class="sb-row-content" style="display:flex;align-items:center;padding:0 ${Math.round(metrics.cellPad * scale)}px;">
-                        <span style="font-family:'Courier New',Courier,monospace;font-size:${Math.max(6, Math.round(metrics.fontSize * scale))}px;white-space:nowrap;letter-spacing:-0.5px;">${escapeHtml(compactPrompt)} =</span>
+                        <span style="font-family:'Courier New',Courier,monospace;font-size:${Math.max(6, Math.round(metrics.fontSize * scale))}px;white-space:nowrap;letter-spacing:-0.5px;">${renderMathNotation(compactPrompt)} =</span>
                     </div>
                 </div>`;
             }

@@ -140,6 +140,16 @@ function escapeHtml(text) {
     return el.innerHTML;
 }
 
+function renderMathNotation(text) {
+    const raw = String(text || '');
+    if (!raw) return '';
+    const escaped = escapeHtml(raw);
+    return escaped.replace(/\^(\([^)]+\)|\d+|[a-zA-Z])/g, (_match, exp) => {
+        const inner = exp.startsWith('(') && exp.endsWith(')') ? exp.slice(1, -1) : exp;
+        return `<sup>${escapeHtml(inner)}</sup>`;
+    });
+}
+
 function clampInlineFontScale(scale) {
     const parsed = Number(scale);
     if (!Number.isFinite(parsed)) return 1;
@@ -240,7 +250,7 @@ function renderVerticalPromptCell(problem) {
     if (!problem) return '<div class="math-cell-v-fallback"></div>';
     const parsed = parseArithmetic(problem.prompt);
     if (!parsed) {
-        return `<div class="math-cell-v-fallback"><div>${escapeHtml(problem.prompt || '')}</div></div>`;
+        return `<div class="math-cell-v-fallback"><div>${renderMathNotation(problem.prompt || '')}</div></div>`;
     }
     const { a, sign, b } = parsed;
     if (sign === '÷') {
@@ -545,8 +555,9 @@ function drawInlineSheetRows(ctx, sheet, withAnswers) {
                 ctx.fillText('=', cx, textY);
                 promptEndX = cx + ctx.measureText('= ').width;
             } else {
-                ctx.fillText(`${rawPrompt} =`, textX, textY);
-                promptEndX = textX + ctx.measureText(`${rawPrompt} = `).width;
+                const endX = drawTextWithSuperscripts(ctx, rawPrompt, textX, textY, inlineFontSize);
+                ctx.fillText(' =', endX, textY);
+                promptEndX = endX + ctx.measureText(' = ').width;
             }
 
             if (withAnswers && answer) {
@@ -602,10 +613,35 @@ function setMathFont(ctx, scale, sizeMultiplier = 1) {
     return fontSize;
 }
 
+/** Draw text on canvas, rendering ^N as superscript. Returns the x after the last drawn character. */
+function drawTextWithSuperscripts(ctx, text, x, baselineY, fontSize) {
+    const raw = String(text || '');
+    const parts = raw.split(/(\^(?:\([^)]+\)|\d+|[a-zA-Z]))/);
+    let cx = x;
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (!part) continue;
+        const supMatch = part.match(/^\^(\([^)]+\)|\d+|[a-zA-Z])$/);
+        if (supMatch) {
+            const inner = supMatch[1].startsWith('(') && supMatch[1].endsWith(')')
+                ? supMatch[1].slice(1, -1) : supMatch[1];
+            const supFontSize = fontSize * 0.65;
+            ctx.font = `${supFontSize}px ${MATH_FONT_FAMILY}`;
+            ctx.fillText(inner, cx, baselineY - fontSize * 0.4);
+            cx += ctx.measureText(inner).width;
+            ctx.font = `${fontSize}px ${MATH_FONT_FAMILY}`;
+        } else {
+            ctx.fillText(part, cx, baselineY);
+            cx += ctx.measureText(part).width;
+        }
+    }
+    return cx;
+}
+
 function drawFallbackPrompt(ctx, prompt, x, y, scale) {
     const fontSize = setMathFont(ctx, scale, 0.86);
     ctx.textAlign = 'left';
-    ctx.fillText(String(prompt || ''), x, y + fontSize);
+    drawTextWithSuperscripts(ctx, prompt, x, y + fontSize, fontSize);
 }
 
 function drawVerticalArithmeticPrompt(ctx, parsed, x, y, scale) {
