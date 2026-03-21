@@ -832,7 +832,7 @@
             font-weight: 600;
         }
         .sb-picker-backdrop {
-            position: absolute;
+            position: fixed;
             inset: 0;
             background: rgba(14, 22, 38, 0.26);
             z-index: 20;
@@ -843,6 +843,9 @@
         }
         .sb-picker-card {
             width: min(100%, 360px);
+            max-height: calc(100vh - 60px);
+            display: flex;
+            flex-direction: column;
             background: #fff;
             border: 1px solid #d8e2ff;
             border-radius: 14px;
@@ -863,7 +866,8 @@
         .sb-picker-options {
             display: grid;
             gap: 0.5rem;
-            max-height: min(50vh, 320px);
+            min-height: 0;
+            flex: 1 1 auto;
             overflow-y: auto;
         }
         .sb-picker-options.sb-picker-options-bubbles {
