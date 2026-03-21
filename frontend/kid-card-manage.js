@@ -1240,6 +1240,43 @@ function isNextSessionQueueOrderSelected() {
     return String(viewOrderSelect && viewOrderSelect.value || '').trim().toLowerCase() === 'queue';
 }
 
+function isSourceDeckOrderSelected() {
+    return String(viewOrderSelect && viewOrderSelect.value || '').trim().toLowerCase() === 'source_deck';
+}
+
+const DECK_COLOR_PALETTE = [
+    { bg: '#eef4ff', border: '#b3ccf5', text: '#2a5199' },
+    { bg: '#f0faf1', border: '#a8d8b0', text: '#1e7a3a' },
+    { bg: '#fff5eb', border: '#f3c89a', text: '#9a5b00' },
+    { bg: '#f5efff', border: '#c9b3f0', text: '#5a3a99' },
+    { bg: '#fff0f4', border: '#f0b3c4', text: '#993a5a' },
+    { bg: '#eefbfb', border: '#a3dbd9', text: '#1a7a76' },
+    { bg: '#fff8ee', border: '#e6d19a', text: '#7a6000' },
+    { bg: '#f0f0ff', border: '#b3b3e6', text: '#3a3a99' },
+    { bg: '#fef0f0', border: '#e6b3b3', text: '#993a3a' },
+    { bg: '#f0fff5', border: '#b3e6c9', text: '#2a7a4a' },
+    { bg: '#f8f0ff', border: '#d4b3f0', text: '#6a3a99' },
+    { bg: '#fff0eb', border: '#f0c4a3', text: '#99502a' },
+];
+
+function buildDeckColorMap(cards) {
+    const deckNames = [];
+    const seen = new Set();
+    for (const card of cards) {
+        const name = resolveCardSourceDeckName(card);
+        if (!seen.has(name)) {
+            seen.add(name);
+            deckNames.push(name);
+        }
+    }
+    deckNames.sort((a, b) => a.localeCompare(b));
+    const map = new Map();
+    deckNames.forEach((name, i) => {
+        map.set(name, DECK_COLOR_PALETTE[i % DECK_COLOR_PALETTE.length]);
+    });
+    return map;
+}
+
 function getCardIdText(card) {
     const raw = String(card && card.id ? card.id : '').trim();
     return raw;
@@ -1323,6 +1360,36 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
         && Number.parseInt(cardCount, 10) > 0;
     cardsQueueLegend.classList.toggle('hidden', !shouldShow);
     cardsQueueLegend.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+}
+
+function updateDeckLegend(deckColorMap) {
+    let container = document.getElementById('cardsDeckLegend');
+    if (!container) {
+        const ref = cardsQueueLegend || document.getElementById('cardsGrid');
+        if (!ref || !ref.parentNode) return;
+        container = document.createElement('div');
+        container.id = 'cardsDeckLegend';
+        container.className = 'cards-queue-legend hidden';
+        container.setAttribute('aria-hidden', 'true');
+        ref.parentNode.insertBefore(container, ref.nextSibling);
+    }
+    if (!deckColorMap || deckColorMap.size === 0) {
+        container.classList.add('hidden');
+        container.setAttribute('aria-hidden', 'true');
+        container.innerHTML = '';
+        return;
+    }
+    container.classList.remove('hidden');
+    container.setAttribute('aria-hidden', 'false');
+    const items = [];
+    for (const [name, color] of deckColorMap) {
+        items.push(
+            `<span class="cards-queue-legend-item">`
+            + `<span class="cards-queue-legend-dot" aria-hidden="true" style="background:${color.bg};border:1.5px solid ${color.border};"></span>`
+            + `${escapeHtml(name)}</span>`
+        );
+    }
+    container.innerHTML = items.join('');
 }
 
 function renderVisibleSkipActionButtons() {
@@ -1951,14 +2018,22 @@ function buildCompactCardMarkup(card, options = {}) {
         : (queueHighlight === 'hard'
             ? ' • Next session: hard'
             : (queueHighlight === 'least' ? ' • Next session: least practiced' : ''));
+    const deckColor = options.deckColor || null;
+    let deckStyle = '';
+    let deckHint = '';
+    if (deckColor) {
+        deckStyle = `background:${deckColor.bg};border-color:${deckColor.border};color:${deckColor.text};box-shadow:0 1px 3px ${deckColor.border}33;`;
+        deckHint = ` • Deck: ${resolveCardSourceDeckName(card)}`;
+    }
     return `
         <button
             type="button"
             class="${classes.join(' ')}"
             data-action="expand-compact"
             data-card-id="${escapeHtml(cardId)}"
-            title="${escapeHtml(`Open details • ${titlePrefix}: ${text}${highlightHint}`)}"
-            aria-label="${escapeHtml(`Open card details: ${text}${highlightHint}`)}"
+            title="${escapeHtml(`Open details • ${titlePrefix}: ${text}${highlightHint}${deckHint}`)}"
+            aria-label="${escapeHtml(`Open card details: ${text}${highlightHint}${deckHint}`)}"
+            ${deckStyle ? `style="${deckStyle}"` : ''}
         >
             <span class="card-compact-pill-text">${escapeHtml(text)}</span>
             <span class="card-compact-count-badge" aria-hidden="true">${totalPracticed}</span>
@@ -2042,7 +2117,10 @@ function applyChineseCardFrontUniformSize() {
 function displayCards(cards) {
     sortedCards = getSortedCardsForDisplay(cards);
     const queueHighlightMap = getQueueHighlightMap(cards);
+    const deckMode = isSourceDeckOrderSelected();
+    const deckColorMap = deckMode ? buildDeckColorMap(sortedCards) : null;
     updateCardsQueueLegendVisibility(sortedCards.length);
+    updateDeckLegend(deckMode ? deckColorMap : null);
 
     if (mathCardCount) {
         mathCardCount.textContent = `(${sortedCards.length})`;
@@ -2093,6 +2171,7 @@ function displayCards(cards) {
             }
             return buildCompactCardMarkup(card, {
                 queueHighlight: queueHighlightMap.get(cardId) || '',
+                deckColor: deckColorMap ? deckColorMap.get(resolveCardSourceDeckName(card)) : null,
             });
         })
         .join('');

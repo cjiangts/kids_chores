@@ -257,6 +257,17 @@ window.PracticeManageCommon = {
             });
         }
 
+        if (mode === 'source_deck') {
+            return copy.sort((a, b) => {
+                const aName = String(a.source_deck_label || a.source_deck_name || '').trim().toLowerCase();
+                const bName = String(b.source_deck_label || b.source_deck_name || '').trim().toLowerCase();
+                if (aName !== bName) {
+                    return aName.localeCompare(bName);
+                }
+                return this.compareQueueOrder(a, b);
+            });
+        }
+
         return copy.sort((a, b) => this.compareQueueOrder(a, b));
     },
 
