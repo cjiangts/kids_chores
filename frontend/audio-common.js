@@ -8,7 +8,7 @@ window.AudioCommon = {
 
     /**
      * Preferred audio constraints for voice recording.
-     * Keep browser voice DSP off so recordings stay closer to the raw mic capture.
+     * AGC and noise suppression enabled for consistent volume levels.
      */
     getAudioConstraints() {
         return {
@@ -17,8 +17,8 @@ window.AudioCommon = {
                 sampleRate: { ideal: 48000 },
                 sampleSize: { ideal: 24 },
                 echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false,
+                noiseSuppression: true,
+                autoGainControl: true,
             }
         };
     },
