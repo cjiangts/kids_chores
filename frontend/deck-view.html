@@ -15,18 +15,6 @@
             overflow: hidden;
         }
 
-        .deck-page {
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-
-        .deck-panel {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
 
         .deck-meta-row {
             margin: 0.35rem 0;
@@ -502,17 +490,15 @@
             <div class="page-header-row">
                 <h1>📖 Edit Deck</h1>
                 <div class="page-header-actions">
-                    <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-                        <a id="cloneDeckBtn" href="/deck-create.html" class="back-btn btn-secondary hidden">Clone</a>
-                        <button type="button" id="deleteDeckBtn" class="back-btn btn-secondary" style="background:#fef0f0; color:#c92a2a; border-color:#f5c6c6;">Delete</button>
-                    </span>
+                    <a id="cloneDeckBtn" href="/deck-create.html" class="back-btn btn-secondary hidden">Clone</a>
+                    <button type="button" id="deleteDeckBtn" class="back-btn btn-secondary" style="background:#fef0f0; color:#c92a2a; border-color:#f5c6c6;">Delete</button>
                     <a href="/deck-manage.html" class="back-btn btn-secondary page-header-back-btn">← Back</a>
                 </div>
             </div>
         </header>
 
         <main>
-            <section class="deck-panel">
+            <section class="deck-panel settings-section">
                 <h2 class="deck-section-title">Deck Metadata</h2>
                 <div id="deckMeta" class="hidden">
                     <div class="deck-meta-row"><strong>Deck ID:</strong> <span id="deckIdText"></span></div>
@@ -530,7 +516,7 @@
                 </div>
             </section>
 
-            <section class="deck-panel">
+            <section class="deck-panel settings-section">
                 <h2 id="editorSectionTitle" class="deck-section-title">Edit Cards</h2>
                 <div id="staticDeckEditor">
                     <p class="deck-edit-help">Edit cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>
@@ -577,7 +563,7 @@
                 </div>
             </section>
 
-            <section id="cardsSection" class="deck-panel">
+            <section id="cardsSection" class="deck-panel settings-section">
                 <h2 class="deck-section-title">Cards</h2>
                 <div id="emptyState" class="deck-empty hidden">No cards in this deck.</div>
                 <div id="tableWrap" class="deck-table-wrap hidden">

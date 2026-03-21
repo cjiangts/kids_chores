@@ -53,6 +53,7 @@ if (!deckCategoryCommon) {
 }
 
 let deckId = 0;
+let isSuperFamily = false;
 let isMutating = false;
 let currentDeck = null;
 let currentCards = [];
@@ -101,7 +102,7 @@ function formatDeckCardBackHtml(rawBack) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const allowed = await ensureSuperFamily();
+    const allowed = await ensureFamily();
     if (!allowed) {
         return;
     }
@@ -109,6 +110,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     deckId = Number(params.get('deckId') || 0);
     if (!Number.isInteger(deckId) || deckId <= 0) {
         showError('Invalid or missing deckId in URL.');
+        return;
+    }
+    if (!isSuperFamily) {
+        document.title = 'View Deck - Kids Daily Chores';
+        const pageHeading = document.querySelector('.page-header-row h1');
+        if (pageHeading) {
+            pageHeading.textContent = '📖 View Deck';
+        }
+        if (deleteDeckBtn) { deleteDeckBtn.classList.add('hidden'); }
+        if (cloneDeckBtn) { cloneDeckBtn.classList.add('hidden'); }
+        if (renameDeckTagsBtn) { renameDeckTagsBtn.classList.add('hidden'); }
+        if (staticDeckEditor) { staticDeckEditor.classList.add('hidden'); }
+        if (type4DeckEditor) { type4DeckEditor.classList.add('hidden'); }
+        if (applyCsvBtn) { applyCsvBtn.classList.add('hidden'); }
+        await loadDeck();
         return;
     }
     if (previewCsvBtn) {
@@ -314,7 +330,7 @@ async function deleteDeck() {
     window.location.href = '/deck-manage.html';
 }
 
-async function ensureSuperFamily() {
+async function ensureFamily() {
     try {
         const response = await fetch(`${API_BASE}/family-auth/status`);
         if (!response.ok) {
@@ -326,13 +342,10 @@ async function ensureSuperFamily() {
             window.location.href = '/family-login.html';
             return false;
         }
-        if (!auth.isSuperFamily) {
-            window.location.href = '/admin.html';
-            return false;
-        }
+        isSuperFamily = Boolean(auth.isSuperFamily);
         return true;
     } catch (error) {
-        window.location.href = '/admin.html';
+        window.location.href = '/family-login.html';
         return false;
     }
 }
@@ -544,7 +557,7 @@ function renderCardsTable(cards, isTypeIV) {
             <tr${rowClass}>
                 <td>${actionHtml}</td>
                 <td>${index + 1}</td>
-                <td>${escapeHtml(card.front || '')}</td>
+                <td>${renderMathHtml(card.front || '')}</td>
                 ${multiChoiceCellHtml}
                 <td>${formatDeckCardBackHtml(card.back || '-')}</td>
             </tr>

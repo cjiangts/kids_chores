@@ -1037,7 +1037,7 @@ function renderReview(cardsToCreate, allRows) {
     reviewTableBody.innerHTML = shownRows.map((row) => `
         <tr>
             <td>${row.line}</td>
-            <td>${escapeHtml(row.front)}</td>
+            <td>${renderMathHtml(row.front)}</td>
             <td>${escapeHtml(row.back)}</td>
             <td>${deckCreateCommon.renderStatusCellHtml(row, { warnClass: 'deck-row-status-warn' })}</td>
         </tr>

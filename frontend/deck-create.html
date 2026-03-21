@@ -7,18 +7,7 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        .deck-page {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
 
-        .deck-panel {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
 
         .deck-panel h2 {
             margin-bottom: var(--card-section-title-margin-bottom);
@@ -324,7 +313,7 @@
         </header>
 
         <main>
-            <section class="deck-panel">
+            <section class="deck-panel settings-section">
                 <h2>1) Deck Metadata</h2>
                 <div class="deck-grid">
                     <fieldset class="form-group first-tag-field">
@@ -347,7 +336,7 @@
                 <div id="nameStatus" class="deck-name-status status-note">Checking name availability...</div>
             </section>
 
-            <section class="deck-panel">
+            <section class="deck-panel settings-section">
                 <h2 id="cardsInputSectionTitle">2) Deck Content</h2>
                 <div id="staticCardsEditor">
                     <p id="cardsInputHelpText" class="muted-help-text">Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>

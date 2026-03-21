@@ -136,7 +136,7 @@ function renderSummary(card, summary, attempts) {
     const avgTimeLabel = avgMs > 0 ? formatResponseTime(avgMs) : '-';
 
     summaryGrid.innerHTML = `
-        <div class="summary-card"><div class="label">Card</div><div class="value">${escapeHtml(getCardDisplayLabel(card.front, card.back, from) || '-')}</div></div>
+        <div class="summary-card"><div class="label">Card</div><div class="value">${renderMathHtml(getCardDisplayLabel(card.front, card.back, from) || '-')}</div></div>
         <div class="summary-card"><div class="label">Attempts</div><div class="value">${attemptsCount}</div></div>
         <div class="summary-card"><div class="label">Right / Wrong</div><div class="value">${right} / ${wrong}</div></div>
         <div class="summary-card"><div class="label">Avg Time</div><div class="value">${avgTimeLabel}</div></div>

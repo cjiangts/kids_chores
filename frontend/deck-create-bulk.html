@@ -7,18 +7,7 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        .deck-page {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
 
-        .deck-panel {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
 
         .deck-panel h2 {
             margin-bottom: var(--card-section-title-margin-bottom);
@@ -190,7 +179,7 @@
         </header>
 
         <main>
-            <section class="deck-panel">
+            <section class="deck-panel settings-section">
                 <h2>1) Choose First Tag</h2>
                 <div class="deck-grid">
                     <fieldset class="form-group first-tag-field">
@@ -202,7 +191,7 @@
                 </div>
             </section>
 
-            <section class="deck-panel">
+            <section class="deck-panel settings-section">
                 <h2 id="bulkInputSectionTitle">2) Paste Deck Blocks</h2>
                 <p id="bulkInputHelpText" class="muted-help-text">
                     Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags).

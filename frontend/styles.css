@@ -106,6 +106,11 @@ body {
     margin: 0 auto;
 }
 
+.deck-page {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
 @media (min-width: 761px) {
     .family-home-page .container {
         max-width: 1000px;
@@ -786,7 +791,7 @@ body {
 
 .manage-page .settings-section {
     background: var(--dashboard-panel-bg);
-    border: 1px solid rgba(255, 255, 255, 0.68);
+    border: 1px solid #e9ecef;
     padding: 1rem;
     border-radius: 12px;
     box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);

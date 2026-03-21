@@ -4,6 +4,40 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+/**
+ * Render text with math notation support via KaTeX.
+ * Converts sqrt(x) to \sqrt{x} LaTeX and renders via KaTeX.
+ * Falls back to plain √x if KaTeX is not loaded.
+ */
+function renderMathHtml(text) {
+    const raw = String(text ?? '');
+    if (!raw) return '';
+    if (!hasMathNotation(raw)) return escapeHtml(raw);
+    const latex = raw.replace(/sqrt\(([^)]+)\)/gi, (_match, inner) => `\\sqrt{${inner}}`);
+    if (typeof katex !== 'undefined') {
+        try {
+            return katex.renderToString(latex, { throwOnError: false, displayMode: false });
+        } catch (_e) { /* fall through */ }
+    }
+    const escaped = escapeHtml(raw);
+    return escaped.replace(/sqrt\(([^)]+)\)/gi, (_match, inner) => `√${inner}`);
+}
+
+function hasMathNotation(text) {
+    return /sqrt\(/i.test(String(text ?? ''));
+}
+
+(function loadKaTeX() {
+    if (typeof katex !== 'undefined') return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css';
+    document.head.appendChild(link);
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js';
+    document.head.appendChild(script);
+})();
+
 window.PracticeManageCommon = {
     _passwordDialogStyleInjected: false,
 

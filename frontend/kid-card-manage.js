@@ -1917,7 +1917,7 @@ function buildCardMarkup(card, options = {}) {
     return `
         <div class="${classes.filter(Boolean).join(' ')}">
             ${prependControlsHtml}
-            <div class="card-front">${escapeHtml(primaryText)}</div>
+            <div class="card-front">${renderMathHtml(primaryText)}</div>
             ${showSecondary ? `<div class="card-back">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
             <div class="card-deck-row">
                 <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
@@ -1961,7 +1961,7 @@ function buildType4RepresentativeCardMarkup(card) {
 
     return `
         <div class="card-item type4-summary-card">
-            <div class="card-front">${escapeHtml(String(card && card.front ? card.front : ''))}</div>
+            <div class="card-front">${renderMathHtml(String(card && card.front ? card.front : ''))}</div>
             <div class="card-deck-row">
                 <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
             </div>

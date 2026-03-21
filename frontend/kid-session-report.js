@@ -252,7 +252,7 @@ function renderAnswerList(container, cards, options = {}) {
                 data-response-time-ms="${rawMs}"
             >
                 <div class="answer-head-row">
-                    <div class="answer-label${currentSessionHasChineseSpecificLogic ? ' chinese-specific' : ''}">${escapeHtml(displayLabel)}</div>
+                    <div class="answer-label${currentSessionHasChineseSpecificLogic ? ' chinese-specific' : ''}">${renderMathHtml(displayLabel)}</div>
                     ${headerActionsHtml}
                 </div>
                 ${compact && !isTypeIVSession() && secondaryLabel ? `<div class="answer-secondary">${escapeHtml(secondaryLabel)}</div>` : ''}

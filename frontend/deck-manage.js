@@ -23,11 +23,26 @@ let deckCategoryOrder = [];
 let selectedCategoryFilterKey = localStorage.getItem('deckManage_selectedCategory') || '';
 let treeExpandedPaths = null;
 let currentTreeBranchPathKeys = [];
+let isSuperFamily = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const allowed = await ensureSuperFamily();
+    const allowed = await ensureFamily();
     if (!allowed) {
         return;
+    }
+
+    if (!isSuperFamily) {
+        if (createDeckNavBtn) {
+            createDeckNavBtn.classList.add('hidden');
+        }
+        if (createDeckBulkNavBtn) {
+            createDeckBulkNavBtn.classList.add('hidden');
+        }
+        document.title = 'View Decks - Kids Daily Chores';
+        const pageHeading = document.querySelector('.page-header-row h1');
+        if (pageHeading) {
+            pageHeading.textContent = '🗂️ View Decks';
+        }
     }
 
     if (createDeckNavBtn) {
@@ -99,7 +114,7 @@ function buildCreateDeckUrl(path) {
     return `${url.pathname}${url.search}`;
 }
 
-async function ensureSuperFamily() {
+async function ensureFamily() {
     try {
         const response = await fetch(`${API_BASE}/family-auth/status`);
         if (!response.ok) {
@@ -111,13 +126,10 @@ async function ensureSuperFamily() {
             window.location.href = '/family-login.html';
             return false;
         }
-        if (!auth.isSuperFamily) {
-            window.location.href = '/admin.html';
-            return false;
-        }
+        isSuperFamily = Boolean(auth.isSuperFamily);
         return true;
     } catch (error) {
-        window.location.href = '/admin.html';
+        window.location.href = '/family-login.html';
         return false;
     }
 }
@@ -284,7 +296,7 @@ function renderCategoryFilters() {
     }
 
     const categoryItems = getCategoryFilterItems();
-    const manageCategoryButtonHtml = `
+    const manageCategoryButtonHtml = isSuperFamily ? `
         <button
             type="button"
             class="deck-category-filter-btn deck-category-manage-btn"
@@ -297,7 +309,7 @@ function renderCategoryFilters() {
             </span>
             <span class="deck-category-filter-desc">Create and configure deck categories.</span>
         </button>
-    `;
+    ` : '';
 
     if (categoryItems.length === 0) {
         selectedCategoryFilterKey = '';
@@ -518,7 +530,7 @@ function renderDeckLeafRow(deck, labelOverride = '') {
                         ${metaParts.join(' ')}
                         <span class="deck-tree-leaf-actions">
                             ${isSelectedCategoryTypeIV() ? '' : `<button type="button" class="deck-tree-leaf-btn" data-leaf-action="preview" data-deck-id="${deckId}">Preview</button>`}
-                            <button type="button" class="deck-tree-leaf-btn" data-leaf-action="edit" data-deck-id="${deckId}">Edit</button>
+                            ${isSuperFamily ? `<button type="button" class="deck-tree-leaf-btn" data-leaf-action="edit" data-deck-id="${deckId}">Edit</button>` : ''}
                         </span>
                     </span>
                 </div>
@@ -822,7 +834,11 @@ function renderLeafPreviewPills(leafNode, fronts) {
     fronts.forEach((front) => {
         const pill = document.createElement('span');
         pill.className = 'deck-tree-preview-pill';
-        pill.textContent = front;
+        if (hasMathNotation(front)) {
+            pill.innerHTML = renderMathHtml(front);
+        } else {
+            pill.textContent = front;
+        }
         pill.title = front;
         container.appendChild(pill);
     });

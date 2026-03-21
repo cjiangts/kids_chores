@@ -1806,7 +1806,8 @@ async function loadFamilyRole() {
         familyAdminCard.classList.toggle('hidden', !isSuperFamily);
     }
     if (familyManageDeckLink) {
-        familyManageDeckLink.classList.toggle('hidden', !isSuperFamily);
+        familyManageDeckLink.classList.remove('hidden');
+        familyManageDeckLink.textContent = isSuperFamily ? '🗂️ Manage Decks' : '🗂️ View Decks';
     }
     resetBadgeArtStudioState();
     badgeArtStudioCanEdit = isSuperFamily;

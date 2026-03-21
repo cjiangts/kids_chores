@@ -2582,17 +2582,21 @@ def build_chinese_auto_back_text(text, generated_pinyin=None):
 
 @kids_bp.route('/shared-decks/categories', methods=['GET'])
 def list_shared_deck_categories():
-    """Return all deck categories for shared deck creation."""
+    """Return all deck categories."""
     try:
-        auth_err = require_super_family()
-        if auth_err:
-            return auth_err
+        family_id = current_family_id()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
+        is_super = metadata.is_super_family(family_id)
 
         conn = get_shared_decks_connection(read_only=True)
         try:
             categories = get_shared_deck_categories(conn)
         finally:
             conn.close()
+
+        if not is_super:
+            categories = [c for c in categories if c.get('is_shared_with_non_super_family')]
 
         return jsonify({'categories': categories}), 200
     except Exception as e:
@@ -3168,16 +3172,12 @@ def shared_deck_tags():
 
 @kids_bp.route('/shared-decks/mine', methods=['GET'])
 def list_my_shared_decks():
-    """List shared decks created by the currently authenticated family."""
+    """List shared decks visible to the currently authenticated family."""
     try:
-        auth_err = require_super_family()
-        if auth_err:
-            return auth_err
         family_id = current_family_id()
-        try:
-            family_id_int = int(family_id)
-        except (TypeError, ValueError):
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
+        is_super = metadata.is_super_family(family_id)
 
         conn = get_shared_decks_connection(read_only=True)
         try:
@@ -3187,6 +3187,12 @@ def list_my_shared_decks():
                 if has_cell_design
                 else "FALSE AS has_print_cell_design"
             )
+            if is_super:
+                where_clause = "WHERE d.creator_family_id = ?"
+                params = [int(family_id)]
+            else:
+                where_clause = ""
+                params = []
             rows = conn.execute(
                 f"""
                 SELECT
@@ -3204,18 +3210,29 @@ def list_my_shared_decks():
                 FROM deck d
                 LEFT JOIN cards c ON c.deck_id = d.deck_id
                 LEFT JOIN deck_generator_definition dgd ON dgd.deck_id = d.deck_id
-                WHERE d.creator_family_id = ?
+                {where_clause}
                 GROUP BY d.deck_id, d.name, d.tags, d.creator_family_id, d.created_at, dgd.print_cell_design_json
                 ORDER BY d.created_at DESC, d.deck_id DESC
                 """,
-                [family_id_int]
+                params
             ).fetchall()
+
+            shared_category_keys = set()
+            if not is_super:
+                cat_rows = conn.execute(
+                    "SELECT category_key FROM deck_category WHERE is_shared_with_non_super_family = TRUE"
+                ).fetchall()
+                shared_category_keys = {str(r[0]).strip().lower() for r in cat_rows}
         finally:
             conn.close()
 
         decks = []
         for row in rows:
             tags, tag_labels = extract_shared_deck_tags_and_labels(row[2])
+            if not is_super:
+                first_tag = normalize_shared_deck_tag(tags[0]) if tags else ''
+                if first_tag not in shared_category_keys:
+                    continue
             deck_entry = {
                 'deck_id': int(row[0]),
                 'name': str(row[1]),
@@ -3236,20 +3253,18 @@ def list_my_shared_decks():
 
 @kids_bp.route('/shared-decks/<int:deck_id>', methods=['GET'])
 def get_shared_deck_details(deck_id):
-    """Return one owned shared deck and cards for view/edit UI."""
+    """Return one shared deck and cards for view UI."""
     try:
-        auth_err = require_super_family()
-        if auth_err:
-            return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id = current_family_id()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
 
         conn = get_shared_decks_connection(read_only=True)
         try:
-            deck_row = get_shared_deck_owned_by_family(conn, deck_id, family_id_int)
+            deck_row = conn.execute(
+                "SELECT deck_id, name, tags, creator_family_id, created_at FROM deck WHERE deck_id = ?",
+                [deck_id],
+            ).fetchone()
             if not deck_row:
                 return jsonify({'error': 'Deck not found'}), 404
             behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])

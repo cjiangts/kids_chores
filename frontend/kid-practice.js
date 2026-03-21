@@ -1105,7 +1105,11 @@ function showCurrentQuestion() {
         state.sessionCards.length,
         'Card'
     );
-    cardQuestion.textContent = card.front;
+    if (hasMathNotation(card.front)) {
+        cardQuestion.innerHTML = renderMathHtml(card.front);
+    } else {
+        cardQuestion.textContent = card.front;
+    }
     if (state.hasChineseSpecificLogic) {
         cardAnswer.innerHTML = getChineseType1BackHtml(card.back);
     } else {
@@ -1272,7 +1276,11 @@ function showCurrentType3Card() {
 
     const card = state.sessionCards[state.currentIndex];
     renderPracticeProgress(progress, progressFill, state.currentIndex + 1, state.sessionCards.length, 'Card');
-    cardTitle.textContent = card.front || '';
+    if (hasMathNotation(card.front)) {
+        cardTitle.innerHTML = renderMathHtml(card.front);
+    } else {
+        cardTitle.textContent = card.front || '';
+    }
     cardPage.textContent = card.back || '';
     cardSourceTags.textContent = formatType3SourceTags(card);
 
@@ -1355,9 +1363,13 @@ function showCurrentType4Item() {
             else if (grade === 2) cls = 'prev-answer-half';
             return `<span class="${cls}">${escapeHtml(a)}</span>`;
         }).join(' ');
-        cardQuestion.innerHTML = `${escapeHtml(questionText)}<div class="prev-answers-label">Your previous answers:</div><div class="prev-answers-row">${pills}</div>${legendHtml}`;
+        cardQuestion.innerHTML = `${renderMathHtml(questionText)}<div class="prev-answers-label">Your previous answers:</div><div class="prev-answers-row">${pills}</div>${legendHtml}`;
     } else {
-        cardQuestion.textContent = questionText;
+        if (hasMathNotation(questionText)) {
+            cardQuestion.innerHTML = renderMathHtml(questionText);
+        } else {
+            cardQuestion.textContent = questionText;
+        }
     }
     cardAnswer.textContent = '';
     state.answerRevealed = false;
