@@ -318,14 +318,21 @@
             height: auto;
             padding: 0.7rem 0.8rem;
             text-align: center;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .multi-choice-btn:hover {
-            background: #1f6ce0;
-        }
-
-        .multi-choice-btn:focus {
+        .multi-choice-btn:focus,
+        .multi-choice-btn:active {
+            background: #2d7ef7;
             outline: none;
+            box-shadow: none;
+            transform: none;
+        }
+
+        @media (hover: hover) {
+            .multi-choice-btn:hover {
+                background: #1f6ce0;
+            }
         }
 
         .type4-answer-form {
