@@ -27,9 +27,6 @@ let currentKidName = '';
 let currentCardFront = '';
 let currentCardBack = '';
 let currentDeckName = '';
-let trendAttemptsFull = [];
-let trendResizeRafId = 0;
-
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !cardId) {
         window.location.href = '/admin.html';
@@ -37,7 +34,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     bindBackButton();
-    bindTrendResize();
     await loadCardReport();
 });
 
@@ -97,8 +93,7 @@ async function loadCardReport() {
         document.title = `${kidName} - Card Report - Kids Daily Chores`;
 
         renderSummary(card, summary, attempts);
-        trendAttemptsFull = attempts;
-        renderTrend(trendAttemptsFull);
+        renderTrend(attempts);
         renderHistory(attempts);
         scrollToTargetAttempt();
     } catch (error) {
@@ -154,88 +149,33 @@ function renderTrend(attempts) {
         return;
     }
 
-    const totalCount = attempts.length;
-    const shownAttempts = getTrendVisibleAttempts(attempts);
-    const shownCount = shownAttempts.length;
-    const maxMs = Math.max(...shownAttempts.map((item) => getAttemptDisplayResponseMs(item)), 1);
-    const trendUseMinutesUnit = maxMs >= 60000;
-    const minHeight = 6;
-    const firstVisibleIndex = totalCount - shownCount;
-    const bars = shownAttempts.map((item, index) => {
-        const rawMs = getAttemptDisplayResponseMs(item);
-        const scaled = Math.max(minHeight, Math.round((rawMs / maxMs) * 170));
-        const responseLabel = formatTrendResponseTime(rawMs, trendUseMinutesUnit);
-        const label = `${formatResponseTime(rawMs)} · ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}`;
-        const correctness = resolveCorrectness(item);
-        return `
-            <div class="trend-col">
-                <div class="trend-value">${escapeHtml(responseLabel)}</div>
-                <div class="trend-bar ${correctness}" title="${escapeHtml(`#${firstVisibleIndex + index + 1} ${label}`)}" style="height:${scaled}px"></div>
-            </div>
-        `;
-    }).join('');
-    const windowNote = totalCount > shownCount
-        ? ` Showing latest ${shownCount} of ${totalCount} attempts to fit screen.`
+    const maxMs = Math.max(...attempts.map((item) => getAttemptDisplayResponseMs(item)), 1);
+
+    const legendClasses = new Set(attempts.map((item) => resolveCorrectness(item)));
+    const legendParts = [];
+    if (legendClasses.has('right')) legendParts.push('<span class="trend-legend-dot right"></span> Right');
+    if (legendClasses.has('half')) legendParts.push('<span class="trend-legend-dot half"></span> Half');
+    if (legendClasses.has('fixed')) legendParts.push('<span class="trend-legend-dot fixed"></span> Fixed');
+    if (legendClasses.has('wrong')) legendParts.push('<span class="trend-legend-dot wrong"></span> Wrong');
+    if (legendClasses.has('pending')) legendParts.push('<span class="trend-legend-dot pending"></span> Ungraded');
+    const legendHtml = legendParts.length
+        ? `<div class="trend-legend">${legendParts.join('<span class="trend-legend-sep">·</span>')}</div>`
         : '';
-    const hasFixed = shownAttempts.some((item) => resolveCorrectness(item) === 'fixed');
-    const hasHalf = shownAttempts.some((item) => resolveCorrectness(item) === 'half');
-    const hasPending = shownAttempts.some((item) => resolveCorrectness(item) === 'pending');
-    const legendBits = ['Green = right first try', 'red = wrong'];
-    if (hasFixed) {
-        legendBits.push('yellow = fixed in retry');
-    }
-    if (hasHalf) {
-        legendBits.push('purple = half right');
-    }
-    if (hasPending) {
-        legendBits.push('gray = ungraded');
-    }
 
-    trendChart.innerHTML = `
-        <div class="trend-bars">${bars}</div>
-        <div class="chart-legend">Each bar is one attempt in time order. Height = average response time. ${legendBits.join(', ')}.${windowNote}</div>
-    `;
-}
+    const bars = attempts.map((item, index) => {
+        const rawMs = getAttemptDisplayResponseMs(item);
+        const pct = Math.max(1, (rawMs / maxMs) * 100).toFixed(1);
+        const correctness = resolveCorrectness(item);
+        const timeLabel = formatTrendResponseTime(rawMs, maxMs >= 60000);
+        const title = `#${index + 1} · ${formatResponseTime(rawMs)} · ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}`;
+        return `<div class="trend-bar-row" title="${escapeHtml(title)}">
+            <div class="trend-bar-label">#${index + 1}</div>
+            <div class="trend-bar-track"><div class="trend-bar-fill ${correctness}" style="width:${pct}%"></div></div>
+            <div class="trend-bar-time">${escapeHtml(timeLabel)}</div>
+        </div>`;
+    }).join('');
 
-function getTrendVisibleAttempts(attempts) {
-    const list = Array.isArray(attempts) ? attempts : [];
-    if (list.length <= 1) {
-        return list;
-    }
-    const containerWidth = Math.max(
-        Number(trendChart?.clientWidth || 0),
-        Number(trendChart?.getBoundingClientRect?.().width || 0)
-    );
-    if (!Number.isFinite(containerWidth) || containerWidth <= 120) {
-        return list;
-    }
-    const colWidthPx = 29;
-    const colGapPx = 3;
-    const innerPaddingPx = 14; // 6px + 6px horizontal padding + borders
-    const availableWidth = Math.max(0, containerWidth - innerPaddingPx);
-    const maxVisible = Math.max(
-        6,
-        Math.floor((availableWidth + colGapPx) / (colWidthPx + colGapPx))
-    );
-    if (list.length <= maxVisible) {
-        return list;
-    }
-    return list.slice(list.length - maxVisible);
-}
-
-function bindTrendResize() {
-    window.addEventListener('resize', () => {
-        if (!trendAttemptsFull.length) {
-            return;
-        }
-        if (trendResizeRafId) {
-            window.cancelAnimationFrame(trendResizeRafId);
-        }
-        trendResizeRafId = window.requestAnimationFrame(() => {
-            trendResizeRafId = 0;
-            renderTrend(trendAttemptsFull);
-        });
-    });
+    trendChart.innerHTML = `${legendHtml}${bars}`;
 }
 
 function formatTrendResponseTime(ms, useMinutesUnit) {
