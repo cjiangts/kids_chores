@@ -6,25 +6,35 @@ function escapeHtml(text) {
 
 /**
  * Render text with math notation support via KaTeX.
- * Converts sqrt(x) to \sqrt{x} LaTeX and renders via KaTeX.
- * Falls back to plain √x if KaTeX is not loaded.
+ * Converts sqrt(x) to \sqrt{x} and x^y to x^{y} LaTeX, then renders via KaTeX.
+ * Falls back to plain text if KaTeX is not loaded.
  */
 function renderMathHtml(text) {
     const raw = String(text ?? '');
     if (!raw) return '';
     if (!hasMathNotation(raw)) return escapeHtml(raw);
-    const latex = raw.replace(/sqrt\(([^)]+)\)/gi, (_match, inner) => `\\sqrt{${inner}}`);
+    let latex = raw.replace(/sqrt\(([^)]+)\)/gi, (_match, inner) => `\\sqrt{${inner}}`);
+    latex = latex.replace(/\^(\([^)]+\)|\d+|[a-zA-Z])/g, (_match, exp) => {
+        const inner = exp.startsWith('(') && exp.endsWith(')') ? exp.slice(1, -1) : exp;
+        return `^{${inner}}`;
+    });
     if (typeof katex !== 'undefined') {
         try {
             return katex.renderToString(latex, { throwOnError: false, displayMode: false });
         } catch (_e) { /* fall through */ }
     }
     const escaped = escapeHtml(raw);
-    return escaped.replace(/sqrt\(([^)]+)\)/gi, (_match, inner) => `√${inner}`);
+    return escaped
+        .replace(/sqrt\(([^)]+)\)/gi, (_match, inner) => `√${inner}`)
+        .replace(/\^(\([^)]+\)|\d+|[a-zA-Z])/g, (_match, exp) => {
+            const inner = exp.startsWith('(') && exp.endsWith(')') ? exp.slice(1, -1) : exp;
+            return `<sup>${escapeHtml(inner)}</sup>`;
+        });
 }
 
 function hasMathNotation(text) {
-    return /sqrt\(/i.test(String(text ?? ''));
+    const s = String(text ?? '');
+    return /sqrt\(/i.test(s) || /\^(\(|\d|[a-zA-Z])/.test(s);
 }
 
 (function loadKaTeX() {
