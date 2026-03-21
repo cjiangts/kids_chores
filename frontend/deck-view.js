@@ -45,6 +45,7 @@ const renameTagsContainer = document.getElementById('renameTagsContainer');
 const renameDeckNamePreview = document.getElementById('renameDeckNamePreview');
 const renameNameStatus = document.getElementById('renameNameStatus');
 const renameTagsError = document.getElementById('renameTagsError');
+const deckEditHelp = document.getElementById('deckEditHelp');
 const deckCategoryCommon = window.DeckCategoryCommon;
 const chineseCardBackCommon = window.ChineseCardBackCommon || null;
 
@@ -401,6 +402,12 @@ function renderDeck(payload) {
         staticDeckEditor.classList.toggle('hidden', isTypeIV);
     }
     if (!isTypeIV && cardsInput) {
+        if (isChineseType1Deck()) {
+            if (deckEditHelp) {
+                deckEditHelp.innerHTML = 'Enter characters separated by spaces. Multi-character input like 你好 is auto-split. Backs are auto-generated.';
+            }
+            cardsInput.placeholder = '眼 睛 上 下';
+        }
         cardsInput.value = cardsToCsv(cards);
         syncPreviewCsvBtnState();
         syncApplyCsvBtn();
@@ -484,9 +491,20 @@ function updateCloneDeckButton(deck, isTypeIV) {
 function parseCardsCsvInput(rawText) {
     const lines = String(rawText || '').split(/\r\n|\r|\n/);
     const cards = [];
+    const chineseMode = isChineseType1Deck();
     lines.forEach((line, index) => {
         const text = String(line || '').trim();
         if (!text) {
+            return;
+        }
+        if (chineseMode) {
+            const tokens = text.split(/\s+/);
+            tokens.forEach((tok) => {
+                const chars = Array.from(tok);
+                chars.forEach((ch) => {
+                    if (ch) cards.push({ front: ch, back: '' });
+                });
+            });
             return;
         }
         const commaIndex = text.indexOf(',');
@@ -501,12 +519,17 @@ function parseCardsCsvInput(rawText) {
         cards.push({ front, back });
     });
     if (cards.length === 0) {
-        throw new Error('No cards parsed. Paste at least one "front,back" line.');
+        throw new Error(chineseMode
+            ? 'No characters found. Enter characters separated by spaces.'
+            : 'No cards parsed. Paste at least one "front,back" line.');
     }
     return cards;
 }
 
 function cardsToCsv(cards) {
+    if (isChineseType1Deck()) {
+        return cards.map((c) => String(c.front || '').trim()).join(' ');
+    }
     return cards.map((c) => `${String(c.front || '').trim()},${String(c.back || '').trim()}`).join('\n');
 }
 
@@ -584,6 +607,7 @@ function previewCsvChanges() {
     }
 
     const isTypeII = String(currentDeck && currentDeck.behavior_type || '').trim().toLowerCase() === 'type_ii';
+    const chineseMode = isChineseType1Deck();
     const keyField = isTypeII ? 'back' : 'front';
     const valueField = isTypeII ? 'front' : 'back';
 
@@ -603,7 +627,7 @@ function previewCsvChanges() {
         const old = oldByKey.get(k);
         if (!old) {
             diffRows.push({ front: card.front, back: card.back, _diffStatus: 'added' });
-        } else if (String(old[valueField] || '') !== String(card[valueField] || '')) {
+        } else if (!chineseMode && String(old[valueField] || '') !== String(card[valueField] || '')) {
             diffRows.push({ front: card.front, back: card.back, _diffStatus: 'updated' });
         } else {
             diffRows.push({ front: card.front, back: card.back, _diffStatus: '' });

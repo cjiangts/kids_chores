@@ -871,7 +871,7 @@ def build_shared_deck_tags(first_tag, extra_tags, allowed_first_tags, *, include
     return tags
 
 
-def normalize_shared_deck_cards(cards):
+def normalize_shared_deck_cards(cards, allow_empty_back=False):
     """Validate and normalize incoming cards payload to front/back pairs."""
     if not isinstance(cards, list) or len(cards) == 0:
         raise ValueError('cards must be a non-empty array')
@@ -884,7 +884,9 @@ def normalize_shared_deck_cards(cards):
             raise ValueError(f'cards[{index}] must be an object')
         front = str(item.get('front') or '').strip()
         back = str(item.get('back') or '').strip()
-        if not front or not back:
+        if not front:
+            raise ValueError(f'cards[{index}] requires non-empty front')
+        if not back and not allow_empty_back:
             raise ValueError(f'cards[{index}] requires non-empty front and back')
         normalized.append({'front': front, 'back': back})
     return normalized
@@ -1779,6 +1781,22 @@ def get_shared_deck_behavior_type_from_raw_tags(conn, raw_tags):
         [first_tag],
     ).fetchone()
     return normalize_shared_deck_category_behavior(row[0] if row else '')
+
+
+def is_shared_deck_chinese_type_i(conn, raw_tags):
+    """Check if a shared deck is a Chinese type-I deck (auto-generates backs)."""
+    tags = extract_shared_deck_tags_and_labels(raw_tags)[0]
+    first_tag = normalize_shared_deck_tag(tags[0]) if tags else ''
+    if not first_tag:
+        return False
+    row = conn.execute(
+        "SELECT behavior_type, has_chinese_specific_logic FROM deck_category WHERE category_key = ? LIMIT 1",
+        [first_tag],
+    ).fetchone()
+    if not row:
+        return False
+    behavior = normalize_shared_deck_category_behavior(row[0])
+    return behavior == DECK_CATEGORY_BEHAVIOR_TYPE_I and bool(row[1])
 
 
 def get_shared_deck_cards(conn, deck_id):
@@ -3268,6 +3286,7 @@ def get_shared_deck_details(deck_id):
             if not deck_row:
                 return jsonify({'error': 'Deck not found'}), 404
             behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
+            chinese_type_i = is_shared_deck_chinese_type_i(conn, deck_row[2])
             cards = get_shared_deck_cards(conn, deck_id)
             generator_definition = (
                 get_shared_deck_generator_definition(conn, deck_id)
@@ -3286,6 +3305,7 @@ def get_shared_deck_details(deck_id):
                 'creator_family_id': int(deck_row[3]),
                 'created_at': deck_row[4].isoformat() if deck_row[4] else None,
                 'behavior_type': behavior_type,
+                'has_chinese_specific_logic': chinese_type_i,
             },
             'card_count': len(cards),
             'cards': cards,
@@ -3904,8 +3924,14 @@ def replace_shared_deck_cards(deck_id):
             if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
                 return jsonify({'error': 'type_iv decks are immutable and do not support card edits'}), 400
 
+            chinese_type_i = is_shared_deck_chinese_type_i(conn, deck_row[2])
             payload = request.get_json(silent=True) or {}
-            new_cards = normalize_shared_deck_cards(payload.get('cards'))
+            new_cards = normalize_shared_deck_cards(payload.get('cards'), allow_empty_back=chinese_type_i)
+
+            if chinese_type_i:
+                for card in new_cards:
+                    if not card['back']:
+                        card['back'] = build_chinese_auto_back_text(card['front'])
 
             dedupe_key = get_shared_deck_dedupe_key(conn, deck_row[2])
             new_cards = (
