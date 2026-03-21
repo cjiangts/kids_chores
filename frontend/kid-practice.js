@@ -2654,6 +2654,9 @@ function bindEventHandlers() {
                 return;
             }
             event.preventDefault();
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
             if (isType(BEHAVIOR_TYPE_IV)) {
                 answerType4MultipleChoice(target.getAttribute('data-choice-index'));
                 return;

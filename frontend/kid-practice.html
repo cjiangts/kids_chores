@@ -324,6 +324,10 @@
             background: #1f6ce0;
         }
 
+        .multi-choice-btn:focus {
+            outline: none;
+        }
+
         .type4-answer-form {
             display: flex;
             align-items: center;
@@ -582,7 +586,7 @@
                         <div id="judgeModeRow" class="practice-mode-row hidden">
                             <span class="practice-mode-label">Choose Practice Mode</span>
                             <div id="judgeModeToggleStart" class="practice-mode-picker" aria-label="Practice mode">
-                                <button type="button" class="practice-mode-option active" data-judge-mode="self" aria-pressed="true">
+                                <button type="button" class="practice-mode-option" data-judge-mode="self" aria-pressed="false">
                                     <span class="practice-mode-option-title">Kid Self</span>
                                     <span class="practice-mode-option-desc">Kid reveals answer, then taps Right or Wrong.</span>
                                 </button>
