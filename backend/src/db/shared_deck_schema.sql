@@ -35,3 +35,12 @@ CREATE TABLE IF NOT EXISTS deck_generator_definition (
 );
 
 CREATE INDEX IF NOT EXISTS idx_cards_deck_id_front ON cards(deck_id, front);
+
+CREATE TABLE IF NOT EXISTS chinese_character_bank (
+  character VARCHAR PRIMARY KEY,
+  pinyin VARCHAR NOT NULL,
+  en VARCHAR NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  verified BOOLEAN NOT NULL DEFAULT FALSE,
+  last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

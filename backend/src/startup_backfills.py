@@ -1,10 +1,16 @@
 """Startup data cleanups for existing local kid DBs."""
+import json
+import os
+import re
 from pathlib import Path
 
 from src.db import kid_db
+from src.db.shared_deck_db import get_shared_decks_connection
 
 LEGACY_MATH_PRACTICE_SHEETS_TABLE = 'math_practice_sheets'
 STARTUP_CLEANUP_SQL_FILE = Path(__file__).resolve().parent / 'db' / 'startup_cleanup.sql'
+CHINESE_MEANINGS_JSON = Path(__file__).resolve().parent / 'resources' / 'chinese_character_meanings.json'
+SINGLE_CHINESE_CHAR_RE = re.compile(r'^[\u3400-\u9FFF\uF900-\uFAFF]$')
 
 
 def _iter_kid_db_paths():
@@ -140,3 +146,124 @@ def run_kid_db_startup_cleanup_sql(logger):
             'Errors while executing kid DB startup cleanup SQL: %s',
             '; '.join(errors),
         )
+
+
+def _populate_chinese_character_bank(conn, logger):
+    """Populate chinese_character_bank from JSON meanings + pypinyin."""
+    try:
+        with open(CHINESE_MEANINGS_JSON, 'r', encoding='utf-8') as f:
+            meanings = json.load(f)
+    except Exception as exc:
+        logger.error('Failed to load chinese_character_meanings.json: %s', exc)
+        return
+
+    try:
+        from pypinyin import pinyin, Style
+        from pypinyin_dict.phrase_pinyin_data import cc_cedict
+        from pypinyin_dict.pinyin_data import kxhc1983
+        cc_cedict.load()
+        kxhc1983.load()
+    except Exception as exc:
+        logger.error('pypinyin not available for character bank population: %s', exc)
+        return
+
+    rows = []
+    for char, en in meanings.items():
+        char = char.strip()
+        en = en.strip()
+        if not char or not en:
+            continue
+        readings = pinyin(
+            char,
+            style=Style.TONE,
+            heteronym=True,
+            neutral_tone_with_five=True,
+            strict=False,
+            errors='default',
+        )
+        first_group = readings[0] if readings else []
+        seen = set()
+        ordered = []
+        for item in first_group:
+            syllable = str(item or '').strip()
+            if syllable and syllable not in seen:
+                ordered.append(syllable)
+                seen.add(syllable)
+        pinyin_str = ' / '.join(ordered) if ordered else ''
+        if not pinyin_str:
+            continue
+        rows.append((char, pinyin_str, en))
+
+    conn.executemany(
+        "INSERT INTO chinese_character_bank (character, pinyin, en) VALUES (?, ?, ?)",
+        rows,
+    )
+    logger.info('Populated chinese_character_bank with %s characters from JSON + pypinyin.', len(rows))
+
+
+def ensure_chinese_character_bank(logger):
+    """Ensure chinese_character_bank table exists, populate if new, then update used column."""
+    conn = get_shared_decks_connection()
+    try:
+        # Check if table exists
+        exists = conn.execute("""
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'main' AND table_name = 'chinese_character_bank'
+            LIMIT 1
+        """).fetchone()
+
+        if not exists:
+            conn.execute("""
+                CREATE TABLE chinese_character_bank (
+                    character VARCHAR PRIMARY KEY,
+                    pinyin VARCHAR NOT NULL,
+                    en VARCHAR NOT NULL,
+                    used BOOLEAN NOT NULL DEFAULT FALSE,
+                    verified BOOLEAN NOT NULL DEFAULT FALSE,
+                    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            logger.info('Created chinese_character_bank table.')
+            _populate_chinese_character_bank(conn, logger)
+
+        # Collect all used Chinese characters from shared deck cards
+        used_chars = set()
+        shared_fronts = conn.execute("SELECT DISTINCT front FROM cards").fetchall()
+        for row in shared_fronts:
+            front = str(row[0] or '').strip()
+            if SINGLE_CHINESE_CHAR_RE.fullmatch(front):
+                used_chars.add(front)
+
+        # Collect from all kid DBs
+        for db_path in _iter_kid_db_paths() or []:
+            kid_conn = None
+            try:
+                kid_conn = kid_db.duckdb.connect(str(db_path), read_only=True)
+                kid_fronts = kid_conn.execute("SELECT DISTINCT front FROM cards").fetchall()
+                for row in kid_fronts:
+                    front = str(row[0] or '').strip()
+                    if SINGLE_CHINESE_CHAR_RE.fullmatch(front):
+                        used_chars.add(front)
+            except Exception as exc:
+                logger.warning('Failed to read cards from %s: %s', db_path, exc)
+            finally:
+                if kid_conn is not None:
+                    kid_conn.close()
+
+        # Reset all to unused, then mark used ones
+        conn.execute("UPDATE chinese_character_bank SET used = FALSE")
+        if used_chars:
+            placeholders = ', '.join(['?'] * len(used_chars))
+            conn.execute(
+                f"UPDATE chinese_character_bank SET used = TRUE, last_updated = CURRENT_TIMESTAMP WHERE character IN ({placeholders})",
+                list(used_chars),
+            )
+
+        total = conn.execute("SELECT COUNT(*) FROM chinese_character_bank").fetchone()[0]
+        used_count = conn.execute("SELECT COUNT(*) FROM chinese_character_bank WHERE used = TRUE").fetchone()[0]
+        logger.info(
+            'Chinese character bank: %s total, %s used across shared and kid DBs.',
+            total, used_count,
+        )
+    finally:
+        conn.close()

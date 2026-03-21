@@ -25,6 +25,7 @@ from src.startup_backfills import (
     ensure_kid_db_schema,
     drop_legacy_math_practice_sheets_tables,
     run_kid_db_startup_cleanup_sql,
+    ensure_chinese_character_bank,
 )
 from src.security_rate_limit import (
     LOGIN_RATE_LIMITER,
@@ -63,6 +64,7 @@ def create_app():
     ensure_kid_db_schema(app.logger)
     drop_legacy_math_practice_sheets_tables(app.logger)
     run_kid_db_startup_cleanup_sql(app.logger)
+    ensure_chinese_character_bank(app.logger)
 
     def is_family_authenticated():
         return bool(session.get('family_id'))

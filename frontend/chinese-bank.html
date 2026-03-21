@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Chinese Bank - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .bank-stats {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        .bank-stats span {
+            background: #f0f2f5;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .bank-filters {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+
+        .bank-filters input[type="text"] {
+            flex: 1;
+            min-width: 160px;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .bank-filter-group {
+            display: inline-flex;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .bank-filter-group button {
+            padding: 0.35rem 0.6rem;
+            border: none;
+            background: #fff;
+            font-size: 0.82rem;
+            cursor: pointer;
+            color: #555;
+            border-right: 1px solid #ccc;
+        }
+
+        .bank-filter-group button:last-child {
+            border-right: none;
+        }
+
+        .bank-filter-group button.active {
+            background: #4a90d9;
+            color: #fff;
+        }
+
+        .bank-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .bank-table th,
+        .bank-table td {
+            border: 1px solid #e0e0e0;
+            padding: 0.3rem 0.45rem;
+            text-align: left;
+        }
+
+        .bank-table th {
+            background: #f5f7fb;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .bank-table td:first-child {
+            font-size: 1.3rem;
+            text-align: center;
+            width: 2.5rem;
+        }
+
+        .bank-table .pinyin-cell { min-width: 70px; }
+        .bank-table .en-cell { min-width: 100px; }
+
+        .bank-table .en-cell input,
+        .bank-table .pinyin-cell input {
+            width: 100%;
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 0.15rem 0.25rem;
+            font-size: 0.82rem;
+            border-radius: 4px;
+        }
+
+        .bank-table .en-cell input:focus,
+        .bank-table .pinyin-cell input:focus {
+            border-color: #4a90d9;
+            background: #fff;
+            outline: none;
+        }
+
+        .bank-table .edited input {
+            border-color: #e8a735;
+            background: #fffdf0;
+        }
+
+        .bank-pagination {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: center;
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .bank-pagination button {
+            padding: 0.25rem 0.6rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .bank-pagination button:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        .bank-save-bar {
+            position: sticky;
+            bottom: 0;
+            background: #fff;
+            border-top: 1px solid #e0e0e0;
+            padding: 0.4rem 0.75rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: flex-end;
+            z-index: 2;
+        }
+
+        .bank-save-bar.hidden {
+            display: none;
+        }
+
+        .error-message {
+            color: #c62828;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="manage-page">
+    <div class="container">
+        <header class="page-header-with-back">
+            <div class="page-header-row">
+                <h1>🀄 Manage Chinese Bank</h1>
+                <a href="/parent-settings.html" class="back-btn btn-secondary page-header-back-btn">← Back</a>
+            </div>
+        </header>
+
+        <main>
+            <section class="deck-panel settings-section">
+                <div id="errorMessage" class="error-message"></div>
+
+                <div id="bankStats" class="bank-stats"></div>
+
+                <div class="bank-filters">
+                    <input type="text" id="searchInput" placeholder="Search character, pinyin, or meaning..." />
+                    <div class="bank-filter-group" id="filterVerifiedGroup">
+                        <button type="button" data-value="unverified" class="active">Unverified</button>
+                        <button type="button" data-value="all">All</button>
+                        <button type="button" data-value="verified">Verified</button>
+                    </div>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table class="bank-table">
+                        <thead>
+                            <tr>
+                                <th>Char</th>
+                                <th>Pinyin</th>
+                                <th>English</th>
+                                <th style="width:3.5rem;text-align:center;">✓</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bankTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="bank-pagination">
+                    <button id="prevPageBtn" disabled>← Prev</button>
+                    <span id="pageInfo"></span>
+                    <button id="nextPageBtn">Next →</button>
+                </div>
+
+                <div id="saveBar" class="bank-save-bar hidden">
+                    <span id="pendingCount"></span>
+                    <button type="button" id="saveChangesBtn" class="settings-save-btn">Save Changes</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="chinese-bank.js"></script>
+</body>
+</html>

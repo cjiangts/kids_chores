@@ -14517,3 +14517,120 @@ def complete_type4_practice_session(kid_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ──────────────────────────────────────────────────────────────
+# Chinese Character Bank
+# ──────────────────────────────────────────────────────────────
+
+@kids_bp.route('/chinese-bank', methods=['GET'])
+def get_chinese_bank():
+    """List chinese character bank with pagination, search, and filters."""
+    auth_err = require_super_family()
+    if auth_err:
+        return auth_err
+
+    page = max(1, int(request.args.get('page') or 1))
+    per_page = min(200, max(10, int(request.args.get('perPage') or 50)))
+    search = str(request.args.get('search') or '').strip()
+    filter_used = str(request.args.get('used') or '').strip().lower()
+    filter_verified = str(request.args.get('verified') or '').strip().lower()
+
+    conn = get_shared_decks_connection(read_only=True)
+    try:
+        conditions = []
+        params = []
+
+        if search:
+            conditions.append(
+                "(character = ? OR pinyin ILIKE ? OR en ILIKE ?)"
+            )
+            params.extend([search, f'%{search}%', f'%{search}%'])
+
+        if filter_used == 'used':
+            conditions.append("used = TRUE")
+        elif filter_used == 'unused':
+            conditions.append("used = FALSE")
+
+        if filter_verified == 'verified':
+            conditions.append("verified = TRUE")
+        elif filter_verified == 'unverified':
+            conditions.append("verified = FALSE")
+
+        where = (' WHERE ' + ' AND '.join(conditions)) if conditions else ''
+
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM chinese_character_bank{where}", params
+        ).fetchone()[0]
+
+        offset = (page - 1) * per_page
+        rows = conn.execute(
+            f"SELECT character, pinyin, en, used, verified, last_updated FROM chinese_character_bank{where} ORDER BY used DESC, character ASC LIMIT ? OFFSET ?",
+            params + [per_page, offset],
+        ).fetchall()
+
+        stats = conn.execute("""
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE used) AS used,
+                COUNT(*) FILTER (WHERE verified) AS verified
+            FROM chinese_character_bank
+        """).fetchone()
+
+        return jsonify({
+            'characters': [
+                {
+                    'character': r[0],
+                    'pinyin': r[1],
+                    'en': r[2],
+                    'used': bool(r[3]),
+                    'verified': bool(r[4]),
+                    'lastUpdated': str(r[5] or ''),
+                }
+                for r in rows
+            ],
+            'page': page,
+            'perPage': per_page,
+            'total': total,
+            'stats': {
+                'total': stats[0],
+                'used': stats[1],
+                'verified': stats[2],
+            },
+        })
+    finally:
+        conn.close()
+
+
+@kids_bp.route('/chinese-bank', methods=['PUT'])
+def update_chinese_bank():
+    """Update pinyin, en, and verified for one or more characters."""
+    auth_err = require_super_family()
+    if auth_err:
+        return auth_err
+
+    payload = request.get_json() or {}
+    updates = payload.get('updates')
+    if not isinstance(updates, list) or not updates:
+        return jsonify({'error': 'updates array is required'}), 400
+
+    conn = get_shared_decks_connection()
+    try:
+        updated = 0
+        for item in updates:
+            char = str(item.get('character') or '').strip()
+            if not char:
+                continue
+            pinyin_val = str(item.get('pinyin') or '').strip()
+            en_val = str(item.get('en') or '').strip()
+            verified = bool(item.get('verified'))
+            if not pinyin_val or not en_val:
+                continue
+            conn.execute(
+                "UPDATE chinese_character_bank SET pinyin = ?, en = ?, verified = ?, last_updated = CURRENT_TIMESTAMP WHERE character = ?",
+                [pinyin_val, en_val, verified, char],
+            )
+            updated += 1
+        return jsonify({'updated': updated})
+    finally:
+        conn.close()

@@ -1809,6 +1809,10 @@ async function loadFamilyRole() {
         familyManageDeckLink.classList.remove('hidden');
         familyManageDeckLink.textContent = isSuperFamily ? '🗂️ Manage Decks' : '🗂️ View Decks';
     }
+    const chineseBankLink = document.getElementById('familyManageChineseBankLink');
+    if (chineseBankLink) {
+        chineseBankLink.classList.toggle('hidden', !isSuperFamily);
+    }
     resetBadgeArtStudioState();
     badgeArtStudioCanEdit = isSuperFamily;
     syncBadgeArtStudioModeCopy();
