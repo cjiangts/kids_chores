@@ -589,6 +589,24 @@ function applyReadyRetryState(payload) {
     state.readyIsRetrySession = Boolean(payload?.is_retry_session);
     state.readyRetrySourceSessionId = Number.parseInt(payload?.retry_source_session_id, 10) || null;
     state.readyRetryCardCount = Math.max(0, Number.parseInt(payload?.retry_card_count, 10) || 0);
+
+    const sourcePracticeMode = String(payload?.source_practice_mode || '').trim().toLowerCase();
+    if ((state.readyIsContinueSession || state.readyIsRetrySession) && sourcePracticeMode && sourcePracticeMode !== 'na') {
+        applyServerPracticeMode(sourcePracticeMode);
+    }
+}
+
+function applyServerPracticeMode(serverMode) {
+    const mode = String(serverMode || '').trim().toLowerCase();
+    if (!mode || mode === 'na') return;
+    if (!window.PracticeJudgeMode) return;
+    const normalized = window.PracticeJudgeMode.normalizeMode(mode);
+    if (normalized === state.judgeMode) return;
+    state.judgeMode = normalized;
+    const storageKey = isType(BEHAVIOR_TYPE_IV) ? TYPE4_MODE_STORAGE_KEY : JUDGE_MODE_STORAGE_KEY;
+    window.PracticeJudgeMode.saveMode(storageKey, normalized);
+    syncJudgeModeToggles();
+    applyJudgeModeUi();
 }
 
 async function loadType1ReadyState() {
@@ -850,6 +868,12 @@ function resetToStartScreen(totalCards = 0) {
         initJudgeMode();
         applyJudgeModeUi();
     }
+    const lockModeToggle = (state.readyIsContinueSession || state.readyIsRetrySession) && judgeModeToggleStart;
+    if (lockModeToggle) {
+        judgeModeToggleStart.querySelectorAll('button').forEach((btn) => { btn.disabled = true; });
+    } else if (judgeModeToggleStart) {
+        judgeModeToggleStart.querySelectorAll('button').forEach((btn) => { btn.disabled = false; });
+    }
 
     updateFinishEarlyButtonState();
 }
@@ -924,8 +948,9 @@ async function startType1Session() {
         showError('');
         const started = await window.PracticeSessionFlow.startShuffledSession(
             buildType1ApiUrl('practice/start'),
-            {}
+            { practiceMode: state.judgeMode || 'self' }
         );
+        applyServerPracticeMode(started?.data?.practice_mode);
         state.activePendingSessionId = started.pendingSessionId;
         state.activeIsRetrySession = Boolean(started?.data?.is_retry_session);
         state.sessionCards = started.cards;
@@ -964,8 +989,9 @@ async function startType2Session() {
         primeAudioForAutoplay();
         const started = await window.PracticeSessionFlow.startShuffledSession(
             buildType2ApiUrl('/practice/start'),
-            { categoryKey: state.categoryKey }
+            { categoryKey: state.categoryKey, practiceMode: state.judgeMode || 'self' }
         );
+        applyServerPracticeMode(started?.data?.practice_mode);
         state.activePendingSessionId = started.pendingSessionId;
         state.activeIsRetrySession = Boolean(started?.data?.is_retry_session);
         state.sessionCards = started.cards;
@@ -1051,6 +1077,7 @@ async function startType4Session() {
                 practiceMode,
             }
         );
+        applyServerPracticeMode(started?.data?.practice_mode);
         state.activePendingSessionId = started.pendingSessionId;
         state.activeIsRetrySession = Boolean(started?.data?.is_retry_session);
         state.sessionCards = started.cards;

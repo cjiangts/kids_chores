@@ -109,6 +109,9 @@ CREATE TABLE IF NOT EXISTS deck_category_opt_in (
   include_orphan BOOLEAN NOT NULL DEFAULT TRUE
 );
 
+ALTER TABLE sessions
+ADD COLUMN IF NOT EXISTS practice_mode VARCHAR DEFAULT 'na';
+
 -- Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_type_completed ON sessions(type, completed_at);

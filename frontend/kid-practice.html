@@ -176,9 +176,14 @@
             transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
         }
 
-        .practice-mode-option:hover {
+        .practice-mode-option:hover:not(:disabled) {
             border-color: #4f83ff;
             transform: translateY(-1px);
+        }
+
+        .practice-mode-option:disabled {
+            opacity: 0.4;
+            cursor: default;
         }
 
         .practice-mode-option.active {

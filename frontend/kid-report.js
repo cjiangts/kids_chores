@@ -128,7 +128,7 @@ function renderTablePage() {
     const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
 
     if (sessions.length === 0 || view.pageItems.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="5" style="color:#666;">No practice sessions yet.</td></tr>`;
+        reportBody.innerHTML = `<tr><td colspan="6" style="color:#666;">No practice sessions yet.</td></tr>`;
         return;
     }
 
@@ -138,6 +138,7 @@ function renderTablePage() {
         <tr>
             <td><a href="${sessionUrl}" class="type-pill-link">${renderType(session.type, session)}</a></td>
             <td>${formatDateTime(session.started_at)}</td>
+            <td>${formatPracticeMode(session.practice_mode)}</td>
             <td>${formatTotalMinutes(session)}</td>
             <td><span style="color:#2e7d32">${safeNum(session.right_count)}</span>${safeNum(session.wrong_count) > 0 ? ` / <span style="color:#c62828">${safeNum(session.wrong_count)}</span>` : ''}</td>
             <td>${safeNum(session.retry_count)}</td>
@@ -428,6 +429,15 @@ function formatRetryMinutes(session) {
 function safeNum(value) {
     const num = Number(value);
     return Number.isFinite(num) ? num : 0;
+}
+
+function formatPracticeMode(mode) {
+    const m = String(mode || '').trim().toLowerCase();
+    if (m === 'self') return 'Self';
+    if (m === 'parent') return 'Parent';
+    if (m === 'multi') return 'Multi';
+    if (m === 'input') return 'Input';
+    return '-';
 }
 
 function parseUtcTimestamp(raw) {

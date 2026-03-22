@@ -5360,7 +5360,8 @@ def get_kid_report(kid_id):
                     COALESCE(a.answer_count, 0) AS answer_count,
                     COALESCE(a.right_count, 0) AS right_count,
                     COALESCE(a.wrong_count, 0) AS wrong_count,
-                    COALESCE(a.total_response_ms, 0) AS total_response_ms
+                    COALESCE(a.total_response_ms, 0) AS total_response_ms,
+                    COALESCE(s.practice_mode, 'na') AS practice_mode
                 FROM sessions s
                 LEFT JOIN session_results_agg a ON a.session_id = s.id
                 ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
@@ -5391,6 +5392,7 @@ def get_kid_report(kid_id):
                 'right_count': int(row[9] or 0),
                 'wrong_count': int(row[10] or 0),
                 'total_response_ms': int(row[11] or 0),
+                'practice_mode': normalize_session_practice_mode(row[12]),
             })
 
         return jsonify({
@@ -6616,6 +6618,7 @@ def build_special_session_ready_payload(
             missing_count,
             excluded_card_ids=list(excluded_set),
         )
+        source_practice_mode = get_session_practice_mode(conn, continue_source_session['session_id'])
         return {
             'is_continue_session': True,
             'continue_source_session_id': int(continue_source_session['session_id']),
@@ -6623,15 +6626,19 @@ def build_special_session_ready_payload(
             'is_retry_session': False,
             'retry_source_session_id': None,
             'retry_card_count': 0,
+            'source_practice_mode': source_practice_mode,
         }
 
     retry_payload = build_retry_ready_payload(conn, kid, category_key, source_by_deck_id)
-    return {
+    result = {
         'is_continue_session': False,
         'continue_source_session_id': None,
         'continue_card_count': 0,
         **retry_payload,
     }
+    if retry_payload.get('is_retry_session') and retry_payload.get('retry_source_session_id'):
+        result['source_practice_mode'] = get_session_practice_mode(conn, retry_payload['retry_source_session_id'])
+    return result
 
 
 def build_retry_selected_cards_for_sources(conn, source_by_deck_id, wrong_card_ids):
@@ -7491,13 +7498,14 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
         right_count = 0
         wrong_count = 0
+        session_practice_mode = normalize_session_practice_mode(pending.get('practice_mode'))
         session_id = conn.execute(
             """
-            INSERT INTO sessions (type, planned_count, retry_count, retry_total_response_ms, retry_best_rety_correct_count, started_at, completed_at)
-            VALUES (?, ?, 0, 0, 0, ?, ?)
+            INSERT INTO sessions (type, planned_count, retry_count, retry_total_response_ms, retry_best_rety_correct_count, started_at, completed_at, practice_mode)
+            VALUES (?, ?, 0, 0, 0, ?, ?, ?)
             RETURNING id
             """,
-            [session_type, planned_count, started_at_utc, completed_at_utc]
+            [session_type, planned_count, started_at_utc, completed_at_utc, session_practice_mode]
         ).fetchone()[0]
 
         latest_response_by_card = {}
@@ -9461,6 +9469,29 @@ def build_type_iv_shared_cards_payload(
     }
 
 
+SESSION_PRACTICE_MODE_NA = 'na'
+SESSION_PRACTICE_MODE_VALID = {'self', 'parent', 'multi', 'input', 'na'}
+
+
+def normalize_session_practice_mode(raw_mode):
+    """Normalize a session practice mode string. Returns 'na' for unknown values."""
+    text = str(raw_mode or '').strip().lower()
+    if text in SESSION_PRACTICE_MODE_VALID:
+        return text
+    return SESSION_PRACTICE_MODE_NA
+
+
+def get_session_practice_mode(conn, session_id):
+    """Read practice_mode from an existing session row, defaulting to 'na'."""
+    row = conn.execute(
+        "SELECT practice_mode FROM sessions WHERE id = ? LIMIT 1",
+        [int(session_id)],
+    ).fetchone()
+    if not row:
+        return SESSION_PRACTICE_MODE_NA
+    return normalize_session_practice_mode(row[0])
+
+
 def normalize_type_iv_practice_mode(raw_mode):
     """Normalize generator practice mode to input or multi."""
     text = str(raw_mode or '').strip().lower()
@@ -9908,6 +9939,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
             int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
         )
         continue_counts = build_type_iv_continue_count_by_source_key(practice_sources, missing_count)
+        source_practice_mode = get_session_practice_mode(conn, continue_source_session['session_id'])
         return {
             'is_continue_session': True,
             'continue_source_session_id': int(continue_source_session['session_id']),
@@ -9915,6 +9947,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
             'is_retry_session': False,
             'retry_source_session_id': None,
             'retry_card_count': 0,
+            'source_practice_mode': source_practice_mode,
         }
 
     retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
@@ -9933,6 +9966,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
         retry_source_session['session_id'],
         [source.get('representative_card_id') for source in list(practice_sources or [])],
     )
+    source_practice_mode = get_session_practice_mode(conn, retry_source_session['session_id'])
     return {
         'is_continue_session': False,
         'continue_source_session_id': None,
@@ -9940,6 +9974,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
         'is_retry_session': True,
         'retry_source_session_id': int(retry_source_session['session_id']),
         'retry_card_count': len(retry_rows),
+        'source_practice_mode': source_practice_mode,
     }
 
 
@@ -10356,13 +10391,14 @@ def complete_type_iv_session_internal(
         right_count = 0
         wrong_count = 0
         partial_count = 0
+        session_practice_mode = normalize_session_practice_mode(pending.get('practice_mode'))
         session_id = conn.execute(
             """
-            INSERT INTO sessions (type, planned_count, retry_count, retry_total_response_ms, retry_best_rety_correct_count, started_at, completed_at)
-            VALUES (?, ?, 0, 0, 0, ?, ?)
+            INSERT INTO sessions (type, planned_count, retry_count, retry_total_response_ms, retry_best_rety_correct_count, started_at, completed_at, practice_mode)
+            VALUES (?, ?, 0, 0, 0, ?, ?, ?)
             RETURNING id
             """,
-            [session_type, planned_count, started_at_utc, completed_at_utc]
+            [session_type, planned_count, started_at_utc, completed_at_utc, session_practice_mode]
         ).fetchone()[0]
 
         for answer in normalized_answers:
@@ -10566,6 +10602,8 @@ def start_type_i_practice_session_internal(
                 if is_retry_session and retry_source_session is not None
                 else None
             )
+            extras_mode = (pending_session_payload_extras or {}).get('practice_mode') if isinstance(pending_session_payload_extras, dict) else None
+            payload['practice_mode'] = normalize_session_practice_mode(extras_mode)
             return payload, 200
 
         multiple_choice_pool_cards = []
@@ -10601,6 +10639,16 @@ def start_type_i_practice_session_internal(
         if isinstance(pending_session_payload_extras, dict):
             pending_session_payload.update(pending_session_payload_extras)
 
+        source_session_id = None
+        if is_continue_session and continue_source_session is not None:
+            source_session_id = int(continue_source_session['session_id'])
+        elif is_retry_session and retry_source_session is not None:
+            source_session_id = int(retry_source_session['session_id'])
+        if source_session_id is not None:
+            pending_session_payload['practice_mode'] = get_session_practice_mode(conn, source_session_id)
+
+        resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
+
         pending_session_id = create_pending_session(
             kid_id,
             category_key,
@@ -10613,6 +10661,7 @@ def start_type_i_practice_session_internal(
         'pending_session_id': pending_session_id,
         'planned_count': len(selected_cards),
         'cards': selected_cards,
+        'practice_mode': resolved_practice_mode,
         'is_continue_session': bool(is_continue_session),
         'continue_source_session_id': (
             int(continue_source_session['session_id'])
@@ -13886,6 +13935,7 @@ def start_writing_practice_session(kid_id):
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
         )
+        practice_mode = normalize_session_practice_mode(payload.get('practiceMode'))
         conn = get_kid_connection_for(kid)
         source_decks = get_shared_type_ii_merged_source_decks_for_kid(
             conn,
@@ -13959,6 +14009,7 @@ def start_writing_practice_session(kid_id):
                         'pending_session_id': None,
                         'cards': [],
                         'planned_count': 0,
+                        'practice_mode': practice_mode,
                         'is_continue_session': False,
                         'continue_source_session_id': None,
                         'is_retry_session': False,
@@ -13994,6 +14045,7 @@ def start_writing_practice_session(kid_id):
                 'pending_session_id': None,
                 'cards': [],
                 'planned_count': 0,
+                'practice_mode': practice_mode,
                 'is_continue_session': bool(is_continue_session),
                 'continue_source_session_id': (
                     int(continue_source_session['session_id'])
@@ -14012,11 +14064,23 @@ def start_writing_practice_session(kid_id):
             'kind': category_key,
             'planned_count': len(selected_cards),
             'cards': [{'id': int(card['id'])} for card in selected_cards],
+            'practice_mode': practice_mode,
         }
         if is_continue_session and continue_source_session is not None:
             pending_session_payload[PENDING_CONTINUE_SOURCE_SESSION_ID_KEY] = int(continue_source_session['session_id'])
         if is_retry_session and retry_source_session is not None:
             pending_session_payload[PENDING_RETRY_SOURCE_SESSION_ID_KEY] = int(retry_source_session['session_id'])
+
+        source_session_id = None
+        if is_continue_session and continue_source_session is not None:
+            source_session_id = int(continue_source_session['session_id'])
+        elif is_retry_session and retry_source_session is not None:
+            source_session_id = int(retry_source_session['session_id'])
+        if source_session_id is not None:
+            pending_session_payload['practice_mode'] = get_session_practice_mode(conn, source_session_id)
+
+        resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
+
         pending_session_id = create_pending_session(
             kid_id,
             category_key,
@@ -14045,6 +14109,7 @@ def start_writing_practice_session(kid_id):
             'pending_session_id': pending_session_id,
             'planned_count': len(cards_with_audio),
             'cards': cards_with_audio,
+            'practice_mode': resolved_practice_mode,
             'is_continue_session': bool(is_continue_session),
             'continue_source_session_id': (
                 int(continue_source_session['session_id'])
@@ -14076,11 +14141,13 @@ def start_type1_practice_session(kid_id):
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
         )
+        practice_mode = normalize_session_practice_mode(payload.get('practiceMode'))
         response_payload, status_code = start_type_i_practice_session_internal(
             kid_id,
             kid,
             category_key,
             include_multiple_choice_pool_cards=True,
+            pending_session_payload_extras={'practice_mode': practice_mode},
         )
         return jsonify(response_payload), status_code
     except ValueError as e:
@@ -14213,6 +14280,17 @@ def start_type4_practice_session(kid_id):
                 pending_session_payload[PENDING_CONTINUE_SOURCE_SESSION_ID_KEY] = int(continue_source_session['session_id'])
             if is_retry_session and retry_source_session is not None:
                 pending_session_payload[PENDING_RETRY_SOURCE_SESSION_ID_KEY] = int(retry_source_session['session_id'])
+
+            source_session_id = None
+            if is_continue_session and continue_source_session is not None:
+                source_session_id = int(continue_source_session['session_id'])
+            elif is_retry_session and retry_source_session is not None:
+                source_session_id = int(retry_source_session['session_id'])
+            if source_session_id is not None:
+                pending_session_payload['practice_mode'] = get_session_practice_mode(conn, source_session_id)
+
+            resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
+
             pending_session_id = create_pending_session(
                 kid_id,
                 category_key,
@@ -14226,7 +14304,7 @@ def start_type4_practice_session(kid_id):
             'pending_session_id': pending_session_id,
             'planned_count': len(response_cards),
             'cards': response_cards,
-            'practice_mode': practice_mode,
+            'practice_mode': resolved_practice_mode,
             'is_continue_session': bool(is_continue_session),
             'continue_source_session_id': (
                 int(continue_source_session['session_id'])
