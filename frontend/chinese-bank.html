@@ -226,6 +226,31 @@
             display: none;
         }
 
+        .csv-editor-section {
+            margin-bottom: 0.75rem;
+        }
+
+        .csv-editor-textarea {
+            width: 100%;
+            min-height: 200px;
+            max-height: 500px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem;
+            border: 1px solid #bbc2cc;
+            border-radius: 6px;
+            background: #fff;
+            resize: vertical;
+            tab-size: 16;
+            box-sizing: border-box;
+        }
+
+        .csv-editor-textarea:focus {
+            border-color: #4a90d9;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(74,144,217,0.15);
+        }
+
         .error-message {
             color: #c62828;
             font-size: 0.85rem;
@@ -259,6 +284,15 @@
                         <button type="button" data-value="all">All</button>
                         <button type="button" data-value="verified">Verified</button>
                     </div>
+                </div>
+
+                <div class="csv-editor-section">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+                        <button type="button" id="csvToggleBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;">Show CSV</button>
+                        <button type="button" id="csvPreviewBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;display:none;">Preview</button>
+                        <button type="button" id="csvClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;display:none;">Clear Changes</button>
+                    </div>
+                    <textarea id="csvEditor" class="csv-editor-textarea" style="display:none;" spellcheck="false" placeholder="Char,Pinyin,English"></textarea>
                 </div>
 
                 <div style="overflow-x:auto;">

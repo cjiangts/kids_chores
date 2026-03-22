@@ -15,6 +15,10 @@ const errorMessage = document.getElementById('errorMessage');
 const refreshUsedBtn = document.getElementById('refreshUsedBtn');
 const forceSyncBtn = document.getElementById('forceSyncBtn');
 const sortUpdatedTh = document.getElementById('sortUpdatedTh');
+const csvToggleBtn = document.getElementById('csvToggleBtn');
+const csvPreviewBtn = document.getElementById('csvPreviewBtn');
+const csvEditor = document.getElementById('csvEditor');
+const csvClearBtn = document.getElementById('csvClearBtn');
 
 let currentPage = 1;
 const perPage = 50;
@@ -22,6 +26,8 @@ let totalCount = 0;
 const pendingEdits = new Map(); // character -> { pinyin, en, verified }
 let debounceTimer = null;
 let sortUpdated = ''; // '', 'asc', 'desc'
+let currentPageChars = []; // store current page data for CSV export
+let csvVisible = false;
 
 function showError(msg) {
     errorMessage.textContent = msg || '';
@@ -67,9 +73,11 @@ async function loadPage() {
         }
         const data = await res.json();
         totalCount = data.total;
+        currentPageChars = data.characters;
         renderStats(data.stats);
         renderTable(data.characters);
         renderPagination();
+        if (csvVisible) populateCsv();
     } catch (err) {
         showError(err.message || 'Failed to load');
     }
@@ -89,13 +97,14 @@ function renderTable(characters) {
         const pinyinVal = edited ? edited.pinyin : c.pinyin;
         const enVal = edited ? edited.en : c.en;
         const isVerified = edited ? edited.verified : c.verified;
-        const editedClass = edited ? ' edited' : '';
+        const pinyinEdited = edited && edited.pinyin !== c.pinyin ? ' edited' : '';
+        const enEdited = edited && edited.en !== c.en ? ' edited' : '';
         return `<tr data-char="${escapeHtml(c.character)}" data-original-verified="${c.verified}">
             <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" data-field="verified">${escapeHtml(c.character)}</td>
-            <td class="pinyin-cell${editedClass}">
+            <td class="pinyin-cell${pinyinEdited}">
                 <input type="text" value="${escapeHtml(pinyinVal)}" data-field="pinyin" data-original="${escapeHtml(c.pinyin)}" />
             </td>
-            <td class="en-cell${editedClass}">
+            <td class="en-cell${enEdited}">
                 <input type="text" value="${escapeHtml(enVal)}" data-field="en" data-original="${escapeHtml(c.en)}" />
             </td>
             <td style="text-align:center;">${c.used ? '✓' : ''}</td>
@@ -302,6 +311,68 @@ refreshUsedBtn.addEventListener('click', async () => {
         refreshUsedBtn.disabled = false;
         refreshUsedBtn.textContent = 'Refresh Used';
     }
+});
+
+// CSV editor
+function populateCsv() {
+    const lines = currentPageChars.map((c) => {
+        const edited = pendingEdits.get(c.character);
+        const pinyin = edited ? edited.pinyin : c.pinyin;
+        const en = edited ? edited.en : c.en;
+        return `${c.character},${pinyin},${en}`;
+    });
+    csvEditor.value = lines.join('\n');
+}
+
+function applyCsvPreview() {
+    const lines = csvEditor.value.split('\n').filter((l) => l.trim());
+    const originalByChar = {};
+    for (const c of currentPageChars) {
+        originalByChar[c.character] = c;
+    }
+
+    for (const line of lines) {
+        const parts = line.split(',');
+        if (parts.length < 3) continue;
+        const char = parts[0].trim();
+        const pinyin = parts[1].trim();
+        const en = parts[2].trim();
+        const orig = originalByChar[char];
+        if (!orig) continue;
+
+        const existing = pendingEdits.get(char) || {};
+        existing.pinyin = pinyin;
+        existing.en = en;
+        existing.verified = true;
+        if (pinyin === orig.pinyin && en === orig.en && orig.verified === true) {
+            pendingEdits.delete(char);
+        } else {
+            pendingEdits.set(char, existing);
+        }
+    }
+
+    renderTable(currentPageChars);
+    updateSaveBar();
+}
+
+csvToggleBtn.addEventListener('click', () => {
+    csvVisible = !csvVisible;
+    csvEditor.style.display = csvVisible ? '' : 'none';
+    csvPreviewBtn.style.display = csvVisible ? '' : 'none';
+    csvClearBtn.style.display = csvVisible ? '' : 'none';
+    csvToggleBtn.textContent = csvVisible ? 'Hide CSV' : 'Show CSV';
+    if (csvVisible) populateCsv();
+});
+
+csvPreviewBtn.addEventListener('click', () => {
+    applyCsvPreview();
+});
+
+csvClearBtn.addEventListener('click', () => {
+    pendingEdits.clear();
+    populateCsv();
+    renderTable(currentPageChars);
+    updateSaveBar();
 });
 
 forceSyncBtn.addEventListener('click', async () => {
