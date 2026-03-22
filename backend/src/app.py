@@ -370,6 +370,24 @@ def create_app():
             except Exception:
                 return 0
 
+        def _latest_mtime(root_dir):
+            """Return the most recent file mtime under root_dir as ISO string, or None."""
+            if not os.path.isdir(root_dir):
+                return None
+            latest = 0
+            for current_root, _, names in os.walk(root_dir):
+                for name in names:
+                    try:
+                        mt = os.path.getmtime(os.path.join(current_root, name))
+                        if mt > latest:
+                            latest = mt
+                    except Exception:
+                        pass
+            if latest <= 0:
+                return None
+            from datetime import datetime, timezone
+            return datetime.fromtimestamp(latest, tz=timezone.utc).isoformat()
+
         def _scan_audio_stats(root_dir):
             stats = {
                 'audioFileCount': 0,
@@ -442,6 +460,7 @@ def create_app():
             family_audio_stats = _scan_audio_stats(family_root)
             kid_db_total_bytes = int(kid_db_total_bytes_by_family_id.get(family_id, 0))
             audio_total_bytes = int(family_audio_stats.get('audioTotalBytes', 0))
+            last_active = _latest_mtime(family_root)
             families.append({
                 'id': family_id,
                 'username': str(family.get('username') or ''),
@@ -455,6 +474,7 @@ def create_app():
                 'lessonReadingAudioFileCount': int(family_audio_stats.get('lessonReadingAudioFileCount', 0)),
                 'lessonReadingAudioTotalBytes': int(family_audio_stats.get('lessonReadingAudioTotalBytes', 0)),
                 'familyStorageTotalBytes': kid_db_total_bytes + audio_total_bytes,
+                'lastActive': last_active,
                 'isCurrent': is_current,
                 'canDelete': (not is_current) and (not is_super),
             })

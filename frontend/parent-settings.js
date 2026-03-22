@@ -1938,6 +1938,10 @@ function renderFamilyAccounts(families, sharedStorage) {
             : (kidDbTotalBytes + audioTotalBytes);
         const kidDbLine = `Kid DB: ${kidDbFileCount} file(s), ${formatBytes(kidDbTotalBytes)}`;
         const audioLine = `Audio: ${audioFileCount} file(s), ${formatBytes(audioTotalBytes)}`;
+        const lastActiveRaw = String(family.lastActive || '').trim();
+        const lastActiveLine = lastActiveRaw
+            ? `Last active: ${new Date(lastActiveRaw).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })} ${new Date(lastActiveRaw).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
+            : 'Last active: unknown';
         const canDelete = Boolean(family.canDelete);
         const deleteButton = canDelete
             ? `<button type="button" class="btn-secondary" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}">Delete</button>`
@@ -1956,6 +1960,7 @@ function renderFamilyAccounts(families, sharedStorage) {
                             <div class="settings-note">Family total storage: ${formatBytes(familyStorageTotalBytes)}</div>
                             <div class="settings-note">${kidDbLine}</div>
                             <div class="settings-note">${audioLine}</div>
+                            <div class="settings-note">${lastActiveLine}</div>
                         </div>
                     </div>
                     <div class="family-account-card-action">${deleteButton}</div>
