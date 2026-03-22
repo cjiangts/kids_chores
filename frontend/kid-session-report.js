@@ -31,6 +31,7 @@ let currentSessionCategoryDisplayName = '';
 let currentSessionHasChineseSpecificLogic = false;
 let currentSessionRetryCount = 0;
 let liveDurationBackfillBound = false;
+let currentAnswers = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !sessionId) {
@@ -95,6 +96,7 @@ async function loadSessionDetail() {
         document.title = `${kidName} - Session #${session.id || sessionId} - Kids Daily Chores`;
 
         const answers = Array.isArray(data.answers) ? data.answers : [];
+        currentAnswers = answers;
         renderSummary(session, answers);
         renderAnswerSections(answers);
     } catch (error) {
@@ -490,14 +492,22 @@ document.addEventListener('click', async (event) => {
                 item.insertAdjacentHTML('beforeend', replacement);
             }
             const bar = item.querySelector('.answer-bar-fill');
+            const score = Number.isFinite(Number(saved?.correct_score))
+                ? Number(saved.correct_score)
+                : (saved?.grade_status === 'pass' ? 1 : (saved?.grade_status === 'fail' ? -1 : 0));
             if (bar) {
-                const score = Number.isFinite(Number(saved?.correct_score))
-                    ? Number(saved.correct_score)
-                    : (saved?.grade_status === 'pass' ? 1 : (saved?.grade_status === 'fail' ? -1 : 0));
                 const nextClass = getAnswerBarClassByScore(score);
                 bar.classList.remove('right', 'wrong', 'fixed', 'half', 'pending');
                 bar.classList.add(nextClass);
             }
+
+            // Update stored answer and re-render response time chart
+            const answerEntry = currentAnswers.find((a) => a.result_id === resultId);
+            if (answerEntry) {
+                answerEntry.correct_score = score;
+                answerEntry.grade_status = saved.grade_status;
+            }
+            renderResponseTimeChart(currentAnswers);
         }
     } catch (error) {
         console.error('Error saving grade:', error);
