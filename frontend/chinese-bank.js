@@ -28,6 +28,19 @@ let debounceTimer = null;
 let sortUpdated = ''; // '', 'asc', 'desc'
 let currentPageChars = []; // store current page data for CSV export
 let csvVisible = false;
+let isSuper = false;
+
+function applySuperVisibility() {
+    const superOnly = [refreshUsedBtn, forceSyncBtn, csvToggleBtn, saveBar];
+    for (const el of superOnly) {
+        if (el) el.style.display = isSuper ? '' : 'none';
+    }
+    if (!isSuper) {
+        const h1 = document.querySelector('h1');
+        if (h1) h1.textContent = '📕 View Chinese Dictionary';
+        document.title = 'View Chinese Dictionary - Kids Daily Chores';
+    }
+}
 
 function showError(msg) {
     errorMessage.textContent = msg || '';
@@ -74,6 +87,10 @@ async function loadPage() {
         const data = await res.json();
         totalCount = data.total;
         currentPageChars = data.characters;
+        if (data.isSuper !== undefined) {
+            isSuper = data.isSuper;
+            applySuperVisibility();
+        }
         renderStats(data.stats);
         renderTable(data.characters);
         renderPagination();
@@ -99,6 +116,15 @@ function renderTable(characters) {
         const isVerified = edited ? edited.verified : c.verified;
         const pinyinEdited = edited && edited.pinyin !== c.pinyin ? ' edited' : '';
         const enEdited = edited && edited.en !== c.en ? ' edited' : '';
+        if (!isSuper) {
+            return `<tr>
+                <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" style="cursor:default;">${escapeHtml(c.character)}</td>
+                <td class="pinyin-cell">${escapeHtml(pinyinVal)}</td>
+                <td class="en-cell">${escapeHtml(enVal)}</td>
+                <td style="text-align:center;">${c.used ? '✓' : ''}</td>
+                <td class="updated-cell">${formatDate(c.lastUpdated)}</td>
+            </tr>`;
+        }
         return `<tr data-char="${escapeHtml(c.character)}" data-original-verified="${c.verified}">
             <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" data-field="verified">${escapeHtml(c.character)}</td>
             <td class="pinyin-cell${pinyinEdited}">
@@ -215,6 +241,7 @@ bankTableBody.addEventListener('input', (e) => {
 });
 
 bankTableBody.addEventListener('click', (e) => {
+    if (!isSuper) return;
     const cell = e.target.closest('td.char-cell');
     if (!cell) return;
     const tr = cell.closest('tr');

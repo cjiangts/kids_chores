@@ -1811,7 +1811,8 @@ async function loadFamilyRole() {
     }
     const chineseBankLink = document.getElementById('familyManageChineseBankLink');
     if (chineseBankLink) {
-        chineseBankLink.classList.toggle('hidden', !isSuperFamily);
+        chineseBankLink.classList.remove('hidden');
+        chineseBankLink.textContent = isSuperFamily ? '📕 Manage Chinese Dictionary' : '📕 View Chinese Dictionary';
     }
     resetBadgeArtStudioState();
     badgeArtStudioCanEdit = isSuperFamily;

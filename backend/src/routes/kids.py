@@ -14532,15 +14532,15 @@ def complete_type4_practice_session(kid_id):
 @kids_bp.route('/chinese-bank', methods=['GET'])
 def get_chinese_bank():
     """List chinese character bank with pagination, search, and filters."""
-    auth_err = require_super_family()
-    if auth_err:
-        return auth_err
+    family_id = current_family_id()
+    if not family_id:
+        return jsonify({'error': 'Family login required'}), 401
+    is_super = is_super_family_id(family_id)
 
     page = max(1, int(request.args.get('page') or 1))
     per_page = min(200, max(10, int(request.args.get('perPage') or 50)))
     search = str(request.args.get('search') or '').strip()
     filter_verified = str(request.args.get('verified') or '').strip().lower()
-    show_all = str(request.args.get('showAll') or '').strip().lower() == 'true'
     sort_param = str(request.args.get('sort') or '').strip().lower()
 
     conn = get_shared_decks_connection(read_only=True)
@@ -14554,14 +14554,11 @@ def get_chinese_bank():
             )
             params.extend([search, f'%{search}%', f'%{search}%'])
 
-        # Default: only show used OR verified, unless showAll
-        if not show_all and not search:
-            conditions.append("(used = TRUE OR verified = TRUE)")
-
         if filter_verified == 'verified':
             conditions.append("verified = TRUE")
         elif filter_verified == 'unverified':
             conditions.append("verified = FALSE")
+            conditions.append("used = TRUE")
 
         where = (' WHERE ' + ' AND '.join(conditions)) if conditions else ''
 
@@ -14605,6 +14602,7 @@ def get_chinese_bank():
             'page': page,
             'perPage': per_page,
             'total': total,
+            'isSuper': is_super,
             'stats': {
                 'total': stats[0],
                 'used': stats[1],

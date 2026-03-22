@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Chinese Bank - Kids Daily Chores</title>
+    <title>Manage Chinese Dictionary - Kids Daily Chores</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -262,7 +262,7 @@
     <div class="container">
         <header class="page-header-with-back">
             <div class="page-header-row">
-                <h1>🀄 Manage Chinese Bank</h1>
+                <h1>📕 Manage Chinese Dictionary</h1>
                 <a href="/parent-settings.html" class="back-btn btn-secondary page-header-back-btn">← Back</a>
             </div>
         </header>
@@ -275,20 +275,26 @@
                     <div id="bankStats" class="bank-stats" style="margin-bottom:0;"></div>
                     <button type="button" id="refreshUsedBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Refresh Used</button>
                     <button type="button" id="forceSyncBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Force Sync Backs</button>
+                    <button type="button" id="csvToggleBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Show CSV</button>
                 </div>
 
                 <div class="bank-filters">
                     <input type="text" id="searchInput" placeholder="Search character, pinyin, or meaning..." />
                     <div class="bank-filter-group" id="filterVerifiedGroup">
-                        <button type="button" data-value="unverified" class="active">Unverified</button>
+                        <button type="button" data-value="unverified" class="active">Used &amp; Unverified</button>
                         <button type="button" data-value="all">All</button>
                         <button type="button" data-value="verified">Verified</button>
                     </div>
                 </div>
 
+                <div class="bank-pagination">
+                    <button id="prevPageBtn" disabled>← Prev</button>
+                    <span id="pageInfo"></span>
+                    <button id="nextPageBtn">Next →</button>
+                </div>
+
                 <div class="csv-editor-section">
                     <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-                        <button type="button" id="csvToggleBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;">Show CSV</button>
                         <button type="button" id="csvPreviewBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;display:none;">Preview</button>
                         <button type="button" id="csvClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;display:none;">Clear Changes</button>
                     </div>
@@ -308,12 +314,6 @@
                         </thead>
                         <tbody id="bankTableBody"></tbody>
                     </table>
-                </div>
-
-                <div class="bank-pagination">
-                    <button id="prevPageBtn" disabled>← Prev</button>
-                    <span id="pageInfo"></span>
-                    <button id="nextPageBtn">Next →</button>
                 </div>
 
                 <div id="saveBar" class="bank-save-bar hidden">
