@@ -131,9 +131,18 @@
             }
         });
 
-        speedBtn.addEventListener('click', () => {
+        speedBtn.addEventListener('click', async () => {
             speedIndex = (speedIndex + 1) % SPEED_OPTIONS.length;
-            applySpeed();
+            if (!audioEl.paused) {
+                const pos = audioEl.currentTime;
+                audioEl.pause();
+                applySpeed();
+                audioEl.currentTime = pos;
+                try { await audioEl.play(); } catch (e) { console.error('Speed change replay failed:', e); }
+            } else {
+                applySpeed();
+            }
+            updateUi();
         });
 
         progress.addEventListener('input', () => {
