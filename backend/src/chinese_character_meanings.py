@@ -1,23 +1,18 @@
-"""Short English gloss lookup for single Chinese characters."""
+"""Short English gloss and pinyin lookup for single Chinese characters.
+
+Looks up from the chinese_character_bank table in the shared decks DB.
+Falls back gracefully if the table doesn't exist yet.
+"""
 
 from __future__ import annotations
 
-import json
-import os
 import re
-import threading
+
+from src.db.shared_deck_db import get_shared_decks_connection
 
 
 ENGLISH_MEANING_MARKER = "\nEN: "
 SINGLE_CHINESE_CHAR_RE = re.compile(r"^[\u3400-\u9FFF\uF900-\uFAFF]$")
-DATA_FILE_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "resources",
-    "chinese_character_meanings.json",
-)
-
-_meaning_by_char = None
-_meaning_lock = threading.Lock()
 
 
 def _normalize_text(value) -> str:
@@ -38,33 +33,39 @@ def compose_chinese_back(pinyin, meaning) -> str:
     return f"{pinyin_text}{ENGLISH_MEANING_MARKER}{meaning_text}"
 
 
-def _load_meaning_by_char() -> dict[str, str]:
-    global _meaning_by_char
-    if isinstance(_meaning_by_char, dict):
-        return _meaning_by_char
-    with _meaning_lock:
-        if isinstance(_meaning_by_char, dict):
-            return _meaning_by_char
+def _lookup_character_bank(char: str) -> dict | None:
+    """Look up a character from chinese_character_bank. Returns {pinyin, en} or None."""
+    try:
+        conn = get_shared_decks_connection(read_only=True)
         try:
-            with open(DATA_FILE_PATH, "r", encoding="utf-8") as handle:
-                loaded = json.load(handle)
-        except FileNotFoundError:
-            loaded = {}
-        except Exception:
-            loaded = {}
-        _meaning_by_char = {
-            _normalize_text(key): _normalize_text(value)
-            for key, value in dict(loaded or {}).items()
-            if _normalize_text(key) and _normalize_text(value)
-        }
-        return _meaning_by_char
+            row = conn.execute(
+                "SELECT pinyin, en FROM chinese_character_bank WHERE character = ?",
+                [char],
+            ).fetchone()
+            if row:
+                return {'pinyin': str(row[0] or '').strip(), 'en': str(row[1] or '').strip()}
+        finally:
+            conn.close()
+    except Exception:
+        pass
+    return None
 
 
 def get_short_chinese_character_meaning(value) -> str:
     text = _normalize_text(value)
     if not is_single_chinese_character(text):
         return ""
-    return str(_load_meaning_by_char().get(text) or "").strip()
+    data = _lookup_character_bank(text)
+    return data['en'] if data and data.get('en') else ""
+
+
+def get_character_bank_pinyin(value) -> str:
+    """Get pinyin from the character bank, or empty string if not found."""
+    text = _normalize_text(value)
+    if not is_single_chinese_character(text):
+        return ""
+    data = _lookup_character_bank(text)
+    return data['pinyin'] if data and data.get('pinyin') else ""
 
 
 def build_single_character_back(front_text, pinyin_text) -> str:

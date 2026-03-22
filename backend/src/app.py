@@ -21,12 +21,7 @@ from src.routes.badges import badges_bp
 from src.routes.backup import backup_bp
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection
-from src.startup_backfills import (
-    ensure_kid_db_schema,
-    drop_legacy_math_practice_sheets_tables,
-    run_kid_db_startup_cleanup_sql,
-    ensure_chinese_character_bank,
-)
+from src.startup_backfills import ensure_kid_db_schema
 from src.security_rate_limit import (
     LOGIN_RATE_LIMITER,
     CRITICAL_PASSWORD_RATE_LIMITER,
@@ -62,9 +57,6 @@ def create_app():
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
     ensure_kid_db_schema(app.logger)
-    drop_legacy_math_practice_sheets_tables(app.logger)
-    run_kid_db_startup_cleanup_sql(app.logger)
-    ensure_chinese_character_bank(app.logger)
 
     def is_family_authenticated():
         return bool(session.get('family_id'))

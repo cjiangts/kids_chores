@@ -12,12 +12,16 @@ const saveBar = document.getElementById('saveBar');
 const pendingCount = document.getElementById('pendingCount');
 const saveChangesBtn = document.getElementById('saveChangesBtn');
 const errorMessage = document.getElementById('errorMessage');
+const refreshUsedBtn = document.getElementById('refreshUsedBtn');
+const forceSyncBtn = document.getElementById('forceSyncBtn');
+const sortUpdatedTh = document.getElementById('sortUpdatedTh');
 
 let currentPage = 1;
 const perPage = 50;
 let totalCount = 0;
 const pendingEdits = new Map(); // character -> { pinyin, en, verified }
 let debounceTimer = null;
+let sortUpdated = ''; // '', 'asc', 'desc'
 
 function showError(msg) {
     errorMessage.textContent = msg || '';
@@ -29,16 +33,26 @@ function escapeHtml(text) {
     return el.innerHTML;
 }
 
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return escapeHtml(dateStr);
+    return d.toLocaleString(undefined, {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+}
+
 async function loadPage() {
     showError('');
     const params = new URLSearchParams({
         page: currentPage,
         perPage,
-        used: 'used',
     });
     const search = searchInput.value.trim();
     if (search) params.set('search', search);
     if (filterVerifiedValue !== 'all') params.set('verified', filterVerifiedValue);
+    if (sortUpdated) params.set('sort', `updated_${sortUpdated}`);
 
     try {
         const res = await fetch(`${API_BASE}/chinese-bank?${params}`);
@@ -76,17 +90,16 @@ function renderTable(characters) {
         const enVal = edited ? edited.en : c.en;
         const isVerified = edited ? edited.verified : c.verified;
         const editedClass = edited ? ' edited' : '';
-        return `<tr data-char="${escapeHtml(c.character)}">
-            <td>${escapeHtml(c.character)}</td>
+        return `<tr data-char="${escapeHtml(c.character)}" data-original-verified="${c.verified}">
+            <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" data-field="verified">${escapeHtml(c.character)}</td>
             <td class="pinyin-cell${editedClass}">
                 <input type="text" value="${escapeHtml(pinyinVal)}" data-field="pinyin" data-original="${escapeHtml(c.pinyin)}" />
             </td>
             <td class="en-cell${editedClass}">
                 <input type="text" value="${escapeHtml(enVal)}" data-field="en" data-original="${escapeHtml(c.en)}" />
             </td>
-            <td style="text-align:center;">
-                <input type="checkbox" data-field="verified" ${isVerified ? 'checked' : ''} data-original="${c.verified}" />
-            </td>
+            <td style="text-align:center;">${c.used ? '✓' : ''}</td>
+            <td class="updated-cell">${formatDate(c.lastUpdated)}</td>
         </tr>`;
     }).join('');
 }
@@ -111,48 +124,37 @@ function handleFieldChange(tr, field, value) {
     const char = tr.dataset.char;
     const existing = pendingEdits.get(char) || {};
 
+    const pinyinInput = tr.querySelector('input[data-field="pinyin"]');
+    const enInput = tr.querySelector('input[data-field="en"]');
+    const pinyinOriginal = pinyinInput.dataset.original;
+    const enOriginal = enInput.dataset.original;
+    const verifiedOriginal = tr.dataset.originalVerified === 'true';
+
     if (field === 'verified') {
-        const originalVerified = tr.querySelector('input[data-field="verified"]').dataset.original === 'true';
         existing.verified = value;
-        // Check if all fields match original
-        const pinyinInput = tr.querySelector('input[data-field="pinyin"]');
-        const enInput = tr.querySelector('input[data-field="en"]');
-        const pinyinOriginal = pinyinInput.dataset.original;
-        const enOriginal = enInput.dataset.original;
-        const currentPinyin = existing.pinyin || pinyinInput.value;
-        const currentEn = existing.en || enInput.value;
-        if (currentPinyin === pinyinOriginal && currentEn === enOriginal && value === originalVerified) {
-            pendingEdits.delete(char);
-        } else {
-            existing.pinyin = currentPinyin;
-            existing.en = currentEn;
-            pendingEdits.set(char, existing);
-        }
+        if (!existing.pinyin) existing.pinyin = pinyinInput.value;
+        if (!existing.en) existing.en = enInput.value;
     } else {
         const input = tr.querySelector(`input[data-field="${field}"]`);
-        const original = input.dataset.original;
         existing[field] = value;
-        // Populate other fields if not set
-        if (!existing.pinyin) existing.pinyin = tr.querySelector('input[data-field="pinyin"]').value;
-        if (!existing.en) existing.en = tr.querySelector('input[data-field="en"]').value;
-        if (existing.verified === undefined) existing.verified = tr.querySelector('input[data-field="verified"]').checked;
-
-        const pinyinOriginal = tr.querySelector('input[data-field="pinyin"]').dataset.original;
-        const enOriginal = tr.querySelector('input[data-field="en"]').dataset.original;
-        const verifiedOriginal = tr.querySelector('input[data-field="verified"]').dataset.original === 'true';
-        if (existing.pinyin === pinyinOriginal && existing.en === enOriginal && existing.verified === verifiedOriginal) {
-            pendingEdits.delete(char);
-        } else {
-            pendingEdits.set(char, existing);
+        if (!existing.pinyin) existing.pinyin = pinyinInput.value;
+        if (!existing.en) existing.en = enInput.value;
+        if (existing.verified === undefined) {
+            existing.verified = tr.querySelector('td.char-cell').classList.contains('verified');
         }
-
         // Visual feedback
         const cell = input.closest('td');
-        if (value !== original) {
+        if (value !== input.dataset.original) {
             cell.classList.add('edited');
         } else {
             cell.classList.remove('edited');
         }
+    }
+
+    if (existing.pinyin === pinyinOriginal && existing.en === enOriginal && existing.verified === verifiedOriginal) {
+        pendingEdits.delete(char);
+    } else {
+        pendingEdits.set(char, existing);
     }
     updateSaveBar();
 }
@@ -203,12 +205,15 @@ bankTableBody.addEventListener('input', (e) => {
     if (tr) handleFieldChange(tr, input.dataset.field, input.value);
 });
 
-bankTableBody.addEventListener('change', (e) => {
-    const input = e.target;
-    if (input.dataset.field === 'verified') {
-        const tr = input.closest('tr');
-        if (tr) handleFieldChange(tr, 'verified', input.checked);
-    }
+bankTableBody.addEventListener('click', (e) => {
+    const cell = e.target.closest('td.char-cell');
+    if (!cell) return;
+    const tr = cell.closest('tr');
+    if (!tr) return;
+    const isNowVerified = cell.classList.contains('unverified');
+    cell.classList.toggle('verified', isNowVerified);
+    cell.classList.toggle('unverified', !isNowVerified);
+    handleFieldChange(tr, 'verified', isNowVerified);
 });
 
 searchInput.addEventListener('input', () => {
@@ -245,6 +250,74 @@ nextPageBtn.addEventListener('click', () => {
 });
 
 saveChangesBtn.addEventListener('click', saveChanges);
+
+function renderSortUpdatedTh() {
+    const arrow = sortUpdated === 'asc' ? '▲' : sortUpdated === 'desc' ? '▼' : '▲▼';
+    sortUpdatedTh.innerHTML = `Updated<span class="sort-arrow">${arrow}</span>`;
+    sortUpdatedTh.classList.toggle('sort-active', sortUpdated !== '');
+}
+
+sortUpdatedTh.addEventListener('click', () => {
+    if (sortUpdated === '') sortUpdated = 'desc';
+    else if (sortUpdated === 'desc') sortUpdated = 'asc';
+    else sortUpdated = '';
+    renderSortUpdatedTh();
+    currentPage = 1;
+    loadPage();
+});
+
+renderSortUpdatedTh();
+
+refreshUsedBtn.addEventListener('click', async () => {
+    showError('');
+    refreshUsedBtn.disabled = true;
+    refreshUsedBtn.textContent = 'Scanning...';
+    try {
+        const res = await fetch(`${API_BASE}/chinese-bank/refresh-used`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showError(data.error || 'Failed to refresh');
+            return;
+        }
+        await loadPage();
+    } catch (err) {
+        showError(err.message || 'Failed to refresh');
+    } finally {
+        refreshUsedBtn.disabled = false;
+        refreshUsedBtn.textContent = 'Refresh Used';
+    }
+});
+
+forceSyncBtn.addEventListener('click', async () => {
+    if (!confirm('Re-generate back text for all cards matching verified bank characters?\nThis will update shared decks and all kid DBs.')) {
+        return;
+    }
+    showError('');
+    forceSyncBtn.disabled = true;
+    forceSyncBtn.textContent = 'Syncing...';
+    try {
+        const res = await fetch(`${API_BASE}/chinese-bank/force-sync-backs`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showError(data.error || 'Failed to sync');
+            return;
+        }
+        const changes = data.changed || [];
+        if (changes.length === 0) {
+            alert(`All ${data.verified_count} verified chars already in sync. Nothing to update.`);
+        } else {
+            const lines = changes.map((c) =>
+                `${c.character}: ${c.shared} shared card${c.shared !== 1 ? 's' : ''}, ${c.kid_dbs} kid DB${c.kid_dbs !== 1 ? 's' : ''}`
+            );
+            alert(`Updated ${changes.length} of ${data.verified_count} verified chars:\n\n${lines.join('\n')}`);
+        }
+    } catch (err) {
+        showError(err.message || 'Failed to sync');
+    } finally {
+        forceSyncBtn.disabled = false;
+        forceSyncBtn.textContent = 'Force Sync Backs';
+    }
+});
 
 // Initial load
 loadPage();

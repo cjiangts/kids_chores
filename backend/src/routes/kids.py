@@ -19,7 +19,7 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.badges.session_sync import sync_badges_after_session_complete
-from src.chinese_character_meanings import build_single_character_back, is_single_chinese_character
+from src.chinese_character_meanings import build_single_character_back, get_character_bank_pinyin, is_single_chinese_character
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.security_rate_limit import (
@@ -2584,18 +2584,21 @@ def ensure_pypinyin_dicts_loaded():
 
 
 def build_chinese_auto_back_text(text, generated_pinyin=None):
-    """Build the stored back text for Chinese auto-population flows."""
+    """Build the stored back text for a single Chinese character.
+
+    Prefers the bank's curated pinyin over pypinyin.
+    Falls back to pypinyin only when the character is not in the bank.
+    """
     normalized = str(text or '').strip()
-    if not normalized:
+    if not normalized or not is_single_chinese_character(normalized):
         return ''
-    pinyin_text = str(
+    bank_pinyin = get_character_bank_pinyin(normalized)
+    pinyin_text = bank_pinyin or str(
         generated_pinyin
         if generated_pinyin is not None
         else build_chinese_pinyin_text(normalized)
     ).strip()
-    if is_single_chinese_character(normalized):
-        return str(build_single_character_back(normalized, pinyin_text) or pinyin_text or normalized).strip()
-    return pinyin_text or normalized
+    return str(build_single_character_back(normalized, pinyin_text) or pinyin_text or normalized).strip()
 
 
 @kids_bp.route('/shared-decks/categories', methods=['GET'])
@@ -2926,7 +2929,10 @@ def shared_deck_chinese_characters_pinyin():
         back_by_text = {}
         for text in texts:
             key = str(text)
-            generated_pinyin = build_chinese_pinyin_text(text)
+            if not is_single_chinese_character(text):
+                continue
+            bank_pinyin = get_character_bank_pinyin(text)
+            generated_pinyin = bank_pinyin or build_chinese_pinyin_text(text)
             pinyin_by_text[key] = generated_pinyin
             back_by_text[key] = build_chinese_auto_back_text(text, generated_pinyin=generated_pinyin)
         return jsonify({
@@ -14533,8 +14539,9 @@ def get_chinese_bank():
     page = max(1, int(request.args.get('page') or 1))
     per_page = min(200, max(10, int(request.args.get('perPage') or 50)))
     search = str(request.args.get('search') or '').strip()
-    filter_used = str(request.args.get('used') or '').strip().lower()
     filter_verified = str(request.args.get('verified') or '').strip().lower()
+    show_all = str(request.args.get('showAll') or '').strip().lower() == 'true'
+    sort_param = str(request.args.get('sort') or '').strip().lower()
 
     conn = get_shared_decks_connection(read_only=True)
     try:
@@ -14547,10 +14554,9 @@ def get_chinese_bank():
             )
             params.extend([search, f'%{search}%', f'%{search}%'])
 
-        if filter_used == 'used':
-            conditions.append("used = TRUE")
-        elif filter_used == 'unused':
-            conditions.append("used = FALSE")
+        # Default: only show used OR verified, unless showAll
+        if not show_all and not search:
+            conditions.append("(used = TRUE OR verified = TRUE)")
 
         if filter_verified == 'verified':
             conditions.append("verified = TRUE")
@@ -14564,8 +14570,15 @@ def get_chinese_bank():
         ).fetchone()[0]
 
         offset = (page - 1) * per_page
+        if sort_param == 'updated_asc':
+            order_by = 'last_updated ASC, character ASC'
+        elif sort_param == 'updated_desc':
+            order_by = 'last_updated DESC, character ASC'
+        else:
+            order_by = 'used DESC, character ASC'
+
         rows = conn.execute(
-            f"SELECT character, pinyin, en, used, verified, last_updated FROM chinese_character_bank{where} ORDER BY used DESC, character ASC LIMIT ? OFFSET ?",
+            f"SELECT character, pinyin, en, used, verified, last_updated FROM chinese_character_bank{where} ORDER BY {order_by} LIMIT ? OFFSET ?",
             params + [per_page, offset],
         ).fetchall()
 
@@ -14634,3 +14647,146 @@ def update_chinese_bank():
         return jsonify({'updated': updated})
     finally:
         conn.close()
+
+
+@kids_bp.route('/chinese-bank/refresh-used', methods=['POST'])
+def refresh_chinese_bank_used():
+    """Sweep all shared and kid DBs to update the used column."""
+    auth_err = require_super_family()
+    if auth_err:
+        return auth_err
+
+    import re
+    from pathlib import Path
+    from src.db import kid_db
+
+    single_char_re = re.compile(r'^[\u3400-\u9FFF\uF900-\uFAFF]$')
+
+    conn = get_shared_decks_connection()
+    try:
+        used_chars = set()
+
+        # Shared deck cards
+        for row in conn.execute("SELECT DISTINCT front FROM cards").fetchall():
+            front = str(row[0] or '').strip()
+            if single_char_re.fullmatch(front):
+                used_chars.add(front)
+
+        # All kid DBs
+        families_root = Path(kid_db.DATA_DIR) / 'families'
+        if families_root.exists():
+            for db_path in sorted(families_root.glob('family_*/kid_*.db')):
+                kid_conn = None
+                try:
+                    kid_conn = kid_db.duckdb.connect(str(db_path), read_only=True)
+                    for row in kid_conn.execute("SELECT DISTINCT front FROM cards").fetchall():
+                        front = str(row[0] or '').strip()
+                        if single_char_re.fullmatch(front):
+                            used_chars.add(front)
+                except Exception:
+                    pass
+                finally:
+                    if kid_conn is not None:
+                        kid_conn.close()
+
+        conn.execute("UPDATE chinese_character_bank SET used = FALSE")
+        if used_chars:
+            placeholders = ', '.join(['?'] * len(used_chars))
+            conn.execute(
+                f"UPDATE chinese_character_bank SET used = TRUE, last_updated = CURRENT_TIMESTAMP WHERE character IN ({placeholders})",
+                list(used_chars),
+            )
+
+        used_count = conn.execute("SELECT COUNT(*) FROM chinese_character_bank WHERE used = TRUE").fetchone()[0]
+        return jsonify({'usedCount': used_count})
+    finally:
+        conn.close()
+
+
+@kids_bp.route('/chinese-bank/force-sync-backs', methods=['POST'])
+def force_sync_chinese_bank_backs():
+    """Re-generate the back text for every card whose front is a verified bank character."""
+    auth_err = require_super_family()
+    if auth_err:
+        return auth_err
+
+    from pathlib import Path
+    from src.db import kid_db
+    from src.chinese_character_meanings import compose_chinese_back
+
+    conn = get_shared_decks_connection(read_only=True)
+    try:
+        verified_rows = conn.execute(
+            "SELECT character, pinyin, en FROM chinese_character_bank WHERE verified = TRUE"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not verified_rows:
+        return jsonify({'updated_shared': 0, 'updated_kids': 0, 'verified_count': 0})
+
+    bank = {r[0]: {'pinyin': str(r[1] or '').strip(), 'en': str(r[2] or '').strip()} for r in verified_rows}
+
+    # Track per-character: {char: {'shared': count, 'kid_dbs': count}}
+    changed = {}
+
+    # Update shared deck cards
+    shared_conn = get_shared_decks_connection()
+    try:
+        for char, data in bank.items():
+            new_back = compose_chinese_back(data['pinyin'], data['en'])
+            if not new_back:
+                continue
+            rows = shared_conn.execute(
+                "SELECT id FROM cards WHERE front = ? AND back IS DISTINCT FROM ?",
+                [char, new_back],
+            ).fetchall()
+            if rows:
+                ids = [r[0] for r in rows]
+                placeholders = ', '.join(['?'] * len(ids))
+                shared_conn.execute(
+                    f"UPDATE cards SET back = ? WHERE id IN ({placeholders})",
+                    [new_back] + ids,
+                )
+                changed.setdefault(char, {'shared': 0, 'kid_dbs': 0})
+                changed[char]['shared'] += len(ids)
+    finally:
+        shared_conn.close()
+
+    # Update all kid DBs
+    families_root = Path(kid_db.DATA_DIR) / 'families'
+    if families_root.exists():
+        for db_path in sorted(families_root.glob('family_*/kid_*.db')):
+            kid_conn = None
+            try:
+                kid_conn = kid_db.duckdb.connect(str(db_path))
+                for char, data in bank.items():
+                    new_back = compose_chinese_back(data['pinyin'], data['en'])
+                    if not new_back:
+                        continue
+                    rows = kid_conn.execute(
+                        "SELECT id FROM cards WHERE front = ? AND back IS DISTINCT FROM ?",
+                        [char, new_back],
+                    ).fetchall()
+                    if rows:
+                        ids = [r[0] for r in rows]
+                        placeholders = ', '.join(['?'] * len(ids))
+                        kid_conn.execute(
+                            f"UPDATE cards SET back = ? WHERE id IN ({placeholders})",
+                            [new_back] + ids,
+                        )
+                        changed.setdefault(char, {'shared': 0, 'kid_dbs': 0})
+                        changed[char]['kid_dbs'] += 1
+            except Exception:
+                pass
+            finally:
+                if kid_conn is not None:
+                    kid_conn.close()
+
+    return jsonify({
+        'verified_count': len(bank),
+        'changed': [
+            {'character': char, 'shared': counts['shared'], 'kid_dbs': counts['kid_dbs']}
+            for char, counts in changed.items()
+        ],
+    })
