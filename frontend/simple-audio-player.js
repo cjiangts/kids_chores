@@ -1,5 +1,6 @@
 (function initSimpleAudioPlayer(global) {
     const SPEED_OPTIONS = [1, 2];
+    const allPlayers = [];
 
     function formatDuration(secondsRaw) {
         const secondsNum = Number(secondsRaw);
@@ -15,6 +16,14 @@
         if (score > 0) return 'right';
         if (score < 0) return 'wrong';
         return 'pending';
+    }
+
+    function pauseAllExcept(audioEl) {
+        allPlayers.forEach((entry) => {
+            if (entry.audio !== audioEl && !entry.audio.paused) {
+                entry.audio.pause();
+            }
+        });
     }
 
     function wrapAudio(audioEl, options = {}) {
@@ -78,6 +87,7 @@
         wrapper.appendChild(timeLabel);
 
         let speedIndex = 0;
+        let playing = false;
         const applySpeed = () => {
             const nextRate = SPEED_OPTIONS[speedIndex];
             audioEl.playbackRate = nextRate;
@@ -100,15 +110,23 @@
         };
 
         playBtn.addEventListener('click', async () => {
+            if (playing) return;
+            playing = true;
             try {
                 if (audioEl.paused) {
+                    if (audioEl.ended) {
+                        audioEl.currentTime = 0;
+                    }
+                    pauseAllExcept(audioEl);
                     await audioEl.play();
+                    applySpeed();
                 } else {
                     audioEl.pause();
                 }
             } catch (error) {
                 console.error('Failed to play audio:', error);
             } finally {
+                playing = false;
                 updateUi();
             }
         });
@@ -129,9 +147,15 @@
         audioEl.addEventListener('timeupdate', updateUi);
         audioEl.addEventListener('loadedmetadata', updateUi);
         audioEl.addEventListener('durationchange', updateUi);
-        audioEl.addEventListener('play', updateUi);
+        audioEl.addEventListener('play', () => {
+            applySpeed();
+            updateUi();
+        });
         audioEl.addEventListener('pause', updateUi);
-        audioEl.addEventListener('ended', updateUi);
+        audioEl.addEventListener('ended', () => {
+            audioEl.currentTime = 0;
+            updateUi();
+        });
 
         const observer = new MutationObserver(() => {
             wrapper.classList.toggle('hidden', audioEl.classList.contains('hidden'));
@@ -139,6 +163,7 @@
         observer.observe(audioEl, { attributes: true, attributeFilter: ['class'] });
 
         audioEl.dataset.simpleAudioWrapped = '1';
+        allPlayers.push({ audio: audioEl });
         applySpeed();
         updateUi();
         return wrapper;
