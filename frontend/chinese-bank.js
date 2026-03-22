@@ -279,6 +279,22 @@ refreshUsedBtn.addEventListener('click', async () => {
             showError(data.error || 'Failed to refresh');
             return;
         }
+        const lines = [];
+        const diff = data.usedCount - data.prevUsedCount;
+        lines.push(`Used: ${data.prevUsedCount} → ${data.usedCount} (${diff >= 0 ? '+' : ''}${diff})`);
+        if (data.insertedChars && data.insertedChars.length > 0) {
+            lines.push(`\nNew to bank (inserted): ${data.insertedChars.join(' ')}`);
+        }
+        if (data.newlyUsed && data.newlyUsed.length > 0) {
+            lines.push(`\nNewly used: ${data.newlyUsed.join(' ')}`);
+        }
+        if (data.newlyUnused && data.newlyUnused.length > 0) {
+            lines.push(`\nNo longer used: ${data.newlyUnused.join(' ')}`);
+        }
+        if (!data.insertedChars?.length && !data.newlyUsed?.length && !data.newlyUnused?.length) {
+            lines.push('\nNo changes.');
+        }
+        alert(lines.join(''));
         await loadPage();
     } catch (err) {
         showError(err.message || 'Failed to refresh');

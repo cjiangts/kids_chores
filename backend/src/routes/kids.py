@@ -14689,6 +14689,35 @@ def refresh_chinese_bank_used():
                     if kid_conn is not None:
                         kid_conn.close()
 
+        # Snapshot before: which chars were used before this refresh
+        prev_used = {
+            r[0]
+            for r in conn.execute(
+                "SELECT character FROM chinese_character_bank WHERE used = TRUE"
+            ).fetchall()
+        }
+        existing_chars = {
+            r[0]
+            for r in conn.execute(
+                "SELECT character FROM chinese_character_bank"
+            ).fetchall()
+        }
+
+        # Insert missing characters into the bank with pypinyin defaults
+        missing_chars = used_chars - existing_chars
+        inserted_chars = []
+        for char in sorted(missing_chars):
+            try:
+                pinyin = build_chinese_pinyin_text(char)
+            except Exception:
+                pinyin = ''
+            conn.execute(
+                "INSERT INTO chinese_character_bank (character, pinyin, en, used, verified, last_updated) VALUES (?, ?, '', TRUE, FALSE, CURRENT_TIMESTAMP)",
+                [char, pinyin],
+            )
+            inserted_chars.append(char)
+
+        # Reset all to unused, then mark used
         conn.execute("UPDATE chinese_character_bank SET used = FALSE")
         if used_chars:
             placeholders = ', '.join(['?'] * len(used_chars))
@@ -14697,8 +14726,21 @@ def refresh_chinese_bank_used():
                 list(used_chars),
             )
 
+        # Compute newly used (was not used before, now is)
+        newly_used = sorted(used_chars - prev_used - missing_chars)
+        # Compute newly unused (was used before, now is not)
+        newly_unused = sorted(prev_used - used_chars)
+
         used_count = conn.execute("SELECT COUNT(*) FROM chinese_character_bank WHERE used = TRUE").fetchone()[0]
-        return jsonify({'usedCount': used_count})
+        prev_used_count = len(prev_used)
+
+        return jsonify({
+            'usedCount': used_count,
+            'prevUsedCount': prev_used_count,
+            'newlyUsed': newly_used,
+            'newlyUnused': newly_unused,
+            'insertedChars': inserted_chars,
+        })
     finally:
         conn.close()
 
