@@ -3717,8 +3717,13 @@ def update_shared_deck_print_cell_design(deck_id):
             return jsonify({'error': 'Invalid family id in session'}), 400
 
         payload = request.get_json(silent=True) or {}
-        cell_design = normalize_type_iv_print_cell_design(payload.get('cellDesign'))
-        design_json = json.dumps(cell_design, ensure_ascii=False, separators=(',', ':'))
+        raw_cell_design = payload.get('cellDesign')
+        if raw_cell_design is None:
+            cell_design = None
+            design_json = None
+        else:
+            cell_design = normalize_type_iv_print_cell_design(raw_cell_design)
+            design_json = json.dumps(cell_design, ensure_ascii=False, separators=(',', ':'))
 
         with _SHARED_DECK_MUTATION_LOCK:
             conn = None

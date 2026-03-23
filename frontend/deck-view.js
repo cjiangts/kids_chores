@@ -18,6 +18,7 @@ const regenType4ExamplesBtn = document.getElementById('regenType4ExamplesBtn');
 const type4PreviewExamples = document.getElementById('type4PreviewExamples');
 const type4ValidateTestContainer = document.getElementById('type4ValidateTestContainer');
 const openType4CellDesignBtn = document.getElementById('openType4CellDesignBtn');
+const clearType4CellDesignBtn = document.getElementById('clearType4CellDesignBtn');
 const type4CellDesignStatusText = document.getElementById('type4CellDesignStatusText');
 const type4CellDesignPreview = document.getElementById('type4CellDesignPreview');
 const type4CardsMultiChoiceHeader = document.getElementById('type4CardsMultiChoiceHeader');
@@ -250,6 +251,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (openType4CellDesignBtn) {
         openType4CellDesignBtn.addEventListener('click', () => {
             void openType4CellDesigner();
+        });
+    }
+    if (clearType4CellDesignBtn) {
+        clearType4CellDesignBtn.addEventListener('click', () => {
+            void clearType4CellDesign();
         });
     }
     document.getElementById('cellDesignSaveBtn')?.addEventListener('click', saveType4CellDesign);
@@ -1486,6 +1492,9 @@ function renderType4CellDesignPanel() {
         openType4CellDesignBtn.classList.toggle('hidden', !isTypeIV);
         openType4CellDesignBtn.textContent = currentType4CellDesign ? 'Redesign Cell' : 'Design Cell';
     }
+    if (clearType4CellDesignBtn) {
+        clearType4CellDesignBtn.classList.toggle('hidden', !isTypeIV || !currentType4CellDesign);
+    }
     if (!type4CellDesignStatusText || !type4CellDesignPreview) return;
     if (!isTypeIV) {
         type4CellDesignStatusText.textContent = '';
@@ -1771,5 +1780,32 @@ async function saveType4CellDesign() {
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = oldText;
+    }
+}
+
+async function clearType4CellDesign() {
+    if (!confirm('Clear the saved printable cell design?')) return;
+    if (!clearType4CellDesignBtn) return;
+    clearType4CellDesignBtn.disabled = true;
+    showError('');
+    showSuccess('');
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/${deckId}/print-cell-design`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cellDesign: null }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to clear cell design (HTTP ${response.status})`);
+        }
+        currentType4CellDesign = null;
+        renderType4CellDesignPanel();
+        showSuccess('Printable cell design cleared.');
+    } catch (error) {
+        console.error('Error clearing type IV cell design:', error);
+        showError(error.message || 'Failed to clear printable cell design.');
+    } finally {
+        clearType4CellDesignBtn.disabled = false;
     }
 }
