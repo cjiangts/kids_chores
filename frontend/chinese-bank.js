@@ -37,8 +37,8 @@ function applySuperVisibility() {
     }
     if (!isSuper) {
         const h1 = document.querySelector('h1');
-        if (h1) h1.textContent = '📕 View Chinese Dictionary';
-        document.title = 'View Chinese Dictionary - Kids Daily Chores';
+        if (h1) h1.textContent = '📕 View Dictionary';
+        document.title = 'View Dictionary - Kids Daily Chores';
     }
 }
 

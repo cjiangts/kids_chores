@@ -1812,7 +1812,7 @@ async function loadFamilyRole() {
     const chineseBankLink = document.getElementById('familyManageChineseBankLink');
     if (chineseBankLink) {
         chineseBankLink.classList.remove('hidden');
-        chineseBankLink.textContent = isSuperFamily ? '📕 Manage Chinese Dictionary' : '📕 View Chinese Dictionary';
+        chineseBankLink.textContent = isSuperFamily ? '📕 Manage Dictionary' : '📕 View Dictionary';
     }
     resetBadgeArtStudioState();
     badgeArtStudioCanEdit = isSuperFamily;
