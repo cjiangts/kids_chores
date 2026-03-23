@@ -198,7 +198,7 @@ body.practice-home-redesign {
 .family-home-page .redesign-kid-name,
 .parent-admin-page .redesign-kid-name {
     margin: 0;
-    color: #2a2f3d;
+    color: #3b4a7a;
     font-size: clamp(1.7rem, 2.4vw, 2.25rem);
     line-height: 1.05;
     font-weight: 850;
@@ -648,14 +648,11 @@ body.practice-home-redesign {
     font-weight: 500;
 }
 
-.parent-admin-page .admin-config-utility .semantic-outline-btn--blue {
-    background: #fff;
-    border-color: #a9c8fb;
-}
-
+.parent-admin-page .admin-config-utility .semantic-outline-btn--blue,
 .parent-admin-page .admin-config-utility .semantic-outline-btn--green {
     background: #fff;
-    border-color: #9dd6aa;
+    color: #667eea;
+    border-color: #d2d9eb;
 }
 
 .parent-admin-page .admin-config-row {
@@ -731,14 +728,10 @@ body.practice-home-redesign {
     transform: translateY(-1px);
 }
 
-.parent-admin-page .admin-config-utility .semantic-outline-btn--blue:hover {
-    background: #f4f8ff;
-    border-color: #7eabf8;
-}
-
+.parent-admin-page .admin-config-utility .semantic-outline-btn--blue:hover,
 .parent-admin-page .admin-config-utility .semantic-outline-btn--green:hover {
-    background: #f3fbf5;
-    border-color: #74c589;
+    background: #f4f6fc;
+    border-color: #b8c4e6;
 }
 
 .parent-admin-page .admin-card-footer {
