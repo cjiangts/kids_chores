@@ -16,9 +16,9 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 0.6rem;
+            gap: 0.1rem;
             flex-wrap: wrap;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.15rem;
         }
 
         .daily-chart-header h2 {
@@ -33,14 +33,16 @@
         .daily-chart-pager {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.45rem;
             flex-wrap: wrap;
+            width: 100%;
         }
 
         .daily-chart-page-label {
             color: #555;
-            font-size: 0.82rem;
-            font-weight: 600;
+            font-size: 0.72rem;
+            font-weight: 500;
             min-width: 140px;
             text-align: center;
         }
@@ -50,8 +52,8 @@
             background: #fff;
             color: #2f3c7e;
             border-radius: 999px;
-            padding: 0.22rem 0.65rem;
-            font-size: 0.8rem;
+            padding: 0.18rem 0.5rem;
+            font-size: 0.72rem;
             cursor: pointer;
         }
 
@@ -66,12 +68,12 @@
             flex-wrap: wrap;
             margin-bottom: 0.6rem;
             color: #555;
-            font-size: 0.82rem;
+            font-size: 0.72rem;
         }
 
         .legend-dot {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             display: inline-block;
             margin-right: 0.35rem;
@@ -79,21 +81,29 @@
 
         .daily-row {
             display: grid;
-            grid-template-columns: 170px minmax(120px, 1fr);
-            gap: 0.45rem;
+            grid-template-columns: 145px minmax(80px, 1fr);
+            gap: 0.35rem;
             align-items: center;
-            margin-bottom: 0.45rem;
+            margin-bottom: 0.35rem;
         }
 
         .daily-date {
             color: #34406f;
-            font-size: 0.84rem;
-            font-weight: 600;
+            font-size: 0.72rem;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            gap: 0.3rem;
+        }
+
+        .daily-mins {
+            color: #888;
+            text-align: right;
         }
 
         .daily-bar-track {
             width: 100%;
-            min-height: 18px;
+            min-height: 14px;
             border-radius: 999px;
             background: #eef2fb;
             overflow: hidden;
@@ -110,8 +120,8 @@
 
         .daily-seg-min {
             color: #fff;
-            font-size: 0.7rem;
-            font-weight: 700;
+            font-size: 0.62rem;
+            font-weight: 500;
             line-height: 1;
             white-space: nowrap;
             padding: 0 0.2rem;
@@ -124,16 +134,15 @@
 
         @media (max-width: 760px) {
             .daily-row {
-                grid-template-columns: 1fr;
                 gap: 0.25rem;
             }
         }
 
         .type-pill {
             border-radius: 999px;
-            padding: 0.15rem 0.55rem;
-            font-size: 0.78rem;
-            font-weight: 700;
+            padding: 0.12rem 0.45rem;
+            font-size: 0.72rem;
+            font-weight: 600;
             display: inline-block;
         }
 
@@ -189,11 +198,11 @@
         }
 
         .shared-report-table th {
-            font-size: 0.78rem;
+            font-size: 0.72rem;
         }
 
         .shared-report-table td {
-            font-size: 0.78rem;
+            font-size: 0.72rem;
         }
 
         .shared-report-table th:first-child,

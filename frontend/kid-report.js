@@ -240,7 +240,7 @@ function renderDailyMinutesChartPage() {
         }).join('');
         return `
             <div class="daily-row">
-                <div class="daily-date">${row.date} · ${row.total.toFixed(1)} min</div>
+                <div class="daily-date"><span>${row.date}</span><span class="daily-mins">${row.total.toFixed(1)} min</span></div>
                 <div class="daily-bar-track">
                     ${segments}
                 </div>
@@ -394,12 +394,16 @@ function renderType(type, session = null) {
 function formatDateTime(iso) {
     const dt = parseUtcTimestamp(iso);
     if (Number.isNaN(dt.getTime())) return '-';
-    const datePart = dt.toLocaleDateString(undefined, {
+    const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: reportTimezone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-    });
+    }).formatToParts(dt);
+    const y = parts.find(p => p.type === 'year')?.value || '';
+    const m = parts.find(p => p.type === 'month')?.value || '';
+    const d = parts.find(p => p.type === 'day')?.value || '';
+    const datePart = `${y}/${m}/${d}`;
     const timePart = dt.toLocaleTimeString(undefined, {
         timeZone: reportTimezone,
         hour: '2-digit',
@@ -407,7 +411,7 @@ function formatDateTime(iso) {
         second: '2-digit',
         hour12: false,
     });
-    return `${datePart}<br>${timePart}`;
+    return `<span style="white-space:nowrap">${datePart}</span><br><span style="white-space:nowrap">${timePart}</span>`;
 }
 
 function formatResponseMinutes(session) {
