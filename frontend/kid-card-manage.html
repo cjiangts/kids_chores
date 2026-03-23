@@ -1554,6 +1554,24 @@
             box-shadow: none;
         }
 
+        .session-mix-summary {
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+        }
+        .session-mix-summary::-webkit-details-marker {
+            display: none;
+        }
+        .session-mix-summary .hardness-slider-title::before {
+            content: '▸';
+            display: inline-block;
+            margin-right: 0.35rem;
+            transition: transform 150ms ease;
+        }
+        .session-mix-details[open] .hardness-slider-title::before {
+            transform: rotate(90deg);
+        }
+
         .manage-page .hardness-slider-head {
             margin-bottom: 0.2rem;
         }
@@ -2259,7 +2277,7 @@
 
             .deck-setup-actions {
                 display: grid;
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr 1fr;
                 gap: 0.5rem;
             }
 
@@ -2367,7 +2385,6 @@
         <div id="successMessage" class="success hidden"></div>
 
         <section class="settings-section settings-main-section">
-            <h2>Settings</h2>
             <div class="settings-overview-row">
                 <div class="deck-setup-summary-grid">
                     <div class="deck-setup-summary-card">
@@ -2399,11 +2416,28 @@
                 </div>
             </div>
             <div id="sessionMixSubgroup" class="settings-subgroup session-mix-subgroup">
-                <div class="hardness-slider-block">
-                    <div class="hardness-slider-head">
-                        <div class="hardness-slider-title">Next Session Mix</div>
+                <form id="sessionSettingsForm" class="queue-settings-form">
+                    <div class="queue-controls-row">
+                        <div class="queue-settings-actions">
+                            <div class="form-group queue-session-count-group">
+                                <label id="sessionCardCountLabel" for="sessionCardCount">Cards/day</label>
+                                <input
+                                    type="number"
+                                    id="sessionCardCount"
+                                    min="0"
+                                    step="1"
+                                    required
+                                >
+                            </div>
+                        </div>
+                        <div class="queue-save-row">
+                            <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn" disabled>Save</button>
+                        </div>
                     </div>
-                    <form id="sessionSettingsForm" class="queue-settings-form">
+                    <details class="hardness-slider-block session-mix-details">
+                        <summary class="hardness-slider-head session-mix-summary">
+                            <span class="hardness-slider-title">Next Session Mix</span>
+                        </summary>
                         <div class="queue-mix-legend" aria-live="polite">
                             <div class="queue-mix-legend-item hard">
                                 <span class="queue-mix-swatch" aria-hidden="true"></span>
@@ -2418,25 +2452,8 @@
                         </div>
                         <input id="hardnessPercentSlider" class="hardness-slider-input mix-split-slider" type="range" min="0" max="100" step="5" value="20" aria-label="Hard cards percentage">
                         <p id="hardnessComputationHint" class="hardness-slider-hint">Set hard vs least-practiced mix.</p>
-                        <div class="queue-controls-row">
-                            <div class="queue-settings-actions">
-                                <div class="form-group queue-session-count-group">
-                                    <label id="sessionCardCountLabel" for="sessionCardCount">Cards/day</label>
-                                    <input
-                                        type="number"
-                                        id="sessionCardCount"
-                                        min="0"
-                                        step="1"
-                                        required
-                                    >
-                                </div>
-                            </div>
-                            <div class="queue-save-row">
-                                <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn" disabled>Save</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+                    </details>
+                </form>
             </div>
         </section>
 
