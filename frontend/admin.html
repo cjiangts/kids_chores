@@ -78,6 +78,94 @@
         </main>
     </div>
 
+    <!-- PWA Install Prompt (iOS Safari only, shown once) -->
+    <div id="pwaInstallOverlay" class="modal hidden">
+        <div class="modal-content pwa-install-modal">
+            <img src="apple-touch-icon.png" alt="" class="pwa-install-icon">
+            <h2>Install App</h2>
+            <p class="pwa-install-desc">Add Kids Daily Chores to your home screen for easy fullscreen access.</p>
+            <p class="pwa-install-step">Press <strong>"Share"</strong> <svg class="pwa-install-share-icon" width="17" height="17" viewBox="0 0 50 50"><path fill="#007AFF" d="M25 1L15 12h7v18h6V12h7L25 1z"/><path fill="#007AFF" d="M10 22v22h30V22h-6v16H16V22h-6z"/></svg> below</p>
+            <p class="pwa-install-step">Then <strong>"Add to Home Screen"</strong> <span class="pwa-install-plus-icon">+</span></p>
+            <button type="button" id="pwaInstallDismiss" class="btn-primary pwa-install-dismiss">Dismiss</button>
+        </div>
+    </div>
+    <style>
+        .pwa-install-modal {
+            text-align: center;
+            max-width: 340px;
+            padding: 1.8rem 1.5rem 1.5rem;
+        }
+        .pwa-install-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+        }
+        .pwa-install-modal h2 {
+            color: #e8437f;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .pwa-install-desc {
+            font-size: 0.95rem;
+            color: #333;
+            line-height: 1.45;
+            margin-bottom: 1rem;
+        }
+        .pwa-install-step {
+            font-size: 0.88rem;
+            color: #444;
+            margin-bottom: 0.5rem;
+        }
+        .pwa-install-share-icon {
+            vertical-align: middle;
+            margin: 0 0.1rem;
+        }
+        .pwa-install-plus-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border: 1.5px solid #333;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            vertical-align: middle;
+            margin-left: 0.15rem;
+        }
+        .pwa-install-dismiss {
+            margin-top: 1rem;
+            width: 100%;
+            max-width: 200px;
+        }
+    </style>
+    <script>
+    (function() {
+        var isIosSafari = /iP(hone|od|ad)/.test(navigator.userAgent) &&
+            /Safari/.test(navigator.userAgent) &&
+            !navigator.standalone;
+        if (!isIosSafari) return;
+        if (localStorage.getItem('pwa-install-dismissed')) return;
+
+        var overlay = document.getElementById('pwaInstallOverlay');
+        var btn = document.getElementById('pwaInstallDismiss');
+        setTimeout(function() {
+            overlay.classList.remove('hidden');
+        }, 2000);
+        btn.addEventListener('click', function() {
+            overlay.classList.add('hidden');
+            localStorage.setItem('pwa-install-dismissed', '1');
+        });
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                overlay.classList.add('hidden');
+                localStorage.setItem('pwa-install-dismissed', '1');
+            }
+        });
+    })();
+    </script>
+
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="admin.js"></script>
