@@ -1023,8 +1023,8 @@ body.practice-home-redesign {
 .practice-home-redesign .redesign-summary-value {
     margin: 0.14rem 0 0;
     color: #233457;
-    font-size: clamp(0.95rem, 1.7vw, 1.1rem);
-    font-weight: 850;
+    font-size: 0.94rem;
+    font-weight: 800;
     line-height: 1;
 }
 

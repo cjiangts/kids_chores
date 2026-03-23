@@ -34,12 +34,12 @@
     align-items: center;
     gap: 6px;
     color: #30446f;
-    font-size: clamp(0.95rem, 1.7vw, 1.1rem);
+    font-size: 0.94rem;
     white-space: nowrap;
 }
 
 .practice-home-redesign .badge-summary-value .badge-summary-count {
-    font-weight: 850;
+    font-weight: 800;
 }
 
 .practice-home-redesign .badge-summary-medal {
