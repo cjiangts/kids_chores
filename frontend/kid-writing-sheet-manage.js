@@ -534,7 +534,7 @@ function applyBuilderPageFrame(pageEl, scale, paperSize = currentMathPaperSize) 
 
 /* ── Vertical cell rendering ── */
 
-const OPERATOR_PATTERN = /^(.+?)\s*([+\-×x*÷\/])\s*(.+?)(?:\s*=\s*[?？_\s]*)?\s*$/;
+const OPERATOR_PATTERN = /^(.+?)\s*([+\-−–×x*÷\/])\s*(.+?)(?:\s*=\s*[?？_\s]*)?\s*$/;
 
 function parseArithmetic(prompt) {
     const m = prompt.match(OPERATOR_PATTERN);
@@ -544,6 +544,7 @@ function parseArithmetic(prompt) {
     const b = m[3].trim();
     if (!a || !b) return null;
     let sign = rawOp;
+    if (rawOp === '-' || rawOp === '−' || rawOp === '–') sign = '−';
     if (rawOp === '*' || rawOp === 'x') sign = '×';
     if (rawOp === '/' || rawOp === '÷') sign = '÷';
     return { a, sign, b };
@@ -555,7 +556,7 @@ function buildVerticalRows(a, b, sign) {
     let gapCh = 1;
     if (sign === '×') {
         gapCh = Math.max(1, topDigits.length);
-    } else if (sign === '+' || sign === '-') {
+    } else if (sign === '+' || sign === '-' || sign === '−' || sign === '–') {
         gapCh = Math.max(1, topDigits.length - bottomDigits.length + 1);
     }
     const rowWidthCh = 1 + gapCh + bottomDigits.length;

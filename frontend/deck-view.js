@@ -1404,7 +1404,7 @@ function normalizeSavedType4CellDesign(raw) {
     };
 }
 
-const TYPE4_CELL_OPERATOR_PATTERN = /^(.+?)\s*([+\-×x*÷\/])\s*(.+?)(?:\s*=\s*[?？_\s]*)?\s*$/;
+const TYPE4_CELL_OPERATOR_PATTERN = /^(.+?)\s*([+\-−–×x*÷\/])\s*(.+?)(?:\s*=\s*[?？_\s]*)?\s*$/;
 
 function parseType4CellArithmetic(prompt) {
     const match = String(prompt || '').match(TYPE4_CELL_OPERATOR_PATTERN);
@@ -1414,6 +1414,7 @@ function parseType4CellArithmetic(prompt) {
     const b = match[3].trim();
     if (!a || !b) return null;
     let sign = rawOp;
+    if (rawOp === '-' || rawOp === '−' || rawOp === '–') sign = '−';
     if (rawOp === '*' || rawOp === 'x') sign = '×';
     if (rawOp === '/' || rawOp === '÷') sign = '÷';
     return { a, sign, b };
@@ -1425,7 +1426,7 @@ function buildType4CellVerticalRows(a, b, sign) {
     let gapCh = 1;
     if (sign === '×') {
         gapCh = Math.max(1, topDigits.length);
-    } else if (sign === '+' || sign === '-') {
+    } else if (sign === '+' || sign === '-' || sign === '−' || sign === '–') {
         gapCh = Math.max(1, topDigits.length - bottomDigits.length + 1);
     }
     return {
