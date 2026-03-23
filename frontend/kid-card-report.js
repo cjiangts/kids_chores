@@ -263,9 +263,9 @@ function renderHistory(attempts) {
                 <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                     <div class="history-head-row">
                         <div class="history-title-stack">
-                            <div class="history-primary">${escapeHtml(prompt)} <span class="history-type4-pill answer-pill">${escapeHtml(answer)}</span></div>
+                            <div class="history-primary">${escapeHtml(prompt)}</div>
                             <div class="history-type4-details">
-                                ${submittedPills}
+                                <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
                             </div>
                         </div>
                         <div class="history-status-side">
@@ -288,11 +288,8 @@ function renderHistory(attempts) {
         return `
             <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                 <div class="history-head-row">
-                    <div class="history-title-stack">
-                        <div class="history-primary">${escapeHtml(formatType(item.session_category_display_name))}</div>
-                        <div class="meta-inline">${escapeHtml(responseTimeLabel)}</div>
-                    </div>
                     <div class="history-status-side">
+                        <span class="history-time-badge">${escapeHtml(responseTimeLabel)}</span>
                         ${retryBadgeHtml}
                         <span class="pill ${statusClass}">${statusText}</span>
                         ${downloadButtonHtml}
