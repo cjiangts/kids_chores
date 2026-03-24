@@ -33,7 +33,7 @@
             display: flex;
             gap: 0.5rem;
             flex-wrap: wrap;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
             align-items: center;
         }
 
@@ -255,6 +255,8 @@
         .error-message {
             color: #c62828;
             font-size: 0.85rem;
+        }
+        .error-message:not(:empty) {
             margin-bottom: 0.5rem;
         }
     </style>
@@ -272,20 +274,20 @@
             <section class="deck-panel settings-section">
                 <div id="errorMessage" class="error-message"></div>
 
-                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
-                    <div id="bankStats" class="bank-stats" style="margin-bottom:0;"></div>
-                    <button type="button" id="refreshUsedBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Refresh Used</button>
-                    <button type="button" id="forceSyncBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Force Sync Backs</button>
-                    <button type="button" id="csvToggleBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Show CSV</button>
-                </div>
-
                 <div class="bank-filters">
                     <input type="text" id="searchInput" placeholder="Search character, pinyin, or meaning..." />
                     <div class="bank-filter-group" id="filterVerifiedGroup">
-                        <button type="button" data-value="unverified" class="active">Used &amp; Unverified</button>
+                        <button type="button" data-value="unverified">Used &amp; Unverified</button>
+                        <button type="button" data-value="used">Used</button>
                         <button type="button" data-value="all">All</button>
-                        <button type="button" data-value="verified">Verified</button>
+                        <button type="button" data-value="verified" class="active">Verified</button>
                     </div>
+                </div>
+
+                <div id="bankAdminActions" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                    <button type="button" id="refreshUsedBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Refresh Used</button>
+                    <button type="button" id="forceSyncBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Force Sync Backs</button>
+                    <button type="button" id="csvToggleBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Show CSV</button>
                 </div>
 
                 <div class="bank-pagination">

@@ -14642,6 +14642,8 @@ def get_chinese_bank():
         elif filter_verified == 'unverified':
             conditions.append("verified = FALSE")
             conditions.append("used = TRUE")
+        elif filter_verified == 'used':
+            conditions.append("used = TRUE")
 
         where = (' WHERE ' + ' AND '.join(conditions)) if conditions else ''
 
@@ -14853,19 +14855,24 @@ def force_sync_chinese_bank_backs():
     # Track per-character: {char: {'shared': count, 'kid_dbs': count}}
     changed = {}
 
-    # Update shared deck cards
+    # Update shared deck cards (skip writing decks — their back must stay as-is)
     shared_conn = get_shared_decks_connection()
     try:
+        writing_deck_ids = {
+            r[0] for r in shared_conn.execute(
+                "SELECT deck_id FROM deck WHERE list_contains(tags, 'chinese_writing')"
+            ).fetchall()
+        }
         for char, data in bank.items():
             new_back = compose_chinese_back(data['pinyin'], data['en'])
             if not new_back:
                 continue
             rows = shared_conn.execute(
-                "SELECT id FROM cards WHERE front = ? AND back IS DISTINCT FROM ?",
+                "SELECT id, deck_id FROM cards WHERE front = ? AND back IS DISTINCT FROM ?",
                 [char, new_back],
             ).fetchall()
-            if rows:
-                ids = [r[0] for r in rows]
+            ids = [r[0] for r in rows if r[1] not in writing_deck_ids]
+            if ids:
                 placeholders = ', '.join(['?'] * len(ids))
                 shared_conn.execute(
                     f"UPDATE cards SET back = ? WHERE id IN ({placeholders})",
@@ -14876,23 +14883,28 @@ def force_sync_chinese_bank_backs():
     finally:
         shared_conn.close()
 
-    # Update all kid DBs
+    # Update all kid DBs (skip cards in writing decks)
     families_root = Path(kid_db.DATA_DIR) / 'families'
     if families_root.exists():
         for db_path in sorted(families_root.glob('family_*/kid_*.db')):
             kid_conn = None
             try:
                 kid_conn = kid_db.duckdb.connect(str(db_path))
+                writing_deck_ids_kid = {
+                    r[0] for r in kid_conn.execute(
+                        "SELECT id FROM decks WHERE list_contains(tags, 'chinese_writing')"
+                    ).fetchall()
+                }
                 for char, data in bank.items():
                     new_back = compose_chinese_back(data['pinyin'], data['en'])
                     if not new_back:
                         continue
                     rows = kid_conn.execute(
-                        "SELECT id FROM cards WHERE front = ? AND back IS DISTINCT FROM ?",
+                        "SELECT id, deck_id FROM cards WHERE front = ? AND back IS DISTINCT FROM ?",
                         [char, new_back],
                     ).fetchall()
-                    if rows:
-                        ids = [r[0] for r in rows]
+                    ids = [r[0] for r in rows if r[1] not in writing_deck_ids_kid]
+                    if ids:
                         placeholders = ', '.join(['?'] * len(ids))
                         kid_conn.execute(
                             f"UPDATE cards SET back = ? WHERE id IN ({placeholders})",

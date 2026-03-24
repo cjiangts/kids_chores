@@ -894,10 +894,10 @@
 
         .cards-header-row {
             display: flex;
-            align-items: flex-end;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 0.56rem;
-            margin-bottom: 0.74rem;
+            margin-bottom: 0.35rem;
             flex-wrap: nowrap;
         }
 
@@ -915,7 +915,7 @@
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.46rem;
-            margin-bottom: 0.6rem;
+            margin-bottom: 0.42rem;
         }
 
         .deck-setup-summary-card {
@@ -949,7 +949,7 @@
         .deck-setup-actions {
             display: flex;
             align-items: center;
-            gap: 0.55rem;
+            gap: 0.42rem;
             flex-wrap: wrap;
         }
 
@@ -967,7 +967,7 @@
         }
 
         .settings-subgroup {
-            margin-top: 0.72rem;
+            margin-top: 0.42rem;
             border: 1px solid rgba(28, 42, 82, 0.08);
             border-radius: 12px;
             background: var(--dashboard-chip-bg);
@@ -1195,7 +1195,7 @@
             .cards-header-row {
                 display: grid;
                 grid-template-columns: minmax(0, 1fr) auto;
-                align-items: end;
+                align-items: start;
                 gap: 0.42rem;
             }
 
@@ -2278,7 +2278,7 @@
             .deck-setup-actions {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 0.5rem;
+                gap: 0.35rem;
             }
 
             .deck-setup-actions .manage-popup-btn,
@@ -2406,12 +2406,12 @@
                         <span class="manage-popup-btn-meta">0 decks available to opt in</span>
                     </button>
                     <button id="openType4DeckCountsModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
-                        <span class="manage-popup-btn-title">Set Deck Counts</span>
-                        <span class="manage-popup-btn-meta">Choose how many cards each deck adds per day</span>
+                        <span class="manage-popup-btn-title">Deck Counts</span>
+                        <span class="manage-popup-btn-meta">Cards per day per deck</span>
                     </button>
                     <button id="openPersonalDeckModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
                         <span class="manage-popup-btn-title">Personal Deck Editor</span>
-                        <span class="manage-popup-btn-meta">Add your own custom cards</span>
+                        <span class="manage-popup-btn-meta">Add your own cards</span>
                     </button>
                 </div>
             </div>
@@ -2471,7 +2471,6 @@
             </div>
             <div class="cards-toolbar">
                 <div class="toolbar-control-block">
-                    <div class="toolbar-control-label">Cards</div>
                     <div class="card-status-filter" role="group" aria-label="Card status filter">
                         <button type="button" class="card-status-filter-btn active" data-card-status-filter="all">All</button>
                         <button type="button" class="card-status-filter-btn" data-card-status-filter="active">Active</button>

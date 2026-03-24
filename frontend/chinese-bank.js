@@ -2,7 +2,7 @@ const API_BASE = `${window.location.origin}/api`;
 
 const searchInput = document.getElementById('searchInput');
 const filterVerifiedGroup = document.getElementById('filterVerifiedGroup');
-let filterVerifiedValue = 'unverified';
+let filterVerifiedValue = 'verified';
 const bankTableBody = document.getElementById('bankTableBody');
 const bankStats = document.getElementById('bankStats');
 const prevPageBtn = document.getElementById('prevPageBtn');
@@ -31,7 +31,8 @@ let csvVisible = false;
 let isSuper = false;
 
 function applySuperVisibility() {
-    const superOnly = [refreshUsedBtn, forceSyncBtn, csvToggleBtn, saveBar];
+    const adminActions = document.getElementById('bankAdminActions');
+    const superOnly = [refreshUsedBtn, forceSyncBtn, csvToggleBtn, saveBar, adminActions];
     for (const el of superOnly) {
         if (el) el.style.display = isSuper ? '' : 'none';
     }
@@ -101,11 +102,18 @@ async function loadPage() {
 }
 
 function renderStats(stats) {
-    bankStats.innerHTML = `
-        <span>Total: ${stats.total.toLocaleString()}</span>
-        <span>Used: ${stats.used.toLocaleString()}</span>
-        <span>Verified: ${stats.verified.toLocaleString()}</span>
-    `;
+    if (bankStats) bankStats.innerHTML = '';
+    const unverifiedCount = Math.max(0, (stats.used || 0) - (stats.verified || 0));
+    const btnTexts = {
+        'unverified': `Used & Unverified (${unverifiedCount.toLocaleString()})`,
+        'used': `Used (${(stats.used || 0).toLocaleString()})`,
+        'all': `All (${(stats.total || 0).toLocaleString()})`,
+        'verified': `Verified (${(stats.verified || 0).toLocaleString()})`,
+    };
+    for (const [value, text] of Object.entries(btnTexts)) {
+        const btn = filterVerifiedGroup.querySelector(`[data-value="${value}"]`);
+        if (btn) btn.textContent = text;
+    }
 }
 
 function renderTable(characters) {

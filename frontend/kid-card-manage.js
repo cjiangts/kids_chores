@@ -867,10 +867,8 @@ function renderType4DeckTargetControls() {
     }
     if (openType4DeckCountsModalBtn) {
         openType4DeckCountsModalBtn.disabled = hasPendingChanges || sourceCount <= 0 || isType4DeckCountsSaving;
-        const titleText = isType4DeckCountsSaving ? 'Saving...' : 'Set Deck Counts';
-        const metaText = sourceCount > 0
-            ? `Choose cards per day for ${sourceCount} opted-in deck${sourceCount === 1 ? '' : 's'}`
-            : 'Opt in decks first to set daily counts';
+        const titleText = isType4DeckCountsSaving ? 'Saving...' : 'Deck Counts';
+        const metaText = 'Set cards per day per deck';
         openType4DeckCountsModalBtn.innerHTML = `
             <span class="manage-popup-btn-title">${escapeHtml(titleText)}</span>
             <span class="manage-popup-btn-meta">${escapeHtml(metaText)}</span>
@@ -1053,7 +1051,7 @@ function renderDeckSetupActionButtons() {
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.innerHTML = `
             <span class="manage-popup-btn-title">Personal Deck Editor</span>
-            <span class="manage-popup-btn-meta">Add your own custom cards</span>
+            <span class="manage-popup-btn-meta">Add your own cards</span>
         `;
     }
 }
