@@ -1,6 +1,6 @@
 # Kids Daily Practice
 
-A family learning tool for ages 4+: daily Chinese character reading, Chinese writing, lesson-passage reading, and math practice, with printable worksheets, parent grading, and progress tracking.
+A family learning tool for ages 4+: daily Chinese character flashcards, writing practice with audio prompts, lesson-passage reading with recording, and dynamic math problem generation — with printable worksheets, parent grading, and progress tracking.
 
 ## Tech Stack
 
@@ -38,9 +38,10 @@ Every deck category has a `behavior_type` that controls which practice flow is u
 
 | `behavior_type` | Practice flow | Example categories |
 |-----------------|--------------|-------------------|
-| `type_i` | Flashcard: show front → reveal back → right/wrong | Chinese characters (四五快读, 马立平), math |
+| `type_i` | Flashcard: show front → reveal back → right/wrong | Chinese characters (四五快读, 马立平) |
 | `type_ii` | Audio prompt → self-mark + writing sheets | Writing characters (马立平 学前班–马三) |
 | `type_iii` | Read passage aloud → record audio → parent grades | Lesson reading (马立平 马三 Units 1–3) |
+| `type_iv` | Dynamic math generator → multichoice or free-form answer | Math (addition, subtraction, etc.) |
 
 Categories and behavior types are defined in `shared_decks.duckdb` (`deck_category` table) by super-family admins. Each kid opts into the categories they want to practice, stored in `deck_category_opt_in` per kid DB.
 
@@ -56,12 +57,15 @@ Categories and behavior types are defined in `shared_decks.duckdb` (`deck_catego
 | Kid report | `kid-report.html/js` | Daily practice chart per category |
 | Session report | `kid-session-report.html/js` | Per-session card-level detail |
 | Card report | `kid-card-report.html/js` | Per-card attempt history + trend |
-| Deck management (admin) | `deck-manage.html/js` | Browse/edit shared decks |
+| Deck management (admin) | `deck-manage.html/js` | Browse/edit shared decks (tree view with search) |
 | Deck creation | `deck-create.html/js` | Create single shared deck |
 | Bulk deck creation | `deck-create-bulk.html/js` | Bulk import decks from text |
 | Category management | `deck-category-create.html/js` | Create/share deck categories |
+| Chinese dictionary | `chinese-bank.html/js` | View/edit character bank (pinyin, English, verification) |
+| Writing sheet management | `kid-writing-sheet-manage.html/js` | Print/track writing sheets + build math sheets |
+| Math sheet print | `math-sheet-print.html/js` | Render and print generated math sheets |
 | Parent settings | `parent-settings.html/js` | Timezone, password change |
-| Admin dashboard | `admin.html/js` | Family storage, grading queue |
+| Admin dashboard | `admin.html/js` | Family storage, grading queue, iOS PWA install prompt |
 
 ### Backend route structure
 
@@ -75,7 +79,9 @@ All routes live in `backend/src/routes/kids.py`.
 | `/api/kids/<id>/<scope>/shared-decks` | Unified deck opt-in/out per scope |
 | `/api/kids/<id>/cards/practice/` | Type-I practice start/complete |
 | `/api/kids/<id>/type2/` | Type-II: cards, sheets, audio, practice |
+| `/api/kids/<id>/type4/` | Type-IV: math generator preview, print sheets |
 | `/api/kids/<id>/lesson-reading/` | Type-III: audio, practice |
+| `/api/chinese-bank/` | Chinese character dictionary CRUD, refresh-used, force-sync |
 | `/api/backup/` | Backup and restore (`backup.py`) |
 
 ### Shared deck scope dispatch
@@ -94,10 +100,11 @@ SHARED_DECK_OPERATION_HANDLERS[operation](kid_id, category_config)
 
 ### Shared frontend utilities
 
-- `practice-manage-common.js` — loaded by all pages. Provides `escapeHtml`, date utilities, password dialog, card sorting, hardness slider.
+- `practice-manage-common.js` — loaded by all manage pages. Provides `escapeHtml`, date utilities, password dialog, card sorting, hardness slider.
 - `deck-category-common.js` — category key normalization, type-II URL builder, behavior-type constants.
 - `audio-common.js` — microphone constraints, MediaRecorder options, graceful stop helper.
 - `practice-session-flow.js`, `practice-session.js`, `practice-ui-common.js`, `practice-judge-mode.js`, `practice-progress.js` — practice lifecycle modules shared by `kid-practice.js`.
+- `styles.css` — global styles, `.deck-panel`, `.btn-secondary`, `.modal`, responsive variables.
 
 ---
 
@@ -144,6 +151,9 @@ Shared TTS audio prompt plays → kid writes character → self-marks right/wron
 ### Type-III (lesson reading)
 Kid reads passage aloud while recording (live waveform visualizer). Review phase: replay, re-record, or accept. All audio batch-uploaded on session complete. Parent grades each recording (pass / fail / ungraded). Admin dashboard shows pending grading queue.
 
+### Type-IV (math generator)
+Dynamic problem generation from Python generator code stored per deck. Supports multichoice or free-form answer input. Answers validated server-side. Printable math sheets with configurable paper size, cell design, and seed-based reproducibility.
+
 ---
 
 ## Hardness Logic
@@ -161,7 +171,7 @@ Kid reads passage aloud while recording (live waveform visualizer). Review phase
 
 **`shared_decks.duckdb`:** Tables: `deck`, `deck_category`, `cards`. Schema applied once per process via `_initialized_dbs` set. Connection opened fresh per request (DuckDB embedded, no pool needed).
 
-**`kid_{id}.db`:** Tables: `decks`, `cards`, `sessions`, `session_results`, `lesson_reading_audio`, `type4_print_sheets`, `type2_chinese_print_sheets`, `deck_category_opt_in`. `deck_category_opt_in` stores per-category session count, hard-card percentage, include-orphan flag. No FK constraint on `cards.deck_id` — integrity enforced in application code.
+**`kid_{id}.db`:** Tables: `decks`, `cards`, `sessions`, `session_results`, `lesson_reading_audio`, `type4_print_sheets`, `type2_chinese_print_sheets`, `deck_category_opt_in`. Sessions track `practice_mode` for type-IV multichoice vs free-form. `deck_category_opt_in` stores per-category session count, hard-card percentage, include-orphan flag. No FK constraint on `cards.deck_id` — integrity enforced in application code.
 
 ---
 

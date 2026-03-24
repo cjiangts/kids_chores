@@ -1,8 +1,6 @@
 """Startup tasks for kid DBs."""
 from pathlib import Path
 
-import duckdb
-
 from src.db import kid_db
 
 
@@ -40,33 +38,3 @@ def ensure_kid_db_schema(logger):
             'Errors while applying current kid DB schema at startup: %s',
             '; '.join(errors),
         )
-
-    # Repair writing cards whose back was corrupted by force_sync_chinese_bank_backs
-    _repair_writing_card_backs(logger)
-
-
-def _repair_writing_card_backs(logger):
-    """Reset back=front for writing cards where back contains Latin text (pinyin/EN)."""
-    total_fixed = 0
-    for db_path in _iter_kid_db_paths() or []:
-        try:
-            conn = duckdb.connect(str(db_path))
-            fixed = conn.execute("""
-                UPDATE cards SET back = front
-                WHERE deck_id IN (
-                    SELECT id FROM decks WHERE list_contains(tags, 'chinese_writing')
-                )
-                AND regexp_matches(back, '[a-zA-Z]')
-            """).fetchone()
-            count = fixed[0] if fixed else 0
-            if count:
-                total_fixed += count
-                logger.info('Repaired %s writing card back(s) in %s', count, db_path)
-            conn.close()
-        except Exception as exc:
-            logger.error('Error repairing writing cards in %s: %s', db_path, exc)
-
-    if total_fixed:
-        logger.info('Total writing cards repaired: %s', total_fixed)
-    else:
-        logger.debug('No corrupted writing card backs found.')
