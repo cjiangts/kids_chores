@@ -3242,23 +3242,39 @@ def list_my_shared_decks():
             ).fetchall()
 
             shared_category_keys = set()
-            if not is_super:
-                cat_rows = conn.execute(
-                    "SELECT category_key FROM deck_category WHERE is_shared_with_non_super_family = TRUE"
-                ).fetchall()
-                shared_category_keys = {str(r[0]).strip().lower() for r in cat_rows}
+            type_ii_category_keys = set()
+            cat_rows = conn.execute(
+                "SELECT category_key, behavior_type, is_shared_with_non_super_family FROM deck_category"
+            ).fetchall()
+            for cr in cat_rows:
+                ck = str(cr[0]).strip().lower()
+                if str(cr[1] or '').strip().lower() == 'type_ii':
+                    type_ii_category_keys.add(ck)
+                if not is_super and cr[2]:
+                    shared_category_keys.add(ck)
+
+            card_rows_all = conn.execute(
+                "SELECT deck_id, front, back FROM cards ORDER BY deck_id, id"
+            ).fetchall()
+            card_fronts_by_deck = {}
+            card_backs_by_deck = {}
+            for cf_row in card_rows_all:
+                cf_deck_id = int(cf_row[0])
+                card_fronts_by_deck.setdefault(cf_deck_id, []).append(str(cf_row[1]))
+                card_backs_by_deck.setdefault(cf_deck_id, []).append(str(cf_row[2]))
         finally:
             conn.close()
 
         decks = []
         for row in rows:
             tags, tag_labels = extract_shared_deck_tags_and_labels(row[2])
-            if not is_super:
-                first_tag = normalize_shared_deck_tag(tags[0]) if tags else ''
-                if first_tag not in shared_category_keys:
-                    continue
+            first_tag = normalize_shared_deck_tag(tags[0]) if tags else ''
+            if not is_super and first_tag not in shared_category_keys:
+                continue
+            deck_id_val = int(row[0])
+            is_type_ii = first_tag in type_ii_category_keys
             deck_entry = {
-                'deck_id': int(row[0]),
+                'deck_id': deck_id_val,
                 'name': str(row[1]),
                 'tags': tags,
                 'tag_labels': tag_labels,
@@ -3267,6 +3283,7 @@ def list_my_shared_decks():
                 'card_count': int(row[5] or 0),
                 'single_card_front': str(row[6] or '').strip(),
                 'has_print_cell_design': bool(row[7]) if len(row) > 7 and row[7] is not None else False,
+                'card_texts': card_backs_by_deck.get(deck_id_val, []) if is_type_ii else card_fronts_by_deck.get(deck_id_val, []),
             }
             decks.append(deck_entry)
 
@@ -9341,9 +9358,7 @@ def build_type_i_shared_cards_payload(
             for row in rows:
                 mapped = map_card_row(row, preview_order)
                 mapped['source_deck_id'] = local_deck_id
-                mapped['source_deck_name'] = str(src.get('local_name') or '')
                 mapped['source_deck_label'] = _source_label(src)
-                mapped['source_deck_tags'] = extract_shared_deck_tags_and_labels(src.get('tags') or [])[0]
                 mapped['source_is_orphan'] = bool(src.get('is_orphan'))
                 merged_cards.append(mapped)
 
@@ -9445,9 +9460,7 @@ def build_type_iv_shared_cards_payload(
                     generator_details = generator_details_by_front.get(representative_front) or {}
                 resolved_shared_deck_id = int(generator_details.get('shared_deck_id') or shared_deck_id or 0)
                 mapped['source_deck_id'] = local_deck_id
-                mapped['source_deck_name'] = str(src.get('local_name') or '')
                 mapped['source_deck_label'] = _source_label(src)
-                mapped['source_deck_tags'] = extract_shared_deck_tags_and_labels(src.get('tags') or [])[0]
                 mapped['source_is_orphan'] = bool(src.get('is_orphan'))
                 mapped['type4_shared_deck_id'] = resolved_shared_deck_id if resolved_shared_deck_id > 0 else None
                 mapped['type4_is_multichoice_only'] = bool(generator_details.get('is_multichoice_only'))
