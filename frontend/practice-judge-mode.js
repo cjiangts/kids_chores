@@ -2,6 +2,7 @@ window.PracticeJudgeMode = (function initPracticeJudgeMode(window) {
     const SELF = 'self';
     const PARENT = 'parent';
     const MULTI = 'multi';
+    const MULTI_EN = 'multi_en';
 
     function normalizeMode(rawMode) {
         const text = String(rawMode || '').trim().toLowerCase();
@@ -11,6 +12,9 @@ window.PracticeJudgeMode = (function initPracticeJudgeMode(window) {
         if (text === MULTI) {
             return MULTI;
         }
+        if (text === MULTI_EN) {
+            return MULTI_EN;
+        }
         return SELF;
     }
 
@@ -19,7 +23,12 @@ window.PracticeJudgeMode = (function initPracticeJudgeMode(window) {
     }
 
     function isMultiMode(mode) {
-        return normalizeMode(mode) === MULTI;
+        const m = normalizeMode(mode);
+        return m === MULTI || m === MULTI_EN;
+    }
+
+    function isMultiEnMode(mode) {
+        return normalizeMode(mode) === MULTI_EN;
     }
 
     function loadMode(storageKey, defaultMode = SELF) {
@@ -45,13 +54,16 @@ window.PracticeJudgeMode = (function initPracticeJudgeMode(window) {
     }
 
     function getRevealJudgeUiState(mode, answerRevealed) {
-        const selfMode = isSelfMode(mode);
-        const multiMode = isMultiMode(mode);
+        const normalized = normalizeMode(mode);
+        const selfMode = normalized === SELF;
+        const multiMode = normalized === MULTI || normalized === MULTI_EN;
+        const multiEnMode = normalized === MULTI_EN;
         const revealed = !!answerRevealed;
         return {
-            mode: selfMode ? SELF : (multiMode ? MULTI : PARENT),
+            mode: normalized,
             isSelfMode: selfMode,
             isMultiMode: multiMode,
+            isMultiEnMode: multiEnMode,
             showRevealAction: selfMode && !revealed,
             showJudgeActions: (!selfMode && !multiMode) || revealed,
             showMultiChoiceActions: multiMode,
@@ -99,9 +111,11 @@ window.PracticeJudgeMode = (function initPracticeJudgeMode(window) {
         SELF,
         PARENT,
         MULTI,
+        MULTI_EN,
         normalizeMode,
         isSelfMode,
         isMultiMode,
+        isMultiEnMode,
         loadMode,
         saveMode,
         getRevealJudgeUiState,

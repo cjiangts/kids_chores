@@ -9488,7 +9488,7 @@ def build_type_iv_shared_cards_payload(
 
 
 SESSION_PRACTICE_MODE_NA = 'na'
-SESSION_PRACTICE_MODE_VALID = {'self', 'parent', 'multi', 'input', 'na'}
+SESSION_PRACTICE_MODE_VALID = {'self', 'parent', 'multi', 'multi_en', 'input', 'na'}
 
 
 def normalize_session_practice_mode(raw_mode):

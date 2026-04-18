@@ -116,6 +116,30 @@
             line-height: 1.2;
         }
 
+        .wrong-answer-review {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #b94a4a;
+            margin-bottom: 0.55rem;
+            line-height: 1.25;
+        }
+
+        .wrong-answer-review-label {
+            font-weight: 500;
+            color: #8a5a5a;
+            margin-right: 0.25rem;
+        }
+
+        .wrong-answer-review-text {
+            color: #233044;
+        }
+
+        .wrong-answer-review-x {
+            color: #d44040;
+            font-weight: 800;
+            margin-left: 0.2rem;
+        }
+
         body.practice-type-ii .card-answer {
             font-size: 4rem;
         }
@@ -325,6 +349,10 @@
             padding: 0.7rem 0.8rem;
             text-align: center;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        .multi-choice-next-btn {
+            grid-column: 1 / -1;
         }
 
         .multi-choice-btn:focus,
@@ -610,6 +638,10 @@
                                 <button type="button" class="practice-mode-option" data-judge-mode="multi" aria-pressed="false">
                                     <span class="practice-mode-option-title">Multiple Choice</span>
                                     <span class="practice-mode-option-desc">Pick 1 of 4 answers. System grades automatically.</span>
+                                </button>
+                                <button type="button" class="practice-mode-option hidden" data-judge-mode="multi_en" aria-pressed="false">
+                                    <span class="practice-mode-option-title">Multi EN</span>
+                                    <span class="practice-mode-option-desc">Pick 1 of 4 English meanings.</span>
                                 </button>
                             </div>
                         </div>

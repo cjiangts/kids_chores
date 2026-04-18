@@ -109,6 +109,7 @@ const state = {
     judgeMode: 'self',
     type1MultipleChoiceOptions: [],
     type1MultipleChoicePoolCards: [],
+    type1WrongAnswerReview: false,
     type4MultipleChoiceOptions: [],
     wrongCardsInSession: [],
     bonusSourceCards: [],
@@ -152,6 +153,15 @@ function getChineseType1BackParts(rawBack) {
 function getChineseType1PinyinText(rawBack) {
     const parts = getChineseType1BackParts(rawBack);
     return parts.pinyin || parts.meaning || '';
+}
+
+function getChineseType1MeaningText(rawBack) {
+    const parts = getChineseType1BackParts(rawBack);
+    return parts.meaning || '';
+}
+
+function isMultiEnJudgeMode() {
+    return Boolean(window.PracticeJudgeMode?.isMultiEnMode?.(state.judgeMode));
 }
 
 function getChineseType1BackHtml(rawBack) {
@@ -360,11 +370,18 @@ function configureJudgeModePickerForType() {
     const selfBtn = getJudgeModeButton('self');
     const parentBtn = getJudgeModeButton('parent');
     const multiBtn = getJudgeModeButton('multi');
+    const multiEnBtn = getJudgeModeButton('multi_en');
 
     if (isType(BEHAVIOR_TYPE_IV)) {
         judgeModeToggleStart.classList.add('two-option-mode');
+        if (selfBtn) {
+            selfBtn.classList.remove('hidden');
+        }
         if (parentBtn) {
             parentBtn.classList.add('hidden');
+        }
+        if (multiEnBtn) {
+            multiEnBtn.classList.add('hidden');
         }
         setJudgeModeButtonContent(
             selfBtn,
@@ -379,15 +396,17 @@ function configureJudgeModePickerForType() {
         return;
     }
 
-    judgeModeToggleStart.classList.remove('two-option-mode');
+    if (selfBtn) {
+        selfBtn.classList.add('hidden');
+    }
     if (parentBtn) {
         parentBtn.classList.remove('hidden');
     }
-    setJudgeModeButtonContent(
-        selfBtn,
-        'Kid Self',
-        'Kid reveals answer, then taps Right or Wrong.'
-    );
+    const showMultiEn = state.hasChineseSpecificLogic;
+    if (multiEnBtn) {
+        multiEnBtn.classList.toggle('hidden', !showMultiEn);
+    }
+    judgeModeToggleStart.classList.toggle('two-option-mode', !showMultiEn);
     setJudgeModeButtonContent(
         parentBtn,
         'Parent Assist',
@@ -395,8 +414,15 @@ function configureJudgeModePickerForType() {
     );
     setJudgeModeButtonContent(
         multiBtn,
-        'Multiple Choice',
-        'Pick 1 of 4 answers. System grades automatically.'
+        showMultiEn ? 'Multi Pinyin' : 'Multiple Choice',
+        showMultiEn
+            ? 'Pick 1 of 4 pinyin readings.'
+            : 'Pick 1 of 4 answers. System grades automatically.'
+    );
+    setJudgeModeButtonContent(
+        multiEnBtn,
+        'Multi EN',
+        'Pick 1 of 4 English meanings.'
     );
 }
 
@@ -600,7 +626,10 @@ function applyServerPracticeMode(serverMode) {
     const mode = String(serverMode || '').trim().toLowerCase();
     if (!mode || mode === 'na') return;
     if (!window.PracticeJudgeMode) return;
-    const normalized = window.PracticeJudgeMode.normalizeMode(mode);
+    let normalized = window.PracticeJudgeMode.normalizeMode(mode);
+    if (isType(BEHAVIOR_TYPE_I) && normalized === window.PracticeJudgeMode.SELF) {
+        normalized = window.PracticeJudgeMode.PARENT;
+    }
     if (normalized === state.judgeMode) return;
     state.judgeMode = normalized;
     const storageKey = isType(BEHAVIOR_TYPE_IV) ? TYPE4_MODE_STORAGE_KEY : JUDGE_MODE_STORAGE_KEY;
@@ -623,6 +652,7 @@ async function loadType1ReadyState() {
         state.hasChineseSpecificLogic = Boolean(decksData.has_chinese_specific_logic);
         applyPageTypeClasses();
         applyType1DisplayMode();
+        configureJudgeModePickerForType();
     }
     state.configuredSessionCount = Number.parseInt(decksData.total_session_count, 10) || 0;
     const deckList = Array.isArray(decksData.decks) ? decksData.decks : [];
@@ -883,17 +913,23 @@ function initJudgeMode() {
         return;
     }
     const storageKey = isType(BEHAVIOR_TYPE_IV) ? TYPE4_MODE_STORAGE_KEY : JUDGE_MODE_STORAGE_KEY;
-    state.judgeMode = window.PracticeJudgeMode.loadMode(
-        storageKey,
-        window.PracticeJudgeMode.SELF
-    );
+    const defaultMode = isType(BEHAVIOR_TYPE_IV)
+        ? window.PracticeJudgeMode.SELF
+        : window.PracticeJudgeMode.PARENT;
+    state.judgeMode = window.PracticeJudgeMode.loadMode(storageKey, defaultMode);
     if (isType(BEHAVIOR_TYPE_IV) && state.judgeMode === window.PracticeJudgeMode.PARENT) {
         state.judgeMode = window.PracticeJudgeMode.SELF;
+    }
+    if (isType(BEHAVIOR_TYPE_I) && state.judgeMode === window.PracticeJudgeMode.SELF) {
+        state.judgeMode = window.PracticeJudgeMode.PARENT;
     }
     const setMode = (nextMode) => {
         let resolvedMode = nextMode;
         if (isType(BEHAVIOR_TYPE_IV) && nextMode === window.PracticeJudgeMode.PARENT) {
             resolvedMode = window.PracticeJudgeMode.SELF;
+        }
+        if (isType(BEHAVIOR_TYPE_I) && nextMode === window.PracticeJudgeMode.SELF) {
+            resolvedMode = window.PracticeJudgeMode.PARENT;
         }
         state.judgeMode = window.PracticeJudgeMode.saveMode(storageKey, resolvedMode);
         syncJudgeModeToggles();
@@ -948,7 +984,7 @@ async function startType1Session() {
         showError('');
         const started = await window.PracticeSessionFlow.startShuffledSession(
             buildType1ApiUrl('practice/start'),
-            { practiceMode: state.judgeMode || 'self' }
+            { practiceMode: state.judgeMode || 'parent' }
         );
         applyServerPracticeMode(started?.data?.practice_mode);
         state.activePendingSessionId = started.pendingSessionId;
@@ -1144,6 +1180,7 @@ function showCurrentQuestion() {
     }
 
     state.answerRevealed = false;
+    state.type1WrongAnswerReview = false;
     state.cardShownAtMs = Date.now();
     state.pausedDurationMs = 0;
     state.pauseStartedAtMs = 0;
@@ -1171,9 +1208,17 @@ function shuffleCopy(list) {
 }
 
 function buildType1MultipleChoiceOptions(card) {
-    const correctText = normalizeType1ChoiceText(
-        state.hasChineseSpecificLogic ? getChineseType1PinyinText(card?.back) : card?.back
-    );
+    const useEnglishMeaning = isMultiEnJudgeMode() && state.hasChineseSpecificLogic;
+    const extractChoice = (rawBack) => {
+        if (!state.hasChineseSpecificLogic) {
+            return rawBack;
+        }
+        return useEnglishMeaning
+            ? getChineseType1MeaningText(rawBack)
+            : getChineseType1PinyinText(rawBack);
+    };
+
+    const correctText = normalizeType1ChoiceText(extractChoice(card?.back));
     if (!correctText) {
         return [];
     }
@@ -1194,9 +1239,7 @@ function buildType1MultipleChoiceOptions(card) {
         ) {
             return;
         }
-        const normalized = normalizeType1ChoiceText(
-            state.hasChineseSpecificLogic ? getChineseType1PinyinText(item?.back) : item?.back
-        );
+        const normalized = normalizeType1ChoiceText(extractChoice(item?.back));
         if (!normalized || normalized === correctText) {
             return;
         }
@@ -1254,6 +1297,9 @@ function answerType1MultipleChoice(choiceIndex) {
     if (!isType(BEHAVIOR_TYPE_I) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
+    if (state.type1WrongAnswerReview) {
+        return;
+    }
     const index = Number.parseInt(choiceIndex, 10);
     if (!Number.isInteger(index) || index < 0) {
         return;
@@ -1265,7 +1311,39 @@ function answerType1MultipleChoice(choiceIndex) {
     if (!choice) {
         return;
     }
-    answerType1Card(Boolean(choice.isCorrect));
+    const correct = Boolean(choice.isCorrect);
+    if (!correct && state.hasChineseSpecificLogic) {
+        if (state.isPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
+            return;
+        }
+        recordType1Answer(false);
+        showType1WrongAnswerReview(choice.text);
+        return;
+    }
+    answerType1Card(correct);
+}
+
+function showType1WrongAnswerReview(wrongChoiceText) {
+    state.type1WrongAnswerReview = true;
+    const card = state.sessionCards[state.currentIndex];
+    const correctHtml = getChineseType1BackHtml(card?.back);
+    const wrongText = String(wrongChoiceText || '').trim();
+    const wrongHtml = wrongText
+        ? `<div class="wrong-answer-review"><span class="wrong-answer-review-label">You picked:</span> <span class="wrong-answer-review-text">${escapeHtml(wrongText)}</span> <span class="wrong-answer-review-x">✕</span></div>`
+        : '';
+    cardAnswer.innerHTML = `${wrongHtml}<div class="correct-answer-review">${correctHtml}</div>`;
+    cardAnswer.classList.remove('hidden');
+    flashcard.classList.add('revealed');
+    if (multiChoiceGrid) {
+        multiChoiceGrid.innerHTML = '<button type="button" class="control-btn multi-choice-btn multi-choice-next-btn" data-multi-choice-next="1">Next</button>';
+    }
+}
+
+function dismissType1WrongAnswerReview() {
+    state.type1WrongAnswerReview = false;
+    cardAnswer.classList.add('hidden');
+    flashcard.classList.remove('revealed');
+    advanceType1Card();
 }
 
 function showCurrentPrompt() {
@@ -1486,7 +1564,9 @@ function togglePauseFromCard() {
 function setPausedVisual(paused) {
     const judgeState = getJudgeModeUiState();
     cardQuestion.classList.toggle('hidden', paused);
-    cardAnswer.classList.toggle('hidden', paused || !judgeState.showBackAnswer);
+    if (!state.type1WrongAnswerReview) {
+        cardAnswer.classList.toggle('hidden', paused || !judgeState.showBackAnswer);
+    }
     pauseMask.classList.toggle('hidden', !paused);
     applyJudgeModeUi();
 }
@@ -1509,7 +1589,11 @@ function answerType1Card(correct) {
     if (state.isPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
+    recordType1Answer(correct);
+    advanceType1Card();
+}
 
+function recordType1Answer(correct) {
     const card = state.sessionCards[state.currentIndex];
     const responseTimeMs = Math.max(0, Date.now() - state.cardShownAtMs - state.pausedDurationMs);
 
@@ -1532,12 +1616,13 @@ function answerType1Card(correct) {
             });
         }
     }
+}
 
+function advanceType1Card() {
     if (state.currentIndex >= state.sessionCards.length - 1) {
         void endSession();
         return;
     }
-
     state.currentIndex += 1;
     showCurrentQuestion();
 }
@@ -1671,15 +1756,19 @@ function applyJudgeModeUi() {
     reviewControls.classList.add('hidden');
     judgeRow.classList.toggle('hidden', !judgeState.showJudgeActions);
     if (judgeState.showMultiChoiceActions) {
-        renderType1MultipleChoiceOptions();
+        if (!state.type1WrongAnswerReview) {
+            renderType1MultipleChoiceOptions();
+        }
     } else if (multiChoiceGrid) {
         multiChoiceGrid.innerHTML = '';
     }
 
-    if (!state.isPaused) {
+    if (!state.isPaused && !state.type1WrongAnswerReview) {
         cardAnswer.classList.toggle('hidden', !judgeState.showBackAnswer);
     }
-    flashcard.classList.toggle('revealed', judgeState.showBackAnswer);
+    if (!state.type1WrongAnswerReview) {
+        flashcard.classList.toggle('revealed', judgeState.showBackAnswer);
+    }
     knewBtn.disabled = state.isPaused || !judgeState.showRevealAction;
     rightBtn.disabled = state.isPaused || !judgeState.showJudgeActions;
     wrongBtn.disabled = state.isPaused || !judgeState.showJudgeActions;
@@ -2531,16 +2620,23 @@ function showBonusGameForWrongCards() {
 
 function startBonusGame(sourceCards) {
     const cardsList = Array.isArray(sourceCards) ? sourceCards : [];
+    const useEnglishMeaning = isMultiEnJudgeMode() && state.hasChineseSpecificLogic;
     const tiles = [];
     cardsList.forEach((card) => {
         const key = String(card.pairKey || '');
         tiles.push({ pairKey: key, side: 'front', text: String(card.front || '?'), matched: false });
+        let backText;
+        if (state.hasChineseSpecificLogic) {
+            backText = useEnglishMeaning
+                ? (getChineseType1MeaningText(card.back) || getChineseType1PinyinText(card.back) || '(answer)')
+                : (getChineseType1PinyinText(card.back) || '(answer)');
+        } else {
+            backText = String(card.back || '(answer)');
+        }
         tiles.push({
             pairKey: key,
             side: 'back',
-            text: state.hasChineseSpecificLogic
-                ? (getChineseType1PinyinText(card.back) || '(answer)')
-                : String(card.back || '(answer)'),
+            text: backText,
             matched: false,
         });
     });
@@ -2676,6 +2772,15 @@ function bindEventHandlers() {
     });
     if (multiChoiceGrid) {
         multiChoiceGrid.addEventListener('click', (event) => {
+            const nextTarget = event.target.closest('[data-multi-choice-next]');
+            if (nextTarget) {
+                event.preventDefault();
+                if (document.activeElement) {
+                    document.activeElement.blur();
+                }
+                dismissType1WrongAnswerReview();
+                return;
+            }
             const target = event.target.closest('[data-choice-index]');
             if (!target) {
                 return;
