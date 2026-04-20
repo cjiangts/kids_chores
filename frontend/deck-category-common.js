@@ -101,6 +101,7 @@
             output[key] = {
                 behavior_type: normalizeCategoryKey(item.behavior_type),
                 has_chinese_specific_logic: Boolean(item.has_chinese_specific_logic),
+                chinese_back_content: String(item.chinese_back_content || '').trim().toLowerCase(),
                 display_name: String(item.display_name || '').trim(),
                 emoji: String(item.emoji || '').trim(),
             };
@@ -290,6 +291,7 @@
                 category_key: key,
                 behavior_type: behaviorType,
                 has_chinese_specific_logic: Boolean(item && item.has_chinese_specific_logic),
+                chinese_back_content: String(item && item.chinese_back_content ? item.chinese_back_content : '').trim().toLowerCase(),
                 display_name: String(item && item.display_name ? item.display_name : '').trim(),
                 emoji: String(item && item.emoji ? item.emoji : '').trim(),
                 is_shared_with_non_super_family: Boolean(item && item.is_shared_with_non_super_family),

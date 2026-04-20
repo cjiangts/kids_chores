@@ -15,7 +15,11 @@ CREATE TABLE IF NOT EXISTS deck_category (
   has_chinese_specific_logic BOOLEAN NOT NULL DEFAULT FALSE,
   is_shared_with_non_super_family BOOLEAN NOT NULL DEFAULT FALSE,
   display_name VARCHAR,
-  emoji VARCHAR
+  emoji VARCHAR,
+  -- Only meaningful when has_chinese_specific_logic = TRUE.
+  -- 'pinyin'  -> single-character deck; card back = pinyin only.
+  -- 'english' -> vocabulary deck (1+ chars); card back = english meaning only.
+  chinese_back_content VARCHAR
 );
 
 CREATE TABLE IF NOT EXISTS cards (

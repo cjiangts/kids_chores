@@ -182,12 +182,8 @@
 
         .practice-mode-picker {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.55rem;
-        }
-
-        .practice-mode-picker.two-option-mode {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.55rem;
         }
 
         .practice-mode-option {
@@ -639,10 +635,6 @@
                                     <span class="practice-mode-option-title">Multiple Choice</span>
                                     <span class="practice-mode-option-desc">Pick 1 of 4 answers. System grades automatically.</span>
                                 </button>
-                                <button type="button" class="practice-mode-option hidden" data-judge-mode="multi_en" aria-pressed="false">
-                                    <span class="practice-mode-option-title">Multi EN</span>
-                                    <span class="practice-mode-option-desc">Pick 1 of 4 English meanings.</span>
-                                </button>
                             </div>
                         </div>
                         <button id="startBtn" class="control-btn start-btn">Start</button>
@@ -743,7 +735,6 @@
     <script src="writing-audio-sequence.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-category-common.js"></script>
-    <script src="chinese-card-back-common.js"></script>
     <script src="simple-audio-player.js"></script>
     <script src="audio-common.js"></script>
     <script src="recording-visualizer.js"></script>

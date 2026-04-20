@@ -61,12 +61,24 @@
         return (Array.isArray(deckCategories) ? deckCategories : []).find((item) => item.category_key === key) || null;
     }
 
-    function isChineseCharactersDeckMode(category) {
+    function getChineseBackContent(category) {
+        return String(category && category.chinese_back_content ? category.chinese_back_content : '').trim().toLowerCase();
+    }
+
+    function isChineseAutoBackDeckMode(category) {
         return Boolean(
             category
             && category.behavior_type === 'type_i'
             && category.has_chinese_specific_logic
         );
+    }
+
+    function isChineseCharactersDeckMode(category) {
+        return isChineseAutoBackDeckMode(category) && getChineseBackContent(category) === 'pinyin';
+    }
+
+    function isChineseVocabularyDeckMode(category) {
+        return isChineseAutoBackDeckMode(category) && getChineseBackContent(category) === 'english';
     }
 
     function isChineseWritingDeckMode(category) {
@@ -158,32 +170,18 @@
         return `[${list.join(', ')}]`;
     }
 
-    async function fetchChineseCharacterPinyinMap(apiBase, texts) {
+    async function fetchChineseCharacterBackMap(apiBase, texts, backContent) {
         if (!Array.isArray(texts) || texts.length === 0) {
             return {};
+        }
+        const normalizedBackContent = String(backContent || '').trim().toLowerCase();
+        if (normalizedBackContent !== 'pinyin' && normalizedBackContent !== 'english') {
+            throw new Error("backContent must be 'pinyin' or 'english'");
         }
         const response = await fetch(`${String(apiBase || `${window.location.origin}/api`).replace(/\/+$/, '')}/shared-decks/chinese-characters/pinyin`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ texts }),
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(result.error || `Failed to generate pinyin (HTTP ${response.status})`);
-        }
-        return result && typeof result.pinyin_by_text === 'object' && result.pinyin_by_text
-            ? result.pinyin_by_text
-            : {};
-    }
-
-    async function fetchChineseCharacterBackMap(apiBase, texts) {
-        if (!Array.isArray(texts) || texts.length === 0) {
-            return {};
-        }
-        const response = await fetch(`${String(apiBase || `${window.location.origin}/api`).replace(/\/+$/, '')}/shared-decks/chinese-characters/pinyin`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ texts }),
+            body: JSON.stringify({ texts, backContent: normalizedBackContent }),
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -308,7 +306,10 @@
         formatTagPayload,
         getDeckCountForCategory,
         getCurrentDeckCategory,
+        isChineseAutoBackDeckMode,
         isChineseCharactersDeckMode,
+        isChineseVocabularyDeckMode,
+        getChineseBackContent,
         isChineseWritingDeckMode,
         isTypeIIDeckMode,
         isTypeIVDeckMode,
@@ -317,7 +318,6 @@
         renderFirstTagToggle,
         normalizeNextFirstTag,
         formatTagPath,
-        fetchChineseCharacterPinyinMap,
         fetchChineseCharacterBackMap,
         fetchCategoryCardOverlap,
         toOverlapByValue,

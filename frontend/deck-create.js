@@ -165,6 +165,14 @@ function isChineseCharactersDeckMode() {
     return deckCreateCommon.isChineseCharactersDeckMode(getCurrentDeckCategory());
 }
 
+function isChineseVocabularyDeckMode() {
+    return deckCreateCommon.isChineseVocabularyDeckMode(getCurrentDeckCategory());
+}
+
+function isChineseAutoBackDeckMode() {
+    return deckCreateCommon.isChineseAutoBackDeckMode(getCurrentDeckCategory());
+}
+
 function isChineseWritingDeckMode() {
     return deckCreateCommon.isChineseWritingDeckMode(getCurrentDeckCategory());
 }
@@ -525,9 +533,19 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Chinese Text';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Paste Chinese text. The system will tokenize into individual Chinese characters as <code>front</code> and auto-generate pinyin plus a short English meaning as <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Paste Chinese text. The system will tokenize into individual Chinese characters as <code>front</code> and auto-generate pinyin as <code>back</code>.';
         }
         cardsCsvInput.placeholder = '比如：春眠不觉晓，处处闻啼鸟。';
+        return;
+    }
+    if (isChineseVocabularyDeckMode()) {
+        if (cardsInputSectionTitle) {
+            cardsInputSectionTitle.textContent = '2) Paste Chinese Words';
+        }
+        if (cardsInputHelpText) {
+            cardsInputHelpText.innerHTML = 'Paste Chinese text; runs of Chinese characters are tokenized into words by any non-Chinese character (space, punctuation, newline). Each word becomes <code>front</code>; <code>back</code> is auto-filled with the English meaning from the Chinese character bank (blank if not found).';
+        }
+        cardsCsvInput.placeholder = '春天 夜晚 月光\n风雨，花落';
         return;
     }
     if (isChineseWritingDeckMode()) {
@@ -720,12 +738,38 @@ function parseChineseCharacterText(rawText) {
     return cards;
 }
 
+function parseChineseVocabularyText(rawText) {
+    const text = String(rawText || '');
+    const lines = text.split(/\r\n|\r|\n/);
+    const cards = [];
+
+    lines.forEach((lineText, index) => {
+        const line = index + 1;
+        const words = String(lineText || '').match(/\p{Script=Han}+/gu);
+        if (!words) {
+            return;
+        }
+        words.forEach((word) => {
+            cards.push({ front: String(word), back: '', line });
+        });
+    });
+
+    if (cards.length === 0) {
+        throw new Error('No Chinese words found. Paste text that contains Chinese characters.');
+    }
+    return cards;
+}
+
 async function parseCardsForCurrentMode() {
-    if (!isChineseCharactersDeckMode()) {
+    if (!isChineseAutoBackDeckMode()) {
         return parseCardsCsv(cardsCsvInput.value);
     }
 
-    const cards = parseChineseCharacterText(cardsCsvInput.value);
+    const isVocab = isChineseVocabularyDeckMode();
+    const backContent = isVocab ? 'english' : 'pinyin';
+    const cards = isVocab
+        ? parseChineseVocabularyText(cardsCsvInput.value)
+        : parseChineseCharacterText(cardsCsvInput.value);
     const uniqueTexts = [];
     const seen = new Set();
     cards.forEach((card) => {
@@ -736,11 +780,14 @@ async function parseCardsForCurrentMode() {
         uniqueTexts.push(card.front);
     });
 
-    const backByText = await deckCreateCommon.fetchChineseCharacterBackMap(API_BASE, uniqueTexts);
-    return cards.map((card) => ({
-        ...card,
-        back: String(backByText[card.front] || '').trim() || card.front,
-    }));
+    const backByText = await deckCreateCommon.fetchChineseCharacterBackMap(API_BASE, uniqueTexts, backContent);
+    return cards.map((card) => {
+        const back = String(backByText[card.front] || '').trim();
+        return {
+            ...card,
+            back: isVocab ? back : (back || card.front),
+        };
+    });
 }
 
 function parseType4Definition() {

@@ -439,8 +439,7 @@ function formatPracticeMode(mode) {
     const m = String(mode || '').trim().toLowerCase();
     if (m === 'self') return 'Self';
     if (m === 'parent') return 'Parent';
-    if (m === 'multi') return 'Multi Pinyin';
-    if (m === 'multi_en') return 'Multi EN';
+    if (m === 'multi') return 'Multi';
     if (m === 'input') return 'Input';
     return '-';
 }

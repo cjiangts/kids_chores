@@ -19,7 +19,12 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.badges.session_sync import sync_badges_after_session_complete
-from src.chinese_character_meanings import build_single_character_back, get_character_bank_pinyin, is_single_chinese_character
+from src.chinese_character_meanings import (
+    get_bank_meaning,
+    get_character_bank_pinyin,
+    is_chinese_text,
+    is_single_chinese_character,
+)
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.security_rate_limit import (
@@ -792,7 +797,8 @@ def get_shared_deck_categories(conn):
           has_chinese_specific_logic,
           is_shared_with_non_super_family,
           display_name,
-          emoji
+          emoji,
+          chinese_back_content
         FROM deck_category
         ORDER BY category_key ASC
         """
@@ -802,13 +808,19 @@ def get_shared_deck_categories(conn):
         behavior_type = str(row[1] or '').strip().lower()
         if behavior_type not in DECK_CATEGORY_BEHAVIOR_TYPES:
             continue
+        has_chinese = bool(row[2])
+        is_type_i = (behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I)
+        chinese_back_content = str(row[6] or '').strip().lower() if (has_chinese and is_type_i) else ''
+        if chinese_back_content not in ('pinyin', 'english'):
+            chinese_back_content = ''
         categories.append({
             'category_key': str(row[0] or ''),
             'behavior_type': behavior_type,
-            'has_chinese_specific_logic': bool(row[2]),
+            'has_chinese_specific_logic': has_chinese,
             'is_shared_with_non_super_family': bool(row[3]),
             'display_name': str(row[4] or '').strip(),
             'emoji': str(row[5] or '').strip(),
+            'chinese_back_content': chinese_back_content,
         })
     return categories
 
@@ -2583,22 +2595,76 @@ def ensure_pypinyin_dicts_loaded():
     _PYPINYIN_DICTS_LOADED = True
 
 
-def build_chinese_auto_back_text(text, generated_pinyin=None):
-    """Build the stored back text for a single Chinese character.
+CHINESE_BACK_CONTENT_PINYIN = 'pinyin'
+CHINESE_BACK_CONTENT_ENGLISH = 'english'
+CHINESE_BACK_CONTENTS = (CHINESE_BACK_CONTENT_PINYIN, CHINESE_BACK_CONTENT_ENGLISH)
 
-    Prefers the bank's curated pinyin over pypinyin.
-    Falls back to pypinyin only when the character is not in the bank.
+
+def normalize_chinese_back_content(value):
+    """Return one of CHINESE_BACK_CONTENTS, or empty string if unrecognized."""
+    text = str(value or '').strip().lower()
+    return text if text in CHINESE_BACK_CONTENTS else ''
+
+
+def build_chinese_auto_back_text(text, back_content, *, generated_pinyin=None):
+    """Build the stored back text for one Chinese card.
+
+    back_content='pinyin'  -> character deck (single char). Bank pinyin wins
+      over pypinyin; falls back to pypinyin when the char is not in the bank.
+    back_content='english' -> vocabulary deck (1+ chars). Bank meaning only;
+      empty when the text is not in the bank (caller can accept empty or
+      require the user to fill it manually).
     """
     normalized = str(text or '').strip()
-    if not normalized or not is_single_chinese_character(normalized):
+    if not normalized:
         return ''
-    bank_pinyin = get_character_bank_pinyin(normalized)
-    pinyin_text = bank_pinyin or str(
-        generated_pinyin
-        if generated_pinyin is not None
-        else build_chinese_pinyin_text(normalized)
-    ).strip()
-    return str(build_single_character_back(normalized, pinyin_text) or pinyin_text or normalized).strip()
+    mode = normalize_chinese_back_content(back_content)
+    if mode == CHINESE_BACK_CONTENT_PINYIN:
+        if not is_single_chinese_character(normalized):
+            return ''
+        bank_pinyin = get_character_bank_pinyin(normalized)
+        if bank_pinyin:
+            return bank_pinyin
+        if generated_pinyin is not None:
+            return str(generated_pinyin).strip()
+        return build_chinese_pinyin_text(normalized)
+    if mode == CHINESE_BACK_CONTENT_ENGLISH:
+        if not is_chinese_text(normalized):
+            return ''
+        return get_bank_meaning(normalized)
+    return ''
+
+
+def get_shared_deck_chinese_back_content(conn, raw_tags):
+    """Return chinese_back_content ('pinyin'|'english'|'') for a shared deck row."""
+    tags = extract_shared_deck_tags_and_labels(raw_tags)[0]
+    first_tag = normalize_shared_deck_tag(tags[0]) if tags else ''
+    if not first_tag:
+        return ''
+    row = conn.execute(
+        """
+        SELECT chinese_back_content
+        FROM deck_category
+        WHERE category_key = ? AND has_chinese_specific_logic = TRUE
+        LIMIT 1
+        """,
+        [first_tag],
+    ).fetchone()
+    if not row:
+        return ''
+    return normalize_chinese_back_content(row[0])
+
+
+def get_category_chinese_back_content(category_key):
+    """Return chinese_back_content for one category key (cached)."""
+    key = normalize_shared_deck_tag(category_key)
+    if not key:
+        return ''
+    metadata = get_shared_deck_category_meta_by_key()
+    entry = metadata.get(key) or {}
+    if not entry.get('has_chinese_specific_logic'):
+        return ''
+    return normalize_chinese_back_content(entry.get('chinese_back_content'))
 
 
 @kids_bp.route('/shared-decks/categories', methods=['GET'])
@@ -2652,6 +2718,16 @@ def create_shared_deck_category():
             and has_chinese_specific_logic
         ):
             raise ValueError('type_iv categories do not support hasChineseSpecificLogic')
+        raw_back_content = str(payload.get('chineseBackContent') or '').strip().lower()
+        is_type_i = (behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I)
+        if has_chinese_specific_logic and is_type_i:
+            if raw_back_content not in CHINESE_BACK_CONTENTS:
+                raise ValueError("chineseBackContent must be 'pinyin' or 'english' for type_i chinese categories")
+            chinese_back_content = raw_back_content
+        else:
+            if raw_back_content:
+                raise ValueError('chineseBackContent is only allowed for type_i categories with hasChineseSpecificLogic=true')
+            chinese_back_content = None
         display_name = normalize_optional_display_name(payload.get('displayName'))
         emoji = normalize_optional_emoji(payload.get('emoji'))
 
@@ -2665,18 +2741,27 @@ def create_shared_deck_category():
                     has_chinese_specific_logic,
                     is_shared_with_non_super_family,
                     display_name,
-                    emoji
+                    emoji,
+                    chinese_back_content
                 )
-                VALUES (?, ?, ?, FALSE, ?, ?)
+                VALUES (?, ?, ?, FALSE, ?, ?, ?)
                 RETURNING
                   category_key,
                   behavior_type,
                   has_chinese_specific_logic,
                   is_shared_with_non_super_family,
                   display_name,
-                  emoji
+                  emoji,
+                  chinese_back_content
                 """,
-                [category_key, behavior_type, has_chinese_specific_logic, display_name, emoji]
+                [
+                    category_key,
+                    behavior_type,
+                    has_chinese_specific_logic,
+                    display_name,
+                    emoji,
+                    chinese_back_content,
+                ]
             ).fetchone()
         finally:
             conn.close()
@@ -2691,6 +2776,7 @@ def create_shared_deck_category():
                 'is_shared_with_non_super_family': bool(row[3]),
                 'display_name': str(row[4] or '').strip(),
                 'emoji': str(row[5] or '').strip(),
+                'chinese_back_content': str(row[6] or '').strip().lower(),
             },
         }), 201
     except ValueError as e:
@@ -2925,16 +3011,26 @@ def shared_deck_chinese_characters_pinyin():
 
         payload = request.get_json() or {}
         texts = normalize_shared_deck_fronts(payload.get('texts'))
+        back_content = normalize_chinese_back_content(payload.get('backContent'))
+        if not back_content:
+            raise ValueError("backContent must be 'pinyin' or 'english'")
         pinyin_by_text = {}
         back_by_text = {}
         for text in texts:
             key = str(text)
-            if not is_single_chinese_character(text):
-                continue
-            bank_pinyin = get_character_bank_pinyin(text)
-            generated_pinyin = bank_pinyin or build_chinese_pinyin_text(text)
-            pinyin_by_text[key] = generated_pinyin
-            back_by_text[key] = build_chinese_auto_back_text(text, generated_pinyin=generated_pinyin)
+            if back_content == CHINESE_BACK_CONTENT_PINYIN:
+                if not is_single_chinese_character(text):
+                    continue
+                bank_pinyin = get_character_bank_pinyin(text)
+                generated_pinyin = bank_pinyin or build_chinese_pinyin_text(text)
+                pinyin_by_text[key] = generated_pinyin
+                back_by_text[key] = build_chinese_auto_back_text(
+                    text, back_content, generated_pinyin=generated_pinyin
+                )
+            else:
+                if not is_chinese_text(text):
+                    continue
+                back_by_text[key] = build_chinese_auto_back_text(text, back_content)
         return jsonify({
             'count': len(texts),
             'pinyin_by_text': pinyin_by_text,
@@ -3076,7 +3172,6 @@ def shared_deck_category_card_overlap():
         category_key = normalize_shared_deck_tag(payload.get('categoryKey'))
         if not category_key:
             raise ValueError('categoryKey is required')
-        cards = normalize_shared_deck_cards(payload.get('cards'))
 
         conn = get_shared_decks_connection(read_only=True)
         try:
@@ -3090,6 +3185,13 @@ def shared_deck_category_card_overlap():
                 raise ValueError(f'Unknown categoryKey: {category_key}')
 
             behavior_type = str(category_meta.get('behavior_type') or '').strip().lower()
+            chinese_type_i = (
+                behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I
+                and bool(category_meta.get('has_chinese_specific_logic'))
+            )
+            cards = normalize_shared_deck_cards(
+                payload.get('cards'), allow_empty_back=chinese_type_i
+            )
             if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
                 raise ValueError('type_iv categories use Python generators, not static cards')
             dedupe_key = 'back' if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II else 'front'
@@ -3953,13 +4055,18 @@ def replace_shared_deck_cards(deck_id):
                 return jsonify({'error': 'type_iv decks are immutable and do not support card edits'}), 400
 
             chinese_type_i = is_shared_deck_chinese_type_i(conn, deck_row[2])
+            chinese_back_content = (
+                get_shared_deck_chinese_back_content(conn, deck_row[2])
+                if chinese_type_i
+                else ''
+            )
             payload = request.get_json(silent=True) or {}
             new_cards = normalize_shared_deck_cards(payload.get('cards'), allow_empty_back=chinese_type_i)
 
-            if chinese_type_i:
+            if chinese_type_i and chinese_back_content:
                 for card in new_cards:
                     if not card['back']:
-                        card['back'] = build_chinese_auto_back_text(card['front'])
+                        card['back'] = build_chinese_auto_back_text(card['front'], chinese_back_content)
 
             dedupe_key = get_shared_deck_dedupe_key(conn, deck_row[2])
             new_cards = (
@@ -4138,7 +4245,28 @@ def create_shared_deck():
                     cards = [{'front': display_label, 'back': ''}]
                 else:
                     dedupe_by_back = behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II
-                    cards = normalize_shared_deck_cards(payload.get('cards'))
+                    category_meta = (
+                        get_shared_deck_category_meta_by_key().get(tags[0])
+                        or {}
+                    )
+                    chinese_type_i = (
+                        behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I
+                        and bool(category_meta.get('has_chinese_specific_logic'))
+                    )
+                    chinese_back_content = (
+                        normalize_chinese_back_content(category_meta.get('chinese_back_content'))
+                        if chinese_type_i
+                        else ''
+                    )
+                    cards = normalize_shared_deck_cards(
+                        payload.get('cards'), allow_empty_back=chinese_type_i
+                    )
+                    if chinese_type_i and chinese_back_content:
+                        for card in cards:
+                            if not card['back']:
+                                card['back'] = build_chinese_auto_back_text(
+                                    card['front'], chinese_back_content
+                                )
                     cards = (
                         dedupe_shared_deck_cards_by_back(cards)
                         if dedupe_by_back
@@ -4553,6 +4681,7 @@ def get_shared_deck_category_meta_by_key():
             'is_shared_with_non_super_family': bool(item.get('is_shared_with_non_super_family')),
             'display_name': str(item.get('display_name') or '').strip(),
             'emoji': str(item.get('emoji') or '').strip(),
+            'chinese_back_content': str(item.get('chinese_back_content') or '').strip().lower(),
         }
     _category_meta_cache['data'] = metadata_by_key
     _category_meta_cache['ts'] = now
@@ -8036,10 +8165,11 @@ def add_card(kid_id):
             data.get('categoryKey') or request.args.get('categoryKey'),
             allow_default=True,
         )
+        chinese_back_content = get_category_chinese_back_content(category_key)
 
         back = str(data.get('back') or '').strip()
-        if not back:
-            back = build_chinese_auto_back_text(front)
+        if not back and chinese_back_content:
+            back = build_chinese_auto_back_text(front, chinese_back_content)
 
         conn = get_kid_connection_for(kid)
         try:
@@ -8116,6 +8246,7 @@ def add_cards_bulk(kid_id):
             data.get('categoryKey') or request.args.get('categoryKey'),
             allow_default=True,
         )
+        chinese_back_content = get_category_chinese_back_content(category_key)
 
         conn = get_kid_connection_for(kid)
         try:
@@ -8145,8 +8276,8 @@ def add_cards_bulk(kid_id):
                 existing_fronts.add(front)
 
                 back = str(item.get('back') or '').strip()
-                if not back:
-                    back = build_chinese_auto_back_text(front)
+                if not back and chinese_back_content:
+                    back = build_chinese_auto_back_text(front, chinese_back_content)
 
                 card_id = conn.execute(
                     "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?) RETURNING id",
@@ -9488,7 +9619,7 @@ def build_type_iv_shared_cards_payload(
 
 
 SESSION_PRACTICE_MODE_NA = 'na'
-SESSION_PRACTICE_MODE_VALID = {'self', 'parent', 'multi', 'multi_en', 'input', 'na'}
+SESSION_PRACTICE_MODE_VALID = {'self', 'parent', 'multi', 'input', 'na'}
 
 
 def normalize_session_practice_mode(raw_mode):
@@ -11539,6 +11670,7 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
             'management_type': SHARED_SCOPE_MANAGEMENT_TYPE_I,
             'category_key': category_key,
             'has_chinese_specific_logic': bool(has_chinese_specific_logic),
+            'chinese_back_content': get_category_chinese_back_content(category_key),
             'include_orphan_in_queue': get_category_include_orphan_for_kid(kid, category_key),
             'orphan_deck_name': get_category_orphan_deck_name(category_key),
         }
@@ -11917,6 +12049,7 @@ def get_decks_for_scope(kid_id, category):
             'category_key': scope_context['category_key'],
             **payload,
             'has_chinese_specific_logic': bool(scope_context['has_chinese_specific_logic']),
+            'chinese_back_content': scope_context.get('chinese_back_content') or '',
             **special_ready_payload,
         }), 200
     except ValueError as e:
@@ -14756,34 +14889,68 @@ def refresh_chinese_bank_used():
     from pathlib import Path
     from src.db import kid_db
 
-    single_char_re = re.compile(r'^[\u3400-\u9FFF\uF900-\uFAFF]$')
+    han_only_re = re.compile(r'^[\u3400-\u9FFF\uF900-\uFAFF]+$')
 
     conn = get_shared_decks_connection()
     try:
+        # Only sweep cards whose deck belongs to a chinese-logic type_i category.
+        # Other categories (type_ii writing, type_iii reading, non-chinese) are
+        # not backed by the character/vocabulary bank.
+        chinese_type_i_keys = [
+            str(row[0])
+            for row in conn.execute(
+                """
+                SELECT category_key FROM deck_category
+                WHERE has_chinese_specific_logic = TRUE
+                  AND behavior_type = ?
+                """,
+                [DECK_CATEGORY_BEHAVIOR_TYPE_I],
+            ).fetchall()
+        ]
         used_chars = set()
 
-        # Shared deck cards
-        for row in conn.execute("SELECT DISTINCT front FROM cards").fetchall():
-            front = str(row[0] or '').strip()
-            if single_char_re.fullmatch(front):
-                used_chars.add(front)
+        if chinese_type_i_keys:
+            placeholders = ', '.join(['?'] * len(chinese_type_i_keys))
+            shared_rows = conn.execute(
+                f"""
+                SELECT DISTINCT c.front
+                FROM cards c
+                JOIN deck d ON d.deck_id = c.deck_id
+                WHERE array_length(d.tags) >= 1
+                  AND lower(d.tags[1]) IN ({placeholders})
+                """,
+                chinese_type_i_keys,
+            ).fetchall()
+            for row in shared_rows:
+                front = str(row[0] or '').strip()
+                if han_only_re.fullmatch(front):
+                    used_chars.add(front)
 
-        # All kid DBs
-        families_root = Path(kid_db.DATA_DIR) / 'families'
-        if families_root.exists():
-            for db_path in sorted(families_root.glob('family_*/kid_*.db')):
-                kid_conn = None
-                try:
-                    kid_conn = kid_db.duckdb.connect(str(db_path), read_only=True)
-                    for row in kid_conn.execute("SELECT DISTINCT front FROM cards").fetchall():
-                        front = str(row[0] or '').strip()
-                        if single_char_re.fullmatch(front):
-                            used_chars.add(front)
-                except Exception:
-                    pass
-                finally:
-                    if kid_conn is not None:
-                        kid_conn.close()
+            families_root = Path(kid_db.DATA_DIR) / 'families'
+            if families_root.exists():
+                for db_path in sorted(families_root.glob('family_*/kid_*.db')):
+                    kid_conn = None
+                    try:
+                        kid_conn = kid_db.duckdb.connect(str(db_path), read_only=True)
+                        kid_rows = kid_conn.execute(
+                            f"""
+                            SELECT DISTINCT c.front
+                            FROM cards c
+                            JOIN decks d ON d.id = c.deck_id
+                            WHERE array_length(d.tags) >= 1
+                              AND lower(d.tags[1]) IN ({placeholders})
+                            """,
+                            chinese_type_i_keys,
+                        ).fetchall()
+                        for row in kid_rows:
+                            front = str(row[0] or '').strip()
+                            if han_only_re.fullmatch(front):
+                                used_chars.add(front)
+                    except Exception:
+                        pass
+                    finally:
+                        if kid_conn is not None:
+                            kid_conn.close()
 
         # Snapshot before: which chars were used before this refresh
         prev_used = {
@@ -14843,86 +15010,125 @@ def refresh_chinese_bank_used():
 
 @kids_bp.route('/chinese-bank/force-sync-backs', methods=['POST'])
 def force_sync_chinese_bank_backs():
-    """Re-generate the back text for every card whose front is a verified bank character."""
+    """Re-generate the back text for every card whose front matches a verified bank entry.
+
+    For cards in character decks (chinese_back_content='pinyin'), back <- bank.pinyin.
+    For cards in vocabulary decks (chinese_back_content='english'), back <- bank.en.
+    Writing decks are skipped regardless of back content.
+    """
     auth_err = require_super_family()
     if auth_err:
         return auth_err
 
     from pathlib import Path
     from src.db import kid_db
-    from src.chinese_character_meanings import compose_chinese_back
 
-    conn = get_shared_decks_connection(read_only=True)
-    try:
-        verified_rows = conn.execute(
-            "SELECT character, pinyin, en FROM chinese_character_bank WHERE verified = TRUE"
-        ).fetchall()
-    finally:
-        conn.close()
-
-    if not verified_rows:
-        return jsonify({'updated_shared': 0, 'updated_kids': 0, 'verified_count': 0})
-
-    bank = {r[0]: {'pinyin': str(r[1] or '').strip(), 'en': str(r[2] or '').strip()} for r in verified_rows}
-
-    # Track per-character: {char: {'shared': count, 'kid_dbs': count}}
-    changed = {}
-
-    # Update shared deck cards (skip writing decks — their back must stay as-is)
     shared_conn = get_shared_decks_connection()
     try:
-        writing_deck_ids = {
-            r[0] for r in shared_conn.execute(
-                "SELECT deck_id FROM deck WHERE list_contains(tags, 'chinese_writing')"
-            ).fetchall()
+        verified_rows = shared_conn.execute(
+            "SELECT character, pinyin, en FROM chinese_character_bank WHERE verified = TRUE"
+        ).fetchall()
+        if not verified_rows:
+            return jsonify({'verified_count': 0, 'changed': []})
+        bank = {
+            r[0]: {'pinyin': str(r[1] or '').strip(), 'en': str(r[2] or '').strip()}
+            for r in verified_rows
         }
+
+        # Map deck_id -> back_content ('pinyin' | 'english') for chinese-logic decks only.
+        shared_back_content_by_deck = {}
+        for row in shared_conn.execute(
+            """
+            SELECT d.deck_id, dc.chinese_back_content
+            FROM deck d
+            JOIN deck_category dc ON dc.category_key = d.tags[1]
+            WHERE dc.has_chinese_specific_logic = TRUE
+              AND dc.chinese_back_content IN ('pinyin', 'english')
+              AND NOT list_contains(d.tags, 'chinese_writing')
+            """
+        ).fetchall():
+            shared_back_content_by_deck[row[0]] = str(row[1] or '').strip().lower()
+
+        changed = {}
         for char, data in bank.items():
-            new_back = compose_chinese_back(data['pinyin'], data['en'])
-            if not new_back:
-                continue
             rows = shared_conn.execute(
-                "SELECT id, deck_id FROM cards WHERE front = ? AND back IS DISTINCT FROM ?",
-                [char, new_back],
+                "SELECT id, deck_id, back FROM cards WHERE front = ?",
+                [char],
             ).fetchall()
-            ids = [r[0] for r in rows if r[1] not in writing_deck_ids]
-            if ids:
-                placeholders = ', '.join(['?'] * len(ids))
+            for card_id, deck_id, current_back in rows:
+                bc = shared_back_content_by_deck.get(deck_id)
+                if not bc:
+                    continue
+                target = data['pinyin'] if bc == 'pinyin' else data['en']
+                if not target or target == (current_back or ''):
+                    continue
                 shared_conn.execute(
-                    f"UPDATE cards SET back = ? WHERE id IN ({placeholders})",
-                    [new_back] + ids,
+                    "UPDATE cards SET back = ? WHERE id = ?",
+                    [target, card_id],
                 )
                 changed.setdefault(char, {'shared': 0, 'kid_dbs': 0})
-                changed[char]['shared'] += len(ids)
+                changed[char]['shared'] += 1
     finally:
         shared_conn.close()
 
-    # Update all kid DBs (skip cards in writing decks)
     families_root = Path(kid_db.DATA_DIR) / 'families'
     if families_root.exists():
         for db_path in sorted(families_root.glob('family_*/kid_*.db')):
             kid_conn = None
             try:
                 kid_conn = kid_db.duckdb.connect(str(db_path))
-                writing_deck_ids_kid = {
-                    r[0] for r in kid_conn.execute(
-                        "SELECT id FROM decks WHERE list_contains(tags, 'chinese_writing')"
+                kid_shared_conn = get_shared_decks_connection(read_only=True)
+                try:
+                    kid_back_content_by_deck = {}
+                    deck_rows = kid_conn.execute(
+                        """
+                        SELECT id, tags
+                        FROM decks
+                        WHERE tags IS NOT NULL
+                          AND NOT list_contains(tags, 'chinese_writing')
+                        """
                     ).fetchall()
-                }
+                    for deck_id, tags in deck_rows:
+                        first_tag = (tags or [''])[0] if tags else ''
+                        if not first_tag:
+                            continue
+                        meta_row = kid_shared_conn.execute(
+                            """
+                            SELECT chinese_back_content
+                            FROM deck_category
+                            WHERE category_key = ?
+                              AND has_chinese_specific_logic = TRUE
+                            LIMIT 1
+                            """,
+                            [first_tag],
+                        ).fetchone()
+                        if not meta_row:
+                            continue
+                        bc = str(meta_row[0] or '').strip().lower()
+                        if bc in ('pinyin', 'english'):
+                            kid_back_content_by_deck[deck_id] = bc
+                finally:
+                    kid_shared_conn.close()
+
                 for char, data in bank.items():
-                    new_back = compose_chinese_back(data['pinyin'], data['en'])
-                    if not new_back:
-                        continue
                     rows = kid_conn.execute(
-                        "SELECT id, deck_id FROM cards WHERE front = ? AND back IS DISTINCT FROM ?",
-                        [char, new_back],
+                        "SELECT id, deck_id, back FROM cards WHERE front = ?",
+                        [char],
                     ).fetchall()
-                    ids = [r[0] for r in rows if r[1] not in writing_deck_ids_kid]
-                    if ids:
-                        placeholders = ', '.join(['?'] * len(ids))
+                    touched = False
+                    for card_id, deck_id, current_back in rows:
+                        bc = kid_back_content_by_deck.get(deck_id)
+                        if not bc:
+                            continue
+                        target = data['pinyin'] if bc == 'pinyin' else data['en']
+                        if not target or target == (current_back or ''):
+                            continue
                         kid_conn.execute(
-                            f"UPDATE cards SET back = ? WHERE id IN ({placeholders})",
-                            [new_back] + ids,
+                            "UPDATE cards SET back = ? WHERE id = ?",
+                            [target, card_id],
                         )
+                        touched = True
+                    if touched:
                         changed.setdefault(char, {'shared': 0, 'kid_dbs': 0})
                         changed[char]['kid_dbs'] += 1
             except Exception:

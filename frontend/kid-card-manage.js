@@ -21,7 +21,6 @@ const {
     getDeckCategoryMetaMap,
 } = window.DeckCategoryCommon;
 const categoryKey = normalizeCategoryKey(params.get('categoryKey'));
-const chineseCardBackCommon = window.ChineseCardBackCommon || null;
 
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
@@ -137,31 +136,12 @@ const NEXT_SESSION_HARD_COLOR = '#f59e0b';
 const NEXT_SESSION_LEAST_COLOR = '#22a45a';
 let currentSessionCardCountCap = null;
 
-function getChineseCardBackSearchText(rawBack) {
-    if (chineseCardBackCommon && typeof chineseCardBackCommon.getSearchText === 'function') {
-        return chineseCardBackCommon.getSearchText(rawBack);
-    }
-    return String(rawBack || '');
+function getChineseCardBackText(rawBack) {
+    return String(rawBack || '').trim();
 }
 
 function getChineseCardBackHtml(rawBack) {
-    if (chineseCardBackCommon && typeof chineseCardBackCommon.buildStackHtml === 'function') {
-        return chineseCardBackCommon.buildStackHtml(rawBack, escapeHtml);
-    }
-    return escapeHtml(String(rawBack || '').trim());
-}
-
-function getChineseCardBackParts(rawBack) {
-    if (chineseCardBackCommon && typeof chineseCardBackCommon.splitBack === 'function') {
-        return chineseCardBackCommon.splitBack(rawBack);
-    }
-    const text = String(rawBack || '').trim();
-    return {
-        raw: text,
-        pinyin: text,
-        meaning: '',
-        hasMeaning: false,
-    };
+    return escapeHtml(getChineseCardBackText(rawBack));
 }
 
 const promptPreviewPlayer = (
@@ -1203,9 +1183,7 @@ function filterCardsByQuery(cards, rawQuery) {
     }
     return cards.filter((card) => {
         const front = String(card.front || '');
-        const back = isChineseSpecificLogic && isType1Behavior()
-            ? getChineseCardBackSearchText(card.back)
-            : String(card.back || '');
+        const back = String(card.back || '');
         const source = String(resolveCardSourceDeckName(card) || '');
         return front.includes(query) || back.includes(query) || source.includes(query);
     });
@@ -1722,12 +1700,12 @@ function buildCardReportHref(card) {
 }
 
 function buildChineseCardMarkup(card, options = {}) {
-    const backParts = getChineseCardBackParts(card.back);
+    const backText = getChineseCardBackText(card.back);
     return buildCardMarkup(card, {
         cardClassNames: ['type1-chinese-card', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])],
         primaryText: card.front,
         secondaryHtml: getChineseCardBackHtml(card.back),
-        showSecondary: backParts.pinyin.length > 0 || backParts.meaning.length > 0,
+        showSecondary: backText.length > 0,
         includeAddedDate: true,
         prependControlsHtml: options.prependControlsHtml,
         trailingActionHtml: options.trailingActionHtml,

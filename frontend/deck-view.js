@@ -48,7 +48,6 @@ const renameNameStatus = document.getElementById('renameNameStatus');
 const renameTagsError = document.getElementById('renameTagsError');
 const deckEditHelp = document.getElementById('deckEditHelp');
 const deckCategoryCommon = window.DeckCategoryCommon;
-const chineseCardBackCommon = window.ChineseCardBackCommon || null;
 
 if (!deckCategoryCommon) {
     throw new Error('deck-category-common.js is required for deck-view');
@@ -94,12 +93,6 @@ function isChineseType1Deck() {
 }
 
 function formatDeckCardBackHtml(rawBack) {
-    if (!isChineseType1Deck()) {
-        return escapeHtml(rawBack || '-');
-    }
-    if (chineseCardBackCommon && typeof chineseCardBackCommon.buildStackHtml === 'function') {
-        return chineseCardBackCommon.buildStackHtml(rawBack, escapeHtml);
-    }
     return escapeHtml(rawBack || '-');
 }
 

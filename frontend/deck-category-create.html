@@ -262,6 +262,25 @@
                             </div>
                             <p id="chineseLogicNote" class="category-preselect-note hidden"></p>
                         </fieldset>
+                        <fieldset class="form-group field-chinese-logic hidden" id="chineseBackContentFieldset">
+                            <legend>Chinese back-of-card content</legend>
+                            <div class="logic-picker" id="chineseBackContentPicker">
+                                <label class="behavior-option">
+                                    <input type="radio" name="chineseBackContent" value="pinyin">
+                                    <span class="behavior-option-label">
+                                        <span class="behavior-option-title">Pinyin</span>
+                                        <span class="behavior-option-desc">Character deck: single char, back = pinyin.</span>
+                                    </span>
+                                </label>
+                                <label class="behavior-option">
+                                    <input type="radio" name="chineseBackContent" value="english">
+                                    <span class="behavior-option-label">
+                                        <span class="behavior-option-title">English</span>
+                                        <span class="behavior-option-desc">Vocabulary deck: 1+ chars, back = english meaning.</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </fieldset>
                     </div>
                     <div class="deck-row mt-07">
                         <button id="createCategoryBtn" type="submit" class="btn-primary">Create Category</button>
@@ -281,6 +300,7 @@
                                 <th class="table-col-80">Emoji</th>
                                 <th class="table-col-120">Behavior</th>
                                 <th class="table-col-120">Chinese Logic</th>
+                                <th class="table-col-120">Chinese Back</th>
                                 <th class="table-col-120">Shared</th>
                                 <th class="table-col-120">Action</th>
                             </tr>

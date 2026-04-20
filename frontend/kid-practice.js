@@ -66,8 +66,6 @@ const {
     resolveTypeIIPracticeCategoryKey,
     resolveTypeIIIPracticeCategoryKey,
 } = window.DeckCategoryCommon || {};
-const chineseCardBackCommon = window.ChineseCardBackCommon || null;
-
 const BEHAVIOR_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_III = 'type_iii';
@@ -85,6 +83,7 @@ const state = {
     categoryDisplayName: '',
     behaviorType: '',
     hasChineseSpecificLogic: false,
+    chineseBackContent: '',
     configuredSessionCount: 0,
     readyIsContinueSession: false,
     readyContinueSourceSessionId: null,
@@ -137,38 +136,12 @@ const state = {
 
 const errorState = { lastMessage: '' };
 
-function getChineseType1BackParts(rawBack) {
-    if (chineseCardBackCommon && typeof chineseCardBackCommon.splitBack === 'function') {
-        return chineseCardBackCommon.splitBack(rawBack);
-    }
-    const text = String(rawBack || '').trim();
-    return {
-        raw: text,
-        pinyin: text,
-        meaning: '',
-        hasMeaning: false,
-    };
-}
-
-function getChineseType1PinyinText(rawBack) {
-    const parts = getChineseType1BackParts(rawBack);
-    return parts.pinyin || parts.meaning || '';
-}
-
-function getChineseType1MeaningText(rawBack) {
-    const parts = getChineseType1BackParts(rawBack);
-    return parts.meaning || '';
-}
-
-function isMultiEnJudgeMode() {
-    return Boolean(window.PracticeJudgeMode?.isMultiEnMode?.(state.judgeMode));
+function getChineseType1BackText(rawBack) {
+    return String(rawBack || '').trim();
 }
 
 function getChineseType1BackHtml(rawBack) {
-    if (chineseCardBackCommon && typeof chineseCardBackCommon.buildStackHtml === 'function') {
-        return chineseCardBackCommon.buildStackHtml(rawBack, escapeHtml);
-    }
-    return escapeHtml(String(rawBack || '').trim());
+    return escapeHtml(getChineseType1BackText(rawBack));
 }
 
 const promptPlayer = window.WritingAudioSequence.createPlayer({
@@ -370,18 +343,13 @@ function configureJudgeModePickerForType() {
     const selfBtn = getJudgeModeButton('self');
     const parentBtn = getJudgeModeButton('parent');
     const multiBtn = getJudgeModeButton('multi');
-    const multiEnBtn = getJudgeModeButton('multi_en');
 
     if (isType(BEHAVIOR_TYPE_IV)) {
-        judgeModeToggleStart.classList.add('two-option-mode');
         if (selfBtn) {
             selfBtn.classList.remove('hidden');
         }
         if (parentBtn) {
             parentBtn.classList.add('hidden');
-        }
-        if (multiEnBtn) {
-            multiEnBtn.classList.add('hidden');
         }
         setJudgeModeButtonContent(
             selfBtn,
@@ -402,11 +370,9 @@ function configureJudgeModePickerForType() {
     if (parentBtn) {
         parentBtn.classList.remove('hidden');
     }
-    const showMultiEn = state.hasChineseSpecificLogic;
-    if (multiEnBtn) {
-        multiEnBtn.classList.toggle('hidden', !showMultiEn);
+    if (multiBtn) {
+        multiBtn.classList.remove('hidden');
     }
-    judgeModeToggleStart.classList.toggle('two-option-mode', !showMultiEn);
     setJudgeModeButtonContent(
         parentBtn,
         'Parent Assist',
@@ -414,15 +380,8 @@ function configureJudgeModePickerForType() {
     );
     setJudgeModeButtonContent(
         multiBtn,
-        showMultiEn ? 'Multi Pinyin' : 'Multiple Choice',
-        showMultiEn
-            ? 'Pick 1 of 4 pinyin readings.'
-            : 'Pick 1 of 4 answers. System grades automatically.'
-    );
-    setJudgeModeButtonContent(
-        multiEnBtn,
-        'Multi EN',
-        'Pick 1 of 4 English meanings.'
+        'Multiple Choice',
+        'Pick 1 of 4 answers. System grades automatically.'
     );
 }
 
@@ -542,6 +501,7 @@ function applyKidInfoPayload(kidPayload) {
     state.categoryKey = effective.key;
     state.behaviorType = String(effective.meta?.behavior_type || '').trim().toLowerCase();
     state.hasChineseSpecificLogic = Boolean(effective.meta?.has_chinese_specific_logic);
+    state.chineseBackContent = String(effective.meta?.chinese_back_content || '').trim().toLowerCase();
     state.categoryDisplayName = state.categoryKey
         ? getCategoryDisplayName(state.categoryKey, categoryMetaMap)
         : '';
@@ -650,6 +610,9 @@ async function loadType1ReadyState() {
     applyReadyRetryState(decksData);
     if (typeof decksData?.has_chinese_specific_logic === 'boolean') {
         state.hasChineseSpecificLogic = Boolean(decksData.has_chinese_specific_logic);
+        if (typeof decksData?.chinese_back_content === 'string') {
+            state.chineseBackContent = String(decksData.chinese_back_content || '').trim().toLowerCase();
+        }
         applyPageTypeClasses();
         applyType1DisplayMode();
         configureJudgeModePickerForType();
@@ -1208,14 +1171,11 @@ function shuffleCopy(list) {
 }
 
 function buildType1MultipleChoiceOptions(card) {
-    const useEnglishMeaning = isMultiEnJudgeMode() && state.hasChineseSpecificLogic;
     const extractChoice = (rawBack) => {
         if (!state.hasChineseSpecificLogic) {
             return rawBack;
         }
-        return useEnglishMeaning
-            ? getChineseType1MeaningText(rawBack)
-            : getChineseType1PinyinText(rawBack);
+        return getChineseType1BackText(rawBack);
     };
 
     const correctText = normalizeType1ChoiceText(extractChoice(card?.back));
@@ -2620,16 +2580,13 @@ function showBonusGameForWrongCards() {
 
 function startBonusGame(sourceCards) {
     const cardsList = Array.isArray(sourceCards) ? sourceCards : [];
-    const useEnglishMeaning = isMultiEnJudgeMode() && state.hasChineseSpecificLogic;
     const tiles = [];
     cardsList.forEach((card) => {
         const key = String(card.pairKey || '');
         tiles.push({ pairKey: key, side: 'front', text: String(card.front || '?'), matched: false });
         let backText;
         if (state.hasChineseSpecificLogic) {
-            backText = useEnglishMeaning
-                ? (getChineseType1MeaningText(card.back) || getChineseType1PinyinText(card.back) || '(answer)')
-                : (getChineseType1PinyinText(card.back) || '(answer)');
+            backText = getChineseType1BackText(card.back) || '(answer)';
         } else {
             backText = String(card.back || '(answer)');
         }

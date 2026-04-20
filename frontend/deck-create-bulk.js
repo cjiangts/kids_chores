@@ -258,6 +258,14 @@ function isChineseCharactersDeckMode() {
     return deckCreateCommon.isChineseCharactersDeckMode(getCurrentDeckCategory());
 }
 
+function isChineseVocabularyDeckMode() {
+    return deckCreateCommon.isChineseVocabularyDeckMode(getCurrentDeckCategory());
+}
+
+function isChineseAutoBackDeckMode() {
+    return deckCreateCommon.isChineseAutoBackDeckMode(getCurrentDeckCategory());
+}
+
 function isChineseWritingDeckMode() {
     return deckCreateCommon.isChineseWritingDeckMode(getCurrentDeckCategory());
 }
@@ -275,9 +283,19 @@ function updateInputModeUi() {
             bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Text)';
         }
         if (bulkInputHelpText) {
-            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then paste Chinese text lines only. The system auto-extracts Chinese characters as <code>front</code> and auto-generates pinyin plus a short English meaning as <code>back</code>. Separate blocks with a blank line.';
+            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then paste Chinese text lines only. The system auto-extracts Chinese characters as <code>front</code> and auto-generates pinyin as <code>back</code>. Separate blocks with a blank line.';
         }
         bulkDeckInput.placeholder = 'ma3(马立平3年级)_book1_week1\n春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。\n\nma3(马立平3年级)_book1_week2\n床前明月光，疑是地上霜。';
+        return;
+    }
+    if (isChineseVocabularyDeckMode()) {
+        if (bulkInputSectionTitle) {
+            bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Words)';
+        }
+        if (bulkInputHelpText) {
+            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code>. Then paste Chinese text; runs of Chinese characters are tokenized into words by any non-Chinese character (space, punctuation, newline). Each word becomes <code>front</code>; <code>back</code> is auto-filled with the English meaning from the Chinese character bank (blank if not found). Separate blocks with a blank line.';
+        }
+        bulkDeckInput.placeholder = 'vocab1(新词)_week1\n春天 夜晚 月光\n风雨，花落\n\nvocab1(新词)_week2\n明月 地上霜';
         return;
     }
     if (bulkInputSectionTitle) {
@@ -296,6 +314,14 @@ function parseChineseCharactersFromLine(rawLine, lineNo) {
         return [];
     }
     return chars.map((char) => ({ front: String(char), back: '', line: lineNo }));
+}
+
+function parseChineseVocabularyFromLine(rawLine, lineNo) {
+    const words = String(rawLine || '').match(/\p{Script=Han}+/gu);
+    if (!words) {
+        return [];
+    }
+    return words.map((word) => ({ front: String(word), back: '', line: lineNo }));
 }
 
 function isLikelyRemainingTagLine(rawLine) {
@@ -413,8 +439,10 @@ function parseDeckBlocks(rawText) {
                 continue;
             }
 
-            if (isChineseCharactersDeckMode()) {
-                const parsedCards = parseChineseCharactersFromLine(rowRaw, i + 1);
+            if (isChineseAutoBackDeckMode()) {
+                const parsedCards = isChineseVocabularyDeckMode()
+                    ? parseChineseVocabularyFromLine(rowRaw, i + 1)
+                    : parseChineseCharactersFromLine(rowRaw, i + 1);
                 if (parsedCards.length > 0) {
                     rows.push(...parsedCards);
                     i += 1;
@@ -462,9 +490,11 @@ function parseDeckBlocks(rawText) {
 }
 
 async function enrichChineseCharactersBacks(blocks) {
-    if (!isChineseCharactersDeckMode()) {
+    if (!isChineseAutoBackDeckMode()) {
         return;
     }
+    const isVocab = isChineseVocabularyDeckMode();
+    const backContent = isVocab ? 'english' : 'pinyin';
     const uniqueFronts = [];
     const seen = new Set();
     blocks.forEach((block) => {
@@ -481,14 +511,14 @@ async function enrichChineseCharactersBacks(blocks) {
     if (uniqueFronts.length === 0) {
         return;
     }
-    const backByText = await deckCreateCommon.fetchChineseCharacterBackMap(API_BASE, uniqueFronts);
+    const backByText = await deckCreateCommon.fetchChineseCharacterBackMap(API_BASE, uniqueFronts, backContent);
     blocks.forEach((block) => {
         block.cards = (Array.isArray(block.cards) ? block.cards : []).map((card) => {
             const front = String(card && card.front ? card.front : '').trim();
             const back = String(backByText[front] || '').trim();
             return {
                 front,
-                back: back || front,
+                back: isVocab ? back : (back || front),
             };
         });
     });

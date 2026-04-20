@@ -11,6 +11,7 @@ const categoryTableBody = document.getElementById('categoryTableBody');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const chineseLogicNote = document.getElementById('chineseLogicNote');
+const chineseBackContentFieldset = document.getElementById('chineseBackContentFieldset');
 const editEmojiModal = document.getElementById('editEmojiModal');
 const closeEditEmojiModalBtn = document.getElementById('closeEditEmojiModalBtn');
 const cancelEditEmojiModalBtn = document.getElementById('cancelEditEmojiModalBtn');
@@ -139,6 +140,33 @@ function resetChineseSpecificLogicSelection(defaultValue = false) {
     for (const option of options) {
         option.checked = String(option.value || '').trim().toLowerCase() === defaultText;
     }
+    syncChineseBackContentVisibility();
+}
+
+function getSelectedChineseBackContent() {
+    const selected = document.querySelector('input[name="chineseBackContent"]:checked');
+    const value = String(selected ? selected.value : '').trim().toLowerCase();
+    return value === 'pinyin' || value === 'english' ? value : '';
+}
+
+function resetChineseBackContentSelection() {
+    const options = Array.from(document.querySelectorAll('input[name="chineseBackContent"]'));
+    for (const option of options) {
+        option.checked = false;
+    }
+}
+
+function syncChineseBackContentVisibility() {
+    if (!chineseBackContentFieldset) {
+        return;
+    }
+    const chineseLogicOn = getSelectedChineseSpecificLogic();
+    const isTypeI = getSelectedBehaviorType() === 'type_i';
+    const show = chineseLogicOn && isTypeI;
+    chineseBackContentFieldset.classList.toggle('hidden', !show);
+    if (!show) {
+        resetChineseBackContentSelection();
+    }
 }
 
 function bindBehaviorTypeUi() {
@@ -146,8 +174,14 @@ function bindBehaviorTypeUi() {
     options.forEach((option) => {
         option.addEventListener('change', () => {
             syncBehaviorDependentInputs();
+            syncChineseBackContentVisibility();
         });
     });
+    const logicOptions = Array.from(document.querySelectorAll('input[name="hasChineseSpecificLogic"]'));
+    logicOptions.forEach((option) => {
+        option.addEventListener('change', syncChineseBackContentVisibility);
+    });
+    syncChineseBackContentVisibility();
 }
 
 function syncBehaviorDependentInputs() {
@@ -244,6 +278,12 @@ function renderCategories(categories) {
             const emoji = String(item.emoji || '').trim();
             const behavior = String(item.behavior_type || '').trim();
             const chineseSpecific = item.has_chinese_specific_logic ? 'Yes' : 'No';
+            const chineseBackContentRaw = String(item.chinese_back_content || '').trim().toLowerCase();
+            const chineseBackContentLabel = chineseBackContentRaw === 'pinyin'
+                ? 'Pinyin'
+                : chineseBackContentRaw === 'english'
+                    ? 'English'
+                    : '—';
             const sharedWithNonSuper = Boolean(item.is_shared_with_non_super_family);
             const isSharing = sharingCategoryKeys.has(key);
             const isEditingEmoji = isSavingEmoji && editingEmojiCategoryKey === key;
@@ -268,6 +308,7 @@ function renderCategories(categories) {
                     </td>
                     <td>${escapeHtml(behavior)}</td>
                     <td>${escapeHtml(chineseSpecific)}</td>
+                    <td>${escapeHtml(chineseBackContentLabel)}</td>
                     <td>${sharedWithNonSuper ? 'Yes' : 'No'}</td>
                     <td>${shareButton}</td>
                 </tr>
@@ -286,6 +327,10 @@ async function createCategory() {
     const emoji = String(emojiInput ? emojiInput.value : '').trim();
     const behaviorType = getSelectedBehaviorType();
     const hasChineseSpecificLogic = getSelectedChineseSpecificLogic();
+    const isTypeI = behaviorType === 'type_i';
+    const chineseBackContent = (hasChineseSpecificLogic && isTypeI)
+        ? getSelectedChineseBackContent()
+        : '';
 
     if (!categoryKey) {
         showError('Category key is required.');
@@ -293,6 +338,10 @@ async function createCategory() {
     }
     if (!behaviorType) {
         showError('Behavior type is required.');
+        return;
+    }
+    if (hasChineseSpecificLogic && isTypeI && !chineseBackContent) {
+        showError('Pick a Chinese back-of-card content type (Pinyin or English).');
         return;
     }
 
@@ -314,6 +363,7 @@ async function createCategory() {
                 emoji,
                 behaviorType,
                 hasChineseSpecificLogic,
+                chineseBackContent,
             }),
         });
         const result = await response.json().catch(() => ({}));
@@ -333,7 +383,9 @@ async function createCategory() {
             emojiInput.value = '';
         }
         resetChineseSpecificLogicSelection(false);
+        resetChineseBackContentSelection();
         resetBehaviorTypeSelection('type_i');
+        syncChineseBackContentVisibility();
         await loadCategories();
     } catch (error) {
         showError(error.message || 'Failed to create category.');
