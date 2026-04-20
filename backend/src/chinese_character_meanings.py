@@ -28,37 +28,45 @@ def is_chinese_text(value) -> bool:
     return bool(CHINESE_TEXT_RE.fullmatch(_normalize_text(value)))
 
 
-def _lookup_bank(text: str) -> dict | None:
-    """Look up one entry in chinese_character_bank. Returns {pinyin, en} or None."""
+def _lookup_bank(text: str, conn=None) -> dict | None:
+    """Look up one entry in chinese_character_bank. Returns {pinyin, en} or None.
+
+    Pass an existing connection to batch lookups without reopening the DB.
+    """
+    def _query(c):
+        row = c.execute(
+            "SELECT pinyin, en FROM chinese_character_bank WHERE character = ?",
+            [text],
+        ).fetchone()
+        if row:
+            return {'pinyin': str(row[0] or '').strip(), 'en': str(row[1] or '').strip()}
+        return None
+
     try:
-        conn = get_shared_decks_connection(read_only=True)
+        if conn is not None:
+            return _query(conn)
+        owned = get_shared_decks_connection(read_only=True)
         try:
-            row = conn.execute(
-                "SELECT pinyin, en FROM chinese_character_bank WHERE character = ?",
-                [text],
-            ).fetchone()
-            if row:
-                return {'pinyin': str(row[0] or '').strip(), 'en': str(row[1] or '').strip()}
+            return _query(owned)
         finally:
-            conn.close()
+            owned.close()
     except Exception:
-        pass
-    return None
+        return None
 
 
-def get_character_bank_pinyin(value) -> str:
+def get_character_bank_pinyin(value, conn=None) -> str:
     """Pinyin for a single Chinese character from the bank. Empty if not found."""
     text = _normalize_text(value)
     if not is_single_chinese_character(text):
         return ""
-    data = _lookup_bank(text)
+    data = _lookup_bank(text, conn=conn)
     return data['pinyin'] if data and data.get('pinyin') else ""
 
 
-def get_bank_meaning(value) -> str:
+def get_bank_meaning(value, conn=None) -> str:
     """English meaning for any Chinese text from the bank. Empty if not found."""
     text = _normalize_text(value)
     if not is_chinese_text(text):
         return ""
-    data = _lookup_bank(text)
+    data = _lookup_bank(text, conn=conn)
     return data['en'] if data and data.get('en') else ""

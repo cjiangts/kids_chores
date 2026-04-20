@@ -2606,7 +2606,7 @@ def normalize_chinese_back_content(value):
     return text if text in CHINESE_BACK_CONTENTS else ''
 
 
-def build_chinese_auto_back_text(text, back_content, *, generated_pinyin=None):
+def build_chinese_auto_back_text(text, back_content, *, generated_pinyin=None, conn=None):
     """Build the stored back text for one Chinese card.
 
     back_content='pinyin'  -> character deck (single char). Bank pinyin wins
@@ -2614,6 +2614,7 @@ def build_chinese_auto_back_text(text, back_content, *, generated_pinyin=None):
     back_content='english' -> vocabulary deck (1+ chars). Bank meaning only;
       empty when the text is not in the bank (caller can accept empty or
       require the user to fill it manually).
+    Pass an existing shared-DB connection to batch bank lookups.
     """
     normalized = str(text or '').strip()
     if not normalized:
@@ -2622,7 +2623,7 @@ def build_chinese_auto_back_text(text, back_content, *, generated_pinyin=None):
     if mode == CHINESE_BACK_CONTENT_PINYIN:
         if not is_single_chinese_character(normalized):
             return ''
-        bank_pinyin = get_character_bank_pinyin(normalized)
+        bank_pinyin = get_character_bank_pinyin(normalized, conn=conn)
         if bank_pinyin:
             return bank_pinyin
         if generated_pinyin is not None:
@@ -2631,7 +2632,7 @@ def build_chinese_auto_back_text(text, back_content, *, generated_pinyin=None):
     if mode == CHINESE_BACK_CONTENT_ENGLISH:
         if not is_chinese_text(normalized):
             return ''
-        return get_bank_meaning(normalized)
+        return get_bank_meaning(normalized, conn=conn)
     return ''
 
 
@@ -3016,21 +3017,25 @@ def shared_deck_chinese_characters_pinyin():
             raise ValueError("backContent must be 'pinyin' or 'english'")
         pinyin_by_text = {}
         back_by_text = {}
-        for text in texts:
-            key = str(text)
-            if back_content == CHINESE_BACK_CONTENT_PINYIN:
-                if not is_single_chinese_character(text):
-                    continue
-                bank_pinyin = get_character_bank_pinyin(text)
-                generated_pinyin = bank_pinyin or build_chinese_pinyin_text(text)
-                pinyin_by_text[key] = generated_pinyin
-                back_by_text[key] = build_chinese_auto_back_text(
-                    text, back_content, generated_pinyin=generated_pinyin
-                )
-            else:
-                if not is_chinese_text(text):
-                    continue
-                back_by_text[key] = build_chinese_auto_back_text(text, back_content)
+        conn = get_shared_decks_connection(read_only=True)
+        try:
+            for text in texts:
+                key = str(text)
+                if back_content == CHINESE_BACK_CONTENT_PINYIN:
+                    if not is_single_chinese_character(text):
+                        continue
+                    bank_pinyin = get_character_bank_pinyin(text, conn=conn)
+                    generated_pinyin = bank_pinyin or build_chinese_pinyin_text(text)
+                    pinyin_by_text[key] = generated_pinyin
+                    back_by_text[key] = build_chinese_auto_back_text(
+                        text, back_content, generated_pinyin=generated_pinyin, conn=conn
+                    )
+                else:
+                    if not is_chinese_text(text):
+                        continue
+                    back_by_text[key] = build_chinese_auto_back_text(text, back_content, conn=conn)
+        finally:
+            conn.close()
         return jsonify({
             'count': len(texts),
             'pinyin_by_text': pinyin_by_text,

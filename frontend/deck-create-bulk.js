@@ -626,14 +626,16 @@ async function previewBulkCreate() {
     });
 
     try {
-        const overlapResults = await Promise.all(
-            blocks.map(async (block) => deckCreateCommon.fetchCategoryCardOverlap(API_BASE, currentFirstTag, block.cards))
-        );
-        overlapResults.forEach((info, index) => {
+        for (let index = 0; index < blocks.length; index += 1) {
+            const info = await deckCreateCommon.fetchCategoryCardOverlap(
+                API_BASE,
+                currentFirstTag,
+                blocks[index].cards,
+            );
             const summary = buildOverlapSummary(info);
             blocks[index].exactText = summary.exactText;
             blocks[index].warningText = summary.warningText;
-        });
+        }
     } catch (error) {
         showError(error.message || 'Failed to compare with existing cards.');
         return;
