@@ -22,6 +22,7 @@ from src.routes.backup import backup_bp
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection
 from src.startup_backfills import ensure_kid_db_schema
+from src.audio_cleanup import start_kid_audio_cleanup_scheduler
 from src.security_rate_limit import (
     LOGIN_RATE_LIMITER,
     CRITICAL_PASSWORD_RATE_LIMITER,
@@ -57,6 +58,7 @@ def create_app():
     shared_deck_db_path = init_shared_decks_database()
     app.logger.info('Shared deck DB initialized at startup: path=%s', shared_deck_db_path)
     ensure_kid_db_schema(app.logger)
+    start_kid_audio_cleanup_scheduler(app.logger)
 
     def is_family_authenticated():
         return bool(session.get('family_id'))
