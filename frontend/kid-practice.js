@@ -1233,6 +1233,30 @@ function buildType1MultipleChoiceOptions(card) {
     return shuffleCopy(options);
 }
 
+function buildType1LoggedChoicePayload(options, choice) {
+    const submittedAnswer = normalizeType1ChoiceText(choice?.text);
+    if (!submittedAnswer) {
+        return null;
+    }
+    const distractorAnswers = [];
+    const seen = new Set();
+    (Array.isArray(options) ? options : []).forEach((option) => {
+        if (!option || option.isCorrect) {
+            return;
+        }
+        const text = normalizeType1ChoiceText(option.text);
+        if (!text || seen.has(text)) {
+            return;
+        }
+        seen.add(text);
+        distractorAnswers.push(text);
+    });
+    return {
+        submittedAnswer,
+        distractorAnswers,
+    };
+}
+
 function prepareType1MultipleChoiceOptions(card) {
     state.type1MultipleChoiceOptions = buildType1MultipleChoiceOptions(card);
 }
@@ -1272,15 +1296,16 @@ function answerType1MultipleChoice(choiceIndex) {
         return;
     }
     const correct = Boolean(choice.isCorrect);
+    const loggedChoice = buildType1LoggedChoicePayload(options, choice);
     if (!correct && state.hasChineseSpecificLogic) {
         if (state.isPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
             return;
         }
-        recordType1Answer(false);
+        recordType1Answer(false, loggedChoice);
         showType1WrongAnswerReview(choice.text);
         return;
     }
-    answerType1Card(correct);
+    answerType1Card(correct, loggedChoice);
 }
 
 function showType1WrongAnswerReview(wrongChoiceText) {
@@ -1541,7 +1566,7 @@ function answerCurrentCard(correct) {
     }
 }
 
-function answerType1Card(correct) {
+function answerType1Card(correct, loggedChoice = null) {
     const judgeState = getJudgeModeUiState();
     if (judgeState.isSelfMode && !state.answerRevealed) {
         return;
@@ -1549,19 +1574,32 @@ function answerType1Card(correct) {
     if (state.isPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
-    recordType1Answer(correct);
+    recordType1Answer(correct, loggedChoice);
     advanceType1Card();
 }
 
-function recordType1Answer(correct) {
+function recordType1Answer(correct, loggedChoice = null) {
     const card = state.sessionCards[state.currentIndex];
     const responseTimeMs = Math.max(0, Date.now() - state.cardShownAtMs - state.pausedDurationMs);
 
-    state.sessionAnswers.push({
+    const answerPayload = {
         cardId: card.id,
         known: correct,
         responseTimeMs,
-    });
+    };
+    const submittedAnswer = String(loggedChoice?.submittedAnswer || '').trim();
+    if (submittedAnswer) {
+        answerPayload.submittedAnswer = submittedAnswer;
+        const distractorAnswers = Array.isArray(loggedChoice?.distractorAnswers)
+            ? loggedChoice.distractorAnswers
+                .map((value) => String(value || '').trim())
+                .filter(Boolean)
+            : [];
+        if (distractorAnswers.length > 0) {
+            answerPayload.distractorAnswers = distractorAnswers;
+        }
+    }
+    state.sessionAnswers.push(answerPayload);
     updateFinishEarlyButtonState();
 
     if (correct) {

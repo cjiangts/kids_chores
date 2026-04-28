@@ -280,6 +280,38 @@ function renderHistory(attempts) {
                 </div>
             `;
         }
+        if (isType1Attempt(item) && getLoggedSubmittedAnswers(item).length > 0) {
+            const prompt = getType1AttemptPrompt(item);
+            const answer = getType1AttemptAnswer(item);
+            const submittedPills = getType1AttemptSubmittedPills(item);
+            const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
+            const retryFixCount = getRetryFixCount(item);
+            const retryBadgeHtml = retryFixCount > 0
+                ? `<span class="history-retry-badge" title="${escapeHtml(getRetryFixLabel(retryFixCount))}">${escapeHtml(getRetryFixShortLabel(retryFixCount))}</span>`
+                : '';
+            return `
+                <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
+                    <div class="history-head-row">
+                        <div class="history-title-stack">
+                            <div class="history-primary${isChineseLikeText(prompt) ? ' chinese-specific' : ''}">${renderMathHtml(prompt)}</div>
+                            <div class="history-type4-details">
+                                ${answer ? `<span class="history-type4-submitted-label">Right:</span> ${escapeHtml(answer)} <span class="answer-type3-sep" aria-hidden="true">·</span> ` : ''}
+                                <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
+                            </div>
+                        </div>
+                        <div class="history-status-side">
+                            <div class="history-time-badge">${escapeHtml(responseTimeLabel)}</div>
+                            ${retryBadgeHtml}
+                            <span class="pill ${statusClass}">${statusText}</span>
+                        </div>
+                    </div>
+                    <div class="meta">
+                        ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
+                        · Session #${safeNum(item.session_id)}
+                    </div>
+                </div>
+            `;
+        }
         const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
         const retryFixCount = getRetryFixCount(item);
         const retryBadgeHtml = retryFixCount > 0
@@ -391,6 +423,10 @@ function isType4Attempt(item) {
     return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_IV;
 }
 
+function isType1Attempt(item) {
+    return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_I;
+}
+
 function isType3Attempt(item) {
     return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_III;
 }
@@ -429,16 +465,34 @@ function getType4AttemptAnswer(item) {
     return String(item?.materialized_answer || '').trim();
 }
 
-function getType4AttemptSubmittedPills(item) {
-    const submittedAnswers = Array.isArray(item?.submitted_answers)
+function getType1AttemptPrompt(item) {
+    return String(item?.front || currentCardFront || 'Card').trim() || 'Card';
+}
+
+function getType1AttemptAnswer(item) {
+    return String(item?.back || currentCardBack || '').trim();
+}
+
+function getLoggedSubmittedAnswers(item) {
+    return Array.isArray(item?.submitted_answers)
         ? item.submitted_answers
             .map((value) => String(value || '').trim())
             .filter(Boolean)
         : [];
+}
+
+function getLoggedSubmittedGrades(item) {
+    return Array.isArray(item?.submitted_grades)
+        ? item.submitted_grades.map((value) => Number(value))
+        : [];
+}
+
+function getType4AttemptSubmittedPills(item) {
+    const submittedAnswers = getLoggedSubmittedAnswers(item);
     if (submittedAnswers.length === 0) {
         return '<span class="history-type4-pill tried-pill">-</span>';
     }
-    const grades = Array.isArray(item?.submitted_grades) ? item.submitted_grades : [];
+    const grades = getLoggedSubmittedGrades(item);
     const hasGrades = grades.length > 0;
     const score = Number(item?.correct_score);
     const isResolved = score === 1 || score <= -2;
@@ -461,6 +515,27 @@ function getType4AttemptSubmittedPills(item) {
             return `<span class="history-type4-pill ${cls}">${escapeHtml(a)}</span>`;
         })
         .join('');
+}
+
+function getType1AttemptSubmittedPills(item) {
+    const submittedAnswers = getLoggedSubmittedAnswers(item);
+    if (submittedAnswers.length === 0) {
+        return '<span class="history-type4-pill tried-pill">-</span>';
+    }
+    const grades = getLoggedSubmittedGrades(item);
+    return submittedAnswers
+        .map((answer, index) => {
+            const grade = Number(grades[index]);
+            const cls = grade === 2
+                ? 'partial-pill'
+                : (grade > 0 ? 'answer-pill' : 'tried-pill');
+            return `<span class="history-type4-pill ${cls}">${escapeHtml(answer)}</span>`;
+        })
+        .join('');
+}
+
+function isChineseLikeText(value) {
+    return /[\u3400-\u9fff\uf900-\ufaff]/.test(String(value || ''));
 }
 
 function getType3GradeStatusClass(correctness) {

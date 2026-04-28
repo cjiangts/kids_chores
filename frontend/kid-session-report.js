@@ -21,6 +21,7 @@ const {
     normalizeCategoryKey,
     normalizeBehaviorType,
 } = window.DeckCategoryCommon;
+const BEHAVIOR_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_III = 'type_iii';
 const BEHAVIOR_TYPE_IV = 'type_iv';
@@ -313,7 +314,7 @@ function getAnswerBarClassByScore(correctScore) {
 
 function getAnswerSeenCount(itemOrScore) {
     if (itemOrScore && typeof itemOrScore === 'object') {
-        const submittedAnswers = getType4SubmittedAnswers(itemOrScore);
+        const submittedAnswers = getLoggedSubmittedAnswers(itemOrScore);
         if (submittedAnswers.length > 0) {
             return submittedAnswers.length;
         }
@@ -569,12 +570,16 @@ function getType4ExpectedAnswer(item) {
     return String(item?.materialized_answer || item?.back || '').trim();
 }
 
-function getType4SubmittedAnswers(item) {
+function getLoggedSubmittedAnswers(item) {
     return Array.isArray(item?.submitted_answers)
         ? item.submitted_answers
             .map((value) => String(value || '').trim())
             .filter(Boolean)
         : [];
+}
+
+function getType4SubmittedAnswers(item) {
+    return getLoggedSubmittedAnswers(item);
 }
 
 function renderTypeIIIAnswerDetails(item) {

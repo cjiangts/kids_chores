@@ -5619,6 +5619,9 @@ def get_kid_report_session_detail(kid_id, session_id):
                 d.name,
                 lra.file_name,
                 lra.mime_type,
+                t1.distractor_answers,
+                t1.submitted_answers,
+                t1.submitted_grades,
                 t4.prompt,
                 t4.answer,
                 t4.submitted_answers,
@@ -5627,6 +5630,7 @@ def get_kid_report_session_detail(kid_id, session_id):
             LEFT JOIN cards c ON c.id = sr.card_id
             LEFT JOIN decks d ON d.id = c.deck_id
             LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
+            LEFT JOIN type1_result_item t1 ON t1.result_id = sr.id
             LEFT JOIN type4_result_item t4 ON t4.result_id = sr.id
             WHERE sr.session_id = ?
             ORDER BY sr.id ASC
@@ -5645,6 +5649,35 @@ def get_kid_report_session_detail(kid_id, session_id):
         wrong_cards = []
         for row in result_rows:
             correct_score = int(row[2] or 0)
+            type1_distractor_answers = [
+                str(a).strip()
+                for a in list(row[10] or [])
+                if str(a or '').strip()
+            ]
+            type1_submitted_answers = [
+                str(a).strip()
+                for a in list(row[11] or [])
+                if str(a or '').strip()
+            ]
+            type1_submitted_grades = [int(g) for g in list(row[12] or [])]
+            materialized_prompt = str(row[13] or '').strip()
+            materialized_answer = str(row[14] or '').strip()
+            type4_submitted_answers = [
+                str(a).strip()
+                for a in list(row[15] or [])
+                if str(a or '').strip()
+            ]
+            type4_submitted_grades = [int(g) for g in list(row[16] or [])]
+            submitted_answers = (
+                type4_submitted_answers
+                if materialized_prompt or materialized_answer or type4_submitted_answers
+                else type1_submitted_answers
+            )
+            submitted_grades = (
+                type4_submitted_grades
+                if materialized_prompt or materialized_answer or type4_submitted_grades
+                else type1_submitted_grades
+            )
             item = {
                 'result_id': int(row[0]),
                 'card_id': int(row[1]) if row[1] is not None else None,
@@ -5663,16 +5696,11 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'audio_file_name': row[8] or None,
                 'audio_mime_type': row[9] or None,
                 'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[8]}" if row[8] else None,
-                'materialized_prompt': str(row[10] or '').strip(),
-                'materialized_answer': str(row[11] or '').strip(),
-                'submitted_answers': [
-                    str(a).strip()
-                    for a in list(row[12] or [])
-                    if str(a or '').strip()
-                ],
-                'submitted_grades': [
-                    int(g) for g in list(row[13] or [])
-                ],
+                'distractor_answers': type1_distractor_answers,
+                'materialized_prompt': materialized_prompt,
+                'materialized_answer': materialized_answer,
+                'submitted_answers': submitted_answers,
+                'submitted_grades': submitted_grades,
             }
             answers.append(item)
             if correct_score == 1 or correct_score <= -2:
@@ -5825,6 +5853,9 @@ def get_kid_report_card_detail(kid_id, card_id):
                 COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
                 lra.file_name,
                 lra.mime_type,
+                t1.distractor_answers,
+                t1.submitted_answers,
+                t1.submitted_grades,
                 t4.prompt,
                 t4.answer,
                 t4.submitted_answers,
@@ -5832,6 +5863,7 @@ def get_kid_report_card_detail(kid_id, card_id):
             FROM session_results sr
             JOIN sessions s ON s.id = sr.session_id
             LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
+            LEFT JOIN type1_result_item t1 ON t1.result_id = sr.id
             LEFT JOIN type4_result_item t4 ON t4.result_id = sr.id
             WHERE sr.card_id = ?
             ORDER BY COALESCE(s.completed_at, s.started_at, sr.timestamp) ASC, sr.id ASC
@@ -5852,14 +5884,35 @@ def get_kid_report_card_detail(kid_id, card_id):
             response_ms = int(row[2] or 0)
             session_type = normalize_shared_deck_tag(row[5])
             session_behavior_type = get_session_behavior_type(session_type, category_meta_by_key)
-            materialized_prompt = str(row[11] or '').strip()
-            materialized_answer = str(row[12] or '').strip()
-            submitted_answers = [
+            type1_distractor_answers = [
                 str(a).strip()
-                for a in list(row[13] or [])
+                for a in list(row[11] or [])
                 if str(a or '').strip()
             ]
-            submitted_grades = [int(g) for g in list(row[14] or [])]
+            type1_submitted_answers = [
+                str(a).strip()
+                for a in list(row[12] or [])
+                if str(a or '').strip()
+            ]
+            type1_submitted_grades = [int(g) for g in list(row[13] or [])]
+            materialized_prompt = str(row[14] or '').strip()
+            materialized_answer = str(row[15] or '').strip()
+            type4_submitted_answers = [
+                str(a).strip()
+                for a in list(row[16] or [])
+                if str(a or '').strip()
+            ]
+            type4_submitted_grades = [int(g) for g in list(row[17] or [])]
+            submitted_answers = (
+                type4_submitted_answers
+                if materialized_prompt or materialized_answer or type4_submitted_answers
+                else type1_submitted_answers
+            )
+            submitted_grades = (
+                type4_submitted_grades
+                if materialized_prompt or materialized_answer or type4_submitted_grades
+                else type1_submitted_grades
+            )
             attempt_submission_count = max(1, len(submitted_answers)) if materialized_prompt else 1
             avg_response_ms = float(response_ms)
             if materialized_prompt and attempt_submission_count > 1:
@@ -5887,6 +5940,7 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'audio_file_name': row[9] or None,
                 'audio_mime_type': row[10] or None,
                 'audio_url': f"/api/kids/{kid_id}/lesson-reading/audio/{row[9]}" if row[9] else None,
+                'distractor_answers': type1_distractor_answers,
                 'materialized_prompt': materialized_prompt,
                 'materialized_answer': materialized_answer,
                 'submitted_answers': submitted_answers,
@@ -7309,6 +7363,43 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
         consumed_type3_audio_files = set()
         if is_retry_session:
+            retry_result_id_by_card_id = {}
+            if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
+                retry_card_ids_for_sidecar = []
+                seen_retry_card_ids = set()
+                for answer in answers:
+                    if not normalize_type_i_submitted_answer(answer.get('submittedAnswer')):
+                        continue
+                    try:
+                        answer_card_id = int(answer.get('cardId'))
+                    except (TypeError, ValueError):
+                        continue
+                    if answer_card_id <= 0 or answer_card_id in seen_retry_card_ids:
+                        continue
+                    seen_retry_card_ids.add(answer_card_id)
+                    retry_card_ids_for_sidecar.append(answer_card_id)
+                if retry_card_ids_for_sidecar:
+                    placeholders = ','.join(['?'] * len(retry_card_ids_for_sidecar))
+                    retry_result_rows = conn.execute(
+                        f"""
+                        SELECT id, card_id
+                        FROM session_results
+                        WHERE session_id = ?
+                          AND card_id IN ({placeholders})
+                          AND correct = ?
+                        """,
+                        [
+                            retry_source_session_id,
+                            *retry_card_ids_for_sidecar,
+                            SESSION_RESULT_WRONG_UNRESOLVED,
+                        ],
+                    ).fetchall()
+                    retry_result_id_by_card_id = {
+                        int(row[1]): int(row[0])
+                        for row in retry_result_rows
+                        if row[0] is not None and row[1] is not None
+                    }
+
             source_row = conn.execute(
                 """
                 SELECT
@@ -7363,6 +7454,15 @@ def complete_session_internal(kid, kid_id, session_type, data):
                     session_behavior_type=session_behavior_type,
                 )
                 retry_total_response_ms += int(response_time_ms or 0)
+                if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I and answer_card_id > 0:
+                    result_id = retry_result_id_by_card_id.get(answer_card_id)
+                    if result_id is not None:
+                        append_type1_result_submitted_answer(
+                            conn,
+                            result_id,
+                            answer,
+                            SESSION_RESULT_CORRECT if known else SESSION_RESULT_WRONG_UNRESOLVED,
+                        )
 
             if retry_success_card_ids:
                 placeholders = ','.join(['?'] * len(retry_success_card_ids))
@@ -7512,6 +7612,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 result_id = int(result_row[0])
                 touched_card_ids.add(card_id)
                 latest_response_by_card[card_id] = response_time_ms
+                if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
+                    insert_type1_result_item(conn, result_id, answer, correct_value)
 
                 if uses_type_iii_audio:
                     uploaded_audio = uploaded_type3_audio.get(card_id)
@@ -7691,6 +7793,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
             ).fetchone()
             result_id = int(result_row[0])
             touched_card_ids.add(card_id)
+            if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
+                insert_type1_result_item(conn, result_id, answer, correct_value)
 
             if uses_type_iii_audio:
                 uploaded_audio = uploaded_type3_audio.get(card_id)
@@ -9661,6 +9765,40 @@ def normalize_type_iv_submitted_answer(raw_value):
     return str(raw_value).strip()
 
 
+def normalize_type_i_submitted_answer(raw_value):
+    """Normalize one submitted type-I multiple-choice answer."""
+    if raw_value is None:
+        return ''
+    return str(raw_value).strip()
+
+
+def normalize_type_i_distractor_answers(raw_values):
+    """Normalize one list of type-I multiple-choice distractor answers."""
+    normalized = []
+    seen = set()
+    for raw_value in list(raw_values or []):
+        text = normalize_type_i_submitted_answer(raw_value)
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+    return normalized
+
+
+def build_type1_result_item_payload(answer, grade):
+    """Build one optional type-I sidecar payload from a submitted answer."""
+    submitted_answer = normalize_type_i_submitted_answer(answer.get('submittedAnswer'))
+    if not submitted_answer:
+        return None
+    return {
+        'submitted_answer': submitted_answer,
+        'distractor_answers': normalize_type_i_distractor_answers(
+            answer.get('distractorAnswers')
+        ),
+        'grade': int(grade),
+    }
+
+
 def grade_type_iv_answer(submitted_answer, expected_answer, validate_fn=None):
     """Grade a type IV answer, returning SESSION_RESULT_CORRECT / PARTIAL / WRONG.
 
@@ -10150,6 +10288,26 @@ def insert_type4_result_item(conn, result_id, pending_item, submitted_answer, gr
     )
 
 
+def insert_type1_result_item(conn, result_id, answer, grade):
+    """Insert one optional type-I multiple-choice sidecar row."""
+    payload = build_type1_result_item_payload(answer, grade)
+    if payload is None:
+        return False
+    conn.execute(
+        """
+        INSERT INTO type1_result_item (result_id, distractor_answers, submitted_answers, submitted_grades)
+        VALUES (?, ?, ?, ?)
+        """,
+        [
+            int(result_id),
+            list(payload['distractor_answers']),
+            [payload['submitted_answer']],
+            [int(payload['grade'])],
+        ],
+    )
+    return True
+
+
 def append_type4_result_submitted_answer(conn, result_id, submitted_answer, grade):
     """Append one submitted answer to an existing generator result sidecar row."""
     row = conn.execute(
@@ -10176,6 +10334,49 @@ def append_type4_result_submitted_answer(conn, result_id, submitted_answer, grad
         """,
         [submitted_answers, submitted_grades, int(result_id)],
     )
+
+
+def append_type1_result_submitted_answer(conn, result_id, answer, grade):
+    """Append one submitted type-I answer to an existing sidecar row, creating it if needed."""
+    payload = build_type1_result_item_payload(answer, grade)
+    if payload is None:
+        return False
+
+    row = conn.execute(
+        """
+        SELECT distractor_answers, submitted_answers, submitted_grades
+        FROM type1_result_item
+        WHERE result_id = ?
+        LIMIT 1
+        """,
+        [int(result_id)],
+    ).fetchone()
+    if row is None:
+        return insert_type1_result_item(conn, result_id, answer, grade)
+
+    distractor_answers = [
+        str(item).strip()
+        for item in list(row[0] or [])
+        if str(item or '').strip()
+    ]
+    submitted_answers = [str(item) for item in list(row[1] or [])]
+    submitted_answers.append(payload['submitted_answer'])
+    submitted_grades = [int(g) for g in list(row[2] or [])]
+    submitted_grades.append(int(payload['grade']))
+    conn.execute(
+        """
+        UPDATE type1_result_item
+        SET distractor_answers = ?, submitted_answers = ?, submitted_grades = ?
+        WHERE result_id = ?
+        """,
+        [
+            distractor_answers or list(payload['distractor_answers']),
+            submitted_answers,
+            submitted_grades,
+            int(result_id),
+        ],
+    )
+    return True
 
 
 def complete_type_iv_session_internal(
