@@ -217,6 +217,7 @@ function renderAnswerList(container, cards, options = {}) {
         const resultId = Number(item?.result_id);
         const answerClass = getAnswerBarClassByScore(item?.correct_score);
         const seenCount = getAnswerSeenCount(item);
+        const usedPromptAudio = didUseType1PromptAudio(item);
         const displayLabel = getAnswerPrimaryLabel(item) || '(blank)';
         const secondaryLabel = getAnswerSecondaryLabel(item);
         const reportHref = Number.isFinite(Number(item?.card_id)) && reportFrom
@@ -224,13 +225,23 @@ function renderAnswerList(container, cards, options = {}) {
             : '';
         const useCompactLink = compact && !!reportHref;
         const tagName = useCompactLink ? 'a' : 'div';
-        const linkTitle = secondaryLabel
+        const linkTitleBase = secondaryLabel
             ? `Open records for ${displayLabel} • ${secondaryLabel} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}`
             : `Open records for ${displayLabel} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}`;
+        const linkTitle = usedPromptAudio
+            ? `${linkTitleBase} • Read-aloud used`
+            : linkTitleBase;
+        const promptAudioBadgeHtml = usedPromptAudio ? renderPromptAudioAssistBadge() : '';
         const headerActionsHtml = compact
-            ? `${compact ? `<span class="answer-seen-count-badge" aria-hidden="true">${seenCount}</span>` : ''}`
+            ? `
+                <span class="answer-compact-seen-badge" aria-hidden="true">
+                    <span class="answer-seen-count-badge">${seenCount}</span>
+                </span>
+                ${promptAudioBadgeHtml ? `<span class="answer-compact-audio-badge" aria-hidden="true">${promptAudioBadgeHtml}</span>` : ''}
+            `
             : `
                 <div class="answer-head-actions">
+                    ${promptAudioBadgeHtml}
                     ${typeIII ? renderGradingControls(item) : ''}
                     ${!reportHref ? '' : `<a class="tab-link secondary mini-link-btn answer-report-link" href="${reportHref}">Records</a>`}
                 </div>
@@ -247,7 +258,7 @@ function renderAnswerList(container, cards, options = {}) {
             `;
         return `
             <${tagName}
-                class="answer-item ${answerClass}"
+                class="answer-item ${answerClass}${usedPromptAudio ? ' has-audio-assist' : ''}"
                 ${useCompactLink ? `href="${reportHref}"` : ''}
                 ${useCompactLink ? `title="${escapeHtml(linkTitle)}"` : ''}
                 ${Number.isFinite(resultId) ? ` data-result-id="${resultId}"` : ''}
@@ -576,6 +587,32 @@ function getLoggedSubmittedAnswers(item) {
             .map((value) => String(value || '').trim())
             .filter(Boolean)
         : [];
+}
+
+function getLoggedSubmittedGrades(item) {
+    return Array.isArray(item?.submitted_grades)
+        ? item.submitted_grades.map((value) => Number(value))
+        : [];
+}
+
+function isType1PromptAudioGrade(value) {
+    const grade = Math.trunc(Number(value));
+    return grade === 3 || grade === -3;
+}
+
+function didUseType1PromptAudio(item) {
+    return !isTypeIVSession() && getLoggedSubmittedGrades(item).some(isType1PromptAudioGrade);
+}
+
+function renderPromptAudioAssistBadge() {
+    return `
+        <span class="answer-audio-assist-badge" title="Read-aloud used" aria-label="Read-aloud used">
+            <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M3.5 7.75h3.7l3.8-3.05a.75.75 0 0 1 1.22.58v9.44a.75.75 0 0 1-1.22.58L7.2 12.25H3.5A1.5 1.5 0 0 1 2 10.75v-1.5a1.5 1.5 0 0 1 1.5-1.5Z"></path>
+                <path d="M14.15 7.45a.75.75 0 0 1 1.06.07A3.8 3.8 0 0 1 16.1 10a3.8 3.8 0 0 1-.89 2.48.75.75 0 0 1-1.13-.99A2.3 2.3 0 0 0 14.6 10c0-.56-.19-1.08-.52-1.49a.75.75 0 0 1 .07-1.06Z"></path>
+            </svg>
+        </span>
+    `;
 }
 
 function getType4SubmittedAnswers(item) {

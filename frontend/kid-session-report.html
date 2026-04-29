@@ -278,11 +278,51 @@
             pointer-events: none;
         }
 
-        .answer-grid.compact .answer-seen-count-badge {
+        .answer-compact-seen-badge {
             position: absolute;
             top: -0.34rem;
             right: -0.3rem;
+            display: inline-flex;
+            align-items: center;
             z-index: 2;
+            pointer-events: none;
+        }
+
+        .answer-compact-audio-badge {
+            position: absolute;
+            right: -0.3rem;
+            bottom: -0.34rem;
+            display: inline-flex;
+            align-items: center;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .answer-audio-assist-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1rem;
+            height: 1rem;
+            padding: 0;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.96);
+            color: inherit;
+            box-shadow: 0 1px 3px rgba(31, 45, 98, 0.16);
+            flex: 0 0 auto;
+        }
+
+        .answer-audio-assist-badge svg {
+            display: block;
+        }
+
+        .answer-grid.compact .answer-seen-count-badge {
+            position: static;
+        }
+
+        .answer-grid.compact .answer-audio-assist-badge {
+            min-width: 0.92rem;
+            height: 0.92rem;
         }
 
         .answer-report-link {
@@ -482,13 +522,26 @@
                 grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
             }
 
-            .answer-grid.compact .answer-seen-count-badge {
+            .answer-compact-seen-badge {
                 top: -0.18rem;
                 right: -0.18rem;
+            }
+
+            .answer-compact-audio-badge {
+                right: -0.18rem;
+                bottom: -0.18rem;
+            }
+
+            .answer-grid.compact .answer-seen-count-badge {
                 min-width: 0.54rem;
                 height: 0.54rem;
                 padding: 0 0.08rem;
                 font-size: 0.42rem;
+            }
+
+            .answer-grid.compact .answer-audio-assist-badge {
+                min-width: 0.68rem;
+                height: 0.68rem;
             }
         }
 

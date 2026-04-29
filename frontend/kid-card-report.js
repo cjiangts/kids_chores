@@ -487,6 +487,22 @@ function getLoggedSubmittedGrades(item) {
         : [];
 }
 
+function isType1PromptAudioGrade(value) {
+    const grade = Math.trunc(Number(value));
+    return grade === 3 || grade === -3;
+}
+
+function renderPromptAudioAssistMarker() {
+    return `
+        <span class="history-audio-assist-marker" title="Read-aloud used" aria-label="Read-aloud used">
+            <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M3.5 7.75h3.7l3.8-3.05a.75.75 0 0 1 1.22.58v9.44a.75.75 0 0 1-1.22.58L7.2 12.25H3.5A1.5 1.5 0 0 1 2 10.75v-1.5a1.5 1.5 0 0 1 1.5-1.5Z"></path>
+                <path d="M14.15 7.45a.75.75 0 0 1 1.06.07A3.8 3.8 0 0 1 16.1 10a3.8 3.8 0 0 1-.89 2.48.75.75 0 0 1-1.13-.99A2.3 2.3 0 0 0 14.6 10c0-.56-.19-1.08-.52-1.49a.75.75 0 0 1 .07-1.06Z"></path>
+            </svg>
+        </span>
+    `;
+}
+
 function getType4AttemptSubmittedPills(item) {
     const submittedAnswers = getLoggedSubmittedAnswers(item);
     if (submittedAnswers.length === 0) {
@@ -529,7 +545,13 @@ function getType1AttemptSubmittedPills(item) {
             const cls = grade === 2
                 ? 'partial-pill'
                 : (grade > 0 ? 'answer-pill' : 'tried-pill');
-            return `<span class="history-type4-pill ${cls}">${escapeHtml(answer)}</span>`;
+            const audioAssistHtml = isType1PromptAudioGrade(grade) ? renderPromptAudioAssistMarker() : '';
+            return `
+                <span class="history-type4-pill-wrap${audioAssistHtml ? ' has-audio-assist' : ''}">
+                    <span class="history-type4-pill ${cls}">${escapeHtml(answer)}</span>
+                    ${audioAssistHtml}
+                </span>
+            `;
         })
         .join('');
 }

@@ -156,6 +156,35 @@
             color: #777;
         }
 
+        .prompt-replay-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 44px;
+            min-width: 44px;
+            height: 44px;
+            padding: 0;
+            border-radius: 999px;
+            border: 1px solid #c8d1e1;
+            background: rgba(255, 255, 255, 0.96);
+            color: #2d7ef7;
+            box-shadow: 0 3px 10px rgba(17, 24, 39, 0.08);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        .prompt-replay-btn:hover:not(:disabled) {
+            background: #f4f8ff;
+            color: #1f6ce0;
+        }
+
+        .prompt-replay-btn:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
+
         .pause-mask {
             font-size: 2rem;
             font-weight: 700;
@@ -650,6 +679,17 @@
                     </div>
 
                     <div id="flashcard" class="flashcard">
+                        <button
+                            type="button"
+                            class="prompt-replay-btn hidden"
+                            id="promptReplayBtn"
+                            aria-label="Play prompt audio"
+                            title="Play prompt audio"
+                        >
+                            <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path d="M9.25 4.2a1 1 0 0 1 1.67-.74l3.01 2.72H16a2 2 0 0 1 2 2v3.64a2 2 0 0 1-2 2h-2.07l-3.01 2.72a1 1 0 0 1-1.67-.74v-11.6ZM4 8.18h2.5v3.64H4a.5.5 0 0 1-.5-.5V8.68A.5.5 0 0 1 4 8.18Zm10.62.6a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95.75.75 0 0 1-1.06-1.06 2 2 0 0 0 0-2.83.75.75 0 0 1 0-1.06Zm1.93-1.87a.75.75 0 0 1 1.06 0 6.15 6.15 0 0 1 0 8.7.75.75 0 1 1-1.06-1.06 4.65 4.65 0 0 0 0-6.58.75.75 0 0 1 0-1.06Z"></path>
+                            </svg>
+                        </button>
                         <div class="card-page hidden" id="cardSourceTags">Source:</div>
                         <div class="card-title hidden" id="cardTitle"></div>
                         <div class="card-page hidden" id="cardPage"></div>

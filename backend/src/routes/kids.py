@@ -248,6 +248,26 @@ def build_shared_writing_audio_file_name(front_text):
     return f"{prefix}_{digest}{WRITING_AUDIO_EXTENSION}"
 
 
+def build_shared_type1_prompt_audio_file_name(front_text):
+    """Build deterministic shared audio filename for type-I Chinese prompt speech."""
+    normalized = normalize_writing_audio_text(front_text)
+    if not normalized:
+        return ''
+
+    safe = normalized.replace('/', '／').replace('\\', '＼').replace('\x00', '')
+    safe = safe.strip().strip('.')
+    if not safe:
+        safe = 'type1_prompt'
+
+    file_name = f"type1_prompt_{safe}{WRITING_AUDIO_EXTENSION}"
+    if len(file_name.encode('utf-8')) <= WRITING_AUDIO_FILE_NAME_MAX_BYTES:
+        return file_name
+
+    digest = hashlib.sha1(normalized.encode('utf-8')).hexdigest()[:12]
+    prefix = f"type1_prompt_{safe[:24].strip() or 'tts'}"
+    return f"{prefix}_{digest}{WRITING_AUDIO_EXTENSION}"
+
+
 def build_writing_audio_meta_for_front(
     kid_id,
     front_text,
@@ -299,12 +319,62 @@ def build_writing_prompt_audio_payload(
     }
 
 
+def build_type_i_chinese_audio_meta_for_front(
+    kid_id,
+    front_text,
+    *,
+    category_key,
+):
+    """Build type-I Chinese prompt audio metadata for one front text."""
+    file_name = build_shared_type1_prompt_audio_file_name(front_text)
+    if not file_name:
+        return {
+            'audio_file_name': None,
+            'audio_mime_type': None,
+            'audio_url': None,
+        }
+
+    mime_type = mimetypes.guess_type(file_name)[0] or 'audio/mpeg'
+    query = (
+        f"?categoryKey={quote(str(category_key).strip(), safe='')}"
+        if str(category_key or '').strip()
+        else ''
+    )
+    encoded_file_name = quote(file_name, safe='')
+    return {
+        'audio_file_name': file_name,
+        'audio_mime_type': mime_type,
+        'audio_url': f"/api/kids/{kid_id}/cards/audio/{encoded_file_name}{query}",
+    }
+
+
+def build_type_i_chinese_prompt_audio_payload(
+    kid_id,
+    front_text,
+    *,
+    category_key,
+):
+    """Build type-I Chinese prompt audio payload using the spoken front text only."""
+    front_meta = build_type_i_chinese_audio_meta_for_front(
+        kid_id,
+        front_text,
+        category_key=category_key,
+    )
+    return {
+        'audio_file_name': front_meta.get('audio_file_name'),
+        'audio_mime_type': front_meta.get('audio_mime_type'),
+        'audio_url': front_meta.get('audio_url'),
+        'prompt_audio_url': front_meta.get('audio_url'),
+    }
+
+
 def synthesize_shared_writing_audio(
     front_text,
     overwrite=False,
     spoken_text=None,
     *,
     has_chinese_specific_logic=True,
+    file_name_builder=None,
 ):
     """Generate shared TTS clip for writing text, returns (file_name, generated_now)."""
     normalized_front = normalize_writing_audio_text(front_text)
@@ -312,7 +382,9 @@ def synthesize_shared_writing_audio(
         raise ValueError('Card front is empty, cannot generate audio')
 
     tts_language = get_writing_tts_language(has_chinese_specific_logic)
-    file_name = build_shared_writing_audio_file_name(normalized_front)
+    if not callable(file_name_builder):
+        file_name_builder = build_shared_writing_audio_file_name
+    file_name = file_name_builder(normalized_front)
     if not file_name:
         raise ValueError('Unable to derive audio file name from card front')
     normalized_spoken = normalize_writing_audio_text(
@@ -9785,6 +9857,28 @@ def normalize_type_i_distractor_answers(raw_values):
     return normalized
 
 
+def did_use_type_i_prompt_audio(answer):
+    """Return whether one type-I answer used the prompt-audio assist button."""
+    if not isinstance(answer, dict):
+        return False
+    return answer.get('usedPromptAudio') is True
+
+
+def encode_type1_submitted_grade(grade, *, used_prompt_audio=False):
+    """Encode one type-I logged grade, overloading audio-assist usage into the value.
+
+    Values:
+      1  -> right, no prompt audio used
+     -1  -> wrong, no prompt audio used
+      3  -> right, prompt audio used
+     -3  -> wrong, prompt audio used
+    """
+    normalized_grade = SESSION_RESULT_CORRECT if int(grade or 0) > 0 else SESSION_RESULT_WRONG_UNRESOLVED
+    if not used_prompt_audio:
+        return normalized_grade
+    return 3 if normalized_grade > 0 else -3
+
+
 def build_type1_result_item_payload(answer, grade):
     """Build one optional type-I sidecar payload from a submitted answer."""
     submitted_answer = normalize_type_i_submitted_answer(answer.get('submittedAnswer'))
@@ -9795,7 +9889,10 @@ def build_type1_result_item_payload(answer, grade):
         'distractor_answers': normalize_type_i_distractor_answers(
             answer.get('distractorAnswers')
         ),
-        'grade': int(grade),
+        'grade': encode_type1_submitted_grade(
+            grade,
+            used_prompt_audio=did_use_type_i_prompt_audio(answer),
+        ),
     }
 
 
@@ -11012,10 +11109,31 @@ def start_type_i_practice_session_internal(
     finally:
         conn.close()
 
+    category_meta = get_shared_deck_category_meta_by_key().get(category_key) or {}
+    has_type_i_chinese_prompt_audio = (
+        normalize_shared_deck_category_behavior(category_meta.get('behavior_type'))
+        == DECK_CATEGORY_BEHAVIOR_TYPE_I
+        and bool(category_meta.get('has_chinese_specific_logic'))
+    )
+    response_cards = []
+    for card in selected_cards:
+        response_card = dict(card)
+        if has_type_i_chinese_prompt_audio:
+            audio_meta = build_type_i_chinese_prompt_audio_payload(
+                kid_id,
+                response_card.get('front'),
+                category_key=category_key,
+            )
+            response_card['audio_file_name'] = audio_meta.get('audio_file_name')
+            response_card['audio_mime_type'] = audio_meta.get('audio_mime_type')
+            response_card['audio_url'] = audio_meta.get('audio_url')
+            response_card['prompt_audio_url'] = audio_meta.get('prompt_audio_url')
+        response_cards.append(response_card)
+
     payload = {
         'pending_session_id': pending_session_id,
-        'planned_count': len(selected_cards),
-        'cards': selected_cards,
+        'planned_count': len(response_cards),
+        'cards': response_cards,
         'practice_mode': resolved_practice_mode,
         'is_continue_session': bool(is_continue_session),
         'continue_source_session_id': (
@@ -13176,6 +13294,79 @@ def get_writing_audio(kid_id, file_name):
                 overwrite=False,
                 spoken_text=synth_args.get('spoken_text'),
                 has_chinese_specific_logic=has_chinese_specific_logic,
+            )
+            if not os.path.exists(audio_path):
+                return jsonify({'error': 'Audio file not found'}), 404
+
+        mime_type = mimetypes.guess_type(file_name)[0] or 'audio/mpeg'
+        return send_from_directory(audio_dir, file_name, as_attachment=False, mimetype=mime_type)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/cards/audio/<path:file_name>', methods=['GET'])
+def get_type1_chinese_prompt_audio(kid_id, file_name):
+    """Serve type-I Chinese multiple-choice prompt audio for a kid."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        category_key = resolve_kid_type_i_chinese_category_key(
+            kid,
+            request.args.get('categoryKey'),
+            allow_default=False,
+        )
+        if file_name != os.path.basename(file_name):
+            return jsonify({'error': 'Invalid file name'}), 400
+
+        conn = get_kid_connection_for(kid, read_only=True)
+        try:
+            sources = get_shared_type_i_merged_source_decks_for_kid(
+                conn,
+                kid,
+                category_key,
+            )
+            source_deck_ids = [
+                int(source['local_deck_id'])
+                for source in sources
+                if int(source.get('local_deck_id') or 0) > 0
+            ]
+            if not source_deck_ids:
+                return jsonify({'error': 'Audio file not found'}), 404
+            placeholders = ','.join(['?'] * len(source_deck_ids))
+            rows = conn.execute(
+                f"SELECT front FROM cards WHERE deck_id IN ({placeholders})",
+                source_deck_ids,
+            ).fetchall()
+        finally:
+            conn.close()
+
+        synth_args_by_file_name = {}
+        for row in rows:
+            front_text = normalize_writing_audio_text(row[0])
+            front_file = build_shared_type1_prompt_audio_file_name(front_text)
+            if front_file and front_file not in synth_args_by_file_name:
+                synth_args_by_file_name[front_file] = {
+                    'file_key_text': front_text,
+                    'spoken_text': front_text,
+                }
+
+        synth_args = synth_args_by_file_name.get(file_name)
+        if not synth_args:
+            return jsonify({'error': 'Audio file not found'}), 404
+
+        audio_dir = get_shared_writing_audio_dir()
+        audio_path = os.path.join(audio_dir, file_name)
+        if not os.path.exists(audio_path):
+            synthesize_shared_writing_audio(
+                synth_args.get('file_key_text'),
+                overwrite=False,
+                spoken_text=synth_args.get('spoken_text'),
+                has_chinese_specific_logic=True,
+                file_name_builder=build_shared_type1_prompt_audio_file_name,
             )
             if not os.path.exists(audio_path):
                 return jsonify({'error': 'Audio file not found'}), 404

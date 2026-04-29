@@ -24,6 +24,7 @@ const cardPage = document.getElementById('cardPage');
 const cardQuestion = document.getElementById('cardQuestion');
 const promptText = document.getElementById('promptText');
 const tapHint = document.getElementById('tapHint');
+const promptReplayBtn = document.getElementById('promptReplayBtn');
 const cardAnswer = document.getElementById('cardAnswer');
 const pauseMask = document.getElementById('pauseMask');
 const recordingViz = document.getElementById('recordingViz');
@@ -109,6 +110,7 @@ const state = {
     type1MultipleChoiceOptions: [],
     type1MultipleChoicePoolCards: [],
     type1WrongAnswerReview: false,
+    type1PromptAudioUsed: false,
     type4MultipleChoiceOptions: [],
     wrongCardsInSession: [],
     bonusSourceCards: [],
@@ -149,9 +151,39 @@ const promptPlayer = window.WritingAudioSequence.createPlayer({
     onError: (error) => {
         console.error('Error playing prompt audio:', error);
         const detail = String(error?.message || '').trim();
-        showError(detail ? `Failed to play voice prompt: ${detail}` : 'Failed to play voice prompt. Tap the card to retry.');
+        showError(detail ? `Failed to play voice prompt: ${detail}` : 'Failed to play voice prompt. Try again.');
     }
 });
+
+function canUseType1PromptAudio(card = null) {
+    if (
+        !isType(BEHAVIOR_TYPE_I)
+        || !state.hasChineseSpecificLogic
+        || state.chineseBackContent !== 'english'
+    ) {
+        return false;
+    }
+    const judgeState = getJudgeModeUiState();
+    if (!judgeState.showMultiChoiceActions) {
+        return false;
+    }
+    const sourceCard = card || state.sessionCards[state.currentIndex] || {};
+    return promptPlayer.buildPromptUrls(sourceCard).length > 0;
+}
+
+function updatePromptReplayButtonState() {
+    if (!promptReplayBtn) {
+        return;
+    }
+    const shouldShow = canUseType1PromptAudio();
+    promptReplayBtn.classList.toggle('hidden', !shouldShow);
+    promptReplayBtn.disabled = (
+        !shouldShow
+        || state.isPaused
+        || state.type1WrongAnswerReview
+        || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)
+    );
+}
 
 const recordingVisualizer = window.RecordingVisualizer
     ? new window.RecordingVisualizer({
@@ -403,6 +435,9 @@ function showTypeSpecificCardSections() {
     cardQuestion.classList.add('hidden');
     promptText.classList.add('hidden');
     tapHint.classList.add('hidden');
+    if (promptReplayBtn) {
+        promptReplayBtn.classList.add('hidden');
+    }
     cardAnswer.classList.add('hidden');
     pauseMask.classList.add('hidden');
     recordingViz.classList.add('hidden');
@@ -1121,6 +1156,7 @@ function showCurrentQuestion() {
         return;
     }
 
+    stopAudioPlayback();
     showTypeSpecificCardSections();
 
     const card = state.sessionCards[state.currentIndex];
@@ -1144,6 +1180,7 @@ function showCurrentQuestion() {
 
     state.answerRevealed = false;
     state.type1WrongAnswerReview = false;
+    state.type1PromptAudioUsed = false;
     state.cardShownAtMs = Date.now();
     state.pausedDurationMs = 0;
     state.pauseStartedAtMs = 0;
@@ -1322,6 +1359,7 @@ function showType1WrongAnswerReview(wrongChoiceText) {
     if (multiChoiceGrid) {
         multiChoiceGrid.innerHTML = '<button type="button" class="control-btn multi-choice-btn multi-choice-next-btn" data-multi-choice-next="1">Next</button>';
     }
+    updatePromptReplayButtonState();
 }
 
 function dismissType1WrongAnswerReview() {
@@ -1581,6 +1619,7 @@ function answerType1Card(correct, loggedChoice = null) {
 function recordType1Answer(correct, loggedChoice = null) {
     const card = state.sessionCards[state.currentIndex];
     const responseTimeMs = Math.max(0, Date.now() - state.cardShownAtMs - state.pausedDurationMs);
+    stopAudioPlayback();
 
     const answerPayload = {
         cardId: card.id,
@@ -1598,6 +1637,9 @@ function recordType1Answer(correct, loggedChoice = null) {
         if (distractorAnswers.length > 0) {
             answerPayload.distractorAnswers = distractorAnswers;
         }
+    }
+    if (state.type1PromptAudioUsed) {
+        answerPayload.usedPromptAudio = true;
     }
     state.sessionAnswers.push(answerPayload);
     updateFinishEarlyButtonState();
@@ -1770,31 +1812,37 @@ function applyJudgeModeUi() {
     knewBtn.disabled = state.isPaused || !judgeState.showRevealAction;
     rightBtn.disabled = state.isPaused || !judgeState.showJudgeActions;
     wrongBtn.disabled = state.isPaused || !judgeState.showJudgeActions;
+    updatePromptReplayButtonState();
     updateFinishEarlyButtonState();
 }
 
-function replayCurrentPrompt() {
-    if (!isType(BEHAVIOR_TYPE_II)) {
+async function replayCurrentPrompt() {
+    const supportsType1Prompt = canUseType1PromptAudio();
+    if (!isType(BEHAVIOR_TYPE_II) && !supportsType1Prompt) {
         return;
     }
     if (!window.PracticeSession.hasActiveSession(state.activePendingSessionId) || state.sessionCards.length === 0) {
         return;
     }
     const card = state.sessionCards[state.currentIndex];
-    playPromptForCard(card);
+    const played = await playPromptForCard(card);
+    if (played && supportsType1Prompt) {
+        state.type1PromptAudioUsed = true;
+        updatePromptReplayButtonState();
+    }
 }
 
-function playPromptForCard(card) {
-    if (!isType(BEHAVIOR_TYPE_II)) {
-        return;
+async function playPromptForCard(card) {
+    if (!isType(BEHAVIOR_TYPE_II) && !canUseType1PromptAudio(card)) {
+        return false;
     }
     const urls = promptPlayer.buildPromptUrls(card);
     if (urls.length === 0) {
         stopAudioPlayback();
-        return;
+        return false;
     }
     showError('');
-    promptPlayer.playUrls(urls);
+    return promptPlayer.playUrls(urls);
 }
 
 function primeAudioForAutoplay() {
@@ -2738,6 +2786,13 @@ function bindEventHandlers() {
     flashcard.addEventListener('click', () => {
         onFlashcardClick();
     });
+    if (promptReplayBtn) {
+        promptReplayBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void replayCurrentPrompt();
+        });
+    }
     knewBtn.addEventListener('click', () => {
         revealAnswer();
     });
