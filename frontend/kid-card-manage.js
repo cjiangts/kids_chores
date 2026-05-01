@@ -9,6 +9,30 @@ const BEHAVIOR_TYPE_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_TYPE_III = 'type_iii';
 const BEHAVIOR_TYPE_TYPE_IV = 'type_iv';
+const PRACTICE_PRIORITY_REASON_MISSED = 'missed';
+const PRACTICE_PRIORITY_REASON_SLOW = 'slow';
+const PRACTICE_PRIORITY_REASON_LEARNING = 'learning';
+const PRACTICE_PRIORITY_REASON_DUE = 'due';
+const PRACTICE_PRIORITY_REASON_NEW = 'new';
+const PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE = 100;
+const PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS = 5;
+const PRACTICE_PRIORITY_VERY_DUE_DAYS = 30;
+const CARD_SORT_MODE_PRACTICE_QUEUE = 'new_queue';
+const CARD_SORT_MODE_INCORRECT_RATE = 'incorrect_rate';
+const CARD_SORT_MODE_AVG_RESPONSE_TIME = 'avg_response_time';
+const CARD_SORT_MODE_LIFETIME_ATTEMPTS = 'lifetime_attempts';
+const CARD_SORT_MODE_LAST_SEEN = 'last_seen';
+const CARD_SORT_MODE_ADDED_TIME = 'added_time';
+const CARD_SORT_DIRECTION_ASC = 'asc';
+const CARD_SORT_DIRECTION_DESC = 'desc';
+const VALID_CARD_SORT_MODES = new Set([
+    CARD_SORT_MODE_PRACTICE_QUEUE,
+    CARD_SORT_MODE_INCORRECT_RATE,
+    CARD_SORT_MODE_AVG_RESPONSE_TIME,
+    CARD_SORT_MODE_LIFETIME_ATTEMPTS,
+    CARD_SORT_MODE_LAST_SEEN,
+    CARD_SORT_MODE_ADDED_TIME,
+]);
 const SHARED_SCOPE_CARDS = 'cards';
 const SHARED_SCOPE_TYPE2 = 'type2';
 const SHARED_SCOPE_LESSON_READING = 'lesson-reading';
@@ -66,6 +90,7 @@ const deckSetupCardCountEl = document.getElementById('deckSetupCardCount');
 const deckSetupSessionCountEl = document.getElementById('deckSetupSessionCount');
 const hardnessComputationHint = document.getElementById('hardnessComputationHint');
 const sessionMixSubgroup = document.getElementById('sessionMixSubgroup');
+const sessionMixDetails = document.getElementById('sessionMixDetails');
 const type4DailyTargetBlock = document.getElementById('type4DailyTargetBlock');
 const type4DailyTargetTotalText = document.getElementById('type4DailyTargetTotalText');
 const openType4DeckCountsModalBtn = document.getElementById('openType4DeckCountsModalBtn');
@@ -77,6 +102,7 @@ const addReadingBtn = document.getElementById('addReadingBtn');
 const addCardStatusMessage = document.getElementById('addCardStatusMessage');
 
 const viewOrderSelect = document.getElementById('viewOrderSelect');
+const sortDirectionToggleBtn = document.getElementById('sortDirectionToggleBtn');
 const cardSearchInput = document.getElementById('cardSearchInput');
 const skipVisibleCardsBtn = document.getElementById('skipVisibleCardsBtn');
 const unskipVisibleCardsBtn = document.getElementById('unskipVisibleCardsBtn');
@@ -128,6 +154,7 @@ let isType4DeckCountsSaving = false;
 let activeType4GeneratorCardId = null;
 let isType4GeneratorPreviewLoading = false;
 let type4GeneratorAceViewer = null;
+let currentCardSortDirection = CARD_SORT_DIRECTION_ASC;
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
@@ -170,6 +197,53 @@ function getCategoryNullableIntValue(rawMap) {
     const map = toCategoryMap(rawMap);
     const parsed = Number.parseInt(map[categoryKey], 10);
     return Number.isInteger(parsed) ? parsed : null;
+}
+
+function supportsPracticePriorityPreview() {
+    return currentBehaviorType === BEHAVIOR_TYPE_TYPE_I
+        || currentBehaviorType === BEHAVIOR_TYPE_TYPE_II
+        || currentBehaviorType === BEHAVIOR_TYPE_TYPE_III;
+}
+
+function normalizeCardSortMode(rawMode) {
+    const mode = String(rawMode || '').trim().toLowerCase();
+    return VALID_CARD_SORT_MODES.has(mode) ? mode : CARD_SORT_MODE_PRACTICE_QUEUE;
+}
+
+function normalizeCardSortDirection(rawDirection) {
+    const direction = String(rawDirection || '').trim().toLowerCase();
+    return direction === CARD_SORT_DIRECTION_DESC ? CARD_SORT_DIRECTION_DESC : CARD_SORT_DIRECTION_ASC;
+}
+
+function getDefaultCardSortDirection(mode) {
+    const normalized = normalizeCardSortMode(mode);
+    if (normalized === CARD_SORT_MODE_PRACTICE_QUEUE) {
+        return CARD_SORT_DIRECTION_ASC;
+    }
+    return CARD_SORT_DIRECTION_DESC;
+}
+
+function getSelectedCardSortMode() {
+    return normalizeCardSortMode(viewOrderSelect ? viewOrderSelect.value : CARD_SORT_MODE_PRACTICE_QUEUE);
+}
+
+function getCurrentCardSortDirection() {
+    return normalizeCardSortDirection(currentCardSortDirection);
+}
+
+function setCurrentCardSortDirection(direction) {
+    currentCardSortDirection = normalizeCardSortDirection(direction);
+}
+
+function syncCardSortDirectionButton() {
+    if (!sortDirectionToggleBtn) {
+        return;
+    }
+    const direction = getCurrentCardSortDirection();
+    const isAscending = direction === CARD_SORT_DIRECTION_ASC;
+    sortDirectionToggleBtn.textContent = isAscending ? '↑' : '↓';
+    sortDirectionToggleBtn.title = isAscending ? 'Ascending order' : 'Descending order';
+    sortDirectionToggleBtn.setAttribute('aria-label', isAscending ? 'Ascending order' : 'Descending order');
 }
 
 function withCategoryValue(rawMap, value) {
@@ -374,6 +448,10 @@ function isType1Behavior() {
 
 function isType2Behavior() {
     return currentBehaviorType === BEHAVIOR_TYPE_TYPE_II;
+}
+
+function isType3Behavior() {
+    return currentBehaviorType === BEHAVIOR_TYPE_TYPE_III;
 }
 
 function isType4Behavior() {
@@ -719,6 +797,7 @@ function applyCategoryUiText() {
     const displayName = getCurrentCategoryDisplayName();
     const showOrphanEditor = supportsPersonalDeckEditor();
     const showType4DeckTargetBlock = isType4Behavior();
+    const usePracticeFocus = supportsPracticePriorityPreview();
     if (sessionCardCountLabel) {
         sessionCardCountLabel.textContent = 'Cards/day';
     }
@@ -730,6 +809,9 @@ function applyCategoryUiText() {
     if (sessionMixSubgroup) {
         sessionMixSubgroup.classList.toggle('hidden', showType4DeckTargetBlock);
     }
+    if (sessionMixDetails) {
+        sessionMixDetails.classList.toggle('hidden', showType4DeckTargetBlock || usePracticeFocus);
+    }
     if (openType4DeckCountsModalBtn) {
         openType4DeckCountsModalBtn.classList.toggle('hidden', !showType4DeckTargetBlock);
     }
@@ -738,6 +820,8 @@ function applyCategoryUiText() {
             hardnessComputationHint.textContent = 'Each card here represents one Type IV deck, so its stats are aggregated at the deck-pattern level.';
         } else if (isType2Behavior()) {
             hardnessComputationHint.textContent = 'Hard cards use overall correctness rate. Never-practiced cards count as hard.';
+        } else if (usePracticeFocus) {
+            hardnessComputationHint.textContent = '';
         } else {
             hardnessComputationHint.textContent = 'Hard cards are the ones that took longest on the most recent try.';
         }
@@ -791,22 +875,26 @@ function syncType4CardOrderOptions() {
     if (!viewOrderSelect) {
         return;
     }
-    const queueOption = viewOrderSelect.querySelector('option[value="queue"]');
-    const hardOption = viewOrderSelect.querySelector('option[value="hardness_desc"]');
-    const hideType4OnlyOptions = isType4Behavior();
-    [queueOption, hardOption].forEach((option) => {
-        if (!option) {
-            return;
-        }
-        option.hidden = hideType4OnlyOptions;
-        option.disabled = hideType4OnlyOptions;
+    const hideAllExceptAdded = isType4Behavior();
+    const options = viewOrderSelect.querySelectorAll('option');
+    options.forEach((option) => {
+        const value = String(option.value || '').trim().toLowerCase();
+        const shouldHide = hideAllExceptAdded && value !== CARD_SORT_MODE_ADDED_TIME;
+        option.hidden = shouldHide;
+        option.disabled = shouldHide;
     });
-    if (!hideType4OnlyOptions) {
-        return;
+    if (sortDirectionToggleBtn) {
+        sortDirectionToggleBtn.classList.toggle('hidden', hideAllExceptAdded);
     }
     const currentValue = String(viewOrderSelect.value || '').trim().toLowerCase();
-    if (currentValue === 'queue' || currentValue === 'hardness_desc') {
-        viewOrderSelect.value = 'added_time';
+    if (hideAllExceptAdded && currentValue !== CARD_SORT_MODE_ADDED_TIME) {
+        viewOrderSelect.value = CARD_SORT_MODE_ADDED_TIME;
+        setCurrentCardSortDirection(getDefaultCardSortDirection(CARD_SORT_MODE_ADDED_TIME));
+        syncCardSortDirectionButton();
+    } else if (!VALID_CARD_SORT_MODES.has(currentValue)) {
+        viewOrderSelect.value = CARD_SORT_MODE_PRACTICE_QUEUE;
+        setCurrentCardSortDirection(getDefaultCardSortDirection(CARD_SORT_MODE_PRACTICE_QUEUE));
+        syncCardSortDirectionButton();
     }
 }
 
@@ -1204,53 +1292,621 @@ function getSortedCardsForDisplay(cards) {
     if (isType4Behavior()) {
         return window.PracticeManageCommon.sortCardsForView(
             Array.isArray(cards) ? cards : [],
-            'added_time'
+            CARD_SORT_MODE_ADDED_TIME
         );
     }
     const statusFilteredCards = filterCardsByStatus(cards, currentCardStatusFilter);
     const filteredCards = filterCardsByQuery(statusFilteredCards, cardSearchInput ? cardSearchInput.value : '');
-    return window.PracticeManageCommon.sortCardsForView(filteredCards, viewOrderSelect.value);
+    return sortCardsForDisplay(filteredCards, getSelectedCardSortMode(), getCurrentCardSortDirection());
 }
 
-function isNextSessionQueueOrderSelected() {
-    return String(viewOrderSelect && viewOrderSelect.value || '').trim().toLowerCase() === 'queue';
+function isPracticePriorityQueueOrderSelected() {
+    return getSelectedCardSortMode() === CARD_SORT_MODE_PRACTICE_QUEUE;
 }
 
-function isSourceDeckOrderSelected() {
-    return String(viewOrderSelect && viewOrderSelect.value || '').trim().toLowerCase() === 'source_deck';
+function usesPracticePriorityDisplay() {
+    return supportsPracticePriorityPreview() && !isType4Behavior();
 }
 
-const DECK_COLOR_PALETTE = [
-    { bg: '#eef4ff', border: '#b3ccf5', text: '#2a5199' },
-    { bg: '#f0faf1', border: '#a8d8b0', text: '#1e7a3a' },
-    { bg: '#fff5eb', border: '#f3c89a', text: '#9a5b00' },
-    { bg: '#f5efff', border: '#c9b3f0', text: '#5a3a99' },
-    { bg: '#fff0f4', border: '#f0b3c4', text: '#993a5a' },
-    { bg: '#eefbfb', border: '#a3dbd9', text: '#1a7a76' },
-    { bg: '#fff8ee', border: '#e6d19a', text: '#7a6000' },
-    { bg: '#f0f0ff', border: '#b3b3e6', text: '#3a3a99' },
-    { bg: '#fef0f0', border: '#e6b3b3', text: '#993a3a' },
-    { bg: '#f0fff5', border: '#b3e6c9', text: '#2a7a4a' },
-    { bg: '#f8f0ff', border: '#d4b3f0', text: '#6a3a99' },
-    { bg: '#fff0eb', border: '#f0c4a3', text: '#99502a' },
-];
+function compareCardIdentity(a, b) {
+    const aId = Number.parseInt(a && a.id, 10);
+    const bId = Number.parseInt(b && b.id, 10);
+    if (Number.isInteger(aId) && Number.isInteger(bId) && aId !== bId) {
+        return aId - bId;
+    }
+    return String(a && a.front || '').localeCompare(String(b && b.front || ''));
+}
 
-function buildDeckColorMap(cards) {
-    const deckNames = [];
-    const seen = new Set();
-    for (const card of cards) {
-        const name = resolveCardSourceDeckName(card);
-        if (!seen.has(name)) {
-            seen.add(name);
-            deckNames.push(name);
+function compareNullableSortValues(aValue, bValue, direction, missingBehavior = 'last') {
+    const aMissing = !Number.isFinite(aValue);
+    const bMissing = !Number.isFinite(bValue);
+    if (aMissing || bMissing) {
+        if (aMissing && bMissing) {
+            return 0;
+        }
+        if (missingBehavior === 'directional') {
+            return direction === CARD_SORT_DIRECTION_DESC
+                ? (aMissing ? -1 : 1)
+                : (aMissing ? 1 : -1);
+        }
+        return aMissing ? 1 : -1;
+    }
+    return direction === CARD_SORT_DIRECTION_DESC
+        ? bValue - aValue
+        : aValue - bValue;
+}
+
+function getCardIncorrectRateSortValue(card) {
+    const value = getCardOverallWrongRateValue(card);
+    return Number.isFinite(value) ? value : null;
+}
+
+function getCardAverageResponseTimeSortValue(card) {
+    const priorityAvg = Number(card && card.practice_priority_avg_correct_response_time);
+    if (Number.isFinite(priorityAvg) && priorityAvg > 0) {
+        return priorityAvg;
+    }
+    const fallback = getCardLastResponseTimeValue(card);
+    return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+}
+
+function getCardLifetimeAttemptsSortValue(card) {
+    const attempts = Number.parseInt(card && card.lifetime_attempts, 10);
+    return Number.isInteger(attempts) ? Math.max(0, attempts) : 0;
+}
+
+function getCardLastSeenAgeSortValue(card) {
+    const seenAt = window.PracticeManageCommon.parseTime(card && card.last_seen_at);
+    if (!Number.isFinite(seenAt) || seenAt <= 0) {
+        return null;
+    }
+    return Date.now() - seenAt;
+}
+
+function getCardAddedTimeSortValue(card) {
+    const createdAt = window.PracticeManageCommon.parseTime(card && card.created_at);
+    return Number.isFinite(createdAt) && createdAt > 0 ? createdAt : null;
+}
+
+function comparePracticeQueueCards(a, b, direction) {
+    const aSkipped = Boolean(a && a.skip_practice);
+    const bSkipped = Boolean(b && b.skip_practice);
+    if (aSkipped !== bSkipped) {
+        return aSkipped ? 1 : -1;
+    }
+    const aOrder = Number.isFinite(Number(a && a.practice_priority_order))
+        ? Number(a.practice_priority_order)
+        : Number.MAX_SAFE_INTEGER;
+    const bOrder = Number.isFinite(Number(b && b.practice_priority_order))
+        ? Number(b.practice_priority_order)
+        : Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) {
+        return direction === CARD_SORT_DIRECTION_DESC
+            ? bOrder - aOrder
+            : aOrder - bOrder;
+    }
+    return compareCardIdentity(a, b);
+}
+
+function compareMetricCards(a, b, mode, direction) {
+    let comparison = 0;
+    if (mode === CARD_SORT_MODE_INCORRECT_RATE) {
+        comparison = compareNullableSortValues(
+            getCardIncorrectRateSortValue(a),
+            getCardIncorrectRateSortValue(b),
+            direction,
+            'last'
+        );
+    } else if (mode === CARD_SORT_MODE_AVG_RESPONSE_TIME) {
+        comparison = compareNullableSortValues(
+            getCardAverageResponseTimeSortValue(a),
+            getCardAverageResponseTimeSortValue(b),
+            direction,
+            'last'
+        );
+    } else if (mode === CARD_SORT_MODE_LIFETIME_ATTEMPTS) {
+        comparison = compareNullableSortValues(
+            getCardLifetimeAttemptsSortValue(a),
+            getCardLifetimeAttemptsSortValue(b),
+            direction,
+            'last'
+        );
+    } else if (mode === CARD_SORT_MODE_LAST_SEEN) {
+        comparison = compareNullableSortValues(
+            getCardLastSeenAgeSortValue(a),
+            getCardLastSeenAgeSortValue(b),
+            direction,
+            'directional'
+        );
+    } else if (mode === CARD_SORT_MODE_ADDED_TIME) {
+        comparison = compareNullableSortValues(
+            getCardAddedTimeSortValue(a),
+            getCardAddedTimeSortValue(b),
+            direction,
+            'last'
+        );
+    }
+    if (comparison !== 0) {
+        return comparison;
+    }
+    return compareCardIdentity(a, b);
+}
+
+function sortCardsForDisplay(cards, mode, direction) {
+    const normalizedMode = normalizeCardSortMode(mode);
+    const normalizedDirection = normalizeCardSortDirection(direction);
+    const copy = [...(Array.isArray(cards) ? cards : [])];
+    if (normalizedMode === CARD_SORT_MODE_PRACTICE_QUEUE) {
+        return copy.sort((a, b) => comparePracticeQueueCards(a, b, normalizedDirection));
+    }
+    return copy.sort((a, b) => compareMetricCards(a, b, normalizedMode, normalizedDirection));
+}
+
+function getPracticePriorityAttemptCount(card) {
+    const previewAttempts = Number.parseInt(card && card.practice_priority_attempt_count, 10);
+    if (Number.isInteger(previewAttempts)) {
+        return Math.max(0, previewAttempts);
+    }
+    const lifetimeAttempts = Number.parseInt(card && card.lifetime_attempts, 10);
+    return Number.isInteger(lifetimeAttempts) ? Math.max(0, lifetimeAttempts) : 0;
+}
+
+function isNeverPracticedPriorityCard(card) {
+    return getPracticePriorityAttemptCount(card) <= 0;
+}
+
+function getPracticePriorityPoints(card, reason) {
+    if (reason === PRACTICE_PRIORITY_REASON_MISSED) {
+        const value = Number(card && (
+            card.practice_priority_missed_points
+            ?? card.practice_priority_error_points
+        ));
+        return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }
+    if (reason === PRACTICE_PRIORITY_REASON_SLOW) {
+        const value = Number(card && (
+            card.practice_priority_slow_points
+            ?? card.practice_priority_fluency_points
+        ));
+        return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }
+    if (reason === PRACTICE_PRIORITY_REASON_DUE) {
+        const value = Number(card && (
+            card.practice_priority_due_points
+            ?? card.practice_priority_forgetting_points
+        ));
+        return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }
+    const value = Number(card && card.practice_priority_learning_points);
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function getPracticePriorityCompactReason(card) {
+    const explicit = String(card && card.practice_priority_primary_reason || '').trim().toLowerCase();
+    if (
+        explicit === PRACTICE_PRIORITY_REASON_MISSED
+        || explicit === PRACTICE_PRIORITY_REASON_SLOW
+        || explicit === PRACTICE_PRIORITY_REASON_LEARNING
+        || explicit === PRACTICE_PRIORITY_REASON_DUE
+    ) {
+        return explicit;
+    }
+    const scores = [
+        [PRACTICE_PRIORITY_REASON_MISSED, getPracticePriorityPoints(card, PRACTICE_PRIORITY_REASON_MISSED)],
+        [PRACTICE_PRIORITY_REASON_SLOW, getPracticePriorityPoints(card, PRACTICE_PRIORITY_REASON_SLOW)],
+        [PRACTICE_PRIORITY_REASON_LEARNING, getPracticePriorityPoints(card, PRACTICE_PRIORITY_REASON_LEARNING)],
+        [PRACTICE_PRIORITY_REASON_DUE, getPracticePriorityPoints(card, PRACTICE_PRIORITY_REASON_DUE)],
+    ];
+    scores.sort((a, b) => {
+        const aValue = Number.isFinite(a[1]) ? a[1] : -1;
+        const bValue = Number.isFinite(b[1]) ? b[1] : -1;
+        return bValue - aValue;
+    });
+    return scores[0] ? scores[0][0] : PRACTICE_PRIORITY_REASON_LEARNING;
+}
+
+function getPracticePriorityDisplayReason(card) {
+    if (isNeverPracticedPriorityCard(card)) {
+        return PRACTICE_PRIORITY_REASON_NEW;
+    }
+    return getPracticePriorityCompactReason(card);
+}
+
+function getPracticePriorityScoreValue(card) {
+    const value = Number(card && card.practice_priority_score);
+    return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
+}
+
+function getPracticePriorityReferenceMaxScore() {
+    if (!Array.isArray(sortedCards) || !sortedCards.length) {
+        return null;
+    }
+    let maxScore = null;
+    for (const card of sortedCards) {
+        if (!card || card.skip_practice) {
+            continue;
+        }
+        const score = getPracticePriorityScoreValue(card);
+        if (!Number.isFinite(score) || score <= 0) {
+            continue;
+        }
+        if (!Number.isFinite(maxScore) || score > maxScore) {
+            maxScore = score;
         }
     }
-    deckNames.sort((a, b) => a.localeCompare(b));
-    const map = new Map();
-    deckNames.forEach((name, i) => {
-        map.set(name, DECK_COLOR_PALETTE[i % DECK_COLOR_PALETTE.length]);
-    });
-    return map;
+    return Number.isFinite(maxScore) ? maxScore : null;
+}
+
+function formatPracticePriorityScore(score) {
+    const numeric = Number(score);
+    if (!Number.isFinite(numeric)) {
+        return '-';
+    }
+    const rounded = Math.round(numeric * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function getPracticePrioritySegments(card) {
+    return [
+        {
+            key: PRACTICE_PRIORITY_REASON_MISSED,
+            label: 'Missed',
+            points: getPracticePriorityPoints(card, PRACTICE_PRIORITY_REASON_MISSED),
+        },
+        {
+            key: PRACTICE_PRIORITY_REASON_SLOW,
+            label: 'Slow',
+            points: getPracticePriorityPoints(card, PRACTICE_PRIORITY_REASON_SLOW),
+        },
+        {
+            key: PRACTICE_PRIORITY_REASON_LEARNING,
+            label: 'Learning',
+            points: getPracticePriorityPoints(card, PRACTICE_PRIORITY_REASON_LEARNING),
+        },
+        {
+            key: PRACTICE_PRIORITY_REASON_DUE,
+            label: 'Due',
+            points: getPracticePriorityPoints(card, PRACTICE_PRIORITY_REASON_DUE),
+        },
+    ];
+}
+
+function getPracticePriorityPrimaryReasonLabel(card) {
+    const reason = getPracticePriorityDisplayReason(card);
+    if (reason === PRACTICE_PRIORITY_REASON_NEW) {
+        return 'New';
+    }
+    if (reason === PRACTICE_PRIORITY_REASON_MISSED) {
+        return 'Missed';
+    }
+    if (reason === PRACTICE_PRIORITY_REASON_SLOW) {
+        return 'Slow';
+    }
+    if (reason === PRACTICE_PRIORITY_REASON_DUE) {
+        return 'Due';
+    }
+    return 'Learning';
+}
+
+function getPracticePrioritySegmentDisplayLabel(card, segment) {
+    if (segment && segment.key === PRACTICE_PRIORITY_REASON_LEARNING && isNeverPracticedPriorityCard(card)) {
+        return 'New';
+    }
+    return String(segment && segment.label ? segment.label : '').trim() || 'Learning';
+}
+
+function getPracticePriorityPrimaryReasonKey(card) {
+    const reason = getPracticePriorityDisplayReason(card);
+    if (reason === PRACTICE_PRIORITY_REASON_NEW) {
+        return PRACTICE_PRIORITY_REASON_LEARNING;
+    }
+    return reason;
+}
+
+function getPracticePriorityDaysSinceLastSeenValue(card) {
+    if (isNeverPracticedPriorityCard(card)) {
+        return null;
+    }
+    const days = Number.parseInt(card && card.practice_priority_days_since_last_seen, 10);
+    return Number.isInteger(days) ? Math.max(0, days) : null;
+}
+
+function getPracticePriorityLastResultTone(card) {
+    const value = String(card && card.last_result || '').trim().toLowerCase();
+    if (value === 'right') {
+        return 'right';
+    }
+    if (value === 'wrong') {
+        return 'wrong';
+    }
+    return 'neutral';
+}
+
+function clampPercent(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return 0;
+    }
+    return Math.max(0, Math.min(100, numeric));
+}
+
+function buildPracticePriorityDonutHtml(options = {}) {
+    const safePercent = clampPercent(options.correctPercent);
+    const toneClass = String(options.toneClass || '').trim();
+    const centerText = String(options.centerText || formatMetricPercent(safePercent));
+    const centerClass = String(options.centerClass || '').trim();
+    return `
+        <div class="practice-priority-donut ${escapeHtml(toneClass)}" style="--chart-percent:${safePercent.toFixed(2)}%">
+            <div class="practice-priority-donut-inner ${escapeHtml(centerClass)}">${escapeHtml(centerText)}</div>
+        </div>
+    `;
+}
+
+function buildPracticePriorityAxisHtml(options = {}) {
+    const rawPositionPct = Number(options.positionPct);
+    const positionPct = Number.isFinite(rawPositionPct) ? clampPercent(rawPositionPct) : null;
+    const valueText = String(options.valueText || '-');
+    const leftText = String(options.leftText || '-');
+    const rightText = String(options.rightText || '-');
+    const leftNote = String(options.leftNote || '');
+    const rightNote = String(options.rightNote || '');
+    const markerClass = String(options.markerClass || '').trim();
+    const leftNoteClass = String(options.leftNoteClass || '').trim();
+    const rightNoteClass = String(options.rightNoteClass || '').trim();
+    const tickCount = Math.max(2, Number.parseInt(options.tickCount, 10) || 6);
+    const ticksHtml = Array.from({ length: tickCount }, (_, index) => {
+        const pct = tickCount <= 1 ? 0 : (index / (tickCount - 1)) * 100;
+        return `<span class="practice-priority-axis-tick" style="left:${pct.toFixed(2)}%"></span>`;
+    }).join('');
+    const markerAnchorClass = positionPct === null
+        ? ''
+        : (positionPct <= 0 ? ' anchor-start' : (positionPct >= 100 ? ' anchor-end' : ' anchor-middle'));
+    const markerOverflowClass = positionPct === null || !Number.isFinite(rawPositionPct)
+        ? ''
+        : (rawPositionPct < 0 ? ' overflow-start' : (rawPositionPct > 100 ? ' overflow-end' : ''));
+    const markerHtml = positionPct === null
+        ? ''
+        : `
+            <span class="practice-priority-axis-marker ${escapeHtml(markerClass)}${escapeHtml(markerAnchorClass)}${escapeHtml(markerOverflowClass)}" style="left:${positionPct.toFixed(2)}%">
+                <span class="practice-priority-axis-marker-label">${escapeHtml(valueText)}</span>
+            </span>
+        `;
+    return `
+        <div class="practice-priority-axis">
+            <div class="practice-priority-axis-track">
+                <span class="practice-priority-axis-line"></span>
+                ${ticksHtml}
+                ${markerHtml}
+            </div>
+            <div class="practice-priority-axis-labels">
+                <span class="practice-priority-axis-end">
+                    <span class="practice-priority-axis-end-value">${escapeHtml(leftText)}</span>
+                    ${leftNote ? `<span class="practice-priority-axis-end-note ${escapeHtml(leftNoteClass)}">${escapeHtml(leftNote)}</span>` : ''}
+                </span>
+                <span class="practice-priority-axis-end align-right">
+                    <span class="practice-priority-axis-end-value">${escapeHtml(rightText)}</span>
+                    ${rightNote ? `<span class="practice-priority-axis-end-note ${escapeHtml(rightNoteClass)}">${escapeHtml(rightNote)}</span>` : ''}
+                </span>
+            </div>
+        </div>
+    `;
+}
+
+function buildPracticePriorityLearningDotsHtml(attemptCount, targetAttempts) {
+    const safeTarget = Math.max(1, Number.parseInt(targetAttempts, 10) || 5);
+    const safeAttempts = Math.max(0, Number.parseInt(attemptCount, 10) || 0);
+    const filledCount = Math.max(0, Math.min(safeTarget, safeAttempts));
+    const dotsHtml = Array.from({ length: safeTarget }, (_, index) => (
+        `<span class="practice-priority-learning-dot${index < filledCount ? ' filled' : ''}"></span>`
+    )).join('');
+    return `
+        <div class="practice-priority-learning-visual">
+            <div class="practice-priority-learning-dots" aria-hidden="true">${dotsHtml}</div>
+            <div class="practice-priority-learning-caption">
+                <span class="practice-priority-learning-caption-value">${escapeHtml(String(safeAttempts))} attempts</span>
+                <span class="practice-priority-learning-caption-note">(target ${safeTarget})</span>
+            </div>
+        </div>
+    `;
+}
+
+function buildPracticePriorityDetailCards(card) {
+    const segments = getPracticePrioritySegments(card);
+    const isNewCard = isNeverPracticedPriorityCard(card);
+    const correctCount = Math.max(0, Number.parseInt(card && card.practice_priority_correct_count, 10) || 0);
+    const wrongCount = Math.max(0, Number.parseInt(card && card.practice_priority_wrong_count, 10) || 0);
+    const lifetimeAttempts = Math.max(0, Number.parseInt(card && card.practice_priority_attempt_count, 10) || 0);
+    const correctRate = Number(card && card.practice_priority_correct_rate);
+    const incorrectRate = Number.isFinite(correctRate) ? Math.max(0, 100 - correctRate) : null;
+    const incorrectRateText = formatMetricPercent(incorrectRate);
+    const avgCorrectResponseTimeText = formatMillisecondsAsSecondsOrMinutes(
+        Number(card && card.practice_priority_avg_correct_response_time)
+    );
+    const subjectP50Text = formatMillisecondsAsSecondsOrMinutes(
+        Number(card && card.practice_priority_subject_p50_correct_time)
+    );
+    const subjectP90Text = formatMillisecondsAsSecondsOrMinutes(
+        Number(card && card.practice_priority_subject_p90_correct_time)
+    );
+    const lastResponseTimeText = formatMillisecondsAsSecondsOrMinutes(getCardLastResponseTimeValue(card));
+    const lastResultText = formatCardLastResult(card);
+    const lastResultTone = getPracticePriorityLastResultTone(card);
+    const subjectCorrectSampleCount = Math.max(
+        0,
+        Number.parseInt(card && card.practice_priority_subject_correct_sample_count, 10) || 0
+    );
+    const p50Value = Number(card && card.practice_priority_subject_p50_correct_time);
+    const p90Value = Number(card && card.practice_priority_subject_p90_correct_time);
+    const avgCorrectValue = Number(card && card.practice_priority_avg_correct_response_time);
+    const slowRange = Number.isFinite(p50Value) && Number.isFinite(p90Value) && p90Value > p50Value
+        ? p90Value - p50Value
+        : null;
+    const slowBaselineReady = subjectCorrectSampleCount >= PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE
+        && Number.isFinite(p50Value)
+        && Number.isFinite(p90Value)
+        && p90Value > p50Value;
+    const slowMarkerPct = slowRange
+        ? ((avgCorrectValue - p50Value) / slowRange) * 100
+        : null;
+    const daysSinceLastSeen = getPracticePriorityDaysSinceLastSeenValue(card);
+    const dueMarkerPct = Number.isFinite(daysSinceLastSeen)
+        ? (daysSinceLastSeen / PRACTICE_PRIORITY_VERY_DUE_DAYS) * 100
+        : null;
+
+    return `
+        <div class="practice-priority-detail-card missed${isType3Behavior() ? ' no-side' : ''}">
+            ${isType3Behavior() ? '' : `<div class="practice-priority-detail-side">
+                <div class="practice-priority-detail-title">${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[0]))}</div>
+                <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[0].points))}</div>
+            </div>`}
+            <div class="practice-priority-detail-body">
+                <div class="practice-priority-detail-text">
+                    <div class="practice-priority-detail-main">Incorrect rate: <span class="practice-priority-inline-value missed">${escapeHtml(isNewCard ? '-' : incorrectRateText)}</span></div>
+                    <div class="practice-priority-detail-sub">Correct ${escapeHtml(String(correctCount))} · Wrong ${escapeHtml(String(wrongCount))}</div>
+                    <div class="practice-priority-detail-sub">Last result: <span class="practice-priority-last-result ${escapeHtml(lastResultTone)}">${escapeHtml(lastResultText)}</span></div>
+                </div>
+                <div class="practice-priority-detail-visual">
+                    ${isNewCard
+                        ? ''
+                        : buildPracticePriorityDonutHtml({
+                            correctPercent: correctRate,
+                            toneClass: 'missed',
+                            centerText: formatMetricPercent(correctRate),
+                            centerClass: 'positive',
+                        })
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="practice-priority-detail-card slow${(isType2Behavior() || isType3Behavior()) ? ' no-side' : ''}">
+            ${(isType2Behavior() || isType3Behavior()) ? '' : `<div class="practice-priority-detail-side">
+                <div class="practice-priority-detail-title">${escapeHtml(segments[1].label)}</div>
+                <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[1].points))}</div>
+            </div>`}
+            <div class="practice-priority-detail-body">
+                <div class="practice-priority-detail-text">
+                    <div class="practice-priority-detail-main">Avg correct response: <span class="practice-priority-inline-value slow">${escapeHtml(avgCorrectResponseTimeText)}</span></div>
+                    <div class="practice-priority-detail-sub">Last response: ${escapeHtml(lastResponseTimeText)}</div>
+                    ${slowBaselineReady ? `<div class="practice-priority-detail-sub">Baseline: ${escapeHtml(subjectP50Text)} <span class="practice-priority-inline-note positive">(p50)</span> · ${escapeHtml(subjectP90Text)} <span class="practice-priority-inline-note negative">(p90)</span></div>` : ''}
+                </div>
+                <div class="practice-priority-detail-visual">
+                    ${slowBaselineReady
+                        ? buildPracticePriorityAxisHtml({
+                            positionPct: slowMarkerPct,
+                            valueText: avgCorrectResponseTimeText,
+                            leftText: subjectP50Text,
+                            rightText: subjectP90Text,
+                            leftNote: '(p50)',
+                            rightNote: '(p90)',
+                            leftNoteClass: 'positive',
+                            rightNoteClass: 'negative',
+                            markerClass: 'slow',
+                            tickCount: 6,
+                        })
+                        : `<div class="practice-priority-axis-placeholder">Baseline after ${PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE} subject-correct answers</div>`
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="practice-priority-detail-card learning">
+            <div class="practice-priority-detail-side">
+                <div class="practice-priority-detail-title">${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[2]))}</div>
+                <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[2].points))}</div>
+            </div>
+            <div class="practice-priority-detail-body">
+                <div class="practice-priority-detail-text">
+                    <div class="practice-priority-detail-main">Lifetime attempts: <span class="practice-priority-inline-value learning">${escapeHtml(String(lifetimeAttempts))}</span></div>
+                    <div class="practice-priority-detail-sub">Correct ${escapeHtml(String(correctCount))} · Wrong ${escapeHtml(String(wrongCount))}</div>
+                    <div class="practice-priority-detail-sub">More practice lowers learning need</div>
+                </div>
+                <div class="practice-priority-detail-visual">
+                    ${buildPracticePriorityLearningDotsHtml(lifetimeAttempts, PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS)}
+                </div>
+            </div>
+        </div>
+        <div class="practice-priority-detail-card due">
+            <div class="practice-priority-detail-side">
+                <div class="practice-priority-detail-title">${escapeHtml(segments[3].label)}</div>
+                <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[3].points))}</div>
+            </div>
+            <div class="practice-priority-detail-body">
+                <div class="practice-priority-detail-text">
+                    <div class="practice-priority-detail-main">${
+                        Number.isFinite(daysSinceLastSeen)
+                            ? `Last seen <span class="practice-priority-inline-value due">${escapeHtml(String(daysSinceLastSeen))} day${daysSinceLastSeen === 1 ? '' : 's'}</span> ago`
+                            : 'Not practiced yet'
+                    }</div>
+                    <div class="practice-priority-detail-sub">Longer unseen gaps raise due need</div>
+                </div>
+                <div class="practice-priority-detail-visual">
+                    ${isNewCard
+                        ? ''
+                        : buildPracticePriorityAxisHtml({
+                            positionPct: dueMarkerPct,
+                            valueText: Number.isFinite(daysSinceLastSeen) ? `${daysSinceLastSeen}d` : 'Never',
+                            leftText: '0d',
+                            rightText: `${PRACTICE_PRIORITY_VERY_DUE_DAYS}+d`,
+                            leftNote: '(today)',
+                            rightNote: '(very due)',
+                            leftNoteClass: 'positive',
+                            rightNoteClass: 'negative',
+                            markerClass: 'due',
+                            tickCount: 7,
+                        })
+                    }
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function buildPracticePriorityScoreSection(card) {
+    if (!usesPracticePriorityDisplay()) {
+        return '';
+    }
+    const score = getPracticePriorityScoreValue(card);
+    if (!Number.isFinite(score) || score <= 0) {
+        return '';
+    }
+    const segments = getPracticePrioritySegments(card);
+    const referenceMaxScore = getPracticePriorityReferenceMaxScore();
+    const scaleBase = Number.isFinite(referenceMaxScore) && referenceMaxScore > 0
+        ? referenceMaxScore
+        : score;
+    const barHtml = segments
+        .filter((segment) => segment.points > 0)
+        .map((segment) => (
+            `<span class="practice-priority-score-segment ${segment.key}" style="width:${Math.max(0, Math.min(100, (segment.points / scaleBase) * 100)).toFixed(2)}%" title="${escapeHtml(`${segment.label}: +${formatPracticePriorityScore(segment.points)}`)}"></span>`
+        ))
+        .join('');
+    const order = Number(card && card.practice_priority_order);
+    const activeCount = Array.isArray(sortedCards)
+        ? sortedCards.filter((queueCard) => !queueCard.skip_practice).length
+        : 0;
+    const rankText = Number.isFinite(order) && order > 0
+        ? `Rank #${order}${activeCount > 0 ? ` of ${activeCount}` : ''}`
+        : '';
+    const detailCardsHtml = buildPracticePriorityDetailCards(card);
+    const primaryReasonLabel = getPracticePriorityPrimaryReasonLabel(card);
+    const primaryReasonKey = getPracticePriorityPrimaryReasonKey(card);
+    return `
+        <div class="practice-priority-score-block">
+            <div class="practice-priority-score-head">
+                <span class="practice-priority-score-label">
+                    <span class="practice-priority-score-reason ${escapeHtml(primaryReasonKey)}">${escapeHtml(primaryReasonLabel)}</span>
+                    ${rankText ? `<span class="practice-priority-score-rank">· ${escapeHtml(rankText)}</span>` : ''}
+                </span>
+                <span class="practice-priority-score-head-right">
+                    <span class="practice-priority-score-caption">Score</span>
+                    <span class="practice-priority-score-value">${escapeHtml(formatPracticePriorityScore(score))}</span>
+                </span>
+            </div>
+            <div class="practice-priority-score-bar" aria-hidden="true">
+                ${barHtml}
+            </div>
+            ${detailCardsHtml ? `<div class="practice-priority-detail-grid">${detailCardsHtml}</div>` : ''}
+        </div>
+    `;
 }
 
 function getCardIdText(card) {
@@ -1262,12 +1918,43 @@ function getQueueHighlightMap(cards) {
     if (isType4Behavior()) {
         return new Map();
     }
-    if (!isNextSessionQueueOrderSelected()) {
-        return new Map();
-    }
 
     const targetCount = getSessionCardCountForMixLegend();
     if (targetCount <= 0) {
+        return new Map();
+    }
+
+    if (usesPracticePriorityDisplay()) {
+        const orderedQueueCards = window.PracticeManageCommon.sortCardsForView(
+            (Array.isArray(cards) ? cards : []).filter((card) => {
+                if (!card || card.skip_practice) {
+                    return false;
+                }
+                const rawOrder = card.practice_priority_order;
+                if (rawOrder === null || rawOrder === undefined || rawOrder === '') {
+                    return false;
+                }
+                return Number.isFinite(Number(rawOrder));
+            }),
+            'new_queue'
+        );
+        const nextSessionCards = orderedQueueCards.slice(0, targetCount);
+        if (!nextSessionCards.length) {
+            return new Map();
+        }
+        const highlights = new Map();
+        nextSessionCards.forEach((card) => {
+            const cardId = getCardIdText(card);
+            if (!cardId) {
+                return;
+            }
+            highlights.set(cardId, getPracticePriorityCompactReason(card));
+        });
+        return highlights;
+    }
+
+    const isClassicQueue = isNextSessionQueueOrderSelected();
+    if (!isClassicQueue) {
         return new Map();
     }
 
@@ -1276,11 +1963,11 @@ function getQueueHighlightMap(cards) {
             if (!card || card.skip_practice) {
                 return false;
             }
-            const rawNextOrder = card.next_session_order;
-            if (rawNextOrder === null || rawNextOrder === undefined || rawNextOrder === '') {
+            const rawOrder = card.next_session_order;
+            if (rawOrder === null || rawOrder === undefined || rawOrder === '') {
                 return false;
             }
-            return Number.isFinite(Number(rawNextOrder));
+            return Number.isFinite(Number(rawOrder));
         }),
         'queue'
     );
@@ -1330,42 +2017,25 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
     if (!cardsQueueLegend) {
         return;
     }
-    const shouldShow = !isType4Behavior()
-        && currentCardViewMode === 'short'
-        && isNextSessionQueueOrderSelected()
+    const shouldShow = usesPracticePriorityDisplay()
         && Number.parseInt(cardCount, 10) > 0;
+    if (shouldShow) {
+        const missedLegendHtml = isType3Behavior()
+            ? ''
+            : '<span class="cards-queue-legend-item missed"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Missed</span>';
+        const slowLegendHtml = (isType2Behavior() || isType3Behavior())
+            ? ''
+            : '<span class="cards-queue-legend-item slow"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Slow</span>';
+        cardsQueueLegend.innerHTML = `
+            ${missedLegendHtml}
+            ${slowLegendHtml}
+            <span class="cards-queue-legend-item learning"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Learning</span>
+            <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
+            <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
+        `;
+    }
     cardsQueueLegend.classList.toggle('hidden', !shouldShow);
     cardsQueueLegend.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
-}
-
-function updateDeckLegend(deckColorMap) {
-    let container = document.getElementById('cardsDeckLegend');
-    if (!container) {
-        const ref = cardsQueueLegend || document.getElementById('cardsGrid');
-        if (!ref || !ref.parentNode) return;
-        container = document.createElement('div');
-        container.id = 'cardsDeckLegend';
-        container.className = 'cards-queue-legend hidden';
-        container.setAttribute('aria-hidden', 'true');
-        ref.parentNode.insertBefore(container, ref.nextSibling);
-    }
-    if (!deckColorMap || deckColorMap.size === 0) {
-        container.classList.add('hidden');
-        container.setAttribute('aria-hidden', 'true');
-        container.innerHTML = '';
-        return;
-    }
-    container.classList.remove('hidden');
-    container.setAttribute('aria-hidden', 'false');
-    const items = [];
-    for (const [name, color] of deckColorMap) {
-        items.push(
-            `<span class="cards-queue-legend-item">`
-            + `<span class="cards-queue-legend-dot" aria-hidden="true" style="background:${color.bg};border:1.5px solid ${color.border};"></span>`
-            + `${escapeHtml(name)}</span>`
-        );
-    }
-    container.innerHTML = items.join('');
 }
 
 function renderVisibleSkipActionButtons() {
@@ -1521,12 +2191,12 @@ function updateHardnessSliderTrack(hardPct) {
 }
 
 function updateQueueMixLegend() {
-    if (isType4Behavior()) {
+    if (isType4Behavior() || supportsPracticePriorityPreview()) {
         if (leastRecentMixSummary) {
-            leastRecentMixSummary.textContent = 'n/a';
+            leastRecentMixSummary.textContent = '';
         }
         if (hardCardsMixSummary) {
-            hardCardsMixSummary.textContent = 'n/a';
+            hardCardsMixSummary.textContent = '';
         }
         updateQueueSettingsSaveButtonState();
         renderDeckSetupSummary();
@@ -1568,7 +2238,9 @@ function normalizeHardSliderValue() {
 function setQueueSettingsBaseline(sessionCount, hardPct) {
     baselineSessionCardCount = clampSessionCardCount(sessionCount);
     baselineHardCardPercent = Math.max(0, Math.min(100, Number.parseInt(hardPct, 10) || 0));
-    queueSettingsSaveSuccessText = `Saved ${baselineHardCardPercent}% · ${baselineSessionCardCount}`;
+    queueSettingsSaveSuccessText = supportsPracticePriorityPreview()
+        ? `Saved ${baselineSessionCardCount} cards/day`
+        : `Saved ${baselineHardCardPercent}% · ${baselineSessionCardCount}`;
     updateQueueSettingsSaveButtonState();
 }
 
@@ -1578,7 +2250,11 @@ function hasQueueSettingsChanges() {
     }
     const currentSessionCount = getSessionCardCountForMixLegend();
     const currentHardPct = getHardCardPercentForMixLegend();
-    return currentSessionCount !== baselineSessionCardCount || currentHardPct !== baselineHardCardPercent;
+    if (supportsPracticePriorityPreview()) {
+        return currentSessionCount !== baselineSessionCardCount;
+    }
+    return currentSessionCount !== baselineSessionCardCount
+        || currentHardPct !== baselineHardCardPercent;
 }
 
 function updateQueueSettingsSaveButtonState() {
@@ -1611,10 +2287,9 @@ function scheduleQueuePreviewReload() {
         window.clearTimeout(previewQueueTimer);
         previewQueueTimer = null;
     }
-    const hardPct = getHardCardPercentForMixLegend();
     previewQueueTimer = window.setTimeout(() => {
         previewQueueTimer = null;
-        void loadSharedDeckCards(hardPct);
+        void loadSharedDeckCards();
     }, 180);
 }
 
@@ -1651,7 +2326,7 @@ async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCo
 
     const cap = getSessionCardCountCap();
     const defaultSessionCount = cap === null ? 10 : Math.min(10, cap);
-    const hardPct = normalizeHardSliderValue();
+    const hardPct = supportsPracticePriorityPreview() ? 0 : normalizeHardSliderValue();
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(defaultSessionCount);
     }
@@ -1662,7 +2337,7 @@ async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             ...buildSessionCountPayload(defaultSessionCount),
-            ...buildHardCardPercentPayload(hardPct),
+            ...(!supportsPracticePriorityPreview() ? buildHardCardPercentPayload(hardPct) : {}),
         }),
     });
     const result = await response.json().catch(() => ({}));
@@ -1672,13 +2347,15 @@ async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCo
 
     applySessionCountFromPayload(result);
     const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
-    const persistedHard = getPersistedHardCardPercentFromPayload(result);
+    const persistedHard = supportsPracticePriorityPreview()
+        ? 0
+        : getPersistedHardCardPercentFromPayload(result);
     const safeTotal = clampSessionCardCount(persistedTotal);
     const safeHard = Math.max(0, Math.min(100, Number.parseInt(persistedHard, 10) || 0));
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(safeTotal);
     }
-    if (hardnessPercentSlider) {
+    if (hardnessPercentSlider && !supportsPracticePriorityPreview()) {
         hardnessPercentSlider.value = String(safeHard);
     }
     setQueueSettingsBaseline(safeTotal, safeHard);
@@ -1704,68 +2381,65 @@ function buildChineseCardMarkup(card, options = {}) {
     return buildCardMarkup(card, {
         cardClassNames: ['type1-chinese-card', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])],
         primaryText: card.front,
+        showPrimary: false,
         secondaryHtml: getChineseCardBackHtml(card.back),
         showSecondary: backText.length > 0,
-        includeAddedDate: true,
         prependControlsHtml: options.prependControlsHtml,
         trailingActionHtml: options.trailingActionHtml,
         extraSectionHtml: options.extraSectionHtml,
+        queueHighlight: options.queueHighlight,
     });
 }
 
 function buildGenericType1CardMarkup(card, options = {}) {
+    const secondaryText = String(card && card.back ? card.back : '');
     return buildCardMarkup(card, {
         cardClassNames: [...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])],
         primaryText: card.front,
-        secondaryText: card.back,
-        showSecondary: true,
-        includeAddedDate: false,
+        showPrimary: secondaryText.trim().length === 0,
+        secondaryText,
+        showSecondary: secondaryText.trim().length > 0,
         prependControlsHtml: options.prependControlsHtml,
         trailingActionHtml: options.trailingActionHtml,
         extraSectionHtml: options.extraSectionHtml,
+        queueHighlight: options.queueHighlight,
     });
 }
 
 function buildType2CardMarkup(card, options = {}) {
     const hasSavedAudio = !!card.audio_url;
-    const primaryText = String(card.back || card.front || '');
     const secondaryText = String(card.front || '');
-    const showSecondary = secondaryText.length > 0 && secondaryText !== primaryText;
-    const audioActionsHtml = `
-        <div class="selected-audio-bar">
-            <div class="selected-audio-title">Prompt</div>
-            <div class="selected-audio-actions">
+    const promptHtml = `
+        <div class="type2-prompt-row">
+            <span class="type2-prompt-text">${escapeHtml(secondaryText)}</span>
+            <span class="type2-prompt-actions">
                 <button
                     type="button"
-                    class="selected-audio-btn edit"
+                    class="type2-prompt-btn edit"
                     data-action="edit-front"
                     data-card-id="${escapeHtml(card.id)}"
                 >Edit</button>
                 <button
                     type="button"
-                    class="selected-audio-btn play"
+                    class="type2-prompt-btn play"
                     data-action="load-play-audio"
                     data-card-id="${escapeHtml(card.id)}"
                     aria-label="Play"
                     title="Play"
                 ><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg></button>
-            </div>
+            </span>
         </div>
-        ${hasSavedAudio ? '' : '<div style="margin-top: 4px; color: #9a5a00; font-size: 0.8rem;">Will auto-generate on first play</div>'}
+        ${hasSavedAudio ? '' : '<div class="type2-prompt-autogen-hint">Will auto-generate on first play</div>'}
     `;
     return buildCardMarkup(card, {
-        cardClassNames: [
-            ...(!isChineseSpecificLogic ? ['type2-non-chinese-card'] : []),
-            ...(isChineseSpecificLogic ? ['type1-chinese-card'] : []),
-            ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : []),
-        ],
-        primaryText,
-        secondaryText,
-        showSecondary,
-        includeAddedDate: true,
-        extraSectionHtml: `${audioActionsHtml}${String(options.extraSectionHtml || '')}`,
+        cardClassNames: ['type2-card', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])],
+        showPrimary: false,
+        secondaryHtml: promptHtml,
+        showSecondary: true,
+        extraSectionHtml: options.extraSectionHtml,
         prependControlsHtml: options.prependControlsHtml,
         trailingActionHtml: options.trailingActionHtml,
+        queueHighlight: options.queueHighlight,
     });
 }
 
@@ -1864,8 +2538,34 @@ function formatCardLastResult(card) {
     return '-';
 }
 
+function looksChineseText(rawText) {
+    return /[\u3400-\u9fff]/u.test(String(rawText || ''));
+}
+
+function buildExpandedCardPreviewMarkup(card, options = {}) {
+    const text = getCompactCardText(card) || '(empty)';
+    const totalPracticed = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
+    const classes = ['expanded-card-preview'];
+    if (card && card.skip_practice) {
+        classes.push('skipped');
+    }
+    const queueHighlight = String(options.queueHighlight || '').trim().toLowerCase();
+    if (queueHighlight) {
+        classes.push(`queue-${queueHighlight}`);
+    }
+    if (looksChineseText(text)) {
+        classes.push('chinese');
+    }
+    return `
+        <div class="${classes.join(' ')}" aria-hidden="true">
+            <span class="expanded-card-preview-text">${renderMathHtml(text)}</span>
+            <span class="expanded-card-preview-badge">${escapeHtml(String(totalPracticed))}</span>
+        </div>
+    `;
+}
+
 function buildCardMarkup(card, options = {}) {
-    const classes = ['card-item', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])];
+    const classes = ['card-item', 'expanded-detail-card', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])];
     if (card.skip_practice) {
         classes.push('skipped');
     }
@@ -1873,9 +2573,10 @@ function buildCardMarkup(card, options = {}) {
     const primaryText = String(options.primaryText || '');
     const secondaryText = String(options.secondaryText || '');
     const secondaryHtml = String(options.secondaryHtml || '');
+    const showPrimary = options.showPrimary !== false && primaryText.trim().length > 0;
     const showSecondary = options.showSecondary !== false
         && (secondaryHtml.trim().length > 0 || secondaryText.trim().length > 0);
-    const extraSectionHtml = String(options.extraSectionHtml || '');
+    const extraSectionHtml = `${String(options.extraSectionHtml || '')}${buildPracticePriorityScoreSection(card)}`;
     const prependControlsHtml = String(options.prependControlsHtml || '');
     const trailingActionHtml = String(options.trailingActionHtml || '');
     const sourceRaw = resolveCardSourceDeckName(card);
@@ -1886,26 +2587,40 @@ function buildCardMarkup(card, options = {}) {
             : formatDeckPillName(sourceRaw)
     );
     const addedDateText = window.PracticeManageCommon.formatAddedDate(card && card.created_at);
-    const overallCorrectRateText = formatMetricPercent(getCardOverallCorrectRateValue(card));
-    const lastResponseTimeText = formatMillisecondsAsSecondsOrMinutes(getCardLastResponseTimeValue(card));
-    const lastResultText = formatCardLastResult(card);
+    const firstPracticedDateText = card && card.first_practiced_at
+        ? window.PracticeManageCommon.formatAddedDate(card.first_practiced_at)
+        : 'Never';
+    const metaItems = [
+        { label: 'Added', value: String(addedDateText || '-') },
+        { label: 'First Practice', value: String(firstPracticedDateText || '-') },
+    ];
+    const metaHtml = metaItems
+        .map((item) => `
+            <div class="expanded-card-meta-item">
+                <span class="expanded-card-meta-label">${escapeHtml(item.label)}</span>
+                <span class="expanded-card-meta-value">${escapeHtml(item.value)}</span>
+            </div>
+        `)
+        .join('');
 
     return `
         <div class="${classes.filter(Boolean).join(' ')}">
             ${prependControlsHtml}
-            <div class="card-front">${renderMathHtml(primaryText)}</div>
-            ${showSecondary ? `<div class="card-back">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
-            <div class="card-deck-row">
-                <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
+            <div class="expanded-card-hero">
+                ${buildExpandedCardPreviewMarkup(card, { queueHighlight: options.queueHighlight })}
+                <div class="expanded-card-main">
+                    ${showPrimary ? `<div class="card-front">${renderMathHtml(primaryText)}</div>` : ''}
+                    ${showSecondary ? `<div class="card-back${showPrimary ? '' : ' standalone'}">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
+                    <div class="card-deck-row">
+                        <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
+                    </div>
+                </div>
             </div>
             ${extraSectionHtml}
             ${supportsSkipControl && card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
-            <div style="margin-top: 10px; color: #666; font-size: 0.82rem;">Overall correct rate: ${escapeHtml(overallCorrectRateText)}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last response time: ${escapeHtml(lastResponseTimeText)}</div>
-            <div style="margin-top: 4px; color: #888; font-size: 0.8rem;">Added: ${escapeHtml(String(addedDateText || '-'))}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Lifetime attempts: ${card.lifetime_attempts || 0}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last seen: ${window.PracticeManageCommon.formatLastSeenDays(card.last_seen_at)}</div>
-            <div style="margin-top: 4px; color: #666; font-size: 0.82rem;">Last result: ${escapeHtml(lastResultText)}</div>
+            <div class="expanded-card-meta-row">
+                ${metaHtml}
+            </div>
             <div class="card-actions">
                 <a class="card-report-link" href="${buildCardReportHref(card)}">Records</a>
                 ${supportsSkipControl ? `<a
@@ -1986,6 +2701,7 @@ function buildCompactCardMarkup(card, options = {}) {
     if (queueHighlight) {
         classes.push(`queue-${queueHighlight}`);
     }
+    const scoreValue = usesPracticePriorityDisplay() ? getPracticePriorityScoreValue(card) : null;
     const titlePrefix = isType2Behavior() ? 'Back' : 'Front';
     const totalPracticed = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
     const cardId = getCardIdText(card);
@@ -1993,23 +2709,40 @@ function buildCompactCardMarkup(card, options = {}) {
         ? ' • Next session: last failed'
         : (queueHighlight === 'hard'
             ? ' • Next session: hard'
-            : (queueHighlight === 'least' ? ' • Next session: least practiced' : ''));
-    const deckColor = options.deckColor || null;
-    let deckStyle = '';
-    let deckHint = '';
-    if (deckColor) {
-        deckStyle = `background:${deckColor.bg};border-color:${deckColor.border};color:${deckColor.text};box-shadow:0 1px 3px ${deckColor.border}33;`;
-        deckHint = ` • Deck: ${resolveCardSourceDeckName(card)}`;
-    }
+            : (queueHighlight === 'least'
+                ? ' • Next session: least practiced'
+                : (
+                    queueHighlight === PRACTICE_PRIORITY_REASON_MISSED
+                        ? ' • Practice queue: missed recently'
+                        : (
+                            queueHighlight === PRACTICE_PRIORITY_REASON_SLOW
+                                ? ' • Practice queue: slow / hesitant'
+                                : (
+                                    queueHighlight === PRACTICE_PRIORITY_REASON_LEARNING
+                                        ? (
+                                            isNeverPracticedPriorityCard(card)
+                                                ? ' • Practice queue: new card'
+                                                : ' • Practice queue: still learning'
+                                        )
+                                        : (
+                                            queueHighlight === PRACTICE_PRIORITY_REASON_DUE
+                                                ? ' • Practice queue: due for review'
+                                                : ''
+                                        )
+                                )
+                        )
+                )));
+    const scoreHint = Number.isFinite(scoreValue)
+        ? ` • Priority score: ${formatPracticePriorityScore(scoreValue)}`
+        : '';
     return `
         <button
             type="button"
             class="${classes.join(' ')}"
             data-action="expand-compact"
             data-card-id="${escapeHtml(cardId)}"
-            title="${escapeHtml(`Open details • ${titlePrefix}: ${text}${highlightHint}${deckHint}`)}"
-            aria-label="${escapeHtml(`Open card details: ${text}${highlightHint}${deckHint}`)}"
-            ${deckStyle ? `style="${deckStyle}"` : ''}
+            title="${escapeHtml(`Open details • ${titlePrefix}: ${text}${highlightHint}${scoreHint}`)}"
+            aria-label="${escapeHtml(`Open card details: ${text}${highlightHint}${scoreHint}`)}"
         >
             <span class="card-compact-pill-text">${escapeHtml(text)}</span>
             <span class="card-compact-count-badge" aria-hidden="true">${totalPracticed}</span>
@@ -2027,7 +2760,7 @@ function buildCompactFoldButtonMarkup(cardId) {
             data-card-id="${escapeHtml(safeId)}"
             title="Minimize card"
             aria-label="Minimize card"
-        >➖</button>
+        >−</button>
     `;
 }
 
@@ -2093,10 +2826,7 @@ function applyChineseCardFrontUniformSize() {
 function displayCards(cards) {
     sortedCards = getSortedCardsForDisplay(cards);
     const queueHighlightMap = getQueueHighlightMap(cards);
-    const deckMode = isSourceDeckOrderSelected();
-    const deckColorMap = deckMode ? buildDeckColorMap(sortedCards) : null;
     updateCardsQueueLegendVisibility(sortedCards.length);
-    updateDeckLegend(deckMode ? deckColorMap : null);
 
     if (mathCardCount) {
         mathCardCount.textContent = `(${sortedCards.length})`;
@@ -2114,9 +2844,13 @@ function displayCards(cards) {
     if (currentCardViewMode === 'long') {
         cardsGrid.classList.remove('short-view');
         cardsGrid.innerHTML = visibleCards
-            .map((card) => buildLongCardMarkup(card, {
-                trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
-            }))
+            .map((card) => {
+                const cardId = String(card && card.id ? card.id : '');
+                return buildLongCardMarkup(card, {
+                    trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
+                    queueHighlight: queueHighlightMap.get(cardId) || '',
+                });
+            })
             .join('');
         applyChineseCardFrontUniformSize();
         renderVisibleSkipActionButtons();
@@ -2143,11 +2877,11 @@ function displayCards(cards) {
                 return `<div class="short-expanded-slot">${buildLongCardMarkup(card, {
                     prependControlsHtml: buildCompactFoldButtonMarkup(cardId),
                     trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
+                    queueHighlight: queueHighlightMap.get(cardId) || '',
                 })}</div>`;
             }
             return buildCompactCardMarkup(card, {
                 queueHighlight: queueHighlightMap.get(cardId) || '',
-                deckColor: deckColorMap ? deckColorMap.get(resolveCardSourceDeckName(card)) : null,
             });
         })
         .join('');
@@ -2224,17 +2958,17 @@ function getType2ChineseBulkInputStats(text) {
     };
 }
 
-async function loadSharedDeckCards(previewHardCardPercentage = null) {
+async function loadSharedDeckCards() {
     const requestId = sharedDeckCardsResponseTracker
         ? sharedDeckCardsResponseTracker.begin()
         : 0;
     try {
         const url = new URL(buildSharedDeckApiUrl('shared-decks/cards'));
-        const previewRaw = Number.parseInt(previewHardCardPercentage, 10);
+        const previewRaw = Number.parseInt(getHardCardPercentForMixLegend(), 10);
         const previewHardPct = Number.isInteger(previewRaw)
             ? Math.max(0, Math.min(100, previewRaw))
             : null;
-        if (previewHardPct !== null) {
+        if (!supportsPracticePriorityPreview() && previewHardPct !== null) {
             url.searchParams.set('hard_card_percentage', String(previewHardPct));
         }
         const response = await fetch(url.toString());
@@ -2252,7 +2986,10 @@ async function loadSharedDeckCards(previewHardCardPercentage = null) {
         updateSessionCardCountCapFromCardsPayload(data);
         const normalizedSessionCount = normalizeSessionCountInputValue();
         if (!hadQueueSettingChanges) {
-            setQueueSettingsBaseline(normalizedSessionCount, getHardCardPercentForMixLegend());
+            setQueueSettingsBaseline(
+                normalizedSessionCount,
+                supportsPracticePriorityPreview() ? 0 : getHardCardPercentForMixLegend(),
+            );
         }
         await maybeAutoSetSessionCountForNewCards(previousCardCount, currentCards.length);
         updateQueueMixLegend();
@@ -2690,7 +3427,9 @@ async function loadKidInfo() {
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(safeTotal);
     }
-    initialHardCardPercent = getInitialHardCardPercentFromKid(kid);
+    initialHardCardPercent = supportsPracticePriorityPreview()
+        ? 0
+        : getInitialHardCardPercentFromKid(kid);
     const safeHard = Number.isInteger(initialHardCardPercent)
         ? Math.max(0, Math.min(100, initialHardCardPercent))
         : 0;
@@ -2726,7 +3465,10 @@ async function loadSharedType1Decks(options = {}) {
         if (sessionCardCountInput) {
             sessionCardCountInput.value = String(safeTotal);
         }
-        setQueueSettingsBaseline(safeTotal, baselineHardCardPercent);
+        setQueueSettingsBaseline(
+            safeTotal,
+            supportsPracticePriorityPreview() ? 0 : baselineHardCardPercent,
+        );
     }
     baselineIncludeOrphanInQueue = Boolean(result && result.include_orphan_in_queue);
     stagedIncludeOrphanInQueue = baselineIncludeOrphanInQueue;
@@ -2745,7 +3487,7 @@ async function saveQueueSettings() {
     showError('');
 
     const total = normalizeSessionCountInputValue();
-    const hardPct = normalizeHardSliderValue();
+    const hardPct = supportsPracticePriorityPreview() ? 0 : normalizeHardSliderValue();
     const maxSessionCount = getSessionCardCountCap();
     if (total < 0) {
         showError(`${getCurrentCategoryDisplayName()} cards/day must be 0 or more.`);
@@ -2755,7 +3497,7 @@ async function saveQueueSettings() {
         showError(`${getCurrentCategoryDisplayName()} cards/day must be between 0 and ${maxSessionCount}.`);
         return;
     }
-    if (hardPct < 0 || hardPct > 100) {
+    if (!supportsPracticePriorityPreview() && (hardPct < 0 || hardPct > 100)) {
         showError('Hard cards % must be between 0 and 100.');
         return;
     }
@@ -2771,7 +3513,7 @@ async function saveQueueSettings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             ...buildSessionCountPayload(total),
-            ...buildHardCardPercentPayload(hardPct),
+            ...(!supportsPracticePriorityPreview() ? buildHardCardPercentPayload(hardPct) : {}),
         }),
     });
     try {
@@ -2781,12 +3523,19 @@ async function saveQueueSettings() {
         }
         applySessionCountFromPayload(result);
         const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
-        const persistedHard = getPersistedHardCardPercentFromPayload(result);
+        const persistedHard = supportsPracticePriorityPreview()
+            ? 0
+            : getPersistedHardCardPercentFromPayload(result);
         sessionCardCountInput.value = String(clampSessionCardCount(persistedTotal));
-        if (hardnessPercentSlider) {
+        if (hardnessPercentSlider && !supportsPracticePriorityPreview()) {
             hardnessPercentSlider.value = String(Math.max(0, Math.min(100, persistedHard)));
         }
-        setQueueSettingsBaseline(sessionCardCountInput.value, hardnessPercentSlider ? hardnessPercentSlider.value : persistedHard);
+        setQueueSettingsBaseline(
+            sessionCardCountInput.value,
+            supportsPracticePriorityPreview()
+                ? 0
+                : (hardnessPercentSlider ? hardnessPercentSlider.value : persistedHard),
+        );
         updateQueueMixLegend();
         await loadSharedDeckCards();
     } finally {
@@ -3680,8 +4429,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     viewOrderSelect.addEventListener('change', () => {
+        const nextMode = getSelectedCardSortMode();
+        setCurrentCardSortDirection(getDefaultCardSortDirection(nextMode));
+        syncCardSortDirectionButton();
         resetAndDisplayCards(currentCards);
     });
+    if (sortDirectionToggleBtn) {
+        sortDirectionToggleBtn.addEventListener('click', () => {
+            const next = getCurrentCardSortDirection() === CARD_SORT_DIRECTION_ASC
+                ? CARD_SORT_DIRECTION_DESC
+                : CARD_SORT_DIRECTION_ASC;
+            setCurrentCardSortDirection(next);
+            syncCardSortDirectionButton();
+            resetAndDisplayCards(currentCards);
+        });
+    }
     renderCardStatusFilterButtons();
     renderCardViewModeButtons();
     if (cardStatusFilterButtons.length) {

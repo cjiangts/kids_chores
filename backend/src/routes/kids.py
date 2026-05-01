@@ -44,6 +44,18 @@ TYPE_I_NON_CHINESE_DECK_MIX_FIELD = 'sharedMathDeckMix'
 SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'sessionCardCountByCategory'
 HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'hardCardPercentageByCategory'
 INCLUDE_ORPHAN_BY_CATEGORY_FIELD = 'includeOrphanByCategory'
+PRACTICE_PRIORITY_REASON_MISSED = 'missed'
+PRACTICE_PRIORITY_REASON_SLOW = 'slow'
+PRACTICE_PRIORITY_REASON_LEARNING = 'learning'
+PRACTICE_PRIORITY_REASON_DUE = 'due'
+PRACTICE_PRIORITY_LAST_FAILED_BOOST = 0.80
+PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE = 100
+PRACTICE_PRIORITY_MISSED_WEIGHT = 45.0
+PRACTICE_PRIORITY_SLOW_WEIGHT = 25.0
+PRACTICE_PRIORITY_LEARNING_WEIGHT = 20.0
+PRACTICE_PRIORITY_DUE_WEIGHT = 10.0
+PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS = 5.0
+PRACTICE_PRIORITY_VERY_DUE_DAYS = 30.0
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
@@ -6764,37 +6776,21 @@ def build_continue_selected_cards_for_decks(
     if target_count <= 0 or len(normalized_deck_ids) == 0:
         return []
 
-    cards_by_id, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_practice_rankings_for_decks(
+    cards_by_id, candidate_ids = _get_practice_candidate_cards_for_decks(
         conn,
         normalized_deck_ids,
-        session_type,
         excluded_card_ids=excluded_card_ids,
     )
     if len(candidate_ids) == 0:
         return []
 
-    ordered_ids = []
-    seen = set()
-    first_ids = _select_session_card_ids(
+    ordered_ids = preview_deck_practice_order_for_decks(
+        conn,
         kid,
-        candidate_ids,
-        red_card_ids,
-        hard_ranked_ids,
-        attempt_ranked_ids,
+        normalized_deck_ids,
         session_type,
+        excluded_card_ids=excluded_card_ids,
     )
-    for card_id in first_ids:
-        if card_id not in seen:
-            ordered_ids.append(card_id)
-            seen.add(card_id)
-    for card_id in attempt_ranked_ids:
-        if card_id not in seen:
-            ordered_ids.append(card_id)
-            seen.add(card_id)
-    for card_id in candidate_ids:
-        if card_id not in seen:
-            ordered_ids.append(card_id)
-            seen.add(card_id)
 
     selected_cards = []
     for card_id in ordered_ids:
@@ -7074,8 +7070,8 @@ def normalize_logged_response_time_ms(raw_response_time_ms, session_behavior_typ
     return response_time_ms
 
 
-def _get_practice_rankings_for_decks(conn, deck_ids, session_type, excluded_card_ids=None):
-    """Return candidate ids and deterministic ranking inputs across one or more decks."""
+def _get_practice_candidate_cards_for_decks(conn, deck_ids, excluded_card_ids=None):
+    """Return active candidate cards across one or more decks."""
     normalized_deck_ids = []
     for raw_deck_id in list(deck_ids or []):
         try:
@@ -7086,13 +7082,13 @@ def _get_practice_rankings_for_decks(conn, deck_ids, session_type, excluded_card
             continue
         normalized_deck_ids.append(deck_id)
     if len(normalized_deck_ids) == 0:
-        return {}, [], [], [], []
+        return {}, []
 
     excluded_set = set(excluded_card_ids or [])
     excluded_ids = sorted(excluded_set)
     exclude_clause = ""
     deck_placeholders = ','.join(['?'] * len(normalized_deck_ids))
-    params = [session_type, *normalized_deck_ids]
+    params = [*normalized_deck_ids]
     if len(excluded_ids) > 0:
         placeholders = ','.join(['?'] * len(excluded_ids))
         exclude_clause = f" AND c.id NOT IN ({placeholders})"
@@ -7100,37 +7096,13 @@ def _get_practice_rankings_for_decks(conn, deck_ids, session_type, excluded_card
 
     rows = conn.execute(
         f"""
-        WITH last_session AS (
-            SELECT id
-            FROM sessions
-            WHERE type = ? AND completed_at IS NOT NULL
-            ORDER BY completed_at DESC
-            LIMIT 1
-        ),
-        attempts AS (
-            SELECT sr.card_id, COUNT(sr.id) AS lifetime_attempts
-            FROM session_results sr
-            GROUP BY sr.card_id
-        ),
-        red AS (
-            SELECT sr.card_id, MIN(sr.timestamp) AS first_red_at
-            FROM session_results sr
-            JOIN last_session ls ON ls.id = sr.session_id
-            WHERE sr.correct < 0 AND sr.card_id IS NOT NULL
-            GROUP BY sr.card_id
-        )
         SELECT
             c.id,
             c.deck_id,
             c.front,
             c.back,
-            c.created_at,
-            c.hardness_score,
-            COALESCE(a.lifetime_attempts, 0) AS lifetime_attempts,
-            r.first_red_at
+            c.created_at
         FROM cards c
-        LEFT JOIN attempts a ON a.card_id = c.id
-        LEFT JOIN red r ON r.card_id = c.id
         WHERE c.deck_id IN ({deck_placeholders}) AND COALESCE(c.skip_practice, FALSE) = FALSE
         {exclude_clause}
         ORDER BY c.id ASC
@@ -7139,7 +7111,7 @@ def _get_practice_rankings_for_decks(conn, deck_ids, session_type, excluded_card
     ).fetchall()
 
     if len(rows) == 0:
-        return {}, [], [], [], []
+        return {}, []
 
     cards_by_id = {
         row[0]: {
@@ -7152,115 +7124,31 @@ def _get_practice_rankings_for_decks(conn, deck_ids, session_type, excluded_card
         for row in rows
     }
     candidate_ids = [row[0] for row in rows]
-
-    red_rows = [row for row in rows if row[7] is not None]
-    red_rows.sort(key=lambda row: (row[7], row[0]))
-    red_card_ids = [row[0] for row in red_rows]
-
-    def hard_rank_key(row):
-        # Never-seen cards (0 lifetime attempts) are treated as hardest so 100%
-        # hard-card mode still surfaces unseen cards instead of starving them.
-        lifetime_attempts = int(row[6] if row[6] is not None else 0)
-        hardness_score = float(row[5] if row[5] is not None else 0)
-        unseen_priority = 0 if lifetime_attempts <= 0 else 1
-        return (unseen_priority, -hardness_score, row[0])
-
-    hard_ranked_ids = [
-        row[0]
-        for row in sorted(rows, key=hard_rank_key)
-    ]
-    attempt_ranked_ids = [
-        row[0]
-        for row in sorted(
-            rows,
-            key=lambda row: (int(row[6] if row[6] is not None else 0), row[0])
-        )
-    ]
-
-    return cards_by_id, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids
-
-
-def _select_session_card_ids(kid, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids, session_type):
-    """Select one session-sized card list from ranking inputs."""
-    base_target_count = min(
-        get_category_session_card_count_for_kid(kid, session_type),
-        len(candidate_ids),
-    )
-    if base_target_count <= 0:
-        return []
-
-    selected_ids = []
-    selected_set = set()
-
-    for card_id in red_card_ids:
-        if card_id not in selected_set:
-            selected_ids.append(card_id)
-            selected_set.add(card_id)
-
-    target_count = base_target_count
-    if len(selected_ids) > target_count:
-        selected_ids = selected_ids[:target_count]
-        selected_set = set(selected_ids)
-
-    remaining_slots = max(0, target_count - len(selected_ids))
-    hard_pct = normalize_hard_card_percentage(kid, session_type=session_type)
-    if hard_pct <= 0 or remaining_slots <= 0:
-        hard_target = 0
-    else:
-        hard_target = min(remaining_slots, int(math.ceil((remaining_slots * hard_pct) / 100.0)))
-
-    if hard_target > 0:
-        for card_id in hard_ranked_ids:
-            if len(selected_ids) >= target_count:
-                break
-            if hard_target <= 0:
-                break
-            if card_id in selected_set:
-                continue
-            selected_ids.append(card_id)
-            selected_set.add(card_id)
-            hard_target -= 1
-
-    if len(selected_ids) < target_count:
-        for card_id in attempt_ranked_ids:
-            if len(selected_ids) >= target_count:
-                break
-            if card_id in selected_set:
-                continue
-            selected_ids.append(card_id)
-            selected_set.add(card_id)
-    return selected_ids
-
+    return cards_by_id, candidate_ids
 
 def preview_deck_practice_order_for_decks(conn, kid, deck_ids, session_type, excluded_card_ids=None):
-    """Preview merged next-session queue order across multiple decks."""
-    _, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_practice_rankings_for_decks(
+    """Preview merged queue order across multiple decks."""
+    _, candidate_ids = _get_practice_candidate_cards_for_decks(
+        conn,
+        deck_ids,
+        excluded_card_ids=excluded_card_ids,
+    )
+    if len(candidate_ids) == 0:
+        return []
+    priority_preview = build_practice_priority_preview_for_decks(
         conn,
         deck_ids,
         session_type,
         excluded_card_ids=excluded_card_ids,
     )
-    if len(candidate_ids) == 0:
-        return []
-
-    first_session_ids = _select_session_card_ids(
-        kid,
-        candidate_ids,
-        red_card_ids,
-        hard_ranked_ids,
-        attempt_ranked_ids,
-        session_type,
-    )
-    ordered_ids = []
-    seen = set()
-    for card_id in first_session_ids:
-        if card_id not in seen:
-            ordered_ids.append(card_id)
-            seen.add(card_id)
-    for card_id in attempt_ranked_ids:
-        if card_id not in seen:
-            ordered_ids.append(card_id)
-            seen.add(card_id)
+    ordered_ids = [
+        card_id
+        for card_id, _ in sorted(
+            priority_preview['order_by_card_id'].items(),
+            key=lambda item: item[1],
+        )
+    ]
+    seen = set(ordered_ids)
     for card_id in candidate_ids:
         if card_id not in seen:
             ordered_ids.append(card_id)
@@ -7268,24 +7156,343 @@ def preview_deck_practice_order_for_decks(conn, kid, deck_ids, session_type, exc
     return ordered_ids
 
 
+def build_practice_priority_preview_for_decks(
+    conn,
+    deck_ids,
+    session_type,
+    *,
+    excluded_card_ids=None,
+):
+    """Compute preview-only priority ranking data for one category's active cards."""
+    normalized_deck_ids = []
+    for raw_deck_id in list(deck_ids or []):
+        try:
+            deck_id = int(raw_deck_id)
+        except (TypeError, ValueError):
+            continue
+        if deck_id <= 0 or deck_id in normalized_deck_ids:
+            continue
+        normalized_deck_ids.append(deck_id)
+
+    if len(normalized_deck_ids) == 0:
+        return {
+            'order_by_card_id': {},
+            'details_by_card_id': {},
+        }
+
+    excluded_ids = []
+    seen_excluded = set()
+    for raw_card_id in list(excluded_card_ids or []):
+        try:
+            card_id = int(raw_card_id)
+        except (TypeError, ValueError):
+            continue
+        if card_id <= 0 or card_id in seen_excluded:
+            continue
+        seen_excluded.add(card_id)
+        excluded_ids.append(card_id)
+
+    deck_placeholders = ','.join(['?'] * len(normalized_deck_ids))
+    exclude_clause = ''
+    params = [*normalized_deck_ids]
+    if excluded_ids:
+        excluded_placeholders = ','.join(['?'] * len(excluded_ids))
+        exclude_clause = f" AND c.id NOT IN ({excluded_placeholders})"
+        params.extend(excluded_ids)
+    params.append(session_type)
+
+    session_behavior_type = get_session_behavior_type(session_type)
+    slow_weight = (
+        0.0
+        if session_behavior_type in (
+            DECK_CATEGORY_BEHAVIOR_TYPE_II,
+            DECK_CATEGORY_BEHAVIOR_TYPE_III,
+        )
+        else PRACTICE_PRIORITY_SLOW_WEIGHT
+    )
+    missed_weight = (
+        0.0
+        if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III
+        else PRACTICE_PRIORITY_MISSED_WEIGHT
+    )
+
+    rows = conn.execute(
+        f"""
+        WITH subject_cards AS (
+            SELECT
+                c.id AS card_id
+            FROM cards c
+            WHERE c.deck_id IN ({deck_placeholders})
+              AND COALESCE(c.skip_practice, FALSE) = FALSE
+              {exclude_clause}
+        ),
+        card_records AS (
+            SELECT
+                sr.card_id,
+                sr.timestamp AS practiced_at,
+                COALESCE(sr.response_time_ms, 0) AS response_time_ms,
+                sr.correct
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            JOIN subject_cards c ON c.card_id = sr.card_id
+            WHERE s.type = ?
+        ),
+        speed_baseline AS (
+            SELECT
+                quantile_cont(response_time_ms, 0.50)
+                    FILTER (WHERE correct > 0 AND response_time_ms > 0) AS p50_correct_time,
+                quantile_cont(response_time_ms, 0.90)
+                    FILTER (WHERE correct > 0 AND response_time_ms > 0) AS p90_correct_time,
+                COUNT(*)
+                    FILTER (WHERE correct > 0 AND response_time_ms > 0) AS correct_sample_count
+            FROM card_records
+        ),
+        record_features AS (
+            SELECT
+                r.card_id,
+                r.practiced_at,
+                r.response_time_ms,
+                r.correct,
+                b.correct_sample_count,
+                CASE
+                    WHEN r.correct < 0 THEN 1.0
+                    WHEN b.correct_sample_count < {PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE}
+                      OR b.p50_correct_time IS NULL
+                      OR b.p90_correct_time IS NULL
+                      OR b.p90_correct_time <= b.p50_correct_time
+                      OR r.response_time_ms <= 0
+                    THEN 0.0
+                    ELSE LEAST(
+                        GREATEST(
+                            (r.response_time_ms - b.p50_correct_time)
+                            / (b.p90_correct_time - b.p50_correct_time),
+                            0.0
+                        ),
+                        1.0
+                    )
+                END AS slow_value
+            FROM card_records r
+            CROSS JOIN speed_baseline b
+        ),
+        record_features_with_exposure AS (
+            SELECT
+                *,
+                CASE
+                    WHEN correct > 0 AND response_time_ms > 0 THEN response_time_ms
+                    ELSE NULL
+                END AS correct_response_time_ms
+            FROM record_features
+        ),
+        per_card AS (
+            SELECT
+                card_id,
+                COUNT(card_id) AS attempt_count,
+                COUNT(*) FILTER (WHERE correct > 0) AS correct_count,
+                COUNT(*) FILTER (WHERE correct < 0) AS wrong_count,
+                AVG(correct_response_time_ms) AS avg_correct_response_time,
+                MAX(practiced_at) AS last_practiced_at,
+                arg_max(correct, practiced_at) AS last_result_correct
+            FROM record_features_with_exposure
+            GROUP BY card_id
+        ),
+        score_terms AS (
+            SELECT
+                c.card_id,
+                CASE
+                    WHEN COALESCE(p.attempt_count, 0) <= 0 THEN 0.0
+                    ELSE 1.0 - (
+                        COALESCE(p.correct_count, 0)::DOUBLE
+                        / NULLIF(COALESCE(p.attempt_count, 0), 0)::DOUBLE
+                    )
+                END AS wrong_rate,
+                CASE
+                    WHEN COALESCE(p.last_result_correct, 0) < 0 THEN 1.0
+                    ELSE 0.0
+                END AS last_wrong,
+                CASE
+                    WHEN b.correct_sample_count < {PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE}
+                      OR p.avg_correct_response_time IS NULL
+                      OR b.p50_correct_time IS NULL
+                      OR b.p90_correct_time IS NULL
+                      OR b.p90_correct_time <= b.p50_correct_time
+                    THEN 0.0
+                    ELSE LEAST(
+                        GREATEST(
+                            (p.avg_correct_response_time - b.p50_correct_time)
+                            / (b.p90_correct_time - b.p50_correct_time),
+                            0.0
+                        ),
+                        1.0
+                    )
+                END AS slow_need,
+                GREATEST(
+                    0.0,
+                    1.0 - (
+                        COALESCE(p.attempt_count, 0)::DOUBLE
+                        / {PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS:.6f}
+                    )
+                ) AS learning_need,
+                CASE
+                    WHEN COALESCE(p.attempt_count, 0) <= 0
+                    THEN 1.0
+                    ELSE LEAST(
+                        GREATEST(
+                            date_diff('day', p.last_practiced_at, current_date)::DOUBLE
+                            / {PRACTICE_PRIORITY_VERY_DUE_DAYS:.6f},
+                            0.0
+                        ),
+                        1.0
+                    )
+                END AS due_need,
+                CASE
+                    WHEN COALESCE(p.attempt_count, 0) <= 0 THEN NULL
+                    ELSE 100.0 * (
+                        COALESCE(p.correct_count, 0)::DOUBLE
+                        / NULLIF(COALESCE(p.attempt_count, 0), 0)::DOUBLE
+                    )
+                END AS correct_rate,
+                COALESCE(p.correct_count, 0) AS correct_count,
+                COALESCE(p.wrong_count, 0) AS wrong_count,
+                COALESCE(p.attempt_count, 0) AS attempt_count,
+                p.avg_correct_response_time,
+                b.p50_correct_time,
+                b.p90_correct_time,
+                COALESCE(b.correct_sample_count, 0) AS correct_sample_count,
+                CASE
+                    WHEN p.last_practiced_at IS NULL THEN NULL
+                    ELSE GREATEST(date_diff('day', p.last_practiced_at, current_date), 0)
+                END AS days_since_last_seen,
+                p.last_practiced_at
+            FROM subject_cards c
+            LEFT JOIN per_card p ON p.card_id = c.card_id
+            CROSS JOIN speed_baseline b
+        ),
+        scored AS (
+            SELECT
+                card_id,
+                {missed_weight:.6f}
+                    * GREATEST(wrong_rate, {PRACTICE_PRIORITY_LAST_FAILED_BOOST:.6f} * last_wrong) AS missed_points,
+                {slow_weight:.6f} * slow_need AS slow_points,
+                {PRACTICE_PRIORITY_LEARNING_WEIGHT:.6f} * learning_need AS learning_points,
+                {PRACTICE_PRIORITY_DUE_WEIGHT:.6f} * COALESCE(due_need, 0.0) AS due_points,
+                ({missed_weight:.6f}
+                    * GREATEST(wrong_rate, {PRACTICE_PRIORITY_LAST_FAILED_BOOST:.6f} * last_wrong))
+                + ({slow_weight:.6f} * slow_need)
+                + ({PRACTICE_PRIORITY_LEARNING_WEIGHT:.6f} * learning_need)
+                + ({PRACTICE_PRIORITY_DUE_WEIGHT:.6f} * COALESCE(due_need, 0.0)) AS priority_score,
+                correct_rate,
+                correct_count,
+                wrong_count,
+                attempt_count,
+                avg_correct_response_time,
+                p50_correct_time,
+                p90_correct_time,
+                correct_sample_count,
+                days_since_last_seen,
+                last_practiced_at
+            FROM score_terms
+        )
+        SELECT
+            card_id,
+            priority_score,
+            missed_points,
+            slow_points,
+            learning_points,
+            due_points,
+            correct_rate,
+            correct_count,
+            wrong_count,
+            attempt_count,
+            avg_correct_response_time,
+            p50_correct_time,
+            p90_correct_time,
+            correct_sample_count,
+            days_since_last_seen,
+            last_practiced_at,
+            CASE
+                WHEN missed_points >= slow_points
+                  AND missed_points >= learning_points
+                  AND missed_points >= due_points
+                THEN '{PRACTICE_PRIORITY_REASON_MISSED}'
+                WHEN slow_points >= learning_points
+                  AND slow_points >= due_points
+                THEN '{PRACTICE_PRIORITY_REASON_SLOW}'
+                WHEN learning_points >= due_points
+                THEN '{PRACTICE_PRIORITY_REASON_LEARNING}'
+                ELSE '{PRACTICE_PRIORITY_REASON_DUE}'
+            END AS primary_reason
+        FROM scored
+        ORDER BY
+            priority_score DESC,
+            missed_points DESC,
+            slow_points DESC,
+            learning_points DESC,
+            due_points DESC,
+            CASE WHEN last_practiced_at IS NULL THEN 0 ELSE 1 END ASC,
+            last_practiced_at ASC,
+            attempt_count ASC,
+            card_id ASC
+        """,
+        params,
+    ).fetchall()
+
+    order_by_card_id = {}
+    details_by_card_id = {}
+    for index, row in enumerate(rows, start=1):
+        card_id = int(row[0] or 0)
+        if card_id <= 0:
+            continue
+        order_by_card_id[card_id] = index
+        details_by_card_id[card_id] = {
+            'order': index,
+            'priority_score': float(row[1] or 0.0),
+            'missed_points': float(row[2] or 0.0),
+            'error_points': float(row[2] or 0.0),
+            'slow_points': float(row[3] or 0.0),
+            'fluency_points': float(row[3] or 0.0),
+            'learning_points': float(row[4] or 0.0),
+            'due_points': float(row[5] or 0.0),
+            'forgetting_points': float(row[5] or 0.0),
+            'correct_rate': float(row[6]) if row[6] is not None else None,
+            'correct_count': int(row[7] or 0),
+            'wrong_count': int(row[8] or 0),
+            'attempt_count': int(row[9] or 0),
+            'avg_correct_response_time': float(row[10]) if row[10] is not None else None,
+            'subject_p50_correct_time': float(row[11]) if row[11] is not None else None,
+            'subject_p90_correct_time': float(row[12]) if row[12] is not None else None,
+            'subject_correct_sample_count': int(row[13] or 0),
+            'days_since_last_seen': int(row[14]) if row[14] is not None else None,
+            'last_practiced_at': row[15].isoformat() if row[15] else None,
+            'primary_reason': str(row[16] or PRACTICE_PRIORITY_REASON_LEARNING),
+        }
+
+    return {
+        'order_by_card_id': order_by_card_id,
+        'details_by_card_id': details_by_card_id,
+    }
+
+
 def plan_deck_practice_selection_for_decks(conn, kid, deck_ids, session_type, excluded_card_ids=None):
     """Build deterministic merged session selection across multiple decks."""
-    cards_by_id, candidate_ids, red_card_ids, hard_ranked_ids, attempt_ranked_ids = _get_practice_rankings_for_decks(
+    cards_by_id, candidate_ids = _get_practice_candidate_cards_for_decks(
         conn,
         deck_ids,
-        session_type,
         excluded_card_ids=excluded_card_ids,
     )
     if len(candidate_ids) == 0:
         return cards_by_id, []
-    selected_ids = _select_session_card_ids(
+    ordered_ids = preview_deck_practice_order_for_decks(
+        conn,
         kid,
-        candidate_ids,
-        red_card_ids,
-        hard_ranked_ids,
-        attempt_ranked_ids,
+        deck_ids,
         session_type,
+        excluded_card_ids=excluded_card_ids,
     )
+    target_count = min(
+        get_category_session_card_count_for_kid(kid, session_type),
+        len(candidate_ids),
+    )
+    selected_ids = ordered_ids[:target_count] if target_count > 0 else []
     return cards_by_id, selected_ids
 
 
@@ -8017,6 +8224,7 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
             c.created_at,
             COUNT(sr.id) AS lifetime_attempts,
             MAX(sr.timestamp) AS last_seen_at,
+            MIN(sr.timestamp) AS first_practiced_at,
             100.0 * AVG(
                 CASE
                     WHEN sr.id IS NULL THEN NULL
@@ -8053,9 +8261,9 @@ def get_cards_with_stats(conn, deck_id):
     return get_cards_with_stats_for_deck_ids(conn, [deck_id])
 
 
-def map_card_row(row, preview_order):
+def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
     """Map raw card+stats row to API object."""
-    last_result_correct = row[11]
+    last_result_correct = row[12]
     if last_result_correct is None:
         last_result = None
     elif int(last_result_correct) > 0:
@@ -8064,6 +8272,11 @@ def map_card_row(row, preview_order):
         last_result = 'ungraded'
     else:
         last_result = 'wrong'
+    practice_priority_preview = (
+        practice_priority_preview_by_card_id.get(row[0])
+        if isinstance(practice_priority_preview_by_card_id, dict)
+        else None
+    ) or {}
     return {
         'id': row[0],
         'deck_id': row[1],
@@ -8075,9 +8288,30 @@ def map_card_row(row, preview_order):
         'next_session_order': preview_order.get(row[0]),
         'lifetime_attempts': int(row[7]) if row[7] is not None else 0,
         'last_seen_at': row[8].isoformat() if row[8] else None,
-        'overall_wrong_rate': float(row[9]) if row[9] is not None else None,
-        'last_response_time_ms': int(row[10]) if row[10] is not None else None,
+        'first_practiced_at': row[9].isoformat() if row[9] else None,
+        'overall_wrong_rate': float(row[10]) if row[10] is not None else None,
+        'last_response_time_ms': int(row[11]) if row[11] is not None else None,
         'last_result': last_result,
+        'practice_priority_order': practice_priority_preview.get('order'),
+        'practice_priority_score': practice_priority_preview.get('priority_score'),
+        'practice_priority_missed_points': practice_priority_preview.get('missed_points'),
+        'practice_priority_error_points': practice_priority_preview.get('error_points'),
+        'practice_priority_slow_points': practice_priority_preview.get('slow_points'),
+        'practice_priority_fluency_points': practice_priority_preview.get('fluency_points'),
+        'practice_priority_learning_points': practice_priority_preview.get('learning_points'),
+        'practice_priority_due_points': practice_priority_preview.get('due_points'),
+        'practice_priority_forgetting_points': practice_priority_preview.get('forgetting_points'),
+        'practice_priority_correct_rate': practice_priority_preview.get('correct_rate'),
+        'practice_priority_correct_count': practice_priority_preview.get('correct_count'),
+        'practice_priority_wrong_count': practice_priority_preview.get('wrong_count'),
+        'practice_priority_attempt_count': practice_priority_preview.get('attempt_count'),
+        'practice_priority_avg_correct_response_time': practice_priority_preview.get('avg_correct_response_time'),
+        'practice_priority_subject_p50_correct_time': practice_priority_preview.get('subject_p50_correct_time'),
+        'practice_priority_subject_p90_correct_time': practice_priority_preview.get('subject_p90_correct_time'),
+        'practice_priority_subject_correct_sample_count': practice_priority_preview.get('subject_correct_sample_count'),
+        'practice_priority_days_since_last_seen': practice_priority_preview.get('days_since_last_seen'),
+        'practice_priority_last_practiced_at': practice_priority_preview.get('last_practiced_at'),
+        'practice_priority_primary_reason': practice_priority_preview.get('primary_reason'),
     }
 
 
@@ -9570,20 +9804,13 @@ def opt_out_type_iv_shared_decks(kid, category_key, deck_ids):
 def build_type_i_shared_cards_payload(
     kid,
     category_key,
-    preview_hard_pct=None,
     *,
     session_card_count_override=None,
     include_orphan_in_queue_override=None,
-    preview_hard_pct_field_override=None,
 ):
     """Build merged cards payload for one type-I category."""
     category_meta_by_key = get_shared_deck_category_meta_by_key()
     category_display_name = get_deck_category_display_name(category_key, category_meta_by_key)
-    effective_hard_pct = (
-        preview_hard_pct
-        if preview_hard_pct is not None
-        else normalize_hard_card_percentage(kid, session_type=category_key)
-    )
     session_card_count = (
         int(session_card_count_override)
         if session_card_count_override is not None
@@ -9615,36 +9842,15 @@ def build_type_i_shared_cards_payload(
         ]
 
         preview_order = {}
+        practice_priority_preview_by_card_id = {}
         if practice_source_ids:
-            preview_kid = with_preview_session_count_for_category(
-                kid,
-                category_key,
-                session_card_count,
-            )
-            if preview_hard_pct_field_override:
-                preview_kid[preview_hard_pct_field_override] = int(effective_hard_pct)
-            else:
-                existing_hard_pct_by_category = kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
-                existing_hard_pct_map = (
-                    {
-                        normalize_shared_deck_tag(raw_key): raw_value
-                        for raw_key, raw_value in existing_hard_pct_by_category.items()
-                        if normalize_shared_deck_tag(raw_key)
-                    }
-                    if isinstance(existing_hard_pct_by_category, dict)
-                    else {}
-                )
-                preview_kid[HARD_CARD_PERCENT_BY_CATEGORY_FIELD] = {
-                    **existing_hard_pct_map,
-                    category_key: int(effective_hard_pct),
-                }
-            preview_ids = preview_deck_practice_order_for_decks(
+            priority_preview = build_practice_priority_preview_for_decks(
                 conn,
-                preview_kid,
                 practice_source_ids,
-                category_key
+                category_key,
             )
-            preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
+            preview_order = priority_preview['order_by_card_id']
+            practice_priority_preview_by_card_id = priority_preview['details_by_card_id']
 
         def _source_label(source):
             tags = extract_shared_deck_tags_and_labels(source.get('tags') or [])[0]
@@ -9668,7 +9874,7 @@ def build_type_i_shared_cards_payload(
             local_deck_id = int(src['local_deck_id'])
             rows = card_rows_by_deck_id.get(local_deck_id) or []
             for row in rows:
-                mapped = map_card_row(row, preview_order)
+                mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
                 mapped['source_deck_id'] = local_deck_id
                 mapped['source_deck_label'] = _source_label(src)
                 mapped['source_is_orphan'] = bool(src.get('is_orphan'))
@@ -9684,7 +9890,6 @@ def build_type_i_shared_cards_payload(
         'is_merged_bank': True,
         'category_key': category_key,
         'deck_name': f'Merged {category_display_name} Bank',
-        'hard_card_percentage': int(effective_hard_pct),
         'include_orphan_in_queue': include_orphan_in_queue,
         'practice_source_count': len(practice_sources),
         'practice_active_card_count': int(practice_active_count),
@@ -11244,12 +11449,10 @@ def get_shared_type1_cards(kid_id):
             kid,
             request.args.get('categoryKey'),
         )
-        preview_hard_pct = parse_optional_hard_card_percentage_arg()
         return jsonify(
             build_type_i_shared_cards_payload(
                 kid,
                 category_key,
-                preview_hard_pct,
             )
         ), 200
     except ValueError as e:
@@ -12444,12 +12647,10 @@ def get_shared_type3_cards(kid_id):
             kid,
             request.args.get('categoryKey'),
         )
-        preview_hard_pct = parse_optional_hard_card_percentage_arg()
         return jsonify(
             build_type_i_shared_cards_payload(
                 kid,
                 category_key,
-                preview_hard_pct,
             )
         ), 200
     except ValueError as e:
@@ -12747,34 +12948,16 @@ def get_shared_type2_cards(kid_id):
             )
 
             preview_order = {}
+            practice_priority_preview_by_card_id = {}
             if practice_source_ids:
-                existing_hard_pct_by_category = kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
-                preview_hard_pct_by_category = {
-                    normalize_shared_deck_tag(raw_key): raw_value
-                    for raw_key, raw_value in (
-                        existing_hard_pct_by_category.items()
-                        if isinstance(existing_hard_pct_by_category, dict)
-                        else []
-                    )
-                    if normalize_shared_deck_tag(raw_key)
-                }
-                preview_hard_pct_by_category[category_key] = int(effective_hard_pct)
-                preview_kid = {
-                    **with_preview_session_count_for_category(
-                        kid,
-                        category_key,
-                        get_category_session_card_count_for_kid(kid, category_key),
-                    ),
-                    HARD_CARD_PERCENT_BY_CATEGORY_FIELD: preview_hard_pct_by_category,
-                }
-                preview_ids = preview_deck_practice_order_for_decks(
+                priority_preview = build_practice_priority_preview_for_decks(
                     conn,
-                    preview_kid,
                     practice_source_ids,
                     category_key,
                     excluded_card_ids=preview_excluded_ids,
                 )
-                preview_order = {card_id: i + 1 for i, card_id in enumerate(preview_ids)}
+                preview_order = priority_preview['order_by_card_id']
+                practice_priority_preview_by_card_id = priority_preview['details_by_card_id']
 
             orphan_deck_name = get_category_orphan_deck_name(category_key)
 
@@ -12800,7 +12983,7 @@ def get_shared_type2_cards(kid_id):
                 local_deck_id = int(src['local_deck_id'])
                 rows = card_rows_by_deck_id.get(local_deck_id) or []
                 for row in rows:
-                    mapped = map_card_row(row, preview_order)
+                    mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
                     if not mapped.get('front') and mapped.get('back'):
                         mapped['front'] = mapped.get('back')
                     card_id = int(row[0])

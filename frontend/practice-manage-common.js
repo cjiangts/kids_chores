@@ -279,6 +279,26 @@ window.PracticeManageCommon = {
             });
         }
 
+        if (mode === 'new_queue') {
+            return copy.sort((a, b) => {
+                const aSkipped = Boolean(a && a.skip_practice);
+                const bSkipped = Boolean(b && b.skip_practice);
+                if (aSkipped !== bSkipped) {
+                    return aSkipped ? 1 : -1;
+                }
+                const aOrder = Number.isFinite(Number(a && a.practice_priority_order))
+                    ? Number(a.practice_priority_order)
+                    : Number.MAX_SAFE_INTEGER;
+                const bOrder = Number.isFinite(Number(b && b.practice_priority_order))
+                    ? Number(b.practice_priority_order)
+                    : Number.MAX_SAFE_INTEGER;
+                if (aOrder !== bOrder) {
+                    return aOrder - bOrder;
+                }
+                return this.compareQueueOrder(a, b);
+            });
+        }
+
         if (mode === 'lifetime_attempts_desc') {
             return copy.sort((a, b) => {
                 const aAttempts = Number.isFinite(a.lifetime_attempts) ? a.lifetime_attempts : 0;
@@ -298,17 +318,6 @@ window.PracticeManageCommon = {
                     return this.compareQueueOrder(a, b);
                 }
                 return aAttempts - bAttempts;
-            });
-        }
-
-        if (mode === 'source_deck') {
-            return copy.sort((a, b) => {
-                const aName = String(a.source_deck_label || a.source_deck_name || '').trim().toLowerCase();
-                const bName = String(b.source_deck_label || b.source_deck_name || '').trim().toLowerCase();
-                if (aName !== bName) {
-                    return aName.localeCompare(bName);
-                }
-                return this.compareQueueOrder(a, b);
             });
         }
 
