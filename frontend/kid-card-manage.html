@@ -1205,15 +1205,24 @@
             background: #fff;
             color: #2f3c7e;
             border-radius: 6px;
-            width: 26px;
-            height: 26px;
-            min-width: 26px;
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
             padding: 0;
-            font-size: 0.78rem;
+            font-size: 0.95rem;
             font-weight: 700;
             line-height: 1;
             cursor: pointer;
             flex: 0 0 auto;
+        }
+
+        @media (max-width: 600px) {
+            .sort-direction-toggle-btn {
+                width: 32px;
+                height: 32px;
+                min-width: 32px;
+                font-size: 0.9rem;
+            }
         }
 
         .sort-direction-toggle-btn:hover {
@@ -1308,11 +1317,17 @@
                 width: auto;
             }
 
-            .manage-page .cards-toolbar #viewOrderSelect {
+            .manage-page .cards-toolbar .sort-control-group {
                 grid-column: 1 / -1;
                 width: 100%;
-                max-width: none;
                 justify-self: stretch;
+            }
+
+            .manage-page .cards-toolbar #viewOrderSelect {
+                flex: 1 1 auto;
+                width: 100%;
+                min-width: 0;
+                max-width: none;
             }
 
             .cards-bulk-action-message-wrap {
@@ -2657,18 +2672,6 @@
             padding: 0 0.08rem;
         }
 
-        .practice-priority-learning-dots::before {
-            content: "";
-            position: absolute;
-            left: 8px;
-            right: 8px;
-            top: 50%;
-            height: 2px;
-            transform: translateY(-50%);
-            border-radius: 999px;
-            background: #d7deea;
-        }
-
         .practice-priority-learning-dot {
             position: relative;
             z-index: 1;
@@ -3271,11 +3274,6 @@
             .practice-priority-learning-dots {
                 gap: 0.18rem;
                 padding: 0 0.04rem;
-            }
-
-            .practice-priority-learning-dots::before {
-                left: 6px;
-                right: 6px;
             }
 
             .practice-priority-learning-dot {

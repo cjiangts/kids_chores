@@ -1785,9 +1785,8 @@ function buildPracticePriorityDetailCards(card) {
             </div>`}
             <div class="practice-priority-detail-body">
                 <div class="practice-priority-detail-text">
-                    <div class="practice-priority-detail-main">Avg correct response: <span class="practice-priority-inline-value slow">${escapeHtml(avgCorrectResponseTimeText)}</span></div>
+                    <div class="practice-priority-detail-main">Avg time: <span class="practice-priority-inline-value slow">${escapeHtml(avgCorrectResponseTimeText)}</span></div>
                     <div class="practice-priority-detail-sub">Last response: ${escapeHtml(lastResponseTimeText)}</div>
-                    ${slowBaselineReady ? `<div class="practice-priority-detail-sub">Baseline: ${escapeHtml(subjectP50Text)} <span class="practice-priority-inline-note positive">(p50)</span> · ${escapeHtml(subjectP90Text)} <span class="practice-priority-inline-note negative">(p90)</span></div>` : ''}
                 </div>
                 <div class="practice-priority-detail-visual">
                     ${slowBaselineReady
@@ -1816,7 +1815,6 @@ function buildPracticePriorityDetailCards(card) {
             <div class="practice-priority-detail-body">
                 <div class="practice-priority-detail-text">
                     <div class="practice-priority-detail-main">Lifetime attempts: <span class="practice-priority-inline-value learning">${escapeHtml(String(lifetimeAttempts))}</span></div>
-                    <div class="practice-priority-detail-sub">Correct ${escapeHtml(String(correctCount))} · Wrong ${escapeHtml(String(wrongCount))}</div>
                     <div class="practice-priority-detail-sub">More practice lowers learning need</div>
                 </div>
                 <div class="practice-priority-detail-visual">
@@ -2826,13 +2824,27 @@ function applyChineseCardFrontUniformSize() {
 const CARD_RENDER_CHUNK_SIZE = 20;
 let activeCardChunkObserver = null;
 
-function renderCardsInChunks(totalCount, buildItemHtml, postBatchHook) {
+function renderCardsInChunks(totalCount, buildItemHtml, postBatchHook, options = {}) {
     if (activeCardChunkObserver) {
         activeCardChunkObserver.disconnect();
         activeCardChunkObserver = null;
     }
     cardsGrid.innerHTML = '';
     if (totalCount <= 0) {
+        return;
+    }
+
+    const renderAll = !!options.renderAll;
+
+    if (renderAll) {
+        const parts = [];
+        for (let i = 0; i < totalCount; i += 1) {
+            parts.push(buildItemHtml(i));
+        }
+        cardsGrid.insertAdjacentHTML('beforeend', parts.join(''));
+        if (typeof postBatchHook === 'function') {
+            postBatchHook();
+        }
         return;
     }
 
@@ -2968,6 +2980,7 @@ function displayCards(cards) {
             });
         },
         hasExpandedCards ? applyChineseCardFrontUniformSize : null,
+        { renderAll: true },
     );
     renderVisibleSkipActionButtons();
 }
