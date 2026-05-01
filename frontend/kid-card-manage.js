@@ -2823,6 +2823,78 @@ function applyChineseCardFrontUniformSize() {
     cardsGrid.style.setProperty('--type1-chinese-front-size-rem', `${CHINESE_FIXED_FRONT_SIZE_REM}rem`);
 }
 
+const CARD_RENDER_CHUNK_SIZE = 20;
+let activeCardChunkObserver = null;
+
+function renderCardsInChunks(totalCount, buildItemHtml, postBatchHook) {
+    if (activeCardChunkObserver) {
+        activeCardChunkObserver.disconnect();
+        activeCardChunkObserver = null;
+    }
+    cardsGrid.innerHTML = '';
+    if (totalCount <= 0) {
+        return;
+    }
+
+    const sentinel = document.createElement('div');
+    sentinel.className = 'cards-chunk-sentinel';
+    sentinel.style.gridColumn = '1 / -1';
+    sentinel.style.height = '1px';
+    sentinel.setAttribute('aria-hidden', 'true');
+    cardsGrid.appendChild(sentinel);
+
+    let renderedCount = 0;
+    const renderNextChunk = () => {
+        if (renderedCount >= totalCount) {
+            return;
+        }
+        const end = Math.min(renderedCount + CARD_RENDER_CHUNK_SIZE, totalCount);
+        const parts = [];
+        for (let i = renderedCount; i < end; i += 1) {
+            parts.push(buildItemHtml(i));
+        }
+        sentinel.insertAdjacentHTML('beforebegin', parts.join(''));
+        renderedCount = end;
+        if (typeof postBatchHook === 'function') {
+            postBatchHook();
+        }
+        if (renderedCount >= totalCount) {
+            if (activeCardChunkObserver) {
+                activeCardChunkObserver.disconnect();
+                activeCardChunkObserver = null;
+            }
+            sentinel.remove();
+        }
+    };
+
+    renderNextChunk();
+
+    while (renderedCount < totalCount) {
+        const rect = sentinel.getBoundingClientRect();
+        if (rect.top > window.innerHeight + 600) {
+            break;
+        }
+        renderNextChunk();
+    }
+
+    if (renderedCount < totalCount) {
+        if (typeof IntersectionObserver === 'function') {
+            activeCardChunkObserver = new IntersectionObserver((entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        renderNextChunk();
+                    }
+                }
+            }, { rootMargin: '600px 0px 600px 0px' });
+            activeCardChunkObserver.observe(sentinel);
+        } else {
+            while (renderedCount < totalCount) {
+                renderNextChunk();
+            }
+        }
+    }
+}
+
 function displayCards(cards) {
     sortedCards = getSortedCardsForDisplay(cards);
     const queueHighlightMap = getQueueHighlightMap(cards);
@@ -2833,6 +2905,10 @@ function displayCards(cards) {
     }
 
     if (sortedCards.length === 0) {
+        if (activeCardChunkObserver) {
+            activeCardChunkObserver.disconnect();
+            activeCardChunkObserver = null;
+        }
         cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
         cardsGrid.classList.remove('short-view');
         cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
@@ -2843,16 +2919,18 @@ function displayCards(cards) {
     const visibleCards = sortedCards;
     if (currentCardViewMode === 'long') {
         cardsGrid.classList.remove('short-view');
-        cardsGrid.innerHTML = visibleCards
-            .map((card) => {
+        renderCardsInChunks(
+            visibleCards.length,
+            (index) => {
+                const card = visibleCards[index];
                 const cardId = String(card && card.id ? card.id : '');
                 return buildLongCardMarkup(card, {
                     trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
                     queueHighlight: queueHighlightMap.get(cardId) || '',
                 });
-            })
-            .join('');
-        applyChineseCardFrontUniformSize();
+            },
+            applyChineseCardFrontUniformSize,
+        );
         renderVisibleSkipActionButtons();
         return;
     }
@@ -2870,8 +2948,13 @@ function displayCards(cards) {
 
     const hasExpandedCards = visibleCards.some((card) => expandedCompactCardIds.has(String(card && card.id ? card.id : '')));
     cardsGrid.classList.add('short-view');
-    cardsGrid.innerHTML = visibleCards
-        .map((card) => {
+    if (!hasExpandedCards) {
+        cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
+    }
+    renderCardsInChunks(
+        visibleCards.length,
+        (index) => {
+            const card = visibleCards[index];
             const cardId = String(card && card.id ? card.id : '');
             if (expandedCompactCardIds.has(cardId)) {
                 return `<div class="short-expanded-slot">${buildLongCardMarkup(card, {
@@ -2883,13 +2966,9 @@ function displayCards(cards) {
             return buildCompactCardMarkup(card, {
                 queueHighlight: queueHighlightMap.get(cardId) || '',
             });
-        })
-        .join('');
-    if (hasExpandedCards) {
-        applyChineseCardFrontUniformSize();
-    } else {
-        cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
-    }
+        },
+        hasExpandedCards ? applyChineseCardFrontUniformSize : null,
+    );
     renderVisibleSkipActionButtons();
 }
 
