@@ -19,7 +19,6 @@ const BEHAVIOR_TYPE_IV = 'type_iv';
 const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
-const summaryGrid = document.getElementById('summaryGrid');
 const trendChart = document.getElementById('trendChart');
 const historyList = document.getElementById('historyList');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -82,7 +81,6 @@ async function loadCardReport() {
         const kidName = data.kid?.name || 'Kid';
         const card = data.card || {};
         const attempts = Array.isArray(data.attempts) ? data.attempts : [];
-        const summary = data.summary || {};
         currentKidName = String(kidName || '').trim();
         currentCardFront = String(card.front || '').trim();
         currentCardBack = String(card.back || '').trim();
@@ -92,7 +90,6 @@ async function loadCardReport() {
         pageTitle.textContent = `${kidName} · Card ${cardLabel}`;
         document.title = `${kidName} - Card Report - Kids Daily Chores`;
 
-        renderSummary(card, summary, attempts);
         renderTrend(attempts);
         renderHistory(attempts);
         scrollToTargetAttempt();
@@ -119,63 +116,119 @@ async function loadReportTimezone() {
     }
 }
 
-function renderSummary(card, summary, attempts) {
-    const attemptsCount = safeNum(summary.attempt_count);
-    const right = safeNum(summary.right_count);
-    const wrong = safeNum(summary.wrong_count);
-    let avgMs = Math.max(0, Number(summary?.avg_response_ms) || 0);
-    if (from === 'lesson-reading' && Array.isArray(attempts) && attempts.length) {
-        const passed = attempts.filter((a) => a?.grade_status === 'pass');
-        if (passed.length) {
-            const sum = passed.reduce((s, a) => s + getAttemptDisplayResponseMs(a), 0);
-            avgMs = sum / passed.length;
-        } else {
-            avgMs = 0;
-        }
-    }
-    const avgTimeLabel = avgMs > 0 ? formatResponseTime(avgMs) : '-';
-
-    summaryGrid.innerHTML = `
-        <div class="summary-card"><div class="label">Card</div><div class="value">${renderMathHtml(getCardDisplayLabel(card.front, card.back, from) || '-')}</div></div>
-        <div class="summary-card"><div class="label">Attempts</div><div class="value">${attemptsCount}</div></div>
-        <div class="summary-card"><div class="label">Right / Wrong</div><div class="value">${right} / ${wrong}</div></div>
-        <div class="summary-card"><div class="label">Avg Time</div><div class="value">${avgTimeLabel}</div></div>
-    `;
-}
-
 function renderTrend(attempts) {
     if (!attempts.length) {
         trendChart.innerHTML = `<div class="chart-empty">No attempts yet for this card.</div>`;
         return;
     }
 
-    const maxMs = Math.max(...attempts.map((item) => getAttemptDisplayResponseMs(item)), 1);
+    const nowDate = new Date();
+    const items = attempts.map((item, index) => {
+        const ts = item.session_completed_at || item.session_started_at || item.timestamp;
+        const dt = parseUtcTimestamp(ts);
+        const daysAgo = Number.isNaN(dt.getTime())
+            ? 0
+            : Math.max(0, calendarDayDiff(nowDate, dt, reportTimezone));
+        const ms = getAttemptDisplayResponseMs(item);
+        return {
+            index,
+            ts,
+            ms,
+            daysAgo,
+            correctness: resolveCorrectness(item),
+        };
+    });
 
-    const legendClasses = new Set(attempts.map((item) => resolveCorrectness(item)));
-    const legendParts = [];
-    if (legendClasses.has('right')) legendParts.push('<span class="trend-legend-dot right"></span> Right');
-    if (legendClasses.has('half')) legendParts.push('<span class="trend-legend-dot half"></span> Half');
-    if (legendClasses.has('fixed')) legendParts.push('<span class="trend-legend-dot fixed"></span> Fixed');
-    if (legendClasses.has('wrong')) legendParts.push('<span class="trend-legend-dot wrong"></span> Wrong');
-    if (legendClasses.has('pending')) legendParts.push('<span class="trend-legend-dot pending"></span> Ungraded');
+    const maxMs = Math.max(...items.map((it) => it.ms), 1);
+    const useMinutesUnit = maxMs >= 60000;
+    items.forEach((it) => {
+        it.title = `#${it.index + 1} · ${formatResponseTime(it.ms)} · ${formatDateTime(it.ts)}`;
+    });
+
+    const maxDays = Math.max(7, ...items.map((it) => it.daysAgo));
+    const stepMs = pickTrendTimeStepMs(maxMs);
+    const yMax = Math.max(stepMs, Math.ceil(maxMs / stepMs) * stepMs);
+    const yTicks = [];
+    for (let v = 0; v <= yMax + 0.5; v += stepMs) yTicks.push(v);
+
+    const MAX_OFFSET_PX = 130;
+    const TOP_PADDING_PX = 14;
+    items.forEach((it) => {
+        it.xPct = (it.daysAgo / maxDays) * 100;
+        it.bottomPx = (it.ms / yMax) * MAX_OFFSET_PX;
+    });
+
+    const sorted = [...items].sort((a, b) => a.bottomPx - b.bottomPx || a.index - b.index);
+    const stageHeight = MAX_OFFSET_PX + TOP_PADDING_PX;
+
+    const markerHtml = sorted.map((it) => {
+        return `<div class="trend-marker ${it.correctness}" style="left:${it.xPct.toFixed(2)}%; bottom:${it.bottomPx.toFixed(1)}px;" title="${escapeHtml(it.title)}"></div>`;
+    }).join('');
+
+    const tickSegments = 6;
+    const gridVHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
+        const pct = (i / tickSegments) * 100;
+        return `<div class="trend-grid-line-v" style="left:${pct}%"></div>`;
+    }).join('');
+    const gridHHtml = yTicks.slice(1).map((v) => {
+        const posPx = (v / yMax) * MAX_OFFSET_PX;
+        return `<div class="trend-grid-line-h" style="bottom:${posPx.toFixed(1)}px;"></div>`;
+    }).join('');
+    const yLabelHtml = yTicks.map((v) => {
+        const posPx = (v / yMax) * MAX_OFFSET_PX;
+        return `<div class="trend-yaxis-label" style="bottom:${posPx.toFixed(1)}px;">${escapeHtml(formatTrendResponseTime(v, useMinutesUnit))}</div>`;
+    }).join('');
+    const tickLabelHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
+        const pct = (i / tickSegments) * 100;
+        const dayValue = Math.round((i / tickSegments) * maxDays);
+        return `<div class="trend-numberline-tick-label" style="left:${pct}%">${dayValue}d</div>`;
+    }).join('');
+
+    const legendCounts = items.reduce((acc, it) => {
+        acc[it.correctness] = (acc[it.correctness] || 0) + 1;
+        return acc;
+    }, {});
+    const legendOrder = [
+        ['right', 'Right'],
+        ['half', 'Half'],
+        ['fixed', 'Fixed'],
+        ['wrong', 'Wrong'],
+        ['pending', 'Ungraded'],
+    ];
+    const legendParts = legendOrder
+        .filter(([key]) => legendCounts[key])
+        .map(([key, label]) => `<span class="trend-legend-dot ${key}"></span> ${label} (${legendCounts[key]})`);
     const legendHtml = legendParts.length
         ? `<div class="trend-legend">${legendParts.join('<span class="trend-legend-sep">·</span>')}</div>`
         : '';
 
-    const bars = attempts.map((item, index) => {
-        const rawMs = getAttemptDisplayResponseMs(item);
-        const pct = Math.max(1, (rawMs / maxMs) * 100).toFixed(1);
-        const correctness = resolveCorrectness(item);
-        const timeLabel = formatTrendResponseTime(rawMs, maxMs >= 60000);
-        const title = `#${index + 1} · ${formatResponseTime(rawMs)} · ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}`;
-        return `<div class="trend-bar-row" title="${escapeHtml(title)}">
-            <div class="trend-bar-label">#${index + 1}</div>
-            <div class="trend-bar-track"><div class="trend-bar-fill ${correctness}" style="width:${pct}%"></div></div>
-            <div class="trend-bar-time">${escapeHtml(timeLabel)}</div>
+    trendChart.innerHTML = `${legendHtml}
+        <div class="trend-numberline">
+            <div class="trend-numberline-stage">
+                <div class="trend-yaxis-col" style="height:${stageHeight}px;">${yLabelHtml}</div>
+                <div class="trend-plot-col">
+                    <div class="trend-numberline-arrows" style="height:${stageHeight}px;">
+                        <div class="trend-grid">${gridHHtml}${gridVHtml}</div>
+                        ${markerHtml}
+                    </div>
+                    <div class="trend-numberline-axis"></div>
+                    <div class="trend-numberline-tick-labels">${tickLabelHtml}</div>
+                </div>
+            </div>
         </div>`;
-    }).join('');
+}
 
-    trendChart.innerHTML = `${legendHtml}${bars}`;
+function pickTrendTimeStepMs(maxMs) {
+    const targetTicks = 4;
+    const rough = Math.max(1, maxMs) / targetTicks;
+    const candidates = [
+        500, 1000, 2000, 2500, 5000, 10000, 15000, 20000, 30000,
+        60000, 120000, 180000, 300000, 600000, 1200000,
+    ];
+    for (const c of candidates) {
+        if (c >= rough) return c;
+    }
+    return Math.ceil(rough / 60000) * 60000;
 }
 
 function formatTrendResponseTime(ms, useMinutesUnit) {
@@ -207,6 +260,9 @@ function renderHistory(attempts) {
         const correctness = resolveCorrectness(item);
         const statusClass = correctness;
         const statusText = getCorrectnessLabel(correctness);
+        const itemTimestamp = item.session_completed_at || item.session_started_at || item.timestamp;
+        const daysAgoLabel = formatDaysAgo(itemTimestamp);
+        const daysAgoSuffix = daysAgoLabel ? ` <span class="history-days-ago">(${escapeHtml(daysAgoLabel)})</span>` : '';
         const lessonReadingAudioAttrs = from === 'lesson-reading'
             ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
             : '';
@@ -248,7 +304,7 @@ function renderHistory(attempts) {
                     </div>
                     ${audioBlockHtml}
                     <div class="meta">
-                        ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
+                        ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
                         · Session #${safeNum(item.session_id)}
                     </div>
                 </div>
@@ -274,7 +330,7 @@ function renderHistory(attempts) {
                         </div>
                     </div>
                     <div class="meta">
-                        ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
+                        ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
                         · Session #${safeNum(item.session_id)}
                     </div>
                 </div>
@@ -306,7 +362,7 @@ function renderHistory(attempts) {
                         </div>
                     </div>
                     <div class="meta">
-                        ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
+                        ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
                         · Session #${safeNum(item.session_id)}
                     </div>
                 </div>
@@ -328,7 +384,7 @@ function renderHistory(attempts) {
                     </div>
                 </div>
                 <div class="meta">
-                    ${formatDateTime(item.session_completed_at || item.session_started_at || item.timestamp)}
+                    ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
                     · Session #${safeNum(item.session_id)}
                 </div>
                 ${audioBlockHtml}
@@ -691,6 +747,29 @@ function formatDateTime(iso) {
         second: '2-digit',
         hour12: false,
     });
+}
+
+function formatDaysAgo(iso) {
+    const dt = parseUtcTimestamp(iso);
+    if (Number.isNaN(dt.getTime())) return '';
+    const dayDiff = calendarDayDiff(new Date(), dt, reportTimezone);
+    if (dayDiff <= 0) return 'today';
+    if (dayDiff === 1) return '1 day ago';
+    return `${dayDiff} days ago`;
+}
+
+function calendarDayDiff(later, earlier, timeZone) {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    });
+    const toUtcDay = (d) => {
+        const [y, m, day] = fmt.format(d).split('-').map(Number);
+        return Date.UTC(y, m - 1, day);
+    };
+    return Math.round((toUtcDay(later) - toUtcDay(earlier)) / (24 * 60 * 60 * 1000));
 }
 
 function parseUtcTimestamp(raw) {

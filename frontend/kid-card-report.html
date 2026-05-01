@@ -20,51 +20,110 @@
             font-size: 0.88rem;
         }
 
-        .trend-bar-row {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            margin-bottom: 0.15rem;
+        .trend-numberline {
+            padding: 0.4rem 1rem 0 0.4rem;
         }
 
-        .trend-bar-label {
-            flex: 0 0 2.2rem;
-            font-size: 0.72rem;
+        .trend-numberline-stage {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.3rem;
+        }
+
+        .trend-yaxis-col {
+            flex: 0 0 auto;
+            width: 2.6rem;
+            position: relative;
+        }
+
+        .trend-yaxis-label {
+            position: absolute;
+            right: 0;
+            transform: translateY(50%);
+            font-size: 0.66rem;
             font-weight: 600;
             color: #5b6787;
-            text-align: right;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
             white-space: nowrap;
+        }
+
+        .trend-plot-col {
+            flex: 1 1 auto;
+            min-width: 0;
+            position: relative;
+        }
+
+        .trend-numberline-arrows {
+            position: relative;
+            width: 100%;
+        }
+
+        .trend-grid {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .trend-grid-line-h {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #ecf0f8;
+        }
+
+        .trend-grid-line-v {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #ecf0f8;
+            transform: translateX(-50%);
+        }
+
+        .trend-marker {
+            position: absolute;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: currentColor;
+            transform: translate(-50%, 50%);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+        }
+
+        .trend-marker.right { color: #4cb780; }
+        .trend-marker.wrong { color: #d95b5b; }
+        .trend-marker.fixed { color: #e0ac2b; }
+        .trend-marker.half { color: #8b6fc0; }
+        .trend-marker.pending { color: #b0b8cc; }
+
+        .trend-numberline-axis {
+            position: relative;
+            height: 2px;
+            background: #b6bfd5;
+            border-radius: 1px;
+        }
+
+        .trend-numberline-tick-labels {
+            position: relative;
+            height: 1.1rem;
+            margin-top: 0.3rem;
+        }
+
+        .trend-numberline-tick-label {
+            position: absolute;
+            top: 0;
+            transform: translateX(-50%);
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #5b6787;
             font-variant-numeric: tabular-nums;
+            white-space: nowrap;
         }
 
-        .trend-bar-track {
-            flex: 1 1 0;
-            height: 10px;
-            background: #f0f2f8;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .trend-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            min-width: 2px;
-        }
-
-        .trend-bar-fill.right { background: #4cb780; }
-        .trend-bar-fill.wrong { background: #d95b5b; }
-        .trend-bar-fill.fixed { background: #e0ac2b; }
-        .trend-bar-fill.half { background: #8b6fc0; }
-        .trend-bar-fill.pending { background: #c0c8d8; }
-
-        .trend-bar-time {
-            flex: 0 0 auto;
-            font-size: 0.72rem;
-            color: #666;
-            min-width: 2.8rem;
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-        }
+        .trend-numberline-tick-label:first-child { color: #2f9e44; }
 
         .trend-legend {
             display: flex;
@@ -127,6 +186,11 @@
             margin-top: 0.2rem;
             font-size: 0.79rem;
             color: #666;
+        }
+
+        .history-item .meta .history-days-ago {
+            color: #2f5db8;
+            font-weight: 600;
         }
 
         .history-head-row {
@@ -452,10 +516,6 @@
         </div>
 
         <div id="errorMessage" class="error hidden"></div>
-
-        <section class="summary-shell">
-            <div class="summary-grid" id="summaryGrid"></div>
-        </section>
 
         <section class="chart-card">
             <h2>Response Time Trend</h2>
