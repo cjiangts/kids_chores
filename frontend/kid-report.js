@@ -15,6 +15,9 @@ const dailyChartOlderBtn = document.getElementById('dailyChartOlderBtn');
 const dailyChartPageLabel = document.getElementById('dailyChartPageLabel');
 const dailyChartLegend = document.getElementById('dailyChartLegend');
 const sessionsList = document.getElementById('sessionsList');
+const reportSessionsView = document.getElementById('reportSessionsView');
+const reportCardsView = document.getElementById('reportCardsView');
+const cardsViewBody = document.getElementById('cardsViewBody');
 const collapsedDayKeys = new Set();
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let dailyChartRows = [];
@@ -23,7 +26,9 @@ let dailyChartPageIndex = 0;
 let reportSessions = [];
 let filteredSessions = [];
 let selectedCategoryKey = '';
+let selectedReportView = 'sessions';
 let reportCategoryThemeByKey = new Map();
+const cardsViewCacheByCategoryKey = new Map();
 const DAILY_CHART_PAGE_SIZE = 7;
 const CATEGORY_COLOR_PALETTE = [
     { bar: '#3b82f6', pillBg: '#e8f1ff', pillText: '#1e4f9f' }, // blue
@@ -42,6 +47,7 @@ const CATEGORY_COLOR_PALETTE = [
 const DEFAULT_CATEGORY_COLOR_THEME = CATEGORY_COLOR_PALETTE[0];
 const {
     normalizeCategoryKey,
+    normalizeBehaviorType,
 } = window.DeckCategoryCommon;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -104,6 +110,9 @@ function renderInitialLoadingState() {
     if (sessionsList) {
         sessionsList.innerHTML = '<div class="sessions-empty">Loading kid records...</div>';
     }
+    if (cardsViewBody) {
+        cardsViewBody.innerHTML = '<div class="cards-view-placeholder">Select a category to view card distributions.</div>';
+    }
     if (dailyChartNewerBtn) {
         dailyChartNewerBtn.disabled = true;
     }
@@ -142,23 +151,60 @@ async function loadReport() {
 
 function renderSummary(sessions) {
     const totals = summarizeSessions(sessions);
-    const showAnswerBreakdown = Boolean(selectedCategoryKey);
-    const summaryStats = showAnswerBreakdown
-        ? `
-            <div class="summary-stat"><div class="label">Sessions</div><div class="value">${totals.count}</div></div>
-            <div class="summary-stat summary-stat-right"><div class="label">Right Cards</div><div class="value">${totals.rightCards}</div></div>
-            <div class="summary-stat summary-stat-wrong"><div class="label">Wrong Cards</div><div class="value">${totals.wrongCards}</div></div>
-            <div class="summary-stat"><div class="label">Active Minutes</div><div class="value">${totals.activeMinutes.toFixed(1)}</div></div>
-        `
-        : `
-            <div class="summary-stat"><div class="label">Sessions</div><div class="value">${totals.count}</div></div>
-            <div class="summary-stat"><div class="label">Practiced Cards</div><div class="value">${totals.practicedCards}</div></div>
-            <div class="summary-stat"><div class="label">Active Minutes</div><div class="value">${totals.activeMinutes.toFixed(1)}</div></div>
-        `;
+    const showCardsToggle = Boolean(selectedCategoryKey);
+    const summaryCards = [{
+        key: 'sessions',
+        title: 'Sessions',
+        metrics: [
+            { label: 'Total Sessions', value: String(totals.count) },
+            { label: 'Active Minutes', value: totals.activeMinutes.toFixed(1) },
+        ],
+    }];
+    if (showCardsToggle) {
+        summaryCards.push({
+            key: 'cards',
+            title: 'Cards',
+            metrics: [
+                { label: 'Practiced Cards', value: String(totals.uniqueCards) },
+                { label: 'Practiced Counts', value: String(totals.practicedCards) },
+            ],
+        });
+    }
     summaryGrid.innerHTML = `
-        <div class="summary-card summary-card-full${showAnswerBreakdown ? ' summary-card-answer-breakdown' : ''}">
-            ${summaryStats}
+        <div class="summary-toggle-group${showCardsToggle ? '' : ' summary-toggle-group-single'}" role="tablist" aria-label="Report views">
+            ${summaryCards.map((card) => renderSummaryToggleCard(card)).join('')}
         </div>
+    `;
+    summaryGrid.querySelectorAll('.summary-toggle-card').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            setSelectedReportView(btn.getAttribute('data-report-view') || 'sessions');
+        });
+    });
+}
+
+function renderSummaryToggleCard(card) {
+    const isActive = card?.key === selectedReportView;
+    const metrics = Array.isArray(card?.metrics) ? card.metrics : [];
+    const viewKey = String(card?.key || 'sessions');
+    const controlsId = viewKey === 'cards' ? 'reportCardsView' : 'reportSessionsView';
+    return `
+        <button
+            type="button"
+            class="summary-toggle-card${isActive ? ' active' : ''}"
+            data-report-view="${escapeHtml(viewKey)}"
+            aria-pressed="${isActive ? 'true' : 'false'}"
+            aria-controls="${escapeHtml(controlsId)}"
+        >
+            <div class="summary-toggle-card-title">${escapeHtml(String(card?.title || ''))}</div>
+            <div class="summary-toggle-metrics">
+                ${metrics.map((metric) => `
+                    <div class="summary-toggle-metric">
+                        <div class="summary-toggle-metric-label">${escapeHtml(String(metric?.label || ''))}</div>
+                        <div class="summary-toggle-metric-value">${escapeHtml(String(metric?.value || '0'))}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </button>
     `;
 }
 
@@ -183,10 +229,799 @@ function getFilteredSessions() {
 
 function renderFilteredViews() {
     const filtered = getFilteredSessions();
+    filteredSessions = filtered;
+    if (!selectedCategoryKey && selectedReportView === 'cards') {
+        selectedReportView = 'sessions';
+    }
     renderSummary(filtered);
     renderDailyMinutesChart(filtered);
-    filteredSessions = filtered;
+    renderCardsView(filtered);
+    renderReportView();
     renderSessionsList();
+}
+
+function setSelectedReportView(nextView) {
+    const normalizedView = nextView === 'cards' ? 'cards' : 'sessions';
+    if (selectedReportView === normalizedView) {
+        return;
+    }
+    selectedReportView = normalizedView;
+    renderSummary(filteredSessions);
+    if (selectedReportView === 'cards') {
+        renderCardsView(filteredSessions);
+    }
+    renderReportView();
+}
+
+function renderReportView() {
+    const cardsViewAvailable = Boolean(selectedCategoryKey);
+    const showSessionsView = !cardsViewAvailable || selectedReportView !== 'cards';
+    if (reportSessionsView) {
+        reportSessionsView.classList.toggle('hidden', !showSessionsView);
+    }
+    if (reportCardsView) {
+        reportCardsView.classList.toggle('hidden', showSessionsView || !cardsViewAvailable);
+    }
+}
+
+function renderCardsView(sessions) {
+    if (!cardsViewBody) {
+        return;
+    }
+    const categoryKey = normalizeCategoryKey(selectedCategoryKey);
+    if (!categoryKey) {
+        cardsViewBody.innerHTML = '<div class="cards-view-placeholder">Select a category to view card distributions.</div>';
+        return;
+    }
+    const behaviorType = getSelectedCategoryBehaviorType(categoryKey, sessions);
+    const categoryLabel = getSelectedCategoryDisplayName(categoryKey, sessions);
+    if (!behaviorType) {
+        cardsViewBody.innerHTML = '<div class="cards-view-placeholder">Card distributions are unavailable for this category.</div>';
+        return;
+    }
+    const cacheEntry = cardsViewCacheByCategoryKey.get(categoryKey);
+    if (!cacheEntry) {
+        cardsViewBody.innerHTML = selectedReportView === 'cards'
+            ? '<div class="cards-view-placeholder">Loading card distributions...</div>'
+            : '<div class="cards-view-placeholder">Open Cards to view card distributions.</div>';
+        if (selectedReportView === 'cards') {
+            void ensureCardsViewDataLoaded(categoryKey, behaviorType, sessions);
+        }
+        return;
+    }
+    if (cacheEntry.status === 'loading') {
+        cardsViewBody.innerHTML = '<div class="cards-view-placeholder">Loading card distributions...</div>';
+        return;
+    }
+    if (cacheEntry.status === 'error') {
+        cardsViewBody.innerHTML = `
+            <div class="cards-view-placeholder">
+                Failed to load card distributions.
+                <button type="button" class="cards-view-retry-btn" data-category-key="${escapeHtml(categoryKey)}">Retry</button>
+            </div>
+        `;
+        const retryBtn = cardsViewBody.querySelector('.cards-view-retry-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', () => {
+                cardsViewCacheByCategoryKey.delete(categoryKey);
+                void ensureCardsViewDataLoaded(categoryKey, behaviorType, sessions, true);
+            });
+        }
+        return;
+    }
+    renderCardsDistributionView(cacheEntry.cards, behaviorType);
+}
+
+async function ensureCardsViewDataLoaded(categoryKey, behaviorType, sessions, forceReload = false) {
+    const key = normalizeCategoryKey(categoryKey);
+    const normalizedBehaviorType = normalizeBehaviorType(behaviorType);
+    if (!key || !normalizedBehaviorType) {
+        return;
+    }
+    const existing = cardsViewCacheByCategoryKey.get(key);
+    if (!forceReload && existing && (existing.status === 'loading' || existing.status === 'ready')) {
+        return;
+    }
+    cardsViewCacheByCategoryKey.set(key, { status: 'loading', cards: [] });
+    if (normalizeCategoryKey(selectedCategoryKey) === key && selectedReportView === 'cards') {
+        renderCardsView(sessions);
+    }
+    try {
+        const response = await fetch(buildCardsViewApiUrl(key, normalizedBehaviorType));
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || `Failed to load cards (HTTP ${response.status})`);
+        }
+        const cards = Array.isArray(data.cards) ? data.cards : [];
+        cardsViewCacheByCategoryKey.set(key, {
+            status: 'ready',
+            cards,
+        });
+    } catch (error) {
+        console.error('Error loading cards view data:', error);
+        cardsViewCacheByCategoryKey.set(key, {
+            status: 'error',
+            cards: [],
+        });
+    }
+    if (normalizeCategoryKey(selectedCategoryKey) === key && selectedReportView === 'cards') {
+        renderCardsView(filteredSessions);
+    }
+}
+
+function buildCardsViewApiUrl(categoryKey, behaviorType) {
+    const baseUrl = window.DeckCategoryCommon.buildKidScopedApiUrl({
+        kidId,
+        scope: getCardsViewScopeForBehaviorType(behaviorType),
+        path: '/shared-decks/cards',
+        categoryKey,
+        apiBase: API_BASE,
+    });
+    const url = new URL(baseUrl);
+    url.searchParams.set('includePracticedFromOther', '1');
+    return url.toString();
+}
+
+function getCardsViewScopeForBehaviorType(behaviorType) {
+    const normalized = normalizeBehaviorType(behaviorType);
+    if (normalized === 'type_ii') {
+        return 'type2';
+    }
+    if (normalized === 'type_iii') {
+        return 'lesson-reading';
+    }
+    if (normalized === 'type_iv') {
+        return 'type4';
+    }
+    return 'cards';
+}
+
+function getSelectedCategoryBehaviorType(categoryKey, sessions) {
+    const key = normalizeCategoryKey(categoryKey);
+    const combined = [
+        ...(Array.isArray(sessions) ? sessions : []),
+        ...(Array.isArray(reportSessions) ? reportSessions : []),
+    ];
+    for (const session of combined) {
+        if (normalizeCategoryKey(session?.type) !== key) {
+            continue;
+        }
+        const behaviorType = normalizeBehaviorType(session?.behavior_type);
+        if (behaviorType) {
+            return behaviorType;
+        }
+    }
+    return '';
+}
+
+function getSelectedCategoryDisplayName(categoryKey, sessions) {
+    const key = normalizeCategoryKey(categoryKey);
+    const combined = [
+        ...(Array.isArray(sessions) ? sessions : []),
+        ...(Array.isArray(reportSessions) ? reportSessions : []),
+    ];
+    for (const session of combined) {
+        if (normalizeCategoryKey(session?.type) !== key) {
+            continue;
+        }
+        const label = String(session?.category_display_name || '').trim();
+        if (label) {
+            return label;
+        }
+    }
+    return key || 'Cards';
+}
+
+function renderCardsDistributionView(cards, behaviorType) {
+    const list = Array.isArray(cards) ? cards : [];
+    const practicedCards = list.filter((card) => getCardPracticeCount(card) > 0);
+    if (!practicedCards.length) {
+        cardsViewBody.innerHTML = `
+            <div class="cards-view-placeholder">Practice a few cards to unlock card distributions.</div>
+        `;
+        return;
+    }
+    const getCardCapsuleLabel = makeCardCapsuleLabelGetter(behaviorType);
+    const panels = [
+        buildAccuracyDistribution(practicedCards, getCardCapsuleLabel),
+        buildPracticeCountDistribution(practicedCards, getCardCapsuleLabel),
+        buildSpeedDistribution(practicedCards, getCardCapsuleLabel),
+        buildLastSeenDistribution(practicedCards, getCardCapsuleLabel),
+    ];
+    cardsViewBody.innerHTML = `
+        <div class="cards-distribution-grid">
+            ${panels.map((panel) => renderDistributionPanel(panel)).join('')}
+        </div>
+    `;
+}
+
+function renderDistributionPanel(panel) {
+    const bars = Array.isArray(panel?.bars) ? panel.bars : [];
+    const percentiles = Array.isArray(panel?.percentiles) ? panel.percentiles : [];
+    const toneClass = String(panel?.tone || '').trim();
+    const tickValues = Array.isArray(panel?.tickValues) ? panel.tickValues : [];
+    const yMax = Number(panel?.yMax) || 0;
+    if (!bars.length || panel?.emptyMessage) {
+        return `
+            <div class="cards-distribution-card">
+                <div class="cards-distribution-card-head">
+                    <div class="cards-distribution-card-title">${escapeHtml(String(panel?.title || ''))}</div>
+                </div>
+                <div class="cards-view-placeholder">${escapeHtml(String(panel?.emptyMessage || 'No data yet.'))}</div>
+            </div>
+        `;
+    }
+    const topLists = Array.isArray(panel?.topLists) ? panel.topLists : [];
+    return `
+        <div class="cards-distribution-card">
+            <div class="cards-distribution-card-head">
+                <div class="cards-distribution-card-title">${escapeHtml(String(panel?.title || ''))}</div>
+            </div>
+            <div class="cards-distribution-body">
+                <div class="cards-distribution-chart">
+                    <div class="cards-distribution-y-label">${escapeHtml(String(panel?.yAxisLabel || 'Cards'))}</div>
+                    <div class="cards-distribution-y-axis">
+                        ${tickValues.map((tickValue) => `
+                            <div class="cards-distribution-y-tick" style="bottom:${getHistogramVerticalPositionPct(tickValue, yMax).toFixed(2)}%">
+                                ${escapeHtml(formatCompactCountLabel(tickValue))}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="cards-distribution-grid-layer">
+                        ${tickValues.map((tickValue) => `
+                            <div class="cards-distribution-grid-line" style="bottom:${getHistogramVerticalPositionPct(tickValue, yMax).toFixed(2)}%"></div>
+                        `).join('')}
+                    </div>
+                    <div class="cards-distribution-marker-layer">
+                        ${percentiles.map((marker) => `
+                            <div class="cards-distribution-marker ${escapeHtml(String(marker?.className || ''))}" style="left:${Math.max(0, Math.min(100, Number(marker?.positionPct) || 0)).toFixed(2)}%">
+                                <div class="cards-distribution-marker-badge">
+                                    <div class="cards-distribution-marker-name">${escapeHtml(String(marker?.label || ''))}</div>
+                                    <div class="cards-distribution-marker-value">${escapeHtml(String(marker?.valueLabel || ''))}</div>
+                                </div>
+                                <div class="cards-distribution-marker-line"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="cards-distribution-bars" style="grid-template-columns: repeat(${bars.length}, minmax(0, 1fr));">
+                        ${bars.map((bar) => {
+                            const count = Math.max(0, Number(bar?.count) || 0);
+                            const heightPct = yMax > 0 ? (count / yMax) * 100 : 0;
+                            return `
+                                <div class="cards-distribution-bar-slot">
+                                    <div class="cards-distribution-bar-stack">
+                                        <div class="cards-distribution-bar-count">${escapeHtml(formatCompactCountLabel(count))}</div>
+                                        <div class="cards-distribution-bar ${escapeHtml(toneClass)}" style="height:${Math.max(0, Math.min(100, heightPct)).toFixed(2)}%"></div>
+                                    </div>
+                                    <div class="cards-distribution-bar-label">${escapeHtml(String(bar?.label || ''))}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="cards-distribution-baseline"></div>
+                </div>
+                ${topLists.length ? `
+                    <div class="cards-distribution-sidebar">
+                        ${topLists.map((list) => `
+                            <div class="cards-distribution-toplist">
+                                <div class="cards-distribution-toplist-title">${escapeHtml(String(list?.title || ''))}</div>
+                                <ol class="cards-distribution-toplist-items">
+                                    ${(Array.isArray(list?.entries) ? list.entries : []).map((entry) => {
+                                        const href = buildDistributionCardReportHref(entry?.cardId);
+                                        const tag = href ? 'a' : 'span';
+                                        const hrefAttr = href ? ` href="${escapeHtml(href)}"` : '';
+                                        return `
+                                        <li class="cards-distribution-toplist-row">
+                                            <${tag} class="cards-distribution-toplist-item"${hrefAttr}>
+                                                <span class="cards-distribution-toplist-front">${escapeHtml(String(entry?.front || ''))}</span>
+                                                <span class="cards-distribution-toplist-value">${escapeHtml(String(entry?.valueLabel || ''))}</span>
+                                            </${tag}>
+                                        </li>
+                                    `;
+                                    }).join('')}
+                                </ol>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function makeCardCapsuleLabelGetter(behaviorType) {
+    const normalized = normalizeBehaviorType(behaviorType);
+    return (card) => {
+        const front = String(card?.front || '').trim();
+        const back = String(card?.back || '').trim();
+        if (normalized === 'type_ii') {
+            return back || front;
+        }
+        return front || back;
+    };
+}
+
+function buildAccuracyDistribution(cards, getCardCapsuleLabel) {
+    return buildHistogramDistribution({
+        title: 'Correct Rate',
+        tone: 'accuracy',
+        formatValue: formatPercentLabel,
+        getValue: getCardCorrectRatePct,
+        getCardCapsuleLabel,
+        bucketing: {
+            snapUnit: 1,
+            minClamp: 0,
+            maxClamp: 100,
+            formatRange: (min, max) => `${formatBoundaryNumber(min)}–${formatBoundaryNumber(max)}%`,
+        },
+        topLists: [
+            { title: 'Lowest 5', mode: 'lowest', count: 5 },
+        ],
+        cards,
+    });
+}
+
+function buildPracticeCountDistribution(cards, getCardCapsuleLabel) {
+    return buildHistogramDistribution({
+        title: 'Practice Count',
+        tone: 'counts',
+        formatValue: formatCountLabel,
+        getValue: getCardPracticeCount,
+        getCardCapsuleLabel,
+        bucketing: {
+            snapUnit: 1,
+            minClamp: 1,
+            isInteger: true,
+            formatRange: formatIntegerCaptureRange,
+        },
+        topLists: [
+            { title: 'Top 5', mode: 'highest', count: 5 },
+            { title: 'Bottom 5', mode: 'lowest', count: 5 },
+        ],
+        cards,
+    });
+}
+
+function buildSpeedDistribution(cards, getCardCapsuleLabel) {
+    return buildHistogramDistribution({
+        title: 'Average Speed',
+        tone: 'speed',
+        formatValue: formatSpeedLabel,
+        getValue: getCardAverageSpeedMs,
+        getCardCapsuleLabel,
+        bucketing: {
+            snapUnit: 1000,
+            minClamp: 0,
+            anchorLo: 'dataMin',
+            formatRange: (min, max) => `${formatBoundarySeconds(min)}–${formatBoundarySeconds(max)}s`,
+        },
+        topLists: [
+            { title: 'Slowest 5', mode: 'highest', count: 5 },
+            { title: 'Fastest 5', mode: 'lowest', count: 5 },
+        ],
+        cards,
+    });
+}
+
+function buildLastSeenDistribution(cards, getCardCapsuleLabel) {
+    return buildHistogramDistribution({
+        title: 'Days Since Last Seen',
+        tone: 'recency',
+        formatValue: formatDaysLabel,
+        getValue: getCardDaysSinceLastSeen,
+        getCardCapsuleLabel,
+        bucketing: {
+            snapUnit: 1,
+            minClamp: 0,
+            isInteger: true,
+            anchorLo: 'dataMin',
+            formatRange: formatIntegerCaptureRange,
+        },
+        topLists: [
+            { title: 'Stalest 5', mode: 'highest', count: 5 },
+            { title: 'Freshest 5', mode: 'lowest', count: 5 },
+        ],
+        cards,
+    });
+}
+
+function buildDistributionCardReportHref(cardId) {
+    const numericCardId = Number(cardId);
+    if (!kidId || !Number.isFinite(numericCardId) || numericCardId <= 0) {
+        return '';
+    }
+    const qs = new URLSearchParams();
+    qs.set('id', String(kidId));
+    qs.set('cardId', String(numericCardId));
+    qs.set('from', 'cards');
+    if (selectedCategoryKey) {
+        qs.set('categoryKey', String(selectedCategoryKey));
+    }
+    return `/kid-card-report.html?${qs.toString()}`;
+}
+
+function buildTopCardLists(rated, configs, formatValue, getCardCapsuleLabel) {
+    const lists = Array.isArray(configs) ? configs : [];
+    if (!lists.length || !Array.isArray(rated) || !rated.length) {
+        return [];
+    }
+    const labelOf = typeof getCardCapsuleLabel === 'function'
+        ? getCardCapsuleLabel
+        : (card) => String(card?.front || '').trim();
+    const ascending = rated.slice().sort((a, b) => a.value - b.value);
+    return lists.map((cfg) => {
+        const count = Math.max(1, Number(cfg?.count) || 5);
+        const slice = cfg?.mode === 'highest'
+            ? ascending.slice(-count).reverse()
+            : ascending.slice(0, count);
+        return {
+            title: String(cfg?.title || ''),
+            entries: slice.map((entry) => ({
+                cardId: Number(entry.card?.id) || 0,
+                front: String(labelOf(entry.card) || '').trim() || '—',
+                valueLabel: formatValue(entry.value),
+            })),
+        };
+    });
+}
+
+function formatIntegerCaptureRange(min, max) {
+    const lo = Math.ceil(min);
+    const hi = Math.floor(max);
+    if (lo > hi) {
+        return `${Math.round(min)}–${Math.round(max)}`;
+    }
+    return lo === hi ? String(lo) : `${lo}–${hi}`;
+}
+
+function buildHistogramDistribution(options = {}) {
+    const cards = Array.isArray(options?.cards) ? options.cards : [];
+    const getValue = typeof options?.getValue === 'function' ? options.getValue : () => null;
+    const formatValue = typeof options?.formatValue === 'function' ? options.formatValue : (v) => String(v);
+    const bucketing = options?.bucketing || {};
+    const values = [];
+    const rated = [];
+    for (const card of cards) {
+        const value = Number(getValue(card));
+        if (Number.isFinite(value)) {
+            values.push(value);
+            rated.push({ card, value });
+        }
+    }
+
+    const bucketDefinitions = buildDynamicBuckets(values, bucketing);
+
+    if (!values.length || !bucketDefinitions.length) {
+        return {
+            title: String(options?.title || ''),
+            tone: String(options?.tone || ''),
+            emptyMessage: 'No practiced-card data yet.',
+        };
+    }
+
+    const bars = buildHistogramBars(values, bucketDefinitions);
+    const maxValue = Math.max(...values);
+    const percentiles = buildHistogramPercentiles(values, bars, maxValue, options?.formatValue);
+    const yAxis = buildHistogramCountAxis(Math.max(...bars.map((bar) => Number(bar?.count) || 0), 0));
+    const getCardCapsuleLabel = typeof options?.getCardCapsuleLabel === 'function'
+        ? options.getCardCapsuleLabel
+        : (card) => String(card?.front || '').trim();
+    const topLists = buildTopCardLists(rated, options?.topLists, formatValue, getCardCapsuleLabel);
+    return {
+        title: String(options?.title || ''),
+        tone: String(options?.tone || ''),
+        yAxisLabel: 'Cards',
+        bars,
+        percentiles,
+        yMax: yAxis.max,
+        tickValues: yAxis.ticks,
+        topLists,
+    };
+}
+
+const HISTOGRAM_BUCKET_COUNT = 7;
+
+function buildDynamicBuckets(values, bucketing = {}) {
+    if (!Array.isArray(values) || !values.length) {
+        return [];
+    }
+    const formatRange = typeof bucketing?.formatRange === 'function'
+        ? bucketing.formatRange
+        : (min, max) => `${min}–${max}`;
+    const snapUnit = Math.max(1e-9, Number(bucketing?.snapUnit) || 1);
+    const isInteger = !!bucketing?.isInteger;
+    const minClamp = Number.isFinite(bucketing?.minClamp) ? Number(bucketing.minClamp) : -Infinity;
+    const maxClamp = Number.isFinite(bucketing?.maxClamp) ? Number(bucketing.maxClamp) : Infinity;
+
+    const dataMin = Math.min(...values);
+    const dataMax = Math.max(...values);
+    if (dataMin === dataMax) {
+        return [{ min: dataMin, max: dataMax, label: formatRange(dataMin, dataMax) }];
+    }
+
+    const range = dataMax - dataMin;
+    const step = Math.max(snapUnit, Math.ceil(range / HISTOGRAM_BUCKET_COUNT / snapUnit) * snapUnit);
+    const totalWidth = step * HISTOGRAM_BUCKET_COUNT;
+    const overflow = totalWidth - range;
+
+    const anchorLo = String(bucketing?.anchorLo || '').toLowerCase();
+    let lo = anchorLo === 'datamin'
+        ? Math.floor(dataMin / snapUnit) * snapUnit
+        : Math.floor((dataMin - overflow / 2) / snapUnit) * snapUnit;
+    if (lo < minClamp) {
+        lo = Math.ceil(minClamp / snapUnit) * snapUnit;
+    }
+    if (lo + totalWidth > maxClamp) {
+        const cappedLo = Math.floor((maxClamp - totalWidth) / snapUnit) * snapUnit;
+        lo = Math.max(Math.ceil(minClamp / snapUnit) * snapUnit, cappedLo);
+    }
+
+    const buckets = [];
+    for (let i = 0; i < HISTOGRAM_BUCKET_COUNT; i++) {
+        const bMin = lo + (i * step);
+        const bMaxExclusive = bMin + step;
+        const bucketMax = isInteger ? bMaxExclusive - 1 : bMaxExclusive;
+        buckets.push({
+            min: bMin,
+            max: bucketMax,
+            label: formatRange(bMin, bucketMax),
+        });
+    }
+    return buckets;
+}
+
+function buildHistogramBars(values, bucketDefinitions) {
+    const bars = bucketDefinitions.map((definition) => ({
+        label: String(definition?.label || ''),
+        min: Number(definition?.min) || 0,
+        max: Number.isFinite(definition?.max) ? Number(definition.max) : null,
+        count: 0,
+    }));
+    for (const value of values) {
+        const bar = findHistogramBucket(value, bars);
+        if (bar) {
+            bar.count += 1;
+        }
+    }
+    return bars;
+}
+
+function buildHistogramPercentiles(values, bucketDefinitions, observedMax, formatValue) {
+    const sortedValues = values.slice().sort((a, b) => a - b);
+    const formatter = typeof formatValue === 'function' ? formatValue : (value) => String(value);
+    const markers = [
+        { percentile: 25, label: 'P25', className: 'p25' },
+        { percentile: 50, label: 'P50', className: 'p50' },
+        { percentile: 90, label: 'P90', className: 'p90' },
+    ];
+    const groups = [];
+    for (const marker of markers) {
+        const value = getPercentileValue(sortedValues, marker.percentile);
+        const valueLabel = formatter(value);
+        const last = groups[groups.length - 1];
+        if (last && last.valueLabel === valueLabel) {
+            last.labels.push(marker.label);
+            last.classNames.push(marker.className);
+            continue;
+        }
+        groups.push({
+            value,
+            valueLabel,
+            positionPct: getHistogramMarkerPositionPct(value, bucketDefinitions, observedMax),
+            labels: [marker.label],
+            classNames: [marker.className],
+        });
+    }
+    return groups.map((group) => ({
+        label: group.labels.join(' · '),
+        className: group.classNames.join(' '),
+        valueLabel: group.valueLabel,
+        positionPct: group.positionPct,
+    }));
+}
+
+function buildHistogramCountAxis(maxCount) {
+    const safeMax = Math.max(1, Number(maxCount) || 0);
+    const step = getNiceHistogramStep(safeMax / 4);
+    const axisMax = Math.max(step, Math.ceil(safeMax / step) * step);
+    const ticks = [];
+    for (let value = 0; value <= axisMax; value += step) {
+        ticks.push(value);
+    }
+    return {
+        max: axisMax,
+        ticks,
+    };
+}
+
+function getNiceHistogramStep(rawStep) {
+    const value = Math.max(1, Number(rawStep) || 1);
+    const magnitude = 10 ** Math.floor(Math.log10(value));
+    const normalized = value / magnitude;
+    if (normalized <= 1) return magnitude;
+    if (normalized <= 2) return 2 * magnitude;
+    if (normalized <= 5) return 5 * magnitude;
+    return 10 * magnitude;
+}
+
+function getHistogramVerticalPositionPct(value, maxValue) {
+    if (!Number.isFinite(value) || !Number.isFinite(maxValue) || maxValue <= 0) {
+        return 0;
+    }
+    return (value / maxValue) * 100;
+}
+
+function findHistogramBucket(value, bucketDefinitions) {
+    const list = Array.isArray(bucketDefinitions) ? bucketDefinitions : [];
+    for (const bucket of list) {
+        const min = Number(bucket?.min) || 0;
+        const max = Number.isFinite(bucket?.max) ? Number(bucket.max) : null;
+        if (value < min) {
+            continue;
+        }
+        if (max === null || value <= max) {
+            return bucket;
+        }
+    }
+    return list[list.length - 1] || null;
+}
+
+function getHistogramMarkerPositionPct(value, bucketDefinitions, observedMax) {
+    const buckets = Array.isArray(bucketDefinitions) ? bucketDefinitions : [];
+    if (!buckets.length || !Number.isFinite(value)) {
+        return 50;
+    }
+    const bucketIndex = Math.max(0, buckets.findIndex((bucket) => findHistogramBucket(value, buckets) === bucket));
+    const bucket = buckets[bucketIndex] || buckets[0];
+    const min = Number(bucket?.min) || 0;
+    const rawMax = Number.isFinite(bucket?.max) ? Number(bucket.max) : Math.max(observedMax, min);
+    const max = rawMax > min ? rawMax : min;
+    const range = max - min;
+    const fraction = range > 0 ? (value - min) / range : 0.5;
+    const slotInset = 0.12;
+    const slotWidth = 1 / buckets.length;
+    const normalized = (bucketIndex + slotInset + (Math.max(0, Math.min(1, fraction)) * (1 - (slotInset * 2)))) * slotWidth;
+    return normalized * 100;
+}
+
+function getPercentileValue(sortedValues, percentile) {
+    const list = Array.isArray(sortedValues) ? sortedValues : [];
+    if (!list.length) {
+        return 0;
+    }
+    if (list.length === 1) {
+        return list[0];
+    }
+    const clamped = Math.max(0, Math.min(100, Number(percentile) || 0));
+    const index = (clamped / 100) * (list.length - 1);
+    const lowerIndex = Math.floor(index);
+    const upperIndex = Math.ceil(index);
+    const lowerValue = list[lowerIndex];
+    const upperValue = list[upperIndex];
+    if (lowerIndex === upperIndex) {
+        return lowerValue;
+    }
+    const weight = index - lowerIndex;
+    return lowerValue + ((upperValue - lowerValue) * weight);
+}
+
+function formatCompactCountLabel(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+        return '';
+    }
+    if (Math.abs(num) >= 1000) {
+        const compact = Math.round((num / 1000) * 10) / 10;
+        return `${trimTrailingZeros(compact.toFixed(1))}k`;
+    }
+    return String(Math.round(num));
+}
+
+function formatPercentLabel(value) {
+    if (!Number.isFinite(value)) {
+        return '';
+    }
+    const rounded = Math.round(value * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+}
+
+function formatCountLabel(value) {
+    if (!Number.isFinite(value)) {
+        return '';
+    }
+    return String(Math.round(value));
+}
+
+function formatSpeedLabel(value) {
+    if (!Number.isFinite(value) || value <= 0) {
+        return '';
+    }
+    const seconds = value / 1000;
+    if (seconds >= 10) {
+        return `${Math.round(seconds)}s`;
+    }
+    if (seconds >= 1) {
+        return `${trimTrailingZeros(seconds.toFixed(1))}s`;
+    }
+    return `${trimTrailingZeros(seconds.toFixed(2))}s`;
+}
+
+function trimTrailingZeros(text) {
+    return String(text || '').replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+}
+
+function formatBoundaryNumber(value) {
+    if (!Number.isFinite(value)) {
+        return '';
+    }
+    if (Number.isInteger(value)) {
+        return String(value);
+    }
+    return trimTrailingZeros(value.toFixed(1));
+}
+
+function formatBoundarySeconds(ms) {
+    if (!Number.isFinite(ms)) {
+        return '';
+    }
+    const seconds = ms / 1000;
+    if (Number.isInteger(seconds)) {
+        return String(seconds);
+    }
+    return trimTrailingZeros(seconds.toFixed(1));
+}
+
+function getCardPracticeCount(card) {
+    const attempts = Number.parseInt(card?.lifetime_attempts, 10);
+    return Number.isInteger(attempts) ? Math.max(0, attempts) : 0;
+}
+
+function getCardCorrectRatePct(card) {
+    if (getCardPracticeCount(card) <= 0) {
+        return null;
+    }
+    const wrongRate = Number(card?.overall_wrong_rate);
+    if (!Number.isFinite(wrongRate)) {
+        return null;
+    }
+    return Math.max(0, Math.min(100, 100 - wrongRate));
+}
+
+function getCardAverageSpeedMs(card) {
+    const avgMs = Number(card?.avg_response_time_ms);
+    if (Number.isFinite(avgMs) && avgMs > 0) {
+        return avgMs;
+    }
+    const fallback = Number(card?.practice_priority_avg_correct_response_time);
+    if (Number.isFinite(fallback) && fallback > 0) {
+        return fallback;
+    }
+    return null;
+}
+
+function getCardDaysSinceLastSeen(card) {
+    if (getCardPracticeCount(card) <= 0) {
+        return null;
+    }
+    const seenAt = card?.last_seen_at;
+    if (!seenAt) {
+        return null;
+    }
+    const seenMs = new Date(seenAt).getTime();
+    if (!Number.isFinite(seenMs)) {
+        return null;
+    }
+    const dayDiff = Math.floor((Date.now() - seenMs) / (24 * 60 * 60 * 1000));
+    return Math.max(0, dayDiff);
+}
+
+function formatDaysLabel(value) {
+    const days = Number(value);
+    if (!Number.isFinite(days)) {
+        return '–';
+    }
+    const rounded = Math.max(0, Math.round(days));
+    return `${rounded}d`;
 }
 
 function renderCategoryFilter(sessions) {
@@ -743,11 +1578,21 @@ function summarizeSessions(sessions) {
     const list = Array.isArray(sessions) ? sessions : [];
     const rightCards = list.reduce((sum, session) => sum + safeNum(session?.right_count), 0);
     const wrongCards = list.reduce((sum, session) => sum + safeNum(session?.wrong_count), 0);
+    const uniqueCardIds = new Set();
+    for (const session of list) {
+        for (const rawCardId of (Array.isArray(session?.practiced_card_ids) ? session.practiced_card_ids : [])) {
+            const cardId = Number.parseInt(rawCardId, 10);
+            if (cardId > 0) {
+                uniqueCardIds.add(cardId);
+            }
+        }
+    }
     return {
         count: list.length,
         rightCards,
         wrongCards,
         practicedCards: rightCards + wrongCards,
+        uniqueCards: uniqueCardIds.size,
         activeMinutes: list.reduce((sum, session) => sum + getSessionCombinedActiveMinutes(session), 0),
     };
 }

@@ -5607,19 +5607,37 @@ def get_kid_report(kid_id):
                 ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
                 """
             ).fetchall()
+            practiced_card_rows = conn.execute(
+                """
+                SELECT DISTINCT session_id, card_id
+                FROM session_results
+                WHERE card_id IS NOT NULL
+                ORDER BY session_id ASC, card_id ASC
+                """
+            ).fetchall()
         finally:
             conn.close()
 
         category_meta_by_key = get_shared_deck_category_meta_by_key()
         family_id = str(kid.get('familyId') or '').strip()
         family_timezone = metadata.get_family_timezone(family_id)
+        practiced_card_ids_by_session_id = defaultdict(list)
+        for row in practiced_card_rows:
+            try:
+                session_id_int = int(row[0] or 0)
+                card_id_int = int(row[1] or 0)
+            except (TypeError, ValueError):
+                continue
+            if session_id_int > 0 and card_id_int > 0:
+                practiced_card_ids_by_session_id[session_id_int].append(card_id_int)
         sessions = []
         for row in rows:
+            session_id = int(row[0])
             session_type = normalize_shared_deck_tag(row[1])
             session_category_display_name = get_deck_category_display_name(session_type, category_meta_by_key)
             session_category_emoji = str((category_meta_by_key.get(session_type) or {}).get('emoji') or '').strip()
             sessions.append({
-                'id': int(row[0]),
+                'id': session_id,
                 'type': row[1],
                 'behavior_type': get_session_behavior_type(session_type, category_meta_by_key),
                 'category_display_name': session_category_display_name,
@@ -5635,6 +5653,7 @@ def get_kid_report(kid_id):
                 'wrong_count': int(row[10] or 0),
                 'total_response_ms': int(row[11] or 0),
                 'practice_mode': normalize_session_practice_mode(row[12]),
+                'practiced_card_ids': practiced_card_ids_by_session_id.get(session_id, []),
             })
 
         return jsonify({
@@ -8247,7 +8266,14 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
                     ELSE sr.correct
                 END,
                 sr.timestamp
-            ) AS last_result_correct
+            ) AS last_result_correct,
+            AVG(
+                CASE
+                    WHEN sr.id IS NULL THEN NULL
+                    WHEN COALESCE(sr.response_time_ms, 0) > 0 THEN COALESCE(sr.response_time_ms, 0)
+                    ELSE NULL
+                END
+            ) AS avg_response_time_ms
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.deck_id IN ({placeholders})
@@ -8261,6 +8287,91 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
 def get_cards_with_stats(conn, deck_id):
     """Return cards with hardness / attempt / last-seen stats."""
     return get_cards_with_stats_for_deck_ids(conn, [deck_id])
+
+
+def get_cards_with_stats_for_card_ids(conn, card_ids):
+    """Return cards with hardness / attempt / last-seen stats by explicit card ids."""
+    normalized_ids = []
+    seen = set()
+    for raw_id in list(card_ids or []):
+        try:
+            cid = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if cid <= 0 or cid in seen:
+            continue
+        seen.add(cid)
+        normalized_ids.append(cid)
+    if not normalized_ids:
+        return []
+
+    placeholders = ','.join(['?'] * len(normalized_ids))
+    return conn.execute(
+        f"""
+        SELECT
+            c.id,
+            c.deck_id,
+            c.front,
+            c.back,
+            COALESCE(c.skip_practice, FALSE) AS skip_practice,
+            c.hardness_score,
+            c.created_at,
+            COUNT(sr.id) AS lifetime_attempts,
+            MAX(sr.timestamp) AS last_seen_at,
+            MIN(sr.timestamp) AS first_practiced_at,
+            100.0 * AVG(
+                CASE
+                    WHEN sr.id IS NULL THEN NULL
+                    WHEN sr.correct = 1 THEN 0.0
+                    ELSE 1.0
+                END
+            ) AS overall_wrong_rate,
+            ARG_MAX(
+                CASE
+                    WHEN sr.id IS NULL THEN NULL
+                    ELSE COALESCE(sr.response_time_ms, 0)
+                END,
+                sr.timestamp
+            ) AS last_response_time_ms,
+            ARG_MAX(
+                CASE
+                    WHEN sr.id IS NULL THEN NULL
+                    ELSE sr.correct
+                END,
+                sr.timestamp
+            ) AS last_result_correct,
+            AVG(
+                CASE
+                    WHEN sr.id IS NULL THEN NULL
+                    WHEN COALESCE(sr.response_time_ms, 0) > 0 THEN COALESCE(sr.response_time_ms, 0)
+                    ELSE NULL
+                END
+            ) AS avg_response_time_ms
+        FROM cards c
+        LEFT JOIN session_results sr ON c.id = sr.card_id
+        WHERE c.id IN ({placeholders})
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.hardness_score, c.created_at
+        ORDER BY c.id ASC
+        """,
+        normalized_ids,
+    ).fetchall()
+
+
+def get_card_ids_practiced_for_category(conn, category_key):
+    """Return distinct card ids that have any session_results in sessions of this category."""
+    key = str(category_key or '').strip()
+    if not key:
+        return []
+    rows = conn.execute(
+        """
+        SELECT DISTINCT sr.card_id
+        FROM session_results sr
+        JOIN sessions s ON sr.session_id = s.id
+        WHERE s.type = ?
+        """,
+        [key],
+    ).fetchall()
+    return [int(r[0]) for r in rows if r and r[0] is not None]
 
 
 def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
@@ -8294,6 +8405,7 @@ def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
         'overall_wrong_rate': float(row[10]) if row[10] is not None else None,
         'last_response_time_ms': int(row[11]) if row[11] is not None else None,
         'last_result': last_result,
+        'avg_response_time_ms': float(row[13]) if row[13] is not None else None,
         'practice_priority_order': practice_priority_preview.get('order'),
         'practice_priority_score': practice_priority_preview.get('priority_score'),
         'practice_priority_missed_points': practice_priority_preview.get('missed_points'),
@@ -9809,6 +9921,7 @@ def build_type_i_shared_cards_payload(
     *,
     session_card_count_override=None,
     include_orphan_in_queue_override=None,
+    include_practiced_from_other=False,
 ):
     """Build merged cards payload for one type-I category."""
     category_meta_by_key = get_shared_deck_category_meta_by_key()
@@ -9880,6 +9993,22 @@ def build_type_i_shared_cards_payload(
                 mapped['source_deck_id'] = local_deck_id
                 mapped['source_deck_label'] = _source_label(src)
                 mapped['source_is_orphan'] = bool(src.get('is_orphan'))
+                merged_cards.append(mapped)
+
+        if include_practiced_from_other:
+            existing_ids = {
+                int(card.get('id'))
+                for card in merged_cards
+                if int(card.get('id') or 0) > 0
+            }
+            practiced_ids = get_card_ids_practiced_for_category(conn, category_key)
+            extra_ids = [cid for cid in practiced_ids if cid not in existing_ids]
+            for row in get_cards_with_stats_for_card_ids(conn, extra_ids):
+                mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
+                mapped['source_deck_id'] = int(row[1] or 0)
+                mapped['source_deck_label'] = ''
+                mapped['source_is_orphan'] = False
+                mapped['from_practice_history'] = True
                 merged_cards.append(mapped)
 
         active_count = sum(int(src.get('active_card_count') or 0) for src in bank_sources)
@@ -11455,12 +11584,19 @@ def get_shared_type1_cards(kid_id):
             build_type_i_shared_cards_payload(
                 kid,
                 category_key,
+                include_practiced_from_other=parse_include_practiced_from_other_arg(),
             )
         ), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+def parse_include_practiced_from_other_arg():
+    """Return True when the request opts into including practiced-but-not-opted-in cards."""
+    raw = str(request.args.get('includePracticedFromOther') or '').strip().lower()
+    return raw in {'1', 'true', 'yes', 'on'}
 
 
 def parse_shared_card_skip_update_request(card_id):
@@ -12653,6 +12789,7 @@ def get_shared_type3_cards(kid_id):
             build_type_i_shared_cards_payload(
                 kid,
                 category_key,
+                include_practiced_from_other=parse_include_practiced_from_other_arg(),
             )
         ), 200
     except ValueError as e:
@@ -13022,6 +13159,36 @@ def get_shared_type2_cards(kid_id):
                     mapped['audio_mime_type'] = audio_meta['audio_mime_type']
                     mapped['audio_url'] = audio_meta['audio_url']
                     mapped['prompt_audio_url'] = audio_meta['prompt_audio_url']
+                    merged_cards.append(mapped)
+
+            if parse_include_practiced_from_other_arg():
+                existing_ids = {
+                    int(card.get('id'))
+                    for card in merged_cards
+                    if int(card.get('id') or 0) > 0
+                }
+                practiced_ids = get_card_ids_practiced_for_category(conn, category_key)
+                extra_ids = [cid for cid in practiced_ids if cid not in existing_ids]
+                for row in get_cards_with_stats_for_card_ids(conn, extra_ids):
+                    mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
+                    if not mapped.get('front') and mapped.get('back'):
+                        mapped['front'] = mapped.get('back')
+                    mapped['pending_sheet'] = False
+                    mapped['available_for_practice'] = False
+                    mapped['practicing_reason'] = None
+                    mapped['practicing_reason_label'] = None
+                    mapped['writing_state'] = 1
+                    mapped['writing_state_label'] = 'Default'
+                    mapped['source_deck_id'] = int(row[1] or 0)
+                    mapped['source_deck_name'] = ''
+                    mapped['source_deck_label'] = ''
+                    mapped['source_deck_tags'] = []
+                    mapped['source_is_orphan'] = False
+                    mapped['from_practice_history'] = True
+                    mapped['audio_file_name'] = None
+                    mapped['audio_mime_type'] = None
+                    mapped['audio_url'] = None
+                    mapped['prompt_audio_url'] = None
                     merged_cards.append(mapped)
 
             merged_by_id = {
