@@ -27,7 +27,6 @@ const {
 } = window.DeckCategoryCommon;
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 const KID_AVATAR_TONE_COUNT = 6;
-const SUBJECT_TILE_TONE_COUNT = 6;
 
 function getKidInitial(name) {
     const trimmed = String(name || '').trim();
@@ -606,8 +605,7 @@ function displayKids(kids) {
             const safeDailyTarget = Number.isInteger(dailyTarget) ? Math.max(0, dailyTarget) : 0;
             const note = `${safeDailyTarget}/day target`;
             const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
-            const tileToneIndex = hashStringToIndex(categoryKey, SUBJECT_TILE_TONE_COUNT);
-            const tileHtml = `<span class="admin-subject-tile admin-subject-tile--tone-${tileToneIndex}" aria-hidden="true">${escapeHtml(emoji)}</span>`;
+            const tileHtml = `<span class="admin-subject-tile" aria-hidden="true">${escapeHtml(emoji)}</span>`;
             const bodyHtml = `
                 <div class="admin-subject-body">
                     <div class="redesign-subject-title"><span class="redesign-subject-name">${escapeHtml(displayName)}</span></div>

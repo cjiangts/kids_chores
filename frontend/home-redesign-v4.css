@@ -725,13 +725,6 @@ body.practice-home-redesign {
     line-height: 1;
 }
 
-.parent-admin-page .admin-subject-tile--tone-0 { background: #fff1d6; }
-.parent-admin-page .admin-subject-tile--tone-1 { background: #ffd9a8; }
-.parent-admin-page .admin-subject-tile--tone-2 { background: #ffd0d0; }
-.parent-admin-page .admin-subject-tile--tone-3 { background: #c9efe2; }
-.parent-admin-page .admin-subject-tile--tone-4 { background: #e0d8fb; }
-.parent-admin-page .admin-subject-tile--tone-5 { background: #d8e7fb; }
-
 .parent-admin-page .admin-subject-body {
     flex: 1 1 auto;
     min-width: 0;
