@@ -119,11 +119,22 @@ async function loadReport() {
 
 function renderSummary(sessions) {
     const totals = summarizeSessions(sessions);
-    summaryGrid.innerHTML = `
-        <div class="summary-card summary-card-full">
+    const showAnswerBreakdown = Boolean(selectedCategoryKey);
+    const summaryStats = showAnswerBreakdown
+        ? `
+            <div class="summary-stat"><div class="label">Sessions</div><div class="value">${totals.count}</div></div>
+            <div class="summary-stat summary-stat-right"><div class="label">Right Cards</div><div class="value">${totals.rightCards}</div></div>
+            <div class="summary-stat summary-stat-wrong"><div class="label">Wrong Cards</div><div class="value">${totals.wrongCards}</div></div>
+            <div class="summary-stat"><div class="label">Active Minutes</div><div class="value">${totals.activeMinutes.toFixed(1)}</div></div>
+        `
+        : `
             <div class="summary-stat"><div class="label">Sessions</div><div class="value">${totals.count}</div></div>
             <div class="summary-stat"><div class="label">Practiced Cards</div><div class="value">${totals.practicedCards}</div></div>
             <div class="summary-stat"><div class="label">Active Minutes</div><div class="value">${totals.activeMinutes.toFixed(1)}</div></div>
+        `;
+    summaryGrid.innerHTML = `
+        <div class="summary-card summary-card-full${showAnswerBreakdown ? ' summary-card-answer-breakdown' : ''}">
+            ${summaryStats}
         </div>
     `;
 }
@@ -316,7 +327,9 @@ function renderDailyMinutesChart(sessions) {
 
     sessions.forEach((session) => {
         const minutes = getSessionCombinedActiveMinutes(session);
-        const cards = safeNum(session?.right_count) + safeNum(session?.wrong_count);
+        const rightCards = safeNum(session?.right_count);
+        const wrongCards = safeNum(session?.wrong_count);
+        const cards = rightCards + wrongCards;
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
         const sessionType = normalizeCategoryKey(session.type);
@@ -328,12 +341,14 @@ function renderDailyMinutesChart(sessions) {
         }
 
         if (!dailyMap.has(dayKey)) {
-            dailyMap.set(dayKey, { byCategory: {}, total: 0, cards: 0 });
+            dailyMap.set(dayKey, { byCategory: {}, total: 0, cards: 0, rightCards: 0, wrongCards: 0 });
         }
         const row = dailyMap.get(dayKey);
         row.byCategory[categoryKey] = (Number(row.byCategory[categoryKey]) || 0) + minutes;
         row.total += minutes;
         row.cards += cards;
+        row.rightCards += rightCards;
+        row.wrongCards += wrongCards;
         categoryTotals.set(categoryKey, (Number(categoryTotals.get(categoryKey)) || 0) + minutes);
     });
 
@@ -377,11 +392,14 @@ function renderDailyMinutesChartPage() {
     const showCards = Boolean(selectedCategoryKey);
     const maxCards = showCards ? Math.max(...pageRows.map((r) => Number(r?.cards) || 0), 1) : 1;
     const MINUTES_FILTER_COLOR = '#3b82f6';
-    const CARDS_FILTER_COLOR = '#9ca3af';
+    const RIGHT_CARDS_FILTER_COLOR = '#16a34a';
+    const WRONG_CARDS_FILTER_COLOR = '#dc2626';
 
     const columns = pageRows.map((row) => {
         const total = Number(row?.total) || 0;
         const cards = Number(row?.cards) || 0;
+        const rightCards = Number(row?.rightCards) || 0;
+        const wrongCards = Number(row?.wrongCards) || 0;
         const heightPct = (total / maxTotal) * 100;
         let segments = '';
         if (total > 0) {
@@ -398,6 +416,7 @@ function renderDailyMinutesChartPage() {
         }
         const dateLabel = formatDailyVBarDate(row.date);
         const safeHeightPct = Math.max(2, heightPct);
+        const minutesBarWrapClass = `daily-vbar-bar-wrap${showCards ? '' : ' daily-vbar-bar-wrap-single'}`;
         const minutesBar = total > 0
             ? `<div class="daily-vbar-total" style="bottom:${safeHeightPct.toFixed(2)}%">${total.toFixed(1)}</div>
                <div class="daily-vbar-bar" style="height:${safeHeightPct.toFixed(2)}%">${segments}</div>`
@@ -406,16 +425,24 @@ function renderDailyMinutesChartPage() {
         if (showCards) {
             const cardsHeightPct = (cards / maxCards) * 100;
             const safeCardsHeightPct = Math.max(2, cardsHeightPct);
+            const cardsSegments = [
+                rightCards > 0
+                    ? `<div class="daily-vbar-seg" style="height:${((rightCards / cards) * 100).toFixed(2)}%;background:${RIGHT_CARDS_FILTER_COLOR}" title="${rightCards} ${rightCards === 1 ? 'right card' : 'right cards'}"></div>`
+                    : '',
+                wrongCards > 0
+                    ? `<div class="daily-vbar-seg" style="height:${((wrongCards / cards) * 100).toFixed(2)}%;background:${WRONG_CARDS_FILTER_COLOR}" title="${wrongCards} ${wrongCards === 1 ? 'wrong card' : 'wrong cards'}"></div>`
+                    : '',
+            ].join('');
             const cardsBar = cards > 0
                 ? `<div class="daily-vbar-total" style="bottom:${safeCardsHeightPct.toFixed(2)}%">${cards}</div>
-                   <div class="daily-vbar-bar" style="height:${safeCardsHeightPct.toFixed(2)}%"><div class="daily-vbar-seg" style="height:100%;background:${CARDS_FILTER_COLOR}" title="${cards} ${cards === 1 ? 'card' : 'cards'}"></div></div>`
+                   <div class="daily-vbar-bar" style="height:${safeCardsHeightPct.toFixed(2)}%">${cardsSegments}</div>`
                 : '';
             cardsBarWrap = `<div class="daily-vbar-bar-wrap">${cardsBar}</div>`;
         }
         return `
             <div class="daily-vbar-col">
                 <div class="daily-vbar-plot">
-                    <div class="daily-vbar-bar-wrap">${minutesBar}</div>
+                    <div class="${minutesBarWrapClass}">${minutesBar}</div>
                     ${cardsBarWrap}
                 </div>
                 <div class="daily-vbar-date">
@@ -432,7 +459,8 @@ function renderDailyMinutesChartPage() {
         if (showCards) {
             legendItems = [
                 { color: MINUTES_FILTER_COLOR, label: 'Active minutes' },
-                { color: CARDS_FILTER_COLOR, label: 'Practiced cards' },
+                { color: RIGHT_CARDS_FILTER_COLOR, label: 'Right cards' },
+                { color: WRONG_CARDS_FILTER_COLOR, label: 'Wrong cards' },
             ];
         } else {
             const visibleCategoryKeys = new Set();
@@ -681,9 +709,13 @@ function getSessionCombinedActiveMinutes(session) {
 
 function summarizeSessions(sessions) {
     const list = Array.isArray(sessions) ? sessions : [];
+    const rightCards = list.reduce((sum, session) => sum + safeNum(session?.right_count), 0);
+    const wrongCards = list.reduce((sum, session) => sum + safeNum(session?.wrong_count), 0);
     return {
         count: list.length,
-        practicedCards: list.reduce((sum, session) => sum + safeNum(session?.right_count) + safeNum(session?.wrong_count), 0),
+        rightCards,
+        wrongCards,
+        practicedCards: rightCards + wrongCards,
         activeMinutes: list.reduce((sum, session) => sum + getSessionCombinedActiveMinutes(session), 0),
     };
 }

@@ -18,7 +18,7 @@
             align-items: center;
             gap: 0.1rem;
             flex-wrap: wrap;
-            margin-bottom: 0.15rem;
+            margin-bottom: 0.35rem;
         }
 
         .daily-chart-header h2 {
@@ -41,8 +41,9 @@
         .daily-chart-page-label {
             flex: 1 1 auto;
             color: #2f3c7e;
-            font-size: 0.95rem;
+            font-size: 0.82rem;
             font-weight: 600;
+            line-height: 1.15;
             text-align: center;
         }
 
@@ -100,6 +101,10 @@
             justify-content: center;
         }
 
+        .daily-vbar-bar-wrap-single {
+            max-width: 46px;
+        }
+
         .daily-vbar-total {
             position: absolute;
             left: 50%;
@@ -151,6 +156,11 @@
             .daily-vbar-bar-wrap {
                 max-width: 14px;
             }
+
+            .daily-vbar-bar-wrap-single {
+                max-width: 18px;
+            }
+
             .daily-vbar-total {
                 font-size: 0.65rem;
             }
@@ -174,7 +184,7 @@
             justify-content: center;
             flex-wrap: wrap;
             gap: 0.85rem;
-            margin: 0.25rem 0 0.4rem;
+            margin: 0.45rem 0 0.4rem;
             font-size: 0.75rem;
             color: #34406f;
         }
@@ -425,6 +435,10 @@
             text-align: center;
         }
 
+        .report-page .summary-card-answer-breakdown {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
         .report-page .summary-card-full .summary-stat .label {
             color: #666;
             font-size: 0.76rem;
@@ -436,7 +450,21 @@
             font-weight: 700;
         }
 
+        .report-page .summary-card-full .summary-stat-right .label,
+        .report-page .summary-card-full .summary-stat-right .value {
+            color: #15803d;
+        }
+
+        .report-page .summary-card-full .summary-stat-wrong .label,
+        .report-page .summary-card-full .summary-stat-wrong .value {
+            color: #b91c1c;
+        }
+
         @media (max-width: 540px) {
+            .report-page .summary-card-answer-breakdown {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
             .report-page .summary-card-full .summary-stat .value {
                 font-size: 0.96rem;
             }
