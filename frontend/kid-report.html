@@ -614,11 +614,19 @@
             background: #16a34a;
         }
 
+        .daily-progress-legend-item.response-time .daily-progress-legend-swatch {
+            background: #d97706;
+        }
+
         .daily-progress-chart {
             position: relative;
             height: 13.5rem;
             padding-left: 2.6rem;
-            padding-bottom: 1.8rem;
+            padding-bottom: 2.6rem;
+        }
+
+        .daily-progress-card.has-response-time .daily-progress-chart {
+            padding-right: 2.8rem;
         }
 
         .daily-progress-y-label {
@@ -630,12 +638,24 @@
             font-weight: 700;
         }
 
+        .daily-progress-y-label-right {
+            left: auto;
+            right: 0;
+            color: #d97706;
+        }
+
         .daily-progress-y-axis {
             position: absolute;
             left: 0;
             top: 1.4rem;
-            bottom: 1.8rem;
+            bottom: 2.6rem;
             width: 2.2rem;
+        }
+
+        .daily-progress-y-axis-right {
+            left: auto;
+            right: 0;
+            width: 2.4rem;
         }
 
         .daily-progress-y-tick {
@@ -648,12 +668,22 @@
             line-height: 1;
         }
 
+        .daily-progress-y-axis-right .daily-progress-y-tick {
+            right: auto;
+            left: 0.35rem;
+            color: #d97706;
+        }
+
         .daily-progress-plot {
             position: absolute;
             left: 2.6rem;
             right: 0.4rem;
             top: 1.4rem;
-            bottom: 1.8rem;
+            bottom: 2.6rem;
+        }
+
+        .daily-progress-card.has-response-time .daily-progress-plot {
+            right: 2.8rem;
         }
 
         .daily-progress-grid {
@@ -692,6 +722,11 @@
             stroke: #16a34a;
         }
 
+        .daily-progress-line.response-time {
+            stroke: #d97706;
+            stroke-dasharray: 4 3;
+        }
+
         .daily-progress-x-axis {
             position: absolute;
             left: 0;
@@ -709,6 +744,20 @@
             font-weight: 700;
             line-height: 1;
             white-space: nowrap;
+            text-align: center;
+        }
+
+        .daily-progress-x-tick-today {
+            margin-top: 0.18rem;
+            color: #d97706;
+            font-size: 0.62rem;
+            font-weight: 700;
+        }
+
+        .daily-progress-x-tick.is-today {
+            transform: translateX(-100%);
+            padding-right: 0.4rem;
+            text-align: right;
         }
 
         .cards-distribution-card {

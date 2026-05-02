@@ -86,9 +86,6 @@ const type4GeneratorSamples = document.getElementById('type4GeneratorSamples');
 const type4GeneratorValidateTestContainer = document.getElementById('type4GeneratorValidateTestContainer');
 const type4GeneratorMessage = document.getElementById('type4GeneratorMessage');
 const cardsSectionTitleText = document.getElementById('cardsSectionTitleText');
-const deckSetupDeckCountEl = document.getElementById('deckSetupDeckCount');
-const deckSetupCardCountEl = document.getElementById('deckSetupCardCount');
-const deckSetupSessionCountEl = document.getElementById('deckSetupSessionCount');
 const hardnessComputationHint = document.getElementById('hardnessComputationHint');
 const sessionMixSubgroup = document.getElementById('sessionMixSubgroup');
 const sessionMixDetails = document.getElementById('sessionMixDetails');
@@ -871,19 +868,6 @@ function getOptedDecks() {
     return allDecks.filter((deck) => stagedOptedDeckIdSet.has(Number(deck.deck_id)));
 }
 
-function getDeckSetupDeckCount() {
-    const optedDeckCount = stagedOptedDeckIdSet.size;
-    const includePersonalDeck = Boolean(orphanDeck) && stagedIncludeOrphanInQueue;
-    return optedDeckCount + (includePersonalDeck ? 1 : 0);
-}
-
-function getCurrentCardsPerDayCount() {
-    if (isType4Behavior()) {
-        return getType4TotalCardsPerDay();
-    }
-    return getSessionCardCountForMixLegend();
-}
-
 function syncType4CardOrderOptions() {
     if (!viewOrderSelect) {
         return;
@@ -951,8 +935,12 @@ function renderType4DeckTargetControls() {
         const titleText = isType4DeckCountsSaving ? 'Saving...' : 'Deck Counts';
         const metaText = 'Set cards per day per deck';
         openType4DeckCountsModalBtn.innerHTML = `
-            <span class="manage-popup-btn-title">${escapeHtml(titleText)}</span>
-            <span class="manage-popup-btn-meta">${escapeHtml(metaText)}</span>
+            <span class="manage-popup-btn-text">
+                <span class="manage-popup-btn-emoji" aria-hidden="true">🎯</span>
+                <span class="manage-popup-btn-title">${escapeHtml(titleText)}</span>
+                <span class="manage-popup-btn-meta">${escapeHtml(metaText)}</span>
+            </span>
+            <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
         `;
     }
 }
@@ -1105,16 +1093,6 @@ function collectType4DeckCountsPayload() {
 }
 
 function renderDeckSetupSummary() {
-    if (deckSetupDeckCountEl) {
-        deckSetupDeckCountEl.textContent = String(Math.max(0, getDeckSetupDeckCount()));
-    }
-    if (deckSetupCardCountEl) {
-        const cardsCount = Array.isArray(currentCards) ? currentCards.length : 0;
-        deckSetupCardCountEl.textContent = String(Math.max(0, cardsCount));
-    }
-    if (deckSetupSessionCountEl) {
-        deckSetupSessionCountEl.textContent = String(getCurrentCardsPerDayCount());
-    }
     renderDeckSetupActionButtons();
     renderType4DeckTargetControls();
 }
@@ -1125,14 +1103,22 @@ function renderDeckSetupActionButtons() {
     if (openDeckOptInModalBtn) {
         const optInMeta = `${optedCount} / ${totalDecks + (orphanDeck ? 1 : 0)} decks opted in`;
         openDeckOptInModalBtn.innerHTML = `
-            <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
-            <span class="manage-popup-btn-meta">${escapeHtml(optInMeta)}</span>
+            <span class="manage-popup-btn-text">
+                <span class="manage-popup-btn-emoji" aria-hidden="true">📚</span>
+                <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
+                <span class="manage-popup-btn-meta">${escapeHtml(optInMeta)}</span>
+            </span>
+            <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
         `;
     }
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.innerHTML = `
-            <span class="manage-popup-btn-title">Personal Deck Editor</span>
-            <span class="manage-popup-btn-meta">Add your own cards</span>
+            <span class="manage-popup-btn-text">
+                <span class="manage-popup-btn-emoji" aria-hidden="true">✏️</span>
+                <span class="manage-popup-btn-title">Personal Deck Editor</span>
+                <span class="manage-popup-btn-meta">Add your own cards</span>
+            </span>
+            <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
         `;
     }
 }

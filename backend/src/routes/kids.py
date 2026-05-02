@@ -5698,7 +5698,7 @@ def get_kid_report_cards_daily_progress(kid_id):
         try:
             attempts = conn.execute(
                 """
-                SELECT sr.card_id, sr.timestamp, sr.correct
+                SELECT sr.card_id, sr.timestamp, sr.correct, COALESCE(sr.response_time_ms, 0)
                 FROM session_results sr
                 JOIN sessions s ON s.id = sr.session_id
                 WHERE LOWER(TRIM(s.type)) = ?
@@ -5711,7 +5711,7 @@ def get_kid_report_cards_daily_progress(kid_id):
         finally:
             conn.close()
 
-        agg = defaultdict(lambda: {'attempts': 0, 'correct': 0})
+        agg = defaultdict(lambda: {'attempts': 0, 'correct': 0, 'correct_response_time_ms_sum': 0, 'correct_response_time_count': 0})
         for row in attempts:
             try:
                 card_id_int = int(row[0])
@@ -5732,6 +5732,13 @@ def get_kid_report_cards_daily_progress(kid_id):
                 correct_val = 0
             if correct_val == 1:
                 entry['correct'] += 1
+                try:
+                    rt_ms = int(row[3] or 0)
+                except (TypeError, ValueError):
+                    rt_ms = 0
+                if rt_ms > 0:
+                    entry['correct_response_time_ms_sum'] += rt_ms
+                    entry['correct_response_time_count'] += 1
 
         rows = [
             {
@@ -5739,6 +5746,8 @@ def get_kid_report_cards_daily_progress(kid_id):
                 'date': key[1],
                 'attempts': val['attempts'],
                 'correct': val['correct'],
+                'correct_response_time_ms_sum': val['correct_response_time_ms_sum'],
+                'correct_response_time_count': val['correct_response_time_count'],
             }
             for key, val in agg.items()
         ]

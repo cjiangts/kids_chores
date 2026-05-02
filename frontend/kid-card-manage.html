@@ -24,24 +24,66 @@
 
         .manage-popup-card-btn {
             display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
+            flex-direction: row;
+            align-items: stretch;
+            justify-content: space-between;
+            gap: 0.4rem;
             text-align: left;
             line-height: 1.25;
             white-space: normal;
+            text-decoration: none;
+        }
+
+        .manage-popup-btn-text {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            column-gap: 0.35rem;
+            row-gap: 0.18rem;
+            align-items: center;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .manage-popup-btn-emoji {
+            grid-column: 1;
+            grid-row: 1;
+            font-size: 1.2rem;
+            line-height: 1;
+            margin: 0;
+            align-self: center;
         }
 
         .manage-popup-btn-title {
-            display: block;
+            grid-column: 2;
+            grid-row: 1;
             font-weight: 600;
+            align-self: center;
         }
 
         .manage-popup-btn-meta {
-            display: block;
-            margin-top: 0.18rem;
+            grid-column: 1 / -1;
+            grid-row: 2;
+            margin: 0;
             font-size: 0.84rem;
             color: #5872a8;
+            text-decoration: none;
+        }
+
+        .manage-popup-btn-chevron {
+            flex: 0 0 auto;
+            font-size: 1.4rem;
+            line-height: 1;
+            color: #5872a8;
+            font-weight: 700;
+            margin-left: 0.3rem;
+            align-self: flex-end;
+            text-decoration: none;
+        }
+
+        .merged-card-divider {
+            border: 0;
+            border-top: 1px solid rgba(28, 42, 82, 0.1);
+            margin: 0.85rem 0 0.7rem;
         }
 
         .manage-popup-modal {
@@ -911,59 +953,29 @@
             flex: 0 0 auto;
         }
 
-        .deck-setup-summary-grid {
+        .deck-setup-actions {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.46rem;
-            margin-bottom: 0.42rem;
+            align-items: stretch;
+            gap: 0.5rem;
+            margin-bottom: 0.62rem;
         }
 
-        .deck-setup-summary-card {
-            background: var(--dashboard-chip-bg);
-            border: 1px solid rgba(28, 42, 82, 0.08);
-            border-radius: 12px;
-            padding: 0.5rem 0.56rem;
-            box-shadow: var(--dashboard-chip-shadow);
-        }
-
-        .deck-setup-summary-label {
-            margin: 0;
-            font-size: 0.62rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #67739a;
-            font-weight: 700;
-            line-height: 1;
-            white-space: nowrap;
-        }
-
-        .deck-setup-summary-value {
-            margin: 0.16rem 0 0;
-            font-size: 1.02rem;
-            color: #22325f;
-            line-height: 1;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .deck-setup-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.42rem;
-            flex-wrap: wrap;
-        }
-
-        .deck-setup-actions .manage-popup-btn {
-            min-height: 36px;
-            padding: 0.42rem 0.86rem;
-        }
-
+        .deck-setup-actions .manage-popup-btn,
         .deck-setup-actions .settings-save-btn {
-            min-width: 180px;
+            min-height: 60px;
+            padding: 0.5rem 0.7rem;
+            width: 100%;
+            min-width: 0;
+            white-space: normal;
         }
 
-        .settings-overview-row {
-            display: block;
+        .session-mix-subgroup {
+            margin: 0;
+        }
+
+        .session-mix-subgroup .hardness-slider-block {
+            margin: 0;
         }
 
         .settings-subgroup {
@@ -977,24 +989,6 @@
 
         .settings-subgroup .hardness-slider-block {
             margin: 0;
-        }
-
-        @media (min-width: 1180px) {
-            .settings-overview-row {
-                display: grid;
-                grid-template-columns: minmax(0, 1fr) auto;
-                align-items: end;
-                gap: 0.72rem;
-            }
-
-            .settings-overview-row .deck-setup-summary-grid {
-                margin-bottom: 0;
-            }
-
-            .settings-overview-row .deck-setup-actions {
-                justify-content: flex-end;
-                flex-wrap: nowrap;
-            }
         }
 
         .card-status-filter,
@@ -3346,15 +3340,42 @@
             }
 
             .deck-setup-actions {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 0.35rem;
             }
 
             .deck-setup-actions .manage-popup-btn,
             .deck-setup-actions .settings-save-btn {
-                width: 100%;
-                min-width: 0;
+                padding: 0.5rem 0.4rem 0.5rem 0.55rem;
+            }
+
+            .manage-popup-card-btn {
+                gap: 0.2rem;
+            }
+
+            .manage-popup-btn-text {
+                column-gap: 0.5rem;
+                row-gap: 0.12rem;
+            }
+
+            .manage-popup-btn-emoji {
+                font-size: 1rem;
+                margin: 0;
+            }
+
+            .manage-popup-btn-title {
+                font-size: 0.68rem;
+                line-height: 1.18;
+            }
+
+            .manage-popup-btn-meta {
+                font-size: 0.7rem;
+                line-height: 1.2;
+            }
+
+            .manage-popup-btn-chevron {
+                font-size: 1.1rem;
+                margin-left: 0;
             }
 
             .deck-mobile-tabs {
@@ -3405,17 +3426,12 @@
         }
 
         @media (max-width: 640px) {
-            .deck-setup-summary-card {
-                padding: 0.44rem 0.48rem;
+            .manage-popup-btn-meta {
+                font-size: 0.66rem;
             }
 
-            .deck-setup-summary-label {
-                font-size: 0.58rem;
-                letter-spacing: 0.06em;
-            }
-
-            .deck-setup-summary-value {
-                font-size: 0.95rem;
+            .manage-popup-btn-title {
+                font-size: 0.72rem;
             }
 
             .manage-page .tab-nav {
@@ -3440,6 +3456,81 @@
             }
         }
 
+        .kid-card-manage-page .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .kid-card-manage-page .tab-nav .manage-tab {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.34rem;
+            min-width: 0;
+            width: auto;
+            border: 1px solid rgba(255, 255, 255, 0.42);
+            border-radius: 999px;
+            padding: 0.42rem 1rem;
+            min-height: 36px;
+            background: rgba(255, 255, 255, 0.16);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            color: rgba(255, 255, 255, 0.92);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 8px 18px rgba(31, 45, 98, 0.1);
+            transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s, box-shadow 0.18s;
+        }
+
+        .kid-card-manage-page .tab-nav .manage-tab:hover {
+            background: rgba(255, 255, 255, 0.24);
+            border-color: rgba(255, 255, 255, 0.58);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 10px 20px rgba(31, 45, 98, 0.14);
+        }
+
+        .kid-card-manage-page .tab-nav .manage-tab:active {
+            transform: scale(0.97);
+        }
+
+        .kid-card-manage-page .tab-nav .manage-tab.btn-primary {
+            background: linear-gradient(180deg, #ffffff 0%, #eef2ff 100%);
+            color: #32418d;
+            border-color: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 8px 20px rgba(31, 45, 98, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+        }
+
+        @media (max-width: 640px) {
+            .kid-card-manage-page .tab-nav {
+                display: flex;
+                grid-template-columns: none;
+                gap: 0.38rem;
+                margin-bottom: 0.7rem;
+            }
+
+            .kid-card-manage-page .tab-nav .manage-tab {
+                min-width: 0;
+                width: auto;
+                min-height: 34px;
+                padding: 0.38rem 0.92rem;
+                font-size: 0.78rem;
+            }
+
+            .kid-card-manage-page .tab-nav .manage-tab .manage-tab-label {
+                display: inline;
+            }
+
+            .kid-card-manage-page .tab-nav .manage-tab .manage-tab-emoji {
+                font-size: 1rem;
+                margin: 0;
+            }
+        }
+
     </style>
 </head>
 <body class="practice-page manage-page kid-card-manage-page">
@@ -3454,43 +3545,43 @@
         <div id="errorMessage" class="error hidden"></div>
         <div id="successMessage" class="success hidden"></div>
 
-        <section class="settings-section settings-main-section">
-            <div class="settings-overview-row">
-                <div class="deck-setup-summary-grid">
-                    <div class="deck-setup-summary-card">
-                        <p class="deck-setup-summary-label">Decks</p>
-                        <p id="deckSetupDeckCount" class="deck-setup-summary-value">0</p>
-                    </div>
-                    <div class="deck-setup-summary-card">
-                        <p class="deck-setup-summary-label">Cards</p>
-                        <p id="deckSetupCardCount" class="deck-setup-summary-value">0</p>
-                    </div>
-                    <div class="deck-setup-summary-card">
-                        <p class="deck-setup-summary-label">Per day</p>
-                        <p id="deckSetupSessionCount" class="deck-setup-summary-value">0</p>
-                    </div>
-                </div>
+        <section class="settings-section settings-main-section cards-section">
                 <div class="deck-setup-actions">
                     <button id="openDeckOptInModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn">
-                        <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
-                        <span class="manage-popup-btn-meta">0 decks available to opt in</span>
+                        <span class="manage-popup-btn-text">
+                            <span class="manage-popup-btn-emoji" aria-hidden="true">📚</span>
+                            <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
+                            <span class="manage-popup-btn-meta">0 decks available to opt in</span>
+                        </span>
+                        <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </button>
                     <a id="openPrintableSheetsBtn" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden" href="#">
-                        <span class="manage-popup-btn-title">🖨️ Printable Sheets</span>
-                        <span class="manage-popup-btn-meta">Print practice worksheets</span>
+                        <span class="manage-popup-btn-text">
+                            <span class="manage-popup-btn-emoji" aria-hidden="true">🖨️</span>
+                            <span class="manage-popup-btn-title">Printable Sheets</span>
+                            <span class="manage-popup-btn-meta">Print practice worksheets</span>
+                        </span>
+                        <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </a>
                     <button id="openType4DeckCountsModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
-                        <span class="manage-popup-btn-title">Deck Counts</span>
-                        <span class="manage-popup-btn-meta">Cards per day per deck</span>
+                        <span class="manage-popup-btn-text">
+                            <span class="manage-popup-btn-emoji" aria-hidden="true">🎯</span>
+                            <span class="manage-popup-btn-title">Deck Counts</span>
+                            <span class="manage-popup-btn-meta">Cards per day per deck</span>
+                        </span>
+                        <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </button>
                     <button id="openPersonalDeckModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
-                        <span class="manage-popup-btn-title">Personal Deck Editor</span>
-                        <span class="manage-popup-btn-meta">Add your own cards</span>
+                        <span class="manage-popup-btn-text">
+                            <span class="manage-popup-btn-emoji" aria-hidden="true">✏️</span>
+                            <span class="manage-popup-btn-title">Personal Deck Editor</span>
+                            <span class="manage-popup-btn-meta">Add your own cards</span>
+                        </span>
+                        <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </button>
                 </div>
-            </div>
-            <div id="sessionMixSubgroup" class="settings-subgroup session-mix-subgroup">
-                <form id="sessionSettingsForm" class="queue-settings-form">
+                <div id="sessionMixSubgroup" class="session-mix-subgroup">
+                    <form id="sessionSettingsForm" class="queue-settings-form">
                     <div class="queue-controls-row">
                         <div class="queue-settings-actions">
                             <div class="form-group queue-session-count-group">
@@ -3528,11 +3619,9 @@
                         <p id="hardnessComputationHint" class="hardness-slider-hint">Set hard vs least-practiced mix.</p>
                     </details>
                 </form>
-            </div>
-        </section>
-
-        <section class="settings-section cards-section">
-            <div class="cards-header-row">
+                </div>
+                <hr class="merged-card-divider">
+                <div class="cards-header-row">
                 <h2 class="cards-title">
                     <span><span id="cardsSectionTitleText">Cards</span> <span id="mathCardCount">(0)</span></span>
                 </h2>
@@ -3585,10 +3674,10 @@
                 <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
                 <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
             </div>
-            <div class="cards-bulk-action-message-wrap">
-                <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>
-            </div>
-            <div id="cardsGrid" class="cards-grid"></div>
+                <div class="cards-bulk-action-message-wrap">
+                    <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>
+                </div>
+                <div id="cardsGrid" class="cards-grid"></div>
         </section>
     </div>
 
