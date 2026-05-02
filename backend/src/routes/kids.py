@@ -5617,11 +5617,13 @@ def get_kid_report(kid_id):
         for row in rows:
             session_type = normalize_shared_deck_tag(row[1])
             session_category_display_name = get_deck_category_display_name(session_type, category_meta_by_key)
+            session_category_emoji = str((category_meta_by_key.get(session_type) or {}).get('emoji') or '').strip()
             sessions.append({
                 'id': int(row[0]),
                 'type': row[1],
                 'behavior_type': get_session_behavior_type(session_type, category_meta_by_key),
                 'category_display_name': session_category_display_name,
+                'category_emoji': session_category_emoji,
                 'started_at': row[2].isoformat() if row[2] else None,
                 'completed_at': row[3].isoformat() if row[3] else None,
                 'planned_count': int(row[4] or 0),

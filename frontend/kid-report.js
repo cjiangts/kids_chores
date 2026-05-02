@@ -8,18 +8,21 @@ const reportTitle = document.getElementById('reportTitle');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
+const reportCategoryFilter = document.getElementById('reportCategoryFilter');
 const dailyChartBody = document.getElementById('dailyChartBody');
-const dailyLegend = document.getElementById('dailyLegend');
 const dailyChartNewerBtn = document.getElementById('dailyChartNewerBtn');
 const dailyChartOlderBtn = document.getElementById('dailyChartOlderBtn');
 const dailyChartPageLabel = document.getElementById('dailyChartPageLabel');
-const reportBody = document.getElementById('reportBody');
-const startedHeader = document.getElementById('startedHeader');
+const dailyChartLegend = document.getElementById('dailyChartLegend');
+const sessionsList = document.getElementById('sessionsList');
+const collapsedDayKeys = new Set();
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let dailyChartRows = [];
 let dailyChartCategories = [];
 let dailyChartPageIndex = 0;
 let reportSessions = [];
+let filteredSessions = [];
+let selectedCategoryKey = '';
 let reportCategoryThemeByKey = new Map();
 const DAILY_CHART_PAGE_SIZE = 7;
 const CATEGORY_COLOR_PALETTE = [
@@ -56,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (dailyChartPageIndex <= 0) return;
             dailyChartPageIndex -= 1;
             renderDailyMinutesChartPage();
-            renderTablePage();
+            renderSessionsList();
         });
     }
     if (dailyChartOlderBtn) {
@@ -65,11 +68,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (dailyChartPageIndex >= (pageCount - 1)) return;
             dailyChartPageIndex += 1;
             renderDailyMinutesChartPage();
-            renderTablePage();
+            renderSessionsList();
         });
     }
-    if (startedHeader) {
-        startedHeader.textContent = 'Started';
+    if (sessionsList) {
+        sessionsList.addEventListener('click', (event) => {
+            const toggle = event.target.closest('.day-group-toggle');
+            if (!toggle) return;
+            event.preventDefault();
+            const group = toggle.closest('.day-group');
+            if (!group) return;
+            const dayKey = group.getAttribute('data-day-key') || '';
+            if (group.classList.toggle('collapsed')) {
+                collapsedDayKeys.add(dayKey);
+            } else {
+                collapsedDayKeys.delete(dayKey);
+            }
+        });
     }
     await loadReport();
 });
@@ -86,18 +101,15 @@ async function loadReport() {
         if (familyTimezone) {
             reportTimezone = familyTimezone;
         }
-        if (startedHeader) {
-            startedHeader.textContent = 'Started';
-        }
         const kidName = (data.kid && data.kid.name) ? data.kid.name : 'Kid';
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
         reportSessions = sessions;
         reportCategoryThemeByKey = buildCategoryThemeByKey(sessions);
+        seedCollapsedDays(sessions);
         reportTitle.textContent = `${kidName}'s Practice Report`;
         document.title = `${kidName} - Practice Report - Kids Daily Chores`;
-        renderSummary(sessions);
-        renderDailyMinutesChart(sessions);
-        renderTable(sessions);
+        renderCategoryFilter(sessions);
+        renderFilteredViews();
     } catch (error) {
         console.error('Error loading report:', error);
         showError('Failed to load practice report.');
@@ -106,44 +118,195 @@ async function loadReport() {
 }
 
 function renderSummary(sessions) {
-    const allTotals = summarizeSessions(sessions);
-    const todayKey = formatDateKey(new Date().toISOString());
-    const todayLabel = todayKey ? `Today · ${todayKey}` : 'Today';
-    const todaySessions = sessions.filter((session) => getSessionDateKey(session) === todayKey);
-    const todayTotals = summarizeSessions(todaySessions);
-
+    const totals = summarizeSessions(sessions);
     summaryGrid.innerHTML = `
-        <div class="summary-card"><div class="label">Total Sessions</div><div class="value">${allTotals.count}</div><div class="label">Active: ${allTotals.activeMinutes.toFixed(1)} min</div></div>
-        <div class="summary-card"><div class="label">${todayLabel}</div><div class="value">${todayTotals.count}</div><div class="label">Active: ${todayTotals.activeMinutes.toFixed(1)} min</div></div>
+        <div class="summary-card summary-card-full">
+            <div class="summary-stat"><div class="label">Sessions</div><div class="value">${totals.count}</div></div>
+            <div class="summary-stat"><div class="label">Practiced Cards</div><div class="value">${totals.practicedCards}</div></div>
+            <div class="summary-stat"><div class="label">Active Minutes</div><div class="value">${totals.activeMinutes.toFixed(1)}</div></div>
+        </div>
     `;
 }
 
-function renderTable(sessions) {
-    reportSessions = Array.isArray(sessions) ? sessions : [];
-    renderTablePage();
+function seedCollapsedDays(sessions) {
+    const todayKey = formatDateKey(new Date().toISOString());
+    collapsedDayKeys.clear();
+    for (const session of (Array.isArray(sessions) ? sessions : [])) {
+        const dayKey = getSessionDateKey(session);
+        if (dayKey && dayKey !== todayKey) {
+            collapsedDayKeys.add(dayKey);
+        }
+    }
 }
 
-function renderTablePage() {
+function getFilteredSessions() {
     const sessions = Array.isArray(reportSessions) ? reportSessions : [];
+    if (!selectedCategoryKey) {
+        return sessions;
+    }
+    return sessions.filter((session) => normalizeCategoryKey(session?.type) === selectedCategoryKey);
+}
+
+function renderFilteredViews() {
+    const filtered = getFilteredSessions();
+    renderSummary(filtered);
+    renderDailyMinutesChart(filtered);
+    filteredSessions = filtered;
+    renderSessionsList();
+}
+
+function renderCategoryFilter(sessions) {
+    if (!reportCategoryFilter) {
+        return;
+    }
+    const labelByKey = new Map();
+    const orderedKeys = [];
+    for (const session of (Array.isArray(sessions) ? sessions : [])) {
+        const key = normalizeCategoryKey(session?.type);
+        if (!key || labelByKey.has(key)) {
+            continue;
+        }
+        const label = String(session?.category_display_name || '').trim() || key;
+        labelByKey.set(key, label);
+        orderedKeys.push(key);
+    }
+    orderedKeys.sort((a, b) => String(labelByKey.get(a)).localeCompare(String(labelByKey.get(b))));
+
+    if (selectedCategoryKey && !labelByKey.has(selectedCategoryKey)) {
+        selectedCategoryKey = '';
+    }
+
+    const buttons = [{ key: '', label: 'All' }].concat(
+        orderedKeys.map((key) => ({
+            key,
+            label: labelByKey.get(key),
+        })),
+    );
+
+    reportCategoryFilter.innerHTML = buttons.map((btn) => {
+        const isActive = btn.key === selectedCategoryKey;
+        return `<button type="button" class="report-category-filter-btn${isActive ? ' active' : ''}" data-category-key="${escapeHtml(btn.key)}">${escapeHtml(btn.label)}</button>`;
+    }).join('');
+
+    reportCategoryFilter.querySelectorAll('.report-category-filter-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const nextKey = btn.getAttribute('data-category-key') || '';
+            if (nextKey === selectedCategoryKey) {
+                return;
+            }
+            selectedCategoryKey = nextKey;
+            reportCategoryFilter.querySelectorAll('.report-category-filter-btn').forEach((other) => {
+                const otherKey = other.getAttribute('data-category-key') || '';
+                other.classList.toggle('active', otherKey === selectedCategoryKey);
+            });
+            dailyChartPageIndex = 0;
+            if (selectedCategoryKey) {
+                collapsedDayKeys.clear();
+            } else {
+                seedCollapsedDays(reportSessions);
+            }
+            renderFilteredViews();
+        });
+    });
+}
+
+function renderSessionsList() {
+    if (!sessionsList) return;
+    const sessions = Array.isArray(filteredSessions) ? filteredSessions : [];
     const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
 
     if (sessions.length === 0 || view.pageItems.length === 0) {
-        reportBody.innerHTML = `<tr><td colspan="6" style="color:#666;">No practice sessions yet.</td></tr>`;
+        sessionsList.innerHTML = `<div class="sessions-empty">No practice sessions yet.</div>`;
         return;
     }
 
-    reportBody.innerHTML = view.pageItems.map((session) => {
-        const sessionUrl = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}${from === 'kid-home' ? '&from=kid-home' : ''}`;
+    const byDay = new Map();
+    for (const session of view.pageItems) {
+        const dayKey = getSessionDateKey(session);
+        if (!dayKey) continue;
+        if (!byDay.has(dayKey)) byDay.set(dayKey, []);
+        byDay.get(dayKey).push(session);
+    }
+    const orderedDays = Array.from(byDay.keys()).sort((a, b) => b.localeCompare(a));
+
+    sessionsList.innerHTML = orderedDays.map((dayKey) => {
+        const items = byDay.get(dayKey) || [];
+        items.sort((a, b) => String(b.started_at || '').localeCompare(String(a.started_at || '')));
+        const dayTotals = summarizeSessions(items);
+        const isCollapsed = collapsedDayKeys.has(dayKey);
+        const cards = items.map((session) => renderSessionCard(session)).join('');
         return `
-        <tr>
-            <td><a href="${sessionUrl}" class="type-pill-link">${renderType(session.type, session)}</a></td>
-            <td>${formatDateTime(session.started_at)}</td>
-            <td>${formatPracticeMode(session.practice_mode)}</td>
-            <td>${formatTotalMinutes(session)}</td>
-            <td><span style="color:#2e7d32">${safeNum(session.right_count)}</span>${safeNum(session.wrong_count) > 0 ? ` / <span style="color:#c62828">${safeNum(session.wrong_count)}</span>` : ''}</td>
-            <td>${safeNum(session.retry_count)}</td>
-        </tr>
-    `;}).join('');
+            <div class="day-group${isCollapsed ? ' collapsed' : ''}" data-day-key="${escapeHtml(dayKey)}">
+                <div class="day-group-header">
+                    <div class="day-group-title">${escapeHtml(formatDayHeading(dayKey))}</div>
+                    <div class="day-group-summary">${dayTotals.count} ${dayTotals.count === 1 ? 'session' : 'sessions'} · ${dayTotals.activeMinutes.toFixed(1)} min</div>
+                    <button type="button" class="day-group-toggle" aria-label="Toggle">⌃</button>
+                </div>
+                <div class="day-group-body">${cards}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderSessionCard(session) {
+    const theme = getCategoryColorTheme(normalizeCategoryKey(session?.type));
+    const color = String(theme?.bar || DEFAULT_CATEGORY_COLOR_THEME.bar);
+    const displayName = String(session?.category_display_name || '').trim() || String(session?.type || '');
+    const glyph = String(session?.category_emoji || '').trim() || '🧩';
+    const sessionUrl = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}${from === 'kid-home' ? '&from=kid-home' : ''}`;
+    const time = formatSessionTime(session.started_at);
+    const mode = formatPracticeMode(session.practice_mode);
+    const subParts = [time, mode].filter((part) => part && part !== '-');
+    const totalMins = (getSessionResponseMinutes(session) + getSessionRetryResponseMinutes(session)).toFixed(1);
+    const result = formatSessionResult(session);
+    const retries = safeNum(session.retry_count);
+    return `
+        <a href="${sessionUrl}" class="session-card">
+            <div class="session-icon" style="background:${escapeHtml(theme?.pillBg || '#eef2fb')}">${escapeHtml(glyph)}</div>
+            <div class="session-info">
+                <div class="session-title">${escapeHtml(displayName)}</div>
+                <div class="session-sub">${escapeHtml(subParts.join(' · '))}</div>
+            </div>
+            <div class="session-stats">
+                <div class="session-mins">${totalMins}<span class="session-mins-unit">min</span></div>
+                ${result ? `<div class="session-result" style="color:${escapeHtml(color)}">${escapeHtml(result)}</div>` : ''}
+                <div class="session-retries">Retries ${retries}</div>
+            </div>
+            <div class="session-chevron">›</div>
+        </a>
+    `;
+}
+
+function formatSessionResult(session) {
+    const right = safeNum(session?.right_count);
+    const wrong = safeNum(session?.wrong_count);
+    const total = right + wrong;
+    if (total <= 0) return '';
+    if (wrong > 0) return `Correct ${right} / ${total}`;
+    return `Completed ${right} ${right === 1 ? 'item' : 'items'}`;
+}
+
+function formatSessionTime(iso) {
+    const dt = parseUtcTimestamp(iso);
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleTimeString(undefined, {
+        timeZone: reportTimezone,
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
+function formatDayHeading(dayKey) {
+    const dt = parseDateKeyToUtcNoon(dayKey);
+    if (!dt) return dayKey;
+    return new Intl.DateTimeFormat(undefined, {
+        timeZone: reportTimezone,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    }).format(dt);
 }
 
 function renderDailyMinutesChart(sessions) {
@@ -153,6 +316,7 @@ function renderDailyMinutesChart(sessions) {
 
     sessions.forEach((session) => {
         const minutes = getSessionCombinedActiveMinutes(session);
+        const cards = safeNum(session?.right_count) + safeNum(session?.wrong_count);
         const dayKey = formatDateKey(session.started_at || session.completed_at);
         if (!dayKey) return;
         const sessionType = normalizeCategoryKey(session.type);
@@ -164,11 +328,12 @@ function renderDailyMinutesChart(sessions) {
         }
 
         if (!dailyMap.has(dayKey)) {
-            dailyMap.set(dayKey, { byCategory: {}, total: 0 });
+            dailyMap.set(dayKey, { byCategory: {}, total: 0, cards: 0 });
         }
         const row = dailyMap.get(dayKey);
         row.byCategory[categoryKey] = (Number(row.byCategory[categoryKey]) || 0) + minutes;
         row.total += minutes;
+        row.cards += cards;
         categoryTotals.set(categoryKey, (Number(categoryTotals.get(categoryKey)) || 0) + minutes);
     });
 
@@ -185,25 +350,8 @@ function renderDailyMinutesChart(sessions) {
         .map(([date, v]) => ({ date, ...v }))
         .sort((a, b) => b.date.localeCompare(a.date));
 
-    renderDailyLegend();
     dailyChartPageIndex = 0;
     renderDailyMinutesChartPage();
-}
-
-function renderDailyLegend() {
-    if (!dailyLegend) {
-        return;
-    }
-    const categories = Array.isArray(dailyChartCategories) ? dailyChartCategories : [];
-    if (categories.length === 0) {
-        dailyLegend.innerHTML = '';
-        dailyLegend.style.display = 'none';
-        return;
-    }
-    dailyLegend.style.display = '';
-    dailyLegend.innerHTML = categories.map((category) => `
-        <span><span class="legend-dot" style="background:${escapeHtml(category.color)}"></span>${escapeHtml(category.label)}</span>
-    `).join('');
 }
 
 function renderDailyMinutesChartPage() {
@@ -224,45 +372,137 @@ function renderDailyMinutesChartPage() {
         return;
     }
 
-    const pageRows = view.pageItems;
+    const pageRows = view.pageItems.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
     const maxTotal = Math.max(...pageRows.map((r) => r.total), 1);
+    const showCards = Boolean(selectedCategoryKey);
+    const maxCards = showCards ? Math.max(...pageRows.map((r) => Number(r?.cards) || 0), 1) : 1;
+    const MINUTES_FILTER_COLOR = '#3b82f6';
+    const CARDS_FILTER_COLOR = '#9ca3af';
 
-    dailyChartBody.innerHTML = pageRows.map((row) => {
-        const segments = categories.map((category) => {
-            const minutes = Number(row?.byCategory?.[category.key]) || 0;
-            const pct = (minutes / maxTotal) * 100;
-            return renderDailyMinutesSegment({
-                label: category.label,
-                minutes,
-                pct,
-                color: category.color,
-            });
-        }).join('');
+    const columns = pageRows.map((row) => {
+        const total = Number(row?.total) || 0;
+        const cards = Number(row?.cards) || 0;
+        const heightPct = (total / maxTotal) * 100;
+        let segments = '';
+        if (total > 0) {
+            if (showCards) {
+                segments = `<div class="daily-vbar-seg" style="height:100%;background:${MINUTES_FILTER_COLOR}" title="${total.toFixed(1)} min"></div>`;
+            } else {
+                segments = categories.map((category) => {
+                    const minutes = Number(row?.byCategory?.[category.key]) || 0;
+                    if (minutes <= 0) return '';
+                    const segPct = (minutes / total) * 100;
+                    return `<div class="daily-vbar-seg" style="height:${segPct.toFixed(2)}%;background:${escapeHtml(category.color)}" title="${escapeHtml(category.label)} ${minutes.toFixed(1)} min"></div>`;
+                }).join('');
+            }
+        }
+        const dateLabel = formatDailyVBarDate(row.date);
+        const safeHeightPct = Math.max(2, heightPct);
+        const minutesBar = total > 0
+            ? `<div class="daily-vbar-total" style="bottom:${safeHeightPct.toFixed(2)}%">${total.toFixed(1)}</div>
+               <div class="daily-vbar-bar" style="height:${safeHeightPct.toFixed(2)}%">${segments}</div>`
+            : '';
+        let cardsBarWrap = '';
+        if (showCards) {
+            const cardsHeightPct = (cards / maxCards) * 100;
+            const safeCardsHeightPct = Math.max(2, cardsHeightPct);
+            const cardsBar = cards > 0
+                ? `<div class="daily-vbar-total" style="bottom:${safeCardsHeightPct.toFixed(2)}%">${cards}</div>
+                   <div class="daily-vbar-bar" style="height:${safeCardsHeightPct.toFixed(2)}%"><div class="daily-vbar-seg" style="height:100%;background:${CARDS_FILTER_COLOR}" title="${cards} ${cards === 1 ? 'card' : 'cards'}"></div></div>`
+                : '';
+            cardsBarWrap = `<div class="daily-vbar-bar-wrap">${cardsBar}</div>`;
+        }
         return `
-            <div class="daily-row">
-                <div class="daily-date"><span>${row.date}</span><span class="daily-mins">${row.total.toFixed(1)} min</span></div>
-                <div class="daily-bar-track">
-                    ${segments}
+            <div class="daily-vbar-col">
+                <div class="daily-vbar-plot">
+                    <div class="daily-vbar-bar-wrap">${minutesBar}</div>
+                    ${cardsBarWrap}
+                </div>
+                <div class="daily-vbar-date">
+                    <div class="daily-vbar-date-weekday">${escapeHtml(dateLabel.weekday)}</div>
+                    <div class="daily-vbar-date-md">${escapeHtml(dateLabel.monthDay)}</div>
                 </div>
             </div>
         `;
     }).join('');
+
+    if (dailyChartLegend) {
+        let legendItems;
+        let legendPrefix = '';
+        if (showCards) {
+            legendItems = [
+                { color: MINUTES_FILTER_COLOR, label: 'Active minutes' },
+                { color: CARDS_FILTER_COLOR, label: 'Practiced cards' },
+            ];
+        } else {
+            const visibleCategoryKeys = new Set();
+            pageRows.forEach((row) => {
+                Object.entries(row?.byCategory || {}).forEach(([key, minutes]) => {
+                    if ((Number(minutes) || 0) > 0) visibleCategoryKeys.add(key);
+                });
+            });
+            legendItems = categories
+                .filter((category) => visibleCategoryKeys.has(category.key))
+                .map((category) => ({
+                    color: category.color,
+                    label: String(category.label || '').trim() || category.key,
+                }));
+            if (legendItems.length > 0) {
+                legendPrefix = '<span class="daily-chart-legend-prefix">Active minutes:</span>';
+            }
+        }
+        dailyChartLegend.innerHTML = legendPrefix + legendItems.map((item) => {
+            const swatch = `<span class="daily-chart-legend-swatch" style="background:${escapeHtml(item.color || '#cccccc')}"></span>`;
+            return `<span class="daily-chart-legend-item">${swatch}${escapeHtml(item.label)}</span>`;
+        }).join('');
+        dailyChartLegend.style.display = legendItems.length > 0 ? '' : 'none';
+    }
+
+    dailyChartBody.innerHTML = `<div class="daily-vbar-chart">${columns}</div>`;
 }
 
-function renderDailyMinutesSegment({ label, minutes, pct, color }) {
-    const safeMinutes = Number.isFinite(Number(minutes)) ? Math.max(0, Number(minutes)) : 0;
-    const safePct = Number.isFinite(Number(pct)) ? Math.max(0, Number(pct)) : 0;
-    if (safeMinutes <= 0 || safePct <= 0) {
+function formatDailyChartRangeLabel(pageDateKeys) {
+    const sorted = pageDateKeys.slice().sort();
+    const first = parseDateKeyToUtcNoon(sorted[0]);
+    const last = parseDateKeyToUtcNoon(sorted[sorted.length - 1]);
+    if (!first || !last) {
         return '';
     }
-    const minuteText = safeMinutes.toFixed(1);
-    const tinyClass = safePct < 5 ? ' daily-seg-tiny' : '';
-    const safeColor = String(color || '#4f83ff');
-    return `
-        <div class="daily-seg${tinyClass}" style="width:${safePct.toFixed(2)}%;background:${escapeHtml(safeColor)}" title="${escapeHtml(label)} ${minuteText} min">
-            <span class="daily-seg-min">${minuteText}</span>
-        </div>
-    `;
+    const fmtMD = new Intl.DateTimeFormat(undefined, { timeZone: reportTimezone, month: 'short', day: 'numeric' });
+    const fmtMDY = new Intl.DateTimeFormat(undefined, { timeZone: reportTimezone, month: 'short', day: 'numeric', year: 'numeric' });
+    const firstYear = first.getUTCFullYear();
+    const lastYear = last.getUTCFullYear();
+    if (firstYear !== lastYear) {
+        return `${fmtMDY.format(first)} – ${fmtMDY.format(last)}`;
+    }
+    if (sorted.length === 1) {
+        return fmtMDY.format(first);
+    }
+    return `${fmtMD.format(first)} – ${fmtMD.format(last)}, ${lastYear}`;
+}
+
+function parseDateKeyToUtcNoon(dateKey) {
+    const text = String(dateKey || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        return null;
+    }
+    const dt = new Date(`${text}T12:00:00Z`);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function formatDailyVBarDate(dateKey) {
+    const text = String(dateKey || '').trim();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+    if (!match) {
+        return { weekday: text, monthDay: '' };
+    }
+    const dt = new Date(`${text}T12:00:00Z`);
+    if (Number.isNaN(dt.getTime())) {
+        return { weekday: text, monthDay: '' };
+    }
+    const weekday = new Intl.DateTimeFormat(undefined, { timeZone: reportTimezone, weekday: 'short' }).format(dt);
+    const monthDay = new Intl.DateTimeFormat(undefined, { timeZone: reportTimezone, month: 'short', day: 'numeric' }).format(dt);
+    return { weekday, monthDay };
 }
 
 function getCategoryColorTheme(categoryKey) {
@@ -369,10 +609,7 @@ function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }
         if (pageCount <= 0 || pageDateKeys.length === 0) {
             labelEl.textContent = emptyLabel || 'No data';
         } else {
-            const first = pageDateKeys[0] || '';
-            const last = pageDateKeys[pageDateKeys.length - 1] || '';
-            const range = (first && last) ? `${first} → ${last}` : `Page ${pageIndex + 1}`;
-            labelEl.textContent = `${range} · ${pageIndex + 1}/${pageCount}`;
+            labelEl.textContent = formatDailyChartRangeLabel(pageDateKeys);
         }
     }
     if (newerBtn) {
@@ -381,53 +618,6 @@ function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }
     if (olderBtn) {
         olderBtn.disabled = pageCount <= 0 || pageIndex >= (pageCount - 1);
     }
-}
-
-function renderType(type, session = null) {
-    const categoryKey = normalizeCategoryKey(type || session?.type);
-    const displayName = escapeHtml(String(session?.category_display_name || '').trim());
-    const theme = getCategoryColorTheme(categoryKey || displayName);
-    const pillBg = String(theme?.bar || DEFAULT_CATEGORY_COLOR_THEME.bar);
-    return `<span class="type-pill" style="background:${escapeHtml(pillBg)};color:#ffffff;">${displayName}</span>`;
-}
-
-function formatDateTime(iso) {
-    const dt = parseUtcTimestamp(iso);
-    if (Number.isNaN(dt.getTime())) return '-';
-    const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: reportTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).formatToParts(dt);
-    const y = parts.find(p => p.type === 'year')?.value || '';
-    const m = parts.find(p => p.type === 'month')?.value || '';
-    const d = parts.find(p => p.type === 'day')?.value || '';
-    const datePart = `${y}/${m}/${d}`;
-    const timePart = dt.toLocaleTimeString(undefined, {
-        timeZone: reportTimezone,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    });
-    return `<span style="white-space:nowrap">${datePart}</span><br><span style="white-space:nowrap">${timePart}</span>`;
-}
-
-function formatResponseMinutes(session) {
-    const minutes = getSessionResponseMinutes(session);
-    return minutes.toFixed(1);
-}
-
-function formatTotalMinutes(session) {
-    const active = getSessionResponseMinutes(session);
-    const retry = getSessionRetryResponseMinutes(session);
-    return (active + retry).toFixed(1);
-}
-
-function formatRetryMinutes(session) {
-    const minutes = getSessionRetryResponseMinutes(session);
-    return minutes.toFixed(1);
 }
 
 function safeNum(value) {
@@ -493,6 +683,7 @@ function summarizeSessions(sessions) {
     const list = Array.isArray(sessions) ? sessions : [];
     return {
         count: list.length,
+        practicedCards: list.reduce((sum, session) => sum + safeNum(session?.right_count) + safeNum(session?.wrong_count), 0),
         activeMinutes: list.reduce((sum, session) => sum + getSessionCombinedActiveMinutes(session), 0),
     };
 }
