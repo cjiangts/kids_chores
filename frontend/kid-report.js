@@ -261,7 +261,6 @@ function renderSessionsList() {
 
 function renderSessionCard(session) {
     const theme = getCategoryColorTheme(normalizeCategoryKey(session?.type));
-    const color = String(theme?.bar || DEFAULT_CATEGORY_COLOR_THEME.bar);
     const displayName = String(session?.category_display_name || '').trim() || String(session?.type || '');
     const glyph = String(session?.category_emoji || '').trim() || '🧩';
     const sessionUrl = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}${from === 'kid-home' ? '&from=kid-home' : ''}`;
@@ -269,7 +268,7 @@ function renderSessionCard(session) {
     const mode = formatPracticeMode(session.practice_mode);
     const subParts = [time, mode].filter((part) => part && part !== '-');
     const totalMins = (getSessionResponseMinutes(session) + getSessionRetryResponseMinutes(session)).toFixed(1);
-    const result = formatSessionResult(session);
+    const result = getSessionResultMeta(session);
     const retries = safeNum(session.retry_count);
     return `
         <a href="${sessionUrl}" class="session-card">
@@ -280,7 +279,7 @@ function renderSessionCard(session) {
             </div>
             <div class="session-stats">
                 <div class="session-mins">${totalMins}<span class="session-mins-unit">min</span></div>
-                ${result ? `<div class="session-result" style="color:${escapeHtml(color)}">${escapeHtml(result)}</div>` : ''}
+                ${result ? `<div class="session-result" style="color:${escapeHtml(result.color)}">${escapeHtml(result.text)}</div>` : ''}
                 <div class="session-retries">Retries ${retries}</div>
             </div>
             <div class="session-chevron">›</div>
@@ -288,13 +287,23 @@ function renderSessionCard(session) {
     `;
 }
 
-function formatSessionResult(session) {
+function getSessionResultMeta(session) {
+    const SESSION_RESULT_SUCCESS_COLOR = '#15803d';
+    const SESSION_RESULT_ERROR_COLOR = '#dc2626';
     const right = safeNum(session?.right_count);
     const wrong = safeNum(session?.wrong_count);
     const total = right + wrong;
-    if (total <= 0) return '';
-    if (wrong > 0) return `Correct ${right} / ${total}`;
-    return `Completed ${right} ${right === 1 ? 'item' : 'items'}`;
+    if (total <= 0) return null;
+    if (wrong > 0) {
+        return {
+            text: `Correct ${right} / ${total}`,
+            color: SESSION_RESULT_ERROR_COLOR,
+        };
+    }
+    return {
+        text: `Completed ${right} ${right === 1 ? 'item' : 'items'}`,
+        color: SESSION_RESULT_SUCCESS_COLOR,
+    };
 }
 
 function formatSessionTime(iso) {
