@@ -309,7 +309,7 @@ function renderCardsView(sessions) {
         }
         return;
     }
-    renderCardsDistributionView(cacheEntry.cards, behaviorType);
+    renderCardsDistributionView(cacheEntry.cards, behaviorType, cacheEntry.dailyProgressRows);
 }
 
 async function ensureCardsViewDataLoaded(categoryKey, behaviorType, sessions, forceReload = false) {
@@ -322,31 +322,47 @@ async function ensureCardsViewDataLoaded(categoryKey, behaviorType, sessions, fo
     if (!forceReload && existing && (existing.status === 'loading' || existing.status === 'ready')) {
         return;
     }
-    cardsViewCacheByCategoryKey.set(key, { status: 'loading', cards: [] });
+    cardsViewCacheByCategoryKey.set(key, { status: 'loading', cards: [], dailyProgressRows: [] });
     if (normalizeCategoryKey(selectedCategoryKey) === key && selectedReportView === 'cards') {
         renderCardsView(sessions);
     }
     try {
-        const response = await fetch(buildCardsViewApiUrl(key, normalizedBehaviorType));
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(data.error || `Failed to load cards (HTTP ${response.status})`);
+        const [cardsResp, dailyResp] = await Promise.all([
+            fetch(buildCardsViewApiUrl(key, normalizedBehaviorType)),
+            fetch(buildDailyProgressApiUrl(key)),
+        ]);
+        const cardsData = await cardsResp.json().catch(() => ({}));
+        if (!cardsResp.ok) {
+            throw new Error(cardsData.error || `Failed to load cards (HTTP ${cardsResp.status})`);
         }
-        const cards = Array.isArray(data.cards) ? data.cards : [];
+        const dailyData = await dailyResp.json().catch(() => ({}));
+        if (!dailyResp.ok) {
+            throw new Error(dailyData.error || `Failed to load daily progress (HTTP ${dailyResp.status})`);
+        }
+        const cards = Array.isArray(cardsData.cards) ? cardsData.cards : [];
+        const dailyProgressRows = Array.isArray(dailyData.rows) ? dailyData.rows : [];
         cardsViewCacheByCategoryKey.set(key, {
             status: 'ready',
             cards,
+            dailyProgressRows,
         });
     } catch (error) {
         console.error('Error loading cards view data:', error);
         cardsViewCacheByCategoryKey.set(key, {
             status: 'error',
             cards: [],
+            dailyProgressRows: [],
         });
     }
     if (normalizeCategoryKey(selectedCategoryKey) === key && selectedReportView === 'cards') {
         renderCardsView(filteredSessions);
     }
+}
+
+function buildDailyProgressApiUrl(categoryKey) {
+    const url = new URL(`${API_BASE}/kids/${encodeURIComponent(kidId)}/report/cards/daily-progress`);
+    url.searchParams.set('categoryKey', String(categoryKey || ''));
+    return url.toString();
 }
 
 function buildCardsViewApiUrl(categoryKey, behaviorType) {
@@ -412,7 +428,7 @@ function getSelectedCategoryDisplayName(categoryKey, sessions) {
     return key || 'Cards';
 }
 
-function renderCardsDistributionView(cards, behaviorType) {
+function renderCardsDistributionView(cards, behaviorType, dailyProgressRows) {
     const list = Array.isArray(cards) ? cards : [];
     const practicedCards = list.filter((card) => getCardPracticeCount(card) > 0);
     if (!practicedCards.length) {
@@ -428,7 +444,9 @@ function renderCardsDistributionView(cards, behaviorType) {
         buildSpeedDistribution(practicedCards, getCardCapsuleLabel),
         buildLastSeenDistribution(practicedCards, getCardCapsuleLabel),
     ];
+    const dailyProgress = buildDailyProgressChart(dailyProgressRows);
     cardsViewBody.innerHTML = `
+        ${dailyProgress ? renderDailyProgressPanel(dailyProgress) : ''}
         <div class="cards-distribution-grid">
             ${panels.map((panel) => renderDistributionPanel(panel)).join('')}
         </div>
@@ -548,6 +566,7 @@ function buildAccuracyDistribution(cards, getCardCapsuleLabel) {
         formatValue: formatPercentLabel,
         getValue: getCardCorrectRatePct,
         getCardCapsuleLabel,
+        percentileMarkers: [10, 90],
         bucketing: {
             snapUnit: 1,
             minClamp: 0,
@@ -623,6 +642,179 @@ function buildLastSeenDistribution(cards, getCardCapsuleLabel) {
         ],
         cards,
     });
+}
+
+function buildDailyProgressChart(dailyProgressRows) {
+    const rows = Array.isArray(dailyProgressRows) ? dailyProgressRows : [];
+    const validRows = [];
+    for (const row of rows) {
+        const cardId = Number(row?.card_id);
+        const date = String(row?.date || '').trim();
+        const attempts = Math.max(0, Number.parseInt(row?.attempts, 10) || 0);
+        const correct = Math.max(0, Number.parseInt(row?.correct, 10) || 0);
+        if (!Number.isFinite(cardId) || cardId <= 0 || !date || attempts <= 0) {
+            continue;
+        }
+        validRows.push({ cardId, date, attempts, correct });
+    }
+    if (!validRows.length) {
+        return null;
+    }
+    const rowsByDate = new Map();
+    for (const row of validRows) {
+        if (!rowsByDate.has(row.date)) {
+            rowsByDate.set(row.date, []);
+        }
+        rowsByDate.get(row.date).push(row);
+    }
+    const sortedDates = Array.from(rowsByDate.keys()).sort();
+    const firstDate = sortedDates[0];
+    const lastDate = sortedDates[sortedDates.length - 1];
+    const startEpoch = parseDateKeyToEpochUtc(firstDate);
+    const endEpoch = parseDateKeyToEpochUtc(lastDate);
+    if (!Number.isFinite(startEpoch) || !Number.isFinite(endEpoch) || endEpoch < startEpoch) {
+        return null;
+    }
+    const dayMs = 24 * 60 * 60 * 1000;
+    const cardCum = new Map();
+    const practicedSet = new Set();
+    const learnedSet = new Set();
+    const points = [];
+    let dayIndex = 0;
+    for (let epoch = startEpoch; epoch <= endEpoch; epoch += dayMs) {
+        dayIndex += 1;
+        const dateStr = formatEpochUtcToDateKey(epoch);
+        const dayRows = rowsByDate.get(dateStr) || [];
+        for (const row of dayRows) {
+            let cum = cardCum.get(row.cardId);
+            if (!cum) {
+                cum = { attempts: 0, correct: 0 };
+                cardCum.set(row.cardId, cum);
+            }
+            cum.attempts += row.attempts;
+            cum.correct += row.correct;
+            practicedSet.add(row.cardId);
+            if (cum.attempts >= 5 && (cum.correct / cum.attempts) >= 0.8) {
+                learnedSet.add(row.cardId);
+            }
+        }
+        points.push({
+            dayIndex,
+            date: dateStr,
+            practiced: practicedSet.size,
+            learned: learnedSet.size,
+        });
+    }
+    const yMax = Math.max(1, points.reduce((max, p) => Math.max(max, p.practiced, p.learned), 0));
+    return {
+        title: 'Daily Progress',
+        firstDate,
+        lastDate,
+        totalDays: points.length,
+        points,
+        yMax,
+    };
+}
+
+function parseDateKeyToEpochUtc(dateStr) {
+    const text = String(dateStr || '').trim();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+    if (!match) return NaN;
+    return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+function formatEpochUtcToDateKey(epochMs) {
+    const dt = new Date(epochMs);
+    if (Number.isNaN(dt.getTime())) return '';
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dt.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function renderDailyProgressPanel(chart) {
+    const points = Array.isArray(chart?.points) ? chart.points : [];
+    if (!points.length) return '';
+    const totalDays = Math.max(1, Number(chart?.totalDays) || points.length);
+    const yMax = Math.max(1, Number(chart?.yMax) || 0);
+    const yTicks = buildDailyProgressYTicks(yMax);
+    const axisMax = yTicks[yTicks.length - 1] || yMax;
+    const xTicks = buildDailyProgressXTicks(totalDays);
+    const positionForDay = (dayIndex) => totalDays <= 1
+        ? 50
+        : ((dayIndex - 1) / (totalDays - 1)) * 100;
+    const positionForValue = (value) => axisMax <= 0
+        ? 0
+        : (Number(value) / axisMax) * 100;
+    const buildLinePath = (key) => points
+        .map((point, idx) => {
+            const x = positionForDay(point.dayIndex).toFixed(2);
+            const y = (100 - positionForValue(point[key])).toFixed(2);
+            return `${idx === 0 ? 'M' : 'L'}${x},${y}`;
+        })
+        .join(' ');
+    const practicedPath = buildLinePath('practiced');
+    const learnedPath = buildLinePath('learned');
+    const lastPoint = points[points.length - 1] || { practiced: 0, learned: 0 };
+    return `
+        <div class="cards-distribution-card daily-progress-card">
+            <div class="cards-distribution-card-head">
+                <div class="cards-distribution-card-title">${escapeHtml(String(chart?.title || 'Daily Progress'))}</div>
+                <div class="daily-progress-legend">
+                    <span class="daily-progress-legend-item practiced"><span class="daily-progress-legend-swatch"></span>Practiced (${escapeHtml(String(lastPoint.practiced))})</span>
+                    <span class="daily-progress-legend-item learned"><span class="daily-progress-legend-swatch"></span>Learned (${escapeHtml(String(lastPoint.learned))})</span>
+                </div>
+            </div>
+            <div class="daily-progress-chart">
+                <div class="daily-progress-y-label">Cards</div>
+                <div class="daily-progress-y-axis">
+                    ${yTicks.map((tick) => `
+                        <div class="daily-progress-y-tick" style="bottom:${positionForValue(tick).toFixed(2)}%">${escapeHtml(String(tick))}</div>
+                    `).join('')}
+                </div>
+                <div class="daily-progress-plot">
+                    <div class="daily-progress-grid">
+                        ${yTicks.map((tick) => `
+                            <div class="daily-progress-grid-line" style="bottom:${positionForValue(tick).toFixed(2)}%"></div>
+                        `).join('')}
+                    </div>
+                    <svg class="daily-progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <path class="daily-progress-line practiced" d="${practicedPath}" />
+                        <path class="daily-progress-line learned" d="${learnedPath}" />
+                    </svg>
+                    <div class="daily-progress-x-axis">
+                        ${xTicks.map((tick) => `
+                            <div class="daily-progress-x-tick" style="left:${positionForDay(tick).toFixed(2)}%">Day ${escapeHtml(String(tick))}</div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function buildDailyProgressYTicks(yMax) {
+    const safeMax = Math.max(1, Number(yMax) || 0);
+    const step = getNiceHistogramStep(safeMax / 4);
+    const axisMax = Math.max(step, Math.ceil(safeMax / step) * step);
+    const ticks = [];
+    for (let value = 0; value <= axisMax; value += step) {
+        ticks.push(value);
+    }
+    return ticks;
+}
+
+function buildDailyProgressXTicks(totalDays) {
+    const days = Math.max(1, Number(totalDays) || 1);
+    if (days === 1) return [1];
+    const desiredCount = Math.min(6, days);
+    const ticks = new Set();
+    for (let i = 0; i < desiredCount; i += 1) {
+        const fraction = i / (desiredCount - 1);
+        const day = Math.round(1 + fraction * (days - 1));
+        ticks.add(day);
+    }
+    return Array.from(ticks).sort((a, b) => a - b);
 }
 
 function buildDistributionCardReportHref(cardId) {
@@ -701,7 +893,7 @@ function buildHistogramDistribution(options = {}) {
 
     const bars = buildHistogramBars(values, bucketDefinitions);
     const maxValue = Math.max(...values);
-    const percentiles = buildHistogramPercentiles(values, bars, maxValue, options?.formatValue);
+    const percentiles = buildHistogramPercentiles(values, bars, maxValue, options?.formatValue, options?.percentileMarkers);
     const yAxis = buildHistogramCountAxis(Math.max(...bars.map((bar) => Number(bar?.count) || 0), 0));
     const getCardCapsuleLabel = typeof options?.getCardCapsuleLabel === 'function'
         ? options.getCardCapsuleLabel
@@ -786,14 +978,17 @@ function buildHistogramBars(values, bucketDefinitions) {
     return bars;
 }
 
-function buildHistogramPercentiles(values, bucketDefinitions, observedMax, formatValue) {
+function buildHistogramPercentiles(values, bucketDefinitions, observedMax, formatValue, percentileMarkers) {
     const sortedValues = values.slice().sort((a, b) => a - b);
     const formatter = typeof formatValue === 'function' ? formatValue : (value) => String(value);
-    const markers = [
-        { percentile: 25, label: 'P25', className: 'p25' },
-        { percentile: 50, label: 'P50', className: 'p50' },
-        { percentile: 90, label: 'P90', className: 'p90' },
-    ];
+    const requested = Array.isArray(percentileMarkers) && percentileMarkers.length
+        ? percentileMarkers
+        : [50, 90];
+    const markers = requested.map((percentile) => ({
+        percentile,
+        label: `P${percentile}`,
+        className: `p${percentile}`,
+    }));
     const groups = [];
     for (const marker of markers) {
         const value = getPercentileValue(sortedValues, marker.percentile);

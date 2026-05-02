@@ -26,6 +26,28 @@ const {
     getCategoryEmoji,
 } = window.DeckCategoryCommon;
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
+const KID_AVATAR_TONE_COUNT = 6;
+const SUBJECT_TILE_TONE_COUNT = 6;
+
+function getKidInitial(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) {
+        return '?';
+    }
+    const codePoint = trimmed.codePointAt(0);
+    return String.fromCodePoint(codePoint).toUpperCase();
+}
+
+function hashStringToIndex(value, modulo) {
+    const s = String(value || '');
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) {
+        hash = ((hash << 5) - hash) + s.charCodeAt(i);
+        hash |= 0;
+    }
+    const m = Math.max(1, modulo);
+    return ((hash % m) + m) % m;
+}
 const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
 const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
 const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -548,24 +570,6 @@ function getManageHrefByCategory(categoryKey, kidId, categoryMetaMap = {}) {
     return `${path}?${params.toString()}`;
 }
 
-function getPrintableWorksheetHrefForCategory(kid, categoryKey, categoryMetaMap = {}) {
-    const key = String(categoryKey || '').trim().toLowerCase();
-    if (!key) {
-        return '';
-    }
-    const meta = categoryMetaMap?.[key] || {};
-    const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
-    const isChinese = behaviorType === 'type_ii' && Boolean(meta.has_chinese_specific_logic);
-    const isMath = behaviorType === 'type_iv';
-    if (!isChinese && !isMath) {
-        return '';
-    }
-    const params = new URLSearchParams();
-    params.set('id', String(kid?.id || ''));
-    params.set('categoryKey', key);
-    return `/kid-writing-sheet-manage.html?${params.toString()}`;
-}
-
 // UI Functions
 function displayKids(kids) {
     if (kids.length === 0) {
@@ -595,73 +599,62 @@ function displayKids(kids) {
         const summaryText = configuredDeckCount > 0
             ? `${configuredDeckCount} deck${configuredDeckCount === 1 ? '' : 's'} active`
             : 'No deck categories yet';
-        const deckHeroNote = availableOptInCount > 0
-            ? `${availableOptInCount} to opt in`
-            : (configuredDeckCount > 0 ? 'All opted in' : 'Tap + to choose what this kid practices');
-        let reviewToolAttached = false;
-
         const manageRows = optedInCategoryKeys.map((categoryKey) => {
             const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap);
             const emoji = getCategoryEmoji(categoryKey, categoryMetaMap);
-            const meta = categoryMetaMap?.[categoryKey] || {};
-            const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
             const dailyTarget = Number.parseInt(practiceTargetByCategory[categoryKey], 10);
             const safeDailyTarget = Number.isInteger(dailyTarget) ? Math.max(0, dailyTarget) : 0;
             const note = `${safeDailyTarget}/day target`;
             const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
-            const printableWorksheetHref = getPrintableWorksheetHrefForCategory(kid, categoryKey, categoryMetaMap);
-            const inlineToolHtml = printableWorksheetHref
-                ? `<a class="admin-row-pill admin-row-pill-secondary admin-row-pill-print semantic-outline-btn semantic-outline-btn--blue" href="${printableWorksheetHref}">🖨️ Printable sheets</a>`
-                : (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached
-                    ? `<button type="button" class="admin-row-pill admin-row-pill-secondary admin-row-pill-audio semantic-outline-btn semantic-outline-btn--green" onclick="goToLatestTypeIIIReviewSession('${kid.id}')">🎧 Review audio</button>`
-                    : '');
-            if (Boolean(kid.hasTypeIIIToReview) && behaviorType === 'type_iii' && !reviewToolAttached && inlineToolHtml) {
-                reviewToolAttached = true;
-            }
-            const rowRightHtml = href
-                ? ''
-                : `<span class="admin-row-pill admin-row-pill-muted">Soon</span>`;
-            const rowInnerHtml = `
-                <div class="redesign-subject-main">
-                    <div class="redesign-subject-title">
-                        <span class="redesign-subject-emoji">${escapeHtml(emoji)}</span>
-                        <span class="redesign-subject-name">${escapeHtml(displayName)}</span>
-                    </div>
+            const tileToneIndex = hashStringToIndex(categoryKey, SUBJECT_TILE_TONE_COUNT);
+            const tileHtml = `<span class="admin-subject-tile admin-subject-tile--tone-${tileToneIndex}" aria-hidden="true">${escapeHtml(emoji)}</span>`;
+            const bodyHtml = `
+                <div class="admin-subject-body">
+                    <div class="redesign-subject-title"><span class="redesign-subject-name">${escapeHtml(displayName)}</span></div>
                     <div class="redesign-subject-note">${escapeHtml(note)}</div>
                 </div>
-                ${rowRightHtml ? `<div class="redesign-subject-right">${rowRightHtml}</div>` : ''}
             `;
-            const rowHtml = href
+            const trailingHtml = href
+                ? `<span class="admin-row-chevron" aria-hidden="true">›</span>`
+                : `<span class="admin-row-pill admin-row-pill-muted">Soon</span>`;
+            const rowInnerHtml = `${tileHtml}${bodyHtml}${trailingHtml}`;
+            return href
                 ? `<a class="redesign-subject-row admin-config-row admin-config-row-link" href="${href}">${rowInnerHtml}</a>`
                 : `<div class="redesign-subject-row admin-config-row admin-config-row-disabled" title="Manage page not implemented yet">${rowInnerHtml}</div>`;
-            return `
-                <div class="admin-config-item${inlineToolHtml ? ' admin-config-item-with-tool' : ''}">
-                    ${inlineToolHtml ? `<div class="admin-config-utility">${inlineToolHtml}</div>` : ''}
-                    ${rowHtml}
-                </div>
-            `;
         });
         const subjectRowsHtml = manageRows.join('');
+        const initial = getKidInitial(kid.name);
+        const avatarToneIndex = hashStringToIndex(String(kid.id || kid.name || ''), KID_AVATAR_TONE_COUNT);
+        const reviewCount = Number.parseInt(kid.typeIIIToReviewCount, 10);
+        const safeReviewCount = Number.isInteger(reviewCount) && reviewCount > 0 ? reviewCount : 0;
+        const reviewAudioHtml = safeReviewCount > 0
+            ? `<button type="button" class="admin-review-audio-btn" onclick="goToLatestTypeIIIReviewSession('${kid.id}')" title="Review audio" aria-label="Review audio (${safeReviewCount})">
+                    <span class="admin-review-audio-icon" aria-hidden="true">🎧</span>
+                    <span class="admin-review-audio-badge">${safeReviewCount}</span>
+                </button>`
+            : '';
         return `
             <div class="redesign-kid-card admin-kid-card">
                 <div class="redesign-kid-top">
-                    <div>
-                        <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>
-                        <div class="redesign-kid-sub">${escapeHtml(summaryText)}</div>
+                    <div class="admin-kid-identity">
+                        <span class="admin-kid-avatar admin-kid-avatar--tone-${avatarToneIndex}" aria-hidden="true">${escapeHtml(initial)}</span>
+                        <div class="admin-kid-identity-text">
+                            <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>
+                            <div class="redesign-kid-sub">${escapeHtml(summaryText)}</div>
+                        </div>
                     </div>
-                    <a class="admin-records-pill" href="/kid-report.html?id=${kid.id}">
-                        <span class="admin-records-pill-icon" aria-hidden="true">📊</span>
-                        <span class="admin-records-pill-label">Records</span>
-                    </a>
-                </div>
-                <div class="admin-deck-hero-stack">
-                    <a class="admin-deck-hero admin-deck-hero-link" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;">
-                        <span class="admin-deck-hero-icon" aria-hidden="true">+</span>
-                        <span class="admin-deck-hero-copy">
-                            <span class="admin-deck-hero-title">Opt-in/out Deck Category</span>
-                            <span class="admin-deck-hero-note">${escapeHtml(deckHeroNote)}</span>
-                        </span>
-                    </a>
+                    <div class="admin-kid-actions">
+                        <a class="admin-optin-pill" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;" title="Opt-in/out Deck Category" aria-label="Opt-in/out Deck Category">
+                            <span class="admin-optin-pill-icon" aria-hidden="true">+</span>
+                            <span class="admin-optin-pill-label">Opt-in</span>
+                        </a>
+                        ${reviewAudioHtml}
+                        <a class="admin-records-pill" href="/kid-report.html?id=${kid.id}">
+                            <span class="admin-records-pill-icon" aria-hidden="true">📊</span>
+                            <span class="admin-records-pill-label">Records</span>
+                            <span class="admin-records-pill-chevron" aria-hidden="true">›</span>
+                        </a>
+                    </div>
                 </div>
                 ${subjectRowsHtml ? `<div class="redesign-subject-list admin-config-list">${subjectRowsHtml}</div>` : ''}
                 <div class="admin-card-footer">

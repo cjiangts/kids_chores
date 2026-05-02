@@ -576,6 +576,141 @@
             gap: 0.8rem;
         }
 
+        .daily-progress-card {
+            margin-bottom: 0.8rem;
+        }
+
+        .daily-progress-card .cards-distribution-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.7rem;
+            flex-wrap: wrap;
+        }
+
+        .daily-progress-legend {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            font-size: 0.74rem;
+            color: #4a5688;
+            font-weight: 600;
+        }
+
+        .daily-progress-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.32rem;
+        }
+
+        .daily-progress-legend-swatch {
+            width: 0.85rem;
+            height: 0.18rem;
+            border-radius: 2px;
+            background: #2f66e6;
+        }
+
+        .daily-progress-legend-item.learned .daily-progress-legend-swatch {
+            background: #16a34a;
+        }
+
+        .daily-progress-chart {
+            position: relative;
+            height: 13.5rem;
+            padding-left: 2.6rem;
+            padding-bottom: 1.8rem;
+        }
+
+        .daily-progress-y-label {
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: #4a5688;
+            font-size: 0.74rem;
+            font-weight: 700;
+        }
+
+        .daily-progress-y-axis {
+            position: absolute;
+            left: 0;
+            top: 1.4rem;
+            bottom: 1.8rem;
+            width: 2.2rem;
+        }
+
+        .daily-progress-y-tick {
+            position: absolute;
+            right: 0.35rem;
+            transform: translateY(50%);
+            color: #7480a9;
+            font-size: 0.66rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .daily-progress-plot {
+            position: absolute;
+            left: 2.6rem;
+            right: 0.4rem;
+            top: 1.4rem;
+            bottom: 1.8rem;
+        }
+
+        .daily-progress-grid {
+            position: absolute;
+            inset: 0;
+        }
+
+        .daily-progress-grid-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            border-top: 1px dashed #e7ebf7;
+        }
+
+        .daily-progress-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .daily-progress-line {
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            vector-effect: non-scaling-stroke;
+        }
+
+        .daily-progress-line.practiced {
+            stroke: #2f66e6;
+        }
+
+        .daily-progress-line.learned {
+            stroke: #16a34a;
+        }
+
+        .daily-progress-x-axis {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 100%;
+            margin-top: 0.32rem;
+            height: 1.1rem;
+        }
+
+        .daily-progress-x-tick {
+            position: absolute;
+            transform: translateX(-50%);
+            color: #5b6787;
+            font-size: 0.66rem;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
         .cards-distribution-card {
             border: 1px solid #e6ebf7;
             border-radius: 14px;
@@ -718,7 +853,7 @@
             position: absolute;
             left: 0;
             top: 3.15rem;
-            bottom: 1.7rem;
+            bottom: 2.6rem;
             width: 2.2rem;
         }
 
@@ -737,7 +872,7 @@
             left: 2.6rem;
             right: 0;
             top: 3.15rem;
-            bottom: 1.7rem;
+            bottom: 2.6rem;
         }
 
         .cards-distribution-grid-line {
@@ -752,7 +887,7 @@
             left: 2.6rem;
             right: 1.6rem;
             top: 0;
-            bottom: 1.7rem;
+            bottom: 2.6rem;
             pointer-events: none;
             overflow: visible;
         }
@@ -800,7 +935,7 @@
             opacity: 0.8;
         }
 
-        .cards-distribution-marker.p25 {
+        .cards-distribution-marker.p10 {
             color: #8b5cf6;
         }
 
@@ -825,20 +960,21 @@
             left: 2.6rem;
             right: 1.6rem;
             top: 3.15rem;
-            bottom: 1.7rem;
+            bottom: 2.6rem;
             display: grid;
             gap: 0.68rem;
             align-items: stretch;
         }
 
         .cards-distribution-bar-slot {
-            display: grid;
-            grid-template-rows: minmax(0, 1fr) auto;
-            gap: 0.38rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
             min-width: 0;
         }
 
         .cards-distribution-bar-stack {
+            flex: 1 1 auto;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
@@ -881,6 +1017,11 @@
         }
 
         .cards-distribution-bar-label {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 0.32rem;
             color: #5b6787;
             font-size: 0.68rem;
             font-weight: 700;
@@ -892,7 +1033,7 @@
             position: absolute;
             left: 2.6rem;
             right: 0;
-            bottom: 1.7rem;
+            bottom: 2.6rem;
             border-top: 1px solid #d9dfef;
         }
 
@@ -1072,7 +1213,7 @@
             .cards-distribution-y-axis {
                 width: 1.8rem;
                 top: 2.9rem;
-                bottom: 1.5rem;
+                bottom: 2.4rem;
             }
 
             .cards-distribution-y-tick {
@@ -1090,15 +1231,15 @@
             .cards-distribution-grid-layer,
             .cards-distribution-bars {
                 top: 2.9rem;
-                bottom: 1.5rem;
+                bottom: 2.4rem;
             }
 
             .cards-distribution-marker-layer {
-                bottom: 1.5rem;
+                bottom: 2.4rem;
             }
 
             .cards-distribution-baseline {
-                bottom: 1.5rem;
+                bottom: 2.4rem;
             }
 
             .cards-distribution-marker-badge {

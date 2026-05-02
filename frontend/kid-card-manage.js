@@ -64,6 +64,7 @@ const applyDeckTreeChangesBtn = document.getElementById('applyDeckTreeChangesBtn
 const cancelDeckTreeModalBtn = document.getElementById('cancelDeckTreeModalBtn');
 const deckTreeChangeMessage = document.getElementById('deckTreeChangeMessage');
 const openPersonalDeckModalBtn = document.getElementById('openPersonalDeckModalBtn');
+const openPrintableSheetsBtn = document.getElementById('openPrintableSheetsBtn');
 const personalDeckModal = document.getElementById('personalDeckModal');
 const cancelPersonalDeckModalBtn = document.getElementById('cancelPersonalDeckModalBtn');
 const type4DeckCountsModal = document.getElementById('type4DeckCountsModal');
@@ -828,6 +829,18 @@ function applyCategoryUiText() {
     }
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.classList.toggle('hidden', !showOrphanEditor);
+    }
+    if (openPrintableSheetsBtn) {
+        const supportsPrintableSheets = isType4Behavior() || (isType2Behavior() && isChineseSpecificLogic);
+        openPrintableSheetsBtn.classList.toggle('hidden', !supportsPrintableSheets);
+        if (supportsPrintableSheets) {
+            const printParams = new URLSearchParams();
+            printParams.set('id', String(kidId || ''));
+            printParams.set('categoryKey', String(categoryKey || ''));
+            openPrintableSheetsBtn.href = `/kid-writing-sheet-manage.html?${printParams.toString()}`;
+        } else {
+            openPrintableSheetsBtn.removeAttribute('href');
+        }
     }
     if (!showOrphanEditor) {
         setManageModalOpen(personalDeckModal, false);

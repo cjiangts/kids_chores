@@ -4474,7 +4474,7 @@ def get_kid_dashboard_stats(
     *,
     category_meta_by_key=None,
     type_iii_category_keys=None,
-    include_has_ungraded=True,
+    include_ungraded_count=True,
     conn=None,
     family_timezone=None,
 ):
@@ -4599,8 +4599,8 @@ def get_kid_dashboard_stats(
                 ),
             )
 
-        has_ungraded = False
-        if include_has_ungraded:
+        ungraded_count = 0
+        if include_ungraded_count:
             effective_type_iii_category_keys = [
                 normalize_shared_deck_tag(item)
                 for item in list(
@@ -4617,17 +4617,20 @@ def get_kid_dashboard_stats(
                 placeholders = ', '.join(['?'] * len(effective_type_iii_category_keys))
                 ungraded_row = local_conn.execute(
                     f"""
-                    SELECT 1
+                    SELECT COUNT(*) AS cnt
                     FROM sessions s
                     JOIN session_results sr ON sr.session_id = s.id
                     WHERE s.type IN ({placeholders})
                       AND s.completed_at IS NOT NULL
                       AND sr.correct = 0
-                    LIMIT 1
                     """,
                     effective_type_iii_category_keys,
                 ).fetchone()
-                has_ungraded = bool(ungraded_row)
+                if ungraded_row is not None:
+                    try:
+                        ungraded_count = int(ungraded_row[0] or 0)
+                    except (TypeError, ValueError):
+                        ungraded_count = 0
 
         return (
             today_counts,
@@ -4636,7 +4639,7 @@ def get_kid_dashboard_stats(
             today_latest_target_count,
             today_latest_tried_count,
             today_latest_right_count,
-            has_ungraded,
+            ungraded_count,
         )
     except Exception:
         return (
@@ -4646,7 +4649,7 @@ def get_kid_dashboard_stats(
             default_latest_target_count,
             default_latest_tried_count,
             default_latest_right_count,
-            False,
+            0,
         )
     finally:
         if owns_conn and local_conn is not None:
@@ -4695,15 +4698,15 @@ def get_kid_opted_in_deck_category_keys(kid, *, category_meta_by_key=None, conn=
         return []
 
 
-def get_kid_has_ungraded_type_iii(kid, *, type_iii_category_keys=None, conn=None):
-    """Return whether kid has any completed type-III session rows needing grading."""
+def get_kid_ungraded_type_iii_count(kid, *, type_iii_category_keys=None, conn=None):
+    """Return number of type-III session result rows awaiting grading."""
     keys = [
         normalize_shared_deck_tag(item)
         for item in list(type_iii_category_keys or [])
     ]
     keys = [key for key in keys if key]
     if not keys:
-        return False
+        return 0
     local_conn = conn
     owns_conn = False
     if local_conn is None:
@@ -4711,24 +4714,28 @@ def get_kid_has_ungraded_type_iii(kid, *, type_iii_category_keys=None, conn=None
             local_conn = get_kid_connection_for(kid, read_only=True)
             owns_conn = True
         except Exception:
-            return False
+            return 0
     try:
         placeholders = ', '.join(['?'] * len(keys))
         row = local_conn.execute(
             f"""
-            SELECT 1
+            SELECT COUNT(*) AS cnt
             FROM sessions s
             JOIN session_results sr ON sr.session_id = s.id
             WHERE s.type IN ({placeholders})
               AND s.completed_at IS NOT NULL
               AND sr.correct = 0
-            LIMIT 1
             """,
             keys,
         ).fetchone()
-        return bool(row)
+        if row is None:
+            return 0
+        try:
+            return int(row[0] or 0)
+        except (TypeError, ValueError):
+            return 0
     except Exception:
-        return False
+        return 0
     finally:
         if owns_conn and local_conn is not None:
             local_conn.close()
@@ -5169,14 +5176,14 @@ def get_kids():
                         category_meta_by_key,
                         conn=conn,
                     )
-                    has_ungraded = get_kid_has_ungraded_type_iii(
+                    ungraded_count = get_kid_ungraded_type_iii_count(
                         kid,
                         type_iii_category_keys=type_iii_category_keys,
                         conn=conn,
                     )
                     kids_with_admin_summary.append({
                         **kid,
-                        'hasTypeIIIToReview': has_ungraded,
+                        'typeIIIToReviewCount': ungraded_count,
                         'optedInDeckCategoryKeys': opted_in_category_keys,
                         'practiceTargetByDeckCategory': practice_target_by_deck_category,
                         'deckCategoryMetaByKey': category_meta_by_key,
@@ -5214,7 +5221,7 @@ def get_kids():
                     today_latest_target_count,
                     today_latest_tried_count,
                     today_latest_right_count,
-                    has_ungraded,
+                    ungraded_count,
                 ) = get_kid_dashboard_stats(
                     kid,
                     category_meta_by_key=category_meta_by_key,
@@ -5250,7 +5257,7 @@ def get_kids():
                 kid_with_progress = {
                     **kid,
                     'dailyCompletedCountToday': int(today_counts.get('total', 0) or 0),
-                    'hasTypeIIIToReview': has_ungraded,
+                    'typeIIIToReviewCount': ungraded_count,
                     'optedInDeckCategoryKeys': opted_in_category_keys,
                     'dailyCompletedByDeckCategory': daily_completed_by_deck_category,
                     'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
@@ -5313,7 +5320,7 @@ def get_kid(kid_id):
             return jsonify({'error': 'Kid not found'}), 404
         view = str(request.args.get('view') or '').strip().lower()
         include_dashboard_metrics = view not in {'practice_session', 'manage'}
-        include_has_ungraded = view not in {'practice_home', 'practice_session', 'manage'}
+        include_ungraded_count = view not in {'practice_home', 'practice_session', 'manage'}
 
         family_id = str(kid.get('familyId') or '').strip()
         family_timezone = metadata.get_family_timezone(family_id)
@@ -5338,12 +5345,12 @@ def get_kid(kid_id):
                     today_latest_target_count,
                     today_latest_tried_count,
                     today_latest_right_count,
-                    has_ungraded,
+                    ungraded_count,
                 ) = get_kid_dashboard_stats(
                     kid,
                     category_meta_by_key=category_meta_by_key,
                     type_iii_category_keys=get_type_iii_category_keys(category_meta_by_key),
-                    include_has_ungraded=include_has_ungraded,
+                    include_ungraded_count=include_ungraded_count,
                     conn=conn,
                     family_timezone=family_timezone,
                 )
@@ -5354,7 +5361,7 @@ def get_kid(kid_id):
                 today_latest_target_count = defaultdict(int)
                 today_latest_tried_count = defaultdict(int)
                 today_latest_right_count = defaultdict(int)
-                has_ungraded = False
+                ungraded_count = 0
             opted_in_category_keys = get_kid_opted_in_deck_category_keys(
                 kid,
                 category_meta_by_key=category_meta_by_key,
@@ -5402,7 +5409,7 @@ def get_kid(kid_id):
         kid_with_progress = {
             **kid,
             'dailyCompletedCountToday': int(today_counts.get('total', 0) or 0),
-            'hasTypeIIIToReview': has_ungraded,
+            'typeIIIToReviewCount': ungraded_count,
             'optedInDeckCategoryKeys': opted_in_category_keys,
             'dailyCompletedByDeckCategory': daily_completed_by_deck_category,
             'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
@@ -5663,6 +5670,82 @@ def get_kid_report(kid_id):
             },
             'family_timezone': family_timezone,
             'sessions': sessions
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/report/cards/daily-progress', methods=['GET'])
+def get_kid_report_cards_daily_progress(kid_id):
+    """Per-card-per-day attempt aggregates for one kid+category, used to plot category onboarding progress."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        category_key = str(request.args.get('categoryKey') or '').strip().lower()
+        if not category_key:
+            return jsonify({'error': 'categoryKey is required'}), 400
+
+        family_id = str(kid.get('familyId') or '').strip()
+        family_timezone = metadata.get_family_timezone(family_id)
+        try:
+            tzinfo = ZoneInfo(family_timezone)
+        except Exception:
+            tzinfo = ZoneInfo('UTC')
+
+        conn = get_kid_connection_for(kid, read_only=True)
+        try:
+            attempts = conn.execute(
+                """
+                SELECT sr.card_id, sr.timestamp, sr.correct
+                FROM session_results sr
+                JOIN sessions s ON s.id = sr.session_id
+                WHERE LOWER(TRIM(s.type)) = ?
+                  AND sr.card_id IS NOT NULL
+                  AND sr.timestamp IS NOT NULL
+                ORDER BY sr.timestamp ASC
+                """,
+                [category_key],
+            ).fetchall()
+        finally:
+            conn.close()
+
+        agg = defaultdict(lambda: {'attempts': 0, 'correct': 0})
+        for row in attempts:
+            try:
+                card_id_int = int(row[0])
+            except (TypeError, ValueError):
+                continue
+            ts = row[1]
+            if not isinstance(ts, datetime):
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            local_dt = ts.astimezone(tzinfo)
+            date_str = local_dt.strftime('%Y-%m-%d')
+            entry = agg[(card_id_int, date_str)]
+            entry['attempts'] += 1
+            try:
+                correct_val = int(row[2])
+            except (TypeError, ValueError):
+                correct_val = 0
+            if correct_val == 1:
+                entry['correct'] += 1
+
+        rows = [
+            {
+                'card_id': key[0],
+                'date': key[1],
+                'attempts': val['attempts'],
+                'correct': val['correct'],
+            }
+            for key, val in agg.items()
+        ]
+
+        return jsonify({
+            'family_timezone': family_timezone,
+            'rows': rows,
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

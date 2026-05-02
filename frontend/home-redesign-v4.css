@@ -480,12 +480,7 @@ body.practice-home-redesign {
 
 /* Parent admin cards */
 .parent-admin-page {
-    --admin-row-pill-height: clamp(37px, 6.5vw, 42px);
-    --admin-row-pill-top-gap: clamp(8px, 2vw, 10px);
-    --admin-row-pill-offset: clamp(14px, 3.2vw, 19px);
-    --admin-row-pill-right-offset: clamp(6px, 1.8vw, 12px);
-    --admin-row-pill-secondary-font-size: clamp(0.64rem, 2.1vw, 0.8rem);
-    --admin-row-pill-secondary-pad-x: clamp(0.38rem, 1.4vw, 0.62rem);
+    --admin-row-pill-height: clamp(34px, 6vw, 38px);
 }
 
 .parent-admin-page .kids-grid {
@@ -506,12 +501,48 @@ body.practice-home-redesign {
 }
 
 .parent-admin-page .redesign-kid-top {
-    margin-bottom: 8px;
+    align-items: center;
+    margin-bottom: 10px;
 }
 
+.parent-admin-page .admin-kid-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.parent-admin-page .admin-kid-identity-text {
+    min-width: 0;
+}
+
+.parent-admin-page .admin-kid-avatar {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.1rem;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(31, 45, 98, 0.18);
+    user-select: none;
+}
+
+.parent-admin-page .admin-kid-avatar--tone-0 { background: linear-gradient(135deg, #8b5cf6, #6f55d8); }
+.parent-admin-page .admin-kid-avatar--tone-1 { background: linear-gradient(135deg, #4d84e3, #3b66c2); }
+.parent-admin-page .admin-kid-avatar--tone-2 { background: linear-gradient(135deg, #ec5fa1, #c83f86); }
+.parent-admin-page .admin-kid-avatar--tone-3 { background: linear-gradient(135deg, #34b89c, #1e8a73); }
+.parent-admin-page .admin-kid-avatar--tone-4 { background: linear-gradient(135deg, #f0a23a, #d27a18); }
+.parent-admin-page .admin-kid-avatar--tone-5 { background: linear-gradient(135deg, #ed6f5c, #c4493a); }
+
 .parent-admin-page .redesign-kid-name {
-    font-size: clamp(1.45rem, 2vw, 1.85rem);
-    line-height: 1.02;
+    font-size: clamp(1.35rem, 2vw, 1.7rem);
+    line-height: 1.05;
 }
 
 .parent-admin-page .redesign-kid-sub {
@@ -520,28 +551,119 @@ body.practice-home-redesign {
     line-height: 1.1;
 }
 
+.parent-admin-page .admin-kid-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+.parent-admin-page .admin-optin-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: var(--control-radius);
+    border: 1px solid #d5def8;
+    background: #fff;
+    color: #4f63cb;
+    text-decoration: none;
+    font-size: 0.84rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.parent-admin-page .admin-optin-pill:hover {
+    transform: translateY(-1px);
+    background: #f4f6fc;
+    border-color: #b8c4e6;
+}
+
+.parent-admin-page .admin-optin-pill-icon {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.parent-admin-page .admin-optin-pill-label {
+    font-size: 0.84rem;
+    line-height: 1;
+}
+
+.parent-admin-page .admin-review-audio-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: var(--control-radius);
+    border: 1px solid #d5def8;
+    background: #fff;
+    color: #4f63cb;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.parent-admin-page .admin-review-audio-btn:hover {
+    transform: translateY(-1px);
+    background: #f4f6fc;
+    border-color: #b8c4e6;
+}
+
+.parent-admin-page .admin-review-audio-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.parent-admin-page .admin-review-audio-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #ec5fa1;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: 0 0 0 2px var(--dashboard-panel-bg);
+}
+
 .parent-admin-page .admin-records-pill {
-    min-width: 72px;
     min-height: 36px;
     border-radius: var(--control-radius);
-    border: 1px solid #e5e8ff;
-    background: linear-gradient(90deg, #fff8cb, #ffe9cf, #eef4ff);
+    border: 1px solid #d5def8;
+    background: #fff;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     padding: 0 10px;
     text-decoration: none;
-    font-size: 0.86rem;
-    font-weight: 700;
-    color: #8a4f00;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #4f63cb;
     white-space: nowrap;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
 
 .parent-admin-page .admin-records-pill:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(31, 45, 98, 0.12);
+    background: #f4f6fc;
+    border-color: #b8c4e6;
 }
 
 .parent-admin-page .admin-records-pill-icon {
@@ -549,73 +671,11 @@ body.practice-home-redesign {
     line-height: 1;
 }
 
-.parent-admin-page .admin-deck-hero-stack {
-    margin-top: 4px;
-}
-
-.parent-admin-page .admin-deck-hero {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 10px;
-    margin-top: 0;
-    padding: 1rem;
-    border: 1px dashed #86a6ee;
-    border-radius: var(--dashboard-chip-radius);
-    background: var(--dashboard-panel-bg);
-    color: #243351;
-    box-shadow: none;
-    text-decoration: none;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-.parent-admin-page .admin-deck-hero-link {
-    cursor: pointer;
-}
-
-.parent-admin-page .admin-deck-hero-link:hover {
-    transform: translateY(-1px);
-    border-color: #4f83ff;
-    box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.12);
-}
-
-.parent-admin-page .admin-deck-hero-link:focus-visible,
-.parent-admin-page .admin-config-row-link:focus-visible {
-    outline: 2px solid rgba(90, 111, 214, 0.65);
-    outline-offset: 3px;
-}
-
-.parent-admin-page .admin-deck-hero-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: #4f63cb;
+.parent-admin-page .admin-records-pill-chevron {
+    font-size: 1.1rem;
     line-height: 1;
-}
-
-.parent-admin-page .admin-deck-hero-copy {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.parent-admin-page .admin-deck-hero-title {
-    font-size: 0.88rem;
-    font-weight: 800;
-    line-height: 1.04;
-}
-
-.parent-admin-page .admin-deck-hero-note {
-    margin-top: 2px;
-    font-size: 0.78rem;
-    color: #556581;
-    line-height: 1.1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: #8a99c8;
+    margin-left: 2px;
 }
 
 .parent-admin-page .admin-config-list {
@@ -623,44 +683,13 @@ body.practice-home-redesign {
     gap: 6px;
 }
 
-.parent-admin-page .admin-config-item {
-    position: relative;
-}
-
-.parent-admin-page .admin-config-item-with-tool {
-    padding-top: var(--admin-row-pill-top-gap);
-    margin-top: calc(-1 * var(--admin-row-pill-top-gap));
-}
-
-.parent-admin-page .admin-config-utility {
-    position: absolute;
-    top: var(--admin-row-pill-offset);
-    right: var(--admin-row-pill-right-offset);
-    z-index: 2;
-    display: flex;
-    justify-content: flex-end;
-    transform: translateY(0);
-    pointer-events: none;
-}
-
-.parent-admin-page .admin-config-utility .admin-row-pill-secondary {
-    pointer-events: auto;
-    border-radius: var(--control-radius);
-    font-size: 0.82rem;
-    font-weight: 500;
-}
-
-.parent-admin-page .admin-config-utility .semantic-outline-btn--blue,
-.parent-admin-page .admin-config-utility .semantic-outline-btn--green {
-    background: #fff;
-    color: #667eea;
-    border-color: #d2d9eb;
-}
-
 .parent-admin-page .admin-config-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     color: inherit;
     text-decoration: none;
-    padding: 1rem;
+    padding: 0.7rem 0.85rem;
     cursor: default;
     border: none;
     border-radius: var(--dashboard-chip-radius);
@@ -679,15 +708,56 @@ body.practice-home-redesign {
     box-shadow: var(--dashboard-chip-hover-shadow);
 }
 
+.parent-admin-page .admin-config-row-link:focus-visible {
+    outline: 2px solid rgba(90, 111, 214, 0.65);
+    outline-offset: 3px;
+}
+
+.parent-admin-page .admin-subject-tile {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.parent-admin-page .admin-subject-tile--tone-0 { background: #fff1d6; }
+.parent-admin-page .admin-subject-tile--tone-1 { background: #ffd9a8; }
+.parent-admin-page .admin-subject-tile--tone-2 { background: #ffd0d0; }
+.parent-admin-page .admin-subject-tile--tone-3 { background: #c9efe2; }
+.parent-admin-page .admin-subject-tile--tone-4 { background: #e0d8fb; }
+.parent-admin-page .admin-subject-tile--tone-5 { background: #d8e7fb; }
+
+.parent-admin-page .admin-subject-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .parent-admin-page .redesign-subject-title {
-    font-size: 0.88rem;
-    line-height: 1.04;
+    font-size: 0.94rem;
+    line-height: 1.1;
 }
 
 .parent-admin-page .redesign-subject-note {
     margin-top: 2px;
     font-size: 0.78rem;
     line-height: 1.1;
+}
+
+.parent-admin-page .admin-row-chevron {
+    flex: 0 0 auto;
+    color: #9aa6c2;
+    font-size: 1.5rem;
+    line-height: 1;
+    font-weight: 600;
+}
+
+.parent-admin-page .admin-config-row-link:hover .admin-row-chevron {
+    color: #4f63cb;
 }
 
 .parent-admin-page .admin-config-row-disabled,
@@ -713,27 +783,6 @@ body.practice-home-redesign {
     background: #edf2f7;
     border: 1px solid #d8e0ea;
     font-weight: 600;
-}
-
-.parent-admin-page .admin-row-pill-secondary {
-    font-size: var(--admin-row-pill-secondary-font-size);
-    min-height: var(--admin-row-pill-height);
-    padding: 0 var(--admin-row-pill-secondary-pad-x);
-    font-weight: 400;
-}
-
-.parent-admin-page .admin-row-pill-action:hover {
-    transform: translateY(-1px);
-}
-
-.parent-admin-page .admin-row-pill-secondary:hover {
-    transform: translateY(-1px);
-}
-
-.parent-admin-page .admin-config-utility .semantic-outline-btn--blue:hover,
-.parent-admin-page .admin-config-utility .semantic-outline-btn--green:hover {
-    background: #f4f6fc;
-    border-color: #b8c4e6;
 }
 
 .parent-admin-page .admin-card-footer {
@@ -1110,17 +1159,40 @@ body.practice-home-redesign {
         font-size: 0.78rem;
     }
 
-    .parent-admin-page .admin-deck-hero {
+    .parent-admin-page .admin-optin-pill {
+        min-height: 32px;
+        padding: 0 9px;
+        font-size: 0.78rem;
+    }
+
+    .parent-admin-page .admin-optin-pill-icon {
+        font-size: 0.95rem;
+    }
+
+    .parent-admin-page .admin-optin-pill-label {
+        font-size: 0.78rem;
+    }
+
+    .parent-admin-page .admin-kid-avatar {
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
+    }
+
+    .parent-admin-page .admin-subject-tile {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+        border-radius: 8px;
+    }
+
+    .parent-admin-page .admin-row-chevron {
+        font-size: 1.3rem;
+    }
+
+    .parent-admin-page .admin-config-row {
         padding: 8px 10px;
-        gap: 7px;
-    }
-
-    .parent-admin-page .admin-deck-hero-title {
-        font-size: 0.79rem;
-    }
-
-    .parent-admin-page .admin-deck-hero-note {
-        font-size: 0.7rem;
+        gap: 8px;
     }
 
     .practice-home-redesign .practice-row-head h3 {
@@ -1204,10 +1276,19 @@ body.practice-home-redesign {
 }
 
 @media (max-width: 520px) {
-    .parent-admin-page .admin-records-pill {
+    .parent-admin-page .admin-records-pill,
+    .parent-admin-page .admin-optin-pill {
         min-width: 0;
         min-height: 38px;
         padding: 0 10px;
+        font-size: 0.84rem;
+    }
+
+    .parent-admin-page .admin-optin-pill-icon {
+        font-size: 1rem;
+    }
+
+    .parent-admin-page .admin-optin-pill-label {
         font-size: 0.84rem;
     }
 
