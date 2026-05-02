@@ -234,6 +234,13 @@
             font-weight: 600;
         }
 
+        .daily-chart-status {
+            color: #666;
+            font-size: 0.85rem;
+            padding: 1rem 0.4rem;
+            text-align: center;
+        }
+
         .sessions-shell {
             background: var(--dashboard-panel-bg, rgba(255, 255, 255, 0.92));
             border: 1px solid rgba(255, 255, 255, 0.68);
@@ -390,6 +397,7 @@
             color: #666;
             font-size: 0.85rem;
             padding: 1rem 0.4rem;
+            text-align: center;
         }
 
         @media (max-width: 540px) {
@@ -553,17 +561,17 @@
         <div class="daily-chart-wrap">
             <div class="daily-chart-header">
                 <div class="daily-chart-pager">
-                    <button id="dailyChartOlderBtn" type="button" class="daily-chart-page-btn" aria-label="Older">‹</button>
-                    <div id="dailyChartPageLabel" class="daily-chart-page-label">Latest 7 days</div>
-                    <button id="dailyChartNewerBtn" type="button" class="daily-chart-page-btn" aria-label="Newer">›</button>
+                    <button id="dailyChartOlderBtn" type="button" class="daily-chart-page-btn" aria-label="Older" disabled>‹</button>
+                    <div id="dailyChartPageLabel" class="daily-chart-page-label">Loading kid records...</div>
+                    <button id="dailyChartNewerBtn" type="button" class="daily-chart-page-btn" aria-label="Newer" disabled>›</button>
                 </div>
             </div>
-            <div id="dailyChartLegend" class="daily-chart-legend"></div>
-            <div id="dailyChartBody"></div>
+            <div id="dailyChartLegend" class="daily-chart-legend" style="display:none"></div>
+            <div id="dailyChartBody"><div class="daily-chart-status">Loading kid records...</div></div>
         </div>
 
         <div class="sessions-shell">
-            <div id="sessionsList" class="sessions-list"></div>
+            <div id="sessionsList" class="sessions-list"><div class="sessions-empty">Loading kid records...</div></div>
         </div>
     </div>
 

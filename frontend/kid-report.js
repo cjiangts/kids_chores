@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/admin.html';
         return;
     }
+    renderInitialLoadingState();
     if (backBtn) {
         backBtn.href = from === 'kid-home'
             ? `/kid-practice-home.html?id=${encodeURIComponent(kidId)}`
@@ -88,6 +89,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     await loadReport();
 });
+
+function renderInitialLoadingState() {
+    if (dailyChartPageLabel) {
+        dailyChartPageLabel.textContent = 'Loading kid records...';
+    }
+    if (dailyChartLegend) {
+        dailyChartLegend.innerHTML = '';
+        dailyChartLegend.style.display = 'none';
+    }
+    if (dailyChartBody) {
+        dailyChartBody.innerHTML = '<div class="daily-chart-status">Loading kid records...</div>';
+    }
+    if (sessionsList) {
+        sessionsList.innerHTML = '<div class="sessions-empty">Loading kid records...</div>';
+    }
+    if (dailyChartNewerBtn) {
+        dailyChartNewerBtn.disabled = true;
+    }
+    if (dailyChartOlderBtn) {
+        dailyChartOlderBtn.disabled = true;
+    }
+}
 
 async function loadReport() {
     try {
