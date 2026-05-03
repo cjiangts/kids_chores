@@ -48,6 +48,16 @@
             margin-bottom: var(--card-section-title-margin-bottom);
         }
 
+        .settings-card-body > h2 ~ h2 {
+            margin-top: 0;
+        }
+
+        .settings-divider {
+            border: 0;
+            border-top: 1px solid #e5ebfb;
+            margin: 1.4rem 0 1.1rem;
+        }
+
         .settings-row {
             display: flex;
             gap: 0.75rem;
@@ -747,11 +757,9 @@
                         <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
                         <div id="timezoneError" class="error hidden"></div>
                         <div id="timezoneSuccess" class="success hidden"></div>
-                    </div>
-                </section>
 
-                <section class="settings-card settings-section">
-                    <div class="settings-card-body">
+                        <hr class="settings-divider">
+
                         <h2>Rewards</h2>
                         <div class="settings-note">Start or reset family badges.</div>
                         <div id="rewardsStatusText" class="settings-status">Loading rewards...</div>
@@ -762,30 +770,28 @@
                         </div>
                         <div id="rewardsError" class="error hidden"></div>
                         <div id="rewardsSuccess" class="success hidden"></div>
-                    </div>
-                </section>
 
-                <section id="backupSettingsCard" class="settings-card settings-section">
-                    <div class="settings-card-body">
-                        <h2>Backup & Restore</h2>
-                        <div class="settings-row">
-                            <button id="downloadBackupBtn" class="btn-secondary">⬇️ Download Backup</button>
-                            <button id="restoreBackupBtn" class="btn-secondary">⬆️ Restore Backup</button>
-                            <input type="file" id="backupFileInput" accept=".zip" class="hidden">
-                            <span id="backupInfo" class="settings-note"></span>
+                        <div id="backupSettingsCard">
+                            <hr class="settings-divider">
+                            <h2>Backup & Restore</h2>
+                            <div class="settings-row">
+                                <button id="downloadBackupBtn" class="btn-secondary">⬇️ Download Backup</button>
+                                <button id="restoreBackupBtn" class="btn-secondary">⬆️ Restore Backup</button>
+                                <input type="file" id="backupFileInput" accept=".zip" class="hidden">
+                                <span id="backupInfo" class="settings-note"></span>
+                            </div>
                         </div>
-                    </div>
-                </section>
 
-                <section id="familyAdminCard" class="settings-card settings-section hidden">
-                    <div class="settings-card-body">
-                        <h2>Manage Families</h2>
-                        <p class="settings-note">Super-family can delete non-super families.</p>
-                        <div id="familyStorageSummary" class="settings-note hidden"></div>
-                        <div id="familyAccountsEmpty" class="settings-note hidden">No family accounts found.</div>
-                        <div id="familyAccountsList" class="family-accounts-list"></div>
-                        <div id="familyAdminError" class="error hidden"></div>
-                        <div id="familyAdminSuccess" class="success hidden"></div>
+                        <div id="familyAdminCard" class="hidden">
+                            <hr class="settings-divider">
+                            <h2>Manage Families</h2>
+                            <p class="settings-note">Super-family can delete non-super families.</p>
+                            <div id="familyStorageSummary" class="settings-note hidden"></div>
+                            <div id="familyAccountsEmpty" class="settings-note hidden">No family accounts found.</div>
+                            <div id="familyAccountsList" class="family-accounts-list"></div>
+                            <div id="familyAdminError" class="error hidden"></div>
+                            <div id="familyAdminSuccess" class="success hidden"></div>
+                        </div>
                     </div>
                 </section>
             </div>

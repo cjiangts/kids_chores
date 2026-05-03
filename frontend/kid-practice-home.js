@@ -196,8 +196,24 @@ function applyKidPayload(kid) {
         writingCardsLoadedCategoryKey = '';
     }
     activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
-    kidNameEl.textContent = `${currentKid.name}'s Practice`;
+    kidNameEl.innerHTML = `<span class="practice-mascot" aria-hidden="true">🧸</span><span class="practice-kid-name-text">${escapeHtmlLocal(currentKid.name)}'s Practice</span>`;
     updatePageTitle();
+}
+
+function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
+    const safeCount = Math.max(0, Number.parseInt(starCount, 10) || 0);
+    if (safeCount <= 0) {
+        return '';
+    }
+    if (safeCount <= 5) {
+        return Array.from({ length: safeCount }, () => (
+            `<span class="${starClass}" aria-hidden="true">★</span>`
+        )).join('');
+    }
+    return `
+        <span class="${starClass}" aria-hidden="true">★</span>
+        <span class="${overflowClass}" aria-label="${safeCount} stars">x${safeCount}</span>
+    `;
 }
 
 function readKidFromPracticeNavigationCache() {
@@ -312,22 +328,6 @@ async function loadBadgeShelfSummary({ forceRefresh = false } = {}) {
         };
     }
     renderPracticeOptions();
-}
-
-function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
-    const safeCount = Math.max(0, Number.parseInt(starCount, 10) || 0);
-    if (safeCount <= 0) {
-        return '';
-    }
-    if (safeCount <= 5) {
-        return Array.from({ length: safeCount }, () => (
-            `<span class="${starClass}" aria-hidden="true">★</span>`
-        )).join('');
-    }
-    return `
-        <span class="${starClass}" aria-hidden="true">★</span>
-        <span class="${overflowClass}" aria-label="${safeCount} stars">x${safeCount}</span>
-    `;
 }
 
 function buildCategoryProgressModel({
@@ -458,12 +458,14 @@ function buildCategoryCardInnerHtml({
     displayName,
     progressModel,
 }) {
-    let rightBadgeHtml = `<span class="practice-row-status-pill ${progressModel.statusClass}">${progressModel.statusText}</span>`;
+    let rightBadgeHtml;
     if (progressModel.isFullyComplete) {
         rightBadgeHtml = renderStarTokenSetHtml(Math.max(1, progressModel.starCount), {
             starClass: 'practice-row-token-star',
             overflowClass: 'practice-row-token-overflow',
         });
+    } else {
+        rightBadgeHtml = `<span class="practice-row-status-pill ${progressModel.statusClass}">${escapeHtmlLocal(progressModel.statusText)}</span>`;
     }
 
     const subTextHtml = progressModel.targetCount > 0
@@ -474,26 +476,42 @@ function buildCategoryCardInnerHtml({
             </span>
             <span class="practice-row-legend-item">
                 <span class="practice-row-legend-dot redo" aria-hidden="true"></span>
-                ${escapeHtmlLocal(String(progressModel.redoCount))} redo
+                ${escapeHtmlLocal(String(progressModel.redoCount))} to redo
             </span>
             <span class="practice-row-legend-item">
                 <span class="practice-row-legend-dot unseen" aria-hidden="true"></span>
-                ${escapeHtmlLocal(String(progressModel.unseenCount))} out of ${escapeHtmlLocal(String(progressModel.targetCount))} unseen
+                ${escapeHtmlLocal(String(progressModel.unseenCount))} unseen
             </span>
         </div>`
         : `<div class="practice-row-sub">${escapeHtmlLocal(progressModel.subText)}</div>`;
 
+    const percentValue = progressModel.targetCount > 0
+        ? Math.max(0, Math.min(100, Math.round(progressModel.fillPercent)))
+        : 0;
+    const percentHtml = progressModel.targetCount > 0
+        ? `<span class="practice-row-percent">${percentValue}%</span>`
+        : '';
+
     return `
-        <div class="practice-row-head">
-            <h3>${escapeHtmlLocal(emoji)} ${escapeHtmlLocal(displayName)}</h3>
-            <div class="practice-row-right">${rightBadgeHtml}</div>
+        <span class="practice-row-tile" aria-hidden="true">
+            <span class="practice-row-tile-emoji">${escapeHtmlLocal(emoji)}</span>
+        </span>
+        <div class="practice-row-content">
+            <div class="practice-row-head">
+                <h3>${escapeHtmlLocal(displayName)}</h3>
+                <div class="practice-row-right">${rightBadgeHtml}</div>
+            </div>
+            ${subTextHtml}
+            <div class="practice-row-progress-line">
+                <div class="practice-row-progress">
+                    <span class="practice-row-seg mastered" style="width:${progressModel.masteredPercent}%"></span>
+                    <span class="practice-row-seg redo" style="width:${progressModel.redoPercent}%"></span>
+                    <span class="practice-row-seg unseen" style="width:${progressModel.unseenPercent}%"></span>
+                </div>
+                ${percentHtml}
+            </div>
         </div>
-        ${subTextHtml}
-        <div class="practice-row-progress">
-            <span class="practice-row-seg mastered" style="width:${progressModel.masteredPercent}%"></span>
-            <span class="practice-row-seg redo" style="width:${progressModel.redoPercent}%"></span>
-            <span class="practice-row-seg unseen" style="width:${progressModel.unseenPercent}%"></span>
-        </div>
+        <span class="practice-row-chevron" aria-hidden="true">›</span>
     `;
 }
 
@@ -592,21 +610,28 @@ function renderPracticeSummaryStrip({
     const summaryBoxes = [];
     if (assignedCount > 0) {
         summaryBoxes.push(`
-            <div class="redesign-summary-box">
-                <p class="redesign-summary-label">Stars today</p>
-                <p class="redesign-summary-value">${starsTodayCount}</p>
+            <div class="redesign-summary-box redesign-summary-box-with-icon">
+                <span class="redesign-summary-icon stars" aria-hidden="true">★</span>
+                <div class="redesign-summary-main">
+                    <p class="redesign-summary-label">Stars today</p>
+                    <p class="redesign-summary-value">${starsTodayCount}</p>
+                </div>
             </div>
         `);
         summaryBoxes.push(`
-            <div class="redesign-summary-box">
-                <p class="redesign-summary-label">Done</p>
-                <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
+            <div class="redesign-summary-box redesign-summary-box-with-icon">
+                <span class="redesign-summary-icon done" aria-hidden="true">✓</span>
+                <div class="redesign-summary-main">
+                    <p class="redesign-summary-label">Done</p>
+                    <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
+                </div>
             </div>
         `);
     }
     if (badgeShelfSummary.loaded && badgeShelfSummary.trackingEnabled) {
         summaryBoxes.push(`
             <button type="button" class="badge-summary-box" data-practice-action="open-badge-shelf">
+                <span class="badge-summary-medal" aria-hidden="true">🏅</span>
                 <div class="badge-summary-main">
                     <p class="redesign-summary-label">Badge Shelf</p>
                     <p class="redesign-summary-value badge-summary-value">
@@ -615,7 +640,7 @@ function renderPracticeSummaryStrip({
                         }</span>
                     </p>
                 </div>
-                <span class="badge-summary-medal" aria-hidden="true">🏅</span>
+                <span class="badge-summary-chevron" aria-hidden="true">›</span>
             </button>
         `);
     } else if (badgeShelfSummary.loaded) {

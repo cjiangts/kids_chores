@@ -961,6 +961,20 @@
             margin-bottom: 0.62rem;
         }
 
+        .deck-setup-actions:has(> :nth-child(2).hidden):has(> :nth-child(3).hidden):has(> :nth-child(4).hidden) {
+            grid-template-columns: 1fr;
+        }
+
+        .deck-setup-actions:has(> :nth-child(2).hidden):has(> :nth-child(3).hidden):not(:has(> :nth-child(4).hidden)),
+        .deck-setup-actions:has(> :nth-child(2).hidden):has(> :nth-child(4).hidden):not(:has(> :nth-child(3).hidden)),
+        .deck-setup-actions:has(> :nth-child(3).hidden):has(> :nth-child(4).hidden):not(:has(> :nth-child(2).hidden)) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .deck-setup-actions:not(:has(> .hidden)) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
         .deck-setup-actions .manage-popup-btn,
         .deck-setup-actions .settings-save-btn {
             min-height: 60px;
@@ -1561,25 +1575,30 @@
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            gap: 0.7rem;
-            margin-top: 0.15rem;
+            gap: 0.55rem;
+            margin-top: 0;
             flex-wrap: nowrap;
             flex: 1 1 auto;
             min-width: 0;
         }
 
         .queue-settings-actions .queue-session-count-group {
-            flex: 1 1 auto;
+            flex: 0 0 auto;
         }
 
         .queue-controls-row {
             display: flex;
-            align-items: flex-end;
+            align-items: center;
             justify-content: space-between;
-            gap: 0.7rem;
+            gap: 0.6rem;
             flex-wrap: nowrap;
             min-width: 0;
             max-width: 100%;
+            background: #ffffff;
+            border: 1px solid rgba(99, 102, 241, 0.18);
+            border-radius: 14px;
+            padding: 0.5rem 0.55rem 0.5rem 0.9rem;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.08);
         }
 
         .queue-save-row {
@@ -1666,6 +1685,31 @@
             color: #8e9ab1;
             border: 1px solid #d5dceb;
             cursor: not-allowed;
+        }
+
+        .cards-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            padding: 1.4rem 1rem;
+            color: #5d6ca0;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .cards-loading-spinner {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid rgba(99, 102, 241, 0.25);
+            border-top-color: #6366f1;
+            animation: cardsLoadingSpin 0.85s linear infinite;
+            flex: 0 0 auto;
+        }
+
+        @keyframes cardsLoadingSpin {
+            to { transform: rotate(360deg); }
         }
 
         /* Keep Next Session Mix inside card bounds on narrow screens. */
@@ -3344,6 +3388,20 @@
                 gap: 0.35rem;
             }
 
+            .deck-setup-actions:has(> :nth-child(2).hidden):has(> :nth-child(3).hidden):has(> :nth-child(4).hidden) {
+                grid-template-columns: 1fr;
+            }
+
+            .deck-setup-actions:has(> :nth-child(2).hidden):has(> :nth-child(3).hidden):not(:has(> :nth-child(4).hidden)),
+            .deck-setup-actions:has(> :nth-child(2).hidden):has(> :nth-child(4).hidden):not(:has(> :nth-child(3).hidden)),
+            .deck-setup-actions:has(> :nth-child(3).hidden):has(> :nth-child(4).hidden):not(:has(> :nth-child(2).hidden)) {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .deck-setup-actions:not(:has(> .hidden)) {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
             .deck-setup-actions .manage-popup-btn,
             .deck-setup-actions .settings-save-btn {
                 padding: 0.5rem 0.4rem 0.5rem 0.55rem;
@@ -3585,7 +3643,7 @@
                     <div class="queue-controls-row">
                         <div class="queue-settings-actions">
                             <div class="form-group queue-session-count-group">
-                                <label id="sessionCardCountLabel" for="sessionCardCount">Cards/day</label>
+                                <label id="sessionCardCountLabel" for="sessionCardCount">Cards / day</label>
                                 <input
                                     type="number"
                                     id="sessionCardCount"
@@ -3676,6 +3734,10 @@
             </div>
                 <div class="cards-bulk-action-message-wrap">
                     <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>
+                </div>
+                <div id="cardsLoadingIndicator" class="cards-loading hidden" role="status" aria-live="polite">
+                    <span class="cards-loading-spinner" aria-hidden="true"></span>
+                    <span class="cards-loading-text">Refreshing cards…</span>
                 </div>
                 <div id="cardsGrid" class="cards-grid"></div>
         </section>

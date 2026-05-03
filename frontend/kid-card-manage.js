@@ -797,7 +797,7 @@ function applyCategoryUiText() {
     const showType4DeckTargetBlock = isType4Behavior();
     const usePracticeFocus = supportsPracticePriorityPreview();
     if (sessionCardCountLabel) {
-        sessionCardCountLabel.textContent = 'Cards/day';
+        sessionCardCountLabel.textContent = 'Cards / day';
     }
     if (cardsSectionTitleText) {
         cardsSectionTitleText.textContent = currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV
@@ -4272,6 +4272,7 @@ async function applyDeckMembershipChanges() {
     showError('');
     showSuccess('');
     showDeckChangeMessage('');
+    setCardsLoadingIndicatorVisible(true);
     try {
         if (toOptIn.length > 0) {
             await requestOptInDeckIds(toOptIn);
@@ -4298,7 +4299,18 @@ async function applyDeckMembershipChanges() {
         showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
     } finally {
         isDeckMoveInFlight = false;
+        setCardsLoadingIndicatorVisible(false);
         renderDeckPendingInfo();
+    }
+}
+
+function setCardsLoadingIndicatorVisible(visible) {
+    const indicator = document.getElementById('cardsLoadingIndicator');
+    if (!indicator) return;
+    indicator.classList.toggle('hidden', !visible);
+    const grid = document.getElementById('cardsGrid');
+    if (grid) {
+        grid.classList.toggle('hidden', !!visible);
     }
 }
 

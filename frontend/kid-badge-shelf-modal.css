@@ -9,9 +9,8 @@
     cursor: pointer;
     text-align: left;
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
+    align-items: center;
+    gap: 9px;
     min-width: 0;
     width: 100%;
 }
@@ -23,6 +22,19 @@
 
 .practice-home-redesign .badge-summary-main {
     min-width: 0;
+    flex: 1 1 auto;
+}
+
+.practice-home-redesign .badge-summary-chevron {
+    flex: 0 0 auto;
+    color: #9aa6c2;
+    font-size: 1.4rem;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.practice-home-redesign .badge-summary-box:hover .badge-summary-chevron {
+    color: #4f63cb;
 }
 
 .practice-home-redesign .badge-summary-main .redesign-summary-label {
@@ -43,17 +55,12 @@
 }
 
 .practice-home-redesign .badge-summary-medal {
-    width: 40px;
-    height: 40px;
-    border-radius: 14px;
-    border: 1px solid rgba(240, 206, 116, 0.9);
-    background: rgba(255, 255, 255, 0.72);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 1.85rem;
+    line-height: 1;
     flex: 0 0 auto;
-    align-self: flex-start;
 }
 
 .badge-modal-content {
@@ -447,10 +454,11 @@
     }
 
     .practice-home-redesign .badge-summary-medal {
-        width: 28px;
-        height: 28px;
-        border-radius: 9px;
-        font-size: 0.78rem;
+        font-size: 1.4rem;
+    }
+
+    .practice-home-redesign .badge-summary-chevron {
+        font-size: 1.15rem;
     }
 
     .badge-detail-panel {

@@ -235,6 +235,183 @@ body.practice-home-redesign {
     gap: 8px;
 }
 
+.family-home-page .redesign-kid-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.family-home-page .redesign-kid-identity-text {
+    min-width: 0;
+}
+
+.family-home-page .admin-kid-avatar {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.3rem;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(31, 45, 98, 0.18);
+    user-select: none;
+}
+
+.family-home-page .admin-kid-avatar--tone-0 { background: linear-gradient(135deg, #8b5cf6, #6f55d8); }
+.family-home-page .admin-kid-avatar--tone-1 { background: linear-gradient(135deg, #4d84e3, #3b66c2); }
+.family-home-page .admin-kid-avatar--tone-2 { background: linear-gradient(135deg, #ec5fa1, #c83f86); }
+.family-home-page .admin-kid-avatar--tone-3 { background: linear-gradient(135deg, #34b89c, #1e8a73); }
+.family-home-page .admin-kid-avatar--tone-4 { background: linear-gradient(135deg, #f0a23a, #d27a18); }
+.family-home-page .admin-kid-avatar--tone-5 { background: linear-gradient(135deg, #ed6f5c, #c4493a); }
+
+.family-home-page .redesign-kid-progress-track {
+    width: 100%;
+    height: 12px;
+    border-radius: 999px;
+    background: #e4e8f7;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 8px;
+}
+
+.family-home-page .redesign-kid-summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.5rem;
+    color: #536486;
+    font-size: 0.92rem;
+    line-height: 1.2;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e4e8f7;
+    margin-bottom: 12px;
+}
+
+.family-home-page .redesign-kid-summary-num {
+    color: #273551;
+    font-weight: 800;
+}
+
+.family-home-page .redesign-kid-summary-sep {
+    color: #a3acc7;
+}
+
+.family-home-page .redesign-kid-icon-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.family-home-page .redesign-kid-icon-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 10px 6px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid transparent;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    min-width: 0;
+}
+
+.family-home-page .redesign-kid-icon-tile.done {
+    background: #e7f6ec;
+    border-color: #c0e3ca;
+}
+
+.family-home-page .redesign-kid-icon-tile.in-progress {
+    background: #fff3da;
+    border-color: #f0d6a0;
+}
+
+.family-home-page .redesign-kid-icon-tile.not-started {
+    background: #f4f6fc;
+    border-color: #e0e6f3;
+}
+
+.family-home-page .redesign-kid-icon-top {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    background: transparent;
+    font-size: 2.4rem;
+    line-height: 1;
+}
+
+.family-home-page .redesign-kid-icon-tile.not-started .redesign-kid-icon-top {
+    opacity: 0.55;
+}
+
+.family-home-page .redesign-kid-icon-emoji {
+    font-size: 2.4rem;
+    line-height: 1;
+}
+
+.family-home-page .redesign-kid-icon-indicator {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.family-home-page .redesign-kid-icon-indicator.done {
+    background: #2da866;
+    color: #fff;
+    border: 2px solid #fff;
+}
+
+.family-home-page .redesign-kid-icon-indicator.in-progress {
+    background: #f3b53f;
+    background-image: linear-gradient(90deg, #f3b53f 50%, #fff7e0 50%);
+    border: 2px solid #fff;
+}
+
+.family-home-page .redesign-kid-icon-indicator.not-started {
+    background: #fff;
+    border: 2px solid #cfd5e7;
+}
+
+.family-home-page .redesign-kid-icon-label {
+    color: #273551;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: manual;
+    max-width: 100%;
+}
+
+.family-home-page .redesign-kid-cta {
+    margin-top: 14px;
+    color: #4f63cb;
+    font-weight: 800;
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
 .family-home-page .redesign-kid-actions {
     margin-top: 10px;
     display: flex;
@@ -721,7 +898,7 @@ body.practice-home-redesign {
     width: 38px;
     height: 38px;
     border-radius: 10px;
-    font-size: 1.2rem;
+    font-size: 1.7rem;
     line-height: 1;
 }
 
@@ -812,6 +989,18 @@ body.practice-home-redesign {
     max-width: 760px;
 }
 
+.practice-home-redesign .practice-mascot {
+    display: inline-block;
+    margin-right: 0.4rem;
+    font-size: 0.95em;
+    line-height: 1;
+    vertical-align: -0.05em;
+}
+
+.practice-home-redesign .practice-kid-name-text {
+    display: inline;
+}
+
 .practice-home-redesign .redesign-practice-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -819,11 +1008,15 @@ body.practice-home-redesign {
 }
 
 .practice-home-redesign .redesign-practice-option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
     border: 1px solid rgba(255, 255, 255, 0.7);
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.93);
     box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
-    padding: 10px 12px;
+    padding: 12px;
     text-align: left;
     transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
@@ -831,6 +1024,36 @@ body.practice-home-redesign {
 .practice-home-redesign .redesign-practice-option:hover {
     transform: translateY(-1px);
     box-shadow: 0 18px 40px rgba(31, 45, 98, 0.2);
+}
+
+.practice-home-redesign .practice-row-tile {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+}
+
+.practice-home-redesign .practice-row-tile-emoji {
+    font-size: 1.85rem;
+    line-height: 1;
+}
+
+.practice-home-redesign .practice-row-content {
+    min-width: 0;
+}
+
+.practice-home-redesign .practice-row-chevron {
+    flex: 0 0 auto;
+    color: #9aa6c2;
+    font-size: 1.6rem;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.practice-home-redesign .redesign-practice-option:hover .practice-row-chevron {
+    color: #4f63cb;
 }
 
 .practice-home-redesign .practice-row-head {
@@ -908,14 +1131,30 @@ body.practice-home-redesign {
     background: #cfd5e7;
 }
 
-.practice-home-redesign .practice-row-progress {
+.practice-home-redesign .practice-row-progress-line {
     margin-top: 8px;
-    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.practice-home-redesign .practice-row-progress {
+    flex: 1 1 auto;
     height: 11px;
     border-radius: 999px;
     background: #e4e8f7;
     overflow: hidden;
     display: flex;
+}
+
+.practice-home-redesign .practice-row-percent {
+    flex: 0 0 auto;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #4b5a70;
+    line-height: 1;
+    min-width: 36px;
+    text-align: right;
 }
 
 .practice-home-redesign .practice-row-seg {
@@ -973,32 +1212,25 @@ body.practice-home-redesign {
     border: 1px solid #d8e0ea;
 }
 
-.practice-home-redesign .practice-row-token-star,
-.practice-home-redesign .practice-row-token-overflow {
-    display: flex;
+.practice-home-redesign .practice-row-token-star {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 22px;
-    min-width: 22px;
-    border-radius: 999px;
     line-height: 1;
-    font-size: 0.88rem;
+    font-size: 1.5rem;
     font-weight: 800;
-}
-
-.practice-home-redesign .practice-row-token-star {
-    color: #b17700;
-    background: #fff3bf;
-    border: 1px solid #f0ce74;
+    color: #f3b53f;
+    text-shadow: 0 1px 2px rgba(178, 121, 0, 0.25);
 }
 
 .practice-home-redesign .practice-row-token-overflow {
-    min-width: 36px;
-    padding: 0 0.44rem;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    margin-left: 2px;
+    font-size: 0.9rem;
+    font-weight: 800;
     color: #4b5a70;
-    background: #edf2f7;
-    border: 1px solid #d8e0ea;
-    font-size: 0.88rem;
 }
 
 .practice-home-redesign .redesign-summary-strip {
@@ -1014,6 +1246,36 @@ body.practice-home-redesign {
     border: 1px solid rgba(255, 255, 255, 0.72);
     background: rgba(255, 255, 255, 0.93);
     box-shadow: 0 10px 24px rgba(31, 45, 98, 0.14);
+}
+
+.practice-home-redesign .redesign-summary-box-with-icon {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.practice-home-redesign .redesign-summary-main {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.practice-home-redesign .redesign-summary-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.85rem;
+    line-height: 1;
+    font-weight: 800;
+}
+
+.practice-home-redesign .redesign-summary-icon.stars {
+    color: #f3b53f;
+    text-shadow: 0 1px 2px rgba(178, 121, 0, 0.25);
+}
+
+.practice-home-redesign .redesign-summary-icon.done {
+    color: #2da866;
 }
 
 .practice-home-redesign .progress-summary-box {
@@ -1077,6 +1339,49 @@ body.practice-home-redesign {
     }
 }
 
+@media (max-width: 520px) {
+    .family-home-page .admin-kid-avatar {
+        width: 44px;
+        height: 44px;
+        font-size: 1.1rem;
+    }
+
+    .family-home-page .redesign-kid-progress-track {
+        height: 10px;
+        margin-bottom: 6px;
+    }
+
+    .family-home-page .redesign-kid-summary {
+        font-size: 0.82rem;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+
+    .family-home-page .redesign-kid-icon-tile {
+        padding: 8px 4px;
+        gap: 4px;
+    }
+
+    .family-home-page .redesign-kid-icon-top {
+        width: 48px;
+        height: 48px;
+        font-size: 2rem;
+    }
+
+    .family-home-page .redesign-kid-icon-emoji {
+        font-size: 2rem;
+    }
+
+    .family-home-page .redesign-kid-icon-label {
+        font-size: 0.72rem;
+    }
+
+    .family-home-page .redesign-kid-cta {
+        margin-top: 10px;
+        font-size: 0.88rem;
+    }
+}
+
 @media (max-width: 760px) {
     body.home-redesign,
     body.practice-home-redesign {
@@ -1103,6 +1408,23 @@ body.practice-home-redesign {
     .practice-home-redesign .redesign-practice-option {
         border-radius: 18px;
         padding: 10px;
+    }
+
+    .practice-home-redesign .redesign-practice-option {
+        gap: 10px;
+    }
+
+    .practice-home-redesign .practice-row-tile {
+        width: 48px;
+        height: 48px;
+    }
+
+    .practice-home-redesign .practice-row-tile-emoji {
+        font-size: 1.55rem;
+    }
+
+    .practice-home-redesign .practice-row-chevron {
+        font-size: 1.4rem;
     }
 
     .family-home-page header h1 {
@@ -1175,7 +1497,7 @@ body.practice-home-redesign {
     .parent-admin-page .admin-subject-tile {
         width: 32px;
         height: 32px;
-        font-size: 1rem;
+        font-size: 1.5rem;
         border-radius: 8px;
     }
 
@@ -1326,8 +1648,39 @@ body.practice-home-redesign {
         padding: 6px 7px;
     }
 
+    .practice-home-redesign .redesign-summary-box-with-icon {
+        gap: 6px;
+    }
+
+    .practice-home-redesign .redesign-summary-icon {
+        font-size: 1.4rem;
+    }
+
     .practice-home-redesign .progress-summary-box {
         gap: 6px;
+    }
+
+    .practice-home-redesign .redesign-practice-option {
+        gap: 8px;
+        padding: 9px;
+    }
+
+    .practice-home-redesign .practice-row-tile {
+        width: 42px;
+        height: 42px;
+    }
+
+    .practice-home-redesign .practice-row-tile-emoji {
+        font-size: 1.35rem;
+    }
+
+    .practice-home-redesign .practice-row-percent {
+        font-size: 0.72rem;
+        min-width: 28px;
+    }
+
+    .practice-home-redesign .practice-row-chevron {
+        font-size: 1.2rem;
     }
 
     .practice-home-redesign .redesign-summary-label {

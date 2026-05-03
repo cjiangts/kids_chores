@@ -22,6 +22,27 @@ const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv'
 const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
 const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
 const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
+const KID_AVATAR_TONE_COUNT = 6;
+
+function getKidInitial(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) {
+        return '?';
+    }
+    const codePoint = trimmed.codePointAt(0);
+    return String.fromCodePoint(codePoint).toUpperCase();
+}
+
+function hashStringToIndex(value, modulo) {
+    const s = String(value || '');
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) {
+        hash = ((hash << 5) - hash) + s.charCodeAt(i);
+        hash |= 0;
+    }
+    const m = Math.max(1, modulo);
+    return ((hash % m) + m) % m;
+}
 
 if (!buildCategoryStarsModel) {
     throw new Error('practice-star-badge-common.js is required for app');
@@ -200,22 +221,6 @@ function hasPositiveDailyTarget(categoryKey, categoryMetaMap, practiceTargetByCa
     return toSafeNonNegativeInt(practiceTargetByCategory?.[key]) > 0;
 }
 
-function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
-    const safeCount = Math.max(0, Number.parseInt(starCount, 10) || 0);
-    if (safeCount <= 0) {
-        return '';
-    }
-    if (safeCount <= 5) {
-        return Array.from({ length: safeCount }, () => (
-            `<span class="${starClass}" aria-hidden="true">★</span>`
-        )).join('');
-    }
-    return `
-        <span class="${starClass}" aria-hidden="true">★</span>
-        <span class="${overflowClass}" aria-label="${safeCount} stars">x${safeCount}</span>
-    `;
-}
-
 function buildFamilyProgressModel({
     starsModel,
     behaviorType,
@@ -336,7 +341,6 @@ function displayKids(kids) {
     }
 
     kidsList.innerHTML = kids.map(kid => {
-        const kidIdText = String(kid?.id ?? '').trim();
         const optedInKeys = getOptedInDeckCategoryKeys(kid);
         const categoryMetaMap = getDeckCategoryMetaMap(kid);
         const dailyCompletedByCategory = getCategoryValueMap(kid?.dailyCompletedByDeckCategory);
@@ -349,6 +353,10 @@ function displayKids(kids) {
 
         const enabledRows = [];
         let starsTotal = 0;
+        let masteredTotal = 0;
+        let redoTotal = 0;
+        let unseenTotal = 0;
+        let targetTotal = 0;
         optedInKeys.forEach((categoryKey) => {
             if (!hasPositiveDailyTarget(categoryKey, categoryMetaMap, practiceTargetByCategory)) {
                 return;
@@ -374,82 +382,96 @@ function displayKids(kids) {
                 latestRightCount: dailyRightByCategory[categoryKey],
             });
             starsTotal += progressModel.starCount;
+            masteredTotal += progressModel.masteredCount;
+            redoTotal += progressModel.redoCount;
+            unseenTotal += progressModel.unseenCount;
+            targetTotal += progressModel.targetCount;
             enabledRows.push({
                 label: displayName,
                 emoji,
                 progressModel,
             });
         });
-        const doneCount = enabledRows.filter((row) => row.progressModel.isFullyComplete).length;
-        const subjectRowsHtml = enabledRows.length > 0
-            ? enabledRows.map((row) => {
-                const statusClass = row.progressModel.statusClass;
-                const rightStatusHtml = row.progressModel.isFullyComplete
-                    ? renderStarTokenSetHtml(Math.max(1, row.progressModel.starCount), {
-                        starClass: 'redesign-status-token star',
-                        overflowClass: 'redesign-status-token overflow',
-                    })
-                    : `<span class="redesign-status-pill ${statusClass}">${row.progressModel.statusText}</span>`;
-                const noteHtml = row.progressModel.targetCount > 0
-                    ? `<div class="redesign-subject-note redesign-subject-legend">
-                        <span class="redesign-subject-legend-item">
-                            <span class="redesign-subject-legend-dot mastered" aria-hidden="true"></span>
-                            ${escapeHtml(String(row.progressModel.masteredCount))} mastered
-                        </span>
-                        <span class="redesign-subject-legend-item">
-                            <span class="redesign-subject-legend-dot redo" aria-hidden="true"></span>
-                            ${escapeHtml(String(row.progressModel.redoCount))} redo
-                        </span>
-                        <span class="redesign-subject-legend-item">
-                            <span class="redesign-subject-legend-dot unseen" aria-hidden="true"></span>
-                            ${escapeHtml(String(row.progressModel.unseenCount))} out of ${escapeHtml(String(row.progressModel.targetCount))} unseen
-                        </span>
-                    </div>`
-                    : `<div class="redesign-subject-note">${escapeHtml(row.progressModel.summaryText)}</div>`;
-                return `<div class="redesign-subject-row ${statusClass}">
-                    <div class="redesign-subject-main">
-                        <div class="redesign-subject-title">
-                            <span class="redesign-subject-emoji">${escapeHtml(row.emoji)}</span>
-                            <span class="redesign-subject-name">${escapeHtml(row.label)}</span>
-                        </div>
-                    </div>
-                    <div class="redesign-subject-right">
-                        ${rightStatusHtml}
-                    </div>
-                    ${noteHtml}
-                    <div class="redesign-progress-wrap">
-                        <div class="redesign-progress-track">
-                            <span class="redesign-progress-seg mastered" style="width:${row.progressModel.segments.mastered}%"></span>
-                            <span class="redesign-progress-seg redo" style="width:${row.progressModel.segments.redo}%"></span>
-                            <span class="redesign-progress-seg unseen" style="width:${row.progressModel.segments.unseen}%"></span>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('')
-            : '<div class="redesign-subject-row"><div class="redesign-subject-main"><div class="redesign-subject-title"><span class="redesign-subject-name">No daily practices assigned</span></div></div></div>';
 
-        const summaryText = enabledRows.length > 0
-            ? `${doneCount}/${enabledRows.length} done`
-            : 'No daily practices';
+        const startedCount = enabledRows.filter((row) => row.progressModel.statusClass !== 'not-started' || row.progressModel.isFullyComplete).length;
+        const masteredPct = targetTotal > 0 ? Math.max(0, Math.min(100, (masteredTotal / targetTotal) * 100)) : 0;
+        const redoPct = targetTotal > 0 ? Math.max(0, Math.min(100, (redoTotal / targetTotal) * 100)) : 0;
+        const unseenPct = Math.max(0, 100 - masteredPct - redoPct);
+
         const isClickable = enabledRows.length > 0;
+        const initial = getKidInitial(kid.name);
+        const avatarToneIndex = hashStringToIndex(String(kid.id || kid.name || ''), KID_AVATAR_TONE_COUNT);
+
+        const subText = enabledRows.length > 0
+            ? `Today: ${startedCount} of ${enabledRows.length} decks started`
+            : 'No daily practices assigned';
+
+        const summaryLineHtml = enabledRows.length > 0
+            ? `<div class="redesign-kid-summary">
+                <span class="redesign-kid-summary-item"><span class="redesign-kid-summary-num">${escapeHtml(String(masteredTotal))}</span> mastered</span>
+                <span class="redesign-kid-summary-sep">·</span>
+                <span class="redesign-kid-summary-item"><span class="redesign-kid-summary-num">${escapeHtml(String(redoTotal))}</span> to redo</span>
+                <span class="redesign-kid-summary-sep">·</span>
+                <span class="redesign-kid-summary-item"><span class="redesign-kid-summary-num">${escapeHtml(String(unseenTotal))}</span> unseen</span>
+            </div>`
+            : '';
+
+        const progressBarHtml = enabledRows.length > 0
+            ? `<div class="redesign-kid-progress-track">
+                <span class="redesign-progress-seg mastered" style="width:${masteredPct}%"></span>
+                <span class="redesign-progress-seg redo" style="width:${redoPct}%"></span>
+                <span class="redesign-progress-seg unseen" style="width:${unseenPct}%"></span>
+            </div>`
+            : '';
+
+        const iconStripHtml = enabledRows.length > 0
+            ? `<div class="redesign-kid-icon-strip">
+                ${enabledRows.map((row) => {
+                    const isDone = row.progressModel.isFullyComplete;
+                    const isInProgress = !isDone && row.progressModel.statusClass !== 'not-started';
+                    const tileState = isDone ? 'done' : (isInProgress ? 'in-progress' : 'not-started');
+                    const indicatorHtml = isDone
+                        ? `<span class="redesign-kid-icon-indicator done" aria-hidden="true">✓</span>`
+                        : (isInProgress
+                            ? `<span class="redesign-kid-icon-indicator in-progress" aria-hidden="true"></span>`
+                            : `<span class="redesign-kid-icon-indicator not-started" aria-hidden="true"></span>`);
+                    return `<div class="redesign-kid-icon-tile ${tileState}">
+                        <div class="redesign-kid-icon-top">
+                            ${indicatorHtml}
+                            <span class="redesign-kid-icon-emoji">${escapeHtml(row.emoji)}</span>
+                        </div>
+                        <div class="redesign-kid-icon-label">${escapeHtml(row.label)}</div>
+                    </div>`;
+                }).join('')}
+            </div>`
+            : '';
+
+        const ctaHtml = isClickable
+            ? `<div class="redesign-kid-cta">Tap to continue <span aria-hidden="true">→</span></div>`
+            : '';
+
         const cardClassName = `redesign-kid-card${isClickable ? '' : ' redesign-kid-card-disabled'}`;
         const cardOpenAttr = isClickable ? ` onclick="selectKid('${kid.id}')"` : '';
 
         return `
             <div class="${cardClassName}"${cardOpenAttr}>
                 <div class="redesign-kid-top">
-                    <div>
-                        <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>
-                        <div class="redesign-kid-sub">${escapeHtml(summaryText)}</div>
+                    <div class="redesign-kid-identity">
+                        <span class="admin-kid-avatar admin-kid-avatar--tone-${avatarToneIndex}" aria-hidden="true">${escapeHtml(initial)}</span>
+                        <div class="redesign-kid-identity-text">
+                            <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>
+                            <div class="redesign-kid-sub">${escapeHtml(subText)}</div>
+                        </div>
                     </div>
                     <div class="redesign-star-total">
                         <span>⭐</span>
                         <span>${starsTotal}</span>
                     </div>
                 </div>
-                <div class="redesign-subject-list">
-                    ${subjectRowsHtml}
-                </div>
+                ${progressBarHtml}
+                ${summaryLineHtml}
+                ${iconStripHtml}
+                ${ctaHtml}
             </div>
         `;
     }).join('');
