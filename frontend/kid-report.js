@@ -1333,10 +1333,20 @@ function renderCategoryFilter(sessions) {
         return;
     }
     const labelByKey = new Map();
+    const emojiByKey = new Map();
     const orderedKeys = [];
     for (const session of (Array.isArray(sessions) ? sessions : [])) {
         const key = normalizeCategoryKey(session?.type);
-        if (!key || labelByKey.has(key)) {
+        if (!key) {
+            continue;
+        }
+        if (!emojiByKey.has(key)) {
+            const emoji = String(session?.category_emoji || '').trim();
+            if (emoji) {
+                emojiByKey.set(key, emoji);
+            }
+        }
+        if (labelByKey.has(key)) {
             continue;
         }
         const label = String(session?.category_display_name || '').trim() || key;
@@ -1349,16 +1359,20 @@ function renderCategoryFilter(sessions) {
         selectedCategoryKey = '';
     }
 
-    const buttons = [{ key: '', label: 'All' }].concat(
+    const buttons = [{ key: '', label: 'All', emoji: '' }].concat(
         orderedKeys.map((key) => ({
             key,
             label: labelByKey.get(key),
+            emoji: emojiByKey.get(key) || '🧩',
         })),
     );
 
     reportCategoryFilter.innerHTML = buttons.map((btn) => {
         const isActive = btn.key === selectedCategoryKey;
-        return `<button type="button" class="report-category-filter-btn${isActive ? ' active' : ''}" data-category-key="${escapeHtml(btn.key)}">${escapeHtml(btn.label)}</button>`;
+        const emojiHtml = btn.emoji
+            ? `<span class="report-category-filter-emoji" aria-hidden="true">${escapeHtml(btn.emoji)}</span>`
+            : '';
+        return `<button type="button" class="report-category-filter-btn${isActive ? ' active' : ''}" data-category-key="${escapeHtml(btn.key)}">${emojiHtml}<span class="report-category-filter-label">${escapeHtml(btn.label)}</span></button>`;
     }).join('');
 
     reportCategoryFilter.querySelectorAll('.report-category-filter-btn').forEach((btn) => {
@@ -1422,7 +1436,6 @@ function renderSessionsList() {
 }
 
 function renderSessionCard(session) {
-    const theme = getCategoryColorTheme(normalizeCategoryKey(session?.type));
     const displayName = String(session?.category_display_name || '').trim() || String(session?.type || '');
     const glyph = String(session?.category_emoji || '').trim() || '🧩';
     const sessionUrl = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}${from === 'kid-home' ? '&from=kid-home' : ''}`;
@@ -1434,7 +1447,7 @@ function renderSessionCard(session) {
     const retries = safeNum(session.retry_count);
     return `
         <a href="${sessionUrl}" class="session-card">
-            <div class="session-icon" style="background:${escapeHtml(theme?.pillBg || '#eef2fb')}">${escapeHtml(glyph)}</div>
+            <div class="session-icon">${escapeHtml(glyph)}</div>
             <div class="session-info">
                 <div class="session-title">${escapeHtml(displayName)}</div>
                 <div class="session-sub">${escapeHtml(subParts.join(' · '))}</div>

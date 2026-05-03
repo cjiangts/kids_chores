@@ -330,12 +330,12 @@
         .session-icon {
             width: 48px;
             height: 48px;
-            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.6rem;
+            font-size: 2.4rem;
             line-height: 1;
+            background: transparent;
         }
 
         .session-info {
@@ -409,8 +409,7 @@
             .session-icon {
                 width: 40px;
                 height: 40px;
-                border-radius: 10px;
-                font-size: 1.35rem;
+                font-size: 1.95rem;
             }
             .session-title { font-size: 0.88rem; }
             .session-sub { font-size: 0.72rem; }
@@ -430,6 +429,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 0.35rem;
             border: 1px solid rgba(255, 255, 255, 0.42);
             border-radius: 999px;
             padding: 0.42rem 1rem;
@@ -462,6 +462,12 @@
             color: #32418d;
             border-color: rgba(255, 255, 255, 0.92);
             box-shadow: 0 8px 20px rgba(31, 45, 98, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+        }
+
+        .report-category-filter-emoji {
+            font-size: 1rem;
+            line-height: 1;
+            flex: 0 0 auto;
         }
 
         .report-page .summary-card-full {

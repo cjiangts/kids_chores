@@ -636,7 +636,7 @@ function renderPracticeSummaryStrip({
                     <p class="redesign-summary-label">Badge Shelf</p>
                     <p class="redesign-summary-value badge-summary-value">
                         <span class="badge-summary-count">${
-                            `${Math.max(0, Number.parseInt(badgeShelfSummary.earnedCount, 10) || 0)} earned`
+                            `${Math.max(0, Number.parseInt(badgeShelfSummary.earnedCount, 10) || 0)}`
                         }</span>
                     </p>
                 </div>
