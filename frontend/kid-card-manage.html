@@ -1005,7 +1005,6 @@
             margin: 0;
         }
 
-        .card-status-filter,
         .card-view-mode {
             display: inline-flex;
             align-items: center;
@@ -1017,7 +1016,6 @@
             box-shadow: var(--dashboard-chip-shadow);
         }
 
-        .card-status-filter-btn,
         .card-view-mode-btn {
             border: 0;
             border-radius: 999px;
@@ -1031,12 +1029,10 @@
             white-space: nowrap;
         }
 
-        .card-status-filter-btn:hover,
         .card-view-mode-btn:hover {
             background: rgba(58, 78, 157, 0.08);
         }
 
-        .card-status-filter-btn.active,
         .card-view-mode-btn.active {
             background: #3f7ee8;
             color: #fff;
@@ -1171,7 +1167,7 @@
 
         .manage-page .cards-toolbar {
             display: grid;
-            grid-template-columns: auto minmax(180px, 1fr) auto auto minmax(220px, 300px);
+            grid-template-columns: minmax(180px, 1fr) auto auto minmax(220px, 300px);
             align-items: end;
             column-gap: 0.52rem;
             row-gap: 0.5rem;
@@ -1241,7 +1237,7 @@
 
         @media (max-width: 1180px) {
             .manage-page .cards-toolbar {
-                grid-template-columns: auto minmax(120px, 1fr) auto auto minmax(180px, 240px);
+                grid-template-columns: minmax(120px, 1fr) auto auto minmax(180px, 240px);
                 column-gap: 0.45rem;
             }
 
@@ -1295,18 +1291,6 @@
                 justify-self: start;
             }
 
-            .manage-page .cards-toolbar .toolbar-control-block:nth-of-type(1) {
-                grid-column: 1 / -1;
-                justify-self: stretch;
-                width: 100%;
-            }
-
-            .manage-page .toolbar-control-block .card-status-filter {
-                width: 100%;
-                justify-content: space-between;
-                overflow: hidden;
-            }
-
             .manage-page .cards-toolbar .cards-search-input {
                 grid-column: 1 / 2;
                 min-width: 0;
@@ -1358,7 +1342,6 @@
                 font-size: 0.62rem;
             }
 
-            .manage-page .card-status-filter,
             .manage-page .card-view-mode {
                 gap: 0.2rem;
                 padding: 0.14rem;
@@ -1371,7 +1354,6 @@
                 text-align: center;
             }
 
-            .manage-page .card-status-filter-btn,
             .manage-page .card-view-mode-btn {
                 padding: 0.24rem 0.36rem;
                 font-size: 0.76rem;
@@ -1429,7 +1411,6 @@
                 font-size: 1.62rem;
             }
 
-            .manage-page .card-status-filter-btn,
             .manage-page .card-view-mode-btn {
                 padding: 0.16rem 0.22rem;
                 font-size: 0.7rem;
@@ -3691,13 +3672,6 @@
                 </div>
             </div>
             <div class="cards-toolbar">
-                <div class="toolbar-control-block">
-                    <div class="card-status-filter" role="group" aria-label="Card status filter">
-                        <button type="button" class="card-status-filter-btn active" data-card-status-filter="all">All</button>
-                        <button type="button" class="card-status-filter-btn" data-card-status-filter="active">Active</button>
-                        <button type="button" class="card-status-filter-btn" data-card-status-filter="skipped">Skipped</button>
-                    </div>
-                </div>
                 <input
                     type="text"
                     id="cardSearchInput"

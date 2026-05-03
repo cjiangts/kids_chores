@@ -95,6 +95,7 @@ async function loadKids(options = {}) {
     } catch (error) {
         console.error('Error loading kids:', error);
         if (!usedNavigationCache) {
+            kidsList.innerHTML = '';
             showError('Failed to load kids. Make sure the backend server is running on port 5001.');
         }
     }
@@ -435,12 +436,17 @@ function displayKids(kids) {
                         : (isInProgress
                             ? `<span class="redesign-kid-icon-indicator in-progress" aria-hidden="true"></span>`
                             : `<span class="redesign-kid-icon-indicator not-started" aria-hidden="true"></span>`);
+                    const targetCount = row.progressModel.targetCount;
+                    const targetLineHtml = targetCount > 0
+                        ? `<div class="redesign-kid-icon-target">${escapeHtml(String(targetCount))} today</div>`
+                        : '';
                     return `<div class="redesign-kid-icon-tile ${tileState}">
                         <div class="redesign-kid-icon-top">
                             ${indicatorHtml}
                             <span class="redesign-kid-icon-emoji">${escapeHtml(row.emoji)}</span>
                         </div>
                         <div class="redesign-kid-icon-label">${escapeHtml(row.label)}</div>
+                        ${targetLineHtml}
                     </div>`;
                 }).join('')}
             </div>`

@@ -404,6 +404,14 @@ body.practice-home-redesign {
     max-width: 100%;
 }
 
+.family-home-page .redesign-kid-icon-target {
+    color: #6b7796;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+}
+
 .family-home-page .redesign-kid-cta {
     margin-top: 14px;
     color: #4f63cb;
@@ -1374,6 +1382,10 @@ body.practice-home-redesign {
 
     .family-home-page .redesign-kid-icon-label {
         font-size: 0.72rem;
+    }
+
+    .family-home-page .redesign-kid-icon-target {
+        font-size: 0.66rem;
     }
 
     .family-home-page .redesign-kid-cta {

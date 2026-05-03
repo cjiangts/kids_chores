@@ -110,7 +110,6 @@ const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardsToolbar = document.querySelector('.cards-toolbar');
 const cardsViewControl = document.querySelector('.cards-view-control');
-const cardStatusFilterButtons = [...document.querySelectorAll('button[data-card-status-filter]')];
 const cardViewModeButtons = [...document.querySelectorAll('button[data-card-view-mode]')];
 const hardnessPercentSlider = document.getElementById('hardnessPercentSlider');
 const leastRecentMixSummary = document.getElementById('leastRecentMixSummary');
@@ -135,7 +134,6 @@ let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
 let isReadingBulkAdding = false;
 let initialHardCardPercent = null;
 let currentSkippedCardCount = 0;
-let currentCardStatusFilter = 'all';
 let currentCardViewMode = 'short';
 let expandedCompactCardIds = new Set();
 let isBulkSkipActionInFlight = false;
@@ -906,7 +904,6 @@ function syncType4RepresentativeCardsUi() {
     if (!useType4) {
         return;
     }
-    currentCardStatusFilter = 'all';
     currentCardViewMode = 'long';
     expandedCompactCardIds.clear();
     if (cardSearchInput) {
@@ -915,7 +912,6 @@ function syncType4RepresentativeCardsUi() {
     if (viewOrderSelect) {
         viewOrderSelect.value = 'added_time';
     }
-    renderCardStatusFilterButtons();
     renderCardViewModeButtons();
     updateCardsQueueLegendVisibility(0);
 }
@@ -1276,17 +1272,6 @@ function filterCardsByQuery(cards, rawQuery) {
     });
 }
 
-function filterCardsByStatus(cards, statusFilter) {
-    const mode = String(statusFilter || 'all').trim().toLowerCase();
-    if (mode === 'active') {
-        return cards.filter((card) => !card.skip_practice);
-    }
-    if (mode === 'skipped') {
-        return cards.filter((card) => !!card.skip_practice);
-    }
-    return cards;
-}
-
 function getSortedCardsForDisplay(cards) {
     if (isType4Behavior()) {
         return window.PracticeManageCommon.sortCardsForView(
@@ -1294,8 +1279,7 @@ function getSortedCardsForDisplay(cards) {
             CARD_SORT_MODE_ADDED_TIME
         );
     }
-    const statusFilteredCards = filterCardsByStatus(cards, currentCardStatusFilter);
-    const filteredCards = filterCardsByQuery(statusFilteredCards, cardSearchInput ? cardSearchInput.value : '');
+    const filteredCards = filterCardsByQuery(cards, cardSearchInput ? cardSearchInput.value : '');
     return sortCardsForDisplay(filteredCards, getSelectedCardSortMode(), getCurrentCardSortDirection());
 }
 
@@ -1435,10 +1419,17 @@ function sortCardsForDisplay(cards, mode, direction) {
     const normalizedMode = normalizeCardSortMode(mode);
     const normalizedDirection = normalizeCardSortDirection(direction);
     const copy = [...(Array.isArray(cards) ? cards : [])];
-    if (normalizedMode === CARD_SORT_MODE_PRACTICE_QUEUE) {
-        return copy.sort((a, b) => comparePracticeQueueCards(a, b, normalizedDirection));
-    }
-    return copy.sort((a, b) => compareMetricCards(a, b, normalizedMode, normalizedDirection));
+    const innerCompare = normalizedMode === CARD_SORT_MODE_PRACTICE_QUEUE
+        ? (a, b) => comparePracticeQueueCards(a, b, normalizedDirection)
+        : (a, b) => compareMetricCards(a, b, normalizedMode, normalizedDirection);
+    return copy.sort((a, b) => {
+        const aSkipped = !!(a && a.skip_practice);
+        const bSkipped = !!(b && b.skip_practice);
+        if (aSkipped !== bSkipped) {
+            return aSkipped ? 1 : -1;
+        }
+        return innerCompare(a, b);
+    });
 }
 
 function getPracticePriorityAttemptCount(card) {
@@ -2046,27 +2037,6 @@ function renderVisibleSkipActionButtons() {
     unskipVisibleCardsBtn.textContent = `Unskip (${unskipableCount})`;
     skipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || skipableCount <= 0;
     unskipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || unskipableCount <= 0;
-}
-
-function renderCardStatusFilterButtons() {
-    if (!cardStatusFilterButtons.length) {
-        return;
-    }
-    cardStatusFilterButtons.forEach((button) => {
-        const mode = String(button.getAttribute('data-card-status-filter') || '').trim().toLowerCase();
-        button.classList.toggle('active', mode === currentCardStatusFilter);
-    });
-}
-
-function setCardStatusFilter(nextFilter) {
-    const mode = String(nextFilter || '').trim().toLowerCase();
-    const resolved = (mode === 'active' || mode === 'skipped') ? mode : 'all';
-    if (resolved === currentCardStatusFilter) {
-        return;
-    }
-    currentCardStatusFilter = resolved;
-    renderCardStatusFilterButtons();
-    resetAndDisplayCards(currentCards);
 }
 
 function renderCardViewModeButtons() {
@@ -3511,7 +3481,7 @@ async function loadKidInfo() {
         },
     });
 
-    kidNameEl.textContent = `${kid.name || 'Kid'} - ${displayName} Management`;
+    kidNameEl.textContent = `${kid.name || 'Kid'} - Card Management`;
     includeOrphanByCategory = toCategoryMap(kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
     const total = getSessionCountFromKid(kid);
     const safeTotal = Number.isInteger(total) ? clampSessionCardCount(total) : 0;
@@ -4547,16 +4517,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             resetAndDisplayCards(currentCards);
         });
     }
-    renderCardStatusFilterButtons();
     renderCardViewModeButtons();
-    if (cardStatusFilterButtons.length) {
-        cardStatusFilterButtons.forEach((button) => {
-            button.addEventListener('click', () => {
-                const nextFilter = button.getAttribute('data-card-status-filter');
-                setCardStatusFilter(nextFilter);
-            });
-        });
-    }
     if (cardViewModeButtons.length) {
         cardViewModeButtons.forEach((button) => {
             button.addEventListener('click', () => {
