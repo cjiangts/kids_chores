@@ -575,7 +575,7 @@ function displayKids(kids) {
         kidsList.innerHTML = `
             <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
-                <p>Tap ➕️ Add Kid to add your first learner.</p>
+                <p>Tap ${icon('plus', { size: 16 })} Add Kid to add your first learner.</p>
             </div>
         `;
         return;
@@ -648,7 +648,7 @@ function displayKids(kids) {
                         </a>
                         ${reviewAudioHtml}
                         <a class="admin-records-pill" href="/kid-report.html?id=${kid.id}">
-                            <span class="admin-records-pill-icon" aria-hidden="true">📊</span>
+                            <span class="admin-records-pill-icon" aria-hidden="true">${icon('bar-chart-3', { size: 20 })}</span>
                             <span class="admin-records-pill-label">Records</span>
                             <span class="admin-records-pill-chevron" aria-hidden="true">›</span>
                         </a>
@@ -657,7 +657,7 @@ function displayKids(kids) {
                 ${subjectRowsHtml ? `<div class="redesign-subject-list admin-config-list">${subjectRowsHtml}</div>` : ''}
                 <div class="admin-card-footer">
                     <button type="button" class="admin-delete-btn semantic-outline-btn semantic-outline-btn--red" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">
-                        🗑️ Delete
+                        ${icon('trash', { size: 18 })} Delete
                     </button>
                 </div>
             </div>

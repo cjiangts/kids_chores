@@ -514,7 +514,7 @@ function renderDeckLeafRow(deck, labelOverride = '') {
     const mainLabel = String(labelOverride || getDeckLeafLabel(deck) || `Deck ${deckId}`).trim();
     const metaParts = [];
     if (Boolean(deck && deck.has_print_cell_design)) {
-        metaParts.push('<span class="deck-tree-printable-emoji" role="img" aria-label="Printable deck" title="Printable deck">🖨️</span>');
+        metaParts.push(`<span class="deck-tree-printable-emoji" role="img" aria-label="Printable deck" title="Printable deck">${icon('printer', { size: 18 })}</span>`);
     }
     metaParts.push(escapeHtml(formatCount(getDeckCardCount(deck), 'card', 'cards')));
 

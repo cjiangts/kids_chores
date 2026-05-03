@@ -8,7 +8,10 @@ const reportTitle = document.getElementById('reportTitle');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
-const reportCategoryFilter = document.getElementById('reportCategoryFilter');
+const subjectFilterWrap = document.getElementById('subjectFilterWrap');
+const subjectFilterTrigger = document.getElementById('subjectFilterTrigger');
+const subjectFilterMenu = document.getElementById('subjectFilterMenu');
+const subjectFilterValue = document.getElementById('subjectFilterValue');
 const kidNavGroup = document.getElementById('kidNavGroup');
 const dailyChartBody = document.getElementById('dailyChartBody');
 const dailyChartNewerBtn = document.getElementById('dailyChartNewerBtn');
@@ -90,9 +93,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+    setupSubjectFilterDropdown();
     loadKidNav();
     await loadReport();
 });
+
+function setupSubjectFilterDropdown() {
+    if (!subjectFilterTrigger || !subjectFilterMenu || !subjectFilterWrap) {
+        return;
+    }
+    subjectFilterTrigger.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const isOpen = subjectFilterWrap.classList.toggle('open');
+        subjectFilterTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+    subjectFilterMenu.addEventListener('click', (event) => {
+        const option = event.target.closest('.subject-filter-option');
+        if (!option) return;
+        const nextKey = option.getAttribute('data-category-key') || '';
+        closeSubjectFilterMenu();
+        if (nextKey === selectedCategoryKey) return;
+        selectedCategoryKey = nextKey;
+        dailyChartPageIndex = 0;
+        if (selectedCategoryKey) {
+            collapsedDayKeys.clear();
+        } else {
+            seedCollapsedDays(reportSessions);
+        }
+        syncCategoryQueryParam();
+        renderKidNav();
+        renderCategoryFilter(reportSessions);
+        renderFilteredViews();
+    });
+    document.addEventListener('click', (event) => {
+        if (!subjectFilterWrap.classList.contains('open')) return;
+        if (subjectFilterWrap.contains(event.target)) return;
+        closeSubjectFilterMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && subjectFilterWrap.classList.contains('open')) {
+            closeSubjectFilterMenu();
+            subjectFilterTrigger.focus();
+        }
+    });
+}
+
+function closeSubjectFilterMenu() {
+    if (!subjectFilterWrap) return;
+    subjectFilterWrap.classList.remove('open');
+    if (subjectFilterTrigger) {
+        subjectFilterTrigger.setAttribute('aria-expanded', 'false');
+    }
+}
 
 async function loadKidNav() {
     if (!kidNavGroup) {
@@ -211,20 +263,21 @@ async function loadReport() {
 
 function renderSummary(sessions) {
     const totals = summarizeSessions(sessions);
+    const calendarSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const clockSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
     summaryGrid.innerHTML = `
-        <div class="summary-toggle-group summary-toggle-group-single">
-            <div class="summary-toggle-card active">
-                <div class="summary-toggle-card-title">Sessions</div>
-                <div class="summary-toggle-metrics">
-                    <div class="summary-toggle-metric">
-                        <div class="summary-toggle-metric-label">Total Sessions</div>
-                        <div class="summary-toggle-metric-value">${escapeHtml(String(totals.count))}</div>
-                    </div>
-                    <div class="summary-toggle-metric">
-                        <div class="summary-toggle-metric-label">Active Minutes</div>
-                        <div class="summary-toggle-metric-value">${escapeHtml(totals.activeMinutes.toFixed(1))}</div>
-                    </div>
-                </div>
+        <div class="summary-stat-card">
+            <div class="summary-stat-icon summary-stat-icon-purple" aria-hidden="true">${calendarSvg}</div>
+            <div class="summary-stat-body">
+                <div class="summary-stat-label">Total Sessions</div>
+                <div class="summary-stat-value">${escapeHtml(String(totals.count))}</div>
+            </div>
+        </div>
+        <div class="summary-stat-card">
+            <div class="summary-stat-icon summary-stat-icon-green" aria-hidden="true">${clockSvg}</div>
+            <div class="summary-stat-body">
+                <div class="summary-stat-label">Active Minutes</div>
+                <div class="summary-stat-value">${escapeHtml(totals.activeMinutes.toFixed(1))}</div>
             </div>
         </div>
     `;
@@ -258,7 +311,7 @@ function renderFilteredViews() {
 }
 
 function renderCategoryFilter(sessions) {
-    if (!reportCategoryFilter) {
+    if (!subjectFilterMenu || !subjectFilterValue) {
         return;
     }
     const labelByKey = new Map();
@@ -290,7 +343,7 @@ function renderCategoryFilter(sessions) {
     syncCategoryQueryParam();
     renderKidNav();
 
-    const buttons = [{ key: '', label: 'All', emoji: '' }].concat(
+    const options = [{ key: '', label: 'All', emoji: '' }].concat(
         orderedKeys.map((key) => ({
             key,
             label: labelByKey.get(key),
@@ -298,36 +351,15 @@ function renderCategoryFilter(sessions) {
         })),
     );
 
-    reportCategoryFilter.innerHTML = buttons.map((btn) => {
-        const isActive = btn.key === selectedCategoryKey;
-        const emojiHtml = btn.emoji
-            ? `<span class="report-category-filter-emoji" aria-hidden="true">${escapeHtml(btn.emoji)}</span>`
-            : '';
-        return `<button type="button" class="report-category-filter-btn${isActive ? ' active' : ''}" data-category-key="${escapeHtml(btn.key)}">${emojiHtml}<span class="report-category-filter-label">${escapeHtml(btn.label)}</span></button>`;
-    }).join('');
+    const selectedOption = options.find((opt) => opt.key === selectedCategoryKey) || options[0];
+    subjectFilterValue.textContent = selectedOption.label;
 
-    reportCategoryFilter.querySelectorAll('.report-category-filter-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const nextKey = btn.getAttribute('data-category-key') || '';
-            if (nextKey === selectedCategoryKey) {
-                return;
-            }
-            selectedCategoryKey = nextKey;
-            reportCategoryFilter.querySelectorAll('.report-category-filter-btn').forEach((other) => {
-                const otherKey = other.getAttribute('data-category-key') || '';
-                other.classList.toggle('active', otherKey === selectedCategoryKey);
-            });
-            dailyChartPageIndex = 0;
-            if (selectedCategoryKey) {
-                collapsedDayKeys.clear();
-            } else {
-                seedCollapsedDays(reportSessions);
-            }
-            syncCategoryQueryParam();
-            renderKidNav();
-            renderFilteredViews();
-        });
-    });
+    subjectFilterMenu.innerHTML = options.map((opt) => {
+        const isActive = opt.key === selectedCategoryKey;
+        const emojiHtml = `<span class="subject-filter-option-emoji" aria-hidden="true">${opt.emoji ? escapeHtml(opt.emoji) : ''}</span>`;
+        const checkHtml = isActive ? '<span class="subject-filter-option-check" aria-hidden="true">✓</span>' : '';
+        return `<button type="button" role="option" aria-selected="${isActive ? 'true' : 'false'}" class="subject-filter-option${isActive ? ' active' : ''}" data-category-key="${escapeHtml(opt.key)}">${emojiHtml}<span class="subject-filter-option-label">${escapeHtml(opt.label)}</span>${checkHtml}</button>`;
+    }).join('');
 }
 
 function renderSessionsList() {

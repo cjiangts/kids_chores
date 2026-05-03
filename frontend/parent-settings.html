@@ -715,7 +715,10 @@
     <div class="container">
         <header class="page-header-with-back">
             <div class="page-header-row">
-                <h1>⚙️ Family Settings</h1>
+                <h1>
+                    <svg class="icon settings-title-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Family Settings
+                </h1>
                 <a href="/admin.html" class="back-btn btn-secondary page-header-back-btn">← Back</a>
             </div>
         </header>
@@ -727,20 +730,32 @@
                     href="/deck-manage.html"
                     class="settings-save-btn manage-popup-btn hidden"
                 >
-                    🗂️ Manage Deck
+                    <span class="settings-action-icon" aria-hidden="true">
+                        <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                    </span>
+                    <span class="settings-action-label">Manage Decks</span>
                 </a>
                 <a
                     id="familyManageChineseBankLink"
                     href="/chinese-bank.html"
                     class="settings-save-btn manage-popup-btn hidden"
                 >
-                    📕 Manage Dictionary
+                    <span class="settings-action-icon" aria-hidden="true">
+                        <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg>
+                    </span>
+                    <span class="settings-action-label">Manage Dictionary</span>
                 </a>
                 <button type="button" id="openChangePasswordBtn" class="settings-save-btn manage-popup-btn">
-                    🔑 Change Password
+                    <span class="settings-action-icon" aria-hidden="true">
+                        <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
+                    </span>
+                    <span class="settings-action-label">Change Password</span>
                 </button>
                 <button type="button" id="familySettingsLogoutBtn" class="settings-save-btn manage-popup-btn">
-                    🚪 Log Out
+                    <span class="settings-action-icon" aria-hidden="true">
+                        <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                    </span>
+                    <span class="settings-action-label">Log Out</span>
                 </button>
             </div>
 
@@ -752,7 +767,12 @@
                             <div class="form-group">
                                 <select id="familyTimezone" class="sort-select"></select>
                             </div>
-                            <button type="button" id="saveTimezoneBtn" class="btn-secondary">Save</button>
+                            <button type="button" id="saveTimezoneBtn" class="btn-secondary">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+                                </span>
+                                <span class="btn-label">Save</span>
+                            </button>
                         </div>
                         <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
                         <div id="timezoneError" class="error hidden"></div>
@@ -764,9 +784,24 @@
                         <div class="settings-note">Start or reset family badges.</div>
                         <div id="rewardsStatusText" class="settings-status">Loading rewards...</div>
                         <div class="settings-row actions-row">
-                            <button type="button" id="startRewardsBtn" class="btn-secondary">Start</button>
-                            <button type="button" id="resetRewardsBtn" class="btn-secondary">Reset</button>
-                            <button type="button" id="openBadgeArtStudioBtn" class="btn-secondary">🏅 View Badges</button>
+                            <button type="button" id="startRewardsBtn" class="btn-secondary">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                                </span>
+                                <span class="btn-label">Start</span>
+                            </button>
+                            <button type="button" id="resetRewardsBtn" class="btn-secondary">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                </span>
+                                <span class="btn-label">Reset</span>
+                            </button>
+                            <button type="button" id="openBadgeArtStudioBtn" class="btn-secondary">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>
+                                </span>
+                                <span class="btn-label">View Badges</span>
+                            </button>
                         </div>
                         <div id="rewardsError" class="error hidden"></div>
                         <div id="rewardsSuccess" class="success hidden"></div>
@@ -775,8 +810,18 @@
                             <hr class="settings-divider">
                             <h2>Backup & Restore</h2>
                             <div class="settings-row">
-                                <button id="downloadBackupBtn" class="btn-secondary">⬇️ Download Backup</button>
-                                <button id="restoreBackupBtn" class="btn-secondary">⬆️ Restore Backup</button>
+                                <button id="downloadBackupBtn" class="btn-secondary">
+                                    <span class="btn-icon" aria-hidden="true">
+                                        <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                    </span>
+                                    <span class="btn-label">Download Backup</span>
+                                </button>
+                                <button id="restoreBackupBtn" class="btn-secondary">
+                                    <span class="btn-icon" aria-hidden="true">
+                                        <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                                    </span>
+                                    <span class="btn-label">Restore Backup</span>
+                                </button>
                                 <input type="file" id="backupFileInput" accept=".zip" class="hidden">
                                 <span id="backupInfo" class="settings-note"></span>
                             </div>
@@ -821,8 +866,18 @@
                 <div id="passwordError" class="error hidden"></div>
                 <div id="passwordSuccess" class="success hidden"></div>
                 <div class="password-modal-actions">
-                    <button type="submit" id="changePasswordBtn" class="btn-primary">Update Password</button>
-                    <button type="button" id="closeChangePasswordBtn" class="btn-secondary">Close</button>
+                    <button type="submit" id="changePasswordBtn" class="btn-primary">
+                        <span class="btn-icon" aria-hidden="true">
+                            <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        </span>
+                        <span class="btn-label">Update Password</span>
+                    </button>
+                    <button type="button" id="closeChangePasswordBtn" class="btn-secondary">
+                        <span class="btn-icon" aria-hidden="true">
+                            <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </span>
+                        <span class="btn-label">Close</span>
+                    </button>
                 </div>
             </form>
         </div>
@@ -835,8 +890,18 @@
                         <h2 id="badgeArtStudioTitle">Badge Studio</h2>
                     </div>
                 <div class="badge-art-modal-top-actions">
-                    <button type="button" id="badgeArtStudioSaveBtn" class="btn-primary">Save</button>
-                    <button type="button" class="btn-secondary" data-badge-art-action="close">Close</button>
+                    <button type="button" id="badgeArtStudioSaveBtn" class="btn-primary">
+                        <span class="btn-icon" aria-hidden="true">
+                            <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+                        </span>
+                        <span class="btn-label">Save</span>
+                    </button>
+                    <button type="button" class="btn-secondary" data-badge-art-action="close">
+                        <span class="btn-icon" aria-hidden="true">
+                            <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </span>
+                        <span class="btn-label">Close</span>
+                    </button>
                 </div>
             </div>
 
@@ -877,6 +942,7 @@
         </div>
     </div>
 
+    <script src="icons.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="parent-settings.js"></script>
 </body>

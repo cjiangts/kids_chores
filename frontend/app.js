@@ -335,7 +335,7 @@ function displayKids(kids) {
         kidsList.innerHTML = `
             <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
-                <p>Tap 👔 Parent Mode, then tap ➕️ Add Kid to add your first learner.</p>
+                <p>Tap 👔 Parent Mode, then tap ${icon('plus', { size: 16 })} Add Kid to add your first learner.</p>
             </div>
         `;
         return;

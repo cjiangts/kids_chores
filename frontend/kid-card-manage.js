@@ -954,7 +954,7 @@ function renderType4DeckTargetControls() {
         const metaText = 'Set cards per day per deck';
         openType4DeckCountsModalBtn.innerHTML = `
             <span class="manage-popup-btn-text">
-                <span class="manage-popup-btn-emoji" aria-hidden="true">🎯</span>
+                <span class="manage-popup-btn-emoji" aria-hidden="true">${icon('target', { size: 24 })}</span>
                 <span class="manage-popup-btn-title">${escapeHtml(titleText)}</span>
                 <span class="manage-popup-btn-meta">${escapeHtml(metaText)}</span>
             </span>
@@ -1122,7 +1122,7 @@ function renderDeckSetupActionButtons() {
         const optInMeta = `${optedCount} / ${totalDecks + (orphanDeck ? 1 : 0)} decks opted in`;
         openDeckOptInModalBtn.innerHTML = `
             <span class="manage-popup-btn-text">
-                <span class="manage-popup-btn-emoji" aria-hidden="true">📚</span>
+                <span class="manage-popup-btn-emoji" aria-hidden="true">${icon('layers', { size: 24 })}</span>
                 <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
                 <span class="manage-popup-btn-meta">${escapeHtml(optInMeta)}</span>
             </span>
@@ -1132,7 +1132,7 @@ function renderDeckSetupActionButtons() {
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.innerHTML = `
             <span class="manage-popup-btn-text">
-                <span class="manage-popup-btn-emoji" aria-hidden="true">✏️</span>
+                <span class="manage-popup-btn-emoji" aria-hidden="true">${icon('pencil', { size: 24 })}</span>
                 <span class="manage-popup-btn-title">Personal Deck Editor</span>
                 <span class="manage-popup-btn-meta">Add your own cards</span>
             </span>

@@ -496,13 +496,19 @@ function syncRewardsButtonsState(activeAction = '') {
     const isStatusReady = rewardsStatusState === 'ready';
     if (startRewardsBtn) {
         startRewardsBtn.disabled = !isStatusReady || rewardsTrackingStarted || isStarting || isResetting;
-        startRewardsBtn.textContent = isStarting
-            ? 'Starting...'
-            : (rewardsTrackingStarted ? 'Started' : 'Start');
+        const startLabel = startRewardsBtn.querySelector('.btn-label');
+        if (startLabel) {
+            startLabel.textContent = isStarting
+                ? 'Starting...'
+                : (rewardsTrackingStarted ? 'Started' : 'Start');
+        }
     }
     if (resetRewardsBtn) {
         resetRewardsBtn.disabled = !isStatusReady || !rewardsTrackingStarted || isStarting || isResetting;
-        resetRewardsBtn.textContent = isResetting ? 'Resetting...' : 'Reset';
+        const resetLabel = resetRewardsBtn.querySelector('.btn-label');
+        if (resetLabel) {
+            resetLabel.textContent = isResetting ? 'Resetting...' : 'Reset';
+        }
     }
 }
 
@@ -923,18 +929,24 @@ function syncBadgeArtStudioControls() {
     const dirtyCount = getBadgeArtStudioDirtyAssignmentCount();
     if (openBadgeArtStudioBtn) {
         openBadgeArtStudioBtn.disabled = isSaving || badgeArtStudioLoading;
-        openBadgeArtStudioBtn.textContent = badgeArtStudioLoading
-            ? 'Loading...'
-            : (canEdit ? '🏅 Badge Studio' : '🏅 View Badges');
+        const badgeBtnLabel = openBadgeArtStudioBtn.querySelector('.btn-label');
+        if (badgeBtnLabel) {
+            badgeBtnLabel.textContent = badgeArtStudioLoading
+                ? 'Loading...'
+                : (canEdit ? 'Badge Studio' : 'View Badges');
+        }
     }
     if (badgeArtStudioSaveBtn) {
         badgeArtStudioSaveBtn.classList.toggle('hidden', !canEdit);
         badgeArtStudioSaveBtn.disabled = badgeArtStudioLoading || isSaving || dirtyCount <= 0;
-        badgeArtStudioSaveBtn.textContent = isSaving
-            ? 'Saving...'
-            : (dirtyCount > 0
-                ? `Save ${dirtyCount} Change${dirtyCount === 1 ? '' : 's'}`
-                : 'Save');
+        const saveLabel = badgeArtStudioSaveBtn.querySelector('.btn-label');
+        if (saveLabel) {
+            saveLabel.textContent = isSaving
+                ? 'Saving...'
+                : (dirtyCount > 0
+                    ? `Save ${dirtyCount} Change${dirtyCount === 1 ? '' : 's'}`
+                    : 'Save');
+        }
     }
 }
 
@@ -1577,7 +1589,8 @@ async function saveTimezoneSettings() {
         }
 
         saveTimezoneBtn.disabled = true;
-        saveTimezoneBtn.textContent = 'Saving...';
+        const saveTzLabel = saveTimezoneBtn.querySelector('.btn-label');
+        if (saveTzLabel) saveTzLabel.textContent = 'Saving...';
         const response = await fetch(`${API_BASE}/parent-settings/timezone`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -1598,7 +1611,8 @@ async function saveTimezoneSettings() {
         showTimezoneError('Failed to save family timezone.');
     } finally {
         saveTimezoneBtn.disabled = false;
-        saveTimezoneBtn.textContent = 'Save';
+        const saveTzLabelReset = saveTimezoneBtn.querySelector('.btn-label');
+        if (saveTzLabelReset) saveTzLabelReset.textContent = 'Save';
     }
 }
 
@@ -1623,7 +1637,8 @@ async function changePassword() {
 
     try {
         changePasswordBtn.disabled = true;
-        changePasswordBtn.textContent = 'Updating...';
+        const changePwLabel = changePasswordBtn.querySelector('.btn-label');
+        if (changePwLabel) changePwLabel.textContent = 'Updating...';
 
         const response = await fetch(`${API_BASE}/parent-auth/change-password`, {
             method: 'POST',
@@ -1648,7 +1663,8 @@ async function changePassword() {
         showPasswordError('Failed to change password. Please try again.');
     } finally {
         changePasswordBtn.disabled = false;
-        changePasswordBtn.textContent = 'Update Password';
+        const changePwLabelReset = changePasswordBtn.querySelector('.btn-label');
+        if (changePwLabelReset) changePwLabelReset.textContent = 'Update Password';
     }
 }
 
@@ -1661,7 +1677,8 @@ async function downloadBackup() {
         showError('');
         showSuccess('');
         downloadBackupBtn.disabled = true;
-        downloadBackupBtn.textContent = 'Creating backup...';
+        const downloadLabel = downloadBackupBtn.querySelector('.btn-label');
+        if (downloadLabel) downloadLabel.textContent = 'Creating backup...';
 
         const response = await fetch(`${API_BASE}/backup/download`);
         if (!response.ok) {
@@ -1693,7 +1710,8 @@ async function downloadBackup() {
         showError('Failed to download backup. Please try again.');
     } finally {
         downloadBackupBtn.disabled = false;
-        downloadBackupBtn.textContent = '⬇️ Download Backup';
+        const downloadLabelReset = downloadBackupBtn.querySelector('.btn-label');
+        if (downloadLabelReset) downloadLabelReset.textContent = 'Download Backup';
     }
 }
 
@@ -1706,7 +1724,8 @@ async function restoreBackup(file, password) {
         showError('');
         showSuccess('');
         restoreBackupBtn.disabled = true;
-        restoreBackupBtn.textContent = 'Restoring...';
+        const restoreLabel = restoreBackupBtn.querySelector('.btn-label');
+        if (restoreLabel) restoreLabel.textContent = 'Restoring...';
         const formData = new FormData();
         formData.append('backup', file);
         formData.append('confirmPassword', password);
@@ -1740,7 +1759,8 @@ async function restoreBackup(file, password) {
         backupFileInput.value = '';
     } finally {
         restoreBackupBtn.disabled = false;
-        restoreBackupBtn.textContent = '⬆️ Restore Backup';
+        const restoreLabelReset = restoreBackupBtn.querySelector('.btn-label');
+        if (restoreLabelReset) restoreLabelReset.textContent = 'Restore Backup';
     }
 }
 
@@ -1807,12 +1827,18 @@ async function loadFamilyRole() {
     }
     if (familyManageDeckLink) {
         familyManageDeckLink.classList.remove('hidden');
-        familyManageDeckLink.textContent = isSuperFamily ? '🗂️ Manage Decks' : '🗂️ View Decks';
+        const deckLabel = familyManageDeckLink.querySelector('.settings-action-label');
+        if (deckLabel) {
+            deckLabel.textContent = isSuperFamily ? 'Manage Decks' : 'View Decks';
+        }
     }
     const chineseBankLink = document.getElementById('familyManageChineseBankLink');
     if (chineseBankLink) {
         chineseBankLink.classList.remove('hidden');
-        chineseBankLink.textContent = isSuperFamily ? '📕 Manage Dictionary' : '📕 View Dictionary';
+        const dictLabel = chineseBankLink.querySelector('.settings-action-label');
+        if (dictLabel) {
+            dictLabel.textContent = isSuperFamily ? 'Manage Dictionary' : 'View Dictionary';
+        }
     }
     resetBadgeArtStudioState();
     badgeArtStudioCanEdit = isSuperFamily;
@@ -1944,7 +1970,7 @@ function renderFamilyAccounts(families, sharedStorage) {
             : 'Last active: unknown';
         const canDelete = Boolean(family.canDelete);
         const deleteButton = canDelete
-            ? `<button type="button" class="btn-secondary" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}">Delete</button>`
+            ? `<button type="button" class="semantic-outline-btn semantic-outline-btn--red" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}">${icon('trash', { size: 18 })} Delete</button>`
             : '<span class="family-account-protected">Protected</span>';
         const flagsHtml = badgeText
             ? `<span class="family-account-card-flags">${escapeHtml(badgeText)}</span>`

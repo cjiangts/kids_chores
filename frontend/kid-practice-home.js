@@ -650,7 +650,7 @@ function renderPracticeSummaryStrip({
                     <p class="redesign-summary-label">Progress</p>
                     <p class="redesign-summary-value">${Math.max(0, progressCountToday)} today</p>
                 </div>
-                <span class="progress-summary-chart" aria-hidden="true">📊</span>
+                <span class="progress-summary-chart" aria-hidden="true">${icon('bar-chart-3', { size: 22 })}</span>
             </button>
         `);
     } else {

@@ -8,6 +8,16 @@
     display: none !important;
 }
 
+.icon {
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+    color: currentColor;
+}
+
+.icon--small { width: 18px; height: 18px; }
+.icon--large { width: 28px; height: 28px; }
+
 .shared-tag-filter-chips {
     display: flex;
     flex-wrap: wrap;
@@ -844,6 +854,20 @@ body {
     font-size: 0.9rem;
     font-weight: 400;
     line-height: 1.2;
+}
+
+.settings-action-icon,
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+}
+
+.settings-action-label,
+.btn-label {
+    vertical-align: middle;
 }
 
 .manage-page .settings-save-btn:hover {
