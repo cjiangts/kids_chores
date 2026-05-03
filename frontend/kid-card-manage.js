@@ -47,6 +47,8 @@ const {
 const categoryKey = normalizeCategoryKey(params.get('categoryKey'));
 
 const kidNameEl = document.getElementById('kidName');
+const kidNavGroup = document.getElementById('kidNavGroup');
+let cachedKidsForNav = [];
 const errorMessage = document.getElementById('errorMessage');
 const successMessage = document.getElementById('successMessage');
 
@@ -112,7 +114,8 @@ const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardsToolbar = document.querySelector('.cards-toolbar');
 const cardsViewControl = document.querySelector('.cards-view-control');
-const cardViewModeToggleBtn = document.getElementById('cardViewModeToggleBtn');
+const cardViewModeCompactBtn = document.getElementById('cardViewModeCompactBtn');
+const cardViewModeExpandBtn = document.getElementById('cardViewModeExpandBtn');
 const hardnessPercentSlider = document.getElementById('hardnessPercentSlider');
 const leastRecentMixSummary = document.getElementById('leastRecentMixSummary');
 const hardCardsMixSummary = document.getElementById('hardCardsMixSummary');
@@ -791,6 +794,55 @@ function getOptInDecksHelpText() {
         return 'Tap a deck to toggle it on or off, then tap Apply Deck Changes.\n\nYou can freely add or remove decks at any time — all practice records are always kept.';
     }
     return 'Tap a deck to toggle it on or off, then tap Apply Deck Changes.\n\nYou can freely add or remove decks at any time — all practice records are always kept. Cards you\'ve already practiced will stay visible under Personal Deck so nothing is lost.';
+}
+
+async function loadKidNav() {
+    if (!kidNavGroup) {
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/kids`);
+        if (!response.ok) {
+            return;
+        }
+        const kids = await response.json();
+        cachedKidsForNav = Array.isArray(kids) ? kids : [];
+        renderKidNav();
+    } catch (error) {
+        console.error('Error loading kids for nav:', error);
+    }
+}
+
+function renderKidNav() {
+    if (!kidNavGroup) {
+        return;
+    }
+    const kids = Array.isArray(cachedKidsForNav) ? cachedKidsForNav : [];
+    if (kids.length < 2) {
+        kidNavGroup.classList.add('hidden');
+        kidNavGroup.innerHTML = '';
+        return;
+    }
+    kidNavGroup.innerHTML = kids.map((kid) => {
+        const id = String(kid?.id || '').trim();
+        const name = String(kid?.name || '').trim() || 'Kid';
+        const isActive = id === String(kidId);
+        if (isActive) {
+            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${escapeHtml(name)}</span>`;
+        }
+        const href = buildKidCardManageHref(id);
+        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtml(href)}">${escapeHtml(name)}</a>`;
+    }).join('');
+    kidNavGroup.classList.remove('hidden');
+}
+
+function buildKidCardManageHref(targetKidId) {
+    const qs = new URLSearchParams();
+    qs.set('id', String(targetKidId));
+    if (categoryKey) {
+        qs.set('categoryKey', categoryKey);
+    }
+    return `/kid-card-manage.html?${qs.toString()}`;
 }
 
 function updatePageTitle() {
@@ -1768,7 +1820,7 @@ function buildPracticePriorityDetailCards(card) {
     return `
         <div class="practice-priority-detail-card missed${isType3Behavior() ? ' no-side' : ''}">
             ${isType3Behavior() ? '' : `<div class="practice-priority-detail-side">
-                <div class="practice-priority-detail-title">${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[0]))}</div>
+                <div class="practice-priority-detail-title">${icon('circle-x', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[0]))}</span></div>
                 <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[0].points))}</div>
             </div>`}
             <div class="practice-priority-detail-body">
@@ -1792,7 +1844,7 @@ function buildPracticePriorityDetailCards(card) {
         </div>
         <div class="practice-priority-detail-card slow${(isType2Behavior() || isType3Behavior()) ? ' no-side' : ''}">
             ${(isType2Behavior() || isType3Behavior()) ? '' : `<div class="practice-priority-detail-side">
-                <div class="practice-priority-detail-title">${escapeHtml(segments[1].label)}</div>
+                <div class="practice-priority-detail-title">${icon('clock', { size: 14 })}<span>${escapeHtml(segments[1].label)}</span></div>
                 <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[1].points))}</div>
             </div>`}
             <div class="practice-priority-detail-body">
@@ -1821,7 +1873,7 @@ function buildPracticePriorityDetailCards(card) {
         </div>
         <div class="practice-priority-detail-card learning">
             <div class="practice-priority-detail-side">
-                <div class="practice-priority-detail-title">${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[2]))}</div>
+                <div class="practice-priority-detail-title">${icon('sparkles', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[2]))}</span></div>
                 <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[2].points))}</div>
             </div>
             <div class="practice-priority-detail-body">
@@ -1836,7 +1888,7 @@ function buildPracticePriorityDetailCards(card) {
         </div>
         <div class="practice-priority-detail-card due">
             <div class="practice-priority-detail-side">
-                <div class="practice-priority-detail-title">${escapeHtml(segments[3].label)}</div>
+                <div class="practice-priority-detail-title">${icon('calendar-clock', { size: 14 })}<span>${escapeHtml(segments[3].label)}</span></div>
                 <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[3].points))}</div>
             </div>
             <div class="practice-priority-detail-body">
@@ -2075,15 +2127,17 @@ function isCardsBulkActionMenuOpen() {
 }
 
 function renderCardViewModeButtons() {
-    if (!cardViewModeToggleBtn) {
-        return;
-    }
     const isCompact = currentCardViewMode === 'short';
-    cardViewModeToggleBtn.textContent = isCompact ? 'Expand' : 'Compact';
-    cardViewModeToggleBtn.title = isCompact
-        ? 'Expand all cards to full details'
-        : 'Compact all cards to concise pills';
-    cardViewModeToggleBtn.setAttribute('aria-pressed', isCompact ? 'false' : 'true');
+    if (cardViewModeCompactBtn) {
+        cardViewModeCompactBtn.innerHTML = icon('layout-grid', { size: 16 });
+        cardViewModeCompactBtn.classList.toggle('active', isCompact);
+        cardViewModeCompactBtn.setAttribute('aria-pressed', isCompact ? 'true' : 'false');
+    }
+    if (cardViewModeExpandBtn) {
+        cardViewModeExpandBtn.innerHTML = icon('rows-3', { size: 16 });
+        cardViewModeExpandBtn.classList.toggle('active', !isCompact);
+        cardViewModeExpandBtn.setAttribute('aria-pressed', isCompact ? 'false' : 'true');
+    }
 }
 
 function setCardViewMode(nextMode) {
@@ -2624,14 +2678,14 @@ function buildCardMarkup(card, options = {}) {
                 ${metaHtml}
             </div>
             <div class="card-actions">
-                <a class="card-report-link" href="${buildCardReportHref(card)}">Records</a>
+                <a class="card-report-link" href="${buildCardReportHref(card)}">${icon('history', { size: 16 })}<span>History</span></a>
                 ${supportsSkipControl ? `<a
                     class="card-report-link"
                     href="#"
                     data-action="toggle-skip"
                     data-card-id="${card.id}"
                     data-skipped="${card.skip_practice ? 'true' : 'false'}"
-                >${card.skip_practice ? 'Unskip' : 'Skip'}</a>` : ''}
+                >${card.skip_practice ? `${icon('undo-2', { size: 16 })}<span>Unskip</span>` : `${icon('ban', { size: 16 })}<span>Skip</span>`}</a>` : ''}
                 ${trailingActionHtml}
             </div>
         </div>
@@ -2677,7 +2731,7 @@ function buildType4RepresentativeCardMarkup(card) {
                     class="card-report-link"
                     data-action="open-card-records"
                     data-card-id="${escapeHtml(String(card && card.id ? card.id : ''))}"
-                >Records</button>
+                >${icon('history', { size: 16 })}<span>History</span></button>
             </div>
         </div>
     `;
@@ -2762,7 +2816,7 @@ function buildCompactFoldButtonMarkup(cardId) {
             data-card-id="${escapeHtml(safeId)}"
             title="Minimize card"
             aria-label="Minimize card"
-        >−</button>
+        >${icon('fold-vertical', { size: 20 })}</button>
     `;
 }
 
@@ -3584,7 +3638,7 @@ async function loadKidInfo() {
         },
     });
 
-    kidNameEl.textContent = `${kid.name || 'Kid'} - Card Management`;
+    kidNameEl.textContent = 'Card Management';
     includeOrphanByCategory = toCategoryMap(kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
     const total = getSessionCountFromKid(kid);
     const safeTotal = Number.isInteger(total) ? clampSessionCardCount(total) : 0;
@@ -4621,11 +4675,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     renderCardViewModeButtons();
-    if (cardViewModeToggleBtn) {
-        cardViewModeToggleBtn.addEventListener('click', () => {
-            const next = currentCardViewMode === 'short' ? 'long' : 'short';
-            setCardViewMode(next);
-        });
+    if (cardViewModeCompactBtn) {
+        cardViewModeCompactBtn.addEventListener('click', () => setCardViewMode('short'));
+    }
+    if (cardViewModeExpandBtn) {
+        cardViewModeExpandBtn.addEventListener('click', () => setCardViewMode('long'));
     }
     if (cardSearchInput) {
         cardSearchInput.addEventListener('input', () => {
@@ -4724,6 +4778,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupCardsViewModeToggle();
 
+    loadKidNav();
+
     sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();
 
     try {
@@ -4741,7 +4797,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.error('Error initializing category manage:', error);
         showError(error.message || 'Failed to load page.');
-        kidNameEl.textContent = `${getCurrentCategoryDisplayName()} Management`;
+        kidNameEl.textContent = 'Card Management';
         updatePageTitle();
     }
 });
