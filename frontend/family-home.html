@@ -8,6 +8,27 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="home-redesign-v4.css">
+    <style>
+        .family-home-loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 0;
+        }
+
+        .family-home-loading-spinner {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 3px solid rgba(99, 102, 241, 0.25);
+            border-top-color: #6366f1;
+            animation: familyHomeLoadingSpin 0.85s linear infinite;
+        }
+
+        @keyframes familyHomeLoadingSpin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body class="family-home-page">
     <div class="container">
@@ -24,7 +45,9 @@
 
         <main>
             <div id="kidsList" class="redesign-kid-grid">
-                <div class="redesign-empty-state">Loading kids...</div>
+                <div class="family-home-loading" role="status" aria-label="Loading kids">
+                    <div class="family-home-loading-spinner"></div>
+                </div>
             </div>
 
             <div id="errorMessage" class="error redesign-error hidden"></div>

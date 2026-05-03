@@ -263,21 +263,8 @@ function renderHistory(attempts) {
         const itemTimestamp = item.session_completed_at || item.session_started_at || item.timestamp;
         const daysAgoLabel = formatDaysAgo(itemTimestamp);
         const daysAgoSuffix = daysAgoLabel ? ` <span class="history-days-ago">(${escapeHtml(daysAgoLabel)})</span>` : '';
-        const lessonReadingAudioAttrs = from === 'lesson-reading'
-            ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
-            : '';
-        const downloadFilename = buildAudioDownloadFilename(item);
-        const downloadUrl = buildAudioDownloadUrl(item, downloadFilename);
-        const downloadButtonHtml = item.audio_url
-            ? `<a class="tab-link secondary mini-link-btn answer-report-link audio-download-link" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFilename)}">Download</a>`
-            : '';
-        const audioBlockHtml = item.audio_url
-            ? `
-                <div class="audio-history-row">
-                    <audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>
-                </div>
-            `
-            : '';
+        const sessionUrl = buildSessionReportUrl(item);
+        const chevronHtml = sessionUrl ? '<span class="history-chevron" aria-hidden="true">›</span>' : '';
         if (isType3Attempt(item)) {
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
             const sourceDeckLabel = formatSourceDeckLabel(currentDeckName);
@@ -291,6 +278,24 @@ function renderHistory(attempts) {
             const detailHtml = detailBits.length
                 ? `<div class="answer-type3-details">${detailBits.join('<span class="answer-type3-sep" aria-hidden="true">·</span>')}</div>`
                 : '';
+            const lessonReadingAudioAttrs = from === 'lesson-reading'
+                ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
+                : '';
+            const downloadFilename = buildAudioDownloadFilename(item);
+            const downloadUrl = buildAudioDownloadUrl(item, downloadFilename);
+            const downloadButtonHtml = item.audio_url
+                ? `<a class="tab-link secondary mini-link-btn answer-report-link audio-download-link" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFilename)}">Download</a>`
+                : '';
+            const goToSessionButtonHtml = sessionUrl
+                ? `<a class="tab-link secondary mini-link-btn answer-report-link" href="${escapeHtml(sessionUrl)}">Go to Session ›</a>`
+                : '';
+            const audioBlockHtml = item.audio_url
+                ? `
+                    <div class="audio-history-row">
+                        <audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>
+                    </div>
+                `
+                : '';
             return `
                 <div class="history-item type3-history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                     <div class="history-head-row">
@@ -300,6 +305,7 @@ function renderHistory(attempts) {
                         <div class="answer-head-actions">
                             ${renderType3HistoryStatusHtml(correctness)}
                             ${downloadButtonHtml}
+                            ${goToSessionButtonHtml}
                         </div>
                     </div>
                     ${audioBlockHtml}
@@ -315,8 +321,13 @@ function renderHistory(attempts) {
             const answer = getType4AttemptAnswer(item) || '-';
             const submittedPills = getType4AttemptSubmittedPills(item);
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
+            const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
+            const itemOpen = sessionUrl
+                ? `<a class="history-item history-item-link"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
+                : `<div class="history-item"${idAttrPart}>`;
+            const itemClose = sessionUrl ? '</a>' : '</div>';
             return `
-                <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
+                ${itemOpen}
                     <div class="history-head-row">
                         <div class="history-title-stack">
                             <div class="history-primary">${escapeHtml(prompt)}</div>
@@ -333,62 +344,45 @@ function renderHistory(attempts) {
                         ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
                         · Session #${safeNum(item.session_id)}
                     </div>
-                </div>
+                    ${chevronHtml}
+                ${itemClose}
             `;
         }
-        if (isType1Attempt(item) && getLoggedSubmittedAnswers(item).length > 0) {
-            const prompt = getType1AttemptPrompt(item);
-            const answer = getType1AttemptAnswer(item);
-            const submittedPills = getType1AttemptSubmittedPills(item);
-            const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
-            const retryFixCount = getRetryFixCount(item);
-            const retryBadgeHtml = retryFixCount > 0
-                ? `<span class="history-retry-badge" title="${escapeHtml(getRetryFixLabel(retryFixCount))}">${escapeHtml(getRetryFixShortLabel(retryFixCount))}</span>`
-                : '';
-            return `
-                <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
-                    <div class="history-head-row">
-                        <div class="history-title-stack">
-                            <div class="history-primary${isChineseLikeText(prompt) ? ' chinese-specific' : ''}">${renderMathHtml(prompt)}</div>
-                            <div class="history-type4-details">
-                                ${answer ? `<span class="history-type4-submitted-label">Right:</span> ${escapeHtml(answer)} <span class="answer-type3-sep" aria-hidden="true">·</span> ` : ''}
-                                <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
-                            </div>
-                        </div>
-                        <div class="history-status-side">
-                            <div class="history-time-badge">${escapeHtml(responseTimeLabel)}</div>
-                            ${retryBadgeHtml}
-                            <span class="pill ${statusClass}">${statusText}</span>
-                        </div>
-                    </div>
-                    <div class="meta">
-                        ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
-                        · Session #${safeNum(item.session_id)}
-                    </div>
-                </div>
-            `;
-        }
+        const prompt = getType1AttemptPrompt(item);
+        const answer = getType1AttemptAnswer(item) || 'n/a';
+        const submittedPills = getType1AttemptSubmittedPills(item);
         const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
         const retryFixCount = getRetryFixCount(item);
         const retryBadgeHtml = retryFixCount > 0
             ? `<span class="history-retry-badge" title="${escapeHtml(getRetryFixLabel(retryFixCount))}">${escapeHtml(getRetryFixShortLabel(retryFixCount))}</span>`
             : '';
+        const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
+        const itemOpen = sessionUrl
+            ? `<a class="history-item history-item-link"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
+            : `<div class="history-item"${idAttrPart}>`;
+        const itemClose = sessionUrl ? '</a>' : '</div>';
         return `
-            <div class="history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
+            ${itemOpen}
                 <div class="history-head-row">
+                    <div class="history-title-stack">
+                        <div class="history-primary${isChineseLikeText(prompt) ? ' chinese-specific' : ''}">${renderMathHtml(prompt)}</div>
+                        <div class="history-type4-details">
+                            <span class="history-type4-submitted-label">Right:</span> ${escapeHtml(answer)} <span class="answer-type3-sep" aria-hidden="true">·</span>
+                            <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
+                        </div>
+                    </div>
                     <div class="history-status-side">
-                        <span class="history-time-badge">${escapeHtml(responseTimeLabel)}</span>
+                        <div class="history-time-badge">${escapeHtml(responseTimeLabel)}</div>
                         ${retryBadgeHtml}
                         <span class="pill ${statusClass}">${statusText}</span>
-                        ${downloadButtonHtml}
                     </div>
                 </div>
                 <div class="meta">
                     ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
                     · Session #${safeNum(item.session_id)}
                 </div>
-                ${audioBlockHtml}
-            </div>
+                ${chevronHtml}
+            ${itemClose}
         `;
     }).join('');
 
@@ -398,6 +392,15 @@ function renderHistory(attempts) {
     if (window.SimpleAudioPlayer) {
         window.SimpleAudioPlayer.attach(historyList, { selector: 'audio.js-simple-audio' });
     }
+}
+
+function buildSessionReportUrl(item) {
+    const sessionId = Number(item?.session_id);
+    if (!Number.isFinite(sessionId) || sessionId <= 0 || !kidId) {
+        return '';
+    }
+    const fromSuffix = from === 'kid-home' ? '&from=kid-home' : '';
+    return `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(sessionId)}${fromSuffix}`;
 }
 
 function scrollToTargetAttempt() {
@@ -477,10 +480,6 @@ function getAttemptDisplayResponseMs(item) {
 
 function isType4Attempt(item) {
     return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_IV;
-}
-
-function isType1Attempt(item) {
-    return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_I;
 }
 
 function isType3Attempt(item) {
@@ -592,7 +591,7 @@ function getType4AttemptSubmittedPills(item) {
 function getType1AttemptSubmittedPills(item) {
     const submittedAnswers = getLoggedSubmittedAnswers(item);
     if (submittedAnswers.length === 0) {
-        return '<span class="history-type4-pill tried-pill">-</span>';
+        return '<span class="history-type4-pill tried-pill">n/a</span>';
     }
     const grades = getLoggedSubmittedGrades(item);
     return submittedAnswers

@@ -182,6 +182,31 @@
             transform: translateY(-1px);
         }
 
+        .history-item-link {
+            position: relative;
+            display: block;
+            padding-right: 1.8rem;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        .history-item-link:hover {
+            border-color: #c8d2ee;
+            box-shadow: 0 3px 10px rgba(31, 45, 98, 0.12);
+        }
+
+        .history-chevron {
+            position: absolute;
+            right: 0.65rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #c4c9d7;
+            font-size: 1.35rem;
+            line-height: 1;
+            pointer-events: none;
+        }
+
         .history-item .meta {
             margin-top: 0.2rem;
             font-size: 0.79rem;
