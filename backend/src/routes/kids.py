@@ -5675,89 +5675,77 @@ def get_kid_report(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
-@kids_bp.route('/kids/<kid_id>/report/cards/daily-progress', methods=['GET'])
-def get_kid_report_cards_daily_progress(kid_id):
-    """Per-card-per-day attempt aggregates for one kid+category, used to plot category onboarding progress."""
+def build_kid_daily_progress_section(kid, category_key):
+    """Compute per-card-per-day attempt aggregates + family timezone for one kid+category."""
+    family_id = str(kid.get('familyId') or '').strip()
+    family_timezone = metadata.get_family_timezone(family_id)
     try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
+        tzinfo = ZoneInfo(family_timezone)
+    except Exception:
+        tzinfo = ZoneInfo('UTC')
 
-        category_key = str(request.args.get('categoryKey') or '').strip().lower()
-        if not category_key:
-            return jsonify({'error': 'categoryKey is required'}), 400
+    conn = get_kid_connection_for(kid, read_only=True)
+    try:
+        attempts = conn.execute(
+            """
+            SELECT sr.card_id, sr.timestamp, sr.correct, COALESCE(sr.response_time_ms, 0)
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            WHERE LOWER(TRIM(s.type)) = ?
+              AND sr.card_id IS NOT NULL
+              AND sr.timestamp IS NOT NULL
+            ORDER BY sr.timestamp ASC
+            """,
+            [str(category_key or '').strip().lower()],
+        ).fetchall()
+    finally:
+        conn.close()
 
-        family_id = str(kid.get('familyId') or '').strip()
-        family_timezone = metadata.get_family_timezone(family_id)
+    agg = defaultdict(lambda: {'attempts': 0, 'correct': 0, 'correct_response_time_ms_sum': 0, 'correct_response_time_count': 0})
+    for row in attempts:
         try:
-            tzinfo = ZoneInfo(family_timezone)
-        except Exception:
-            tzinfo = ZoneInfo('UTC')
-
-        conn = get_kid_connection_for(kid, read_only=True)
+            card_id_int = int(row[0])
+        except (TypeError, ValueError):
+            continue
+        ts = row[1]
+        if not isinstance(ts, datetime):
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        local_dt = ts.astimezone(tzinfo)
+        date_str = local_dt.strftime('%Y-%m-%d')
+        entry = agg[(card_id_int, date_str)]
+        entry['attempts'] += 1
         try:
-            attempts = conn.execute(
-                """
-                SELECT sr.card_id, sr.timestamp, sr.correct, COALESCE(sr.response_time_ms, 0)
-                FROM session_results sr
-                JOIN sessions s ON s.id = sr.session_id
-                WHERE LOWER(TRIM(s.type)) = ?
-                  AND sr.card_id IS NOT NULL
-                  AND sr.timestamp IS NOT NULL
-                ORDER BY sr.timestamp ASC
-                """,
-                [category_key],
-            ).fetchall()
-        finally:
-            conn.close()
-
-        agg = defaultdict(lambda: {'attempts': 0, 'correct': 0, 'correct_response_time_ms_sum': 0, 'correct_response_time_count': 0})
-        for row in attempts:
+            correct_val = int(row[2])
+        except (TypeError, ValueError):
+            correct_val = 0
+        if correct_val == 1:
+            entry['correct'] += 1
             try:
-                card_id_int = int(row[0])
+                rt_ms = int(row[3] or 0)
             except (TypeError, ValueError):
-                continue
-            ts = row[1]
-            if not isinstance(ts, datetime):
-                continue
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-            local_dt = ts.astimezone(tzinfo)
-            date_str = local_dt.strftime('%Y-%m-%d')
-            entry = agg[(card_id_int, date_str)]
-            entry['attempts'] += 1
-            try:
-                correct_val = int(row[2])
-            except (TypeError, ValueError):
-                correct_val = 0
-            if correct_val == 1:
-                entry['correct'] += 1
-                try:
-                    rt_ms = int(row[3] or 0)
-                except (TypeError, ValueError):
-                    rt_ms = 0
-                if rt_ms > 0:
-                    entry['correct_response_time_ms_sum'] += rt_ms
-                    entry['correct_response_time_count'] += 1
+                rt_ms = 0
+            if rt_ms > 0:
+                entry['correct_response_time_ms_sum'] += rt_ms
+                entry['correct_response_time_count'] += 1
 
-        rows = [
-            {
-                'card_id': key[0],
-                'date': key[1],
-                'attempts': val['attempts'],
-                'correct': val['correct'],
-                'correct_response_time_ms_sum': val['correct_response_time_ms_sum'],
-                'correct_response_time_count': val['correct_response_time_count'],
-            }
-            for key, val in agg.items()
-        ]
+    rows = [
+        {
+            'card_id': key[0],
+            'date': key[1],
+            'attempts': val['attempts'],
+            'correct': val['correct'],
+            'correct_response_time_ms_sum': val['correct_response_time_ms_sum'],
+            'correct_response_time_count': val['correct_response_time_count'],
+        }
+        for key, val in agg.items()
+    ]
 
-        return jsonify({
-            'family_timezone': family_timezone,
-            'rows': rows,
-        }), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return {
+        'family_timezone': family_timezone,
+        'daily_progress_rows': rows,
+    }
 
 
 @kids_bp.route('/kids/<kid_id>/report/sessions/<session_id>', methods=['GET'])
@@ -11672,13 +11660,13 @@ def get_shared_type1_cards(kid_id):
             kid,
             request.args.get('categoryKey'),
         )
-        return jsonify(
-            build_type_i_shared_cards_payload(
-                kid,
-                category_key,
-                include_practiced_from_other=parse_include_practiced_from_other_arg(),
-            )
-        ), 200
+        payload = build_type_i_shared_cards_payload(
+            kid,
+            category_key,
+            include_practiced_from_other=parse_include_practiced_from_other_arg(),
+        )
+        payload.update(build_kid_daily_progress_section(kid, category_key))
+        return jsonify(payload), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -12877,13 +12865,13 @@ def get_shared_type3_cards(kid_id):
             kid,
             request.args.get('categoryKey'),
         )
-        return jsonify(
-            build_type_i_shared_cards_payload(
-                kid,
-                category_key,
-                include_practiced_from_other=parse_include_practiced_from_other_arg(),
-            )
-        ), 200
+        payload = build_type_i_shared_cards_payload(
+            kid,
+            category_key,
+            include_practiced_from_other=parse_include_practiced_from_other_arg(),
+        )
+        payload.update(build_kid_daily_progress_section(kid, category_key))
+        return jsonify(payload), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -12901,13 +12889,13 @@ def get_shared_type4_cards(kid_id):
             request.args.get('categoryKey'),
         )
         preview_hard_pct = parse_optional_hard_card_percentage_arg()
-        return jsonify(
-            build_type_iv_shared_cards_payload(
-                kid,
-                category_key,
-                preview_hard_pct,
-            )
-        ), 200
+        payload = build_type_iv_shared_cards_payload(
+            kid,
+            category_key,
+            preview_hard_pct,
+        )
+        payload.update(build_kid_daily_progress_section(kid, category_key))
+        return jsonify(payload), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -13323,6 +13311,7 @@ def get_shared_type2_cards(kid_id):
             'practicing_sheet_cards': practicing_sheet_cards,
             'cards': merged_cards,
             **special_ready_payload,
+            **build_kid_daily_progress_section(kid, category_key),
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
