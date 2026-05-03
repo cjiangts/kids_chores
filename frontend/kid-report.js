@@ -9,6 +9,7 @@ const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const summaryGrid = document.getElementById('summaryGrid');
 const reportCategoryFilter = document.getElementById('reportCategoryFilter');
+const kidNavGroup = document.getElementById('kidNavGroup');
 const dailyChartBody = document.getElementById('dailyChartBody');
 const dailyChartNewerBtn = document.getElementById('dailyChartNewerBtn');
 const dailyChartOlderBtn = document.getElementById('dailyChartOlderBtn');
@@ -25,7 +26,8 @@ let dailyChartCategories = [];
 let dailyChartPageIndex = 0;
 let reportSessions = [];
 let filteredSessions = [];
-let selectedCategoryKey = '';
+let selectedCategoryKey = String(params.get('cat') || '').trim();
+let cachedKidsForNav = [];
 let selectedReportView = 'sessions';
 let reportCategoryThemeByKey = new Map();
 const cardsViewCacheByCategoryKey = new Map();
@@ -93,8 +95,75 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+    loadKidNav();
     await loadReport();
 });
+
+async function loadKidNav() {
+    if (!kidNavGroup) {
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/kids`);
+        if (!response.ok) {
+            return;
+        }
+        const kids = await response.json();
+        cachedKidsForNav = Array.isArray(kids) ? kids : [];
+        renderKidNav();
+    } catch (error) {
+        console.error('Error loading kids for nav:', error);
+    }
+}
+
+function renderKidNav() {
+    if (!kidNavGroup) {
+        return;
+    }
+    const kids = Array.isArray(cachedKidsForNav) ? cachedKidsForNav : [];
+    if (kids.length < 2) {
+        kidNavGroup.classList.add('hidden');
+        kidNavGroup.innerHTML = '';
+        return;
+    }
+    kidNavGroup.innerHTML = kids.map((kid) => {
+        const id = String(kid?.id || '').trim();
+        const name = String(kid?.name || '').trim() || 'Kid';
+        const isActive = id === String(kidId);
+        if (isActive) {
+            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${escapeHtml(name)}</span>`;
+        }
+        const href = buildKidReportHref(id);
+        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtml(href)}">${escapeHtml(name)}</a>`;
+    }).join('');
+    kidNavGroup.classList.remove('hidden');
+}
+
+function buildKidReportHref(targetKidId) {
+    const qs = new URLSearchParams();
+    qs.set('id', String(targetKidId));
+    if (selectedCategoryKey) {
+        qs.set('cat', selectedCategoryKey);
+    }
+    if (from === 'kid-home') {
+        qs.set('from', 'kid-home');
+    }
+    return `/kid-report.html?${qs.toString()}`;
+}
+
+function syncCategoryQueryParam() {
+    try {
+        const url = new URL(window.location.href);
+        if (selectedCategoryKey) {
+            url.searchParams.set('cat', selectedCategoryKey);
+        } else {
+            url.searchParams.delete('cat');
+        }
+        window.history.replaceState(null, '', url.toString());
+    } catch (error) {
+        // ignore — non-critical
+    }
+}
 
 function renderInitialLoadingState() {
     if (dailyChartPageLabel) {
@@ -133,13 +202,12 @@ async function loadReport() {
         if (familyTimezone) {
             reportTimezone = familyTimezone;
         }
-        const kidName = (data.kid && data.kid.name) ? data.kid.name : 'Kid';
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
         reportSessions = sessions;
         reportCategoryThemeByKey = buildCategoryThemeByKey(sessions);
         seedCollapsedDays(sessions);
-        reportTitle.textContent = `${kidName}'s Practice Report`;
-        document.title = `${kidName} - Practice Report - Kids Daily Chores`;
+        reportTitle.textContent = 'Practice Report';
+        document.title = 'Practice Report - Kids Daily Chores';
         renderCategoryFilter(sessions);
         renderFilteredViews();
     } catch (error) {
@@ -1358,6 +1426,8 @@ function renderCategoryFilter(sessions) {
     if (selectedCategoryKey && !labelByKey.has(selectedCategoryKey)) {
         selectedCategoryKey = '';
     }
+    syncCategoryQueryParam();
+    renderKidNav();
 
     const buttons = [{ key: '', label: 'All', emoji: '' }].concat(
         orderedKeys.map((key) => ({
@@ -1392,6 +1462,8 @@ function renderCategoryFilter(sessions) {
             } else {
                 seedCollapsedDays(reportSessions);
             }
+            syncCategoryQueryParam();
+            renderKidNav();
             renderFilteredViews();
         });
     });
