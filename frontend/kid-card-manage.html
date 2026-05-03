@@ -1056,23 +1056,81 @@
             white-space: nowrap;
         }
 
-        .manage-page .cards-toolbar .cards-visible-action-btn {
-            min-height: 34px;
-            height: 34px;
-            padding: 0.35rem 0.64rem;
-            font-size: 0.86rem;
-            line-height: 1;
-            white-space: nowrap;
+        .cards-bulk-action-menu {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
             min-width: 0;
         }
 
-        .cards-visible-action-btn.skip,
-        .cards-visible-action-btn.unskip {
-            justify-self: stretch;
+        .cards-bulk-action-menu-btn {
+            appearance: none;
+            -webkit-appearance: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #d4ddf0;
+            background: #fff;
+            color: #2f3c7e;
+            border-radius: 6px;
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            padding: 0;
+            font-size: 1.2rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
         }
 
-        .cards-visible-action-btn:disabled {
-            opacity: 0.52;
+        .cards-bulk-action-menu-btn:hover {
+            background: #eef3ff;
+            border-color: #9ab5f3;
+            color: #274ca2;
+        }
+
+        .cards-bulk-action-menu-btn[aria-expanded="true"] {
+            background: #eef3ff;
+            border-color: #9ab5f3;
+            color: #274ca2;
+        }
+
+        .cards-bulk-action-menu-popover {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            z-index: 30;
+            min-width: 180px;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border: 1px solid rgba(28, 42, 82, 0.12);
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(28, 42, 82, 0.14);
+            padding: 0.3rem;
+        }
+
+        .cards-bulk-action-menu-item {
+            appearance: none;
+            -webkit-appearance: none;
+            border: 0;
+            background: transparent;
+            text-align: left;
+            padding: 0.5rem 0.7rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #2f3c7e;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .cards-bulk-action-menu-item:hover:not(:disabled) {
+            background: #eef3ff;
+        }
+
+        .cards-bulk-action-menu-item:disabled {
+            opacity: 0.45;
             cursor: not-allowed;
         }
 
@@ -1167,7 +1225,7 @@
 
         .manage-page .cards-toolbar {
             display: grid;
-            grid-template-columns: minmax(180px, 1fr) auto auto minmax(220px, 300px);
+            grid-template-columns: minmax(180px, 1fr) auto minmax(220px, 300px);
             align-items: end;
             column-gap: 0.52rem;
             row-gap: 0.5rem;
@@ -1237,7 +1295,7 @@
 
         @media (max-width: 1180px) {
             .manage-page .cards-toolbar {
-                grid-template-columns: minmax(120px, 1fr) auto auto minmax(180px, 240px);
+                grid-template-columns: minmax(120px, 1fr) auto minmax(180px, 240px);
                 column-gap: 0.45rem;
             }
 
@@ -1281,7 +1339,7 @@
             }
 
             .manage-page .cards-toolbar {
-                grid-template-columns: minmax(0, 1fr) max-content max-content;
+                grid-template-columns: minmax(0, 1fr) max-content;
                 gap: 0.5rem;
             }
 
@@ -1299,14 +1357,9 @@
                 justify-self: stretch;
             }
 
-            .manage-page .cards-toolbar .cards-visible-action-btn.skip {
+            .manage-page .cards-toolbar .cards-bulk-action-menu {
                 grid-column: 2 / 3;
-                width: auto;
-            }
-
-            .manage-page .cards-toolbar .cards-visible-action-btn.unskip {
-                grid-column: 3 / 4;
-                width: auto;
+                justify-self: end;
             }
 
             .manage-page .cards-toolbar .sort-control-group {
@@ -1347,13 +1400,6 @@
                 padding: 0.14rem;
             }
 
-            .cards-visible-action-btn {
-                width: 100%;
-                padding: 0.28rem 0.36rem;
-                font-size: 0.76rem;
-                text-align: center;
-            }
-
             .manage-page .card-view-mode-btn {
                 padding: 0.24rem 0.36rem;
                 font-size: 0.76rem;
@@ -1373,34 +1419,16 @@
 
         }
 
-        @media (max-width: 360px) {
-            .manage-page .cards-toolbar {
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            }
-
-            .manage-page .cards-toolbar .cards-search-input {
-                grid-column: 1 / -1;
-            }
-
-            .manage-page .cards-toolbar .cards-visible-action-btn.skip {
-                grid-column: 1 / 2;
-                width: 100%;
-            }
-
-            .manage-page .cards-toolbar .cards-visible-action-btn.unskip {
-                grid-column: 2 / 3;
-                width: 100%;
-            }
-        }
-
         @media (max-width: 420px) {
             .manage-page .cards-toolbar {
                 gap: 0.35rem;
             }
 
-            .manage-page .cards-toolbar .cards-visible-action-btn {
-                min-height: 32px;
+            .manage-page .cards-toolbar .cards-bulk-action-menu-btn {
+                width: 32px;
                 height: 32px;
+                min-width: 32px;
+                font-size: 1.1rem;
             }
 
             .cards-header-row {
@@ -1421,11 +1449,6 @@
                 font-size: 0.66rem;
                 flex: 0 0 auto;
                 min-width: max-content;
-            }
-
-            .cards-visible-action-btn {
-                padding: 0.24rem 0.28rem;
-                font-size: 0.72rem;
             }
 
             .manage-page .cards-toolbar .cards-search-input,
@@ -3679,8 +3702,13 @@
                     placeholder="Search cards..."
                     aria-label="Search cards"
                 >
-                <button id="skipVisibleCardsBtn" type="button" class="btn-secondary cards-visible-action-btn skip">Skip (0)</button>
-                <button id="unskipVisibleCardsBtn" type="button" class="btn-secondary cards-visible-action-btn unskip">Unskip (0)</button>
+                <div class="cards-bulk-action-menu">
+                    <button id="cardsBulkActionMenuBtn" type="button" class="cards-bulk-action-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Bulk actions" title="Bulk actions">⋮</button>
+                    <div id="cardsBulkActionMenu" class="cards-bulk-action-menu-popover hidden" role="menu" aria-hidden="true">
+                        <button id="skipVisibleCardsBtn" type="button" class="cards-bulk-action-menu-item" role="menuitem">Skip all visible (0)</button>
+                        <button id="unskipVisibleCardsBtn" type="button" class="cards-bulk-action-menu-item" role="menuitem">Unskip all visible (0)</button>
+                    </div>
+                </div>
                 <div class="sort-control-group">
                     <select id="viewOrderSelect" class="sort-select">
                         <option value="new_queue" selected>Order: Practice Queue</option>

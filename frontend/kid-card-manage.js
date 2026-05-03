@@ -104,6 +104,8 @@ const sortDirectionToggleBtn = document.getElementById('sortDirectionToggleBtn')
 const cardSearchInput = document.getElementById('cardSearchInput');
 const skipVisibleCardsBtn = document.getElementById('skipVisibleCardsBtn');
 const unskipVisibleCardsBtn = document.getElementById('unskipVisibleCardsBtn');
+const cardsBulkActionMenuBtn = document.getElementById('cardsBulkActionMenuBtn');
+const cardsBulkActionMenu = document.getElementById('cardsBulkActionMenu');
 const cardsBulkActionMessage = document.getElementById('cardsBulkActionMessage');
 const cardsQueueLegend = document.getElementById('cardsQueueLegend');
 const mathCardCount = document.getElementById('mathCardCount');
@@ -129,6 +131,7 @@ let sharedDeckCardsResponseTracker = null;
 let currentCategoryDisplayName = 'Practice';
 let currentKidName = '';
 let isChineseSpecificLogic = false;
+let currentChineseBackContent = '';
 let currentSharedScope = SHARED_SCOPE_CARDS;
 let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
 let isReadingBulkAdding = false;
@@ -453,6 +456,14 @@ function isType3Behavior() {
 function isType4Behavior() {
     return currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV;
 }
+
+function isType1ChineseEnglishBackMode() {
+    return isType1Behavior()
+        && isChineseSpecificLogic
+        && currentChineseBackContent === 'english';
+}
+
+const TYPE1_ENGLISH_BACK_FORMAT_HINT = 'Expected one entry per line as: <chinese>, <english> — e.g. 中国, china';
 
 function supportsPersonalDeckEditor() {
     return isChineseSpecificLogic
@@ -841,14 +852,22 @@ function applyCategoryUiText() {
         setManageModalOpen(personalDeckModal, false);
     }
     if (personalDeckModalNote) {
-        personalDeckModalNote.textContent = isType2Behavior()
-            ? 'Bulk add Chinese words and phrases to the Personal Deck.'
-            : 'Bulk add Chinese characters to the Personal Deck.';
+        if (isType1ChineseEnglishBackMode()) {
+            personalDeckModalNote.textContent = `Bulk add Chinese words/phrases with English meanings. ${TYPE1_ENGLISH_BACK_FORMAT_HINT}`;
+        } else {
+            personalDeckModalNote.textContent = isType2Behavior()
+                ? 'Bulk add Chinese words and phrases to the Personal Deck.'
+                : 'Bulk add Chinese characters to the Personal Deck.';
+        }
     }
     if (chineseCharInput) {
-        chineseCharInput.placeholder = isType2Behavior()
-            ? '比如:\nDAY1:好像 香 菜 为难 关心 事情 很重 虽然 但是 改变 昨天 放心 更好\nDAY2:答应 病了 知道 从来 勇敢 感动 高山 一起 可是 找人 怎么 远 路'
-            : '比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀';
+        if (isType1ChineseEnglishBackMode()) {
+            chineseCharInput.placeholder = '比如:\n中国, china\n你好, hello\n学校, school';
+        } else {
+            chineseCharInput.placeholder = isType2Behavior()
+                ? '比如:\nDAY1:好像 香 菜 为难 关心 事情 很重 虽然 但是 改变 昨天 放心 更好\nDAY2:答应 病了 知道 从来 勇敢 感动 高山 一起 可是 找人 怎么 远 路'
+                : '比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀';
+        }
     }
     document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);
     syncType4CardOrderOptions();
@@ -2033,10 +2052,23 @@ function renderVisibleSkipActionButtons() {
     const visibleCards = getVisibleCardsForDisplay(currentCards);
     const skipableCount = visibleCards.filter((card) => !card.skip_practice).length;
     const unskipableCount = visibleCards.filter((card) => !!card.skip_practice).length;
-    skipVisibleCardsBtn.textContent = `Skip (${skipableCount})`;
-    unskipVisibleCardsBtn.textContent = `Unskip (${unskipableCount})`;
+    skipVisibleCardsBtn.textContent = `Skip all visible (${skipableCount})`;
+    unskipVisibleCardsBtn.textContent = `Unskip all visible (${unskipableCount})`;
     skipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || skipableCount <= 0;
     unskipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || unskipableCount <= 0;
+}
+
+function setCardsBulkActionMenuOpen(open) {
+    if (!cardsBulkActionMenuBtn || !cardsBulkActionMenu) {
+        return;
+    }
+    cardsBulkActionMenu.classList.toggle('hidden', !open);
+    cardsBulkActionMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+    cardsBulkActionMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function isCardsBulkActionMenuOpen() {
+    return !!(cardsBulkActionMenu && !cardsBulkActionMenu.classList.contains('hidden'));
 }
 
 function renderCardViewModeButtons() {
@@ -2967,11 +2999,17 @@ function updateAddReadingButtonCount() {
         addReadingBtn.disabled = true;
         return;
     }
-    const isType2 = isType2Behavior();
-    const dedupStats = isType2
-        ? getType2ChineseBulkInputStats(chineseCharInput.value)
-        : getType1ChineseBulkInputStats(chineseCharInput.value);
-    addReadingBtn.disabled = dedupStats.uniqueCount <= 0;
+    const csvMode = isType1ChineseEnglishBackMode();
+    let dedupStats;
+    if (csvMode) {
+        dedupStats = getType1EnglishBackBulkInputStats(chineseCharInput.value);
+    } else if (isType2Behavior()) {
+        dedupStats = getType2ChineseBulkInputStats(chineseCharInput.value);
+    } else {
+        dedupStats = getType1ChineseBulkInputStats(chineseCharInput.value);
+    }
+    const hasInput = String(chineseCharInput.value || '').trim().length > 0;
+    addReadingBtn.disabled = csvMode ? !hasInput : dedupStats.uniqueCount <= 0;
     if (dedupStats.uniqueCount > 0) {
         const countText = dedupStats.dedupedCount > 0
             ? `${dedupStats.uniqueCount}, dedup ${dedupStats.dedupedCount}`
@@ -3016,6 +3054,45 @@ function getType2ChineseBulkInputStats(text) {
         uniqueCount: uniqueValues.length,
         dedupedCount: Math.max(0, values.length - uniqueValues.length),
         uniqueValues,
+    };
+}
+
+function getType1EnglishBackBulkInputStats(text) {
+    const lines = String(text || '').split(/\r?\n/);
+    const entries = [];
+    const errors = [];
+    const seenFronts = new Set();
+    let dedupedCount = 0;
+    lines.forEach((rawLine, idx) => {
+        const line = String(rawLine || '').trim();
+        if (!line) {
+            return;
+        }
+        const lineNumber = idx + 1;
+        const commaIdx = line.indexOf(',');
+        if (commaIdx < 0) {
+            errors.push({ lineNumber, line });
+            return;
+        }
+        const front = line.slice(0, commaIdx).trim();
+        const back = line.slice(commaIdx + 1).trim();
+        if (!front || !back || !/^[\u3400-\u9FFF\uF900-\uFAFF]+$/.test(front)) {
+            errors.push({ lineNumber, line });
+            return;
+        }
+        if (seenFronts.has(front)) {
+            dedupedCount += 1;
+            return;
+        }
+        seenFronts.add(front);
+        entries.push({ front, back });
+    });
+    return {
+        entries,
+        errors,
+        totalCount: entries.length + dedupedCount,
+        uniqueCount: entries.length,
+        dedupedCount,
     };
 }
 
@@ -3186,10 +3263,27 @@ async function addOrphanCards() {
             return;
         }
 
-        const chineseChars = getType1ChineseBulkInputStats(input).uniqueValues;
-        if (chineseChars.length === 0) {
-            showError('Please enter at least one Chinese character');
-            return;
+        let cardsPayload;
+        if (isType1ChineseEnglishBackMode()) {
+            const stats = getType1EnglishBackBulkInputStats(input);
+            if (stats.errors.length > 0) {
+                const badLines = stats.errors.slice(0, 3).map((e) => `line ${e.lineNumber}`).join(', ');
+                const more = stats.errors.length > 3 ? ` (+${stats.errors.length - 3} more)` : '';
+                showStatusMessage(`Invalid format on ${badLines}${more}. ${TYPE1_ENGLISH_BACK_FORMAT_HINT}`, true);
+                return;
+            }
+            if (stats.entries.length === 0) {
+                showStatusMessage(`No entries to add. ${TYPE1_ENGLISH_BACK_FORMAT_HINT}`, true);
+                return;
+            }
+            cardsPayload = stats.entries;
+        } else {
+            const chineseChars = getType1ChineseBulkInputStats(input).uniqueValues;
+            if (chineseChars.length === 0) {
+                showError('Please enter at least one Chinese character');
+                return;
+            }
+            cardsPayload = chineseChars.map((ch) => ({ front: ch, back: '' }));
         }
 
         const addUrl = withCategoryKey(new URL(`${API_BASE}/kids/${kidId}/cards/bulk`));
@@ -3198,7 +3292,7 @@ async function addOrphanCards() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 categoryKey,
-                cards: chineseChars.map((ch) => ({ front: ch, back: '' }))
+                cards: cardsPayload,
             }),
         });
         const result = await response.json().catch(() => ({}));
@@ -3468,6 +3562,7 @@ async function loadKidInfo() {
     );
 
     isChineseSpecificLogic = Boolean(categoryMeta && categoryMeta.has_chinese_specific_logic);
+    currentChineseBackContent = String(categoryMeta && categoryMeta.chinese_back_content ? categoryMeta.chinese_back_content : '').trim().toLowerCase();
     currentCategoryDisplayName = displayName;
     currentKidName = String(kid.name || '').trim();
     applyCategoryUiText();
@@ -4533,12 +4628,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (skipVisibleCardsBtn) {
         skipVisibleCardsBtn.addEventListener('click', async () => {
+            setCardsBulkActionMenuOpen(false);
             await applyVisibleCardsSkip(true);
         });
     }
     if (unskipVisibleCardsBtn) {
         unskipVisibleCardsBtn.addEventListener('click', async () => {
+            setCardsBulkActionMenuOpen(false);
             await applyVisibleCardsSkip(false);
+        });
+    }
+    if (cardsBulkActionMenuBtn) {
+        cardsBulkActionMenuBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            setCardsBulkActionMenuOpen(!isCardsBulkActionMenuOpen());
+        });
+        document.addEventListener('click', (event) => {
+            if (!isCardsBulkActionMenuOpen()) {
+                return;
+            }
+            const target = event.target;
+            if (cardsBulkActionMenu.contains(target) || cardsBulkActionMenuBtn.contains(target)) {
+                return;
+            }
+            setCardsBulkActionMenuOpen(false);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && isCardsBulkActionMenuOpen()) {
+                setCardsBulkActionMenuOpen(false);
+                cardsBulkActionMenuBtn.focus();
+            }
         });
     }
     if (addCardForm) {
