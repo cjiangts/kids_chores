@@ -102,7 +102,13 @@ const addReadingBtn = document.getElementById('addReadingBtn');
 const addCardStatusMessage = document.getElementById('addCardStatusMessage');
 
 const viewOrderSelect = document.getElementById('viewOrderSelect');
-const sortDirectionToggleBtn = document.getElementById('sortDirectionToggleBtn');
+const sortMenuBtn = document.getElementById('sortMenuBtn');
+const sortMenuBtnLabel = document.getElementById('sortMenuBtnLabel');
+const sortMenuPopover = document.getElementById('sortMenuPopover');
+const sortDirectionToggleGroup = document.getElementById('sortDirectionToggleGroup');
+const sortDirectionToggleBtns = sortDirectionToggleGroup
+    ? Array.from(sortDirectionToggleGroup.querySelectorAll('.sort-direction-toggle-btn'))
+    : [];
 const cardSearchInput = document.getElementById('cardSearchInput');
 const skipVisibleCardsBtn = document.getElementById('skipVisibleCardsBtn');
 const unskipVisibleCardsBtn = document.getElementById('unskipVisibleCardsBtn');
@@ -241,14 +247,16 @@ function setCurrentCardSortDirection(direction) {
 }
 
 function syncCardSortDirectionButton() {
-    if (!sortDirectionToggleBtn) {
+    if (!sortDirectionToggleBtns.length) {
         return;
     }
     const direction = getCurrentCardSortDirection();
-    const isAscending = direction === CARD_SORT_DIRECTION_ASC;
-    sortDirectionToggleBtn.textContent = isAscending ? '↑' : '↓';
-    sortDirectionToggleBtn.title = isAscending ? 'Ascending order' : 'Descending order';
-    sortDirectionToggleBtn.setAttribute('aria-label', isAscending ? 'Ascending order' : 'Descending order');
+    const activeKey = direction === CARD_SORT_DIRECTION_ASC ? 'asc' : 'desc';
+    sortDirectionToggleBtns.forEach((btn) => {
+        const isActive = btn.dataset.sortDirection === activeKey;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
 }
 
 function withCategoryValue(rawMap, value) {
@@ -823,24 +831,36 @@ function renderKidNav() {
         kidNavGroup.innerHTML = '';
         return;
     }
+    const userIconSvg = '<svg class="kid-nav-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
     kidNavGroup.innerHTML = kids.map((kid) => {
         const id = String(kid?.id || '').trim();
         const name = String(kid?.name || '').trim() || 'Kid';
         const isActive = id === String(kidId);
         if (isActive) {
-            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${escapeHtml(name)}</span>`;
+            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}<span>${escapeHtml(name)}</span></span>`;
         }
-        const href = buildKidCardManageHref(id);
-        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtml(href)}">${escapeHtml(name)}</a>`;
+        const href = buildKidCardManageHref(id, kid);
+        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtml(href)}">${userIconSvg}<span>${escapeHtml(name)}</span></a>`;
     }).join('');
     kidNavGroup.classList.remove('hidden');
 }
 
-function buildKidCardManageHref(targetKidId) {
+function buildKidCardManageHref(targetKidId, targetKid) {
     const qs = new URLSearchParams();
     qs.set('id', String(targetKidId));
-    if (categoryKey) {
-        qs.set('categoryKey', categoryKey);
+    const optedInKeys = Array.isArray(targetKid?.optedInDeckCategoryKeys)
+        ? targetKid.optedInDeckCategoryKeys.map(normalizeCategoryKey).filter(Boolean)
+        : [];
+    let resolvedCategoryKey = '';
+    if (categoryKey && (optedInKeys.length === 0 || optedInKeys.includes(categoryKey))) {
+        resolvedCategoryKey = categoryKey;
+    } else if (optedInKeys.length > 0) {
+        resolvedCategoryKey = optedInKeys[0];
+    } else if (categoryKey) {
+        resolvedCategoryKey = categoryKey;
+    }
+    if (resolvedCategoryKey) {
+        qs.set('categoryKey', resolvedCategoryKey);
     }
     return `/kid-card-manage.html?${qs.toString()}`;
 }
@@ -952,8 +972,8 @@ function syncType4CardOrderOptions() {
         option.hidden = shouldHide;
         option.disabled = shouldHide;
     });
-    if (sortDirectionToggleBtn) {
-        sortDirectionToggleBtn.classList.toggle('hidden', hideAllExceptAdded);
+    if (sortDirectionToggleGroup) {
+        sortDirectionToggleGroup.classList.toggle('hidden', hideAllExceptAdded);
     }
     const currentValue = String(viewOrderSelect.value || '').trim().toLowerCase();
     if (hideAllExceptAdded && currentValue !== CARD_SORT_MODE_ADDED_TIME) {
@@ -965,6 +985,7 @@ function syncType4CardOrderOptions() {
         setCurrentCardSortDirection(getDefaultCardSortDirection(CARD_SORT_MODE_PRACTICE_QUEUE));
         syncCardSortDirectionButton();
     }
+    syncSortMenuFromSelect();
 }
 
 function syncType4RepresentativeCardsUi() {
@@ -985,6 +1006,7 @@ function syncType4RepresentativeCardsUi() {
     }
     if (viewOrderSelect) {
         viewOrderSelect.value = 'added_time';
+        syncSortMenuFromSelect();
     }
     renderCardViewModeButtons();
     updateCardsQueueLegendVisibility(0);
@@ -2107,8 +2129,18 @@ function renderVisibleSkipActionButtons() {
     const visibleCards = getVisibleCardsForDisplay(currentCards);
     const skipableCount = visibleCards.filter((card) => !card.skip_practice).length;
     const unskipableCount = visibleCards.filter((card) => !!card.skip_practice).length;
-    skipVisibleCardsBtn.textContent = `Skip all visible (${skipableCount})`;
-    unskipVisibleCardsBtn.textContent = `Unskip all visible (${unskipableCount})`;
+    const skipLabel = skipVisibleCardsBtn.querySelector('.cards-bulk-action-menu-item-text');
+    const unskipLabel = unskipVisibleCardsBtn.querySelector('.cards-bulk-action-menu-item-text');
+    if (skipLabel) {
+        skipLabel.textContent = `Skip visible cards (${skipableCount})`;
+    } else {
+        skipVisibleCardsBtn.textContent = `Skip visible cards (${skipableCount})`;
+    }
+    if (unskipLabel) {
+        unskipLabel.textContent = `Unskip visible cards (${unskipableCount})`;
+    } else {
+        unskipVisibleCardsBtn.textContent = `Unskip visible cards (${unskipableCount})`;
+    }
     skipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || skipableCount <= 0;
     unskipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || unskipableCount <= 0;
 }
@@ -2120,6 +2152,92 @@ function setCardsBulkActionMenuOpen(open) {
     cardsBulkActionMenu.classList.toggle('hidden', !open);
     cardsBulkActionMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
     cardsBulkActionMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function getSortOptionLabel(option) {
+    if (!option) {
+        return '';
+    }
+    const dataLabel = option.dataset && option.dataset.label;
+    if (dataLabel) {
+        return dataLabel;
+    }
+    return String(option.textContent || '').replace(/^\s*Sort by:\s*/i, '').trim();
+}
+
+function buildSortMenuItems() {
+    if (!sortMenuPopover || !viewOrderSelect) {
+        return;
+    }
+    sortMenuPopover.innerHTML = '';
+    const options = Array.from(viewOrderSelect.querySelectorAll('option'));
+    options.forEach((option) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'sort-menu-item';
+        item.setAttribute('role', 'menuitemradio');
+        item.dataset.value = option.value;
+        const label = getSortOptionLabel(option);
+        item.innerHTML = `
+            <svg class="sort-menu-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span class="sort-menu-item-label"></span>
+        `;
+        item.querySelector('.sort-menu-item-label').textContent = label;
+        item.addEventListener('click', () => {
+            if (item.disabled) {
+                return;
+            }
+            if (viewOrderSelect.value !== option.value) {
+                viewOrderSelect.value = option.value;
+                viewOrderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            setSortMenuOpen(false);
+            if (sortMenuBtn) {
+                sortMenuBtn.focus();
+            }
+        });
+        sortMenuPopover.appendChild(item);
+    });
+}
+
+function syncSortMenuFromSelect() {
+    if (!viewOrderSelect) {
+        return;
+    }
+    const options = Array.from(viewOrderSelect.querySelectorAll('option'));
+    const currentValue = viewOrderSelect.value;
+    const selectedOption = options.find((opt) => opt.value === currentValue) || options[0];
+    if (sortMenuBtnLabel && selectedOption) {
+        sortMenuBtnLabel.textContent = `Sort by: ${getSortOptionLabel(selectedOption)}`;
+    }
+    if (!sortMenuPopover) {
+        return;
+    }
+    const items = Array.from(sortMenuPopover.querySelectorAll('.sort-menu-item'));
+    items.forEach((item) => {
+        const value = item.dataset.value;
+        const matchOption = options.find((opt) => opt.value === value);
+        const isHidden = !!(matchOption && matchOption.hidden);
+        const isDisabled = !!(matchOption && matchOption.disabled);
+        item.style.display = isHidden ? 'none' : '';
+        item.disabled = isDisabled;
+        const isSelected = value === currentValue;
+        item.classList.toggle('selected', isSelected);
+        item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+    });
+}
+
+function setSortMenuOpen(open) {
+    if (!sortMenuBtn || !sortMenuPopover) {
+        return;
+    }
+    sortMenuPopover.classList.toggle('hidden', !open);
+    sortMenuPopover.setAttribute('aria-hidden', open ? 'false' : 'true');
+    sortMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function isSortMenuOpen() {
+    return !!(sortMenuPopover && !sortMenuPopover.classList.contains('hidden'));
 }
 
 function isCardsBulkActionMenuOpen() {
@@ -2313,23 +2431,38 @@ function hasQueueSettingsChanges() {
         || currentHardPct !== baselineHardCardPercent;
 }
 
+function setQueueSettingsSaveButton(state, labelText) {
+    if (!queueSettingsSaveBtn) {
+        return;
+    }
+    queueSettingsSaveBtn.dataset.state = state;
+    queueSettingsSaveBtn.disabled = state !== 'dirty';
+    const labelEl = queueSettingsSaveBtn.querySelector('.queue-save-pill-label');
+    if (labelEl) {
+        labelEl.textContent = labelText;
+    } else {
+        queueSettingsSaveBtn.textContent = labelText;
+    }
+}
+
 function updateQueueSettingsSaveButtonState() {
     if (!queueSettingsSaveBtn) {
         return;
     }
     if (isType4Behavior()) {
-        queueSettingsSaveBtn.disabled = true;
-        queueSettingsSaveBtn.textContent = 'Saved';
+        setQueueSettingsSaveButton('saved', 'Saved');
+        return;
+    }
+    if (isQueueSettingsSaving) {
+        setQueueSettingsSaveButton('saving', 'Saving…');
         return;
     }
     const hasChanges = hasQueueSettingsChanges();
-    if (isQueueSettingsSaving) {
-        queueSettingsSaveBtn.disabled = true;
-        queueSettingsSaveBtn.textContent = 'Saving...';
-        return;
+    if (hasChanges) {
+        setQueueSettingsSaveButton('dirty', 'Save');
+    } else {
+        setQueueSettingsSaveButton('saved', 'Saved');
     }
-    queueSettingsSaveBtn.disabled = !hasChanges;
-    queueSettingsSaveBtn.textContent = hasChanges ? 'Save' : (queueSettingsSaveSuccessText || 'Saved');
 }
 
 function scheduleQueuePreviewReload() {
@@ -4662,18 +4795,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         const nextMode = getSelectedCardSortMode();
         setCurrentCardSortDirection(getDefaultCardSortDirection(nextMode));
         syncCardSortDirectionButton();
+        syncSortMenuFromSelect();
         resetAndDisplayCards(currentCards);
     });
-    if (sortDirectionToggleBtn) {
-        sortDirectionToggleBtn.addEventListener('click', () => {
-            const next = getCurrentCardSortDirection() === CARD_SORT_DIRECTION_ASC
-                ? CARD_SORT_DIRECTION_DESC
-                : CARD_SORT_DIRECTION_ASC;
+    buildSortMenuItems();
+    syncSortMenuFromSelect();
+    if (sortMenuBtn) {
+        sortMenuBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            setSortMenuOpen(!isSortMenuOpen());
+        });
+        document.addEventListener('click', (event) => {
+            if (!isSortMenuOpen()) {
+                return;
+            }
+            const target = event.target;
+            if (sortMenuPopover.contains(target) || sortMenuBtn.contains(target)) {
+                return;
+            }
+            setSortMenuOpen(false);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && isSortMenuOpen()) {
+                setSortMenuOpen(false);
+                sortMenuBtn.focus();
+            }
+        });
+    }
+    sortDirectionToggleBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const next = btn.dataset.sortDirection === 'asc'
+                ? CARD_SORT_DIRECTION_ASC
+                : CARD_SORT_DIRECTION_DESC;
+            if (next === getCurrentCardSortDirection()) {
+                return;
+            }
             setCurrentCardSortDirection(next);
             syncCardSortDirectionButton();
             resetAndDisplayCards(currentCards);
         });
-    }
+    });
     renderCardViewModeButtons();
     if (cardViewModeCompactBtn) {
         cardViewModeCompactBtn.addEventListener('click', () => setCardViewMode('short'));
@@ -4757,6 +4918,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         applySessionCardCountInputCap();
     }
+    document.querySelectorAll('[data-session-count-step]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            if (!sessionCardCountInput) {
+                return;
+            }
+            const step = Number.parseInt(btn.dataset.sessionCountStep, 10) || 0;
+            const current = Number.parseInt(sessionCardCountInput.value, 10) || 0;
+            const min = Number.parseInt(sessionCardCountInput.min, 10);
+            const max = Number.parseInt(sessionCardCountInput.max, 10);
+            let next = current + step;
+            if (Number.isFinite(min) && next < min) next = min;
+            if (Number.isFinite(max) && next > max) next = max;
+            if (next === current) {
+                return;
+            }
+            sessionCardCountInput.value = String(next);
+            sessionCardCountInput.dispatchEvent(new Event('input', { bubbles: true }));
+            sessionCardCountInput.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
     if (type4DeckCountsList) {
         type4DeckCountsList.addEventListener('input', (event) => {
             const target = event.target;

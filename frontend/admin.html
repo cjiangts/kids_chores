@@ -7,13 +7,14 @@
     <title>Parent Admin - Kids Daily Chores</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="home-redesign-v4.css">
 </head>
 <body class="parent-admin-page">
     <div class="container">
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
-                <h1>👔 Parent Admin</h1>
+                <h1><svg class="icon page-title-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15H6a4 4 0 0 0-4 4v2"/><path d="m14.305 16.53.923-.382"/><path d="m15.228 13.852-.923-.383"/><path d="m16.852 12.228-.383-.923"/><path d="m16.852 17.772-.383.924"/><path d="m19.148 12.228.383-.923"/><path d="m19.53 18.696-.382-.924"/><path d="m20.772 13.852.924-.383"/><path d="m20.772 16.148.924.383"/><circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/></svg> Parent Admin</h1>
                 <div class="page-header-actions page-header-actions--admin">
                     <button
                         id="newKidBtn"
@@ -23,7 +24,7 @@
                         title="Add Kid"
                     >
                         <span class="header-action-icon" aria-hidden="true">
-                            <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                            <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21a8 8 0 0 1 13.292-6"/><circle cx="10" cy="8" r="5"/><path d="M19 16v6"/><path d="M22 19h-6"/></svg>
                         </span>
                         <span class="header-action-label">Add Kid</span>
                     </button>
@@ -39,7 +40,10 @@
                         <span class="header-action-label">Settings</span>
                     </a>
                     <a href="/" class="back-btn btn-secondary page-header-back-btn header-action-btn" aria-label="Kid Mode" title="Kid Mode">
-                        <span class="header-action-label">🧸 Kid Mode</span>
+                        <span class="header-action-icon" aria-hidden="true">
+                            <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>
+                        </span>
+                        <span class="header-action-label">Kid Mode</span>
                     </a>
                 </div>
             </div>
@@ -171,6 +175,7 @@
     </script>
 
     <script src="icons.js"></script>
+    <script src="subject-icons.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="admin.js"></script>

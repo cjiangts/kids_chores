@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Subject icon preview</title>
+  <link rel="stylesheet" href="subject-icons.css">
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; padding: 24px; background:#f6f7fb;
+           color:#162348; }
+    h2 { margin: 24px 0 12px; }
+    .deck-row { display:flex; align-items:center; gap:14px; min-height:72px; padding:12px 16px;
+                border-radius:18px; background:#fff;
+                box-shadow:0 4px 14px rgba(40,52,107,.08); margin-bottom:10px; }
+    .deck-title { font-size:18px; font-weight:800; }
+    .deck-subtitle { margin-top:2px; font-size:14px; color:#60708f; }
+    .row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+
+  <h2>Deck rows (size 48)</h2>
+  <div id="cards"></div>
+
+  <h2>Sizes 22 / 36 / 48 / 56 / 64 / 96</h2>
+  <div class="row" id="sizes"></div>
+
+  <h2>Math vs Chinese vs ABC — small-size side-by-side</h2>
+  <p style="color:#60708f;margin:0 0 12px">Looking for math glyph weight to match 字 / ABC at every size.</p>
+  <div id="smallCompare"></div>
+
+  <h2>All subjects × all tones</h2>
+  <div id="matrix"></div>
+
+  <script src="icons.js"></script>
+  <script src="subject-icons.js"></script>
+  <script>
+    const items = [
+      ['basic_math_facts',    'Basic Math Facts',    '40/day target'],
+      ['math_problems',       'Math Problems',       '40/day target'],
+      ['chinese_characters',  'Chinese Characters',  '70/day target'],
+      ['chinese_vocabulary',  'Chinese Vocabulary',  '50/day target'],
+      ['chinese_writing',     'Chinese Writing',     '30/day target'],
+      ['chinese_reading',     'Chinese Reading',     '20/day target'],
+      ['spelling',            'Spelling',            '25/day target'],
+    ];
+
+    const cards = document.getElementById('cards');
+    items.forEach(([id, name, sub]) => {
+      cards.insertAdjacentHTML('beforeend',
+        `<div class="deck-row">
+           ${subjectIcon(id, {size: 48})}
+           <div>
+             <div class="deck-title">${name}</div>
+             <div class="deck-subtitle">${sub}</div>
+           </div>
+         </div>`);
+    });
+
+    const sizes = document.getElementById('sizes');
+    [22, 36, 48, 56, 64, 96].forEach(px => {
+      sizes.insertAdjacentHTML('beforeend', subjectIcon('chinese_characters', {size: px}));
+    });
+
+    const smallCompare = document.getElementById('smallCompare');
+    const compareSubjects = ['basic_math_facts', 'math_problems', 'chinese_characters', 'spelling'];
+    [22, 28, 32, 40, 48, 56, 72].forEach(px => {
+      const tiles = compareSubjects.map(id => subjectIcon(id, {size: px})).join('');
+      smallCompare.insertAdjacentHTML('beforeend',
+        `<div class="deck-row" style="min-height:auto;padding:10px 16px">
+           <div style="width:60px;color:#60708f;font-variant-numeric:tabular-nums">${px}px</div>
+           <div class="row">${tiles}</div>
+         </div>`);
+    });
+
+    const matrix = document.getElementById('matrix');
+    items.forEach(([id, name]) => {
+      const swatches = SUBJECT_TONES.map(t => subjectIcon(id, {size: 48, tone: t})).join('');
+      matrix.insertAdjacentHTML('beforeend',
+        `<div class="deck-row"><div style="width:160px;font-weight:600">${name}</div>
+           <div class="row">${swatches}</div></div>`);
+    });
+  </script>
+</body>
+</html>

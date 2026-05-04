@@ -335,7 +335,7 @@ function displayKids(kids) {
         kidsList.innerHTML = `
             <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
-                <p>Tap 👔 Parent Mode, then tap ${icon('plus', { size: 16 })} Add Kid to add your first learner.</p>
+                <p>Tap ${icon('user-cog', { size: 16 })} Parent Mode, then tap ${icon('user-round-plus', { size: 16 })} Add Kid to add your first learner.</p>
             </div>
         `;
         return;
@@ -370,7 +370,7 @@ function displayKids(kids) {
                 dailyPercentByCategory,
                 normalizeCategoryKey,
                 doneMarkClass: 'practice-done-mark',
-                doneMarkText: '✅ Done',
+                doneMarkText: `${icon('check', { size: 16 })} Done`,
             });
             const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap) || formatDeckCategoryLabel(categoryKey);
             const emoji = getCategoryEmoji(categoryKey, categoryMetaMap) || '🧩';
@@ -388,6 +388,7 @@ function displayKids(kids) {
             unseenTotal += progressModel.unseenCount;
             targetTotal += progressModel.targetCount;
             enabledRows.push({
+                categoryKey,
                 label: displayName,
                 emoji,
                 progressModel,
@@ -440,10 +441,13 @@ function displayKids(kids) {
                     const targetLineHtml = targetCount > 0
                         ? `<div class="redesign-kid-icon-target">${escapeHtml(String(targetCount))} today</div>`
                         : '';
+                    const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(row.categoryKey, {
+                        fallbackEmoji: row.emoji,
+                    });
                     return `<div class="redesign-kid-icon-tile ${tileState}">
                         <div class="redesign-kid-icon-top">
                             ${indicatorHtml}
-                            <span class="redesign-kid-icon-emoji">${escapeHtml(row.emoji)}</span>
+                            ${subjectIconHtml}
                         </div>
                         <div class="redesign-kid-icon-label">${escapeHtml(row.label)}</div>
                         ${targetLineHtml}

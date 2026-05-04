@@ -171,11 +171,6 @@ body.practice-home-redesign {
     transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 
-.family-home-page .redesign-kid-card:hover,
-.parent-admin-page .redesign-kid-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 18px 40px rgba(31, 45, 98, 0.2);
-}
 
 .family-home-page .redesign-kid-card.redesign-kid-card-disabled {
     cursor: default;
@@ -683,6 +678,28 @@ body.practice-home-redesign {
 .parent-admin-page .admin-kid-card {
     cursor: default;
     padding: 12px;
+    container-type: inline-size;
+}
+
+@container (max-width: 540px) {
+    .parent-admin-page .admin-records-pill,
+    .parent-admin-page .admin-optin-pill,
+    .parent-admin-page .admin-review-audio-btn {
+        flex-direction: column;
+        gap: 0.15rem;
+        padding: 0.4rem 0.4rem;
+        min-height: 3.2rem;
+        min-width: 3rem;
+        font-size: 0.65rem;
+        line-height: 1.1;
+    }
+
+    .parent-admin-page .admin-optin-pill-label,
+    .parent-admin-page .admin-records-pill-label,
+    .parent-admin-page .admin-review-audio-label {
+        font-size: 0.65rem;
+        line-height: 1.1;
+    }
 }
 
 .parent-admin-page .redesign-kid-top {
@@ -748,16 +765,17 @@ body.practice-home-redesign {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    min-height: 36px;
-    padding: 0 10px;
+    gap: 0.35rem;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.85rem;
     border-radius: var(--control-radius);
     border: 1px solid #d5def8;
     background: #fff;
     color: #4f63cb;
     text-decoration: none;
-    font-size: 0.84rem;
-    font-weight: 600;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.2;
     white-space: nowrap;
     transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
@@ -769,14 +787,14 @@ body.practice-home-redesign {
 }
 
 .parent-admin-page .admin-optin-pill-icon {
-    font-size: 1rem;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
 }
 
 .parent-admin-page .admin-optin-pill-label {
-    font-size: 0.84rem;
-    line-height: 1;
+    line-height: 1.2;
 }
 
 .parent-admin-page .admin-review-audio-btn {
@@ -784,17 +802,24 @@ body.practice-home-redesign {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 36px;
-    min-height: 36px;
-    padding: 0 8px;
+    gap: 0.35rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.85rem;
     border-radius: var(--control-radius);
     border: 1px solid #d5def8;
     background: #fff;
     color: #4f63cb;
-    font-size: 1.1rem;
-    line-height: 1;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.2;
     cursor: pointer;
+    white-space: nowrap;
     transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.parent-admin-page .admin-review-audio-label {
+    line-height: 1.2;
 }
 
 .parent-admin-page .admin-review-audio-btn:hover {
@@ -804,7 +829,9 @@ body.practice-home-redesign {
 }
 
 .parent-admin-page .admin-review-audio-icon {
-    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
 }
 
@@ -828,21 +855,26 @@ body.practice-home-redesign {
 }
 
 .parent-admin-page .admin-records-pill {
-    min-height: 36px;
+    min-height: 2.5rem;
     border-radius: var(--control-radius);
     border: 1px solid #d5def8;
     background: #fff;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 0 10px;
+    gap: 0.35rem;
+    padding: 0.5rem 0.85rem;
     text-decoration: none;
-    font-size: 0.84rem;
-    font-weight: 600;
+    font-size: 0.95rem;
+    font-weight: 400;
     color: #4f63cb;
     white-space: nowrap;
+    line-height: 1.2;
     transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.parent-admin-page .admin-records-pill-label {
+    line-height: 1.2;
 }
 
 .parent-admin-page .admin-records-pill:hover {
@@ -1479,25 +1511,23 @@ body.practice-home-redesign {
         min-width: 0;
     }
 
-    .parent-admin-page .admin-records-pill {
-        min-width: 0;
-        min-height: 32px;
-        padding: 0 9px;
-        font-size: 0.78rem;
+    .parent-admin-page .admin-records-pill,
+    .parent-admin-page .admin-optin-pill,
+    .parent-admin-page .admin-review-audio-btn {
+        flex-direction: column;
+        gap: 0.15rem;
+        padding: 0.4rem 0.4rem;
+        min-height: 3.2rem;
+        min-width: 3rem;
+        font-size: 0.65rem;
+        line-height: 1.1;
     }
 
-    .parent-admin-page .admin-optin-pill {
-        min-height: 32px;
-        padding: 0 9px;
-        font-size: 0.78rem;
-    }
-
-    .parent-admin-page .admin-optin-pill-icon {
-        font-size: 0.95rem;
-    }
-
-    .parent-admin-page .admin-optin-pill-label {
-        font-size: 0.78rem;
+    .parent-admin-page .admin-optin-pill-label,
+    .parent-admin-page .admin-records-pill-label,
+    .parent-admin-page .admin-review-audio-label {
+        font-size: 0.65rem;
+        line-height: 1.1;
     }
 
     .parent-admin-page .admin-kid-avatar {
@@ -1603,22 +1633,6 @@ body.practice-home-redesign {
 }
 
 @media (max-width: 520px) {
-    .parent-admin-page .admin-records-pill,
-    .parent-admin-page .admin-optin-pill {
-        min-width: 0;
-        min-height: 38px;
-        padding: 0 10px;
-        font-size: 0.84rem;
-    }
-
-    .parent-admin-page .admin-optin-pill-icon {
-        font-size: 1rem;
-    }
-
-    .parent-admin-page .admin-optin-pill-label {
-        font-size: 0.84rem;
-    }
-
     .parent-admin-page .admin-row-pill {
         padding: 0 0.8rem;
         font-size: 0.76rem;

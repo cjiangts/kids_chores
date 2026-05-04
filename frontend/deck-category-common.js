@@ -124,6 +124,36 @@
         return '🧩';
     }
 
+    // Render the per-category identity tile. If the key is a known subject in
+    // SUBJECT_ICONS (subject-icons.js), emit the styled tile; otherwise fall
+    // back to a simple emoji span. When `size` is omitted, the tile inherits
+    // its geometry from any ancestor that sets `--subj-size` (or the CSS
+    // default of 48px). Pass `size` to pin a specific px size inline.
+    function renderCategorySubjectIcon(categoryKey, options = {}) {
+        const hasSize = options && options.size != null;
+        const sizePx = hasSize ? Math.max(16, Number(options.size) || 48) : null;
+        const key = normalizeCategoryKey(categoryKey);
+        const registry = (typeof window !== 'undefined' && window.SUBJECT_ICONS) || null;
+        if (registry && Object.prototype.hasOwnProperty.call(registry, key)
+            && typeof window.subjectIcon === 'function') {
+            return sizePx != null
+                ? window.subjectIcon(key, { size: sizePx })
+                : window.subjectIcon(key);
+        }
+        const fallbackEmoji = options.fallbackEmoji != null
+            ? String(options.fallbackEmoji)
+            : getCategoryEmoji(key, options.categoryMetaMap || {});
+        const sizingStyle = sizePx != null
+            ? 'width:' + sizePx + 'px;height:' + sizePx + 'px;'
+              + 'font-size:' + Math.round(sizePx * 0.7) + 'px;'
+            : 'width:100%;height:100%;font-size:inherit;';
+        return '<span class="subject-icon-fallback" aria-hidden="true" '
+             + 'style="display:inline-flex;align-items:center;justify-content:center;'
+             + sizingStyle
+             + 'line-height:1;flex-shrink:0">'
+             + escapeHtmlLocal(fallbackEmoji) + '</span>';
+    }
+
     function getCategoryKeysByPredicate(kid, predicate) {
         const optedInKeys = getOptedInDeckCategoryKeys(kid);
         const categoryMetaMap = getDeckCategoryMetaMap(kid);
@@ -387,6 +417,7 @@
         getDeckCategoryMetaMap,
         getCategoryDisplayName,
         getCategoryEmoji,
+        renderCategorySubjectIcon,
         getTypeIChineseSpecificCategoryKeys,
         getTypeINonChineseCategoryKeys,
         resolveChinesePracticeCategoryKey,

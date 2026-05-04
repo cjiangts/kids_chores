@@ -456,8 +456,13 @@ function renderDeckCategoryModalLists() {
             const rowClass = isSelected !== wasSelected
                 ? (isSelected ? 'deck-cat-row newly-opted-in' : 'deck-cat-row newly-opted-out')
                 : (isSelected ? 'deck-cat-row selected' : 'deck-cat-row');
+            const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(key, {
+                size: 26,
+                fallbackEmoji: emoji,
+            });
             return `<button type="button" class="${rowClass}" data-category-key="${escapeHtml(key)}">
-                <span class="deck-cat-label">${escapeHtml(`${emoji} ${label}`)}</span>
+                <span class="deck-cat-icon" aria-hidden="true">${subjectIconHtml}</span>
+                <span class="deck-cat-label">${escapeHtml(label)}</span>
                 ${badgeHtml}
                 ${checkHtml}
             </button>`;
@@ -575,7 +580,7 @@ function displayKids(kids) {
         kidsList.innerHTML = `
             <div class="redesign-empty-state">
                 <h3>No kids yet</h3>
-                <p>Tap ${icon('plus', { size: 16 })} Add Kid to add your first learner.</p>
+                <p>Tap ${icon('user-round-plus', { size: 16 })} Add Kid to add your first learner.</p>
             </div>
         `;
         return;
@@ -596,7 +601,7 @@ function displayKids(kids) {
 
         const configuredDeckCount = optedInCategoryKeys.length;
         const summaryText = configuredDeckCount > 0
-            ? `${configuredDeckCount} deck${configuredDeckCount === 1 ? '' : 's'} active`
+            ? `${configuredDeckCount} active`
             : 'No deck categories yet';
         const manageRows = optedInCategoryKeys.map((categoryKey) => {
             const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap);
@@ -605,7 +610,10 @@ function displayKids(kids) {
             const safeDailyTarget = Number.isInteger(dailyTarget) ? Math.max(0, dailyTarget) : 0;
             const note = `${safeDailyTarget}/day target`;
             const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
-            const tileHtml = `<span class="admin-subject-tile" aria-hidden="true">${escapeHtml(emoji)}</span>`;
+            const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey, {
+                fallbackEmoji: emoji,
+            });
+            const tileHtml = `<span class="admin-subject-tile" aria-hidden="true">${subjectIconHtml}</span>`;
             const bodyHtml = `
                 <div class="admin-subject-body">
                     <div class="redesign-subject-title"><span class="redesign-subject-name">${escapeHtml(displayName)}</span></div>
@@ -626,8 +634,9 @@ function displayKids(kids) {
         const reviewCount = Number.parseInt(kid.typeIIIToReviewCount, 10);
         const safeReviewCount = Number.isInteger(reviewCount) && reviewCount > 0 ? reviewCount : 0;
         const reviewAudioHtml = safeReviewCount > 0
-            ? `<button type="button" class="admin-review-audio-btn" onclick="goToLatestTypeIIIReviewSession('${kid.id}')" title="Review audio" aria-label="Review audio (${safeReviewCount})">
-                    <span class="admin-review-audio-icon" aria-hidden="true">🎧</span>
+            ? `<button type="button" class="admin-review-audio-btn" onclick="goToLatestTypeIIIReviewSession('${kid.id}')" title="Review audio" aria-label="Review Audio (${safeReviewCount})">
+                    <span class="admin-review-audio-icon" aria-hidden="true">${icon('headphones', { size: 20 })}</span>
+                    <span class="admin-review-audio-label">Review Audio</span>
                     <span class="admin-review-audio-badge">${safeReviewCount}</span>
                 </button>`
             : '';
@@ -642,15 +651,14 @@ function displayKids(kids) {
                         </div>
                     </div>
                     <div class="admin-kid-actions">
-                        <a class="admin-optin-pill" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;" title="Opt-in/out Deck Category" aria-label="Opt-in/out Deck Category">
-                            <span class="admin-optin-pill-icon" aria-hidden="true">+</span>
-                            <span class="admin-optin-pill-label">Opt-in</span>
+                        <a class="admin-optin-pill" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;" title="Manage Decks" aria-label="Manage Decks">
+                            <span class="admin-optin-pill-icon" aria-hidden="true">${icon('layers', { size: 20 })}</span>
+                            <span class="admin-optin-pill-label">Manage Decks</span>
                         </a>
                         ${reviewAudioHtml}
                         <a class="admin-records-pill" href="/kid-report.html?id=${kid.id}">
-                            <span class="admin-records-pill-icon" aria-hidden="true">${icon('bar-chart-3', { size: 20 })}</span>
-                            <span class="admin-records-pill-label">Records</span>
-                            <span class="admin-records-pill-chevron" aria-hidden="true">›</span>
+                            <span class="admin-records-pill-icon" aria-hidden="true">${icon('bar-chart-3', { size: 18 })}</span>
+                            <span class="admin-records-pill-label">Practice Records</span>
                         </a>
                     </div>
                 </div>

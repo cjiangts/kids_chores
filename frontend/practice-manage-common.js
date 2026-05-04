@@ -1307,12 +1307,21 @@ window.PracticeManageCommon = {
                 qs.set('categoryKey', key);
                 anchor.href = `${routePath}?${qs.toString()}`;
                 const { emoji, displayName } = getCategoryLabelParts(key);
-                anchor.innerHTML = `<span class="manage-tab-emoji">${escapeHtml(emoji)}</span><span class="manage-tab-label">${escapeHtml(displayName)}</span>`;
-                anchor.setAttribute('aria-label', `${emoji} ${displayName}`.trim());
+                const subjectIconHtml = (window.DeckCategoryCommon
+                    && typeof window.DeckCategoryCommon.renderCategorySubjectIcon === 'function')
+                    ? window.DeckCategoryCommon.renderCategorySubjectIcon(key, {
+                        size: 20,
+                        fallbackEmoji: emoji,
+                    })
+                    : escapeHtml(emoji);
+                anchor.innerHTML = `<span class="manage-tab-emoji">${subjectIconHtml}</span><span class="manage-tab-label">${escapeHtml(displayName)}</span>`;
+                anchor.setAttribute('aria-label', displayName);
                 anchor.setAttribute('title', displayName);
                 fragment.appendChild(anchor);
             });
+            const renderedTabCount = fragment.childNodes.length;
             tabNavEl.replaceChildren(fragment);
+            tabNavEl.classList.toggle('hidden', renderedTabCount < 2);
             return;
         }
 

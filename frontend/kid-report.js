@@ -173,15 +173,16 @@ function renderKidNav() {
         kidNavGroup.innerHTML = '';
         return;
     }
+    const userIconSvg = '<svg class="kid-nav-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
     kidNavGroup.innerHTML = kids.map((kid) => {
         const id = String(kid?.id || '').trim();
         const name = String(kid?.name || '').trim() || 'Kid';
         const isActive = id === String(kidId);
         if (isActive) {
-            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${escapeHtml(name)}</span>`;
+            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}<span>${escapeHtml(name)}</span></span>`;
         }
         const href = buildKidReportHref(id);
-        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtml(href)}">${escapeHtml(name)}</a>`;
+        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtml(href)}">${userIconSvg}<span>${escapeHtml(name)}</span></a>`;
     }).join('');
     kidNavGroup.classList.remove('hidden');
 }
@@ -356,9 +357,18 @@ function renderCategoryFilter(sessions) {
 
     subjectFilterMenu.innerHTML = options.map((opt) => {
         const isActive = opt.key === selectedCategoryKey;
-        const emojiHtml = `<span class="subject-filter-option-emoji" aria-hidden="true">${opt.emoji ? escapeHtml(opt.emoji) : ''}</span>`;
+        let iconHtml = '';
+        if (opt.key) {
+            const inner = window.DeckCategoryCommon.renderCategorySubjectIcon(opt.key, {
+                size: 22,
+                fallbackEmoji: opt.emoji,
+            });
+            iconHtml = `<span class="subject-filter-option-icon" aria-hidden="true">${inner}</span>`;
+        } else {
+            iconHtml = '<span class="subject-filter-option-icon" aria-hidden="true"></span>';
+        }
         const checkHtml = isActive ? '<span class="subject-filter-option-check" aria-hidden="true">✓</span>' : '';
-        return `<button type="button" role="option" aria-selected="${isActive ? 'true' : 'false'}" class="subject-filter-option${isActive ? ' active' : ''}" data-category-key="${escapeHtml(opt.key)}">${emojiHtml}<span class="subject-filter-option-label">${escapeHtml(opt.label)}</span>${checkHtml}</button>`;
+        return `<button type="button" role="option" aria-selected="${isActive ? 'true' : 'false'}" class="subject-filter-option${isActive ? ' active' : ''}" data-category-key="${escapeHtml(opt.key)}">${iconHtml}<span class="subject-filter-option-label">${escapeHtml(opt.label)}</span>${checkHtml}</button>`;
     }).join('');
 }
 
@@ -403,6 +413,7 @@ function renderSessionsList() {
 function renderSessionCard(session) {
     const displayName = String(session?.category_display_name || '').trim() || String(session?.type || '');
     const glyph = String(session?.category_emoji || '').trim() || '🧩';
+    const categoryKey = normalizeCategoryKey(session?.type);
     const sessionUrl = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(session.id)}${from === 'kid-home' ? '&from=kid-home' : ''}`;
     const time = formatSessionTime(session.started_at);
     const mode = formatPracticeMode(session.practice_mode);
@@ -410,9 +421,12 @@ function renderSessionCard(session) {
     const totalMins = (getSessionResponseMinutes(session) + getSessionRetryResponseMinutes(session)).toFixed(1);
     const result = getSessionResultMeta(session);
     const retries = safeNum(session.retry_count);
+    const iconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey, {
+        fallbackEmoji: glyph,
+    });
     return `
         <a href="${sessionUrl}" class="session-card">
-            <div class="session-icon">${escapeHtml(glyph)}</div>
+            <div class="session-icon">${iconHtml}</div>
             <div class="session-info">
                 <div class="session-title">${escapeHtml(displayName)}</div>
                 <div class="session-sub">${escapeHtml(subParts.join(' · '))}</div>

@@ -348,7 +348,7 @@ function buildCategoryProgressModel({
         dailyPercentByCategory,
         normalizeCategoryKey,
         doneMarkClass: 'practice-done-mark',
-        doneMarkText: '✅ Done',
+        doneMarkText: `${icon('check', { size: 16 })} Done`,
     });
     const percentValueRaw = Number.isFinite(starsModel.percentValue)
         ? Math.max(0, Math.round(starsModel.percentValue))
@@ -454,6 +454,7 @@ function buildCategoryProgressModel({
 }
 
 function buildCategoryCardInnerHtml({
+    categoryKey,
     emoji,
     displayName,
     progressModel,
@@ -492,10 +493,11 @@ function buildCategoryCardInnerHtml({
         ? `<span class="practice-row-percent">${percentValue}%</span>`
         : '';
 
+    const tileHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey, {
+        fallbackEmoji: emoji,
+    });
     return `
-        <span class="practice-row-tile" aria-hidden="true">
-            <span class="practice-row-tile-emoji">${escapeHtmlLocal(emoji)}</span>
-        </span>
+        <span class="practice-row-tile" aria-hidden="true">${tileHtml}</span>
         <div class="practice-row-content">
             <div class="practice-row-head">
                 <h3>${escapeHtmlLocal(displayName)}</h3>
@@ -544,6 +546,7 @@ function renderPracticeOptionCard({
         practiceTargetByCategory,
     });
     button.innerHTML = buildCategoryCardInnerHtml({
+        categoryKey,
         emoji,
         displayName,
         progressModel: model,

@@ -1,0 +1,56 @@
+/* Subject identity tiles — paired with subject-icons.js. Flat tinted background + bold glyph.
+   Geometry is driven by --subj-size; wrappers (or inline style from subjectIcon())
+   set it. Default falls back to 48px when no ancestor declares it. */
+
+.subject-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width:  var(--subj-size, 48px);
+    height: var(--subj-size, 48px);
+    border-radius: calc(var(--subj-size, 48px) * 0.28);
+    font-size:    calc(var(--subj-size, 48px) * 0.58);
+    font-weight: 800;
+    line-height: 1;
+    flex-shrink: 0;
+    user-select: none;
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", system-ui, sans-serif;
+}
+
+/* Multi-character labels (e.g. "ABC") need a smaller font so they fit. */
+.subject-icon--multi {
+    font-size: calc(var(--subj-size, 48px) * 0.32);
+    letter-spacing: 0.5px;
+}
+
+/* Flat tone palette: pale tinted background + bold foreground for text/SVG. */
+.subject-orange { background: #ffe5cc; color: #d96a00; }
+.subject-red    { background: #ffdcd6; color: #d63a30; }
+.subject-amber  { background: #fff1c2; color: #b07800; }
+.subject-green  { background: #d6f1de; color: #2a8e48; }
+.subject-teal   { background: #c9efeb; color: #0f8e88; }
+.subject-blue   { background: #d8e6ff; color: #2964c8; }
+.subject-purple { background: #e6dcff; color: #5e44d4; }
+
+/* Wrapper cascade: known mount points set --subj-size so the inner tile
+   inherits size from the layout, matching media-query breakpoints already
+   defined in home-redesign-v4.css. */
+.practice-row-tile,
+.family-home-page .redesign-kid-icon-top { --subj-size: 56px; }
+.parent-admin-page .admin-subject-tile  { --subj-size: 38px; }
+.session-icon                           { --subj-size: 48px; }
+
+@media (max-width: 760px) {
+    .practice-row-tile { --subj-size: 48px; }
+    .family-home-page .redesign-kid-icon-top { --subj-size: 48px; }
+}
+
+@media (max-width: 540px) {
+    .session-icon { --subj-size: 40px; }
+}
+
+@media (max-width: 520px) {
+    .practice-row-tile { --subj-size: 42px; }
+    .parent-admin-page .admin-subject-tile { --subj-size: 32px; }
+}
