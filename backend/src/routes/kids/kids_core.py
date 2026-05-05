@@ -576,7 +576,8 @@ def get_kid_report_session_detail(kid_id, session_id):
                 COALESCE(planned_count, 0),
                 COALESCE(retry_count, 0),
                 COALESCE(retry_total_response_ms, 0),
-                COALESCE(retry_best_rety_correct_count, 0)
+                COALESCE(retry_best_rety_correct_count, 0),
+                COALESCE(practice_mode, 'na') AS practice_mode
             FROM sessions
             WHERE id = ?
             """,
@@ -714,6 +715,7 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'retry_count': int(session_row[5] or 0),
                 'retry_total_response_ms': int(session_row[6] or 0),
                 'retry_best_rety_correct_count': int(session_row[7] or 0),
+                'practice_mode': normalize_session_practice_mode(session_row[8]),
                 'answer_count': len(answers),
                 'right_count': len(right_cards),
                 'wrong_count': len(wrong_cards),

@@ -8,15 +8,17 @@ const from = String(params.get('from') || '').trim().toLowerCase();
 const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
-const summaryGrid = document.getElementById('summaryGrid');
+const summaryCard = document.getElementById('summaryCard');
 const wrongSection = document.getElementById('wrongSection');
 const rightSection = document.getElementById('rightSection');
 const rightSectionTitle = document.getElementById('rightSectionTitle');
 const wrongList = document.getElementById('wrongList');
 const rightList = document.getElementById('rightList');
-const rtChartSection = document.getElementById('rtChartSection');
-const rtChartBody = document.getElementById('rtChartBody');
-const rtChartLegend = document.getElementById('rtChartLegend');
+const speedDistributionSection = document.getElementById('speedDistributionSection');
+const speedDistributionBody = document.getElementById('speedDistributionBody');
+const speedDistributionPanelKey = 'session-speed';
+let selectedSpeedBucketIndex = null;
+let currentSession = null;
 const {
     normalizeCategoryKey,
     normalizeBehaviorType,
@@ -105,8 +107,10 @@ async function loadSessionDetail() {
 
         const answers = Array.isArray(data.answers) ? data.answers : [];
         currentAnswers = answers;
+        currentSession = session;
         renderSummary(session, answers);
         renderAnswerSections(answers);
+        renderSpeedDistribution(answers);
     } catch (error) {
         console.error('Error loading session detail:', error);
         showError('Failed to load session detail.');
@@ -115,71 +119,213 @@ async function loadSessionDetail() {
 }
 
 function renderSummary(session, answers) {
+    if (!summaryCard) return;
     const totalActiveMs = calculateSessionActiveMs(answers);
-    summaryGrid.innerHTML = `
-        <div class="summary-card"><div class="label">Type</div><div class="value">${currentSessionCategoryDisplayName}</div></div>
-        <div class="summary-card"><div class="label">Started</div><div class="value">${formatDateTime(session.started_at)}</div></div>
-        <div class="summary-card"><div class="label">Answered</div><div class="value">${safeNum(session.answer_count)}</div></div>
-        <div class="summary-card"><div class="label">Active Time</div><div class="value" id="summaryActiveTimeValue">${formatActiveMinutes(totalActiveMs)}</div></div>
+    const startedRaw = session?.started_at;
+    const startedDate = formatStartedDate(startedRaw);
+    const relativeDay = formatRelativeDay(startedRaw);
+    const counts = countAnswersByOutcome(answers);
+    const modeLabel = formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '—';
+    const iconStarted = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>';
+    const iconAnswered = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>';
+    const iconMode = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
+    const iconActiveTime = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>';
+    summaryCard.innerHTML = `
+        <div class="session-summary-stats">
+            <div class="session-summary-stat">
+                <div class="stat-icon">${iconStarted}</div>
+                <div class="session-summary-stat-body">
+                    <div class="label">Started</div>
+                    <div class="value">${escapeHtml(startedDate)}${relativeDay ? `<span class="value-meta">${escapeHtml(relativeDay)}</span>` : ''}</div>
+                </div>
+            </div>
+            <div class="session-summary-stat">
+                <div class="stat-icon">${iconAnswered}</div>
+                <div class="session-summary-stat-body">
+                    <div class="label">Answered</div>
+                    <div class="value">${safeNum(session?.answer_count)}</div>
+                </div>
+            </div>
+            <div class="session-summary-stat">
+                <div class="stat-icon">${iconMode}</div>
+                <div class="session-summary-stat-body">
+                    <div class="label">Mode</div>
+                    <div class="value">${escapeHtml(modeLabel)}</div>
+                </div>
+            </div>
+            <div class="session-summary-stat">
+                <div class="stat-icon">${iconActiveTime}</div>
+                <div class="session-summary-stat-body">
+                    <div class="label">Active Time</div>
+                    <div class="value" id="summaryActiveTimeValue">${escapeHtml(formatActiveMinutes(totalActiveMs))}</div>
+                </div>
+            </div>
+        </div>
+        <div class="session-summary-counters">
+            <span class="session-summary-counter right"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Right <strong>${counts.right}</strong></span>
+            <span class="session-summary-counter fixed"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg> Fixed <strong>${counts.fixed}</strong></span>
+            <span class="session-summary-counter wrong"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg> Wrong <strong>${counts.wrong}</strong></span>
+        </div>
     `;
 }
 
-function renderAnswerSections(answers) {
-    if (isTypeIIIReviewSession()) {
-        wrongSection.style.display = 'none';
-        rightSection.style.display = '';
-        rightSectionTitle.textContent = 'Cards';
-        renderAnswerList(rightList, answers, { compact: false, keepSingleGroupOrder: false });
-        renderResponseTimeChart(answers);
-        return;
+function countAnswersByOutcome(answers) {
+    const totals = { right: 0, fixed: 0, wrong: 0, half: 0, pending: 0 };
+    if (!Array.isArray(answers)) return totals;
+    for (const item of answers) {
+        const cls = getAnswerBarClassByScore(item?.correct_score);
+        if (cls === 'right') totals.right += 1;
+        else if (cls === 'fixed') totals.fixed += 1;
+        else if (cls === 'wrong') totals.wrong += 1;
+        else if (cls === 'half') totals.half += 1;
+        else totals.pending += 1;
     }
-    wrongSection.style.display = 'none';
-    rightSection.style.display = '';
-    rightSectionTitle.textContent = 'Cards';
-    renderAnswerList(rightList, answers, { compact: true, keepSingleGroupOrder: false });
-    renderResponseTimeChart(answers);
+    return totals;
 }
 
-function renderResponseTimeChart(answers) {
-    if (!rtChartSection || !rtChartBody) return;
-    if (!Array.isArray(answers) || answers.length === 0) {
-        rtChartSection.style.display = 'none';
+function renderAnswerSections(answers) {
+    wrongSection.style.display = 'none';
+    rightSection.style.display = '';
+    rightSectionTitle.textContent = 'Cards Practiced';
+    const compact = !isTypeIIIReviewSession();
+    renderAnswerList(rightList, answers, { compact, keepSingleGroupOrder: false });
+}
+
+function renderSpeedDistribution(answers) {
+    if (!speedDistributionSection || !speedDistributionBody) return;
+    const list = Array.isArray(answers) ? answers : [];
+    const rated = list.filter((item) => Number(item?.response_time_ms) > 0);
+    if (rated.length === 0) {
+        speedDistributionSection.style.display = 'none';
+        speedDistributionBody.innerHTML = '';
         return;
     }
+    speedDistributionSection.style.display = '';
+    const panel = buildHistogramDistribution({
+        panelKey: speedDistributionPanelKey,
+        selectedBucketIndex: selectedSpeedBucketIndex,
+        title: 'Speed Distribution',
+        tone: 'speed',
+        formatValue: formatSpeedLabel,
+        getValue: (item) => Number(item?.response_time_ms) || null,
+        getCardCapsuleLabel: (item) => getAnswerPrimaryLabel(item) || '—',
+        bucketing: {
+            snapUnit: 1000,
+            minClamp: 0,
+            anchorLo: 'dataMin',
+            formatRange: (min, max) => `${formatBoundarySeconds(min)}–${formatBoundarySeconds(max)}s`,
+        },
+        topLists: [
+            { title: 'Slowest 5', mode: 'highest', count: 5 },
+            { title: 'Fastest 5', mode: 'lowest', count: 5 },
+        ],
+        cards: rated,
+    });
+    speedDistributionBody.innerHTML = renderDistributionPanel(panel);
+}
 
-    const sorted = [...answers]
-        .filter((item) => (Number(item?.response_time_ms) || 0) > 0)
-        .sort((a, b) => (Number(b?.response_time_ms) || 0) - (Number(a?.response_time_ms) || 0));
-
-    if (sorted.length === 0) {
-        rtChartSection.style.display = 'none';
+function handleSpeedBucketActivate(target) {
+    if (!target || !target.closest) return;
+    const clearBtn = target.closest('[data-clear-bucket]');
+    if (clearBtn && clearBtn.getAttribute('data-clear-bucket') === speedDistributionPanelKey) {
+        selectedSpeedBucketIndex = null;
+        renderSpeedDistribution(currentAnswers);
         return;
     }
+    const slot = target.closest('[data-bucket-index]');
+    if (!slot) return;
+    if ((slot.getAttribute('data-panel-key') || '') !== speedDistributionPanelKey) return;
+    const idx = Number.parseInt(slot.getAttribute('data-bucket-index'), 10);
+    if (!Number.isInteger(idx)) return;
+    selectedSpeedBucketIndex = (selectedSpeedBucketIndex === idx) ? null : idx;
+    renderSpeedDistribution(currentAnswers);
+}
 
-    rtChartSection.style.display = '';
-    const maxMs = Math.max(Number(sorted[0]?.response_time_ms) || 1, 1);
+document.addEventListener('click', (event) => {
+    if (!speedDistributionSection || !speedDistributionSection.contains(event.target)) return;
+    handleSpeedBucketActivate(event.target);
+});
 
-    const legendClasses = new Set(sorted.map((item) => getAnswerBarClassByScore(item?.correct_score)));
-    const legendParts = [];
-    if (legendClasses.has('right')) legendParts.push('<span class="legend-dot right"></span> Right');
-    if (legendClasses.has('half')) legendParts.push('<span class="legend-dot half"></span> Half');
-    if (legendClasses.has('fixed')) legendParts.push('<span class="legend-dot fixed"></span> Fixed');
-    if (legendClasses.has('wrong')) legendParts.push('<span class="legend-dot wrong"></span> Wrong');
-    if (legendClasses.has('pending')) legendParts.push('<span class="legend-dot pending"></span> Ungraded');
-    rtChartLegend.innerHTML = legendParts.join('<span class="legend-sep">·</span>');
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (!speedDistributionSection || !speedDistributionSection.contains(event.target)) return;
+    const slot = event.target.closest && event.target.closest('[data-bucket-index]');
+    if (!slot) return;
+    event.preventDefault();
+    handleSpeedBucketActivate(slot);
+});
 
-    rtChartBody.innerHTML = sorted.map((item) => {
-        const rawMs = Math.max(0, Number(item?.response_time_ms) || 0);
-        const pct = Math.max(1, (rawMs / maxMs) * 100).toFixed(1);
-        const answerClass = getAnswerBarClassByScore(item?.correct_score);
-        const label = getAnswerPrimaryLabel(item) || '?';
-        const chineseClass = currentSessionHasChineseSpecificLogic ? ' chinese-specific' : '';
-        return `<div class="rt-chart-bar-row">
-            <div class="rt-chart-label${chineseClass}" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
-            <div class="rt-chart-track"><div class="rt-chart-fill ${answerClass}" style="width:${pct}%"></div></div>
-            <div class="rt-chart-time">${formatResponseTime(rawMs)}</div>
-        </div>`;
-    }).join('');
+function formatStartedDate(raw) {
+    const dt = parseUtcTimestamp(raw);
+    if (Number.isNaN(dt.getTime())) return '—';
+    return dt.toLocaleString(undefined, {
+        timeZone: reportTimezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+}
+
+function formatRelativeDay(raw) {
+    const dt = parseUtcTimestamp(raw);
+    if (Number.isNaN(dt.getTime())) return '';
+    const startedKey = formatDateKeyInTimezone(dt, reportTimezone);
+    const todayKey = formatDateKeyInTimezone(new Date(), reportTimezone);
+    if (!startedKey || !todayKey) return '';
+    const diffDays = daysBetweenDateKeys(startedKey, todayKey);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays > 0) return `${diffDays}d`;
+    return '';
+}
+
+function formatDateKeyInTimezone(date, timezone) {
+    try {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: String(timezone || '') || undefined,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        });
+        const parts = formatter.formatToParts(date);
+        const y = parts.find((p) => p.type === 'year')?.value;
+        const m = parts.find((p) => p.type === 'month')?.value;
+        const d = parts.find((p) => p.type === 'day')?.value;
+        return y && m && d ? `${y}-${m}-${d}` : '';
+    } catch (_) {
+        return '';
+    }
+}
+
+function daysBetweenDateKeys(fromKey, toKey) {
+    const parse = (key) => {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ''));
+        if (!match) return NaN;
+        return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    };
+    const fromMs = parse(fromKey);
+    const toMs = parse(toKey);
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return 0;
+    return Math.round((toMs - fromMs) / (24 * 60 * 60 * 1000));
+}
+
+function formatPracticeMode(raw) {
+    let text = String(raw || '').trim().toLowerCase();
+    if (!text || text === 'na') return '';
+    let drill = false;
+    if (text.endsWith('+drill')) {
+        drill = true;
+        text = text.slice(0, -'+drill'.length);
+    }
+    let baseLabel = '';
+    if (text === 'self') baseLabel = 'Self';
+    else if (text === 'parent') baseLabel = 'Parent';
+    else if (text === 'multi') baseLabel = 'Multi';
+    else if (text === 'input') baseLabel = 'Input';
+    const parts = [];
+    if (baseLabel) parts.push(baseLabel);
+    if (drill) parts.push('Drill');
+    return parts.join(' · ');
 }
 
 function getAnswerSortRank(item) {
@@ -285,17 +431,7 @@ function renderAnswerList(container, cards, options = {}) {
         `;
     }).join('');
     if (compact) {
-        const legendParts = [];
-        const classes = sorted.map((item) => getAnswerBarClassByScore(item?.correct_score));
-        if (classes.includes('right')) legendParts.push('<span class="legend-dot right"></span> Right');
-        if (classes.includes('half')) legendParts.push('<span class="legend-dot half"></span> Half');
-        if (classes.includes('fixed')) legendParts.push('<span class="legend-dot fixed"></span> Fixed');
-        if (classes.includes('wrong')) legendParts.push('<span class="legend-dot wrong"></span> Wrong');
-        if (classes.includes('pending')) legendParts.push('<span class="legend-dot pending"></span> Ungraded');
-        const legendHtml = legendParts.length > 0
-            ? `<div class="card-color-legend">${legendParts.join('<span class="legend-sep">·</span>')}</div>`
-            : '';
-        container.innerHTML = `${legendHtml}<div class="answer-grid compact">${itemHtml}</div>`;
+        container.innerHTML = `<div class="answer-grid compact">${itemHtml}</div>`;
     } else {
         container.innerHTML = itemHtml;
     }
@@ -520,13 +656,15 @@ document.addEventListener('click', async (event) => {
                 bar.classList.add(nextClass);
             }
 
-            // Update stored answer and re-render response time chart
             const answerEntry = currentAnswers.find((a) => a.result_id === resultId);
             if (answerEntry) {
                 answerEntry.correct_score = score;
                 answerEntry.grade_status = saved.grade_status;
             }
-            renderResponseTimeChart(currentAnswers);
+            if (currentSession) {
+                renderSummary(currentSession, currentAnswers);
+            }
+            renderSpeedDistribution(currentAnswers);
         }
     } catch (error) {
         console.error('Error saving grade:', error);
@@ -650,21 +788,6 @@ function isTypeIIIReviewSession() {
 
 function isTypeIVSession() {
     return normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_IV;
-}
-
-function formatDateTime(iso) {
-    const dt = parseUtcTimestamp(iso);
-    if (Number.isNaN(dt.getTime())) return '-';
-    return dt.toLocaleString(undefined, {
-        timeZone: reportTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    });
 }
 
 function parseUtcTimestamp(raw) {

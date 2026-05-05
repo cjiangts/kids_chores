@@ -8,11 +8,178 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
+    <link rel="stylesheet" href="histogram-distribution-common.css">
     <style>
         * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
         .section-title {
             margin: 0 0 var(--card-section-title-margin-bottom) 0;
+        }
+
+        .session-summary-card {
+            background: #fff;
+            border: 1px solid #eceff6;
+            border-radius: 14px;
+            padding: 0.75rem 0.85rem 0.7rem;
+            box-shadow: 0 4px 12px rgba(31, 45, 98, 0.06);
+            margin-bottom: 0.9rem;
+        }
+
+        .session-summary-stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.6rem 0;
+        }
+
+        .session-summary-stat {
+            min-width: 0;
+            padding: 0 0.7rem;
+            border-left: 1px solid #e6e9f4;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+
+        .session-summary-stat:first-child {
+            border-left: none;
+        }
+
+        .session-summary-stat-body {
+            min-width: 0;
+            flex: 1 1 auto;
+            text-align: left;
+        }
+
+        .session-summary-stat .stat-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            width: 26px;
+            height: 26px;
+            color: #4f6cd6;
+        }
+
+        .session-summary-stat .stat-icon svg {
+            width: 100%;
+            height: 100%;
+            stroke: currentColor;
+        }
+
+        .session-summary-stat .label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #7a86ad;
+            line-height: 1.1;
+            margin-bottom: 0.18rem;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            min-width: 0;
+        }
+
+        .session-summary-stat .value {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #2f3c7e;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            white-space: normal;
+            text-align: left;
+        }
+
+        .session-summary-stat .value-meta {
+            display: inline;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #7a86ad;
+            margin-left: 0.32rem;
+        }
+
+        .session-summary-counters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem 0;
+            margin-top: 0.65rem;
+            padding-top: 0.55rem;
+            border-top: 1px solid #eef0f8;
+            justify-content: center;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #4a5688;
+        }
+
+        .session-summary-counter {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0 0.85rem;
+            border-left: 1px solid #d8dde9;
+        }
+
+        .session-summary-counter:first-child {
+            border-left: none;
+            padding-left: 0;
+        }
+
+        .session-summary-counter:last-child {
+            padding-right: 0;
+        }
+
+        .session-summary-counter svg {
+            flex: 0 0 auto;
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+        }
+
+        .session-summary-counter.right { color: #2f9e5e; }
+        .session-summary-counter.fixed { color: #b8860b; }
+        .session-summary-counter.wrong { color: #c34a4a; }
+
+        .session-summary-counter strong {
+            color: #2f3c7e;
+            font-weight: 800;
+            font-size: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .session-summary-card {
+                padding: 0.6rem 0.55rem 0.55rem;
+            }
+
+            .session-summary-stats {
+                gap: 0.4rem 0;
+            }
+
+            .session-summary-stat {
+                padding: 0 0.32rem;
+                gap: 0.32rem;
+            }
+
+            .session-summary-stat .stat-icon {
+                width: 20px;
+                height: 20px;
+            }
+
+            .session-summary-stat .label {
+                font-size: 0.66rem;
+                margin-bottom: 0.12rem;
+            }
+
+            .session-summary-stat .value {
+                font-size: 0.78rem;
+                line-height: 1.18;
+                white-space: normal;
+                overflow-wrap: anywhere;
+                word-break: break-word;
+            }
+
+            .session-summary-stat .value-meta {
+                font-size: 0.64rem;
+                margin-left: 0.26rem;
+            }
         }
 
         .answer-grid {
@@ -383,61 +550,19 @@
             color: #d63636;
         }
 
-        .rt-chart-section {
+        .speed-distribution-section {
             margin-bottom: 0;
         }
 
-        .rt-chart-bar-row {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            margin-bottom: 0.15rem;
+        .speed-distribution-section .cards-distribution-card {
+            box-shadow: none;
+            border: none;
+            padding: 0;
+            background: transparent;
         }
 
-        .rt-chart-label {
-            flex: 0 0 3.2rem;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: #333;
-            text-align: right;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .rt-chart-label.chinese-specific {
-            font-family: var(--font-kaiti);
-            font-weight: 400;
-            font-size: 0.92rem;
-        }
-
-        .rt-chart-track {
-            flex: 1 1 0;
-            height: 10px;
-            background: #f0f2f8;
-            border-radius: 4px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .rt-chart-fill {
-            height: 100%;
-            border-radius: 4px;
-            min-width: 2px;
-        }
-
-        .rt-chart-fill.right { background: #4cb780; }
-        .rt-chart-fill.half { background: #8b6fc0; }
-        .rt-chart-fill.fixed { background: #e0ac2b; }
-        .rt-chart-fill.wrong { background: #d95b5b; }
-        .rt-chart-fill.pending { background: #c0c8d8; }
-
-        .rt-chart-time {
-            flex: 0 0 auto;
-            font-size: 0.72rem;
-            color: #666;
-            min-width: 2.8rem;
-            text-align: right;
+        .speed-distribution-section .cards-distribution-card-head {
+            margin-bottom: 0.5rem;
         }
 
         .grade-note {
@@ -561,9 +686,7 @@
         </header>
 
         <div id="errorMessage" class="error hidden"></div>
-        <section class="summary-shell">
-            <div class="summary-grid" id="summaryGrid"></div>
-        </section>
+        <section class="session-summary-card" id="summaryCard"></section>
 
         <div class="detail-grid">
             <section class="detail-card" id="wrongSection">
@@ -571,15 +694,14 @@
                 <div id="wrongList"></div>
             </section>
             <section class="detail-card" id="rightSection">
-                <h2 class="section-title" id="rightSectionTitle">Right Cards</h2>
+                <h2 class="section-title" id="rightSectionTitle">Cards Practiced</h2>
                 <div id="rightList"></div>
             </section>
         </div>
 
-        <section class="detail-card rt-chart-section" id="rtChartSection" style="display:none;">
-            <h2 class="section-title">Response Time</h2>
-            <div class="card-color-legend" id="rtChartLegend"></div>
-            <div id="rtChartBody"></div>
+        <section class="detail-card speed-distribution-section" id="speedDistributionSection" style="display:none;">
+            <h2 class="section-title">Speed Distribution</h2>
+            <div id="speedDistributionBody"></div>
         </section>
     </div>
 
@@ -590,6 +712,7 @@
     <script src="simple-audio-player.js"></script>
     <script src="lesson-reading-duration-backfill.js"></script>
     <script src="report-back-button-common.js"></script>
+    <script src="histogram-distribution-common.js"></script>
     <script src="kid-session-report.js"></script>
 </body>
 </html>
