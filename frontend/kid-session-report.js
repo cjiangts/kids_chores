@@ -191,6 +191,13 @@ function renderAnswerSections(answers) {
     renderAnswerList(rightList, answers, { compact, keepSingleGroupOrder: false });
 }
 
+function getResponseTimeCapMs() {
+    if (currentSessionBehaviorType === BEHAVIOR_TYPE_I) return 20 * 1000;
+    if (currentSessionBehaviorType === BEHAVIOR_TYPE_II) return 2 * 60 * 1000;
+    if (currentSessionBehaviorType === BEHAVIOR_TYPE_IV) return 2 * 60 * 1000;
+    return Infinity;
+}
+
 function renderSpeedDistribution(answers) {
     if (!speedDistributionSection || !speedDistributionBody) return;
     const list = Array.isArray(answers) ? answers : [];
@@ -212,6 +219,7 @@ function renderSpeedDistribution(answers) {
         bucketing: {
             snapUnit: 1000,
             minClamp: 0,
+            maxClamp: getResponseTimeCapMs(),
             anchorLo: 'dataMin',
             formatRange: (min, max) => `${formatBoundarySeconds(min)}–${formatBoundarySeconds(max)}s`,
         },
@@ -222,38 +230,27 @@ function renderSpeedDistribution(answers) {
         cards: rated,
     });
     speedDistributionBody.innerHTML = renderDistributionPanel(panel);
-}
-
-function handleSpeedBucketActivate(target) {
-    if (!target || !target.closest) return;
-    const clearBtn = target.closest('[data-clear-bucket]');
-    if (clearBtn && clearBtn.getAttribute('data-clear-bucket') === speedDistributionPanelKey) {
-        selectedSpeedBucketIndex = null;
-        renderSpeedDistribution(currentAnswers);
-        return;
+    const chip = speedDistributionBody.querySelector('[data-clear-bucket]');
+    if (chip) {
+        chip.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            selectedSpeedBucketIndex = null;
+            renderSpeedDistribution(currentAnswers);
+        });
     }
-    const slot = target.closest('[data-bucket-index]');
-    if (!slot) return;
-    if ((slot.getAttribute('data-panel-key') || '') !== speedDistributionPanelKey) return;
-    const idx = Number.parseInt(slot.getAttribute('data-bucket-index'), 10);
-    if (!Number.isInteger(idx)) return;
-    selectedSpeedBucketIndex = (selectedSpeedBucketIndex === idx) ? null : idx;
-    renderSpeedDistribution(currentAnswers);
+    speedDistributionBody.querySelectorAll('[data-bucket-index]').forEach((slot) => {
+        slot.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const idx = Number.parseInt(slot.getAttribute('data-bucket-index'), 10);
+            if (!Number.isInteger(idx)) return;
+            selectedSpeedBucketIndex = (selectedSpeedBucketIndex === idx) ? null : idx;
+            renderSpeedDistribution(currentAnswers);
+        });
+    });
 }
 
-document.addEventListener('click', (event) => {
-    if (!speedDistributionSection || !speedDistributionSection.contains(event.target)) return;
-    handleSpeedBucketActivate(event.target);
-});
-
-document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    if (!speedDistributionSection || !speedDistributionSection.contains(event.target)) return;
-    const slot = event.target.closest && event.target.closest('[data-bucket-index]');
-    if (!slot) return;
-    event.preventDefault();
-    handleSpeedBucketActivate(slot);
-});
 
 function formatStartedDate(raw) {
     const dt = parseUtcTimestamp(raw);

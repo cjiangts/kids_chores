@@ -34,7 +34,7 @@ function buildHistogramDistribution(options = {}) {
     const getCardCapsuleLabel = typeof options?.getCardCapsuleLabel === 'function'
         ? options.getCardCapsuleLabel
         : (card) => String(card?.front || '').trim();
-    const rawSelectedIndex = Number(options?.selectedBucketIndex);
+    const rawSelectedIndex = options?.selectedBucketIndex;
     const hasSelection = Number.isInteger(rawSelectedIndex)
         && rawSelectedIndex >= 0
         && rawSelectedIndex < bucketDefinitions.length;
@@ -92,7 +92,10 @@ function buildDynamicBuckets(values, bucketing = {}) {
     const buckets = [];
     for (let i = 0; i < bucketCount; i++) {
         const bMin = lo + (i * step);
-        const bMaxExclusive = bMin + step;
+        if (bMin >= dataMax + (isInteger ? 1 : snapUnit / 2)) break;
+        if (bMin >= maxClamp) break;
+        const rawMaxExclusive = bMin + step;
+        const bMaxExclusive = Math.min(rawMaxExclusive, maxClamp);
         const bucketMax = isInteger ? bMaxExclusive - 1 : bMaxExclusive;
         buckets.push({ min: bMin, max: bucketMax, label: formatRange(bMin, bucketMax) });
     }
