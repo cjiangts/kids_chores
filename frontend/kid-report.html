@@ -528,136 +528,6 @@
             }
         }
 
-        .subject-filter-wrap {
-            position: relative;
-            margin-bottom: 0.6rem;
-        }
-
-        .subject-filter-trigger {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            padding: 0.6rem 0.85rem;
-            background: rgba(255, 255, 255, 0.96);
-            border: 1px solid rgba(255, 255, 255, 0.78);
-            border-radius: 12px;
-            box-shadow: 0 8px 18px rgba(31, 45, 98, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.82);
-            cursor: pointer;
-            font-size: 0.86rem;
-            color: #2f3c7e;
-            text-align: left;
-            font-family: inherit;
-            transition: box-shadow 0.18s;
-        }
-        .subject-filter-trigger:hover {
-            box-shadow: 0 10px 22px rgba(31, 45, 98, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.92);
-        }
-        .subject-filter-trigger:focus-visible {
-            outline: 3px solid rgba(82, 102, 210, 0.32);
-            outline-offset: 2px;
-        }
-        .subject-filter-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 7px;
-            background: rgba(99, 102, 241, 0.14);
-            color: #5368dd;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex: 0 0 auto;
-        }
-        .subject-filter-icon svg {
-            width: 13px;
-            height: 13px;
-        }
-        .subject-filter-divider {
-            width: 1px;
-            align-self: stretch;
-            background: rgba(47, 60, 126, 0.12);
-            margin: 0 0.05rem;
-        }
-        .subject-filter-label {
-            color: #2f3c7e;
-            font-weight: 500;
-        }
-        .subject-filter-value {
-            flex: 1 1 auto;
-            color: #5368dd;
-            font-weight: 700;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .subject-filter-chevron {
-            color: #6b7299;
-            font-size: 0.85rem;
-            line-height: 1;
-            flex: 0 0 auto;
-            transition: transform 0.18s;
-        }
-        .subject-filter-wrap.open .subject-filter-chevron {
-            transform: rotate(180deg);
-        }
-        .subject-filter-menu {
-            position: absolute;
-            top: calc(100% + 0.4rem);
-            left: 0;
-            right: 0;
-            background: #fff;
-            border-radius: 14px;
-            box-shadow: 0 18px 38px rgba(31, 45, 98, 0.24);
-            padding: 0.35rem;
-            z-index: 50;
-            max-height: 340px;
-            overflow-y: auto;
-            display: none;
-        }
-        .subject-filter-wrap.open .subject-filter-menu {
-            display: block;
-        }
-        .subject-filter-option {
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            width: 100%;
-            padding: 0.6rem 0.7rem;
-            background: transparent;
-            border: 0;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 0.92rem;
-            color: #2f3c7e;
-            text-align: left;
-            font-weight: 500;
-            font-family: inherit;
-        }
-        .subject-filter-option:hover {
-            background: rgba(99, 102, 241, 0.08);
-        }
-        .subject-filter-option.active {
-            background: rgba(99, 102, 241, 0.12);
-            color: #5368dd;
-            font-weight: 700;
-        }
-        .subject-filter-option-icon {
-            width: 22px;
-            height: 22px;
-            flex: 0 0 auto;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-        }
-        .subject-filter-option-label {
-            flex: 1 1 auto;
-        }
-        .subject-filter-option-check {
-            color: #5368dd;
-            flex: 0 0 auto;
-        }
-
         .summary-stats-row {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -731,29 +601,6 @@
                 border-radius: 12px;
             }
 
-            .subject-filter-trigger {
-                padding: 0.52rem 0.7rem;
-                gap: 0.5rem;
-                font-size: 0.8rem;
-                border-radius: 11px;
-            }
-            .subject-filter-icon {
-                width: 22px;
-                height: 22px;
-                border-radius: 7px;
-            }
-            .subject-filter-icon svg {
-                width: 12px;
-                height: 12px;
-            }
-            .subject-filter-menu {
-                border-radius: 11px;
-            }
-            .subject-filter-option {
-                padding: 0.5rem 0.55rem;
-                font-size: 0.82rem;
-            }
-
             .summary-stats-row {
                 gap: 0.45rem;
                 margin-bottom: 0.7rem;
@@ -815,21 +662,6 @@
 
         <div class="kid-nav-group hidden" id="kidNavGroup" role="tablist" aria-label="Kids"></div>
 
-        <div class="subject-filter-wrap" id="subjectFilterWrap">
-            <button type="button" class="subject-filter-trigger" id="subjectFilterTrigger" aria-haspopup="listbox" aria-expanded="false">
-                <span class="subject-filter-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                    </svg>
-                </span>
-                <span class="subject-filter-divider" aria-hidden="true"></span>
-                <span class="subject-filter-label">Subject:</span>
-                <span class="subject-filter-value" id="subjectFilterValue">All</span>
-                <span class="subject-filter-chevron" aria-hidden="true">▾</span>
-            </button>
-            <div class="subject-filter-menu" id="subjectFilterMenu" role="listbox" aria-label="Subject filter"></div>
-        </div>
-
         <div class="summary-stats-row" id="summaryGrid"></div>
 
         <div id="reportSessionsView">
@@ -846,7 +678,6 @@
             </div>
 
             <div class="sessions-shell">
-                <h2 class="sessions-shell-title">Recent Sessions</h2>
                 <div id="sessionsList" class="sessions-list"><div class="sessions-empty">Loading kid records...</div></div>
             </div>
         </div>
@@ -857,6 +688,7 @@
     <script src="subject-icons.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-category-common.js"></script>
+    <script src="kid-report-common.js"></script>
     <script src="kid-report.js"></script>
 </body>
 </html>

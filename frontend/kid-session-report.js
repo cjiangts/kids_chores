@@ -53,6 +53,13 @@ function resolveBackHref() {
     if (!kidId) {
         return '/admin.html';
     }
+    if (from === 'kid-card-manage') {
+        const qs = new URLSearchParams();
+        qs.set('id', String(kidId));
+        const categoryKey = String(params.get('categoryKey') || '').trim();
+        if (categoryKey) qs.set('categoryKey', categoryKey);
+        return `/kid-card-manage.html?${qs.toString()}`;
+    }
     const qs = new URLSearchParams();
     qs.set('id', String(kidId));
     if (from === 'kid-home') {

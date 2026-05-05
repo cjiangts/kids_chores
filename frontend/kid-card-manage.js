@@ -133,10 +133,13 @@ let currentCards = [];
 let currentDailyProgressRows = [];
 let currentFamilyTimezone = '';
 const CARDS_VIEW_MODE_STORAGE_KEY = 'kidCardManage_cardsViewMode';
+const CARDS_VIEW_MODES = new Set(['queue', 'stats', 'report']);
+function normalizeCardsViewMode(value) {
+    return CARDS_VIEW_MODES.has(value) ? value : 'queue';
+}
 let currentCardsViewMode = (() => {
     try {
-        const stored = localStorage.getItem(CARDS_VIEW_MODE_STORAGE_KEY);
-        return stored === 'stats' ? 'stats' : 'queue';
+        return normalizeCardsViewMode(localStorage.getItem(CARDS_VIEW_MODE_STORAGE_KEY));
     } catch (_err) {
         return 'queue';
     }
@@ -4993,7 +4996,7 @@ function setupCardsViewModeToggle() {
     buttons.forEach((btn) => {
         btn.addEventListener('click', () => {
             const mode = btn.getAttribute('data-cards-view-toggle');
-            setCardsViewMode(mode === 'stats' ? 'stats' : 'queue');
+            setCardsViewMode(normalizeCardsViewMode(mode));
         });
     });
     const statsContainer = document.getElementById('cardsStatsView');
@@ -5036,13 +5039,14 @@ function setupCardsViewModeToggle() {
 }
 
 function setCardsViewMode(mode) {
-    const next = mode === 'stats' ? 'stats' : 'queue';
+    const next = normalizeCardsViewMode(mode);
     currentCardsViewMode = next;
     try {
         localStorage.setItem(CARDS_VIEW_MODE_STORAGE_KEY, next);
     } catch (_err) {}
-    document.body.classList.toggle('cards-view-mode-stats', next === 'stats');
     document.body.classList.toggle('cards-view-mode-queue', next === 'queue');
+    document.body.classList.toggle('cards-view-mode-stats', next === 'stats');
+    document.body.classList.toggle('cards-view-mode-report', next === 'report');
     document.querySelectorAll('[data-cards-view-toggle]').forEach((btn) => {
         const isActive = btn.getAttribute('data-cards-view-toggle') === next;
         btn.classList.toggle('active', isActive);
@@ -5050,6 +5054,60 @@ function setCardsViewMode(mode) {
     });
     if (next === 'stats') {
         renderStatsView();
+    } else if (next === 'report') {
+        loadReportViewIfNeeded();
+    }
+}
+
+let reportRenderer = null;
+let reportLoadState = 'idle';
+
+function getReportRenderer() {
+    if (reportRenderer) return reportRenderer;
+    const summaryGrid = document.getElementById('reportSummaryGrid');
+    if (!summaryGrid) return null;
+    reportRenderer = window.KidReportCommon.createReport({
+        elements: {
+            summaryGrid,
+            dailyChartBody: document.getElementById('reportDailyChartBody'),
+            dailyChartLegend: document.getElementById('reportDailyChartLegend'),
+            dailyChartPageLabel: document.getElementById('reportDailyChartPageLabel'),
+            dailyChartNewerBtn: document.getElementById('reportDailyChartNewerBtn'),
+            dailyChartOlderBtn: document.getElementById('reportDailyChartOlderBtn'),
+        },
+        fixedCategoryKey: categoryKey,
+        clickBarToSession: true,
+        buildSessionUrl: (session) => {
+            const qs = new URLSearchParams();
+            qs.set('id', String(kidId));
+            qs.set('sessionId', String(session?.id || ''));
+            qs.set('from', 'kid-card-manage');
+            if (categoryKey) qs.set('categoryKey', categoryKey);
+            return `/kid-session-report.html?${qs.toString()}`;
+        },
+    });
+    return reportRenderer;
+}
+
+async function loadReportViewIfNeeded() {
+    const renderer = getReportRenderer();
+    if (!renderer) return;
+    if (reportLoadState === 'loading' || reportLoadState === 'loaded') return;
+    reportLoadState = 'loading';
+    renderer.renderInitialLoading();
+    try {
+        const response = await fetch(`${API_BASE}/kids/${kidId}/report`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+        renderer.setData({ sessions, familyTimezone: data.family_timezone });
+        reportLoadState = 'loaded';
+    } catch (error) {
+        console.error('Error loading report view:', error);
+        reportLoadState = 'error';
+        renderer.renderInitialLoading('Failed to load practice report.');
     }
 }
 

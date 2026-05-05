@@ -4272,12 +4272,744 @@
         body.cards-view-mode-stats #cardsQueueLegend,
         body.cards-view-mode-stats .cards-bulk-action-message-wrap,
         body.cards-view-mode-stats #cardsLoadingIndicator,
-        body.cards-view-mode-stats #cardsGrid {
+        body.cards-view-mode-stats #cardsGrid,
+        body.cards-view-mode-report .cards-toolbar,
+        body.cards-view-mode-report .cards-view-control,
+        body.cards-view-mode-report #cardsQueueLegend,
+        body.cards-view-mode-report .cards-bulk-action-message-wrap,
+        body.cards-view-mode-report #cardsLoadingIndicator,
+        body.cards-view-mode-report #cardsGrid {
             display: none !important;
         }
 
-        body.cards-view-mode-queue #cardsStatsView {
+        body.cards-view-mode-queue #cardsStatsView,
+        body.cards-view-mode-queue #cardsReportView,
+        body.cards-view-mode-stats #cardsReportView,
+        body.cards-view-mode-report #cardsStatsView {
             display: none !important;
+        }
+
+        .cards-report-view .summary-stats-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.55rem;
+            margin-bottom: 0.85rem;
+        }
+        .cards-report-view .summary-stat-card {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: #ffffff;
+            border: 1px solid #eef0f6;
+            border-radius: 12px;
+            padding: 0.6rem 0.7rem;
+            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
+            min-width: 0;
+        }
+        .cards-report-view .summary-stat-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+        .cards-report-view .summary-stat-icon svg {
+            width: 17px;
+            height: 17px;
+        }
+        .cards-report-view .summary-stat-icon-purple {
+            background: rgba(139, 92, 246, 0.16);
+            color: #8b5cf6;
+        }
+        .cards-report-view .summary-stat-icon-green {
+            background: rgba(16, 185, 129, 0.18);
+            color: #10b981;
+        }
+        .cards-report-view .summary-stat-body {
+            min-width: 0;
+        }
+        .cards-report-view .summary-stat-label {
+            font-size: 0.7rem;
+            color: #6b7299;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+        .cards-report-view .summary-stat-value {
+            font-size: 1.18rem;
+            font-weight: 700;
+            color: #2f3c7e;
+            margin-top: 0.1rem;
+            line-height: 1.1;
+        }
+
+        .cards-report-view .daily-chart-wrap {
+            background: #ffffff;
+            border: 1px solid #eef0f6;
+            border-radius: 14px;
+            padding: 0.85rem 0.85rem 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
+        }
+        .cards-report-view .daily-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.1rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.35rem;
+        }
+        .cards-report-view .daily-chart-pager {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        .cards-report-view .daily-chart-page-label {
+            flex: 1 1 auto;
+            color: #2f3c7e;
+            font-size: 0.82rem;
+            font-weight: 600;
+            line-height: 1.15;
+            text-align: center;
+        }
+        .cards-report-view .daily-chart-page-btn {
+            border: 0;
+            background: transparent;
+            color: #2f3c7e;
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: 0.2rem 0.5rem;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+        .cards-report-view .daily-chart-page-btn:hover:not(:disabled) {
+            background: rgba(47, 60, 126, 0.08);
+        }
+        .cards-report-view .daily-chart-page-btn:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
+        .cards-report-view .daily-chart-legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.85rem;
+            margin: 0.45rem 0 0.4rem;
+            font-size: 0.75rem;
+            color: #34406f;
+        }
+        .cards-report-view .daily-chart-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .cards-report-view .daily-chart-legend-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        .cards-report-view .daily-chart-legend-prefix {
+            color: #6b7299;
+            font-weight: 600;
+        }
+        .cards-report-view .daily-chart-legend-line-dot {
+            position: relative;
+            display: inline-block;
+            width: 24px;
+            height: 10px;
+        }
+        .cards-report-view .daily-chart-legend-line-dot::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--legend-color, #3b82f6);
+            transform: translateY(-50%);
+        }
+        .cards-report-view .daily-chart-legend-line-dot::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--legend-color, #3b82f6);
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 1px var(--legend-color, #3b82f6);
+            transform: translate(-50%, -50%);
+            box-sizing: border-box;
+        }
+
+        .cards-report-view .daily-line-chart {
+            --daily-line-chart-plot-height: 200px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 0.4rem;
+            align-items: stretch;
+        }
+        .cards-report-view .daily-line-chart-axis {
+            display: flex;
+            flex-direction: column;
+            min-width: 26px;
+        }
+        .cards-report-view .daily-line-chart-axis-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+            line-height: 1.1;
+        }
+        .cards-report-view .daily-line-chart-axis-left {
+            align-items: flex-end;
+            text-align: right;
+        }
+        .cards-report-view .daily-line-chart-axis-right {
+            align-items: flex-start;
+            text-align: left;
+        }
+        .cards-report-view .daily-line-chart-axis-left .daily-line-chart-axis-title {
+            color: #2563eb;
+        }
+        .cards-report-view .daily-line-chart-axis-right .daily-line-chart-axis-title {
+            color: #16a34a;
+        }
+        .cards-report-view .daily-line-chart-axis-ticks {
+            position: relative;
+            width: 100%;
+            height: var(--daily-line-chart-plot-height);
+        }
+        .cards-report-view .daily-line-chart-tick {
+            position: absolute;
+            font-size: 0.65rem;
+            color: #6b7280;
+            white-space: nowrap;
+            transform: translateY(50%);
+            line-height: 1;
+        }
+        .cards-report-view .daily-line-chart-axis-left .daily-line-chart-tick {
+            right: 0.3rem;
+        }
+        .cards-report-view .daily-line-chart-axis-right .daily-line-chart-tick {
+            left: 0.3rem;
+        }
+        .cards-report-view .daily-line-chart-plot-wrap {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            padding-top: calc(0.72rem * 1.1 + 0.4rem);
+        }
+        .cards-report-view .daily-line-chart-grid {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(0.72rem * 1.1 + 0.4rem);
+            height: var(--daily-line-chart-plot-height);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .cards-report-view .daily-line-chart-grid-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 0;
+            border-top: 1px dashed #e5e7eb;
+        }
+        .cards-report-view .daily-line-chart-grid-line-base {
+            border-top: 1px solid #d1d5db;
+        }
+        .cards-report-view .daily-line-chart-cols {
+            display: flex;
+            gap: 0;
+            position: relative;
+            z-index: 2;
+        }
+        .cards-report-view .daily-line-chart-col {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            text-decoration: none;
+            color: inherit;
+            border-radius: 8px;
+            transition: background 0.15s;
+        }
+        .cards-report-view .daily-line-chart-col-clickable {
+            cursor: pointer;
+        }
+        .cards-report-view .daily-line-chart-col-clickable:hover {
+            background: rgba(47, 60, 126, 0.06);
+        }
+        .cards-report-view .daily-line-chart-bar-cell {
+            position: relative;
+            height: var(--daily-line-chart-plot-height);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .cards-report-view .daily-line-chart-total {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, -3px);
+            font-size: 0.72rem;
+            color: #34406f;
+            font-weight: 700;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .cards-report-view .daily-line-chart-bar {
+            width: 70%;
+            max-width: 30px;
+            display: flex;
+            flex-direction: column-reverse;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #eef2fb;
+            min-height: 2px;
+        }
+        .cards-report-view .daily-line-chart-seg {
+            width: 100%;
+        }
+        .cards-report-view .daily-line-chart-line {
+            position: absolute;
+            top: calc(0.72rem * 1.1 + 0.4rem);
+            left: 0;
+            width: 100%;
+            height: var(--daily-line-chart-plot-height);
+            pointer-events: none;
+            z-index: 3;
+            overflow: visible;
+            display: block;
+        }
+        .cards-report-view .daily-line-chart-line polyline {
+            fill: none;
+            stroke: #2563eb;
+            stroke-width: 2;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+            vector-effect: non-scaling-stroke;
+        }
+        .cards-report-view .daily-line-chart-dots {
+            position: absolute;
+            top: calc(0.72rem * 1.1 + 0.4rem);
+            left: 0;
+            right: 0;
+            height: var(--daily-line-chart-plot-height);
+            pointer-events: none;
+            z-index: 4;
+        }
+        .cards-report-view .daily-line-chart-dot {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.18rem;
+            transform: translate(-50%, 50%);
+        }
+        .cards-report-view .daily-line-chart-dot-label {
+            font-size: 0.7rem;
+            color: #2563eb;
+            font-weight: 700;
+            white-space: nowrap;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 0 0.2rem;
+            border-radius: 4px;
+        }
+        .cards-report-view .daily-line-chart-dot-marker {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #2563eb;
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 0 1px #2563eb;
+            box-sizing: border-box;
+        }
+        .cards-report-view .daily-line-chart-foot {
+            padding-top: 0.5rem;
+            text-align: center;
+        }
+        .cards-report-view .daily-line-chart-date {
+            font-size: 0.7rem;
+            color: #34406f;
+            line-height: 1.2;
+        }
+        .cards-report-view .daily-line-chart-date-weekday {
+            font-weight: 600;
+        }
+        .cards-report-view .daily-line-chart-date-md {
+            color: #6b7299;
+        }
+        @media (max-width: 540px) {
+            .cards-report-view .daily-line-chart {
+                --daily-line-chart-plot-height: 160px;
+                gap: 0.25rem;
+            }
+            .cards-report-view .daily-line-chart-axis {
+                min-width: 22px;
+            }
+            .cards-report-view .daily-line-chart-axis-title {
+                font-size: 0.62rem;
+            }
+            .cards-report-view .daily-line-chart-tick {
+                font-size: 0.55rem;
+            }
+            .cards-report-view .daily-line-chart-axis-left .daily-line-chart-tick {
+                right: 0.2rem;
+            }
+            .cards-report-view .daily-line-chart-axis-right .daily-line-chart-tick {
+                left: 0.2rem;
+            }
+            .cards-report-view .daily-line-chart-bar {
+                max-width: 18px;
+            }
+            .cards-report-view .daily-line-chart-total {
+                font-size: 0.62rem;
+            }
+            .cards-report-view .daily-line-chart-dot-label {
+                font-size: 0.6rem;
+            }
+            .cards-report-view .daily-line-chart-date {
+                font-size: 0.62rem;
+            }
+            .cards-report-view .daily-line-chart-cols {
+                gap: 0;
+            }
+        }
+        .cards-report-view .daily-chart-status {
+            color: #666;
+            font-size: 0.85rem;
+            padding: 1rem 0.4rem;
+            text-align: center;
+        }
+
+        .cards-report-view .daily-vbar-chart {
+            display: flex;
+            align-items: stretch;
+            gap: 0.4rem;
+        }
+        .cards-report-view .daily-vbar-col {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            border-radius: 8px;
+            transition: background 0.15s;
+            color: inherit;
+            text-decoration: none;
+        }
+        .cards-report-view .daily-vbar-col-clickable {
+            cursor: pointer;
+        }
+        .cards-report-view .daily-vbar-col-clickable:hover {
+            background: rgba(47, 60, 126, 0.07);
+        }
+        .cards-report-view .daily-vbar-mode {
+            margin-top: 0.3rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.2rem;
+            padding: 0 0.15rem 0.2rem;
+        }
+        .cards-report-view .daily-vbar-mode-chip {
+            display: inline-flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 0.2rem;
+        }
+        .cards-report-view .daily-vbar-mode-base {
+            font-size: 0.62rem;
+            font-weight: 600;
+            color: #2f3c7e;
+            background: #eef2fb;
+            border-radius: 999px;
+            padding: 0.1rem 0.45rem;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .cards-report-view .daily-vbar-mode-drill {
+            font-size: 0.62rem;
+            font-weight: 600;
+            color: #9a3412;
+            background: #ffedd5;
+            border-radius: 999px;
+            padding: 0.1rem 0.45rem;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .cards-report-view .daily-vbar-plot {
+            height: 200px;
+            padding-top: 1.1rem;
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            box-sizing: border-box;
+        }
+        .cards-report-view .daily-vbar-bar-wrap {
+            position: relative;
+            flex: 1 1 0;
+            min-width: 0;
+            max-width: 36px;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .cards-report-view .daily-vbar-bar-wrap-single {
+            max-width: 46px;
+        }
+        .cards-report-view .daily-vbar-total {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, -3px);
+            font-size: 0.72rem;
+            color: #34406f;
+            font-weight: 600;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .cards-report-view .daily-vbar-bar {
+            width: 100%;
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column-reverse;
+            background: #eef2fb;
+            min-height: 2px;
+        }
+        .cards-report-view .daily-vbar-seg {
+            width: 100%;
+        }
+        .cards-report-view .daily-vbar-date {
+            margin-top: 0.4rem;
+            font-size: 0.7rem;
+            color: #34406f;
+            text-align: center;
+            line-height: 1.2;
+        }
+        .cards-report-view .daily-vbar-date-weekday {
+            font-weight: 600;
+        }
+        .cards-report-view .daily-vbar-date-md {
+            color: #6b7299;
+        }
+
+        .cards-report-view .sessions-shell {
+            background: #ffffff;
+            border: 1px solid #eef0f6;
+            border-radius: 14px;
+            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
+            padding: 0.85rem 0.85rem 1rem;
+        }
+        .cards-report-view .sessions-shell-title {
+            margin: 0 0 0.7rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #2f3c7e;
+        }
+        .cards-report-view .sessions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .cards-report-view .day-group + .day-group {
+            border-top: 1px solid #eef0f6;
+            padding-top: 0.6rem;
+        }
+        .cards-report-view .day-group-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.2rem 0.5rem;
+        }
+        .cards-report-view .day-group-title {
+            flex: 1 1 auto;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #2f3c7e;
+        }
+        .cards-report-view .day-group-summary {
+            font-size: 0.78rem;
+            color: #666;
+            white-space: nowrap;
+        }
+        .cards-report-view .day-group-toggle {
+            border: 0;
+            background: transparent;
+            color: #2f3c7e;
+            font-size: 1.05rem;
+            line-height: 1;
+            padding: 0.25rem 0.4rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: transform 0.15s, background 0.15s;
+        }
+        .cards-report-view .day-group-toggle:hover {
+            background: rgba(47, 60, 126, 0.08);
+        }
+        .cards-report-view .day-group.collapsed .day-group-toggle {
+            transform: rotate(180deg);
+        }
+        .cards-report-view .day-group.collapsed .day-group-body {
+            display: none;
+        }
+        .cards-report-view .day-group-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+        .cards-report-view .session-card {
+            display: grid;
+            grid-template-columns: 56px minmax(0, 1fr) auto 14px;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.7rem 0.85rem;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.05);
+            text-decoration: none;
+            color: inherit;
+            border: 1px solid #f1f3f9;
+        }
+        .cards-report-view .session-card:hover {
+            box-shadow: 0 3px 10px rgba(31, 45, 98, 0.12);
+        }
+        .cards-report-view .session-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.4rem;
+            line-height: 1;
+            background: transparent;
+        }
+        .cards-report-view .session-info {
+            min-width: 0;
+        }
+        .cards-report-view .session-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #2f3c7e;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cards-report-view .session-sub {
+            font-size: 0.78rem;
+            color: #6b7299;
+            margin-top: 0.2rem;
+        }
+        .cards-report-view .session-stats {
+            text-align: right;
+        }
+        .cards-report-view .session-mins {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #2f3c7e;
+        }
+        .cards-report-view .session-mins-unit {
+            font-size: 0.74rem;
+            font-weight: 500;
+            color: #6b7299;
+            margin-left: 0.15rem;
+        }
+        .cards-report-view .session-result {
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-top: 0.18rem;
+        }
+        .cards-report-view .session-retries {
+            font-size: 0.74rem;
+            color: #8a8fa8;
+            margin-top: 0.12rem;
+        }
+        .cards-report-view .session-chevron {
+            color: #c4c9d7;
+            font-size: 1.1rem;
+            line-height: 1;
+            text-align: right;
+        }
+        .cards-report-view .sessions-empty {
+            color: #666;
+            font-size: 0.85rem;
+            padding: 1rem 0.4rem;
+            text-align: center;
+        }
+
+        @media (max-width: 540px) {
+            .cards-report-view .daily-vbar-chart {
+                gap: 0.25rem;
+            }
+            .cards-report-view .daily-vbar-plot {
+                height: 160px;
+            }
+            .cards-report-view .daily-vbar-bar-wrap {
+                max-width: 14px;
+            }
+            .cards-report-view .daily-vbar-bar-wrap-single {
+                max-width: 18px;
+            }
+            .cards-report-view .daily-vbar-total {
+                font-size: 0.65rem;
+            }
+            .cards-report-view .daily-vbar-date {
+                font-size: 0.62rem;
+            }
+            .cards-report-view .daily-vbar-mode-base,
+            .cards-report-view .daily-vbar-mode-drill {
+                font-size: 0.55rem;
+                padding: 0.08rem 0.35rem;
+            }
+            .cards-report-view .session-card {
+                grid-template-columns: 44px minmax(0, 1fr) auto 12px;
+                padding: 0.55rem 0.6rem;
+                gap: 0.55rem;
+            }
+            .cards-report-view .session-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.95rem;
+            }
+            .cards-report-view .session-title { font-size: 0.88rem; }
+            .cards-report-view .session-sub { font-size: 0.72rem; }
+            .cards-report-view .session-mins { font-size: 0.95rem; }
+            .cards-report-view .session-result { font-size: 0.76rem; }
+            .cards-report-view .session-retries { font-size: 0.7rem; }
+            .cards-report-view .summary-stats-row {
+                gap: 0.45rem;
+                margin-bottom: 0.7rem;
+            }
+            .cards-report-view .summary-stat-card {
+                padding: 0.5rem 0.6rem;
+                gap: 0.5rem;
+                border-radius: 11px;
+            }
+            .cards-report-view .summary-stat-icon {
+                width: 30px;
+                height: 30px;
+            }
+            .cards-report-view .summary-stat-icon svg {
+                width: 15px;
+                height: 15px;
+            }
+            .cards-report-view .summary-stat-label {
+                font-size: 0.64rem;
+            }
+            .cards-report-view .summary-stat-value {
+                font-size: 1.02rem;
+            }
+            .cards-report-view .sessions-shell-title {
+                font-size: 0.98rem;
+                margin-bottom: 0.55rem;
+            }
         }
 
         .cards-distribution-grid {
@@ -5147,6 +5879,7 @@
                 <div class="cards-view-toggle-group" role="group" aria-label="Cards view mode">
                     <button type="button" class="cards-view-toggle-btn active" data-cards-view-toggle="queue">Queue</button>
                     <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="stats">Stats</button>
+                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="report">Sessions</button>
                 </div>
             </div>
             <div class="cards-toolbar">
@@ -5250,6 +5983,20 @@
                 </div>
                 <div id="cardsGrid" class="cards-grid"></div>
                 <div id="cardsStatsView" class="cards-stats-view"></div>
+                <div id="cardsReportView" class="cards-report-view">
+                    <div class="summary-stats-row" id="reportSummaryGrid"></div>
+                    <div class="daily-chart-wrap">
+                        <div class="daily-chart-header">
+                            <div class="daily-chart-pager">
+                                <button id="reportDailyChartOlderBtn" type="button" class="daily-chart-page-btn" aria-label="Older" disabled>‹</button>
+                                <div id="reportDailyChartPageLabel" class="daily-chart-page-label">Loading kid records...</div>
+                                <button id="reportDailyChartNewerBtn" type="button" class="daily-chart-page-btn" aria-label="Newer" disabled>›</button>
+                            </div>
+                        </div>
+                        <div id="reportDailyChartLegend" class="daily-chart-legend" style="display:none"></div>
+                        <div id="reportDailyChartBody"><div class="daily-chart-status">Loading kid records...</div></div>
+                    </div>
+                </div>
         </section>
     </div>
 
@@ -5374,6 +6121,7 @@
     <script src="subject-icons.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
+    <script src="kid-report-common.js"></script>
     <script src="writing-audio-sequence.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/ace.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/mode-python.js"></script>
