@@ -4576,6 +4576,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.28rem;
+            min-width: 0;
         }
 
         .cards-distribution-toplist + .cards-distribution-toplist {
@@ -4598,11 +4599,14 @@
             display: flex;
             flex-direction: column;
             gap: 0.3rem;
+            min-width: 0;
         }
 
         .cards-distribution-toplist-row {
             display: block;
             min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .cards-distribution-toplist-item {
@@ -4619,6 +4623,11 @@
             line-height: 1.2;
             text-decoration: none;
             cursor: default;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .cards-distribution-toplist-front {
