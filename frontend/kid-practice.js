@@ -37,6 +37,8 @@ const resultSummary = document.getElementById('resultSummary');
 const sessionActionSlot = document.querySelector('.session-action-slot');
 const judgeModeRow = document.getElementById('judgeModeRow');
 const judgeModeToggleStart = document.getElementById('judgeModeToggleStart');
+const drillModeRow = document.getElementById('drillModeRow');
+const drillModeToggle = document.getElementById('drillModeToggle');
 const knewRow = document.getElementById('knewRow');
 const knewBtn = document.getElementById('knewBtn');
 const doneRow = document.getElementById('doneRow');
@@ -77,6 +79,13 @@ const TYPE4_MODE_STORAGE_KEY = 'practice_judge_mode_type4';
 const TYPE1_MULTIPLE_CHOICE_OPTION_COUNT = 4;
 const PRACTICE_NAV_CACHE_KEY = 'kid_practice_nav_cache_v1';
 const PRACTICE_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
+const DRILL_MIN_DAILY_TARGET = 20;
+const DRILL_ACTIVE_BATCH_SIZE = 5;
+const DRILL_FAST_CORRECT_NEEDED = 2;
+const DRILL_MAX_ATTEMPTS_PER_CARD = 5;
+const DRILL_RECENT_GAP = 2;
+const DRILL_FALLBACK_SPEED_TARGET_MS = 3000;
+const PRACTICE_MODE_DRILL_SUFFIX = '+drill';
 
 const state = {
     currentKid: null,
@@ -134,6 +143,19 @@ const state = {
     isSessionPaused: false,
     resultActionMode: 'back',
     pendingResultEndedEarly: false,
+    drillEligible: false,
+    drillRequested: false,
+    drillActive: false,
+    drillTargetAttempts: 0,
+    drillAttemptsDone: 0,
+    drillSpeedTargetMs: DRILL_FALLBACK_SPEED_TARGET_MS,
+    readyDrillSpeedTargetMs: null,
+    drillActiveIds: [],
+    drillQueueIds: [],
+    drillRecentIds: [],
+    drillCurrentRoundIds: [],
+    drillCardStats: {},
+    drillCardIndexById: {},
 };
 
 const errorState = { lastMessage: '' };
@@ -221,12 +243,17 @@ const earlyFinishController = window.PracticeUiCommon.createEarlyFinishControlle
         if (state.activeIsRetrySession) {
             return false;
         }
+        if (state.drillActive) {
+            return false;
+        }
         if (isType(BEHAVIOR_TYPE_III)) {
             return !state.isSessionPaused && !state.isRecording && !state.isUploadingRecording;
         }
         return true;
     },
-    getTotalCount: () => state.sessionCards.length,
+    getTotalCount: () => (
+        state.drillActive ? state.drillTargetAttempts : state.sessionCards.length
+    ),
     getRecordedCount: () => state.sessionAnswers.length,
     emptyAnswerMessage: 'Complete at least one card before finishing early.',
     showError: (message) => showError(message),
@@ -417,11 +444,103 @@ function configureJudgeModePickerForType() {
     );
 }
 
+function isDrillEligibleType() {
+    return isType(BEHAVIOR_TYPE_I) && !state.hasChineseSpecificLogic;
+}
+
+function shouldOfferDrillMode() {
+    if (!isDrillEligibleType()) {
+        return false;
+    }
+    if (state.readyIsContinueSession || state.readyIsRetrySession) {
+        return false;
+    }
+    const target = Number.parseInt(state.configuredSessionCount, 10) || 0;
+    return target >= DRILL_MIN_DAILY_TARGET;
+}
+
+function setDrillRequested(nextValue) {
+    const next = Boolean(nextValue);
+    state.drillRequested = next;
+    syncDrillModeToggleUi();
+    applyDrillModeUiSideEffects();
+}
+
+function syncDrillModeToggleUi() {
+    if (!drillModeToggle) {
+        return;
+    }
+    const buttons = drillModeToggle.querySelectorAll('[data-drill-mode]');
+    buttons.forEach((btn) => {
+        const isDrill = btn.getAttribute('data-drill-mode') === 'drill';
+        const pressed = isDrill ? state.drillRequested : !state.drillRequested;
+        btn.classList.toggle('active', pressed);
+        btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+    });
+}
+
+function applyDrillModeUiSideEffects() {
+    updateSessionInfoText();
+}
+
+function updateSessionInfoText() {
+    if (!sessionInfo) {
+        return;
+    }
+    const baseTarget = state.readyIsContinueSession
+        ? state.readyContinueCardCount
+        : (state.readyIsRetrySession ? state.readyRetryCardCount : state.configuredSessionCount);
+    const target = Math.max(0, Number.parseInt(baseTarget, 10) || 0);
+    if (state.drillRequested && shouldOfferDrillMode()) {
+        const targetMs = Number.parseInt(state.readyDrillSpeedTargetMs, 10);
+        const cutoffSec = (
+            Number.isFinite(targetMs) && targetMs > 0
+                ? targetMs
+                : DRILL_FALLBACK_SPEED_TARGET_MS
+        ) / 1000;
+        sessionInfo.textContent = `Speed Drill: ${target} quick questions · fast = answer within ${cutoffSec.toFixed(1)}s`;
+        return;
+    }
+    if (isType(BEHAVIOR_TYPE_IV) || (isType(BEHAVIOR_TYPE_I) && !state.hasChineseSpecificLogic)) {
+        sessionInfo.textContent = `Session: ${target} questions`;
+    } else {
+        sessionInfo.textContent = `Session: ${target} cards`;
+    }
+}
+
+function bindDrillModeToggle() {
+    if (!drillModeToggle) {
+        return;
+    }
+    drillModeToggle.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-drill-mode]');
+        if (!btn) {
+            return;
+        }
+        const next = btn.getAttribute('data-drill-mode') === 'drill';
+        setDrillRequested(next);
+    });
+}
+
+function refreshDrillModeRow() {
+    state.drillEligible = shouldOfferDrillMode();
+    if (!drillModeRow) {
+        return;
+    }
+    drillModeRow.classList.toggle('hidden', !state.drillEligible);
+    if (!state.drillEligible) {
+        state.drillRequested = false;
+    }
+    syncDrillModeToggleUi();
+    applyDrillModeUiSideEffects();
+}
+
 function configureTypeUi() {
     applyPageTypeClasses();
 
     judgeModeRow.classList.toggle('hidden', !usesPracticeModePicker());
     configureJudgeModePickerForType();
+    refreshDrillModeRow();
 
     hideAllSessionRows();
     showTypeSpecificCardSections();
@@ -617,11 +736,26 @@ function applyReadyRetryState(payload) {
     }
 }
 
+function parseServerPracticeMode(rawMode) {
+    let text = String(rawMode || '').trim().toLowerCase();
+    let drill = false;
+    if (text.endsWith(PRACTICE_MODE_DRILL_SUFFIX)) {
+        drill = true;
+        text = text.slice(0, -PRACTICE_MODE_DRILL_SUFFIX.length);
+    }
+    return { base: text, drill };
+}
+
 function applyServerPracticeMode(serverMode) {
-    const mode = String(serverMode || '').trim().toLowerCase();
-    if (!mode || mode === 'na') return;
+    const { base, drill } = parseServerPracticeMode(serverMode);
+    if (drill) {
+        state.drillRequested = true;
+        syncDrillModeToggleUi();
+        applyDrillModeUiSideEffects();
+    }
+    if (!base || base === 'na') return;
     if (!window.PracticeJudgeMode) return;
-    let normalized = window.PracticeJudgeMode.normalizeMode(mode);
+    let normalized = window.PracticeJudgeMode.normalizeMode(base);
     if (isType(BEHAVIOR_TYPE_I) && normalized === window.PracticeJudgeMode.SELF) {
         normalized = window.PracticeJudgeMode.PARENT;
     }
@@ -653,6 +787,12 @@ async function loadType1ReadyState() {
         configureJudgeModePickerForType();
     }
     state.configuredSessionCount = Number.parseInt(decksData.total_session_count, 10) || 0;
+    const readyDrillTargetMs = Number.parseInt(decksData.drill_speed_target_ms, 10);
+    state.readyDrillSpeedTargetMs = (
+        Number.isFinite(readyDrillTargetMs) && readyDrillTargetMs > 0
+            ? readyDrillTargetMs
+            : null
+    );
     const deckList = Array.isArray(decksData.decks) ? decksData.decks : [];
     const availableWithConfig = deckList.some((deck) => {
         return Number(deck.total_cards || 0) > 0 && Number(deck.session_count || 0) > 0;
@@ -845,6 +985,7 @@ function resetBaseSessionState() {
 
     state.wrongCardsInSession = [];
     resetBonusGame();
+    resetDrillSessionState();
 }
 
 function resetToStartScreen(totalCards = 0) {
@@ -868,6 +1009,8 @@ function resetToStartScreen(totalCards = 0) {
     } else {
         sessionInfo.textContent = `Session: ${target} cards`;
     }
+    refreshDrillModeRow();
+    updateSessionInfoText();
     startTitle.textContent = state.readyIsContinueSession
         ? `Finish ${getCurrentCategoryDisplayName()} Session`
         : (state.readyIsRetrySession
@@ -980,14 +1123,25 @@ async function startSession() {
 async function startType1Session() {
     try {
         showError('');
+        const wantDrill = state.drillRequested && shouldOfferDrillMode();
+        const baseJudgeMode = state.judgeMode || 'parent';
+        const requestedPracticeMode = wantDrill
+            ? `${baseJudgeMode}${PRACTICE_MODE_DRILL_SUFFIX}`
+            : baseJudgeMode;
         const started = await window.PracticeSessionFlow.startShuffledSession(
             buildType1ApiUrl('practice/start'),
-            { practiceMode: state.judgeMode || 'parent' }
+            { practiceMode: requestedPracticeMode }
         );
-        applyServerPracticeMode(started?.data?.practice_mode);
+        const serverPracticeMode = String(started?.data?.practice_mode || '').trim().toLowerCase();
+        applyServerPracticeMode(serverPracticeMode);
         state.activePendingSessionId = started.pendingSessionId;
         state.activeIsRetrySession = Boolean(started?.data?.is_retry_session);
-        state.sessionCards = started.cards;
+        const isDrillConfirmed = wantDrill && parseServerPracticeMode(serverPracticeMode).drill;
+        // In drill mode, keep priority order from the backend (top-N first)
+        // instead of using the shuffled list returned by startShuffledSession.
+        state.sessionCards = isDrillConfirmed
+            ? (Array.isArray(started?.data?.cards) ? started.data.cards : [])
+            : started.cards;
         state.type1MultipleChoicePoolCards = Array.isArray(started?.data?.multiple_choice_pool_cards)
             ? started.data.multiple_choice_pool_cards
             : [];
@@ -1004,6 +1158,12 @@ async function startType1Session() {
         state.sessionAnswers = [];
         state.wrongCardsInSession = [];
 
+        if (isDrillConfirmed) {
+            initDrillSession(started?.data?.drill_speed_target_ms);
+        } else {
+            resetDrillSessionState();
+        }
+
         startScreen.classList.add('hidden');
         resultScreen.classList.add('hidden');
         sessionScreen.classList.remove('hidden');
@@ -1014,6 +1174,168 @@ async function startType1Session() {
     } catch (error) {
         console.error('Error starting type-I session:', error);
         showError(`Failed to start ${getCurrentCategoryDisplayName()} session`);
+    }
+}
+
+function resetDrillSessionState() {
+    state.drillActive = false;
+    state.drillTargetAttempts = 0;
+    state.drillAttemptsDone = 0;
+    state.drillSpeedTargetMs = DRILL_FALLBACK_SPEED_TARGET_MS;
+    state.drillActiveIds = [];
+    state.drillQueueIds = [];
+    state.drillRecentIds = [];
+    state.drillCurrentRoundIds = [];
+    state.drillCardStats = {};
+    state.drillCardIndexById = {};
+}
+
+function initDrillSession(speedTargetMs) {
+    resetDrillSessionState();
+    state.drillActive = true;
+    state.drillTargetAttempts = Math.max(1, Number.parseInt(state.configuredSessionCount, 10) || 0);
+    const parsedTarget = Number.parseInt(speedTargetMs, 10);
+    state.drillSpeedTargetMs = (
+        Number.isFinite(parsedTarget) && parsedTarget > 0
+            ? parsedTarget
+            : DRILL_FALLBACK_SPEED_TARGET_MS
+    );
+
+    const indexById = {};
+    const orderedIds = [];
+    state.sessionCards.forEach((card, index) => {
+        const id = Number.parseInt(card?.id, 10);
+        if (!Number.isInteger(id) || id <= 0) {
+            return;
+        }
+        if (Object.prototype.hasOwnProperty.call(indexById, id)) {
+            return;
+        }
+        indexById[id] = index;
+        orderedIds.push(id);
+    });
+    state.drillCardIndexById = indexById;
+
+    const batchSize = Math.min(DRILL_ACTIVE_BATCH_SIZE, orderedIds.length);
+    state.drillActiveIds = orderedIds.slice(0, batchSize);
+    state.drillQueueIds = orderedIds.slice(batchSize);
+    state.drillActiveIds.forEach((id) => {
+        state.drillCardStats[id] = { fastCorrectCount: 0, sessionAttemptCount: 0 };
+    });
+
+    const firstIdx = pickNextDrillCardIndex();
+    state.currentIndex = firstIdx >= 0 ? firstIdx : 0;
+}
+
+function fixDrillRoundStart(roundIds, recentIds) {
+    if (!Array.isArray(roundIds) || roundIds.length === 0) {
+        return roundIds;
+    }
+    const recentSet = new Set(recentIds);
+    for (let i = 0; i < roundIds.length; i += 1) {
+        if (!recentSet.has(roundIds[0])) {
+            return roundIds;
+        }
+        roundIds.push(roundIds.shift());
+    }
+    return roundIds;
+}
+
+function pickNextDrillCardIndex() {
+    if (!state.drillActive) {
+        return -1;
+    }
+    if (state.drillCurrentRoundIds.length === 0) {
+        if (state.drillActiveIds.length === 0) {
+            return -1;
+        }
+        const round = shuffleCopy(state.drillActiveIds.slice());
+        state.drillCurrentRoundIds = fixDrillRoundStart(round, state.drillRecentIds);
+    }
+    while (state.drillCurrentRoundIds.length > 0) {
+        const cardId = state.drillCurrentRoundIds.shift();
+        if (!state.drillActiveIds.includes(cardId)) {
+            continue;
+        }
+        const idx = state.drillCardIndexById[cardId];
+        if (Number.isInteger(idx) && idx >= 0 && idx < state.sessionCards.length) {
+            return idx;
+        }
+    }
+    return pickNextDrillCardIndex();
+}
+
+function buildDrillEndSummary(endedEarly) {
+    const totalDone = Math.max(0, Number.parseInt(state.drillAttemptsDone, 10) || 0);
+    const target = Math.max(totalDone, Number.parseInt(state.drillTargetAttempts, 10) || 0);
+    let speedReached = 0;
+    let needsMore = 0;
+    Object.values(state.drillCardStats || {}).forEach((stats) => {
+        if (!stats) {
+            return;
+        }
+        const fast = Math.max(0, Number.parseInt(stats.fastCorrectCount, 10) || 0);
+        const attempts = Math.max(0, Number.parseInt(stats.sessionAttemptCount, 10) || 0);
+        if (attempts <= 0) {
+            return;
+        }
+        if (fast >= DRILL_FAST_CORRECT_NEEDED) {
+            speedReached += 1;
+        } else {
+            needsMore += 1;
+        }
+    });
+    const title = endedEarly ? 'Ended early' : 'Speed Drill Complete';
+    const speedTargetMs = Math.max(
+        1,
+        Number.parseInt(state.drillSpeedTargetMs, 10) || DRILL_FALLBACK_SPEED_TARGET_MS
+    );
+    const speedTargetLabel = `${(speedTargetMs / 1000).toFixed(1)}s`;
+    return [
+        `<strong>${escapeHtml(title)}</strong>`,
+        `${totalDone}/${target} questions · Fast ≤ ${speedTargetLabel}`,
+        `Speed goal reached: ${speedReached} · Needs more practice: ${needsMore}`,
+    ].join('<br>');
+}
+
+function recordDrillAttempt(cardId, correct, responseTimeMs) {
+    if (!state.drillActive) {
+        return;
+    }
+    const id = Number.parseInt(cardId, 10);
+    if (!Number.isInteger(id) || id <= 0) {
+        return;
+    }
+    const stats = state.drillCardStats[id] || { fastCorrectCount: 0, sessionAttemptCount: 0 };
+    stats.sessionAttemptCount += 1;
+    const ms = Math.max(0, Number.parseInt(responseTimeMs, 10) || 0);
+    const speedTargetMs = Math.max(
+        1,
+        Number.parseInt(state.drillSpeedTargetMs, 10) || DRILL_FALLBACK_SPEED_TARGET_MS
+    );
+    if (correct && ms <= speedTargetMs) {
+        stats.fastCorrectCount += 1;
+    }
+    state.drillCardStats[id] = stats;
+    state.drillAttemptsDone += 1;
+    state.drillRecentIds.push(id);
+    if (state.drillRecentIds.length > DRILL_RECENT_GAP) {
+        state.drillRecentIds.shift();
+    }
+
+    const shouldExit = (
+        stats.fastCorrectCount >= DRILL_FAST_CORRECT_NEEDED
+        || stats.sessionAttemptCount >= DRILL_MAX_ATTEMPTS_PER_CARD
+    );
+    if (shouldExit) {
+        state.drillActiveIds = state.drillActiveIds.filter((activeId) => activeId !== id);
+        if (state.drillQueueIds.length > 0) {
+            const nextId = state.drillQueueIds.shift();
+            state.drillActiveIds.push(nextId);
+            if (!state.drillCardStats[nextId]) {
+                state.drillCardStats[nextId] = { fastCorrectCount: 0, sessionAttemptCount: 0 };
+            }
+        }
     }
 }
 
@@ -1160,13 +1482,23 @@ function showCurrentQuestion() {
     showTypeSpecificCardSections();
 
     const card = state.sessionCards[state.currentIndex];
-    renderPracticeProgress(
-        progress,
-        progressFill,
-        state.currentIndex + 1,
-        state.sessionCards.length,
-        'Card'
-    );
+    if (state.drillActive) {
+        renderPracticeProgress(
+            progress,
+            progressFill,
+            state.drillAttemptsDone + 1,
+            state.drillTargetAttempts,
+            'Question'
+        );
+    } else {
+        renderPracticeProgress(
+            progress,
+            progressFill,
+            state.currentIndex + 1,
+            state.sessionCards.length,
+            'Card'
+        );
+    }
     if (hasMathNotation(card.front)) {
         cardQuestion.innerHTML = renderMathHtml(card.front);
     } else {
@@ -1642,6 +1974,9 @@ function recordType1Answer(correct, loggedChoice = null) {
         answerPayload.usedPromptAudio = true;
     }
     state.sessionAnswers.push(answerPayload);
+    if (state.drillActive) {
+        recordDrillAttempt(card.id, correct, responseTimeMs);
+    }
     updateFinishEarlyButtonState();
 
     if (correct) {
@@ -1659,6 +1994,20 @@ function recordType1Answer(correct, loggedChoice = null) {
 }
 
 function advanceType1Card() {
+    if (state.drillActive) {
+        if (state.drillAttemptsDone >= state.drillTargetAttempts) {
+            void endSession();
+            return;
+        }
+        const nextIdx = pickNextDrillCardIndex();
+        if (nextIdx < 0) {
+            void endSession();
+            return;
+        }
+        state.currentIndex = nextIdx;
+        showCurrentQuestion();
+        return;
+    }
     if (state.currentIndex >= state.sessionCards.length - 1) {
         void endSession();
         return;
@@ -2366,17 +2715,21 @@ async function endType1Session(endedEarly = false) {
         if (!response.ok) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
-        resultSummary.textContent = state.hasChineseSpecificLogic
-            ? (
-                endedEarly
-                    ? `Ended early · Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
-                    : `Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
-            )
-            : (
-                endedEarly
-                    ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
-                    : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
-            );
+        if (state.drillActive) {
+            resultSummary.innerHTML = buildDrillEndSummary(endedEarly);
+        } else {
+            resultSummary.textContent = state.hasChineseSpecificLogic
+                ? (
+                    endedEarly
+                        ? `Ended early · Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
+                        : `Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
+                )
+                : (
+                    endedEarly
+                        ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
+                        : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
+                );
+        }
         window.PracticeSession.clearSessionStart(state.activePendingSessionId);
         updateFinishEarlyButtonState();
         setResultActionMode('back');
@@ -2777,6 +3130,7 @@ function showError(message) {
 }
 
 function bindEventHandlers() {
+    bindDrillModeToggle();
     startBtn.addEventListener('click', () => {
         void startSession();
     });

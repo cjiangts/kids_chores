@@ -21,6 +21,7 @@ const dailyChartLegend = document.getElementById('dailyChartLegend');
 const sessionsList = document.getElementById('sessionsList');
 const reportSessionsView = document.getElementById('reportSessionsView');
 const collapsedDayKeys = new Set();
+let selectedDayKey = '';
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let dailyChartRows = [];
 let dailyChartCategories = [];
@@ -86,11 +87,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             const group = toggle.closest('.day-group');
             if (!group) return;
             const dayKey = group.getAttribute('data-day-key') || '';
+            if (!selectedCategoryKey) {
+                selectedDayKey = (selectedDayKey === dayKey) ? '' : dayKey;
+                renderSessionsList();
+                renderDailyMinutesChartPage();
+                return;
+            }
             if (group.classList.toggle('collapsed')) {
                 collapsedDayKeys.add(dayKey);
             } else {
                 collapsedDayKeys.delete(dayKey);
             }
+        });
+    }
+    if (dailyChartBody) {
+        dailyChartBody.addEventListener('click', (event) => {
+            if (selectedCategoryKey) return;
+            const col = event.target.closest('.daily-vbar-col[data-day-key]');
+            if (!col) return;
+            const dayKey = col.getAttribute('data-day-key') || '';
+            if (!dayKey || dayKey === selectedDayKey) return;
+            selectedDayKey = dayKey;
+            renderSessionsList();
+            renderDailyMinutesChartPage();
         });
     }
     setupSubjectFilterDropdown();
@@ -115,10 +134,9 @@ function setupSubjectFilterDropdown() {
         if (nextKey === selectedCategoryKey) return;
         selectedCategoryKey = nextKey;
         dailyChartPageIndex = 0;
-        if (selectedCategoryKey) {
-            collapsedDayKeys.clear();
-        } else {
-            seedCollapsedDays(reportSessions);
+        collapsedDayKeys.clear();
+        if (!selectedCategoryKey) {
+            selectedDayKey = '';
         }
         syncCategoryQueryParam();
         renderKidNav();
@@ -250,7 +268,6 @@ async function loadReport() {
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
         reportSessions = sessions;
         reportCategoryThemeByKey = buildCategoryThemeByKey(sessions);
-        seedCollapsedDays(sessions);
         reportTitle.textContent = 'Practice Report';
         document.title = 'Practice Report - Kids Daily Chores';
         renderCategoryFilter(sessions);
@@ -282,17 +299,6 @@ function renderSummary(sessions) {
             </div>
         </div>
     `;
-}
-
-function seedCollapsedDays(sessions) {
-    const todayKey = formatDateKey(new Date().toISOString());
-    collapsedDayKeys.clear();
-    for (const session of (Array.isArray(sessions) ? sessions : [])) {
-        const dayKey = getSessionDateKey(session);
-        if (dayKey && dayKey !== todayKey) {
-            collapsedDayKeys.add(dayKey);
-        }
-    }
 }
 
 function getFilteredSessions() {
@@ -391,11 +397,14 @@ function renderSessionsList() {
     }
     const orderedDays = Array.from(byDay.keys()).sort((a, b) => b.localeCompare(a));
 
+    const isAllView = !selectedCategoryKey;
     sessionsList.innerHTML = orderedDays.map((dayKey) => {
         const items = byDay.get(dayKey) || [];
         items.sort((a, b) => String(b.started_at || '').localeCompare(String(a.started_at || '')));
         const dayTotals = summarizeSessions(items);
-        const isCollapsed = collapsedDayKeys.has(dayKey);
+        const isCollapsed = isAllView
+            ? (dayKey !== selectedDayKey)
+            : collapsedDayKeys.has(dayKey);
         const cards = items.map((session) => renderSessionCard(session)).join('');
         return `
             <div class="day-group${isCollapsed ? ' collapsed' : ''}" data-day-key="${escapeHtml(dayKey)}">
@@ -537,6 +546,11 @@ function renderDailyMinutesChartPage() {
     const categories = Array.isArray(dailyChartCategories) ? dailyChartCategories : [];
     const view = buildDatePageView(rows, (row) => String(row?.date || ''), dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
     dailyChartPageIndex = view.pageIndex;
+    const isAllView = !selectedCategoryKey;
+    if (isAllView && !view.pageDateKeys.includes(selectedDayKey)) {
+        const sortedDesc = view.pageDateKeys.slice().sort((a, b) => b.localeCompare(a));
+        selectedDayKey = sortedDesc[0] || '';
+    }
     syncDatePagerControls({
         newerBtn: dailyChartNewerBtn,
         olderBtn: dailyChartOlderBtn,
@@ -602,8 +616,9 @@ function renderDailyMinutesChartPage() {
                 : '';
             cardsBarWrap = `<div class="daily-vbar-bar-wrap">${cardsBar}</div>`;
         }
+        const colClass = `daily-vbar-col${isAllView ? ' daily-vbar-col-clickable' : ''}${isAllView && row.date === selectedDayKey ? ' daily-vbar-col-selected' : ''}`;
         return `
-            <div class="daily-vbar-col">
+            <div class="${colClass}" data-day-key="${escapeHtml(row.date)}">
                 <div class="daily-vbar-plot">
                     <div class="${minutesBarWrapClass}">${minutesBar}</div>
                     ${cardsBarWrap}
@@ -817,12 +832,23 @@ function safeNum(value) {
 }
 
 function formatPracticeMode(mode) {
-    const m = String(mode || '').trim().toLowerCase();
-    if (m === 'self') return 'Self';
-    if (m === 'parent') return 'Parent';
-    if (m === 'multi') return 'Multi';
-    if (m === 'input') return 'Input';
-    return '-';
+    let text = String(mode || '').trim().toLowerCase();
+    let drill = false;
+    if (text.endsWith('+drill')) {
+        drill = true;
+        text = text.slice(0, -'+drill'.length);
+    }
+    const baseLabel = (() => {
+        if (text === 'self') return 'Self';
+        if (text === 'parent') return 'Parent Assist';
+        if (text === 'multi') return 'Multi';
+        if (text === 'input') return 'Input';
+        return '';
+    })();
+    const parts = [];
+    if (baseLabel) parts.push(baseLabel);
+    if (drill) parts.push('Drill');
+    return parts.length > 0 ? parts.join(' · ') : '-';
 }
 
 function parseUtcTimestamp(raw) {

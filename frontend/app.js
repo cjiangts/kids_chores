@@ -445,19 +445,21 @@ function displayKids(kids) {
                         fallbackEmoji: row.emoji,
                     });
                     return `<div class="redesign-kid-icon-tile ${tileState}">
-                        <div class="redesign-kid-icon-top">
-                            ${indicatorHtml}
+                        <div class="redesign-kid-icon-figure">
                             ${subjectIconHtml}
                         </div>
-                        <div class="redesign-kid-icon-label">${escapeHtml(row.label)}</div>
-                        ${targetLineHtml}
+                        <div class="redesign-kid-icon-text">
+                            <div class="redesign-kid-icon-label">${escapeHtml(row.label)}</div>
+                            ${targetLineHtml}
+                        </div>
+                        ${indicatorHtml}
                     </div>`;
                 }).join('')}
             </div>`
             : '';
 
         const ctaHtml = isClickable
-            ? `<div class="redesign-kid-cta">Tap to continue <span aria-hidden="true">→</span></div>`
+            ? `<div class="redesign-kid-cta">Continue practice <span aria-hidden="true">→</span></div>`
             : '';
 
         const cardClassName = `redesign-kid-card${isClickable ? '' : ' redesign-kid-card-disabled'}`;

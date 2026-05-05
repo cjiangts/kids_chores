@@ -299,72 +299,76 @@ body.practice-home-redesign {
 
 .family-home-page .redesign-kid-icon-strip {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
 }
 
 .family-home-page .redesign-kid-icon-tile {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-    gap: 6px;
-    padding: 10px 6px;
-    border-radius: 12px;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
     background: #fff;
-    border: 1px solid transparent;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e6eaf5;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
     min-width: 0;
 }
 
 .family-home-page .redesign-kid-icon-tile.done {
-    background: #e7f6ec;
-    border-color: #c0e3ca;
+    background: #fff;
+    border-color: #d6e6dc;
 }
 
 .family-home-page .redesign-kid-icon-tile.in-progress {
-    background: #fff3da;
+    background: #fffaee;
     border-color: #f0d6a0;
 }
 
 .family-home-page .redesign-kid-icon-tile.not-started {
-    background: #f4f6fc;
-    border-color: #e0e6f3;
+    background: #fff;
+    border-color: #e6eaf5;
 }
 
-.family-home-page .redesign-kid-icon-top {
-    position: relative;
+.family-home-page .redesign-kid-icon-figure {
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 56px;
-    height: 56px;
-    background: transparent;
-    font-size: 2.4rem;
+    width: 44px;
+    height: 44px;
     line-height: 1;
 }
 
-.family-home-page .redesign-kid-icon-tile.not-started .redesign-kid-icon-top {
-    opacity: 0.55;
+.family-home-page .redesign-kid-icon-tile.not-started .redesign-kid-icon-figure {
+    opacity: 0.85;
+}
+
+.family-home-page .redesign-kid-icon-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .family-home-page .redesign-kid-icon-emoji {
-    font-size: 2.4rem;
+    font-size: 2rem;
     line-height: 1;
 }
 
 .family-home-page .redesign-kid-icon-indicator {
-    position: absolute;
-    top: -6px;
-    left: -6px;
-    width: 18px;
-    height: 18px;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 800;
     line-height: 1;
 }
@@ -372,13 +376,13 @@ body.practice-home-redesign {
 .family-home-page .redesign-kid-icon-indicator.done {
     background: #2da866;
     color: #fff;
-    border: 2px solid #fff;
+    border: 2px solid #2da866;
 }
 
 .family-home-page .redesign-kid-icon-indicator.in-progress {
     background: #f3b53f;
     background-image: linear-gradient(90deg, #f3b53f 50%, #fff7e0 50%);
-    border: 2px solid #fff;
+    border: 2px solid #f3b53f;
 }
 
 .family-home-page .redesign-kid-icon-indicator.not-started {
@@ -388,10 +392,10 @@ body.practice-home-redesign {
 
 .family-home-page .redesign-kid-icon-label {
     color: #273551;
-    font-size: 0.82rem;
-    font-weight: 700;
-    line-height: 1.15;
-    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: left;
     white-space: normal;
     overflow-wrap: break-word;
     word-break: normal;
@@ -404,15 +408,18 @@ body.practice-home-redesign {
     font-size: 0.72rem;
     font-weight: 600;
     line-height: 1.15;
-    text-align: center;
+    text-align: left;
 }
 
 .family-home-page .redesign-kid-cta {
     margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #e4e8f7;
     color: #4f63cb;
     font-weight: 800;
-    font-size: 0.95rem;
+    font-size: 1rem;
     line-height: 1.2;
+    text-align: center;
 }
 
 .family-home-page .redesign-kid-actions {
@@ -1397,32 +1404,42 @@ body.practice-home-redesign {
         margin-bottom: 10px;
     }
 
-    .family-home-page .redesign-kid-icon-tile {
-        padding: 8px 4px;
-        gap: 4px;
+    .family-home-page .redesign-kid-icon-strip {
+        gap: 6px;
     }
 
-    .family-home-page .redesign-kid-icon-top {
-        width: 48px;
-        height: 48px;
-        font-size: 2rem;
+    .family-home-page .redesign-kid-icon-tile {
+        padding: 8px 9px;
+        gap: 8px;
+        border-radius: 12px;
+    }
+
+    .family-home-page .redesign-kid-icon-figure {
+        width: 38px;
+        height: 38px;
     }
 
     .family-home-page .redesign-kid-icon-emoji {
-        font-size: 2rem;
+        font-size: 1.7rem;
     }
 
     .family-home-page .redesign-kid-icon-label {
-        font-size: 0.72rem;
+        font-size: 0.74rem;
     }
 
     .family-home-page .redesign-kid-icon-target {
         font-size: 0.66rem;
     }
 
+    .family-home-page .redesign-kid-icon-indicator {
+        width: 20px;
+        height: 20px;
+    }
+
     .family-home-page .redesign-kid-cta {
         margin-top: 10px;
-        font-size: 0.88rem;
+        padding-top: 9px;
+        font-size: 0.92rem;
     }
 }
 

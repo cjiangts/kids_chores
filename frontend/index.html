@@ -8,6 +8,10 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
+        body > .container {
+            max-width: 480px;
+        }
+
         .family-auth {
             max-width: 420px;
             margin: 0 auto;
@@ -33,8 +37,10 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1><span class="page-title-icon" aria-hidden="true">🏠</span> Family Login</h1>
+        <header class="page-header-with-back">
+            <div class="page-header-row">
+                <h1><span class="page-title-icon" aria-hidden="true">🏠</span> Family Login</h1>
+            </div>
             <p>Kids Daily Chores is a family learning tool designed for ages 4+, with daily Chinese characters, Chinese writing, and math practice, printable worksheets, and progress tracking.</p>
         </header>
 

@@ -504,7 +504,8 @@ body {
     font-weight: 400;
 }
 
-.practice-page .header .early-finish-btn {
+.practice-page .header .early-finish-btn,
+.practice-page .page-header-with-back .early-finish-btn {
     min-width: 0;
     padding: 0.5rem 0.85rem;
     font-size: 0.95rem;

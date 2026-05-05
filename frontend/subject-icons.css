@@ -36,14 +36,14 @@
 /* Wrapper cascade: known mount points set --subj-size so the inner tile
    inherits size from the layout, matching media-query breakpoints already
    defined in home-redesign-v4.css. */
-.practice-row-tile,
-.family-home-page .redesign-kid-icon-top { --subj-size: 56px; }
+.practice-row-tile                      { --subj-size: 56px; }
+.family-home-page .redesign-kid-icon-figure { --subj-size: 44px; }
 .parent-admin-page .admin-subject-tile  { --subj-size: 38px; }
 .session-icon                           { --subj-size: 48px; }
 
 @media (max-width: 760px) {
     .practice-row-tile { --subj-size: 48px; }
-    .family-home-page .redesign-kid-icon-top { --subj-size: 48px; }
+    .family-home-page .redesign-kid-icon-figure { --subj-size: 38px; }
 }
 
 @media (max-width: 540px) {

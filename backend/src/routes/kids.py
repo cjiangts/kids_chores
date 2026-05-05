@@ -4527,15 +4527,21 @@ def get_kid_dashboard_stats(
 
         rows = local_conn.execute(
             """
+            WITH unresolved_counts AS (
+                SELECT sr.session_id, COUNT(*) AS unresolved_count
+                FROM session_results sr
+                WHERE sr.card_id IS NOT NULL
+                  AND (sr.correct = -1 OR sr.correct = 2)
+                GROUP BY sr.session_id
+            )
             SELECT
                 s.type,
                 COALESCE(s.planned_count, 0) AS planned_count,
                 COUNT(sr.id) AS answer_count,
-                COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
-                COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count,
-                COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
+                COALESCE(uc.unresolved_count, 0) AS unresolved_count
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
+            LEFT JOIN unresolved_counts uc ON uc.session_id = s.id
             WHERE s.completed_at IS NOT NULL
               AND s.completed_at >= ?
               AND s.completed_at < ?
@@ -4543,8 +4549,8 @@ def get_kid_dashboard_stats(
                 s.id,
                 s.type,
                 s.planned_count,
-                s.retry_best_rety_correct_count,
-                s.completed_at
+                s.completed_at,
+                uc.unresolved_count
             ORDER BY s.completed_at ASC, s.id ASC
             """,
             [day_start_utc, day_end_utc]
@@ -4566,9 +4572,9 @@ def get_kid_dashboard_stats(
             )
             planned_count = max(0, int(row[1] or 0))
             answer_count = int(row[2] or 0)
-            right_count = int(row[3] or 0)
-            wrong_count = int(row[4] or 0)
-            retry_best_rety = max(0, int(row[5] or 0))
+            unresolved_count = max(0, int(row[3] or 0))
+            wrong_count = unresolved_count
+            right_count = max(0, answer_count - unresolved_count)
             target_answer_count = max(planned_count, answer_count, right_count + wrong_count)
             if target_answer_count <= 0 and planned_count <= 0:
                 continue
@@ -4577,7 +4583,7 @@ def get_kid_dashboard_stats(
                 base_tier = 'half_silver'
             else:
                 base_tier = 'gold'
-            effective_best_total = right_count + retry_best_rety
+            effective_best_total = right_count
 
             if is_incomplete:
                 effective_percent = float(answer_count) * 100.0 / float(max(1, target_answer_count))
@@ -5585,14 +5591,23 @@ def get_kid_report(kid_id):
         try:
             rows = conn.execute(
                 """
-                WITH session_results_agg AS (
+                WITH unresolved_cards AS (
+                    SELECT sr.session_id, sr.card_id
+                    FROM session_results sr
+                    WHERE sr.card_id IS NOT NULL
+                      AND sr.correct != 1
+                ),
+                session_results_agg AS (
                     SELECT
-                        session_id,
+                        sr.session_id,
                         COUNT(*) AS answer_count,
-                        COALESCE(SUM(CASE WHEN correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
-                        COALESCE(SUM(CASE WHEN correct < 0 OR correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count,
-                        COALESCE(SUM(CASE WHEN response_time_ms IS NULL THEN 0 ELSE response_time_ms END), 0) AS total_response_ms
-                    FROM session_results
+                        COALESCE(SUM(CASE WHEN sr.response_time_ms IS NULL THEN 0 ELSE sr.response_time_ms END), 0) AS total_response_ms
+                    FROM session_results sr
+                    GROUP BY sr.session_id
+                ),
+                unresolved_counts AS (
+                    SELECT session_id, COUNT(*) AS unresolved_count
+                    FROM unresolved_cards
                     GROUP BY session_id
                 )
                 SELECT
@@ -5605,12 +5620,16 @@ def get_kid_report(kid_id):
                     COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
                     COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count,
                     COALESCE(a.answer_count, 0) AS answer_count,
-                    COALESCE(a.right_count, 0) AS right_count,
-                    COALESCE(a.wrong_count, 0) AS wrong_count,
+                    GREATEST(
+                        0,
+                        COALESCE(a.answer_count, 0) - COALESCE(uc.unresolved_count, 0)
+                    ) AS right_count,
+                    COALESCE(uc.unresolved_count, 0) AS wrong_count,
                     COALESCE(a.total_response_ms, 0) AS total_response_ms,
                     COALESCE(s.practice_mode, 'na') AS practice_mode
                 FROM sessions s
                 LEFT JOIN session_results_agg a ON a.session_id = s.id
+                LEFT JOIN unresolved_counts uc ON uc.session_id = s.id
                 ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
                 """
             ).fetchall()
@@ -6905,15 +6924,20 @@ def build_continue_selected_cards_for_decks(
 
 
 def get_retry_source_wrong_card_ids(conn, source_session_id):
-    """Return ordered unique unresolved retry card ids from one source session."""
+    """Return one card_id per unresolved -1 row (duplicates allowed).
+
+    Each wrong attempt is its own retry slot. The same card answered wrong
+    twice yields two entries so retry asks twice, and each retry answer
+    promotes one specific source row from -1 to -2.
+    """
     rows = conn.execute(
         """
-        SELECT DISTINCT card_id
+        SELECT card_id
         FROM session_results
         WHERE session_id = ?
           AND correct = ?
           AND card_id IS NOT NULL
-        ORDER BY card_id ASC
+        ORDER BY id ASC
         """,
         [int(source_session_id), SESSION_RESULT_WRONG_UNRESOLVED],
     ).fetchall()
@@ -7021,22 +7045,25 @@ def build_special_session_ready_payload(
 
 
 def build_retry_selected_cards_for_sources(conn, source_by_deck_id, wrong_card_ids):
-    """Build retry cards (same payload shape as normal start) from wrong-card ids."""
-    normalized_ids = []
-    seen = set()
+    """Build retry cards (same payload shape as normal start) from wrong-card ids.
+
+    Duplicates in `wrong_card_ids` are preserved so the same card can appear
+    multiple times when it had multiple unresolved wrong rows in the source.
+    """
+    ordered_ids = []
     for raw_card_id in list(wrong_card_ids or []):
         try:
             card_id = int(raw_card_id)
         except (TypeError, ValueError):
             continue
-        if card_id <= 0 or card_id in seen:
+        if card_id <= 0:
             continue
-        normalized_ids.append(card_id)
-        seen.add(card_id)
-    if len(normalized_ids) == 0:
+        ordered_ids.append(card_id)
+    if len(ordered_ids) == 0:
         return []
 
-    placeholders = ', '.join(['?'] * len(normalized_ids))
+    unique_ids = list(dict.fromkeys(ordered_ids))
+    placeholders = ', '.join(['?'] * len(unique_ids))
     rows = conn.execute(
         f"""
         SELECT id, deck_id, front, back, created_at
@@ -7045,12 +7072,12 @@ def build_retry_selected_cards_for_sources(conn, source_by_deck_id, wrong_card_i
           AND COALESCE(skip_practice, FALSE) = FALSE
         ORDER BY id ASC
         """,
-        normalized_ids,
+        unique_ids,
     ).fetchall()
     row_by_card_id = {int(row[0]): row for row in rows}
 
     selected_cards = []
-    for card_id in normalized_ids:
+    for card_id in ordered_ids:
         row = row_by_card_id.get(card_id)
         if not row:
             continue
@@ -7116,7 +7143,13 @@ def build_type_i_multiple_choice_pool_cards(conn, source_by_deck_id, card_ids):
 
 
 def filter_answers_to_pending_cards(answers, pending):
-    """Keep only one answer per planned pending card; ignore extras/unplanned cards."""
+    """Keep answers that match planned slots; ignore extras/unplanned cards.
+
+    Drill sessions allow unlimited attempts per card. Other sessions allow up
+    to N answers per card where N is how many times that card appears in the
+    planned cards list (retry can have duplicates when the source had multiple
+    wrong rows for one card).
+    """
     if not isinstance(answers, list):
         return []
     if not isinstance(pending, dict):
@@ -7126,7 +7159,7 @@ def filter_answers_to_pending_cards(answers, pending):
     if not isinstance(planned_cards, list) or len(planned_cards) == 0:
         return []
 
-    allowed_ids = set()
+    planned_count_by_id = {}
     for item in planned_cards:
         if not isinstance(item, dict):
             continue
@@ -7135,12 +7168,14 @@ def filter_answers_to_pending_cards(answers, pending):
         except (TypeError, ValueError):
             continue
         if card_id > 0:
-            allowed_ids.add(card_id)
-    if len(allowed_ids) == 0:
+            planned_count_by_id[card_id] = planned_count_by_id.get(card_id, 0) + 1
+    if not planned_count_by_id:
         return []
 
+    allow_unlimited = is_drill_session_practice_mode(pending.get('practice_mode'))
+
     filtered = []
-    seen = set()
+    used_count_by_id = {}
     for answer in answers:
         if not isinstance(answer, dict):
             continue
@@ -7148,12 +7183,16 @@ def filter_answers_to_pending_cards(answers, pending):
             card_id = int(answer.get('cardId'))
         except (TypeError, ValueError):
             continue
-        if card_id <= 0 or card_id in seen:
+        if card_id <= 0:
             continue
-        if card_id not in allowed_ids:
+        if card_id not in planned_count_by_id:
             continue
+        if not allow_unlimited:
+            used = used_count_by_id.get(card_id, 0)
+            if used >= planned_count_by_id[card_id]:
+                continue
+            used_count_by_id[card_id] = used + 1
         filtered.append({**answer, 'cardId': card_id})
-        seen.add(card_id)
     return filtered
 
 
@@ -7743,42 +7782,39 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
         consumed_type3_audio_files = set()
         if is_retry_session:
-            retry_result_id_by_card_id = {}
-            if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
-                retry_card_ids_for_sidecar = []
-                seen_retry_card_ids = set()
-                for answer in answers:
-                    if not normalize_type_i_submitted_answer(answer.get('submittedAnswer')):
+            retry_result_ids_by_card_id = defaultdict(list)
+            answer_card_ids_unique = []
+            seen_answer_card_ids = set()
+            for answer in answers:
+                try:
+                    answer_card_id = int(answer.get('cardId'))
+                except (TypeError, ValueError):
+                    continue
+                if answer_card_id <= 0 or answer_card_id in seen_answer_card_ids:
+                    continue
+                seen_answer_card_ids.add(answer_card_id)
+                answer_card_ids_unique.append(answer_card_id)
+            if answer_card_ids_unique:
+                placeholders = ','.join(['?'] * len(answer_card_ids_unique))
+                retry_result_rows = conn.execute(
+                    f"""
+                    SELECT id, card_id
+                    FROM session_results
+                    WHERE session_id = ?
+                      AND card_id IN ({placeholders})
+                      AND correct = ?
+                    ORDER BY id ASC
+                    """,
+                    [
+                        retry_source_session_id,
+                        *answer_card_ids_unique,
+                        SESSION_RESULT_WRONG_UNRESOLVED,
+                    ],
+                ).fetchall()
+                for row in retry_result_rows:
+                    if row[0] is None or row[1] is None:
                         continue
-                    try:
-                        answer_card_id = int(answer.get('cardId'))
-                    except (TypeError, ValueError):
-                        continue
-                    if answer_card_id <= 0 or answer_card_id in seen_retry_card_ids:
-                        continue
-                    seen_retry_card_ids.add(answer_card_id)
-                    retry_card_ids_for_sidecar.append(answer_card_id)
-                if retry_card_ids_for_sidecar:
-                    placeholders = ','.join(['?'] * len(retry_card_ids_for_sidecar))
-                    retry_result_rows = conn.execute(
-                        f"""
-                        SELECT id, card_id
-                        FROM session_results
-                        WHERE session_id = ?
-                          AND card_id IN ({placeholders})
-                          AND correct = ?
-                        """,
-                        [
-                            retry_source_session_id,
-                            *retry_card_ids_for_sidecar,
-                            SESSION_RESULT_WRONG_UNRESOLVED,
-                        ],
-                    ).fetchall()
-                    retry_result_id_by_card_id = {
-                        int(row[1]): int(row[0])
-                        for row in retry_result_rows
-                        if row[0] is not None and row[1] is not None
-                    }
+                    retry_result_ids_by_card_id[int(row[1])].append(int(row[0]))
 
             source_row = conn.execute(
                 """
@@ -7816,7 +7852,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
             retry_right_count = 0
             retry_wrong_count = 0
             retry_total_response_ms = 0
-            retry_success_card_ids = set()
+            promoted_result_ids = []
+            recovered_correct_value = encode_retry_recovered_session_result(source_retry_count)
             for answer in answers:
                 try:
                     answer_card_id = int(answer.get('cardId'))
@@ -7825,8 +7862,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 known = bool(answer.get('known'))
                 if known:
                     retry_right_count += 1
-                    if answer_card_id > 0:
-                        retry_success_card_ids.add(answer_card_id)
                 else:
                     retry_wrong_count += 1
                 response_time_ms = normalize_logged_response_time_ms(
@@ -7834,38 +7869,44 @@ def complete_session_internal(kid, kid_id, session_type, data):
                     session_behavior_type=session_behavior_type,
                 )
                 retry_total_response_ms += int(response_time_ms or 0)
-                if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I and answer_card_id > 0:
-                    result_id = retry_result_id_by_card_id.get(answer_card_id)
-                    if result_id is not None:
-                        append_type1_result_submitted_answer(
-                            conn,
-                            result_id,
-                            answer,
-                            SESSION_RESULT_CORRECT if known else SESSION_RESULT_WRONG_UNRESOLVED,
-                        )
 
-            if retry_success_card_ids:
-                placeholders = ','.join(['?'] * len(retry_success_card_ids))
-                recovered_correct_value = encode_retry_recovered_session_result(source_retry_count)
+                claimed_result_id = None
+                if answer_card_id > 0:
+                    queue = retry_result_ids_by_card_id.get(answer_card_id)
+                    if queue:
+                        claimed_result_id = queue.pop(0)
+
+                if known and claimed_result_id is not None:
+                    promoted_result_ids.append(claimed_result_id)
+
+                if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I and claimed_result_id is not None:
+                    append_type1_result_submitted_answer(
+                        conn,
+                        claimed_result_id,
+                        answer,
+                        SESSION_RESULT_CORRECT if known else SESSION_RESULT_WRONG_UNRESOLVED,
+                    )
+
+            for result_id in promoted_result_ids:
                 conn.execute(
-                    f"""
+                    """
                     UPDATE session_results
                     SET correct = ?
-                    WHERE session_id = ?
-                      AND card_id IN ({placeholders})
+                    WHERE id = ?
+                      AND session_id = ?
                       AND correct = ?
                     """,
                     [
                         recovered_correct_value,
+                        int(result_id),
                         retry_source_session_id,
-                        *sorted(retry_success_card_ids),
                         SESSION_RESULT_WRONG_UNRESOLVED,
                     ],
                 )
 
             best_retry_row = conn.execute(
                 """
-                SELECT COUNT(DISTINCT card_id)
+                SELECT COUNT(*)
                 FROM session_results
                 WHERE session_id = ?
                   AND correct <= ?
@@ -10216,15 +10257,88 @@ def build_type_iv_shared_cards_payload(
 
 
 SESSION_PRACTICE_MODE_NA = 'na'
-SESSION_PRACTICE_MODE_VALID = {'self', 'parent', 'multi', 'input', 'na'}
+SESSION_PRACTICE_MODE_BASE_VALID = {'self', 'parent', 'multi', 'input', 'na'}
+SESSION_PRACTICE_MODE_DRILL_SUFFIX = '+drill'
+DRILL_SESSION_CARD_POOL_SIZE = 40
+DRILL_SESSION_FALLBACK_SPEED_TARGET_MS = 3000
+
+
+def compute_drill_speed_target_ms(avg_correct_response_time_ms):
+    """Clamp the drill cutoff to never go below the fallback (3.0s).
+
+    Prevents absurd targets when only a handful of fast correct answers exist.
+    """
+    if avg_correct_response_time_ms is None:
+        return DRILL_SESSION_FALLBACK_SPEED_TARGET_MS
+    try:
+        rounded = int(round(float(avg_correct_response_time_ms)))
+    except (TypeError, ValueError):
+        return DRILL_SESSION_FALLBACK_SPEED_TARGET_MS
+    return max(DRILL_SESSION_FALLBACK_SPEED_TARGET_MS, rounded)
+
+
+def get_kid_subject_avg_correct_response_time_ms(conn, category_key):
+    """Subject-wide avg correct response time (ms) across this kid's history.
+
+    Returns None when there are no correct timed answers yet.
+    """
+    row = conn.execute(
+        """
+        SELECT AVG(sr.response_time_ms)
+        FROM session_results sr
+        JOIN sessions s ON s.id = sr.session_id
+        WHERE LOWER(TRIM(s.type)) = ?
+          AND sr.correct > 0
+          AND sr.response_time_ms IS NOT NULL
+          AND sr.response_time_ms > 0
+        """,
+        [str(category_key or '').strip().lower()],
+    ).fetchone()
+    if not row or row[0] is None:
+        return None
+    try:
+        return float(row[0])
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_session_practice_mode(raw_mode):
+    """Parse a session practice mode string into base mode + drill flag.
+
+    Composite encoding: ``<base>+drill`` (e.g. ``multi+drill``). Drill is
+    orthogonal to the base judging mode, so callers should treat the two
+    flags independently.
+    """
+    text = str(raw_mode or '').strip().lower()
+    drill = False
+    if text.endswith(SESSION_PRACTICE_MODE_DRILL_SUFFIX):
+        drill = True
+        text = text[:-len(SESSION_PRACTICE_MODE_DRILL_SUFFIX)]
+    if text not in SESSION_PRACTICE_MODE_BASE_VALID:
+        text = SESSION_PRACTICE_MODE_NA
+    return {'base': text, 'drill': drill}
+
+
+def compose_session_practice_mode(base, drill):
+    """Compose a base mode + drill flag back into the stored string form."""
+    text = str(base or '').strip().lower()
+    if text not in SESSION_PRACTICE_MODE_BASE_VALID:
+        text = SESSION_PRACTICE_MODE_NA
+    return f"{text}{SESSION_PRACTICE_MODE_DRILL_SUFFIX}" if drill else text
 
 
 def normalize_session_practice_mode(raw_mode):
     """Normalize a session practice mode string. Returns 'na' for unknown values."""
-    text = str(raw_mode or '').strip().lower()
-    if text in SESSION_PRACTICE_MODE_VALID:
-        return text
-    return SESSION_PRACTICE_MODE_NA
+    parsed = parse_session_practice_mode(raw_mode)
+    return compose_session_practice_mode(parsed['base'], parsed['drill'])
+
+
+def is_drill_session_practice_mode(raw_mode):
+    return parse_session_practice_mode(raw_mode)['drill']
+
+
+def get_session_practice_mode_base(raw_mode):
+    return parse_session_practice_mode(raw_mode)['base']
 
 
 def get_session_practice_mode(conn, session_id):
@@ -11513,7 +11627,11 @@ def start_type_i_practice_session_internal(
         elif is_retry_session and retry_source_session is not None:
             source_session_id = int(retry_source_session['session_id'])
         if source_session_id is not None:
-            pending_session_payload['practice_mode'] = get_session_practice_mode(conn, source_session_id)
+            inherited_mode = get_session_practice_mode(conn, source_session_id)
+            inherited_base = get_session_practice_mode_base(inherited_mode)
+            pending_session_payload['practice_mode'] = compose_session_practice_mode(
+                inherited_base, drill=False
+            )
 
         resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
 
@@ -12680,6 +12798,14 @@ def get_decks_for_scope(kid_id, category):
                     source_by_deck_id={int(src['local_deck_id']): src for src in included_sources},
                     source_deck_ids=source_deck_ids,
                 )
+                if not bool(scope_context.get('has_chinese_specific_logic')):
+                    drill_avg_ms = get_kid_subject_avg_correct_response_time_ms(
+                        conn,
+                        scope_context['category_key'],
+                    )
+                    special_ready_payload['drill_speed_target_ms'] = (
+                        compute_drill_speed_target_ms(drill_avg_ms)
+                    )
             finally:
                 conn.close()
         elif scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
@@ -15122,14 +15248,48 @@ def start_type1_practice_session(kid_id):
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
         )
-        practice_mode = normalize_session_practice_mode(payload.get('practiceMode'))
+        parsed_mode = parse_session_practice_mode(payload.get('practiceMode'))
+        practice_base = parsed_mode['base']
+        drill_requested = parsed_mode['drill']
+        session_card_count_override = None
+        drill_speed_target_ms = None
+        drill_planned_count = None
+        if drill_requested:
+            category_meta = get_shared_deck_category_meta_by_key().get(category_key) or {}
+            is_type_i_non_chinese = (
+                normalize_shared_deck_category_behavior(category_meta.get('behavior_type'))
+                == DECK_CATEGORY_BEHAVIOR_TYPE_I
+                and not bool(category_meta.get('has_chinese_specific_logic'))
+            )
+            daily_target = int(get_category_session_card_count_for_kid(kid, category_key) or 0)
+            if not is_type_i_non_chinese or daily_target < 20:
+                drill_requested = False
+            else:
+                session_card_count_override = DRILL_SESSION_CARD_POOL_SIZE
+                drill_planned_count = daily_target
+                speed_conn = get_kid_connection_for(kid, read_only=True)
+                try:
+                    avg_ms = get_kid_subject_avg_correct_response_time_ms(speed_conn, category_key)
+                finally:
+                    speed_conn.close()
+                drill_speed_target_ms = compute_drill_speed_target_ms(avg_ms)
+        practice_mode = compose_session_practice_mode(practice_base, drill_requested)
+        pending_extras = {'practice_mode': practice_mode}
+        if drill_planned_count is not None:
+            pending_extras['planned_count'] = drill_planned_count
         response_payload, status_code = start_type_i_practice_session_internal(
             kid_id,
             kid,
             category_key,
+            session_card_count_override=session_card_count_override,
             include_multiple_choice_pool_cards=True,
-            pending_session_payload_extras={'practice_mode': practice_mode},
+            pending_session_payload_extras=pending_extras,
         )
+        if isinstance(response_payload, dict):
+            if drill_speed_target_ms is not None:
+                response_payload['drill_speed_target_ms'] = drill_speed_target_ms
+            if drill_planned_count is not None:
+                response_payload['planned_count'] = drill_planned_count
         return jsonify(response_payload), status_code
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

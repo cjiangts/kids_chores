@@ -132,7 +132,15 @@ let orphanDeck = null;
 let currentCards = [];
 let currentDailyProgressRows = [];
 let currentFamilyTimezone = '';
-let currentCardsViewMode = 'queue';
+const CARDS_VIEW_MODE_STORAGE_KEY = 'kidCardManage_cardsViewMode';
+let currentCardsViewMode = (() => {
+    try {
+        const stored = localStorage.getItem(CARDS_VIEW_MODE_STORAGE_KEY);
+        return stored === 'stats' ? 'stats' : 'queue';
+    } catch (_err) {
+        return 'queue';
+    }
+})();
 let sortedCards = [];
 let isDeckMoveInFlight = false;
 let baselineOptedDeckIdSet = new Set();
@@ -165,7 +173,7 @@ let isType4DeckCountsSaving = false;
 let activeType4GeneratorCardId = null;
 let isType4GeneratorPreviewLoading = false;
 let type4GeneratorAceViewer = null;
-let currentCardSortDirection = CARD_SORT_DIRECTION_ASC;
+let currentCardSortDirection = CARD_SORT_DIRECTION_DESC;
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
@@ -226,11 +234,7 @@ function normalizeCardSortDirection(rawDirection) {
     return direction === CARD_SORT_DIRECTION_DESC ? CARD_SORT_DIRECTION_DESC : CARD_SORT_DIRECTION_ASC;
 }
 
-function getDefaultCardSortDirection(mode) {
-    const normalized = normalizeCardSortMode(mode);
-    if (normalized === CARD_SORT_MODE_PRACTICE_QUEUE) {
-        return CARD_SORT_DIRECTION_ASC;
-    }
+function getDefaultCardSortDirection() {
     return CARD_SORT_DIRECTION_DESC;
 }
 
@@ -1461,8 +1465,8 @@ function comparePracticeQueueCards(a, b, direction) {
         : Number.MAX_SAFE_INTEGER;
     if (aOrder !== bOrder) {
         return direction === CARD_SORT_DIRECTION_DESC
-            ? bOrder - aOrder
-            : aOrder - bOrder;
+            ? aOrder - bOrder
+            : bOrder - aOrder;
     }
     return compareCardIdentity(a, b);
 }
@@ -4800,6 +4804,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     buildSortMenuItems();
     syncSortMenuFromSelect();
+    syncCardSortDirectionButton();
     if (sortMenuBtn) {
         sortMenuBtn.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -4991,12 +4996,51 @@ function setupCardsViewModeToggle() {
             setCardsViewMode(mode === 'stats' ? 'stats' : 'queue');
         });
     });
-    setCardsViewMode('queue');
+    const statsContainer = document.getElementById('cardsStatsView');
+    if (statsContainer) {
+        const handleBucketActivate = (target) => {
+            const clearBtn = target.closest('[data-clear-bucket]');
+            if (clearBtn) {
+                const key = clearBtn.getAttribute('data-clear-bucket') || '';
+                if (key) {
+                    selectedBucketByPanel.delete(key);
+                    renderStatsView();
+                }
+                return;
+            }
+            const slot = target.closest('[data-bucket-index]');
+            if (!slot) return;
+            const key = slot.getAttribute('data-panel-key') || '';
+            const idx = Number.parseInt(slot.getAttribute('data-bucket-index'), 10);
+            if (!key || !Number.isInteger(idx)) return;
+            const current = selectedBucketByPanel.get(key);
+            if (current === idx) {
+                selectedBucketByPanel.delete(key);
+            } else {
+                selectedBucketByPanel.set(key, idx);
+            }
+            renderStatsView();
+        };
+        statsContainer.addEventListener('click', (event) => {
+            handleBucketActivate(event.target);
+        });
+        statsContainer.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const slot = event.target.closest && event.target.closest('[data-bucket-index]');
+            if (!slot) return;
+            event.preventDefault();
+            handleBucketActivate(slot);
+        });
+    }
+    setCardsViewMode(currentCardsViewMode);
 }
 
 function setCardsViewMode(mode) {
     const next = mode === 'stats' ? 'stats' : 'queue';
     currentCardsViewMode = next;
+    try {
+        localStorage.setItem(CARDS_VIEW_MODE_STORAGE_KEY, next);
+    } catch (_err) {}
     document.body.classList.toggle('cards-view-mode-stats', next === 'stats');
     document.body.classList.toggle('cards-view-mode-queue', next === 'queue');
     document.querySelectorAll('[data-cards-view-toggle]').forEach((btn) => {
@@ -5088,8 +5132,13 @@ function makeCardCapsuleLabelGetter(behaviorType) {
     };
 }
 
+const selectedBucketByPanel = new Map();
+
 function buildAccuracyDistribution(cards, getCardCapsuleLabel) {
+    const panelKey = 'accuracy';
     return buildHistogramDistribution({
+        panelKey,
+        selectedBucketIndex: selectedBucketByPanel.get(panelKey),
         title: 'Correct Rate',
         tone: 'accuracy',
         formatValue: formatPercentLabel,
@@ -5102,13 +5151,19 @@ function buildAccuracyDistribution(cards, getCardCapsuleLabel) {
             maxClamp: 100,
             formatRange: (min, max) => `${formatBoundaryNumber(min)}–${formatBoundaryNumber(max)}%`,
         },
-        topLists: [{ title: 'Lowest 5', mode: 'lowest', count: 5 }],
+        topLists: [
+            { title: 'Highest 5', mode: 'highest', count: 5 },
+            { title: 'Lowest 5', mode: 'lowest', count: 5 },
+        ],
         cards,
     });
 }
 
 function buildPracticeCountDistribution(cards, getCardCapsuleLabel) {
+    const panelKey = 'counts';
     return buildHistogramDistribution({
+        panelKey,
+        selectedBucketIndex: selectedBucketByPanel.get(panelKey),
         title: 'Practice Count',
         tone: 'counts',
         formatValue: formatCountLabel,
@@ -5129,7 +5184,10 @@ function buildPracticeCountDistribution(cards, getCardCapsuleLabel) {
 }
 
 function buildSpeedDistribution(cards, getCardCapsuleLabel) {
+    const panelKey = 'speed';
     return buildHistogramDistribution({
+        panelKey,
+        selectedBucketIndex: selectedBucketByPanel.get(panelKey),
         title: 'Average Speed',
         tone: 'speed',
         formatValue: formatSpeedLabel,
@@ -5150,7 +5208,10 @@ function buildSpeedDistribution(cards, getCardCapsuleLabel) {
 }
 
 function buildLastSeenDistribution(cards, getCardCapsuleLabel) {
+    const panelKey = 'recency';
     return buildHistogramDistribution({
+        panelKey,
+        selectedBucketIndex: selectedBucketByPanel.get(panelKey),
         title: 'Days Since Last Seen',
         tone: 'recency',
         formatValue: formatDaysLabel,
@@ -5200,8 +5261,17 @@ function buildHistogramDistribution(options = {}) {
     const getCardCapsuleLabel = typeof options?.getCardCapsuleLabel === 'function'
         ? options.getCardCapsuleLabel
         : (card) => String(card?.front || '').trim();
-    const topLists = buildTopCardLists(rated, options?.topLists, formatValue, getCardCapsuleLabel);
+    const rawSelectedIndex = Number(options?.selectedBucketIndex);
+    const hasSelection = Number.isInteger(rawSelectedIndex)
+        && rawSelectedIndex >= 0
+        && rawSelectedIndex < bucketDefinitions.length;
+    const selectedBucket = hasSelection ? bucketDefinitions[rawSelectedIndex] : null;
+    const filteredRated = hasSelection
+        ? rated.filter(({ value }) => findHistogramBucket(value, bucketDefinitions) === selectedBucket)
+        : rated;
+    const topLists = buildTopCardLists(filteredRated, options?.topLists, formatValue, getCardCapsuleLabel);
     return {
+        panelKey: String(options?.panelKey || ''),
         title: String(options?.title || ''),
         tone: String(options?.tone || ''),
         yAxisLabel: 'Cards',
@@ -5210,6 +5280,9 @@ function buildHistogramDistribution(options = {}) {
         yMax: yAxis.max,
         tickValues: yAxis.ticks,
         topLists,
+        selectedBucketIndex: hasSelection ? rawSelectedIndex : null,
+        selectedBucketLabel: hasSelection ? String(selectedBucket?.label || '') : '',
+        filteredCount: filteredRated.length,
     };
 }
 
@@ -5595,14 +5668,21 @@ function buildResponseTimeYTicks(rtMin, rtMax) {
 
 function buildDailyProgressXTicks(totalDays) {
     const days = Math.max(1, Number(totalDays) || 1);
-    if (days === 1) return [1];
-    const desiredCount = Math.min(6, days);
-    const ticks = new Set();
-    for (let i = 0; i < desiredCount; i += 1) {
-        const fraction = i / (desiredCount - 1);
-        const day = Math.round(1 + fraction * (days - 1));
-        ticks.add(day);
+    const lastTick = days - 1;
+    if (lastTick <= 0) return [0];
+    const targetCount = 5;
+    const candidateSteps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000];
+    let step = candidateSteps[candidateSteps.length - 1];
+    for (const s of candidateSteps) {
+        if (Math.floor(lastTick / s) + 1 <= targetCount) {
+            step = s;
+            break;
+        }
     }
+    const minGap = Math.max(1, Math.floor(step * 0.6));
+    const ticks = new Set([0]);
+    for (let v = step; v <= lastTick - minGap; v += step) ticks.add(v);
+    ticks.add(lastTick);
     return Array.from(ticks).sort((a, b) => a - b);
 }
 
@@ -5686,6 +5766,9 @@ function renderDailyProgressPanel(chart) {
                         ${yTicks.map((tick) => `
                             <div class="daily-progress-grid-line" style="bottom:${positionForValue(tick).toFixed(2)}%"></div>
                         `).join('')}
+                        ${xTicks.map((tick) => `
+                            <div class="daily-progress-grid-line-vertical" style="left:${positionForDay(tick + 1).toFixed(2)}%"></div>
+                        `).join('')}
                     </div>
                     <svg class="daily-progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
                         <path class="daily-progress-line practiced" d="${practicedPath}" />
@@ -5694,13 +5777,16 @@ function renderDailyProgressPanel(chart) {
                     </svg>
                     <div class="daily-progress-x-axis">
                         ${xTicks.map((tick) => {
-                            const isLast = tick === totalDays;
+                            const isLast = tick === totalDays - 1;
                             return `
-                            <div class="daily-progress-x-tick${isLast ? ' is-today' : ''}" style="left:${positionForDay(tick).toFixed(2)}%">Day ${escapeHtml(String(tick))}${isLast ? '<div class="daily-progress-x-tick-today">(today)</div>' : ''}</div>
+                            <div class="daily-progress-x-tick${isLast ? ' is-today' : ''}" style="left:${positionForDay(tick + 1).toFixed(2)}%">${escapeHtml(String(tick))}d${isLast ? '<div class="daily-progress-x-tick-today">(today)</div>' : ''}</div>
                         `;
                         }).join('')}
                     </div>
                 </div>
+            </div>
+            <div class="daily-progress-definition">
+                <strong>Learned</strong> = cumulative count of distinct cards with at least 5 attempts and ≥80% correct rate.
             </div>
         </div>
     `;
@@ -5712,6 +5798,7 @@ function renderDistributionPanel(panel) {
     const toneClass = String(panel?.tone || '').trim();
     const tickValues = Array.isArray(panel?.tickValues) ? panel.tickValues : [];
     const yMax = Number(panel?.yMax) || 0;
+    const panelKey = String(panel?.panelKey || '').trim();
     if (!bars.length || panel?.emptyMessage) {
         return `
             <div class="cards-distribution-card">
@@ -5723,10 +5810,19 @@ function renderDistributionPanel(panel) {
         `;
     }
     const topLists = Array.isArray(panel?.topLists) ? panel.topLists : [];
+    const selectedBucketIndex = Number.isInteger(panel?.selectedBucketIndex) ? panel.selectedBucketIndex : null;
+    const selectedBucketLabel = String(panel?.selectedBucketLabel || '').trim();
+    const filterChip = selectedBucketIndex !== null
+        ? `<button type="button" class="cards-distribution-filter-chip" data-clear-bucket="${escapeHtml(panelKey)}" title="Clear bucket filter">
+                <span class="cards-distribution-filter-chip-label">Filter: ${escapeHtml(selectedBucketLabel)}</span>
+                <span class="cards-distribution-filter-chip-x" aria-hidden="true">×</span>
+            </button>`
+        : '';
     return `
-        <div class="cards-distribution-card">
+        <div class="cards-distribution-card" data-panel-key="${escapeHtml(panelKey)}">
             <div class="cards-distribution-card-head">
                 <div class="cards-distribution-card-title">${escapeHtml(String(panel?.title || ''))}</div>
+                ${filterChip}
             </div>
             <div class="cards-distribution-body">
                 <div class="cards-distribution-chart">
@@ -5755,11 +5851,13 @@ function renderDistributionPanel(panel) {
                         `).join('')}
                     </div>
                     <div class="cards-distribution-bars" style="grid-template-columns: repeat(${bars.length}, minmax(0, 1fr));">
-                        ${bars.map((bar) => {
+                        ${bars.map((bar, index) => {
                             const count = Math.max(0, Number(bar?.count) || 0);
                             const heightPct = yMax > 0 ? (count / yMax) * 100 : 0;
+                            const isSelected = selectedBucketIndex === index;
+                            const isDimmed = selectedBucketIndex !== null && !isSelected;
                             return `
-                                <div class="cards-distribution-bar-slot">
+                                <div class="cards-distribution-bar-slot${isSelected ? ' is-selected' : ''}${isDimmed ? ' is-dimmed' : ''}" role="button" tabindex="0" data-panel-key="${escapeHtml(panelKey)}" data-bucket-index="${index}" aria-pressed="${isSelected ? 'true' : 'false'}" title="Filter by ${escapeHtml(String(bar?.label || ''))}">
                                     <div class="cards-distribution-bar-stack">
                                         <div class="cards-distribution-bar-count">${escapeHtml(formatCompactCountLabel(count))}</div>
                                         <div class="cards-distribution-bar ${escapeHtml(toneClass)}" style="height:${Math.max(0, Math.min(100, heightPct)).toFixed(2)}%"></div>
@@ -5773,21 +5871,26 @@ function renderDistributionPanel(panel) {
                 </div>
                 ${topLists.length ? `
                     <div class="cards-distribution-sidebar">
-                        ${topLists.map((list) => `
+                        ${topLists.map((list) => {
+                            const entries = Array.isArray(list?.entries) ? list.entries : [];
+                            return `
                             <div class="cards-distribution-toplist">
-                                <div class="cards-distribution-toplist-title">${escapeHtml(String(list?.title || ''))}</div>
-                                <ol class="cards-distribution-toplist-items">
-                                    ${(Array.isArray(list?.entries) ? list.entries : []).map((entry) => `
-                                        <li class="cards-distribution-toplist-row">
-                                            <span class="cards-distribution-toplist-item">
-                                                <span class="cards-distribution-toplist-front">${escapeHtml(String(entry?.front || ''))}</span>
-                                                <span class="cards-distribution-toplist-value">${escapeHtml(String(entry?.valueLabel || ''))}</span>
-                                            </span>
-                                        </li>
-                                    `).join('')}
-                                </ol>
+                                <div class="cards-distribution-toplist-title">${escapeHtml(String(list?.title || ''))}${selectedBucketIndex !== null ? ' <span class="cards-distribution-toplist-scope">(in bucket)</span>' : ''}</div>
+                                ${entries.length ? `
+                                    <ol class="cards-distribution-toplist-items">
+                                        ${entries.map((entry) => `
+                                            <li class="cards-distribution-toplist-row">
+                                                <span class="cards-distribution-toplist-item">
+                                                    <span class="cards-distribution-toplist-front">${escapeHtml(String(entry?.front || ''))}</span>
+                                                    <span class="cards-distribution-toplist-value">${escapeHtml(String(entry?.valueLabel || ''))}</span>
+                                                </span>
+                                            </li>
+                                        `).join('')}
+                                    </ol>
+                                ` : '<div class="cards-distribution-toplist-empty">No cards in this bucket.</div>'}
                             </div>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </div>
                 ` : ''}
             </div>
