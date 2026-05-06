@@ -240,9 +240,8 @@
                 <div class="cards-bulk-action-message-wrap">
                     <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>
                 </div>
-                <div id="cardsLoadingIndicator" class="cards-loading hidden" role="status" aria-live="polite">
-                    <span class="cards-loading-spinner" aria-hidden="true"></span>
-                    <span class="cards-loading-text">Refreshing cards…</span>
+                <div id="cardsLoadingIndicator" class="cards-loading hidden" role="status" aria-label="Refreshing cards">
+                    <span class="app-spinner app-spinner--small" aria-hidden="true"></span>
                 </div>
                 <div id="cardsGrid" class="cards-grid"></div>
                 <div id="cardsStatsView" class="cards-stats-view"></div>
@@ -252,12 +251,12 @@
                         <div class="daily-chart-header">
                             <div class="daily-chart-pager">
                                 <button id="reportDailyChartOlderBtn" type="button" class="daily-chart-page-btn" aria-label="Older" disabled>‹</button>
-                                <div id="reportDailyChartPageLabel" class="daily-chart-page-label">Loading kid records...</div>
+                                <div id="reportDailyChartPageLabel" class="daily-chart-page-label" role="status" aria-label="Loading kid records"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></div>
                                 <button id="reportDailyChartNewerBtn" type="button" class="daily-chart-page-btn" aria-label="Newer" disabled>›</button>
                             </div>
                         </div>
                         <div id="reportDailyChartLegend" class="daily-chart-legend" style="display:none"></div>
-                        <div id="reportDailyChartBody"><div class="daily-chart-status">Loading kid records...</div></div>
+                        <div id="reportDailyChartBody"><div class="daily-chart-status app-spinner-block" role="status" aria-label="Loading kid records"><span class="app-spinner" aria-hidden="true"></span></div></div>
                     </div>
                 </div>
         </section>

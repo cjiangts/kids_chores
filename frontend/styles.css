@@ -8,6 +8,47 @@
     display: none !important;
 }
 
+.app-spinner {
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid rgba(99, 102, 241, 0.25);
+    border-top-color: #6366f1;
+    animation: appSpinnerRotate 0.85s linear infinite;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+
+.app-spinner--small {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+}
+
+.app-spinner--large {
+    width: 48px;
+    height: 48px;
+    border-width: 4px;
+}
+
+.app-spinner--light {
+    border-color: rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+}
+
+@keyframes appSpinnerRotate {
+    to { transform: rotate(360deg); }
+}
+
+.app-spinner-block {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem 0;
+}
+
 .icon {
     display: inline-block;
     vertical-align: middle;

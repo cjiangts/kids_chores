@@ -669,16 +669,16 @@
                 <div class="daily-chart-header">
                     <div class="daily-chart-pager">
                         <button id="dailyChartOlderBtn" type="button" class="daily-chart-page-btn" aria-label="Older" disabled>‹</button>
-                        <div id="dailyChartPageLabel" class="daily-chart-page-label">Loading kid records...</div>
+                        <div id="dailyChartPageLabel" class="daily-chart-page-label" role="status" aria-label="Loading kid records"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></div>
                         <button id="dailyChartNewerBtn" type="button" class="daily-chart-page-btn" aria-label="Newer" disabled>›</button>
                     </div>
                 </div>
                 <div id="dailyChartLegend" class="daily-chart-legend" style="display:none"></div>
-                <div id="dailyChartBody"><div class="daily-chart-status">Loading kid records...</div></div>
+                <div id="dailyChartBody"><div class="daily-chart-status app-spinner-block" role="status" aria-label="Loading kid records"><span class="app-spinner" aria-hidden="true"></span></div></div>
             </div>
 
             <div class="sessions-shell">
-                <div id="sessionsList" class="sessions-list"><div class="sessions-empty">Loading kid records...</div></div>
+                <div id="sessionsList" class="sessions-list"><div class="sessions-empty app-spinner-block" role="status" aria-label="Loading kid records"><span class="app-spinner" aria-hidden="true"></span></div></div>
             </div>
         </div>
 

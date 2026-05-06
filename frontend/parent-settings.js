@@ -515,7 +515,7 @@ function syncRewardsButtonsState(activeAction = '') {
 function renderRewardsStatus() {
     if (rewardsStatusText) {
         if (rewardsStatusState === 'loading') {
-            rewardsStatusText.textContent = 'Loading rewards...';
+            rewardsStatusText.innerHTML = '<span class="app-spinner app-spinner--small" role="status" aria-label="Loading rewards"></span>';
         } else if (rewardsStatusState === 'error') {
             rewardsStatusText.textContent = 'Reward tracking unavailable.';
         } else if (rewardsTrackingStarted) {
@@ -931,9 +931,11 @@ function syncBadgeArtStudioControls() {
         openBadgeArtStudioBtn.disabled = isSaving || badgeArtStudioLoading;
         const badgeBtnLabel = openBadgeArtStudioBtn.querySelector('.btn-label');
         if (badgeBtnLabel) {
-            badgeBtnLabel.textContent = badgeArtStudioLoading
-                ? 'Loading...'
-                : (canEdit ? 'Badge Studio' : 'View Badges');
+            if (badgeArtStudioLoading) {
+                badgeBtnLabel.innerHTML = '<span class="app-spinner app-spinner--small" role="status" aria-label="Loading"></span>';
+            } else {
+                badgeBtnLabel.textContent = canEdit ? 'Badge Studio' : 'View Badges';
+            }
         }
     }
     if (badgeArtStudioSaveBtn) {

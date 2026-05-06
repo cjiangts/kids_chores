@@ -16,6 +16,9 @@ const wrongList = document.getElementById('wrongList');
 const rightList = document.getElementById('rightList');
 const speedDistributionSection = document.getElementById('speedDistributionSection');
 const speedDistributionBody = document.getElementById('speedDistributionBody');
+const rightSectionHint = document.getElementById('rightSectionHint');
+const drillProgressSection = document.getElementById('drillProgressSection');
+const drillProgressBody = document.getElementById('drillProgressBody');
 const speedDistributionPanelKey = 'session-speed';
 let selectedSpeedBucketIndex = null;
 let currentSession = null;
@@ -27,12 +30,16 @@ const BEHAVIOR_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_III = 'type_iii';
 const BEHAVIOR_TYPE_IV = 'type_iv';
+const DRILL_FAST_CORRECT_NEEDED = 2;
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
 let currentSessionBehaviorType = '';
 let currentSessionCategoryDisplayName = '';
 let currentSessionHasChineseSpecificLogic = false;
 let currentSessionRetryCount = 0;
+let currentSessionPracticeMode = '';
+let currentSessionIsDrill = false;
+let currentSessionDrillSpeedTargetMs = 0;
 let liveDurationBackfillBound = false;
 let currentAnswers = [];
 
@@ -102,6 +109,12 @@ async function loadSessionDetail() {
         currentSessionCategoryDisplayName = String(session.category_display_name || '').trim();
         currentSessionHasChineseSpecificLogic = Boolean(session.has_chinese_specific_logic);
         currentSessionRetryCount = Math.max(0, Number.parseInt(session.retry_count, 10) || 0);
+        currentSessionPracticeMode = String(session.practice_mode || '').trim().toLowerCase();
+        currentSessionIsDrill = currentSessionPracticeMode.endsWith('+drill');
+        currentSessionDrillSpeedTargetMs = Math.max(
+            0,
+            Number.parseInt(session.drill_speed_target_ms, 10) || 0
+        );
         pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
         document.title = `${kidName} - Session #${session.id || sessionId} - Kids Daily Chores`;
 
@@ -124,19 +137,23 @@ function renderSummary(session, answers) {
     const startedRaw = session?.started_at;
     const startedDate = formatStartedDate(startedRaw);
     const relativeDay = formatRelativeDay(startedRaw);
-    const counts = countAnswersByOutcome(answers);
+    const counts = currentSessionIsDrill ? null : countAnswersByOutcome(answers);
+    const drillCardCounts = currentSessionIsDrill ? countDrillCardOutcomes(answers) : null;
     const modeLabel = formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '—';
     const iconStarted = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>';
     const iconAnswered = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>';
     const iconMode = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
     const iconActiveTime = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>';
+    const summaryFooterHtml = drillCardCounts
+        ? renderDrillSummaryOutcomes(drillCardCounts)
+        : renderStandardSummaryOutcomes(counts);
     summaryCard.innerHTML = `
         <div class="session-summary-stats">
             <div class="session-summary-stat">
                 <div class="stat-icon">${iconStarted}</div>
                 <div class="session-summary-stat-body">
                     <div class="label">Started</div>
-                    <div class="value">${escapeHtml(startedDate)}${relativeDay ? `<span class="value-meta">${escapeHtml(relativeDay)}</span>` : ''}</div>
+                    <div class="value"><span>${escapeHtml(startedDate)}</span>${relativeDay ? `<span class="value-meta">${escapeHtml(relativeDay)}</span>` : ''}</div>
                 </div>
             </div>
             <div class="session-summary-stat">
@@ -161,10 +178,80 @@ function renderSummary(session, answers) {
                 </div>
             </div>
         </div>
-        <div class="session-summary-counters">
-            <span class="session-summary-counter right"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Right <strong>${counts.right}</strong></span>
-            <span class="session-summary-counter fixed"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg> Fixed <strong>${counts.fixed}</strong></span>
-            <span class="session-summary-counter wrong"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg> Wrong <strong>${counts.wrong}</strong></span>
+        ${summaryFooterHtml}
+    `;
+}
+
+function renderDrillSummaryOutcomes(totals) {
+    if (!totals) return '';
+    const items = [
+        {
+            tone: 'passed',
+            label: 'Passed',
+            value: totals.passed,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg>',
+        },
+        {
+            tone: 'fixed',
+            label: 'Fixed',
+            value: totals.fixed,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.7 6.3 3 3"/><path d="m7 17-4 4 4-1 9.7-9.7a2.12 2.12 0 1 0-3-3z"/><path d="m9 7 1.5-1.5"/><path d="m2 12 1.5-1.5"/></svg>',
+        },
+        {
+            tone: 'slow',
+            label: 'Still slow',
+            value: totals.slow,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5"/><path d="M9 2h6"/></svg>',
+        },
+        {
+            tone: 'wrong',
+            label: 'Wrong',
+            value: totals.wrong,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/></svg>',
+        },
+    ];
+    return renderSummaryOutcomes(items, 4);
+}
+
+function renderStandardSummaryOutcomes(totals) {
+    if (!totals) return '';
+    const items = [
+        {
+            tone: 'right',
+            label: 'Right',
+            value: totals.right,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg>',
+        },
+        {
+            tone: 'fixed',
+            label: 'Fixed',
+            value: totals.fixed,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.7 6.3 3 3"/><path d="m7 17-4 4 4-1 9.7-9.7a2.12 2.12 0 1 0-3-3z"/><path d="m9 7 1.5-1.5"/><path d="m2 12 1.5-1.5"/></svg>',
+        },
+        {
+            tone: 'wrong',
+            label: 'Wrong',
+            value: totals.wrong,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/></svg>',
+        },
+    ];
+    return renderSummaryOutcomes(items, 3);
+}
+
+function renderSummaryOutcomes(items, columns = 4) {
+    if (!Array.isArray(items) || items.length === 0) return '';
+    const safeColumns = Math.max(1, Math.min(4, Number(columns) || items.length || 1));
+    return `
+        <div class="session-summary-drill-outcomes columns-${safeColumns}">
+            ${items.map((item) => `
+                <div class="session-summary-drill-outcome ${item.tone}">
+                    <div class="session-summary-drill-outcome-icon">${item.icon}</div>
+                    <div class="session-summary-drill-outcome-body">
+                        <div class="session-summary-drill-outcome-label">${item.label}</div>
+                        <div class="session-summary-drill-outcome-value">${safeNum(item.value)}</div>
+                    </div>
+                </div>
+            `).join('')}
         </div>
     `;
 }
@@ -186,9 +273,189 @@ function countAnswersByOutcome(answers) {
 function renderAnswerSections(answers) {
     wrongSection.style.display = 'none';
     rightSection.style.display = '';
+    if (currentSessionIsDrill) {
+        rightSectionTitle.textContent = 'Drilled Cards';
+        if (rightSectionHint) rightSectionHint.style.display = '';
+        renderDrillCards(rightList, answers);
+        renderDrillProgressTable(answers);
+        return;
+    }
     rightSectionTitle.textContent = 'Cards Practiced';
+    if (rightSectionHint) rightSectionHint.style.display = 'none';
+    if (drillProgressSection) drillProgressSection.style.display = 'none';
     const compact = !isTypeIIIReviewSession();
     renderAnswerList(rightList, answers, { compact, keepSingleGroupOrder: false });
+}
+
+function groupAnswersByCard(answers) {
+    const order = [];
+    const groups = new Map();
+    if (!Array.isArray(answers)) return [];
+    for (const item of answers) {
+        const key = Number.isFinite(Number(item?.card_id)) ? Number(item.card_id) : `__r${item?.result_id || ''}`;
+        if (!groups.has(key)) {
+            groups.set(key, []);
+            order.push(key);
+        }
+        groups.get(key).push(item);
+    }
+    return order.map((key) => ({ key, attempts: groups.get(key) }));
+}
+
+function getDrillAttemptResultClass(attempt) {
+    return getAnswerBarClassByScore(attempt?.correct_score);
+}
+
+function isDrillAttemptWrongState(attempt) {
+    const cls = getDrillAttemptResultClass(attempt);
+    return cls === 'wrong' || cls === 'half' || cls === 'pending';
+}
+
+function classifyDrillAttempt(attempt) {
+    const score = Number(attempt?.correct_score);
+    const isCorrect = score === 1 || score <= -2;
+    if (!isCorrect) return 'wrong';
+    const ms = Math.max(0, Number(attempt?.response_time_ms) || 0);
+    const target = currentSessionDrillSpeedTargetMs > 0 ? currentSessionDrillSpeedTargetMs : 3000;
+    return ms > 0 && ms <= target ? 'fast' : 'slow';
+}
+
+function pickDrillLinkAttempt(attempts, outcome) {
+    if (!Array.isArray(attempts) || attempts.length === 0) return null;
+    if (outcome === 'wrong') {
+        const match = attempts.find((attempt) => isDrillAttemptWrongState(attempt));
+        if (match) return match;
+    }
+    if (outcome === 'fixed') {
+        const match = attempts.find((attempt) => getDrillAttemptResultClass(attempt) === 'fixed');
+        if (match) return match;
+    }
+    if (outcome === 'slow') {
+        const match = attempts.find((attempt) => classifyDrillAttempt(attempt) === 'slow');
+        if (match) return match;
+    }
+    return attempts[attempts.length - 1];
+}
+
+function classifyDrillCardOutcome(attempts) {
+    if (!Array.isArray(attempts) || attempts.length === 0) return 'wrong';
+    let fastCount = 0;
+    let hasWrong = false;
+    let hasFixed = false;
+    for (const attempt of attempts) {
+        if (isDrillAttemptWrongState(attempt)) {
+            hasWrong = true;
+        } else if (getDrillAttemptResultClass(attempt) === 'fixed') {
+            hasFixed = true;
+        }
+        if (classifyDrillAttempt(attempt) === 'fast') fastCount += 1;
+    }
+    if (hasWrong) return 'wrong';
+    if (hasFixed) return 'fixed';
+    if (fastCount >= DRILL_FAST_CORRECT_NEEDED) return 'passed';
+    return 'slow';
+}
+
+function countDrillCardOutcomes(answers) {
+    const totals = { drilled: 0, passed: 0, fixed: 0, slow: 0, wrong: 0 };
+    const groups = groupAnswersByCard(answers);
+    for (const { attempts } of groups) {
+        totals.drilled += 1;
+        const outcome = classifyDrillCardOutcome(attempts);
+        if (outcome === 'passed') totals.passed += 1;
+        else if (outcome === 'fixed') totals.fixed += 1;
+        else if (outcome === 'slow') totals.slow += 1;
+        else if (outcome === 'wrong') totals.wrong += 1;
+    }
+    return totals;
+}
+
+function renderDrillCards(container, answers) {
+    const groups = groupAnswersByCard(answers);
+    if (groups.length === 0) {
+        container.innerHTML = `<div style="color:#666;font-size:0.86rem;">No cards.</div>`;
+        return;
+    }
+    const reportFrom = getCardReportFromSession();
+    const itemHtml = groups.map(({ attempts }) => {
+        const first = attempts[0] || {};
+        const cardId = Number(first?.card_id);
+        const outcome = classifyDrillCardOutcome(attempts);
+        const linkAttempt = pickDrillLinkAttempt(attempts, outcome);
+        const linkResultId = Number(linkAttempt?.result_id);
+        const label = getAnswerPrimaryLabel(first) || '(blank)';
+        const reportHref = Number.isFinite(cardId) && reportFrom
+            ? buildCardReportHref(cardId, reportFrom, Number.isFinite(linkResultId) ? linkResultId : null)
+            : '';
+        const tag = reportHref ? 'a' : 'span';
+        const hrefAttr = reportHref ? ` href="${reportHref}"` : '';
+        const titleAttr = reportHref ? ` title="${escapeHtml(`Open records for ${label}`)}"` : '';
+        return `
+            <${tag} class="drill-card-pill outcome-${outcome}"${hrefAttr}${titleAttr}>
+                ${renderMathHtml(label)}
+                <span class="drill-card-attempt-badge" aria-label="${attempts.length} attempt${attempts.length === 1 ? '' : 's'}">${attempts.length}</span>
+            </${tag}>
+        `;
+    }).join('');
+    container.innerHTML = `<div class="answer-grid compact">${itemHtml}</div>`;
+}
+
+function formatDrillCellLabel(attempt) {
+    const cls = getDrillAttemptDisplayClass(attempt);
+    if (cls === 'wrong') return 'Wrong';
+    if (cls === 'fixed') return 'Fixed';
+    const ms = Math.max(0, Number(attempt?.response_time_ms) || 0);
+    return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function getDrillAttemptDisplayClass(attempt) {
+    if (isDrillAttemptWrongState(attempt)) return 'wrong';
+    if (getDrillAttemptResultClass(attempt) === 'fixed') return 'fixed';
+    return classifyDrillAttempt(attempt);
+}
+
+function getDrillOutcomeLabel(outcome) {
+    if (outcome === 'passed') return 'Passed';
+    if (outcome === 'fixed') return 'Fixed';
+    if (outcome === 'slow') return 'Still slow';
+    return 'Wrong';
+}
+
+function renderDrillProgressTable(answers) {
+    if (!drillProgressSection || !drillProgressBody) return;
+    const groups = groupAnswersByCard(answers);
+    if (groups.length === 0) {
+        drillProgressSection.style.display = 'none';
+        drillProgressBody.innerHTML = '';
+        return;
+    }
+    drillProgressSection.style.display = '';
+    const maxAttempts = groups.reduce((max, g) => Math.max(max, g.attempts.length), 0);
+    const rows = groups.map(({ attempts }) => {
+        const first = attempts[0] || {};
+        const label = getAnswerPrimaryLabel(first) || '(blank)';
+        const outcome = classifyDrillCardOutcome(attempts);
+        const cells = [];
+        for (let i = 0; i < maxAttempts; i += 1) {
+            const attempt = attempts[i];
+            if (!attempt) {
+                cells.push('<td></td>');
+                continue;
+            }
+            const cls = getDrillAttemptDisplayClass(attempt);
+            cells.push(`<td><span class="drill-progress-cell cell-${cls}">${escapeHtml(formatDrillCellLabel(attempt))}</span></td>`);
+        }
+        return `
+            <tr>
+                <td>${renderMathHtml(label)}</td>
+                ${cells.join('')}
+                <td class="drill-progress-outcome outcome-${outcome}">${escapeHtml(getDrillOutcomeLabel(outcome))}</td>
+            </tr>
+        `;
+    }).join('');
+    const cutoffMs = currentSessionDrillSpeedTargetMs > 0 ? currentSessionDrillSpeedTargetMs : 3000;
+    const cutoffLabel = `Fast cut-off: ${(cutoffMs / 1000).toFixed(1)}s`;
+    drillProgressBody.innerHTML = `<div class="drill-progress-cutoff">${escapeHtml(cutoffLabel)}</div><table class="drill-progress-table"><tbody>${rows}</tbody></table>`;
 }
 
 function getResponseTimeCapMs() {
@@ -200,6 +467,11 @@ function getResponseTimeCapMs() {
 
 function renderSpeedDistribution(answers) {
     if (!speedDistributionSection || !speedDistributionBody) return;
+    if (currentSessionIsDrill) {
+        speedDistributionSection.style.display = 'none';
+        speedDistributionBody.innerHTML = '';
+        return;
+    }
     const list = Array.isArray(answers) ? answers : [];
     const rated = list.filter((item) => Number(item?.response_time_ms) > 0);
     if (rated.length === 0) {
@@ -271,8 +543,7 @@ function formatRelativeDay(raw) {
     if (!startedKey || !todayKey) return '';
     const diffDays = daysBetweenDateKeys(startedKey, todayKey);
     if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays > 0) return `${diffDays}d`;
+    if (diffDays > 0) return `${diffDays}d ago`;
     return '';
 }
 
@@ -367,6 +638,7 @@ function renderAnswerList(container, cards, options = {}) {
         const resultId = Number(item?.result_id);
         const answerClass = getAnswerBarClassByScore(item?.correct_score);
         const seenCount = getAnswerSeenCount(item);
+        const retryCount = Math.max(0, seenCount - 1);
         const usedPromptAudio = didUseType1PromptAudio(item);
         const displayLabel = getAnswerPrimaryLabel(item) || '(blank)';
         const secondaryLabel = getAnswerSecondaryLabel(item);
@@ -375,18 +647,20 @@ function renderAnswerList(container, cards, options = {}) {
             : '';
         const useCompactLink = compact && !!reportHref;
         const tagName = useCompactLink ? 'a' : 'div';
+        const retryLabel = `${retryCount} ${retryCount === 1 ? 'retry' : 'retries'}`;
         const linkTitleBase = secondaryLabel
-            ? `Open records for ${displayLabel} • ${secondaryLabel} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}`
-            : `Open records for ${displayLabel} • Seen ${seenCount} time${seenCount === 1 ? '' : 's'}`;
+            ? `Open records for ${displayLabel} • ${secondaryLabel} • ${retryLabel}`
+            : `Open records for ${displayLabel} • ${retryLabel}`;
         const linkTitle = usedPromptAudio
             ? `${linkTitleBase} • Read-aloud used`
             : linkTitleBase;
         const promptAudioBadgeHtml = usedPromptAudio ? renderPromptAudioAssistBadge() : '';
         const headerActionsHtml = compact
             ? `
+                ${retryCount > 0 ? `
                 <span class="answer-compact-seen-badge" aria-hidden="true">
-                    <span class="answer-seen-count-badge">${seenCount}</span>
-                </span>
+                    <span class="answer-seen-count-badge">${retryCount}</span>
+                </span>` : ''}
                 ${promptAudioBadgeHtml ? `<span class="answer-compact-audio-badge" aria-hidden="true">${promptAudioBadgeHtml}</span>` : ''}
             `
             : `

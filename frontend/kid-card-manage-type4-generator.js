@@ -155,8 +155,12 @@ function renderType4GeneratorModal(card) {
     type4GeneratorDeckText.textContent = String(sourceName || '-');
     const cachedCode = String(card && card.type4_generator_code ? card.type4_generator_code : '').trim();
     const cachedSamples = Array.isArray(card && card.type4_generator_samples) ? card.type4_generator_samples : [];
-    setType4GeneratorCodeContent(cachedCode || 'Loading generator...');
-    renderType4GeneratorSamples(cachedSamples, cachedCode ? 'No example yet.' : 'Loading example...');
+    setType4GeneratorCodeContent(cachedCode || '// Loading generator…');
+    if (!cachedCode && type4GeneratorSamples) {
+        type4GeneratorSamples.innerHTML = '<div class="app-spinner-block" role="status" aria-label="Loading example"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></div>';
+    } else {
+        renderType4GeneratorSamples(cachedSamples, 'No example yet.');
+    }
     showType4GeneratorMessage('');
     if (type4GeneratorValidateTestContainer) {
         type4GeneratorValidateTestContainer.classList.add('hidden');

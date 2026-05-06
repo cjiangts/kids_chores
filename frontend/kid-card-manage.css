@@ -2064,20 +2064,6 @@
             font-weight: 500;
         }
 
-        .cards-loading-spinner {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: 2px solid rgba(99, 102, 241, 0.25);
-            border-top-color: #6366f1;
-            animation: cardsLoadingSpin 0.85s linear infinite;
-            flex: 0 0 auto;
-        }
-
-        @keyframes cardsLoadingSpin {
-            to { transform: rotate(360deg); }
-        }
-
         /* Keep Next Session Mix inside card bounds on narrow screens. */
         @media (max-width: 980px) {
             .queue-mix-legend {

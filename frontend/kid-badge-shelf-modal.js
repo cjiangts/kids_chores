@@ -368,7 +368,9 @@
     function renderLoading() {
         const loadingHtml = `
             <section class="badge-panel-section">
-                <div class="badge-panel-empty">Loading badges...</div>
+                <div class="badge-panel-empty app-spinner-block" role="status" aria-label="Loading badges">
+                    <span class="app-spinner" aria-hidden="true"></span>
+                </div>
             </section>
         `;
         if (state.panelEarnedEl) {

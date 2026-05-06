@@ -304,7 +304,7 @@ async function loadAndRender() {
         return;
     }
     if (printBtn) printBtn.disabled = true;
-    if (sheetPreviewWrap) sheetPreviewWrap.innerHTML = '<p>Loading...</p>';
+    if (sheetPreviewWrap) sheetPreviewWrap.innerHTML = '<div class="app-spinner-block" role="status" aria-label="Loading"><span class="app-spinner" aria-hidden="true"></span></div>';
 
     try {
         const payload = await fetchJson(buildType2ApiUrl(`/chinese-print-sheets/${sheetId}`));

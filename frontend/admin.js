@@ -215,7 +215,7 @@ async function loadKids(options = {}) {
             }
         }
         if (!usedNavigationCache) {
-            kidsList.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+            kidsList.innerHTML = '<div class="empty-state app-spinner-block" role="status" aria-label="Loading kids"><span class="app-spinner" aria-hidden="true"></span></div>';
         }
         const response = await fetch(`${API_BASE}/kids?view=admin`);
 

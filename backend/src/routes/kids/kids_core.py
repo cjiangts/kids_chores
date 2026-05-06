@@ -698,6 +698,16 @@ def get_kid_report_session_detail(kid_id, session_id):
             elif correct_score < 0 or correct_score == 2:
                 wrong_cards.append(item)
 
+        normalized_practice_mode = normalize_session_practice_mode(session_row[8])
+        drill_speed_target_ms = None
+        if is_drill_session_practice_mode(normalized_practice_mode):
+            avg_conn = get_kid_connection_for(kid, read_only=True)
+            try:
+                avg_ms = get_kid_subject_avg_correct_response_time_ms(avg_conn, session_type)
+            finally:
+                avg_conn.close()
+            drill_speed_target_ms = int(compute_drill_speed_target_ms(avg_ms))
+
         return jsonify({
             'kid': {
                 'id': kid.get('id'),
@@ -715,7 +725,8 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'retry_count': int(session_row[5] or 0),
                 'retry_total_response_ms': int(session_row[6] or 0),
                 'retry_best_rety_correct_count': int(session_row[7] or 0),
-                'practice_mode': normalize_session_practice_mode(session_row[8]),
+                'practice_mode': normalized_practice_mode,
+                'drill_speed_target_ms': drill_speed_target_ms,
                 'answer_count': len(answers),
                 'right_count': len(right_cards),
                 'wrong_count': len(wrong_cards),

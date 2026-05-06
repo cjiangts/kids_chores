@@ -17,93 +17,122 @@
         }
 
         .session-summary-card {
-            background: #fff;
-            border: 1px solid #eceff6;
-            border-radius: 14px;
-            padding: 0.75rem 0.85rem 0.7rem;
-            box-shadow: 0 4px 12px rgba(31, 45, 98, 0.06);
-            margin-bottom: 0.9rem;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(247, 249, 255, 0.96) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.88);
+            border-radius: 28px;
+            padding: 1.2rem 1.1rem 1rem;
+            box-shadow: 0 18px 40px rgba(31, 45, 98, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+            margin-bottom: 0.95rem;
         }
 
         .session-summary-stats {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.6rem 0;
+            gap: 0;
         }
 
         .session-summary-stat {
+            position: relative;
             min-width: 0;
-            padding: 0 0.7rem;
-            border-left: 1px solid #e6e9f4;
+            padding: 0.2rem 1rem 0.35rem;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 0.55rem;
+            justify-content: flex-start;
+            gap: 0.56rem;
+            text-align: center;
         }
 
-        .session-summary-stat:first-child {
-            border-left: none;
+        .session-summary-stat + .session-summary-stat::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.42rem;
+            bottom: 0.52rem;
+            width: 1px;
+            background: linear-gradient(180deg, rgba(224, 228, 242, 0) 0%, rgba(224, 228, 242, 0.95) 16%, rgba(224, 228, 242, 0.95) 84%, rgba(224, 228, 242, 0) 100%);
         }
 
         .session-summary-stat-body {
             min-width: 0;
-            flex: 1 1 auto;
-            text-align: left;
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: center;
+            gap: 0.18rem 0.32rem;
+            text-align: center;
         }
 
         .session-summary-stat .stat-icon {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
             flex: 0 0 auto;
-            width: 26px;
-            height: 26px;
-            color: #4f6cd6;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(180deg, rgba(109, 99, 255, 0.12) 0%, rgba(86, 132, 255, 0.08) 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96), 0 10px 20px rgba(86, 95, 185, 0.08);
+            color: #3346ea;
         }
 
         .session-summary-stat .stat-icon svg {
-            width: 100%;
-            height: 100%;
+            width: 22px;
+            height: 22px;
             stroke: currentColor;
         }
 
         .session-summary-stat .label {
             display: block;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: #7a86ad;
+            font-size: 0.98rem;
+            font-weight: 500;
+            color: #6d728d;
             line-height: 1.1;
-            margin-bottom: 0.18rem;
             overflow-wrap: anywhere;
             word-break: break-word;
             min-width: 0;
+            white-space: nowrap;
         }
 
         .session-summary-stat .value {
-            font-size: 0.88rem;
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.32rem;
+            font-size: 0.98rem;
             font-weight: 700;
-            color: #2f3c7e;
-            line-height: 1.2;
+            color: #121a39;
+            line-height: 1.18;
             overflow-wrap: anywhere;
             word-break: break-word;
             white-space: normal;
-            text-align: left;
+            text-align: center;
         }
 
         .session-summary-stat .value-meta {
-            display: inline;
-            font-size: 0.72rem;
+            display: inline-flex;
+            align-items: baseline;
+            font-size: 0.86rem;
             font-weight: 600;
-            color: #7a86ad;
-            margin-left: 0.32rem;
+            color: #69718d;
+        }
+
+        .session-summary-stat .value-meta::before {
+            content: '·';
+            margin-right: 0.32rem;
+            color: #a0a7c2;
         }
 
         .session-summary-counters {
             display: flex;
             flex-wrap: wrap;
             gap: 0.45rem 0;
-            margin-top: 0.65rem;
-            padding-top: 0.55rem;
-            border-top: 1px solid #eef0f8;
+            margin-top: 0.9rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #eceffa;
             justify-content: center;
             font-size: 0.82rem;
             font-weight: 600;
@@ -137,6 +166,9 @@
         .session-summary-counter.right { color: #2f9e5e; }
         .session-summary-counter.fixed { color: #b8860b; }
         .session-summary-counter.wrong { color: #c34a4a; }
+        .session-summary-counter.passed { color: #2f9e5e; }
+        .session-summary-counter.slow { color: #2563eb; }
+        .session-summary-counter.drilled { color: #4a5688; }
 
         .session-summary-counter strong {
             color: #2f3c7e;
@@ -144,41 +176,246 @@
             font-size: 1rem;
         }
 
-        @media (max-width: 600px) {
+        .session-summary-drill-outcomes {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0;
+            margin-top: 0.78rem;
+            padding-top: 0.78rem;
+            border-top: 1px solid #eceffa;
+        }
+
+        .session-summary-drill-outcomes.columns-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .session-summary-drill-outcome {
+            position: relative;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.7rem;
+            padding: 0.05rem 0.75rem;
+        }
+
+        .session-summary-drill-outcome + .session-summary-drill-outcome::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.12rem;
+            bottom: 0.12rem;
+            width: 1px;
+            background: linear-gradient(180deg, rgba(224, 228, 242, 0) 0%, rgba(224, 228, 242, 0.95) 16%, rgba(224, 228, 242, 0.95) 84%, rgba(224, 228, 242, 0) 100%);
+        }
+
+        .session-summary-drill-outcome-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+
+        .session-summary-drill-outcome-icon svg {
+            width: 22px;
+            height: 22px;
+            stroke: currentColor;
+        }
+
+        .session-summary-drill-outcome-body {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.14rem;
+        }
+
+        .session-summary-drill-outcome-label {
+            font-size: 0.82rem;
+            line-height: 1.1;
+            color: #4f587b;
+            white-space: nowrap;
+        }
+
+        .session-summary-drill-outcome-value {
+            font-size: 1.32rem;
+            line-height: 1;
+            font-weight: 800;
+        }
+
+        .session-summary-drill-outcome.passed,
+        .session-summary-drill-outcome.right { color: #1f9d5f; }
+        .session-summary-drill-outcome.passed .session-summary-drill-outcome-icon,
+        .session-summary-drill-outcome.right .session-summary-drill-outcome-icon { background: rgba(31, 157, 95, 0.1); }
+        .session-summary-drill-outcome.fixed { color: #d59a00; }
+        .session-summary-drill-outcome.fixed .session-summary-drill-outcome-icon { background: rgba(213, 154, 0, 0.1); }
+        .session-summary-drill-outcome.slow { color: #2563eb; }
+        .session-summary-drill-outcome.slow .session-summary-drill-outcome-icon { background: rgba(37, 99, 235, 0.1); }
+        .session-summary-drill-outcome.wrong { color: #ef4444; }
+        .session-summary-drill-outcome.wrong .session-summary-drill-outcome-icon { background: rgba(239, 68, 68, 0.1); }
+
+        @media (max-width: 720px) {
             .session-summary-card {
-                padding: 0.6rem 0.55rem 0.55rem;
+                border-radius: 24px;
+                padding: 0.55rem 0.4rem 0.65rem;
             }
 
             .session-summary-stats {
-                gap: 0.4rem 0;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
             }
 
             .session-summary-stat {
-                padding: 0 0.32rem;
-                gap: 0.32rem;
+                padding: 0.35rem 0.28rem 0.4rem;
+                gap: 0.42rem;
+            }
+
+            .session-summary-stat-body {
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.14rem;
             }
 
             .session-summary-stat .stat-icon {
-                width: 20px;
-                height: 20px;
+                width: 36px;
+                height: 36px;
+            }
+
+            .session-summary-stat + .session-summary-stat::before {
+                display: block;
+                top: 0.18rem;
+                bottom: 0.24rem;
+            }
+
+            .session-summary-stat:nth-child(even) {
+                border-left: none;
+            }
+
+            .session-summary-stat:nth-child(n + 3) {
+                border-top: none;
+            }
+
+            .session-summary-stat .stat-icon svg {
+                width: 17px;
+                height: 17px;
             }
 
             .session-summary-stat .label {
-                font-size: 0.66rem;
-                margin-bottom: 0.12rem;
+                font-size: 0.74rem;
             }
 
             .session-summary-stat .value {
                 font-size: 0.78rem;
-                line-height: 1.18;
-                white-space: normal;
-                overflow-wrap: anywhere;
-                word-break: break-word;
+                gap: 0.18rem;
+                line-height: 1.12;
             }
 
             .session-summary-stat .value-meta {
+                font-size: 0.68rem;
+            }
+
+            .session-summary-stat .value-meta::before {
+                margin-right: 0.18rem;
+            }
+
+            .session-summary-drill-outcomes {
+                margin-top: 0.62rem;
+                padding-top: 0.62rem;
+            }
+
+            .session-summary-drill-outcome {
+                flex-direction: column;
+                gap: 0.34rem;
+                padding: 0 0.18rem;
+                text-align: center;
+            }
+
+            .session-summary-drill-outcome-icon {
+                width: 26px;
+                height: 26px;
+            }
+
+            .session-summary-drill-outcome-icon svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .session-summary-drill-outcome-body {
+                align-items: center;
+                gap: 0.08rem;
+            }
+
+            .session-summary-drill-outcome-label {
                 font-size: 0.64rem;
-                margin-left: 0.26rem;
+            }
+
+            .session-summary-drill-outcome-value {
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .session-summary-card {
+                border-radius: 20px;
+                padding: 0.45rem 0.2rem 0.55rem;
+            }
+
+            .session-summary-stat {
+                padding: 0.24rem 0.14rem 0.32rem;
+                gap: 0.34rem;
+            }
+
+            .session-summary-stat .stat-icon {
+                width: 32px;
+                height: 32px;
+            }
+
+            .session-summary-stat .stat-icon svg {
+                width: 15px;
+                height: 15px;
+            }
+
+            .session-summary-stat .label {
+                font-size: 0.66rem;
+            }
+
+            .session-summary-stat .value {
+                font-size: 0.7rem;
+                gap: 0.14rem;
+            }
+
+            .session-summary-stat .value-meta {
+                font-size: 0.62rem;
+            }
+
+            .session-summary-stat .value-meta::before {
+                margin-right: 0.14rem;
+            }
+
+            .session-summary-drill-outcome {
+                gap: 0.26rem;
+                padding: 0 0.08rem;
+            }
+
+            .session-summary-drill-outcome-icon {
+                width: 22px;
+                height: 22px;
+            }
+
+            .session-summary-drill-outcome-icon svg {
+                width: 14px;
+                height: 14px;
+            }
+
+            .session-summary-drill-outcome-label {
+                font-size: 0.58rem;
+            }
+
+            .session-summary-drill-outcome-value {
+                font-size: 0.86rem;
             }
         }
 
@@ -675,6 +912,174 @@
             }
         }
 
+        .section-hint {
+            margin: 0 0 0.6rem;
+            color: #7a86ad;
+            font-size: 0.84rem;
+        }
+
+        .drill-card-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 4.6rem;
+            padding: 0.4rem 0.95rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-decoration: none;
+            position: relative;
+            line-height: 1.2;
+        }
+
+        .drill-card-pill.outcome-passed {
+            background: #e8f5ec;
+            color: #1f9d5f;
+            border-color: #cfe9d6;
+            box-shadow: 0 4px 10px rgba(31, 157, 95, 0.12);
+        }
+
+        .drill-card-pill.outcome-fixed {
+            background: #fff7df;
+            color: #d59a00;
+            border-color: #f0dfae;
+            box-shadow: 0 4px 10px rgba(213, 154, 0, 0.12);
+        }
+
+        .drill-card-pill.outcome-slow {
+            background: #ebf3ff;
+            color: #2563eb;
+            border-color: #bfd4ff;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
+        }
+
+        .drill-card-pill.outcome-wrong {
+            background: #ffe8e8;
+            color: #ef4444;
+            border-color: #f6bcbc;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.12);
+        }
+
+        .drill-card-attempt-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            min-width: 1.1rem;
+            height: 1.1rem;
+            padding: 0 0.32rem;
+            border-radius: 999px;
+            background: #fff;
+            color: #4a5688;
+            font-size: 0.68rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #d9deec;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+
+        .drill-progress-cutoff {
+            font-size: 0.85rem;
+            color: #6b7299;
+            margin-bottom: 0.5rem;
+        }
+
+        .drill-progress-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 0.4rem;
+        }
+
+        .drill-progress-table tbody tr {
+            background: #f9fafd;
+        }
+
+        .drill-progress-table td {
+            padding: 0.55rem 0.5rem;
+            vertical-align: middle;
+            font-size: 0.92rem;
+            color: #2f3c7e;
+            border-top: 1px solid #eef0f8;
+            border-bottom: 1px solid #eef0f8;
+        }
+
+        .drill-progress-table td:first-child {
+            border-left: 1px solid #eef0f8;
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .drill-progress-table td:last-child {
+            border-right: 1px solid #eef0f8;
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
+            text-align: right;
+            font-weight: 700;
+        }
+
+        .drill-progress-cell {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 3.2rem;
+            padding: 0.32rem 0.7rem;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.86rem;
+            border: 1px solid transparent;
+        }
+
+        .drill-progress-cell.cell-fast {
+            background: #e8f5ec;
+            color: #2f9e5e;
+            border-color: #cfe9d6;
+        }
+
+        .drill-progress-cell.cell-fixed {
+            background: #fff7df;
+            color: #d59a00;
+            border-color: #f0dfae;
+        }
+
+        .drill-progress-cell.cell-slow {
+            background: #ebf3ff;
+            color: #2563eb;
+            border-color: #bfd4ff;
+        }
+
+        .drill-progress-cell.cell-wrong {
+            background: #ffe8e8;
+            color: #ef4444;
+            border-color: #f6bcbc;
+        }
+
+        .drill-progress-outcome.outcome-passed { color: #2f9e5e; }
+        .drill-progress-outcome.outcome-fixed { color: #b8860b; }
+        .drill-progress-outcome.outcome-slow { color: #2563eb; }
+        .drill-progress-outcome.outcome-wrong { color: #ef4444; }
+
+        @media (max-width: 600px) {
+            .drill-progress-table td {
+                padding: 0.45rem 0.3rem;
+                font-size: 0.84rem;
+            }
+
+            .drill-progress-cell {
+                min-width: 0;
+                padding: 0.26rem 0.5rem;
+                font-size: 0.78rem;
+            }
+
+            .drill-card-pill {
+                min-width: 3.6rem;
+                padding: 0.35rem 0.75rem;
+                font-size: 0.88rem;
+            }
+        }
     </style>
 </head>
 <body class="report-page">
@@ -699,6 +1104,7 @@
             </section>
             <section class="detail-card" id="rightSection">
                 <h2 class="section-title" id="rightSectionTitle">Cards Practiced</h2>
+                <p class="section-hint" id="rightSectionHint" style="display:none;">Tap a card to view details. The small number on top shows how many times it was drilled.</p>
                 <div id="rightList"></div>
             </section>
         </div>
@@ -706,6 +1112,11 @@
         <section class="detail-card speed-distribution-section" id="speedDistributionSection" style="display:none;">
             <h2 class="section-title">Speed Distribution</h2>
             <div id="speedDistributionBody"></div>
+        </section>
+
+        <section class="detail-card drill-progress-section" id="drillProgressSection" style="display:none;">
+            <h2 class="section-title">Card Progress</h2>
+            <div id="drillProgressBody"></div>
         </section>
     </div>
 

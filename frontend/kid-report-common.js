@@ -59,17 +59,26 @@
         }
 
         function renderInitialLoading(message) {
-            const text = message || 'Loading kid records...';
-            if (elements.dailyChartPageLabel) elements.dailyChartPageLabel.textContent = text;
+            const hasMessage = Boolean(message);
+            const ariaLabel = message || 'Loading kid records';
+            const labelHtml = hasMessage
+                ? escapeHtml(message)
+                : `<span class="app-spinner app-spinner--small" role="status" aria-label="${escapeHtml(ariaLabel)}"></span>`;
+            const blockHtml = (statusClass) => hasMessage
+                ? `<div class="${statusClass}">${escapeHtml(message)}</div>`
+                : `<div class="${statusClass} app-spinner-block" role="status" aria-label="${escapeHtml(ariaLabel)}"><span class="app-spinner" aria-hidden="true"></span></div>`;
+            if (elements.dailyChartPageLabel) {
+                elements.dailyChartPageLabel.innerHTML = labelHtml;
+            }
             if (elements.dailyChartLegend) {
                 elements.dailyChartLegend.innerHTML = '';
                 elements.dailyChartLegend.style.display = 'none';
             }
             if (elements.dailyChartBody) {
-                elements.dailyChartBody.innerHTML = `<div class="daily-chart-status">${escapeHtml(text)}</div>`;
+                elements.dailyChartBody.innerHTML = blockHtml('daily-chart-status');
             }
             if (elements.sessionsList) {
-                elements.sessionsList.innerHTML = `<div class="sessions-empty">${escapeHtml(text)}</div>`;
+                elements.sessionsList.innerHTML = blockHtml('sessions-empty');
             }
             if (elements.dailyChartNewerBtn) elements.dailyChartNewerBtn.disabled = true;
             if (elements.dailyChartOlderBtn) elements.dailyChartOlderBtn.disabled = true;
