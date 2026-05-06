@@ -1036,18 +1036,6 @@ body.practice-home-redesign {
     max-width: 760px;
 }
 
-.practice-home-redesign .practice-mascot {
-    display: inline-block;
-    margin-right: 0.4rem;
-    font-size: 0.95em;
-    line-height: 1;
-    vertical-align: -0.05em;
-}
-
-.practice-home-redesign .practice-kid-name-text {
-    display: inline;
-}
-
 .practice-home-redesign .redesign-practice-grid {
     display: grid;
     grid-template-columns: 1fr;

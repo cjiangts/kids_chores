@@ -196,7 +196,7 @@ function applyKidPayload(kid) {
         writingCardsLoadedCategoryKey = '';
     }
     activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
-    kidNameEl.innerHTML = `<span class="practice-mascot" aria-hidden="true">🧸</span><span class="practice-kid-name-text">${escapeHtmlLocal(currentKid.name)}'s Practice</span>`;
+    kidNameEl.textContent = `${currentKid.name}'s Practice`;
     updatePageTitle();
 }
 

@@ -668,7 +668,7 @@ function applyKidInfoPayload(kidPayload) {
         throw new Error('No practice category is available for this kid.');
     }
 
-    kidNameEl.textContent = `${state.currentKid.name}'s ${state.categoryDisplayName}`;
+    kidNameEl.textContent = state.currentKid.name;
     startTitle.textContent = `Ready for ${state.categoryDisplayName}?`;
     updatePageTitle();
 }

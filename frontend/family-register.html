@@ -274,22 +274,14 @@
             <main>
                 <section class="auth-card">
                     <h2 class="auth-card-title">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <line x1="19" y1="8" x2="19" y2="14"/>
-                            <line x1="22" y1="11" x2="16" y2="11"/>
-                        </svg>
+                        <span data-icon="user-plus" data-icon-stroke="2"></span>
                         Create your family
                     </h2>
                     <form id="familyRegisterForm" novalidate>
                         <div class="auth-field">
                             <label for="registerUsername">Family Username</label>
                             <div class="auth-input-wrap">
-                                <svg class="lead-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                                    <circle cx="12" cy="7" r="4"/>
-                                </svg>
+                                <span class="lead-icon" data-icon="user-form" data-icon-stroke="2"></span>
                                 <input type="text" id="registerUsername" autocomplete="username" placeholder="Choose a family username" required>
                             </div>
                         </div>
@@ -297,16 +289,10 @@
                         <div class="auth-field">
                             <label for="registerPassword">Password</label>
                             <div class="auth-input-wrap has-toggle">
-                                <svg class="lead-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                </svg>
+                                <span class="lead-icon" data-icon="lock" data-icon-stroke="2"></span>
                                 <input type="password" id="registerPassword" autocomplete="new-password" placeholder="Create a password" required>
-                                <button type="button" class="password-toggle" data-target="registerPassword" data-icon="registerEyeIcon" aria-label="Show password">
-                                    <svg id="registerEyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                        <circle cx="12" cy="12" r="3"/>
-                                    </svg>
+                                <button type="button" class="password-toggle" data-target="registerPassword" aria-label="Show password">
+                                    <span data-icon="eye" data-icon-stroke="2"></span>
                                 </button>
                             </div>
                         </div>
@@ -314,27 +300,16 @@
                         <div class="auth-field">
                             <label for="registerPasswordConfirm">Repeat Password</label>
                             <div class="auth-input-wrap has-toggle">
-                                <svg class="lead-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                </svg>
+                                <span class="lead-icon" data-icon="lock" data-icon-stroke="2"></span>
                                 <input type="password" id="registerPasswordConfirm" autocomplete="new-password" placeholder="Repeat your password" required>
-                                <button type="button" class="password-toggle" data-target="registerPasswordConfirm" data-icon="registerConfirmEyeIcon" aria-label="Show password">
-                                    <svg id="registerConfirmEyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                        <circle cx="12" cy="12" r="3"/>
-                                    </svg>
+                                <button type="button" class="password-toggle" data-target="registerPasswordConfirm" aria-label="Show password">
+                                    <span data-icon="eye" data-icon-stroke="2"></span>
                                 </button>
                             </div>
                         </div>
 
                         <button type="submit" class="signin-btn">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                                <circle cx="9" cy="7" r="4"/>
-                                <line x1="19" y1="8" x2="19" y2="14"/>
-                                <line x1="22" y1="11" x2="16" y2="11"/>
-                            </svg>
+                            <span data-icon="user-plus" data-icon-stroke="2.2"></span>
                             Register
                         </button>
                     </form>
@@ -351,18 +326,16 @@
         </div>
     </div>
 
+    <script src="icons.js"></script>
     <script>
         (function setupPasswordToggles() {
-            const eyeOpen = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
-            const eyeOff = '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.77 19.77 0 0 1 4.22-5.19"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.69 19.69 0 0 1-3.16 4.19"/><line x1="1" y1="1" x2="23" y2="23"/><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>';
             document.querySelectorAll('.password-toggle').forEach((btn) => {
                 const input = document.getElementById(btn.dataset.target);
-                const icon = document.getElementById(btn.dataset.icon);
-                if (!input || !icon) return;
+                if (!input) return;
                 btn.addEventListener('click', () => {
                     const show = input.type === 'password';
                     input.type = show ? 'text' : 'password';
-                    icon.innerHTML = show ? eyeOff : eyeOpen;
+                    btn.innerHTML = window.icon(show ? 'eye-off' : 'eye', { strokeWidth: 2 });
                     btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
                 });
             });

@@ -823,7 +823,7 @@ function buildSortMenuItems() {
         item.dataset.value = option.value;
         const label = getSortOptionLabel(option);
         item.innerHTML = `
-            <svg class="sort-menu-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            ${window.icon('check', { className: 'sort-menu-item-check', strokeWidth: 2.6 })}
             <span class="sort-menu-item-label"></span>
         `;
         item.querySelector('.sort-menu-item-label').textContent = label;
