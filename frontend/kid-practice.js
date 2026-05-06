@@ -95,6 +95,7 @@ const state = {
     hasChineseSpecificLogic: false,
     chineseBackContent: '',
     configuredSessionCount: 0,
+    readySessionTargetCount: 0,
     readyIsContinueSession: false,
     readyContinueSourceSessionId: null,
     readyContinueCardCount: 0,
@@ -489,7 +490,9 @@ function updateSessionInfoText() {
     }
     const baseTarget = state.readyIsContinueSession
         ? state.readyContinueCardCount
-        : (state.readyIsRetrySession ? state.readyRetryCardCount : state.configuredSessionCount);
+        : (state.readyIsRetrySession
+            ? state.readyRetryCardCount
+            : (state.readySessionTargetCount || state.configuredSessionCount));
     const target = Math.max(0, Number.parseInt(baseTarget, 10) || 0);
     if (state.drillRequested && shouldOfferDrillMode()) {
         const targetMs = Number.parseInt(state.readyDrillSpeedTargetMs, 10);
@@ -720,6 +723,7 @@ function resetReadyRetryState() {
     state.readyIsRetrySession = false;
     state.readyRetrySourceSessionId = null;
     state.readyRetryCardCount = 0;
+    state.readySessionTargetCount = 0;
 }
 
 function applyReadyRetryState(payload) {
@@ -1004,6 +1008,7 @@ function resetToStartScreen(totalCards = 0) {
         target = Math.min(Number.isInteger(sessionCount) ? sessionCount : 0, state.availableCards.length);
     }
 
+    state.readySessionTargetCount = target;
     if (isType(BEHAVIOR_TYPE_IV) || (isType(BEHAVIOR_TYPE_I) && !state.hasChineseSpecificLogic)) {
         sessionInfo.textContent = `Session: ${target} questions`;
     } else {
