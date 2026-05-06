@@ -703,12 +703,3 @@ function applyCategoryUiText() {
     updatePageTitle();
 }
 
-function setCardsLoadingIndicatorVisible(visible) {
-    const indicator = document.getElementById('cardsLoadingIndicator');
-    if (!indicator) return;
-    indicator.classList.toggle('hidden', !visible);
-    const grid = document.getElementById('cardsGrid');
-    if (grid) {
-        grid.classList.toggle('hidden', !!visible);
-    }
-}

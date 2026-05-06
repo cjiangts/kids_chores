@@ -1531,3 +1531,74 @@ window.PracticeManageCommon = {
         }
     },
 };
+
+(() => {
+    const HOME_HREF = '/admin.html';
+    const HOME_LABEL = 'Home';
+    const HOME_SVG = '<svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+
+    function isHomePage() {
+        const path = String(window.location.pathname || '').toLowerCase();
+        return path === HOME_HREF.toLowerCase() || path === '/admin' || path === '/admin/';
+    }
+
+    function buildLink(className) {
+        const link = document.createElement('a');
+        link.href = HOME_HREF;
+        link.className = className;
+        link.setAttribute('data-home-button', '1');
+        link.innerHTML = `${HOME_SVG} ${HOME_LABEL}`;
+        return link;
+    }
+
+    function injectIntoPageHeader() {
+        const row = document.querySelector('.page-header-with-back .page-header-row');
+        if (!row || row.querySelector('[data-home-button]')) {
+            return;
+        }
+        const backBtn = row.querySelector('.page-header-back-btn');
+        let actions = row.querySelector('.page-header-actions');
+        const link = buildLink('back-btn btn-secondary page-header-back-btn');
+
+        if (actions) {
+            actions.insertBefore(link, actions.firstChild);
+            return;
+        }
+        if (backBtn) {
+            actions = document.createElement('div');
+            actions.className = 'page-header-actions';
+            backBtn.parentNode.insertBefore(actions, backBtn);
+            actions.appendChild(link);
+            actions.appendChild(backBtn);
+            const header = row.closest('.page-header-with-back');
+            if (header) {
+                header.classList.add('page-header-with-actions');
+            }
+            return;
+        }
+        row.appendChild(link);
+    }
+
+    function injectIntoToolbar() {
+        const actions = document.querySelector('.toolbar .toolbar-actions');
+        if (!actions || actions.querySelector('[data-home-button]')) {
+            return;
+        }
+        const link = buildLink('toolbar-link secondary');
+        actions.insertBefore(link, actions.firstChild);
+    }
+
+    function injectHomeButton() {
+        if (isHomePage()) {
+            return;
+        }
+        injectIntoPageHeader();
+        injectIntoToolbar();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectHomeButton);
+    } else {
+        injectHomeButton();
+    }
+})();

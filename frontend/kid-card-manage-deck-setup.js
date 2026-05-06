@@ -766,7 +766,7 @@ async function applyDeckMembershipChanges() {
     showError('');
     showSuccess('');
     showDeckChangeMessage('');
-    setCardsLoadingIndicatorVisible(true);
+    renderCardsLoadingSpinner();
     try {
         if (toOptIn.length > 0) {
             await requestOptInDeckIds(toOptIn);
@@ -793,7 +793,6 @@ async function applyDeckMembershipChanges() {
         showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
     } finally {
         isDeckMoveInFlight = false;
-        setCardsLoadingIndicatorVisible(false);
         renderDeckPendingInfo();
     }
 }

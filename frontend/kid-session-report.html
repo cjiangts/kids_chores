@@ -17,11 +17,11 @@
         }
 
         .session-summary-card {
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(247, 249, 255, 0.96) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.88);
-            border-radius: 28px;
-            padding: 1.2rem 1.1rem 1rem;
-            box-shadow: 0 18px 40px rgba(31, 45, 98, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+            background: var(--section-surface-bg);
+            border: 1px solid var(--section-surface-border);
+            border-radius: var(--section-surface-radius);
+            padding: var(--section-surface-padding);
+            box-shadow: var(--section-surface-shadow);
         }
 
         .session-summary-stats {
@@ -258,8 +258,7 @@
 
         @media (max-width: 720px) {
             .session-summary-card {
-                border-radius: 24px;
-                padding: 0.55rem 0.4rem 0.65rem;
+                padding: var(--section-surface-padding-mobile);
             }
 
             .session-summary-stats {
@@ -361,8 +360,7 @@
 
         @media (max-width: 480px) {
             .session-summary-card {
-                border-radius: 20px;
-                padding: 0.45rem 0.2rem 0.55rem;
+                padding: var(--section-surface-padding-mobile);
             }
 
             .session-summary-stat {
@@ -1098,12 +1096,12 @@
                     <svg class="icon page-title-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span id="pageTitle">Session Detail</span>
                 </h1>
-                <a id="backBtn" href="/kid-report.html" class="back-btn btn-secondary page-header-back-btn"><svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> Back</a>
+                <a id="backBtn" href="/kid-report.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
             </div>
         </header>
 
         <div id="errorMessage" class="error hidden"></div>
-        <section class="session-summary-card section-stack-tight" id="summaryCard"></section>
+        <section class="session-summary-card section-stack" id="summaryCard"></section>
 
         <div class="detail-grid">
             <section class="detail-card" id="wrongSection">

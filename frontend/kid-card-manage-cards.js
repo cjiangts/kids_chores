@@ -1263,6 +1263,7 @@ async function loadSharedType1Decks(options = {}) {
 
 let sharedDecksLoadPromise = null;
 let sharedDeckCardsLoadPromise = null;
+let sharedDeckCardsHaveLoaded = false;
 
 function ensureSharedDecksLoaded() {
     if (!sharedDecksLoadPromise) {
@@ -1280,6 +1281,7 @@ function ensureSharedDeckCardsLoaded() {
         sharedDeckCardsLoadPromise = (async () => {
             await ensureSharedDecksLoaded();
             await loadSharedDeckCards();
+            sharedDeckCardsHaveLoaded = true;
         })().catch((error) => {
             sharedDeckCardsLoadPromise = null;
             throw error;

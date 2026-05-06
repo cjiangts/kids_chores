@@ -2053,17 +2053,6 @@
             cursor: not-allowed;
         }
 
-        .cards-loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.55rem;
-            padding: 1.4rem 1rem;
-            color: #5d6ca0;
-            font-size: 0.95rem;
-            font-weight: 500;
-        }
-
         /* Keep Next Session Mix inside card bounds on narrow screens. */
         @media (max-width: 980px) {
             .queue-mix-legend {
@@ -2169,96 +2158,6 @@
                 text-align: center;
                 white-space: nowrap;
                 flex: 0 0 auto;
-            }
-        }
-
-        .kid-nav-group {
-            display: grid;
-            grid-auto-flow: column;
-            grid-auto-columns: minmax(0, 1fr);
-            gap: 0.3rem;
-            padding: 0.3rem;
-            margin-bottom: 0.7rem;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.16);
-            border: 1px solid rgba(255, 255, 255, 0.28);
-            box-shadow: 0 10px 24px rgba(31, 45, 98, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-            backdrop-filter: blur(14px) saturate(140%);
-            -webkit-backdrop-filter: blur(14px) saturate(140%);
-        }
-
-        .kid-nav-group:empty,
-        .kid-nav-group.hidden {
-            display: none;
-        }
-
-        .kid-nav-card {
-            appearance: none;
-            border: 0;
-            border-radius: 12px;
-            background: transparent;
-            padding: 0.6rem 0.85rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.45rem;
-            color: rgba(255, 255, 255, 0.92);
-            font-size: 0.95rem;
-            font-weight: 600;
-            line-height: 1.1;
-            cursor: pointer;
-            min-width: 0;
-            text-decoration: none;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            transition: background 0.18s, color 0.18s, box-shadow 0.18s;
-        }
-
-        .kid-nav-card .kid-nav-card-icon {
-            width: 18px;
-            height: 18px;
-            flex: 0 0 auto;
-            opacity: 0.85;
-        }
-
-        .kid-nav-card:hover {
-            background: rgba(255, 255, 255, 0.18);
-        }
-
-        .kid-nav-card:focus-visible {
-            outline: 3px solid rgba(255, 255, 255, 0.28);
-            outline-offset: 2px;
-        }
-
-        .kid-nav-card.active {
-            background: #ffffff;
-            color: #2a345d;
-            box-shadow: 0 6px 16px rgba(15, 20, 60, 0.22);
-            cursor: default;
-            font-weight: 700;
-        }
-
-        .kid-nav-card.active .kid-nav-card-icon {
-            opacity: 1;
-        }
-
-        @media (max-width: 540px) {
-            .kid-nav-group {
-                gap: 0.22rem;
-                padding: 0.22rem;
-                margin-bottom: 0.6rem;
-            }
-
-            .kid-nav-card {
-                padding: 0.5rem 0.6rem;
-                font-size: 0.84rem;
-                gap: 0.35rem;
-            }
-
-            .kid-nav-card .kid-nav-card-icon {
-                width: 16px;
-                height: 16px;
             }
         }
 
@@ -4246,13 +4145,11 @@
         body.cards-view-mode-stats .cards-view-control,
         body.cards-view-mode-stats #cardsQueueLegend,
         body.cards-view-mode-stats .cards-bulk-action-message-wrap,
-        body.cards-view-mode-stats #cardsLoadingIndicator,
         body.cards-view-mode-stats #cardsGrid,
         body.cards-view-mode-report .cards-toolbar,
         body.cards-view-mode-report .cards-view-control,
         body.cards-view-mode-report #cardsQueueLegend,
         body.cards-view-mode-report .cards-bulk-action-message-wrap,
-        body.cards-view-mode-report #cardsLoadingIndicator,
         body.cards-view-mode-report #cardsGrid {
             display: none !important;
         }
@@ -4320,12 +4217,12 @@
         }
 
         .cards-report-view .daily-chart-wrap {
-            background: #ffffff;
-            border: 1px solid #eef0f6;
-            border-radius: 14px;
+            background: var(--section-surface-bg);
+            border: 1px solid var(--section-surface-border-muted);
+            border-radius: var(--section-surface-radius-lg);
             padding: 0.85rem 0.85rem 1rem;
             margin-bottom: var(--section-stack-gap);
-            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
+            box-shadow: var(--section-surface-shadow-subtle);
         }
         .cards-report-view .daily-chart-header {
             display: flex;
@@ -4777,10 +4674,10 @@
         }
 
         .cards-report-view .sessions-shell {
-            background: #ffffff;
-            border: 1px solid #eef0f6;
-            border-radius: 14px;
-            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
+            background: var(--section-surface-bg);
+            border: 1px solid var(--section-surface-border-muted);
+            border-radius: var(--section-surface-radius-lg);
+            box-shadow: var(--section-surface-shadow-subtle);
             padding: 0.85rem 0.85rem 1rem;
         }
         .cards-report-view .sessions-shell-title {

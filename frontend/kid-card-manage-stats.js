@@ -46,7 +46,7 @@ function setupCardsViewModeToggle() {
     setCardsViewMode(currentCardsViewMode);
 }
 
-async function setCardsViewMode(mode) {
+function setCardsViewMode(mode) {
     const next = normalizeCardsViewMode(mode);
     currentCardsViewMode = next;
     try {
@@ -61,19 +61,29 @@ async function setCardsViewMode(mode) {
         btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
     if (next === 'queue' || next === 'stats') {
-        try {
-            await ensureSharedDeckCardsLoaded();
-        } catch (error) {
-            console.error('Error loading shared deck cards:', error);
-            return;
-        }
-        if (currentCardsViewMode !== next) return;
-        if (next === 'stats') {
-            renderStatsView();
+        if (sharedDeckCardsHaveLoaded) {
+            if (next === 'stats') renderStatsView();
+        } else {
+            renderCardsLoadingSpinner();
+            ensureSharedDeckCardsLoaded();
         }
     } else if (next === 'report') {
         loadReportViewIfNeeded();
     }
+}
+
+function renderCardsLoadingSpinner() {
+    const targetId = currentCardsViewMode === 'stats' ? 'cardsStatsView'
+        : currentCardsViewMode === 'queue' ? 'cardsGrid'
+        : null;
+    if (!targetId) return;
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    target.innerHTML = `
+        <div class="app-spinner-block" style="grid-column: 1 / -1;" role="status" aria-label="Loading cards">
+            <span class="app-spinner" aria-hidden="true"></span>
+        </div>
+    `;
 }
 
 let reportRenderer = null;

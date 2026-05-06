@@ -126,6 +126,19 @@
     --section-stack-gap-mobile: 6px;
     --section-grid-gap: 0.9rem;
     --section-grid-gap-compact: 0.46rem;
+    --section-surface-bg: #fff;
+    --section-surface-bg-soft: #f5f7ff;
+    --section-surface-border: rgba(255, 255, 255, 0.68);
+    --section-surface-border-soft: #e9ecef;
+    --section-surface-border-muted: #dfe5f2;
+    --section-surface-radius: 12px;
+    --section-surface-radius-compact: 10px;
+    --section-surface-radius-lg: 14px;
+    --section-surface-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    --section-surface-shadow-soft: 0 14px 34px rgba(31, 45, 98, 0.16);
+    --section-surface-shadow-subtle: 0 1px 2px rgba(31, 45, 98, 0.06);
+    --section-surface-padding: 1rem;
+    --section-surface-padding-mobile: 0.44rem;
     --card-section-title-color: #2f3c7e;
     --card-section-title-size: 1.1rem;
     --card-section-title-line-height: 1.2;
@@ -170,6 +183,101 @@ body {
     margin-bottom: var(--section-stack-gap-tight);
 }
 
+.section-surface {
+    background: var(--section-surface-bg);
+    border: 1px solid var(--section-surface-border);
+    border-radius: var(--section-surface-radius);
+    box-shadow: var(--section-surface-shadow);
+    padding: var(--section-surface-padding);
+}
+
+.section-surface-soft {
+    background: var(--section-surface-bg-soft);
+    border: 1px solid var(--section-surface-border-soft);
+    border-radius: var(--section-surface-radius);
+    box-shadow: var(--section-surface-shadow-soft);
+    padding: var(--section-surface-padding);
+}
+
+.section-surface-compact {
+    border-radius: var(--section-surface-radius-compact);
+}
+
+.section-surface-lg {
+    border-radius: var(--section-surface-radius-lg);
+}
+
+.kid-nav-group {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.3rem;
+    padding: 0.3rem;
+    margin-bottom: 0.7rem;
+    border-radius: var(--section-surface-radius-lg);
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: 0 10px 24px rgba(31, 45, 98, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.kid-nav-group:empty,
+.kid-nav-group.hidden {
+    display: none;
+}
+
+.kid-nav-card {
+    appearance: none;
+    border: 0;
+    border-radius: var(--section-surface-radius);
+    background: transparent;
+    padding: 0.6rem 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.1;
+    cursor: pointer;
+    min-width: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+
+.kid-nav-card .kid-nav-card-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    opacity: 0.85;
+}
+
+.kid-nav-card:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.kid-nav-card:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.28);
+    outline-offset: 2px;
+}
+
+.kid-nav-card.active {
+    background: #ffffff;
+    color: #2a345d;
+    box-shadow: 0 6px 16px rgba(15, 20, 60, 0.22);
+    cursor: default;
+    font-weight: 700;
+}
+
+.kid-nav-card.active .kid-nav-card-icon {
+    opacity: 1;
+}
+
 .deck-page {
     max-width: 1000px;
     margin: 0 auto;
@@ -178,6 +286,25 @@ body {
 @media (min-width: 761px) {
     .family-home-page .container {
         max-width: 1000px;
+    }
+}
+
+@media (max-width: 540px) {
+    .kid-nav-group {
+        gap: 0.22rem;
+        padding: 0.22rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .kid-nav-card {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.84rem;
+        gap: 0.35rem;
+    }
+
+    .kid-nav-card .kid-nav-card-icon {
+        width: 16px;
+        height: 16px;
     }
 }
 
@@ -690,11 +817,11 @@ body {
 .shared-report-table-wrap,
 .deck-review-table-wrap,
 .deck-table-wrap {
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    background: var(--section-surface-bg);
+    border-radius: var(--section-surface-radius-compact);
+    box-shadow: var(--section-surface-shadow);
     overflow-x: auto;
-    border: 1px solid #dfe5f2;
+    border: 1px solid var(--section-surface-border-muted);
 }
 
 .shared-report-table,
@@ -855,11 +982,11 @@ body {
 }
 
 .manage-page .settings-section {
-    background: var(--dashboard-panel-bg);
-    border: 1px solid #e9ecef;
-    padding: 1rem;
-    border-radius: 12px;
-    box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
+    background: var(--section-surface-bg-soft);
+    border: 1px solid var(--section-surface-border-soft);
+    padding: var(--section-surface-padding);
+    border-radius: var(--section-surface-radius);
+    box-shadow: var(--section-surface-shadow-soft);
     margin-bottom: var(--section-stack-gap);
 }
 
@@ -2300,11 +2427,11 @@ footer {
 }
 
 .report-page .summary-shell {
-    background: var(--dashboard-panel-bg);
-    border: 1px solid rgba(255, 255, 255, 0.68);
-    border-radius: 12px;
-    box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
-    padding: 1rem;
+    background: var(--section-surface-bg-soft);
+    border: 1px solid var(--section-surface-border);
+    border-radius: var(--section-surface-radius);
+    box-shadow: var(--section-surface-shadow-soft);
+    padding: var(--section-surface-padding);
     margin-bottom: var(--section-stack-gap);
 }
 
@@ -2342,11 +2469,11 @@ footer {
 .report-page .chart-card,
 .report-page .history-card,
 .report-page .daily-chart-wrap {
-    background: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.68);
-    border-radius: 12px;
-    padding: 1rem;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    background: var(--section-surface-bg);
+    border: 1px solid var(--section-surface-border);
+    border-radius: var(--section-surface-radius);
+    padding: var(--section-surface-padding);
+    box-shadow: var(--section-surface-shadow);
     margin-bottom: var(--section-stack-gap);
 }
 
@@ -2382,7 +2509,7 @@ footer {
     .report-page .chart-card,
     .report-page .history-card,
     .report-page .daily-chart-wrap {
-        padding: 0.44rem;
+        padding: var(--section-surface-padding-mobile);
     }
 
     .report-page .summary-grid {
@@ -2442,6 +2569,11 @@ footer {
 @media (max-width: 760px) {
     .section-stack-tight {
         margin-bottom: 0.36rem;
+    }
+
+    .section-surface,
+    .section-surface-soft {
+        padding: var(--section-surface-padding-mobile);
     }
 }
 
