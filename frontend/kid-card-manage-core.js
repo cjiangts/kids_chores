@@ -556,21 +556,20 @@ function getCurrentCategoryDisplayName() {
     return String(currentCategoryDisplayName || '').trim();
 }
 
-async function loadKidNav() {
-    if (!kidNavGroup) {
-        return;
+async function loadKidsAndApplyKidInfo() {
+    const response = await fetch(`${API_BASE}/kids`);
+    const kids = await response.json().catch(() => []);
+    if (!response.ok) {
+        const errorMessage = kids && kids.error ? kids.error : `Failed to load kids (HTTP ${response.status})`;
+        throw new Error(errorMessage);
     }
-    try {
-        const response = await fetch(`${API_BASE}/kids`);
-        if (!response.ok) {
-            return;
-        }
-        const kids = await response.json();
-        cachedKidsForNav = Array.isArray(kids) ? kids : [];
-        renderKidNav();
-    } catch (error) {
-        console.error('Error loading kids for nav:', error);
+    cachedKidsForNav = Array.isArray(kids) ? kids : [];
+    const currentKid = cachedKidsForNav.find((kid) => String(kid && kid.id) === String(kidId));
+    if (!currentKid) {
+        throw new Error('Kid not found');
     }
+    applyKidInfo(currentKid);
+    renderKidNav();
 }
 
 function renderKidNav() {

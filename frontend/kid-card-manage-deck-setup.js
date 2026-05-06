@@ -676,7 +676,14 @@ function resetTreeToBaseline() {
     renderDeckTree();
 }
 
-function openDeckTreeModal() {
+async function openDeckTreeModal() {
+    try {
+        await ensureSharedDecksLoaded();
+    } catch (error) {
+        console.error('Error loading decks for tree modal:', error);
+        showError(error.message || 'Failed to load decks.');
+        return;
+    }
     treeOptedDeckIdSet = new Set(stagedOptedDeckIdSet);
     treeIncludeOrphan = stagedIncludeOrphanInQueue;
     treeExpandedTags = null;

@@ -31,6 +31,7 @@ const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_III = 'type_iii';
 const BEHAVIOR_TYPE_IV = 'type_iv';
 const DRILL_FAST_CORRECT_NEEDED = 2;
+const SUMMARY_FIXED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l2.7-2.7a5.8 5.8 0 0 1-7.1 7.1l-6.9 6.9a1 1 0 0 1-1.4 0l-1.6-1.6a1 1 0 0 1 0-1.4l6.9-6.9a5.8 5.8 0 0 1 7.1-7.1z"/></svg>';
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
 let currentSessionBehaviorType = '';
@@ -195,7 +196,7 @@ function renderDrillSummaryOutcomes(totals) {
             tone: 'fixed',
             label: 'Fixed',
             value: totals.fixed,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.7 6.3 3 3"/><path d="m7 17-4 4 4-1 9.7-9.7a2.12 2.12 0 1 0-3-3z"/><path d="m9 7 1.5-1.5"/><path d="m2 12 1.5-1.5"/></svg>',
+            icon: SUMMARY_FIXED_ICON,
         },
         {
             tone: 'slow',
@@ -226,7 +227,7 @@ function renderStandardSummaryOutcomes(totals) {
             tone: 'fixed',
             label: 'Fixed',
             value: totals.fixed,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.7 6.3 3 3"/><path d="m7 17-4 4 4-1 9.7-9.7a2.12 2.12 0 1 0-3-3z"/><path d="m9 7 1.5-1.5"/><path d="m2 12 1.5-1.5"/></svg>',
+            icon: SUMMARY_FIXED_ICON,
         },
         {
             tone: 'wrong',
@@ -454,7 +455,7 @@ function renderDrillProgressTable(answers) {
         `;
     }).join('');
     const cutoffMs = currentSessionDrillSpeedTargetMs > 0 ? currentSessionDrillSpeedTargetMs : 3000;
-    const cutoffLabel = `Fast cut-off: ${(cutoffMs / 1000).toFixed(1)}s`;
+    const cutoffLabel = `Fast cut-off: ${(cutoffMs / 1000).toFixed(1)}s · Passed = 2 fast correct tries with no wrong or fixed tries`;
     drillProgressBody.innerHTML = `<div class="drill-progress-cutoff">${escapeHtml(cutoffLabel)}</div><table class="drill-progress-table"><tbody>${rows}</tbody></table>`;
 }
 

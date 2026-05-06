@@ -1171,13 +1171,7 @@ async function handleCardsGridClick(event) {
     }
 }
 
-async function loadKidInfo() {
-    const response = await fetch(`${API_BASE}/kids/${kidId}?view=manage`);
-    const kid = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(kid.error || `Failed to load kid (HTTP ${response.status})`);
-    }
-
+function applyKidInfo(kid) {
     const categoryMetaMap = getDeckCategoryMetaMap(kid);
     const categoryMeta = categoryMetaMap[categoryKey] || {};
     const displayName = String(categoryMeta && categoryMeta.display_name ? categoryMeta.display_name : '').trim();
@@ -1221,6 +1215,8 @@ async function loadKidInfo() {
 
     kidNameEl.textContent = 'Card Management';
     includeOrphanByCategory = toCategoryMap(kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
+    baselineIncludeOrphanInQueue = Boolean(includeOrphanByCategory[categoryKey]);
+    stagedIncludeOrphanInQueue = baselineIncludeOrphanInQueue;
     const total = getSessionCountFromKid(kid);
     const safeTotal = Number.isInteger(total) ? clampSessionCardCount(total) : 0;
     if (sessionCardCountInput) {
@@ -1258,25 +1254,38 @@ async function loadSharedType1Decks(options = {}) {
         ? result.orphan_deck
         : null;
 
-    const responseTotal = Number.parseInt(result.session_card_count, 10);
-    if (Number.isInteger(responseTotal)) {
-        const safeTotal = clampSessionCardCount(responseTotal);
-        if (sessionCardCountInput) {
-            sessionCardCountInput.value = String(safeTotal);
-        }
-        setQueueSettingsBaseline(
-            safeTotal,
-            supportsPracticePriorityPreview() ? 0 : baselineHardCardPercent,
-        );
-    }
-    baselineIncludeOrphanInQueue = Boolean(result && result.include_orphan_in_queue);
-    stagedIncludeOrphanInQueue = baselineIncludeOrphanInQueue;
-
     renderDeckPendingInfo();
     updateQueueMixLegend();
     if (!options.skipCards) {
         await loadSharedDeckCards();
     }
+}
+
+let sharedDecksLoadPromise = null;
+let sharedDeckCardsLoadPromise = null;
+
+function ensureSharedDecksLoaded() {
+    if (!sharedDecksLoadPromise) {
+        sharedDecksLoadPromise = loadSharedType1Decks({ skipCards: true })
+            .catch((error) => {
+                sharedDecksLoadPromise = null;
+                throw error;
+            });
+    }
+    return sharedDecksLoadPromise;
+}
+
+function ensureSharedDeckCardsLoaded() {
+    if (!sharedDeckCardsLoadPromise) {
+        sharedDeckCardsLoadPromise = (async () => {
+            await ensureSharedDecksLoaded();
+            await loadSharedDeckCards();
+        })().catch((error) => {
+            sharedDeckCardsLoadPromise = null;
+            throw error;
+        });
+    }
+    return sharedDeckCardsLoadPromise;
 }
 
 async function saveQueueSettings() {

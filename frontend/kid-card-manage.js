@@ -383,23 +383,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    setupCardsViewModeToggle();
-
-    loadKidNav();
-
     sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();
 
     try {
         showError('');
         showSuccess('');
-        await loadKidInfo();
+        await loadKidsAndApplyKidInfo();
         updateQueueMixLegend();
         updateQueueSettingsSaveButtonState();
-        // Fire decks and cards fetches in parallel (both URLs depend only on kid info)
-        await Promise.all([
-            loadSharedType1Decks({ skipCards: true }),
-            loadSharedDeckCards(),
-        ]);
+        if (isType4Behavior()) {
+            ensureSharedDecksLoaded().catch((error) => {
+                console.error('Error preloading shared decks for type-IV:', error);
+            });
+        }
+        setupCardsViewModeToggle();
         updateAddReadingButtonCount();
     } catch (error) {
         console.error('Error initializing category manage:', error);

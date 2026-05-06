@@ -46,7 +46,7 @@ function setupCardsViewModeToggle() {
     setCardsViewMode(currentCardsViewMode);
 }
 
-function setCardsViewMode(mode) {
+async function setCardsViewMode(mode) {
     const next = normalizeCardsViewMode(mode);
     currentCardsViewMode = next;
     try {
@@ -60,8 +60,17 @@ function setCardsViewMode(mode) {
         btn.classList.toggle('active', isActive);
         btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
-    if (next === 'stats') {
-        renderStatsView();
+    if (next === 'queue' || next === 'stats') {
+        try {
+            await ensureSharedDeckCardsLoaded();
+        } catch (error) {
+            console.error('Error loading shared deck cards:', error);
+            return;
+        }
+        if (currentCardsViewMode !== next) return;
+        if (next === 'stats') {
+            renderStatsView();
+        }
     } else if (next === 'report') {
         loadReportViewIfNeeded();
     }
