@@ -171,8 +171,16 @@
             dailyChartPageIndex = view.pageIndex;
             const allowDayDrill = !isPinnedToCategory;
             if (allowDayDrill && !view.pageDateKeys.includes(selectedDayKey)) {
-                const sortedDesc = view.pageDateKeys.slice().sort((a, b) => b.localeCompare(a));
-                selectedDayKey = sortedDesc[0] || '';
+                const today = getTodayKey();
+                if (view.pageDateKeys.includes(today)) {
+                    selectedDayKey = today;
+                } else {
+                    const dataDates = view.pageItems
+                        .map((row) => String(row?.date || ''))
+                        .filter(Boolean)
+                        .sort((a, b) => b.localeCompare(a));
+                    selectedDayKey = dataDates[0] || view.pageDateKeys[view.pageDateKeys.length - 1] || '';
+                }
             }
             syncDatePagerControls({
                 newerBtn: elements.dailyChartNewerBtn,
@@ -182,7 +190,7 @@
                 emptyLabel: 'No data',
             });
 
-            if (rows.length === 0 || view.pageItems.length === 0) {
+            if (rows.length === 0) {
                 elements.dailyChartBody.innerHTML = `<div style="color:#666;font-size:0.9rem;">No active response time yet.</div>`;
                 if (elements.dailyChartLegend) {
                     elements.dailyChartLegend.innerHTML = '';
@@ -191,7 +199,14 @@
                 return;
             }
 
-            const pageRows = view.pageItems.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+            const dataByDate = new Map();
+            for (const row of view.pageItems) {
+                if (row && row.date) dataByDate.set(String(row.date), row);
+            }
+            const pageRows = view.pageDateKeys.map((dateKey) => (
+                dataByDate.get(dateKey)
+                || { date: dateKey, byCategory: {}, total: 0, cards: 0, rightCards: 0, wrongCards: 0, sessions: [] }
+            ));
             const maxTotal = Math.max(...pageRows.map((r) => r.total), 1);
             const showCards = isPinnedToCategory;
             const maxCards = showCards ? Math.max(...pageRows.map((r) => Number(r?.cards) || 0), 1) : 1;
@@ -322,8 +337,12 @@
             const sessions = Array.isArray(filteredSessions) ? filteredSessions : [];
             const view = buildDatePageView(sessions, getSessionDateKey, dailyChartPageIndex, DAILY_CHART_PAGE_SIZE);
 
-            if (sessions.length === 0 || view.pageItems.length === 0) {
+            if (sessions.length === 0) {
                 elements.sessionsList.innerHTML = `<div class="sessions-empty">No practice sessions yet.</div>`;
+                return;
+            }
+            if (view.pageItems.length === 0) {
+                elements.sessionsList.innerHTML = `<div class="sessions-empty">No practice sessions this week.</div>`;
                 return;
             }
 
@@ -593,26 +612,48 @@
             return formatDateKey(session?.started_at || session?.completed_at);
         }
 
-        function buildDatePageView(items, getDateKey, requestedPageIndex, pageSize) {
+        function buildDatePageView(items, getDateKey, requestedPageIndex /* pageSize ignored — pages are 7-day windows ending today */) {
             const source = Array.isArray(items) ? items : [];
-            const size = Math.max(1, Number.parseInt(pageSize, 10) || 7);
-            const seen = new Set();
-            const dateKeys = [];
+            const today = getTodayKey();
+            let oldest = today;
             for (const item of source) {
                 const key = String(getDateKey(item) || '').trim();
-                if (!key || seen.has(key)) continue;
-                seen.add(key);
-                dateKeys.push(key);
+                if (!key) continue;
+                if (key < oldest) oldest = key;
             }
-            const pageCount = dateKeys.length > 0 ? Math.ceil(dateKeys.length / size) : 0;
-            const safePageIndex = pageCount > 0
-                ? Math.max(0, Math.min(Number.parseInt(requestedPageIndex, 10) || 0, pageCount - 1))
-                : 0;
-            const start = safePageIndex * size;
-            const pageDateKeys = dateKeys.slice(start, start + size);
+            const spanDays = daysBetweenKeys(oldest, today);
+            const pageCount = Math.max(1, Math.floor(spanDays / 7) + 1);
+            const safePageIndex = Math.max(0, Math.min(Number.parseInt(requestedPageIndex, 10) || 0, pageCount - 1));
+            const pageEnd = addDaysToKey(today, -safePageIndex * 7);
+            const pageStart = addDaysToKey(pageEnd, -6);
+            const pageDateKeys = [];
+            for (let i = 0; i < 7; i += 1) {
+                pageDateKeys.push(addDaysToKey(pageStart, i));
+            }
             const pageDateSet = new Set(pageDateKeys);
             const pageItems = source.filter((item) => pageDateSet.has(String(getDateKey(item) || '').trim()));
             return { pageIndex: safePageIndex, pageCount, pageDateKeys, pageItems };
+        }
+
+        function getTodayKey() {
+            return formatDateKey(new Date().toISOString());
+        }
+
+        function addDaysToKey(dateKey, days) {
+            const dt = parseDateKeyToUtcNoon(dateKey);
+            if (!dt) return dateKey;
+            const next = new Date(dt.getTime() + days * 86400000);
+            const y = next.getUTCFullYear();
+            const m = String(next.getUTCMonth() + 1).padStart(2, '0');
+            const d = String(next.getUTCDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function daysBetweenKeys(startKey, endKey) {
+            const a = parseDateKeyToUtcNoon(startKey);
+            const b = parseDateKeyToUtcNoon(endKey);
+            if (!a || !b) return 0;
+            return Math.round((b.getTime() - a.getTime()) / 86400000);
         }
 
         function syncDatePagerControls({ newerBtn, olderBtn, labelEl, view, emptyLabel }) {

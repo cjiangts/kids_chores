@@ -411,7 +411,17 @@ function displayKids(kids) {
         const todayRowHtml = isClickable
             ? `<div class="redesign-kid-today-row">
                 <div class="redesign-kid-today-line">Today: <strong>${escapeHtml(String(startedCount))}</strong> of <strong>${escapeHtml(String(enabledRows.length))}</strong> decks started</div>
-                <div class="redesign-star-total"><span aria-hidden="true">⭐</span><span>${escapeHtml(String(starsTotal))}</span></div>
+            </div>`
+            : '';
+
+        const badgeTrackingEnabled = Boolean(kid?.badgeTrackingEnabled);
+        const earnedBadgeCount = Math.max(0, Number.parseInt(kid?.earnedBadgeCount, 10) || 0);
+        const headerStatsHtml = isClickable
+            ? `<div class="redesign-kid-header-stats">
+                ${badgeTrackingEnabled
+                    ? `<div class="redesign-kid-stat-pill"><span aria-hidden="true">🏅</span><span>${escapeHtml(String(earnedBadgeCount))}</span></div>`
+                    : ''}
+                <div class="redesign-kid-stat-pill"><span aria-hidden="true">⭐</span><span>${escapeHtml(String(starsTotal))}</span></div>
             </div>`
             : '';
 
@@ -485,6 +495,7 @@ function displayKids(kids) {
                             ${subTextHtml}
                         </div>
                     </div>
+                    ${headerStatsHtml}
                 </div>
                 ${todayRowHtml}
                 ${progressBarHtml}

@@ -613,67 +613,66 @@ function renderPracticeSummaryStrip({
     const summaryBoxes = [];
     if (assignedCount > 0) {
         summaryBoxes.push(`
-            <div class="redesign-summary-box redesign-summary-box-with-icon">
-                <span class="redesign-summary-icon stars" aria-hidden="true">★</span>
-                <div class="redesign-summary-main">
-                    <p class="redesign-summary-label">Stars today</p>
-                    <p class="redesign-summary-value">${starsTodayCount}</p>
+            <div class="practice-stat-card">
+                <span class="practice-stat-icon-wrap stars" aria-hidden="true">
+                    <span class="practice-stat-icon practice-stat-icon-star">★</span>
+                </span>
+                <div class="practice-stat-text">
+                    <p class="practice-stat-label">Stars Today</p>
+                    <p class="practice-stat-value">${starsTodayCount}</p>
                 </div>
             </div>
         `);
-        if (doneCount > 0) {
-            summaryBoxes.push(`
-                <button type="button" class="redesign-summary-box redesign-summary-box-with-icon redesign-summary-box-clickable" data-practice-action="open-progress-report" aria-label="View today's practice report">
-                    <span class="redesign-summary-icon done" aria-hidden="true">✓</span>
-                    <div class="redesign-summary-main">
-                        <p class="redesign-summary-label">Done</p>
-                        <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
-                    </div>
-                    <span class="redesign-summary-chevron" aria-hidden="true">›</span>
-                </button>
-            `);
-        } else {
-            summaryBoxes.push(`
-                <div class="redesign-summary-box redesign-summary-box-with-icon">
-                    <span class="redesign-summary-icon done" aria-hidden="true">✓</span>
-                    <div class="redesign-summary-main">
-                        <p class="redesign-summary-label">Done</p>
-                        <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
-                    </div>
+        summaryBoxes.push(`
+            <button type="button" class="practice-stat-card practice-stat-card-clickable" data-practice-action="open-progress-report" aria-label="View today's practice report">
+                <span class="practice-stat-icon-wrap report" aria-hidden="true">
+                    <span class="practice-stat-icon">📋</span>
+                </span>
+                <div class="practice-stat-text">
+                    <p class="practice-stat-label">Today's Report</p>
+                    <p class="practice-stat-value">${doneCount}/${assignedCount}<span class="practice-stat-value-unit"> decks done</span></p>
                 </div>
-            `);
-        }
+                <span class="practice-stat-chevron" aria-hidden="true">›</span>
+            </button>
+        `);
     }
     if (badgeShelfSummary.loaded && badgeShelfSummary.trackingEnabled) {
+        const earnedCount = Math.max(0, Number.parseInt(badgeShelfSummary.earnedCount, 10) || 0);
         summaryBoxes.push(`
-            <button type="button" class="badge-summary-box" data-practice-action="open-badge-shelf">
-                <span class="badge-summary-medal" aria-hidden="true">🏅</span>
-                <div class="badge-summary-main">
-                    <p class="redesign-summary-label">Badge Shelf</p>
-                    <p class="redesign-summary-value badge-summary-value">
-                        <span class="badge-summary-count">${
-                            `${Math.max(0, Number.parseInt(badgeShelfSummary.earnedCount, 10) || 0)}`
-                        }</span>
-                    </p>
+            <button type="button" class="practice-stat-card practice-stat-card-clickable practice-stat-card-badge" data-practice-action="open-badge-shelf">
+                <span class="practice-stat-icon-wrap badge" aria-hidden="true">
+                    <span class="practice-stat-icon">🏅</span>
+                </span>
+                <div class="practice-stat-text">
+                    <p class="practice-stat-label">Badge Shelf</p>
+                    <p class="practice-stat-value">${earnedCount}</p>
                 </div>
-                <span class="badge-summary-chevron" aria-hidden="true">›</span>
+                <span class="practice-stat-chevron" aria-hidden="true">›</span>
             </button>
         `);
     } else if (badgeShelfSummary.loaded) {
         summaryBoxes.push(`
-            <button type="button" class="redesign-summary-box progress-summary-box" data-practice-action="open-progress-report">
-                <div class="progress-summary-main">
-                    <p class="redesign-summary-label">Progress</p>
-                    <p class="redesign-summary-value">${Math.max(0, progressCountToday)} today</p>
+            <button type="button" class="practice-stat-card practice-stat-card-clickable" data-practice-action="open-progress-report">
+                <span class="practice-stat-icon-wrap progress" aria-hidden="true">
+                    <span class="practice-stat-icon practice-stat-icon-svg">${icon('bar-chart-3', { size: 22 })}</span>
+                </span>
+                <div class="practice-stat-text">
+                    <p class="practice-stat-label">Progress</p>
+                    <p class="practice-stat-value">${Math.max(0, progressCountToday)}<span class="practice-stat-value-unit"> today</span></p>
                 </div>
-                <span class="progress-summary-chart" aria-hidden="true">${icon('bar-chart-3', { size: 22 })}</span>
+                <span class="practice-stat-chevron" aria-hidden="true">›</span>
             </button>
         `);
     } else {
         summaryBoxes.push(`
-            <div class="redesign-summary-box">
-                <p class="redesign-summary-label">Rewards</p>
-                <p class="redesign-summary-value">...</p>
+            <div class="practice-stat-card">
+                <span class="practice-stat-icon-wrap rewards" aria-hidden="true">
+                    <span class="practice-stat-icon">🎁</span>
+                </span>
+                <div class="practice-stat-text">
+                    <p class="practice-stat-label">Rewards</p>
+                    <p class="practice-stat-value">…</p>
+                </div>
             </div>
         `);
     }

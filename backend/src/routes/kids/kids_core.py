@@ -1,5 +1,6 @@
 """Kid CRUD, deck-categories, and report routes."""
 from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
+from src.badges.service import build_kid_badge_summary_payload
 
 @kids_bp.route('/kids', methods=['GET'])
 def get_kids():
@@ -59,6 +60,7 @@ def get_kids():
             return jsonify(kids_with_admin_summary), 200
 
         family_timezone = metadata.get_family_timezone(family_id)
+        family_badge_tracking_started_at = metadata.get_family_badge_tracking_started_at(family_id)
         kids_with_progress = []
         for kid in kids:
             conn = None
@@ -118,6 +120,15 @@ def get_kids():
                     key: int(today_latest_right_count.get(key, 0) or 0)
                     for key in opted_in_category_keys
                 }
+                badge_summary = build_kid_badge_summary_payload(
+                    conn,
+                    tracking_started_at=family_badge_tracking_started_at,
+                ) if conn is not None else {
+                    'trackingEnabled': False,
+                    'summary': {'earnedCount': 0},
+                }
+                badge_tracking_enabled = bool(badge_summary.get('trackingEnabled'))
+                earned_badge_count = int(((badge_summary.get('summary') or {}).get('earnedCount')) or 0)
                 kid_with_progress = {
                     **kid,
                     'dailyCompletedCountToday': int(today_counts.get('total', 0) or 0),
@@ -131,6 +142,8 @@ def get_kids():
                     'dailyRightByDeckCategory': daily_right_by_deck_category,
                     'practiceTargetByDeckCategory': practice_target_by_deck_category,
                     'deckCategoryMetaByKey': category_meta_by_key,
+                    'badgeTrackingEnabled': badge_tracking_enabled,
+                    'earnedBadgeCount': earned_badge_count,
                 }
                 kids_with_progress.append(kid_with_progress)
             finally:

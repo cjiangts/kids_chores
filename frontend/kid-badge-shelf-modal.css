@@ -1,68 +1,3 @@
-.practice-home-redesign .badge-summary-box {
-    appearance: none;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    background: linear-gradient(135deg, rgba(255, 248, 203, 0.98), rgba(255, 237, 210, 0.95), rgba(240, 244, 255, 0.94));
-    box-shadow: 0 10px 24px rgba(31, 45, 98, 0.16);
-    padding: 8px 10px;
-    color: #2f3c7e;
-    cursor: pointer;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    min-width: 0;
-    width: 100%;
-}
-
-.practice-home-redesign .badge-summary-box:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 14px 28px rgba(31, 45, 98, 0.2);
-}
-
-.practice-home-redesign .badge-summary-main {
-    min-width: 0;
-    flex: 1 1 auto;
-}
-
-.practice-home-redesign .badge-summary-chevron {
-    flex: 0 0 auto;
-    color: #9aa6c2;
-    font-size: 1.4rem;
-    line-height: 1;
-    font-weight: 700;
-}
-
-.practice-home-redesign .badge-summary-box:hover .badge-summary-chevron {
-    color: #4f63cb;
-}
-
-.practice-home-redesign .badge-summary-main .redesign-summary-label {
-    color: #7e5b12;
-}
-
-.practice-home-redesign .badge-summary-value.badge-summary-value {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: #30446f;
-    font-size: 0.94rem;
-    white-space: nowrap;
-}
-
-.practice-home-redesign .badge-summary-value .badge-summary-count {
-    font-weight: 800;
-}
-
-.practice-home-redesign .badge-summary-medal {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.85rem;
-    line-height: 1;
-    flex: 0 0 auto;
-}
-
 .badge-modal-content {
     --badge-panel-height: min(54vh, 520px);
     max-width: 760px;
@@ -438,29 +373,6 @@
 }
 
 @media (max-width: 520px) {
-    .practice-home-redesign .badge-summary-box {
-        padding: 6px 7px;
-        gap: 6px;
-    }
-
-    .practice-home-redesign .badge-summary-main .redesign-summary-label {
-        font-size: 0.5rem;
-        letter-spacing: 0.09em;
-    }
-
-    .practice-home-redesign .badge-summary-value.badge-summary-value {
-        font-size: 0.88rem;
-        gap: 4px;
-    }
-
-    .practice-home-redesign .badge-summary-medal {
-        font-size: 1.4rem;
-    }
-
-    .practice-home-redesign .badge-summary-chevron {
-        font-size: 1.15rem;
-    }
-
     .badge-detail-panel {
         grid-template-columns: 70px minmax(0, 1fr);
         gap: 10px;

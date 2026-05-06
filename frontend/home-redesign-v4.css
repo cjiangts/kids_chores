@@ -173,7 +173,7 @@ body.practice-home-redesign {
 .family-home-page .redesign-kid-top,
 .parent-admin-page .redesign-kid-top {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
     margin-bottom: 10px;
@@ -196,8 +196,15 @@ body.practice-home-redesign {
     font-weight: 600;
 }
 
-.family-home-page .redesign-star-total {
-    min-width: 56px;
+.family-home-page .redesign-kid-header-stats {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+.family-home-page .redesign-kid-stat-pill {
     min-height: 32px;
     border-radius: 10px;
     border: 1px solid #e5e8ff;
@@ -1333,133 +1340,138 @@ body.practice-home-redesign {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 
-.practice-home-redesign .redesign-summary-box {
-    padding: 8px 10px;
+.practice-home-redesign .practice-stat-card {
+    position: relative;
+    appearance: none;
+    border: 0;
     border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    background: rgba(255, 255, 255, 0.93);
-    box-shadow: 0 10px 24px rgba(31, 45, 98, 0.14);
-}
-
-.practice-home-redesign .redesign-summary-box-with-icon {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-}
-
-.practice-home-redesign .redesign-summary-main {
-    min-width: 0;
-    flex: 1 1 auto;
-}
-
-.practice-home-redesign .redesign-summary-icon {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.85rem;
-    line-height: 1;
-    font-weight: 800;
-}
-
-.practice-home-redesign .redesign-summary-icon.stars {
-    color: #f3b53f;
-    text-shadow: 0 1px 2px rgba(178, 121, 0, 0.25);
-}
-
-.practice-home-redesign .redesign-summary-icon.done {
-    color: #2da866;
-}
-
-.practice-home-redesign .redesign-summary-box-clickable {
-    appearance: none;
-    width: 100%;
-    text-align: left;
-    color: #1f5d3a;
-    cursor: pointer;
-    font: inherit;
-    background: linear-gradient(135deg, rgba(214, 245, 224, 0.98), rgba(225, 248, 215, 0.95), rgba(240, 252, 244, 0.94));
-    box-shadow: 0 10px 24px rgba(31, 98, 60, 0.16);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.practice-home-redesign .redesign-summary-box-clickable:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 14px 28px rgba(31, 98, 60, 0.22);
-}
-
-.practice-home-redesign .redesign-summary-box-clickable .redesign-summary-label {
-    color: #2f7a4f;
-}
-
-.practice-home-redesign .redesign-summary-chevron {
-    flex: 0 0 auto;
-    color: #7fb398;
-    font-size: 1.4rem;
-    line-height: 1;
-    font-weight: 700;
-    margin-left: auto;
-}
-
-.practice-home-redesign .redesign-summary-box-clickable:hover .redesign-summary-chevron {
-    color: #2da866;
-}
-
-.practice-home-redesign .progress-summary-box {
-    appearance: none;
-    width: 100%;
-    text-align: left;
+    background: #fff;
     color: inherit;
-    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    padding: 10px 26px 10px 10px;
+    box-shadow: 0 8px 20px rgba(31, 45, 98, 0.16);
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    flex-direction: row;
+    align-items: center;
     gap: 10px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.practice-home-redesign .progress-summary-box:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 14px 28px rgba(31, 45, 98, 0.18);
-    background: rgba(255, 255, 255, 0.98);
-}
-
-.practice-home-redesign .progress-summary-main {
     min-width: 0;
 }
 
-.practice-home-redesign .progress-summary-chart {
-    width: 40px;
-    height: 40px;
-    border-radius: 14px;
-    border: 1px solid rgba(210, 217, 235, 0.95);
-    background: rgba(244, 247, 255, 0.96);
+.practice-home-redesign .practice-stat-card-clickable {
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.practice-home-redesign .practice-stat-card-clickable:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 34px rgba(31, 45, 98, 0.24);
+}
+
+.practice-home-redesign .practice-stat-chevron {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    color: #9aa6c2;
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.practice-home-redesign .practice-stat-card-clickable:hover .practice-stat-chevron {
+    color: #4f63cb;
+}
+
+.practice-home-redesign .practice-stat-icon-wrap {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.05rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
     flex: 0 0 auto;
-    align-self: flex-start;
 }
 
-.practice-home-redesign .redesign-summary-label {
-    margin: 0;
-    color: #6b7796;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-size: 0.6rem;
-    font-weight: 800;
+.practice-home-redesign .practice-stat-icon-wrap.stars {
+    background: #fff3c8;
 }
 
-.practice-home-redesign .redesign-summary-value {
-    margin: 0.14rem 0 0;
-    color: #233457;
-    font-size: 0.94rem;
-    font-weight: 800;
+.practice-home-redesign .practice-stat-icon-wrap.report {
+    background: #e7e8fb;
+}
+
+.practice-home-redesign .practice-stat-icon-wrap.badge {
+    background: #ffe7c2;
+}
+
+.practice-home-redesign .practice-stat-icon-wrap.progress {
+    background: #e7e8fb;
+    color: #4f63cb;
+}
+
+.practice-home-redesign .practice-stat-icon-wrap.rewards {
+    background: #f4f6ff;
+}
+
+.practice-home-redesign .practice-stat-icon {
+    font-size: 2.6rem;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.practice-home-redesign .practice-stat-icon-star {
+    color: #f3b53f;
+    font-size: 2.7rem;
+    text-shadow: 0 1px 2px rgba(178, 121, 0, 0.28);
+}
+
+.practice-home-redesign .practice-stat-icon-svg {
+    color: #4f63cb;
+}
+
+.practice-home-redesign .practice-stat-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.practice-home-redesign .practice-stat-label {
+    margin: 0;
+    color: #44507a;
+    font-size: 0.88rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.practice-home-redesign .practice-stat-value {
+    margin: 0;
+    color: #1c2541;
+    font-size: 1.35rem;
+    font-weight: 850;
+    line-height: 1.05;
+}
+
+.practice-home-redesign .practice-stat-value-unit {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #6b7796;
+    margin-left: 2px;
+}
+
+.practice-home-redesign .practice-stat-sub {
+    margin: 1px 0 0;
+    color: #6b7796;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.1;
 }
 
 @media (max-width: 980px) {
@@ -1683,11 +1695,15 @@ body.practice-home-redesign {
         font-size: 0.72rem;
     }
 
-    .family-home-page .redesign-star-total {
-        min-width: 60px;
-        min-height: 34px;
-        font-size: 0.84rem;
+    .family-home-page .redesign-kid-stat-pill {
+        min-height: 30px;
+        font-size: 0.8rem;
         padding: 0 8px;
+        gap: 4px;
+    }
+
+    .family-home-page .redesign-kid-header-stats {
+        gap: 4px;
     }
 
     .family-home-page .redesign-subject-title,
@@ -1731,16 +1747,31 @@ body.practice-home-redesign {
         gap: 8px;
     }
 
-    .practice-home-redesign .redesign-summary-box {
-        padding: 7px 9px;
-    }
-
-    .practice-home-redesign .progress-summary-box {
+    .practice-home-redesign .practice-stat-card {
+        padding: 8px 22px 8px 8px;
+        border-radius: 12px;
         gap: 8px;
     }
 
-    .practice-home-redesign .redesign-summary-value {
-        font-size: 1rem;
+    .practice-home-redesign .practice-stat-icon-wrap {
+        width: 44px;
+        height: 44px;
+    }
+
+    .practice-home-redesign .practice-stat-icon {
+        font-size: 2.05rem;
+    }
+
+    .practice-home-redesign .practice-stat-icon-star {
+        font-size: 2.1rem;
+    }
+
+    .practice-home-redesign .practice-stat-label {
+        font-size: 0.78rem;
+    }
+
+    .practice-home-redesign .practice-stat-value {
+        font-size: 1.15rem;
     }
 
     .redesign-soft-btn {
@@ -1791,20 +1822,45 @@ body.practice-home-redesign {
         gap: 6px;
     }
 
-    .practice-home-redesign .redesign-summary-box {
-        padding: 6px 7px;
-    }
-
-    .practice-home-redesign .redesign-summary-box-with-icon {
+    .practice-home-redesign .practice-stat-card {
+        padding: 6px 18px 6px 6px;
+        border-radius: 11px;
         gap: 6px;
     }
 
-    .practice-home-redesign .redesign-summary-icon {
-        font-size: 1.4rem;
+    .practice-home-redesign .practice-stat-icon-wrap {
+        width: 38px;
+        height: 38px;
     }
 
-    .practice-home-redesign .progress-summary-box {
-        gap: 6px;
+    .practice-home-redesign .practice-stat-icon {
+        font-size: 1.75rem;
+    }
+
+    .practice-home-redesign .practice-stat-icon-star {
+        font-size: 1.8rem;
+    }
+
+    .practice-home-redesign .practice-stat-chevron {
+        right: 4px;
+        font-size: 0.95rem;
+    }
+
+    .practice-home-redesign .practice-stat-label {
+        font-size: 0.66rem;
+    }
+
+    .practice-home-redesign .practice-stat-value {
+        font-size: 0.98rem;
+        line-height: 1.05;
+    }
+
+    .practice-home-redesign .practice-stat-value-unit {
+        font-size: 0.6rem;
+    }
+
+    .practice-home-redesign .practice-stat-sub {
+        font-size: 0.6rem;
     }
 
     .practice-home-redesign .redesign-practice-option {
@@ -1833,19 +1889,6 @@ body.practice-home-redesign {
     .practice-home-redesign .redesign-summary-label {
         font-size: 0.5rem;
         letter-spacing: 0.08em;
-    }
-
-    .practice-home-redesign .redesign-summary-value {
-        margin-top: 0.12rem;
-        font-size: 0.88rem;
-        line-height: 1.05;
-    }
-
-    .practice-home-redesign .progress-summary-chart {
-        width: 28px;
-        height: 28px;
-        border-radius: 9px;
-        font-size: 0.78rem;
     }
 
     .practice-home-redesign .practice-row-head h3 {

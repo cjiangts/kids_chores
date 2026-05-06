@@ -19,7 +19,9 @@ const BEHAVIOR_TYPE_IV = 'type_iv';
 const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
+const cardReportHero = document.getElementById('cardReportHero');
 const trendChart = document.getElementById('trendChart');
+const trendLegend = document.getElementById('trendLegend');
 const historyList = document.getElementById('historyList');
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentKidName = '';
@@ -41,31 +43,15 @@ function bindBackButton() {
 }
 
 function resolveBackHref() {
-    if (from === 'cards') {
-        const qs = new URLSearchParams();
-        qs.set('id', String(kidId || ''));
-        if (categoryKey) {
-            qs.set('categoryKey', categoryKey);
-        }
-        return `/kid-card-manage.html?${qs.toString()}`;
+    if (from !== 'cards' && from !== 'type2' && from !== 'lesson-reading') {
+        return '/admin.html';
     }
-    if (from === 'type2') {
-        const qs = new URLSearchParams();
-        qs.set('id', String(kidId || ''));
-        if (categoryKey) {
-            qs.set('categoryKey', categoryKey);
-        }
-        return `/kid-card-manage.html?${qs.toString()}`;
+    const qs = new URLSearchParams();
+    qs.set('id', String(kidId || ''));
+    if (categoryKey) {
+        qs.set('categoryKey', categoryKey);
     }
-    if (from === 'lesson-reading') {
-        const qs = new URLSearchParams();
-        qs.set('id', String(kidId || ''));
-        if (categoryKey) {
-            qs.set('categoryKey', categoryKey);
-        }
-        return `/kid-card-manage.html?${qs.toString()}`;
-    }
-    return `/admin.html`;
+    return `/kid-card-manage.html?${qs.toString()}`;
 }
 
 async function loadCardReport() {
@@ -86,13 +72,14 @@ async function loadCardReport() {
         currentCardBack = String(card.back || '').trim();
         currentDeckName = String(card.deck_name || '').trim();
 
-        const cardLabel = getCardDisplayLabel(card.front, card.back, from) || `#${card.id || cardId}`;
-        pageTitle.textContent = `${kidName} · Card ${cardLabel}`;
+        pageTitle.textContent = `${kidName} · Card History`;
         document.title = `${kidName} - Card Report - Kids Daily Chores`;
 
+        renderHero(card, attempts);
         renderTrend(attempts);
         renderHistory(attempts);
         scrollToTargetAttempt();
+        if (window.hydrateIcons) window.hydrateIcons(document);
     } catch (error) {
         console.error('Error loading card report:', error);
         showError('Failed to load card report.');
@@ -116,7 +103,57 @@ async function loadReportTimezone() {
     }
 }
 
+function renderHero(card, attempts) {
+    if (!cardReportHero) return;
+
+    const cardLabel = getCardDisplayLabel(card?.front, card?.back, from)
+        || `#${card?.id || cardId}`;
+    const labelText = String(cardLabel || '');
+    const len = [...labelText].length;
+    let sizeClass = 'size-xl';
+    if (len > 12) sizeClass = 'size-sm';
+    else if (len > 6) sizeClass = 'size-md';
+    else if (len > 2) sizeClass = 'size-lg';
+    const labelClasses = ['card-report-hero-icon-text', sizeClass];
+    if (isChineseLikeText(labelText)) labelClasses.push('chinese-specific');
+
+    const counts = { right: 0, fixed: 0, wrong: 0, half: 0, pending: 0 };
+    attempts.forEach((item) => {
+        const correctness = resolveCorrectness(item);
+        counts[correctness] = (counts[correctness] || 0) + 1;
+    });
+
+    const total = attempts.length;
+
+    const stats = [
+        { key: 'attempts', icon: 'layers', value: String(total), label: 'attempts' },
+        { key: 'right', icon: 'check', value: String(counts.right), label: 'right' },
+        { key: 'fixed', icon: 'rotate-ccw', value: String(counts.fixed), label: 'fixed' },
+        { key: 'wrong', icon: 'x', value: String(counts.wrong), label: 'wrong' },
+    ];
+
+    const statsHtml = stats.map((s) => `
+        <div class="hero-stat hero-stat--${s.key}">
+            <span class="hero-stat-iconbox">${window.icon ? window.icon(s.icon, { size: 14, strokeWidth: 2.4 }) : ''}</span>
+            <span class="hero-stat-value">${escapeHtml(s.value)}</span>
+            <span class="hero-stat-label">${escapeHtml(s.label)}</span>
+        </div>
+    `).join('');
+
+    cardReportHero.innerHTML = `
+        <div class="card-report-hero">
+            <div class="card-report-hero-icon">
+                <span class="${labelClasses.join(' ')}">${escapeHtml(labelText)}</span>
+            </div>
+            <div class="card-report-hero-content">
+                <div class="card-report-hero-stats">${statsHtml}</div>
+            </div>
+        </div>
+    `;
+}
+
 function renderTrend(attempts) {
+    if (trendLegend) trendLegend.innerHTML = '';
     if (!attempts.length) {
         trendChart.innerHTML = `<div class="chart-empty">No attempts yet for this card.</div>`;
         return;
@@ -151,10 +188,10 @@ function renderTrend(attempts) {
     const yTicks = [];
     for (let v = 0; v <= yMax + 0.5; v += stepMs) yTicks.push(v);
 
-    const MAX_OFFSET_PX = 130;
+    const MAX_OFFSET_PX = 180;
     const TOP_PADDING_PX = 14;
     items.forEach((it) => {
-        it.xPct = (it.daysAgo / maxDays) * 100;
+        it.xPct = (1 - it.daysAgo / maxDays) * 100;
         it.bottomPx = (it.ms / yMax) * MAX_OFFSET_PX;
     });
 
@@ -164,6 +201,36 @@ function renderTrend(attempts) {
     const markerHtml = sorted.map((it) => {
         return `<div class="trend-marker ${it.correctness}" style="left:${it.xPct.toFixed(2)}%; bottom:${it.bottomPx.toFixed(1)}px;" title="${escapeHtml(it.title)}"></div>`;
     }).join('');
+
+    const chronoItems = [...items].sort((a, b) => {
+        const at = parseUtcTimestamp(a.ts).getTime() || 0;
+        const bt = parseUtcTimestamp(b.ts).getTime() || 0;
+        return at - bt;
+    });
+    let avgSum = 0;
+    const avgPoints = chronoItems.map((it, i) => {
+        avgSum += it.ms;
+        const avg = avgSum / (i + 1);
+        const x = it.xPct;
+        const y = stageHeight - (avg / yMax) * MAX_OFFSET_PX;
+        return { x, y };
+    });
+    if (avgPoints.length && avgPoints[avgPoints.length - 1].x < 100) {
+        const last = avgPoints[avgPoints.length - 1];
+        avgPoints.push({ x: 100, y: last.y });
+    }
+    const avgPathPoints = avgPoints.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(1)}`).join(' ');
+    const avgLineHtml = chronoItems.length >= 2
+        ? `<svg class="trend-avg-line" preserveAspectRatio="none" viewBox="0 0 100 ${stageHeight}" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+            <polyline points="${avgPathPoints}" fill="none" stroke="#5b6acf" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.85" />
+           </svg>`
+        : '';
+    const finalAvgMs = chronoItems.length ? avgSum / chronoItems.length : 0;
+    const finalAvgBottomPx = (finalAvgMs / yMax) * MAX_OFFSET_PX;
+    const finalAvgLabel = formatTrendResponseTime(finalAvgMs, useMinutesUnit);
+    const avgAnnotationHtml = chronoItems.length >= 2
+        ? `<div class="trend-avg-annotation" style="bottom:${finalAvgBottomPx.toFixed(1)}px;">${escapeHtml(finalAvgLabel)}</div>`
+        : '';
 
     const tickSegments = 6;
     const gridVHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
@@ -180,14 +247,19 @@ function renderTrend(attempts) {
     }).join('');
     const tickLabelHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
         const pct = (i / tickSegments) * 100;
-        const dayValue = Math.round((i / tickSegments) * maxDays);
-        return `<div class="trend-numberline-tick-label" style="left:${pct}%">${dayValue}d</div>`;
+        const dayValue = Math.round((1 - i / tickSegments) * maxDays);
+        let label;
+        if (i === tickSegments) {
+            label = 'today';
+        } else if (i === 0) {
+            label = `${dayValue}d ago`;
+        } else {
+            label = `${dayValue}d`;
+        }
+        return `<div class="trend-numberline-tick-label" style="left:${pct}%">${escapeHtml(label)}</div>`;
     }).join('');
 
-    const legendCounts = items.reduce((acc, it) => {
-        acc[it.correctness] = (acc[it.correctness] || 0) + 1;
-        return acc;
-    }, {});
+    const presentCorrectness = new Set(items.map((it) => it.correctness));
     const legendOrder = [
         ['right', 'Right'],
         ['half', 'Half'],
@@ -196,20 +268,27 @@ function renderTrend(attempts) {
         ['pending', 'Ungraded'],
     ];
     const legendParts = legendOrder
-        .filter(([key]) => legendCounts[key])
-        .map(([key, label]) => `<span class="trend-legend-dot ${key}"></span> ${label} (${legendCounts[key]})`);
-    const legendHtml = legendParts.length
-        ? `<div class="trend-legend">${legendParts.join('<span class="trend-legend-sep">·</span>')}</div>`
-        : '';
+        .filter(([key]) => presentCorrectness.has(key))
+        .map(([key, label]) => `<span><span class="trend-legend-dot ${key}"></span>${label}</span>`);
+    if (chronoItems.length >= 2) {
+        legendParts.push('<span><span class="trend-legend-line"></span>Avg</span>');
+    }
+    if (trendLegend) {
+        trendLegend.innerHTML = legendParts.join('');
+    }
 
-    trendChart.innerHTML = `${legendHtml}
+    trendChart.innerHTML = `
         <div class="trend-numberline">
             <div class="trend-numberline-stage">
-                <div class="trend-yaxis-col" style="height:${stageHeight}px;">${yLabelHtml}</div>
+                <div class="trend-yaxis-col" style="height:${stageHeight}px;">
+                    ${yLabelHtml}
+                </div>
                 <div class="trend-plot-col">
                     <div class="trend-numberline-arrows" style="height:${stageHeight}px;">
                         <div class="trend-grid">${gridHHtml}${gridVHtml}</div>
+                        ${avgLineHtml}
                         ${markerHtml}
+                        ${avgAnnotationHtml}
                     </div>
                     <div class="trend-numberline-axis"></div>
                     <div class="trend-numberline-tick-labels">${tickLabelHtml}</div>
@@ -254,6 +333,8 @@ function renderHistory(attempts) {
         return bTime - aTime;
     });
 
+    const currentSessionId = sorted.length ? Number(sorted[0]?.session_id) : null;
+
     historyList.innerHTML = sorted.map((item) => {
         const rawMs = getAttemptDisplayResponseMs(item);
         const responseTimeLabel = formatResponseTime(rawMs);
@@ -265,6 +346,13 @@ function renderHistory(attempts) {
         const daysAgoSuffix = daysAgoLabel ? ` <span class="history-days-ago">(${escapeHtml(daysAgoLabel)})</span>` : '';
         const sessionUrl = buildSessionReportUrl(item);
         const chevronHtml = sessionUrl ? '<span class="history-chevron" aria-hidden="true">›</span>' : '';
+        const isCurrentSession = currentSessionId !== null
+            && Number.isFinite(currentSessionId)
+            && Number(item?.session_id) === currentSessionId;
+        const currentSessionPillHtml = isCurrentSession
+            ? '<span class="history-current-session-pill">Current session</span>'
+            : '';
+        const currentSessionClass = isCurrentSession ? ' current-session-item' : '';
         if (isType3Attempt(item)) {
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
             const sourceDeckLabel = formatSourceDeckLabel(currentDeckName);
@@ -297,13 +385,14 @@ function renderHistory(attempts) {
                 `
                 : '';
             return `
-                <div class="history-item type3-history-item"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
+                <div class="history-item type3-history-item${currentSessionClass}"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                     <div class="history-head-row">
                         <div class="history-title-stack">
                             ${detailHtml}
                         </div>
                         <div class="answer-head-actions">
                             ${renderType3HistoryStatusHtml(correctness)}
+                            ${currentSessionPillHtml}
                             ${downloadButtonHtml}
                             ${goToSessionButtonHtml}
                         </div>
@@ -323,8 +412,8 @@ function renderHistory(attempts) {
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
             const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
             const itemOpen = sessionUrl
-                ? `<a class="history-item history-item-link"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
-                : `<div class="history-item"${idAttrPart}>`;
+                ? `<a class="history-item history-item-link${currentSessionClass}"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
+                : `<div class="history-item${currentSessionClass}"${idAttrPart}>`;
             const itemClose = sessionUrl ? '</a>' : '</div>';
             return `
                 ${itemOpen}
@@ -338,6 +427,7 @@ function renderHistory(attempts) {
                         <div class="history-status-side">
                             <div class="history-time-badge">Avg ${escapeHtml(responseTimeLabel)}</div>
                             <span class="pill ${statusClass}">${statusText}</span>
+                            ${currentSessionPillHtml}
                         </div>
                     </div>
                     <div class="meta">
@@ -358,8 +448,8 @@ function renderHistory(attempts) {
             : '';
         const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
         const itemOpen = sessionUrl
-            ? `<a class="history-item history-item-link"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
-            : `<div class="history-item"${idAttrPart}>`;
+            ? `<a class="history-item history-item-link${currentSessionClass}"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
+            : `<div class="history-item${currentSessionClass}"${idAttrPart}>`;
         const itemClose = sessionUrl ? '</a>' : '</div>';
         return `
             ${itemOpen}
@@ -375,6 +465,7 @@ function renderHistory(attempts) {
                         <div class="history-time-badge">${escapeHtml(responseTimeLabel)}</div>
                         ${retryBadgeHtml}
                         <span class="pill ${statusClass}">${statusText}</span>
+                        ${currentSessionPillHtml}
                     </div>
                 </div>
                 <div class="meta">
