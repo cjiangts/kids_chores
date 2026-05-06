@@ -1361,6 +1361,18 @@ body.practice-home-redesign {
     min-width: 0;
 }
 
+.practice-home-redesign .practice-stat-card:has(.practice-stat-icon-wrap.stars) {
+    background: #fff9e0;
+}
+
+.practice-home-redesign .practice-stat-card:has(.practice-stat-icon-wrap.report) {
+    background: #f1f2fc;
+}
+
+.practice-home-redesign .practice-stat-card:has(.practice-stat-icon-wrap.badge) {
+    background: #fff2dc;
+}
+
 .practice-home-redesign .practice-stat-card-clickable {
     cursor: pointer;
     transition: transform 0.18s ease, box-shadow 0.18s ease;

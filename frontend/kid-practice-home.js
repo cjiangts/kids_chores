@@ -630,7 +630,7 @@ function renderPracticeSummaryStrip({
                 </span>
                 <div class="practice-stat-text">
                     <p class="practice-stat-label">Today's Report</p>
-                    <p class="practice-stat-value">${doneCount}/${assignedCount}<span class="practice-stat-value-unit"> decks done</span></p>
+                    <p class="practice-stat-value">${doneCount}/${assignedCount}</p>
                 </div>
                 <span class="practice-stat-chevron" aria-hidden="true">›</span>
             </button>
