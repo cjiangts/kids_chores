@@ -31,7 +31,7 @@ const BEHAVIOR_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_III = 'type_iii';
 const BEHAVIOR_TYPE_IV = 'type_iv';
 const DRILL_FAST_CORRECT_NEEDED = 2;
-const SUMMARY_FIXED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l2.7-2.7a5.8 5.8 0 0 1-7.1 7.1l-6.9 6.9a1 1 0 0 1-1.4 0l-1.6-1.6a1 1 0 0 1 0-1.4l6.9-6.9a5.8 5.8 0 0 1 7.1-7.1z"/></svg>';
+const SUMMARY_FIXED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentSessionType = '';
 let currentSessionBehaviorType = '';
@@ -116,7 +116,7 @@ async function loadSessionDetail() {
             0,
             Number.parseInt(session.drill_speed_target_ms, 10) || 0
         );
-        pageTitle.textContent = `${kidName} · Session #${session.id || sessionId}`;
+        pageTitle.textContent = `${kidName} · Session`;
         document.title = `${kidName} - Session #${session.id || sessionId} - Kids Daily Chores`;
 
         const answers = Array.isArray(data.answers) ? data.answers : [];
@@ -145,6 +145,7 @@ function renderSummary(session, answers) {
     const iconAnswered = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>';
     const iconMode = window.icon('target', { strokeWidth: 2, className: '' });
     const iconActiveTime = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>';
+    const iconWhen = window.icon('history', { strokeWidth: 2, className: '' });
     const summaryFooterHtml = drillCardCounts
         ? renderDrillSummaryOutcomes(drillCardCounts)
         : renderStandardSummaryOutcomes(counts);
@@ -153,29 +154,36 @@ function renderSummary(session, answers) {
             <div class="session-summary-stat">
                 <div class="stat-icon">${iconStarted}</div>
                 <div class="session-summary-stat-body">
+                    <div class="value">${escapeHtml(startedDate)}</div>
                     <div class="label">Started</div>
-                    <div class="value"><span>${escapeHtml(startedDate)}</span>${relativeDay ? `<span class="value-meta">${escapeHtml(relativeDay)}</span>` : ''}</div>
+                </div>
+            </div>
+            <div class="session-summary-stat">
+                <div class="stat-icon">${iconWhen}</div>
+                <div class="session-summary-stat-body">
+                    <div class="value">${escapeHtml(relativeDay || '—')}</div>
+                    <div class="label">When</div>
                 </div>
             </div>
             <div class="session-summary-stat">
                 <div class="stat-icon">${iconAnswered}</div>
                 <div class="session-summary-stat-body">
-                    <div class="label">Answered</div>
                     <div class="value">${safeNum(session?.answer_count)}</div>
+                    <div class="label">Answered</div>
                 </div>
             </div>
             <div class="session-summary-stat">
                 <div class="stat-icon">${iconMode}</div>
                 <div class="session-summary-stat-body">
-                    <div class="label">Mode</div>
                     <div class="value">${escapeHtml(modeLabel)}</div>
+                    <div class="label">Mode</div>
                 </div>
             </div>
             <div class="session-summary-stat">
                 <div class="stat-icon">${iconActiveTime}</div>
                 <div class="session-summary-stat-body">
-                    <div class="label">Active Time</div>
                     <div class="value" id="summaryActiveTimeValue">${escapeHtml(formatActiveMinutes(totalActiveMs))}</div>
+                    <div class="label">Active Time</div>
                 </div>
             </div>
         </div>
@@ -248,8 +256,8 @@ function renderSummaryOutcomes(items, columns = 4) {
                 <div class="session-summary-drill-outcome ${item.tone}">
                     <div class="session-summary-drill-outcome-icon">${item.icon}</div>
                     <div class="session-summary-drill-outcome-body">
-                        <div class="session-summary-drill-outcome-label">${item.label}</div>
                         <div class="session-summary-drill-outcome-value">${safeNum(item.value)}</div>
+                        <div class="session-summary-drill-outcome-label">${item.label}</div>
                     </div>
                 </div>
             `).join('')}

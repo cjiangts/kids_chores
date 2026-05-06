@@ -339,20 +339,16 @@ function renderHistory(attempts) {
         const rawMs = getAttemptDisplayResponseMs(item);
         const responseTimeLabel = formatResponseTime(rawMs);
         const correctness = resolveCorrectness(item);
-        const statusClass = correctness;
-        const statusText = getCorrectnessLabel(correctness);
         const itemTimestamp = item.session_completed_at || item.session_started_at || item.timestamp;
         const daysAgoLabel = formatDaysAgo(itemTimestamp);
-        const daysAgoSuffix = daysAgoLabel ? ` <span class="history-days-ago">(${escapeHtml(daysAgoLabel)})</span>` : '';
+        const daysAgoBadge = daysAgoLabel ? `<span class="history-days-badge">${escapeHtml(daysAgoLabel)}</span>` : '';
         const sessionUrl = buildSessionReportUrl(item);
         const chevronHtml = sessionUrl ? '<span class="history-chevron" aria-hidden="true">›</span>' : '';
         const isCurrentSession = currentSessionId !== null
             && Number.isFinite(currentSessionId)
             && Number(item?.session_id) === currentSessionId;
-        const currentSessionPillHtml = isCurrentSession
-            ? '<span class="history-current-session-pill">Current session</span>'
-            : '';
         const currentSessionClass = isCurrentSession ? ' current-session-item' : '';
+        const toneClass = correctness ? ` tone-${correctness}` : '';
         if (isType3Attempt(item)) {
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
             const sourceDeckLabel = formatSourceDeckLabel(currentDeckName);
@@ -385,23 +381,19 @@ function renderHistory(attempts) {
                 `
                 : '';
             return `
-                <div class="history-item type3-history-item${currentSessionClass}"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
+                <div class="history-item type3-history-item${currentSessionClass}${toneClass}"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                     <div class="history-head-row">
                         <div class="history-title-stack">
                             ${detailHtml}
                         </div>
                         <div class="answer-head-actions">
                             ${renderType3HistoryStatusHtml(correctness)}
-                            ${currentSessionPillHtml}
+                            ${daysAgoBadge}
                             ${downloadButtonHtml}
                             ${goToSessionButtonHtml}
                         </div>
                     </div>
                     ${audioBlockHtml}
-                    <div class="meta">
-                        ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
-                        · Session #${safeNum(item.session_id)}
-                    </div>
                 </div>
             `;
         }
@@ -412,65 +404,53 @@ function renderHistory(attempts) {
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
             const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
             const itemOpen = sessionUrl
-                ? `<a class="history-item history-item-link${currentSessionClass}"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
-                : `<div class="history-item${currentSessionClass}"${idAttrPart}>`;
+                ? `<a class="history-item history-item-link${currentSessionClass}${toneClass}"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
+                : `<div class="history-item${currentSessionClass}${toneClass}"${idAttrPart}>`;
             const itemClose = sessionUrl ? '</a>' : '</div>';
             return `
                 ${itemOpen}
-                    <div class="history-head-row">
-                        <div class="history-title-stack">
-                            <div class="history-primary">${escapeHtml(prompt)}</div>
-                            <div class="history-type4-details">
+                    <div class="history-type4-details">
+                        <span class="history-details-main">
+                            <span class="history-detail-group">
+                                <span class="history-type4-submitted-label">Question:</span> <span class="history-type4-pill question-pill">${escapeHtml(prompt)}</span>
+                                <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill answer-pill">${escapeHtml(answer)}</span>
+                            </span>
+                            <span class="history-detail-group submitted-group">
                                 <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
-                            </div>
-                        </div>
-                        <div class="history-status-side">
-                            <div class="history-time-badge">Avg ${escapeHtml(responseTimeLabel)}</div>
-                            <span class="pill ${statusClass}">${statusText}</span>
-                            ${currentSessionPillHtml}
-                        </div>
-                    </div>
-                    <div class="meta">
-                        ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
-                        · Session #${safeNum(item.session_id)}
+                            </span>
+                        </span>
+                        <span class="history-detail-group history-time-group">
+                            <span class="history-time-badge">${escapeHtml(responseTimeLabel)}</span>
+                            ${daysAgoBadge}
+                        </span>
                     </div>
                     ${chevronHtml}
                 ${itemClose}
             `;
         }
-        const prompt = getType1AttemptPrompt(item);
         const answer = getType1AttemptAnswer(item) || 'n/a';
         const submittedPills = getType1AttemptSubmittedPills(item);
         const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
-        const retryFixCount = getRetryFixCount(item);
-        const retryBadgeHtml = retryFixCount > 0
-            ? `<span class="history-retry-badge" title="${escapeHtml(getRetryFixLabel(retryFixCount))}">${escapeHtml(getRetryFixShortLabel(retryFixCount))}</span>`
-            : '';
         const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
         const itemOpen = sessionUrl
-            ? `<a class="history-item history-item-link${currentSessionClass}"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
-            : `<div class="history-item${currentSessionClass}"${idAttrPart}>`;
+            ? `<a class="history-item history-item-link${currentSessionClass}${toneClass}"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
+            : `<div class="history-item${currentSessionClass}${toneClass}"${idAttrPart}>`;
         const itemClose = sessionUrl ? '</a>' : '</div>';
         return `
             ${itemOpen}
-                <div class="history-head-row">
-                    <div class="history-title-stack">
-                        <div class="history-primary${isChineseLikeText(prompt) ? ' chinese-specific' : ''}">${renderMathHtml(prompt)}</div>
-                        <div class="history-type4-details">
-                            <span class="history-type4-submitted-label">Right:</span> ${escapeHtml(answer)} <span class="answer-type3-sep" aria-hidden="true">·</span>
+                <div class="history-type4-details">
+                    <span class="history-details-main">
+                        <span class="history-detail-group">
+                            <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill answer-pill">${escapeHtml(answer)}</span>
+                        </span>
+                        <span class="history-detail-group submitted-group">
                             <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
-                        </div>
-                    </div>
-                    <div class="history-status-side">
-                        <div class="history-time-badge">${escapeHtml(responseTimeLabel)}</div>
-                        ${retryBadgeHtml}
-                        <span class="pill ${statusClass}">${statusText}</span>
-                        ${currentSessionPillHtml}
-                    </div>
-                </div>
-                <div class="meta">
-                    ${formatDateTime(itemTimestamp)}${daysAgoSuffix}
-                    · Session #${safeNum(item.session_id)}
+                        </span>
+                    </span>
+                    <span class="history-detail-group history-time-group">
+                        <span class="history-time-badge">${escapeHtml(responseTimeLabel)}</span>
+                        ${daysAgoBadge}
+                    </span>
                 </div>
                 ${chevronHtml}
             ${itemClose}
@@ -577,42 +557,12 @@ function isType3Attempt(item) {
     return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_III;
 }
 
-function isType1OrType2Attempt(item) {
-    const behaviorType = String(item?.session_behavior_type || '').trim().toLowerCase();
-    return behaviorType === BEHAVIOR_TYPE_I || behaviorType === BEHAVIOR_TYPE_II;
-}
-
-function getRetryFixCount(item) {
-    if (!isType1OrType2Attempt(item)) {
-        return 0;
-    }
-    const scoreRaw = Number(item?.correct_score);
-    if (!Number.isFinite(scoreRaw) || scoreRaw > -2) {
-        return 0;
-    }
-    return Math.max(1, Math.abs(Math.trunc(scoreRaw)) - 1);
-}
-
-function getRetryFixLabel(retryFixCount) {
-    return retryFixCount === 1
-        ? 'Fixed after 1 retry'
-        : `Fixed after ${retryFixCount} retries`;
-}
-
-function getRetryFixShortLabel(retryFixCount) {
-    return retryFixCount === 1 ? '1 retry' : `${retryFixCount} retries`;
-}
-
 function getType4AttemptPrompt(item) {
     return String(item?.materialized_prompt || currentCardFront || 'Problem').trim() || 'Problem';
 }
 
 function getType4AttemptAnswer(item) {
     return String(item?.materialized_answer || '').trim();
-}
-
-function getType1AttemptPrompt(item) {
-    return String(item?.front || currentCardFront || 'Card').trim() || 'Card';
 }
 
 function getType1AttemptAnswer(item) {
@@ -844,8 +794,7 @@ function formatDaysAgo(iso) {
     if (Number.isNaN(dt.getTime())) return '';
     const dayDiff = calendarDayDiff(new Date(), dt, reportTimezone);
     if (dayDiff <= 0) return 'today';
-    if (dayDiff === 1) return '1 day ago';
-    return `${dayDiff} days ago`;
+    return `${dayDiff}d ago`;
 }
 
 function calendarDayDiff(later, earlier, timeZone) {

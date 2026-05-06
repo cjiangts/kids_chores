@@ -1366,7 +1366,7 @@ body.practice-home-redesign {
 }
 
 .practice-home-redesign .practice-stat-card:has(.practice-stat-icon-wrap.report) {
-    background: #f1f2fc;
+    background: #eaf7ee;
 }
 
 .practice-home-redesign .practice-stat-card:has(.practice-stat-icon-wrap.badge) {
@@ -1413,7 +1413,7 @@ body.practice-home-redesign {
 }
 
 .practice-home-redesign .practice-stat-icon-wrap.report {
-    background: #e7e8fb;
+    background: #d3edda;
 }
 
 .practice-home-redesign .practice-stat-icon-wrap.badge {
