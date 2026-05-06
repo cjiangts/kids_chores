@@ -43,6 +43,7 @@ let currentSessionIsDrill = false;
 let currentSessionDrillSpeedTargetMs = 0;
 let liveDurationBackfillBound = false;
 let currentAnswers = [];
+let currentKidName = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !sessionId) {
@@ -104,6 +105,7 @@ async function loadSessionDetail() {
 
         const data = await response.json();
         const kidName = data.kid?.name || 'Kid';
+        currentKidName = kidName;
         const session = data.session || {};
         currentSessionType = normalizeCategoryKey(session.type);
         currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type);
@@ -141,6 +143,7 @@ function renderSummary(session, answers) {
     const counts = currentSessionIsDrill ? null : countAnswersByOutcome(answers);
     const drillCardCounts = currentSessionIsDrill ? countDrillCardOutcomes(answers) : null;
     const modeLabel = formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '—';
+    const showModeTile = currentSessionBehaviorType !== BEHAVIOR_TYPE_II && currentSessionBehaviorType !== BEHAVIOR_TYPE_III;
     const iconStarted = window.icon('calendar', { strokeWidth: 2, className: '' });
     const iconAnswered = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>';
     const iconMode = window.icon('target', { strokeWidth: 2, className: '' });
@@ -172,13 +175,14 @@ function renderSummary(session, answers) {
                     <div class="label">Answered</div>
                 </div>
             </div>
+            ${showModeTile ? `
             <div class="session-summary-stat">
                 <div class="stat-icon">${iconMode}</div>
                 <div class="session-summary-stat-body">
                     <div class="value">${escapeHtml(modeLabel)}</div>
                     <div class="label">Mode</div>
                 </div>
-            </div>
+            </div>` : ''}
             <div class="session-summary-stat">
                 <div class="stat-icon">${iconActiveTime}</div>
                 <div class="session-summary-stat-body">
@@ -198,7 +202,7 @@ function renderDrillSummaryOutcomes(totals) {
             tone: 'passed',
             label: 'Passed',
             value: totals.passed,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg>',
+            icon: window.icon('check', { strokeWidth: 2.4, className: '' }),
         },
         {
             tone: 'fixed',
@@ -210,13 +214,13 @@ function renderDrillSummaryOutcomes(totals) {
             tone: 'slow',
             label: 'Still slow',
             value: totals.slow,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5"/><path d="M9 2h6"/></svg>',
+            icon: window.icon('clock', { strokeWidth: 2.2, className: '' }),
         },
         {
             tone: 'wrong',
             label: 'Wrong',
             value: totals.wrong,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/></svg>',
+            icon: window.icon('x', { strokeWidth: 2.4, className: '' }),
         },
     ];
     return renderSummaryOutcomes(items, 4);
@@ -224,24 +228,33 @@ function renderDrillSummaryOutcomes(totals) {
 
 function renderStandardSummaryOutcomes(totals) {
     if (!totals) return '';
+    const isType3 = currentSessionBehaviorType === BEHAVIOR_TYPE_III;
+    const middleItem = isType3
+        ? {
+            tone: 'pending',
+            label: 'Ungraded',
+            value: totals.pending,
+            icon: window.icon('help', { strokeWidth: 2.4, className: '' }),
+        }
+        : {
+            tone: 'fixed',
+            label: 'Fixed',
+            value: totals.fixed,
+            icon: SUMMARY_FIXED_ICON,
+        };
     const items = [
         {
             tone: 'right',
             label: 'Right',
             value: totals.right,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg>',
+            icon: window.icon('check', { strokeWidth: 2.4, className: '' }),
         },
-        {
-            tone: 'fixed',
-            label: 'Fixed',
-            value: totals.fixed,
-            icon: SUMMARY_FIXED_ICON,
-        },
+        middleItem,
         {
             tone: 'wrong',
             label: 'Wrong',
             value: totals.wrong,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/></svg>',
+            icon: window.icon('x', { strokeWidth: 2.4, className: '' }),
         },
     ];
     return renderSummaryOutcomes(items, 3);
@@ -676,7 +689,7 @@ function renderAnswerList(container, cards, options = {}) {
                 <div class="answer-head-actions">
                     ${promptAudioBadgeHtml}
                     ${typeIII ? renderGradingControls(item) : ''}
-                    ${!reportHref ? '' : `<a class="tab-link secondary mini-link-btn answer-report-link" href="${reportHref}">Records</a>`}
+                    ${!reportHref ? '' : `<a class="answer-report-btn" href="${reportHref}"><span>Go to History</span>${window.icon ? window.icon('arrow-up-right', { size: 14, strokeWidth: 2.4 }) : ''}</a>`}
                 </div>
             `;
         const typeIIIDetailsHtml = (!compact && typeIII) ? renderTypeIIIAnswerDetails(item) : '';
@@ -689,6 +702,23 @@ function renderAnswerList(container, cards, options = {}) {
                 </div>`}
                 ${typeIII ? '' : `<div class="meta">Card #${safeNum(item?.card_id)} · ${formatResponseTime(rawMs)}</div>`}
             `;
+        let audioBlockHtml = '';
+        if (item?.audio_url) {
+            const audioAttrs = typeIII
+                ? ` data-result-id="${Number.isFinite(resultId) ? resultId : ''}" data-response-time-ms="${rawMs}"`
+                : '';
+            if (!compact && typeIII) {
+                audioBlockHtml = window.AudioHistoryCommon.renderRow({
+                    item,
+                    kidId,
+                    kidName: currentKidName,
+                    label: getAnswerPrimaryLabel(item) || item?.front || item?.back,
+                    audioExtraAttrs: audioAttrs,
+                });
+            } else {
+                audioBlockHtml = `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${audioAttrs}></audio>`;
+            }
+        }
         return `
             <${tagName}
                 class="answer-item ${answerClass}${usedPromptAudio ? ' has-audio-assist' : ''}"
@@ -705,7 +735,7 @@ function renderAnswerList(container, cards, options = {}) {
                 ${compact && !isTypeIVSession() && secondaryLabel ? `<div class="answer-secondary">${escapeHtml(secondaryLabel)}</div>` : ''}
                 ${typeIIIDetailsHtml}
                 ${detailBodyHtml}
-                ${item?.audio_url ? `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${typeIII ? ` data-result-id="${Number.isFinite(resultId) ? resultId : ''}" data-response-time-ms="${rawMs}"` : ''}></audio>` : ''}
+                ${audioBlockHtml}
                 ${typeIII ? '' : renderGradingControls(item)}
             </${tagName}>
         `;
@@ -722,8 +752,9 @@ function renderAnswerList(container, cards, options = {}) {
     if (window.SimpleAudioPlayer) {
         window.SimpleAudioPlayer.attach(container, {
             selector: 'audio.js-simple-audio',
-            playLabel: '<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg>',
-            pauseLabel: '<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>',
+            waveform: true,
+            playLabel: '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><polygon points="5,3 17,10 5,17"/></svg>',
+            pauseLabel: '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>',
         });
     }
     syncRenderedResponseTimeBars();
@@ -858,14 +889,6 @@ function formatResponseTime(ms) {
     return `${(rawMs / 1000).toFixed(2)}s`;
 }
 
-function renderGradeStatusHtml(grade) {
-    const normalized = String(grade || '').toLowerCase();
-    if (normalized !== 'pass' && normalized !== 'fail') {
-        return '';
-    }
-    return `<div class="grade-status ${normalized}">Status: ${normalized === 'pass' ? 'Pass' : 'Fail'}</div>`;
-}
-
 function renderGradingControls(item) {
     if (!isTypeIIIReviewSession()) {
         return '';
@@ -874,10 +897,21 @@ function renderGradingControls(item) {
     if (!Number.isFinite(resultId)) {
         return '';
     }
-    return renderGradeStatusHtml(item?.grade_status) || `
+    const graded = String(item?.grade_status || '').toLowerCase();
+    if (graded === 'pass' || graded === 'fail') {
+        const clearIcon = window.icon ? window.icon('undo-2', { size: 14, strokeWidth: 2.4 }) : '';
+        return `
+            <div class="grade-row">
+                <button class="grade-btn" data-result-id="${resultId}" data-grade="clear">${clearIcon}<span>Clear grade</span></button>
+            </div>
+        `;
+    }
+    const passIcon = window.icon ? window.icon('check', { size: 14, strokeWidth: 2.4 }) : '';
+    const failIcon = window.icon ? window.icon('x', { size: 14, strokeWidth: 2.4 }) : '';
+    return `
         <div class="grade-row">
-            <button class="grade-btn" data-result-id="${resultId}" data-grade="pass">Pass</button>
-            <button class="grade-btn" data-result-id="${resultId}" data-grade="fail">Fail</button>
+            <button class="grade-btn" data-result-id="${resultId}" data-grade="pass">${passIcon}<span>Pass</span></button>
+            <button class="grade-btn" data-result-id="${resultId}" data-grade="fail">${failIcon}<span>Fail</span></button>
         </div>
     `;
 }
@@ -902,7 +936,7 @@ document.addEventListener('click', async (event) => {
     }
     const resultId = Number(btn.getAttribute('data-result-id'));
     const reviewGrade = String(btn.getAttribute('data-grade') || '').toLowerCase();
-    if (!Number.isFinite(resultId) || (reviewGrade !== 'pass' && reviewGrade !== 'fail')) {
+    if (!Number.isFinite(resultId) || (reviewGrade !== 'pass' && reviewGrade !== 'fail' && reviewGrade !== 'clear')) {
         return;
     }
 
@@ -911,36 +945,36 @@ document.addEventListener('click', async (event) => {
     showError('');
     try {
         const saved = await saveGrade(resultId, reviewGrade);
-        buttons.forEach((node) => {
-            const nodeGrade = String(node.getAttribute('data-grade') || '').toLowerCase();
-            node.classList.toggle('active-pass', nodeGrade === 'pass' && saved.grade_status === 'pass');
-            node.classList.toggle('active-fail', nodeGrade === 'fail' && saved.grade_status === 'fail');
-        });
-
         const item = btn.closest('.answer-item');
         if (item) {
-            const gradeRow = item.querySelector('.grade-row');
-            const replacement = renderGradeStatusHtml(saved.grade_status);
-            if (gradeRow && replacement) {
-                gradeRow.outerHTML = replacement;
-            } else if (replacement) {
-                item.insertAdjacentHTML('beforeend', replacement);
-            }
-            const bar = item.querySelector('.answer-bar-fill');
             const score = Number.isFinite(Number(saved?.correct_score))
                 ? Number(saved.correct_score)
                 : (saved?.grade_status === 'pass' ? 1 : (saved?.grade_status === 'fail' ? -1 : 0));
+            const nextClass = getAnswerBarClassByScore(score);
+            const bar = item.querySelector('.answer-bar-fill');
             if (bar) {
-                const nextClass = getAnswerBarClassByScore(score);
                 bar.classList.remove('right', 'wrong', 'fixed', 'half', 'pending');
                 bar.classList.add(nextClass);
             }
+            item.classList.remove('right', 'wrong', 'fixed', 'half', 'pending');
+            item.classList.add(nextClass);
 
             const answerEntry = currentAnswers.find((a) => a.result_id === resultId);
             if (answerEntry) {
                 answerEntry.correct_score = score;
                 answerEntry.grade_status = saved.grade_status;
             }
+
+            const gradeRow = item.querySelector('.grade-row');
+            const replacementHtml = renderGradingControls(answerEntry || { result_id: resultId, grade_status: saved.grade_status });
+            if (gradeRow) {
+                if (replacementHtml) {
+                    gradeRow.outerHTML = replacementHtml;
+                } else {
+                    gradeRow.remove();
+                }
+            }
+
             if (currentSession) {
                 renderSummary(currentSession, currentAnswers);
             }
@@ -950,7 +984,7 @@ document.addEventListener('click', async (event) => {
         console.error('Error saving grade:', error);
         showError(error.message || 'Failed to save grade.');
     } finally {
-        buttons.forEach((node) => { node.disabled = false; });
+        document.querySelectorAll(`.grade-btn[data-result-id="${resultId}"]`).forEach((node) => { node.disabled = false; });
     }
 });
 
@@ -1049,7 +1083,10 @@ function renderTypeIIIAnswerDetails(item) {
         return '';
     }
     const back = String(item?.back || '').trim();
-    const sourceDeck = String(item?.source_deck_label || item?.source_deck_name || '').trim();
+    let sourceDeck = String(item?.source_deck_label || item?.source_deck_name || '').trim();
+    if (currentSessionType && sourceDeck.toLowerCase().startsWith(`${currentSessionType.toLowerCase()}_`)) {
+        sourceDeck = sourceDeck.slice(currentSessionType.length + 1);
+    }
     const detailBits = [];
     if (back) {
         detailBits.push(`<span class="answer-type3-back">${escapeHtml(back)}</span>`);

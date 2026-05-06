@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
+    <link rel="stylesheet" href="audio-history-common.css">
     <style>
         * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
@@ -130,6 +131,8 @@
         .hero-stat--fixed .hero-stat-iconbox { background: rgba(255, 255, 255, 0.85); color: #b07a00; }
         .hero-stat--wrong { background: #fdeaea; }
         .hero-stat--wrong .hero-stat-iconbox { background: rgba(255, 255, 255, 0.85); color: #d63636; }
+        .hero-stat--pending { background: #e0f2fe; }
+        .hero-stat--pending .hero-stat-iconbox { background: rgba(255, 255, 255, 0.85); color: #0369a1; }
 
         @media (max-width: 560px) {
             .card-report-hero {
@@ -387,7 +390,7 @@
         .history-item.tone-fixed { background: #fff5dc; border-color: #f1e1ae; }
         .history-item.tone-half { background: #f3eeff; border-color: #ddd0f3; }
         .history-item.tone-wrong { background: #fdeaea; border-color: #f1c9c9; }
-        .history-item.tone-pending { background: #eef2fb; border-color: #d8e0f1; }
+        .history-item.tone-pending { background: #e0f2fe; border-color: #bae0f7; }
 
         .history-item.targeted-history-item {
             border-color: #7c96e8;
@@ -578,38 +581,23 @@
             color: #5b3e99;
         }
 
-        .audio-history-row {
-            margin-top: 0.35rem;
-            display: flex;
-            align-items: center;
-            gap: 0.45rem;
-            flex-wrap: wrap;
-        }
-
-        .audio-history-row .simple-audio-player {
-            margin-top: 0;
-            flex: 1;
-            min-width: 0;
-        }
-
         .history-item .audio-play-btn,
         .history-item .audio-speed-btn {
-            height: 26px;
-            min-height: 26px;
+            height: 32px;
+            min-height: 32px;
             padding: 0 0.58rem;
-            font-size: 0.78rem;
+            font-size: 0.8rem;
         }
 
         .history-item .audio-play-btn {
-            min-width: 54px;
+            min-width: 56px;
         }
 
         .history-item .audio-speed-btn {
-            min-width: 42px;
+            min-width: 44px;
         }
 
-        .history-item .audio-progress,
-        .history-item .simple-audio-player {
+        .history-item .audio-progress {
             min-width: 0;
         }
 
@@ -620,10 +608,6 @@
         .type3-history-item .history-title-stack,
         .type3-history-item .answer-head-actions {
             min-width: 0;
-        }
-
-        .type3-history-item .audio-history-row {
-            margin-top: 0.45rem;
         }
 
         .answer-type3-details {
@@ -663,39 +647,6 @@
             padding: 0 0.58rem;
             font-size: 0.78rem;
             line-height: 1;
-            white-space: nowrap;
-        }
-
-        .grade-status {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 26px;
-            font-size: 0.78rem;
-            border-radius: var(--control-radius);
-            padding: 0 0.58rem;
-            line-height: 1;
-            background: #fff;
-            border: 1px solid #d5dcee;
-            white-space: nowrap;
-        }
-
-        .grade-status.pass {
-            color: #2f9e44;
-            border-color: #9dd6aa;
-        }
-
-        .grade-status.fail {
-            color: #d63636;
-            border-color: #efb0a8;
-        }
-
-        .grade-status.pending {
-            color: #5b6787;
-            border-color: #d5dcee;
-        }
-
-        .audio-download-link {
             white-space: nowrap;
         }
 
@@ -794,6 +745,7 @@
     <script src="simple-audio-player.js"></script>
     <script src="lesson-reading-duration-backfill.js"></script>
     <script src="report-back-button-common.js"></script>
+    <script src="audio-history-common.js"></script>
     <script src="kid-card-report.js"></script>
 </body>
 </html>

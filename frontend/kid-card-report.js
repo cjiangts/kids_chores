@@ -125,10 +125,14 @@ function renderHero(card, attempts) {
 
     const total = attempts.length;
 
+    const isType3 = attempts.some(isType3Attempt);
+    const middleStat = isType3
+        ? { key: 'pending', icon: 'help', value: String(counts.pending), label: 'ungraded' }
+        : { key: 'fixed', icon: 'rotate-ccw', value: String(counts.fixed), label: 'fixed' };
     const stats = [
         { key: 'attempts', icon: 'layers', value: String(total), label: 'attempts' },
         { key: 'right', icon: 'check', value: String(counts.right), label: 'right' },
-        { key: 'fixed', icon: 'rotate-ccw', value: String(counts.fixed), label: 'fixed' },
+        middleStat,
         { key: 'wrong', icon: 'x', value: String(counts.wrong), label: 'wrong' },
     ];
 
@@ -365,21 +369,17 @@ function renderHistory(attempts) {
             const lessonReadingAudioAttrs = from === 'lesson-reading'
                 ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
                 : '';
-            const downloadFilename = buildAudioDownloadFilename(item);
-            const downloadUrl = buildAudioDownloadUrl(item, downloadFilename);
-            const downloadButtonHtml = item.audio_url
-                ? `<a class="tab-link secondary mini-link-btn answer-report-link audio-download-link" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFilename)}">Download</a>`
-                : '';
+            const goToSessionIcon = window.icon ? window.icon('arrow-up-right', { size: 14, strokeWidth: 2.4 }) : '';
             const goToSessionButtonHtml = sessionUrl
-                ? `<a class="tab-link secondary mini-link-btn answer-report-link" href="${escapeHtml(sessionUrl)}">Go to Session ›</a>`
+                ? `<a class="go-to-session-btn" href="${escapeHtml(sessionUrl)}"><span>Go to Session</span>${goToSessionIcon}</a>`
                 : '';
-            const audioBlockHtml = item.audio_url
-                ? `
-                    <div class="audio-history-row">
-                        <audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${lessonReadingAudioAttrs}></audio>
-                    </div>
-                `
-                : '';
+            const audioBlockHtml = window.AudioHistoryCommon.renderRow({
+                item,
+                kidId,
+                kidName: currentKidName,
+                label: currentCardFront,
+                audioExtraAttrs: lessonReadingAudioAttrs,
+            });
             return `
                 <div class="history-item type3-history-item${currentSessionClass}${toneClass}"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                     <div class="history-head-row">
@@ -387,9 +387,6 @@ function renderHistory(attempts) {
                             ${detailHtml}
                         </div>
                         <div class="answer-head-actions">
-                            ${renderType3HistoryStatusHtml(correctness)}
-                            ${daysAgoBadge}
-                            ${downloadButtonHtml}
                             ${goToSessionButtonHtml}
                         </div>
                     </div>
@@ -429,7 +426,13 @@ function renderHistory(attempts) {
             `;
         }
         const answer = getType1AttemptAnswer(item) || 'n/a';
+        const isType2 = String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_II;
         const submittedPills = getType1AttemptSubmittedPills(item);
+        const submittedGroupHtml = isType2
+            ? ''
+            : `<span class="history-detail-group submitted-group">
+                            <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
+                        </span>`;
         const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
         const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
         const itemOpen = sessionUrl
@@ -443,9 +446,7 @@ function renderHistory(attempts) {
                         <span class="history-detail-group">
                             <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill answer-pill">${escapeHtml(answer)}</span>
                         </span>
-                        <span class="history-detail-group submitted-group">
-                            <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
-                        </span>
+                        ${submittedGroupHtml}
                     </span>
                     <span class="history-detail-group history-time-group">
                         <span class="history-time-badge">${escapeHtml(responseTimeLabel)}</span>
@@ -461,7 +462,12 @@ function renderHistory(attempts) {
         window.LessonReadingDurationBackfill.attach(historyList, { kidId });
     }
     if (window.SimpleAudioPlayer) {
-        window.SimpleAudioPlayer.attach(historyList, { selector: 'audio.js-simple-audio' });
+        window.SimpleAudioPlayer.attach(historyList, {
+            selector: 'audio.js-simple-audio',
+            waveform: true,
+            playLabel: '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><polygon points="5,3 17,10 5,17"/></svg>',
+            pauseLabel: '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>',
+        });
     }
 }
 
@@ -656,32 +662,6 @@ function isChineseLikeText(value) {
     return /[\u3400-\u9fff\uf900-\ufaff]/.test(String(value || ''));
 }
 
-function getType3GradeStatusClass(correctness) {
-    if (correctness === 'right') {
-        return 'pass';
-    }
-    if (correctness === 'wrong' || correctness === 'fixed') {
-        return 'fail';
-    }
-    return 'pending';
-}
-
-function getType3GradeStatusText(correctness) {
-    const gradeClass = getType3GradeStatusClass(correctness);
-    if (gradeClass === 'pass') {
-        return 'Status: Pass';
-    }
-    if (gradeClass === 'fail') {
-        return 'Status: Fail';
-    }
-    return 'Status: Pending';
-}
-
-function renderType3HistoryStatusHtml(correctness) {
-    const gradeClass = getType3GradeStatusClass(correctness);
-    return `<div class="grade-status ${gradeClass}">${escapeHtml(getType3GradeStatusText(correctness))}</div>`;
-}
-
 function formatResponseTime(ms) {
     const rawMs = Math.max(0, Number(ms) || 0);
     if (from === 'lesson-reading') {
@@ -695,54 +675,6 @@ function formatResponseTime(ms) {
 
 function formatType(sessionCategoryDisplayName = '') {
     return String(sessionCategoryDisplayName || '').trim();
-}
-
-function sanitizeFilenamePart(value, fallback) {
-    const cleaned = String(value || '')
-        .replace(/[\\/:*?"<>|]+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    return cleaned || fallback;
-}
-
-function resolveAudioExtension(item) {
-    return '.mp3';
-}
-
-function buildAudioDownloadFilename(item) {
-    const kidPart = sanitizeFilenamePart(currentKidName, 'Kid');
-    const frontPart = sanitizeFilenamePart(currentCardFront, 'Card');
-    const base = `${kidPart}-${frontPart}`.slice(0, 120);
-    return `${base}${resolveAudioExtension(item)}`;
-}
-
-function resolveAudioFileName(item) {
-    const explicit = String(item?.audio_file_name || '').trim();
-    if (explicit) {
-        return explicit;
-    }
-    const audioUrl = String(item?.audio_url || '').trim();
-    if (!audioUrl) {
-        return '';
-    }
-    try {
-        const parsed = new URL(audioUrl, window.location.origin);
-        const parts = parsed.pathname.split('/');
-        return decodeURIComponent(parts[parts.length - 1] || '').trim();
-    } catch (error) {
-        return '';
-    }
-}
-
-function buildAudioDownloadUrl(item, downloadFilename) {
-    const fileName = resolveAudioFileName(item);
-    if (!fileName) {
-        return String(item?.audio_url || '').trim();
-    }
-    const path = `/api/kids/${encodeURIComponent(String(kidId || ''))}/lesson-reading/audio/${encodeURIComponent(fileName)}/download-mp3`;
-    const query = new URLSearchParams();
-    query.set('downloadName', String(downloadFilename || '').replace(/\.mp3$/i, ''));
-    return `${path}?${query.toString()}`;
 }
 
 function getCardDisplayLabel(front, back, source) {
@@ -768,10 +700,13 @@ function formatSourceDeckLabel(deckName) {
         return 'Personal Deck';
     }
     const materializedMatch = text.match(/^shared_deck_\d+__(.+)$/);
-    if (materializedMatch && String(materializedMatch[1] || '').trim()) {
-        return String(materializedMatch[1] || '').trim();
+    let label = materializedMatch && String(materializedMatch[1] || '').trim()
+        ? String(materializedMatch[1]).trim()
+        : text;
+    if (categoryKey && label.toLowerCase().startsWith(`${categoryKey.toLowerCase()}_`)) {
+        label = label.slice(categoryKey.length + 1);
     }
-    return text;
+    return label;
 }
 
 function formatDateTime(iso) {

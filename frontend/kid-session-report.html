@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="histogram-distribution-common.css">
+    <link rel="stylesheet" href="audio-history-common.css">
     <style>
         * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
@@ -25,9 +26,13 @@
         }
 
         .session-summary-stats {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
+            display: flex;
             gap: 0.42rem;
+        }
+
+        .session-summary-stats > .session-summary-stat {
+            flex: 1 1 0;
+            min-width: 0;
         }
 
         .session-summary-stat {
@@ -214,6 +219,8 @@
         .session-summary-drill-outcome.slow .session-summary-drill-outcome-icon { background: rgba(255, 255, 255, 0.85); color: #2563eb; }
         .session-summary-drill-outcome.wrong { background: #fdeaea; }
         .session-summary-drill-outcome.wrong .session-summary-drill-outcome-icon { background: rgba(255, 255, 255, 0.85); color: #d63636; }
+        .session-summary-drill-outcome.pending { background: #e0f2fe; }
+        .session-summary-drill-outcome.pending .session-summary-drill-outcome-icon { background: rgba(255, 255, 255, 0.85); color: #0369a1; }
 
         @media (max-width: 720px) {
             .session-summary-card {
@@ -221,7 +228,6 @@
             }
 
             .session-summary-stats {
-                grid-template-columns: repeat(5, minmax(0, 1fr));
                 gap: 0.34rem;
             }
 
@@ -329,6 +335,12 @@
             font-size: 0.88rem;
             color: #333;
         }
+
+        :not(.answer-grid.compact) > .answer-item.right { background: #e6f8ea; border-color: #cbecd5; }
+        :not(.answer-grid.compact) > .answer-item.fixed { background: #fff5dc; border-color: #f1e1ae; }
+        :not(.answer-grid.compact) > .answer-item.half { background: #f3eeff; border-color: #ddd0f3; }
+        :not(.answer-grid.compact) > .answer-item.wrong { background: #fdeaea; border-color: #f1c9c9; }
+        :not(.answer-grid.compact) > .answer-item.pending { background: #e0f2fe; border-color: #bae0f7; }
 
         .answer-grid.compact .answer-item {
             margin-bottom: 0;
@@ -648,29 +660,12 @@
             align-items: center;
         }
 
-        .grade-btn {
-            border: 1px solid #d5dcee;
-            border-radius: var(--control-radius);
-            background: #fff;
-            color: #2f3c7e;
-            font-size: 0.78rem;
-            min-height: 26px;
-            padding: 0 0.58rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-            cursor: pointer;
-        }
-
         .grade-btn.active-pass {
-            background: #fff;
             border-color: #9dd6aa;
             color: #2f9e44;
         }
 
         .grade-btn.active-fail {
-            background: #fff;
             border-color: #efb0a8;
             color: #d63636;
         }
@@ -700,51 +695,24 @@
             margin-top: 0.25rem;
         }
 
-        .grade-status {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 26px;
-            font-size: 0.78rem;
-            border-radius: var(--control-radius);
-            padding: 0 0.58rem;
-            line-height: 1;
-            background: #fff;
-            border: 1px solid #d5dcee;
-        }
-
         .answer-item .audio-play-btn,
         .answer-item .audio-speed-btn {
-            height: 26px;
-            min-height: 26px;
+            height: 32px;
+            min-height: 32px;
             padding: 0 0.58rem;
-            font-size: 0.78rem;
+            font-size: 0.8rem;
         }
 
         .answer-item .audio-play-btn {
-            min-width: 54px;
+            min-width: 56px;
         }
 
         .answer-item .audio-speed-btn {
-            min-width: 42px;
+            min-width: 44px;
         }
 
         .answer-item .audio-progress {
             min-width: 0;
-        }
-
-        .answer-item .simple-audio-player {
-            min-width: 0;
-        }
-
-        .grade-status.pass {
-            color: #2f9e44;
-            border-color: #9dd6aa;
-        }
-
-        .grade-status.fail {
-            color: #d63636;
-            border-color: #efb0a8;
         }
 
         @media (max-width: 760px) {
@@ -1022,6 +990,7 @@
     <script src="lesson-reading-duration-backfill.js"></script>
     <script src="report-back-button-common.js"></script>
     <script src="histogram-distribution-common.js"></script>
+    <script src="audio-history-common.js"></script>
     <script src="kid-session-report.js"></script>
 </body>
 </html>

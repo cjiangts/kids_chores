@@ -1018,8 +1018,8 @@ def grade_kid_report_session_result(kid_id, session_id, result_id):
 
         data = request.get_json() or {}
         review_grade_raw = str(data.get('reviewGrade') or '').strip().lower()
-        if review_grade_raw not in ('pass', 'fail'):
-            return jsonify({'error': 'reviewGrade must be "pass" or "fail"'}), 400
+        if review_grade_raw not in ('pass', 'fail', 'clear'):
+            return jsonify({'error': 'reviewGrade must be "pass", "fail", or "clear"'}), 400
 
         conn = get_kid_connection_for(kid)
         target = conn.execute(
@@ -1042,16 +1042,21 @@ def grade_kid_report_session_result(kid_id, session_id, result_id):
             return jsonify({'error': 'Only type-III session results support grading'}), 400
 
         current_correct = int(target[1] or 0)
-        if current_correct != 0:
-            status = 'pass' if current_correct > 0 else 'fail'
-            conn.close()
-            return jsonify({
-                'error': 'This card has already been graded and cannot be changed.',
-                'result_id': result_id_int,
-                'grade_status': status,
-            }), 409
+        if review_grade_raw == 'clear':
+            mapped_correct = 0
+            grade_status = ''
+        else:
+            if current_correct != 0:
+                status = 'pass' if current_correct > 0 else 'fail'
+                conn.close()
+                return jsonify({
+                    'error': 'This card has already been graded. Clear the grade before re-grading.',
+                    'result_id': result_id_int,
+                    'grade_status': status,
+                }), 409
+            mapped_correct = 1 if review_grade_raw == 'pass' else -1
+            grade_status = review_grade_raw
 
-        mapped_correct = 1 if review_grade_raw == 'pass' else -1
         conn.execute(
             "UPDATE session_results SET correct = ? WHERE id = ?",
             [mapped_correct, result_id_int]
@@ -1061,7 +1066,7 @@ def grade_kid_report_session_result(kid_id, session_id, result_id):
         return jsonify({
             'result_id': result_id_int,
             'correct_score': mapped_correct,
-            'grade_status': review_grade_raw,
+            'grade_status': grade_status,
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
