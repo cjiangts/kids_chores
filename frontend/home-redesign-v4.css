@@ -1313,6 +1313,40 @@ body.practice-home-redesign {
     color: #2da866;
 }
 
+.practice-home-redesign .redesign-summary-box-clickable {
+    appearance: none;
+    width: 100%;
+    text-align: left;
+    color: #1f5d3a;
+    cursor: pointer;
+    font: inherit;
+    background: linear-gradient(135deg, rgba(214, 245, 224, 0.98), rgba(225, 248, 215, 0.95), rgba(240, 252, 244, 0.94));
+    box-shadow: 0 10px 24px rgba(31, 98, 60, 0.16);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.practice-home-redesign .redesign-summary-box-clickable:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px rgba(31, 98, 60, 0.22);
+}
+
+.practice-home-redesign .redesign-summary-box-clickable .redesign-summary-label {
+    color: #2f7a4f;
+}
+
+.practice-home-redesign .redesign-summary-chevron {
+    flex: 0 0 auto;
+    color: #7fb398;
+    font-size: 1.4rem;
+    line-height: 1;
+    font-weight: 700;
+    margin-left: auto;
+}
+
+.practice-home-redesign .redesign-summary-box-clickable:hover .redesign-summary-chevron {
+    color: #2da866;
+}
+
 .practice-home-redesign .progress-summary-box {
     appearance: none;
     width: 100%;

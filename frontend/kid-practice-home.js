@@ -621,15 +621,28 @@ function renderPracticeSummaryStrip({
                 </div>
             </div>
         `);
-        summaryBoxes.push(`
-            <div class="redesign-summary-box redesign-summary-box-with-icon">
-                <span class="redesign-summary-icon done" aria-hidden="true">✓</span>
-                <div class="redesign-summary-main">
-                    <p class="redesign-summary-label">Done</p>
-                    <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
+        if (doneCount > 0) {
+            summaryBoxes.push(`
+                <button type="button" class="redesign-summary-box redesign-summary-box-with-icon redesign-summary-box-clickable" data-practice-action="open-progress-report" aria-label="View today's practice report">
+                    <span class="redesign-summary-icon done" aria-hidden="true">✓</span>
+                    <div class="redesign-summary-main">
+                        <p class="redesign-summary-label">Done</p>
+                        <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
+                    </div>
+                    <span class="redesign-summary-chevron" aria-hidden="true">›</span>
+                </button>
+            `);
+        } else {
+            summaryBoxes.push(`
+                <div class="redesign-summary-box redesign-summary-box-with-icon">
+                    <span class="redesign-summary-icon done" aria-hidden="true">✓</span>
+                    <div class="redesign-summary-main">
+                        <p class="redesign-summary-label">Done</p>
+                        <p class="redesign-summary-value">${doneCount}/${assignedCount}</p>
+                    </div>
                 </div>
-            </div>
-        `);
+            `);
+        }
     }
     if (badgeShelfSummary.loaded && badgeShelfSummary.trackingEnabled) {
         summaryBoxes.push(`
