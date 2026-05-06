@@ -404,11 +404,18 @@ function displayKids(kids) {
         const initial = getKidInitial(kid.name);
         const avatarToneIndex = hashStringToIndex(String(kid.id || kid.name || ''), KID_AVATAR_TONE_COUNT);
 
-        const subText = enabledRows.length > 0
-            ? `Today: ${startedCount} of ${enabledRows.length} decks started`
-            : 'No daily practices assigned';
+        const subTextHtml = isClickable
+            ? ''
+            : `<div class="redesign-kid-sub">No daily practices assigned</div>`;
 
-        const summaryLineHtml = enabledRows.length > 0
+        const todayRowHtml = isClickable
+            ? `<div class="redesign-kid-today-row">
+                <div class="redesign-kid-today-line">Today: <strong>${escapeHtml(String(startedCount))}</strong> of <strong>${escapeHtml(String(enabledRows.length))}</strong> decks started</div>
+                <div class="redesign-star-total"><span aria-hidden="true">⭐</span><span>${escapeHtml(String(starsTotal))}</span></div>
+            </div>`
+            : '';
+
+        const summaryLineHtml = isClickable
             ? `<div class="redesign-kid-summary">
                 <span class="redesign-kid-summary-item"><span class="redesign-kid-summary-num">${escapeHtml(String(masteredTotal))}</span> mastered</span>
                 <span class="redesign-kid-summary-sep">·</span>
@@ -418,12 +425,16 @@ function displayKids(kids) {
             </div>`
             : '';
 
-        const progressBarHtml = enabledRows.length > 0
+        const progressBarHtml = isClickable
             ? `<div class="redesign-kid-progress-track">
                 <span class="redesign-progress-seg mastered" style="width:${masteredPct}%"></span>
                 <span class="redesign-progress-seg redo" style="width:${redoPct}%"></span>
                 <span class="redesign-progress-seg unseen" style="width:${unseenPct}%"></span>
             </div>`
+            : '';
+
+        const previewHeaderHtml = isClickable
+            ? `<div class="redesign-kid-preview-header">Today's deck preview</div>`
             : '';
 
         const iconStripHtml = enabledRows.length > 0
@@ -459,29 +470,26 @@ function displayKids(kids) {
             : '';
 
         const ctaHtml = isClickable
-            ? `<div class="redesign-kid-cta">Continue practice <span aria-hidden="true">→</span></div>`
+            ? `<button type="button" class="redesign-kid-open-btn" onclick="selectKid('${kid.id}')">Open ${escapeHtml(kid.name)}'s practice <span aria-hidden="true">→</span></button>`
             : '';
 
         const cardClassName = `redesign-kid-card${isClickable ? '' : ' redesign-kid-card-disabled'}`;
-        const cardOpenAttr = isClickable ? ` onclick="selectKid('${kid.id}')"` : '';
 
         return `
-            <div class="${cardClassName}"${cardOpenAttr}>
+            <div class="${cardClassName}">
                 <div class="redesign-kid-top">
                     <div class="redesign-kid-identity">
                         <span class="admin-kid-avatar admin-kid-avatar--tone-${avatarToneIndex}" aria-hidden="true">${escapeHtml(initial)}</span>
                         <div class="redesign-kid-identity-text">
                             <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>
-                            <div class="redesign-kid-sub">${escapeHtml(subText)}</div>
+                            ${subTextHtml}
                         </div>
                     </div>
-                    <div class="redesign-star-total">
-                        <span>⭐</span>
-                        <span>${starsTotal}</span>
-                    </div>
                 </div>
+                ${todayRowHtml}
                 ${progressBarHtml}
                 ${summaryLineHtml}
+                ${previewHeaderHtml}
                 ${iconStripHtml}
                 ${ctaHtml}
             </div>

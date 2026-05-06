@@ -231,6 +231,16 @@ if (changePasswordModal) {
             closeChangePasswordDialog();
         }
     });
+    changePasswordModal.querySelectorAll('.password-toggle').forEach((btn) => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        btn.addEventListener('click', () => {
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.innerHTML = window.icon(show ? 'eye-off' : 'eye', { strokeWidth: 2 });
+            btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        });
+    });
 }
 
 if (familySettingsLogoutBtn) {

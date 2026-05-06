@@ -167,18 +167,7 @@ body.practice-home-redesign {
     background: var(--dashboard-panel-bg);
     box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
     padding: 15px;
-    cursor: pointer;
     transition: transform 0.22s ease, box-shadow 0.22s ease;
-}
-
-
-.family-home-page .redesign-kid-card.redesign-kid-card-disabled {
-    cursor: default;
-}
-
-.family-home-page .redesign-kid-card.redesign-kid-card-disabled:hover {
-    transform: none;
-    box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
 }
 
 .family-home-page .redesign-kid-top,
@@ -208,20 +197,80 @@ body.practice-home-redesign {
 }
 
 .family-home-page .redesign-star-total {
-    min-width: 70px;
-    min-height: 38px;
-    border-radius: 12px;
+    min-width: 56px;
+    min-height: 32px;
+    border-radius: 10px;
     border: 1px solid #e5e8ff;
     background: linear-gradient(90deg, #fff8cb, #ffe9f3, #e8f1ff);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    font-size: 0.9rem;
+    gap: 6px;
+    font-size: 0.88rem;
     font-weight: 800;
     color: #33405f;
     padding: 0 10px;
     flex: 0 0 auto;
+}
+
+.family-home-page .redesign-kid-today-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.family-home-page .redesign-kid-today-line {
+    color: #475370;
+    font-size: 0.92rem;
+    font-weight: 500;
+    line-height: 1.2;
+    min-width: 0;
+}
+
+.family-home-page .redesign-kid-today-line strong {
+    color: #273551;
+    font-weight: 800;
+}
+
+.family-home-page .redesign-kid-preview-header {
+    color: #6b7796;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 8px;
+}
+
+.family-home-page .redesign-kid-open-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 14px 16px;
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(90deg, #6f7df0, #8a7ce8);
+    color: #fff;
+    font-size: 1.02rem;
+    font-weight: 800;
+    line-height: 1.2;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(111, 125, 240, 0.32);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.family-home-page .redesign-kid-open-btn:hover {
+    filter: brightness(1.04);
+    transform: translateY(-1px);
+    box-shadow: 0 12px 22px rgba(111, 125, 240, 0.38);
+}
+
+.family-home-page .redesign-kid-open-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 6px 14px rgba(111, 125, 240, 0.32);
 }
 
 .family-home-page .redesign-subject-list,
@@ -300,36 +349,48 @@ body.practice-home-redesign {
 .family-home-page .redesign-kid-icon-strip {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 0;
 }
 
 .family-home-page .redesign-kid-icon-tile {
+    position: relative;
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 14px;
-    background: #fff;
-    border: 1px solid #e6eaf5;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
     min-width: 0;
+    border-bottom: 1px solid #dde3ef;
 }
 
-.family-home-page .redesign-kid-icon-tile.done {
-    background: #fff;
-    border-color: #d6e6dc;
+.family-home-page .redesign-kid-icon-tile:last-child,
+.family-home-page .redesign-kid-icon-tile:nth-last-child(2):nth-child(odd) {
+    border-bottom: 0;
 }
 
-.family-home-page .redesign-kid-icon-tile.in-progress {
-    background: #fffaee;
-    border-color: #f0d6a0;
+.family-home-page .redesign-kid-icon-tile:nth-child(odd):not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 14px;
+    bottom: 14px;
+    right: 0;
+    width: 1px;
+    background: #dde3ef;
 }
 
+.family-home-page .redesign-kid-icon-tile.in-progress,
+.family-home-page .redesign-kid-icon-tile.done,
 .family-home-page .redesign-kid-icon-tile.not-started {
-    background: #fff;
-    border-color: #e6eaf5;
+    background: transparent;
+}
+
+.family-home-page .redesign-kid-icon-indicator.not-started {
+    display: none;
 }
 
 .family-home-page .redesign-kid-icon-figure {
@@ -1427,13 +1488,13 @@ body.practice-home-redesign {
     }
 
     .family-home-page .redesign-kid-icon-strip {
-        gap: 6px;
+        gap: 0;
     }
 
     .family-home-page .redesign-kid-icon-tile {
-        padding: 8px 9px;
-        gap: 8px;
-        border-radius: 12px;
+        padding: 10px 10px;
+        gap: 10px;
+        border-radius: 0;
     }
 
     .family-home-page .redesign-kid-icon-figure {
@@ -1462,6 +1523,27 @@ body.practice-home-redesign {
         margin-top: 10px;
         padding-top: 9px;
         font-size: 0.92rem;
+    }
+
+    .family-home-page .redesign-kid-today-row {
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .family-home-page .redesign-kid-today-line {
+        font-size: 0.85rem;
+    }
+
+    .family-home-page .redesign-kid-preview-header {
+        font-size: 0.74rem;
+        margin-bottom: 6px;
+    }
+
+    .family-home-page .redesign-kid-open-btn {
+        margin-top: 10px;
+        padding: 12px 14px;
+        font-size: 0.96rem;
+        border-radius: 12px;
     }
 }
 
