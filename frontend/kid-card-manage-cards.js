@@ -342,6 +342,10 @@ function buildCompactCardMarkup(card, options = {}) {
     const titlePrefix = isType2Behavior() ? 'Back' : 'Front';
     const totalPracticed = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
     const cardId = getCardIdText(card);
+    const isSelected = isCardsSelectModeOn && cardId && selectedCardIds.has(cardId);
+    if (isSelected) {
+        classes.push('selected');
+    }
     const highlightHint = queueHighlight === 'last-failed'
         ? ' • Next session: last failed'
         : (queueHighlight === 'hard'
@@ -372,15 +376,26 @@ function buildCompactCardMarkup(card, options = {}) {
     const scoreHint = Number.isFinite(scoreValue)
         ? ` • Priority score: ${formatPracticePriorityScore(scoreValue)}`
         : '';
+    const action = isCardsSelectModeOn ? 'toggle-select' : 'expand-compact';
+    const titleAttr = isCardsSelectModeOn
+        ? escapeHtml(`${isSelected ? 'Deselect' : 'Select'} • ${titlePrefix}: ${text}`)
+        : escapeHtml(`Open details • ${titlePrefix}: ${text}${highlightHint}${scoreHint}`);
+    const ariaLabel = isCardsSelectModeOn
+        ? escapeHtml(`${isSelected ? 'Deselect' : 'Select'} card: ${text}`)
+        : escapeHtml(`Open card details: ${text}${highlightHint}${scoreHint}`);
+    const selectAttrs = isCardsSelectModeOn
+        ? ` aria-pressed="${isSelected ? 'true' : 'false'}" data-select-card-id="${escapeHtml(cardId)}"`
+        : '';
     return `
         <button
             type="button"
             class="${classes.join(' ')}"
-            data-action="expand-compact"
+            data-action="${action}"
             data-card-id="${escapeHtml(cardId)}"
-            title="${escapeHtml(`Open details • ${titlePrefix}: ${text}${highlightHint}${scoreHint}`)}"
-            aria-label="${escapeHtml(`Open card details: ${text}${highlightHint}${scoreHint}`)}"
+            title="${titleAttr}"
+            aria-label="${ariaLabel}"${selectAttrs}
         >
+            <span class="card-compact-pill-check" aria-hidden="true">${icon('check', { size: 12, strokeWidth: 3 })}</span>
             <span class="card-compact-pill-text">${escapeHtml(text)}</span>
             <span class="card-compact-count-badge" aria-hidden="true">${totalPracticed}</span>
         </button>
@@ -563,7 +578,7 @@ function displayCards(cards) {
         cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
         cardsGrid.classList.remove('short-view');
         cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
-        renderVisibleSkipActionButtons();
+        renderCardsSelectionBar();
         return;
     }
 
@@ -582,7 +597,7 @@ function displayCards(cards) {
             },
             applyChineseCardFrontUniformSize,
         );
-        renderVisibleSkipActionButtons();
+        renderCardsSelectionBar();
         return;
     }
 
@@ -621,7 +636,7 @@ function displayCards(cards) {
         hasExpandedCards ? applyChineseCardFrontUniformSize : null,
         { renderAll: true },
     );
-    renderVisibleSkipActionButtons();
+    renderCardsSelectionBar();
 }
 
 function resetAndDisplayCards(cards) {
@@ -632,30 +647,51 @@ function updateAddReadingButtonCount() {
     if (!addReadingBtn || !chineseCharInput) {
         return;
     }
+    const renderIcon = (name) => (typeof icon === 'function' ? icon(name, { size: 18 }) : '');
     if (isReadingBulkAdding) {
         addReadingBtn.textContent = 'Adding...';
         addReadingBtn.disabled = true;
         return;
     }
+    if (typeof personalDeckMode !== 'undefined' && personalDeckMode === 'preview') {
+        addReadingBtn.disabled = false;
+        addReadingBtn.innerHTML = renderIcon('check') + ' Apply';
+        return;
+    }
     const csvMode = isType1ChineseEnglishBackMode();
+    const type2Mode = isType2Behavior();
     let dedupStats;
     if (csvMode) {
         dedupStats = getType1EnglishBackBulkInputStats(chineseCharInput.value);
-    } else if (isType2Behavior()) {
-        dedupStats = getType2ChineseBulkInputStats(chineseCharInput.value);
+    } else if (type2Mode) {
+        dedupStats = isChineseSpecificLogic
+            ? getType2ChineseBulkInputStats(chineseCharInput.value)
+            : getType2GenericBulkInputStats(chineseCharInput.value);
     } else {
         dedupStats = getType1ChineseBulkInputStats(chineseCharInput.value);
     }
     const hasInput = String(chineseCharInput.value || '').trim().length > 0;
+    if (dedupStats.mixedFormat) {
+        addReadingBtn.disabled = true;
+        addReadingBtn.innerHTML = renderIcon('ban') + ' Mixed format';
+        showStatusMessage(TYPE2_MIXED_FORMAT_ERROR, true);
+        return;
+    }
+    if (addCardStatusMessage && addCardStatusMessage.textContent === TYPE2_MIXED_FORMAT_ERROR) {
+        showStatusMessage('');
+    }
+    const usePreviewFlow = supportsPersonalDeckEditor();
+    const primaryLabel = usePreviewFlow ? 'Preview' : 'Bulk Add';
+    const primaryIcon = usePreviewFlow ? renderIcon('eye') : renderIcon('plus');
     addReadingBtn.disabled = csvMode ? !hasInput : dedupStats.uniqueCount <= 0;
     if (dedupStats.uniqueCount > 0) {
         const countText = dedupStats.dedupedCount > 0
             ? `${dedupStats.uniqueCount}, dedup ${dedupStats.dedupedCount}`
             : `${dedupStats.uniqueCount}`;
-        addReadingBtn.textContent = `Bulk Add (${countText})`;
+        addReadingBtn.innerHTML = `${primaryIcon} ${primaryLabel} (${countText})`;
         return;
     }
-    addReadingBtn.textContent = 'Bulk Add';
+    addReadingBtn.innerHTML = `${primaryIcon} ${primaryLabel}`;
 }
 
 function setReadingBulkAddBusy(isBusy) {
@@ -681,6 +717,38 @@ function getType1ChineseBulkInputStats(text) {
 }
 
 function getType2ChineseBulkInputStats(text) {
+    const normalized = String(text || '').replace(/\uff0c/g, ',');
+    const lines = normalized
+        .split(/\r?\n/)
+        .map((raw) => String(raw || '').trim())
+        .filter((line) => line.length > 0);
+    if (lines.length === 0) {
+        return { totalCount: 0, uniqueCount: 0, dedupedCount: 0, uniqueValues: [], mixedFormat: false };
+    }
+    const hasCsv = lines.some((line) => line.includes(','));
+    const hasBlob = lines.some((line) => !line.includes(','));
+    if (hasCsv && hasBlob) {
+        return { totalCount: 0, uniqueCount: 0, dedupedCount: 0, uniqueValues: [], mixedFormat: true };
+    }
+    if (hasCsv) {
+        const backs = [];
+        lines.forEach((line) => {
+            const idx = line.indexOf(',');
+            const front = line.slice(0, idx).trim();
+            let back = line.slice(idx + 1).trim();
+            if (!back) back = front;
+            if (!front || !back) return;
+            backs.push(back);
+        });
+        const uniqueValues = [...new Set(backs)];
+        return {
+            totalCount: backs.length,
+            uniqueCount: uniqueValues.length,
+            dedupedCount: Math.max(0, backs.length - uniqueValues.length),
+            uniqueValues,
+            mixedFormat: false,
+        };
+    }
     const matches = String(text || '').match(/[\u3400-\u9FFF\uF900-\uFAFF]+/g);
     const rawValues = Array.isArray(matches) ? matches : [];
     const values = rawValues
@@ -692,11 +760,101 @@ function getType2ChineseBulkInputStats(text) {
         uniqueCount: uniqueValues.length,
         dedupedCount: Math.max(0, values.length - uniqueValues.length),
         uniqueValues,
+        mixedFormat: false,
+    };
+}
+
+const TYPE2_MIXED_FORMAT_ERROR = 'Mixed formats — use either "prompt, word" on every line or a word blob with no commas, not both.';
+
+function getType2BulkPreviewRows(text, isChinese) {
+    const normalized = isChinese ? String(text || '').replace(/\uff0c/g, ',') : String(text || '');
+    const lines = normalized
+        .split(/\r?\n/)
+        .map((raw) => String(raw || '').trim())
+        .filter((line) => line.length > 0);
+    if (lines.length === 0) {
+        return { rows: [], mixedFormat: false, format: null };
+    }
+    const hasCsv = lines.some((line) => line.includes(','));
+    const hasBlob = lines.some((line) => !line.includes(','));
+    if (hasCsv && hasBlob) {
+        return { rows: [], mixedFormat: true, format: null };
+    }
+    const rows = [];
+    const seen = new Set();
+    if (hasCsv) {
+        lines.forEach((line) => {
+            const idx = line.indexOf(',');
+            const front = line.slice(0, idx).trim();
+            let back = line.slice(idx + 1).trim();
+            if (!back) back = front;
+            if (!front || !back) return;
+            const key = isChinese ? back : front;
+            if (seen.has(key)) return;
+            seen.add(key);
+            rows.push({ front, back });
+        });
+        return { rows, mixedFormat: false, format: 'csv' };
+    }
+    if (isChinese) {
+        const matches = String(text || '').match(/[\u3400-\u9FFF\uF900-\uFAFF]+/g) || [];
+        matches.forEach((token) => {
+            const t = String(token || '').trim();
+            if (!t || seen.has(t)) return;
+            seen.add(t);
+            rows.push({ front: t, back: t });
+        });
+    } else {
+        lines.forEach((line) => {
+            line.split(/\s+/).forEach((tok) => {
+                const t = String(tok || '').trim();
+                if (!t || seen.has(t)) return;
+                seen.add(t);
+                rows.push({ front: t, back: t });
+            });
+        });
+    }
+    return { rows, mixedFormat: false, format: 'blob' };
+}
+
+function getType2GenericBulkInputStats(text) {
+    const lines = String(text || '')
+        .split(/\r?\n/)
+        .map((raw) => String(raw || '').trim())
+        .filter((line) => line.length > 0);
+    if (lines.length === 0) {
+        return { totalCount: 0, uniqueCount: 0, dedupedCount: 0, uniqueValues: [], mixedFormat: false };
+    }
+    const hasCsv = lines.some((line) => line.includes(','));
+    const hasBlob = lines.some((line) => !line.includes(','));
+    if (hasCsv && hasBlob) {
+        return { totalCount: 0, uniqueCount: 0, dedupedCount: 0, uniqueValues: [], mixedFormat: true };
+    }
+    const fronts = [];
+    lines.forEach((line) => {
+        if (hasCsv) {
+            const idx = line.indexOf(',');
+            const front = line.slice(0, idx).trim();
+            if (front) fronts.push(front);
+        } else {
+            line.split(/\s+/).forEach((tok) => {
+                const trimmed = String(tok || '').trim();
+                if (trimmed) fronts.push(trimmed);
+            });
+        }
+    });
+    const uniqueValues = [...new Set(fronts)];
+    return {
+        totalCount: fronts.length,
+        uniqueCount: uniqueValues.length,
+        dedupedCount: Math.max(0, fronts.length - uniqueValues.length),
+        uniqueValues,
+        mixedFormat: false,
     };
 }
 
 function getType1EnglishBackBulkInputStats(text) {
-    const lines = String(text || '').split(/\r?\n/);
+    const lines = String(text || '').replace(/\uff0c/g, ',').split(/\r?\n/);
     const entries = [];
     const errors = [];
     const seenFronts = new Set();
@@ -828,18 +986,18 @@ async function updateSharedType1CardsSkipBulk(cardIds, skipped) {
     return result;
 }
 
-async function applyVisibleCardsSkip(targetSkipped) {
+async function applySelectedCardsSkip(targetSkipped) {
     if (isBulkSkipActionInFlight) {
         return;
     }
-    const visibleCards = getVisibleCardsForDisplay(currentCards);
-    const cardsToUpdate = visibleCards.filter((card) => Boolean(card.skip_practice) !== Boolean(targetSkipped));
+    const selectedCards = getSelectedCardObjects();
+    const cardsToUpdate = selectedCards.filter((card) => Boolean(card.skip_practice) !== Boolean(targetSkipped));
     if (cardsToUpdate.length <= 0) {
-        renderVisibleSkipActionButtons();
+        renderCardsSelectionBar();
         return;
     }
     isBulkSkipActionInFlight = true;
-    renderVisibleSkipActionButtons();
+    renderCardsSelectionBar();
     try {
         showError('');
         showSuccess('');
@@ -851,25 +1009,103 @@ async function applyVisibleCardsSkip(targetSkipped) {
         await loadSharedDeckCards();
         if (failedCount > 0 && successCount > 0) {
             showCardsBulkActionMessage(
-                `${targetSkipped ? 'Skipped' : 'Unskipped'} ${successCount} shown card(s); failed ${failedCount}.`,
+                `${targetSkipped ? 'Skipped' : 'Unskipped'} ${successCount} card(s); failed ${failedCount}.`,
                 true
             );
         } else if (failedCount > 0) {
-            showCardsBulkActionMessage(`Failed to update ${failedCount} shown card(s).`, true);
+            showCardsBulkActionMessage(`Failed to update ${failedCount} card(s).`, true);
         } else if (successCount > 0) {
-            showCardsBulkActionMessage(`${targetSkipped ? 'Skipped' : 'Unskipped'} ${successCount} shown card(s).`, false);
+            showCardsBulkActionMessage(`${targetSkipped ? 'Skipped' : 'Unskipped'} ${successCount} card(s).`, false);
         }
     } catch (error) {
-        console.error('Error applying bulk skip to shown cards:', error);
-        showCardsBulkActionMessage(error.message || 'Failed to update shown cards.', true);
+        console.error('Error applying bulk skip to selected cards:', error);
+        showCardsBulkActionMessage(error.message || 'Failed to update selected cards.', true);
     } finally {
         isBulkSkipActionInFlight = false;
-        renderVisibleSkipActionButtons();
+        renderCardsSelectionBar();
+    }
+}
+
+async function previewPersonalDeck() {
+    if (!supportsPersonalDeckEditor()) {
+        return;
+    }
+    const text = chineseCharInput ? chineseCharInput.value : '';
+
+    if (isType2Behavior()) {
+        const result = getType2BulkPreviewRows(text, isChineseSpecificLogic);
+        if (result.mixedFormat) {
+            showStatusMessage(TYPE2_MIXED_FORMAT_ERROR, true);
+            return;
+        }
+        if (!result.rows.length) {
+            showError(isChineseSpecificLogic
+                ? 'Please enter at least one Chinese word/phrase'
+                : 'Please enter at least one word');
+            return;
+        }
+        showStatusMessage('');
+        showError('');
+        showSuccess('');
+        renderPersonalDeckPreviewTable(result.rows, { frontLabel: 'Prompt', backLabel: 'Word' });
+        setPersonalDeckMode('preview');
+        return;
+    }
+
+    if (isType1ChineseEnglishBackMode()) {
+        const stats = getType1EnglishBackBulkInputStats(text);
+        if (stats.errors.length > 0) {
+            const badLines = stats.errors.slice(0, 3).map((e) => `line ${e.lineNumber}`).join(', ');
+            const more = stats.errors.length > 3 ? ` (+${stats.errors.length - 3} more)` : '';
+            showStatusMessage(`Invalid format on ${badLines}${more}. ${TYPE1_ENGLISH_BACK_FORMAT_HINT}`, true);
+            return;
+        }
+        if (stats.entries.length === 0) {
+            showError('Please enter at least one Chinese word/phrase with its English meaning.');
+            return;
+        }
+        showStatusMessage('');
+        showError('');
+        showSuccess('');
+        renderPersonalDeckPreviewTable(stats.entries, { frontLabel: 'Chinese', backLabel: 'English' });
+        setPersonalDeckMode('preview');
+        return;
+    }
+
+    const chineseChars = getType1ChineseBulkInputStats(text).uniqueValues;
+    if (chineseChars.length === 0) {
+        showError('Please enter at least one Chinese character.');
+        return;
+    }
+    showStatusMessage('');
+    showError('');
+    showSuccess('');
+    try {
+        setReadingBulkAddBusy(true);
+        const backMap = await window.DeckCreateCommon.fetchChineseCharacterBackMap(
+            API_BASE,
+            chineseChars,
+            'pinyin',
+        );
+        const rows = chineseChars.map((ch) => ({
+            front: ch,
+            back: String(backMap[ch] || '').trim(),
+        }));
+        renderPersonalDeckPreviewTable(rows, { frontLabel: 'Character', backLabel: 'Pinyin (auto)' });
+        setPersonalDeckMode('preview');
+    } catch (error) {
+        console.error('Preview failed:', error);
+        showError(error.message || 'Failed to generate pinyin preview.');
+    } finally {
+        setReadingBulkAddBusy(false);
     }
 }
 
 async function addOrphanCards() {
-    if (!isChineseSpecificLogic || isReadingBulkAdding) {
+    if (isReadingBulkAdding) {
+        return;
+    }
+    if (!supportsPersonalDeckEditor()) {
         return;
     }
     try {
@@ -880,9 +1116,13 @@ async function addOrphanCards() {
 
         const input = String(chineseCharInput ? chineseCharInput.value : '').trim();
         if (isType2Behavior()) {
-            const tokenCount = getType2ChineseBulkInputStats(input).uniqueCount;
+            const tokenCount = isChineseSpecificLogic
+                ? getType2ChineseBulkInputStats(input).uniqueCount
+                : getType2GenericBulkInputStats(input).uniqueCount;
             if (tokenCount === 0) {
-                showError('Please enter at least one Chinese word/phrase');
+                showError(isChineseSpecificLogic
+                    ? 'Please enter at least one Chinese word/phrase'
+                    : 'Please enter at least one word');
                 return;
             }
 
@@ -900,6 +1140,7 @@ async function addOrphanCards() {
             }
             const inserted = Math.max(0, Number(result.inserted_count) || 0);
             addCardForm.reset();
+            setPersonalDeckMode('edit');
             updateAddReadingButtonCount();
             showStatusMessage(buildBulkAddStatusMessage(inserted, result), false);
             await loadSharedType1Decks();
@@ -945,6 +1186,7 @@ async function addOrphanCards() {
 
         const inserted = Math.max(0, Number(result.created) || 0);
         addCardForm.reset();
+        setPersonalDeckMode('edit');
         updateAddReadingButtonCount();
         showStatusMessage(buildBulkAddStatusMessage(inserted, result), false);
         await loadSharedType1Decks();
@@ -1041,6 +1283,12 @@ async function handleCardsGridClick(event) {
         return;
     }
     const action = actionBtn.dataset.action;
+
+    if (action === 'toggle-select') {
+        event.preventDefault();
+        toggleCardSelection(actionBtn.dataset.cardId);
+        return;
+    }
 
     if (action === 'open-type4-generator') {
         const cardId = String(actionBtn.dataset.cardId || '').trim();

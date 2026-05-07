@@ -101,6 +101,12 @@ const addCardForm = document.getElementById('addCardForm');
 const chineseCharInput = document.getElementById('chineseChar');
 const addReadingBtn = document.getElementById('addReadingBtn');
 const addCardStatusMessage = document.getElementById('addCardStatusMessage');
+const personalDeckEditWrap = document.getElementById('personalDeckEditWrap');
+const personalDeckPreviewWrap = document.getElementById('personalDeckPreviewWrap');
+const personalDeckPreviewTableBody = document.getElementById('personalDeckPreviewTableBody');
+const personalDeckPreviewSummary = document.getElementById('personalDeckPreviewSummary');
+const personalDeckBackBtn = document.getElementById('personalDeckBackBtn');
+let personalDeckMode = 'edit';
 
 const viewOrderSelect = document.getElementById('viewOrderSelect');
 const sortMenuBtn = document.getElementById('sortMenuBtn');
@@ -111,10 +117,14 @@ const sortDirectionToggleBtns = sortDirectionToggleGroup
     ? Array.from(sortDirectionToggleGroup.querySelectorAll('.sort-direction-toggle-btn'))
     : [];
 const cardSearchInput = document.getElementById('cardSearchInput');
-const skipVisibleCardsBtn = document.getElementById('skipVisibleCardsBtn');
-const unskipVisibleCardsBtn = document.getElementById('unskipVisibleCardsBtn');
-const cardsBulkActionMenuBtn = document.getElementById('cardsBulkActionMenuBtn');
-const cardsBulkActionMenu = document.getElementById('cardsBulkActionMenu');
+const cardsSelectModeBtn = document.getElementById('cardsSelectModeBtn');
+const cardsSelectionBar = document.getElementById('cardsSelectionBar');
+const cardsSelectionCount = document.getElementById('cardsSelectionCount');
+const cardsSelectAllVisibleBtn = document.getElementById('cardsSelectAllVisibleBtn');
+const cardsSelectionClearBtn = document.getElementById('cardsSelectionClearBtn');
+const cardsSelectionCloseBtn = document.getElementById('cardsSelectionCloseBtn');
+const cardsSelectionSkipBtn = document.getElementById('cardsSelectionSkipBtn');
+const cardsSelectionUnskipBtn = document.getElementById('cardsSelectionUnskipBtn');
 const cardsBulkActionMessage = document.getElementById('cardsBulkActionMessage');
 const cardsQueueLegend = document.getElementById('cardsQueueLegend');
 const mathCardCount = document.getElementById('mathCardCount');
@@ -164,6 +174,9 @@ let currentSkippedCardCount = 0;
 let currentCardViewMode = 'short';
 let expandedCompactCardIds = new Set();
 let isBulkSkipActionInFlight = false;
+let isCardsSelectModeOn = false;
+let selectedCardIds = new Set();
+let viewModeBeforeSelectMode = null;
 let sessionCardCountByCategory = {};
 let includeOrphanByCategory = {};
 let hardCardPercentByCategory = {};
@@ -488,8 +501,62 @@ function isType1ChineseEnglishBackMode() {
 const TYPE1_ENGLISH_BACK_FORMAT_HINT = 'Expected one entry per line as: <chinese>, <english> — e.g. 中国, china';
 
 function supportsPersonalDeckEditor() {
-    return isChineseSpecificLogic
-        && (currentBehaviorType === BEHAVIOR_TYPE_TYPE_I || currentBehaviorType === BEHAVIOR_TYPE_TYPE_II);
+    if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_II) {
+        return true;
+    }
+    return isChineseSpecificLogic && currentBehaviorType === BEHAVIOR_TYPE_TYPE_I;
+}
+
+function renderPersonalDeckPreviewTable(rows, options = {}) {
+    if (!personalDeckPreviewTableBody) return;
+    const frontLabel = String(options.frontLabel || 'Prompt');
+    const backLabel = String(options.backLabel || 'Word');
+    const tableEl = personalDeckPreviewTableBody.closest('table');
+    if (tableEl) {
+        const headers = tableEl.querySelectorAll('thead th');
+        if (headers.length >= 3) {
+            headers[1].textContent = frontLabel;
+            headers[2].textContent = backLabel;
+        }
+    }
+    const html = rows.map((row, idx) => {
+        const backRaw = row.back == null ? '' : String(row.back);
+        const backHtml = backRaw.length > 0
+            ? escapeHtml(backRaw)
+            : '<span class="col-back-empty">—</span>';
+        return (
+            `<tr>`
+            + `<td class="col-num">${idx + 1}</td>`
+            + `<td class="col-front">${escapeHtml(row.front)}</td>`
+            + `<td class="col-back">${backHtml}</td>`
+            + `</tr>`
+        );
+    }).join('');
+    personalDeckPreviewTableBody.innerHTML = html;
+    if (personalDeckPreviewSummary) {
+        const n = rows.length;
+        personalDeckPreviewSummary.textContent = `${n} card${n === 1 ? '' : 's'} ready — review then Apply.`;
+    }
+}
+
+function setPersonalDeckMode(mode) {
+    personalDeckMode = mode === 'preview' ? 'preview' : 'edit';
+    const isPreview = personalDeckMode === 'preview';
+    if (personalDeckEditWrap) personalDeckEditWrap.classList.toggle('hidden', isPreview);
+    if (personalDeckPreviewWrap) personalDeckPreviewWrap.classList.toggle('hidden', !isPreview);
+    if (personalDeckBackBtn) personalDeckBackBtn.classList.toggle('hidden', !isPreview);
+    if (chineseCharInput) chineseCharInput.required = !isPreview;
+    if (addReadingBtn) {
+        if (isPreview) {
+            addReadingBtn.disabled = false;
+            addReadingBtn.innerHTML = (typeof icon === 'function' ? icon('check', { size: 18 }) : '') + ' Apply';
+        } else {
+            updateAddReadingButtonCount();
+        }
+    }
+    if (!isPreview) {
+        showStatusMessage('');
+    }
 }
 
 function getSessionCountFromKid(kid) {
@@ -678,21 +745,18 @@ function applyCategoryUiText() {
         setManageModalOpen(personalDeckModal, false);
     }
     if (personalDeckModalNote) {
-        if (isType1ChineseEnglishBackMode()) {
-            personalDeckModalNote.textContent = `Bulk add Chinese words/phrases with English meanings. ${TYPE1_ENGLISH_BACK_FORMAT_HINT}`;
-        } else {
-            personalDeckModalNote.textContent = isType2Behavior()
-                ? 'Bulk add Chinese words and phrases to the Personal Deck.'
-                : 'Bulk add Chinese characters to the Personal Deck.';
-        }
+        personalDeckModalNote.textContent = '';
+        personalDeckModalNote.classList.add('hidden');
     }
     if (chineseCharInput) {
         if (isType1ChineseEnglishBackMode()) {
-            chineseCharInput.placeholder = '比如:\n中国, china\n你好, hello\n学校, school';
+            chineseCharInput.placeholder = '添加生词 — 中文 + 英文释义。\n\n格式：「<中文>，<english>」一行一张卡\n（中英文逗号都可以；缺英文释义会留空，可在卡片中补充）\n\n比如:\n中国，china\n你好，hello\n学校，school';
+        } else if (isType2Behavior() && !isChineseSpecificLogic) {
+            chineseCharInput.placeholder = 'Add words to practice writing. Pick ONE format — don\'t mix.\n\n• Format A — blob (prompt = word, each word is one card)\napple banana orange grape\ncat dog rabbit elephant\n\n• Format B — "prompt, word" (one card per line)\nA red round fruit, apple\nMan\'s best friend, dog\nGoes "moo", cow';
+        } else if (isType2Behavior()) {
+            chineseCharInput.placeholder = '添加生词练习。两种格式 — 只能选一种。\n\n• 格式 A — 词块（听到的词 = 要写的词）\n好像 香菜 为难 关心 事情\n答应 知道 从来 勇敢\n\n• 格式 B —「提示，答案」一行一张卡\n看起来很像，好像\n有香味的蔬菜，香菜\n感到困难，为难';
         } else {
-            chineseCharInput.placeholder = isType2Behavior()
-                ? '比如:\nDAY1:好像 香 菜 为难 关心 事情 很重 虽然 但是 改变 昨天 放心 更好\nDAY2:答应 病了 知道 从来 勇敢 感动 高山 一起 可是 找人 怎么 远 路'
-                : '比如:\nDAY1:坐着 甘罗 甘茂 叹了口气 皇帝 做官 爷爷 留在 孙子 总是 实在 \nDAY2:说明 有说有笑 心事 喜欢 当作 胡说 清楚 北方 摸着 肩膀';
+            chineseCharInput.placeholder = '添加生字 — 一字一卡，拼音自动生成。\n\n直接粘贴文章或生字表都可以；只识别汉字，其他符号会被忽略。\n点 Preview 可查看自动生成的拼音再确认。\n\n比如:\n坐 甘 罗 茂 叹 皇 帝 做 官 爷 留 孙\n说 笑 心 喜 当 楚 北 摸 肩 膀';
         }
     }
     document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);

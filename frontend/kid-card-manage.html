@@ -151,22 +151,10 @@
                         aria-label="Search cards"
                     >
                 </div>
-                <div class="cards-bulk-action-menu">
-                    <button id="cardsBulkActionMenuBtn" type="button" class="cards-bulk-action-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Bulk actions" title="Bulk actions">
-                        <span class="cards-bulk-action-menu-btn-label">Bulk</span>
-                        <span class="cards-bulk-action-menu-btn-caret" data-icon="chevron-down"></span>
-                    </button>
-                    <div id="cardsBulkActionMenu" class="cards-bulk-action-menu-popover hidden" role="menu" aria-hidden="true">
-                        <button id="skipVisibleCardsBtn" type="button" class="cards-bulk-action-menu-item cards-bulk-action-menu-item-skip" role="menuitem">
-                            <span class="cards-bulk-action-menu-item-icon" data-icon="eye-off" data-icon-stroke="2"></span>
-                            <span class="cards-bulk-action-menu-item-text">Skip visible cards (0)</span>
-                        </button>
-                        <button id="unskipVisibleCardsBtn" type="button" class="cards-bulk-action-menu-item cards-bulk-action-menu-item-unskip" role="menuitem">
-                            <span class="cards-bulk-action-menu-item-icon" data-icon="eye" data-icon-stroke="2"></span>
-                            <span class="cards-bulk-action-menu-item-text">Unskip visible cards (0)</span>
-                        </button>
-                    </div>
-                </div>
+                <button id="cardsSelectModeBtn" type="button" class="cards-select-mode-btn" aria-pressed="false" aria-label="Select cards" title="Select cards">
+                    <span class="cards-select-mode-btn-icon" data-icon="box-select" data-icon-stroke="2"></span>
+                    <span class="cards-select-mode-btn-label">Select</span>
+                </button>
                 <div class="sort-control-group">
                     <div class="sort-menu">
                         <button id="sortMenuBtn" type="button" class="sort-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Sort by">
@@ -333,7 +321,7 @@
             <div class="manage-popup-modal-body">
                 <p id="personalDeckModalNote" class="deck-v2-note">Bulk add Chinese characters to the Personal Deck.</p>
                 <form id="addCardForm">
-                    <div class="form-group">
+                    <div id="personalDeckEditWrap" class="form-group">
                         <div class="bulk-import-wrap">
                             <textarea
                                 id="chineseChar"
@@ -342,9 +330,25 @@
                             ></textarea>
                         </div>
                     </div>
+                    <div id="personalDeckPreviewWrap" class="hidden">
+                        <div id="personalDeckPreviewSummary" class="personal-deck-preview-summary"></div>
+                        <div class="personal-deck-preview-table-wrap">
+                            <table class="personal-deck-preview-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-num">#</th>
+                                        <th class="col-front">Prompt</th>
+                                        <th class="col-back">Word</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="personalDeckPreviewTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                     <div class="orphan-editor-action-row">
-                        <button type="submit" id="addReadingBtn" class="submit-btn" disabled>Bulk Add</button>
-                        <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary">Close</button>
+                        <button type="submit" id="addReadingBtn" class="submit-btn" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
+                        <button id="personalDeckBackBtn" type="button" class="btn-secondary hidden"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</button>
+                        <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary"><span class="icon" data-icon="x" data-icon-size="18"></span> Close</button>
                     </div>
                     <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
                 </form>
@@ -352,9 +356,31 @@
         </div>
     </div>
 
+    <div id="cardsSelectionBar" class="cards-selection-bar hidden" aria-hidden="true">
+        <div class="cards-selection-bar-info">
+            <span id="cardsSelectionCount" class="cards-selection-count">0 selected</span>
+            <button id="cardsSelectAllVisibleBtn" type="button" class="cards-selection-link">Select all visible</button>
+            <button id="cardsSelectionClearBtn" type="button" class="cards-selection-link">Clear</button>
+            <button id="cardsSelectionCloseBtn" type="button" class="cards-selection-close-btn" aria-label="Exit selection mode" title="Exit selection mode">
+                <span data-icon="x" data-icon-stroke="2"></span>
+            </button>
+        </div>
+        <div class="cards-selection-bar-actions">
+            <button id="cardsSelectionSkipBtn" type="button" class="cards-selection-action-btn" disabled>
+                <span class="cards-selection-action-icon" data-icon="eye-off" data-icon-stroke="2"></span>
+                <span class="cards-selection-action-label">Skip</span>
+            </button>
+            <button id="cardsSelectionUnskipBtn" type="button" class="cards-selection-action-btn" disabled>
+                <span class="cards-selection-action-icon" data-icon="eye" data-icon-stroke="2"></span>
+                <span class="cards-selection-action-label">Unskip</span>
+            </button>
+        </div>
+    </div>
+
     <script src="icons.js"></script>
     <script src="subject-icons.js"></script>
     <script src="deck-category-common.js"></script>
+    <script src="deck-create-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="kid-report-common.js"></script>
     <script src="histogram-distribution-common.js"></script>

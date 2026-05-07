@@ -766,36 +766,166 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
     cardsQueueLegend.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
 }
 
-function renderVisibleSkipActionButtons() {
-    if (!skipVisibleCardsBtn || !unskipVisibleCardsBtn) {
+function pruneSelectedCardIdsToCurrent() {
+    if (selectedCardIds.size === 0) {
         return;
     }
-    const visibleCards = getVisibleCardsForDisplay(currentCards);
-    const skipableCount = visibleCards.filter((card) => !card.skip_practice).length;
-    const unskipableCount = visibleCards.filter((card) => !!card.skip_practice).length;
-    const skipLabel = skipVisibleCardsBtn.querySelector('.cards-bulk-action-menu-item-text');
-    const unskipLabel = unskipVisibleCardsBtn.querySelector('.cards-bulk-action-menu-item-text');
-    if (skipLabel) {
-        skipLabel.textContent = `Skip visible cards (${skipableCount})`;
-    } else {
-        skipVisibleCardsBtn.textContent = `Skip visible cards (${skipableCount})`;
+    const cardIds = new Set(
+        (Array.isArray(currentCards) ? currentCards : [])
+            .map((card) => String(card && card.id ? card.id : ''))
+            .filter((value) => value.length > 0)
+    );
+    for (const id of [...selectedCardIds]) {
+        if (!cardIds.has(id)) {
+            selectedCardIds.delete(id);
+        }
     }
-    if (unskipLabel) {
-        unskipLabel.textContent = `Unskip visible cards (${unskipableCount})`;
-    } else {
-        unskipVisibleCardsBtn.textContent = `Unskip visible cards (${unskipableCount})`;
-    }
-    skipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || skipableCount <= 0;
-    unskipVisibleCardsBtn.disabled = isBulkSkipActionInFlight || unskipableCount <= 0;
 }
 
-function setCardsBulkActionMenuOpen(open) {
-    if (!cardsBulkActionMenuBtn || !cardsBulkActionMenu) {
+function getSelectedCardObjects() {
+    if (selectedCardIds.size === 0) {
+        return [];
+    }
+    return (Array.isArray(currentCards) ? currentCards : [])
+        .filter((card) => selectedCardIds.has(String(card && card.id ? card.id : '')));
+}
+
+function renderCardsSelectionBar() {
+    if (!cardsSelectionBar || !cardsSelectModeBtn) {
         return;
     }
-    cardsBulkActionMenu.classList.toggle('hidden', !open);
-    cardsBulkActionMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
-    cardsBulkActionMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    pruneSelectedCardIdsToCurrent();
+
+    cardsSelectModeBtn.classList.toggle('active', isCardsSelectModeOn);
+    cardsSelectModeBtn.setAttribute('aria-pressed', isCardsSelectModeOn ? 'true' : 'false');
+
+    if (!isCardsSelectModeOn && cardsSelectionBar.contains(document.activeElement)) {
+        if (cardsSelectModeBtn) {
+            cardsSelectModeBtn.focus();
+        } else if (typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+        }
+    }
+    cardsSelectionBar.classList.toggle('hidden', !isCardsSelectModeOn);
+    cardsSelectionBar.setAttribute('aria-hidden', isCardsSelectModeOn ? 'false' : 'true');
+    document.body.classList.toggle('cards-select-mode', isCardsSelectModeOn);
+    if (cardsGrid) {
+        cardsGrid.classList.toggle('select-mode', isCardsSelectModeOn);
+    }
+
+    const selectedCards = getSelectedCardObjects();
+    const selectedCount = selectedCards.length;
+    if (cardsSelectionCount) {
+        cardsSelectionCount.textContent = `${selectedCount} selected`;
+    }
+
+    if (cardsSelectionClearBtn) {
+        cardsSelectionClearBtn.disabled = selectedCount <= 0;
+    }
+    if (cardsSelectAllVisibleBtn) {
+        const visibleCards = getVisibleCardsForDisplay(currentCards);
+        const visibleIds = new Set(
+            visibleCards
+                .map((card) => String(card && card.id ? card.id : ''))
+                .filter((value) => value.length > 0)
+        );
+        let unselectedVisible = 0;
+        for (const id of visibleIds) {
+            if (!selectedCardIds.has(id)) {
+                unselectedVisible += 1;
+            }
+        }
+        cardsSelectAllVisibleBtn.disabled = unselectedVisible <= 0;
+    }
+
+    const skipableCount = selectedCards.filter((card) => !card.skip_practice).length;
+    const unskipableCount = selectedCards.filter((card) => !!card.skip_practice).length;
+    if (cardsSelectionSkipBtn) {
+        const label = cardsSelectionSkipBtn.querySelector('.cards-selection-action-label');
+        const text = skipableCount > 0 ? `Skip (${skipableCount})` : 'Skip';
+        if (label) {
+            label.textContent = text;
+        }
+        cardsSelectionSkipBtn.disabled = isBulkSkipActionInFlight || skipableCount <= 0;
+    }
+    if (cardsSelectionUnskipBtn) {
+        const label = cardsSelectionUnskipBtn.querySelector('.cards-selection-action-label');
+        const text = unskipableCount > 0 ? `Unskip (${unskipableCount})` : 'Unskip';
+        if (label) {
+            label.textContent = text;
+        }
+        cardsSelectionUnskipBtn.disabled = isBulkSkipActionInFlight || unskipableCount <= 0;
+    }
+}
+
+function setCardsSelectMode(on) {
+    const next = !!on;
+    if (next === isCardsSelectModeOn) {
+        renderCardsSelectionBar();
+        return;
+    }
+    if (next) {
+        viewModeBeforeSelectMode = currentCardViewMode;
+        isCardsSelectModeOn = true;
+        if (currentCardViewMode !== 'short') {
+            currentCardViewMode = 'short';
+            expandedCompactCardIds.clear();
+            renderCardViewModeButtons();
+        }
+        showCardsBulkActionMessage('');
+        resetAndDisplayCards(currentCards);
+    } else {
+        isCardsSelectModeOn = false;
+        selectedCardIds.clear();
+        const restoreMode = viewModeBeforeSelectMode === 'long' ? 'long' : 'short';
+        viewModeBeforeSelectMode = null;
+        if (currentCardViewMode !== restoreMode) {
+            currentCardViewMode = restoreMode;
+            renderCardViewModeButtons();
+        }
+        resetAndDisplayCards(currentCards);
+    }
+    renderCardsSelectionBar();
+}
+
+function toggleCardSelection(cardId) {
+    const id = String(cardId || '').trim();
+    if (!id) {
+        return;
+    }
+    if (selectedCardIds.has(id)) {
+        selectedCardIds.delete(id);
+    } else {
+        selectedCardIds.add(id);
+    }
+    const tile = cardsGrid ? cardsGrid.querySelector(`[data-select-card-id="${CSS.escape(id)}"]`) : null;
+    if (tile) {
+        tile.classList.toggle('selected', selectedCardIds.has(id));
+        tile.setAttribute('aria-pressed', selectedCardIds.has(id) ? 'true' : 'false');
+    }
+    renderCardsSelectionBar();
+}
+
+function selectAllVisibleCards() {
+    const visibleCards = getVisibleCardsForDisplay(currentCards);
+    visibleCards.forEach((card) => {
+        const id = String(card && card.id ? card.id : '').trim();
+        if (id) {
+            selectedCardIds.add(id);
+        }
+    });
+    resetAndDisplayCards(currentCards);
+    renderCardsSelectionBar();
+}
+
+function clearCardSelection() {
+    if (selectedCardIds.size === 0) {
+        renderCardsSelectionBar();
+        return;
+    }
+    selectedCardIds.clear();
+    resetAndDisplayCards(currentCards);
+    renderCardsSelectionBar();
 }
 
 function getSortOptionLabel(option) {
@@ -884,25 +1014,27 @@ function isSortMenuOpen() {
     return !!(sortMenuPopover && !sortMenuPopover.classList.contains('hidden'));
 }
 
-function isCardsBulkActionMenuOpen() {
-    return !!(cardsBulkActionMenu && !cardsBulkActionMenu.classList.contains('hidden'));
-}
-
 function renderCardViewModeButtons() {
     const isCompact = currentCardViewMode === 'short';
+    const lockToCompact = isCardsSelectModeOn;
     if (cardViewModeCompactBtn) {
         cardViewModeCompactBtn.innerHTML = icon('layout-grid', { size: 16 });
         cardViewModeCompactBtn.classList.toggle('active', isCompact);
         cardViewModeCompactBtn.setAttribute('aria-pressed', isCompact ? 'true' : 'false');
+        cardViewModeCompactBtn.disabled = lockToCompact;
     }
     if (cardViewModeExpandBtn) {
         cardViewModeExpandBtn.innerHTML = icon('rows-3', { size: 16 });
         cardViewModeExpandBtn.classList.toggle('active', !isCompact);
         cardViewModeExpandBtn.setAttribute('aria-pressed', isCompact ? 'false' : 'true');
+        cardViewModeExpandBtn.disabled = lockToCompact;
     }
 }
 
 function setCardViewMode(nextMode) {
+    if (isCardsSelectModeOn) {
+        return;
+    }
     const mode = String(nextMode || '').trim().toLowerCase();
     const resolved = isType4Behavior()
         ? 'long'

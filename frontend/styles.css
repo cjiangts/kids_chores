@@ -1129,7 +1129,7 @@ body {
 }
 
 .manage-page .bulk-import-wrap textarea {
-    min-height: 165px;
+    min-height: 320px;
     resize: vertical;
 }
 

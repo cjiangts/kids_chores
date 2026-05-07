@@ -129,12 +129,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.addEventListener('click', () => {
+            setPersonalDeckMode('edit');
             setManageModalOpen(personalDeckModal, true);
         });
     }
     if (cancelPersonalDeckModalBtn) {
         cancelPersonalDeckModalBtn.addEventListener('click', () => {
             setManageModalOpen(personalDeckModal, false);
+        });
+    }
+    if (personalDeckBackBtn) {
+        personalDeckBackBtn.addEventListener('click', () => {
+            setPersonalDeckMode('edit');
         });
     }
     if (deckTreeModal) {
@@ -273,43 +279,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             resetAndDisplayCards(currentCards);
         });
     }
-    if (skipVisibleCardsBtn) {
-        skipVisibleCardsBtn.addEventListener('click', async () => {
-            setCardsBulkActionMenuOpen(false);
-            await applyVisibleCardsSkip(true);
+    if (cardsSelectModeBtn) {
+        cardsSelectModeBtn.addEventListener('click', () => {
+            setCardsSelectMode(!isCardsSelectModeOn);
         });
     }
-    if (unskipVisibleCardsBtn) {
-        unskipVisibleCardsBtn.addEventListener('click', async () => {
-            setCardsBulkActionMenuOpen(false);
-            await applyVisibleCardsSkip(false);
+    if (cardsSelectionCloseBtn) {
+        cardsSelectionCloseBtn.addEventListener('click', () => {
+            setCardsSelectMode(false);
         });
     }
-    if (cardsBulkActionMenuBtn) {
-        cardsBulkActionMenuBtn.addEventListener('click', (event) => {
-            event.stopPropagation();
-            setCardsBulkActionMenuOpen(!isCardsBulkActionMenuOpen());
-        });
-        document.addEventListener('click', (event) => {
-            if (!isCardsBulkActionMenuOpen()) {
-                return;
-            }
-            const target = event.target;
-            if (cardsBulkActionMenu.contains(target) || cardsBulkActionMenuBtn.contains(target)) {
-                return;
-            }
-            setCardsBulkActionMenuOpen(false);
-        });
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && isCardsBulkActionMenuOpen()) {
-                setCardsBulkActionMenuOpen(false);
-                cardsBulkActionMenuBtn.focus();
-            }
+    if (cardsSelectAllVisibleBtn) {
+        cardsSelectAllVisibleBtn.addEventListener('click', () => {
+            selectAllVisibleCards();
         });
     }
+    if (cardsSelectionClearBtn) {
+        cardsSelectionClearBtn.addEventListener('click', () => {
+            clearCardSelection();
+        });
+    }
+    if (cardsSelectionSkipBtn) {
+        cardsSelectionSkipBtn.addEventListener('click', async () => {
+            await applySelectedCardsSkip(true);
+        });
+    }
+    if (cardsSelectionUnskipBtn) {
+        cardsSelectionUnskipBtn.addEventListener('click', async () => {
+            await applySelectedCardsSkip(false);
+        });
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && isCardsSelectModeOn) {
+            setCardsSelectMode(false);
+        }
+    });
     if (addCardForm) {
         addCardForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            if (supportsPersonalDeckEditor() && personalDeckMode === 'edit') {
+                await previewPersonalDeck();
+                return;
+            }
             await addOrphanCards();
         });
     }

@@ -339,9 +339,8 @@ def shared_deck_name_availability():
 def shared_deck_chinese_characters_pinyin():
     """Return pinyin and composed back-text mappings for requested Chinese text."""
     try:
-        auth_err = require_super_family()
-        if auth_err:
-            return auth_err
+        if not current_family_id():
+            return jsonify({'error': 'Family login required'}), 401
 
         payload = request.get_json() or {}
         texts = normalize_shared_deck_fronts(payload.get('texts'))
