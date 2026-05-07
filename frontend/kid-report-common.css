@@ -1,0 +1,30 @@
+.daily-vbar-bar,
+.daily-line-chart-bar {
+    display: flex;
+    flex-direction: column-reverse;
+    background: #eef2fb;
+    min-height: 2px;
+    border-radius: 14px 14px 6px 6px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 10px 18px rgba(22, 163, 74, 0.16);
+}
+
+.daily-vbar-bar {
+    width: 100%;
+}
+
+.daily-line-chart-bar {
+    width: 70%;
+    max-width: 30px;
+}
+
+.daily-vbar-seg,
+.daily-line-chart-seg {
+    width: 100%;
+}
+
+@media (max-width: 540px) {
+    .daily-line-chart-bar {
+        max-width: 18px;
+    }
+}

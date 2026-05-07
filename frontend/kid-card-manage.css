@@ -4422,19 +4422,6 @@
             white-space: nowrap;
             pointer-events: none;
         }
-        .cards-report-view .daily-line-chart-bar {
-            width: 70%;
-            max-width: 30px;
-            display: flex;
-            flex-direction: column-reverse;
-            border-radius: 6px;
-            overflow: hidden;
-            background: #eef2fb;
-            min-height: 2px;
-        }
-        .cards-report-view .daily-line-chart-seg {
-            width: 100%;
-        }
         .cards-report-view .daily-line-chart-line {
             position: absolute;
             top: calc(0.72rem * 1.1 + 0.4rem);
@@ -4523,9 +4510,6 @@
             }
             .cards-report-view .daily-line-chart-axis-right .daily-line-chart-tick {
                 left: 0.2rem;
-            }
-            .cards-report-view .daily-line-chart-bar {
-                max-width: 18px;
             }
             .cards-report-view .daily-line-chart-total {
                 font-size: 0.62rem;
@@ -4633,18 +4617,6 @@
             font-weight: 600;
             white-space: nowrap;
             pointer-events: none;
-        }
-        .cards-report-view .daily-vbar-bar {
-            width: 100%;
-            border-radius: 6px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column-reverse;
-            background: #eef2fb;
-            min-height: 2px;
-        }
-        .cards-report-view .daily-vbar-seg {
-            width: 100%;
         }
         .cards-report-view .daily-vbar-date {
             margin-top: 0.4rem;

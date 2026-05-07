@@ -3,25 +3,40 @@
 
     const { normalizeCategoryKey } = window.DeckCategoryCommon;
 
+    const SUBJECT_TONE_THEMES = {
+        orange: { bar: '#d96a00', barGradient: 'linear-gradient(180deg, #ff9a3c 0%, #d96a00 100%)', pillBg: '#ffe5cc', pillText: '#9a5b00' },
+        red:    { bar: '#d63a30', barGradient: 'linear-gradient(180deg, #f06860 0%, #d63a30 100%)', pillBg: '#ffdcd6', pillText: '#a33131' },
+        amber:  { bar: '#d9a800', barGradient: 'linear-gradient(180deg, #ffd84a 0%, #d9a800 100%)', pillBg: '#fff1c2', pillText: '#7a5400' },
+        green:  { bar: '#2a8e48', barGradient: 'linear-gradient(180deg, #5dc777 0%, #2a8e48 100%)', pillBg: '#d6f1de', pillText: '#1e6c34' },
+        teal:   { bar: '#0e7490', barGradient: 'linear-gradient(180deg, #22d3ee 0%, #0e7490 100%)', pillBg: '#c9efeb', pillText: '#0b6b62' },
+        blue:   { bar: '#2964c8', barGradient: 'linear-gradient(180deg, #6da4f5 0%, #2964c8 100%)', pillBg: '#d8e6ff', pillText: '#1e4f9f' },
+        purple: { bar: '#5e44d4', barGradient: 'linear-gradient(180deg, #9577ee 0%, #5e44d4 100%)', pillBg: '#e6dcff', pillText: '#473299' },
+    };
     const CATEGORY_COLOR_PALETTE = [
-        { bar: '#3b82f6', pillBg: '#e8f1ff', pillText: '#1e4f9f' },
-        { bar: '#f59e0b', pillBg: '#fff4de', pillText: '#9a5b00' },
-        { bar: '#10b981', pillBg: '#e6faf3', pillText: '#0d6b57' },
-        { bar: '#8b5cf6', pillBg: '#efe8ff', pillText: '#5a3aa6' },
-        { bar: '#ef4444', pillBg: '#fdecec', pillText: '#a33131' },
-        { bar: '#06b6d4', pillBg: '#e7fafd', pillText: '#0a6c83' },
-        { bar: '#84cc16', pillBg: '#f1fadf', pillText: '#4e7d08' },
-        { bar: '#ec4899', pillBg: '#fdeaf3', pillText: '#9c2d63' },
-        { bar: '#6366f1', pillBg: '#ececff', pillText: '#4043a3' },
-        { bar: '#f97316', pillBg: '#fff0e5', pillText: '#a34a0d' },
-        { bar: '#14b8a6', pillBg: '#e5fbf8', pillText: '#0b6b62' },
-        { bar: '#a855f7', pillBg: '#f4eaff', pillText: '#6f33aa' },
+        SUBJECT_TONE_THEMES.blue,
+        SUBJECT_TONE_THEMES.orange,
+        SUBJECT_TONE_THEMES.green,
+        SUBJECT_TONE_THEMES.purple,
+        SUBJECT_TONE_THEMES.red,
+        SUBJECT_TONE_THEMES.teal,
+        SUBJECT_TONE_THEMES.amber,
     ];
     const DEFAULT_CATEGORY_COLOR_THEME = CATEGORY_COLOR_PALETTE[0];
+
+    function getSubjectToneTheme(categoryKey) {
+        const subjectMap = (typeof window !== 'undefined' && window.SUBJECT_ICONS) || null;
+        if (!subjectMap) return null;
+        const def = subjectMap[String(categoryKey || '').trim().toLowerCase()];
+        if (!def || !def.tone) return null;
+        return SUBJECT_TONE_THEMES[def.tone] || null;
+    }
     const DAILY_CHART_PAGE_SIZE = 7;
     const MINUTES_FILTER_COLOR = '#3b82f6';
     const RIGHT_CARDS_FILTER_COLOR = '#16a34a';
     const WRONG_CARDS_FILTER_COLOR = '#dc2626';
+    const MINUTES_BAR_GRADIENT = 'linear-gradient(180deg, #6e9cff 0%, #2f66e6 100%)';
+    const RIGHT_CARDS_BAR_GRADIENT = 'linear-gradient(180deg, #4ade80 0%, #16a34a 100%)';
+    const WRONG_CARDS_BAR_GRADIENT = 'linear-gradient(180deg, #f87171 0%, #dc2626 100%)';
 
     function createReport(config) {
         const elements = (config && config.elements) || {};
@@ -149,11 +164,15 @@
             const orderedCategoryKeys = Array.from(categoryTotals.entries())
                 .sort((a, b) => b[1] - a[1])
                 .map(([categoryKey]) => categoryKey);
-            dailyChartCategories = orderedCategoryKeys.map((categoryKey) => ({
-                key: categoryKey,
-                label: String(categoryLabelByKey.get(categoryKey) || ''),
-                color: getCategoryColorTheme(categoryKey).bar,
-            }));
+            dailyChartCategories = orderedCategoryKeys.map((categoryKey) => {
+                const theme = getCategoryColorTheme(categoryKey);
+                return {
+                    key: categoryKey,
+                    label: String(categoryLabelByKey.get(categoryKey) || ''),
+                    color: theme.bar,
+                    barGradient: theme.barGradient,
+                };
+            });
 
             dailyChartRows = Array.from(dailyMap.entries())
                 .map(([date, v]) => ({ date, ...v }))
@@ -227,13 +246,13 @@
                 let segments = '';
                 if (total > 0) {
                     if (showCards) {
-                        segments = `<div class="daily-vbar-seg" style="height:100%;background:${MINUTES_FILTER_COLOR}" title="${total.toFixed(1)} min"></div>`;
+                        segments = `<div class="daily-vbar-seg" style="height:100%;background:${MINUTES_BAR_GRADIENT}" title="${total.toFixed(1)} min"></div>`;
                     } else {
                         segments = categories.map((category) => {
                             const minutes = Number(row?.byCategory?.[category.key]) || 0;
                             if (minutes <= 0) return '';
                             const segPct = (minutes / total) * 100;
-                            return `<div class="daily-vbar-seg" style="height:${segPct.toFixed(2)}%;background:${escapeHtml(category.color)}" title="${escapeHtml(category.label)} ${minutes.toFixed(1)} min"></div>`;
+                            return `<div class="daily-vbar-seg" style="height:${segPct.toFixed(2)}%;background:${escapeHtml(category.barGradient || category.color)}" title="${escapeHtml(category.label)} ${minutes.toFixed(1)} min"></div>`;
                         }).join('');
                     }
                 }
@@ -250,10 +269,10 @@
                     const safeCardsHeightPct = Math.max(2, cardsHeightPct);
                     const cardsSegments = [
                         rightCards > 0
-                            ? `<div class="daily-vbar-seg" style="height:${((rightCards / cards) * 100).toFixed(2)}%;background:${RIGHT_CARDS_FILTER_COLOR}" title="${rightCards} ${rightCards === 1 ? 'right card' : 'right cards'}"></div>`
+                            ? `<div class="daily-vbar-seg" style="height:${((rightCards / cards) * 100).toFixed(2)}%;background:${RIGHT_CARDS_BAR_GRADIENT}" title="${rightCards} ${rightCards === 1 ? 'right card' : 'right cards'}"></div>`
                             : '',
                         wrongCards > 0
-                            ? `<div class="daily-vbar-seg" style="height:${((wrongCards / cards) * 100).toFixed(2)}%;background:${WRONG_CARDS_FILTER_COLOR}" title="${wrongCards} ${wrongCards === 1 ? 'wrong card' : 'wrong cards'}"></div>`
+                            ? `<div class="daily-vbar-seg" style="height:${((wrongCards / cards) * 100).toFixed(2)}%;background:${WRONG_CARDS_BAR_GRADIENT}" title="${wrongCards} ${wrongCards === 1 ? 'wrong card' : 'wrong cards'}"></div>`
                             : '',
                     ].join('');
                     const cardsBar = cards > 0
@@ -317,6 +336,7 @@
                     .filter((category) => visibleCategoryKeys.has(category.key))
                     .map((category) => ({
                         color: category.color,
+                        gradient: category.barGradient,
                         label: String(category.label || '').trim() || category.key,
                     }));
                 if (legendItems.length > 0) {
@@ -324,9 +344,10 @@
                 }
             }
             elements.dailyChartLegend.innerHTML = legendPrefix + legendItems.map((item) => {
+                const swatchBg = item.gradient || item.color || '#cccccc';
                 const swatch = item.shape === 'line-dot'
                     ? `<span class="daily-chart-legend-line-dot" style="--legend-color:${escapeHtml(item.color || '#cccccc')}"></span>`
-                    : `<span class="daily-chart-legend-swatch" style="background:${escapeHtml(item.color || '#cccccc')}"></span>`;
+                    : `<span class="daily-chart-legend-swatch" style="background:${escapeHtml(swatchBg)}"></span>`;
                 return `<span class="daily-chart-legend-item">${swatch}${escapeHtml(item.label)}</span>`;
             }).join('');
             elements.dailyChartLegend.style.display = legendItems.length > 0 ? '' : 'none';
@@ -437,11 +458,11 @@
                 if (cards > 0) {
                     if (rightCards > 0) {
                         const segPct = (rightCards / cards) * 100;
-                        segments += `<div class="daily-line-chart-seg" style="height:${segPct.toFixed(2)}%;background:${RIGHT_CARDS_FILTER_COLOR}" title="${rightCards} ${rightCards === 1 ? 'correct card' : 'correct cards'}"></div>`;
+                        segments += `<div class="daily-line-chart-seg" style="height:${segPct.toFixed(2)}%;background:${RIGHT_CARDS_BAR_GRADIENT}" title="${rightCards} ${rightCards === 1 ? 'correct card' : 'correct cards'}"></div>`;
                     }
                     if (wrongCards > 0) {
                         const segPct = (wrongCards / cards) * 100;
-                        segments += `<div class="daily-line-chart-seg" style="height:${segPct.toFixed(2)}%;background:${WRONG_CARDS_FILTER_COLOR}" title="${wrongCards} ${wrongCards === 1 ? 'wrong card' : 'wrong cards'}"></div>`;
+                        segments += `<div class="daily-line-chart-seg" style="height:${segPct.toFixed(2)}%;background:${WRONG_CARDS_BAR_GRADIENT}" title="${wrongCards} ${wrongCards === 1 ? 'wrong card' : 'wrong cards'}"></div>`;
                     }
                 }
                 const dateLabel = formatDailyVBarDate(row.date);
@@ -569,9 +590,15 @@
             if (!key) return DEFAULT_CATEGORY_COLOR_THEME;
             const existing = categoryThemeByKey.get(key);
             if (existing) return existing;
-            const nextTheme = CATEGORY_COLOR_PALETTE[
-                categoryThemeByKey.size % CATEGORY_COLOR_PALETTE.length
-            ] || DEFAULT_CATEGORY_COLOR_THEME;
+            const subjectTheme = getSubjectToneTheme(key);
+            if (subjectTheme) {
+                categoryThemeByKey.set(key, subjectTheme);
+                return subjectTheme;
+            }
+            const usedThemes = new Set(categoryThemeByKey.values());
+            const nextTheme = CATEGORY_COLOR_PALETTE.find((theme) => !usedThemes.has(theme))
+                || CATEGORY_COLOR_PALETTE[categoryThemeByKey.size % CATEGORY_COLOR_PALETTE.length]
+                || DEFAULT_CATEGORY_COLOR_THEME;
             categoryThemeByKey.set(key, nextTheme);
             return nextTheme;
         }
@@ -600,10 +627,33 @@
                 return String(a).localeCompare(String(b));
             });
             const themeByKey = new Map();
-            for (let i = 0; i < orderedKeys.length; i += 1) {
-                const key = orderedKeys[i];
-                const theme = CATEGORY_COLOR_PALETTE[i % CATEGORY_COLOR_PALETTE.length] || DEFAULT_CATEGORY_COLOR_THEME;
+            const usedThemes = new Set();
+            const fallbackKeys = [];
+            for (const key of orderedKeys) {
+                const subjectTheme = getSubjectToneTheme(key);
+                if (subjectTheme) {
+                    themeByKey.set(key, subjectTheme);
+                    usedThemes.add(subjectTheme);
+                } else {
+                    fallbackKeys.push(key);
+                }
+            }
+            let paletteIndex = 0;
+            for (const key of fallbackKeys) {
+                let theme = null;
+                while (paletteIndex < CATEGORY_COLOR_PALETTE.length) {
+                    const candidate = CATEGORY_COLOR_PALETTE[paletteIndex];
+                    paletteIndex += 1;
+                    if (!usedThemes.has(candidate)) {
+                        theme = candidate;
+                        break;
+                    }
+                }
+                if (!theme) {
+                    theme = CATEGORY_COLOR_PALETTE[themeByKey.size % CATEGORY_COLOR_PALETTE.length] || DEFAULT_CATEGORY_COLOR_THEME;
+                }
                 themeByKey.set(key, theme);
+                usedThemes.add(theme);
             }
             return themeByKey;
         }
