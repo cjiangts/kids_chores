@@ -35,11 +35,12 @@ function getSourceDeckFilterOptions(cards) {
             return;
         }
         if (!map.has(key)) {
-            map.set(key, resolveCardSourceDeckName(card));
+            map.set(key, { label: resolveCardSourceDeckName(card), count: 0 });
         }
+        map.get(key).count += 1;
     });
     return Array.from(map.entries())
-        .map(([key, label]) => ({ key, label }))
+        .map(([key, value]) => ({ key, label: value.label, count: value.count }))
         .sort((a, b) => String(a.label).localeCompare(String(b.label)));
 }
 
@@ -65,8 +66,9 @@ function buildSourceDeckFilterMenuItems() {
         return;
     }
     sourceDeckFilterPopover.innerHTML = '';
+    const totalCount = (Array.isArray(currentCards) ? currentCards : []).length;
     const options = [
-        { key: '', label: 'All decks' },
+        { key: '', label: 'All decks', count: totalCount },
         ...getSourceDeckFilterOptions(currentCards),
     ];
     options.forEach((option) => {
@@ -75,11 +77,15 @@ function buildSourceDeckFilterMenuItems() {
         item.className = 'sort-menu-item';
         item.setAttribute('role', 'menuitemradio');
         item.dataset.value = option.key;
+        item.dataset.label = option.label;
+        item.dataset.count = String(option.count || 0);
         item.innerHTML = `
             ${window.icon('check', { className: 'sort-menu-item-check', strokeWidth: 2.6 })}
             <span class="sort-menu-item-label"></span>
+            <span class="sort-menu-item-count"></span>
         `;
         item.querySelector('.sort-menu-item-label').textContent = option.label;
+        item.querySelector('.sort-menu-item-count').textContent = String(option.count || 0);
         item.addEventListener('click', () => {
             if (currentSourceDeckFilter !== option.key) {
                 currentSourceDeckFilter = option.key;
@@ -111,10 +117,9 @@ function syncSourceDeckFilterMenu() {
     });
     if (sourceDeckFilterBtnLabel) {
         const selectedItem = items.find((item) => item.dataset.value === currentSourceDeckFilter);
-        const labelText = selectedItem
-            ? selectedItem.querySelector('.sort-menu-item-label').textContent
-            : 'All decks';
-        sourceDeckFilterBtnLabel.textContent = labelText;
+        const labelText = selectedItem ? selectedItem.dataset.label || 'All decks' : 'All decks';
+        const countText = selectedItem ? selectedItem.dataset.count || '0' : '0';
+        sourceDeckFilterBtnLabel.textContent = `${labelText} (${countText})`;
     }
 }
 

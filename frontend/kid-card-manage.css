@@ -1607,6 +1607,31 @@
             visibility: visible;
         }
 
+        .sort-menu-item-label {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sort-menu-item-count {
+            flex: 0 0 auto;
+            margin-left: 0.6rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #6b7494;
+            background: #eef2ff;
+            border-radius: 999px;
+            padding: 0.1rem 0.5rem;
+            min-width: 1.6rem;
+            text-align: center;
+        }
+
+        .sort-menu-item.selected .sort-menu-item-count {
+            color: #1d3a96;
+            background: #dde6ff;
+        }
+
         .manage-page .cards-toolbar .sort-control-group {
             display: flex;
             align-items: center;
