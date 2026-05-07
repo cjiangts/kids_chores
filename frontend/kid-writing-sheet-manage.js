@@ -2455,19 +2455,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     document.getElementById('chineseSheetPickerFillBtn')?.addEventListener('click', fillPageWithCards);
     document.getElementById('chineseSheetPickerCancelBtn')?.addEventListener('click', closeChineseSheetPicker);
-    document.getElementById('chineseSheetPicker')?.addEventListener('click', (event) => {
-        if (event.target === event.currentTarget) closeChineseSheetPicker();
-    });
     chineseSheetPaperSizeSelect?.addEventListener('change', (event) => {
         handleChineseSheetPaperSizeChange(event.target.value);
     });
     document.getElementById('cwEmptyCountDown')?.addEventListener('click', () => updateCwGlobalEmptyCount(-1));
     document.getElementById('cwEmptyCountUp')?.addEventListener('click', () => updateCwGlobalEmptyCount(1));
-    document.getElementById('chineseSheetBuilderModal')?.addEventListener('click', (event) => {
-        const picker = document.getElementById('chineseSheetPicker');
-        if (picker && !picker.classList.contains('hidden')) return;
-        if (event.target === event.currentTarget) closeChineseSheetBuilder();
-    });
 
     /* Math mode design-cell button delegation */
     if (mathDeckRowsEl) {
@@ -2531,9 +2523,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (Number.isInteger(deckId)) handleSheetBuilderDeckChoice(deckId);
     });
     document.getElementById('sheetBuilderPickerCancelBtn')?.addEventListener('click', closeSheetBuilderPicker);
-    document.getElementById('sheetBuilderPicker')?.addEventListener('click', (event) => {
-        if (event.target === event.currentTarget) closeSheetBuilderPicker();
-    });
     sheetBuilderPaperSizeSelect?.addEventListener('change', (event) => {
         handleMathPaperSizeChange(event.target.value);
     });
@@ -2586,14 +2575,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (builderModal && !builderModal.classList.contains('hidden')) { closeSheetBuilder(); return; }
         if (inlineModal && !inlineModal.classList.contains('hidden')) { closeInlineSheetBuilder(); return; }
     });
-    document.getElementById('cellDesignModal')?.addEventListener('click', (event) => {
-        if (event.target === event.currentTarget) closeCellDesignModal();
-    });
-    document.getElementById('sheetBuilderModal')?.addEventListener('click', (event) => {
-        const picker = document.getElementById('sheetBuilderPicker');
-        if (picker && !picker.classList.contains('hidden')) return;
-        if (event.target === event.currentTarget) closeSheetBuilder();
-    });
 
     /* Inline Sheet Builder */
     if (buildInlineSheetBtn) buildInlineSheetBtn.addEventListener('click', openInlineSheetBuilder);
@@ -2629,14 +2610,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (Number.isInteger(deckId)) handleInlineSheetDeckChoice(deckId);
     });
     document.getElementById('inlineSheetPickerCancelBtn')?.addEventListener('click', closeInlineSheetPicker);
-    document.getElementById('inlineSheetPicker')?.addEventListener('click', (event) => {
-        if (event.target === event.currentTarget) closeInlineSheetPicker();
-    });
-    document.getElementById('inlineSheetBuilderModal')?.addEventListener('click', (event) => {
-        const picker = document.getElementById('inlineSheetPicker');
-        if (picker && !picker.classList.contains('hidden')) return;
-        if (event.target === event.currentTarget) closeInlineSheetBuilder();
-    });
 
     /* Sheet list action delegation (shared) */
     if (sheetList) {

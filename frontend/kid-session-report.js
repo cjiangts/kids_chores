@@ -707,17 +707,10 @@ function renderAnswerList(container, cards, options = {}) {
             const audioAttrs = typeIII
                 ? ` data-result-id="${Number.isFinite(resultId) ? resultId : ''}" data-response-time-ms="${rawMs}"`
                 : '';
-            if (!compact && typeIII) {
-                audioBlockHtml = window.AudioHistoryCommon.renderRow({
-                    item,
-                    kidId,
-                    kidName: currentKidName,
-                    label: getAnswerPrimaryLabel(item) || item?.front || item?.back,
-                    audioExtraAttrs: audioAttrs,
-                });
-            } else {
-                audioBlockHtml = `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${audioAttrs}></audio>`;
-            }
+            audioBlockHtml = window.AudioHistoryCommon.renderRow({
+                item,
+                audioExtraAttrs: audioAttrs,
+            });
         }
         return `
             <${tagName}
@@ -749,14 +742,7 @@ function renderAnswerList(container, cards, options = {}) {
     if (typeIII && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
     }
-    if (window.SimpleAudioPlayer) {
-        window.SimpleAudioPlayer.attach(container, {
-            selector: 'audio.js-simple-audio',
-            waveform: true,
-            playLabel: '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><polygon points="5,3 17,10 5,17"/></svg>',
-            pauseLabel: '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>',
-        });
-    }
+    window.AudioHistoryCommon.attachPlayers(container);
     syncRenderedResponseTimeBars();
 }
 

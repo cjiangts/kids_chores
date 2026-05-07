@@ -165,12 +165,6 @@
             overlay.classList.add('hidden');
             localStorage.setItem('pwa-install-dismissed', '1');
         });
-        overlay.addEventListener('click', function(e) {
-            if (e.target === overlay) {
-                overlay.classList.add('hidden');
-                localStorage.setItem('pwa-install-dismissed', '1');
-            }
-        });
     })();
     </script>
 

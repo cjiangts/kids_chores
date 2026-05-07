@@ -166,12 +166,6 @@ window.PracticeManageCommon = {
                     close({ cancelled: true });
                 }
             });
-            overlay.addEventListener('click', (event) => {
-                if (event.target === overlay) {
-                    close({ cancelled: true });
-                }
-            });
-
             input.focus();
         });
     },
@@ -203,9 +197,6 @@ window.PracticeManageCommon = {
                 resolve();
             };
             okBtn.addEventListener('click', close);
-            overlay.addEventListener('click', (event) => {
-                if (event.target === overlay) close();
-            });
             window.addEventListener('keydown', escOnce);
             okBtn.focus();
         });

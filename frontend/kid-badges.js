@@ -265,12 +265,6 @@
         }
     }
 
-    function handleBackdrop(event) {
-        if (event.target === detailModalEl) {
-            closeDetailModal();
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
         if (!kidId) {
             window.location.href = '/';
@@ -288,7 +282,5 @@
         void loadBadges();
     });
 
-    global.KidBadgesPage = {
-        handleBackdrop,
-    };
+    global.KidBadgesPage = {};
 }(window));

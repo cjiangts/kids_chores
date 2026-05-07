@@ -429,8 +429,7 @@ body {
     padding: 0.32rem 0.52rem;
 }
 
-.simple-audio-player .attempt-audio,
-.simple-audio-player .review-audio {
+.simple-audio-player .attempt-audio {
     display: none;
 }
 

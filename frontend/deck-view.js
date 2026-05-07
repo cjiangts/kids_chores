@@ -208,13 +208,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             removeRenameExtraTag(target.getAttribute('data-remove-rename-tag'));
         });
     }
-    if (renameTagsModal) {
-        renameTagsModal.addEventListener('click', (event) => {
-            if (event.target === renameTagsModal) {
-                closeRenameTagsModal();
-            }
-        });
-    }
     if (regenType4ExamplesBtn) {
         regenType4ExamplesBtn.addEventListener('click', async () => {
             await regenerateType4PreviewSamples();
@@ -258,11 +251,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!resizeBtn) return;
         const action = String(resizeBtn.getAttribute('data-cell-resize') || '').trim().toLowerCase();
         if (action) resizeType4CellDesignCanvas(action);
-    });
-    document.getElementById('cellDesignModal')?.addEventListener('click', (event) => {
-        if (event.target === event.currentTarget) {
-            closeType4CellDesignModal();
-        }
     });
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;

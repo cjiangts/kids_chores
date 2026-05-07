@@ -226,11 +226,6 @@ if (closeChangePasswordBtn) {
 }
 
 if (changePasswordModal) {
-    changePasswordModal.addEventListener('click', (event) => {
-        if (event.target === changePasswordModal) {
-            closeChangePasswordDialog();
-        }
-    });
     changePasswordModal.querySelectorAll('.password-toggle').forEach((btn) => {
         const input = document.getElementById(btn.dataset.target);
         if (!input) return;
@@ -331,21 +326,9 @@ if (badgeArtStudioNoticeOkBtn) {
 
 if (badgeArtStudioModal) {
     badgeArtStudioModal.addEventListener('click', (event) => {
-        if (event.target === badgeArtStudioModal) {
-            closeBadgeArtStudio({ discardDraft: true });
-            return;
-        }
         const closeBtn = getClosestEventTarget(event, '[data-badge-art-action="close"]');
         if (closeBtn) {
             closeBadgeArtStudio({ discardDraft: true });
-        }
-    });
-}
-
-if (badgeArtStudioNoticeModal) {
-    badgeArtStudioNoticeModal.addEventListener('click', (event) => {
-        if (event.target === badgeArtStudioNoticeModal) {
-            closeBadgeArtStudioNoticeDialog();
         }
     });
 }

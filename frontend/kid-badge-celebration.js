@@ -288,13 +288,6 @@
             </div>
         `;
 
-        overlay.addEventListener('click', (event) => {
-            if (event.target === overlay) {
-                void markSeen({ kidId, apiBase, awardIds });
-                void closeOverlay(overlay);
-            }
-        });
-
         const viewBtn = overlay.querySelector('[data-celebration-action="view"]');
         const closeBtn = overlay.querySelector('[data-celebration-action="close"]');
         if (viewBtn) {

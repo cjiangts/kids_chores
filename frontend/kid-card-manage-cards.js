@@ -671,18 +671,17 @@ function updateAddReadingButtonCount() {
         dedupStats = getType1ChineseBulkInputStats(chineseCharInput.value);
     }
     const hasInput = String(chineseCharInput.value || '').trim().length > 0;
-    if (dedupStats.mixedFormat) {
-        addReadingBtn.disabled = true;
-        addReadingBtn.innerHTML = renderIcon('ban') + ' Mixed format';
-        showStatusMessage(TYPE2_MIXED_FORMAT_ERROR, true);
-        return;
-    }
     if (addCardStatusMessage && addCardStatusMessage.textContent === TYPE2_MIXED_FORMAT_ERROR) {
         showStatusMessage('');
     }
     const usePreviewFlow = supportsPersonalDeckEditor();
     const primaryLabel = usePreviewFlow ? 'Preview' : 'Bulk Add';
     const primaryIcon = usePreviewFlow ? renderIcon('eye') : renderIcon('plus');
+    if (dedupStats.mixedFormat) {
+        addReadingBtn.disabled = !hasInput;
+        addReadingBtn.innerHTML = `${primaryIcon} ${primaryLabel}`;
+        return;
+    }
     addReadingBtn.disabled = csvMode ? !hasInput : dedupStats.uniqueCount <= 0;
     if (dedupStats.uniqueCount > 0) {
         const countText = dedupStats.dedupedCount > 0
@@ -1022,6 +1021,69 @@ async function applySelectedCardsSkip(targetSkipped) {
         showCardsBulkActionMessage(error.message || 'Failed to update selected cards.', true);
     } finally {
         isBulkSkipActionInFlight = false;
+        renderCardsSelectionBar();
+    }
+}
+
+async function downloadSelectedType3Recordings() {
+    if (!isType3Behavior() || isBulkDownloadInFlight) {
+        return;
+    }
+    const selectedCards = getSelectedCardObjects();
+    const cardIds = selectedCards
+        .map((card) => Number.parseInt(card && card.id, 10))
+        .filter((id) => Number.isInteger(id) && id > 0);
+    if (cardIds.length === 0) {
+        showCardsBulkActionMessage('Select at least one card to download.', true);
+        return;
+    }
+    isBulkDownloadInFlight = true;
+    renderCardsSelectionBar();
+    try {
+        showError('');
+        showSuccess('');
+        showCardsBulkActionMessage('');
+        const url = `${API_BASE}/kids/${encodeURIComponent(String(kidId))}/lesson-reading/recordings/download-zip`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ card_ids: cardIds }),
+        });
+        if (!response.ok) {
+            let message = `Failed to download recordings (HTTP ${response.status}).`;
+            try {
+                const errorBody = await response.json();
+                if (errorBody && errorBody.error) {
+                    message = errorBody.error;
+                }
+            } catch (_e) {}
+            throw new Error(message);
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get('Content-Disposition') || '';
+        let filename = 'recordings.zip';
+        const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+        if (match && match[1]) {
+            try {
+                filename = decodeURIComponent(match[1]);
+            } catch (_e) {
+                filename = match[1];
+            }
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = objectUrl;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        showCardsBulkActionMessage(`Downloaded ${cardIds.length} card(s).`, false);
+    } catch (error) {
+        console.error('Error downloading selected recordings:', error);
+        showCardsBulkActionMessage(error.message || 'Failed to download recordings.', true);
+    } finally {
+        isBulkDownloadInFlight = false;
         renderCardsSelectionBar();
     }
 }

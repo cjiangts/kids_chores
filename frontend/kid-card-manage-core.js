@@ -125,6 +125,7 @@ const cardsSelectionClearBtn = document.getElementById('cardsSelectionClearBtn')
 const cardsSelectionCloseBtn = document.getElementById('cardsSelectionCloseBtn');
 const cardsSelectionSkipBtn = document.getElementById('cardsSelectionSkipBtn');
 const cardsSelectionUnskipBtn = document.getElementById('cardsSelectionUnskipBtn');
+const cardsSelectionDownloadBtn = document.getElementById('cardsSelectionDownloadBtn');
 const cardsBulkActionMessage = document.getElementById('cardsBulkActionMessage');
 const cardsQueueLegend = document.getElementById('cardsQueueLegend');
 const mathCardCount = document.getElementById('mathCardCount');
@@ -174,6 +175,7 @@ let currentSkippedCardCount = 0;
 let currentCardViewMode = 'short';
 let expandedCompactCardIds = new Set();
 let isBulkSkipActionInFlight = false;
+let isBulkDownloadInFlight = false;
 let isCardsSelectModeOn = false;
 let selectedCardIds = new Set();
 let viewModeBeforeSelectMode = null;
@@ -423,24 +425,7 @@ function setManageModalOpen(modalEl, shouldOpen) {
     syncModalBodyLock();
 }
 
-function handleModalBackdropClick(event) {
-    if (!(event.target instanceof HTMLElement)) {
-        return;
-    }
-    if (event.target === deckTreeModal) {
-        return;
-    }
-    if (event.target === type4DeckCountsModal) {
-        setManageModalOpen(type4DeckCountsModal, false);
-        return;
-    }
-    if (event.target === type4GeneratorModal) {
-        setManageModalOpen(type4GeneratorModal, false);
-        return;
-    }
-    if (event.target === personalDeckModal) {
-        setManageModalOpen(personalDeckModal, false);
-    }
+function handleModalBackdropClick() {
 }
 
 function withCategoryKey(url) {

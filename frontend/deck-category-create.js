@@ -99,13 +99,6 @@ if (editEmojiInput) {
     });
 }
 
-if (editEmojiModal) {
-    editEmojiModal.addEventListener('click', (event) => {
-        if (event.target === editEmojiModal) {
-            closeEditEmojiModal();
-        }
-    });
-}
 
 function normalizeCategoryKey(text) {
     return String(text || '')

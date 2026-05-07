@@ -856,6 +856,18 @@ function renderCardsSelectionBar() {
         }
         cardsSelectionUnskipBtn.disabled = isBulkSkipActionInFlight || unskipableCount <= 0;
     }
+    if (cardsSelectionDownloadBtn) {
+        const showDownload = isType3Behavior();
+        cardsSelectionDownloadBtn.classList.toggle('hidden', !showDownload);
+        if (showDownload) {
+            const label = cardsSelectionDownloadBtn.querySelector('.cards-selection-action-label');
+            const text = selectedCount > 0 ? `Download (${selectedCount})` : 'Download';
+            if (label) {
+                label.textContent = isBulkDownloadInFlight ? 'Downloading...' : text;
+            }
+            cardsSelectionDownloadBtn.disabled = isBulkDownloadInFlight || selectedCount <= 0;
+        }
+    }
 }
 
 function setCardsSelectMode(on) {

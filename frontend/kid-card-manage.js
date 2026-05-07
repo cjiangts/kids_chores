@@ -309,6 +309,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             await applySelectedCardsSkip(false);
         });
     }
+    if (cardsSelectionDownloadBtn) {
+        cardsSelectionDownloadBtn.addEventListener('click', async () => {
+            await downloadSelectedType3Recordings();
+        });
+    }
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && isCardsSelectModeOn) {
             setCardsSelectMode(false);

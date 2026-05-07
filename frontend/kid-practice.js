@@ -31,6 +31,7 @@ const recordingViz = document.getElementById('recordingViz');
 const recordingWave = document.getElementById('recordingWave');
 const recordingStatusText = document.getElementById('recordingStatusText');
 const reviewAudio = document.getElementById('reviewAudio');
+const reviewAudioRow = document.getElementById('reviewAudioRow');
 const startBtn = document.getElementById('startBtn');
 const finishEarlyBtn = document.getElementById('finishEarlyBtn');
 const resultSummary = document.getElementById('resultSummary');
@@ -54,6 +55,7 @@ const rightBtn = document.getElementById('rightBtn');
 const recordRow = document.getElementById('recordRow');
 const pauseSessionBtn = document.getElementById('pauseSessionBtn');
 const recordBtn = document.getElementById('recordBtn');
+const recordBtnLabel = recordBtn.querySelector('.btn-label');
 const reviewControls = document.getElementById('reviewControls');
 const rerecordBtn = document.getElementById('rerecordBtn');
 const continueBtn = document.getElementById('continueBtn');
@@ -563,7 +565,7 @@ function showTypeSpecificCardSections() {
     cardAnswer.classList.add('hidden');
     pauseMask.classList.add('hidden');
     recordingViz.classList.add('hidden');
-    reviewAudio.classList.add('hidden');
+    reviewAudioRow.classList.add('hidden');
 
     if (isType(BEHAVIOR_TYPE_I) || isType(BEHAVIOR_TYPE_IV)) {
         cardQuestion.classList.remove('hidden');
@@ -1646,9 +1648,33 @@ function renderType1MultipleChoiceOptions() {
         multiChoiceGrid.innerHTML = '';
         return;
     }
-    multiChoiceGrid.innerHTML = options.map((option, index) => {
+    const optionsHtml = options.map((option, index) => {
         return `<button type="button" class="control-btn multi-choice-btn" data-choice-index="${index}"${state.isPaused ? ' disabled' : ''}>${escapeHtml(option.text)}</button>`;
     }).join('');
+    const idkHtml = `<button type="button" class="control-btn multi-choice-btn multi-choice-idk-btn" data-multi-choice-idk="1"${state.isPaused ? ' disabled' : ''}>I don't know</button>`;
+    multiChoiceGrid.innerHTML = optionsHtml + idkHtml;
+}
+
+function answerType1IDontKnow() {
+    if (!isType(BEHAVIOR_TYPE_I) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
+        return;
+    }
+    if (state.type1WrongAnswerReview || state.isPaused) {
+        return;
+    }
+    if (state.hasChineseSpecificLogic) {
+        recordType1Answer(false, null);
+        showType1WrongAnswerReview('');
+        return;
+    }
+    answerType1Card(false, null);
+}
+
+function answerType4IDontKnow() {
+    if (!isType(BEHAVIOR_TYPE_IV) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
+        return;
+    }
+    answerType4Item('');
 }
 
 function answerType1MultipleChoice(choiceIndex) {
@@ -1786,9 +1812,11 @@ function renderType4MultipleChoiceOptions() {
         multiChoiceGrid.innerHTML = '';
         return;
     }
-    multiChoiceGrid.innerHTML = options.map((text, index) => {
+    const optionsHtml = options.map((text, index) => {
         return `<button type="button" class="control-btn multi-choice-btn" data-choice-index="${index}">${escapeHtml(text)}</button>`;
     }).join('');
+    const idkHtml = `<button type="button" class="control-btn multi-choice-btn multi-choice-idk-btn" data-multi-choice-idk="1">I don't know</button>`;
+    multiChoiceGrid.innerHTML = optionsHtml + idkHtml;
 }
 
 function showCurrentType4Item() {
@@ -2245,8 +2273,8 @@ function updatePauseSessionButtonState() {
     }
     const shouldShow = hasActiveSessionScreen() && (state.isRecording || state.isRecordingPaused || state.isSessionPaused);
     pauseSessionBtn.classList.toggle('hidden', !shouldShow);
-    const pauseIcon = '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>';
-    const playIcon = '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg>';
+    const pauseIcon = window.icon('pause', { size: 20 });
+    const playIcon = window.icon('play', { size: 20 });
     if (!shouldShow) {
         pauseSessionBtn.innerHTML = pauseIcon;
         pauseSessionBtn.setAttribute('aria-label', 'Pause');
@@ -2269,7 +2297,7 @@ function syncSessionPauseLockUi() {
     recordBtn.disabled = shouldLock || state.isUploadingRecording;
     if (state.isRecordingPaused) {
         recordBtn.classList.add('recording');
-        recordBtn.textContent = 'Recording Paused';
+        recordBtnLabel.textContent = 'Recording Paused';
     }
     continueBtn.disabled = shouldLock || state.isUploadingRecording;
     rerecordBtn.disabled = shouldLock || state.isUploadingRecording;
@@ -2331,9 +2359,9 @@ async function toggleRecord() {
 }
 
 async function stopRecordingForReview() {
-    const previousBtnText = recordBtn.textContent;
+    const previousBtnText = recordBtnLabel.textContent;
     recordBtn.disabled = true;
-    recordBtn.textContent = 'Stopping...';
+    recordBtnLabel.textContent = 'Stopping...';
 
     let blob = null;
     let mimeType = 'audio/webm';
@@ -2348,7 +2376,7 @@ async function stopRecordingForReview() {
         showError('Failed to finish recording');
         resetRecordingState();
         recordBtn.disabled = false;
-        recordBtn.textContent = previousBtnText;
+        recordBtnLabel.textContent = previousBtnText;
         updateFinishEarlyButtonState();
         return;
     }
@@ -2371,7 +2399,7 @@ async function stopRecordingForReview() {
     }
     state.pendingRecordedUrl = URL.createObjectURL(blob);
     reviewAudio.src = state.pendingRecordedUrl;
-    reviewAudio.classList.remove('hidden');
+    reviewAudioRow.classList.remove('hidden');
     reviewControls.classList.remove('hidden');
     recordRow.classList.add('hidden');
     recordBtn.disabled = false;
@@ -2386,9 +2414,9 @@ function setRecordingVisual(recording) {
 
     recordBtn.classList.toggle('recording', recording);
     if (state.isRecordingPaused) {
-        recordBtn.textContent = 'Recording Paused';
+        recordBtnLabel.textContent = 'Recording Paused';
     } else {
-        recordBtn.textContent = recording ? 'Stop Recording' : 'Start Recording';
+        recordBtnLabel.textContent = recording ? 'Stop Recording' : 'Start Recording';
     }
     syncSessionPauseLockUi();
     updateFinishEarlyButtonState();
@@ -2496,7 +2524,7 @@ function clearPendingRecordingPreview() {
     }
     reviewAudio.removeAttribute('src');
     reviewAudio.load();
-    reviewAudio.classList.add('hidden');
+    reviewAudioRow.classList.add('hidden');
 
     reviewControls.classList.add('hidden');
     if (isType(BEHAVIOR_TYPE_III)) {
@@ -3190,6 +3218,19 @@ function bindEventHandlers() {
                 dismissType1WrongAnswerReview();
                 return;
             }
+            const idkTarget = event.target.closest('[data-multi-choice-idk]');
+            if (idkTarget) {
+                event.preventDefault();
+                if (document.activeElement) {
+                    document.activeElement.blur();
+                }
+                if (isType(BEHAVIOR_TYPE_IV)) {
+                    answerType4IDontKnow();
+                    return;
+                }
+                answerType1IDontKnow();
+                return;
+            }
             const target = event.target.closest('[data-choice-index]');
             if (!target) {
                 return;
@@ -3253,8 +3294,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    if (window.SimpleAudioPlayer && reviewAudio) {
-        window.SimpleAudioPlayer.wrapAudio(reviewAudio);
+    if (window.AudioHistoryCommon) {
+        window.AudioHistoryCommon.attachPlayers(reviewAudioRow);
     }
 
     backToPractice.href = `/kid-practice-home.html?id=${kidId}`;

@@ -1,4 +1,5 @@
 """Lesson-reading (Type III) audio routes."""
+import zipfile
 from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
 
 
@@ -191,6 +192,132 @@ def download_type3_audio_as_mp3(kid_id, file_name):
             mimetype=passthrough_mime,
             as_attachment=True,
             download_name=passthrough_name,
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/lesson-reading/recordings/download-zip', methods=['POST'])
+def download_type3_fastest_correct_recordings_zip(kid_id):
+    """Bundle each card's fastest correct type-III recording into a single zip."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        payload = request.get_json(silent=True) or {}
+        raw_card_ids = payload.get('card_ids') or []
+        card_ids = []
+        for value in raw_card_ids:
+            try:
+                card_id_int = int(value)
+            except (TypeError, ValueError):
+                continue
+            if card_id_int > 0:
+                card_ids.append(card_id_int)
+        card_ids = sorted(set(card_ids))
+        if not card_ids:
+            return jsonify({'error': 'No card ids provided'}), 400
+
+        audio_dir = get_kid_type3_audio_dir(kid)
+        if not os.path.isdir(audio_dir):
+            return jsonify({'error': 'No recordings found for this kid.'}), 404
+
+        placeholders = ','.join(['?'] * len(card_ids))
+        conn = get_kid_connection_for(kid, read_only=True)
+        rows = conn.execute(
+            f"""
+            SELECT
+                sr.card_id,
+                sr.correct,
+                COALESCE(sr.response_time_ms, 0) AS response_time_ms,
+                lra.file_name,
+                lra.mime_type,
+                s.type AS session_type,
+                c.front
+            FROM session_results sr
+            JOIN sessions s ON s.id = sr.session_id
+            JOIN lesson_reading_audio lra ON lra.result_id = sr.id
+            LEFT JOIN cards c ON c.id = sr.card_id
+            WHERE sr.card_id IN ({placeholders})
+              AND (sr.correct = 1 OR sr.correct <= -2)
+              AND COALESCE(sr.response_time_ms, 0) > 0
+            ORDER BY sr.card_id ASC, response_time_ms ASC, sr.id ASC
+            """,
+            card_ids,
+        ).fetchall()
+        conn.close()
+
+        best_by_card = {}
+        for row in rows:
+            if not is_type_iii_session_type(row[5]):
+                continue
+            card_id_int = int(row[0])
+            if card_id_int in best_by_card:
+                continue
+            file_name = str(row[3] or '').strip()
+            if not file_name or file_name != os.path.basename(file_name):
+                continue
+            audio_path = os.path.join(audio_dir, file_name)
+            if not os.path.exists(audio_path):
+                continue
+            best_by_card[card_id_int] = {
+                'file_name': file_name,
+                'mime_type': str(row[4] or '').strip().lower() if row[4] else '',
+                'response_time_ms': int(row[2] or 0),
+                'card_front': str(row[6] or '').strip(),
+            }
+
+        if not best_by_card:
+            return jsonify({'error': 'No correct recordings found for the selected cards.'}), 404
+
+        used_names = set()
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_STORED) as zip_file:
+            for card_id_int in card_ids:
+                entry = best_by_card.get(card_id_int)
+                if not entry:
+                    continue
+                file_name = entry['file_name']
+                source_ext = os.path.splitext(file_name)[1].lower()
+                source_is_mp3 = source_ext == '.mp3' or entry['mime_type'] == 'audio/mpeg'
+
+                source_path = os.path.join(audio_dir, file_name)
+                arc_ext = '.mp3'
+                arc_path = source_path
+                if not source_is_mp3:
+                    sibling_name, _sibling_mime = _ensure_type3_mp3_sibling(
+                        audio_dir, file_name, entry['mime_type']
+                    )
+                    if sibling_name:
+                        arc_path = os.path.join(audio_dir, sibling_name)
+                    else:
+                        arc_ext = source_ext or '.webm'
+                        arc_path = source_path
+
+                stem = sanitize_download_filename_stem(
+                    entry['card_front'] or f'card-{card_id_int}',
+                    fallback=f'card-{card_id_int}',
+                )
+                candidate = f'{stem}{arc_ext}'
+                suffix = 2
+                while candidate in used_names:
+                    candidate = f'{stem} ({suffix}){arc_ext}'
+                    suffix += 1
+                used_names.add(candidate)
+                zip_file.write(arc_path, arcname=candidate)
+
+        zip_buffer.seek(0)
+        kid_name_stem = sanitize_download_filename_stem(
+            str(kid.get('name') or '').strip() or 'kid',
+            fallback='kid',
+        )
+        zip_filename = f'{kid_name_stem}-recordings.zip'
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=zip_filename,
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 500

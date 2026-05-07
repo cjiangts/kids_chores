@@ -8,7 +8,20 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
+    <link rel="stylesheet" href="audio-history-common.css">
     <style>
+        body.practice-page {
+            padding-top: 10px;
+        }
+
+        .practice-page .page-header-with-back {
+            margin-bottom: 14px;
+        }
+
+        #sessionScreen .practice-progress {
+            margin-bottom: 0.5rem;
+        }
+
         .practice-container {
             max-width: 700px;
         }
@@ -381,6 +394,11 @@
             grid-column: 1 / -1;
         }
 
+        .multi-choice-idk-btn {
+            grid-column: 1 / -1;
+            background: #94a3b8;
+        }
+
         .multi-choice-btn:focus,
         .multi-choice-btn:active {
             background: #2d7ef7;
@@ -389,9 +407,18 @@
             transform: none;
         }
 
+        .multi-choice-idk-btn:focus,
+        .multi-choice-idk-btn:active {
+            background: #94a3b8;
+        }
+
         @media (hover: hover) {
             .multi-choice-btn:hover {
                 background: #1f6ce0;
+            }
+
+            .multi-choice-idk-btn:hover {
+                background: #64748b;
             }
         }
 
@@ -489,11 +516,10 @@
             font-weight: 600;
         }
 
-        .review-audio {
+        .review-audio-row {
             width: 100%;
             max-width: 520px;
             margin: 0.75rem auto 0.9rem;
-            display: block;
         }
 
         .reading-review-btn {
@@ -637,7 +663,7 @@
             <div class="page-header-row">
                 <h1><span class="page-title-icon" aria-hidden="true">🧸</span> <span id="kidName">Practice</span></h1>
                 <div class="page-header-actions">
-                    <button class="control-btn early-finish-btn hidden" id="finishEarlyBtn" disabled>Finish Early</button>
+                    <button class="control-btn early-finish-btn hidden" id="finishEarlyBtn" disabled><span class="icon" data-icon="flag" data-icon-size="18"></span> Finish Early</button>
                     <a id="backToPractice" href="/kid-practice-home.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
                 </div>
             </div>
@@ -682,7 +708,7 @@
                                 </button>
                             </div>
                         </div>
-                        <button id="startBtn" class="control-btn start-btn">Start</button>
+                        <button id="startBtn" class="control-btn start-btn"><span class="icon" data-icon="play" data-icon-size="18"></span> Start</button>
                     </div>
                 </div>
 
@@ -702,9 +728,7 @@
                             aria-label="Play prompt audio"
                             title="Play prompt audio"
                         >
-                            <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path d="M9.25 4.2a1 1 0 0 1 1.67-.74l3.01 2.72H16a2 2 0 0 1 2 2v3.64a2 2 0 0 1-2 2h-2.07l-3.01 2.72a1 1 0 0 1-1.67-.74v-11.6ZM4 8.18h2.5v3.64H4a.5.5 0 0 1-.5-.5V8.68A.5.5 0 0 1 4 8.18Zm10.62.6a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95.75.75 0 0 1-1.06-1.06 2 2 0 0 0 0-2.83.75.75 0 0 1 0-1.06Zm1.93-1.87a.75.75 0 0 1 1.06 0 6.15 6.15 0 0 1 0 8.7.75.75 0 1 1-1.06-1.06 4.65 4.65 0 0 0 0-6.58.75.75 0 0 1 0-1.06Z"></path>
-                            </svg>
+                            <span class="icon" data-icon="volume-2" data-icon-size="22"></span>
                         </button>
                         <div class="card-page hidden" id="cardSourceTags">Source:</div>
                         <div class="card-title hidden" id="cardTitle"></div>
@@ -721,16 +745,18 @@
                             </div>
                             <canvas id="recordingWave" class="recording-wave"></canvas>
                         </div>
-                        <audio id="reviewAudio" class="review-audio hidden" preload="none"></audio>
+                        <div id="reviewAudioRow" class="audio-history-row review-audio-row hidden">
+                            <audio id="reviewAudio" class="attempt-audio js-simple-audio" preload="none"></audio>
+                        </div>
                     </div>
 
                     <div class="controls">
                         <div class="session-action-slot">
                             <div class="session-action-layer hidden" id="knewRow">
-                                <button class="control-btn knew-btn session-action-btn session-single-btn" id="knewBtn">I'm done</button>
+                                <button class="control-btn knew-btn session-action-btn session-single-btn" id="knewBtn"><span class="icon" data-icon="check" data-icon-size="18"></span> I'm done</button>
                             </div>
                             <div class="session-action-layer hidden" id="doneRow">
-                                <button class="control-btn done-btn session-action-btn session-single-btn" id="doneBtn">I'm done</button>
+                                <button class="control-btn done-btn session-action-btn session-single-btn" id="doneBtn"><span class="icon" data-icon="check" data-icon-size="18"></span> I'm done</button>
                             </div>
                             <div class="session-action-layer hidden" id="type4InputRow">
                                 <div class="type4-answer-form">
@@ -744,23 +770,23 @@
                                         spellcheck="false"
                                         inputmode="text"
                                     >
-                                    <button class="control-btn done-btn session-action-btn type4-answer-done-btn" id="type4AnswerDoneBtn">Done</button>
+                                    <button class="control-btn done-btn session-action-btn type4-answer-done-btn" id="type4AnswerDoneBtn"><span class="icon" data-icon="check" data-icon-size="18"></span> Done</button>
                                 </div>
                             </div>
                             <div class="session-action-layer hidden multi-choice-layer" id="multiChoiceRow">
                                 <div class="multi-choice-grid" id="multiChoiceGrid"></div>
                             </div>
                             <div class="session-action-layer hidden" id="judgeRow">
-                                <button class="control-btn wrong-btn session-action-btn session-pair-short" id="wrongBtn" aria-label="Wrong" title="Wrong" disabled>✕</button>
-                                <button class="control-btn right-btn session-action-btn session-single-btn session-pair-long" id="rightBtn" aria-label="Right" title="Right" disabled>✓</button>
+                                <button class="control-btn wrong-btn session-action-btn session-pair-short" id="wrongBtn" aria-label="Wrong" title="Wrong" disabled><span class="icon" data-icon="x" data-icon-size="22" data-icon-stroke="3"></span></button>
+                                <button class="control-btn right-btn session-action-btn session-single-btn session-pair-long" id="rightBtn" aria-label="Right" title="Right" disabled><span class="icon" data-icon="check" data-icon-size="22" data-icon-stroke="3"></span></button>
                             </div>
                             <div class="session-action-layer hidden" id="recordRow">
-                                <button class="control-btn session-pause-btn session-action-btn session-pair-short hidden" id="pauseSessionBtn" aria-label="Pause" title="Pause"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg></button>
-                                <button class="control-btn record-btn session-action-btn session-single-btn session-pair-long" id="recordBtn">Start Recording</button>
+                                <button class="control-btn session-pause-btn session-action-btn session-pair-short hidden" id="pauseSessionBtn" aria-label="Pause" title="Pause"><span class="icon" data-icon="pause" data-icon-size="20"></span></button>
+                                <button class="control-btn record-btn session-action-btn session-single-btn session-pair-long" id="recordBtn"><span class="icon" data-icon="mic" data-icon-size="18"></span> <span class="btn-label">Start Recording</span></button>
                             </div>
                             <div id="reviewControls" class="session-action-layer review-controls hidden">
-                                <button class="control-btn rerecord-btn session-action-btn reading-review-btn session-pair-short" id="rerecordBtn">Redo</button>
-                                <button class="control-btn continue-btn session-action-btn session-single-btn session-pair-long" id="continueBtn">Continue</button>
+                                <button class="control-btn rerecord-btn session-action-btn reading-review-btn session-pair-short" id="rerecordBtn"><span class="icon" data-icon="rotate-ccw" data-icon-size="18"></span> Redo</button>
+                                <button class="control-btn continue-btn session-action-btn session-single-btn session-pair-long" id="continueBtn"><span class="icon" data-icon="arrow-right" data-icon-size="18"></span> Continue</button>
                             </div>
                         </div>
                     </div>
@@ -794,6 +820,7 @@
     <script src="icons.js"></script>
     <script src="subject-icons.js"></script>
     <script src="simple-audio-player.js"></script>
+    <script src="audio-history-common.js"></script>
     <script src="audio-common.js"></script>
     <script src="recording-visualizer.js"></script>
     <script src="kid-practice.js"></script>

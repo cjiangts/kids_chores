@@ -113,10 +113,6 @@
         state.panelComingEl = wrapper.querySelector('#kidBadgeShelfPanelComing');
 
         wrapper.addEventListener('click', (event) => {
-            if (event.target === wrapper) {
-                close();
-                return;
-            }
             const closeBtn = event.target.closest('[data-badge-action="close"]');
             if (closeBtn) {
                 close();
