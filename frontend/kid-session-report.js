@@ -297,13 +297,24 @@ function renderAnswerSections(answers) {
     rightSection.style.display = '';
     if (currentSessionIsDrill) {
         rightSectionTitle.textContent = 'Drilled Cards';
-        if (rightSectionHint) rightSectionHint.style.display = '';
+        if (rightSectionHint) {
+            rightSectionHint.textContent = 'Tap a card to view details. The small number on top shows how many times it was drilled.';
+            rightSectionHint.style.display = '';
+        }
         renderDrillCards(rightList, answers);
         renderDrillProgressTable(answers);
         return;
     }
     rightSectionTitle.textContent = 'Cards Practiced';
-    if (rightSectionHint) rightSectionHint.style.display = 'none';
+    if (rightSectionHint) {
+        if (isTypeIIIReviewSession()) {
+            rightSectionHint.textContent = '';
+            rightSectionHint.style.display = 'none';
+        } else {
+            rightSectionHint.textContent = 'Tap a card to view details. The small number on top shows how many times it was retried.';
+            rightSectionHint.style.display = '';
+        }
+    }
     if (drillProgressSection) drillProgressSection.style.display = 'none';
     const compact = !isTypeIIIReviewSession();
     renderAnswerList(rightList, answers, { compact, keepSingleGroupOrder: false });

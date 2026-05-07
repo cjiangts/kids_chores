@@ -144,16 +144,46 @@ function renderHero(card, attempts) {
         </div>
     `).join('');
 
+    const subjectName = resolveSubjectDisplayName(attempts);
+    const sourceDeckLabel = formatSourceDeckLabel(currentDeckName);
+    const metaBits = [];
+    if (subjectName) {
+        const subjectIcon = window.icon ? window.icon('book-open', { size: 12, strokeWidth: 2.4 }) : '';
+        metaBits.push(`<span class="card-report-hero-meta-item"><span class="card-report-hero-meta-icon">${subjectIcon}</span><span class="card-report-hero-meta-label">Subject:</span> <span class="card-report-hero-meta-value">${escapeHtml(subjectName)}</span></span>`);
+    }
+    if (sourceDeckLabel) {
+        const deckIcon = window.icon ? window.icon('layers', { size: 12, strokeWidth: 2.4 }) : '';
+        metaBits.push(`<span class="card-report-hero-meta-item"><span class="card-report-hero-meta-icon">${deckIcon}</span><span class="card-report-hero-meta-label">Source:</span> <span class="card-report-hero-meta-value">${escapeHtml(sourceDeckLabel)}</span></span>`);
+    }
+    const metaHtml = metaBits.length
+        ? `<div class="card-report-hero-meta">${metaBits.join('')}</div>`
+        : '';
+
     cardReportHero.innerHTML = `
         <div class="card-report-hero">
             <div class="card-report-hero-icon">
                 <span class="${labelClasses.join(' ')}">${escapeHtml(labelText)}</span>
             </div>
             <div class="card-report-hero-content">
+                ${metaHtml}
                 <div class="card-report-hero-stats">${statsHtml}</div>
             </div>
         </div>
     `;
+}
+
+function resolveSubjectDisplayName(attempts) {
+    for (const item of attempts || []) {
+        const name = String(item?.session_category_display_name || '').trim();
+        if (name) {
+            return name;
+        }
+    }
+    const key = String(categoryKey || '').trim();
+    if (!key) {
+        return '';
+    }
+    return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 function renderTrend(attempts) {
@@ -345,7 +375,8 @@ function renderHistory(attempts) {
         const correctness = resolveCorrectness(item);
         const itemTimestamp = item.session_completed_at || item.session_started_at || item.timestamp;
         const daysAgoLabel = formatDaysAgo(itemTimestamp);
-        const daysAgoBadge = daysAgoLabel ? `<span class="history-days-badge">${escapeHtml(daysAgoLabel)}</span>` : '';
+        const isToday = daysAgoLabel === 'today';
+        const daysAgoBadge = daysAgoLabel ? `<span class="history-days-badge${isToday ? ' is-today' : ''}">${escapeHtml(daysAgoLabel)}</span>` : '';
         const sessionUrl = buildSessionReportUrl(item);
         const chevronHtml = sessionUrl ? '<span class="history-chevron" aria-hidden="true">›</span>' : '';
         const isCurrentSession = currentSessionId !== null
