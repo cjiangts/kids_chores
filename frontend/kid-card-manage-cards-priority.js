@@ -305,24 +305,15 @@ function isNeverPracticedPriorityCard(card) {
 
 function getPracticePriorityPoints(card, reason) {
     if (reason === PRACTICE_PRIORITY_REASON_MISSED) {
-        const value = Number(card && (
-            card.practice_priority_missed_points
-            ?? card.practice_priority_error_points
-        ));
+        const value = Number(card && card.practice_priority_missed_points);
         return Number.isFinite(value) ? Math.max(0, value) : 0;
     }
     if (reason === PRACTICE_PRIORITY_REASON_SLOW) {
-        const value = Number(card && (
-            card.practice_priority_slow_points
-            ?? card.practice_priority_fluency_points
-        ));
+        const value = Number(card && card.practice_priority_slow_points);
         return Number.isFinite(value) ? Math.max(0, value) : 0;
     }
     if (reason === PRACTICE_PRIORITY_REASON_DUE) {
-        const value = Number(card && (
-            card.practice_priority_due_points
-            ?? card.practice_priority_forgetting_points
-        ));
+        const value = Number(card && card.practice_priority_due_points);
         return Number.isFinite(value) ? Math.max(0, value) : 0;
     }
     const value = Number(card && card.practice_priority_learning_points);
@@ -570,21 +561,22 @@ function buildPracticePriorityDetailCards(card) {
     const avgCorrectResponseTimeText = formatMillisecondsAsSecondsOrMinutes(
         Number(card && card.practice_priority_avg_correct_response_time)
     );
+    const subjectBaseline = currentPracticePrioritySubjectBaseline || {};
     const subjectP50Text = formatMillisecondsAsSecondsOrMinutes(
-        Number(card && card.practice_priority_subject_p50_correct_time)
+        Number(subjectBaseline.p50_correct_time)
     );
     const subjectP90Text = formatMillisecondsAsSecondsOrMinutes(
-        Number(card && card.practice_priority_subject_p90_correct_time)
+        Number(subjectBaseline.p90_correct_time)
     );
     const lastResponseTimeText = formatMillisecondsAsSecondsOrMinutes(getCardLastResponseTimeValue(card));
     const lastResultText = formatCardLastResult(card);
     const lastResultTone = getPracticePriorityLastResultTone(card);
     const subjectCorrectSampleCount = Math.max(
         0,
-        Number.parseInt(card && card.practice_priority_subject_correct_sample_count, 10) || 0
+        Number.parseInt(subjectBaseline.correct_sample_count, 10) || 0
     );
-    const p50Value = Number(card && card.practice_priority_subject_p50_correct_time);
-    const p90Value = Number(card && card.practice_priority_subject_p90_correct_time);
+    const p50Value = Number(subjectBaseline.p50_correct_time);
+    const p90Value = Number(subjectBaseline.p90_correct_time);
     const avgCorrectValue = Number(card && card.practice_priority_avg_correct_response_time);
     const slowRange = Number.isFinite(p50Value) && Number.isFinite(p90Value) && p90Value > p50Value
         ? p90Value - p50Value

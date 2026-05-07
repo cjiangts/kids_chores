@@ -913,6 +913,8 @@ async function loadSharedDeckCards() {
         currentCards = Array.isArray(data.cards) ? data.cards : [];
         currentDailyProgressRows = Array.isArray(data.daily_progress_rows) ? data.daily_progress_rows : [];
         currentFamilyTimezone = String(data.family_timezone || '').trim();
+        currentPracticePrioritySubjectBaseline = data.practice_priority_subject_baseline
+            || { p50_correct_time: null, p90_correct_time: null, correct_sample_count: 0 };
         updateSessionCardCountCapFromCardsPayload(data);
         const normalizedSessionCount = normalizeSessionCountInputValue();
         if (!hadQueueSettingChanges) {

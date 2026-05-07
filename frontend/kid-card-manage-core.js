@@ -140,6 +140,11 @@ let orphanDeck = null;
 let currentCards = [];
 let currentDailyProgressRows = [];
 let currentFamilyTimezone = '';
+let currentPracticePrioritySubjectBaseline = {
+    p50_correct_time: null,
+    p90_correct_time: null,
+    correct_sample_count: 0,
+};
 const CARDS_VIEW_MODE_STORAGE_KEY = 'kidCardManage_cardsViewMode';
 const CARDS_VIEW_MODES = new Set(['queue', 'stats', 'report']);
 function normalizeCardsViewMode(value) {

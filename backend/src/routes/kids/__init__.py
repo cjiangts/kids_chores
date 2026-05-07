@@ -1409,6 +1409,7 @@ def resolve_kid_deck_category_key_for_behavior(
     *,
     expected_behavior_type,
     expected_has_chinese_specific_logic,
+    conn=None,
 ):
     """Resolve and validate one requested category key for a behavior family."""
     key = normalize_shared_deck_tag(raw_category_key)
@@ -1430,7 +1431,7 @@ def resolve_kid_deck_category_key_for_behavior(
     if not can_family_access_deck_category(category_meta, family_id=family_id):
         raise ValueError(f'categoryKey "{key}" is not shared with this family')
 
-    opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid))
+    opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid, conn=conn))
     if key not in opted_in_keys:
         raise ValueError(f'Kid is not opted-in to categoryKey: {key}')
     return key
@@ -1498,6 +1499,7 @@ def resolve_kid_category_with_mode(
     wrong_type_error='categoryKey has unsupported behavior type',
     no_match_error='Kid is not opted-in to a matching category',
     multiple_match_error='categoryKey is required when multiple matching categories are opted-in',
+    conn=None,
 ):
     """Resolve category key for one or more behavior types and return chinese-specific mode."""
     if isinstance(expected_behavior_types, str):
@@ -1529,13 +1531,14 @@ def resolve_kid_category_with_mode(
             key,
             expected_behavior_type=behavior_type,
             expected_has_chinese_specific_logic=has_chinese_specific_logic,
+            conn=conn,
         )
         return resolved_category_key, has_chinese_specific_logic
 
     if not allow_default:
         raise ValueError('categoryKey is required')
 
-    opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid))
+    opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid, conn=conn))
     matching_keys = []
     for candidate_key in sorted(opted_in_keys):
         category_meta = category_meta_by_key.get(candidate_key)
@@ -1555,7 +1558,7 @@ def resolve_kid_category_with_mode(
     raise ValueError(str(multiple_match_error))
 
 
-def resolve_kid_type_i_category_with_mode(kid, raw_category_key):
+def resolve_kid_type_i_category_with_mode(kid, raw_category_key, *, conn=None):
     """Resolve explicit type-I/type-III category key and return its chinese-specific mode flag."""
     return resolve_kid_category_with_mode(
         kid,
@@ -1563,6 +1566,7 @@ def resolve_kid_type_i_category_with_mode(kid, raw_category_key):
         {DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_III},
         allow_default=False,
         wrong_type_error='categoryKey must be a type-I or type-III deck category',
+        conn=conn,
     )
 
 
@@ -1725,7 +1729,7 @@ def get_kid_practice_target_by_deck_category(
     return targets
 
 
-def build_kid_daily_progress_section(kid, category_key):
+def build_kid_daily_progress_section(kid, category_key, *, conn=None):
     """Compute per-card-per-day attempt aggregates + family timezone for one kid+category."""
     family_id = str(kid.get('familyId') or '').strip()
     family_timezone = metadata.get_family_timezone(family_id)
@@ -1734,7 +1738,9 @@ def build_kid_daily_progress_section(kid, category_key):
     except Exception:
         tzinfo = ZoneInfo('UTC')
 
-    conn = get_kid_connection_for(kid, read_only=True)
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_kid_connection_for(kid, read_only=True)
     try:
         attempts = conn.execute(
             """
@@ -1749,7 +1755,8 @@ def build_kid_daily_progress_section(kid, category_key):
             [str(category_key or '').strip().lower()],
         ).fetchall()
     finally:
-        conn.close()
+        if owns_conn:
+            conn.close()
 
     agg = defaultdict(lambda: {'attempts': 0, 'correct': 0, 'correct_response_time_ms_sum': 0, 'correct_response_time_count': 0})
     for row in attempts:
@@ -2885,6 +2892,11 @@ def build_practice_priority_preview_for_decks(
 
     order_by_card_id = {}
     details_by_card_id = {}
+    subject_baseline = {
+        'p50_correct_time': None,
+        'p90_correct_time': None,
+        'correct_sample_count': 0,
+    }
     for index, row in enumerate(rows, start=1):
         card_id = int(row[0] or 0)
         if card_id <= 0:
@@ -2894,28 +2906,29 @@ def build_practice_priority_preview_for_decks(
             'order': index,
             'priority_score': float(row[1] or 0.0),
             'missed_points': float(row[2] or 0.0),
-            'error_points': float(row[2] or 0.0),
             'slow_points': float(row[3] or 0.0),
-            'fluency_points': float(row[3] or 0.0),
             'learning_points': float(row[4] or 0.0),
             'due_points': float(row[5] or 0.0),
-            'forgetting_points': float(row[5] or 0.0),
             'correct_rate': float(row[6]) if row[6] is not None else None,
             'correct_count': int(row[7] or 0),
             'wrong_count': int(row[8] or 0),
             'attempt_count': int(row[9] or 0),
             'avg_correct_response_time': float(row[10]) if row[10] is not None else None,
-            'subject_p50_correct_time': float(row[11]) if row[11] is not None else None,
-            'subject_p90_correct_time': float(row[12]) if row[12] is not None else None,
-            'subject_correct_sample_count': int(row[13] or 0),
             'days_since_last_seen': int(row[14]) if row[14] is not None else None,
             'last_practiced_at': row[15].isoformat() if row[15] else None,
             'primary_reason': str(row[16] or PRACTICE_PRIORITY_REASON_LEARNING),
         }
+        if index == 1:
+            subject_baseline = {
+                'p50_correct_time': float(row[11]) if row[11] is not None else None,
+                'p90_correct_time': float(row[12]) if row[12] is not None else None,
+                'correct_sample_count': int(row[13] or 0),
+            }
 
     return {
         'order_by_card_id': order_by_card_id,
         'details_by_card_id': details_by_card_id,
+        'subject_baseline': subject_baseline,
     }
 
 
@@ -3837,20 +3850,14 @@ def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
         'practice_priority_order': practice_priority_preview.get('order'),
         'practice_priority_score': practice_priority_preview.get('priority_score'),
         'practice_priority_missed_points': practice_priority_preview.get('missed_points'),
-        'practice_priority_error_points': practice_priority_preview.get('error_points'),
         'practice_priority_slow_points': practice_priority_preview.get('slow_points'),
-        'practice_priority_fluency_points': practice_priority_preview.get('fluency_points'),
         'practice_priority_learning_points': practice_priority_preview.get('learning_points'),
         'practice_priority_due_points': practice_priority_preview.get('due_points'),
-        'practice_priority_forgetting_points': practice_priority_preview.get('forgetting_points'),
         'practice_priority_correct_rate': practice_priority_preview.get('correct_rate'),
         'practice_priority_correct_count': practice_priority_preview.get('correct_count'),
         'practice_priority_wrong_count': practice_priority_preview.get('wrong_count'),
         'practice_priority_attempt_count': practice_priority_preview.get('attempt_count'),
         'practice_priority_avg_correct_response_time': practice_priority_preview.get('avg_correct_response_time'),
-        'practice_priority_subject_p50_correct_time': practice_priority_preview.get('subject_p50_correct_time'),
-        'practice_priority_subject_p90_correct_time': practice_priority_preview.get('subject_p90_correct_time'),
-        'practice_priority_subject_correct_sample_count': practice_priority_preview.get('subject_correct_sample_count'),
         'practice_priority_days_since_last_seen': practice_priority_preview.get('days_since_last_seen'),
         'practice_priority_last_practiced_at': practice_priority_preview.get('last_practiced_at'),
         'practice_priority_primary_reason': practice_priority_preview.get('primary_reason'),
@@ -5104,23 +5111,31 @@ def build_type_i_shared_cards_payload(
     session_card_count_override=None,
     include_orphan_in_queue_override=None,
     include_practiced_from_other=False,
+    conn=None,
 ):
     """Build merged cards payload for one type-I category."""
     category_meta_by_key = get_shared_deck_category_meta_by_key()
     category_display_name = get_deck_category_display_name(category_key, category_meta_by_key)
-    session_card_count = (
-        int(session_card_count_override)
-        if session_card_count_override is not None
-        else get_category_session_card_count_for_kid(kid, category_key)
-    )
-    include_orphan_in_queue = (
-        bool(include_orphan_in_queue_override)
-        if include_orphan_in_queue_override is not None
-        else get_category_include_orphan_for_kid(kid, category_key)
-    )
 
-    conn = get_kid_connection_for(kid, read_only=True)
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_kid_connection_for(kid, read_only=True)
     try:
+        hydrate_kid_category_config_from_db(
+            kid,
+            category_meta_by_key=category_meta_by_key,
+            conn=conn,
+        )
+        session_card_count = (
+            int(session_card_count_override)
+            if session_card_count_override is not None
+            else get_category_session_card_count_for_kid(kid, category_key)
+        )
+        include_orphan_in_queue = (
+            bool(include_orphan_in_queue_override)
+            if include_orphan_in_queue_override is not None
+            else get_category_include_orphan_for_kid(kid, category_key)
+        )
         sources = get_shared_type_i_merged_source_decks_for_kid(
             conn,
             kid,
@@ -5140,6 +5155,11 @@ def build_type_i_shared_cards_payload(
 
         preview_order = {}
         practice_priority_preview_by_card_id = {}
+        practice_priority_subject_baseline = {
+            'p50_correct_time': None,
+            'p90_correct_time': None,
+            'correct_sample_count': 0,
+        }
         if practice_source_ids:
             priority_preview = build_practice_priority_preview_for_decks(
                 conn,
@@ -5148,6 +5168,7 @@ def build_type_i_shared_cards_payload(
             )
             preview_order = priority_preview['order_by_card_id']
             practice_priority_preview_by_card_id = priority_preview['details_by_card_id']
+            practice_priority_subject_baseline = priority_preview['subject_baseline']
 
         def _source_label(source):
             tags = extract_shared_deck_tags_and_labels(source.get('tags') or [])[0]
@@ -5170,11 +5191,13 @@ def build_type_i_shared_cards_payload(
         for src in bank_sources:
             local_deck_id = int(src['local_deck_id'])
             rows = card_rows_by_deck_id.get(local_deck_id) or []
+            label = _source_label(src)
+            is_orphan = bool(src.get('is_orphan'))
             for row in rows:
                 mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
                 mapped['source_deck_id'] = local_deck_id
-                mapped['source_deck_label'] = _source_label(src)
-                mapped['source_is_orphan'] = bool(src.get('is_orphan'))
+                mapped['source_deck_label'] = label
+                mapped['source_is_orphan'] = is_orphan
                 merged_cards.append(mapped)
 
         if include_practiced_from_other:
@@ -5197,7 +5220,8 @@ def build_type_i_shared_cards_payload(
         skipped_count = sum(int(src.get('skipped_card_count') or 0) for src in bank_sources)
         practice_active_count = sum(int(src.get('active_card_count') or 0) for src in practice_sources)
     finally:
-        conn.close()
+        if owns_conn:
+            conn.close()
 
     return {
         'is_merged_bank': True,
@@ -5208,6 +5232,7 @@ def build_type_i_shared_cards_payload(
         'practice_active_card_count': int(practice_active_count),
         'active_card_count': active_count,
         'skipped_card_count': skipped_count,
+        'practice_priority_subject_baseline': practice_priority_subject_baseline,
         'cards': merged_cards
     }
 
@@ -5276,16 +5301,20 @@ def build_type_iv_shared_cards_payload(
             local_deck_id = int(src['local_deck_id'])
             shared_deck_id = int(src.get('shared_deck_id') or 0)
             rows = card_rows_by_deck_id.get(local_deck_id) or []
+            label = _source_label(src)
+            is_orphan = bool(src.get('is_orphan'))
+            shared_generator_details = generator_details_by_shared_id.get(shared_deck_id) or {}
             for row in rows:
                 mapped = map_card_row(row, {})
-                representative_front = str(mapped.get('front') or '').strip()
-                generator_details = generator_details_by_shared_id.get(shared_deck_id) or {}
-                if not generator_details and representative_front:
-                    generator_details = generator_details_by_front.get(representative_front) or {}
+                generator_details = shared_generator_details
+                if not generator_details:
+                    representative_front = str(mapped.get('front') or '').strip()
+                    if representative_front:
+                        generator_details = generator_details_by_front.get(representative_front) or {}
                 resolved_shared_deck_id = int(generator_details.get('shared_deck_id') or shared_deck_id or 0)
                 mapped['source_deck_id'] = local_deck_id
-                mapped['source_deck_label'] = _source_label(src)
-                mapped['source_is_orphan'] = bool(src.get('is_orphan'))
+                mapped['source_deck_label'] = label
+                mapped['source_is_orphan'] = is_orphan
                 mapped['type4_shared_deck_id'] = resolved_shared_deck_id if resolved_shared_deck_id > 0 else None
                 mapped['type4_is_multichoice_only'] = bool(generator_details.get('is_multichoice_only'))
                 merged_cards.append(mapped)
@@ -6786,16 +6815,22 @@ def get_shared_type1_cards(kid_id):
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
-        category_key, _ = resolve_kid_type_i_category_with_mode(
-            kid,
-            request.args.get('categoryKey'),
-        )
-        payload = build_type_i_shared_cards_payload(
-            kid,
-            category_key,
-            include_practiced_from_other=parse_include_practiced_from_other_arg(),
-        )
-        payload.update(build_kid_daily_progress_section(kid, category_key))
+        conn = get_kid_connection_for(kid, read_only=True)
+        try:
+            category_key, _ = resolve_kid_type_i_category_with_mode(
+                kid,
+                request.args.get('categoryKey'),
+                conn=conn,
+            )
+            payload = build_type_i_shared_cards_payload(
+                kid,
+                category_key,
+                include_practiced_from_other=parse_include_practiced_from_other_arg(),
+                conn=conn,
+            )
+            payload.update(build_kid_daily_progress_section(kid, category_key, conn=conn))
+        finally:
+            conn.close()
         return jsonify(payload), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -8113,6 +8148,11 @@ def get_shared_type2_cards(kid_id):
 
             preview_order = {}
             practice_priority_preview_by_card_id = {}
+            practice_priority_subject_baseline = {
+                'p50_correct_time': None,
+                'p90_correct_time': None,
+                'correct_sample_count': 0,
+            }
             if practice_source_ids:
                 priority_preview = build_practice_priority_preview_for_decks(
                     conn,
@@ -8122,6 +8162,7 @@ def get_shared_type2_cards(kid_id):
                 )
                 preview_order = priority_preview['order_by_card_id']
                 practice_priority_preview_by_card_id = priority_preview['details_by_card_id']
+                practice_priority_subject_baseline = priority_preview['subject_baseline']
 
             orphan_deck_name = get_category_orphan_deck_name(category_key)
 
@@ -8146,6 +8187,10 @@ def get_shared_type2_cards(kid_id):
             for src in bank_sources:
                 local_deck_id = int(src['local_deck_id'])
                 rows = card_rows_by_deck_id.get(local_deck_id) or []
+                source_tags = extract_shared_deck_tags_and_labels(src.get('tags') or [])[0]
+                label = _source_label(src)
+                source_name = str(src.get('local_name') or '')
+                is_orphan = bool(src.get('is_orphan'))
                 for row in rows:
                     mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
                     if not mapped.get('front') and mapped.get('back'):
@@ -8170,10 +8215,10 @@ def get_shared_type2_cards(kid_id):
                         mapped['writing_state'] = 1
                         mapped['writing_state_label'] = 'Default'
                     mapped['source_deck_id'] = local_deck_id
-                    mapped['source_deck_name'] = str(src.get('local_name') or '')
-                    mapped['source_deck_label'] = _source_label(src)
-                    mapped['source_deck_tags'] = extract_shared_deck_tags_and_labels(src.get('tags') or [])[0]
-                    mapped['source_is_orphan'] = bool(src.get('is_orphan'))
+                    mapped['source_deck_name'] = source_name
+                    mapped['source_deck_label'] = label
+                    mapped['source_deck_tags'] = source_tags
+                    mapped['source_is_orphan'] = is_orphan
                     audio_meta = build_writing_prompt_audio_payload(
                         kid_id,
                         mapped.get('front'),
@@ -8253,6 +8298,7 @@ def get_shared_type2_cards(kid_id):
             'practicing_cards': practicing_cards,
             'practicing_sheet_card_count': len(practicing_sheet_cards),
             'practicing_sheet_cards': practicing_sheet_cards,
+            'practice_priority_subject_baseline': practice_priority_subject_baseline,
             'cards': merged_cards,
             **special_ready_payload,
             **build_kid_daily_progress_section(kid, category_key),
