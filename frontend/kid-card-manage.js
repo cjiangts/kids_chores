@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     if (!categoryKey) {
-        showError('Missing deck category. Open this page from Admin.');
+        showError('Missing subject. Open this page from Admin.');
         return;
     }
     initializeType4GeneratorCodeViewer();
@@ -143,6 +143,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             setPersonalDeckMode('edit');
         });
     }
+    if (clearPersonalDeckBtn) {
+        clearPersonalDeckBtn.addEventListener('click', () => {
+            if (!chineseCharInput) {
+                return;
+            }
+            chineseCharInput.value = '';
+            chineseCharInput.dispatchEvent(new Event('input', { bubbles: true }));
+            showStatusMessage('');
+            chineseCharInput.focus();
+        });
+    }
     if (deckTreeModal) {
         deckTreeModal.addEventListener('click', handleModalBackdropClick);
     }
@@ -251,6 +262,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (event.key === 'Escape' && isSortMenuOpen()) {
                 setSortMenuOpen(false);
                 sortMenuBtn.focus();
+            }
+        });
+    }
+    refreshSourceDeckFilterMenu();
+    if (sourceDeckFilterBtn) {
+        sourceDeckFilterBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            setSourceDeckFilterMenuOpen(!isSourceDeckFilterMenuOpen());
+        });
+        document.addEventListener('click', (event) => {
+            if (!isSourceDeckFilterMenuOpen()) {
+                return;
+            }
+            const target = event.target;
+            if (sourceDeckFilterPopover.contains(target) || sourceDeckFilterBtn.contains(target)) {
+                return;
+            }
+            setSourceDeckFilterMenuOpen(false);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && isSourceDeckFilterMenuOpen()) {
+                setSourceDeckFilterMenuOpen(false);
+                sourceDeckFilterBtn.focus();
             }
         });
     }

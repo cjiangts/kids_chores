@@ -387,7 +387,7 @@ async function openDeckCategoryOptInModal(kidId) {
         const kid = currentKids.find((item) => String(item?.id || '') === kidIdText);
         const kidName = kid?.name ? String(kid.name) : 'Kid';
         if (deckCategoryHeading) {
-            deckCategoryHeading.textContent = `${kidName}'s Deck Categories`;
+            deckCategoryHeading.textContent = `${kidName}'s Subjects`;
         }
         deckCategoryModalState = {
             kidId: kidIdText,
@@ -421,7 +421,7 @@ async function openDeckCategoryOptInModal(kidId) {
     } catch (error) {
         console.error('Error loading deck categories:', error);
         closeDeckCategoryModal();
-        showError('Failed to load deck categories.');
+        showError('Failed to load subjects.');
     }
 }
 
@@ -511,7 +511,7 @@ async function saveDeckCategoryOptIns() {
         await loadKids();
     } catch (error) {
         console.error('Error saving deck categories:', error);
-        showError(error.message || 'Failed to save deck categories.');
+        showError(error.message || 'Failed to save subjects.');
     } finally {
         isSavingDeckCategories = false;
         setDeckCategoryConfirmButtonState();
@@ -602,7 +602,7 @@ function displayKids(kids) {
         const configuredDeckCount = optedInCategoryKeys.length;
         const summaryText = configuredDeckCount > 0
             ? `${configuredDeckCount} active`
-            : 'No deck categories yet';
+            : 'No subjects yet';
         const manageRows = optedInCategoryKeys.map((categoryKey) => {
             const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap);
             const emoji = getCategoryEmoji(categoryKey, categoryMetaMap);
@@ -651,9 +651,9 @@ function displayKids(kids) {
                         </div>
                     </div>
                     <div class="admin-kid-actions">
-                        <a class="admin-optin-pill" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;" title="Manage Decks" aria-label="Manage Decks">
-                            <span class="admin-optin-pill-icon" aria-hidden="true">${icon('layers', { size: 20 })}</span>
-                            <span class="admin-optin-pill-label">Manage Decks</span>
+                        <a class="admin-optin-pill" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;" title="Manage Subjects" aria-label="Manage Subjects">
+                            <span class="admin-optin-pill-icon" aria-hidden="true">${icon('book-open', { size: 20 })}</span>
+                            <span class="admin-optin-pill-label">Manage Subjects</span>
                         </a>
                         ${reviewAudioHtml}
                         <a class="admin-records-pill" href="/kid-report.html?id=${kid.id}">

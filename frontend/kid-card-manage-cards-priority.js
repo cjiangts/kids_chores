@@ -12,15 +12,128 @@ function filterCardsByQuery(cards, rawQuery) {
     });
 }
 
-function getSortedCardsForDisplay(cards) {
-    if (isType4Behavior()) {
-        return window.PracticeManageCommon.sortCardsForView(
-            Array.isArray(cards) ? cards : [],
-            CARD_SORT_MODE_ADDED_TIME
-        );
+function getCardSourceDeckFilterKey(card) {
+    const raw = String(card?.source_deck_label || card?.source_deck_name || '').trim();
+    const normalized = raw.toLowerCase().replace(/[\s_]+/g, '');
+    if (
+        Boolean(card?.source_is_orphan)
+        || normalized === 'orphan'
+        || normalized === 'orphandeck'
+        || normalized === 'personaldeck'
+        || normalized === 'personaldecks'
+    ) {
+        return '__personal__';
     }
-    const filteredCards = filterCardsByQuery(cards, cardSearchInput ? cardSearchInput.value : '');
+    return raw;
+}
+
+function getSourceDeckFilterOptions(cards) {
+    const map = new Map();
+    (Array.isArray(cards) ? cards : []).forEach((card) => {
+        const key = getCardSourceDeckFilterKey(card);
+        if (!key) {
+            return;
+        }
+        if (!map.has(key)) {
+            map.set(key, resolveCardSourceDeckName(card));
+        }
+    });
+    return Array.from(map.entries())
+        .map(([key, label]) => ({ key, label }))
+        .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+}
+
+function filterCardsBySourceDeck(cards, filterKey) {
+    const key = String(filterKey || '').trim();
+    if (!key) {
+        return Array.isArray(cards) ? cards : [];
+    }
+    return (Array.isArray(cards) ? cards : []).filter((card) => getCardSourceDeckFilterKey(card) === key);
+}
+
+function getSortedCardsForDisplay(cards) {
+    const sourceFiltered = filterCardsBySourceDeck(cards, currentSourceDeckFilter);
+    if (isType4Behavior()) {
+        return window.PracticeManageCommon.sortCardsForView(sourceFiltered, CARD_SORT_MODE_ADDED_TIME);
+    }
+    const filteredCards = filterCardsByQuery(sourceFiltered, cardSearchInput ? cardSearchInput.value : '');
     return sortCardsForDisplay(filteredCards, getSelectedCardSortMode(), getCurrentCardSortDirection());
+}
+
+function buildSourceDeckFilterMenuItems() {
+    if (!sourceDeckFilterPopover) {
+        return;
+    }
+    sourceDeckFilterPopover.innerHTML = '';
+    const options = [
+        { key: '', label: 'All decks' },
+        ...getSourceDeckFilterOptions(currentCards),
+    ];
+    options.forEach((option) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'sort-menu-item';
+        item.setAttribute('role', 'menuitemradio');
+        item.dataset.value = option.key;
+        item.innerHTML = `
+            ${window.icon('check', { className: 'sort-menu-item-check', strokeWidth: 2.6 })}
+            <span class="sort-menu-item-label"></span>
+        `;
+        item.querySelector('.sort-menu-item-label').textContent = option.label;
+        item.addEventListener('click', () => {
+            if (currentSourceDeckFilter !== option.key) {
+                currentSourceDeckFilter = option.key;
+                syncSourceDeckFilterMenu();
+                resetAndDisplayCards(currentCards);
+            }
+            setSourceDeckFilterMenuOpen(false);
+            if (sourceDeckFilterBtn) {
+                sourceDeckFilterBtn.focus();
+            }
+        });
+        sourceDeckFilterPopover.appendChild(item);
+    });
+}
+
+function syncSourceDeckFilterMenu() {
+    if (!sourceDeckFilterPopover) {
+        return;
+    }
+    const items = Array.from(sourceDeckFilterPopover.querySelectorAll('.sort-menu-item'));
+    const validKeys = new Set(items.map((item) => item.dataset.value));
+    if (!validKeys.has(currentSourceDeckFilter)) {
+        currentSourceDeckFilter = '';
+    }
+    items.forEach((item) => {
+        const isSelected = item.dataset.value === currentSourceDeckFilter;
+        item.classList.toggle('selected', isSelected);
+        item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+    });
+    if (sourceDeckFilterBtnLabel) {
+        const selectedItem = items.find((item) => item.dataset.value === currentSourceDeckFilter);
+        const labelText = selectedItem
+            ? selectedItem.querySelector('.sort-menu-item-label').textContent
+            : 'All decks';
+        sourceDeckFilterBtnLabel.textContent = labelText;
+    }
+}
+
+function refreshSourceDeckFilterMenu() {
+    buildSourceDeckFilterMenuItems();
+    syncSourceDeckFilterMenu();
+}
+
+function setSourceDeckFilterMenuOpen(open) {
+    if (!sourceDeckFilterBtn || !sourceDeckFilterPopover) {
+        return;
+    }
+    sourceDeckFilterPopover.classList.toggle('hidden', !open);
+    sourceDeckFilterPopover.setAttribute('aria-hidden', open ? 'false' : 'true');
+    sourceDeckFilterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function isSourceDeckFilterMenuOpen() {
+    return !!(sourceDeckFilterPopover && !sourceDeckFilterPopover.classList.contains('hidden'));
 }
 
 function isPracticePriorityQueueOrderSelected() {

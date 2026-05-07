@@ -282,33 +282,49 @@ function getDeckPendingBadgeHtml(deckId) {
     if (wasOptedIn === isNowOptedIn) {
         return '';
     }
-    if (isNowOptedIn) {
-        return '<span class="deck-tree-badge opt-in">+ opt-in</span>';
-    }
-    return '<span class="deck-tree-badge opt-out">- opt-out</span>';
+    const deck = (Array.isArray(allDecks) ? allDecks : []).find((d) => Number(d.deck_id) === id);
+    const cardCount = deck ? (Number(deck.card_count) || 0) : 0;
+    const cls = isNowOptedIn ? 'opt-in' : 'opt-out';
+    const sign = isNowOptedIn ? '+' : '-';
+    return `
+        <span class="deck-tree-badge ${cls}">
+            <span class="deck-tree-badge-chunk"><span data-icon="layout-grid" data-icon-size="11" data-icon-stroke="2.4"></span>${sign}${cardCount.toLocaleString()}</span>
+        </span>
+    `;
 }
 
 function getBranchPendingBadgesHtml(allIds) {
-    let optInCount = 0;
-    let optOutCount = 0;
+    const cardCountByDeckId = new Map();
+    (Array.isArray(allDecks) ? allDecks : []).forEach((d) => {
+        const id = Number(d.deck_id);
+        if (id > 0) cardCountByDeckId.set(id, Number(d.card_count) || 0);
+    });
+    let optInDecks = 0;
+    let optOutDecks = 0;
+    let optInCards = 0;
+    let optOutCards = 0;
     allIds.forEach((id) => {
         const wasIn = baselineOptedDeckIdSet.has(id);
         const nowIn = treeOptedDeckIdSet.has(id);
-        if (wasIn !== nowIn) {
-            if (nowIn) {
-                optInCount += 1;
-            } else {
-                optOutCount += 1;
-            }
+        if (wasIn === nowIn) return;
+        const cards = cardCountByDeckId.get(id) || 0;
+        if (nowIn) {
+            optInDecks += 1;
+            optInCards += cards;
+        } else {
+            optOutDecks += 1;
+            optOutCards += cards;
         }
     });
+    const buildBadge = (cls, sign, decks, cards) => `
+        <span class="deck-tree-badge ${cls}">
+            <span class="deck-tree-badge-chunk"><span data-icon="layers" data-icon-size="11" data-icon-stroke="2.4"></span>${sign}${decks}</span>
+            <span class="deck-tree-badge-chunk"><span data-icon="layout-grid" data-icon-size="11" data-icon-stroke="2.4"></span>${sign}${cards.toLocaleString()}</span>
+        </span>
+    `;
     let html = '';
-    if (optInCount > 0) {
-        html += `<span class="deck-tree-badge opt-in">+${optInCount}</span>`;
-    }
-    if (optOutCount > 0) {
-        html += `<span class="deck-tree-badge opt-out">-${optOutCount}</span>`;
-    }
+    if (optInDecks > 0) html += buildBadge('opt-in', '+', optInDecks, optInCards);
+    if (optOutDecks > 0) html += buildBadge('opt-out', '-', optOutDecks, optOutCards);
     return html;
 }
 
@@ -336,11 +352,9 @@ function renderDeckTreeNode(node, depth) {
         html += `<div class="${rowClasses.join(' ')}">`;
         html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
         html += `<div class="deck-tree-row-body" data-tree-action="leaf" data-tree-deck-id="${deckId}">`;
+        html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
         html += `<span class="deck-tree-label">${escapeHtml(node.label || node.tag)}${escapeHtml(suffix)}</span>`;
         html += getDeckPendingBadgeHtml(deckId);
-        if (isSelected) {
-            html += `<span class="deck-tree-check">&#10003;</span>`;
-        }
         html += `</div>`;
         html += `</div>`;
         html += `</div>`;
@@ -365,13 +379,12 @@ function renderDeckTreeNode(node, depth) {
         html += `<div class="${rowClasses.join(' ')}">`;
         html += `<button type="button" class="deck-tree-toggle${isExpanded ? ' expanded' : ''}" aria-label="Toggle">&#9654;</button>`;
         const pct = totalCount > 0 ? Math.round((selectedCount / totalCount) * 100) : 0;
-        html += `<div class="deck-tree-row-body" data-tree-action="branch" data-tree-tag="${escapeHtml(node.tag)}" style="background:linear-gradient(to right, rgba(76,175,80,0.13) ${pct}%, transparent ${pct}%);">`;
+        html += `<div class="deck-tree-row-body" data-tree-action="branch" data-tree-tag="${escapeHtml(node.tag)}">`;
+        html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
         html += `<span class="deck-tree-label deck-tree-label-tag">${escapeHtml(node.label || node.tag)}</span>`;
-        html += `<span class="deck-tree-meta">${selectedCount}/${totalCount}</span>`;
+        html += `<span class="deck-tree-meta">${selectedCount} of ${totalCount} selected</span>`;
         html += getBranchPendingBadgesHtml(allIds);
-        if (selState === 'all') {
-            html += `<span class="deck-tree-check">&#10003;</span>`;
-        }
+        html += `<span class="deck-tree-progress" aria-hidden="true"><span class="deck-tree-progress-fill" style="width:${pct}%"></span></span>`;
         html += `</div>`;
         html += `</div>`;
         html += `<div class="deck-tree-children${isExpanded ? '' : ' collapsed'}">`;
@@ -396,11 +409,9 @@ function renderDeckTreeNode(node, depth) {
         html += `<div class="${rowClasses.join(' ')}">`;
         html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
         html += `<div class="deck-tree-row-body" data-tree-action="leaf" data-tree-deck-id="${deckId}">`;
+        html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
         html += `<span class="deck-tree-label">${escapeHtml(label)}${escapeHtml(suffix)}</span>`;
         html += getDeckPendingBadgeHtml(deckId);
-        if (isSelected) {
-            html += `<span class="deck-tree-check">&#10003;</span>`;
-        }
         html += `</div>`;
         html += `</div>`;
         html += `</div>`;
@@ -426,6 +437,30 @@ function getTreeSelectedCount() {
     let count = treeOptedDeckIdSet.size;
     if (orphanDeck && treeIncludeOrphan) {
         count += 1;
+    }
+    return count;
+}
+
+function getTreeTotalCardCount() {
+    const decks = Array.isArray(allDecks) ? allDecks : [];
+    let count = decks.reduce((sum, d) => sum + (Number(d.card_count) || 0), 0);
+    if (orphanDeck) {
+        count += Number(orphanDeck.card_count) || 0;
+    }
+    return count;
+}
+
+function getTreeSelectedCardCount() {
+    const decks = Array.isArray(allDecks) ? allDecks : [];
+    let count = decks.reduce((sum, d) => {
+        const id = Number(d.deck_id);
+        if (id > 0 && treeOptedDeckIdSet.has(id)) {
+            return sum + (Number(d.card_count) || 0);
+        }
+        return sum;
+    }, 0);
+    if (orphanDeck && treeIncludeOrphan) {
+        count += Number(orphanDeck.card_count) || 0;
     }
     return count;
 }
@@ -473,26 +508,29 @@ function renderDeckTree() {
 
         let orphanBadge = '';
         if (isPending) {
-            orphanBadge = isSelected
-                ? '<span class="deck-tree-badge opt-in">+ opt-in</span>'
-                : '<span class="deck-tree-badge opt-out">- opt-out</span>';
+            const cls = isSelected ? 'opt-in' : 'opt-out';
+            const sign = isSelected ? '+' : '-';
+            orphanBadge = `
+                <span class="deck-tree-badge ${cls}">
+                    <span class="deck-tree-badge-chunk"><span data-icon="layout-grid" data-icon-size="11" data-icon-stroke="2.4"></span>${sign}${orphanCount.toLocaleString()}</span>
+                </span>
+            `;
         }
 
         html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${ORPHAN_BUBBLE_ID}">`;
         html += `<div class="${rowClasses.join(' ')}">`;
         html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
         html += `<div class="deck-tree-row-body" data-tree-action="orphan">`;
+        html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
         html += `<span class="deck-tree-label deck-tree-label-tag">&#11088; ${escapeHtml(getPersonalDeckDisplayName())} &middot; ${orphanCount} cards</span>`;
         html += orphanBadge;
-        if (isSelected) {
-            html += `<span class="deck-tree-check">&#10003;</span>`;
-        }
         html += `</div>`;
         html += `</div></div>`;
     }
 
     html += renderDeckTreeNode(tree, 0);
     deckTreeContainer.innerHTML = html;
+    if (window.hydrateIcons) window.hydrateIcons(deckTreeContainer);
 
     updateTreeCounter();
     updateTreeApplyButton();
@@ -502,7 +540,15 @@ function updateTreeCounter() {
     if (!deckTreeCounter) {
         return;
     }
-    deckTreeCounter.textContent = `${getTreeSelectedCount()} / ${getTreeTotalDeckCount()}`;
+    const selDecks = getTreeSelectedCount();
+    const totDecks = getTreeTotalDeckCount();
+    const selCards = getTreeSelectedCardCount();
+    const totCards = getTreeTotalCardCount();
+    deckTreeCounter.innerHTML = `
+        <span class="deck-tree-counter-line"><span class="deck-tree-counter-icon" data-icon="layers" data-icon-size="14" data-icon-stroke="2.2"></span><span><strong>${selDecks}</strong> of ${totDecks} decks selected</span></span>
+        <span class="deck-tree-counter-line deck-tree-counter-sub"><span class="deck-tree-counter-icon" data-icon="layout-grid" data-icon-size="14" data-icon-stroke="2.2"></span><span><strong>${selCards.toLocaleString()}</strong> of ${totCards.toLocaleString()} cards selected</span></span>
+    `;
+    if (window.hydrateIcons) window.hydrateIcons(deckTreeCounter);
 }
 
 function updateTreeApplyButton() {
@@ -512,21 +558,45 @@ function updateTreeApplyButton() {
     const toOptIn = [...treeOptedDeckIdSet].filter((id) => !baselineOptedDeckIdSet.has(id));
     const toOptOut = [...baselineOptedDeckIdSet].filter((id) => !treeOptedDeckIdSet.has(id));
     const orphanChanged = treeIncludeOrphan !== baselineIncludeOrphanInQueue;
-    const parts = [];
-    if (toOptIn.length > 0) {
-        parts.push(`+${toOptIn.length}`);
-    }
-    if (toOptOut.length > 0) {
-        parts.push(`-${toOptOut.length}`);
-    }
-    if (orphanChanged) {
-        parts.push('~1');
-    }
-    const hasPending = parts.length > 0;
+    const orphanAdded = orphanChanged && treeIncludeOrphan;
+    const orphanRemoved = orphanChanged && !treeIncludeOrphan;
+
+    const cardCountByDeckId = new Map();
+    (Array.isArray(allDecks) ? allDecks : []).forEach((d) => {
+        const id = Number(d.deck_id);
+        if (id > 0) cardCountByDeckId.set(id, Number(d.card_count) || 0);
+    });
+    const sumCards = (ids) => ids.reduce((s, id) => s + (cardCountByDeckId.get(id) || 0), 0);
+    const orphanCards = orphanDeck ? (Number(orphanDeck.card_count) || 0) : 0;
+
+    const deckIn = toOptIn.length + (orphanAdded ? 1 : 0);
+    const deckOut = toOptOut.length + (orphanRemoved ? 1 : 0);
+    const cardIn = sumCards(toOptIn) + (orphanAdded ? orphanCards : 0);
+    const cardOut = sumCards(toOptOut) + (orphanRemoved ? orphanCards : 0);
+
+    const hasPending = deckIn > 0 || deckOut > 0;
     applyDeckTreeChangesBtn.disabled = isDeckMoveInFlight || !hasPending;
-    applyDeckTreeChangesBtn.textContent = hasPending
-        ? `Apply (${parts.join(' · ')})`
-        : 'Apply';
+
+    const labelEl = applyDeckTreeChangesBtn.querySelector('.apply-btn-label');
+    if (!labelEl) return;
+
+    if (!hasPending) {
+        labelEl.textContent = 'Apply';
+        return;
+    }
+
+    const fmtDelta = (inN, outN) => {
+        const parts = [];
+        if (inN > 0) parts.push(`+${inN.toLocaleString()}`);
+        if (outN > 0) parts.push(`-${outN.toLocaleString()}`);
+        return parts.join(' ');
+    };
+    const deckLabel = (deckIn + deckOut) === 1 ? 'deck' : 'decks';
+    const cardLabel = (cardIn + cardOut) === 1 ? 'card' : 'cards';
+    const deckChunk = `<span class="apply-btn-chunk"><span data-icon="layers" data-icon-size="14" data-icon-stroke="2.4"></span>${fmtDelta(deckIn, deckOut)} ${deckLabel}</span>`;
+    const cardChunk = `<span class="apply-btn-chunk"><span data-icon="layout-grid" data-icon-size="14" data-icon-stroke="2.4"></span>${fmtDelta(cardIn, cardOut)} ${cardLabel}</span>`;
+    labelEl.innerHTML = `Apply (${deckChunk} · ${cardChunk})`;
+    if (window.hydrateIcons) window.hydrateIcons(labelEl);
 }
 
 function toggleBranchSelection(bodyEl) {

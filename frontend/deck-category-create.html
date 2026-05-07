@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Manage Deck Category - Kids Daily Chores</title>
+    <title>Manage Subject - Kids Daily Chores</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -189,7 +189,7 @@
             <div class="page-header-row">
                 <h1>
                     <span class="icon page-title-icon" data-icon="layout-grid" data-icon-size="28"></span>
-                    Manage Deck Category
+                    Manage Subject
                 </h1>
                 <a href="/deck-manage.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
             </div>
@@ -197,11 +197,11 @@
 
         <main>
             <section class="deck-panel settings-section">
-                <h2>New Category</h2>
+                <h2>New Subject</h2>
                 <form id="createCategoryForm">
                     <div class="deck-grid">
                         <div class="form-group">
-                            <label for="categoryKeyInput">Category key</label>
+                            <label for="categoryKeyInput">Subject key</label>
                             <input type="text" id="categoryKeyInput" placeholder="e.g. science_reading" required>
                         </div>
                         <div class="form-group">
@@ -286,19 +286,19 @@
                         </fieldset>
                     </div>
                     <div class="deck-row mt-07">
-                        <button id="createCategoryBtn" type="submit" class="btn-primary">Create Category</button>
+                        <button id="createCategoryBtn" type="submit" class="btn-primary">Create Subject</button>
                     </div>
                 </form>
             </section>
 
             <section class="deck-panel settings-section">
-                <h2>Existing Categories</h2>
-                <div id="emptyState" class="deck-empty hidden">No categories found.</div>
+                <h2>Existing Subjects</h2>
+                <div id="emptyState" class="deck-empty hidden">No subjects found.</div>
                 <div id="tableWrap" class="shared-report-table-wrap">
                     <table class="shared-report-table">
                         <thead>
                             <tr>
-                                <th>Category Key</th>
+                                <th>Subject Key</th>
                                 <th class="table-col-120">Display Name</th>
                                 <th class="table-col-80">Emoji</th>
                                 <th class="table-col-120">Behavior</th>
@@ -325,7 +325,7 @@
                 <button type="button" id="closeEditEmojiModalBtn" class="btn-secondary">Close</button>
             </div>
             <div class="emoji-modal-grid">
-                <div class="deck-meta-row"><strong>Category:</strong> <span id="editEmojiCategoryKeyText"></span></div>
+                <div class="deck-meta-row"><strong>Subject:</strong> <span id="editEmojiCategoryKeyText"></span></div>
                 <div class="emoji-modal-current">
                     <strong>Current:</strong>
                     <span id="editEmojiCurrentText" class="emoji-modal-current-emoji">-</span>

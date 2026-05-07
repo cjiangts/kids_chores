@@ -569,7 +569,14 @@ function displayCards(cards) {
             activeCardChunkObserver.disconnect();
             activeCardChunkObserver = null;
         }
-        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in merged bank</h3></div>`;
+        const hasPersonalEditor = supportsPersonalDeckEditor();
+        const optInChip = '<strong class="empty-state-action"><span data-icon="layers" data-icon-size="16" data-icon-stroke="2.2"></span> Manage Deck Opt-in</strong>';
+        const personalChip = '<strong class="empty-state-action"><span data-icon="pencil" data-icon-size="16" data-icon-stroke="2.2"></span> Personal Deck Editor</strong>';
+        const emptyStateHint = hasPersonalEditor
+            ? `Click ${optInChip} above to enable shared decks, or ${personalChip} to add your own cards.`
+            : `Click ${optInChip} above to enable shared decks for this subject.`;
+        cardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><h3>No cards in bank</h3><p>${emptyStateHint}</p></div>`;
+        if (window.hydrateIcons) window.hydrateIcons(cardsGrid);
         cardsGrid.classList.remove('short-view');
         cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
         renderCardsSelectionBar();
@@ -634,6 +641,7 @@ function displayCards(cards) {
 }
 
 function resetAndDisplayCards(cards) {
+    refreshSourceDeckFilterMenu();
     displayCards(cards);
 }
 

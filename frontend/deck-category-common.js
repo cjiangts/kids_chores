@@ -304,7 +304,7 @@
         const response = await fetch(`${base}/shared-decks/categories`);
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(result.error || `Failed to load deck categories (HTTP ${response.status})`);
+            throw new Error(result.error || `Failed to load subjects (HTTP ${response.status})`);
         }
 
         const rawCategories = Array.isArray(result.categories) ? result.categories : [];
@@ -329,7 +329,7 @@
         });
 
         if (categories.length === 0) {
-            throw new Error('No deck categories configured. Create a category first.');
+            throw new Error('No subjects configured. Create a subject first.');
         }
 
         const categoryKeySet = new Set(categories.map((item) => item.category_key));
@@ -352,7 +352,7 @@
         }
         const categories = Array.isArray(config.categories) ? config.categories : [];
         if (categories.length === 0) {
-            containerEl.innerHTML = '<span class="settings-note">No categories available.</span>';
+            containerEl.innerHTML = '<span class="settings-note">No subjects available.</span>';
             return;
         }
         const selectedKey = normalizeCategoryKey(config.selectedCategoryKey);

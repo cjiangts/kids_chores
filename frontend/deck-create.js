@@ -322,11 +322,11 @@ async function loadDeckCategories() {
         reservedFirstTags = new Set();
         currentFirstTag = '';
         if (firstTagToggle) {
-            firstTagToggle.innerHTML = '<span class="settings-note">No categories available.</span>';
+            firstTagToggle.innerHTML = '<span class="settings-note">No subjects available.</span>';
         }
-        setNameStatus('Deck categories unavailable.', 'error');
+        setNameStatus('Subjects unavailable.', 'error');
         setControlsDisabled(true);
-        showError(error.message || 'Failed to load deck categories.');
+        showError(error.message || 'Failed to load subjects.');
         return false;
     }
 }
@@ -360,7 +360,7 @@ function applyFirstTagLockMode() {
     });
     if (categoryPreselectNote) {
         if (isLocked) {
-            categoryPreselectNote.textContent = 'Category preselected from Manage Decks.';
+            categoryPreselectNote.textContent = 'Subject preselected from Manage Decks.';
             categoryPreselectNote.classList.remove('hidden');
         } else {
             categoryPreselectNote.textContent = '';
@@ -424,7 +424,7 @@ function applyClonedDeck(payload) {
     const tagLabels = Array.isArray(deck.tag_labels) ? deck.tag_labels : [];
     const firstTag = normalizeTag(tags[0]);
     if (!firstTag) {
-        throw new Error('Clone source deck is missing its category tag.');
+        throw new Error('Clone source deck is missing its subject tag.');
     }
     currentFirstTag = firstTag;
     if (!lockedFirstTagFromQuery) {
@@ -553,7 +553,7 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii categories, dedup is keyed by <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii subjects, dedup is keyed by <code>back</code>.';
         }
         cardsCsvInput.placeholder = '听写提示,汉字答案';
         return;
@@ -563,7 +563,7 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii categories, dedup is keyed by <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii subjects, dedup is keyed by <code>back</code>.';
         }
         cardsCsvInput.placeholder = 'Prompt text,Answer text';
         return;
@@ -846,8 +846,8 @@ async function ensureType4RepresentativeLabelAvailable(displayLabel) {
     const existingDeckName = String(result && result.existing_deck_name ? result.existing_deck_name : '').trim();
     throw new Error(
         existingDeckName
-            ? `Representative label already exists in this category: ${existingDeckName}.`
-            : 'Representative label already exists in this category.',
+            ? `Representative label already exists in this subject: ${existingDeckName}.`
+            : 'Representative label already exists in this subject.',
     );
 }
 

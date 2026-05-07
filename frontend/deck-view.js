@@ -847,7 +847,7 @@ function addRenameExtraTag(rawTag) {
         throw new Error('Enter a valid tag.');
     }
     if (parsed.tag === firstTag) {
-        throw new Error('The category tag is already locked.');
+        throw new Error('The subject tag is already locked.');
     }
     if (renameExtraTags.some((item) => item.tag === parsed.tag)) {
         throw new Error('That tag is already added.');

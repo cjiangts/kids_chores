@@ -120,6 +120,14 @@
                 </div>
             </div>
             <div class="cards-toolbar">
+                <div class="sort-menu filter-menu">
+                    <button id="sourceDeckFilterBtn" type="button" class="sort-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Filter by source deck">
+                        <span class="sort-menu-btn-icon" data-icon="filter" data-icon-stroke="2"></span>
+                        <span id="sourceDeckFilterBtnLabel" class="sort-menu-btn-label">All decks</span>
+                        <span class="sort-menu-btn-caret" data-icon="chevron-down"></span>
+                    </button>
+                    <div id="sourceDeckFilterPopover" class="sort-menu-popover hidden" role="menu" aria-hidden="true"></div>
+                </div>
                 <div class="cards-search-wrap">
                     <span class="cards-search-icon" data-icon="search" data-icon-stroke="2"></span>
                     <input
@@ -157,13 +165,17 @@
                             class="sort-direction-toggle-btn active"
                             data-sort-direction="desc"
                             aria-pressed="true"
-                        >Highest first</button>
+                            aria-label="Highest first"
+                            title="Highest first"
+                        ><span class="sort-direction-toggle-btn-icon" data-icon="arrow-down-wide-narrow" data-icon-size="16" data-icon-stroke="2.2"></span></button>
                         <button
                             type="button"
                             class="sort-direction-toggle-btn"
                             data-sort-direction="asc"
                             aria-pressed="false"
-                        >Lowest first</button>
+                            aria-label="Lowest first"
+                            title="Lowest first"
+                        ><span class="sort-direction-toggle-btn-icon" data-icon="arrow-up-narrow-wide" data-icon-size="16" data-icon-stroke="2.2"></span></button>
                     </div>
                 </div>
             </div>
@@ -208,23 +220,26 @@
                 <div class="deck-tree-header-left">
                     <h2 id="deckTreeHeading" style="margin:0">Deck Opt-in</h2>
                     <button id="deckTreeInfoBtn" type="button" class="optin-note-btn" title="How deck opt-in works"><span data-icon="info" data-icon-size="14" data-icon-stroke="2"></span></button>
-                    <span id="deckTreeCounter" class="deck-tree-counter">0 / 0</span>
+                    <span id="deckTreeCounter" class="deck-tree-counter"></span>
                 </div>
                 <div class="deck-tree-search-row">
                     <label class="deck-tree-search-wrap">
+                        <span class="deck-tree-search-icon" data-icon="search" data-icon-size="16" data-icon-stroke="2.2" aria-hidden="true"></span>
                         <input id="deckTreeSearchInput" type="text" class="deck-tree-search-input" placeholder="Search decks...">
                     </label>
-                    <button id="deckTreeExpandAllBtn" type="button" class="deck-tree-icon-btn" title="Expand all">Expand</button>
-                    <button id="deckTreeCollapseAllBtn" type="button" class="deck-tree-icon-btn" title="Collapse all">Collapse</button>
+                    <button id="deckTreeExpandAllBtn" type="button" class="deck-tree-icon-btn" title="Expand all"><span data-icon="chevrons-up-down" data-icon-size="14" data-icon-stroke="2.2"></span> Expand</button>
+                    <button id="deckTreeCollapseAllBtn" type="button" class="deck-tree-icon-btn" title="Collapse all"><span data-icon="chevrons-down-up" data-icon-size="14" data-icon-stroke="2.2"></span> Collapse</button>
                 </div>
             </div>
             <div class="manage-popup-modal-body">
                 <div id="deckTreeContainer" class="deck-tree-container"></div>
-                <div class="deck-v2-actions">
-                    <div class="deck-v2-action-row">
-                        <button id="deckTreeClearBtn" type="button" class="btn-secondary">Undo All</button>
-                        <button id="applyDeckTreeChangesBtn" type="button" class="btn-primary" disabled>Apply</button>
-                        <button id="cancelDeckTreeModalBtn" type="button" class="btn-secondary">Close</button>
+                <div class="deck-v2-actions deck-tree-actions">
+                    <div class="deck-v2-action-row deck-tree-action-row-primary">
+                        <button id="applyDeckTreeChangesBtn" type="button" class="btn-primary" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="apply-btn-label">Apply</span></button>
+                    </div>
+                    <div class="deck-v2-action-row deck-tree-action-row-secondary">
+                        <button id="deckTreeClearBtn" type="button" class="btn-secondary"><span data-icon="undo-2" data-icon-size="16" data-icon-stroke="2.2"></span><span>Undo All</span></button>
+                        <button id="cancelDeckTreeModalBtn" type="button" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Close</span></button>
                     </div>
                     <div id="deckTreeChangeMessage" class="success hidden"></div>
                 </div>
@@ -326,6 +341,7 @@
                     </div>
                     <div class="orphan-editor-action-row">
                         <button type="submit" id="addReadingBtn" class="submit-btn" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
+                        <button id="clearPersonalDeckBtn" type="button" class="btn-secondary"><span class="icon" data-icon="trash" data-icon-size="18"></span> Clear</button>
                         <button id="personalDeckBackBtn" type="button" class="btn-secondary hidden"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</button>
                         <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary"><span class="icon" data-icon="x" data-icon-size="18"></span> Close</button>
                     </div>

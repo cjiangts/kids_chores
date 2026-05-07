@@ -670,7 +670,7 @@ function applyKidInfoPayload(kidPayload) {
     }
 
     if (!state.categoryKey || !VALID_BEHAVIOR_TYPES.has(state.behaviorType)) {
-        throw new Error('No practice category is available for this kid.');
+        throw new Error('No practice subject is available for this kid.');
     }
 
     kidNameEl.textContent = state.currentKid.name;

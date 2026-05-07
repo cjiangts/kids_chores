@@ -301,13 +301,13 @@ function renderCategoryFilters() {
             type="button"
             class="deck-category-filter-btn deck-category-manage-btn"
             data-category-action="manage-category"
-            aria-label="Manage deck category"
+            aria-label="Manage subject"
         >
             <span class="deck-category-filter-title">
                 <span class="deck-category-filter-plus" aria-hidden="true">+</span>
-                Manage Deck Category
+                Manage Subject
             </span>
-            <span class="deck-category-filter-desc">Create and configure deck categories.</span>
+            <span class="deck-category-filter-desc">Create and configure subjects.</span>
         </button>
     ` : '';
 

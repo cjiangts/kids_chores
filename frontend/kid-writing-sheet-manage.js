@@ -144,7 +144,7 @@ async function loadKidInfo() {
 
     if (requestedBehavior === 'type_iv') {
         const resolved = getMatchingCategoryKey(kid, 'type_iv');
-        if (!resolved) throw new Error('Math category is not opted in for this kid.');
+        if (!resolved) throw new Error('Math subject is not opted in for this kid.');
         activeCategoryKey = resolved;
         pageMode = 'math';
     } else {
@@ -182,7 +182,7 @@ async function loadSuggestedCards() {
     const response = await fetch(buildType2ApiUrl('/cards'));
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `Failed to load Chinese Writing cards (HTTP ${response.status})`);
-    if (!Boolean(data.has_chinese_specific_logic)) throw new Error('This category does not support printable Chinese writing sheets.');
+    if (!Boolean(data.has_chinese_specific_logic)) throw new Error('This subject does not support printable Chinese writing sheets.');
     state2Cards = Array.isArray(data.practicing_cards) ? data.practicing_cards : [];
     updateBuildChineseSheetButton();
 }

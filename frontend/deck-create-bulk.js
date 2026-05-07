@@ -119,10 +119,10 @@ async function loadDeckCategories() {
         deckCategoryKeySet = new Set();
         currentFirstTag = '';
         if (firstTagToggle) {
-            firstTagToggle.innerHTML = '<span class="settings-note">No categories available.</span>';
+            firstTagToggle.innerHTML = '<span class="settings-note">No subjects available.</span>';
         }
         setControlsDisabled(true);
-        showError(error.message || 'Failed to load deck categories.');
+        showError(error.message || 'Failed to load subjects.');
         return false;
     }
 }
@@ -211,7 +211,7 @@ function applyFirstTagLockMode() {
     });
     if (categoryPreselectNote) {
         if (isLocked) {
-            categoryPreselectNote.textContent = 'Category preselected from Manage Decks.';
+            categoryPreselectNote.textContent = 'Subject preselected from Manage Decks.';
             categoryPreselectNote.classList.remove('hidden');
         } else {
             categoryPreselectNote.textContent = '';

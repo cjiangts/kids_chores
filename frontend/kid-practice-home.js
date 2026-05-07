@@ -806,7 +806,7 @@ function renderPracticeOptions() {
 async function chooseChinesePractice(category) {
     const categoryKey = normalizeCategoryKey(category);
     if (!categoryKey) {
-        showError('Chinese practice category is missing.');
+        showError('Chinese practice subject is missing.');
         return;
     }
     const optedInSet = getOptedInDeckCategorySet(currentKid);
@@ -820,7 +820,7 @@ async function chooseChinesePractice(category) {
     const meta = categoryMetaMap[categoryKey] || {};
     if (meta.behavior_type !== 'type_i' || !meta.has_chinese_specific_logic) {
         const label = getCategoryDisplayName(categoryKey, categoryMetaMap);
-        showError(`${label} is not a Chinese flashcard practice category.`);
+        showError(`${label} is not a Chinese flashcard practice subject.`);
         return;
     }
     goType1Practice(categoryKey);
@@ -829,7 +829,7 @@ async function chooseChinesePractice(category) {
 function goType1Practice(category) {
     const categoryKey = normalizeCategoryKey(category);
     if (!categoryKey) {
-        showError('Type-I category is missing.');
+        showError('Type-I subject is missing.');
         return;
     }
     const optedInSet = getOptedInDeckCategorySet(currentKid);
@@ -849,7 +849,7 @@ function goType1Practice(category) {
 function goWritingPractice(category) {
     const categoryKey = normalizeCategoryKey(category);
     if (!categoryKey) {
-        showError('Type-II category is missing.');
+        showError('Type-II subject is missing.');
         return;
     }
     const optedInSet = getOptedInDeckCategorySet(currentKid);
@@ -879,7 +879,7 @@ function goWritingPractice(category) {
 function goType3Practice(category) {
     const categoryKey = normalizeCategoryKey(category);
     if (!categoryKey) {
-        showError('Type-III category is missing.');
+        showError('Type-III subject is missing.');
         return;
     }
     const optedInSet = getOptedInDeckCategorySet(currentKid);
@@ -899,7 +899,7 @@ function goType3Practice(category) {
 function goType4Practice(category) {
     const categoryKey = normalizeCategoryKey(category);
     if (!categoryKey) {
-        showError('Type-IV category is missing.');
+        showError('Type-IV subject is missing.');
         return;
     }
     const optedInSet = getOptedInDeckCategorySet(currentKid);

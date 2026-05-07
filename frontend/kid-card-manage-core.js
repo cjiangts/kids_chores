@@ -102,6 +102,7 @@ const personalDeckPreviewWrap = document.getElementById('personalDeckPreviewWrap
 const personalDeckPreviewTableBody = document.getElementById('personalDeckPreviewTableBody');
 const personalDeckPreviewSummary = document.getElementById('personalDeckPreviewSummary');
 const personalDeckBackBtn = document.getElementById('personalDeckBackBtn');
+const clearPersonalDeckBtn = document.getElementById('clearPersonalDeckBtn');
 let personalDeckMode = 'edit';
 
 const viewOrderSelect = document.getElementById('viewOrderSelect');
@@ -113,6 +114,9 @@ const sortDirectionToggleBtns = sortDirectionToggleGroup
     ? Array.from(sortDirectionToggleGroup.querySelectorAll('.sort-direction-toggle-btn'))
     : [];
 const cardSearchInput = document.getElementById('cardSearchInput');
+const sourceDeckFilterBtn = document.getElementById('sourceDeckFilterBtn');
+const sourceDeckFilterBtnLabel = document.getElementById('sourceDeckFilterBtnLabel');
+const sourceDeckFilterPopover = document.getElementById('sourceDeckFilterPopover');
 const cardsSelectModeBtn = document.getElementById('cardsSelectModeBtn');
 const cardsSelectionBar = document.getElementById('cardsSelectionBar');
 const cardsSelectionCount = document.getElementById('cardsSelectionCount');
@@ -182,6 +186,7 @@ let activeType4GeneratorCardId = null;
 let isType4GeneratorPreviewLoading = false;
 let type4GeneratorAceViewer = null;
 let currentCardSortDirection = CARD_SORT_DIRECTION_DESC;
+let currentSourceDeckFilter = '';
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
@@ -511,6 +516,7 @@ function setPersonalDeckMode(mode) {
     if (personalDeckEditWrap) personalDeckEditWrap.classList.toggle('hidden', isPreview);
     if (personalDeckPreviewWrap) personalDeckPreviewWrap.classList.toggle('hidden', !isPreview);
     if (personalDeckBackBtn) personalDeckBackBtn.classList.toggle('hidden', !isPreview);
+    if (clearPersonalDeckBtn) clearPersonalDeckBtn.classList.toggle('hidden', isPreview);
     if (chineseCharInput) chineseCharInput.required = !isPreview;
     if (addReadingBtn) {
         if (isPreview) {

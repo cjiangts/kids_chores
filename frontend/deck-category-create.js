@@ -188,7 +188,7 @@ function syncBehaviorDependentInputs() {
     });
     if (chineseLogicNote) {
         if (isTypeIV) {
-            chineseLogicNote.textContent = 'Type IV categories always use generic logic in this first version.';
+            chineseLogicNote.textContent = 'Type IV subjects always use generic logic in this first version.';
             chineseLogicNote.classList.remove('hidden');
         } else {
             chineseLogicNote.textContent = '';
@@ -232,7 +232,7 @@ async function loadCategories() {
         renderCategories(categories);
     } catch (error) {
         renderCategories([]);
-        showError(error.message || 'Failed to load categories.');
+        showError(error.message || 'Failed to load subjects.');
     }
 }
 
@@ -326,7 +326,7 @@ async function createCategory() {
         : '';
 
     if (!categoryKey) {
-        showError('Category key is required.');
+        showError('Subject key is required.');
         return;
     }
     if (!behaviorType) {
@@ -381,12 +381,12 @@ async function createCategory() {
         syncChineseBackContentVisibility();
         await loadCategories();
     } catch (error) {
-        showError(error.message || 'Failed to create category.');
+        showError(error.message || 'Failed to create subject.');
     } finally {
         isCreating = false;
         if (createCategoryBtn) {
             createCategoryBtn.disabled = false;
-            createCategoryBtn.textContent = 'Create Category';
+            createCategoryBtn.textContent = 'Create Subject';
         }
     }
 }
@@ -416,9 +416,9 @@ async function shareCategory(categoryKey) {
         if (!response.ok) {
             throw new Error(result.error || `Failed to share category (HTTP ${response.status})`);
         }
-        showSuccess(`Category shared with non-super families: ${key}`);
+        showSuccess(`Subject shared with non-super families: ${key}`);
     } catch (error) {
-        showError(error.message || 'Failed to share category.');
+        showError(error.message || 'Failed to share subject.');
     } finally {
         sharingCategoryKeys.delete(key);
         await loadCategories();
