@@ -348,31 +348,29 @@ function buildCompactCardMarkup(card, options = {}) {
     }
     const highlightHint = queueHighlight === 'last-failed'
         ? ' • Next session: last failed'
-        : (queueHighlight === 'hard'
-            ? ' • Next session: hard'
-            : (queueHighlight === 'least'
-                ? ' • Next session: least practiced'
-                : (
-                    queueHighlight === PRACTICE_PRIORITY_REASON_MISSED
-                        ? ' • Practice queue: missed recently'
-                        : (
-                            queueHighlight === PRACTICE_PRIORITY_REASON_SLOW
-                                ? ' • Practice queue: slow / hesitant'
-                                : (
-                                    queueHighlight === PRACTICE_PRIORITY_REASON_LEARNING
-                                        ? (
-                                            isNeverPracticedPriorityCard(card)
-                                                ? ' • Practice queue: new card'
-                                                : ' • Practice queue: still learning'
-                                        )
-                                        : (
-                                            queueHighlight === PRACTICE_PRIORITY_REASON_DUE
-                                                ? ' • Practice queue: due for review'
-                                                : ''
-                                        )
-                                )
-                        )
-                )));
+        : (queueHighlight === 'least'
+            ? ' • Next session: least practiced'
+            : (
+                queueHighlight === PRACTICE_PRIORITY_REASON_MISSED
+                    ? ' • Practice queue: missed recently'
+                    : (
+                        queueHighlight === PRACTICE_PRIORITY_REASON_SLOW
+                            ? ' • Practice queue: slow / hesitant'
+                            : (
+                                queueHighlight === PRACTICE_PRIORITY_REASON_LEARNING
+                                    ? (
+                                        isNeverPracticedPriorityCard(card)
+                                            ? ' • Practice queue: new card'
+                                            : ' • Practice queue: still learning'
+                                    )
+                                    : (
+                                        queueHighlight === PRACTICE_PRIORITY_REASON_DUE
+                                            ? ' • Practice queue: due for review'
+                                            : ''
+                                    )
+                            )
+                    )
+            ));
     const scoreHint = Number.isFinite(scoreValue)
         ? ` • Priority score: ${formatPracticePriorityScore(scoreValue)}`
         : '';
@@ -565,10 +563,6 @@ function displayCards(cards) {
     sortedCards = getSortedCardsForDisplay(cards);
     const queueHighlightMap = getQueueHighlightMap(cards);
     updateCardsQueueLegendVisibility(sortedCards.length);
-
-    if (mathCardCount) {
-        mathCardCount.textContent = `(${sortedCards.length})`;
-    }
 
     if (sortedCards.length === 0) {
         if (activeCardChunkObserver) {
@@ -897,13 +891,6 @@ async function loadSharedDeckCards() {
         : 0;
     try {
         const url = new URL(buildSharedDeckApiUrl('shared-decks/cards'));
-        const previewRaw = Number.parseInt(getHardCardPercentForMixLegend(), 10);
-        const previewHardPct = Number.isInteger(previewRaw)
-            ? Math.max(0, Math.min(100, previewRaw))
-            : null;
-        if (!supportsPracticePriorityPreview() && previewHardPct !== null) {
-            url.searchParams.set('hard_card_percentage', String(previewHardPct));
-        }
         const response = await fetch(url.toString());
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -921,10 +908,7 @@ async function loadSharedDeckCards() {
         updateSessionCardCountCapFromCardsPayload(data);
         const normalizedSessionCount = normalizeSessionCountInputValue();
         if (!hadQueueSettingChanges) {
-            setQueueSettingsBaseline(
-                normalizedSessionCount,
-                supportsPracticePriorityPreview() ? 0 : getHardCardPercentForMixLegend(),
-            );
+            setQueueSettingsBaseline(normalizedSessionCount);
         }
         await maybeAutoSetSessionCountForNewCards(previousCardCount, currentCards.length);
         updateQueueMixLegend();
@@ -1532,17 +1516,8 @@ function applyKidInfo(kid) {
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(safeTotal);
     }
-    initialHardCardPercent = supportsPracticePriorityPreview()
-        ? 0
-        : getInitialHardCardPercentFromKid(kid);
-    const safeHard = Number.isInteger(initialHardCardPercent)
-        ? Math.max(0, Math.min(100, initialHardCardPercent))
-        : 0;
-    if (hardnessPercentSlider) {
-        hardnessPercentSlider.value = String(safeHard);
-    }
     syncType4CardOrderOptions();
-    setQueueSettingsBaseline(safeTotal, safeHard);
+    setQueueSettingsBaseline(safeTotal);
     updateQueueMixLegend();
 }
 
@@ -1607,7 +1582,6 @@ async function saveQueueSettings() {
     showError('');
 
     const total = normalizeSessionCountInputValue();
-    const hardPct = supportsPracticePriorityPreview() ? 0 : normalizeHardSliderValue();
     const maxSessionCount = getSessionCardCountCap();
     if (total < 0) {
         showError(`${getCurrentCategoryDisplayName()} cards/day must be 0 or more.`);
@@ -1615,10 +1589,6 @@ async function saveQueueSettings() {
     }
     if (maxSessionCount !== null && total > maxSessionCount) {
         showError(`${getCurrentCategoryDisplayName()} cards/day must be between 0 and ${maxSessionCount}.`);
-        return;
-    }
-    if (!supportsPracticePriorityPreview() && (hardPct < 0 || hardPct > 100)) {
-        showError('Hard cards % must be between 0 and 100.');
         return;
     }
     if (!hasQueueSettingsChanges()) {
@@ -1631,10 +1601,7 @@ async function saveQueueSettings() {
     const response = await fetch(`${API_BASE}/kids/${kidId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            ...buildSessionCountPayload(total),
-            ...(!supportsPracticePriorityPreview() ? buildHardCardPercentPayload(hardPct) : {}),
-        }),
+        body: JSON.stringify(buildSessionCountPayload(total)),
     });
     try {
         const result = await response.json().catch(() => ({}));
@@ -1643,19 +1610,8 @@ async function saveQueueSettings() {
         }
         applySessionCountFromPayload(result);
         const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
-        const persistedHard = supportsPracticePriorityPreview()
-            ? 0
-            : getPersistedHardCardPercentFromPayload(result);
         sessionCardCountInput.value = String(clampSessionCardCount(persistedTotal));
-        if (hardnessPercentSlider && !supportsPracticePriorityPreview()) {
-            hardnessPercentSlider.value = String(Math.max(0, Math.min(100, persistedHard)));
-        }
-        setQueueSettingsBaseline(
-            sessionCardCountInput.value,
-            supportsPracticePriorityPreview()
-                ? 0
-                : (hardnessPercentSlider ? hardnessPercentSlider.value : persistedHard),
-        );
+        setQueueSettingsBaseline(sessionCardCountInput.value);
         updateQueueMixLegend();
         await loadSharedDeckCards();
     } finally {

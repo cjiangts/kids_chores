@@ -70,6 +70,98 @@
             font-size: 0.9rem;
         }
 
+        .tz-picker {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.55rem;
+            margin: 0.7rem 0 0.45rem;
+        }
+
+        .tz-option {
+            position: relative;
+            appearance: none;
+            background: #fff;
+            border: 1.5px solid var(--section-surface-border-muted);
+            border-radius: 14px;
+            padding: 0.85rem 0.95rem 0.8rem 1.85rem;
+            text-align: left;
+            cursor: pointer;
+            font: inherit;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            gap: 0.18rem;
+            transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+        }
+
+        .tz-option::before {
+            content: '';
+            position: absolute;
+            top: 1.05rem;
+            left: 0.95rem;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--tz-accent, #c8d1e1);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 4px var(--tz-accent, transparent);
+            opacity: 0.55;
+            transition: opacity 0.12s ease;
+        }
+
+        .tz-option[data-tz="America/New_York"]    { --tz-accent: #4f83ff; }
+        .tz-option[data-tz="America/Chicago"]     { --tz-accent: #6ec46e; }
+        .tz-option[data-tz="America/Los_Angeles"] { --tz-accent: #ff9a3c; }
+        .tz-option[data-tz="Asia/Shanghai"]       { --tz-accent: #e85a7a; }
+
+        .tz-option:hover {
+            border-color: var(--tz-accent, var(--control-border-focus));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(31, 45, 98, 0.08);
+        }
+
+        .tz-option:hover::before { opacity: 1; }
+
+        .tz-option:focus-visible {
+            outline: none;
+            border-color: var(--tz-accent, var(--control-border-focus));
+            box-shadow: var(--control-shadow-focus);
+        }
+
+        .tz-option.is-selected {
+            background: #f3f6ff;
+            border-color: var(--tz-accent);
+            box-shadow: 0 6px 16px rgba(31, 45, 98, 0.12);
+        }
+
+        .tz-option.is-selected::before { opacity: 1; }
+
+        .tz-option:disabled {
+            cursor: progress;
+            opacity: 0.6;
+        }
+
+        .tz-option-label {
+            font-weight: 700;
+            font-size: 1rem;
+            color: #2f3c7e;
+            line-height: 1.2;
+        }
+
+        .tz-option-sub {
+            font-size: 0.8rem;
+            color: #6f7894;
+            line-height: 1.2;
+        }
+
+        .tz-option.is-selected .tz-option-label { color: #1f2c6e; }
+        .tz-option.is-selected .tz-option-sub   { color: #4f6082; }
+
+        .tz-current-note {
+            font-size: 0.82rem;
+            color: #707a8f;
+            margin-bottom: 0.35rem;
+        }
+
         .inline-row {
             display: flex;
             gap: 0.75rem;
@@ -841,18 +933,26 @@
             <div class="settings-grid">
                 <section class="settings-card settings-section">
                     <div class="settings-card-body">
-                        <h2>Practice Settings</h2>
-                        <div class="inline-row" style="margin-top: 0.8rem;">
-                            <div class="form-group">
-                                <select id="familyTimezone" class="sort-select"></select>
-                            </div>
-                            <button type="button" id="saveTimezoneBtn" class="btn-secondary">
-                                <span class="btn-icon" aria-hidden="true">
-                                    <span class="icon" data-icon="save" data-icon-size="20"></span>
-                                </span>
-                                <span class="btn-label">Save</span>
+                        <h2>Timezone Setting</h2>
+                        <div id="familyTimezonePicker" class="tz-picker" role="radiogroup" aria-label="Time zone">
+                            <button type="button" class="tz-option" data-tz="America/New_York" role="radio" aria-checked="false">
+                                <span class="tz-option-label">Eastern</span>
+                                <span class="tz-option-sub">New York</span>
+                            </button>
+                            <button type="button" class="tz-option" data-tz="America/Chicago" role="radio" aria-checked="false">
+                                <span class="tz-option-label">Central</span>
+                                <span class="tz-option-sub">Chicago</span>
+                            </button>
+                            <button type="button" class="tz-option" data-tz="America/Los_Angeles" role="radio" aria-checked="false">
+                                <span class="tz-option-label">Pacific</span>
+                                <span class="tz-option-sub">California</span>
+                            </button>
+                            <button type="button" class="tz-option" data-tz="Asia/Shanghai" role="radio" aria-checked="false">
+                                <span class="tz-option-label">China</span>
+                                <span class="tz-option-sub">Shanghai</span>
                             </button>
                         </div>
+                        <div id="timezoneCurrentNote" class="tz-current-note hidden"></div>
                         <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
                         <div id="timezoneError" class="error hidden"></div>
                         <div id="timezoneSuccess" class="success hidden"></div>

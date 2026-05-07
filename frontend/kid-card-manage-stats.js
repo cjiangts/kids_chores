@@ -145,9 +145,10 @@ function renderStatsView() {
     const practiced = cards.filter((card) => getCardPracticeCount(card) > 0);
     const uniqueCount = practiced.length;
     const attemptTotal = practiced.reduce((sum, card) => sum + getCardPracticeCount(card), 0);
+    const bankCount = cards.length;
     if (!practiced.length) {
         container.innerHTML = `
-            ${renderStatsSummary(uniqueCount, attemptTotal)}
+            ${renderStatsSummary(uniqueCount, attemptTotal, bankCount)}
             <div class="cards-view-placeholder">Practice a few cards to unlock card distributions.</div>
         `;
         return;
@@ -161,7 +162,7 @@ function renderStatsView() {
     ];
     const dailyProgress = buildDailyProgressChart(currentDailyProgressRows, currentFamilyTimezone);
     container.innerHTML = `
-        ${renderStatsSummary(uniqueCount, attemptTotal)}
+        ${renderStatsSummary(uniqueCount, attemptTotal, bankCount)}
         ${dailyProgress ? renderDailyProgressPanel(dailyProgress) : ''}
         <div class="cards-distribution-grid">
             ${panels.map((panel) => renderDistributionPanel(panel)).join('')}
@@ -169,11 +170,24 @@ function renderStatsView() {
     `;
 }
 
-function renderStatsSummary(uniqueCount, attemptTotal) {
+function renderStatsSummary(uniqueCount, attemptTotal, bankCount) {
+    const iconSvg = (name) => (typeof window !== 'undefined' && typeof window.icon === 'function')
+        ? window.icon(name, { strokeWidth: 2, className: '' })
+        : '';
+    const tile = (iconColor, iconName, label, value) => `
+        <div class="summary-stat-card">
+            <div class="summary-stat-icon summary-stat-icon-${iconColor}" aria-hidden="true">${iconSvg(iconName)}</div>
+            <div class="summary-stat-body">
+                <div class="summary-stat-label">${escapeHtml(label)}</div>
+                <div class="summary-stat-value">${escapeHtml(String(value))}</div>
+            </div>
+        </div>
+    `;
     return `
-        <div class="cards-stats-summary">
-            <span>Practiced Cards <strong>${escapeHtml(String(uniqueCount))}</strong></span>
-            <span>Practiced Counts <strong>${escapeHtml(String(attemptTotal))}</strong></span>
+        <div class="summary-stats-row">
+            ${tile('blue', 'layers', 'Cards in Bank', bankCount)}
+            ${tile('purple', 'check', 'Practiced Cards', uniqueCount)}
+            ${tile('green', 'bar-chart-3', 'Practiced Counts', attemptTotal)}
         </div>
     `;
 }

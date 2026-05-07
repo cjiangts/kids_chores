@@ -112,7 +112,6 @@ CREATE TABLE IF NOT EXISTS deck_category_opt_in (
   category_key VARCHAR PRIMARY KEY,
   is_opted_in BOOLEAN NOT NULL DEFAULT FALSE,
   session_card_count INTEGER NOT NULL DEFAULT 0,
-  hard_card_percentage INTEGER NOT NULL DEFAULT 0,
   include_orphan BOOLEAN NOT NULL DEFAULT TRUE
 );
 

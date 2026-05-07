@@ -411,8 +411,6 @@ def get_kid_materialized_shared_type_ii_decks(conn, category_key):
 
 
 from src.services.kid_category_config import (
-    _normalize_hard_card_percentage_value,
-    get_category_hard_card_percentage_for_kid,
     get_category_include_orphan_for_kid,
     get_category_orphan_deck,
     get_category_orphan_deck_name,
@@ -1051,33 +1049,6 @@ def get_category_chinese_back_content(category_key):
     if not entry.get('has_chinese_specific_logic'):
         return ''
     return normalize_chinese_back_content(entry.get('chinese_back_content'))
-
-
-def normalize_hard_card_percentage(kid, session_type=None):
-    """Get validated hard-card percentage for one category key."""
-    session_key = normalize_shared_deck_tag(session_type)
-    if not session_key:
-        return DEFAULT_HARD_CARD_PERCENTAGE
-    return get_category_hard_card_percentage_for_kid(kid, session_key)
-
-
-def parse_optional_hard_card_percentage_arg(arg_name='hard_card_percentage'):
-    """Parse optional hard-card percentage from query args."""
-    raw_value = request.args.get(arg_name)
-    if raw_value is None:
-        return None
-    text = str(raw_value).strip()
-    if not text:
-        return None
-    try:
-        parsed = int(text)
-    except (TypeError, ValueError):
-        raise ValueError(f'{arg_name} must be an integer')
-    if parsed < MIN_HARD_CARD_PERCENTAGE or parsed > MAX_HARD_CARD_PERCENTAGE:
-        raise ValueError(
-            f'{arg_name} must be between {MIN_HARD_CARD_PERCENTAGE} and {MAX_HARD_CARD_PERCENTAGE}'
-        )
-    return parsed
 
 
 def get_kid_dashboard_stats(
@@ -5244,18 +5215,12 @@ def build_type_i_shared_cards_payload(
 def build_type_iv_shared_cards_payload(
     kid,
     category_key,
-    preview_hard_pct=None,
     *,
     session_card_count_override=None,
 ):
     """Build merged cards payload for one type-IV category."""
     category_meta_by_key = get_shared_deck_category_meta_by_key()
     category_display_name = get_deck_category_display_name(category_key, category_meta_by_key)
-    effective_hard_pct = (
-        preview_hard_pct
-        if preview_hard_pct is not None
-        else 0
-    )
 
     conn = get_kid_connection_for(kid, read_only=True)
     try:
@@ -5335,7 +5300,6 @@ def build_type_iv_shared_cards_payload(
         'is_merged_bank': True,
         'category_key': category_key,
         'deck_name': f'Merged {category_display_name} Bank',
-        'hard_card_percentage': int(effective_hard_pct),
         'include_orphan_in_queue': bool(include_orphan_in_queue),
         'practice_source_count': len(practice_sources),
         'practice_active_card_count': int(practice_active_count),
@@ -8062,11 +8026,9 @@ def get_shared_type4_cards(kid_id):
             kid,
             request.args.get('categoryKey'),
         )
-        preview_hard_pct = parse_optional_hard_card_percentage_arg()
         payload = build_type_iv_shared_cards_payload(
             kid,
             category_key,
-            preview_hard_pct,
         )
         payload.update(build_kid_daily_progress_section(kid, category_key))
         return jsonify(payload), 200
@@ -8085,12 +8047,6 @@ def get_shared_type2_cards(kid_id):
         category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             request.args.get('categoryKey'),
-        )
-        preview_hard_pct = parse_optional_hard_card_percentage_arg()
-        effective_hard_pct = (
-            preview_hard_pct
-            if preview_hard_pct is not None
-            else normalize_hard_card_percentage(kid, session_type=category_key)
         )
         category_display_name = get_deck_category_display_name(
             category_key,
@@ -8288,7 +8244,6 @@ def get_shared_type2_cards(kid_id):
             'is_merged_bank': True,
             'deck_name': f'Merged {category_display_name} Bank',
             'deck_id': orphan_deck_id,
-            'hard_card_percentage': int(effective_hard_pct),
             'include_orphan_in_queue': get_category_include_orphan_for_kid(kid, category_key),
             'practice_source_count': len(practice_sources),
             'practice_active_card_count': int(practice_active_count),

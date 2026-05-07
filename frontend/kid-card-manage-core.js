@@ -5,7 +5,6 @@ const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
 const SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'sessionCardCountByCategory';
 const INCLUDE_ORPHAN_BY_CATEGORY_FIELD = 'includeOrphanByCategory';
-const HARD_CARD_PERCENT_BY_CATEGORY_FIELD = 'hardCardPercentageByCategory';
 const BEHAVIOR_TYPE_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_TYPE_III = 'type_iii';
@@ -88,10 +87,7 @@ const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEdit
 const type4GeneratorSamples = document.getElementById('type4GeneratorSamples');
 const type4GeneratorValidateTestContainer = document.getElementById('type4GeneratorValidateTestContainer');
 const type4GeneratorMessage = document.getElementById('type4GeneratorMessage');
-const cardsSectionTitleText = document.getElementById('cardsSectionTitleText');
-const hardnessComputationHint = document.getElementById('hardnessComputationHint');
-const sessionMixSubgroup = document.getElementById('sessionMixSubgroup');
-const sessionMixDetails = document.getElementById('sessionMixDetails');
+const queueSettingsSubgroup = document.getElementById('queueSettingsSubgroup');
 const type4DailyTargetBlock = document.getElementById('type4DailyTargetBlock');
 const type4DailyTargetTotalText = document.getElementById('type4DailyTargetTotalText');
 const openType4DeckCountsModalBtn = document.getElementById('openType4DeckCountsModalBtn');
@@ -128,15 +124,11 @@ const cardsSelectionUnskipBtn = document.getElementById('cardsSelectionUnskipBtn
 const cardsSelectionDownloadBtn = document.getElementById('cardsSelectionDownloadBtn');
 const cardsBulkActionMessage = document.getElementById('cardsBulkActionMessage');
 const cardsQueueLegend = document.getElementById('cardsQueueLegend');
-const mathCardCount = document.getElementById('mathCardCount');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardsToolbar = document.querySelector('.cards-toolbar');
 const cardsViewControl = document.querySelector('.cards-view-control');
 const cardViewModeCompactBtn = document.getElementById('cardViewModeCompactBtn');
 const cardViewModeExpandBtn = document.getElementById('cardViewModeExpandBtn');
-const hardnessPercentSlider = document.getElementById('hardnessPercentSlider');
-const leastRecentMixSummary = document.getElementById('leastRecentMixSummary');
-const hardCardsMixSummary = document.getElementById('hardCardsMixSummary');
 const queueSettingsSaveBtn = document.getElementById('queueSettingsSaveBtn');
 
 let allDecks = [];
@@ -170,7 +162,6 @@ let currentChineseBackContent = '';
 let currentSharedScope = SHARED_SCOPE_CARDS;
 let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
 let isReadingBulkAdding = false;
-let initialHardCardPercent = null;
 let currentSkippedCardCount = 0;
 let currentCardViewMode = 'short';
 let expandedCompactCardIds = new Set();
@@ -181,9 +172,7 @@ let selectedCardIds = new Set();
 let viewModeBeforeSelectMode = null;
 let sessionCardCountByCategory = {};
 let includeOrphanByCategory = {};
-let hardCardPercentByCategory = {};
 let baselineSessionCardCount = 0;
-let baselineHardCardPercent = 0;
 let isQueueSettingsSaving = false;
 let queueSettingsSaveSuccessText = '';
 let previewQueueTimer = null;
@@ -197,8 +186,6 @@ const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
 const SHOW_DECK_COUNT_MISMATCH_WARNING = false;
-const NEXT_SESSION_HARD_COLOR = '#f59e0b';
-const NEXT_SESSION_LEAST_COLOR = '#22a45a';
 let currentSessionCardCountCap = null;
 
 function getChineseCardBackText(rawBack) {
@@ -229,12 +216,6 @@ function getCategoryIntValue(rawMap) {
     const map = toCategoryMap(rawMap);
     const parsed = Number.parseInt(map[categoryKey], 10);
     return Number.isInteger(parsed) ? parsed : 0;
-}
-
-function getCategoryNullableIntValue(rawMap) {
-    const map = toCategoryMap(rawMap);
-    const parsed = Number.parseInt(map[categoryKey], 10);
-    return Number.isInteger(parsed) ? parsed : null;
 }
 
 function supportsPracticePriorityPreview() {
@@ -579,31 +560,6 @@ function applyIncludeOrphanFromPayload(payload) {
     );
 }
 
-function getInitialHardCardPercentFromKid(kid) {
-    hardCardPercentByCategory = toCategoryMap(kid[HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
-    return getCategoryNullableIntValue(hardCardPercentByCategory);
-}
-
-function buildHardCardPercentPayload(hardPct) {
-    return {
-        [HARD_CARD_PERCENT_BY_CATEGORY_FIELD]: withCategoryValue(
-            hardCardPercentByCategory,
-            hardPct,
-        ),
-    };
-}
-
-function getPersistedHardCardPercentFromPayload(payload) {
-    const previousMap = hardCardPercentByCategory;
-    const map = toCategoryMap(payload && payload[HARD_CARD_PERCENT_BY_CATEGORY_FIELD]);
-    hardCardPercentByCategory = map;
-    const persistedValue = getCategoryNullableIntValue(map);
-    if (persistedValue === null) {
-        return getCategoryNullableIntValue(previousMap);
-    }
-    return persistedValue;
-}
-
 function getCurrentCategoryDisplayName() {
     return String(currentCategoryDisplayName || '').trim();
 }
@@ -682,34 +638,14 @@ function applyCategoryUiText() {
     const displayName = getCurrentCategoryDisplayName();
     const showOrphanEditor = supportsPersonalDeckEditor();
     const showType4DeckTargetBlock = isType4Behavior();
-    const usePracticeFocus = supportsPracticePriorityPreview();
     if (sessionCardCountLabel) {
         sessionCardCountLabel.textContent = 'Cards / day';
     }
-    if (cardsSectionTitleText) {
-        cardsSectionTitleText.textContent = currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV
-            ? 'Representative Cards'
-            : 'Cards';
-    }
-    if (sessionMixSubgroup) {
-        sessionMixSubgroup.classList.toggle('hidden', showType4DeckTargetBlock);
-    }
-    if (sessionMixDetails) {
-        sessionMixDetails.classList.toggle('hidden', showType4DeckTargetBlock || usePracticeFocus);
+    if (queueSettingsSubgroup) {
+        queueSettingsSubgroup.classList.toggle('hidden', showType4DeckTargetBlock);
     }
     if (openType4DeckCountsModalBtn) {
         openType4DeckCountsModalBtn.classList.toggle('hidden', !showType4DeckTargetBlock);
-    }
-    if (hardnessComputationHint) {
-        if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV) {
-            hardnessComputationHint.textContent = 'Each card here represents one Type IV deck, so its stats are aggregated at the deck-pattern level.';
-        } else if (isType2Behavior()) {
-            hardnessComputationHint.textContent = 'Hard cards use overall correctness rate. Never-practiced cards count as hard.';
-        } else if (usePracticeFocus) {
-            hardnessComputationHint.textContent = '';
-        } else {
-            hardnessComputationHint.textContent = 'Hard cards are the ones that took longest on the most recent try.';
-        }
     }
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.classList.toggle('hidden', !showOrphanEditor);

@@ -312,10 +312,6 @@ body {
     color: #fff;
 }
 
-.practice-page .cards-title,
-.practice-page .cards-title span {
-    color: #fff;
-}
 
 .settings-card h2,
 .manage-page .settings-section h2,
@@ -337,10 +333,6 @@ body {
     line-height: var(--card-section-title-line-height);
 }
 
-.manage-page .cards-section .cards-title,
-.manage-page .cards-section .cards-title span {
-    color: var(--card-section-title-color);
-}
 
 .practice-page * {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -676,22 +668,6 @@ body {
     transform: none;
 }
 
-.practice-page .early-finish-btn {
-    background: #fff;
-    color: #667eea;
-    border: 1px solid #d2d9eb;
-    min-width: 180px;
-    font-weight: 400;
-}
-
-.practice-page .header .early-finish-btn,
-.practice-page .page-header-with-back .early-finish-btn {
-    min-width: 0;
-    padding: 0.5rem 0.85rem;
-    font-size: 0.95rem;
-    white-space: nowrap;
-}
-
 .practice-page .session-pause-btn {
     min-width: 140px;
     background: #f0ad4e;
@@ -700,10 +676,6 @@ body {
 
 .practice-page .session-pause-btn:hover {
     background: #ec971f;
-}
-
-.practice-page .early-finish-btn:hover {
-    background: #f4f6fc;
 }
 
 .practice-page .start-btn {
@@ -799,18 +771,6 @@ body {
     .manage-page .header {
         margin-bottom: 6px;
     }
-}
-
-.manage-page .tab-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
-}
-
-.manage-page .tab-nav .manage-tab {
-    min-width: 180px;
-    padding: 0.65rem 1rem;
 }
 
 .shared-report-table-wrap,
@@ -927,59 +887,6 @@ body {
     white-space: nowrap;
 }
 
-.manage-page .hardness-slider-block {
-    margin: 0.7rem 0 0.9rem;
-    padding: 0.6rem 0.7rem;
-    border: 1px solid #dbe1ff;
-    background: #f8f9ff;
-    border-radius: 8px;
-}
-
-.manage-page .hardness-slider-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 0.6rem;
-    margin-bottom: 0.35rem;
-}
-
-.manage-page .hardness-slider-title {
-    font-size: 0.9rem;
-    color: #334;
-}
-
-.manage-page .hardness-slider-value {
-    font-size: 0.92rem;
-    font-weight: 700;
-    color: #2f3c7e;
-    white-space: nowrap;
-}
-
-.manage-page .hardness-slider-input {
-    width: 100%;
-    margin: 0;
-}
-
-.manage-page .hardness-slider-hint {
-    margin: 0.3rem 0 0;
-    color: #666;
-    font-size: 0.82rem;
-}
-
-.manage-page .hardness-slider-status {
-    margin-top: 0.4rem;
-    font-size: 0.83rem;
-    font-weight: 600;
-}
-
-.manage-page .hardness-slider-status.success {
-    color: #1d7a35;
-}
-
-.manage-page .hardness-slider-status.error {
-    color: #b42318;
-}
-
 .manage-page .settings-section {
     background: var(--section-surface-bg-soft);
     border: 1px solid var(--section-surface-border-soft);
@@ -996,9 +903,6 @@ body {
         margin-bottom: var(--section-stack-gap-mobile);
     }
 
-    .manage-page .tab-nav {
-        margin-bottom: 6px;
-    }
 }
 
 .manage-page .settings-section h2 {
@@ -1610,17 +1514,6 @@ header p {
         min-width: 92px;
         margin-left: auto;
         text-align: center;
-    }
-
-    .manage-page .tab-nav {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.55rem;
-    }
-
-    .manage-page .tab-nav .manage-tab {
-        min-width: 0;
-        width: 100%;
     }
 
     .manage-page .cards-toolbar {

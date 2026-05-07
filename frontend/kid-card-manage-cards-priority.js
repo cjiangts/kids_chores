@@ -712,12 +712,6 @@ function getQueueHighlightMap(cards) {
         redPrefixCount += 1;
     }
 
-    const remainingSlots = Math.max(0, nextSessionCards.length - redPrefixCount);
-    const hardPct = getHardCardPercentForMixLegend();
-    const hardTarget = hardPct <= 0
-        ? 0
-        : Math.min(remainingSlots, Math.ceil((remainingSlots * hardPct) / 100));
-
     const highlights = new Map();
     nextSessionCards.forEach((card, index) => {
         const cardId = getCardIdText(card);
@@ -726,10 +720,6 @@ function getQueueHighlightMap(cards) {
         }
         if (index < redPrefixCount) {
             highlights.set(cardId, 'last-failed');
-            return;
-        }
-        if (index < redPrefixCount + hardTarget) {
-            highlights.set(cardId, 'hard');
             return;
         }
         highlights.set(cardId, 'least');
@@ -1125,57 +1115,7 @@ function getSessionCardCountForMixLegend() {
     return clampSessionCardCount(sessionCardCountInput ? sessionCardCountInput.value : '');
 }
 
-function getHardCardPercentForMixLegend() {
-    if (isType4Behavior()) {
-        return 0;
-    }
-    if (!hardnessPercentSlider) {
-        return 0;
-    }
-    const parsed = Number.parseInt(hardnessPercentSlider.value, 10);
-    if (!Number.isInteger(parsed)) {
-        return 0;
-    }
-    return Math.max(0, Math.min(100, parsed));
-}
-
-function formatCardCountLabel(count) {
-    const safe = Math.max(0, Number.parseInt(count, 10) || 0);
-    return `${safe} ${safe === 1 ? 'card' : 'cards'}`;
-}
-
-function updateHardnessSliderTrack(hardPct) {
-    if (!hardnessPercentSlider) {
-        return;
-    }
-    const hard = Math.max(0, Math.min(100, Number.parseInt(hardPct, 10) || 0));
-    hardnessPercentSlider.style.background = `linear-gradient(90deg, ${NEXT_SESSION_HARD_COLOR} 0%, ${NEXT_SESSION_HARD_COLOR} ${hard}%, ${NEXT_SESSION_LEAST_COLOR} ${hard}%, ${NEXT_SESSION_LEAST_COLOR} 100%)`;
-}
-
 function updateQueueMixLegend() {
-    if (isType4Behavior() || supportsPracticePriorityPreview()) {
-        if (leastRecentMixSummary) {
-            leastRecentMixSummary.textContent = '';
-        }
-        if (hardCardsMixSummary) {
-            hardCardsMixSummary.textContent = '';
-        }
-        updateQueueSettingsSaveButtonState();
-        renderDeckSetupSummary();
-        return;
-    }
-    const totalCards = getSessionCardCountForMixLegend() || 0;
-    const hardPct = getHardCardPercentForMixLegend();
-    const leastPct = Math.max(0, 100 - hardPct);
-    const hardCount = hardPct <= 0 ? 0 : Math.min(totalCards, Math.ceil((totalCards * hardPct) / 100));
-    const leastCount = Math.max(0, totalCards - hardCount);
-    if (leastRecentMixSummary) {
-        leastRecentMixSummary.textContent = `${leastPct}% · ${formatCardCountLabel(leastCount)}`;
-    }
-    if (hardCardsMixSummary) {
-        hardCardsMixSummary.textContent = `${hardPct}% · ${formatCardCountLabel(hardCount)}`;
-    }
-    updateHardnessSliderTrack(hardPct);
     updateQueueSettingsSaveButtonState();
     renderDeckSetupSummary();
 }
@@ -1189,20 +1129,9 @@ function normalizeSessionCountInputValue() {
     return next;
 }
 
-function normalizeHardSliderValue() {
-    const next = getHardCardPercentForMixLegend();
-    if (hardnessPercentSlider) {
-        hardnessPercentSlider.value = String(next);
-    }
-    return next;
-}
-
-function setQueueSettingsBaseline(sessionCount, hardPct) {
+function setQueueSettingsBaseline(sessionCount) {
     baselineSessionCardCount = clampSessionCardCount(sessionCount);
-    baselineHardCardPercent = Math.max(0, Math.min(100, Number.parseInt(hardPct, 10) || 0));
-    queueSettingsSaveSuccessText = supportsPracticePriorityPreview()
-        ? `Saved ${baselineSessionCardCount} cards/day`
-        : `Saved ${baselineHardCardPercent}% · ${baselineSessionCardCount}`;
+    queueSettingsSaveSuccessText = `Saved ${baselineSessionCardCount} cards/day`;
     updateQueueSettingsSaveButtonState();
 }
 
@@ -1210,13 +1139,7 @@ function hasQueueSettingsChanges() {
     if (isType4Behavior()) {
         return false;
     }
-    const currentSessionCount = getSessionCardCountForMixLegend();
-    const currentHardPct = getHardCardPercentForMixLegend();
-    if (supportsPracticePriorityPreview()) {
-        return currentSessionCount !== baselineSessionCardCount;
-    }
-    return currentSessionCount !== baselineSessionCardCount
-        || currentHardPct !== baselineHardCardPercent;
+    return getSessionCardCountForMixLegend() !== baselineSessionCardCount;
 }
 
 function setQueueSettingsSaveButton(state, labelText) {
@@ -1303,7 +1226,6 @@ async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCo
 
     const cap = getSessionCardCountCap();
     const defaultSessionCount = cap === null ? 10 : Math.min(10, cap);
-    const hardPct = supportsPracticePriorityPreview() ? 0 : normalizeHardSliderValue();
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(defaultSessionCount);
     }
@@ -1312,10 +1234,7 @@ async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCo
     const response = await fetch(`${API_BASE}/kids/${kidId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            ...buildSessionCountPayload(defaultSessionCount),
-            ...(!supportsPracticePriorityPreview() ? buildHardCardPercentPayload(hardPct) : {}),
-        }),
+        body: JSON.stringify(buildSessionCountPayload(defaultSessionCount)),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -1324,17 +1243,10 @@ async function maybeAutoSetSessionCountForNewCards(previousCardCount, nextCardCo
 
     applySessionCountFromPayload(result);
     const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
-    const persistedHard = supportsPracticePriorityPreview()
-        ? 0
-        : getPersistedHardCardPercentFromPayload(result);
     const safeTotal = clampSessionCardCount(persistedTotal);
-    const safeHard = Math.max(0, Math.min(100, Number.parseInt(persistedHard, 10) || 0));
     if (sessionCardCountInput) {
         sessionCardCountInput.value = String(safeTotal);
     }
-    if (hardnessPercentSlider && !supportsPracticePriorityPreview()) {
-        hardnessPercentSlider.value = String(safeHard);
-    }
-    setQueueSettingsBaseline(safeTotal, safeHard);
+    setQueueSettingsBaseline(safeTotal);
     updateQueueMixLegend();
 }

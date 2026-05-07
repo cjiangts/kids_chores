@@ -1171,7 +1171,6 @@ def update_kid(kid_id):
         data = request.get_json() or {}
         metadata_updates = {}
         session_count_updates_by_key = {}
-        hard_pct_updates_by_key = {}
         include_orphan_updates_by_key = {}
         category_meta_by_key = get_shared_deck_category_meta_by_key()
         all_category_keys = {
@@ -1196,22 +1195,6 @@ def update_kid(kid_id):
                     return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} must be 0 or more'}), 400
                 session_count_updates_by_key[key] = parsed
 
-        if HARD_CARD_PERCENT_BY_CATEGORY_FIELD in data:
-            raw_map = data.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
-            if not isinstance(raw_map, dict):
-                return jsonify({'error': f'{HARD_CARD_PERCENT_BY_CATEGORY_FIELD} must be an object'}), 400
-            for raw_key, raw_value in raw_map.items():
-                key = normalize_shared_deck_tag(raw_key)
-                if key not in all_category_keys:
-                    return jsonify({'error': f'Unknown category key in {HARD_CARD_PERCENT_BY_CATEGORY_FIELD}: {raw_key}'}), 400
-                try:
-                    parsed = int(raw_value)
-                except (TypeError, ValueError):
-                    return jsonify({'error': f'{HARD_CARD_PERCENT_BY_CATEGORY_FIELD}.{key} must be an integer'}), 400
-                if parsed < MIN_HARD_CARD_PERCENTAGE or parsed > MAX_HARD_CARD_PERCENTAGE:
-                    return jsonify({'error': f'{HARD_CARD_PERCENT_BY_CATEGORY_FIELD}.{key} must be between {MIN_HARD_CARD_PERCENTAGE} and {MAX_HARD_CARD_PERCENTAGE}'}), 400
-                hard_pct_updates_by_key[key] = parsed
-
         if INCLUDE_ORPHAN_BY_CATEGORY_FIELD in data:
             raw_map = data.get(INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
             if not isinstance(raw_map, dict):
@@ -1233,7 +1216,6 @@ def update_kid(kid_id):
 
         has_db_updates = bool(
             session_count_updates_by_key
-            or hard_pct_updates_by_key
             or include_orphan_updates_by_key
         )
         if not has_db_updates and not metadata_updates:
@@ -1256,22 +1238,6 @@ def update_kid(kid_id):
                         [
                             [key, int(value)]
                             for key, value in session_count_updates_by_key.items()
-                        ],
-                    )
-                if hard_pct_updates_by_key:
-                    kid_conn.executemany(
-                        f"""
-                        INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (
-                          category_key,
-                          {KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE}
-                        )
-                        VALUES (?, ?)
-                        ON CONFLICT (category_key)
-                        DO UPDATE SET {KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE} = EXCLUDED.{KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE}
-                        """,
-                        [
-                            [key, int(value)]
-                            for key, value in hard_pct_updates_by_key.items()
                         ],
                     )
                 if include_orphan_updates_by_key:

@@ -19,8 +19,9 @@ const openChangePasswordBtn = document.getElementById('openChangePasswordBtn');
 const familySettingsLogoutBtn = document.getElementById('familySettingsLogoutBtn');
 const changePasswordModal = document.getElementById('changePasswordModal');
 const closeChangePasswordBtn = document.getElementById('closeChangePasswordBtn');
-const familyTimezoneSelect = document.getElementById('familyTimezone');
-const saveTimezoneBtn = document.getElementById('saveTimezoneBtn');
+const familyTimezonePicker = document.getElementById('familyTimezonePicker');
+const timezoneCurrentNote = document.getElementById('timezoneCurrentNote');
+let currentFamilyTimezone = '';
 const timezoneError = document.getElementById('timezoneError');
 const timezoneSuccess = document.getElementById('timezoneSuccess');
 const rewardsStatusText = document.getElementById('rewardsStatusText');
@@ -69,21 +70,6 @@ const passwordError = document.getElementById('passwordError');
 const passwordSuccess = document.getElementById('passwordSuccess');
 let pendingRestorePassword = null;
 const DEFAULT_FAMILY_TIMEZONE = 'America/New_York';
-const COMMON_TIMEZONES = [
-    'America/New_York',
-    'America/Chicago',
-    'America/Denver',
-    'America/Los_Angeles',
-    'America/Phoenix',
-    'America/Anchorage',
-    'Pacific/Honolulu',
-    'UTC',
-    'Europe/London',
-    'Europe/Paris',
-    'Asia/Shanghai',
-    'Asia/Tokyo',
-    'Australia/Sydney'
-];
 let isSuperFamily = false;
 let rewardsTrackingStarted = false;
 let rewardsTrackingStartedAt = '';
@@ -264,9 +250,19 @@ restoreBackupBtn.addEventListener('click', async () => {
     backupFileInput.click();
 });
 
-saveTimezoneBtn.addEventListener('click', async () => {
-    await saveTimezoneSettings();
-});
+if (familyTimezonePicker) {
+    familyTimezonePicker.addEventListener('click', async (event) => {
+        const button = event.target.closest('.tz-option');
+        if (!button || button.disabled) {
+            return;
+        }
+        const tz = String(button.dataset.tz || '').trim();
+        if (!tz || tz === currentFamilyTimezone) {
+            return;
+        }
+        await saveTimezoneSettings(tz);
+    });
+}
 
 if (startRewardsBtn) {
     startRewardsBtn.addEventListener('click', async () => {
@@ -425,21 +421,42 @@ if (familyAccountsList) {
     });
 }
 
-function initializeTimezoneOptions() {
-    if (!familyTimezoneSelect) {
-        return;
+function getTimezoneOptionButtons() {
+    if (!familyTimezonePicker) {
+        return [];
     }
+    return Array.from(familyTimezonePicker.querySelectorAll('.tz-option'));
+}
 
-    const supported = typeof Intl.supportedValuesOf === 'function'
-        ? Intl.supportedValuesOf('timeZone')
-        : [];
-    const options = supported.length > 0
-        ? supported
-        : COMMON_TIMEZONES;
-    const unique = Array.from(new Set([DEFAULT_FAMILY_TIMEZONE, ...COMMON_TIMEZONES, ...options]));
-    const list = unique.sort((a, b) => a.localeCompare(b));
+function setSelectedTimezonePill(tz) {
+    currentFamilyTimezone = tz || '';
+    const buttons = getTimezoneOptionButtons();
+    let matched = false;
+    buttons.forEach((btn) => {
+        const isSelected = btn.dataset.tz === tz;
+        if (isSelected) matched = true;
+        btn.classList.toggle('is-selected', isSelected);
+        btn.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+    });
+    if (timezoneCurrentNote) {
+        if (!matched && tz) {
+            timezoneCurrentNote.textContent = `Currently set to ${tz}. Pick one of the options to change.`;
+            timezoneCurrentNote.classList.remove('hidden');
+        } else {
+            timezoneCurrentNote.textContent = '';
+            timezoneCurrentNote.classList.add('hidden');
+        }
+    }
+}
 
-    familyTimezoneSelect.innerHTML = list.map((tz) => `<option value="${tz}">${tz}</option>`).join('');
+function setTimezonePickerDisabled(disabled) {
+    getTimezoneOptionButtons().forEach((btn) => {
+        btn.disabled = disabled;
+    });
+}
+
+function initializeTimezoneOptions() {
+    setSelectedTimezonePill('');
 }
 
 function parseApiTimestamp(value) {
@@ -1563,33 +1580,27 @@ async function loadTimezoneSettings() {
         }
         const data = await response.json();
         const value = String(data.familyTimezone || DEFAULT_FAMILY_TIMEZONE);
-        if (![...familyTimezoneSelect.options].some((opt) => opt.value === value)) {
-            familyTimezoneSelect.insertAdjacentHTML('beforeend', `<option value="${value}">${value}</option>`);
-        }
-        familyTimezoneSelect.value = value;
+        setSelectedTimezonePill(value);
     } catch (error) {
         console.error('Error loading timezone settings:', error);
         showTimezoneError('Failed to load family timezone.');
     }
 }
 
-async function saveTimezoneSettings() {
+async function saveTimezoneSettings(timezoneName) {
+    const tz = String(timezoneName || '').trim();
+    if (!tz) {
+        showTimezoneError('Please select a timezone.');
+        return;
+    }
     try {
         showTimezoneError('');
         showTimezoneSuccess('');
-        const timezoneName = String(familyTimezoneSelect.value || '').trim();
-        if (!timezoneName) {
-            showTimezoneError('Please select a timezone.');
-            return;
-        }
-
-        saveTimezoneBtn.disabled = true;
-        const saveTzLabel = saveTimezoneBtn.querySelector('.btn-label');
-        if (saveTzLabel) saveTzLabel.textContent = 'Saving...';
+        setTimezonePickerDisabled(true);
         const response = await fetch(`${API_BASE}/parent-settings/timezone`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ familyTimezone: timezoneName })
+            body: JSON.stringify({ familyTimezone: tz })
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -1597,17 +1608,16 @@ async function saveTimezoneSettings() {
             return;
         }
 
-        familyTimezoneSelect.value = String(result.familyTimezone || timezoneName);
-        rewardsFamilyTimezone = familyTimezoneSelect.value || DEFAULT_FAMILY_TIMEZONE;
+        const saved = String(result.familyTimezone || tz);
+        setSelectedTimezonePill(saved);
+        rewardsFamilyTimezone = saved || DEFAULT_FAMILY_TIMEZONE;
         await loadRewardsStatus();
         showTimezoneSuccess('Family timezone saved.');
     } catch (error) {
         console.error('Error saving timezone settings:', error);
         showTimezoneError('Failed to save family timezone.');
     } finally {
-        saveTimezoneBtn.disabled = false;
-        const saveTzLabelReset = saveTimezoneBtn.querySelector('.btn-label');
-        if (saveTzLabelReset) saveTzLabelReset.textContent = 'Save';
+        setTimezonePickerDisabled(false);
     }
 }
 

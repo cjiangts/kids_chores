@@ -334,19 +334,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateAddReadingButtonCount();
         });
     }
-    if (hardnessPercentSlider) {
-        hardnessPercentSlider.addEventListener('input', () => {
-            updateQueueMixLegend();
-            rerenderCompactCardsForQueuePreview();
-            scheduleQueuePreviewReload();
-        });
-        hardnessPercentSlider.addEventListener('change', () => {
-            normalizeHardSliderValue();
-            updateQueueMixLegend();
-            rerenderCompactCardsForQueuePreview();
-            scheduleQueuePreviewReload();
-        });
-    }
     if (sessionCardCountInput) {
         sessionCardCountInput.addEventListener('input', () => {
             normalizeSessionCountInputValue();

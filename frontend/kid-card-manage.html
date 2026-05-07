@@ -25,7 +25,7 @@
 
         <div class="kid-nav-group hidden" id="kidNavGroup" role="tablist" aria-label="Kids"></div>
 
-        <div class="tab-nav"></div>
+        <div class="tab-nav kid-nav-group"></div>
 
         <div id="errorMessage" class="error hidden"></div>
         <div id="successMessage" class="success hidden"></div>
@@ -73,7 +73,7 @@
                         <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </button>
                 </div>
-                <div id="sessionMixSubgroup" class="session-mix-subgroup">
+                <div id="queueSettingsSubgroup" class="queue-settings-subgroup">
                     <form id="sessionSettingsForm" class="queue-settings-form">
                     <div class="queue-controls-row">
                         <div class="queue-settings-actions">
@@ -106,38 +106,16 @@
                             </button>
                         </div>
                     </div>
-                    <details id="sessionMixDetails" class="hardness-slider-block session-mix-details">
-                        <summary class="hardness-slider-head session-mix-summary">
-                            <span class="hardness-slider-title">Next Session Mix</span>
-                        </summary>
-                        <div class="queue-mix-legend" aria-live="polite">
-                            <div class="queue-mix-legend-item hard">
-                                <span class="queue-mix-swatch" aria-hidden="true"></span>
-                                <span>Hard cards</span>
-                                <strong id="hardCardsMixSummary">0% · 0 cards</strong>
-                            </div>
-                            <div class="queue-mix-legend-item least">
-                                <span class="queue-mix-swatch" aria-hidden="true"></span>
-                                <span>Least practiced</span>
-                                <strong id="leastRecentMixSummary">0% · 0 cards</strong>
-                            </div>
-                        </div>
-                        <input id="hardnessPercentSlider" class="hardness-slider-input mix-split-slider" type="range" min="0" max="100" step="5" value="20" aria-label="Hard cards percentage">
-                        <p id="hardnessComputationHint" class="hardness-slider-hint">Set hard vs least-practiced mix.</p>
-                    </details>
                 </form>
                 </div>
         </section>
 
         <section class="settings-section settings-main-section cards-section">
                 <div class="cards-header-row">
-                <h2 class="cards-title">
-                    <span><span id="cardsSectionTitleText">Cards</span> <span id="mathCardCount">(-)</span></span>
-                </h2>
                 <div class="cards-view-toggle-group" role="group" aria-label="Cards view mode">
-                    <button type="button" class="cards-view-toggle-btn active" data-cards-view-toggle="queue">Queue</button>
-                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="stats">Stats</button>
-                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="report">Sessions</button>
+                    <button type="button" class="cards-view-toggle-btn active" data-cards-view-toggle="queue"><span class="cards-view-toggle-btn-icon" data-icon="layout-grid" data-icon-size="16" data-icon-stroke="2.4"></span>Cards</button>
+                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="stats"><span class="cards-view-toggle-btn-icon" data-icon="bar-chart-3" data-icon-size="16" data-icon-stroke="2.4"></span>Stats</button>
+                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="report"><span class="cards-view-toggle-btn-icon" data-icon="history" data-icon-size="16" data-icon-stroke="2.4"></span>Sessions</button>
                 </div>
             </div>
             <div class="cards-toolbar">

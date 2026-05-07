@@ -10,33 +10,15 @@ function body to avoid circular imports.
 """
 from src.db import kid_db
 from src.routes.kids_constants import (
-    DEFAULT_HARD_CARD_PERCENTAGE,
     DEFAULT_INCLUDE_ORPHAN_IN_QUEUE,
-    HARD_CARD_PERCENT_BY_CATEGORY_FIELD,
     INCLUDE_ORPHAN_BY_CATEGORY_FIELD,
-    KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE,
     KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN,
     KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN,
     KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT,
     KID_DECK_CATEGORY_OPT_IN_TABLE,
-    MAX_HARD_CARD_PERCENTAGE,
-    MIN_HARD_CARD_PERCENTAGE,
     SESSION_CARD_COUNT_BY_CATEGORY_FIELD,
 )
 from src.services.shared_deck_normalize import normalize_shared_deck_tag
-
-
-def _normalize_hard_card_percentage_value(value):
-    """Normalize one hardness-percentage value to [0, 100]."""
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return DEFAULT_HARD_CARD_PERCENTAGE
-    if parsed < MIN_HARD_CARD_PERCENTAGE:
-        return MIN_HARD_CARD_PERCENTAGE
-    if parsed > MAX_HARD_CARD_PERCENTAGE:
-        return MAX_HARD_CARD_PERCENTAGE
-    return parsed
 
 
 def hydrate_kid_category_config_from_db(
@@ -49,12 +31,10 @@ def hydrate_kid_category_config_from_db(
     """Populate kid payload with per-category config maps sourced from kid DB."""
     if not force_reload:
         existing_session = kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
-        existing_hard = kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
         existing_orphan = kid.get(INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
         existing_opted = kid.get('optedInDeckCategoryKeys')
         if (
             isinstance(existing_session, dict)
-            and isinstance(existing_hard, dict)
             and isinstance(existing_orphan, dict)
             and isinstance(existing_opted, list)
         ):
@@ -75,7 +55,6 @@ def hydrate_kid_category_config_from_db(
         }
     )
     session_by_category = {key: 0 for key in category_keys}
-    hard_pct_by_category = {key: DEFAULT_HARD_CARD_PERCENTAGE for key in category_keys}
     include_orphan_by_category = {key: DEFAULT_INCLUDE_ORPHAN_IN_QUEUE for key in category_keys}
     opted_in_set = set()
 
@@ -91,7 +70,6 @@ def hydrate_kid_category_config_from_db(
               category_key,
               COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN}, FALSE) AS is_opted_in,
               COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT}, 0) AS session_card_count,
-              COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_HARD_CARD_PERCENTAGE}, {DEFAULT_HARD_CARD_PERCENTAGE}) AS hard_card_percentage,
               COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN}, TRUE) AS include_orphan
             FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}
             """
@@ -108,8 +86,7 @@ def hydrate_kid_category_config_from_db(
             0,
             int(row[2] or 0),
         )
-        hard_pct_by_category[key] = _normalize_hard_card_percentage_value(row[3])
-        include_orphan_by_category[key] = bool(row[4])
+        include_orphan_by_category[key] = bool(row[3])
         if bool(row[1]):
             opted_in_set.add(key)
 
@@ -122,7 +99,6 @@ def hydrate_kid_category_config_from_db(
             opted_in_keys.append(key)
 
     kid[SESSION_CARD_COUNT_BY_CATEGORY_FIELD] = session_by_category
-    kid[HARD_CARD_PERCENT_BY_CATEGORY_FIELD] = hard_pct_by_category
     kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD] = include_orphan_by_category
     kid['optedInDeckCategoryKeys'] = opted_in_keys
     return kid
@@ -171,20 +147,6 @@ def with_preview_session_count_for_category(kid, category_key, session_count):
         **kid,
         SESSION_CARD_COUNT_BY_CATEGORY_FIELD: merged,
     }
-
-
-def get_category_hard_card_percentage_for_kid(kid, category_key):
-    """Return one category's configured hard-card percentage."""
-    key = normalize_shared_deck_tag(category_key)
-    if not key:
-        return DEFAULT_HARD_CARD_PERCENTAGE
-    raw_map = kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
-    if not isinstance(raw_map, dict):
-        hydrate_kid_category_config_from_db(kid)
-        raw_map = kid.get(HARD_CARD_PERCENT_BY_CATEGORY_FIELD)
-    if not isinstance(raw_map, dict):
-        return DEFAULT_HARD_CARD_PERCENTAGE
-    return _normalize_hard_card_percentage_value(raw_map.get(key))
 
 
 def get_category_include_orphan_for_kid(kid, category_key):

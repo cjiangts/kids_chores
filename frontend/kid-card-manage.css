@@ -926,16 +926,12 @@
             margin-bottom: var(--card-section-title-margin-bottom);
         }
 
-        .cards-section .cards-title {
-            margin: 0;
-        }
-
         .cards-header-row {
             display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
+            align-items: center;
+            justify-content: center;
             gap: 0.56rem;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.55rem;
             flex-wrap: nowrap;
         }
 
@@ -994,11 +990,7 @@
             border-radius: 14px;
         }
 
-        .session-mix-subgroup {
-            margin: 0;
-        }
-
-        .session-mix-subgroup .hardness-slider-block {
+        .queue-settings-subgroup {
             margin: 0;
         }
 
@@ -1009,10 +1001,6 @@
             background: var(--dashboard-chip-bg);
             padding: 0.54rem 0.62rem;
             box-shadow: var(--dashboard-chip-shadow);
-        }
-
-        .settings-subgroup .hardness-slider-block {
-            margin: 0;
         }
 
         .card-view-mode-group {
@@ -1295,18 +1283,6 @@
             height: 8px;
             border-radius: 999px;
             flex: 0 0 auto;
-        }
-
-        .cards-queue-legend-item.failed .cards-queue-legend-dot {
-            background: #d76363;
-        }
-
-        .cards-queue-legend-item.hard .cards-queue-legend-dot {
-            background: #f59e0b;
-        }
-
-        .cards-queue-legend-item.least .cards-queue-legend-dot {
-            background: #22a45a;
         }
 
         .cards-queue-legend-item.missed .cards-queue-legend-dot {
@@ -1607,10 +1583,6 @@
                 gap: 0.42rem;
             }
 
-            .cards-header-row .cards-title {
-                min-width: 0;
-            }
-
             .cards-view-control .card-view-mode-btn {
                 padding: 0.24rem 0.42rem;
             }
@@ -1675,10 +1647,6 @@
                 font-size: 0.62rem;
             }
 
-            .queue-mix-legend {
-                grid-template-columns: 1fr;
-            }
-
             .queue-settings-actions {
                 justify-content: space-between;
                 gap: 0.5rem;
@@ -1720,10 +1688,6 @@
 
             .cards-header-row {
                 gap: 0.3rem;
-            }
-
-            .cards-header-row .cards-title {
-                font-size: 1.62rem;
             }
 
             .cards-view-control .card-view-mode-btn {
@@ -1860,88 +1824,6 @@
             background: #f7faff;
         }
 
-        .queue-mix-legend {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(180px, 1fr));
-            gap: 0.4rem 0.8rem;
-        }
-
-        .queue-mix-legend-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.85rem;
-            color: #45516f;
-            min-width: 0;
-        }
-
-        .queue-mix-legend-item strong {
-            margin-left: auto;
-            color: #2a345d;
-            font-size: 0.84rem;
-            white-space: nowrap;
-        }
-
-        .queue-mix-swatch {
-            width: 10px;
-            height: 10px;
-            border-radius: 999px;
-            flex: 0 0 auto;
-        }
-
-        .queue-mix-legend-item.hard .queue-mix-swatch {
-            background: #f59e0b;
-        }
-
-        .queue-mix-legend-item.least .queue-mix-swatch {
-            background: #22a45a;
-        }
-
-        .mix-split-slider {
-            -webkit-appearance: none;
-            appearance: none;
-            height: 16px;
-            border-radius: 999px;
-            border: 1px solid #cfd8f0;
-            background: linear-gradient(90deg, #f59e0b 0%, #f59e0b 20%, #22a45a 20%, #22a45a 100%);
-            outline: none;
-        }
-
-        .mix-split-slider::-webkit-slider-runnable-track {
-            height: 14px;
-            background: transparent;
-            border-radius: 999px;
-        }
-
-        .mix-split-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 999px;
-            border: 1px solid #5d6ca0;
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.24);
-            cursor: ew-resize;
-        }
-
-        .mix-split-slider::-moz-range-track {
-            height: 14px;
-            background: transparent;
-            border: 0;
-            border-radius: 999px;
-        }
-
-        .mix-split-slider::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 999px;
-            border: 1px solid #5d6ca0;
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.24);
-            cursor: ew-resize;
-        }
-
         .queue-settings-actions {
             display: flex;
             align-items: center;
@@ -2044,58 +1926,10 @@
             box-shadow: none;
         }
 
-        .manage-page .hardness-slider-block {
-            margin: 0;
-            padding: 0;
-            border: 0;
-            background: transparent;
-            box-shadow: none;
-        }
-
-        .session-mix-summary {
-            cursor: pointer;
-            list-style: none;
-            user-select: none;
-        }
-        .session-mix-summary::-webkit-details-marker {
-            display: none;
-        }
-        .session-mix-summary .hardness-slider-title::before {
-            content: '▸';
-            display: inline-block;
-            margin-right: 0.35rem;
-            transition: transform 150ms ease;
-        }
-        .session-mix-details[open] .hardness-slider-title::before {
-            transform: rotate(90deg);
-        }
-
-        .manage-page .hardness-slider-head {
-            margin-bottom: 0.2rem;
-        }
-
-        .manage-page .hardness-slider-hint {
-            margin-top: 0.2rem;
-        }
-
         @media (max-width: 980px) {
             .manage-page .queue-stepper input[type="number"] {
                 width: 40px;
                 min-width: 40px;
-            }
-        }
-
-        @media (max-width: 560px) {
-            .queue-mix-legend-item {
-                display: flex;
-                align-items: center;
-                gap: 0.32rem;
-            }
-
-            .queue-mix-legend-item strong {
-                margin-left: auto;
-                white-space: nowrap;
-                text-align: right;
             }
         }
 
@@ -2106,12 +1940,7 @@
             cursor: not-allowed;
         }
 
-        /* Keep Next Session Mix inside card bounds on narrow screens. */
         @media (max-width: 980px) {
-            .queue-mix-legend {
-                grid-template-columns: 1fr;
-            }
-
             .queue-controls-row {
                 gap: 0.45rem;
             }
@@ -2129,18 +1958,6 @@
         }
 
         @media (max-width: 560px) {
-            .queue-mix-legend-item {
-                display: flex;
-                align-items: center;
-                gap: 0.32rem;
-            }
-
-            .queue-mix-legend-item strong {
-                margin-left: auto;
-                white-space: nowrap;
-                text-align: right;
-            }
-
             .manage-page .queue-session-count-group {
                 flex-wrap: nowrap;
                 gap: 0.4rem;
@@ -2378,13 +2195,6 @@
             background: #fff0f0;
             color: #a33333;
             box-shadow: 0 1px 3px rgba(163, 51, 51, 0.12);
-        }
-
-        .card-compact-pill.queue-hard {
-            border-color: #f3c483;
-            background: #fff1d8;
-            color: #9a5a00;
-            box-shadow: 0 1px 3px rgba(154, 90, 0, 0.12);
         }
 
         .card-compact-pill.queue-least {
@@ -4056,12 +3866,6 @@
                 font-size: 0.78rem;
             }
 
-            .manage-page .tab-nav {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap: 0.42rem;
-                margin-bottom: 6px;
-            }
-
             .manage-page .tab-nav .manage-tab {
                 min-width: 0;
                 width: 100%;
@@ -4076,21 +3880,6 @@
                 font-size: 1.15rem;
                 margin: 0;
             }
-        }
-
-        .kid-card-manage-page .tab-nav {
-            display: flex;
-            flex-wrap: nowrap;
-            align-items: stretch;
-            gap: 0;
-            padding: 0.25rem;
-            background: rgba(255, 255, 255, 0.18);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 14px;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 18px rgba(31, 45, 98, 0.1);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            margin-bottom: 0.6rem;
         }
 
         .kid-card-manage-page .tab-nav .manage-tab {
@@ -4173,23 +3962,6 @@
         }
 
         @media (max-width: 640px) {
-            /* Single shared row container — translucent rounded panel */
-            .kid-card-manage-page .tab-nav {
-                display: flex;
-                flex-wrap: nowrap;
-                align-items: stretch;
-                grid-template-columns: none;
-                gap: 0;
-                padding: 0.22rem;
-                background: rgba(255, 255, 255, 0.18);
-                border: 1px solid rgba(255, 255, 255, 0.3);
-                border-radius: 14px;
-                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 18px rgba(31, 45, 98, 0.1);
-                backdrop-filter: blur(6px);
-                -webkit-backdrop-filter: blur(6px);
-                margin-bottom: 0.5rem;
-            }
-
             /* Default layout — applies to 3 tabs: icon-left tile, label wraps to 2 lines */
             .kid-card-manage-page .tab-nav .manage-tab {
                 position: relative;
@@ -4296,34 +4068,59 @@
         .cards-view-toggle-group {
             display: inline-flex;
             align-items: stretch;
-            gap: 0;
-            background: #eef0f8;
-            border-radius: 999px;
-            padding: 3px;
-            border: 1px solid #d8def0;
+            gap: 0.25rem;
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 4px;
+            border: 1px solid #e3e7f3;
+            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
         }
 
         .cards-view-toggle-btn {
             border: 0;
             background: transparent;
-            color: #4a5688;
-            font-size: 0.78rem;
+            color: #2f3c7e;
+            font-size: 0.92rem;
             font-weight: 700;
-            padding: 0.32rem 0.85rem;
-            border-radius: 999px;
+            padding: 0.55rem 1.4rem;
+            border-radius: 10px;
             cursor: pointer;
             line-height: 1;
-            transition: background-color 0.15s ease, color 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
         }
 
-        .cards-view-toggle-btn:hover {
-            color: #2f3c7e;
+        .cards-view-toggle-btn-icon {
+            display: inline-flex;
+            align-items: center;
+            color: currentColor;
+        }
+
+        .cards-view-toggle-btn:hover:not(.active) {
+            background: #f3f5fc;
         }
 
         .cards-view-toggle-btn.active {
-            background: #ffffff;
-            color: #2f3c7e;
-            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.12);
+            background: #6366f1;
+            color: #ffffff;
+            box-shadow: 0 6px 14px rgba(99, 102, 241, 0.32);
+        }
+
+        @media (max-width: 640px) {
+            .cards-view-toggle-group {
+                display: flex;
+                width: 100%;
+            }
+
+            .cards-view-toggle-btn {
+                flex: 1 1 0;
+                min-width: 0;
+                padding-left: 0.4rem;
+                padding-right: 0.4rem;
+            }
         }
 
         body.cards-view-mode-stats .cards-toolbar,
@@ -4346,13 +4143,14 @@
             display: none !important;
         }
 
-        .cards-report-view .summary-stats-row {
+        .kid-card-manage-page .summary-stats-row {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-flow: column;
+            grid-auto-columns: minmax(0, 1fr);
             gap: 0.55rem;
             margin-bottom: 0.85rem;
         }
-        .cards-report-view .summary-stat-card {
+        .kid-card-manage-page .summary-stat-card {
             display: flex;
             align-items: center;
             gap: 0.6rem;
@@ -4363,7 +4161,7 @@
             box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
             min-width: 0;
         }
-        .cards-report-view .summary-stat-icon {
+        .kid-card-manage-page .summary-stat-icon {
             width: 34px;
             height: 34px;
             border-radius: 50%;
@@ -4372,28 +4170,32 @@
             justify-content: center;
             flex: 0 0 auto;
         }
-        .cards-report-view .summary-stat-icon svg {
+        .kid-card-manage-page .summary-stat-icon svg {
             width: 17px;
             height: 17px;
         }
-        .cards-report-view .summary-stat-icon-purple {
+        .kid-card-manage-page .summary-stat-icon-purple {
             background: rgba(139, 92, 246, 0.16);
             color: #8b5cf6;
         }
-        .cards-report-view .summary-stat-icon-green {
+        .kid-card-manage-page .summary-stat-icon-green {
             background: rgba(16, 185, 129, 0.18);
             color: #10b981;
         }
-        .cards-report-view .summary-stat-body {
+        .kid-card-manage-page .summary-stat-icon-blue {
+            background: rgba(59, 130, 246, 0.16);
+            color: #3b82f6;
+        }
+        .kid-card-manage-page .summary-stat-body {
             min-width: 0;
         }
-        .cards-report-view .summary-stat-label {
+        .kid-card-manage-page .summary-stat-label {
             font-size: 0.7rem;
             color: #6b7299;
             font-weight: 500;
             line-height: 1.2;
         }
-        .cards-report-view .summary-stat-value {
+        .kid-card-manage-page .summary-stat-value {
             font-size: 1.18rem;
             font-weight: 700;
             color: #2f3c7e;
@@ -5040,27 +4842,27 @@
             .cards-report-view .session-mins { font-size: 0.95rem; }
             .cards-report-view .session-result { font-size: 0.76rem; }
             .cards-report-view .session-retries { font-size: 0.7rem; }
-            .cards-report-view .summary-stats-row {
+            .kid-card-manage-page .summary-stats-row {
                 gap: 0.45rem;
                 margin-bottom: 0.7rem;
             }
-            .cards-report-view .summary-stat-card {
+            .kid-card-manage-page .summary-stat-card {
                 padding: 0.5rem 0.6rem;
                 gap: 0.5rem;
                 border-radius: 11px;
             }
-            .cards-report-view .summary-stat-icon {
+            .kid-card-manage-page .summary-stat-icon {
                 width: 30px;
                 height: 30px;
             }
-            .cards-report-view .summary-stat-icon svg {
+            .kid-card-manage-page .summary-stat-icon svg {
                 width: 15px;
                 height: 15px;
             }
-            .cards-report-view .summary-stat-label {
+            .kid-card-manage-page .summary-stat-label {
                 font-size: 0.64rem;
             }
-            .cards-report-view .summary-stat-value {
+            .kid-card-manage-page .summary-stat-value {
                 font-size: 1.02rem;
             }
             .cards-report-view .sessions-shell-title {
@@ -5272,17 +5074,3 @@
             text-align: right;
         }
 
-        .cards-stats-summary {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem 1.1rem;
-            color: #4a5688;
-            font-size: 0.82rem;
-            font-weight: 600;
-            margin-bottom: 0.7rem;
-        }
-
-        .cards-stats-summary strong {
-            color: #2f3c7e;
-            font-weight: 800;
-        }
