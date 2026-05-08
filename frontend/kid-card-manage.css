@@ -4324,6 +4324,20 @@
                 height: 10px;
             }
 
+            .practice-priority-score-legend {
+                gap: 0.22rem 0.55rem;
+                font-size: 0.58rem;
+            }
+
+            .practice-priority-score-legend-dot {
+                width: 0.5rem;
+                height: 0.5rem;
+            }
+
+            .practice-priority-score-legend-item {
+                gap: 0.22rem;
+            }
+
             .practice-priority-detail-card {
                 grid-template-columns: 72px minmax(0, 1fr);
                 border-radius: 12px;
@@ -4428,7 +4442,8 @@
             }
 
             .practice-priority-axis-marker {
-                top: 0;
+                top: auto;
+                bottom: 10px;
                 gap: 1px;
             }
 
