@@ -435,8 +435,10 @@ function buildLeafCardListHtml(deckIdStr) {
     const matchBack = isType2Behavior();
     let cards = [];
     if (deckIdStr === ORPHAN_BUBBLE_ID) {
-        const local = Array.isArray(currentCards) ? currentCards : [];
-        cards = local.filter((c) => c && c.source_is_orphan);
+        if (!Array.isArray(sharedDeckCardSearchIndex)) {
+            return `<div class="deck-tree-leaf-cards-empty">Loading cards…</div>`;
+        }
+        cards = sharedDeckCardSearchIndex.filter((c) => c && c.is_orphan);
     } else {
         const wantId = Number(deckIdStr);
         if (!wantId) return '';
@@ -778,31 +780,17 @@ function getMatchingCardsByDeckId(q) {
 
     const sharedCards = Array.isArray(sharedDeckCardSearchIndex) ? sharedDeckCardSearchIndex : [];
     for (const card of sharedCards) {
-        const sharedDeckId = String(card && card.shared_deck_id || '');
-        if (!sharedDeckId) continue;
+        if (!card) continue;
         const primary = matchBack ? String(card.back || '') : String(card.front || '');
         if (!primary.toLowerCase().includes(q)) continue;
-        let bucket = byDeck.get(sharedDeckId);
+        const bucketKey = card.is_orphan
+            ? ORPHAN_BUBBLE_ID
+            : String(card.shared_deck_id || '');
+        if (!bucketKey) continue;
+        let bucket = byDeck.get(bucketKey);
         if (!bucket) {
             bucket = { shown: [], total: 0 };
-            byDeck.set(sharedDeckId, bucket);
-        }
-        bucket.total += 1;
-        if (bucket.shown.length < limitPerDeck) {
-            bucket.shown.push(card);
-        }
-    }
-
-    // Personal/orphan deck cards live only in the kid's DB — pull from currentCards.
-    const localCards = Array.isArray(currentCards) ? currentCards : [];
-    for (const card of localCards) {
-        if (!card || !card.source_is_orphan) continue;
-        const primary = matchBack ? String(card.back || '') : String(card.front || '');
-        if (!primary.toLowerCase().includes(q)) continue;
-        let bucket = byDeck.get(ORPHAN_BUBBLE_ID);
-        if (!bucket) {
-            bucket = { shown: [], total: 0 };
-            byDeck.set(ORPHAN_BUBBLE_ID, bucket);
+            byDeck.set(bucketKey, bucket);
         }
         bucket.total += 1;
         if (bucket.shown.length < limitPerDeck) {

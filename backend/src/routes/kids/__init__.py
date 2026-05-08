@@ -7703,11 +7703,32 @@ def get_shared_decks_card_search_index_for_scope(kid_id, category):
                 for row in rows:
                     cards.append({
                         'shared_deck_id': int(row[0]),
+                        'is_orphan': False,
                         'front': str(row[1] or ''),
                         'back': str(row[2] or ''),
                     })
         finally:
             shared_conn.close()
+        kid_conn = get_kid_connection_for(kid, read_only=True)
+        try:
+            orphan_deck_id = get_orphan_deck(
+                kid_conn,
+                get_category_orphan_deck_name(first_tag),
+            )
+            if orphan_deck_id > 0:
+                orphan_rows = kid_conn.execute(
+                    "SELECT front, back FROM cards WHERE deck_id = ? ORDER BY id ASC",
+                    [orphan_deck_id],
+                ).fetchall()
+                for row in orphan_rows:
+                    cards.append({
+                        'shared_deck_id': None,
+                        'is_orphan': True,
+                        'front': str(row[0] or ''),
+                        'back': str(row[1] or ''),
+                    })
+        finally:
+            kid_conn.close()
         return jsonify({
             'cards': cards,
             'management_type': management_type,
