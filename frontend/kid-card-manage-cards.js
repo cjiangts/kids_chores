@@ -25,6 +25,7 @@ function buildChineseCardMarkup(card, options = {}) {
         trailingActionHtml: options.trailingActionHtml,
         extraSectionHtml: options.extraSectionHtml,
         queueHighlight: options.queueHighlight,
+        collapseCardId: options.collapseCardId,
     });
 }
 
@@ -40,6 +41,7 @@ function buildGenericType1CardMarkup(card, options = {}) {
         trailingActionHtml: options.trailingActionHtml,
         extraSectionHtml: options.extraSectionHtml,
         queueHighlight: options.queueHighlight,
+        collapseCardId: options.collapseCardId,
     });
 }
 
@@ -48,23 +50,23 @@ function buildType2CardMarkup(card, options = {}) {
     const secondaryText = String(card.front || '');
     const promptHtml = `
         <div class="type2-prompt-row">
+            <button
+                type="button"
+                class="type2-prompt-play"
+                data-action="load-play-audio"
+                data-card-id="${escapeHtml(card.id)}"
+                aria-label="Play prompt"
+                title="Play prompt"
+            ><svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg></button>
             <span class="type2-prompt-text">${escapeHtml(secondaryText)}</span>
-            <span class="type2-prompt-actions">
-                <button
-                    type="button"
-                    class="type2-prompt-btn edit"
-                    data-action="edit-front"
-                    data-card-id="${escapeHtml(card.id)}"
-                >Edit</button>
-                <button
-                    type="button"
-                    class="type2-prompt-btn play"
-                    data-action="load-play-audio"
-                    data-card-id="${escapeHtml(card.id)}"
-                    aria-label="Play"
-                    title="Play"
-                ><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg></button>
-            </span>
+            <button
+                type="button"
+                class="type2-prompt-edit"
+                data-action="edit-front"
+                data-card-id="${escapeHtml(card.id)}"
+                aria-label="Edit prompt"
+                title="Edit prompt"
+            >${icon('pencil', { size: 12, stroke: 2.2 })}</button>
         </div>
         ${hasSavedAudio ? '' : '<div class="type2-prompt-autogen-hint">Will auto-generate on first play</div>'}
     `;
@@ -77,6 +79,7 @@ function buildType2CardMarkup(card, options = {}) {
         prependControlsHtml: options.prependControlsHtml,
         trailingActionHtml: options.trailingActionHtml,
         queueHighlight: options.queueHighlight,
+        collapseCardId: options.collapseCardId,
     });
 }
 
@@ -193,11 +196,26 @@ function buildExpandedCardPreviewMarkup(card, options = {}) {
     if (looksChineseText(text)) {
         classes.push('chinese');
     }
+    const innerHtml = `
+        <span class="expanded-card-preview-text">${renderMathHtml(text)}</span>
+        <span class="expanded-card-preview-badge">${escapeHtml(String(totalPracticed))}</span>
+    `;
+    const collapseCardId = String(options.collapseCardId || '').trim();
+    if (collapseCardId) {
+        classes.push('is-collapse-trigger');
+        return `
+            <button
+                type="button"
+                class="${classes.join(' ')}"
+                data-action="collapse-compact"
+                data-card-id="${escapeHtml(collapseCardId)}"
+                title="Minimize card"
+                aria-label="Minimize card"
+            >${innerHtml}</button>
+        `;
+    }
     return `
-        <div class="${classes.join(' ')}" aria-hidden="true">
-            <span class="expanded-card-preview-text">${renderMathHtml(text)}</span>
-            <span class="expanded-card-preview-badge">${escapeHtml(String(totalPracticed))}</span>
-        </div>
+        <div class="${classes.join(' ')}" aria-hidden="true">${innerHtml}</div>
     `;
 }
 
@@ -216,9 +234,17 @@ function buildCardMarkup(card, options = {}) {
     const showPrimary = options.showPrimary !== false && primaryText.trim().length > 0;
     const showSecondary = options.showSecondary !== false
         && (secondaryHtml.trim().length > 0 || secondaryText.trim().length > 0);
+    const secondaryPlainText = (secondaryText && secondaryText.trim())
+        || (secondaryHtml ? secondaryHtml.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() : '');
+    const secondaryLength = secondaryPlainText.length;
+    const cardBackSizeClass = secondaryLength > 60 ? ' size-xs'
+        : secondaryLength > 40 ? ' size-sm'
+        : secondaryLength > 22 ? ' size-md'
+        : '';
     const extraSectionHtml = `${String(options.extraSectionHtml || '')}${buildPracticePriorityScoreSection(card)}`;
     const prependControlsHtml = String(options.prependControlsHtml || '');
     const trailingActionHtml = String(options.trailingActionHtml || '');
+    const collapseCardId = String(options.collapseCardId || '').trim();
     const sourceRaw = resolveCardSourceDeckName(card);
     const sourceTitle = escapeHtml(sourceRaw);
     const sourceDisplay = escapeHtml(
@@ -243,18 +269,21 @@ function buildCardMarkup(card, options = {}) {
         `)
         .join('');
 
+    const inNextSession = String(options.queueHighlight || '').trim().length > 0;
+    const heroAsideHtml = buildPracticePriorityHeroAside(card, { inNextSession });
     return `
         <div class="${classes.filter(Boolean).join(' ')}">
             ${prependControlsHtml}
-            <div class="expanded-card-hero">
-                ${buildExpandedCardPreviewMarkup(card, { queueHighlight: options.queueHighlight })}
+            <div class="expanded-card-hero${heroAsideHtml ? ' has-aside' : ''}">
+                ${buildExpandedCardPreviewMarkup(card, { queueHighlight: options.queueHighlight, collapseCardId })}
                 <div class="expanded-card-main">
                     ${showPrimary ? `<div class="card-front">${renderMathHtml(primaryText)}</div>` : ''}
-                    ${showSecondary ? `<div class="card-back${showPrimary ? '' : ' standalone'}">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
+                    ${showSecondary ? `<div class="card-back${showPrimary ? '' : ' standalone'}${cardBackSizeClass}">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
                     <div class="card-deck-row">
                         <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
                     </div>
                 </div>
+                ${heroAsideHtml}
             </div>
             ${extraSectionHtml}
             ${supportsSkipControl && card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
@@ -400,20 +429,6 @@ function buildCompactCardMarkup(card, options = {}) {
             <span class="card-compact-pill-text">${escapeHtml(text)}</span>
             <span class="card-compact-count-badge" aria-hidden="true">${totalPracticed}</span>
         </button>
-    `;
-}
-
-function buildCompactFoldButtonMarkup(cardId) {
-    const safeId = String(cardId || '').trim();
-    return `
-        <button
-            type="button"
-            class="compact-fold-btn"
-            data-action="collapse-compact"
-            data-card-id="${escapeHtml(safeId)}"
-            title="Minimize card"
-            aria-label="Minimize card"
-        >${icon('fold-vertical', { size: 20 })}</button>
     `;
 }
 
@@ -628,7 +643,7 @@ function displayCards(cards) {
             const cardId = String(card && card.id ? card.id : '');
             if (expandedCompactCardIds.has(cardId)) {
                 return `<div class="short-expanded-slot">${buildLongCardMarkup(card, {
-                    prependControlsHtml: buildCompactFoldButtonMarkup(cardId),
+                    collapseCardId: cardId,
                     trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
                     queueHighlight: queueHighlightMap.get(cardId) || '',
                 })}</div>`;

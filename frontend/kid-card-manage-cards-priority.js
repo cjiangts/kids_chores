@@ -459,36 +459,11 @@ function getPracticePrioritySegments(card) {
     ];
 }
 
-function getPracticePriorityPrimaryReasonLabel(card) {
-    const reason = getPracticePriorityDisplayReason(card);
-    if (reason === PRACTICE_PRIORITY_REASON_NEW) {
-        return 'New';
-    }
-    if (reason === PRACTICE_PRIORITY_REASON_MISSED) {
-        return 'Missed';
-    }
-    if (reason === PRACTICE_PRIORITY_REASON_SLOW) {
-        return 'Slow';
-    }
-    if (reason === PRACTICE_PRIORITY_REASON_DUE) {
-        return 'Due';
-    }
-    return 'Learning';
-}
-
 function getPracticePrioritySegmentDisplayLabel(card, segment) {
     if (segment && segment.key === PRACTICE_PRIORITY_REASON_LEARNING && isNeverPracticedPriorityCard(card)) {
         return 'New';
     }
     return String(segment && segment.label ? segment.label : '').trim() || 'Learning';
-}
-
-function getPracticePriorityPrimaryReasonKey(card) {
-    const reason = getPracticePriorityDisplayReason(card);
-    if (reason === PRACTICE_PRIORITY_REASON_NEW) {
-        return PRACTICE_PRIORITY_REASON_LEARNING;
-    }
-    return reason;
 }
 
 function getPracticePriorityDaysSinceLastSeenValue(card) {
@@ -552,10 +527,12 @@ function buildPracticePriorityAxisHtml(options = {}) {
     const markerOverflowClass = positionPct === null || !Number.isFinite(rawPositionPct)
         ? ''
         : (rawPositionPct < 0 ? ' overflow-start' : (rawPositionPct > 100 ? ' overflow-end' : ''));
+    const markerCaption = String(options.markerCaption || '');
     const markerHtml = positionPct === null
         ? ''
         : `
             <span class="practice-priority-axis-marker ${escapeHtml(markerClass)}${escapeHtml(markerAnchorClass)}${escapeHtml(markerOverflowClass)}" style="left:${positionPct.toFixed(2)}%">
+                ${markerCaption ? `<span class="practice-priority-axis-marker-caption">${escapeHtml(markerCaption)}</span>` : ''}
                 <span class="practice-priority-axis-marker-label">${escapeHtml(valueText)}</span>
             </span>
         `;
@@ -589,10 +566,13 @@ function buildPracticePriorityLearningDotsHtml(attemptCount, targetAttempts) {
     )).join('');
     return `
         <div class="practice-priority-learning-visual">
+            <div class="practice-priority-learning-attempts">
+                <span class="practice-priority-learning-attempts-caption">Attempts</span>
+                <span class="practice-priority-learning-attempts-value">${escapeHtml(String(safeAttempts))}</span>
+            </div>
             <div class="practice-priority-learning-dots" aria-hidden="true">${dotsHtml}</div>
             <div class="practice-priority-learning-caption">
-                <span class="practice-priority-learning-caption-value">${escapeHtml(String(safeAttempts))} attempts</span>
-                <span class="practice-priority-learning-caption-note">(target ${safeTarget})</span>
+                <span class="practice-priority-learning-caption-note">Target ${safeTarget}</span>
             </div>
         </div>
     `;
@@ -642,95 +622,93 @@ function buildPracticePriorityDetailCards(card) {
         ? (daysSinceLastSeen / PRACTICE_PRIORITY_VERY_DUE_DAYS) * 100
         : null;
 
+    const showMissed = !isType3Behavior();
+    const showSlow = !isType2Behavior() && !isType3Behavior();
+
     return `
-        <div class="practice-priority-detail-card missed${isType3Behavior() ? ' no-side' : ''}">
-            ${isType3Behavior() ? '' : `<div class="practice-priority-detail-side">
+        ${!showMissed ? '' : `<div class="practice-priority-detail-card missed">
+            <div class="practice-priority-detail-missed-header">
                 <div class="practice-priority-detail-title">${icon('circle-x', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[0]))}</span></div>
                 <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[0].points))}</div>
-            </div>`}
-            <div class="practice-priority-detail-body">
-                <div class="practice-priority-detail-text">
-                    <div class="practice-priority-detail-main">Incorrect rate: <span class="practice-priority-inline-value missed">${escapeHtml(isNewCard ? '-' : incorrectRateText)}</span></div>
-                    <div class="practice-priority-detail-sub">Correct ${escapeHtml(String(correctCount))} · Wrong ${escapeHtml(String(wrongCount))}</div>
-                    <div class="practice-priority-detail-sub">Last result: <span class="practice-priority-last-result ${escapeHtml(lastResultTone)}">${escapeHtml(lastResultText)}</span></div>
-                </div>
-                <div class="practice-priority-detail-visual">
-                    ${isNewCard
-                        ? ''
-                        : buildPracticePriorityDonutHtml({
+            </div>
+            <div class="practice-priority-detail-missed-content">
+                ${isNewCard
+                    ? '<div class="practice-priority-detail-empty">Not practiced yet — accuracy will appear after the first answer.</div>'
+                    : `<div class="practice-priority-detail-side">
+                        ${buildPracticePriorityDonutHtml({
                             correctPercent: correctRate,
                             toneClass: 'missed',
                             centerText: formatMetricPercent(correctRate),
                             centerClass: 'positive',
-                        })
-                    }
+                        })}
+                    </div>
+                    <div class="practice-priority-detail-body">
+                        <div class="practice-priority-detail-text">
+                            <div class="practice-priority-detail-sub">Correct ${escapeHtml(String(correctCount))}</div>
+                            <div class="practice-priority-detail-sub">Wrong ${escapeHtml(String(wrongCount))}</div>
+                            <div class="practice-priority-detail-sub">Last result: <span class="practice-priority-last-result ${escapeHtml(lastResultTone)}">${escapeHtml(lastResultText)}</span></div>
+                        </div>
+                    </div>`
+                }
+            </div>
+        </div>`}
+        ${!showSlow ? '' : `<div class="practice-priority-detail-card slow">
+            <div class="practice-priority-detail-slow-header">
+                <div class="practice-priority-detail-slow-header-left">
+                    <div class="practice-priority-detail-title">${icon('clock', { size: 14 })}<span>${escapeHtml(segments[1].label)}</span></div>
+                    <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[1].points))}</div>
                 </div>
             </div>
-        </div>
-        <div class="practice-priority-detail-card slow${(isType2Behavior() || isType3Behavior()) ? ' no-side' : ''}">
-            ${(isType2Behavior() || isType3Behavior()) ? '' : `<div class="practice-priority-detail-side">
-                <div class="practice-priority-detail-title">${icon('clock', { size: 14 })}<span>${escapeHtml(segments[1].label)}</span></div>
-                <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[1].points))}</div>
-            </div>`}
-            <div class="practice-priority-detail-body">
-                <div class="practice-priority-detail-text">
-                    <div class="practice-priority-detail-main">Avg time: <span class="practice-priority-inline-value slow">${escapeHtml(avgCorrectResponseTimeText)}</span></div>
-                    <div class="practice-priority-detail-sub">Last response: ${escapeHtml(lastResponseTimeText)}</div>
-                </div>
-                <div class="practice-priority-detail-visual">
-                    ${slowBaselineReady
-                        ? buildPracticePriorityAxisHtml({
-                            positionPct: slowMarkerPct,
-                            valueText: avgCorrectResponseTimeText,
-                            leftText: subjectP50Text,
-                            rightText: subjectP90Text,
-                            leftNote: '(p50)',
-                            rightNote: '(p90)',
-                            leftNoteClass: 'positive',
-                            rightNoteClass: 'negative',
-                            markerClass: 'slow',
-                            tickCount: 6,
-                        })
-                        : `<div class="practice-priority-axis-placeholder">Baseline after ${PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE} subject-correct answers</div>`
-                    }
-                </div>
+            <div class="practice-priority-detail-slow-content">
+                ${isNewCard
+                    ? '<div class="practice-priority-detail-empty">Not practiced yet — answer speed will appear after the first correct answer.</div>'
+                    : `<div class="practice-priority-detail-visual">
+                        ${slowBaselineReady
+                            ? buildPracticePriorityAxisHtml({
+                                positionPct: slowMarkerPct,
+                                valueText: avgCorrectResponseTimeText,
+                                markerCaption: 'Avg time',
+                                leftText: subjectP50Text,
+                                rightText: subjectP90Text,
+                                leftNote: '(p50)',
+                                rightNote: '(p90)',
+                                leftNoteClass: 'positive',
+                                rightNoteClass: 'negative',
+                                markerClass: 'slow',
+                                tickCount: 6,
+                            })
+                            : `<div class="practice-priority-detail-empty">Speed baseline pending — needs ${PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE} correct answers across this subject.</div>`
+                        }
+                    </div>`
+                }
             </div>
-        </div>
+        </div>`}
         <div class="practice-priority-detail-card learning">
-            <div class="practice-priority-detail-side">
-                <div class="practice-priority-detail-title">${icon('sparkles', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[2]))}</span></div>
-                <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[2].points))}</div>
+            <div class="practice-priority-detail-learning-header">
+                <div class="practice-priority-detail-learning-header-left">
+                    <div class="practice-priority-detail-title">${icon('sparkles', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[2]))}</span></div>
+                    <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[2].points))}</div>
+                </div>
             </div>
-            <div class="practice-priority-detail-body">
-                <div class="practice-priority-detail-text">
-                    <div class="practice-priority-detail-main">Lifetime attempts: <span class="practice-priority-inline-value learning">${escapeHtml(String(lifetimeAttempts))}</span></div>
-                    <div class="practice-priority-detail-sub">More practice lowers learning need</div>
-                </div>
-                <div class="practice-priority-detail-visual">
-                    ${buildPracticePriorityLearningDotsHtml(lifetimeAttempts, PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS)}
-                </div>
+            <div class="practice-priority-detail-learning-content">
+                ${buildPracticePriorityLearningDotsHtml(lifetimeAttempts, PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS)}
             </div>
         </div>
         <div class="practice-priority-detail-card due">
-            <div class="practice-priority-detail-side">
-                <div class="practice-priority-detail-title">${icon('calendar-clock', { size: 14 })}<span>${escapeHtml(segments[3].label)}</span></div>
-                <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[3].points))}</div>
-            </div>
-            <div class="practice-priority-detail-body">
-                <div class="practice-priority-detail-text">
-                    <div class="practice-priority-detail-main">${
-                        Number.isFinite(daysSinceLastSeen)
-                            ? `Last seen <span class="practice-priority-inline-value due">${escapeHtml(String(daysSinceLastSeen))} day${daysSinceLastSeen === 1 ? '' : 's'}</span> ago`
-                            : 'Not practiced yet'
-                    }</div>
-                    <div class="practice-priority-detail-sub">Longer unseen gaps raise due need</div>
+            <div class="practice-priority-detail-due-header">
+                <div class="practice-priority-detail-due-header-left">
+                    <div class="practice-priority-detail-title">${icon('calendar-clock', { size: 14 })}<span>${escapeHtml(segments[3].label)}</span></div>
+                    <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[3].points))}</div>
                 </div>
-                <div class="practice-priority-detail-visual">
-                    ${isNewCard
-                        ? ''
-                        : buildPracticePriorityAxisHtml({
+            </div>
+            <div class="practice-priority-detail-due-content">
+                ${isNewCard
+                    ? '<div class="practice-priority-detail-empty">Not practiced yet — recency will appear after the first practice.</div>'
+                    : `<div class="practice-priority-detail-visual">
+                        ${buildPracticePriorityAxisHtml({
                             positionPct: dueMarkerPct,
-                            valueText: Number.isFinite(daysSinceLastSeen) ? `${daysSinceLastSeen}d` : 'Never',
+                            valueText: Number.isFinite(daysSinceLastSeen) ? `${daysSinceLastSeen}d ago` : 'Never',
+                            markerCaption: 'Last seen',
                             leftText: '0d',
                             rightText: `${PRACTICE_PRIORITY_VERY_DUE_DAYS}+d`,
                             leftNote: '(today)',
@@ -738,11 +716,46 @@ function buildPracticePriorityDetailCards(card) {
                             leftNoteClass: 'positive',
                             rightNoteClass: 'negative',
                             markerClass: 'due',
-                            tickCount: 7,
-                        })
-                    }
-                </div>
+                            tickCount: 6,
+                        })}
+                    </div>`
+                }
             </div>
+        </div>
+    `;
+}
+
+function getPracticePriorityRankText(card) {
+    const order = Number(card && card.practice_priority_order);
+    if (!Number.isFinite(order) || order <= 0) {
+        return '';
+    }
+    const activeCount = Array.isArray(sortedCards)
+        ? sortedCards.filter((queueCard) => !queueCard.skip_practice).length
+        : 0;
+    return `Rank #${order}${activeCount > 0 ? ` of ${activeCount}` : ''}`;
+}
+
+function buildPracticePriorityHeroAside(card, options = {}) {
+    if (!usesPracticePriorityDisplay()) {
+        return '';
+    }
+    const score = getPracticePriorityScoreValue(card);
+    if (!Number.isFinite(score) || score <= 0) {
+        return '';
+    }
+    const rankText = getPracticePriorityRankText(card);
+    const inNextSession = !!options.inNextSession;
+    const sessionLineClass = inNextSession
+        ? 'practice-priority-hero-session in'
+        : 'practice-priority-hero-session out';
+    const sessionLineText = inNextSession ? 'In next session' : 'Not in next session';
+    return `
+        <div class="practice-priority-hero-aside">
+            <span class="practice-priority-hero-caption">Practice Priority Score</span>
+            <span class="practice-priority-hero-value">${escapeHtml(formatPracticePriorityScore(score))}</span>
+            ${rankText ? `<span class="practice-priority-hero-rank">${escapeHtml(rankText)}</span>` : ''}
+            <span class="${sessionLineClass}">${escapeHtml(sessionLineText)}</span>
         </div>
     `;
 }
@@ -760,37 +773,32 @@ function buildPracticePriorityScoreSection(card) {
     const scaleBase = Number.isFinite(referenceMaxScore) && referenceMaxScore > 0
         ? referenceMaxScore
         : score;
-    const barHtml = segments
-        .filter((segment) => segment.points > 0)
+    const positiveSegments = segments.filter((segment) => segment.points > 0);
+    const barHtml = positiveSegments
         .map((segment) => (
             `<span class="practice-priority-score-segment ${segment.key}" style="width:${Math.max(0, Math.min(100, (segment.points / scaleBase) * 100)).toFixed(2)}%" title="${escapeHtml(`${segment.label}: +${formatPracticePriorityScore(segment.points)}`)}"></span>`
         ))
         .join('');
-    const order = Number(card && card.practice_priority_order);
-    const activeCount = Array.isArray(sortedCards)
-        ? sortedCards.filter((queueCard) => !queueCard.skip_practice).length
-        : 0;
-    const rankText = Number.isFinite(order) && order > 0
-        ? `Rank #${order}${activeCount > 0 ? ` of ${activeCount}` : ''}`
+    const totalPoints = positiveSegments.reduce((sum, segment) => sum + segment.points, 0);
+    const legendHtml = totalPoints > 0
+        ? positiveSegments.map((segment) => {
+            const percent = Math.round((segment.points / totalPoints) * 100);
+            return `
+                <span class="practice-priority-score-legend-item ${segment.key}">
+                    <span class="practice-priority-score-legend-dot" aria-hidden="true"></span>
+                    <span class="practice-priority-score-legend-label">${escapeHtml(segment.label)}</span>
+                    <span class="practice-priority-score-legend-percent">${percent}%</span>
+                </span>
+            `;
+        }).join('')
         : '';
     const detailCardsHtml = buildPracticePriorityDetailCards(card);
-    const primaryReasonLabel = getPracticePriorityPrimaryReasonLabel(card);
-    const primaryReasonKey = getPracticePriorityPrimaryReasonKey(card);
     return `
         <div class="practice-priority-score-block">
-            <div class="practice-priority-score-head">
-                <span class="practice-priority-score-label">
-                    <span class="practice-priority-score-reason ${escapeHtml(primaryReasonKey)}">${escapeHtml(primaryReasonLabel)}</span>
-                    ${rankText ? `<span class="practice-priority-score-rank">· ${escapeHtml(rankText)}</span>` : ''}
-                </span>
-                <span class="practice-priority-score-head-right">
-                    <span class="practice-priority-score-caption">Score</span>
-                    <span class="practice-priority-score-value">${escapeHtml(formatPracticePriorityScore(score))}</span>
-                </span>
-            </div>
             <div class="practice-priority-score-bar" aria-hidden="true">
                 ${barHtml}
             </div>
+            ${legendHtml ? `<div class="practice-priority-score-legend">${legendHtml}</div>` : ''}
             ${detailCardsHtml ? `<div class="practice-priority-detail-grid">${detailCardsHtml}</div>` : ''}
         </div>
     `;
@@ -1200,7 +1208,8 @@ function setCardViewMode(nextMode) {
     const resolved = isType4Behavior()
         ? 'long'
         : (mode === 'short' ? 'short' : 'long');
-    if (resolved === currentCardViewMode) {
+    const hadExpanded = expandedCompactCardIds.size > 0;
+    if (resolved === currentCardViewMode && !(resolved === 'short' && hadExpanded)) {
         return;
     }
     currentCardViewMode = resolved;

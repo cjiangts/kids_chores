@@ -2629,25 +2629,6 @@
             box-shadow: 0 1px 3px rgba(100, 65, 168, 0.12);
         }
 
-        .compact-fold-btn {
-            position: absolute;
-            top: 0.85rem;
-            right: 0.85rem;
-            border: 1px solid #c7d2ea;
-            background: #fff;
-            color: #24468f;
-            border-radius: 14px;
-            width: 44px;
-            height: 44px;
-            padding: 0;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-            box-shadow: 0 4px 14px rgba(28, 42, 82, 0.08);
-        }
-
         .card-compact-pill.chinese {
             font-family: var(--font-kaiti);
             font-size: 1.28rem;
@@ -2847,8 +2828,22 @@
         .card-back {
             margin-top: 0.4rem;
             font-size: 1.25rem;
+            line-height: 1.25;
             color: #1d7a35;
             font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+
+        .card-back.size-md {
+            font-size: 1.05rem;
+        }
+
+        .card-back.size-sm {
+            font-size: 0.92rem;
+        }
+
+        .card-back.size-xs {
+            font-size: 0.82rem;
         }
 
         .card-deck-row {
@@ -2906,8 +2901,52 @@
             gap: 0.5rem;
         }
 
-        .expanded-detail-card:has(> .compact-fold-btn) .expanded-card-hero {
-            padding-right: 52px;
+        .expanded-card-hero.has-aside {
+            grid-template-columns: fit-content(104px) minmax(0, 1fr) auto;
+            align-items: start;
+        }
+
+        .practice-priority-hero-aside {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.05rem;
+            padding-left: 0.6rem;
+            text-align: right;
+            line-height: 1.15;
+        }
+
+        .practice-priority-hero-caption {
+            color: #5f6d89;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .practice-priority-hero-value {
+            color: #274ca2;
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .practice-priority-hero-rank {
+            color: #2c3347;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .practice-priority-hero-session {
+            margin-top: 0.12rem;
+            font-size: 0.74rem;
+            font-weight: 600;
+        }
+
+        .practice-priority-hero-session.in {
+            color: #1f8b4b;
+        }
+
+        .practice-priority-hero-session.out {
+            color: #8e94a3;
         }
 
         .expanded-card-preview {
@@ -2927,6 +2966,11 @@
             background: var(--dashboard-chip-bg);
             color: #2f3c7e;
             box-shadow: 0 1px 3px rgba(31, 45, 98, 0.08);
+        }
+
+        button.expanded-card-preview {
+            font: inherit;
+            cursor: pointer;
         }
 
         .expanded-card-preview.queue-missed {
@@ -3020,70 +3064,13 @@
 
         .practice-priority-score-block {
             margin-top: 0.6rem;
-            padding-top: 0.58rem;
-            border-top: 0.8px solid #edf0f7;
             display: flex;
             flex-direction: column;
             gap: 0.42rem;
         }
 
-        .practice-priority-score-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.45rem;
-            flex-wrap: wrap;
-            font-size: 0.84rem;
-            color: #27324e;
-        }
-
-        .practice-priority-score-label {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            flex-wrap: wrap;
-            font-weight: 800;
-            line-height: 1.2;
-        }
-
-        .practice-priority-score-head-right {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-
-        .practice-priority-score-caption {
-            color: #5f6d89;
-            font-size: 0.76rem;
-            font-weight: 600;
-            letter-spacing: 0;
-        }
-
-        .practice-priority-score-reason.missed {
-            color: #d13c2f;
-        }
-
-        .practice-priority-score-reason.slow {
-            color: #d38714;
-        }
-
-        .practice-priority-score-reason.learning {
-            color: #2f75ea;
-        }
-
-        .practice-priority-score-reason.due {
-            color: #7b53c7;
-        }
-
-        .practice-priority-score-plus,
-        .practice-priority-score-rank {
+        .practice-priority-score-plus {
             color: #2c3347;
-        }
-
-        .practice-priority-score-value {
-            font-size: 0.94rem;
-            font-weight: 800;
-            color: #274ca2;
         }
 
         .practice-priority-score-bar {
@@ -3099,6 +3086,10 @@
         .practice-priority-score-segment {
             height: 100%;
             flex: 0 0 auto;
+        }
+
+        .practice-priority-score-segment + .practice-priority-score-segment {
+            box-shadow: inset 2px 0 #fff;
         }
 
         .practice-priority-score-segment.missed {
@@ -3117,8 +3108,71 @@
             background: #8c68cf;
         }
 
+        .practice-priority-score-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.32rem 0.8rem;
+            font-size: 0.7rem;
+            line-height: 1.2;
+            color: #5e6d89;
+        }
+
+        .practice-priority-score-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.32rem;
+        }
+
+        .practice-priority-score-legend-dot {
+            width: 0.62rem;
+            height: 0.62rem;
+            border-radius: 50%;
+            flex: 0 0 auto;
+        }
+
+        .practice-priority-score-legend-item.missed .practice-priority-score-legend-dot {
+            background: #d76363;
+        }
+
+        .practice-priority-score-legend-item.slow .practice-priority-score-legend-dot {
+            background: #d8991f;
+        }
+
+        .practice-priority-score-legend-item.learning .practice-priority-score-legend-dot {
+            background: #4f7df0;
+        }
+
+        .practice-priority-score-legend-item.due .practice-priority-score-legend-dot {
+            background: #8c68cf;
+        }
+
+        .practice-priority-score-legend-label {
+            font-weight: 600;
+        }
+
+        .practice-priority-score-legend-item.missed .practice-priority-score-legend-percent {
+            color: #d13c2f;
+        }
+
+        .practice-priority-score-legend-item.slow .practice-priority-score-legend-percent {
+            color: #d38714;
+        }
+
+        .practice-priority-score-legend-item.learning .practice-priority-score-legend-percent {
+            color: #2f75ea;
+        }
+
+        .practice-priority-score-legend-item.due .practice-priority-score-legend-percent {
+            color: #7b53c7;
+        }
+
+        .practice-priority-score-legend-percent {
+            font-weight: 700;
+        }
+
         .practice-priority-detail-grid {
             display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.42rem;
         }
 
@@ -3128,16 +3182,13 @@
             --reason-border: rgba(82, 96, 129, 0.12);
             display: grid;
             grid-template-columns: 84px minmax(0, 1fr);
-            border: 0.8px solid #e5eaf5;
+            border: 0.8px solid var(--reason-border);
             border-radius: 13px;
             overflow: hidden;
-            background: #fff;
+            background: linear-gradient(135deg, var(--reason-bg) 0%, #ffffff 78%);
             box-shadow: 0 3px 12px rgba(32, 47, 88, 0.04);
         }
 
-        .practice-priority-detail-card.no-side {
-            grid-template-columns: minmax(0, 1fr);
-        }
 
         .practice-priority-detail-card.missed {
             --reason-color: #d13c2f;
@@ -3165,8 +3216,7 @@
 
         .practice-priority-detail-side {
             padding: 0.6rem 0.66rem;
-            background: var(--reason-bg);
-            border-right: 0.8px solid var(--reason-border);
+            background: transparent;
             color: var(--reason-color);
             display: flex;
             flex-direction: column;
@@ -3197,18 +3247,254 @@
             gap: 0.52rem;
         }
 
+        .practice-priority-detail-card.missed {
+            display: block;
+            grid-template-columns: none;
+            padding: 0.5rem 0.66rem;
+        }
+
+        .practice-priority-detail-missed-header {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--reason-color);
+        }
+
+        .practice-priority-detail-missed-header .practice-priority-detail-points {
+            line-height: 1;
+        }
+
+        .practice-priority-detail-missed-header .practice-priority-detail-title {
+            font-size: 0.78rem;
+        }
+
+        .practice-priority-detail-missed-content {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-top: 0.32rem;
+        }
+
         .practice-priority-detail-card.missed .practice-priority-detail-side {
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
+            padding: 0;
+            flex: 0 0 auto;
         }
 
         .practice-priority-detail-card.missed .practice-priority-detail-body {
-            padding-top: 0.42rem;
-            padding-bottom: 0.42rem;
+            padding: 0;
+            flex: 1 1 auto;
+        }
+
+        .practice-priority-detail-card.missed .practice-priority-detail-points {
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .practice-priority-detail-card.slow {
+            display: block;
+            grid-template-columns: none;
+            padding: 0.5rem 0.66rem;
+        }
+
+        .practice-priority-detail-slow-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.4rem;
+            color: var(--reason-color);
+        }
+
+        .practice-priority-detail-slow-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .practice-priority-detail-slow-header .practice-priority-detail-title {
+            font-size: 0.78rem;
+        }
+
+        .practice-priority-detail-slow-header .practice-priority-detail-points {
+            font-size: 0.78rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .practice-priority-detail-slow-content {
+            margin-top: 0.32rem;
+        }
+
+        .practice-priority-detail-card.slow .practice-priority-detail-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.02rem;
+            text-align: right;
+        }
+
+        .practice-priority-detail-card.slow .practice-priority-detail-caption {
+            font-size: 0.58rem;
+        }
+
+        .practice-priority-detail-card.slow .practice-priority-detail-value {
+            font-size: 0.78rem;
+            margin-top: 0;
+            line-height: 1;
+        }
+
+        .practice-priority-detail-card.slow .practice-priority-detail-visual {
+            padding: 0 0.6rem;
+            min-width: 0;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .practice-priority-detail-card.slow .practice-priority-axis {
+            width: 100%;
+            max-width: none;
+        }
+
+        .practice-priority-detail-card.slow .practice-priority-axis-track {
+            height: 42px;
+        }
+
+        .practice-priority-detail-card.slow .practice-priority-axis-line {
+            top: 34px;
+        }
+
+        .practice-priority-detail-card.slow .practice-priority-axis-tick {
+            top: 30px;
+        }
+
+        .practice-priority-detail-card.due {
+            display: block;
+            grid-template-columns: none;
+            padding: 0.5rem 0.66rem;
+        }
+
+        .practice-priority-detail-due-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.4rem;
+            color: var(--reason-color);
+        }
+
+        .practice-priority-detail-due-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .practice-priority-detail-due-header .practice-priority-detail-title {
+            font-size: 0.78rem;
+        }
+
+        .practice-priority-detail-due-header .practice-priority-detail-points {
+            font-size: 0.78rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .practice-priority-detail-due-content {
+            margin-top: 0.32rem;
+        }
+
+        .practice-priority-detail-card.due .practice-priority-detail-visual {
+            padding: 0 0.6rem;
+            min-width: 0;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .practice-priority-detail-card.due .practice-priority-axis {
+            width: 100%;
+            max-width: none;
+        }
+
+        .practice-priority-detail-card.due .practice-priority-axis-track {
+            height: 42px;
+        }
+
+        .practice-priority-detail-card.due .practice-priority-axis-line {
+            top: 34px;
+        }
+
+        .practice-priority-detail-card.due .practice-priority-axis-tick {
+            top: 30px;
+        }
+
+        .practice-priority-detail-card.learning {
+            display: block;
+            grid-template-columns: none;
+            padding: 0.5rem 0.66rem;
+        }
+
+        .practice-priority-detail-learning-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.4rem;
+            color: var(--reason-color);
+        }
+
+        .practice-priority-detail-learning-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .practice-priority-detail-learning-header .practice-priority-detail-title {
+            font-size: 0.78rem;
+        }
+
+        .practice-priority-detail-learning-header .practice-priority-detail-points {
+            font-size: 0.78rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .practice-priority-detail-learning-content {
+            margin-top: 0.5rem;
+            padding-bottom: 0.2rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .practice-priority-detail-card.learning .practice-priority-learning-visual {
+            width: 100%;
+            gap: 0.42rem;
+        }
+
+        .practice-priority-detail-card.learning .practice-priority-learning-dots {
+            gap: 0.5rem;
+        }
+
+        .practice-priority-learning-attempts {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 0.42rem;
+            color: var(--reason-color);
+        }
+
+        .practice-priority-learning-attempts-caption {
+            font-size: 0.66rem;
+            font-weight: 700;
+            opacity: 0.85;
+        }
+
+        .practice-priority-learning-attempts-value {
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .practice-priority-detail-card.learning .practice-priority-learning-caption-note {
+            font-size: 0.66rem;
         }
 
         .practice-priority-detail-card.missed .practice-priority-detail-visual {
-            min-width: 96px;
+            min-width: 92px;
         }
 
         .practice-priority-detail-card.slow .practice-priority-detail-side,
@@ -3251,6 +3537,29 @@
             font-size: 0.78rem;
             font-weight: 700;
             line-height: 1.25;
+        }
+
+        .practice-priority-detail-caption {
+            color: var(--reason-color);
+            font-size: 0.78rem;
+            font-weight: 600;
+            line-height: 1.2;
+            opacity: 0.82;
+        }
+
+        .practice-priority-detail-value {
+            color: var(--reason-color);
+            font-size: 1.5rem;
+            font-weight: 800;
+            line-height: 1.05;
+            margin-top: 0.04rem;
+        }
+
+        .practice-priority-detail-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 0.04rem;
+            margin-top: 0.18rem;
         }
 
         .practice-priority-detail-sub {
@@ -3321,8 +3630,8 @@
         }
 
         .practice-priority-detail-card.missed .practice-priority-donut {
-            width: 50px;
-            height: 50px;
+            width: 56px;
+            height: 56px;
         }
 
         .practice-priority-donut-inner {
@@ -3342,9 +3651,9 @@
         }
 
         .practice-priority-detail-card.missed .practice-priority-donut-inner {
-            width: 34px;
-            height: 34px;
-            font-size: 0.58rem;
+            width: 40px;
+            height: 40px;
+            font-size: 0.66rem;
         }
 
         .practice-priority-donut-inner.positive {
@@ -3403,12 +3712,12 @@
         }
 
         .practice-priority-axis-marker.anchor-start {
-            transform: translateX(0);
+            transform: translateX(-4px);
             justify-items: start;
         }
 
         .practice-priority-axis-marker.anchor-end {
-            transform: translateX(-100%);
+            transform: translateX(calc(-100% + 4px));
             justify-items: end;
         }
 
@@ -3429,14 +3738,6 @@
             clip-path: polygon(0 0, 100% 0, 50% 100%);
         }
 
-        .practice-priority-axis-marker.anchor-start::after {
-            margin-left: 0;
-        }
-
-        .practice-priority-axis-marker.anchor-end::after {
-            margin-right: 0;
-        }
-
         .practice-priority-axis-marker-label {
             display: inline-block;
             min-width: 0;
@@ -3445,6 +3746,16 @@
             font-size: 0.7rem;
             font-weight: 800;
             line-height: 1;
+        }
+
+        .practice-priority-axis-marker-caption {
+            display: inline-block;
+            white-space: nowrap;
+            text-align: center;
+            font-size: 0.55rem;
+            font-weight: 700;
+            line-height: 1;
+            opacity: 0.85;
         }
 
         .practice-priority-axis-labels {
@@ -3485,20 +3796,15 @@
             color: #c53929;
         }
 
-        .practice-priority-axis-placeholder {
-            width: 116px;
-            min-height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.24rem 0.36rem;
-            border: 0.8px dashed rgba(59, 68, 96, 0.18);
-            border-radius: 10px;
+        .practice-priority-detail-empty {
+            margin-top: 0.32rem;
+            padding: 0.36rem 0.5rem;
             color: #6b7791;
-            font-size: 0.62rem;
-            font-weight: 700;
-            line-height: 1.12;
+            font-size: 0.66rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-align: center;
+            opacity: 0.85;
         }
 
         .practice-priority-learning-visual {
@@ -3857,9 +4163,11 @@
         .type2-prompt-row {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            flex-wrap: nowrap;
+            gap: 0.4rem;
+            padding: 0.2rem 0.32rem 0.2rem 0.24rem;
+            background: linear-gradient(135deg, rgba(31, 142, 67, 0.09) 0%, rgba(31, 142, 67, 0.03) 100%);
+            border: 1px solid rgba(31, 142, 67, 0.22);
+            border-radius: 10px;
         }
 
         .type2-prompt-text {
@@ -3867,45 +4175,65 @@
             min-width: 0;
             text-align: left;
             overflow-wrap: anywhere;
+            font-size: 0.86rem;
+            line-height: 1.2;
         }
 
-        .type2-prompt-actions {
-            display: flex;
-            gap: 0.35rem;
-            flex-wrap: nowrap;
+        .expanded-detail-card.type2-card .card-back,
+        .expanded-detail-card.type2-card .card-back.size-md,
+        .expanded-detail-card.type2-card .card-back.size-sm,
+        .expanded-detail-card.type2-card .card-back.size-xs {
+            font-size: 0.86rem;
+            line-height: 1.2;
+        }
+
+        .type2-prompt-play {
             flex: 0 0 auto;
-        }
-
-        .type2-prompt-btn {
-            border: none;
-            border-radius: 6px;
-            padding: 0.3rem 0.5rem;
-            color: white;
-            cursor: pointer;
-            font-size: 0.78rem;
-            font-weight: 700;
+            width: 24px;
+            height: 24px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-        }
-
-        .type2-prompt-btn.edit {
-            background: #3f7ee8;
-        }
-
-        .type2-prompt-btn.edit:hover {
-            background: #306bd0;
-        }
-
-        .type2-prompt-btn.play {
+            border: none;
+            border-radius: 999px;
             background: #1f8e43;
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(31, 142, 67, 0.3);
+            transition: background 0.15s ease, transform 0.15s ease;
         }
 
-        .type2-prompt-btn.play:hover {
+        .type2-prompt-play:hover {
             background: #167236;
+            transform: scale(1.05);
         }
 
-        .type2-prompt-btn:disabled {
+        .type2-prompt-play svg {
+            margin-left: 1px;
+        }
+
+        .type2-prompt-edit {
+            flex: 0 0 auto;
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            color: #5e6d89;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .type2-prompt-edit:hover {
+            background: rgba(59, 68, 96, 0.1);
+            color: #1f2a44;
+        }
+
+        .type2-prompt-play:disabled,
+        .type2-prompt-edit:disabled {
             opacity: 0.55;
             cursor: not-allowed;
         }
@@ -3922,6 +4250,30 @@
                 grid-template-columns: fit-content(84px) minmax(0, 1fr);
                 gap: 0.45rem;
                 align-items: start;
+            }
+
+            .expanded-card-hero.has-aside {
+                grid-template-columns: fit-content(84px) minmax(0, 1fr) auto;
+            }
+
+            .practice-priority-hero-caption {
+                font-size: 0.7rem;
+            }
+
+            .practice-priority-hero-value {
+                font-size: 0.96rem;
+            }
+
+            .practice-priority-hero-rank {
+                font-size: 0.7rem;
+            }
+
+            .practice-priority-hero-session {
+                font-size: 0.66rem;
+            }
+
+            .practice-priority-hero-aside {
+                padding-left: 0.4rem;
             }
 
             .expanded-card-preview {
@@ -3946,6 +4298,18 @@
                 line-height: 1.15;
             }
 
+            .expanded-detail-card .card-back.size-md {
+                font-size: 0.78rem;
+            }
+
+            .expanded-detail-card .card-back.size-sm {
+                font-size: 0.72rem;
+            }
+
+            .expanded-detail-card .card-back.size-xs {
+                font-size: 0.66rem;
+            }
+
             .expanded-detail-card .card-deck-row {
                 margin-top: 0.24rem;
             }
@@ -3954,18 +4318,6 @@
                 max-width: 100%;
                 padding: 0.18rem 0.46rem;
                 font-size: 0.72rem;
-            }
-
-            .practice-priority-score-head {
-                font-size: 0.78rem;
-            }
-
-            .practice-priority-score-caption {
-                font-size: 0.68rem;
-            }
-
-            .practice-priority-score-value {
-                font-size: 0.88rem;
             }
 
             .practice-priority-score-bar {
@@ -3977,13 +4329,13 @@
                 border-radius: 12px;
             }
 
-            .practice-priority-detail-card.no-side {
-                grid-template-columns: minmax(0, 1fr);
+            .practice-priority-detail-card.missed {
+                padding: 0.42rem 0.5rem;
             }
 
             .practice-priority-detail-side {
                 padding: 0.48rem 0.5rem;
-                border-right: 0.8px solid var(--reason-border);
+                border-right: 0;
                 border-bottom: 0;
             }
 
@@ -4011,6 +4363,14 @@
                 line-height: 1.18;
             }
 
+            .practice-priority-detail-caption {
+                font-size: 0.7rem;
+            }
+
+            .practice-priority-detail-value {
+                font-size: 1.22rem;
+            }
+
             .practice-priority-detail-sub {
                 font-size: 0.64rem;
                 line-height: 1.15;
@@ -4019,11 +4379,6 @@
             .practice-priority-detail-visual {
                 min-width: 96px;
                 justify-content: flex-end;
-            }
-
-            .practice-priority-detail-card.missed .practice-priority-detail-body {
-                padding-top: 0.38rem;
-                padding-bottom: 0.38rem;
             }
 
             .practice-priority-detail-card.slow .practice-priority-detail-body,
@@ -4044,14 +4399,14 @@
             }
 
             .practice-priority-donut {
-                width: 48px;
-                height: 48px;
+                width: 66px;
+                height: 66px;
             }
 
             .practice-priority-donut-inner {
-                width: 32px;
-                height: 32px;
-                font-size: 0.5rem;
+                width: 48px;
+                height: 48px;
+                font-size: 0.7rem;
             }
 
             .practice-priority-axis {
@@ -4100,14 +4455,6 @@
 
             .practice-priority-axis-end-note {
                 font-size: 0.5rem;
-            }
-
-            .practice-priority-axis-placeholder {
-                width: 90px;
-                min-height: 28px;
-                padding: 0.18rem 0.24rem;
-                font-size: 0.5rem;
-                border-radius: 8px;
             }
 
             .practice-priority-learning-visual {
