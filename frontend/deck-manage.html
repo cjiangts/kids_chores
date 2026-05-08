@@ -163,30 +163,13 @@
         }
 
         .deck-tree-search-wrap {
-            display: flex;
-            align-items: center;
             flex: 1 1 0;
             min-width: 0;
         }
 
-        .deck-tree-search-input {
-            width: 100%;
-            min-width: 0;
+        .deck-tree-toolbar .search-bar-input {
             min-height: 36px;
             height: 36px;
-            padding: 0.35rem 0.76rem;
-            border: 1px solid #ccd3e0;
-            border-radius: 10px;
-            font-size: 0.92rem;
-            background: #f8f9fb;
-            color: #334;
-            outline: none;
-        }
-
-        .deck-tree-search-input:focus {
-            border-color: #3d7ee6;
-            background: #fff;
-            box-shadow: 0 0 0 3px rgba(61, 126, 230, 0.12);
         }
 
         .deck-tree-toolbar-btn {
@@ -446,10 +429,9 @@
         }
 
         @media (max-width: 520px) {
-            .deck-tree-search-input {
+            .deck-tree-toolbar .search-bar-input {
                 min-height: 34px;
                 height: 34px;
-                padding: 0.32rem 0.68rem;
                 font-size: 0.9rem;
             }
 
@@ -508,15 +490,15 @@
 
             <section class="deck-panel settings-section deck-list-section">
                 <div id="deckTreeToolbar" class="deck-tree-toolbar hidden">
-                    <label class="deck-tree-search-wrap">
+                    <div class="search-bar deck-tree-search-wrap">
                         <input
                             id="deckTreeSearchInput"
                             type="text"
-                            class="deck-tree-search-input"
+                            class="search-bar-input"
                             placeholder="Search decks or tags..."
                             aria-label="Search decks or tags"
                         >
-                    </label>
+                    </div>
                     <div id="deckTreeToolbarActions" class="deck-tree-toolbar-actions hidden">
                         <button id="deckTreeExpandAllBtn" type="button" class="deck-tree-toolbar-btn">Expand All</button>
                         <button id="deckTreeCollapseAllBtn" type="button" class="deck-tree-toolbar-btn">Collapse All</button>
@@ -533,6 +515,7 @@
 
     <script src="icons.js"></script>
     <script src="subject-icons.js"></script>
+    <script src="search-bar.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="deck-manage.js"></script>

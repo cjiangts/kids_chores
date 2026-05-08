@@ -63,7 +63,6 @@ def create_shared_deck_category():
                 raise ValueError('chineseBackContent is only allowed for type_i categories with hasChineseSpecificLogic=true')
             chinese_back_content = None
         display_name = normalize_optional_display_name(payload.get('displayName'))
-        emoji = normalize_optional_emoji(payload.get('emoji'))
 
         conn = get_shared_decks_connection()
         try:
@@ -75,17 +74,15 @@ def create_shared_deck_category():
                     has_chinese_specific_logic,
                     is_shared_with_non_super_family,
                     display_name,
-                    emoji,
                     chinese_back_content
                 )
-                VALUES (?, ?, ?, FALSE, ?, ?, ?)
+                VALUES (?, ?, ?, FALSE, ?, ?)
                 RETURNING
                   category_key,
                   behavior_type,
                   has_chinese_specific_logic,
                   is_shared_with_non_super_family,
                   display_name,
-                  emoji,
                   chinese_back_content
                 """,
                 [
@@ -93,7 +90,6 @@ def create_shared_deck_category():
                     behavior_type,
                     has_chinese_specific_logic,
                     display_name,
-                    emoji,
                     chinese_back_content,
                 ]
             ).fetchone()
@@ -109,8 +105,7 @@ def create_shared_deck_category():
                 'has_chinese_specific_logic': bool(row[2]),
                 'is_shared_with_non_super_family': bool(row[3]),
                 'display_name': str(row[4] or '').strip(),
-                'emoji': str(row[5] or '').strip(),
-                'chinese_back_content': str(row[6] or '').strip().lower(),
+                'chinese_back_content': str(row[5] or '').strip().lower(),
             },
         }), 201
     except ValueError as e:
@@ -119,62 +114,6 @@ def create_shared_deck_category():
         err = str(e).lower()
         if 'unique' in err and 'category_key' in err:
             return jsonify({'error': 'categoryKey already exists'}), 409
-        return jsonify({'error': str(e)}), 500
-
-
-@kids_bp.route('/shared-decks/categories/<category_key>/emoji', methods=['PUT'])
-def update_shared_deck_category_emoji(category_key):
-    """Update one shared deck category emoji (super-family only)."""
-    try:
-        auth_err = require_super_family()
-        if auth_err:
-            return auth_err
-
-        key = normalize_shared_deck_tag(category_key)
-        if not key:
-            return jsonify({'error': 'categoryKey is required'}), 400
-
-        payload = request.get_json() or {}
-        emoji = normalize_optional_emoji(payload.get('emoji'))
-
-        conn = get_shared_decks_connection()
-        try:
-            row = conn.execute(
-                """
-                UPDATE deck_category
-                SET emoji = ?
-                WHERE category_key = ?
-                RETURNING
-                  category_key,
-                  behavior_type,
-                  has_chinese_specific_logic,
-                  is_shared_with_non_super_family,
-                  display_name,
-                  emoji
-                """,
-                [emoji, key],
-            ).fetchone()
-        finally:
-            conn.close()
-
-        if row is None:
-            return jsonify({'error': 'Category not found'}), 404
-
-        invalidate_category_meta_cache()
-        return jsonify({
-            'updated': True,
-            'category': {
-                'category_key': str(row[0] or ''),
-                'behavior_type': str(row[1] or ''),
-                'has_chinese_specific_logic': bool(row[2]),
-                'is_shared_with_non_super_family': bool(row[3]),
-                'display_name': str(row[4] or '').strip(),
-                'emoji': str(row[5] or '').strip(),
-            },
-        }), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
@@ -199,8 +138,7 @@ def share_deck_category_to_non_super(category_key):
                   behavior_type,
                   has_chinese_specific_logic,
                   is_shared_with_non_super_family,
-                  display_name,
-                  emoji
+                  display_name
                 FROM deck_category
                 WHERE category_key = ?
                 LIMIT 1
@@ -222,8 +160,7 @@ def share_deck_category_to_non_super(category_key):
                       behavior_type,
                       has_chinese_specific_logic,
                       is_shared_with_non_super_family,
-                      display_name,
-                      emoji
+                      display_name
                     """,
                     [key],
                 ).fetchone()
@@ -235,8 +172,7 @@ def share_deck_category_to_non_super(category_key):
                       behavior_type,
                       has_chinese_specific_logic,
                       is_shared_with_non_super_family,
-                      display_name,
-                      emoji
+                      display_name
                     FROM deck_category
                     WHERE category_key = ?
                     LIMIT 1
@@ -257,7 +193,6 @@ def share_deck_category_to_non_super(category_key):
                 'has_chinese_specific_logic': bool(row[2]),
                 'is_shared_with_non_super_family': bool(row[3]),
                 'display_name': str(row[4] or '').strip(),
-                'emoji': str(row[5] or '').strip(),
             },
         }), 200
     except Exception as e:

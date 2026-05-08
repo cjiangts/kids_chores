@@ -167,7 +167,6 @@ from src.services.shared_deck_normalize import (
     normalize_deck_category_keys,
     normalize_optional_bool,
     normalize_optional_display_name,
-    normalize_optional_emoji,
     normalize_shared_deck_cards,
     normalize_shared_deck_category_behavior,
     normalize_shared_deck_fronts,
@@ -209,7 +208,6 @@ def get_shared_deck_categories(conn):
           has_chinese_specific_logic,
           is_shared_with_non_super_family,
           display_name,
-          emoji,
           chinese_back_content
         FROM deck_category
         ORDER BY category_key ASC
@@ -222,7 +220,7 @@ def get_shared_deck_categories(conn):
             continue
         has_chinese = bool(row[2])
         is_type_i = (behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I)
-        chinese_back_content = str(row[6] or '').strip().lower() if (has_chinese and is_type_i) else ''
+        chinese_back_content = str(row[5] or '').strip().lower() if (has_chinese and is_type_i) else ''
         if chinese_back_content not in ('pinyin', 'english'):
             chinese_back_content = ''
         categories.append({
@@ -231,7 +229,6 @@ def get_shared_deck_categories(conn):
             'has_chinese_specific_logic': has_chinese,
             'is_shared_with_non_super_family': bool(row[3]),
             'display_name': str(row[4] or '').strip(),
-            'emoji': str(row[5] or '').strip(),
             'chinese_back_content': chinese_back_content,
         })
     return categories
@@ -1364,7 +1361,6 @@ def get_shared_deck_category_meta_by_key():
             'has_chinese_specific_logic': bool(item.get('has_chinese_specific_logic')),
             'is_shared_with_non_super_family': bool(item.get('is_shared_with_non_super_family')),
             'display_name': str(item.get('display_name') or '').strip(),
-            'emoji': str(item.get('emoji') or '').strip(),
             'chinese_back_content': str(item.get('chinese_back_content') or '').strip().lower(),
         }
     _category_meta_cache['data'] = metadata_by_key
@@ -5494,6 +5490,15 @@ def encode_type1_submitted_grade(grade, *, used_prompt_audio=False):
 
 def build_type1_result_item_payload(answer, grade):
     """Build one optional type-I sidecar payload from a submitted answer."""
+    used_prompt_audio = did_use_type_i_prompt_audio(answer)
+    if answer.get('idk') is True:
+        return {
+            'submitted_answer': '',
+            'distractor_answers': normalize_type_i_distractor_answers(
+                answer.get('distractorAnswers')
+            ),
+            'grade': TYPE_I_RESULT_GRADE_IDK_AUDIO if used_prompt_audio else TYPE_I_RESULT_GRADE_IDK,
+        }
     submitted_answer = normalize_type_i_submitted_answer(answer.get('submittedAnswer'))
     if not submitted_answer:
         return None
@@ -5504,7 +5509,7 @@ def build_type1_result_item_payload(answer, grade):
         ),
         'grade': encode_type1_submitted_grade(
             grade,
-            used_prompt_audio=did_use_type_i_prompt_audio(answer),
+            used_prompt_audio=used_prompt_audio,
         ),
     }
 
@@ -6784,6 +6789,7 @@ SHARED_DECK_OP_GET_CARDS = 'shared_decks_get_cards'
 SHARED_DECK_OP_SKIP_UPDATE = 'shared_decks_skip_update'
 SHARED_DECK_OP_SKIP_UPDATE_BULK = 'shared_decks_skip_update_bulk'
 SHARED_DECK_OP_GET_DECKS = 'decks_get'
+SHARED_DECK_OP_CARD_SEARCH_INDEX = 'shared_decks_card_search_index'
 
 CATEGORY_CONFIG = {}
 
@@ -7665,6 +7671,54 @@ def get_shared_decks_for_scope(kid_id, category):
         return jsonify({'error': str(e)}), 500
 
 
+def get_shared_decks_card_search_index_for_scope(kid_id, category):
+    """Return lightweight card index ({deck_id, front, back}) for all shared decks in one scope."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        scope_context = resolve_shared_scope_management_context(
+            kid,
+            category,
+            request.args.get('categoryKey'),
+        )
+        first_tag = scope_context.get('first_tag') or scope_context.get('category_key')
+        management_type = scope_context['management_type']
+        shared_conn = get_shared_decks_connection(read_only=True)
+        try:
+            decks = get_shared_deck_rows_by_first_tag(shared_conn, first_tag)
+            deck_ids = [int(deck['deck_id']) for deck in decks]
+            cards = []
+            if deck_ids:
+                placeholders = ','.join(['?'] * len(deck_ids))
+                rows = shared_conn.execute(
+                    f"""
+                    SELECT deck_id, front, back
+                    FROM cards
+                    WHERE deck_id IN ({placeholders})
+                    ORDER BY deck_id ASC, id ASC
+                    """,
+                    deck_ids
+                ).fetchall()
+                for row in rows:
+                    cards.append({
+                        'shared_deck_id': int(row[0]),
+                        'front': str(row[1] or ''),
+                        'back': str(row[2] or ''),
+                    })
+        finally:
+            shared_conn.close()
+        return jsonify({
+            'cards': cards,
+            'management_type': management_type,
+            'category_key': scope_context.get('category_key'),
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def opt_in_shared_decks_for_scope(kid_id, category):
     """Handle shared-decks opt-in by scope config."""
     try:
@@ -8015,6 +8069,7 @@ SHARED_DECK_OPERATION_HANDLERS = {
     SHARED_DECK_OP_SKIP_UPDATE: update_shared_card_skip_for_scope,
     SHARED_DECK_OP_SKIP_UPDATE_BULK: update_shared_card_skip_bulk_for_scope,
     SHARED_DECK_OP_GET_DECKS: get_decks_for_scope,
+    SHARED_DECK_OP_CARD_SEARCH_INDEX: get_shared_decks_card_search_index_for_scope,
 }
 
 

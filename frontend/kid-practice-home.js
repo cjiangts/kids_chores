@@ -22,7 +22,6 @@ const {
     getCategoryRawValueMap,
     getDeckCategoryMetaMap,
     getCategoryDisplayName,
-    getCategoryEmoji,
     normalizeCategoryKey,
     resolveChinesePracticeCategoryKey,
     resolveTypeINonChinesePracticeCategoryKey,
@@ -205,13 +204,14 @@ function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
     if (safeCount <= 0) {
         return '';
     }
+    const starIconHtml = icon('star', { size: 16, fill: 'currentColor' });
     if (safeCount <= 5) {
         return Array.from({ length: safeCount }, () => (
-            `<span class="${starClass}" aria-hidden="true">★</span>`
+            `<span class="${starClass}" aria-hidden="true">${starIconHtml}</span>`
         )).join('');
     }
     return `
-        <span class="${starClass}" aria-hidden="true">★</span>
+        <span class="${starClass}" aria-hidden="true">${starIconHtml}</span>
         <span class="${overflowClass}" aria-label="${safeCount} stars">x${safeCount}</span>
     `;
 }
@@ -455,7 +455,6 @@ function buildCategoryProgressModel({
 
 function buildCategoryCardInnerHtml({
     categoryKey,
-    emoji,
     displayName,
     progressModel,
 }) {
@@ -493,9 +492,7 @@ function buildCategoryCardInnerHtml({
         ? `<span class="practice-row-percent">${percentValue}%</span>`
         : '';
 
-    const tileHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey, {
-        fallbackEmoji: emoji,
-    });
+    const tileHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
     return `
         <span class="practice-row-tile" aria-hidden="true">${tileHtml}</span>
         <div class="practice-row-content">
@@ -522,7 +519,6 @@ function renderPracticeOptionCard({
     categoryKey,
     behaviorType,
     displayName,
-    emoji,
     dailyStarTiersByCategory,
     dailyCompletedByCategory,
     dailyPercentByCategory,
@@ -547,7 +543,6 @@ function renderPracticeOptionCard({
     });
     button.innerHTML = buildCategoryCardInnerHtml({
         categoryKey,
-        emoji,
         displayName,
         progressModel: model,
     });
@@ -732,7 +727,6 @@ function renderPracticeOptionButtons({
             categoryKey: key,
             behaviorType,
             displayName: getCategoryDisplayName(key, categoryMetaMap),
-            emoji: getCategoryEmoji(key, categoryMetaMap),
             dailyStarTiersByCategory,
             dailyCompletedByCategory,
             dailyPercentByCategory,

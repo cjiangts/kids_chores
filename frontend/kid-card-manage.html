@@ -128,12 +128,11 @@
                     </button>
                     <div id="sourceDeckFilterPopover" class="sort-menu-popover hidden" role="menu" aria-hidden="true"></div>
                 </div>
-                <div class="cards-search-wrap">
-                    <span class="cards-search-icon" data-icon="search" data-icon-stroke="2"></span>
+                <div class="search-bar cards-search-wrap">
                     <input
                         type="text"
                         id="cardSearchInput"
-                        class="cards-search-input"
+                        class="search-bar-input"
                         placeholder="Search cards..."
                         aria-label="Search cards"
                     >
@@ -195,6 +194,13 @@
                 <div class="cards-bulk-action-message-wrap">
                     <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>
                 </div>
+                <div id="cardFocusBanner" class="card-focus-banner hidden" aria-hidden="true">
+                    <span class="card-focus-banner-label">Focused on</span>
+                    <span id="cardFocusBannerText" class="card-focus-banner-text"></span>
+                    <button type="button" id="cardFocusBannerClear" class="card-focus-banner-clear" aria-label="Clear focus">
+                        <span data-icon="x" data-icon-size="14" data-icon-stroke="2.4"></span>
+                    </button>
+                </div>
                 <div id="cardsGrid" class="cards-grid"></div>
                 <div id="cardsStatsView" class="cards-stats-view"></div>
                 <div id="cardsReportView" class="cards-report-view">
@@ -218,17 +224,16 @@
         <div class="modal-content modal-large" role="dialog" aria-modal="true" aria-labelledby="deckTreeHeading">
             <div class="deck-tree-header">
                 <div class="deck-tree-header-left">
-                    <h2 id="deckTreeHeading" style="margin:0">Deck Opt-in</h2>
-                    <button id="deckTreeInfoBtn" type="button" class="optin-note-btn" title="How deck opt-in works"><span data-icon="info" data-icon-size="14" data-icon-stroke="2"></span></button>
+                    <h2 id="deckTreeHeading" style="margin:0"><span class="icon" data-icon="layers" data-icon-size="22"></span> Deck Opt-in</h2>
+                    <button id="deckTreeInfoBtn" type="button" class="optin-note-btn" aria-label="How deck opt-in works" title="How deck opt-in works"><span data-icon="info" data-icon-size="18" data-icon-stroke="2.2"></span></button>
                     <span id="deckTreeCounter" class="deck-tree-counter"></span>
                 </div>
                 <div class="deck-tree-search-row">
-                    <label class="deck-tree-search-wrap">
-                        <span class="deck-tree-search-icon" data-icon="search" data-icon-size="16" data-icon-stroke="2.2" aria-hidden="true"></span>
-                        <input id="deckTreeSearchInput" type="text" class="deck-tree-search-input" placeholder="Search decks...">
-                    </label>
-                    <button id="deckTreeExpandAllBtn" type="button" class="deck-tree-icon-btn" title="Expand all"><span data-icon="chevrons-up-down" data-icon-size="14" data-icon-stroke="2.2"></span> Expand</button>
-                    <button id="deckTreeCollapseAllBtn" type="button" class="deck-tree-icon-btn" title="Collapse all"><span data-icon="chevrons-down-up" data-icon-size="14" data-icon-stroke="2.2"></span> Collapse</button>
+                    <div class="search-bar deck-tree-search-wrap">
+                        <input id="deckTreeSearchInput" type="text" class="search-bar-input" placeholder="Search decks or card content...">
+                    </div>
+                    <button id="deckTreeExpandAllBtn" type="button" class="deck-tree-icon-btn" title="Expand all" aria-label="Expand all"><span data-icon="chevrons-up-down" data-icon-size="14" data-icon-stroke="2.2"></span><span class="deck-tree-icon-btn-label">Expand</span></button>
+                    <button id="deckTreeCollapseAllBtn" type="button" class="deck-tree-icon-btn" title="Collapse all" aria-label="Collapse all"><span data-icon="chevrons-down-up" data-icon-size="14" data-icon-stroke="2.2"></span><span class="deck-tree-icon-btn-label">Collapse</span></button>
                 </div>
             </div>
             <div class="manage-popup-modal-body">
@@ -250,7 +255,7 @@
             <div id="type4DeckCountsModal" class="modal hidden manage-popup-modal" aria-hidden="true">
         <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="type4DeckCountsHeading">
             <div class="manage-popup-title-row">
-                <h2 id="type4DeckCountsHeading">Deck Counts</h2>
+                <h2 id="type4DeckCountsHeading"><span class="icon" data-icon="bar-chart-3" data-icon-size="22"></span> Deck Counts</h2>
             </div>
             <div class="manage-popup-modal-body type4-deck-counts-modal-body">
                 <div class="type4-deck-counts-toolbar">
@@ -282,7 +287,7 @@
         <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="type4GeneratorHeading">
             <div class="manage-popup-title-row type4-generator-title-row">
                 <div class="type4-generator-title-copy">
-                    <h2 id="type4GeneratorHeading">Generator</h2>
+                    <h2><span class="icon" data-icon="sparkles" data-icon-size="22"></span> <span id="type4GeneratorHeading">Generator</span></h2>
                     <div id="type4GeneratorDeckText" class="type4-generator-deck-text"></div>
                 </div>
                 <div class="manage-popup-title-actions">
@@ -310,7 +315,7 @@
     <div id="personalDeckModal" class="modal hidden manage-popup-modal" aria-hidden="true">
         <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="personalDeckModalHeading">
             <div class="manage-popup-title-row">
-                <h2 id="personalDeckModalHeading">Personal Deck Editor</h2>
+                <h2 id="personalDeckModalHeading"><span class="icon" data-icon="pencil" data-icon-size="22"></span> Personal Deck Editor</h2>
             </div>
             <div class="manage-popup-modal-body">
                 <p id="personalDeckModalNote" class="deck-v2-note">Bulk add Chinese characters to the Personal Deck.</p>
@@ -340,12 +345,15 @@
                         </div>
                     </div>
                     <div class="orphan-editor-action-row">
+                        <div id="addCardStatusMessage" class="status-toast hidden" role="status" aria-live="polite">
+                            <span id="addCardStatusText" class="status-toast-text"></span>
+                            <button id="addCardStatusDismissBtn" type="button" class="status-toast-dismiss" aria-label="Dismiss">&times;</button>
+                        </div>
                         <button type="submit" id="addReadingBtn" class="submit-btn" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
                         <button id="clearPersonalDeckBtn" type="button" class="btn-secondary"><span class="icon" data-icon="trash" data-icon-size="18"></span> Clear</button>
                         <button id="personalDeckBackBtn" type="button" class="btn-secondary hidden"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</button>
                         <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary"><span class="icon" data-icon="x" data-icon-size="18"></span> Close</button>
                     </div>
-                    <div id="addCardStatusMessage" class="error hidden" style="margin-top:0.8rem;"></div>
                 </form>
             </div>
         </div>
@@ -378,6 +386,7 @@
 
     <script src="icons.js"></script>
     <script src="subject-icons.js"></script>
+    <script src="search-bar.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="deck-create-common.js"></script>
     <script src="practice-manage-common.js"></script>

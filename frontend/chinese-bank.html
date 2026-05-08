@@ -37,14 +37,9 @@
             align-items: center;
         }
 
-        .bank-filters input[type="text"] {
+        .bank-search-wrap {
             flex: 1;
             min-width: 160px;
-            padding: 0.45rem 0.7rem;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            background: #fff;
         }
 
         .bank-filter-group {
@@ -279,7 +274,9 @@
                 <div id="errorMessage" class="error-message"></div>
 
                 <div class="bank-filters">
-                    <input type="text" id="searchInput" placeholder="Search character, pinyin, or meaning..." />
+                    <div class="search-bar bank-search-wrap">
+                        <input type="text" id="searchInput" class="search-bar-input" placeholder="Search character, pinyin, or meaning..." />
+                    </div>
                     <div class="bank-filter-group" id="filterVerifiedGroup">
                         <button type="button" data-value="unverified">Used &amp; Unverified</button>
                         <button type="button" data-value="used">Used</button>
@@ -332,6 +329,7 @@
     </div>
 
     <script src="icons.js"></script>
+    <script src="search-bar.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="chinese-bank.js"></script>
 </body>

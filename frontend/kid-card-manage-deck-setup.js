@@ -211,6 +211,7 @@ async function requestOptOutDeckIds(deckIds) {
 let treeOptedDeckIdSet = new Set();
 let treeIncludeOrphan = false;
 let treeExpandedTags = null; // null = use default; Set = persisted state
+let expandedLeafDeckIds = new Set(); // string ids; orphan uses ORPHAN_BUBBLE_ID
 
 function buildDeckTree() {
     const root = { tag: null, label: null, children: new Map(), decks: [] };
@@ -348,16 +349,7 @@ function renderDeckTreeNode(node, depth) {
             rowClasses.push('selected');
         }
 
-        html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${deckId}">`;
-        html += `<div class="${rowClasses.join(' ')}">`;
-        html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
-        html += `<div class="deck-tree-row-body" data-tree-action="leaf" data-tree-deck-id="${deckId}">`;
-        html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
-        html += `<span class="deck-tree-label">${escapeHtml(node.label || node.tag)}${escapeHtml(suffix)}</span>`;
-        html += getDeckPendingBadgeHtml(deckId);
-        html += `</div>`;
-        html += `</div>`;
-        html += `</div>`;
+        html += renderDeckTreeLeafHtml(deckId, rowClasses, escapeHtml(node.label || node.tag) + escapeHtml(suffix));
         return html;
     }
 
@@ -405,16 +397,7 @@ function renderDeckTreeNode(node, depth) {
             rowClasses.push('selected');
         }
 
-        html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${deckId}">`;
-        html += `<div class="${rowClasses.join(' ')}">`;
-        html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
-        html += `<div class="deck-tree-row-body" data-tree-action="leaf" data-tree-deck-id="${deckId}">`;
-        html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
-        html += `<span class="deck-tree-label">${escapeHtml(label)}${escapeHtml(suffix)}</span>`;
-        html += getDeckPendingBadgeHtml(deckId);
-        html += `</div>`;
-        html += `</div>`;
-        html += `</div>`;
+        html += renderDeckTreeLeafHtml(deckId, rowClasses, escapeHtml(label) + escapeHtml(suffix));
     });
 
     if (node.tag !== null) {
@@ -422,6 +405,58 @@ function renderDeckTreeNode(node, depth) {
     }
 
     return html;
+}
+
+function renderDeckTreeLeafHtml(deckIdRaw, rowClasses, labelHtml, options = {}) {
+    const deckIdStr = String(deckIdRaw);
+    const isExpanded = expandedLeafDeckIds.has(deckIdStr);
+    const action = options.action || 'leaf';
+    const pendingBadge = options.pendingBadge !== undefined
+        ? options.pendingBadge
+        : (action === 'leaf' ? getDeckPendingBadgeHtml(Number(deckIdRaw)) : '');
+    let html = '';
+    html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${escapeHtml(deckIdStr)}">`;
+    html += `<div class="${rowClasses.join(' ')}">`;
+    html += `<button type="button" class="deck-tree-leaf-toggle${isExpanded ? ' expanded' : ''}" aria-label="Show cards in deck">&#9654;</button>`;
+    html += `<div class="deck-tree-row-body" data-tree-action="${escapeHtml(action)}" data-tree-deck-id="${escapeHtml(deckIdStr)}">`;
+    html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
+    html += `<span class="deck-tree-label">${labelHtml}</span>`;
+    html += pendingBadge;
+    html += `</div>`;
+    html += `</div>`;
+    const cardsClass = `deck-tree-leaf-cards${isExpanded ? '' : ' collapsed'}`;
+    const cardsBody = isExpanded ? buildLeafCardListHtml(deckIdStr) : '';
+    html += `<div class="${cardsClass}" data-leaf-deck-id="${escapeHtml(deckIdStr)}">${cardsBody}</div>`;
+    html += `</div>`;
+    return html;
+}
+
+function buildLeafCardListHtml(deckIdStr) {
+    const matchBack = isType2Behavior();
+    let cards = [];
+    if (deckIdStr === ORPHAN_BUBBLE_ID) {
+        const local = Array.isArray(currentCards) ? currentCards : [];
+        cards = local.filter((c) => c && c.source_is_orphan);
+    } else {
+        const wantId = Number(deckIdStr);
+        if (!wantId) return '';
+        if (!Array.isArray(sharedDeckCardSearchIndex)) {
+            return `<div class="deck-tree-leaf-cards-empty">Loading cards…</div>`;
+        }
+        cards = sharedDeckCardSearchIndex.filter((c) => Number(c && c.shared_deck_id) === wantId);
+    }
+    if (!cards.length) {
+        return `<div class="deck-tree-leaf-cards-empty">No cards.</div>`;
+    }
+    const items = cards.map((card) => {
+        const primary = matchBack ? String(card.back || '') : String(card.front || '');
+        const secondary = matchBack ? String(card.front || '') : String(card.back || '');
+        const secondaryHtml = secondary
+            ? `<span class="deck-tree-leaf-card-secondary">${escapeHtml(secondary)}</span>`
+            : '';
+        return `<li class="deck-tree-leaf-card-item"><span class="deck-tree-leaf-card-primary">${escapeHtml(primary)}</span>${secondaryHtml}</li>`;
+    }).join('');
+    return `<ul class="deck-tree-leaf-card-list">${items}</ul>`;
 }
 
 function getTreeTotalDeckCount() {
@@ -517,15 +552,11 @@ function renderDeckTree() {
             `;
         }
 
-        html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${ORPHAN_BUBBLE_ID}">`;
-        html += `<div class="${rowClasses.join(' ')}">`;
-        html += `<span class="deck-tree-toggle leaf-spacer"></span>`;
-        html += `<div class="deck-tree-row-body" data-tree-action="orphan">`;
-        html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
-        html += `<span class="deck-tree-label deck-tree-label-tag">&#11088; ${escapeHtml(getPersonalDeckDisplayName())} &middot; ${orphanCount} cards</span>`;
-        html += orphanBadge;
-        html += `</div>`;
-        html += `</div></div>`;
+        const orphanLabelHtml = `&#11088; ${escapeHtml(getPersonalDeckDisplayName())} &middot; ${orphanCount} cards`;
+        html += renderDeckTreeLeafHtml(ORPHAN_BUBBLE_ID, rowClasses, `<span class="deck-tree-label-tag">${orphanLabelHtml}</span>`, {
+            action: 'orphan',
+            pendingBadge: orphanBadge,
+        });
     }
 
     html += renderDeckTreeNode(tree, 0);
@@ -534,6 +565,10 @@ function renderDeckTree() {
 
     updateTreeCounter();
     updateTreeApplyButton();
+
+    if (typeof deckTreeSearchInput !== 'undefined' && deckTreeSearchInput && deckTreeSearchInput.value.trim()) {
+        applyTreeSearch(deckTreeSearchInput.value);
+    }
 }
 
 function updateTreeCounter() {
@@ -647,7 +682,32 @@ function toggleOrphanSelection() {
 }
 
 function handleTreeContainerClick(event) {
-    // Handle chevron toggle
+    // Handle leaf-deck cards toggle (reveals cards inside one deck)
+    const leafToggle = event.target.closest('.deck-tree-leaf-toggle');
+    if (leafToggle) {
+        const treeNode = leafToggle.closest('.deck-tree-leaf');
+        if (treeNode) {
+            const deckIdStr = treeNode.getAttribute('data-tree-deck-id') || '';
+            const cardsEl = treeNode.querySelector(':scope > .deck-tree-leaf-cards');
+            if (cardsEl) {
+                const isExpanded = !cardsEl.classList.contains('collapsed');
+                if (!isExpanded) {
+                    if (!cardsEl.dataset.populated) {
+                        cardsEl.innerHTML = buildLeafCardListHtml(deckIdStr);
+                        cardsEl.dataset.populated = '1';
+                    }
+                    expandedLeafDeckIds.add(deckIdStr);
+                } else {
+                    expandedLeafDeckIds.delete(deckIdStr);
+                }
+                cardsEl.classList.toggle('collapsed', isExpanded);
+                leafToggle.classList.toggle('expanded', !isExpanded);
+            }
+        }
+        return;
+    }
+
+    // Handle branch chevron toggle
     const toggle = event.target.closest('.deck-tree-toggle:not(.leaf-spacer)');
     if (toggle) {
         const treeNode = toggle.closest('.deck-tree-node');
@@ -677,12 +737,133 @@ function handleTreeContainerClick(event) {
     }
 }
 
+// Card-text search index across ALL shared decks in the current scope (incl. non-opted-in).
+// Loaded lazily ONLY when the deck-tree modal opens, then cached for the page lifetime per scope.
+let sharedDeckCardSearchIndex = null;
+let sharedDeckCardSearchIndexScope = null;
+let sharedDeckCardSearchIndexPromise = null;
+
+async function ensureSharedDeckCardSearchIndex() {
+    if (sharedDeckCardSearchIndex && sharedDeckCardSearchIndexScope === currentSharedScope) {
+        return sharedDeckCardSearchIndex;
+    }
+    if (sharedDeckCardSearchIndexPromise && sharedDeckCardSearchIndexScope === currentSharedScope) {
+        return sharedDeckCardSearchIndexPromise;
+    }
+    sharedDeckCardSearchIndexScope = currentSharedScope;
+    sharedDeckCardSearchIndexPromise = (async () => {
+        try {
+            const response = await fetch(buildSharedDeckApiUrl('shared-decks/card-search-index'));
+            if (!response.ok) return [];
+            const payload = await response.json();
+            return Array.isArray(payload && payload.cards) ? payload.cards : [];
+        } catch (error) {
+            console.error('Error loading shared-deck card search index:', error);
+            return [];
+        }
+    })();
+    const cards = await sharedDeckCardSearchIndexPromise;
+    if (sharedDeckCardSearchIndexScope === currentSharedScope) {
+        sharedDeckCardSearchIndex = cards;
+    }
+    sharedDeckCardSearchIndexPromise = null;
+    return cards;
+}
+
+function getMatchingCardsByDeckId(q) {
+    const byDeck = new Map();
+    if (!q) return byDeck;
+    const matchBack = isType2Behavior();
+    const limitPerDeck = 8;
+
+    const sharedCards = Array.isArray(sharedDeckCardSearchIndex) ? sharedDeckCardSearchIndex : [];
+    for (const card of sharedCards) {
+        const sharedDeckId = String(card && card.shared_deck_id || '');
+        if (!sharedDeckId) continue;
+        const primary = matchBack ? String(card.back || '') : String(card.front || '');
+        if (!primary.toLowerCase().includes(q)) continue;
+        let bucket = byDeck.get(sharedDeckId);
+        if (!bucket) {
+            bucket = { shown: [], total: 0 };
+            byDeck.set(sharedDeckId, bucket);
+        }
+        bucket.total += 1;
+        if (bucket.shown.length < limitPerDeck) {
+            bucket.shown.push(card);
+        }
+    }
+
+    // Personal/orphan deck cards live only in the kid's DB — pull from currentCards.
+    const localCards = Array.isArray(currentCards) ? currentCards : [];
+    for (const card of localCards) {
+        if (!card || !card.source_is_orphan) continue;
+        const primary = matchBack ? String(card.back || '') : String(card.front || '');
+        if (!primary.toLowerCase().includes(q)) continue;
+        let bucket = byDeck.get(ORPHAN_BUBBLE_ID);
+        if (!bucket) {
+            bucket = { shown: [], total: 0 };
+            byDeck.set(ORPHAN_BUBBLE_ID, bucket);
+        }
+        bucket.total += 1;
+        if (bucket.shown.length < limitPerDeck) {
+            bucket.shown.push(card);
+        }
+    }
+
+    return byDeck;
+}
+
+function buildLeafMatchPreviewHtml(bucket, query) {
+    if (!bucket || !bucket.shown.length) return '';
+    const matchBack = isType2Behavior();
+    const items = bucket.shown.map((card) => {
+        const primary = matchBack ? String(card.back || '') : String(card.front || '');
+        const secondary = matchBack ? String(card.front || '') : String(card.back || '');
+        const primaryHtml = highlightQueryHtml(primary, query);
+        const secondaryHtml = secondary
+            ? `<span class="deck-tree-card-match-secondary">${escapeHtml(secondary)}</span>`
+            : '';
+        return `<li class="deck-tree-card-match-item"><span class="deck-tree-card-match-primary">${primaryHtml}</span>${secondaryHtml}</li>`;
+    }).join('');
+    const moreHtml = bucket.total > bucket.shown.length
+        ? `<li class="deck-tree-card-match-more">+${bucket.total - bucket.shown.length} more</li>`
+        : '';
+    return `<ul class="deck-tree-card-matches">${items}${moreHtml}</ul>`;
+}
+
+function highlightQueryHtml(text, query) {
+    const safeText = escapeHtml(String(text || ''));
+    if (!query) return safeText;
+    const lower = String(text || '').toLowerCase();
+    const q = query.toLowerCase();
+    let out = '';
+    let i = 0;
+    while (i < text.length) {
+        const idx = lower.indexOf(q, i);
+        if (idx === -1) {
+            out += escapeHtml(text.slice(i));
+            break;
+        }
+        if (idx > i) out += escapeHtml(text.slice(i, idx));
+        out += `<mark class="deck-tree-card-match-hit">${escapeHtml(text.slice(idx, idx + q.length))}</mark>`;
+        i = idx + q.length;
+    }
+    return out;
+}
+
+function clearLeafMatchPreviews() {
+    if (!deckTreeContainer) return;
+    deckTreeContainer.querySelectorAll('.deck-tree-card-matches').forEach((el) => el.remove());
+}
+
 function applyTreeSearch(query) {
     if (!deckTreeContainer) {
         return;
     }
     const q = String(query || '').trim().toLowerCase();
     const allNodes = deckTreeContainer.querySelectorAll('.deck-tree-node');
+
+    clearLeafMatchPreviews();
 
     if (!q) {
         allNodes.forEach((node) => node.classList.remove('search-hidden'));
@@ -715,13 +896,23 @@ function applyTreeSearch(query) {
         });
     }
 
-    // Match leaf nodes by their label text
+    const cardMatchesByDeckId = getMatchingCardsByDeckId(q);
+
+    // Match leaf nodes by their label text or by card content of cards in that deck
     const leafNodes = deckTreeContainer.querySelectorAll('.deck-tree-leaf');
     leafNodes.forEach((leaf) => {
         const labelEl = leaf.querySelector('.deck-tree-label');
         const text = (labelEl ? labelEl.textContent : '').toLowerCase();
-        if (text.includes(q)) {
+        const deckIdAttr = leaf.getAttribute('data-tree-deck-id') || '';
+        const bucket = deckIdAttr ? cardMatchesByDeckId.get(deckIdAttr) : null;
+        if (text.includes(q) || bucket) {
             showNodeAndAncestors(leaf);
+            if (bucket) {
+                const previewHtml = buildLeafMatchPreviewHtml(bucket, q);
+                if (previewHtml) {
+                    leaf.insertAdjacentHTML('beforeend', previewHtml);
+                }
+            }
         }
     });
 
@@ -757,11 +948,26 @@ async function openDeckTreeModal() {
     treeOptedDeckIdSet = new Set(stagedOptedDeckIdSet);
     treeIncludeOrphan = stagedIncludeOrphanInQueue;
     treeExpandedTags = null;
+    expandedLeafDeckIds = new Set();
     if (deckTreeSearchInput) {
         deckTreeSearchInput.value = '';
     }
     renderDeckTree();
     setManageModalOpen(deckTreeModal, true);
+
+    // Lazy-load card-text search index in background; re-render expanded leaves and re-apply search when ready.
+    ensureSharedDeckCardSearchIndex().then(() => {
+        if (deckTreeContainer && expandedLeafDeckIds.size) {
+            deckTreeContainer.querySelectorAll('.deck-tree-leaf-cards:not(.collapsed)').forEach((el) => {
+                const id = el.getAttribute('data-leaf-deck-id') || '';
+                el.innerHTML = buildLeafCardListHtml(id);
+                el.dataset.populated = '1';
+            });
+        }
+        if (deckTreeSearchInput && deckTreeSearchInput.value.trim()) {
+            applyTreeSearch(deckTreeSearchInput.value);
+        }
+    });
 }
 
 function closeDeckTreeModal() {

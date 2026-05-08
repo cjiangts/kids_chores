@@ -111,7 +111,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.title = 'View Deck - Kids Daily Chores';
         const pageHeading = document.querySelector('.page-header-row h1');
         if (pageHeading) {
-            pageHeading.textContent = '📖 View Deck';
+            pageHeading.innerHTML = '<span class="icon page-title-icon" data-icon="book-open" data-icon-size="28"></span> View Deck';
+            if (typeof hydrateIcons === 'function') hydrateIcons(pageHeading);
         }
         if (deleteDeckBtn) { deleteDeckBtn.classList.add('hidden'); }
         if (cloneDeckBtn) { cloneDeckBtn.classList.add('hidden'); }
@@ -899,7 +900,7 @@ function renderRenameExtraTags() {
                     class="rename-tag-remove-btn"
                     data-remove-rename-tag="${escapeHtml(tag)}"
                     aria-label="Remove ${escapeHtml(label)}"
-                >✕</button>
+                >${icon('x', { size: 14 })}</button>
             </span>
         `;
     }).join('');

@@ -1831,11 +1831,7 @@ async function loadFamilyRole() {
         familyAdminCard.classList.toggle('hidden', !isSuperFamily);
     }
     if (familyManageDeckLink) {
-        familyManageDeckLink.classList.remove('hidden');
-        const deckLabel = familyManageDeckLink.querySelector('.settings-action-label');
-        if (deckLabel) {
-            deckLabel.textContent = isSuperFamily ? 'Manage Decks' : 'View Decks';
-        }
+        familyManageDeckLink.classList.toggle('hidden', !isSuperFamily);
     }
     const chineseBankLink = document.getElementById('familyManageChineseBankLink');
     if (chineseBankLink) {

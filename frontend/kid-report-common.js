@@ -46,6 +46,7 @@
         const fixedCategoryKey = String(config?.fixedCategoryKey || '').trim();
         const isPinnedToCategory = Boolean(fixedCategoryKey);
         const clickBarToSession = Boolean(config?.clickBarToSession);
+        const initialHighlightSessionId = String(config?.highlightSessionId || '').trim();
 
         let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
         let allSessions = [];
@@ -54,6 +55,8 @@
         let dailyChartCategories = [];
         let dailyChartPageIndex = 0;
         let selectedDayKey = '';
+        let highlightSessionId = initialHighlightSessionId;
+        let highlightDayKey = '';
         const collapsedDayKeys = new Set();
         let categoryThemeByKey = new Map();
 
@@ -70,7 +73,31 @@
             dailyChartPageIndex = 0;
             collapsedDayKeys.clear();
             selectedDayKey = '';
+            const shouldScrollToHighlight = Boolean(highlightSessionId);
+            highlightDayKey = '';
+            if (highlightSessionId) {
+                const match = allSessions.find((session) => String(session?.id || '') === highlightSessionId);
+                if (match) {
+                    highlightDayKey = getSessionDateKey(match);
+                    if (highlightDayKey) {
+                        const today = getTodayKey();
+                        const daysBack = daysBetweenKeys(highlightDayKey, today);
+                        if (Number.isFinite(daysBack) && daysBack >= 0) {
+                            dailyChartPageIndex = Math.floor(daysBack / 7);
+                        }
+                    }
+                }
+            }
             renderAll();
+            if (shouldScrollToHighlight && highlightDayKey && elements.dailyChartBody) {
+                requestAnimationFrame(() => {
+                    const target = elements.dailyChartBody.querySelector('.daily-line-chart-col-highlighted')
+                        || elements.dailyChartBody;
+                    if (target && typeof target.scrollIntoView === 'function') {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                });
+            }
         }
 
         function renderInitialLoading(message) {
@@ -392,7 +419,7 @@
                 const isCollapsed = !allowDayDrill && collapsedDayKeys.has(dayKey);
                 const toggleBtn = allowDayDrill
                     ? ''
-                    : '<button type="button" class="day-group-toggle" aria-label="Toggle">⌃</button>';
+                    : `<button type="button" class="day-group-toggle" aria-label="Toggle">${icon('chevron-up', { size: 18 })}</button>`;
                 return `
                     <div class="day-group${isCollapsed ? ' collapsed' : ''}" data-day-key="${escapeHtml(dayKey)}">
                         <div class="day-group-header">
@@ -408,7 +435,6 @@
 
         function renderSessionCard(session) {
             const displayName = String(session?.category_display_name || '').trim() || String(session?.type || '');
-            const glyph = String(session?.category_emoji || '').trim() || '🧩';
             const categoryKey = normalizeCategoryKey(session?.type);
             const sessionUrl = buildSessionUrl(session);
             const time = formatSessionTime(session.started_at);
@@ -417,9 +443,7 @@
             const totalMins = (getSessionResponseMinutes(session) + getSessionRetryResponseMinutes(session)).toFixed(1);
             const result = getSessionResultMeta(session);
             const retries = safeNum(session.retry_count);
-            const iconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey, {
-                fallbackEmoji: glyph,
-            });
+            const iconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
             return `
                 <a href="${escapeHtml(sessionUrl)}" class="session-card">
                     <div class="session-icon">${iconHtml}</div>
@@ -478,7 +502,8 @@
                 const linkSession = daySessions[0] || null;
                 const linkUrl = linkSession ? buildSessionUrl(linkSession) : '';
                 const isLinkable = Boolean(linkSession);
-                const colClass = `daily-line-chart-col${isLinkable ? ' daily-line-chart-col-clickable' : ''}`;
+                const isHighlighted = Boolean(highlightDayKey) && String(row.date) === highlightDayKey;
+                const colClass = `daily-line-chart-col${isLinkable ? ' daily-line-chart-col-clickable' : ''}${isHighlighted ? ' daily-line-chart-col-highlighted' : ''}`;
                 const modeAnnotation = renderDayModeAnnotation(daySessions);
                 const tag = isLinkable ? 'a' : 'div';
                 const linkAttrs = isLinkable ? ` href="${escapeHtml(linkUrl)}"` : '';

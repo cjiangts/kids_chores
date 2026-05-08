@@ -29,6 +29,7 @@ const ICON_PATHS = {
     check: '<path d="M20 6 9 17l-5-5"/>',
     x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+    'chevron-right': '<path d="m9 18 6-6-6-6"/>',
     'arrow-up-right': '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
     'arrow-down-wide-narrow': '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/>',
     'arrow-up-narrow-wide': '<path d="m3 8 4-4 4 4"/><path d="M7 4v16"/><path d="M11 12h4"/><path d="M11 16h7"/><path d="M11 20h10"/>',
@@ -61,6 +62,8 @@ const ICON_PATHS = {
     search: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
     filter: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
     'chevron-down': '<polyline points="6 9 12 15 18 9"/>',
+    'chevron-up': '<polyline points="18 15 12 9 6 15"/>',
+    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/>',
     eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
     'eye-off': '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.7 19.7 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.6 19.6 0 0 1-3.17 4.19"/><path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
     'align-left': '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="17" x2="9" y2="17"/>',
@@ -81,10 +84,11 @@ function icon(name, opts) {
     const size = o.size || 22;
     const strokeWidth = o.strokeWidth || 2.4;
     const className = o.className || 'icon';
+    const fill = o.fill || 'none';
     const path = ICON_PATHS[name];
     if (!path) return '';
     return '<svg class="' + className + '" width="' + size + '" height="' + size +
-        '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + strokeWidth +
+        '" viewBox="0 0 24 24" fill="' + fill + '" stroke="currentColor" stroke-width="' + strokeWidth +
         '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
 }
 
@@ -99,9 +103,10 @@ function hydrateIcons(root) {
         if (!path) return;
         const size = el.dataset.iconSize || 22;
         const strokeWidth = el.dataset.iconStroke || 2.4;
+        const fill = el.dataset.iconFill || 'none';
         const cls = el.getAttribute('class') || 'icon';
         const svg = '<svg class="' + cls + '" width="' + size + '" height="' + size +
-            '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + strokeWidth +
+            '" viewBox="0 0 24 24" fill="' + fill + '" stroke="currentColor" stroke-width="' + strokeWidth +
             '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
         el.outerHTML = svg;
     });

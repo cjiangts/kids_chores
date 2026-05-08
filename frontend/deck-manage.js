@@ -30,19 +30,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!allowed) {
         return;
     }
-
     if (!isSuperFamily) {
-        if (createDeckNavBtn) {
-            createDeckNavBtn.classList.add('hidden');
-        }
-        if (createDeckBulkNavBtn) {
-            createDeckBulkNavBtn.classList.add('hidden');
-        }
-        document.title = 'View Decks - Kids Daily Chores';
-        const pageHeading = document.querySelector('.page-header-row h1');
-        if (pageHeading) {
-            pageHeading.textContent = '🗂️ View Decks';
-        }
+        window.location.href = '/admin.html';
+        return;
     }
 
     if (createDeckNavBtn) {
@@ -87,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (deckTreeSearchInput) {
+        window.SearchBar.enhance(deckTreeSearchInput);
         deckTreeSearchInput.addEventListener('input', () => {
             applyDeckTreeSearch(deckTreeSearchInput.value);
         });
@@ -174,7 +165,6 @@ async function loadDeckCategoryMeta() {
             nextOrder.push(key);
             next[key] = {
                 display_name: String(item && item.display_name ? item.display_name : '').trim(),
-                emoji: String(item && item.emoji ? item.emoji : '').trim(),
                 behavior_type: deckCategoryCommon.normalizeBehaviorType(item && item.behavior_type),
                 has_chinese_specific_logic: Boolean(item && item.has_chinese_specific_logic),
                 is_shared_with_non_super_family: Boolean(item && item.is_shared_with_non_super_family),
@@ -296,7 +286,7 @@ function renderCategoryFilters() {
     }
 
     const categoryItems = getCategoryFilterItems();
-    const manageCategoryButtonHtml = isSuperFamily ? `
+    const manageCategoryButtonHtml = `
         <button
             type="button"
             class="deck-category-filter-btn deck-category-manage-btn"
@@ -309,7 +299,7 @@ function renderCategoryFilters() {
             </span>
             <span class="deck-category-filter-desc">Create and configure subjects.</span>
         </button>
-    ` : '';
+    `;
 
     if (categoryItems.length === 0) {
         selectedCategoryFilterKey = '';
@@ -539,7 +529,7 @@ function renderDeckLeafRow(deck, labelOverride = '') {
                     <span class="deck-tree-row-meta">
                         ${metaParts.join(' ')}
                         <span class="deck-tree-leaf-actions">
-                            ${isSuperFamily ? `<button type="button" class="deck-tree-leaf-btn" data-leaf-action="edit" data-deck-id="${deckId}">Edit</button>` : ''}
+                            <button type="button" class="deck-tree-leaf-btn" data-leaf-action="edit" data-deck-id="${deckId}">Edit</button>
                         </span>
                     </span>
                 </div>
@@ -595,7 +585,7 @@ function renderDeckTreeNode(node, depth) {
                     </span>
                     <span class="deck-tree-row-meta">
                         ${escapeHtml(`${deckCountText} · ${cardCountText}`)}
-                        ${isSuperFamily ? `<span class="deck-tree-leaf-actions"><button type="button" class="deck-tree-leaf-btn" data-branch-action="rename" data-branch-tag="${escapeHtml(node.tag)}" data-branch-label="${escapeHtml(node.label || node.tag)}" data-branch-tag-index="${depth}">Rename</button></span>` : ''}
+                        <span class="deck-tree-leaf-actions"><button type="button" class="deck-tree-leaf-btn" data-branch-action="rename" data-branch-tag="${escapeHtml(node.tag)}" data-branch-label="${escapeHtml(node.label || node.tag)}" data-branch-tag-index="${depth}">Rename</button></span>
                     </span>
                 </div>
             </div>

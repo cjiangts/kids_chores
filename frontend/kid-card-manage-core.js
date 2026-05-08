@@ -114,6 +114,9 @@ const sortDirectionToggleBtns = sortDirectionToggleGroup
     ? Array.from(sortDirectionToggleGroup.querySelectorAll('.sort-direction-toggle-btn'))
     : [];
 const cardSearchInput = document.getElementById('cardSearchInput');
+const cardFocusBanner = document.getElementById('cardFocusBanner');
+const cardFocusBannerText = document.getElementById('cardFocusBannerText');
+const cardFocusBannerClear = document.getElementById('cardFocusBannerClear');
 const sourceDeckFilterBtn = document.getElementById('sourceDeckFilterBtn');
 const sourceDeckFilterBtnLabel = document.getElementById('sourceDeckFilterBtnLabel');
 const sourceDeckFilterPopover = document.getElementById('sourceDeckFilterPopover');
@@ -151,6 +154,9 @@ function normalizeCardsViewMode(value) {
     return CARDS_VIEW_MODES.has(value) ? value : 'queue';
 }
 let currentCardsViewMode = (() => {
+    if (String(params.get('cardId') || '').trim()) return 'queue';
+    const urlView = String(params.get('view') || '').trim();
+    if (urlView && CARDS_VIEW_MODES.has(urlView)) return urlView;
     try {
         return normalizeCardsViewMode(localStorage.getItem(CARDS_VIEW_MODE_STORAGE_KEY));
     } catch (_err) {
@@ -172,7 +178,7 @@ let currentSharedScope = SHARED_SCOPE_CARDS;
 let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
 let isReadingBulkAdding = false;
 let currentSkippedCardCount = 0;
-let currentCardViewMode = 'short';
+let currentCardViewMode = String(params.get('cardId') || '').trim() ? 'long' : 'short';
 let expandedCompactCardIds = new Set();
 let isBulkSkipActionInFlight = false;
 let isBulkDownloadInFlight = false;
@@ -192,6 +198,10 @@ let isType4GeneratorPreviewLoading = false;
 let type4GeneratorAceViewer = null;
 let currentCardSortDirection = CARD_SORT_DIRECTION_DESC;
 let currentSourceDeckFilter = '';
+let focusedCardId = (() => {
+    const raw = String(params.get('cardId') || '').trim();
+    return raw || '';
+})();
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;
@@ -323,26 +333,19 @@ function showStatusMessage(message, isError = true) {
     if (!addCardStatusMessage) {
         return;
     }
+    const textEl = document.getElementById('addCardStatusText');
     const text = String(message || '').trim();
     if (!text) {
-        addCardStatusMessage.textContent = '';
+        if (textEl) textEl.textContent = '';
         addCardStatusMessage.classList.add('hidden');
         return;
     }
-    addCardStatusMessage.textContent = text;
+    if (textEl) {
+        textEl.textContent = text;
+    }
     addCardStatusMessage.classList.remove('hidden');
-    if (text) {
-        setManageModalOpen(personalDeckModal, true);
-    }
-    if (isError) {
-        addCardStatusMessage.style.background = '#f8d7da';
-        addCardStatusMessage.style.color = '#721c24';
-        addCardStatusMessage.style.border = '1px solid #f5c6cb';
-    } else {
-        addCardStatusMessage.style.background = '#d4edda';
-        addCardStatusMessage.style.color = '#155724';
-        addCardStatusMessage.style.border = '1px solid #c3e6cb';
-    }
+    addCardStatusMessage.classList.toggle('is-success', !isError);
+    setManageModalOpen(personalDeckModal, true);
 }
 
 function summarizeSkippedCardLabels(rawLabels) {

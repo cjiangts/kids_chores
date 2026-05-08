@@ -615,7 +615,7 @@ function renderTags() {
     }
     tagsContainer.innerHTML = extraTags.map((item) => {
         const tag = String(item && item.tag ? item.tag : '').trim();
-        return `<span class="deck-tag">${escapeHtml(tag)} <button type="button" data-tag="${escapeHtml(tag)}" aria-label="Remove ${escapeHtml(tag)}">✕</button></span>`;
+        return `<span class="deck-tag">${escapeHtml(tag)} <button type="button" data-tag="${escapeHtml(tag)}" aria-label="Remove ${escapeHtml(tag)}">${icon('x', { size: 14 })}</button></span>`;
     }).join('');
     tagsContainer.querySelectorAll('button[data-tag]').forEach((btn) => {
         btn.addEventListener('click', () => {

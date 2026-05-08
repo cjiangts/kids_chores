@@ -63,12 +63,11 @@ No build step, no ES modules. Each `.html` page loads its `.js` siblings via `<s
 |---|---|---|---|
 | Family home (admin) | [admin.html](frontend/admin.html) | [admin.js](frontend/admin.js) | — (uses styles.css) |
 | Login / register | index.html, family-register.html | family-login.js, family-register.js | — |
-| Parent settings (timezone, password, badges, rewards) | [parent-settings.html](frontend/parent-settings.html) | [parent-settings.js](frontend/parent-settings.js) (2.2k — split pending) | kid-badges.css, kid-badge-shelf-modal.css |
+| Parent settings (timezone, password, badges, rewards) | [parent-settings.html](frontend/parent-settings.html) | [parent-settings.js](frontend/parent-settings.js) (2.2k — split pending) | kid-badge-shelf-modal.css |
 | **Kid card management** (deck setup, card list, type-IV gen) | [kid-card-manage.html](frontend/kid-card-manage.html) | **8 files** — see below | [kid-card-manage.css](frontend/kid-card-manage.css) |
 | Kid practice runtime | [kid-practice.html](frontend/kid-practice.html) | [kid-practice.js](frontend/kid-practice.js) (3.3k — split pending) | — |
 | Kid practice home | kid-practice-home.html | kid-practice-home.js | — |
 | Kid reports | kid-report.html, kid-card-report.html, kid-session-report.html | kid-report.js, kid-card-report.js, kid-session-report.js | — |
-| Kid badges | kid-badges.html | kid-badges.js, kid-badge-celebration.js | kid-badges.css, kid-badge-celebration.css |
 | Deck create / view / manage / category | deck-create*.html, deck-view.html, deck-manage.html, deck-category-create.html | deck-create*.js, deck-view.js, deck-manage.js, deck-category-create.js | — |
 | Writing sheets | kid-writing-sheets.html, kid-writing-sheet-manage.html, writing-sheet-print.html | kid-writing-sheets.js, kid-writing-sheet-manage.js (2.7k), writing-sheet-print.js | kid-writing-sheet-manage.css |
 | Math sheet print | math-sheet-print.html | math-sheet-print.js | — |

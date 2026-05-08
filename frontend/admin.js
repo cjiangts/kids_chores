@@ -23,7 +23,6 @@ const {
     getCategoryValueMap,
     getDeckCategoryMetaMap,
     getCategoryDisplayName,
-    getCategoryEmoji,
 } = window.DeckCategoryCommon;
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 const KID_AVATAR_TONE_COUNT = 6;
@@ -444,7 +443,6 @@ function renderDeckCategoryModalLists() {
         .map((key) => {
             const isSelected = optedInKeys.has(key);
             const wasSelected = baselineKeys.has(key);
-            const emoji = getCategoryEmoji(key, categoryMetaMap);
             const label = getCategoryDisplayName(key, categoryMetaMap) || key;
             const checkHtml = isSelected ? '<span class="deck-cat-check">&#10003;</span>' : '<span class="deck-cat-check"></span>';
             let badgeHtml = '';
@@ -458,7 +456,6 @@ function renderDeckCategoryModalLists() {
                 : (isSelected ? 'deck-cat-row selected' : 'deck-cat-row');
             const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(key, {
                 size: 26,
-                fallbackEmoji: emoji,
             });
             return `<button type="button" class="${rowClass}" data-category-key="${escapeHtml(key)}">
                 <span class="deck-cat-icon" aria-hidden="true">${subjectIconHtml}</span>
@@ -605,14 +602,11 @@ function displayKids(kids) {
             : 'No subjects yet';
         const manageRows = optedInCategoryKeys.map((categoryKey) => {
             const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap);
-            const emoji = getCategoryEmoji(categoryKey, categoryMetaMap);
             const dailyTarget = Number.parseInt(practiceTargetByCategory[categoryKey], 10);
             const safeDailyTarget = Number.isInteger(dailyTarget) ? Math.max(0, dailyTarget) : 0;
             const note = `${safeDailyTarget}/day target`;
             const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
-            const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey, {
-                fallbackEmoji: emoji,
-            });
+            const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
             const tileHtml = `<span class="admin-subject-tile" aria-hidden="true">${subjectIconHtml}</span>`;
             const bodyHtml = `
                 <div class="admin-subject-body">

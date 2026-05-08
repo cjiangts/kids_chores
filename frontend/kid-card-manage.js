@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         deckTreeContainer.addEventListener('click', handleTreeContainerClick);
     }
     if (deckTreeSearchInput) {
+        window.SearchBar.enhance(deckTreeSearchInput);
         deckTreeSearchInput.addEventListener('input', () => {
             applyTreeSearch(deckTreeSearchInput.value);
         });
@@ -65,6 +66,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!deckTreeContainer) return;
             deckTreeContainer.querySelectorAll('.deck-tree-children').forEach((el) => el.classList.add('collapsed'));
             deckTreeContainer.querySelectorAll('.deck-tree-toggle').forEach((el) => el.classList.remove('expanded'));
+            deckTreeContainer.querySelectorAll('.deck-tree-leaf-cards').forEach((el) => el.classList.add('collapsed'));
+            deckTreeContainer.querySelectorAll('.deck-tree-leaf-toggle').forEach((el) => el.classList.remove('expanded'));
+            if (typeof expandedLeafDeckIds !== 'undefined' && expandedLeafDeckIds && typeof expandedLeafDeckIds.clear === 'function') {
+                expandedLeafDeckIds.clear();
+            }
         });
     }
     if (openType4DeckCountsModalBtn) {
@@ -152,6 +158,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             chineseCharInput.dispatchEvent(new Event('input', { bubbles: true }));
             showStatusMessage('');
             chineseCharInput.focus();
+        });
+    }
+    const addCardStatusDismissBtn = document.getElementById('addCardStatusDismissBtn');
+    if (addCardStatusDismissBtn) {
+        addCardStatusDismissBtn.addEventListener('click', () => {
+            showStatusMessage('');
         });
     }
     if (deckTreeModal) {
@@ -309,9 +321,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         cardViewModeExpandBtn.addEventListener('click', () => setCardViewMode('long'));
     }
     if (cardSearchInput) {
+        window.SearchBar.enhance(cardSearchInput);
         cardSearchInput.addEventListener('input', () => {
             resetAndDisplayCards(currentCards);
         });
+    }
+    if (cardFocusBannerClear) {
+        cardFocusBannerClear.addEventListener('click', clearFocusedCard);
     }
     if (cardsSelectModeBtn) {
         cardsSelectModeBtn.addEventListener('click', () => {

@@ -93,6 +93,7 @@ function getReportRenderer() {
     if (reportRenderer) return reportRenderer;
     const summaryGrid = document.getElementById('reportSummaryGrid');
     if (!summaryGrid) return null;
+    const highlightSessionId = String(params.get('highlightSessionId') || '').trim();
     reportRenderer = window.KidReportCommon.createReport({
         elements: {
             summaryGrid,
@@ -104,6 +105,7 @@ function getReportRenderer() {
         },
         fixedCategoryKey: categoryKey,
         clickBarToSession: true,
+        highlightSessionId: highlightSessionId || null,
         buildSessionUrl: (session) => {
             const qs = new URLSearchParams();
             qs.set('id', String(kidId));

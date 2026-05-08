@@ -8,6 +8,74 @@
     display: none !important;
 }
 
+.search-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    width: 100%;
+}
+
+.search-bar-input {
+    width: 100%;
+    min-width: 0;
+    padding: 0.45rem 2.2rem 0.45rem 2.2rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    line-height: 1.3;
+    background: #fff;
+    color: #1f2937;
+    box-sizing: border-box;
+}
+
+.search-bar-input::placeholder {
+    color: #9aa3b8;
+}
+
+.search-bar-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.search-bar-icon {
+    position: absolute;
+    left: 0.7rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: #8a96b3;
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-bar-clear {
+    position: absolute;
+    right: 0.45rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: #6b7693;
+    cursor: pointer;
+    padding: 0;
+}
+
+.search-bar-clear:hover {
+    background: #e2e8f5;
+    color: #2d3a5f;
+}
+
 .app-spinner {
     display: inline-block;
     width: 36px;
@@ -326,11 +394,17 @@ body {
 .manage-popup-title-row h2,
 .collapsible-section-head h2,
 .deck-v2-panel h2,
-.manage-page .cards-section h2,
-.kid-badge-section-title {
+.manage-page .cards-section h2 {
     color: var(--card-section-title-color);
     font-size: var(--card-section-title-size);
     line-height: var(--card-section-title-line-height);
+}
+
+h2:has(.icon),
+h3:has(.icon) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 

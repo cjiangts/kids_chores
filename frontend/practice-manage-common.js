@@ -1159,7 +1159,6 @@ window.PracticeManageCommon = {
                 behavior_type: normalizeKey(item.behavior_type),
                 has_chinese_specific_logic: Boolean(item.has_chinese_specific_logic),
                 display_name: String(item.display_name || '').trim(),
-                emoji: String(item.emoji || '').trim(),
             };
         });
         const hasOptedInData = Array.isArray(config.optedInCategoryKeys);
@@ -1250,8 +1249,7 @@ window.PracticeManageCommon = {
             const categoryKey = normalizeKey(rawCategoryKey);
             const categoryMeta = metaByKey[categoryKey] || {};
             const displayName = String(categoryMeta.display_name || '').trim() || toTitleCase(categoryKey);
-            const emoji = String(categoryMeta.emoji || '').trim() || '🧩';
-            return { emoji, displayName };
+            return { displayName };
         };
         const currentRoutePath = normalizeRoutePath(window.location.pathname);
         const currentQueryCategoryKey = normalizeKey(new URLSearchParams(window.location.search).get('categoryKey'));
@@ -1297,14 +1295,11 @@ window.PracticeManageCommon = {
                 }
                 qs.set('categoryKey', key);
                 anchor.href = `${routePath}?${qs.toString()}`;
-                const { emoji, displayName } = getCategoryLabelParts(key);
+                const { displayName } = getCategoryLabelParts(key);
                 const subjectIconHtml = (window.DeckCategoryCommon
                     && typeof window.DeckCategoryCommon.renderCategorySubjectIcon === 'function')
-                    ? window.DeckCategoryCommon.renderCategorySubjectIcon(key, {
-                        size: 20,
-                        fallbackEmoji: emoji,
-                    })
-                    : escapeHtml(emoji);
+                    ? window.DeckCategoryCommon.renderCategorySubjectIcon(key, { size: 20 })
+                    : '';
                 anchor.innerHTML = `<span class="manage-tab-emoji">${subjectIconHtml}</span><span class="manage-tab-label">${escapeHtml(displayName)}</span>`;
                 anchor.setAttribute('aria-label', displayName);
                 anchor.setAttribute('title', displayName);

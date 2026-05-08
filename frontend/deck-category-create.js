@@ -3,7 +3,6 @@ const API_BASE = `${window.location.origin}/api`;
 const createCategoryForm = document.getElementById('createCategoryForm');
 const categoryKeyInput = document.getElementById('categoryKeyInput');
 const displayNameInput = document.getElementById('displayNameInput');
-const emojiInput = document.getElementById('emojiInput');
 const createCategoryBtn = document.getElementById('createCategoryBtn');
 const tableWrap = document.getElementById('tableWrap');
 const emptyState = document.getElementById('emptyState');
@@ -12,19 +11,9 @@ const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const chineseLogicNote = document.getElementById('chineseLogicNote');
 const chineseBackContentFieldset = document.getElementById('chineseBackContentFieldset');
-const editEmojiModal = document.getElementById('editEmojiModal');
-const closeEditEmojiModalBtn = document.getElementById('closeEditEmojiModalBtn');
-const cancelEditEmojiModalBtn = document.getElementById('cancelEditEmojiModalBtn');
-const saveEditEmojiBtn = document.getElementById('saveEditEmojiBtn');
-const editEmojiCategoryKeyText = document.getElementById('editEmojiCategoryKeyText');
-const editEmojiCurrentText = document.getElementById('editEmojiCurrentText');
-const editEmojiInput = document.getElementById('editEmojiInput');
-const editEmojiError = document.getElementById('editEmojiError');
 
 let isCreating = false;
 const sharingCategoryKeys = new Set();
-let isSavingEmoji = false;
-let editingEmojiCategoryKey = '';
 let categoriesByKey = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -47,10 +36,6 @@ if (categoryTableBody) {
         if (!categoryKey) {
             return;
         }
-        if (button.getAttribute('data-action') === 'edit-emoji') {
-            openEditEmojiModal(categoryKey);
-            return;
-        }
         void shareCategory(categoryKey);
     });
 }
@@ -59,43 +44,6 @@ if (createCategoryForm) {
     createCategoryForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         await createCategory();
-    });
-}
-
-if (closeEditEmojiModalBtn) {
-    closeEditEmojiModalBtn.addEventListener('click', () => {
-        closeEditEmojiModal();
-    });
-}
-
-if (cancelEditEmojiModalBtn) {
-    cancelEditEmojiModalBtn.addEventListener('click', () => {
-        closeEditEmojiModal();
-    });
-}
-
-if (saveEditEmojiBtn) {
-    saveEditEmojiBtn.addEventListener('click', async () => {
-        await saveEditedEmoji();
-    });
-}
-
-if (editEmojiInput) {
-    editEmojiInput.addEventListener('keydown', (event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-            event.preventDefault();
-            void saveEditedEmoji();
-            return;
-        }
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            void saveEditedEmoji();
-            return;
-        }
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            closeEditEmojiModal();
-        }
     });
 }
 
@@ -268,7 +216,6 @@ function renderCategories(categories) {
         categoryTableBody.innerHTML = list.map((item) => {
             const key = String(item.category_key || '').trim();
             const displayName = String(item.display_name || '').trim();
-            const emoji = String(item.emoji || '').trim();
             const behavior = String(item.behavior_type || '').trim();
             const chineseSpecific = item.has_chinese_specific_logic ? 'Yes' : 'No';
             const chineseBackContentRaw = String(item.chinese_back_content || '').trim().toLowerCase();
@@ -279,7 +226,6 @@ function renderCategories(categories) {
                     : '—';
             const sharedWithNonSuper = Boolean(item.is_shared_with_non_super_family);
             const isSharing = sharingCategoryKeys.has(key);
-            const isEditingEmoji = isSavingEmoji && editingEmojiCategoryKey === key;
             const shareButton = sharedWithNonSuper
                 ? `<button type="button" class="btn-secondary" disabled>Shared</button>`
                 : `<button type="button" class="btn-primary" data-action="share-category" data-category-key="${escapeHtml(key)}" ${isSharing ? 'disabled' : ''}>${isSharing ? 'Sharing...' : 'Share to Non-super'}</button>`;
@@ -287,18 +233,6 @@ function renderCategories(categories) {
                 <tr>
                     <td>${escapeHtml(key)}</td>
                     <td>${escapeHtml(displayName)}</td>
-                    <td>
-                        <div class="category-emoji-cell">
-                            <span class="category-emoji-text">${escapeHtml(emoji || '—')}</span>
-                            <button
-                                type="button"
-                                class="btn-secondary category-emoji-btn"
-                                data-action="edit-emoji"
-                                data-category-key="${escapeHtml(key)}"
-                                ${isEditingEmoji ? 'disabled' : ''}
-                            >${isEditingEmoji ? 'Saving...' : 'Change'}</button>
-                        </div>
-                    </td>
                     <td>${escapeHtml(behavior)}</td>
                     <td>${escapeHtml(chineseSpecific)}</td>
                     <td>${escapeHtml(chineseBackContentLabel)}</td>
@@ -317,7 +251,6 @@ async function createCategory() {
 
     const categoryKey = normalizeCategoryKey(categoryKeyInput ? categoryKeyInput.value : '');
     const displayName = String(displayNameInput ? displayNameInput.value : '').trim();
-    const emoji = String(emojiInput ? emojiInput.value : '').trim();
     const behaviorType = getSelectedBehaviorType();
     const hasChineseSpecificLogic = getSelectedChineseSpecificLogic();
     const isTypeI = behaviorType === 'type_i';
@@ -353,7 +286,6 @@ async function createCategory() {
             body: JSON.stringify({
                 categoryKey,
                 displayName,
-                emoji,
                 behaviorType,
                 hasChineseSpecificLogic,
                 chineseBackContent,
@@ -371,9 +303,6 @@ async function createCategory() {
         }
         if (displayNameInput) {
             displayNameInput.value = '';
-        }
-        if (emojiInput) {
-            emojiInput.value = '';
         }
         resetChineseSpecificLogicSelection(false);
         resetChineseBackContentSelection();
@@ -421,108 +350,6 @@ async function shareCategory(categoryKey) {
         showError(error.message || 'Failed to share subject.');
     } finally {
         sharingCategoryKeys.delete(key);
-        await loadCategories();
-    }
-}
-
-function showEditEmojiError(message) {
-    if (!editEmojiError) {
-        return;
-    }
-    const text = String(message || '').trim();
-    if (!text) {
-        editEmojiError.textContent = '';
-        editEmojiError.classList.add('hidden');
-        return;
-    }
-    editEmojiError.textContent = text;
-    editEmojiError.classList.remove('hidden');
-}
-
-function setEditEmojiBusy(isBusy) {
-    isSavingEmoji = Boolean(isBusy);
-    if (saveEditEmojiBtn) {
-        saveEditEmojiBtn.disabled = isSavingEmoji;
-        saveEditEmojiBtn.textContent = isSavingEmoji ? 'Saving...' : 'Save Emoji';
-    }
-    if (cancelEditEmojiModalBtn) {
-        cancelEditEmojiModalBtn.disabled = isSavingEmoji;
-    }
-    if (closeEditEmojiModalBtn) {
-        closeEditEmojiModalBtn.disabled = isSavingEmoji;
-    }
-    if (editEmojiInput) {
-        editEmojiInput.disabled = isSavingEmoji;
-    }
-}
-
-function openEditEmojiModal(categoryKey) {
-    const key = normalizeCategoryKey(categoryKey);
-    const category = categoriesByKey[key];
-    if (!category || !editEmojiModal) {
-        return;
-    }
-    editingEmojiCategoryKey = key;
-    if (editEmojiCategoryKeyText) {
-        editEmojiCategoryKeyText.textContent = key;
-    }
-    const currentEmoji = String(category.emoji || '').trim();
-    if (editEmojiCurrentText) {
-        editEmojiCurrentText.textContent = currentEmoji || '—';
-    }
-    if (editEmojiInput) {
-        editEmojiInput.value = currentEmoji;
-    }
-    showEditEmojiError('');
-    setEditEmojiBusy(false);
-    editEmojiModal.classList.remove('hidden');
-    editEmojiModal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('modal-open');
-    window.setTimeout(() => {
-        editEmojiInput?.focus();
-        editEmojiInput?.select();
-    }, 0);
-}
-
-function closeEditEmojiModal(force = false) {
-    if (!editEmojiModal || (isSavingEmoji && !force)) {
-        return;
-    }
-    editEmojiModal.classList.add('hidden');
-    editEmojiModal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
-    editingEmojiCategoryKey = '';
-    showEditEmojiError('');
-    setEditEmojiBusy(false);
-}
-
-async function saveEditedEmoji() {
-    const categoryKey = normalizeCategoryKey(editingEmojiCategoryKey);
-    if (!categoryKey || isSavingEmoji) {
-        return;
-    }
-    setEditEmojiBusy(true);
-    showEditEmojiError('');
-    showError('');
-    showSuccess('');
-    try {
-        const response = await fetch(`${API_BASE}/shared-decks/categories/${encodeURIComponent(categoryKey)}/emoji`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                emoji: String(editEmojiInput ? editEmojiInput.value : '').trim(),
-            }),
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(result.error || `Failed to update emoji (HTTP ${response.status})`);
-        }
-        closeEditEmojiModal(true);
-        showSuccess(`Updated emoji for category: ${categoryKey}`);
-        await loadCategories();
-    } catch (error) {
-        showEditEmojiError(error.message || 'Failed to update emoji.');
-        setEditEmojiBusy(false);
         await loadCategories();
     }
 }

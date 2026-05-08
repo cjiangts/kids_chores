@@ -206,6 +206,9 @@ function buildCardMarkup(card, options = {}) {
     if (card.skip_practice) {
         classes.push('skipped');
     }
+    if (focusedCardId && String(card && card.id ? card.id : '') === String(focusedCardId)) {
+        classes.push('is-focused-card');
+    }
     const supportsSkipControl = !isType4Behavior();
     const primaryText = String(options.primaryText || '');
     const secondaryText = String(options.secondaryText || '');
@@ -642,7 +645,28 @@ function displayCards(cards) {
 
 function resetAndDisplayCards(cards) {
     refreshSourceDeckFilterMenu();
+    if (focusedCardId && !getFocusedCardLabel(cards)) {
+        focusedCardId = '';
+        const url = new URL(window.location.href);
+        url.searchParams.delete('cardId');
+        window.history.replaceState({}, '', url.toString());
+    }
+    syncCardFocusBanner();
     displayCards(cards);
+    scrollFocusedCardIntoView();
+}
+
+function scrollFocusedCardIntoView() {
+    if (!focusedCardId) return;
+    requestAnimationFrame(() => {
+        const el = cardsGrid && cardsGrid.querySelector('.card-item.is-focused-card');
+        if (!el) return;
+        try {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (_err) {
+            el.scrollIntoView();
+        }
+    });
 }
 
 function updateAddReadingButtonCount() {

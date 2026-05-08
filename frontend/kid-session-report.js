@@ -12,6 +12,7 @@ const summaryCard = document.getElementById('summaryCard');
 const wrongSection = document.getElementById('wrongSection');
 const rightSection = document.getElementById('rightSection');
 const rightSectionTitle = document.getElementById('rightSectionTitle');
+const rightSectionIconHost = document.getElementById('rightSectionIconHost');
 const wrongList = document.getElementById('wrongList');
 const rightList = document.getElementById('rightList');
 const speedDistributionSection = document.getElementById('speedDistributionSection');
@@ -142,62 +143,76 @@ function renderSummary(session, answers) {
     const relativeDay = formatRelativeDay(startedRaw);
     const counts = currentSessionIsDrill ? null : countAnswersByOutcome(answers);
     const drillCardCounts = currentSessionIsDrill ? countDrillCardOutcomes(answers) : null;
-    const modeLabel = formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '—';
-    const showModeTile = currentSessionBehaviorType !== BEHAVIOR_TYPE_II && currentSessionBehaviorType !== BEHAVIOR_TYPE_III;
-    const iconStarted = window.icon('calendar', { strokeWidth: 2, className: '' });
-    const iconAnswered = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>';
-    const iconMode = window.icon('target', { strokeWidth: 2, className: '' });
-    const iconActiveTime = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>';
-    const iconWhen = window.icon('history', { strokeWidth: 2, className: '' });
+    const modeLabel = formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '';
+    const showModeMeta = currentSessionBehaviorType !== BEHAVIOR_TYPE_II && currentSessionBehaviorType !== BEHAVIOR_TYPE_III;
     const summaryFooterHtml = drillCardCounts
-        ? renderDrillSummaryOutcomes(drillCardCounts)
-        : renderStandardSummaryOutcomes(counts);
+        ? renderDrillSummaryOutcomes(drillCardCounts, totalActiveMs)
+        : renderStandardSummaryOutcomes(counts, totalActiveMs);
+    const metaItems = [];
+    if (startedDate) metaItems.push({ icon: 'calendar', value: `Started ${startedDate}` });
+    if (relativeDay) metaItems.push({ icon: 'history', value: relativeDay });
+    if (showModeMeta && modeLabel) metaItems.push({ icon: 'target', value: `${modeLabel} mode` });
+    const metaHtml = metaItems.map((item) => {
+        const iconHtml = window.icon ? window.icon(item.icon, { size: 12, strokeWidth: 2.4 }) : '';
+        return `<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${iconHtml}</span><span class="report-hero-meta-value">${escapeHtml(item.value)}</span></span>`;
+    }).join('');
     summaryCard.innerHTML = `
-        <div class="session-summary-stats">
-            <div class="session-summary-stat">
-                <div class="stat-icon">${iconStarted}</div>
-                <div class="session-summary-stat-body">
-                    <div class="value">${escapeHtml(startedDate)}</div>
-                    <div class="label">Started</div>
-                </div>
-            </div>
-            <div class="session-summary-stat">
-                <div class="stat-icon">${iconWhen}</div>
-                <div class="session-summary-stat-body">
-                    <div class="value">${escapeHtml(relativeDay || '—')}</div>
-                    <div class="label">When</div>
-                </div>
-            </div>
-            <div class="session-summary-stat">
-                <div class="stat-icon">${iconAnswered}</div>
-                <div class="session-summary-stat-body">
-                    <div class="value">${safeNum(session?.answer_count)}</div>
-                    <div class="label">Answered</div>
-                </div>
-            </div>
-            ${showModeTile ? `
-            <div class="session-summary-stat">
-                <div class="stat-icon">${iconMode}</div>
-                <div class="session-summary-stat-body">
-                    <div class="value">${escapeHtml(modeLabel)}</div>
-                    <div class="label">Mode</div>
-                </div>
-            </div>` : ''}
-            <div class="session-summary-stat">
-                <div class="stat-icon">${iconActiveTime}</div>
-                <div class="session-summary-stat-body">
-                    <div class="value" id="summaryActiveTimeValue">${escapeHtml(formatActiveMinutes(totalActiveMs))}</div>
-                    <div class="label">Active Time</div>
-                </div>
-            </div>
-        </div>
+        ${renderSummaryHero(metaHtml)}
         ${summaryFooterHtml}
     `;
 }
 
-function renderDrillSummaryOutcomes(totals) {
+function renderSummaryHero(metaHtml) {
+    const key = String(currentSessionType || '').trim();
+    const hasIcon = key && window.SUBJECT_ICONS && window.SUBJECT_ICONS[key];
+    const title = currentSessionCategoryDisplayName
+        || (key ? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '');
+    if (!title) return '';
+    const iconHtml = hasIcon ? window.subjectIcon(key, { size: 44 }) : '';
+    const subjectIconHtml = window.icon ? window.icon('book-open', { size: 12, strokeWidth: 2.4 }) : '';
+    const subjectMetaHtml = `<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${subjectIconHtml}</span><span class="report-hero-meta-value">${escapeHtml(title)}</span></span>`;
+    const actionHtml = window.ReportHeroAction.renderActionLinkHtml({
+        id: 'subjectActionBtn',
+        href: buildSessionHistoryHref(),
+        label: 'Session History',
+        leadingIcon: 'history',
+        trailingIcon: 'arrow-right',
+    });
+    return `
+        <div class="session-summary-hero">
+            ${iconHtml ? `<div class="session-summary-hero-icon">${iconHtml}</div>` : ''}
+            <div class="session-summary-hero-text">
+                <div class="report-hero-meta">${subjectMetaHtml}${metaHtml}</div>
+            </div>
+            ${actionHtml}
+        </div>
+    `;
+}
+
+function buildSessionHistoryHref() {
+    const qs = new URLSearchParams();
+    qs.set('id', String(kidId || ''));
+    if (currentSessionType) qs.set('categoryKey', String(currentSessionType));
+    qs.set('view', 'report');
+    if (sessionId) qs.set('highlightSessionId', String(sessionId));
+    return `/kid-card-manage.html?${qs.toString()}`;
+}
+
+const SUMMARY_ACTIVE_TIME_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>';
+
+function buildActiveTimeItem(totalActiveMs) {
+    return {
+        tone: 'time',
+        label: 'Active Time',
+        valueHtml: `<span id="summaryActiveTimeValue">${escapeHtml(formatActiveMinutes(totalActiveMs))}</span>`,
+        icon: SUMMARY_ACTIVE_TIME_ICON,
+    };
+}
+
+function renderDrillSummaryOutcomes(totals, totalActiveMs) {
     if (!totals) return '';
     const items = [
+        buildActiveTimeItem(totalActiveMs),
         {
             tone: 'passed',
             label: 'Passed',
@@ -223,10 +238,10 @@ function renderDrillSummaryOutcomes(totals) {
             icon: window.icon('x', { strokeWidth: 2.4, className: '' }),
         },
     ];
-    return renderSummaryOutcomes(items, 4);
+    return renderSummaryOutcomes(items, items.length);
 }
 
-function renderStandardSummaryOutcomes(totals) {
+function renderStandardSummaryOutcomes(totals, totalActiveMs) {
     if (!totals) return '';
     const isType3 = currentSessionBehaviorType === BEHAVIOR_TYPE_III;
     const middleItem = isType3
@@ -242,7 +257,15 @@ function renderStandardSummaryOutcomes(totals) {
             value: totals.fixed,
             icon: SUMMARY_FIXED_ICON,
         };
+    const totalAttempts = (totals.right || 0) + (totals.fixed || 0) + (totals.wrong || 0) + (totals.half || 0) + (totals.pending || 0);
     const items = [
+        buildActiveTimeItem(totalActiveMs),
+        {
+            tone: 'attempts',
+            label: 'Attempts',
+            value: totalAttempts,
+            icon: window.icon('layers', { strokeWidth: 2.4, className: '' }),
+        },
         {
             tone: 'right',
             label: 'Right',
@@ -257,21 +280,19 @@ function renderStandardSummaryOutcomes(totals) {
             icon: window.icon('x', { strokeWidth: 2.4, className: '' }),
         },
     ];
-    return renderSummaryOutcomes(items, 3);
+    return renderSummaryOutcomes(items, items.length);
 }
 
-function renderSummaryOutcomes(items, columns = 4) {
+function renderSummaryOutcomes(items, columns) {
     if (!Array.isArray(items) || items.length === 0) return '';
-    const safeColumns = Math.max(1, Math.min(4, Number(columns) || items.length || 1));
+    const safeColumns = Math.max(1, Math.min(5, Number(columns) || items.length || 1));
     return `
         <div class="session-summary-drill-outcomes columns-${safeColumns}">
             ${items.map((item) => `
                 <div class="session-summary-drill-outcome ${item.tone}">
                     <div class="session-summary-drill-outcome-icon">${item.icon}</div>
-                    <div class="session-summary-drill-outcome-body">
-                        <div class="session-summary-drill-outcome-value">${safeNum(item.value)}</div>
-                        <div class="session-summary-drill-outcome-label">${item.label}</div>
-                    </div>
+                    <div class="session-summary-drill-outcome-value">${item.valueHtml || safeNum(item.value)}</div>
+                    <div class="session-summary-drill-outcome-label">${item.label}</div>
                 </div>
             `).join('')}
         </div>
@@ -297,6 +318,7 @@ function renderAnswerSections(answers) {
     rightSection.style.display = '';
     if (currentSessionIsDrill) {
         rightSectionTitle.textContent = 'Drilled Cards';
+        if (rightSectionIconHost) rightSectionIconHost.innerHTML = window.icon('layers', { size: 22 });
         if (rightSectionHint) {
             rightSectionHint.textContent = 'Tap a card to view details. The small number on top shows how many times it was drilled.';
             rightSectionHint.style.display = '';
@@ -306,6 +328,7 @@ function renderAnswerSections(answers) {
         return;
     }
     rightSectionTitle.textContent = 'Cards Practiced';
+    if (rightSectionIconHost) rightSectionIconHost.innerHTML = window.icon('layers', { size: 22 });
     if (rightSectionHint) {
         if (isTypeIIIReviewSession()) {
             rightSectionHint.textContent = '';
@@ -447,13 +470,6 @@ function getDrillAttemptDisplayClass(attempt) {
     return classifyDrillAttempt(attempt);
 }
 
-function getDrillOutcomeLabel(outcome) {
-    if (outcome === 'passed') return 'Passed';
-    if (outcome === 'fixed') return 'Fixed';
-    if (outcome === 'slow') return 'Still slow';
-    return 'Wrong';
-}
-
 function renderDrillProgressTable(answers) {
     if (!drillProgressSection || !drillProgressBody) return;
     const groups = groupAnswersByCard(answers);
@@ -479,10 +495,9 @@ function renderDrillProgressTable(answers) {
             cells.push(`<td><span class="drill-progress-cell cell-${cls}">${escapeHtml(formatDrillCellLabel(attempt))}</span></td>`);
         }
         return `
-            <tr>
+            <tr class="outcome-${outcome}">
                 <td>${renderMathHtml(label)}</td>
                 ${cells.join('')}
-                <td class="drill-progress-outcome outcome-${outcome}">${escapeHtml(getDrillOutcomeLabel(outcome))}</td>
             </tr>
         `;
     }).join('');
@@ -776,9 +791,9 @@ function getAnswerBarClassByScore(correctScore) {
 
 function getAnswerSeenCount(itemOrScore) {
     if (itemOrScore && typeof itemOrScore === 'object') {
-        const submittedAnswers = getLoggedSubmittedAnswers(itemOrScore);
-        if (submittedAnswers.length > 0) {
-            return submittedAnswers.length;
+        const grades = getLoggedSubmittedGrades(itemOrScore);
+        if (grades.length > 0) {
+            return grades.length;
         }
     }
     const score = Number(
@@ -1053,7 +1068,7 @@ function getLoggedSubmittedGrades(item) {
 
 function isType1PromptAudioGrade(value) {
     const grade = Math.trunc(Number(value));
-    return grade === 3 || grade === -3;
+    return grade === 3 || grade === -3 || grade === -7;
 }
 
 function didUseType1PromptAudio(item) {

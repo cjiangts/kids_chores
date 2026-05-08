@@ -51,7 +51,7 @@
         dailyPercentByCategory,
         normalizeCategoryKey,
         doneMarkClass = 'practice-done-mark',
-        doneMarkText = '✅ Done',
+        doneMarkText = `${icon('check', { size: 16 })} Done`,
     }) {
         const normalizeKeyFn = typeof normalizeCategoryKey === 'function'
             ? normalizeCategoryKey

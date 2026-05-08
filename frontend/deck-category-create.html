@@ -197,7 +197,7 @@
 
         <main>
             <section class="deck-panel settings-section">
-                <h2>New Subject</h2>
+                <h2><span class="icon" data-icon="plus" data-icon-size="22"></span> New Subject</h2>
                 <form id="createCategoryForm">
                     <div class="deck-grid">
                         <div class="form-group">
@@ -207,10 +207,6 @@
                         <div class="form-group">
                             <label for="displayNameInput">Display name</label>
                             <input type="text" id="displayNameInput" placeholder="e.g. Science Reading">
-                        </div>
-                        <div class="form-group">
-                            <label for="emojiInput">Emoji</label>
-                            <input type="text" id="emojiInput" placeholder="e.g. 🧪">
                         </div>
                         <fieldset class="form-group field-behavior">
                             <legend>Behavior type</legend>
@@ -292,7 +288,7 @@
             </section>
 
             <section class="deck-panel settings-section">
-                <h2>Existing Subjects</h2>
+                <h2><span class="icon" data-icon="folder" data-icon-size="22"></span> Existing Subjects</h2>
                 <div id="emptyState" class="deck-empty hidden">No subjects found.</div>
                 <div id="tableWrap" class="shared-report-table-wrap">
                     <table class="shared-report-table">
@@ -300,7 +296,6 @@
                             <tr>
                                 <th>Subject Key</th>
                                 <th class="table-col-120">Display Name</th>
-                                <th class="table-col-80">Emoji</th>
                                 <th class="table-col-120">Behavior</th>
                                 <th class="table-col-120">Chinese Logic</th>
                                 <th class="table-col-120">Chinese Back</th>
@@ -316,32 +311,6 @@
             <div id="successMessage" class="success hidden"></div>
             <div id="errorMessage" class="error hidden"></div>
         </main>
-    </div>
-
-    <div id="editEmojiModal" class="modal hidden" aria-hidden="true">
-        <div class="modal-content emoji-modal" role="dialog" aria-modal="true" aria-labelledby="editEmojiModalTitle">
-            <div class="emoji-modal-head">
-                <h2 id="editEmojiModalTitle">Change Emoji</h2>
-                <button type="button" id="closeEditEmojiModalBtn" class="btn-secondary">Close</button>
-            </div>
-            <div class="emoji-modal-grid">
-                <div class="deck-meta-row"><strong>Subject:</strong> <span id="editEmojiCategoryKeyText"></span></div>
-                <div class="emoji-modal-current">
-                    <strong>Current:</strong>
-                    <span id="editEmojiCurrentText" class="emoji-modal-current-emoji">-</span>
-                </div>
-                <div class="form-group">
-                    <label for="editEmojiInput">New emoji</label>
-                    <input type="text" id="editEmojiInput" placeholder="e.g. 🧪">
-                </div>
-                <p class="muted-help-text">Leave blank to clear the emoji.</p>
-                <div id="editEmojiError" class="error hidden"></div>
-            </div>
-            <div class="emoji-modal-actions">
-                <button type="button" id="cancelEditEmojiModalBtn" class="btn-secondary">Cancel</button>
-                <button type="button" id="saveEditEmojiBtn" class="btn-primary">Save Emoji</button>
-            </div>
-        </div>
     </div>
 
     <script src="icons.js"></script>

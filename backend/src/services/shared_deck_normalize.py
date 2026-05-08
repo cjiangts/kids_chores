@@ -108,18 +108,6 @@ def normalize_optional_display_name(value):
     return text
 
 
-def normalize_optional_emoji(value):
-    """Normalize optional deck-category emoji."""
-    if value is None:
-        return ''
-    text = str(value).strip()
-    if not text:
-        return ''
-    if len(text) > 16:
-        raise ValueError('emoji is too long (max 16)')
-    return text
-
-
 def normalize_type_iv_display_label(value):
     """Normalize required representative label for one type-IV deck."""
     text = str(value or '').strip()

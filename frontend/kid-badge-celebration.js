@@ -282,7 +282,7 @@
                 </div>
                 <div class="kid-badge-celebration-meta">${escapeHtml(metaText)}</div>
                 <div class="kid-badge-celebration-actions">
-                    <button type="button" class="control-btn start-btn" data-celebration-action="view">🏅 View Badges</button>
+                    <button type="button" class="control-btn start-btn" data-celebration-action="view">${icon('award', { size: 18 })} View Badges</button>
                     <button type="button" class="control-btn secondary-btn" data-celebration-action="close">Nice!</button>
                 </div>
             </div>

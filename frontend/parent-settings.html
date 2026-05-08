@@ -42,20 +42,13 @@
             border-radius: 0;
             padding: 0;
             box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
         }
 
         .settings-card h2 {
-            margin-bottom: var(--card-section-title-margin-bottom);
-        }
-
-        .settings-card-body > h2 ~ h2 {
-            margin-top: 0;
-        }
-
-        .settings-divider {
-            border: 0;
-            border-top: 1px solid #e5ebfb;
-            margin: 1.4rem 0 1.1rem;
+            margin: 0;
         }
 
         .settings-row {
@@ -74,7 +67,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 0.55rem;
-            margin: 0.7rem 0 0.45rem;
+            margin: 0;
         }
 
         .tz-option {
@@ -83,7 +76,7 @@
             background: #fff;
             border: 1.5px solid var(--section-surface-border-muted);
             border-radius: 14px;
-            padding: 0.85rem 0.95rem 0.8rem 1.85rem;
+            padding: 0.85rem 0.95rem 0.8rem 2.35rem;
             text-align: left;
             cursor: pointer;
             font: inherit;
@@ -177,6 +170,13 @@
 
         .actions-row {
             margin-top: 0.85rem;
+            flex-wrap: nowrap;
+            gap: 0.5rem;
+        }
+
+        .actions-row > button {
+            flex: 1 1 0;
+            min-width: 0;
         }
 
         .family-settings-actions {
@@ -327,6 +327,7 @@
             font-size: clamp(1.4rem, 2.8vw, 1.9rem);
             line-height: 1.08;
             font-weight: 850;
+            gap: 0.5rem;
         }
 
         .badge-art-modal-subtitle {
@@ -933,7 +934,8 @@
             <div class="settings-grid">
                 <section class="settings-card settings-section">
                     <div class="settings-card-body">
-                        <h2>Timezone Setting</h2>
+                        <h2><span class="icon" data-icon="clock" data-icon-size="22"></span> Timezone Setting</h2>
+                        <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
                         <div id="familyTimezonePicker" class="tz-picker" role="radiogroup" aria-label="Time zone">
                             <button type="button" class="tz-option" data-tz="America/New_York" role="radio" aria-checked="false">
                                 <span class="tz-option-label">Eastern</span>
@@ -953,13 +955,14 @@
                             </button>
                         </div>
                         <div id="timezoneCurrentNote" class="tz-current-note hidden"></div>
-                        <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
                         <div id="timezoneError" class="error hidden"></div>
                         <div id="timezoneSuccess" class="success hidden"></div>
+                    </div>
+                </section>
 
-                        <hr class="settings-divider">
-
-                        <h2>Rewards</h2>
+                <section class="settings-card settings-section">
+                    <div class="settings-card-body">
+                        <h2><span class="icon" data-icon="sparkles" data-icon-size="22"></span> Rewards</h2>
                         <div class="settings-note">Start or reset family badges.</div>
                         <div id="rewardsStatusText" class="settings-status" role="status" aria-label="Loading rewards"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></div>
                         <div class="settings-row actions-row">
@@ -984,38 +987,40 @@
                         </div>
                         <div id="rewardsError" class="error hidden"></div>
                         <div id="rewardsSuccess" class="success hidden"></div>
+                    </div>
+                </section>
 
-                        <div id="backupSettingsCard">
-                            <hr class="settings-divider">
-                            <h2>Backup & Restore</h2>
-                            <div class="settings-row">
-                                <button id="downloadBackupBtn" class="btn-secondary">
-                                    <span class="btn-icon" aria-hidden="true">
-                                        <span class="icon" data-icon="download" data-icon-size="20"></span>
-                                    </span>
-                                    <span class="btn-label">Download Backup</span>
-                                </button>
-                                <button id="restoreBackupBtn" class="btn-secondary">
-                                    <span class="btn-icon" aria-hidden="true">
-                                        <span class="icon" data-icon="upload" data-icon-size="20"></span>
-                                    </span>
-                                    <span class="btn-label">Restore Backup</span>
-                                </button>
-                                <input type="file" id="backupFileInput" accept=".zip" class="hidden">
-                                <span id="backupInfo" class="settings-note"></span>
-                            </div>
+                <section id="backupSettingsCard" class="settings-card settings-section">
+                    <div class="settings-card-body">
+                        <h2><span class="icon" data-icon="save" data-icon-size="22"></span> Backup & Restore</h2>
+                        <div class="settings-row">
+                            <button id="downloadBackupBtn" class="btn-secondary">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <span class="icon" data-icon="download" data-icon-size="20"></span>
+                                </span>
+                                <span class="btn-label">Download Backup</span>
+                            </button>
+                            <button id="restoreBackupBtn" class="btn-secondary">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <span class="icon" data-icon="upload" data-icon-size="20"></span>
+                                </span>
+                                <span class="btn-label">Restore Backup</span>
+                            </button>
+                            <input type="file" id="backupFileInput" accept=".zip" class="hidden">
+                            <span id="backupInfo" class="settings-note"></span>
                         </div>
+                    </div>
+                </section>
 
-                        <div id="familyAdminCard" class="hidden">
-                            <hr class="settings-divider">
-                            <h2>Manage Families</h2>
-                            <p class="settings-note">Super-family can delete non-super families.</p>
-                            <div id="familyStorageSummary" class="settings-note hidden"></div>
-                            <div id="familyAccountsEmpty" class="settings-note hidden">No family accounts found.</div>
-                            <div id="familyAccountsList" class="family-accounts-list"></div>
-                            <div id="familyAdminError" class="error hidden"></div>
-                            <div id="familyAdminSuccess" class="success hidden"></div>
-                        </div>
+                <section id="familyAdminCard" class="settings-card settings-section hidden">
+                    <div class="settings-card-body">
+                        <h2><span class="icon" data-icon="users" data-icon-size="22"></span> Manage Families</h2>
+                        <p class="settings-note">Super-family can delete non-super families.</p>
+                        <div id="familyStorageSummary" class="settings-note hidden"></div>
+                        <div id="familyAccountsEmpty" class="settings-note hidden">No family accounts found.</div>
+                        <div id="familyAccountsList" class="family-accounts-list"></div>
+                        <div id="familyAdminError" class="error hidden"></div>
+                        <div id="familyAdminSuccess" class="success hidden"></div>
                     </div>
                 </section>
             </div>
@@ -1027,7 +1032,7 @@
 
     <div id="changePasswordModal" class="modal hidden">
         <div class="modal-content password-modal" role="dialog" aria-modal="true" aria-labelledby="changePasswordModalTitle">
-            <h2 id="changePasswordModalTitle">Change Password</h2>
+            <h2 id="changePasswordModalTitle"><span class="icon" data-icon="key" data-icon-size="22"></span> Change Password</h2>
             <p class="password-modal-copy">Update the family password.</p>
             <form id="passwordForm">
                 <div class="form-group">
@@ -1084,7 +1089,7 @@
         <div class="modal-content modal-large badge-art-studio-modal">
             <div class="badge-art-modal-top">
                     <div class="badge-art-modal-title-wrap">
-                        <h2 id="badgeArtStudioTitle">Badge Studio</h2>
+                        <h2 id="badgeArtStudioTitle"><span class="icon" data-icon="award" data-icon-size="24"></span> Badge Studio</h2>
                     </div>
                 <div class="badge-art-modal-top-actions">
                     <button type="button" id="badgeArtStudioSaveBtn" class="btn-primary">

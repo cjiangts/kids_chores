@@ -38,7 +38,10 @@ function applySuperVisibility() {
     }
     if (!isSuper) {
         const h1 = document.querySelector('h1');
-        if (h1) h1.textContent = '📕 View Dictionary';
+        if (h1) {
+            h1.innerHTML = '<span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span> View Dictionary';
+            if (typeof hydrateIcons === 'function') hydrateIcons(h1);
+        }
         document.title = 'View Dictionary - Kids Daily Chores';
     }
 }
@@ -129,7 +132,7 @@ function renderTable(characters) {
                 <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" style="cursor:default;">${escapeHtml(c.character)}</td>
                 <td class="pinyin-cell">${escapeHtml(pinyinVal)}</td>
                 <td class="en-cell">${escapeHtml(enVal)}</td>
-                <td style="text-align:center;">${c.used ? '✓' : ''}</td>
+                <td style="text-align:center;">${c.used ? icon('check', { size: 16 }) : ''}</td>
                 <td class="updated-cell">${formatDate(c.lastUpdated)}</td>
             </tr>`;
         }
@@ -141,7 +144,7 @@ function renderTable(characters) {
             <td class="en-cell${enEdited}">
                 <input type="text" value="${escapeHtml(enVal)}" data-field="en" data-original="${escapeHtml(c.en)}" />
             </td>
-            <td style="text-align:center;">${c.used ? '✓' : ''}</td>
+            <td style="text-align:center;">${c.used ? icon('check', { size: 16 }) : ''}</td>
             <td class="updated-cell">${formatDate(c.lastUpdated)}</td>
         </tr>`;
     }).join('');
@@ -260,6 +263,9 @@ bankTableBody.addEventListener('click', (e) => {
     handleFieldChange(tr, 'verified', isNowVerified);
 });
 
+if (window.SearchBar) {
+    window.SearchBar.enhance(searchInput);
+}
 searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {

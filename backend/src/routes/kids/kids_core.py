@@ -340,7 +340,6 @@ def get_kid_deck_categories(kid_id):
                 continue
             category_meta_by_key[key] = {
                 'display_name': str(item.get('display_name') or '').strip(),
-                'emoji': str(item.get('emoji') or '').strip(),
                 'behavior_type': str(item.get('behavior_type') or '').strip().lower(),
                 'has_chinese_specific_logic': bool(item.get('has_chinese_specific_logic')),
                 'is_shared_with_non_super_family': bool(item.get('is_shared_with_non_super_family')),
@@ -532,13 +531,11 @@ def get_kid_report(kid_id):
             session_id = int(row[0])
             session_type = normalize_shared_deck_tag(row[1])
             session_category_display_name = get_deck_category_display_name(session_type, category_meta_by_key)
-            session_category_emoji = str((category_meta_by_key.get(session_type) or {}).get('emoji') or '').strip()
             sessions.append({
                 'id': session_id,
                 'type': row[1],
                 'behavior_type': get_session_behavior_type(session_type, category_meta_by_key),
                 'category_display_name': session_category_display_name,
-                'category_emoji': session_category_emoji,
                 'started_at': row[2].isoformat() if row[2] else None,
                 'completed_at': row[3].isoformat() if row[3] else None,
                 'planned_count': int(row[4] or 0),
@@ -657,11 +654,7 @@ def get_kid_report_session_detail(kid_id, session_id):
                 for a in list(row[10] or [])
                 if str(a or '').strip()
             ]
-            type1_submitted_answers = [
-                str(a).strip()
-                for a in list(row[11] or [])
-                if str(a or '').strip()
-            ]
+            type1_submitted_answers = [str(a or '') for a in list(row[11] or [])]
             type1_submitted_grades = [int(g) for g in list(row[12] or [])]
             materialized_prompt = str(row[13] or '').strip()
             materialized_answer = str(row[14] or '').strip()
@@ -904,11 +897,7 @@ def get_kid_report_card_detail(kid_id, card_id):
                 for a in list(row[11] or [])
                 if str(a or '').strip()
             ]
-            type1_submitted_answers = [
-                str(a).strip()
-                for a in list(row[12] or [])
-                if str(a or '').strip()
-            ]
+            type1_submitted_answers = [str(a or '') for a in list(row[12] or [])]
             type1_submitted_grades = [int(g) for g in list(row[13] or [])]
             materialized_prompt = str(row[14] or '').strip()
             materialized_answer = str(row[15] or '').strip()

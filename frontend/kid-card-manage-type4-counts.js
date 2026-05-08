@@ -158,20 +158,23 @@ function renderType4DeckCountsModal() {
         const isOrphanEntry = entry && entry.kind === 'orphan';
         const sharedDeckId = Number.parseInt(deck && deck.deck_id, 10);
         const orphanDeckId = Number.parseInt(deck && deck.deck_id, 10);
-        const label = isOrphanEntry
-            ? `⭐ ${getPersonalDeckDisplayName()}`
+        const labelText = isOrphanEntry
+            ? getPersonalDeckDisplayName()
             : String(deck && deck.representative_front ? deck.representative_front : '').trim();
+        const labelHtml = isOrphanEntry
+            ? `${icon('star', { size: 16, fill: 'currentColor' })} ${escapeHtml(labelText)}`
+            : escapeHtml(labelText || 'Generator Deck');
         const dailyTargetCount = getType4DeckDailyTargetCount(deck);
         const inputAttrs = isOrphanEntry
             ? `data-type4-orphan-deck-id="${escapeHtml(String(orphanDeckId || 0))}"`
             : `data-type4-shared-deck-id="${escapeHtml(String(sharedDeckId))}"`;
         const titleText = isOrphanEntry
-            ? label
-            : `${label || 'Generator Deck'} (${String(deck && deck.name ? deck.name : '').trim() || 'Deck'})`;
+            ? labelText
+            : `${labelText || 'Generator Deck'} (${String(deck && deck.name ? deck.name : '').trim() || 'Deck'})`;
         return `
             <label class="type4-deck-count-row" title="${escapeHtml(titleText)}">
                 <div class="type4-deck-count-copy">
-                    <div class="type4-deck-count-name">${escapeHtml(label || 'Generator Deck')}</div>
+                    <div class="type4-deck-count-name">${labelHtml}</div>
                 </div>
                 <input
                     type="number"

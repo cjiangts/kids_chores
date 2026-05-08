@@ -1663,11 +1663,11 @@ function answerType1IDontKnow() {
         return;
     }
     if (state.hasChineseSpecificLogic) {
-        recordType1Answer(false, null);
+        recordType1Answer(false, null, { idk: true });
         showType1WrongAnswerReview('');
         return;
     }
-    answerType1Card(false, null);
+    answerType1Card(false, null, { idk: true });
 }
 
 function answerType4IDontKnow() {
@@ -1714,7 +1714,7 @@ function showType1WrongAnswerReview(wrongChoiceText) {
     const correctHtml = getChineseType1BackHtml(card?.back);
     const wrongText = String(wrongChoiceText || '').trim();
     const wrongHtml = wrongText
-        ? `<div class="wrong-answer-review"><span class="wrong-answer-review-label">You picked:</span> <span class="wrong-answer-review-text">${escapeHtml(wrongText)}</span> <span class="wrong-answer-review-x">✕</span></div>`
+        ? `<div class="wrong-answer-review"><span class="wrong-answer-review-label">You picked:</span> <span class="wrong-answer-review-text">${escapeHtml(wrongText)}</span> <span class="wrong-answer-review-x">${icon('x', { size: 18 })}</span></div>`
         : '';
     cardAnswer.innerHTML = `${wrongHtml}<div class="correct-answer-review">${correctHtml}</div>`;
     cardAnswer.classList.remove('hidden');
@@ -1969,7 +1969,7 @@ function answerCurrentCard(correct) {
     }
 }
 
-function answerType1Card(correct, loggedChoice = null) {
+function answerType1Card(correct, loggedChoice = null, options = {}) {
     const judgeState = getJudgeModeUiState();
     if (judgeState.isSelfMode && !state.answerRevealed) {
         return;
@@ -1977,11 +1977,11 @@ function answerType1Card(correct, loggedChoice = null) {
     if (state.isPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
-    recordType1Answer(correct, loggedChoice);
+    recordType1Answer(correct, loggedChoice, options);
     advanceType1Card();
 }
 
-function recordType1Answer(correct, loggedChoice = null) {
+function recordType1Answer(correct, loggedChoice = null, options = {}) {
     const card = state.sessionCards[state.currentIndex];
     const responseTimeMs = Math.max(0, Date.now() - state.cardShownAtMs - state.pausedDurationMs);
     stopAudioPlayback();
@@ -1991,6 +1991,9 @@ function recordType1Answer(correct, loggedChoice = null) {
         known: correct,
         responseTimeMs,
     };
+    if (options && options.idk === true) {
+        answerPayload.idk = true;
+    }
     const submittedAnswer = String(loggedChoice?.submittedAnswer || '').trim();
     if (submittedAnswer) {
         answerPayload.submittedAnswer = submittedAnswer;

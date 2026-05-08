@@ -12,7 +12,6 @@ const {
     getCategoryRawValueMap,
     getDeckCategoryMetaMap,
     getCategoryDisplayName,
-    getCategoryEmoji,
     normalizeCategoryKey,
 } = window.DeckCategoryCommon;
 const {
@@ -373,7 +372,6 @@ function displayKids(kids) {
                 doneMarkText: `${icon('check', { size: 16 })} Done`,
             });
             const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap) || formatDeckCategoryLabel(categoryKey);
-            const emoji = getCategoryEmoji(categoryKey, categoryMetaMap) || '🧩';
             const progressModel = buildFamilyProgressModel({
                 starsModel,
                 behaviorType: categoryMetaMap?.[categoryKey]?.behavior_type,
@@ -390,7 +388,6 @@ function displayKids(kids) {
             enabledRows.push({
                 categoryKey,
                 label: displayName,
-                emoji,
                 progressModel,
             });
         });
@@ -454,7 +451,7 @@ function displayKids(kids) {
                     const isInProgress = !isDone && row.progressModel.statusClass !== 'not-started';
                     const tileState = isDone ? 'done' : (isInProgress ? 'in-progress' : 'not-started');
                     const indicatorHtml = isDone
-                        ? `<span class="redesign-kid-icon-indicator done" aria-hidden="true">✓</span>`
+                        ? `<span class="redesign-kid-icon-indicator done" aria-hidden="true">${icon('check', { size: 14 })}</span>`
                         : (isInProgress
                             ? `<span class="redesign-kid-icon-indicator in-progress" aria-hidden="true"></span>`
                             : `<span class="redesign-kid-icon-indicator not-started" aria-hidden="true"></span>`);
@@ -462,9 +459,7 @@ function displayKids(kids) {
                     const targetLineHtml = targetCount > 0
                         ? `<div class="redesign-kid-icon-target">${escapeHtml(String(targetCount))} today</div>`
                         : '';
-                    const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(row.categoryKey, {
-                        fallbackEmoji: row.emoji,
-                    });
+                    const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(row.categoryKey);
                     return `<div class="redesign-kid-icon-tile ${tileState}">
                         <div class="redesign-kid-icon-figure">
                             ${subjectIconHtml}

@@ -116,6 +116,13 @@ TYPE_II_MAX_LOGGED_RESPONSE_TIME_MS = 2 * 60 * 1000
 SESSION_RESULT_CORRECT = 1
 SESSION_RESULT_PARTIAL = 2
 SESSION_RESULT_WRONG_UNRESOLVED = -1
+# type1_result_item.submitted_grades values:
+#   1 / -1  -> right / wrong, no prompt audio
+#   3 / -3  -> right / wrong, prompt audio used
+#   -9      -> "I don't know" tap, no prompt audio
+#   -7      -> "I don't know" tap, prompt audio used
+TYPE_I_RESULT_GRADE_IDK = -9
+TYPE_I_RESULT_GRADE_IDK_AUDIO = -7
 # session_results.correct also carries retry-resolution metadata for type-I/type-II
 # star chains. Values mean:
 #   1   -> right on the initial session pass

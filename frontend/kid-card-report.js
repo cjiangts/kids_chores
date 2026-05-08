@@ -149,15 +149,23 @@ function renderHero(card, attempts) {
     const metaBits = [];
     if (subjectName) {
         const subjectIcon = window.icon ? window.icon('book-open', { size: 12, strokeWidth: 2.4 }) : '';
-        metaBits.push(`<span class="card-report-hero-meta-item"><span class="card-report-hero-meta-icon">${subjectIcon}</span><span class="card-report-hero-meta-label">Subject:</span> <span class="card-report-hero-meta-value">${escapeHtml(subjectName)}</span></span>`);
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${subjectIcon}</span><span class="report-hero-meta-value">${escapeHtml(subjectName)}</span></span>`);
     }
     if (sourceDeckLabel) {
         const deckIcon = window.icon ? window.icon('layers', { size: 12, strokeWidth: 2.4 }) : '';
-        metaBits.push(`<span class="card-report-hero-meta-item"><span class="card-report-hero-meta-icon">${deckIcon}</span><span class="card-report-hero-meta-label">Source:</span> <span class="card-report-hero-meta-value">${escapeHtml(sourceDeckLabel)}</span></span>`);
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${deckIcon}</span><span class="report-hero-meta-value">${escapeHtml(sourceDeckLabel)}</span></span>`);
     }
     const metaHtml = metaBits.length
-        ? `<div class="card-report-hero-meta">${metaBits.join('')}</div>`
+        ? `<div class="report-hero-meta">${metaBits.join('')}</div>`
         : '';
+
+    const manageBtnHtml = window.ReportHeroAction.renderActionLinkHtml({
+        id: 'cardStatsBtn',
+        href: buildCardStatsHref(card),
+        label: 'Card Stats',
+        leadingIcon: 'bar-chart-3',
+        trailingIcon: 'arrow-right',
+    });
 
     cardReportHero.innerHTML = `
         <div class="card-report-hero">
@@ -165,11 +173,27 @@ function renderHero(card, attempts) {
                 <span class="${labelClasses.join(' ')}">${escapeHtml(labelText)}</span>
             </div>
             <div class="card-report-hero-content">
-                ${metaHtml}
+                <div class="report-hero-meta-row">
+                    ${metaHtml}
+                    ${manageBtnHtml}
+                </div>
                 <div class="card-report-hero-stats">${statsHtml}</div>
             </div>
         </div>
     `;
+}
+
+function buildCardStatsHref(card) {
+    const qs = new URLSearchParams();
+    qs.set('id', String(kidId || ''));
+    if (categoryKey) {
+        qs.set('categoryKey', categoryKey);
+    }
+    const focusId = String(card?.id || cardId || '').trim();
+    if (focusId) {
+        qs.set('cardId', focusId);
+    }
+    return `/kid-card-manage.html?${qs.toString()}`;
 }
 
 function resolveSubjectDisplayName(attempts) {
@@ -598,9 +622,7 @@ function getType1AttemptAnswer(item) {
 
 function getLoggedSubmittedAnswers(item) {
     return Array.isArray(item?.submitted_answers)
-        ? item.submitted_answers
-            .map((value) => String(value || '').trim())
-            .filter(Boolean)
+        ? item.submitted_answers.map((value) => String(value == null ? '' : value))
         : [];
 }
 
@@ -612,7 +634,12 @@ function getLoggedSubmittedGrades(item) {
 
 function isType1PromptAudioGrade(value) {
     const grade = Math.trunc(Number(value));
-    return grade === 3 || grade === -3;
+    return grade === 3 || grade === -3 || grade === -7;
+}
+
+function isType1IdkGrade(value) {
+    const grade = Math.trunc(Number(value));
+    return grade === -9 || grade === -7;
 }
 
 function renderPromptAudioAssistMarker() {
@@ -665,13 +692,15 @@ function getType1AttemptSubmittedPills(item) {
     return submittedAnswers
         .map((answer, index) => {
             const grade = Number(grades[index]);
+            const isIdk = isType1IdkGrade(grade);
             const cls = grade === 2
                 ? 'partial-pill'
                 : (grade > 0 ? 'answer-pill' : 'tried-pill');
             const audioAssistHtml = isType1PromptAudioGrade(grade) ? renderPromptAudioAssistMarker() : '';
+            const displayText = isIdk ? "I don't know" : answer;
             return `
                 <span class="history-type4-pill-wrap${audioAssistHtml ? ' has-audio-assist' : ''}">
-                    <span class="history-type4-pill ${cls}">${escapeHtml(answer)}</span>
+                    <span class="history-type4-pill ${cls}${isIdk ? ' idk-pill' : ''}">${escapeHtml(displayText)}</span>
                     ${audioAssistHtml}
                 </span>
             `;

@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="histogram-distribution-common.css">
     <link rel="stylesheet" href="audio-history-common.css">
+    <link rel="stylesheet" href="report-hero-action.css">
+    <link rel="stylesheet" href="report-hero-meta.css">
     <style>
         * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
@@ -24,77 +26,6 @@
             padding: var(--section-surface-padding);
             box-shadow: var(--section-surface-shadow);
         }
-
-        .session-summary-stats {
-            display: flex;
-            gap: 0.42rem;
-        }
-
-        .session-summary-stats > .session-summary-stat {
-            flex: 1 1 0;
-            min-width: 0;
-        }
-
-        .session-summary-stat {
-            position: relative;
-            min-width: 0;
-            background: #eef0f8;
-            border-radius: 10px;
-            padding: 0.4rem 0.45rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.12rem;
-        }
-
-        .session-summary-stat-body {
-            min-width: 0;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0;
-        }
-
-        .session-summary-stat .stat-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex: 0 0 auto;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.7);
-            color: #5b6787;
-        }
-
-        .session-summary-stat .stat-icon svg {
-            width: 14px;
-            height: 14px;
-            stroke: currentColor;
-        }
-
-        .session-summary-stat .label {
-            display: block;
-            font-size: 0.7rem;
-            font-weight: 500;
-            color: #5b6787;
-            line-height: 1.15;
-            min-width: 0;
-            white-space: nowrap;
-        }
-
-        .session-summary-stat .value {
-            display: block;
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #2f3c7e;
-            line-height: 1.1;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-            white-space: normal;
-            font-variant-numeric: tabular-nums;
-        }
-
 
         .session-summary-counters {
             display: flex;
@@ -146,6 +77,35 @@
             font-size: 1rem;
         }
 
+        .session-summary-hero {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .session-summary-hero-icon {
+            flex: 0 0 auto;
+            display: inline-flex;
+            --subj-size: 44px;
+        }
+
+        .session-summary-hero-text {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        @media (max-width: 480px) {
+            .session-summary-hero {
+                gap: 0.6rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .session-summary-hero-icon {
+                --subj-size: 36px;
+            }
+        }
+
         .session-summary-drill-outcomes {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -155,6 +115,10 @@
 
         .session-summary-drill-outcomes.columns-3 {
             grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .session-summary-drill-outcomes.columns-5 {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
         }
 
         .session-summary-drill-outcome {
@@ -184,21 +148,7 @@
             width: 14px;
             height: 14px;
             stroke: currentColor;
-        }
-
-        .session-summary-drill-outcome-body {
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0;
-        }
-
-        .session-summary-drill-outcome-label {
-            font-size: 0.7rem;
-            line-height: 1.15;
-            color: #5b6787;
-            white-space: nowrap;
+            display: block;
         }
 
         .session-summary-drill-outcome-value {
@@ -207,6 +157,19 @@
             font-weight: 700;
             color: #2f3c7e;
             font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .session-summary-drill-outcome-label {
+            min-width: 0;
+            font-size: 0.7rem;
+            line-height: 1.15;
+            color: #5b6787;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .session-summary-drill-outcome.passed,
@@ -227,23 +190,6 @@
                 padding: var(--section-surface-padding-mobile);
             }
 
-            .session-summary-stats {
-                gap: 0.34rem;
-            }
-
-            .session-summary-stat {
-                padding: 0.34rem 0.38rem;
-            }
-
-            .session-summary-stat .label {
-                font-size: 0.66rem;
-            }
-
-            .session-summary-stat .value {
-                font-size: 0.96rem;
-                line-height: 1.12;
-            }
-
             .session-summary-drill-outcomes {
                 margin-top: 0.34rem;
                 gap: 0.34rem;
@@ -253,63 +199,18 @@
                 padding: 0.34rem 0.38rem;
             }
 
-            .session-summary-drill-outcome-label {
-                font-size: 0.66rem;
-            }
-
             .session-summary-drill-outcome-value {
                 font-size: 0.96rem;
+            }
+
+            .session-summary-drill-outcome-label {
+                font-size: 0.66rem;
             }
         }
 
         @media (max-width: 480px) {
             .session-summary-card {
                 padding: var(--section-surface-padding-mobile);
-            }
-
-            .session-summary-stat {
-                padding: 0.28rem 0.32rem;
-            }
-
-            .session-summary-stat .stat-icon {
-                width: 20px;
-                height: 20px;
-            }
-
-            .session-summary-stat .stat-icon svg {
-                width: 12px;
-                height: 12px;
-            }
-
-            .session-summary-stat .label {
-                font-size: 0.62rem;
-            }
-
-            .session-summary-stat .value {
-                font-size: 0.88rem;
-                line-height: 1.12;
-            }
-
-            .session-summary-drill-outcome {
-                padding: 0.28rem 0.32rem;
-            }
-
-            .session-summary-drill-outcome-icon {
-                width: 20px;
-                height: 20px;
-            }
-
-            .session-summary-drill-outcome-icon svg {
-                width: 12px;
-                height: 12px;
-            }
-
-            .session-summary-drill-outcome-label {
-                font-size: 0.62rem;
-            }
-
-            .session-summary-drill-outcome-value {
-                font-size: 0.88rem;
             }
         }
 
@@ -858,39 +759,57 @@
         .drill-progress-table {
             width: 100%;
             border-collapse: separate;
-            border-spacing: 0 0.4rem;
+            border-spacing: 0 0.45rem;
         }
 
         .drill-progress-table tbody tr {
-            background: #f9fafd;
+            background: var(--dashboard-chip-bg);
+            box-shadow: var(--dashboard-chip-shadow);
         }
 
         .drill-progress-table td {
-            padding: 0.55rem 0.5rem;
+            padding: 0.6rem 0.5rem;
             vertical-align: middle;
             font-size: 0.92rem;
-            color: #2f3c7e;
-            border-top: 1px solid #eef0f8;
-            border-bottom: 1px solid #eef0f8;
+            color: #333;
+            border-top: 1px solid #eceff6;
+            border-bottom: 1px solid #eceff6;
         }
 
         .drill-progress-table td:first-child {
-            border-left: 1px solid #eef0f8;
+            position: relative;
+            border-left: 1px solid #eceff6;
             border-top-left-radius: 12px;
             border-bottom-left-radius: 12px;
             font-weight: 700;
             font-size: 0.84rem;
             line-height: 1.1;
             white-space: nowrap;
+            padding-left: 1rem;
         }
 
         .drill-progress-table td:last-child {
-            border-right: 1px solid #eef0f8;
+            border-right: 1px solid #eceff6;
             border-top-right-radius: 12px;
             border-bottom-right-radius: 12px;
-            text-align: right;
-            font-weight: 700;
         }
+
+        .drill-progress-table tr[class*="outcome-"] td:first-child::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            border-radius: 2px;
+            background: var(--row-tone-color, transparent);
+            pointer-events: none;
+        }
+
+        .drill-progress-table tr.outcome-passed { --row-tone-color: #2f9e44; }
+        .drill-progress-table tr.outcome-fixed { --row-tone-color: #b07a00; }
+        .drill-progress-table tr.outcome-slow { --row-tone-color: #2563eb; }
+        .drill-progress-table tr.outcome-wrong { --row-tone-color: #d63636; }
 
         .drill-progress-cell {
             display: inline-flex;
@@ -927,11 +846,6 @@
             color: #ef4444;
             border-color: #f6bcbc;
         }
-
-        .drill-progress-outcome.outcome-passed { color: #2f9e5e; }
-        .drill-progress-outcome.outcome-fixed { color: #b8860b; }
-        .drill-progress-outcome.outcome-slow { color: #2563eb; }
-        .drill-progress-outcome.outcome-wrong { color: #ef4444; }
 
         @media (max-width: 600px) {
             .drill-progress-table td {
@@ -974,23 +888,23 @@
 
         <div class="detail-grid">
             <section class="detail-card" id="wrongSection">
-                <h2 class="section-title">Wrong Cards</h2>
+                <h2 class="section-title"><span class="icon" data-icon="circle-x" data-icon-size="22"></span> Wrong Cards</h2>
                 <div id="wrongList"></div>
             </section>
             <section class="detail-card" id="rightSection">
-                <h2 class="section-title" id="rightSectionTitle">Cards Practiced</h2>
+                <h2 class="section-title"><span id="rightSectionIconHost"><span class="icon" data-icon="layers" data-icon-size="22"></span></span> <span id="rightSectionTitle">Cards Practiced</span></h2>
                 <p class="section-hint" id="rightSectionHint" style="display:none;">Tap a card to view details. The small number on top shows how many times it was drilled.</p>
                 <div id="rightList"></div>
             </section>
         </div>
 
         <section class="detail-card speed-distribution-section" id="speedDistributionSection" style="display:none;">
-            <h2 class="section-title">Speed Distribution</h2>
+            <h2 class="section-title"><span class="icon" data-icon="bar-chart-3" data-icon-size="22"></span> Speed Distribution</h2>
             <div id="speedDistributionBody"></div>
         </section>
 
         <section class="detail-card drill-progress-section" id="drillProgressSection" style="display:none;">
-            <h2 class="section-title">Card Progress</h2>
+            <h2 class="section-title"><span class="icon" data-icon="target" data-icon-size="22"></span> Card Progress</h2>
             <div id="drillProgressBody"></div>
         </section>
     </div>
@@ -1004,6 +918,7 @@
     <script src="report-back-button-common.js"></script>
     <script src="histogram-distribution-common.js"></script>
     <script src="audio-history-common.js"></script>
+    <script src="report-hero-action-common.js"></script>
     <script src="kid-session-report.js"></script>
 </body>
 </html>

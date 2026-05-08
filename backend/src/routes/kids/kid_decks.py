@@ -271,6 +271,12 @@ def get_kid_shared_deck_cards_by_scope(kid_id, scope):
     return dispatch_shared_deck_scope_operation(scope, SHARED_DECK_OP_GET_CARDS, kid_id)
 
 
+@kids_bp.route('/kids/<kid_id>/<scope>/shared-decks/card-search-index', methods=['GET'])
+def get_kid_shared_deck_card_search_index_by_scope(kid_id, scope):
+    """Lightweight card-text index across all shared decks in scope, for deck-tree search."""
+    return dispatch_shared_deck_scope_operation(scope, SHARED_DECK_OP_CARD_SEARCH_INDEX, kid_id)
+
+
 @kids_bp.route('/kids/<kid_id>/<scope>/shared-decks/cards/<card_id>/skip', methods=['PUT'])
 def update_kid_shared_deck_card_skip_by_scope(kid_id, scope, card_id):
     """Update shared-deck card skip status for one category scope."""

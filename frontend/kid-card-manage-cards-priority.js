@@ -52,8 +52,57 @@ function filterCardsBySourceDeck(cards, filterKey) {
     return (Array.isArray(cards) ? cards : []).filter((card) => getCardSourceDeckFilterKey(card) === key);
 }
 
+function filterCardsByFocusedId(cards) {
+    const focus = String(focusedCardId || '').trim();
+    if (!focus) {
+        return Array.isArray(cards) ? cards : [];
+    }
+    return (Array.isArray(cards) ? cards : []).filter((card) => String(card && card.id ? card.id : '') === focus);
+}
+
+function getFocusedCardLabel(cards) {
+    const focus = String(focusedCardId || '').trim();
+    if (!focus) return '';
+    const match = (Array.isArray(cards) ? cards : []).find(
+        (card) => String(card && card.id ? card.id : '') === focus
+    );
+    if (!match) return '';
+    const front = String(match.front || '').trim();
+    if (front) return front;
+    const back = String(match.back || '').trim();
+    return back || `#${focus}`;
+}
+
+function syncCardFocusBanner() {
+    if (!cardFocusBanner) return;
+    const label = getFocusedCardLabel(currentCards);
+    if (!focusedCardId || !label) {
+        cardFocusBanner.classList.add('hidden');
+        cardFocusBanner.setAttribute('aria-hidden', 'true');
+        if (cardFocusBannerText) cardFocusBannerText.textContent = '';
+        return;
+    }
+    if (cardFocusBannerText) cardFocusBannerText.textContent = label;
+    cardFocusBanner.classList.remove('hidden');
+    cardFocusBanner.setAttribute('aria-hidden', 'false');
+}
+
+function clearFocusedCard() {
+    if (!focusedCardId) return;
+    focusedCardId = '';
+    const url = new URL(window.location.href);
+    url.searchParams.delete('cardId');
+    window.history.replaceState({}, '', url.toString());
+    syncCardFocusBanner();
+    resetAndDisplayCards(currentCards);
+}
+
 function getSortedCardsForDisplay(cards) {
-    const sourceFiltered = filterCardsBySourceDeck(cards, currentSourceDeckFilter);
+    const focusFiltered = filterCardsByFocusedId(cards);
+    if (focusedCardId) {
+        return focusFiltered;
+    }
+    const sourceFiltered = filterCardsBySourceDeck(focusFiltered, currentSourceDeckFilter);
     if (isType4Behavior()) {
         return window.PracticeManageCommon.sortCardsForView(sourceFiltered, CARD_SORT_MODE_ADDED_TIME);
     }
