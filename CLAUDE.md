@@ -68,7 +68,7 @@ No build step, no ES modules. Each `.html` page loads its `.js` siblings via `<s
 | Kid practice runtime | [kid-practice.html](frontend/kid-practice.html) | [kid-practice.js](frontend/kid-practice.js) (3.3k — split pending) | — |
 | Kid practice home | kid-practice-home.html | kid-practice-home.js | — |
 | Kid reports | kid-report.html, kid-card-report.html, kid-session-report.html | kid-report.js, kid-card-report.js, kid-session-report.js | — |
-| Deck create / view / manage / category | deck-create*.html, deck-view.html, deck-manage.html, deck-category-create.html | deck-create*.js, deck-view.js, deck-manage.js, deck-category-create.js | — |
+| Deck create / view / category | deck-create*.html, deck-view.html, deck-category-create.html | deck-create*.js, deck-view.js, deck-category-create.js | — |
 | Writing sheets | kid-writing-sheets.html, kid-writing-sheet-manage.html, writing-sheet-print.html | kid-writing-sheets.js, kid-writing-sheet-manage.js (2.7k), writing-sheet-print.js | kid-writing-sheet-manage.css |
 | Math sheet print | math-sheet-print.html | math-sheet-print.js | — |
 | Chinese bank admin | chinese-bank.html | chinese-bank.js | — |

@@ -44,12 +44,29 @@ let editMode = false;
 let editState = null;
 let editBaseline = null;
 let openKidMenuKidId = '';
+let openSubjectMenuKey = '';
+let isSuperFamily = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadKids({ preferNavigationCache: true });
+    loadAuthStatus();
     bindEvents();
     keepEditBarAboveKeyboard();
 });
+
+async function loadAuthStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/family-auth/status`);
+        if (!response.ok) return;
+        const auth = await response.json().catch(() => ({}));
+        const next = Boolean(auth && auth.isSuperFamily);
+        if (next === isSuperFamily) return;
+        isSuperFamily = next;
+        renderMatrix();
+    } catch (error) {
+        // ignore — non-super family is the safe default
+    }
+}
 
 function keepEditBarAboveKeyboard() {
     const vv = window.visualViewport;
@@ -105,18 +122,18 @@ function bindEvents() {
         saveEditBtn.addEventListener('click', saveMatrix);
     }
     document.addEventListener('click', (event) => {
-        if (!openKidMenuKidId) {
-            return;
+        if (openKidMenuKidId) {
+            const menu = document.querySelector('.admin-kid-menu');
+            const trigger = event.target.closest('[data-kid-menu-trigger]');
+            const inside = (menu && menu.contains(event.target)) || trigger;
+            if (!inside) closeKidMenu();
         }
-        const menu = document.querySelector('.admin-kid-menu');
-        if (menu && menu.contains(event.target)) {
-            return;
+        if (openSubjectMenuKey) {
+            const subjectMenu = document.querySelector('.admin-subject-menu');
+            const subjectTrigger = event.target.closest('[data-subject-menu-trigger]');
+            const inside = (subjectMenu && subjectMenu.contains(event.target)) || subjectTrigger;
+            if (!inside) closeSubjectMenu();
         }
-        const trigger = event.target.closest('[data-kid-menu-trigger]');
-        if (trigger) {
-            return;
-        }
-        closeKidMenu();
     });
 }
 
@@ -590,6 +607,10 @@ function renderMatrix() {
     }
 
     const editIconSvg = (typeof window.icon === 'function') ? window.icon('pencil', { size: 14 }) : '';
+    const folderIconSvg = (typeof window.icon === 'function') ? window.icon('folder', { size: 14 }) : '';
+    const manageCategoriesBtnHtml = isSuperFamily
+        ? `<a href="/deck-category-create.html" class="btn-secondary admin-optin-edit-btn admin-optin-manage-btn">${folderIconSvg}<span>Subjects</span></a>`
+        : '';
     const headerHtml = `
         <thead>
             <tr>
@@ -599,9 +620,12 @@ function renderMatrix() {
                             <span class="admin-matrix-title-main">Subject Settings</span>
                             <span class="admin-matrix-title-sub">Numbers = cards/day</span>
                         </div>
-                        <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn">
-                            ${editIconSvg}<span id="editToggleLabel">Edit</span>
-                        </button>
+                        <div class="admin-matrix-title-actions">
+                            <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn">
+                                ${editIconSvg}<span id="editToggleLabel">Edit</span>
+                            </button>
+                            ${manageCategoriesBtnHtml}
+                        </div>
                     </div>
                 </th>
                 ${list.map((kid) => buildKidColumnHeader(kid)).join('')}
@@ -620,6 +644,9 @@ function renderMatrix() {
     if (openKidMenuKidId) {
         // Re-render menu position if open.
         renderKidMenu(openKidMenuKidId);
+    }
+    if (openSubjectMenuKey) {
+        renderSubjectMenu(openSubjectMenuKey);
     }
 }
 
@@ -642,12 +669,18 @@ function buildKidColumnHeader(kid) {
 function buildMatrixRow(row, kids) {
     const subjectIconHtml = renderCategorySubjectIcon(row.categoryKey, { size: 36 });
     const cellsHtml = kids.map((kid) => buildMatrixCell(row, kid)).join('');
+    const showSubjectMenu = isSuperFamily;
+    const moreIconHtml = (showSubjectMenu && typeof window.icon === 'function') ? window.icon('more-vertical', { size: 16 }) : '';
+    const subjectMenuBtnHtml = showSubjectMenu
+        ? `<button type="button" class="admin-matrix-subject-menu-btn" data-subject-menu-trigger data-category-key="${escapeHtml(row.categoryKey)}" aria-label="Subject options for ${escapeHtml(row.displayName)}">${moreIconHtml}</button>`
+        : '';
     return `
         <tr data-category-key="${escapeHtml(row.categoryKey)}">
             <th scope="row">
                 <div class="admin-matrix-subject-cell">
                     <span class="admin-matrix-subject-tile" aria-hidden="true">${subjectIconHtml}</span>
                     <span class="admin-matrix-subject-name">${escapeHtml(row.displayName)}</span>
+                    ${subjectMenuBtnHtml}
                 </div>
             </th>
             ${cellsHtml}
@@ -696,6 +729,18 @@ function bindMatrixInteractions(rows, kids) {
     adminMatrix.querySelectorAll('[data-cell-link]').forEach((link) => {
         link.addEventListener('click', (event) => {
             persistLastViewedKidId(event.currentTarget.getAttribute('data-kid-id') || '');
+        });
+    });
+    adminMatrix.querySelectorAll('[data-subject-menu-trigger]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const target = event.currentTarget;
+            const categoryKey = target.getAttribute('data-category-key') || '';
+            if (openSubjectMenuKey === categoryKey) {
+                closeSubjectMenu();
+            } else {
+                openSubjectMenu(categoryKey, target);
+            }
         });
     });
     adminMatrix.querySelectorAll('[data-kid-menu-trigger]').forEach((btn) => {
@@ -860,6 +905,55 @@ function renderKidMenu(kidId, anchorEl) {
         closeKidMenu();
         deleteKid(kidId, kid.name || '');
     });
+}
+
+function openSubjectMenu(categoryKey, anchorEl) {
+    openSubjectMenuKey = String(categoryKey || '');
+    closeSubjectMenuDom();
+    if (!openSubjectMenuKey || !anchorEl) return;
+    renderSubjectMenu(openSubjectMenuKey, anchorEl);
+}
+
+function closeSubjectMenu() {
+    openSubjectMenuKey = '';
+    closeSubjectMenuDom();
+}
+
+function closeSubjectMenuDom() {
+    document.querySelectorAll('.admin-subject-menu').forEach((el) => el.remove());
+}
+
+function renderSubjectMenu(categoryKey, anchorEl) {
+    closeSubjectMenuDom();
+    const params = new URLSearchParams();
+    if (categoryKey) params.set('categoryKey', categoryKey);
+    const query = params.toString();
+    const newDeckHref = `/deck-create.html${query ? `?${query}` : ''}`;
+    const bulkHref = `/deck-create-bulk.html${query ? `?${query}` : ''}`;
+    const menu = document.createElement('div');
+    menu.className = 'admin-subject-menu';
+    menu.innerHTML = `
+        <a class="admin-subject-menu-item" href="${escapeHtml(newDeckHref)}">
+            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('plus', { size: 16 })}</span>
+            <span>New deck</span>
+        </a>
+        <a class="admin-subject-menu-item" href="${escapeHtml(bulkHref)}">
+            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('layers', { size: 16 })}</span>
+            <span>Bulk add new decks</span>
+        </a>
+    `;
+    document.body.appendChild(menu);
+    const trigger = anchorEl || document.querySelector(`[data-subject-menu-trigger][data-category-key="${cssEscape(categoryKey)}"]`);
+    if (trigger) {
+        const rect = trigger.getBoundingClientRect();
+        const menuWidth = 200;
+        let left = rect.left + window.scrollX;
+        const maxLeft = window.scrollX + document.documentElement.clientWidth - menuWidth - 8;
+        if (left > maxLeft) left = maxLeft;
+        if (left < 8) left = 8;
+        menu.style.left = `${left}px`;
+        menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+    }
 }
 
 function cssEscape(value) {

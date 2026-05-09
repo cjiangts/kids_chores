@@ -853,7 +853,7 @@ async function createDecks() {
             }
         }
         if (failedCount === 0 && createdCount > 0) {
-            window.location.href = '/deck-manage.html';
+            window.location.href = '/admin.html';
             return;
         }
         renderReview();

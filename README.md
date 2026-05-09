@@ -57,7 +57,6 @@ Categories and behavior types are defined in `shared_decks.duckdb` (`deck_catego
 | Kid report | `kid-report.html/js` | Daily practice chart per category |
 | Session report | `kid-session-report.html/js` | Per-session card-level detail |
 | Card report | `kid-card-report.html/js` | Per-card attempt history + trend |
-| Deck management (admin) | `deck-manage.html/js` | Browse/edit shared decks (tree view with search) |
 | Deck creation | `deck-create.html/js` | Create single shared deck |
 | Bulk deck creation | `deck-create-bulk.html/js` | Bulk import decks from text |
 | Category management | `deck-category-create.html/js` | Create/share deck categories |

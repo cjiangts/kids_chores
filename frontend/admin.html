@@ -39,6 +39,12 @@
             margin-top: 0.12rem;
             font-weight: 400;
         }
+        .parent-admin-page .admin-matrix-title-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
         .parent-admin-page .admin-optin-edit-btn {
             display: inline-flex;
             align-items: center;
@@ -50,6 +56,7 @@
             min-height: 30px;
             line-height: 1;
             flex: 0 0 auto;
+            text-decoration: none;
         }
 
         .parent-admin-page .admin-matrix-wrap {
@@ -152,6 +159,62 @@
             font-weight: 400;
             color: #1f2950;
             line-height: 1.2;
+        }
+        .parent-admin-page .admin-matrix-subject-menu-btn {
+            appearance: none;
+            -webkit-appearance: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0.15rem;
+            padding: 0.15rem;
+            background: none;
+            border: none;
+            color: #6c7794;
+            border-radius: 6px;
+            cursor: pointer;
+            line-height: 0;
+            flex: 0 0 auto;
+        }
+        .parent-admin-page .admin-matrix-subject-menu-btn:hover,
+        .parent-admin-page .admin-matrix-subject-menu-btn:focus-visible {
+            background: #f3f5fb;
+            color: #2f4cb5;
+            outline: none;
+        }
+        .parent-admin-page .admin-subject-menu {
+            position: absolute;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid rgba(125, 138, 184, 0.24);
+            box-shadow: 0 8px 24px rgba(31, 41, 80, 0.18);
+            z-index: 30;
+            min-width: 200px;
+            padding: 0.35rem 0;
+        }
+        .parent-admin-page .admin-subject-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            background: none;
+            border: none;
+            text-align: left;
+            padding: 0.55rem 0.85rem;
+            font-size: 0.9rem;
+            color: #1f2950;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .parent-admin-page .admin-subject-menu-item:hover {
+            background: #f3f5fb;
+        }
+        .parent-admin-page .admin-subject-menu-item-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            color: #4d84e3;
         }
         .parent-admin-page .admin-matrix-cell {
             text-align: center;
@@ -375,6 +438,9 @@
             }
             .parent-admin-page .admin-matrix-subject-name {
                 font-size: 0.85rem;
+            }
+            .parent-admin-page .admin-matrix-subject-menu-btn {
+                margin-left: auto;
             }
             .parent-admin-page .admin-matrix-value {
                 min-width: 50px;

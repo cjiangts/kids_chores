@@ -316,7 +316,7 @@ async function deleteDeck() {
         showError(result.error || 'Failed to delete deck.');
         return;
     }
-    window.location.href = '/deck-manage.html';
+    window.location.href = '/admin.html';
 }
 
 async function ensureFamily() {

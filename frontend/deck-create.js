@@ -1170,7 +1170,7 @@ async function createDeck() {
                 : `Deck created: #${result.deck.deck_id} (${result.deck.name}), added ${result.cards_added} cards. Redirecting...`
         );
         window.setTimeout(() => {
-            window.location.href = '/deck-manage.html';
+            window.location.href = '/admin.html';
         }, 500);
     } catch (error) {
         console.error('Error creating shared deck:', error);

@@ -14,7 +14,6 @@ const currentPasswordInput = document.getElementById('currentPassword');
 const newPasswordInput = document.getElementById('newPassword');
 const confirmPasswordInput = document.getElementById('confirmPassword');
 const changePasswordBtn = document.getElementById('changePasswordBtn');
-const familyManageDeckLink = document.getElementById('familyManageDeckLink');
 const openChangePasswordBtn = document.getElementById('openChangePasswordBtn');
 const familySettingsLogoutBtn = document.getElementById('familySettingsLogoutBtn');
 const changePasswordModal = document.getElementById('changePasswordModal');
@@ -1829,9 +1828,6 @@ async function loadFamilyRole() {
     }
     if (familyAdminCard) {
         familyAdminCard.classList.toggle('hidden', !isSuperFamily);
-    }
-    if (familyManageDeckLink) {
-        familyManageDeckLink.classList.toggle('hidden', !isSuperFamily);
     }
     const chineseBankLink = document.getElementById('familyManageChineseBankLink');
     if (chineseBankLink) {
