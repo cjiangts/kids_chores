@@ -57,7 +57,8 @@ function keepEditBarAboveKeyboard() {
     if (!vv || !adminEditActions) return;
     const update = () => {
         const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-        adminEditActions.style.bottom = `calc(1rem + ${offset}px)`;
+        const accessoryBar = offset > 0 ? 56 : 0;
+        adminEditActions.style.bottom = `calc(1rem + ${offset + accessoryBar}px)`;
     };
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
