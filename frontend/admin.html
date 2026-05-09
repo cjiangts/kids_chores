@@ -251,89 +251,29 @@
             background: #eceff5;
             color: #6c7794;
         }
-        .parent-admin-page .admin-matrix.is-editable .admin-matrix-value {
-            cursor: pointer;
-            border-color: rgba(125, 138, 184, 0.32);
-        }
-        .parent-admin-page .admin-matrix-input {
-            width: 56px;
-            min-height: 34px;
-            text-align: center;
-            border-radius: 10px;
-            border: 1px solid #4d84e3;
-            background: #fff;
-            color: #1f2950;
-            font-weight: 600;
-            font-size: 0.95rem;
-            padding: 0.18rem 0.32rem;
-            -moz-appearance: textfield;
-        }
-        .parent-admin-page .admin-matrix-input::-webkit-outer-spin-button,
-        .parent-admin-page .admin-matrix-input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        .parent-admin-page .admin-matrix-cell--changed .admin-matrix-input,
-        .parent-admin-page .admin-matrix-cell--changed .admin-matrix-value {
-            border-color: #f59e0b;
-            background: #fff7e0;
-            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22);
-        }
-        .parent-admin-page .admin-matrix-cell--changed .admin-matrix-value.is-off {
-            color: #92580a;
-        }
-        .parent-admin-page .admin-matrix-input.is-invalid,
-        .parent-admin-page .admin-matrix-value.is-invalid {
-            border-color: #e02020;
-            background: #ffe1e1;
-            color: #c4001a;
-            box-shadow: 0 0 0 2px rgba(224, 32, 32, 0.35);
-            animation: admin-matrix-input-shake 0.35s ease-in-out;
-        }
-        .parent-admin-page button.admin-matrix-value--readonly {
+        .parent-admin-page button.admin-matrix-value {
             appearance: none;
             -webkit-appearance: none;
             font-family: inherit;
-            cursor: help;
-        }
-        @keyframes admin-matrix-input-shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-3px); }
-            75% { transform: translateX(3px); }
-        }
-        .parent-admin-page .admin-matrix-value-stack {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .parent-admin-page .admin-matrix-cell-off {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 1px solid rgba(196, 73, 58, 0.4);
-            background: #fff;
-            color: #c4493a;
-            font-size: 0.85rem;
-            font-weight: 700;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
             cursor: pointer;
-            box-shadow: 0 1px 3px rgba(54, 71, 138, 0.18);
         }
-        .parent-admin-page .admin-matrix-cell-off:hover {
-            background: #fdecec;
+        .parent-admin-page a.admin-matrix-value--link {
+            text-decoration: none;
+            cursor: pointer;
+            gap: 0.18rem;
+            padding-right: 0.42rem;
         }
-        .parent-admin-page .admin-matrix-readonly-note {
-            display: block;
-            font-size: 0.65rem;
-            color: #8c97b8;
-            margin-top: 0.18rem;
+        .parent-admin-page a.admin-matrix-value--link:hover {
+            background: #d6ebda;
+        }
+        .parent-admin-page .admin-matrix-value-chev {
+            display: inline-flex;
+            align-items: center;
+            color: #2f8a48;
+            margin-right: -0.1rem;
+        }
+        .parent-admin-page .admin-matrix.is-editable .admin-matrix-value {
+            border-color: rgba(125, 138, 184, 0.32);
         }
         .parent-admin-page .admin-edit-bar {
             position: fixed;
@@ -366,46 +306,6 @@
         .parent-admin-page .admin-edit-bar-hint {
             font-size: 0.82rem;
             opacity: 0.78;
-            transition: color 0.15s ease, opacity 0.15s ease, font-size 0.15s ease;
-        }
-        .parent-admin-page .admin-edit-bar-info.is-warning .admin-edit-bar-title {
-            display: none;
-        }
-        .parent-admin-page .admin-edit-bar-info.is-warning .admin-edit-bar-hint {
-            color: #fff200;
-            opacity: 1;
-            font-weight: 800;
-            font-size: 1rem;
-            line-height: 1.3;
-            padding: 0.25rem 0;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-        }
-        .parent-admin-page .admin-edit-bar-info.is-warning .admin-edit-bar-hint .admin-cm-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            background: #dceee2;
-            color: #1f2950;
-            padding: 0.1rem 0.45rem 0.1rem 0.35rem;
-            border-radius: 999px;
-            font-weight: 600;
-            text-shadow: none;
-            vertical-align: -2px;
-        }
-        .parent-admin-page .admin-edit-bar-info.is-warning .admin-edit-bar-hint .admin-cm-chip svg {
-            color: #34b89c;
-            display: inline-block;
-            margin: 0;
-            vertical-align: middle;
-        }
-        .parent-admin-page .admin-edit-bar-info.is-warning .admin-edit-bar-hint strong {
-            background: #fff;
-            color: #2f3c7e;
-            padding: 0.05rem 0.45rem;
-            border-radius: 999px;
-            font-weight: 700;
-            text-shadow: none;
-            vertical-align: -1px;
         }
         .parent-admin-page .admin-edit-bar-actions {
             display: grid;
@@ -586,15 +486,11 @@
             .parent-admin-page .admin-matrix-subject-name {
                 font-size: 0.85rem;
             }
-            .parent-admin-page .admin-matrix-value,
-            .parent-admin-page .admin-matrix-input {
+            .parent-admin-page .admin-matrix-value {
                 min-width: 50px;
                 min-height: 30px;
                 font-size: 0.85rem;
                 padding: 0.22rem 0.4rem;
-            }
-            .parent-admin-page .admin-matrix-input {
-                width: 50px;
             }
         }
     </style>
@@ -650,7 +546,7 @@
             <div id="adminEditActions" class="admin-edit-bar hidden" inert>
                 <div class="admin-edit-bar-info">
                     <span class="admin-edit-bar-title">Editing subjects</span>
-                    <span id="adminEditHint" class="admin-edit-bar-hint" data-default-text="Tap cells to change opt-in / cards-per-day">Tap cells to change opt-in / cards-per-day</span>
+                    <span id="adminEditHint" class="admin-edit-bar-hint" data-default-text="Tap cells to opt subjects in or out">Tap cells to opt subjects in or out</span>
                 </div>
                 <div class="admin-edit-bar-actions">
                     <button type="button" id="cancelEditBtn" class="admin-edit-bar-btn admin-edit-bar-btn--ghost"><span class="icon" data-icon="x" data-icon-size="18" aria-hidden="true"></span>Cancel</button>

@@ -31,7 +31,6 @@ const {
 
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 const KID_AVATAR_TONE_COUNT = 6;
-const DEFAULT_OPT_IN_CARDS_PER_DAY = 20;
 const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
 const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
 const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
@@ -394,70 +393,12 @@ function getCategoryRowsForFamily(kids) {
     return rows;
 }
 
-function getKidPracticeTargetMap(kid) {
-    return getCategoryValueMap(kid?.practiceTargetByDeckCategory);
-}
-
-function getKidCardCountMap(kid) {
-    return getCategoryValueMap(kid?.cardCountByDeckCategory);
-}
-
-function parseCellMax(input) {
-    const raw = input?.getAttribute?.('data-cell-max');
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
-}
-
-function flashInvalidInput(el) {
-    if (!el) return;
-    el.classList.remove('is-invalid');
-    void el.offsetWidth;
-    el.classList.add('is-invalid');
-    if (el._invalidTimer) clearTimeout(el._invalidTimer);
-    el._invalidTimer = setTimeout(() => {
-        el.classList.remove('is-invalid');
-        el._invalidTimer = null;
-    }, 600);
-}
-
-let _editHintTimer = null;
-function showEditHintWarning(html) {
-    const hint = document.getElementById('adminEditHint');
-    if (!hint) return;
-    const info = hint.closest('.admin-edit-bar-info');
-    hint.innerHTML = html;
-    if (info) info.classList.add('is-warning');
-    if (_editHintTimer) clearTimeout(_editHintTimer);
-    _editHintTimer = setTimeout(() => {
-        hint.textContent = hint.getAttribute('data-default-text') || '';
-        if (info) info.classList.remove('is-warning');
-        _editHintTimer = null;
-    }, 3500);
-}
-
-function cardManagementChipHtml() {
-    const iconHtml = (typeof window.icon === 'function') ? window.icon('layers', { size: 16 }) : '';
-    return `<span class="admin-cm-chip">${iconHtml}Manage Cards</span>`;
-}
-
-function showEditHintCapMessage(max) {
-    const cap = Number.isInteger(max) && max >= 0 ? max : 0;
-    showEditHintWarning(`Max is ${cap}. Click <strong>Save</strong>, then open ${cardManagementChipHtml()} to add more cards and raise this limit.`);
-}
-
-function showEditHintReadonlyMessage(subjectName) {
-    const safeName = escapeHtml(subjectName || 'this subject');
-    showEditHintWarning(`${safeName} daily count is set per-card. Click <strong>Save</strong>, then open ${cardManagementChipHtml()} to change it.`);
-}
-
 function buildEditStateFromKids(kids) {
     const state = {};
     (Array.isArray(kids) ? kids : []).forEach((kid) => {
         const kidId = String(kid?.id || '');
         if (!kidId) return;
         const optedInSet = getOptedInDeckCategorySet(kid);
-        const targets = getKidPracticeTargetMap(kid);
-        const cardCounts = getKidCardCountMap(kid);
         const meta = getDeckCategoryMetaMap(kid);
         state[kidId] = {};
         const allKeys = new Set();
@@ -467,15 +408,7 @@ function buildEditStateFromKids(kids) {
         });
         optedInSet.forEach((key) => allKeys.add(key));
         allKeys.forEach((key) => {
-            const rawTarget = Number.isInteger(targets[key]) ? targets[key] : 0;
-            const behaviorType = normalizeBehaviorType(meta?.[key]?.behavior_type);
-            const isType4 = behaviorType === 'type_iv';
-            const cap = Number.isInteger(cardCounts[key]) ? Math.max(0, cardCounts[key]) : 0;
-            const cardsPerDay = isType4 ? rawTarget : Math.min(rawTarget, cap);
-            state[kidId][key] = {
-                optedIn: optedInSet.has(key),
-                cardsPerDay,
-            };
+            state[kidId][key] = optedInSet.has(key);
         });
     });
     return state;
@@ -724,67 +657,28 @@ function buildMatrixRow(row, kids) {
 
 function buildMatrixCell(row, kid) {
     const kidId = String(kid?.id || '');
-    const cellState = (editState && editState[kidId] && editState[kidId][row.categoryKey]) || null;
     const optedInSet = getOptedInDeckCategorySet(kid);
-    const targets = getKidPracticeTargetMap(kid);
-    const cardCounts = getKidCardCountMap(kid);
-    const optedIn = editMode && cellState ? cellState.optedIn : optedInSet.has(row.categoryKey);
-    const isType4 = row.behaviorType === 'type_iv';
-    const maxCardsPerDay = Number.isInteger(cardCounts[row.categoryKey])
-        ? Math.max(0, cardCounts[row.categoryKey])
-        : 0;
-    const rawTarget = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
-    const displayTarget = isType4 ? rawTarget : Math.min(rawTarget, maxCardsPerDay);
-    const cardsPerDay = editMode && cellState ? cellState.cardsPerDay : displayTarget;
+    const baselineOptedIn = optedInSet.has(row.categoryKey);
+    const stateOptedIn = editState && editState[kidId] ? !!editState[kidId][row.categoryKey] : baselineOptedIn;
+    const optedIn = editMode ? stateOptedIn : baselineOptedIn;
 
     if (!editMode) {
-        const valueHtml = optedIn
-            ? `<span class="admin-matrix-value">${cardsPerDay}</span>`
-            : `<span class="admin-matrix-value is-off">Off</span>`;
-        return `<td class="admin-matrix-cell">${valueHtml}</td>`;
+        if (!baselineOptedIn) {
+            return `<td class="admin-matrix-cell"><span class="admin-matrix-value is-off">Off</span></td>`;
+        }
+        const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
+        const cardsPerDay = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
+        const params = new URLSearchParams({ id: kidId, categoryKey: row.categoryKey });
+        const href = `/kid-card-manage.html?${params.toString()}`;
+        const chevronHtml = (typeof window.icon === 'function') ? window.icon('chevron-right', { size: 12, strokeWidth: 2.5 }) : '';
+        return `<td class="admin-matrix-cell"><a class="admin-matrix-value admin-matrix-value--link" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${chevronHtml}</span></a></td>`;
     }
 
-    const cellChangedClass = isCellChanged(kidId, row.categoryKey) ? ' admin-matrix-cell--changed' : '';
-
-    if (!optedIn) {
-        return `
-            <td class="admin-matrix-cell${cellChangedClass}">
-                <button type="button" class="admin-matrix-value is-off" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}">Off</button>
-            </td>
-        `;
-    }
-
-    if (isType4) {
-        return `
-            <td class="admin-matrix-cell${cellChangedClass}">
-                <div class="admin-matrix-value-stack">
-                    <button type="button" class="admin-matrix-value admin-matrix-value--readonly" data-cell-readonly data-category-key="${escapeHtml(row.categoryKey)}" title="Set per-card on the Card Mgmt page">${cardsPerDay}</button>
-                    <button type="button" class="admin-matrix-cell-off" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-label="Turn off">×</button>
-                </div>
-            </td>
-        `;
-    }
-
+    const valueClass = optedIn ? 'admin-matrix-value' : 'admin-matrix-value is-off';
+    const label = optedIn ? 'On' : 'Off';
     return `
-        <td class="admin-matrix-cell${cellChangedClass}">
-            <div class="admin-matrix-value-stack">
-                <input
-                    type="number"
-                    inputmode="numeric"
-                    min="0"
-                    max="${maxCardsPerDay}"
-                    step="1"
-                    value="${cardsPerDay}"
-                    class="admin-matrix-input"
-                    data-cell-input
-                    data-kid-id="${escapeHtml(kidId)}"
-                    data-category-key="${escapeHtml(row.categoryKey)}"
-                    data-cell-max="${maxCardsPerDay}"
-                    aria-label="Cards/day"
-                    title="Up to ${maxCardsPerDay} card${maxCardsPerDay === 1 ? '' : 's'} available"
-                />
-                <button type="button" class="admin-matrix-cell-off" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-label="Turn off">×</button>
-            </div>
+        <td class="admin-matrix-cell">
+            <button type="button" class="${valueClass}" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-pressed="${optedIn ? 'true' : 'false'}">${label}</button>
         </td>
     `;
 }
@@ -799,46 +693,9 @@ function bindMatrixInteractions(rows, kids) {
             toggleCellOptedIn(kidId, categoryKey);
         });
     });
-    adminMatrix.querySelectorAll('[data-cell-readonly]').forEach((btn) => {
-        btn.addEventListener('click', (event) => {
-            event.preventDefault();
-            const target = event.currentTarget;
-            const categoryKey = target.getAttribute('data-category-key') || '';
-            const subjectName = getCategoryDisplayName(categoryKey) || 'this subject';
-            showEditHintReadonlyMessage(subjectName);
-            flashInvalidInput(target);
-        });
-    });
-    adminMatrix.querySelectorAll('[data-cell-input]').forEach((input) => {
-        input.addEventListener('input', (event) => {
-            const target = event.currentTarget;
-            const kidId = target.getAttribute('data-kid-id') || '';
-            const categoryKey = target.getAttribute('data-category-key') || '';
-            const max = parseCellMax(target);
-            const raw = target.value;
-            const parsed = Number.parseInt(raw, 10);
-            const sanitized = Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
-            const value = Math.min(sanitized, max);
-            const invalid = raw !== '' && (
-                !Number.isInteger(parsed) || parsed < 0 || parsed > max
-            );
-            if (invalid) {
-                target.value = String(value);
-                flashInvalidInput(target);
-                showEditHintCapMessage(max);
-            }
-            updateCellCardsPerDay(kidId, categoryKey, value);
-        });
-        input.addEventListener('blur', (event) => {
-            const target = event.currentTarget;
-            const max = parseCellMax(target);
-            const parsed = Number.parseInt(target.value, 10);
-            const sanitized = Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
-            const value = Math.min(sanitized, max);
-            target.value = String(value);
-            const kidId = target.getAttribute('data-kid-id') || '';
-            const categoryKey = target.getAttribute('data-category-key') || '';
-            updateCellCardsPerDay(kidId, categoryKey, value);
+    adminMatrix.querySelectorAll('[data-cell-link]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            persistLastViewedKidId(event.currentTarget.getAttribute('data-kid-id') || '');
         });
     });
     adminMatrix.querySelectorAll('[data-kid-menu-trigger]').forEach((btn) => {
@@ -858,41 +715,8 @@ function bindMatrixInteractions(rows, kids) {
 function toggleCellOptedIn(kidId, categoryKey) {
     if (!editMode || !editState) return;
     if (!editState[kidId]) editState[kidId] = {};
-    const current = editState[kidId][categoryKey] || { optedIn: false, cardsPerDay: 0 };
-    const nextOptedIn = !current.optedIn;
-    let nextCardsPerDay = current.cardsPerDay;
-    if (nextOptedIn && (!Number.isInteger(nextCardsPerDay) || nextCardsPerDay <= 0)) {
-        const kid = currentKids.find((item) => String(item?.id || '') === String(kidId || ''));
-        const cap = Number.isInteger(getKidCardCountMap(kid)[categoryKey])
-            ? Math.max(0, getKidCardCountMap(kid)[categoryKey])
-            : 0;
-        nextCardsPerDay = Math.min(DEFAULT_OPT_IN_CARDS_PER_DAY, cap);
-    }
-    editState[kidId][categoryKey] = {
-        optedIn: nextOptedIn,
-        cardsPerDay: nextCardsPerDay,
-    };
+    editState[kidId][categoryKey] = !editState[kidId][categoryKey];
     renderMatrix();
-}
-
-function updateCellCardsPerDay(kidId, categoryKey, value) {
-    if (!editMode || !editState) return;
-    if (!editState[kidId]) editState[kidId] = {};
-    const current = editState[kidId][categoryKey] || { optedIn: true, cardsPerDay: 0 };
-    editState[kidId][categoryKey] = {
-        optedIn: current.optedIn,
-        cardsPerDay: value,
-    };
-    syncCellChangedClass(kidId, categoryKey);
-    setSaveButtonState();
-}
-
-function syncCellChangedClass(kidId, categoryKey) {
-    if (!adminMatrix) return;
-    const input = adminMatrix.querySelector(`[data-cell-input][data-kid-id="${CSS.escape(kidId)}"][data-category-key="${CSS.escape(categoryKey)}"]`);
-    const cell = input ? input.closest('.admin-matrix-cell') : null;
-    if (!cell) return;
-    cell.classList.toggle('admin-matrix-cell--changed', isCellChanged(kidId, categoryKey));
 }
 
 function enterEditMode() {
@@ -912,24 +736,16 @@ function exitEditMode() {
 function cloneEditState(state) {
     const out = {};
     Object.keys(state || {}).forEach((kidId) => {
-        out[kidId] = {};
-        Object.keys(state[kidId] || {}).forEach((key) => {
-            const cell = state[kidId][key] || {};
-            out[kidId][key] = { optedIn: !!cell.optedIn, cardsPerDay: cell.cardsPerDay };
-        });
+        out[kidId] = { ...(state[kidId] || {}) };
     });
     return out;
 }
 
 function isCellChanged(kidId, categoryKey) {
     if (!editState || !editBaseline) return false;
-    const cur = editState[kidId] && editState[kidId][categoryKey];
-    const base = editBaseline[kidId] && editBaseline[kidId][categoryKey];
-    if (!cur && !base) return false;
-    if (!cur || !base) return true;
-    if (cur.optedIn !== base.optedIn) return true;
-    if (cur.optedIn && cur.cardsPerDay !== base.cardsPerDay) return true;
-    return false;
+    const cur = !!(editState[kidId] && editState[kidId][categoryKey]);
+    const base = !!(editBaseline[kidId] && editBaseline[kidId][categoryKey]);
+    return cur !== base;
 }
 
 function hasAnyMatrixChanges() {
@@ -943,46 +759,25 @@ function hasAnyMatrixChanges() {
 async function saveMatrix() {
     if (!editMode || !editState || isSavingMatrix) return;
     const list = Array.isArray(currentKids) ? currentKids : [];
-    const changesByKid = {};
+    const updatesByKid = {};
     list.forEach((kid) => {
         const kidId = String(kid?.id || '');
         if (!kidId) return;
         const baselineOpted = getOptedInDeckCategorySet(kid);
-        const baselineTargets = getKidPracticeTargetMap(kid);
         const newState = editState[kidId] || {};
         const optedInKeys = [];
-        const sessionCardCountChanges = {};
-        const meta = getDeckCategoryMetaMap(kid);
-        let hasOptInChange = false;
+        let changed = false;
         Object.keys(newState).forEach((categoryKey) => {
-            const cell = newState[categoryKey];
-            if (!cell) return;
-            const wasOptedIn = baselineOpted.has(categoryKey);
-            if (cell.optedIn) {
-                optedInKeys.push(categoryKey);
-            }
-            if (cell.optedIn !== wasOptedIn) {
-                hasOptInChange = true;
-            }
-            // Only send card-count for type_i/ii/iii (type_iv recomputes from cards).
-            const behaviorType = normalizeBehaviorType(meta?.[categoryKey]?.behavior_type);
-            if (behaviorType === 'type_iv') return;
-            if (!cell.optedIn) return;
-            const previousValue = Number.isInteger(baselineTargets[categoryKey]) ? baselineTargets[categoryKey] : 0;
-            const nextValue = Number.isInteger(cell.cardsPerDay) ? Math.max(0, cell.cardsPerDay) : 0;
-            if (nextValue !== previousValue) {
-                sessionCardCountChanges[categoryKey] = nextValue;
-            }
+            const isOpted = !!newState[categoryKey];
+            const wasOpted = baselineOpted.has(categoryKey);
+            if (isOpted) optedInKeys.push(categoryKey);
+            if (isOpted !== wasOpted) changed = true;
         });
-        if (!hasOptInChange && Object.keys(sessionCardCountChanges).length === 0) return;
-        changesByKid[kidId] = {
-            hasOptInChange,
-            optedInKeys: hasOptInChange ? optedInKeys.sort((a, b) => a.localeCompare(b)) : null,
-            sessionCardCountChanges,
-        };
+        if (!changed) return;
+        updatesByKid[kidId] = optedInKeys.sort((a, b) => a.localeCompare(b));
     });
 
-    const kidIdsToSave = Object.keys(changesByKid);
+    const kidIdsToSave = Object.keys(updatesByKid);
     if (kidIdsToSave.length === 0) {
         exitEditMode();
         return;
@@ -992,32 +787,19 @@ async function saveMatrix() {
     setSaveButtonState();
     try {
         for (const kidId of kidIdsToSave) {
-            const change = changesByKid[kidId];
-            if (change.hasOptInChange) {
-                const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/deck-categories`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ categoryKeys: change.optedInKeys || [] }),
-                });
-                if (!response.ok) {
-                    const payload = await response.json().catch(() => ({}));
-                    throw new Error(payload.error || `HTTP ${response.status}`);
-                }
-            }
-            if (Object.keys(change.sessionCardCountChanges).length > 0) {
-                const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionCardCountByCategory: change.sessionCardCountChanges }),
-                });
-                if (!response.ok) {
-                    const payload = await response.json().catch(() => ({}));
-                    throw new Error(payload.error || `HTTP ${response.status}`);
-                }
+            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/deck-categories`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ categoryKeys: updatesByKid[kidId] }),
+            });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.error || `HTTP ${response.status}`);
             }
         }
         editMode = false;
         editState = null;
+        editBaseline = null;
         await loadKids();
     } catch (error) {
         console.error('Error saving matrix:', error);

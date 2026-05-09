@@ -46,16 +46,11 @@ def get_kids():
                         type_iii_category_keys=type_iii_category_keys,
                         conn=conn,
                     )
-                    card_count_by_category = get_kid_active_card_count_by_deck_category(
-                        kid,
-                        conn=conn,
-                    )
                     kids_with_admin_summary.append({
                         **kid,
                         'typeIIIToReviewCount': ungraded_count,
                         'optedInDeckCategoryKeys': opted_in_category_keys,
                         'practiceTargetByDeckCategory': practice_target_by_deck_category,
-                        'cardCountByDeckCategory': card_count_by_category,
                         'deckCategoryMetaByKey': category_meta_by_key,
                     })
                 finally:
