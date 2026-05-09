@@ -49,7 +49,20 @@ let openKidMenuKidId = '';
 document.addEventListener('DOMContentLoaded', () => {
     loadKids({ preferNavigationCache: true });
     bindEvents();
+    keepEditBarAboveKeyboard();
 });
+
+function keepEditBarAboveKeyboard() {
+    const vv = window.visualViewport;
+    if (!vv || !adminEditActions) return;
+    const update = () => {
+        const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        adminEditActions.style.bottom = `calc(1rem + ${offset}px)`;
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+}
 
 function bindEvents() {
     if (newKidBtn) {
