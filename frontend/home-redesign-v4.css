@@ -183,9 +183,9 @@ body.practice-home-redesign {
 .parent-admin-page .redesign-kid-name {
     margin: 0;
     color: #3b4a7a;
-    font-size: clamp(1.7rem, 2.4vw, 2.25rem);
+    font-size: clamp(1.3rem, 2vw, 1.7rem);
     line-height: 1.05;
-    font-weight: 850;
+    font-weight: 700;
 }
 
 .family-home-page .redesign-kid-sub,
@@ -218,27 +218,6 @@ body.practice-home-redesign {
     color: #33405f;
     padding: 0 10px;
     flex: 0 0 auto;
-}
-
-.family-home-page .redesign-kid-today-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.family-home-page .redesign-kid-today-line {
-    color: #475370;
-    font-size: 0.92rem;
-    font-weight: 500;
-    line-height: 1.2;
-    min-width: 0;
-}
-
-.family-home-page .redesign-kid-today-line strong {
-    color: #273551;
-    font-weight: 800;
 }
 
 .family-home-page .redesign-kid-preview-header {
@@ -303,12 +282,12 @@ body.practice-home-redesign {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 52px;
-    height: 52px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     color: #fff;
-    font-weight: 800;
-    font-size: 1.3rem;
+    font-weight: 700;
+    font-size: 1.05rem;
     line-height: 1;
     box-shadow: 0 2px 6px rgba(31, 45, 98, 0.18);
     user-select: none;
@@ -1115,9 +1094,9 @@ body.practice-home-redesign {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    border: 0;
     border-radius: 20px;
-    background: rgba(255, 255, 255, 0.93);
+    background: #fff;
     box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
     padding: 12px;
     text-align: left;
@@ -1171,7 +1150,7 @@ body.practice-home-redesign {
     color: #273551;
     font-size: 0.94rem;
     line-height: 1.3;
-    font-weight: 850;
+    font-weight: 500;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1343,47 +1322,93 @@ body.practice-home-redesign {
     margin-bottom: 14px;
 }
 
-.practice-home-redesign .practice-stat-card {
+.admin-action-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin: 0 0 clamp(6px, 1.2vw, 12px);
+}
+.admin-action-grid.admin-action-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 220px));
+    justify-content: start;
+}
+.admin-action-card {
     position: relative;
-    appearance: none;
-    border: 0;
-    border-radius: 14px;
-    background: #fff;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    padding: 10px 26px 10px 10px;
-    box-shadow: 0 8px 20px rgba(31, 45, 98, 0.16);
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 10px;
-    min-width: 0;
-}
-
-.practice-home-redesign .practice-stat-card:has(.practice-stat-icon-wrap.stars) {
-    background: #fff9e0;
-}
-
-.practice-home-redesign .practice-stat-card:has(.practice-stat-icon-wrap.report) {
-    background: #eaf7ee;
-}
-
-.practice-home-redesign .practice-stat-card:has(.practice-stat-icon-wrap.badge) {
-    background: #fff2dc;
-}
-
-.practice-home-redesign .practice-stat-card-clickable {
+    justify-content: flex-start;
+    gap: 0.6rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid rgba(125, 138, 184, 0.18);
+    box-shadow: 0 2px 10px rgba(54, 71, 138, 0.08);
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    text-decoration: none;
+    color: inherit;
+    text-align: left;
+    font: inherit;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-
-.practice-home-redesign .practice-stat-card-clickable:hover {
+.admin-action-card:hover {
     transform: translateY(-1px);
-    box-shadow: 0 16px 34px rgba(31, 45, 98, 0.24);
+    box-shadow: 0 6px 16px rgba(54, 71, 138, 0.14);
 }
-
-.practice-home-redesign .practice-stat-chevron {
+.admin-action-card.is-static,
+.admin-action-card.is-static:hover {
+    cursor: default;
+    transform: none;
+    box-shadow: 0 2px 10px rgba(54, 71, 138, 0.08);
+}
+.admin-action-card:disabled,
+.admin-action-card.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 10px rgba(54, 71, 138, 0.08);
+}
+.admin-action-card-icon {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex: 0 0 40px;
+}
+.admin-action-card-icon--blue { background: #dceee2; color: #34b89c; }
+.admin-action-card-icon--violet { background: #ece1f7; color: #7848d3; }
+.admin-action-card-icon--coral { background: #fadce8; color: #c83f86; }
+.admin-action-card-icon--amber { background: #fff3c8; color: #d99a1f; }
+.admin-action-card-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+}
+.admin-action-card-label {
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: #1f2950;
+    line-height: 1.15;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.admin-action-card-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1c2541;
+    line-height: 1.1;
+}
+.admin-action-card:has(.admin-action-card-chevron) {
+    padding-right: 1.6rem;
+}
+.admin-action-card-chevron {
     position: absolute;
     top: 50%;
     right: 8px;
@@ -1393,97 +1418,73 @@ body.practice-home-redesign {
     font-weight: 700;
     line-height: 1;
 }
-
-.practice-home-redesign .practice-stat-card-clickable:hover .practice-stat-chevron {
+.admin-action-card:hover .admin-action-card-chevron {
     color: #4f63cb;
 }
 
-.practice-home-redesign .practice-stat-icon-wrap {
+.admin-action-card-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: #ef4068;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    flex: 0 0 auto;
+    box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(239, 64, 104, 0.35);
 }
 
-.practice-home-redesign .practice-stat-icon-wrap.stars {
-    background: #fff3c8;
-}
-
-.practice-home-redesign .practice-stat-icon-wrap.report {
-    background: #d3edda;
-}
-
-.practice-home-redesign .practice-stat-icon-wrap.badge {
-    background: #ffe7c2;
-}
-
-.practice-home-redesign .practice-stat-icon-wrap.progress {
-    background: #e7e8fb;
-    color: #4f63cb;
-}
-
-.practice-home-redesign .practice-stat-icon-wrap.rewards {
-    background: #f4f6ff;
-}
-
-.practice-home-redesign .practice-stat-icon {
-    font-size: 2.6rem;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.practice-home-redesign .practice-stat-icon-star {
-    color: #f3b53f;
-    font-size: 2.7rem;
-    text-shadow: 0 1px 2px rgba(178, 121, 0, 0.28);
-}
-
-.practice-home-redesign .practice-stat-icon-svg {
-    color: #4f63cb;
-}
-
-.practice-home-redesign .practice-stat-text {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.practice-home-redesign .practice-stat-label {
-    margin: 0;
-    color: #44507a;
-    font-size: 0.88rem;
-    font-weight: 800;
-    line-height: 1.2;
-}
-
-.practice-home-redesign .practice-stat-value {
-    margin: 0;
-    color: #1c2541;
-    font-size: 1.35rem;
-    font-weight: 850;
-    line-height: 1.05;
-}
-
-.practice-home-redesign .practice-stat-value-unit {
-    font-size: 0.74rem;
-    font-weight: 600;
-    color: #6b7796;
-    margin-left: 2px;
-}
-
-.practice-home-redesign .practice-stat-sub {
-    margin: 1px 0 0;
-    color: #6b7796;
-    font-size: 0.7rem;
-    font-weight: 600;
-    line-height: 1.1;
+@media (max-width: 600px) {
+    .admin-action-grid {
+        gap: 0.5rem;
+    }
+    .admin-action-grid.admin-action-grid--two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .admin-action-card {
+        padding: 0.5rem 0.55rem;
+        gap: 0.4rem;
+    }
+    .admin-action-card:has(.admin-action-card-chevron) {
+        padding-right: 1.1rem;
+    }
+    .admin-action-card-chevron {
+        right: 4px;
+        font-size: 0.95rem;
+    }
+    .admin-action-card-icon {
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px;
+    }
+    .admin-action-card-icon span,
+    .admin-action-card-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+    .admin-action-card-label {
+        font-size: 0.72rem;
+        line-height: 1.15;
+    }
+    .admin-action-card-value {
+        font-size: 0.85rem;
+    }
+    .admin-action-card-badge {
+        font-size: 0.6rem;
+        min-width: 15px;
+        height: 15px;
+        padding: 0 4px;
+        top: -5px;
+        right: -5px;
+        border-radius: 8px;
+        box-shadow: 0 0 0 2px #fff, 0 1px 3px rgba(239, 64, 104, 0.35);
+    }
 }
 
 @media (max-width: 980px) {
@@ -1495,9 +1496,9 @@ body.practice-home-redesign {
 
 @media (max-width: 520px) {
     .family-home-page .admin-kid-avatar {
-        width: 44px;
-        height: 44px;
-        font-size: 1.1rem;
+        width: 34px;
+        height: 34px;
+        font-size: 0.92rem;
     }
 
     .family-home-page .redesign-kid-progress-track {
@@ -1547,15 +1548,6 @@ body.practice-home-redesign {
         margin-top: 10px;
         padding-top: 9px;
         font-size: 0.92rem;
-    }
-
-    .family-home-page .redesign-kid-today-row {
-        gap: 8px;
-        margin-bottom: 8px;
-    }
-
-    .family-home-page .redesign-kid-today-line {
-        font-size: 0.85rem;
     }
 
     .family-home-page .redesign-kid-preview-header {
@@ -1759,33 +1751,6 @@ body.practice-home-redesign {
         gap: 8px;
     }
 
-    .practice-home-redesign .practice-stat-card {
-        padding: 8px 22px 8px 8px;
-        border-radius: 12px;
-        gap: 8px;
-    }
-
-    .practice-home-redesign .practice-stat-icon-wrap {
-        width: 44px;
-        height: 44px;
-    }
-
-    .practice-home-redesign .practice-stat-icon {
-        font-size: 2.05rem;
-    }
-
-    .practice-home-redesign .practice-stat-icon-star {
-        font-size: 2.1rem;
-    }
-
-    .practice-home-redesign .practice-stat-label {
-        font-size: 0.78rem;
-    }
-
-    .practice-home-redesign .practice-stat-value {
-        font-size: 1.15rem;
-    }
-
     .redesign-soft-btn {
         min-height: 36px;
         padding: 0.4rem 0.8rem;
@@ -1832,47 +1797,6 @@ body.practice-home-redesign {
     .practice-home-redesign .redesign-summary-strip {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 6px;
-    }
-
-    .practice-home-redesign .practice-stat-card {
-        padding: 6px 18px 6px 6px;
-        border-radius: 11px;
-        gap: 6px;
-    }
-
-    .practice-home-redesign .practice-stat-icon-wrap {
-        width: 38px;
-        height: 38px;
-    }
-
-    .practice-home-redesign .practice-stat-icon {
-        font-size: 1.75rem;
-    }
-
-    .practice-home-redesign .practice-stat-icon-star {
-        font-size: 1.8rem;
-    }
-
-    .practice-home-redesign .practice-stat-chevron {
-        right: 4px;
-        font-size: 0.95rem;
-    }
-
-    .practice-home-redesign .practice-stat-label {
-        font-size: 0.66rem;
-    }
-
-    .practice-home-redesign .practice-stat-value {
-        font-size: 0.98rem;
-        line-height: 1.05;
-    }
-
-    .practice-home-redesign .practice-stat-value-unit {
-        font-size: 0.6rem;
-    }
-
-    .practice-home-redesign .practice-stat-sub {
-        font-size: 0.6rem;
     }
 
     .practice-home-redesign .redesign-practice-option {

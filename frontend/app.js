@@ -392,7 +392,6 @@ function displayKids(kids) {
             });
         });
 
-        const startedCount = enabledRows.filter((row) => row.progressModel.statusClass !== 'not-started' || row.progressModel.isFullyComplete).length;
         const masteredPct = targetTotal > 0 ? Math.max(0, Math.min(100, (masteredTotal / targetTotal) * 100)) : 0;
         const redoPct = targetTotal > 0 ? Math.max(0, Math.min(100, (redoTotal / targetTotal) * 100)) : 0;
         const unseenPct = Math.max(0, 100 - masteredPct - redoPct);
@@ -405,11 +404,6 @@ function displayKids(kids) {
             ? ''
             : `<div class="redesign-kid-sub">No daily practices assigned</div>`;
 
-        const todayRowHtml = isClickable
-            ? `<div class="redesign-kid-today-row">
-                <div class="redesign-kid-today-line">Today: <strong>${escapeHtml(String(startedCount))}</strong> of <strong>${escapeHtml(String(enabledRows.length))}</strong> decks started</div>
-            </div>`
-            : '';
 
         const badgeTrackingEnabled = Boolean(kid?.badgeTrackingEnabled);
         const earnedBadgeCount = Math.max(0, Number.parseInt(kid?.earnedBadgeCount, 10) || 0);
@@ -440,8 +434,9 @@ function displayKids(kids) {
             </div>`
             : '';
 
+        const doneCount = enabledRows.filter((row) => row.progressModel.isFullyComplete).length;
         const previewHeaderHtml = isClickable
-            ? `<div class="redesign-kid-preview-header">Today's deck preview</div>`
+            ? `<div class="redesign-kid-preview-header">Today's chores: ${escapeHtml(String(doneCount))} of ${escapeHtml(String(enabledRows.length))} done</div>`
             : '';
 
         const iconStripHtml = enabledRows.length > 0
@@ -492,7 +487,6 @@ function displayKids(kids) {
                     </div>
                     ${headerStatsHtml}
                 </div>
-                ${todayRowHtml}
                 ${progressBarHtml}
                 ${summaryLineHtml}
                 ${previewHeaderHtml}
