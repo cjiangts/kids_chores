@@ -96,12 +96,12 @@ async function loadReport() {
         const data = await response.json();
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
         reportRenderer.setData({ sessions, familyTimezone: data.family_timezone });
-        reportTitle.textContent = 'Practice Report';
-        document.title = 'Practice Report - Kids Daily Chores';
+        reportTitle.textContent = 'View Reports';
+        document.title = 'View Reports - Kids Daily Chores';
     } catch (error) {
         console.error('Error loading report:', error);
         showError('Failed to load practice report.');
-        document.title = 'Kid Practice Report - Kids Daily Chores';
+        document.title = 'View Reports - Kids Daily Chores';
     }
 }
 

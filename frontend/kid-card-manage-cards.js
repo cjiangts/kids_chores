@@ -1558,7 +1558,7 @@ function applyKidInfo(kid) {
         },
     });
 
-    kidNameEl.textContent = 'Card Management';
+    kidNameEl.textContent = 'Manage Cards';
     includeOrphanByCategory = toCategoryMap(kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
     baselineIncludeOrphanInQueue = Boolean(includeOrphanByCategory[categoryKey]);
     stagedIncludeOrphanInQueue = baselineIncludeOrphanInQueue;

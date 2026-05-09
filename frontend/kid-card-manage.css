@@ -5229,6 +5229,13 @@
         .cards-report-view .daily-line-chart-col-highlighted:hover {
             background: rgba(102, 126, 234, 0.22);
         }
+        .cards-report-view .daily-line-chart-col-today {
+            background: #eaecf3;
+            border-radius: 14px;
+        }
+        .cards-report-view .daily-line-chart-col-today.daily-line-chart-col-clickable:hover {
+            background: #dde0eb;
+        }
         .cards-report-view .daily-line-chart-bar-cell {
             position: relative;
             height: var(--daily-line-chart-plot-height);

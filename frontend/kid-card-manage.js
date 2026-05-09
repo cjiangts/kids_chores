@@ -454,7 +454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.error('Error initializing category manage:', error);
         showError(error.message || 'Failed to load page.');
-        kidNameEl.textContent = 'Card Management';
+        kidNameEl.textContent = 'Manage Cards';
         updatePageTitle();
     }
 });

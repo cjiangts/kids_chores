@@ -424,7 +424,7 @@ function renderHistory(attempts) {
             const lessonReadingAudioAttrs = from === 'lesson-reading'
                 ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
                 : '';
-            const goToSessionIcon = window.icon ? window.icon('arrow-up-right', { size: 14, strokeWidth: 2.4 }) : '';
+            const goToSessionIcon = window.icon ? window.icon('arrow-right', { size: 14, strokeWidth: 2.4 }) : '';
             const goToSessionButtonHtml = sessionUrl
                 ? `<a class="go-to-session-btn" href="${escapeHtml(sessionUrl)}"><span>Go to Session</span>${goToSessionIcon}</a>`
                 : '';

@@ -715,7 +715,7 @@ function renderAnswerList(container, cards, options = {}) {
                 <div class="answer-head-actions">
                     ${promptAudioBadgeHtml}
                     ${typeIII ? renderGradingControls(item) : ''}
-                    ${!reportHref ? '' : `<a class="answer-report-btn" href="${reportHref}"><span>Go to History</span>${window.icon ? window.icon('arrow-up-right', { size: 14, strokeWidth: 2.4 }) : ''}</a>`}
+                    ${!reportHref ? '' : `<a class="answer-report-btn" href="${reportHref}"><span>Go to History</span>${window.icon ? window.icon('arrow-right', { size: 14, strokeWidth: 2.4 }) : ''}</a>`}
                 </div>
             `;
         const typeIIIDetailsHtml = (!compact && typeIII) ? renderTypeIIIAnswerDetails(item) : '';

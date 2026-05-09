@@ -466,6 +466,7 @@
             const minutesAxis = computeNiceAxis(maxTotal, 5);
             const cardsAxis = computeNiceAxis(maxCards, 5);
             const tickStops = minutesAxis.ticks.map((_, i) => (i / (minutesAxis.ticks.length - 1)) * 100);
+            const todayKey = getTodayKey();
 
             const validPoints = [];
             const cols = pageRows.map((row, i) => {
@@ -503,7 +504,8 @@
                 const linkUrl = linkSession ? buildSessionUrl(linkSession) : '';
                 const isLinkable = Boolean(linkSession);
                 const isHighlighted = Boolean(highlightDayKey) && String(row.date) === highlightDayKey;
-                const colClass = `daily-line-chart-col${isLinkable ? ' daily-line-chart-col-clickable' : ''}${isHighlighted ? ' daily-line-chart-col-highlighted' : ''}`;
+                const isToday = !isHighlighted && String(row.date) === todayKey;
+                const colClass = `daily-line-chart-col${isLinkable ? ' daily-line-chart-col-clickable' : ''}${isHighlighted ? ' daily-line-chart-col-highlighted' : ''}${isToday ? ' daily-line-chart-col-today' : ''}`;
                 const modeAnnotation = renderDayModeAnnotation(daySessions);
                 const tag = isLinkable ? 'a' : 'div';
                 const linkAttrs = isLinkable ? ` href="${escapeHtml(linkUrl)}"` : '';

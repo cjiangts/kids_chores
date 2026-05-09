@@ -569,19 +569,55 @@
 
         .grade-row {
             display: flex;
-            gap: 0.35rem;
+            gap: 0.5rem;
             flex-wrap: wrap;
             align-items: center;
         }
 
+        .grade-btn[data-grade="pass"] {
+            background: #e6f7ec;
+            border-color: #4caf6c;
+            color: #1f7a3a;
+        }
+
+        .grade-btn[data-grade="pass"]:hover {
+            background: #cdedd6;
+            border-color: #2f9e44;
+            box-shadow: 0 2px 6px rgba(47, 158, 68, 0.22);
+        }
+
+        .grade-btn[data-grade="fail"] {
+            background: #fdecea;
+            border-color: #e07a70;
+            color: #b3261e;
+        }
+
+        .grade-btn[data-grade="fail"]:hover {
+            background: #f9d7d2;
+            border-color: #d63636;
+            box-shadow: 0 2px 6px rgba(214, 54, 54, 0.22);
+        }
+
+        .grade-btn[data-grade="clear"] {
+            background: #fff8e1;
+            border-color: #d8b465;
+            color: #8a5a00;
+        }
+
+        .grade-btn[data-grade="clear"]:hover {
+            background: #fceeb8;
+            border-color: #b88a2a;
+            box-shadow: 0 2px 6px rgba(184, 138, 42, 0.22);
+        }
+
         .grade-btn.active-pass {
-            border-color: #9dd6aa;
-            color: #2f9e44;
+            border-color: #4caf6c;
+            color: #1f7a3a;
         }
 
         .grade-btn.active-fail {
-            border-color: #efb0a8;
-            color: #d63636;
+            border-color: #e07a70;
+            color: #b3261e;
         }
 
         .speed-distribution-section {

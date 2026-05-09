@@ -7,8 +7,7 @@ const adminOptinPanel = document.getElementById('adminOptinPanel');
 const adminMatrix = document.getElementById('adminMatrix');
 const adminEditActions = document.getElementById('adminEditActions');
 const adminEmptyState = document.getElementById('adminEmptyState');
-const editToggleBtn = document.getElementById('editToggleBtn');
-const editToggleLabel = document.getElementById('editToggleLabel');
+const getEditToggleBtn = () => document.getElementById('editToggleBtn');
 const cancelEditBtn = document.getElementById('cancelEditBtn');
 const saveEditBtn = document.getElementById('saveEditBtn');
 const newKidBtn = document.getElementById('newKidBtn');
@@ -44,6 +43,7 @@ let currentKids = [];
 let currentFamilyId = '';
 let editMode = false;
 let editState = null;
+let editBaseline = null;
 let openKidMenuKidId = '';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -88,8 +88,10 @@ function bindEvents() {
             await createKid();
         });
     }
-    if (editToggleBtn) {
-        editToggleBtn.addEventListener('click', () => {
+    if (adminOptinPanel) {
+        adminOptinPanel.addEventListener('click', (e) => {
+            const btn = e.target && e.target.closest ? e.target.closest('#editToggleBtn') : null;
+            if (!btn) return;
             if (editMode) {
                 exitEditMode();
             } else {
@@ -435,7 +437,7 @@ function showEditHintWarning(html) {
 
 function cardManagementChipHtml() {
     const iconHtml = (typeof window.icon === 'function') ? window.icon('layers', { size: 16 }) : '';
-    return `<span class="admin-cm-chip">${iconHtml}Card Management</span>`;
+    return `<span class="admin-cm-chip">${iconHtml}Manage Cards</span>`;
 }
 
 function showEditHintCapMessage(max) {
@@ -503,14 +505,14 @@ function renderActionGrid() {
             id: 'cardMgmtBtn',
             iconName: 'layers',
             iconClass: 'admin-action-card-icon--blue',
-            label: 'Card Management',
+            label: 'Manage Cards',
             disabled: !hasAnyOptIn,
         }),
         buildActionCardHtml({
             id: 'practiceReportBtn',
             iconName: 'bar-chart-3',
             iconClass: 'admin-action-card-icon--violet',
-            label: 'Practice Report',
+            label: 'View Reports',
         }),
         buildActionCardHtml({
             id: 'reviewAudioBtn',
@@ -630,10 +632,14 @@ function renderMatrix() {
     const rows = getCategoryRowsForFamily(list);
     if (rows.length === 0) {
         adminMatrix.innerHTML = `<tbody><tr><td class="admin-empty-state">No subjects available.</td></tr></tbody>`;
-        if (editToggleBtn) editToggleBtn.disabled = true;
+        const eb = getEditToggleBtn();
+        if (eb) eb.disabled = true;
         return;
     }
-    if (editToggleBtn) editToggleBtn.disabled = editMode;
+    {
+        const eb = getEditToggleBtn();
+        if (eb) eb.disabled = editMode;
+    }
 
     if (editMode) {
         adminMatrix.classList.add('is-editable');
@@ -650,10 +656,21 @@ function renderMatrix() {
         document.body.classList.remove('admin-edit-mode');
     }
 
+    const editIconSvg = (typeof window.icon === 'function') ? window.icon('pencil', { size: 14 }) : '';
     const headerHtml = `
         <thead>
             <tr>
-                <th class="admin-matrix-subject-head">Subject</th>
+                <th class="admin-matrix-subject-head">
+                    <div class="admin-matrix-title-block">
+                        <div class="admin-matrix-title-text">
+                            <span class="admin-matrix-title-main">Subject Settings</span>
+                            <span class="admin-matrix-title-sub">Numbers = cards/day</span>
+                        </div>
+                        <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn">
+                            ${editIconSvg}<span id="editToggleLabel">Edit</span>
+                        </button>
+                    </div>
+                </th>
                 ${list.map((kid) => buildKidColumnHeader(kid)).join('')}
             </tr>
         </thead>
@@ -666,6 +683,7 @@ function renderMatrix() {
     adminMatrix.innerHTML = headerHtml + bodyHtml;
 
     bindMatrixInteractions(rows, list);
+    if (editMode) setSaveButtonState();
     if (openKidMenuKidId) {
         // Re-render menu position if open.
         renderKidMenu(openKidMenuKidId);
@@ -726,9 +744,11 @@ function buildMatrixCell(row, kid) {
         return `<td class="admin-matrix-cell">${valueHtml}</td>`;
     }
 
+    const cellChangedClass = isCellChanged(kidId, row.categoryKey) ? ' admin-matrix-cell--changed' : '';
+
     if (!optedIn) {
         return `
-            <td class="admin-matrix-cell">
+            <td class="admin-matrix-cell${cellChangedClass}">
                 <button type="button" class="admin-matrix-value is-off" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}">Off</button>
             </td>
         `;
@@ -736,7 +756,7 @@ function buildMatrixCell(row, kid) {
 
     if (isType4) {
         return `
-            <td class="admin-matrix-cell">
+            <td class="admin-matrix-cell${cellChangedClass}">
                 <div class="admin-matrix-value-stack">
                     <button type="button" class="admin-matrix-value admin-matrix-value--readonly" data-cell-readonly data-category-key="${escapeHtml(row.categoryKey)}" title="Set per-card on the Card Mgmt page">${cardsPerDay}</button>
                     <button type="button" class="admin-matrix-cell-off" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-label="Turn off">×</button>
@@ -746,7 +766,7 @@ function buildMatrixCell(row, kid) {
     }
 
     return `
-        <td class="admin-matrix-cell">
+        <td class="admin-matrix-cell${cellChangedClass}">
             <div class="admin-matrix-value-stack">
                 <input
                     type="number"
@@ -863,18 +883,61 @@ function updateCellCardsPerDay(kidId, categoryKey, value) {
         optedIn: current.optedIn,
         cardsPerDay: value,
     };
+    syncCellChangedClass(kidId, categoryKey);
+    setSaveButtonState();
+}
+
+function syncCellChangedClass(kidId, categoryKey) {
+    if (!adminMatrix) return;
+    const input = adminMatrix.querySelector(`[data-cell-input][data-kid-id="${CSS.escape(kidId)}"][data-category-key="${CSS.escape(categoryKey)}"]`);
+    const cell = input ? input.closest('.admin-matrix-cell') : null;
+    if (!cell) return;
+    cell.classList.toggle('admin-matrix-cell--changed', isCellChanged(kidId, categoryKey));
 }
 
 function enterEditMode() {
     editMode = true;
     editState = buildEditStateFromKids(currentKids);
+    editBaseline = cloneEditState(editState);
     renderMatrix();
 }
 
 function exitEditMode() {
     editMode = false;
     editState = null;
+    editBaseline = null;
     renderMatrix();
+}
+
+function cloneEditState(state) {
+    const out = {};
+    Object.keys(state || {}).forEach((kidId) => {
+        out[kidId] = {};
+        Object.keys(state[kidId] || {}).forEach((key) => {
+            const cell = state[kidId][key] || {};
+            out[kidId][key] = { optedIn: !!cell.optedIn, cardsPerDay: cell.cardsPerDay };
+        });
+    });
+    return out;
+}
+
+function isCellChanged(kidId, categoryKey) {
+    if (!editState || !editBaseline) return false;
+    const cur = editState[kidId] && editState[kidId][categoryKey];
+    const base = editBaseline[kidId] && editBaseline[kidId][categoryKey];
+    if (!cur && !base) return false;
+    if (!cur || !base) return true;
+    if (cur.optedIn !== base.optedIn) return true;
+    if (cur.optedIn && cur.cardsPerDay !== base.cardsPerDay) return true;
+    return false;
+}
+
+function hasAnyMatrixChanges() {
+    if (!editState || !editBaseline) return false;
+    return Object.keys(editState).some((kidId) => {
+        const row = editState[kidId] || {};
+        return Object.keys(row).some((key) => isCellChanged(kidId, key));
+    });
 }
 
 async function saveMatrix() {
@@ -967,7 +1030,8 @@ async function saveMatrix() {
 
 function setSaveButtonState() {
     if (!saveEditBtn) return;
-    saveEditBtn.disabled = isSavingMatrix;
+    const hasChanges = hasAnyMatrixChanges();
+    saveEditBtn.disabled = isSavingMatrix || !hasChanges;
     saveEditBtn.textContent = isSavingMatrix ? 'Saving...' : 'Save';
     if (cancelEditBtn) cancelEditBtn.disabled = isSavingMatrix;
 }
