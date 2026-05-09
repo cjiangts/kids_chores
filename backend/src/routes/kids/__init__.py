@@ -39,7 +39,6 @@ kids_bp = Blueprint('kids', __name__)
 _PENDING_SESSIONS = {}
 _PENDING_SESSIONS_LOCK = threading.Lock()
 _SHARED_DECK_MUTATION_LOCK = threading.RLock()
-_PYPINYIN_DICTS_LOADED = False
 
 
 def get_family_root(family_id):
@@ -870,6 +869,24 @@ def get_all_shared_deck_tag_paths(conn):
     return ordered_paths
 
 
+def get_all_shared_deck_tag_label_paths(conn):
+    """Return globally unique ordered shared-deck tag-label paths (with `(comment)` parts)."""
+    rows = conn.execute("SELECT tags FROM deck").fetchall()
+    seen_paths = set()
+    ordered_paths = []
+    for row in rows:
+        path, labels = extract_shared_deck_tags_and_labels(row[0])
+        if not path:
+            continue
+        key = tuple(path)
+        if key in seen_paths:
+            continue
+        seen_paths.add(key)
+        ordered_paths.append(labels)
+    ordered_paths.sort(key=lambda items: (items[0], len(items), items))
+    return ordered_paths
+
+
 def normalize_shared_deck_tag_path(tags):
     """Normalize one ordered deck-tag path."""
     normalized = []
@@ -924,8 +941,6 @@ def build_chinese_pinyin_text(text):
             'pypinyin is not installed. Install it in backend env: pip install pypinyin'
         ) from exc
 
-    ensure_pypinyin_dicts_loaded()
-
     if len(normalized) == 1:
         heteronyms = pinyin(
             normalized,
@@ -956,23 +971,6 @@ def build_chinese_pinyin_text(text):
     parts = [str(item or '').strip() for item in list(syllables or [])]
     parts = [item for item in parts if item]
     return ' '.join(parts)
-
-
-def ensure_pypinyin_dicts_loaded():
-    """Load optional dictionary upgrades for pypinyin once per process."""
-    global _PYPINYIN_DICTS_LOADED
-    if _PYPINYIN_DICTS_LOADED:
-        return
-    try:
-        from pypinyin_dict.phrase_pinyin_data import cc_cedict  # type: ignore
-        from pypinyin_dict.pinyin_data import kxhc1983  # type: ignore
-    except Exception as exc:
-        raise RuntimeError(
-            'pypinyin-dict is not installed. Install it in backend env: pip install pypinyin-dict'
-        ) from exc
-    cc_cedict.load()
-    kxhc1983.load()
-    _PYPINYIN_DICTS_LOADED = True
 
 
 CHINESE_BACK_CONTENT_PINYIN = 'pinyin'

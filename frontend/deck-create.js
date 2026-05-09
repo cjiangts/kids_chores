@@ -19,6 +19,7 @@ const type4GeneratorCodeInput = document.getElementById('type4GeneratorCodeInput
 const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEditor');
 const previewBtn = document.getElementById('previewBtn');
 const clearCsvBtn = document.getElementById('clearCsvBtn');
+const copyExampleBtn = document.getElementById('copyExampleBtn');
 const reviewSection = document.getElementById('reviewSection');
 const reviewMeta = document.getElementById('reviewMeta');
 const dedupeSummary = document.getElementById('dedupeSummary');
@@ -58,7 +59,22 @@ const DEFAULT_TYPE4_GENERATOR_CODE = `def generate(rng):
         "distractors": [str(a + b - 1), str(a + b + 1)],
     }`;
 
-let extraTags = [];
+function parseLockedPrefixTagsFromQuery(params) {
+    const raws = (params && typeof params.getAll === 'function') ? params.getAll('prefixTag') : [];
+    const seen = new Set();
+    const out = [];
+    raws.forEach((raw) => {
+        const parsed = parseTagInput(raw);
+        if (!parsed || !parsed.tag) return;
+        if (seen.has(parsed.tag)) return;
+        seen.add(parsed.tag);
+        out.push({ tag: parsed.tag, comment: parsed.comment, locked: true });
+    });
+    return out;
+}
+
+const lockedPrefixTags = parseLockedPrefixTagsFromQuery(new URLSearchParams(window.location.search));
+let extraTags = lockedPrefixTags.map((item) => ({ ...item }));
 let previewCards = [];
 let previewRows = [];
 let previewType4Definition = null;
@@ -147,6 +163,34 @@ clearCsvBtn.addEventListener('click', () => {
     cardsCsvInput.focus();
 });
 
+if (copyExampleBtn) {
+    copyExampleBtn.addEventListener('click', async () => {
+        const text = cardsCsvInput ? cardsCsvInput.placeholder : '';
+        if (!text) return;
+        const labelEl = copyExampleBtn.querySelector('.btn-label');
+        const originalLabel = labelEl ? labelEl.textContent : '';
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            if (labelEl) labelEl.textContent = 'Copied';
+        } catch (err) {
+            showError(err.message || 'Failed to copy');
+            return;
+        }
+        setTimeout(() => { if (labelEl) labelEl.textContent = originalLabel; }, 1200);
+    });
+}
+
 createDeckBtn.addEventListener('click', async () => {
     await createDeck();
 });
@@ -175,6 +219,10 @@ function isChineseAutoBackDeckMode() {
 
 function isChineseWritingDeckMode() {
     return deckCreateCommon.isChineseWritingDeckMode(getCurrentDeckCategory());
+}
+
+function isChineseLessonReadingDeckMode() {
+    return deckCreateCommon.isChineseLessonReadingDeckMode(getCurrentDeckCategory());
 }
 
 function isTypeIIDeckMode() {
@@ -277,7 +325,10 @@ function setRegenType4ExamplesButtonState(isBusy) {
         return;
     }
     regenType4ExamplesBtn.disabled = Boolean(isBusy);
-    regenType4ExamplesBtn.textContent = isBusy ? 'Regenerating...' : 'Regen Example';
+    const regenLabel = regenType4ExamplesBtn.querySelector('.btn-label');
+    if (regenLabel) {
+        regenLabel.textContent = isBusy ? 'Regenerating...' : 'Regen Example';
+    }
 }
 
 function setControlsDisabled(disabled) {
@@ -290,6 +341,7 @@ function setControlsDisabled(disabled) {
         type4GeneratorCodeInput: { element: type4GeneratorCodeInput },
         previewBtn: { element: previewBtn },
         clearCsvBtn: { element: clearCsvBtn },
+        copyExampleBtn: { element: copyExampleBtn },
         regenType4ExamplesBtn: { element: regenType4ExamplesBtn, busyGuard: () => isRegeneratingType4Examples },
         createDeckBtn: { element: createDeckBtn, busyGuard: () => isCreatingDeck },
     });
@@ -340,6 +392,8 @@ function renderFirstTagToggle() {
         categories: deckCategories,
         selectedCategoryKey: currentFirstTag,
         getDeckCount: (categoryKey) => deckCreateCommon.getDeckCountForCategory(categoryKey, deckCountByCategoryKey),
+        includeSubjectIcon: true,
+        subjectIconSize: 36,
     });
     applyFirstTagLockMode();
 }
@@ -517,10 +571,19 @@ function updateCardsInputModeUi() {
     staticCardsEditor.classList.toggle('hidden', useTypeIV);
     type4Editor.classList.toggle('hidden', !useTypeIV);
     if (previewBtn) {
-        previewBtn.textContent = useTypeIV ? 'Review Deck' : 'Preview Deck';
+        const previewLabel = previewBtn.querySelector('.btn-label');
+        if (previewLabel) {
+            previewLabel.textContent = useTypeIV ? 'Review Deck' : 'Preview Deck';
+        }
     }
     if (clearCsvBtn) {
-        clearCsvBtn.textContent = useTypeIV ? 'Clear Fields' : 'Clear';
+        const clearLabel = clearCsvBtn.querySelector('.btn-label');
+        if (clearLabel) {
+            clearLabel.textContent = useTypeIV ? 'Clear Fields' : 'Clear';
+        }
+    }
+    if (copyExampleBtn) {
+        copyExampleBtn.classList.toggle('hidden', useTypeIV);
     }
     if (useTypeIV) {
         if (cardsInputSectionTitle) {
@@ -535,7 +598,7 @@ function updateCardsInputModeUi() {
         if (cardsInputHelpText) {
             cardsInputHelpText.innerHTML = 'Paste Chinese text. The system will tokenize into individual Chinese characters as <code>front</code> and auto-generate pinyin as <code>back</code>.';
         }
-        cardsCsvInput.placeholder = '比如：春眠不觉晓，处处闻啼鸟。';
+        cardsCsvInput.placeholder = '一二三四五六七八九十';
         return;
     }
     if (isChineseVocabularyDeckMode()) {
@@ -545,7 +608,7 @@ function updateCardsInputModeUi() {
         if (cardsInputHelpText) {
             cardsInputHelpText.innerHTML = 'Paste Chinese text; runs of Chinese characters are tokenized into words by any non-Chinese character (space, punctuation, newline). Each word becomes <code>front</code>; <code>back</code> is auto-filled with the English meaning from the Chinese character bank (blank if not found).';
         }
-        cardsCsvInput.placeholder = '春天 夜晚 月光\n风雨，花落';
+        cardsCsvInput.placeholder = '称象 人前 将军 名字 曹操 运到 带着 儿子 喜欢 办法 先 杀死 切成 一块 直摇头 曹冲 站出来 父亲 容易 赶到';
         return;
     }
     if (isChineseWritingDeckMode()) {
@@ -555,7 +618,17 @@ function updateCardsInputModeUi() {
         if (cardsInputHelpText) {
             cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii subjects, dedup is keyed by <code>back</code>.';
         }
-        cardsCsvInput.placeholder = '听写提示,汉字答案';
+        cardsCsvInput.placeholder = '上面的上,上\n不要的不,不\n走路的走,走';
+        return;
+    }
+    if (isChineseLessonReadingDeckMode()) {
+        if (cardsInputSectionTitle) {
+            cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
+        }
+        if (cardsInputHelpText) {
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. <code>front</code> is the lesson title; <code>back</code> is the page reference.';
+        }
+        cardsCsvInput.placeholder = '小猴子下山,Page 101\n摘桃,Page 109';
         return;
     }
     if (isTypeIIDeckMode()) {
@@ -565,7 +638,7 @@ function updateCardsInputModeUi() {
         if (cardsInputHelpText) {
             cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii subjects, dedup is keyed by <code>back</code>.';
         }
-        cardsCsvInput.placeholder = 'Prompt text,Answer text';
+        cardsCsvInput.placeholder = 'A guy with makeup on,clown\nA baby dog,puppy\nFrozen water from the sky,snow';
         return;
     }
     if (cardsInputSectionTitle) {
@@ -602,7 +675,7 @@ function addExtraTagFromInput() {
 }
 
 function removeExtraTag(tag) {
-    extraTags = extraTags.filter((item) => item.tag !== tag);
+    extraTags = extraTags.filter((item) => !(item && item.tag === tag && !item.locked));
     renderTags();
     updateGeneratedName();
     updateAutocompleteSuggestions();
@@ -615,6 +688,9 @@ function renderTags() {
     }
     tagsContainer.innerHTML = extraTags.map((item) => {
         const tag = String(item && item.tag ? item.tag : '').trim();
+        if (item && item.locked) {
+            return `<span class="deck-tag deck-tag-locked" title="Locked by folder prefix">${icon('lock', { size: 12 })} ${escapeHtml(tag)}</span>`;
+        }
         return `<span class="deck-tag">${escapeHtml(tag)} <button type="button" data-tag="${escapeHtml(tag)}" aria-label="Remove ${escapeHtml(tag)}">${icon('x', { size: 14 })}</button></span>`;
     }).join('');
     tagsContainer.querySelectorAll('button[data-tag]').forEach((btn) => {
@@ -1148,7 +1224,10 @@ async function createDeck() {
 
     isCreatingDeck = true;
     createDeckBtn.disabled = true;
-    createDeckBtn.textContent = 'Creating...';
+    const createLabelEl = createDeckBtn.querySelector('.btn-label');
+    if (createLabelEl) {
+        createLabelEl.textContent = 'Creating...';
+    }
     showError('');
     showSuccess('');
 
@@ -1163,22 +1242,17 @@ async function createDeck() {
             throw new Error(result.error || `Create failed (HTTP ${response.status})`);
         }
 
-        const isCreatedTypeIV = String(result && result.deck && result.deck.behavior_type ? result.deck.behavior_type : '').trim().toLowerCase() === 'type_iv';
-        showSuccess(
-            isCreatedTypeIV
-                ? `Type IV deck created: #${result.deck.deck_id} (${result.deck.name}). Redirecting...`
-                : `Deck created: #${result.deck.deck_id} (${result.deck.name}), added ${result.cards_added} cards. Redirecting...`
-        );
-        window.setTimeout(() => {
-            window.location.href = '/admin.html';
-        }, 500);
+        window.location.href = '/admin.html';
     } catch (error) {
         console.error('Error creating shared deck:', error);
         showError(error.message || 'Failed to create deck.');
     } finally {
         isCreatingDeck = false;
         createDeckBtn.disabled = false;
-        createDeckBtn.textContent = 'Confirm & Create Deck';
+        const createLabelReset = createDeckBtn.querySelector('.btn-label');
+        if (createLabelReset) {
+            createLabelReset.textContent = 'Confirm & Create Deck';
+        }
     }
 }
 

@@ -98,6 +98,32 @@
             padding: 0;
         }
 
+        .deck-tag.deck-tag-locked {
+            background: #f0f3fa;
+            color: #5a6478;
+            border: 1px dashed #c7cee0;
+        }
+
+        .deck-tag.deck-tag-locked svg {
+            color: #7a8499;
+        }
+
+        .add-tag-group {
+            margin-top: 0.8rem;
+            padding: 0.8rem 0.9rem;
+            border: 1px solid #d7deee;
+            border-radius: 10px;
+            background: #fbfcff;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+
+        .add-tag-group .deck-meta-name,
+        .add-tag-group .deck-name-status {
+            margin-top: 0;
+        }
+
         .deck-meta-name {
             margin-top: 0.8rem;
             font-size: 0.95rem;
@@ -215,6 +241,26 @@
             transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
         }
 
+        #firstTagToggle .first-tag-option--with-icon {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        #firstTagToggle .first-tag-option-icon {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #firstTagToggle .first-tag-option--with-icon .first-tag-option-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
         #firstTagToggle .first-tag-option:hover {
             border-color: #4f83ff;
             transform: translateY(-1px);
@@ -327,18 +373,20 @@
                         </div>
                         <p id="categoryPreselectNote" class="category-preselect-note hidden"></p>
                     </fieldset>
+                </div>
+                <div class="add-tag-group">
                     <div class="form-group" style="margin-bottom:0;">
                         <label for="newTagInput">Add tag</label>
                         <div class="deck-row add-tag-row">
                             <input type="text" id="newTagInput" list="existingTagOptions" placeholder="e.g. grade3, unit1, maliping">
                             <datalist id="existingTagOptions"></datalist>
-                            <button type="button" id="addTagBtn" class="btn-secondary">Add Tag</button>
+                            <button type="button" id="addTagBtn" class="btn-secondary"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.2"></span><span>Add Tag</span></button>
                         </div>
                         <div id="tagsContainer" class="deck-tags" style="margin-top:0.3rem;"></div>
                     </div>
+                    <div class="deck-meta-name">Generated name: <code id="generatedName">(auto)</code></div>
+                    <div id="nameStatus" class="deck-name-status status-note">Checking name availability...</div>
                 </div>
-                <div class="deck-meta-name">Generated name: <code id="generatedName">(auto)</code></div>
-                <div id="nameStatus" class="deck-name-status status-note">Checking name availability...</div>
             </section>
 
             <section class="deck-panel settings-section">
@@ -392,8 +440,9 @@
                     </div>
                 </div>
                 <div class="deck-row mt-07">
-                    <button type="button" id="previewBtn" class="btn-primary">Preview Deck</button>
-                    <button type="button" id="clearCsvBtn" class="btn-secondary">Clear</button>
+                    <button type="button" id="previewBtn" class="btn-primary"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Preview Deck</span></button>
+                    <button type="button" id="clearCsvBtn" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Clear</span></button>
+                    <button type="button" id="copyExampleBtn" class="btn-secondary"><span data-icon="clipboard-list" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Copy Example</span></button>
                 </div>
             </section>
 
@@ -401,7 +450,7 @@
                 <h2><span class="icon" data-icon="check" data-icon-size="22"></span> 3) Review & Confirm</h2>
                 <div class="deck-review-head">
                     <div id="reviewMeta"></div>
-                    <button type="button" id="createDeckBtn" class="btn-primary">Confirm & Create Deck</button>
+                    <button type="button" id="createDeckBtn" class="btn-primary"><span data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Confirm &amp; Create Deck</span></button>
                 </div>
                 <div id="dedupeSummary" class="deck-dedupe hidden"></div>
                 <div id="reviewTableWrap" class="deck-review-table-wrap">
@@ -424,7 +473,7 @@
                     <pre id="type4ReviewCode" class="type4-review-code input-mono"></pre>
                     <div class="type4-review-examples-head">
                         <strong>Example results:</strong>
-                        <button type="button" id="regenType4ExamplesBtn" class="btn-secondary">Regen Example</button>
+                        <button type="button" id="regenType4ExamplesBtn" class="btn-secondary"><span data-icon="refresh-cw" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Regen Example</span></button>
                     </div>
                     <div id="type4ReviewExamples"></div>
                     <div id="type4ValidateTestContainer" class="hidden"></div>

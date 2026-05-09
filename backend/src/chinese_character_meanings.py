@@ -1,8 +1,7 @@
-"""Lookup helpers for the chinese_character_bank table.
+"""Lookup helpers for the chinese character/vocabulary banks.
 
-The bank's `character` column may contain 1+ Chinese characters. Single-char
-rows back character decks (pinyin as the card back); multi-char rows back
-vocabulary decks (english meaning as the card back).
+chinese_character_bank backs single-character decks (pinyin).
+chinese_vocabulary_bank backs vocabulary decks (english meaning).
 """
 
 from __future__ import annotations
@@ -28,45 +27,42 @@ def is_chinese_text(value) -> bool:
     return bool(CHINESE_TEXT_RE.fullmatch(_normalize_text(value)))
 
 
-def _lookup_bank(text: str, conn=None) -> dict | None:
-    """Look up one entry in chinese_character_bank. Returns {pinyin, en} or None.
-
-    Pass an existing connection to batch lookups without reopening the DB.
-    """
-    def _query(c):
-        row = c.execute(
-            "SELECT pinyin, en FROM chinese_character_bank WHERE character = ?",
-            [text],
-        ).fetchone()
-        if row:
-            return {'pinyin': str(row[0] or '').strip(), 'en': str(row[1] or '').strip()}
-        return None
+def _query_with_conn(conn, query: str, params: list) -> str:
+    def _run(c):
+        row = c.execute(query, params).fetchone()
+        return str(row[0] or '').strip() if row else ""
 
     try:
         if conn is not None:
-            return _query(conn)
+            return _run(conn)
         owned = get_shared_decks_connection(read_only=True)
         try:
-            return _query(owned)
+            return _run(owned)
         finally:
             owned.close()
     except Exception:
-        return None
+        return ""
 
 
 def get_character_bank_pinyin(value, conn=None) -> str:
-    """Pinyin for a single Chinese character from the bank. Empty if not found."""
+    """Pinyin for a single Chinese character. Empty if not found."""
     text = _normalize_text(value)
     if not is_single_chinese_character(text):
         return ""
-    data = _lookup_bank(text, conn=conn)
-    return data['pinyin'] if data and data.get('pinyin') else ""
+    return _query_with_conn(
+        conn,
+        "SELECT pinyin FROM chinese_character_bank WHERE character = ?",
+        [text],
+    )
 
 
 def get_bank_meaning(value, conn=None) -> str:
-    """English meaning for any Chinese text from the bank. Empty if not found."""
+    """English meaning for a Chinese vocabulary word. Empty if not found."""
     text = _normalize_text(value)
     if not is_chinese_text(text):
         return ""
-    data = _lookup_bank(text, conn=conn)
-    return data['en'] if data and data.get('en') else ""
+    return _query_with_conn(
+        conn,
+        "SELECT en FROM chinese_vocabulary_bank WHERE word = ?",
+        [text],
+    )

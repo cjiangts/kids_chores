@@ -199,6 +199,249 @@ def share_deck_category_to_non_super(category_key):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/shared-decks/categories/<category_key>', methods=['DELETE'])
+def delete_shared_deck_category(category_key):
+    """Sweep-delete an unshared category from shared DB and every kid DB."""
+    try:
+        auth_err = require_super_family()
+        if auth_err:
+            return auth_err
+        pwd_err = require_critical_password()
+        if pwd_err:
+            return pwd_err
+
+        key = normalize_shared_deck_tag(category_key)
+        if not key:
+            return jsonify({'error': 'categoryKey is required'}), 400
+
+        with _SHARED_DECK_MUTATION_LOCK:
+            shared_conn = None
+            try:
+                shared_conn = get_shared_decks_connection()
+                row = shared_conn.execute(
+                    """
+                    SELECT category_key, is_shared_with_non_super_family
+                    FROM deck_category
+                    WHERE category_key = ?
+                    LIMIT 1
+                    """,
+                    [key],
+                ).fetchone()
+                if row is None:
+                    return jsonify({'error': 'Category not found'}), 404
+                if bool(row[1]):
+                    return jsonify({
+                        'error': 'Category is shared with non-super families and cannot be deleted',
+                    }), 400
+
+                shared_deck_ids = [
+                    int(r[0]) for r in shared_conn.execute(
+                        "SELECT deck_id FROM deck WHERE lower(tags[1]) = ?",
+                        [key.lower()],
+                    ).fetchall()
+                ]
+
+                kids_affected = 0
+                for kid in metadata.get_all_kids():
+                    if delete_category_data_for_kid(kid, key):
+                        kids_affected += 1
+
+                if shared_deck_ids:
+                    placeholders = ','.join(['?'] * len(shared_deck_ids))
+                    shared_conn.execute(
+                        f"DELETE FROM cards WHERE deck_id IN ({placeholders})",
+                        shared_deck_ids,
+                    )
+                    shared_conn.execute(
+                        f"DELETE FROM deck_generator_definition WHERE deck_id IN ({placeholders})",
+                        shared_deck_ids,
+                    )
+                    shared_conn.execute(
+                        f"DELETE FROM deck WHERE deck_id IN ({placeholders})",
+                        shared_deck_ids,
+                    )
+                shared_conn.execute(
+                    "DELETE FROM achievement_badge_art WHERE category_key = ?",
+                    [key],
+                )
+                shared_conn.execute(
+                    "DELETE FROM deck_category WHERE category_key = ?",
+                    [key],
+                )
+            finally:
+                if shared_conn is not None:
+                    shared_conn.close()
+
+        invalidate_category_meta_cache()
+        return jsonify({
+            'deleted': True,
+            'category_key': key,
+            'shared_decks_deleted': len(shared_deck_ids),
+            'kids_affected': kids_affected,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def delete_category_data_for_kid(kid, key):
+    """Remove all rows + audio files for one category from one kid DB. Returns True if anything changed."""
+    kid_conn = None
+    changed = False
+    try:
+        kid_conn = get_kid_connection_for(kid)
+        deck_id_rows = kid_conn.execute(
+            "SELECT id FROM decks WHERE lower(tags[1]) = ?",
+            [key.lower()],
+        ).fetchall()
+        local_deck_ids = [int(r[0]) for r in deck_id_rows]
+
+        if local_deck_ids:
+            deck_placeholders = ','.join(['?'] * len(local_deck_ids))
+            card_id_rows = kid_conn.execute(
+                f"SELECT id FROM cards WHERE deck_id IN ({deck_placeholders})",
+                local_deck_ids,
+            ).fetchall()
+            card_ids = [int(r[0]) for r in card_id_rows]
+
+            if card_ids:
+                card_placeholders = ','.join(['?'] * len(card_ids))
+                audio_rows = kid_conn.execute(
+                    f"""
+                    SELECT lra.file_name FROM lesson_reading_audio lra
+                    JOIN session_results sr ON sr.id = lra.result_id
+                    WHERE sr.card_id IN ({card_placeholders})
+                    """,
+                    card_ids,
+                ).fetchall()
+                audio_dir = get_kid_type3_audio_dir(kid)
+                for r in audio_rows:
+                    file_name = str(r[0] or '').strip()
+                    if not file_name:
+                        continue
+                    file_path = os.path.join(audio_dir, file_name)
+                    if os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except OSError:
+                            pass
+                kid_conn.execute(
+                    f"""
+                    DELETE FROM lesson_reading_audio
+                    WHERE result_id IN (
+                        SELECT id FROM session_results WHERE card_id IN ({card_placeholders})
+                    )
+                    """,
+                    card_ids,
+                )
+                kid_conn.execute(
+                    f"""
+                    DELETE FROM type1_result_item
+                    WHERE result_id IN (
+                        SELECT id FROM session_results WHERE card_id IN ({card_placeholders})
+                    )
+                    """,
+                    card_ids,
+                )
+                kid_conn.execute(
+                    f"""
+                    DELETE FROM type4_result_item
+                    WHERE result_id IN (
+                        SELECT id FROM session_results WHERE card_id IN ({card_placeholders})
+                    )
+                    """,
+                    card_ids,
+                )
+                kid_conn.execute(
+                    f"DELETE FROM session_results WHERE card_id IN ({card_placeholders})",
+                    card_ids,
+                )
+                kid_conn.execute(
+                    f"DELETE FROM cards WHERE id IN ({card_placeholders})",
+                    card_ids,
+                )
+
+            kid_conn.execute(
+                f"DELETE FROM decks WHERE id IN ({deck_placeholders})",
+                local_deck_ids,
+            )
+            changed = True
+
+        session_id_rows = kid_conn.execute(
+            "SELECT id FROM sessions WHERE type = ?",
+            [key],
+        ).fetchall()
+        session_ids = [int(r[0]) for r in session_id_rows]
+        if session_ids:
+            session_placeholders = ','.join(['?'] * len(session_ids))
+            result_id_rows = kid_conn.execute(
+                f"SELECT id FROM session_results WHERE session_id IN ({session_placeholders})",
+                session_ids,
+            ).fetchall()
+            result_ids = [int(r[0]) for r in result_id_rows]
+            if result_ids:
+                result_placeholders = ','.join(['?'] * len(result_ids))
+                audio_rows = kid_conn.execute(
+                    f"SELECT file_name FROM lesson_reading_audio WHERE result_id IN ({result_placeholders})",
+                    result_ids,
+                ).fetchall()
+                audio_dir = get_kid_type3_audio_dir(kid)
+                for r in audio_rows:
+                    file_name = str(r[0] or '').strip()
+                    if not file_name:
+                        continue
+                    file_path = os.path.join(audio_dir, file_name)
+                    if os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except OSError:
+                            pass
+                kid_conn.execute(
+                    f"DELETE FROM lesson_reading_audio WHERE result_id IN ({result_placeholders})",
+                    result_ids,
+                )
+                kid_conn.execute(
+                    f"DELETE FROM type1_result_item WHERE result_id IN ({result_placeholders})",
+                    result_ids,
+                )
+                kid_conn.execute(
+                    f"DELETE FROM type4_result_item WHERE result_id IN ({result_placeholders})",
+                    result_ids,
+                )
+                kid_conn.execute(
+                    f"DELETE FROM session_results WHERE id IN ({result_placeholders})",
+                    result_ids,
+                )
+            kid_conn.execute(
+                f"DELETE FROM sessions WHERE id IN ({session_placeholders})",
+                session_ids,
+            )
+            changed = True
+
+        opt_in_deleted = kid_conn.execute(
+            "DELETE FROM deck_category_opt_in WHERE category_key = ?",
+            [key],
+        )
+        sheets_deleted = kid_conn.execute(
+            "DELETE FROM type4_print_sheets WHERE category_key = ?",
+            [key],
+        )
+        chinese_sheets_deleted = kid_conn.execute(
+            "DELETE FROM type2_chinese_print_sheets WHERE category_key = ?",
+            [key],
+        )
+        badges_deleted = kid_conn.execute(
+            "DELETE FROM kid_badge_award WHERE category_key = ?",
+            [key],
+        )
+        # Best-effort flag — these executes don't return rowcount uniformly in DuckDB,
+        # so we rely on the deck/session paths above to set `changed`.
+        del opt_in_deleted, sheets_deleted, chinese_sheets_deleted, badges_deleted
+    finally:
+        if kid_conn is not None:
+            kid_conn.close()
+    return changed
+
+
 @kids_bp.route('/shared-decks/name-availability', methods=['GET'])
 def shared_deck_name_availability():
     """Check whether a shared deck name is globally available."""
@@ -558,10 +801,11 @@ def shared_deck_tags():
         conn = get_shared_decks_connection(read_only=True)
         try:
             tag_paths = get_all_shared_deck_tag_paths(conn)
+            tag_label_paths = get_all_shared_deck_tag_label_paths(conn)
         finally:
             conn.close()
 
-        return jsonify({'tag_paths': tag_paths}), 200
+        return jsonify({'tag_paths': tag_paths, 'tag_label_paths': tag_label_paths}), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:

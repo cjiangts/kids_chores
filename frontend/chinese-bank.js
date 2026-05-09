@@ -1,10 +1,38 @@
 const API_BASE = `${window.location.origin}/api`;
 
+const MODE = (() => {
+    const raw = (new URLSearchParams(window.location.search).get('mode') || '').trim().toLowerCase();
+    return raw === 'english' ? 'english' : 'pinyin';
+})();
+
+const MODE_CONFIG = {
+    pinyin: {
+        title: 'Manage Characters',
+        viewTitle: 'View Characters',
+        keyHeader: 'Char',
+        valueHeader: 'Pinyin',
+        searchPlaceholder: 'Search character or pinyin...',
+        csvPlaceholder: 'Char,Pinyin',
+        unitSingular: 'char',
+        unitPlural: 'chars',
+    },
+    english: {
+        title: 'Manage Vocabulary',
+        viewTitle: 'View Vocabulary',
+        keyHeader: 'Word',
+        valueHeader: 'English',
+        searchPlaceholder: 'Search word or meaning...',
+        csvPlaceholder: 'Word,English',
+        unitSingular: 'word',
+        unitPlural: 'words',
+    },
+};
+const cfg = MODE_CONFIG[MODE];
+
 const searchInput = document.getElementById('searchInput');
 const filterVerifiedGroup = document.getElementById('filterVerifiedGroup');
 let filterVerifiedValue = 'verified';
 const bankTableBody = document.getElementById('bankTableBody');
-const bankStats = document.getElementById('bankStats');
 const prevPageBtn = document.getElementById('prevPageBtn');
 const nextPageBtn = document.getElementById('nextPageBtn');
 const pageInfo = document.getElementById('pageInfo');
@@ -19,16 +47,33 @@ const csvToggleBtn = document.getElementById('csvToggleBtn');
 const csvPreviewBtn = document.getElementById('csvPreviewBtn');
 const csvEditor = document.getElementById('csvEditor');
 const csvClearBtn = document.getElementById('csvClearBtn');
+const csvCopyClearBtn = document.getElementById('csvCopyClearBtn');
+const keyColumnHeader = document.getElementById('keyColumnHeader');
+const valueColumnHeader = document.getElementById('valueColumnHeader');
 
 let currentPage = 1;
 const perPage = 50;
 let totalCount = 0;
-const pendingEdits = new Map(); // character -> { pinyin, en, verified }
+const pendingEdits = new Map(); // key -> { value, verified }
 let debounceTimer = null;
 let sortUpdated = ''; // '', 'asc', 'desc'
-let currentPageChars = []; // store current page data for CSV export
+let currentPageRows = [];
 let csvVisible = false;
 let isSuper = false;
+
+function applyModeChrome() {
+    document.body.classList.add(`bank-mode-${MODE}`);
+    keyColumnHeader.textContent = cfg.keyHeader;
+    valueColumnHeader.textContent = cfg.valueHeader;
+    searchInput.placeholder = cfg.searchPlaceholder;
+    csvEditor.placeholder = cfg.csvPlaceholder;
+    document.title = `${cfg.title} - Kids Daily Chores`;
+    const h1 = document.querySelector('h1');
+    if (h1) {
+        h1.innerHTML = `<span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span> ${escapeHtml(cfg.title)}`;
+        if (typeof hydrateIcons === 'function') hydrateIcons(h1);
+    }
+}
 
 function applySuperVisibility() {
     const adminActions = document.getElementById('bankAdminActions');
@@ -39,10 +84,10 @@ function applySuperVisibility() {
     if (!isSuper) {
         const h1 = document.querySelector('h1');
         if (h1) {
-            h1.innerHTML = '<span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span> View Dictionary';
+            h1.innerHTML = `<span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span> ${escapeHtml(cfg.viewTitle)}`;
             if (typeof hydrateIcons === 'function') hydrateIcons(h1);
         }
-        document.title = 'View Dictionary - Kids Daily Chores';
+        document.title = `${cfg.viewTitle} - Kids Daily Chores`;
     }
 }
 
@@ -60,15 +105,20 @@ function formatDate(dateStr) {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     if (isNaN(d)) return escapeHtml(dateStr);
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const yy = String(d.getFullYear()).slice(-2);
-    return `${mm}/${dd}/${yy}`;
+    const startOfDay = (date) => {
+        const c = new Date(date);
+        c.setHours(0, 0, 0, 0);
+        return c.getTime();
+    };
+    const days = Math.max(0, Math.round((startOfDay(new Date()) - startOfDay(d)) / 86400000));
+    if (days === 0) return 'today';
+    return `${days}d ago`;
 }
 
 async function loadPage() {
     showError('');
     const params = new URLSearchParams({
+        mode: MODE,
         page: currentPage,
         perPage,
     });
@@ -90,13 +140,13 @@ async function loadPage() {
         }
         const data = await res.json();
         totalCount = data.total;
-        currentPageChars = data.characters;
+        currentPageRows = data.rows;
         if (data.isSuper !== undefined) {
             isSuper = data.isSuper;
             applySuperVisibility();
         }
         renderStats(data.stats);
-        renderTable(data.characters);
+        renderTable(currentPageRows);
         renderPagination();
         if (csvVisible) populateCsv();
     } catch (err) {
@@ -105,7 +155,6 @@ async function loadPage() {
 }
 
 function renderStats(stats) {
-    if (bankStats) bankStats.innerHTML = '';
     const unverifiedCount = Math.max(0, (stats.used || 0) - (stats.verified || 0));
     const btnTexts = {
         'unverified': `Used & Unverified (${unverifiedCount.toLocaleString()})`,
@@ -119,40 +168,35 @@ function renderStats(stats) {
     }
 }
 
-function renderTable(characters) {
-    bankTableBody.innerHTML = characters.map((c) => {
-        const edited = pendingEdits.get(c.character);
-        const pinyinVal = edited ? edited.pinyin : c.pinyin;
-        const enVal = edited ? edited.en : c.en;
-        const isVerified = edited ? edited.verified : c.verified;
-        const pinyinEdited = edited && edited.pinyin !== c.pinyin ? ' edited' : '';
-        const enEdited = edited && edited.en !== c.en ? ' edited' : '';
+function renderTable(rows) {
+    bankTableBody.innerHTML = rows.map((r) => {
+        const edited = pendingEdits.get(r.key);
+        const valueVal = edited ? edited.value : r.value;
+        const isVerified = edited ? edited.verified : r.verified;
+        const valueEdited = edited && edited.value !== r.value ? ' edited' : '';
         if (!isSuper) {
             return `<tr>
-                <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" style="cursor:default;">${escapeHtml(c.character)}</td>
-                <td class="pinyin-cell">${escapeHtml(pinyinVal)}</td>
-                <td class="en-cell">${escapeHtml(enVal)}</td>
-                <td style="text-align:center;">${c.used ? icon('check', { size: 16 }) : ''}</td>
-                <td class="updated-cell">${formatDate(c.lastUpdated)}</td>
+                <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" style="cursor:default;">${escapeHtml(r.key)}</td>
+                <td class="value-cell">${escapeHtml(valueVal)}</td>
+                <td style="text-align:center;">${r.used ? icon('check', { size: 16 }) : ''}</td>
+                <td class="updated-cell">${formatDate(r.lastUpdated)}</td>
             </tr>`;
         }
-        return `<tr data-char="${escapeHtml(c.character)}" data-original-verified="${c.verified}">
-            <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" data-field="verified">${escapeHtml(c.character)}</td>
-            <td class="pinyin-cell${pinyinEdited}">
-                <input type="text" value="${escapeHtml(pinyinVal)}" data-field="pinyin" data-original="${escapeHtml(c.pinyin)}" />
+        return `<tr data-key="${escapeHtml(r.key)}" data-original-verified="${r.verified}">
+            <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" data-field="verified">${escapeHtml(r.key)}</td>
+            <td class="value-cell${valueEdited}">
+                <input type="text" value="${escapeHtml(valueVal)}" data-field="value" data-original="${escapeHtml(r.value)}" />
             </td>
-            <td class="en-cell${enEdited}">
-                <input type="text" value="${escapeHtml(enVal)}" data-field="en" data-original="${escapeHtml(c.en)}" />
-            </td>
-            <td style="text-align:center;">${c.used ? icon('check', { size: 16 }) : ''}</td>
-            <td class="updated-cell">${formatDate(c.lastUpdated)}</td>
+            <td style="text-align:center;">${r.used ? icon('check', { size: 16 }) : ''}</td>
+            <td class="updated-cell">${formatDate(r.lastUpdated)}</td>
         </tr>`;
     }).join('');
 }
 
 function renderPagination() {
     const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
-    pageInfo.textContent = `Page ${currentPage} of ${totalPages} (${totalCount.toLocaleString()} chars)`;
+    const unit = totalCount === 1 ? cfg.unitSingular : cfg.unitPlural;
+    pageInfo.textContent = `Page ${currentPage} of ${totalPages} (${totalCount.toLocaleString()} ${unit})`;
     prevPageBtn.disabled = currentPage <= 1;
     nextPageBtn.disabled = currentPage >= totalPages;
 }
@@ -167,40 +211,33 @@ function updateSaveBar() {
 }
 
 function handleFieldChange(tr, field, value) {
-    const char = tr.dataset.char;
-    const existing = pendingEdits.get(char) || {};
+    const key = tr.dataset.key;
+    const existing = pendingEdits.get(key) || {};
 
-    const pinyinInput = tr.querySelector('input[data-field="pinyin"]');
-    const enInput = tr.querySelector('input[data-field="en"]');
-    const pinyinOriginal = pinyinInput.dataset.original;
-    const enOriginal = enInput.dataset.original;
+    const valueInput = tr.querySelector('input[data-field="value"]');
+    const valueOriginal = valueInput.dataset.original;
     const verifiedOriginal = tr.dataset.originalVerified === 'true';
 
     if (field === 'verified') {
         existing.verified = value;
-        if (!existing.pinyin) existing.pinyin = pinyinInput.value;
-        if (!existing.en) existing.en = enInput.value;
+        if (existing.value === undefined) existing.value = valueInput.value;
     } else {
-        const input = tr.querySelector(`input[data-field="${field}"]`);
-        existing[field] = value;
-        if (!existing.pinyin) existing.pinyin = pinyinInput.value;
-        if (!existing.en) existing.en = enInput.value;
+        existing.value = value;
         if (existing.verified === undefined) {
             existing.verified = tr.querySelector('td.char-cell').classList.contains('verified');
         }
-        // Visual feedback
-        const cell = input.closest('td');
-        if (value !== input.dataset.original) {
+        const cell = valueInput.closest('td');
+        if (value !== valueInput.dataset.original) {
             cell.classList.add('edited');
         } else {
             cell.classList.remove('edited');
         }
     }
 
-    if (existing.pinyin === pinyinOriginal && existing.en === enOriginal && existing.verified === verifiedOriginal) {
-        pendingEdits.delete(char);
+    if (existing.value === valueOriginal && existing.verified === verifiedOriginal) {
+        pendingEdits.delete(key);
     } else {
-        pendingEdits.set(char, existing);
+        pendingEdits.set(key, existing);
     }
     updateSaveBar();
 }
@@ -212,11 +249,10 @@ async function saveChanges() {
     saveChangesBtn.textContent = 'Saving...';
 
     const updates = [];
-    for (const [character, edit] of pendingEdits) {
+    for (const [key, edit] of pendingEdits) {
         updates.push({
-            character,
-            pinyin: edit.pinyin,
-            en: edit.en,
+            key,
+            value: edit.value,
             verified: edit.verified,
         });
     }
@@ -225,7 +261,7 @@ async function saveChanges() {
         const res = await fetch(`${API_BASE}/chinese-bank`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ updates }),
+            body: JSON.stringify({ mode: MODE, updates }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -243,12 +279,11 @@ async function saveChanges() {
     }
 }
 
-// Event listeners
 bankTableBody.addEventListener('input', (e) => {
     const input = e.target;
-    if (!input.dataset.field || input.dataset.field === 'verified') return;
+    if (input.dataset.field !== 'value') return;
     const tr = input.closest('tr');
-    if (tr) handleFieldChange(tr, input.dataset.field, input.value);
+    if (tr) handleFieldChange(tr, 'value', input.value);
 });
 
 bankTableBody.addEventListener('click', (e) => {
@@ -316,14 +351,13 @@ sortUpdatedTh.addEventListener('click', () => {
     loadPage();
 });
 
-renderSortUpdatedTh();
-
 refreshUsedBtn.addEventListener('click', async () => {
     showError('');
     refreshUsedBtn.disabled = true;
-    refreshUsedBtn.textContent = 'Scanning...';
+    refreshUsedBtn.querySelector('.btn-label').textContent = 'Scanning...';
     try {
-        const res = await fetch(`${API_BASE}/chinese-bank/refresh-used`, { method: 'POST' });
+        const params = new URLSearchParams({ mode: MODE });
+        const res = await fetch(`${API_BASE}/chinese-bank/refresh-used?${params}`, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             showError(data.error || 'Failed to refresh');
@@ -332,8 +366,8 @@ refreshUsedBtn.addEventListener('click', async () => {
         const lines = [];
         const diff = data.usedCount - data.prevUsedCount;
         lines.push(`Used: ${data.prevUsedCount} → ${data.usedCount} (${diff >= 0 ? '+' : ''}${diff})`);
-        if (data.insertedChars && data.insertedChars.length > 0) {
-            lines.push(`\nNew to bank (inserted): ${data.insertedChars.join(' ')}`);
+        if (data.insertedKeys && data.insertedKeys.length > 0) {
+            lines.push(`\nNew to bank (inserted): ${data.insertedKeys.join(' ')}`);
         }
         if (data.newlyUsed && data.newlyUsed.length > 0) {
             lines.push(`\nNewly used: ${data.newlyUsed.join(' ')}`);
@@ -341,7 +375,7 @@ refreshUsedBtn.addEventListener('click', async () => {
         if (data.newlyUnused && data.newlyUnused.length > 0) {
             lines.push(`\nNo longer used: ${data.newlyUnused.join(' ')}`);
         }
-        if (!data.insertedChars?.length && !data.newlyUsed?.length && !data.newlyUnused?.length) {
+        if (!data.insertedKeys?.length && !data.newlyUsed?.length && !data.newlyUnused?.length) {
             lines.push('\nNo changes.');
         }
         alert(lines.join(''));
@@ -350,59 +384,77 @@ refreshUsedBtn.addEventListener('click', async () => {
         showError(err.message || 'Failed to refresh');
     } finally {
         refreshUsedBtn.disabled = false;
-        refreshUsedBtn.textContent = 'Refresh Used';
+        refreshUsedBtn.querySelector('.btn-label').textContent = 'Refresh Used';
     }
 });
 
-// CSV editor
 function populateCsv() {
-    const lines = currentPageChars.map((c) => {
-        const edited = pendingEdits.get(c.character);
-        const pinyin = edited ? edited.pinyin : c.pinyin;
-        const en = edited ? edited.en : c.en;
-        return `${c.character},${pinyin},${en}`;
+    const lines = currentPageRows.map((r) => {
+        const edited = pendingEdits.get(r.key);
+        const value = edited ? edited.value : r.value;
+        return `${r.key},${value}`;
     });
     csvEditor.value = lines.join('\n');
 }
 
 function applyCsvPreview() {
     const lines = csvEditor.value.split('\n').filter((l) => l.trim());
-    const originalByChar = {};
-    for (const c of currentPageChars) {
-        originalByChar[c.character] = c;
+    const originalByKey = {};
+    for (const r of currentPageRows) {
+        originalByKey[r.key] = r;
     }
 
     for (const line of lines) {
         const parts = line.split(',');
-        if (parts.length < 3) continue;
-        const char = parts[0].trim();
-        const pinyin = parts[1].trim();
-        const en = parts[2].trim();
-        const orig = originalByChar[char];
+        if (parts.length < 2) continue;
+        const key = parts[0].trim();
+        const value = parts.slice(1).join(',').trim();
+        const orig = originalByKey[key];
         if (!orig) continue;
 
-        const existing = pendingEdits.get(char) || {};
-        existing.pinyin = pinyin;
-        existing.en = en;
+        const existing = pendingEdits.get(key) || {};
+        existing.value = value;
         existing.verified = true;
-        if (pinyin === orig.pinyin && en === orig.en && orig.verified === true) {
-            pendingEdits.delete(char);
+        if (value === orig.value && orig.verified === true) {
+            pendingEdits.delete(key);
         } else {
-            pendingEdits.set(char, existing);
+            pendingEdits.set(key, existing);
         }
     }
 
-    renderTable(currentPageChars);
+    renderTable(currentPageRows);
     updateSaveBar();
 }
 
+const csvEditorSection = document.getElementById('csvEditorSection');
+
 csvToggleBtn.addEventListener('click', () => {
     csvVisible = !csvVisible;
-    csvEditor.style.display = csvVisible ? '' : 'none';
-    csvPreviewBtn.style.display = csvVisible ? '' : 'none';
-    csvClearBtn.style.display = csvVisible ? '' : 'none';
-    csvToggleBtn.textContent = csvVisible ? 'Hide CSV' : 'Show CSV';
+    csvEditorSection.classList.toggle('is-visible', csvVisible);
+    csvToggleBtn.querySelector('.btn-label').textContent = csvVisible ? 'Hide CSV' : 'Show CSV';
     if (csvVisible) populateCsv();
+});
+
+csvCopyClearBtn.addEventListener('click', async () => {
+    const text = csvEditor.value;
+    if (!text) return;
+    const labelEl = csvCopyClearBtn.querySelector('.btn-label');
+    const originalLabel = labelEl.textContent;
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            csvEditor.select();
+            document.execCommand('copy');
+            csvEditor.setSelectionRange(0, 0);
+        }
+        csvEditor.value = '';
+        labelEl.textContent = 'Copied';
+    } catch (err) {
+        showError(err.message || 'Failed to copy');
+        return;
+    }
+    setTimeout(() => { labelEl.textContent = originalLabel; }, 1200);
 });
 
 csvPreviewBtn.addEventListener('click', () => {
@@ -412,19 +464,20 @@ csvPreviewBtn.addEventListener('click', () => {
 csvClearBtn.addEventListener('click', () => {
     pendingEdits.clear();
     populateCsv();
-    renderTable(currentPageChars);
+    renderTable(currentPageRows);
     updateSaveBar();
 });
 
 forceSyncBtn.addEventListener('click', async () => {
-    if (!confirm('Re-generate back text for all cards matching verified bank characters?\nThis will update shared decks and all kid DBs.')) {
+    if (!confirm('Re-generate back text for all cards matching verified bank entries?\nThis will update shared decks and all kid DBs.')) {
         return;
     }
     showError('');
     forceSyncBtn.disabled = true;
-    forceSyncBtn.textContent = 'Syncing...';
+    forceSyncBtn.querySelector('.btn-label').textContent = 'Syncing...';
     try {
-        const res = await fetch(`${API_BASE}/chinese-bank/force-sync-backs`, { method: 'POST' });
+        const params = new URLSearchParams({ mode: MODE });
+        const res = await fetch(`${API_BASE}/chinese-bank/force-sync-backs?${params}`, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             showError(data.error || 'Failed to sync');
@@ -432,20 +485,21 @@ forceSyncBtn.addEventListener('click', async () => {
         }
         const changes = data.changed || [];
         if (changes.length === 0) {
-            alert(`All ${data.verified_count} verified chars already in sync. Nothing to update.`);
+            alert(`All ${data.verified_count} verified ${cfg.unitPlural} already in sync. Nothing to update.`);
         } else {
             const lines = changes.map((c) =>
-                `${c.character}: ${c.shared} shared card${c.shared !== 1 ? 's' : ''}, ${c.kid_dbs} kid DB${c.kid_dbs !== 1 ? 's' : ''}`
+                `${c.key}: ${c.shared} shared card${c.shared !== 1 ? 's' : ''}, ${c.kid_dbs} kid DB${c.kid_dbs !== 1 ? 's' : ''}`
             );
-            alert(`Updated ${changes.length} of ${data.verified_count} verified chars:\n\n${lines.join('\n')}`);
+            alert(`Updated ${changes.length} of ${data.verified_count} verified ${cfg.unitPlural}:\n\n${lines.join('\n')}`);
         }
     } catch (err) {
         showError(err.message || 'Failed to sync');
     } finally {
         forceSyncBtn.disabled = false;
-        forceSyncBtn.textContent = 'Force Sync Backs';
+        forceSyncBtn.querySelector('.btn-label').textContent = 'Force Sync Backs';
     }
 });
 
-// Initial load
+applyModeChrome();
+renderSortUpdatedTh();
 loadPage();

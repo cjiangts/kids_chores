@@ -5,11 +5,8 @@ const API_BASE = `${window.location.origin}/api`;
 const adminActionGrid = document.getElementById('adminActionGrid');
 const adminOptinPanel = document.getElementById('adminOptinPanel');
 const adminMatrix = document.getElementById('adminMatrix');
-const adminEditActions = document.getElementById('adminEditActions');
 const adminEmptyState = document.getElementById('adminEmptyState');
 const getEditToggleBtn = () => document.getElementById('editToggleBtn');
-const cancelEditBtn = document.getElementById('cancelEditBtn');
-const saveEditBtn = document.getElementById('saveEditBtn');
 const newKidBtn = document.getElementById('newKidBtn');
 const kidModal = document.getElementById('kidModal');
 const kidForm = document.getElementById('kidForm');
@@ -37,12 +34,16 @@ const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
 const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 
 let isCreatingKid = false;
-let isSavingMatrix = false;
 let currentKids = [];
+let kidsLoaded = false;
 let currentFamilyId = '';
 let editMode = false;
 let editState = null;
-let editBaseline = null;
+let isExitingEditMode = false;
+const pendingSaveTimers = new Map();
+const inFlightSaves = new Map();
+const savingKids = new Set();
+const KID_AUTOSAVE_DELAY_MS = 450;
 let openKidMenuKidId = '';
 let openSubjectMenuKey = '';
 let isSuperFamily = false;
@@ -51,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadKids({ preferNavigationCache: true });
     loadAuthStatus();
     bindEvents();
-    keepEditBarAboveKeyboard();
 });
 
 async function loadAuthStatus() {
@@ -66,19 +66,6 @@ async function loadAuthStatus() {
     } catch (error) {
         // ignore — non-super family is the safe default
     }
-}
-
-function keepEditBarAboveKeyboard() {
-    const vv = window.visualViewport;
-    if (!vv || !adminEditActions) return;
-    const update = () => {
-        const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-        const accessoryBar = offset > 0 ? 56 : 0;
-        adminEditActions.style.bottom = `calc(1rem + ${offset + accessoryBar}px)`;
-    };
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-    update();
 }
 
 function bindEvents() {
@@ -114,12 +101,6 @@ function bindEvents() {
                 enterEditMode();
             }
         });
-    }
-    if (cancelEditBtn) {
-        cancelEditBtn.addEventListener('click', exitEditMode);
-    }
-    if (saveEditBtn) {
-        saveEditBtn.addEventListener('click', saveMatrix);
     }
     document.addEventListener('click', (event) => {
         if (openKidMenuKidId) {
@@ -287,12 +268,13 @@ async function loadKids(options = {}) {
             const cachedKids = readKidsFromParentNavigationCache();
             if (cachedKids) {
                 currentKids = cachedKids;
+                kidsLoaded = true;
                 renderAll();
                 usedNavigationCache = true;
             }
         }
         if (!usedNavigationCache && adminActionGrid) {
-            adminActionGrid.innerHTML = '<div class="empty-state app-spinner-block" role="status" aria-label="Loading"><span class="app-spinner" aria-hidden="true"></span></div>';
+            adminActionGrid.innerHTML = '<div class="empty-state app-spinner-block" role="status" aria-label="Loading" style="grid-column: 1 / -1; background: transparent;"><span class="app-spinner" aria-hidden="true"></span></div>';
         }
         const response = await fetch(`${API_BASE}/kids?view=admin`);
         if (!response.ok) {
@@ -300,12 +282,14 @@ async function loadKids(options = {}) {
         }
         const kids = await response.json();
         currentKids = Array.isArray(kids) ? kids : [];
+        kidsLoaded = true;
         cacheKidsForParentNavigation(currentKids);
         renderAll();
     } catch (error) {
         console.error('Error loading kids:', error);
         if (!usedNavigationCache) {
             currentKids = [];
+            kidsLoaded = true;
             showError('Failed to load kids. Make sure the backend server is running on port 5001.');
             renderAll();
         }
@@ -405,6 +389,7 @@ function getCategoryRowsForFamily(kids) {
             categoryKey,
             displayName: getCategoryDisplayName(categoryKey, aggregated) || categoryKey,
             behaviorType: normalizeBehaviorType(meta?.behavior_type),
+            chineseBackContent: String(meta?.chinese_back_content || '').trim().toLowerCase(),
         }))
         .sort((a, b) => a.displayName.localeCompare(b.displayName));
     return rows;
@@ -573,7 +558,8 @@ function renderMatrix() {
     const list = Array.isArray(currentKids) ? currentKids : [];
     if (list.length === 0) {
         adminOptinPanel.classList.add('hidden');
-        adminEmptyState.classList.remove('hidden');
+        if (kidsLoaded) adminEmptyState.classList.remove('hidden');
+        else adminEmptyState.classList.add('hidden');
         return;
     }
     adminEmptyState.classList.add('hidden');
@@ -586,31 +572,20 @@ function renderMatrix() {
         if (eb) eb.disabled = true;
         return;
     }
-    {
-        const eb = getEditToggleBtn();
-        if (eb) eb.disabled = editMode;
-    }
+    adminOptinPanel.classList.toggle('is-editing', editMode);
+    adminMatrix.classList.toggle('is-editable', editMode);
 
-    if (editMode) {
-        adminMatrix.classList.add('is-editable');
-        adminEditActions.classList.remove('hidden');
-        adminEditActions.removeAttribute('inert');
-        document.body.classList.add('admin-edit-mode');
-    } else {
-        if (adminEditActions.contains(document.activeElement)) {
-            document.activeElement.blur();
-        }
-        adminMatrix.classList.remove('is-editable');
-        adminEditActions.classList.add('hidden');
-        adminEditActions.setAttribute('inert', '');
-        document.body.classList.remove('admin-edit-mode');
-    }
-
-    const editIconSvg = (typeof window.icon === 'function') ? window.icon('pencil', { size: 14 }) : '';
+    const editIconName = editMode ? 'check' : 'pencil';
+    const editIconSvg = (typeof window.icon === 'function') ? window.icon(editIconName, { size: 14 }) : '';
+    const editLabel = editMode ? 'Done' : 'Edit';
+    const editBtnExtraClass = editMode ? ' admin-optin-edit-btn--done' : '';
     const folderIconSvg = (typeof window.icon === 'function') ? window.icon('folder', { size: 14 }) : '';
+    const manageBtnHiddenClass = editMode ? ' admin-optin-edit-btn--space-keeper' : '';
     const manageCategoriesBtnHtml = isSuperFamily
-        ? `<a href="/deck-category-create.html" class="btn-secondary admin-optin-edit-btn admin-optin-manage-btn">${folderIconSvg}<span>Subjects</span></a>`
+        ? `<a href="/deck-category-create.html" class="btn-secondary admin-optin-edit-btn admin-optin-manage-btn${manageBtnHiddenClass}" ${editMode ? 'tabindex="-1" aria-hidden="true"' : ''}>${folderIconSvg}<span>Subjects</span></a>`
         : '';
+    const subText = editMode ? 'Tap to toggle · auto-saved' : 'Numbers = cards/day';
+    const subClass = editMode ? 'admin-matrix-title-sub admin-matrix-title-sub--edit' : 'admin-matrix-title-sub';
     const headerHtml = `
         <thead>
             <tr>
@@ -618,11 +593,11 @@ function renderMatrix() {
                     <div class="admin-matrix-title-block">
                         <div class="admin-matrix-title-text">
                             <span class="admin-matrix-title-main">Subject Settings</span>
-                            <span class="admin-matrix-title-sub">Numbers = cards/day</span>
+                            <span class="${subClass}">${subText}</span>
                         </div>
                         <div class="admin-matrix-title-actions">
-                            <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn">
-                                ${editIconSvg}<span id="editToggleLabel">Edit</span>
+                            <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
+                                ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
                             </button>
                             ${manageCategoriesBtnHtml}
                         </div>
@@ -640,7 +615,6 @@ function renderMatrix() {
     adminMatrix.innerHTML = headerHtml + bodyHtml;
 
     bindMatrixInteractions(rows, list);
-    if (editMode) setSaveButtonState();
     if (openKidMenuKidId) {
         // Re-render menu position if open.
         renderKidMenu(openKidMenuKidId);
@@ -655,8 +629,9 @@ function buildKidColumnHeader(kid) {
     const name = String(kid?.name || '');
     const initial = getKidInitial(name);
     const tone = hashStringToIndex(kidId || name, KID_AVATAR_TONE_COUNT);
+    const savingClass = savingKids.has(kidId) ? ' is-saving' : '';
     return `
-        <th class="admin-matrix-kid-head">
+        <th class="admin-matrix-kid-head${savingClass}" data-kid-id="${escapeHtml(kidId)}">
             <button type="button" class="admin-matrix-kid-head-btn" data-kid-menu-trigger data-kid-id="${escapeHtml(kidId)}" aria-label="Options for ${escapeHtml(name)}">
                 <span class="admin-matrix-kid-avatar admin-matrix-kid-avatar--tone-${tone}" aria-hidden="true">${escapeHtml(initial)}</span>
                 <span class="admin-matrix-kid-name">${escapeHtml(name)}</span>
@@ -672,7 +647,7 @@ function buildMatrixRow(row, kids) {
     const showSubjectMenu = isSuperFamily;
     const moreIconHtml = (showSubjectMenu && typeof window.icon === 'function') ? window.icon('more-vertical', { size: 16 }) : '';
     const subjectMenuBtnHtml = showSubjectMenu
-        ? `<button type="button" class="admin-matrix-subject-menu-btn" data-subject-menu-trigger data-category-key="${escapeHtml(row.categoryKey)}" aria-label="Subject options for ${escapeHtml(row.displayName)}">${moreIconHtml}</button>`
+        ? `<button type="button" class="admin-matrix-subject-menu-btn" data-subject-menu-trigger data-category-key="${escapeHtml(row.categoryKey)}" data-chinese-back-content="${escapeHtml(row.chineseBackContent || '')}" data-behavior-type="${escapeHtml(row.behaviorType || '')}" aria-label="Subject options for ${escapeHtml(row.displayName)}">${moreIconHtml}</button>`
         : '';
     return `
         <tr data-category-key="${escapeHtml(row.categoryKey)}">
@@ -758,110 +733,116 @@ function bindMatrixInteractions(rows, kids) {
 }
 
 function toggleCellOptedIn(kidId, categoryKey) {
-    if (!editMode || !editState) return;
+    if (!editMode || !editState || isExitingEditMode) return;
     if (!editState[kidId]) editState[kidId] = {};
     editState[kidId][categoryKey] = !editState[kidId][categoryKey];
+    scheduleKidSave(kidId);
     renderMatrix();
 }
 
 function enterEditMode() {
     editMode = true;
     editState = buildEditStateFromKids(currentKids);
-    editBaseline = cloneEditState(editState);
     renderMatrix();
 }
 
-function exitEditMode() {
-    editMode = false;
-    editState = null;
-    editBaseline = null;
-    renderMatrix();
-}
-
-function cloneEditState(state) {
-    const out = {};
-    Object.keys(state || {}).forEach((kidId) => {
-        out[kidId] = { ...(state[kidId] || {}) };
-    });
-    return out;
-}
-
-function isCellChanged(kidId, categoryKey) {
-    if (!editState || !editBaseline) return false;
-    const cur = !!(editState[kidId] && editState[kidId][categoryKey]);
-    const base = !!(editBaseline[kidId] && editBaseline[kidId][categoryKey]);
-    return cur !== base;
-}
-
-function hasAnyMatrixChanges() {
-    if (!editState || !editBaseline) return false;
-    return Object.keys(editState).some((kidId) => {
-        const row = editState[kidId] || {};
-        return Object.keys(row).some((key) => isCellChanged(kidId, key));
-    });
-}
-
-async function saveMatrix() {
-    if (!editMode || !editState || isSavingMatrix) return;
-    const list = Array.isArray(currentKids) ? currentKids : [];
-    const updatesByKid = {};
-    list.forEach((kid) => {
-        const kidId = String(kid?.id || '');
-        if (!kidId) return;
-        const baselineOpted = getOptedInDeckCategorySet(kid);
-        const newState = editState[kidId] || {};
-        const optedInKeys = [];
-        let changed = false;
-        Object.keys(newState).forEach((categoryKey) => {
-            const isOpted = !!newState[categoryKey];
-            const wasOpted = baselineOpted.has(categoryKey);
-            if (isOpted) optedInKeys.push(categoryKey);
-            if (isOpted !== wasOpted) changed = true;
-        });
-        if (!changed) return;
-        updatesByKid[kidId] = optedInKeys.sort((a, b) => a.localeCompare(b));
-    });
-
-    const kidIdsToSave = Object.keys(updatesByKid);
-    if (kidIdsToSave.length === 0) {
-        exitEditMode();
-        return;
-    }
-
-    isSavingMatrix = true;
-    setSaveButtonState();
+async function exitEditMode() {
+    if (isExitingEditMode) return;
+    isExitingEditMode = true;
     try {
-        for (const kidId of kidIdsToSave) {
-            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/deck-categories`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ categoryKeys: updatesByKid[kidId] }),
-            });
-            if (!response.ok) {
-                const payload = await response.json().catch(() => ({}));
-                throw new Error(payload.error || `HTTP ${response.status}`);
-            }
+        const pendingKidIds = Array.from(pendingSaveTimers.keys());
+        pendingKidIds.forEach((kidId) => {
+            const handle = pendingSaveTimers.get(kidId);
+            if (handle) clearTimeout(handle);
+            pendingSaveTimers.delete(kidId);
+        });
+        await Promise.allSettled(pendingKidIds.map((kidId) => flushKidSave(kidId)));
+        if (inFlightSaves.size > 0) {
+            await Promise.allSettled(Array.from(inFlightSaves.values()));
         }
+        applyEditStateToCurrentKids();
         editMode = false;
         editState = null;
-        editBaseline = null;
-        await loadKids();
-    } catch (error) {
-        console.error('Error saving matrix:', error);
-        showError(error.message || 'Failed to save changes.');
+        renderMatrix();
     } finally {
-        isSavingMatrix = false;
-        setSaveButtonState();
+        isExitingEditMode = false;
     }
 }
 
-function setSaveButtonState() {
-    if (!saveEditBtn) return;
-    const hasChanges = hasAnyMatrixChanges();
-    saveEditBtn.disabled = isSavingMatrix || !hasChanges;
-    saveEditBtn.textContent = isSavingMatrix ? 'Saving...' : 'Save';
-    if (cancelEditBtn) cancelEditBtn.disabled = isSavingMatrix;
+function applyEditStateToCurrentKids() {
+    if (!editState) return;
+    currentKids = (Array.isArray(currentKids) ? currentKids : []).map((kid) => {
+        const kidId = String(kid?.id || '');
+        if (!kidId || !editState[kidId]) return kid;
+        const stateForKid = editState[kidId];
+        const optedInKeys = Object.keys(stateForKid)
+            .filter((key) => !!stateForKid[key])
+            .sort((a, b) => a.localeCompare(b));
+        return { ...kid, optedInDeckCategoryKeys: optedInKeys };
+    });
+    cacheKidsForParentNavigation(currentKids);
 }
+
+function scheduleKidSave(kidId) {
+    if (!kidId) return;
+    if (pendingSaveTimers.has(kidId)) {
+        clearTimeout(pendingSaveTimers.get(kidId));
+    }
+    const handle = setTimeout(() => {
+        pendingSaveTimers.delete(kidId);
+        flushKidSave(kidId);
+    }, KID_AUTOSAVE_DELAY_MS);
+    pendingSaveTimers.set(kidId, handle);
+}
+
+async function flushKidSave(kidId) {
+    if (inFlightSaves.has(kidId)) {
+        try { await inFlightSaves.get(kidId); } catch (_) { /* prior error already surfaced */ }
+    }
+    if (!editState || !editState[kidId]) return;
+    const stateForKid = editState[kidId];
+    const optedInKeys = Object.keys(stateForKid)
+        .filter((key) => !!stateForKid[key])
+        .sort((a, b) => a.localeCompare(b));
+    const promise = doKidCategoriesSave(kidId, optedInKeys);
+    inFlightSaves.set(kidId, promise);
+    savingKids.add(kidId);
+    setKidHeaderSavingClass(kidId, true);
+    try {
+        await promise;
+        showError('');
+    } catch (error) {
+        console.error('Error saving categories for kid', kidId, error);
+        showError(error.message || 'Failed to save changes.');
+    } finally {
+        inFlightSaves.delete(kidId);
+        savingKids.delete(kidId);
+        setKidHeaderSavingClass(kidId, false);
+    }
+}
+
+async function doKidCategoriesSave(kidId, optedInKeys) {
+    const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/deck-categories`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryKeys: optedInKeys }),
+    });
+    if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `HTTP ${response.status}`);
+    }
+}
+
+function setKidHeaderSavingClass(kidId, isSaving) {
+    if (!adminMatrix) return;
+    const heads = adminMatrix.querySelectorAll('.admin-matrix-kid-head');
+    heads.forEach((th) => {
+        if (th.getAttribute('data-kid-id') === kidId) {
+            th.classList.toggle('is-saving', isSaving);
+        }
+    });
+}
+
 
 function openKidMenu(kidId, anchorEl) {
     openKidMenuKidId = String(kidId || '');
@@ -928,22 +909,44 @@ function renderSubjectMenu(categoryKey, anchorEl) {
     const params = new URLSearchParams();
     if (categoryKey) params.set('categoryKey', categoryKey);
     const query = params.toString();
-    const newDeckHref = `/deck-create.html${query ? `?${query}` : ''}`;
     const bulkHref = `/deck-create-bulk.html${query ? `?${query}` : ''}`;
+    const trigger = anchorEl || document.querySelector(`[data-subject-menu-trigger][data-category-key="${cssEscape(categoryKey)}"]`);
+    const chineseBackContent = String(trigger?.dataset?.chineseBackContent || '').trim().toLowerCase();
+    const behaviorType = String(trigger?.dataset?.behaviorType || '').trim().toLowerCase();
+    const dictionaryMode = chineseBackContent === 'pinyin' || chineseBackContent === 'english' ? chineseBackContent : '';
+    const dictionaryItemHtml = dictionaryMode
+        ? `<a class="admin-subject-menu-item" href="/chinese-bank.html?mode=${dictionaryMode}">
+            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('book', { size: 16 })}</span>
+            <span>Manage Dictionary</span>
+        </a>`
+        : '';
+    const bulkItemHtml = behaviorType === 'type_iv'
+        ? ''
+        : `<a class="admin-subject-menu-item" href="${escapeHtml(bulkHref)}">
+            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('layers', { size: 16 })}</span>
+            <span>Bulk add new decks</span>
+        </a>`;
     const menu = document.createElement('div');
     menu.className = 'admin-subject-menu';
     menu.innerHTML = `
-        <a class="admin-subject-menu-item" href="${escapeHtml(newDeckHref)}">
-            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('plus', { size: 16 })}</span>
-            <span>New deck</span>
-        </a>
-        <a class="admin-subject-menu-item" href="${escapeHtml(bulkHref)}">
-            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('layers', { size: 16 })}</span>
-            <span>Bulk add new decks</span>
-        </a>
+        ${bulkItemHtml}
+        <button type="button" class="admin-subject-menu-item" data-subject-browse data-category-key="${escapeHtml(categoryKey)}">
+            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('eye', { size: 16 })}</span>
+            <span>Browse existing decks</span>
+        </button>
+        ${dictionaryItemHtml}
     `;
     document.body.appendChild(menu);
-    const trigger = anchorEl || document.querySelector(`[data-subject-menu-trigger][data-category-key="${cssEscape(categoryKey)}"]`);
+    const browseBtn = menu.querySelector('[data-subject-browse]');
+    if (browseBtn) {
+        browseBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const key = browseBtn.getAttribute('data-category-key') || '';
+            closeSubjectMenu();
+            openDeckBrowseModal(key);
+        });
+    }
     if (trigger) {
         const rect = trigger.getBoundingClientRect();
         const menuWidth = 200;
@@ -979,3 +982,194 @@ function showError(message) {
         if (errorMessage) errorMessage.classList.add('hidden');
     }
 }
+
+/* ── Browse decks modal (read-only tree view, hooked from subject kebab) ── */
+
+let deckBrowseTreeView = null;
+let deckBrowseAllSharedDecks = null;
+
+function ensureDeckBrowseTreeView() {
+    if (deckBrowseTreeView) return deckBrowseTreeView;
+    const container = document.getElementById('deckBrowseContainer');
+    const searchInput = document.getElementById('deckBrowseSearchInput');
+    const counter = document.getElementById('deckBrowseCounter');
+    if (!container) return null;
+    deckBrowseTreeView = new window.DeckTreeView({
+        container,
+        searchInput,
+        counter,
+        mode: 'browse',
+        getDeckSuffix: (deck) => ` · ${Number((deck && deck.card_count) || 0)} cards`,
+        onLeafClick: (deck) => {
+            const id = Number(deck && deck.deck_id);
+            if (!(id > 0)) return;
+            window.location.href = `/deck-view.html?deckId=${id}`;
+        },
+        onBranchEdit: ({ tag, label, depth }) => {
+            renameBrowseFolder({ tag, label, depth });
+        },
+        onBranchNewDeck: ({ path }) => {
+            navigateToCreateDeckUnderFolder(path);
+        },
+    });
+    return deckBrowseTreeView;
+}
+
+function navigateToCreateDeckUnderFolder(branchPath) {
+    if (!currentBrowseCategoryKey) return;
+    const params = new URLSearchParams();
+    params.set('categoryKey', currentBrowseCategoryKey);
+    (Array.isArray(branchPath) ? branchPath : []).forEach((tag) => {
+        const trimmed = String(tag || '').trim();
+        if (trimmed) params.append('prefixTag', trimmed);
+    });
+    window.location.href = `/deck-create.html?${params.toString()}`;
+}
+
+let currentBrowseCategoryKey = '';
+
+async function renameBrowseFolder({ tag, label, depth }) {
+    const tagIndex = Number(depth);
+    if (!(tagIndex >= 1)) {
+        window.alert('Cannot rename the top-level subject folder here.');
+        return;
+    }
+    const promptLabel = label || tag;
+    const newRaw = window.prompt(`Rename folder "${promptLabel}" to:`, promptLabel);
+    if (newRaw === null) return;
+    const newTag = String(newRaw).trim();
+    if (!newTag || newTag === tag) return;
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/rename-tag`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldTag: tag, newTag, tagIndex }),
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `Rename failed (HTTP ${response.status})`);
+        }
+        deckBrowseAllSharedDecks = null;
+        if (currentBrowseCategoryKey) {
+            await openDeckBrowseModal(currentBrowseCategoryKey);
+        }
+    } catch (e) {
+        window.alert(e.message || 'Rename failed.');
+    }
+}
+
+async function fetchAllSharedDecks() {
+    if (deckBrowseAllSharedDecks) return deckBrowseAllSharedDecks;
+    const response = await fetch(`${API_BASE}/shared-decks/mine`);
+    if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || `Failed to load decks (HTTP ${response.status})`);
+    }
+    const payload = await response.json();
+    deckBrowseAllSharedDecks = Array.isArray(payload && payload.decks) ? payload.decks : [];
+    return deckBrowseAllSharedDecks;
+}
+
+function buildBrowseCardIndex(decksForCategory) {
+    const cards = [];
+    decksForCategory.forEach((deck) => {
+        const deckId = Number(deck.deck_id);
+        if (!(deckId > 0)) return;
+        const texts = Array.isArray(deck.card_texts) ? deck.card_texts : [];
+        texts.forEach((text) => {
+            cards.push({
+                shared_deck_id: deckId,
+                front: String(text || ''),
+                back: '',
+                is_orphan: false,
+            });
+        });
+    });
+    return cards;
+}
+
+async function openDeckBrowseModal(categoryKey) {
+    const modal = document.getElementById('deckBrowseModal');
+    const titleEl = document.getElementById('deckBrowseTitle');
+    if (!modal) return;
+    if (titleEl) {
+        const niceLabel = (function () {
+            const row = (currentKids || [])
+                .flatMap((kid) => Object.entries(getDeckCategoryMetaMap(kid) || {}))
+                .find(([key]) => normalizeCategoryKey(key) === normalizeCategoryKey(categoryKey));
+            return row ? (getCategoryDisplayName(row[0], { [row[0]]: row[1] }) || categoryKey) : categoryKey;
+        })();
+        titleEl.textContent = `Browse — ${niceLabel}`;
+    }
+
+    const tv = ensureDeckBrowseTreeView();
+    if (!tv) return;
+    currentBrowseCategoryKey = categoryKey;
+    tv.setCategoryKey(categoryKey);
+    tv.setMatchBack(false);
+    tv.setDecks([], { orphanDeck: null });
+    tv.setBaseline([], false);
+    tv.setSelection([], false);
+    tv.resetExpansion();
+    tv.clearSearchInput();
+    tv.setCardIndex(null);
+    tv.render();
+
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+
+    try {
+        const allDecks = await fetchAllSharedDecks();
+        const normalizedKey = String(categoryKey || '').trim().toLowerCase();
+        const decksForCategory = allDecks.filter((deck) => {
+            const tags = Array.isArray(deck && deck.tags) ? deck.tags : [];
+            const first = String(tags[0] || '').trim().toLowerCase();
+            return first === normalizedKey;
+        });
+        tv.setDecks(decksForCategory, { orphanDeck: null });
+        tv.setCardIndex(buildBrowseCardIndex(decksForCategory));
+    } catch (error) {
+        console.error('Error loading decks for browse modal:', error);
+        showError(error.message || 'Failed to load decks.');
+    }
+}
+
+function closeDeckBrowseModal() {
+    const modal = document.getElementById('deckBrowseModal');
+    if (!modal) return;
+    if (modal.contains(document.activeElement) && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('closeDeckBrowseModalBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closeDeckBrowseModal);
+    const expandBtn = document.getElementById('deckBrowseExpandAllBtn');
+    if (expandBtn) {
+        expandBtn.addEventListener('click', () => {
+            if (deckBrowseTreeView) deckBrowseTreeView.expandAll();
+        });
+    }
+    const collapseBtn = document.getElementById('deckBrowseCollapseAllBtn');
+    if (collapseBtn) {
+        collapseBtn.addEventListener('click', () => {
+            if (deckBrowseTreeView) deckBrowseTreeView.collapseAll();
+        });
+    }
+    const newDeckBtn = document.getElementById('deckBrowseNewDeckBtn');
+    if (newDeckBtn) {
+        newDeckBtn.addEventListener('click', () => {
+            navigateToCreateDeckUnderFolder([]);
+        });
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        const m = document.getElementById('deckBrowseModal');
+        if (m && !m.classList.contains('hidden')) {
+            closeDeckBrowseModal();
+        }
+    });
+});

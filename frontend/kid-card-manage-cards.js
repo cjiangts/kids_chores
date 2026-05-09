@@ -1235,12 +1235,11 @@ async function addOrphanCards() {
             if (!response.ok) {
                 throw new Error(result.error || `Failed to add cards (HTTP ${response.status})`);
             }
-            const inserted = Math.max(0, Number(result.inserted_count) || 0);
             addCardForm.reset();
             setPersonalDeckMode('edit');
             updateAddReadingButtonCount();
-            showStatusMessage(buildBulkAddStatusMessage(inserted, result), false);
             await loadSharedType1Decks();
+            setManageModalOpen(personalDeckModal, false);
             return;
         }
 
@@ -1281,12 +1280,11 @@ async function addOrphanCards() {
             throw new Error(result.error || `Failed to add cards (HTTP ${response.status})`);
         }
 
-        const inserted = Math.max(0, Number(result.created) || 0);
         addCardForm.reset();
         setPersonalDeckMode('edit');
         updateAddReadingButtonCount();
-        showStatusMessage(buildBulkAddStatusMessage(inserted, result), false);
         await loadSharedType1Decks();
+        setManageModalOpen(personalDeckModal, false);
     } catch (error) {
         console.error('Error adding orphan cards:', error);
         showStatusMessage('');

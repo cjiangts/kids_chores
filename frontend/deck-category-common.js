@@ -341,6 +341,8 @@
         const getDeckCount = typeof config.getDeckCount === 'function'
             ? config.getDeckCount
             : () => 0;
+        const includeSubjectIcon = Boolean(config.includeSubjectIcon);
+        const subjectIconSize = Number(config.subjectIconSize) || 36;
 
         containerEl.innerHTML = categories.map((item) => {
             const key = normalizeCategoryKey(item && item.category_key);
@@ -348,10 +350,14 @@
             const count = getDeckCount(key);
             const title = getCategoryCardTitle(key, item);
             const description = getCategoryCardDescription(item, count);
+            const titleHtml = `<span class="first-tag-option-title">${escapeHtmlLocal(title)}</span>`;
+            const descHtml = `<span class="first-tag-option-desc">${escapeHtmlLocal(description)}</span>`;
+            const innerHtml = includeSubjectIcon
+                ? `<span class="first-tag-option-icon" aria-hidden="true">${renderCategorySubjectIcon(key, { size: subjectIconSize })}</span><span class="first-tag-option-text">${titleHtml}${descHtml}</span>`
+                : `${titleHtml}${descHtml}`;
             return `
-                <button type="button" class="first-tag-option${isActive ? ' active' : ''}" data-first-tag="${escapeHtmlLocal(key)}" aria-pressed="${isActive ? 'true' : 'false'}">
-                    <span class="first-tag-option-title">${escapeHtmlLocal(title)}</span>
-                    <span class="first-tag-option-desc">${escapeHtmlLocal(description)}</span>
+                <button type="button" class="first-tag-option${isActive ? ' active' : ''}${includeSubjectIcon ? ' first-tag-option--with-icon' : ''}" data-first-tag="${escapeHtmlLocal(key)}" aria-pressed="${isActive ? 'true' : 'false'}">
+                    ${innerHtml}
                 </button>
             `;
         }).join('');

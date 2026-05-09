@@ -348,33 +348,6 @@ function showStatusMessage(message, isError = true) {
     setManageModalOpen(personalDeckModal, true);
 }
 
-function summarizeSkippedCardLabels(rawLabels) {
-    const counts = new Map();
-    for (const rawLabel of Array.isArray(rawLabels) ? rawLabels : []) {
-        const label = String(rawLabel || '').trim();
-        if (!label) {
-            continue;
-        }
-        counts.set(label, (counts.get(label) || 0) + 1);
-    }
-    return [...counts.entries()].map(([label, count]) => (
-        count > 1 ? `${label} (x${count})` : label
-    ));
-}
-
-function buildBulkAddStatusMessage(insertedCount, result) {
-    const inserted = Math.max(0, Number(insertedCount) || 0);
-    const skippedExistingCount = Math.max(0, Number(result?.skipped_existing_count) || 0);
-    if (skippedExistingCount <= 0) {
-        return `Added ${inserted} new card(s).`;
-    }
-    const skippedLabels = summarizeSkippedCardLabels(result?.skipped_existing_cards);
-    if (skippedLabels.length === 0) {
-        return `Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s).`;
-    }
-    return `Added ${inserted} new card(s). Skipped ${skippedExistingCount} existing card(s): ${skippedLabels.join(', ')}.`;
-}
-
 function showCardsBulkActionMessage(message, isError = false) {
     if (!cardsBulkActionMessage) {
         return;

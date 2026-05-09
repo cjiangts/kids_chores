@@ -7,6 +7,7 @@
     <title>Family Settings - Kids Daily Chores</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="home-redesign-v4.css">
     <style>
         .settings-grid {
             display: grid;
@@ -180,24 +181,7 @@
         }
 
         .family-settings-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            flex-wrap: wrap;
             margin-bottom: 1rem;
-        }
-
-        .family-settings-actions .manage-popup-btn {
-            min-height: 36px;
-            padding: 0.42rem 0.86rem;
-        }
-
-        .family-settings-actions .settings-save-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 180px;
-            text-decoration: none;
         }
 
         .warning-note {
@@ -778,42 +762,6 @@
                 margin-left: 0;
             }
 
-            .family-settings-actions {
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 0.3rem;
-            }
-
-            .family-settings-actions .manage-popup-btn,
-            .family-settings-actions .settings-save-btn {
-                width: 100%;
-                min-width: 0;
-                flex-direction: column;
-                justify-content: center;
-                gap: 0.2rem;
-                padding: 0.45rem 0.2rem;
-                min-height: 3.4rem;
-                font-size: 0.62rem;
-                line-height: 1.15;
-                text-align: center;
-                white-space: nowrap;
-                box-sizing: border-box;
-            }
-
-            .family-settings-actions .settings-action-label {
-                overflow: hidden;
-                text-overflow: ellipsis;
-                max-width: 100%;
-            }
-
-            .family-settings-actions .settings-action-icon {
-                flex: 0 0 auto;
-                line-height: 1;
-            }
-
-            .family-settings-actions .settings-action-label {
-                min-width: 0;
-            }
 
             .badge-art-studio-modal.modal-content {
                 width: min(96vw, 96vw);
@@ -896,28 +844,18 @@
         </header>
 
         <main>
-            <div class="family-settings-actions" role="toolbar" aria-label="Family settings actions">
-                <a
-                    id="familyManageChineseBankLink"
-                    href="/chinese-bank.html"
-                    class="settings-save-btn manage-popup-btn hidden"
-                >
-                    <span class="settings-action-icon" aria-hidden="true">
-                        <span class="icon" data-icon="book"></span>
+            <div class="family-settings-actions admin-action-grid" role="toolbar" aria-label="Family settings actions">
+                <button type="button" id="openChangePasswordBtn" class="admin-action-card">
+                    <span class="admin-action-card-icon admin-action-card-icon--violet" aria-hidden="true">
+                        <span class="icon" data-icon="key" data-icon-size="22"></span>
                     </span>
-                    <span class="settings-action-label">Manage Dictionary</span>
-                </a>
-                <button type="button" id="openChangePasswordBtn" class="settings-save-btn manage-popup-btn">
-                    <span class="settings-action-icon" aria-hidden="true">
-                        <span class="icon" data-icon="key"></span>
-                    </span>
-                    <span class="settings-action-label">Change Password</span>
+                    <span class="admin-action-card-label">Change Password</span>
                 </button>
-                <button type="button" id="familySettingsLogoutBtn" class="settings-save-btn manage-popup-btn">
-                    <span class="settings-action-icon" aria-hidden="true">
-                        <span class="icon" data-icon="log-out"></span>
+                <button type="button" id="familySettingsLogoutBtn" class="admin-action-card">
+                    <span class="admin-action-card-icon admin-action-card-icon--coral" aria-hidden="true">
+                        <span class="icon" data-icon="log-out" data-icon-size="22"></span>
                     </span>
-                    <span class="settings-action-label">Log Out</span>
+                    <span class="admin-action-card-label">Log Out</span>
                 </button>
             </div>
 

@@ -131,6 +131,5 @@ For frontend changes, run [start-local.sh](start-local.sh) and check the affecte
 ## Refactor history
 
 - [refactor.md](refactor.md) — original audit + plan (2026-05-05)
-- [refactor_r1.md](refactor_r1.md) — round-1 progress (HTML style extraction, kids.py 3-phase split, kid-card-manage.js split)
 
 Files still pending split per refactor plan: `routes/kids/__init__.py` (8.3k), `kid-practice.js` (3.3k), `kid-writing-sheet-manage.js` (2.7k), `parent-settings.js` (2.2k), `styles.css` (2.4k), `deck-view.js` (1.8k), `practice-manage-common.js` (1.5k).

@@ -14,7 +14,11 @@ const chineseBackContentFieldset = document.getElementById('chineseBackContentFi
 
 let isCreating = false;
 const sharingCategoryKeys = new Set();
+const deletingCategoryKeys = new Set();
 let categoriesByKey = {};
+
+const renderCategorySubjectIcon = (window.DeckCategoryCommon && window.DeckCategoryCommon.renderCategorySubjectIcon)
+    || ((key) => '');
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -36,7 +40,12 @@ if (categoryTableBody) {
         if (!categoryKey) {
             return;
         }
-        void shareCategory(categoryKey);
+        const action = button.getAttribute('data-action');
+        if (action === 'share-category') {
+            void shareCategory(categoryKey);
+        } else if (action === 'delete-category') {
+            void deleteCategory(categoryKey);
+        }
     });
 }
 
@@ -226,18 +235,24 @@ function renderCategories(categories) {
                     : '—';
             const sharedWithNonSuper = Boolean(item.is_shared_with_non_super_family);
             const isSharing = sharingCategoryKeys.has(key);
+            const isDeleting = deletingCategoryKeys.has(key);
             const shareButton = sharedWithNonSuper
                 ? `<button type="button" class="btn-secondary" disabled>Shared</button>`
-                : `<button type="button" class="btn-primary" data-action="share-category" data-category-key="${escapeHtml(key)}" ${isSharing ? 'disabled' : ''}>${isSharing ? 'Sharing...' : 'Share to Non-super'}</button>`;
+                : `<button type="button" class="btn-primary" data-action="share-category" data-category-key="${escapeHtml(key)}" ${isSharing || isDeleting ? 'disabled' : ''}>${isSharing ? 'Sharing...' : 'Share to Non-super'}</button>`;
+            const deleteButton = sharedWithNonSuper
+                ? ''
+                : `<button type="button" class="btn-secondary category-delete-btn" data-action="delete-category" data-category-key="${escapeHtml(key)}" ${isDeleting || isSharing ? 'disabled' : ''}>${isDeleting ? 'Deleting...' : 'Delete'}</button>`;
+            const iconHtml = renderCategorySubjectIcon(key, { size: 32 });
             return `
                 <tr>
+                    <td class="category-icon-cell">${iconHtml}</td>
                     <td>${escapeHtml(key)}</td>
                     <td>${escapeHtml(displayName)}</td>
                     <td>${escapeHtml(behavior)}</td>
                     <td>${escapeHtml(chineseSpecific)}</td>
                     <td>${escapeHtml(chineseBackContentLabel)}</td>
                     <td>${sharedWithNonSuper ? 'Yes' : 'No'}</td>
-                    <td>${shareButton}</td>
+                    <td><div class="category-action-cell">${shareButton}${deleteButton}</div></td>
                 </tr>
             `;
         }).join('');
@@ -350,6 +365,46 @@ async function shareCategory(categoryKey) {
         showError(error.message || 'Failed to share subject.');
     } finally {
         sharingCategoryKeys.delete(key);
+        await loadCategories();
+    }
+}
+
+async function deleteCategory(categoryKey) {
+    const key = normalizeCategoryKey(categoryKey);
+    if (!key || deletingCategoryKeys.has(key) || sharingCategoryKeys.has(key)) {
+        return;
+    }
+    const meta = categoriesByKey[key];
+    if (meta && Boolean(meta.is_shared_with_non_super_family)) {
+        showError(`Subject "${key}" is already shared with non-super families and cannot be deleted.`);
+        return;
+    }
+    showError('');
+    showSuccess('');
+    deletingCategoryKeys.add(key);
+    renderCategories(Object.values(categoriesByKey));
+    try {
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            `deleting subject "${key}"`,
+            (password) => fetch(`${API_BASE}/shared-decks/categories/${encodeURIComponent(key)}`, {
+                method: 'DELETE',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+            }),
+            {
+                warningMessage: `This will permanently delete the "${key}" subject and ALL related decks, cards, sessions, and badges across every kid. This cannot be undone.`,
+            },
+        );
+        if (result.cancelled) {
+            return;
+        }
+        if (!result.ok) {
+            throw new Error(result.error || 'Failed to delete subject.');
+        }
+        showSuccess(`Deleted subject "${key}".`);
+    } catch (error) {
+        showError(error.message || 'Failed to delete subject.');
+    } finally {
+        deletingCategoryKeys.delete(key);
         await loadCategories();
     }
 }

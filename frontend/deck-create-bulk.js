@@ -6,12 +6,14 @@ const bulkDeckInput = document.getElementById('bulkDeckInput');
 const bulkInputSectionTitle = document.getElementById('bulkInputSectionTitle');
 const previewBtn = document.getElementById('previewBtn');
 const clearInputBtn = document.getElementById('clearInputBtn');
+const copyExampleBtn = document.getElementById('copyExampleBtn');
 const reviewSection = document.getElementById('reviewSection');
 const reviewMeta = document.getElementById('reviewMeta');
 const reviewTableBody = document.getElementById('reviewTableBody');
 const createDecksBtn = document.getElementById('createDecksBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
+const existingTreeText = document.getElementById('existingTreeText');
 const deckCategoryCommon = window.DeckCategoryCommon;
 const deckCreateCommon = window.DeckCreateCommon;
 if (!deckCategoryCommon) {
@@ -33,6 +35,8 @@ let isCreatingDecks = false;
 let deckCategories = [];
 let deckCategoryKeySet = new Set();
 let deckCountByCategoryKey = {};
+let allTagPaths = [];
+let allTagLabelPaths = [];
 const createUrlParams = new URLSearchParams(window.location.search);
 let lockedFirstTagFromQuery = normalizeTag(createUrlParams.get('categoryKey'));
 
@@ -47,6 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     await loadDeckTagCountsByCategory();
     renderFirstTagToggle();
+    renderExistingTreeForCurrentFirstTag();
     updateInputModeUi();
 });
 
@@ -75,6 +80,34 @@ if (clearInputBtn) {
         bulkDeckInput.value = '';
         resetPreviewState();
         bulkDeckInput.focus();
+    });
+}
+
+if (copyExampleBtn) {
+    copyExampleBtn.addEventListener('click', async () => {
+        const text = bulkDeckInput ? bulkDeckInput.placeholder : '';
+        if (!text) return;
+        const labelEl = copyExampleBtn.querySelector('.btn-label');
+        const originalLabel = labelEl ? labelEl.textContent : '';
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            if (labelEl) labelEl.textContent = 'Copied';
+        } catch (err) {
+            showError(err.message || 'Failed to copy');
+            return;
+        }
+        setTimeout(() => { if (labelEl) labelEl.textContent = originalLabel; }, 1200);
     });
 }
 
@@ -138,6 +171,11 @@ async function loadDeckTagCountsByCategory() {
                 .map((path) => Array.isArray(path) ? path.map((tag) => normalizeTag(tag)).filter(Boolean) : [])
                 .filter((path) => path.length > 0)
             : [];
+        const labelPaths = Array.isArray(result.tag_label_paths)
+            ? result.tag_label_paths
+                .map((path) => Array.isArray(path) ? path.map((label) => String(label || '').trim()).filter(Boolean) : [])
+                .filter((path) => path.length > 0)
+            : [];
         const nextCountByCategory = {};
         tagPaths.forEach((path) => {
             const first = normalizeTag(path[0]);
@@ -147,10 +185,45 @@ async function loadDeckTagCountsByCategory() {
             nextCountByCategory[first] = Number(nextCountByCategory[first] || 0) + 1;
         });
         deckCountByCategoryKey = nextCountByCategory;
+        allTagPaths = tagPaths;
+        allTagLabelPaths = labelPaths;
     } catch (error) {
         console.error('Error loading deck counts by category:', error);
         deckCountByCategoryKey = {};
+        allTagPaths = [];
+        allTagLabelPaths = [];
     }
+}
+
+function renderExistingTreeForCurrentFirstTag() {
+    if (!existingTreeText) {
+        return;
+    }
+    const first = normalizeTag(currentFirstTag);
+    if (!first) {
+        existingTreeText.textContent = 'Select a first tag to view its existing decks.';
+        existingTreeText.classList.add('is-empty');
+        return;
+    }
+    const matches = allTagLabelPaths.filter((labels) => (
+        Array.isArray(labels) && labels.length >= 1 && normalizeTag(labels[0]) === first
+    ));
+    if (matches.length === 0) {
+        existingTreeText.textContent = `No existing decks under "${first}".`;
+        existingTreeText.classList.add('is-empty');
+        return;
+    }
+    const joined = matches
+        .map((labels) => labels.slice(1).join('_'))
+        .filter((line) => line.length > 0);
+    if (joined.length === 0) {
+        existingTreeText.textContent = `No existing decks under "${first}".`;
+        existingTreeText.classList.add('is-empty');
+        return;
+    }
+    joined.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    existingTreeText.textContent = joined.join('\n');
+    existingTreeText.classList.remove('is-empty');
 }
 
 function normalizeTagList(tags) {
@@ -190,6 +263,8 @@ function renderFirstTagToggle() {
         categories: deckCategories,
         selectedCategoryKey: currentFirstTag,
         getDeckCount: (categoryKey) => deckCreateCommon.getDeckCountForCategory(categoryKey, deckCountByCategoryKey),
+        includeSubjectIcon: true,
+        subjectIconSize: 36,
     });
     applyFirstTagLockMode();
 }
@@ -229,6 +304,7 @@ function setCurrentFirstTag(tag) {
     }
     currentFirstTag = next;
     renderFirstTagToggle();
+    renderExistingTreeForCurrentFirstTag();
     updateInputModeUi();
     resetPreviewState();
 }
@@ -269,32 +345,52 @@ function isChineseWritingDeckMode() {
     return deckCreateCommon.isChineseWritingDeckMode(getCurrentDeckCategory());
 }
 
+function isChineseLessonReadingDeckMode() {
+    return deckCreateCommon.isChineseLessonReadingDeckMode(getCurrentDeckCategory());
+}
+
 function isTypeIIDeckMode() {
     return deckCreateCommon.isTypeIIDeckMode(getCurrentDeckCategory());
+}
+
+function isTypeIVDeckMode() {
+    return deckCreateCommon.isTypeIVDeckMode(getCurrentDeckCategory());
+}
+
+function applyTypeIVBulkDisabled(disabled) {
+    const isDisabled = Boolean(disabled);
+    [bulkDeckInput, previewBtn, clearInputBtn, copyExampleBtn, createDecksBtn].forEach((el) => {
+        if (el && Object.prototype.hasOwnProperty.call(el, 'disabled')) {
+            el.disabled = isDisabled;
+        }
+    });
 }
 
 function updateInputModeUi() {
     if (!bulkDeckInput) {
         return;
     }
+    if (isTypeIVDeckMode()) {
+        if (bulkInputSectionTitle) {
+            bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (not supported for Type IV)';
+        }
+        bulkDeckInput.value = '';
+        bulkDeckInput.placeholder = 'Bulk create is not supported for Type IV subjects.\nUse Create Deck to define a generator for one deck at a time.';
+        resetPreviewState();
+        applyTypeIVBulkDisabled(true);
+        return;
+    }
+    applyTypeIVBulkDisabled(false);
     if (isChineseCharactersDeckMode()) {
         if (bulkInputSectionTitle) {
             bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Text)';
         }
         bulkDeckInput.placeholder = [
-            'Format per block:',
-            '  Line 1: remaining_tag — underscore-separated parts become multiple tags;',
-            '          each part may be tag or tag(comment), e.g. ma3(马立平3年级)_week1',
-            '  Then Chinese text lines — Han chars auto-extracted as front, pinyin auto-filled as back.',
-            'Separate blocks with a blank line.',
+            'ma1(马立平1年级)_unit1_week1',
+            '一二三四五六七八九十',
             '',
-            'Example:',
-            'ma3(马立平3年级)_book1_week1',
-            '春眠不觉晓，处处闻啼鸟。',
-            '夜来风雨声，花落知多少。',
-            '',
-            'ma3(马立平3年级)_book1_week2',
-            '床前明月光，疑是地上霜。',
+            'ma1(马立平1年级)_unit1_week2',
+            '人口手目耳日月山水火',
         ].join('\n');
         return;
     }
@@ -303,21 +399,64 @@ function updateInputModeUi() {
             bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Words)';
         }
         bulkDeckInput.placeholder = [
-            'Format per block:',
-            '  Line 1: remaining_tag — underscore-separated parts become multiple tags;',
-            '          each part may be tag or tag(comment).',
-            '  Then Chinese text — runs of Han chars are tokenized into words by any',
-            '  non-Chinese char (space, punctuation, newline). Each word → front;',
-            '  back auto-fills English meaning from the Chinese character bank.',
-            'Separate blocks with a blank line.',
+            'ma3(马立平三年级)_unit1_week1',
+            '称象 人前 将军 名字 曹操 运到',
+            '带着 儿子 喜欢 办法 先 杀死',
+            '切成 一块 直摇头 曹冲 站出来 父亲',
             '',
-            'Example:',
-            'vocab1(新词)_week1',
-            '春天 夜晚 月光',
-            '风雨，花落',
+            'ma3(马立平三年级)_unit1_week2',
+            '容易 赶到 大船 下沉 一枝笔 沿着',
+            '旁边 划 一条线 岸 装 等',
+            '地方 那些 多少斤 重量 摸 反对 绳子',
+        ].join('\n');
+        return;
+    }
+    if (isChineseLessonReadingDeckMode()) {
+        if (bulkInputSectionTitle) {
+            bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Reading)';
+        }
+        bulkDeckInput.placeholder = [
+            'ma1(马立平1年级)_unit1_week1',
+            '小猴子下山,Page 101',
+            '摘桃,Page 109',
             '',
-            'vocab1(新词)_week2',
-            '明月 地上霜',
+            'ma1(马立平1年级)_unit1_week2',
+            '乌鸦喝水,Page 23',
+            '狐狸和乌鸦,Page 31',
+        ].join('\n');
+        return;
+    }
+    if (isChineseWritingDeckMode()) {
+        if (bulkInputSectionTitle) {
+            bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Writing)';
+        }
+        bulkDeckInput.placeholder = [
+            'ma1(马立平1年级)_unit1_week1',
+            '上面的上,上',
+            '不要的不,不',
+            '走路的走,走',
+            '',
+            'ma1(马立平1年级)_unit1_week2',
+            '飞机的飞,飞',
+            '天空的天,天',
+            '叫声的叫,叫',
+        ].join('\n');
+        return;
+    }
+    if (isTypeIIDeckMode()) {
+        if (bulkInputSectionTitle) {
+            bulkInputSectionTitle.textContent = '2) Paste Deck Blocks';
+        }
+        bulkDeckInput.placeholder = [
+            'grade2_week1',
+            'A guy with makeup on,clown',
+            'A baby dog,puppy',
+            'Frozen water from the sky,snow',
+            '',
+            'grade2_week2',
+            'Where you cook food,kitchen',
+            'The day after Friday,Saturday',
+            'A small flying insect that makes honey,bee',
         ].join('\n');
         return;
     }
@@ -325,20 +464,13 @@ function updateInputModeUi() {
         bulkInputSectionTitle.textContent = '2) Paste Deck Blocks';
     }
     bulkDeckInput.placeholder = [
-        'Format per block:',
-        '  Line 1: remaining_tag — underscore-separated parts become multiple tags;',
-        '          each part may be tag or tag(comment), e.g. ma3(马立平3年级)_week1',
-        '  Card rows: front,back  (spaces around front/back are trimmed)',
-        'Separate blocks with a blank line.',
-        '',
-        'Example:',
-        'ma3(马立平3年级)_unit1',
+        'addition_1digit_nocarry',
         '1+1,2',
         '2+3,5',
         '',
-        'ma3(马立平3年级)_unit2',
-        '3+4,7',
-        '5+1,6',
+        'addition_1digit_carry',
+        '7+5,12',
+        '8+6,14',
     ].join('\n');
 }
 
@@ -817,7 +949,10 @@ async function createDecks() {
 
     isCreatingDecks = true;
     createDecksBtn.disabled = true;
-    createDecksBtn.textContent = 'Creating...';
+    const createDecksLabel = createDecksBtn.querySelector('.btn-label');
+    if (createDecksLabel) {
+        createDecksLabel.textContent = 'Creating...';
+    }
     showError('');
     showSuccess('');
 
@@ -863,7 +998,10 @@ async function createDecks() {
     } finally {
         isCreatingDecks = false;
         createDecksBtn.disabled = false;
-        createDecksBtn.textContent = 'Confirm & Create Decks';
+        const createDecksLabelReset = createDecksBtn.querySelector('.btn-label');
+        if (createDecksLabelReset) {
+            createDecksLabelReset.textContent = 'Confirm & Create Decks';
+        }
     }
 }
 

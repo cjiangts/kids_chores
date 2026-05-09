@@ -390,11 +390,18 @@ function renderDeck(payload) {
         staticDeckEditor.classList.toggle('hidden', isTypeIV);
     }
     if (!isTypeIV && cardsInput) {
+        const hasChinese = Boolean(currentDeck && currentDeck.has_chinese_specific_logic);
         if (isChineseType1Deck()) {
             if (deckEditHelp) {
                 deckEditHelp.innerHTML = 'Enter characters separated by spaces. Multi-character input like 你好 is auto-split. Backs are auto-generated.';
             }
-            cardsInput.placeholder = '眼 睛 上 下';
+            cardsInput.placeholder = '一二三四五六七八九十';
+        } else if (behaviorType === 'type_ii' && hasChinese) {
+            cardsInput.placeholder = '上面的上,上\n不要的不,不\n走路的走,走';
+        } else if (behaviorType === 'type_iii' && hasChinese) {
+            cardsInput.placeholder = '小猴子下山,Page 101\n摘桃,Page 109';
+        } else if (behaviorType === 'type_ii') {
+            cardsInput.placeholder = 'A baby dog,puppy\nFrozen water from the sky,snow';
         }
         cardsInput.value = cardsToCsv(cards);
         syncPreviewCsvBtnState();
@@ -528,14 +535,24 @@ function syncPreviewCsvBtnState() {
     previewCsvBtn.disabled = isMutating || (edited === current);
 }
 
+function setBtnLabel(btn, text) {
+    if (!btn) return;
+    const label = btn.querySelector('.btn-label');
+    if (label) {
+        label.textContent = text;
+    } else {
+        btn.textContent = text;
+    }
+}
+
 function syncApplyCsvBtn() {
     if (!applyCsvBtn) return;
     if (!isPreviewingCsvDiff) {
         applyCsvBtn.disabled = true;
-        applyCsvBtn.textContent = 'Apply Changes';
+        setBtnLabel(applyCsvBtn, 'Apply Changes');
     } else {
         applyCsvBtn.disabled = false;
-        applyCsvBtn.textContent = 'Apply Changes';
+        setBtnLabel(applyCsvBtn, 'Apply Changes');
     }
 }
 
@@ -649,7 +666,7 @@ function previewCsvChanges() {
     renderCardsTable(diffRows, false);
     if (applyCsvBtn) {
         applyCsvBtn.disabled = false;
-        applyCsvBtn.textContent = `Apply: ${parts.join(', ')}`;
+        setBtnLabel(applyCsvBtn, `Apply: ${parts.join(', ')}`);
     }
 }
 
@@ -691,7 +708,7 @@ async function applyCsvChanges() {
         await loadDeck();
         if (applyCsvBtn) {
             applyCsvBtn.disabled = true;
-            applyCsvBtn.textContent = resultText;
+            setBtnLabel(applyCsvBtn, resultText);
         }
     } catch (error) {
         showError(error.message || 'Failed to apply card changes.');
@@ -727,7 +744,7 @@ function setRenameBusy(isBusy) {
     isRenamingTags = Boolean(isBusy);
     if (saveRenameTagsBtn) {
         saveRenameTagsBtn.disabled = isRenamingTags;
-        saveRenameTagsBtn.textContent = isRenamingTags ? 'Saving...' : 'Save Tags';
+        setBtnLabel(saveRenameTagsBtn, isRenamingTags ? 'Saving...' : 'Save Tags');
     }
     if (cancelRenameTagsBtn) {
         cancelRenameTagsBtn.disabled = isRenamingTags;
@@ -1213,7 +1230,7 @@ function isType4GeneratorDirty() {
 function updateType4GeneratorSaveState() {
     if (saveType4GeneratorBtn) {
         saveType4GeneratorBtn.disabled = isMutating || isSavingType4Generator || !isType4GeneratorDirty();
-        saveType4GeneratorBtn.textContent = isSavingType4Generator ? 'Saving...' : 'Save Generator';
+        setBtnLabel(saveType4GeneratorBtn, isSavingType4Generator ? 'Saving...' : 'Save Generator');
     }
     if (regenType4ExamplesBtn) {
         regenType4ExamplesBtn.disabled = isMutating || isLoadingType4PreviewSamples || !getCurrentType4GeneratorCode();
@@ -1230,7 +1247,7 @@ function setType4PreviewButtonState(isBusy, idleLabel = 'Regen Example') {
         return;
     }
     regenType4ExamplesBtn.disabled = Boolean(isBusy || isMutating || !getCurrentType4GeneratorCode());
-    regenType4ExamplesBtn.textContent = isBusy ? 'Generating...' : idleLabel;
+    setBtnLabel(regenType4ExamplesBtn, isBusy ? 'Generating...' : idleLabel);
 }
 
 function renderType4PreviewExamples(samples) {
@@ -1473,7 +1490,7 @@ function renderType4CellDesignPanel() {
     const isTypeIV = String(currentDeck && currentDeck.behavior_type || '').trim().toLowerCase() === 'type_iv';
     if (openType4CellDesignBtn) {
         openType4CellDesignBtn.classList.toggle('hidden', !isTypeIV);
-        openType4CellDesignBtn.textContent = currentType4CellDesign ? 'Redesign Cell' : 'Design Cell';
+        setBtnLabel(openType4CellDesignBtn, currentType4CellDesign ? 'Redesign Cell' : 'Design Cell');
     }
     if (clearType4CellDesignBtn) {
         clearType4CellDesignBtn.classList.toggle('hidden', !isTypeIV || !currentType4CellDesign);
@@ -1732,8 +1749,9 @@ async function saveType4CellDesign() {
     };
 
     saveBtn.disabled = true;
-    const oldText = saveBtn.textContent;
-    saveBtn.textContent = 'Saving...';
+    const labelEl = saveBtn.querySelector('.btn-label');
+    const oldText = labelEl ? labelEl.textContent : saveBtn.textContent;
+    setBtnLabel(saveBtn, 'Saving...');
     showError('');
     showSuccess('');
     try {
@@ -1762,7 +1780,7 @@ async function saveType4CellDesign() {
         showError(error.message || 'Failed to save printable cell design.');
     } finally {
         saveBtn.disabled = false;
-        saveBtn.textContent = oldText;
+        setBtnLabel(saveBtn, oldText);
     }
 }
 

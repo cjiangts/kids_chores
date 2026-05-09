@@ -128,6 +128,26 @@
             transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
         }
 
+        #firstTagToggle .first-tag-option--with-icon {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        #firstTagToggle .first-tag-option-icon {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #firstTagToggle .first-tag-option--with-icon .first-tag-option-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
         #firstTagToggle .first-tag-option:hover {
             border-color: #4f83ff;
             transform: translateY(-1px);
@@ -169,6 +189,42 @@
             line-height: 1.35;
             color: #4b5a70;
         }
+
+        .existing-tree-details {
+            margin: 0 0 0.6rem;
+            border: 1px solid #d7deee;
+            border-radius: 8px;
+            background: #fbfcff;
+            padding: 0.45rem 0.65rem;
+        }
+
+        .existing-tree-details > summary {
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #364b7a;
+            user-select: none;
+        }
+
+        .existing-tree-text {
+            margin: 0.5rem 0 0;
+            padding: 0.55rem 0.7rem;
+            max-height: 260px;
+            overflow: auto;
+            background: #fff;
+            border: 1px solid #e3e8f4;
+            border-radius: 6px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.82rem;
+            line-height: 1.4;
+            color: #2d3a5f;
+            white-space: pre;
+        }
+
+        .existing-tree-text.is-empty {
+            color: #7a849c;
+            font-style: italic;
+        }
     </style>
 </head>
 <body class="manage-page">
@@ -198,10 +254,15 @@
 
             <section class="deck-panel settings-section">
                 <h2><span class="icon" data-icon="layers" data-icon-size="22"></span> <span id="bulkInputSectionTitle">2) Paste Deck Blocks</span></h2>
+                <details id="existingTreeDetails" class="existing-tree-details">
+                    <summary>Existing decks for this subject</summary>
+                    <pre id="existingTreeText" class="existing-tree-text"></pre>
+                </details>
                 <textarea id="bulkDeckInput" class="deck-bulk-textarea input-mono"></textarea>
                 <div class="deck-row mt-07">
-                    <button type="button" id="previewBtn" class="btn-primary">Preview Bulk Create</button>
-                    <button type="button" id="clearInputBtn" class="btn-secondary">Clear</button>
+                    <button type="button" id="previewBtn" class="btn-primary"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span>Preview Bulk Create</span></button>
+                    <button type="button" id="clearInputBtn" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Clear</span></button>
+                    <button type="button" id="copyExampleBtn" class="btn-secondary"><span data-icon="clipboard-list" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Copy Example</span></button>
                 </div>
             </section>
 
@@ -209,7 +270,7 @@
                 <h2><span class="icon" data-icon="check" data-icon-size="22"></span> 3) Review & Confirm</h2>
                 <div class="deck-review-head">
                     <div id="reviewMeta"></div>
-                    <button type="button" id="createDecksBtn" class="btn-primary">Confirm & Create Decks</button>
+                    <button type="button" id="createDecksBtn" class="btn-primary"><span data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Confirm &amp; Create Decks</span></button>
                 </div>
                 <div class="deck-review-table-wrap">
                     <table class="deck-review-table">

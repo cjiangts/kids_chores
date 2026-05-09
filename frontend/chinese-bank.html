@@ -148,12 +148,12 @@
             color: #c62828;
         }
 
-        .bank-table .pinyin-cell { min-width: 70px; }
-        .bank-table .en-cell { min-width: 100px; }
+        .bank-table .value-cell { min-width: 100px; }
+        body.bank-mode-pinyin .bank-table .value-cell { width: 8rem; min-width: 0; }
+        body.bank-mode-pinyin .bank-table th:nth-child(2) { width: 8rem; }
         .bank-table .updated-cell { font-size: 0.75rem; color: #777; white-space: nowrap; }
 
-        .bank-table .en-cell input,
-        .bank-table .pinyin-cell input {
+        .bank-table .value-cell input {
             width: 100%;
             border: 1px solid transparent;
             background: transparent;
@@ -163,8 +163,7 @@
             color: #222;
         }
 
-        .bank-table .en-cell input:focus,
-        .bank-table .pinyin-cell input:focus {
+        .bank-table .value-cell input:focus {
             border-color: #4a90d9;
             background: #fff;
             outline: none;
@@ -224,7 +223,21 @@
         }
 
         .csv-editor-section {
+            display: none;
             margin-bottom: 0.75rem;
+            padding: 0.6rem 0.7rem;
+            background: #f5f7fb;
+            border: 1px solid #d6dce5;
+            border-radius: 8px;
+        }
+        .csv-editor-section.is-visible {
+            display: block;
+        }
+        .csv-editor-section .csv-editor-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.4rem;
         }
 
         .csv-editor-textarea {
@@ -304,16 +317,12 @@
             .bank-table th:nth-child(1) {
                 font-size: 0.7rem;
             }
-            .bank-table .pinyin-cell {
+            .bank-table .value-cell {
                 min-width: 0;
                 width: auto;
             }
-            .bank-table .en-cell {
-                min-width: 0;
-                width: auto;
-            }
-            .bank-table th:nth-child(4),
-            .bank-table td:nth-child(4) {
+            .bank-table th:nth-child(3),
+            .bank-table td:nth-child(3) {
                 width: 1.3rem;
                 text-align: center;
                 padding-left: 0.1rem;
@@ -327,14 +336,13 @@
                 padding-left: 0.1rem;
                 padding-right: 0.1rem;
             }
-            .bank-table th:nth-child(5) {
+            .bank-table th:nth-child(4) {
                 font-size: 0.6rem;
                 width: 2rem;
                 padding-left: 0.1rem;
                 padding-right: 0.1rem;
             }
-            .bank-table .en-cell input,
-            .bank-table .pinyin-cell input {
+            .bank-table .value-cell input {
                 font-size: 0.7rem;
                 padding: 0.12rem 0.2rem;
             }
@@ -374,43 +382,43 @@
 
                 <div class="bank-filters">
                     <div class="search-bar bank-search-wrap">
-                        <input type="text" id="searchInput" class="search-bar-input" placeholder="Search character, pinyin, or meaning..." />
+                        <input type="text" id="searchInput" class="search-bar-input" placeholder="Search..." />
                     </div>
                     <div class="bank-filter-group" id="filterVerifiedGroup">
-                        <button type="button" data-value="unverified">Used &amp; Unverified</button>
-                        <button type="button" data-value="used">Used</button>
-                        <button type="button" data-value="all">All</button>
-                        <button type="button" data-value="verified" class="active">Verified</button>
+                        <button type="button" data-value="unverified"><span class="icon" data-icon="circle-x" data-icon-size="16"></span> Used &amp; Unverified</button>
+                        <button type="button" data-value="used"><span class="icon" data-icon="eye" data-icon-size="16"></span> Used</button>
+                        <button type="button" data-value="all"><span class="icon" data-icon="layers" data-icon-size="16"></span> All</button>
+                        <button type="button" data-value="verified" class="active"><span class="icon" data-icon="check" data-icon-size="16"></span> Verified</button>
                     </div>
                 </div>
 
                 <div id="bankAdminActions" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                    <button type="button" id="refreshUsedBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Refresh Used</button>
-                    <button type="button" id="forceSyncBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Force Sync Backs</button>
-                    <button type="button" id="csvToggleBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;">Show CSV</button>
+                    <button type="button" id="refreshUsedBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;"><span class="icon" data-icon="rotate-ccw" data-icon-size="16"></span> <span class="btn-label">Refresh Used</span></button>
+                    <button type="button" id="forceSyncBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;"><span class="icon" data-icon="refresh-cw" data-icon-size="16"></span> <span class="btn-label">Force Sync Backs</span></button>
+                    <button type="button" id="csvToggleBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;"><span class="icon" data-icon="align-left" data-icon-size="16"></span> <span class="btn-label">Show CSV</span></button>
+                </div>
+
+                <div class="csv-editor-section" id="csvEditorSection">
+                    <div class="csv-editor-toolbar">
+                        <button type="button" id="csvCopyClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="copy-plus" data-icon-size="16"></span> <span class="btn-label">Copy &amp; Clear Box</span></button>
+                        <button type="button" id="csvClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="undo-2" data-icon-size="16"></span> Clear Changes</button>
+                        <button type="button" id="csvPreviewBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="eye" data-icon-size="16"></span> Preview</button>
+                    </div>
+                    <textarea id="csvEditor" class="csv-editor-textarea" spellcheck="false" placeholder="Char,Pinyin,English"></textarea>
                 </div>
 
                 <div class="bank-pagination">
-                    <button id="prevPageBtn" disabled>← Prev</button>
+                    <button id="prevPageBtn" disabled><span class="icon" data-icon="arrow-left" data-icon-size="16"></span> Prev</button>
                     <span id="pageInfo"></span>
-                    <button id="nextPageBtn">Next →</button>
-                </div>
-
-                <div class="csv-editor-section">
-                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-                        <button type="button" id="csvPreviewBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;display:none;">Preview</button>
-                        <button type="button" id="csvClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;display:none;">Clear Changes</button>
-                    </div>
-                    <textarea id="csvEditor" class="csv-editor-textarea" style="display:none;" spellcheck="false" placeholder="Char,Pinyin,English"></textarea>
+                    <button id="nextPageBtn">Next <span class="icon" data-icon="arrow-right" data-icon-size="16"></span></button>
                 </div>
 
                 <div style="overflow-x:auto;">
                     <table class="bank-table">
                         <thead>
                             <tr>
-                                <th>Char</th>
-                                <th>Pinyin</th>
-                                <th>English</th>
+                                <th id="keyColumnHeader">Char</th>
+                                <th id="valueColumnHeader">Pinyin</th>
                                 <th>Used</th>
                                 <th id="sortUpdatedTh" class="sortable-th">Updated</th>
                             </tr>
@@ -421,7 +429,7 @@
 
                 <div id="saveBar" class="bank-save-bar hidden">
                     <span id="pendingCount"></span>
-                    <button type="button" id="saveChangesBtn" class="settings-save-btn">Save Changes</button>
+                    <button type="button" id="saveChangesBtn" class="settings-save-btn"><span class="icon" data-icon="save" data-icon-size="18"></span> Save Changes</button>
                 </div>
             </section>
         </main>

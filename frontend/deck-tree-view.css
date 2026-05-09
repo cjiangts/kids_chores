@@ -1,0 +1,665 @@
+/* Shared deck-tree view styles. Used by kid-card-manage (opt-in) and admin (browse). */
+
+.deck-tree-info-popover {
+    position: absolute;
+    top: 2.2rem;
+    left: 0;
+    z-index: 10;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    color: #333;
+    line-height: 1.5;
+    max-width: 20rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    white-space: pre-line;
+}
+
+.optin-note-btn {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid #d6dbe5;
+    background: #f3f5fa;
+    color: #4a5b80;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.optin-note-btn:hover {
+    background: #e0e7ff;
+    color: #3730a3;
+    border-color: #c7d2fe;
+}
+
+.deck-tree-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+}
+
+.deck-tree-header-left {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.deck-tree-header-left h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: #1f2a44;
+}
+
+.deck-tree-counter {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.2;
+    font-size: 0.85rem;
+    color: #555;
+    white-space: nowrap;
+}
+
+.deck-tree-counter-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.deck-tree-counter-line strong {
+    font-weight: 700;
+    color: #2c5fd9;
+}
+
+.deck-tree-counter-icon {
+    display: inline-flex;
+    align-items: center;
+    color: #888;
+    flex: 0 0 auto;
+}
+
+.deck-tree-card-matches {
+    list-style: none;
+    margin: 0.2rem 0 0.35rem 2.4rem;
+    padding: 0.3rem 0.55rem;
+    border-left: 2px solid #c7d2fe;
+    background: #f5f7ff;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.82rem;
+    color: #2e3553;
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+}
+
+.deck-tree-card-match-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    line-height: 1.25;
+}
+
+.deck-tree-card-match-primary {
+    color: #1f2a44;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 14rem;
+    flex: 0 0 auto;
+}
+
+.deck-tree-card-match-secondary {
+    color: #6b7693;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.deck-tree-card-match-hit {
+    background: #fde68a;
+    color: inherit;
+    padding: 0 1px;
+    border-radius: 2px;
+}
+
+.deck-tree-card-match-more {
+    color: #6366f1;
+    font-size: 0.78rem;
+    font-style: italic;
+}
+
+.apply-btn-chunk {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.deck-tree-action-row-primary > .btn-primary {
+    flex: 1 1 auto;
+    width: 100%;
+    margin-left: 0;
+}
+
+.deck-tree-action-row-secondary {
+    justify-content: stretch;
+}
+
+.deck-tree-action-row-secondary > .btn-secondary {
+    flex: 1 1 0;
+}
+
+.deck-tree-container {
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    border-top: 1px solid #e9ecef;
+    margin-top: 0.5rem;
+}
+
+.deck-tree-search-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.deck-tree-search-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.deck-tree-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    height: 34px;
+    flex: 0 0 auto;
+    padding: 0 0.55rem;
+    border: 1px solid #d7dbe3;
+    border-radius: 8px;
+    background: #fff;
+    color: #666;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.deck-tree-icon-btn:hover {
+    background: #f0f3ff;
+    border-color: #b8c4e0;
+    color: #333;
+}
+
+.deck-tree-icon-btn.deck-tree-icon-btn-primary {
+    background: #ecfaf0;
+    border-color: #b6dcc4;
+    color: #1d6b39;
+}
+
+.deck-tree-icon-btn.deck-tree-icon-btn-primary:hover {
+    background: #d3f4dc;
+    border-color: #8dc99e;
+    color: #134a26;
+}
+
+.deck-tree-node {
+    user-select: none;
+}
+
+/* ── Branch rows ── */
+.deck-tree-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-height: 42px;
+    cursor: pointer;
+}
+
+.deck-tree-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 42px;
+    flex: 0 0 36px;
+    font-size: 0.78rem;
+    color: #888;
+    transition: transform 0.15s ease;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.deck-tree-toggle:hover {
+    color: #444;
+}
+
+.deck-tree-toggle.expanded {
+    transform: rotate(90deg);
+}
+
+.deck-tree-toggle.leaf-spacer {
+    visibility: hidden;
+    width: 20px;
+    flex: 0 0 20px;
+}
+
+.deck-tree-leaf-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 42px;
+    flex: 0 0 28px;
+    font-size: 0.62rem;
+    color: #aab1c0;
+    transition: transform 0.15s ease, color 0.12s ease;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.deck-tree-leaf-toggle:hover {
+    color: #555;
+}
+
+.deck-tree-leaf-toggle.expanded {
+    transform: rotate(90deg);
+    color: #555;
+}
+
+.deck-tree-leaf-cards {
+    margin: 0.05rem 0 0.4rem 2.6rem;
+    padding: 0.35rem 0.6rem;
+    border-left: 2px solid #e5e7eb;
+    background: #fafbff;
+    border-radius: 0 6px 6px 0;
+}
+
+.deck-tree-leaf-cards.collapsed {
+    display: none;
+}
+
+.deck-tree-leaf-card-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+}
+
+.deck-tree-leaf-card-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    line-height: 1.25;
+    font-size: 0.84rem;
+    color: #2e3553;
+}
+
+.deck-tree-leaf-card-primary {
+    color: #1f2a44;
+    font-weight: 500;
+    flex: 0 0 auto;
+    max-width: 16rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deck-tree-leaf-card-secondary {
+    color: #6b7693;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.deck-tree-leaf-cards-empty {
+    color: #9ca3af;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+.deck-tree-row-body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 42px;
+    padding: 0.25rem 0.6rem 0.25rem 0.35rem;
+    border-radius: 8px;
+    transition: background 0.12s ease;
+}
+
+.deck-tree-row-body:hover {
+    background: #f0f3ff;
+}
+
+.deck-tree-row.selected > .deck-tree-row-body:hover,
+.deck-tree-row.partial > .deck-tree-row-body:hover {
+    background: #f0f3ff;
+}
+
+/* ── Checkbox ── */
+.deck-tree-checkbox {
+    flex: 0 0 auto;
+    position: relative;
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #c4cad5;
+    border-radius: 4px;
+    background: #fff;
+    box-sizing: border-box;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.deck-tree-row.selected > .deck-tree-row-body > .deck-tree-checkbox {
+    background: #2c5fd9;
+    border-color: #2c5fd9;
+}
+
+.deck-tree-row.selected > .deck-tree-row-body > .deck-tree-checkbox::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 6px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.deck-tree-row.partial > .deck-tree-row-body > .deck-tree-checkbox {
+    border-color: #2c5fd9;
+}
+
+.deck-tree-row.partial > .deck-tree-row-body > .deck-tree-checkbox::after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    top: 50%;
+    height: 2px;
+    margin-top: -1px;
+    background: #2c5fd9;
+    border-radius: 1px;
+}
+
+/* In browse mode the tree is read-only: hide checkboxes and the row hover tint. */
+.deck-tree-view--browse .deck-tree-checkbox {
+    display: none;
+}
+
+.deck-tree-view--browse .deck-tree-row-body {
+    cursor: default;
+}
+
+.deck-tree-view--browse .deck-tree-row-body:hover {
+    background: transparent;
+}
+
+.deck-tree-leaf-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.22rem 0.55rem;
+    margin-left: 0.4rem;
+    border: 1px solid #c9d4ec;
+    background: #f3f6fc;
+    color: #2c4079;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.deck-tree-leaf-action-btn:hover {
+    background: #e0e7ff;
+    border-color: #a8b6e0;
+    color: #1d2c5e;
+}
+
+.deck-tree-branch-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.22rem 0.55rem;
+    margin-left: 0.4rem;
+    border: 1px solid #c9d4ec;
+    background: #f3f6fc;
+    color: #2c4079;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    z-index: 1;
+}
+
+.deck-tree-branch-edit-btn:hover {
+    background: #e0e7ff;
+    border-color: #a8b6e0;
+    color: #1d2c5e;
+}
+
+.deck-tree-branch-newdeck-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.22rem 0.55rem;
+    margin-left: 0.4rem;
+    border: 1px solid #b6dcc4;
+    background: #ecfaf0;
+    color: #1d6b39;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    z-index: 1;
+}
+
+.deck-tree-branch-newdeck-btn:hover {
+    background: #d3f4dc;
+    border-color: #8dc99e;
+    color: #134a26;
+}
+
+/* ── Branch progress bar ── */
+.deck-tree-progress {
+    position: absolute;
+    left: 0.35rem;
+    right: 0.6rem;
+    bottom: 2px;
+    height: 2px;
+    border-radius: 999px;
+    background: #e8ecf2;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.deck-tree-progress-fill {
+    display: block;
+    height: 100%;
+    background: #4caf50;
+    border-radius: 999px;
+    transition: width 0.18s ease;
+}
+
+.deck-tree-view--browse .deck-tree-progress {
+    display: none;
+}
+
+.deck-tree-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.18rem 0.42rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    line-height: 1;
+}
+
+.deck-tree-badge-chunk {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.18rem;
+}
+
+.deck-tree-badge.opt-in {
+    background: #e6f9ea;
+    color: #176b2e;
+    border: 1px solid #a6deb3;
+}
+
+.deck-tree-badge.opt-out {
+    background: #fef0f0;
+    color: #b91c1c;
+    border: 1px solid #f5c6c6;
+}
+
+.deck-tree-label {
+    font-size: 0.92rem;
+    color: #334;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.deck-tree-label-tag {
+    font-weight: 600;
+}
+
+.deck-tree-meta {
+    font-size: 0.78rem;
+    color: #888;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+.deck-tree-children {
+    padding-left: 0.6rem;
+    border-left: 1px solid #e8ecf2;
+    margin-left: 1.05rem;
+}
+
+.deck-tree-children.collapsed {
+    display: none;
+}
+
+.deck-tree-node.search-hidden {
+    display: none;
+}
+
+/* Modal layout shared by tree-view modals (e.g. #deckTreeModal, #deckBrowseModal). */
+.deck-tree-modal .modal-content {
+    width: min(1100px, calc(100vw - 24px));
+    max-width: min(1100px, calc(100vw - 24px));
+    height: min(820px, calc(100vh - 26px));
+    max-height: calc(100vh - 26px);
+    padding: 1rem 1rem 0.95rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.deck-tree-modal .deck-tree-header {
+    flex: 0 0 auto;
+}
+
+.deck-tree-modal .manage-popup-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.deck-tree-modal .deck-tree-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+}
+
+.deck-tree-modal .deck-tree-actions {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 520px) {
+    .deck-tree-modal .modal-content {
+        width: calc(100vw - 12px);
+        max-width: calc(100vw - 12px);
+        height: calc(100dvh - 16px);
+        max-height: calc(100dvh - 16px);
+    }
+
+    .deck-tree-icon-btn-label {
+        display: none;
+    }
+
+    .deck-tree-icon-btn {
+        padding: 0 0.45rem;
+    }
+
+    .deck-tree-search-wrap {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .deck-tree-row-body {
+        min-height: 46px;
+        padding: 0.35rem 0.65rem 0.35rem 0.4rem;
+    }
+
+    .deck-tree-toggle {
+        width: 40px;
+        height: 46px;
+        flex: 0 0 40px;
+    }
+}

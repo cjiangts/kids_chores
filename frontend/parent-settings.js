@@ -943,7 +943,7 @@ function syncBadgeArtStudioControls() {
             if (badgeArtStudioLoading) {
                 badgeBtnLabel.innerHTML = '<span class="app-spinner app-spinner--small" role="status" aria-label="Loading"></span>';
             } else {
-                badgeBtnLabel.textContent = canEdit ? 'Badge Studio' : 'View Badges';
+                badgeBtnLabel.textContent = 'Badges';
             }
         }
     }
@@ -1828,14 +1828,6 @@ async function loadFamilyRole() {
     }
     if (familyAdminCard) {
         familyAdminCard.classList.toggle('hidden', !isSuperFamily);
-    }
-    const chineseBankLink = document.getElementById('familyManageChineseBankLink');
-    if (chineseBankLink) {
-        chineseBankLink.classList.remove('hidden');
-        const dictLabel = chineseBankLink.querySelector('.settings-action-label');
-        if (dictLabel) {
-            dictLabel.textContent = isSuperFamily ? 'Manage Dictionary' : 'View Dictionary';
-        }
     }
     resetBadgeArtStudioState();
     badgeArtStudioCanEdit = isSuperFamily;

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="home-redesign-v4.css">
+    <link rel="stylesheet" href="deck-tree-view.css">
     <style>
         .parent-admin-page .admin-optin-panel {
             background: #fff;
@@ -258,83 +259,44 @@
             color: #2f8a48;
             margin-right: -0.1rem;
         }
-        .parent-admin-page .admin-matrix.is-editable .admin-matrix-value {
-            border-color: rgba(125, 138, 184, 0.32);
+        /* Edit-mode visual treatment — make it obvious the user is in edit mode. */
+        .parent-admin-page .admin-optin-panel.is-editing {
+            background: linear-gradient(180deg, #f4f6ff 0%, #eef1ff 100%);
+            border-color: #4f6bd9;
+            box-shadow: 0 0 0 3px rgba(79, 107, 217, 0.18), 0 6px 18px rgba(54, 71, 138, 0.16);
         }
-        .parent-admin-page .admin-edit-bar {
-            position: fixed;
-            left: 50%;
-            bottom: 1rem;
-            transform: translateX(-50%);
-            width: min(560px, calc(100vw - 1.5rem));
-            display: flex;
-            flex-direction: column;
-            gap: 0.55rem;
-            background: #4b5fc4;
-            color: #fff;
-            border-radius: 18px;
-            padding: 0.75rem 1rem 0.85rem;
-            box-shadow: 0 14px 36px rgba(28, 42, 82, 0.28);
-            z-index: 60;
-        }
-        .parent-admin-page .admin-edit-bar.hidden {
-            display: none;
-        }
-        .parent-admin-page .admin-edit-bar-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.1rem;
-        }
-        .parent-admin-page .admin-edit-bar-title {
-            font-size: 1.05rem;
-            font-weight: 700;
-        }
-        .parent-admin-page .admin-edit-bar-hint {
-            font-size: 0.82rem;
-            opacity: 0.78;
-        }
-        .parent-admin-page .admin-edit-bar-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.55rem;
-        }
-        .parent-admin-page .admin-edit-bar-btn {
-            appearance: none;
-            -webkit-appearance: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.45rem;
-            border: 0;
-            border-radius: 12px;
-            padding: 0.7rem 0.9rem;
-            font-size: 0.95rem;
+        .parent-admin-page .admin-matrix-title-sub--edit {
+            color: #4f6bd9;
             font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            min-height: 44px;
         }
-        .parent-admin-page .admin-edit-bar-btn--ghost {
-            background: transparent;
+        .parent-admin-page .admin-optin-edit-btn--space-keeper {
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .parent-admin-page .admin-optin-edit-btn--done {
+            background: #4f6bd9;
             color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-color: #4f6bd9;
         }
-        .parent-admin-page .admin-edit-bar-btn--ghost:hover:not(:disabled) {
-            background: rgba(255, 255, 255, 0.12);
+        .parent-admin-page .admin-optin-edit-btn--done:hover:not(:disabled) {
+            background: #3f57b8;
+            border-color: #3f57b8;
+            color: #fff;
         }
-        .parent-admin-page .admin-edit-bar-btn--primary {
-            background: #fff;
-            color: #2f3c7e;
+        .parent-admin-page .admin-matrix.is-editable .admin-matrix-value {
+            border-color: rgba(79, 107, 217, 0.55);
+            border-width: 1.5px;
+            box-shadow: 0 1px 0 rgba(79, 107, 217, 0.08);
         }
-        .parent-admin-page .admin-edit-bar-btn--primary:hover:not(:disabled) {
-            background: #f0f3ff;
+        .parent-admin-page .admin-matrix.is-editable button.admin-matrix-value:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(79, 107, 217, 0.22);
         }
-        .parent-admin-page .admin-edit-bar-btn:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
+        .parent-admin-page .admin-matrix.is-editable button.admin-matrix-value:active {
+            transform: translateY(0);
         }
-        body.admin-edit-mode {
-            padding-bottom: 9rem;
+        .parent-admin-page .admin-matrix-kid-head.is-saving .admin-matrix-kid-avatar {
+            box-shadow: 0 0 0 2px #4f6bd9;
         }
 
         .parent-admin-page .admin-empty-state {
@@ -494,19 +456,8 @@
             <div id="adminActionGrid" class="admin-action-grid"></div>
 
             <div id="adminOptinPanel" class="admin-optin-panel hidden">
-                <div class="admin-matrix-wrap">
+                <div id="adminMatrixWrap" class="admin-matrix-wrap">
                     <table id="adminMatrix" class="admin-matrix"></table>
-                </div>
-            </div>
-
-            <div id="adminEditActions" class="admin-edit-bar hidden" inert>
-                <div class="admin-edit-bar-info">
-                    <span class="admin-edit-bar-title">Editing subjects</span>
-                    <span id="adminEditHint" class="admin-edit-bar-hint" data-default-text="Tap cells to opt subjects in or out">Tap cells to opt subjects in or out</span>
-                </div>
-                <div class="admin-edit-bar-actions">
-                    <button type="button" id="cancelEditBtn" class="admin-edit-bar-btn admin-edit-bar-btn--ghost"><span class="icon" data-icon="x" data-icon-size="18" aria-hidden="true"></span>Cancel</button>
-                    <button type="button" id="saveEditBtn" class="admin-edit-bar-btn admin-edit-bar-btn--primary"><span class="icon" data-icon="check" data-icon-size="18" aria-hidden="true"></span>Save</button>
                 </div>
             </div>
 
@@ -533,6 +484,33 @@
 
             <div id="errorMessage" class="error hidden"></div>
         </main>
+    </div>
+
+    <div id="deckBrowseModal" class="modal hidden manage-popup-modal deck-tree-modal" aria-hidden="true">
+        <div class="modal-content modal-large" role="dialog" aria-modal="true" aria-labelledby="deckBrowseHeading">
+            <div class="deck-tree-header">
+                <div class="deck-tree-header-left">
+                    <h2 id="deckBrowseHeading" style="margin:0"><span class="icon" data-icon="layers" data-icon-size="22"></span> <span id="deckBrowseTitle">Browse Decks</span></h2>
+                    <span id="deckBrowseCounter" class="deck-tree-counter"></span>
+                </div>
+                <div class="deck-tree-search-row">
+                    <div class="search-bar deck-tree-search-wrap">
+                        <input id="deckBrowseSearchInput" type="text" class="search-bar-input" placeholder="Search decks or card content...">
+                    </div>
+                    <button id="deckBrowseNewDeckBtn" type="button" class="deck-tree-icon-btn deck-tree-icon-btn-primary" title="Create a new deck at the subject root" aria-label="New deck"><span data-icon="plus" data-icon-size="14" data-icon-stroke="2.4"></span><span class="deck-tree-icon-btn-label">New deck</span></button>
+                    <button id="deckBrowseExpandAllBtn" type="button" class="deck-tree-icon-btn" title="Expand all" aria-label="Expand all"><span data-icon="chevrons-up-down" data-icon-size="14" data-icon-stroke="2.2"></span><span class="deck-tree-icon-btn-label">Expand</span></button>
+                    <button id="deckBrowseCollapseAllBtn" type="button" class="deck-tree-icon-btn" title="Collapse all" aria-label="Collapse all"><span data-icon="chevrons-down-up" data-icon-size="14" data-icon-stroke="2.2"></span><span class="deck-tree-icon-btn-label">Collapse</span></button>
+                </div>
+            </div>
+            <div class="manage-popup-modal-body">
+                <div id="deckBrowseContainer" class="deck-tree-container"></div>
+                <div class="deck-v2-actions deck-tree-actions">
+                    <div class="deck-v2-action-row deck-tree-action-row-secondary">
+                        <button id="closeDeckBrowseModalBtn" type="button" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Close</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- PWA Install Prompt (iOS Safari only, shown once) -->
@@ -621,6 +599,7 @@
     <script src="subject-icons.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
+    <script src="deck-tree-view.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>

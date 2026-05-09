@@ -89,6 +89,14 @@
         );
     }
 
+    function isChineseLessonReadingDeckMode(category) {
+        return Boolean(
+            category
+            && category.behavior_type === 'type_iii'
+            && category.has_chinese_specific_logic
+        );
+    }
+
     function isTypeIIDeckMode(category) {
         return Boolean(category && category.behavior_type === 'type_ii');
     }
@@ -142,12 +150,16 @@
         categories,
         selectedCategoryKey,
         getDeckCount,
+        includeSubjectIcon,
+        subjectIconSize,
     }) {
         deckCategoryCommon.renderFirstTagCategoryPicker({
             containerEl,
             categories,
             selectedCategoryKey,
             getDeckCount,
+            includeSubjectIcon,
+            subjectIconSize,
         });
     }
 
@@ -311,6 +323,7 @@
         isChineseVocabularyDeckMode,
         getChineseBackContent,
         isChineseWritingDeckMode,
+        isChineseLessonReadingDeckMode,
         isTypeIIDeckMode,
         isTypeIVDeckMode,
         setControlsDisabled,

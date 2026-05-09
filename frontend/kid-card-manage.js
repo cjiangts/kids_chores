@@ -43,35 +43,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             setTimeout(() => document.addEventListener('click', dismiss), 0);
         });
     }
-    if (deckTreeContainer) {
-        deckTreeContainer.addEventListener('click', handleTreeContainerClick);
-    }
     if (deckTreeSearchInput) {
         window.SearchBar.enhance(deckTreeSearchInput);
-        deckTreeSearchInput.addEventListener('input', () => {
-            applyTreeSearch(deckTreeSearchInput.value);
-        });
     }
     const deckTreeExpandAllBtn = document.getElementById('deckTreeExpandAllBtn');
     const deckTreeCollapseAllBtn = document.getElementById('deckTreeCollapseAllBtn');
     if (deckTreeExpandAllBtn) {
-        deckTreeExpandAllBtn.addEventListener('click', () => {
-            if (!deckTreeContainer) return;
-            deckTreeContainer.querySelectorAll('.deck-tree-children.collapsed').forEach((el) => el.classList.remove('collapsed'));
-            deckTreeContainer.querySelectorAll('.deck-tree-toggle').forEach((el) => el.classList.add('expanded'));
-        });
+        deckTreeExpandAllBtn.addEventListener('click', expandAllDeckTree);
     }
     if (deckTreeCollapseAllBtn) {
-        deckTreeCollapseAllBtn.addEventListener('click', () => {
-            if (!deckTreeContainer) return;
-            deckTreeContainer.querySelectorAll('.deck-tree-children').forEach((el) => el.classList.add('collapsed'));
-            deckTreeContainer.querySelectorAll('.deck-tree-toggle').forEach((el) => el.classList.remove('expanded'));
-            deckTreeContainer.querySelectorAll('.deck-tree-leaf-cards').forEach((el) => el.classList.add('collapsed'));
-            deckTreeContainer.querySelectorAll('.deck-tree-leaf-toggle').forEach((el) => el.classList.remove('expanded'));
-            if (typeof expandedLeafDeckIds !== 'undefined' && expandedLeafDeckIds && typeof expandedLeafDeckIds.clear === 'function') {
-                expandedLeafDeckIds.clear();
-            }
-        });
+        deckTreeCollapseAllBtn.addEventListener('click', collapseAllDeckTree);
     }
     if (openType4DeckCountsModalBtn) {
         openType4DeckCountsModalBtn.addEventListener('click', () => {

@@ -1,13 +1,81 @@
-"""Chinese-bank (super-family) routes."""
+"""Chinese-bank (super-family) routes.
+
+Two parallel banks, selected by ?mode= on every route:
+  mode='pinyin'  -> chinese_character_bank(character, pinyin, ...)   single Han chars
+  mode='english' -> chinese_vocabulary_bank(word, en, ...)           multi-char vocab
+
+Each mode is scoped to its own bank table AND to source decks whose category
+has chinese_back_content matching the mode.
+"""
 from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
+
+# Per-mode config: table, primary-key column, payload column, regex for valid keys
+_MODES = {
+    'pinyin': {
+        'table': 'chinese_character_bank',
+        'pk': 'character',
+        'payload': 'pinyin',
+        'min_len': 1,
+        'max_len': 1,
+    },
+    'english': {
+        'table': 'chinese_vocabulary_bank',
+        'pk': 'word',
+        'payload': 'en',
+        'min_len': 2,
+        'max_len': None,
+    },
+}
+
+
+def _get_mode():
+    raw = str(request.args.get('mode') or '').strip().lower()
+    if raw not in _MODES:
+        return None, (jsonify({'error': "mode must be 'pinyin' or 'english'"}), 400)
+    return _MODES[raw], None
+
+
+def _mode_from_payload(payload):
+    raw = str((payload or {}).get('mode') or '').strip().lower()
+    if raw not in _MODES:
+        return None, (jsonify({'error': "mode must be 'pinyin' or 'english'"}), 400)
+    return _MODES[raw], None
+
+
+def _length_predicate(cfg, col):
+    if cfg['max_len'] == cfg['min_len']:
+        return f"LENGTH({col}) = {cfg['min_len']}"
+    if cfg['max_len'] is None:
+        return f"LENGTH({col}) >= {cfg['min_len']}"
+    return f"LENGTH({col}) BETWEEN {cfg['min_len']} AND {cfg['max_len']}"
+
+
+def _row_matches_mode(cfg, value: str) -> bool:
+    n = len(value)
+    if cfg['max_len'] is None:
+        return n >= cfg['min_len']
+    return cfg['min_len'] <= n <= cfg['max_len']
+
+
+def _han_only(value: str) -> bool:
+    import re
+    return bool(re.fullmatch(r'[\u3400-\u9FFF\uF900-\uFAFF]+', value or ''))
+
 
 @kids_bp.route('/chinese-bank', methods=['GET'])
 def get_chinese_bank():
-    """List chinese character bank with pagination, search, and filters."""
+    """List a single mode's bank with pagination, search, and filters."""
     family_id = current_family_id()
     if not family_id:
         return jsonify({'error': 'Family login required'}), 401
     is_super = is_super_family_id(family_id)
+
+    cfg, err = _get_mode()
+    if err:
+        return err
+    table = cfg['table']
+    pk = cfg['pk']
+    payload = cfg['payload']
 
     page = max(1, int(request.args.get('page') or 1))
     per_page = min(200, max(10, int(request.args.get('perPage') or 50)))
@@ -22,9 +90,9 @@ def get_chinese_bank():
 
         if search:
             conditions.append(
-                "(character = ? OR pinyin ILIKE ? OR en ILIKE ?)"
+                f"({pk} = ? OR {payload} ILIKE ?)"
             )
-            params.extend([search, f'%{search}%', f'%{search}%'])
+            params.extend([search, f'%{search}%'])
 
         if filter_verified == 'verified':
             conditions.append("verified = TRUE")
@@ -37,39 +105,42 @@ def get_chinese_bank():
         where = (' WHERE ' + ' AND '.join(conditions)) if conditions else ''
 
         total = conn.execute(
-            f"SELECT COUNT(*) FROM chinese_character_bank{where}", params
+            f"SELECT COUNT(*) FROM {table}{where}", params
         ).fetchone()[0]
 
         offset = (page - 1) * per_page
         if sort_param == 'updated_asc':
-            order_by = 'last_updated ASC, character ASC'
+            order_by = f'last_updated ASC, {pk} ASC'
         elif sort_param == 'updated_desc':
-            order_by = 'last_updated DESC, character ASC'
+            order_by = f'last_updated DESC, {pk} ASC'
         else:
-            order_by = 'used DESC, character ASC'
+            order_by = f'used DESC, {pk} ASC'
 
         rows = conn.execute(
-            f"SELECT character, pinyin, en, used, verified, last_updated FROM chinese_character_bank{where} ORDER BY {order_by} LIMIT ? OFFSET ?",
+            f"SELECT {pk}, {payload}, used, verified, last_updated FROM {table}{where} "
+            f"ORDER BY {order_by} LIMIT ? OFFSET ?",
             params + [per_page, offset],
         ).fetchall()
 
-        stats = conn.execute("""
+        stats = conn.execute(
+            f"""
             SELECT
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE used) AS used,
                 COUNT(*) FILTER (WHERE verified) AS verified
-            FROM chinese_character_bank
-        """).fetchone()
+            FROM {table}
+            """
+        ).fetchone()
 
         return jsonify({
-            'characters': [
+            'mode': 'pinyin' if payload == 'pinyin' else 'english',
+            'rows': [
                 {
-                    'character': r[0],
-                    'pinyin': r[1],
-                    'en': r[2],
-                    'used': bool(r[3]),
-                    'verified': bool(r[4]),
-                    'lastUpdated': str(r[5] or ''),
+                    'key': r[0],
+                    'value': r[1],
+                    'used': bool(r[2]),
+                    'verified': bool(r[3]),
+                    'lastUpdated': str(r[4] or ''),
                 }
                 for r in rows
             ],
@@ -89,13 +160,20 @@ def get_chinese_bank():
 
 @kids_bp.route('/chinese-bank', methods=['PUT'])
 def update_chinese_bank():
-    """Update pinyin, en, and verified for one or more characters."""
+    """Update payload + verified for one or more rows in the chosen bank."""
     auth_err = require_super_family()
     if auth_err:
         return auth_err
 
-    payload = request.get_json() or {}
-    updates = payload.get('updates')
+    body = request.get_json() or {}
+    cfg, err = _mode_from_payload(body)
+    if err:
+        return err
+    table = cfg['table']
+    pk = cfg['pk']
+    payload_col = cfg['payload']
+
+    updates = body.get('updates')
     if not isinstance(updates, list) or not updates:
         return jsonify({'error': 'updates array is required'}), 400
 
@@ -103,17 +181,17 @@ def update_chinese_bank():
     try:
         updated = 0
         for item in updates:
-            char = str(item.get('character') or '').strip()
-            if not char:
+            key = str(item.get('key') or '').strip()
+            if not key or not _row_matches_mode(cfg, key):
                 continue
-            pinyin_val = str(item.get('pinyin') or '').strip()
-            en_val = str(item.get('en') or '').strip()
+            value = str(item.get('value') or '').strip()
             verified = bool(item.get('verified'))
-            if not pinyin_val or not en_val:
+            if not value:
                 continue
             conn.execute(
-                "UPDATE chinese_character_bank SET pinyin = ?, en = ?, verified = ?, last_updated = CURRENT_TIMESTAMP WHERE character = ?",
-                [pinyin_val, en_val, verified, char],
+                f"UPDATE {table} SET {payload_col} = ?, verified = ?, "
+                "last_updated = CURRENT_TIMESTAMP WHERE " + pk + " = ?",
+                [value, verified, key],
             )
             updated += 1
         return jsonify({'updated': updated})
@@ -123,37 +201,39 @@ def update_chinese_bank():
 
 @kids_bp.route('/chinese-bank/refresh-used', methods=['POST'])
 def refresh_chinese_bank_used():
-    """Sweep all shared and kid DBs to update the used column."""
+    """Sweep all shared and kid DBs to update the used column for the chosen mode."""
     auth_err = require_super_family()
     if auth_err:
         return auth_err
 
-    import re
+    cfg, err = _get_mode()
+    if err:
+        return err
+    table = cfg['table']
+    pk = cfg['pk']
+    payload_col = cfg['payload']
+    back_content_value = 'pinyin' if payload_col == 'pinyin' else 'english'
+
     from pathlib import Path
     from src.db import kid_db
 
-    han_only_re = re.compile(r'^[\u3400-\u9FFF\uF900-\uFAFF]+$')
-
     conn = get_shared_decks_connection()
     try:
-        # Only sweep cards whose deck belongs to a chinese-logic type_i category.
-        # Other categories (type_ii writing, type_iii reading, non-chinese) are
-        # not backed by the character/vocabulary bank.
-        chinese_type_i_keys = [
+        category_keys = [
             str(row[0])
             for row in conn.execute(
                 """
                 SELECT category_key FROM deck_category
                 WHERE has_chinese_specific_logic = TRUE
-                  AND behavior_type = ?
+                  AND chinese_back_content = ?
                 """,
-                [DECK_CATEGORY_BEHAVIOR_TYPE_I],
+                [back_content_value],
             ).fetchall()
         ]
-        used_chars = set()
+        used_keys = set()
 
-        if chinese_type_i_keys:
-            placeholders = ', '.join(['?'] * len(chinese_type_i_keys))
+        if category_keys:
+            placeholders = ', '.join(['?'] * len(category_keys))
             shared_rows = conn.execute(
                 f"""
                 SELECT DISTINCT c.front
@@ -162,12 +242,12 @@ def refresh_chinese_bank_used():
                 WHERE array_length(d.tags) >= 1
                   AND lower(d.tags[1]) IN ({placeholders})
                 """,
-                chinese_type_i_keys,
+                category_keys,
             ).fetchall()
             for row in shared_rows:
                 front = str(row[0] or '').strip()
-                if han_only_re.fullmatch(front):
-                    used_chars.add(front)
+                if _han_only(front) and _row_matches_mode(cfg, front):
+                    used_keys.add(front)
 
             families_root = Path(kid_db.DATA_DIR) / 'families'
             if families_root.exists():
@@ -183,69 +263,67 @@ def refresh_chinese_bank_used():
                             WHERE array_length(d.tags) >= 1
                               AND lower(d.tags[1]) IN ({placeholders})
                             """,
-                            chinese_type_i_keys,
+                            category_keys,
                         ).fetchall()
                         for row in kid_rows:
                             front = str(row[0] or '').strip()
-                            if han_only_re.fullmatch(front):
-                                used_chars.add(front)
+                            if _han_only(front) and _row_matches_mode(cfg, front):
+                                used_keys.add(front)
                     except Exception:
                         pass
                     finally:
                         if kid_conn is not None:
                             kid_conn.close()
 
-        # Snapshot before: which chars were used before this refresh
         prev_used = {
             r[0]
             for r in conn.execute(
-                "SELECT character FROM chinese_character_bank WHERE used = TRUE"
+                f"SELECT {pk} FROM {table} WHERE used = TRUE"
             ).fetchall()
         }
-        existing_chars = {
+        existing_keys = {
             r[0]
-            for r in conn.execute(
-                "SELECT character FROM chinese_character_bank"
-            ).fetchall()
+            for r in conn.execute(f"SELECT {pk} FROM {table}").fetchall()
         }
 
-        # Insert missing characters into the bank with pypinyin defaults
-        missing_chars = used_chars - existing_chars
-        inserted_chars = []
-        for char in sorted(missing_chars):
-            try:
-                pinyin = build_chinese_pinyin_text(char)
-            except Exception:
-                pinyin = ''
+        missing_keys = used_keys - existing_keys
+        inserted = []
+        for key in sorted(missing_keys):
+            if payload_col == 'pinyin':
+                try:
+                    default_value = build_chinese_pinyin_text(key)
+                except Exception:
+                    default_value = ''
+            else:
+                default_value = ''
             conn.execute(
-                "INSERT INTO chinese_character_bank (character, pinyin, en, used, verified, last_updated) VALUES (?, ?, '', TRUE, FALSE, CURRENT_TIMESTAMP)",
-                [char, pinyin],
+                f"INSERT INTO {table} ({pk}, {payload_col}, used, verified, last_updated) "
+                "VALUES (?, ?, TRUE, FALSE, CURRENT_TIMESTAMP)",
+                [key, default_value],
             )
-            inserted_chars.append(char)
+            inserted.append(key)
 
-        # Reset all to unused, then mark used
-        conn.execute("UPDATE chinese_character_bank SET used = FALSE")
-        if used_chars:
-            placeholders = ', '.join(['?'] * len(used_chars))
+        conn.execute(f"UPDATE {table} SET used = FALSE")
+        if used_keys:
+            placeholders = ', '.join(['?'] * len(used_keys))
             conn.execute(
-                f"UPDATE chinese_character_bank SET used = TRUE, last_updated = CURRENT_TIMESTAMP WHERE character IN ({placeholders})",
-                list(used_chars),
+                f"UPDATE {table} SET used = TRUE, last_updated = CURRENT_TIMESTAMP "
+                f"WHERE {pk} IN ({placeholders})",
+                list(used_keys),
             )
 
-        # Compute newly used (was not used before, now is)
-        newly_used = sorted(used_chars - prev_used - missing_chars)
-        # Compute newly unused (was used before, now is not)
-        newly_unused = sorted(prev_used - used_chars)
-
-        used_count = conn.execute("SELECT COUNT(*) FROM chinese_character_bank WHERE used = TRUE").fetchone()[0]
-        prev_used_count = len(prev_used)
+        newly_used = sorted(used_keys - prev_used - missing_keys)
+        newly_unused = sorted(prev_used - used_keys)
+        used_count = conn.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE used = TRUE"
+        ).fetchone()[0]
 
         return jsonify({
             'usedCount': used_count,
-            'prevUsedCount': prev_used_count,
+            'prevUsedCount': len(prev_used),
             'newlyUsed': newly_used,
             'newlyUnused': newly_unused,
-            'insertedChars': inserted_chars,
+            'insertedKeys': inserted,
         })
     finally:
         conn.close()
@@ -253,15 +331,24 @@ def refresh_chinese_bank_used():
 
 @kids_bp.route('/chinese-bank/force-sync-backs', methods=['POST'])
 def force_sync_chinese_bank_backs():
-    """Re-generate the back text for every card whose front matches a verified bank entry.
+    """Re-generate card backs for verified entries in the chosen mode.
 
-    For cards in character decks (chinese_back_content='pinyin'), back <- bank.pinyin.
-    For cards in vocabulary decks (chinese_back_content='english'), back <- bank.en.
-    Writing decks are skipped regardless of back content.
+    pinyin mode -> back text from chinese_character_bank.pinyin, only for decks
+                   whose category has chinese_back_content='pinyin'.
+    english mode -> back text from chinese_vocabulary_bank.en, only for decks
+                    whose category has chinese_back_content='english'.
     """
     auth_err = require_super_family()
     if auth_err:
         return auth_err
+
+    cfg, err = _get_mode()
+    if err:
+        return err
+    table = cfg['table']
+    pk = cfg['pk']
+    payload_col = cfg['payload']
+    back_content_value = 'pinyin' if payload_col == 'pinyin' else 'english'
 
     from pathlib import Path
     from src.db import kid_db
@@ -269,48 +356,48 @@ def force_sync_chinese_bank_backs():
     shared_conn = get_shared_decks_connection()
     try:
         verified_rows = shared_conn.execute(
-            "SELECT character, pinyin, en FROM chinese_character_bank WHERE verified = TRUE"
+            f"SELECT {pk}, {payload_col} FROM {table} WHERE verified = TRUE"
         ).fetchall()
         if not verified_rows:
             return jsonify({'verified_count': 0, 'changed': []})
         bank = {
-            r[0]: {'pinyin': str(r[1] or '').strip(), 'en': str(r[2] or '').strip()}
+            r[0]: str(r[1] or '').strip()
             for r in verified_rows
         }
 
-        # Map deck_id -> back_content ('pinyin' | 'english') for chinese-logic decks only.
-        shared_back_content_by_deck = {}
+        shared_back_content_decks = set()
         for row in shared_conn.execute(
             """
-            SELECT d.deck_id, dc.chinese_back_content
+            SELECT d.deck_id
             FROM deck d
             JOIN deck_category dc ON dc.category_key = d.tags[1]
             WHERE dc.has_chinese_specific_logic = TRUE
-              AND dc.chinese_back_content IN ('pinyin', 'english')
+              AND dc.chinese_back_content = ?
               AND NOT list_contains(d.tags, 'chinese_writing')
-            """
+            """,
+            [back_content_value],
         ).fetchall():
-            shared_back_content_by_deck[row[0]] = str(row[1] or '').strip().lower()
+            shared_back_content_decks.add(row[0])
 
         changed = {}
-        for char, data in bank.items():
+        for key, target in bank.items():
+            if not target:
+                continue
             rows = shared_conn.execute(
                 "SELECT id, deck_id, back FROM cards WHERE front = ?",
-                [char],
+                [key],
             ).fetchall()
             for card_id, deck_id, current_back in rows:
-                bc = shared_back_content_by_deck.get(deck_id)
-                if not bc:
+                if deck_id not in shared_back_content_decks:
                     continue
-                target = data['pinyin'] if bc == 'pinyin' else data['en']
-                if not target or target == (current_back or ''):
+                if target == (current_back or ''):
                     continue
                 shared_conn.execute(
                     "UPDATE cards SET back = ? WHERE id = ?",
                     [target, card_id],
                 )
-                changed.setdefault(char, {'shared': 0, 'kid_dbs': 0})
-                changed[char]['shared'] += 1
+                changed.setdefault(key, {'shared': 0, 'kid_dbs': 0})
+                changed[key]['shared'] += 1
     finally:
         shared_conn.close()
 
@@ -322,7 +409,7 @@ def force_sync_chinese_bank_backs():
                 kid_conn = kid_db.duckdb.connect(str(db_path))
                 kid_shared_conn = get_shared_decks_connection(read_only=True)
                 try:
-                    kid_back_content_by_deck = {}
+                    kid_decks_in_mode = set()
                     deck_rows = kid_conn.execute(
                         """
                         SELECT id, tags
@@ -348,23 +435,23 @@ def force_sync_chinese_bank_backs():
                         if not meta_row:
                             continue
                         bc = str(meta_row[0] or '').strip().lower()
-                        if bc in ('pinyin', 'english'):
-                            kid_back_content_by_deck[deck_id] = bc
+                        if bc == back_content_value:
+                            kid_decks_in_mode.add(deck_id)
                 finally:
                     kid_shared_conn.close()
 
-                for char, data in bank.items():
+                for key, target in bank.items():
+                    if not target:
+                        continue
                     rows = kid_conn.execute(
                         "SELECT id, deck_id, back FROM cards WHERE front = ?",
-                        [char],
+                        [key],
                     ).fetchall()
                     touched = False
                     for card_id, deck_id, current_back in rows:
-                        bc = kid_back_content_by_deck.get(deck_id)
-                        if not bc:
+                        if deck_id not in kid_decks_in_mode:
                             continue
-                        target = data['pinyin'] if bc == 'pinyin' else data['en']
-                        if not target or target == (current_back or ''):
+                        if target == (current_back or ''):
                             continue
                         kid_conn.execute(
                             "UPDATE cards SET back = ? WHERE id = ?",
@@ -372,8 +459,8 @@ def force_sync_chinese_bank_backs():
                         )
                         touched = True
                     if touched:
-                        changed.setdefault(char, {'shared': 0, 'kid_dbs': 0})
-                        changed[char]['kid_dbs'] += 1
+                        changed.setdefault(key, {'shared': 0, 'kid_dbs': 0})
+                        changed[key]['kid_dbs'] += 1
             except Exception:
                 pass
             finally:
@@ -383,7 +470,7 @@ def force_sync_chinese_bank_backs():
     return jsonify({
         'verified_count': len(bank),
         'changed': [
-            {'character': char, 'shared': counts['shared'], 'kid_dbs': counts['kid_dbs']}
-            for char, counts in changed.items()
+            {'key': key, 'shared': counts['shared'], 'kid_dbs': counts['kid_dbs']}
+            for key, counts in changed.items()
         ],
     })
