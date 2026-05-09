@@ -4,7 +4,6 @@ const firstTagToggle = document.getElementById('firstTagToggle');
 const categoryPreselectNote = document.getElementById('categoryPreselectNote');
 const bulkDeckInput = document.getElementById('bulkDeckInput');
 const bulkInputSectionTitle = document.getElementById('bulkInputSectionTitle');
-const bulkInputHelpText = document.getElementById('bulkInputHelpText');
 const previewBtn = document.getElementById('previewBtn');
 const clearInputBtn = document.getElementById('clearInputBtn');
 const reviewSection = document.getElementById('reviewSection');
@@ -282,29 +281,65 @@ function updateInputModeUi() {
         if (bulkInputSectionTitle) {
             bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Text)';
         }
-        if (bulkInputHelpText) {
-            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then paste Chinese text lines only. The system auto-extracts Chinese characters as <code>front</code> and auto-generates pinyin as <code>back</code>. Separate blocks with a blank line.';
-        }
-        bulkDeckInput.placeholder = 'ma3(马立平3年级)_book1_week1\n春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。\n\nma3(马立平3年级)_book1_week2\n床前明月光，疑是地上霜。';
+        bulkDeckInput.placeholder = [
+            'Format per block:',
+            '  Line 1: remaining_tag — underscore-separated parts become multiple tags;',
+            '          each part may be tag or tag(comment), e.g. ma3(马立平3年级)_week1',
+            '  Then Chinese text lines — Han chars auto-extracted as front, pinyin auto-filled as back.',
+            'Separate blocks with a blank line.',
+            '',
+            'Example:',
+            'ma3(马立平3年级)_book1_week1',
+            '春眠不觉晓，处处闻啼鸟。',
+            '夜来风雨声，花落知多少。',
+            '',
+            'ma3(马立平3年级)_book1_week2',
+            '床前明月光，疑是地上霜。',
+        ].join('\n');
         return;
     }
     if (isChineseVocabularyDeckMode()) {
         if (bulkInputSectionTitle) {
             bulkInputSectionTitle.textContent = '2) Paste Deck Blocks (Chinese Words)';
         }
-        if (bulkInputHelpText) {
-            bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code>. Then paste Chinese text; runs of Chinese characters are tokenized into words by any non-Chinese character (space, punctuation, newline). Each word becomes <code>front</code>; <code>back</code> is auto-filled with the English meaning from the Chinese character bank (blank if not found). Separate blocks with a blank line.';
-        }
-        bulkDeckInput.placeholder = 'vocab1(新词)_week1\n春天 夜晚 月光\n风雨，花落\n\nvocab1(新词)_week2\n明月 地上霜';
+        bulkDeckInput.placeholder = [
+            'Format per block:',
+            '  Line 1: remaining_tag — underscore-separated parts become multiple tags;',
+            '          each part may be tag or tag(comment).',
+            '  Then Chinese text — runs of Han chars are tokenized into words by any',
+            '  non-Chinese char (space, punctuation, newline). Each word → front;',
+            '  back auto-fills English meaning from the Chinese character bank.',
+            'Separate blocks with a blank line.',
+            '',
+            'Example:',
+            'vocab1(新词)_week1',
+            '春天 夜晚 月光',
+            '风雨，花落',
+            '',
+            'vocab1(新词)_week2',
+            '明月 地上霜',
+        ].join('\n');
         return;
     }
     if (bulkInputSectionTitle) {
         bulkInputSectionTitle.textContent = '2) Paste Deck Blocks';
     }
-    if (bulkInputHelpText) {
-        bulkInputHelpText.innerHTML = 'Format per block: first line is <code>remaining_tag</code> (underscore-separated parts become multiple tags). Each part may be <code>tag</code> or <code>tag(comment)</code> (for example <code>ma3(马立平3年级)_week1</code>). Comments do not affect deck-name generation. Then card rows as <code>front,back</code> (spaces around <code>front</code>/<code>back</code> are automatically trimmed). Separate blocks with a blank line.';
-    }
-    bulkDeckInput.placeholder = 'ma3(马立平3年级)_unit1\n1+1,2\n2+3,5\n\nma3(马立平3年级)_unit2\n3+4,7\n5+1,6';
+    bulkDeckInput.placeholder = [
+        'Format per block:',
+        '  Line 1: remaining_tag — underscore-separated parts become multiple tags;',
+        '          each part may be tag or tag(comment), e.g. ma3(马立平3年级)_week1',
+        '  Card rows: front,back  (spaces around front/back are trimmed)',
+        'Separate blocks with a blank line.',
+        '',
+        'Example:',
+        'ma3(马立平3年级)_unit1',
+        '1+1,2',
+        '2+3,5',
+        '',
+        'ma3(马立平3年级)_unit2',
+        '3+4,7',
+        '5+1,6',
+    ].join('\n');
 }
 
 function parseChineseCharactersFromLine(rawLine, lineNo) {

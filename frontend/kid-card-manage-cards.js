@@ -973,6 +973,8 @@ async function loadSharedDeckCards() {
     } catch (error) {
         console.error('Error loading shared category cards:', error);
         showError(error.message || `Failed to load shared ${getCurrentCategoryDisplayName()} cards.`);
+        currentCards = [];
+        resetAndDisplayCards(currentCards);
     }
 }
 

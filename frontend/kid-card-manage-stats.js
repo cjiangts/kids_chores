@@ -65,7 +65,12 @@ function setCardsViewMode(mode) {
             if (next === 'stats') renderStatsView();
         } else {
             renderCardsLoadingSpinner();
-            ensureSharedDeckCardsLoaded();
+            ensureSharedDeckCardsLoaded().catch((error) => {
+                console.error('Error loading shared deck cards:', error);
+                showError(error.message || 'Failed to load cards.');
+                currentCards = [];
+                resetAndDisplayCards(currentCards);
+            });
         }
     } else if (next === 'report') {
         loadReportViewIfNeeded();

@@ -46,11 +46,16 @@ def get_kids():
                         type_iii_category_keys=type_iii_category_keys,
                         conn=conn,
                     )
+                    card_count_by_category = get_kid_active_card_count_by_deck_category(
+                        kid,
+                        conn=conn,
+                    )
                     kids_with_admin_summary.append({
                         **kid,
                         'typeIIIToReviewCount': ungraded_count,
                         'optedInDeckCategoryKeys': opted_in_category_keys,
                         'practiceTargetByDeckCategory': practice_target_by_deck_category,
+                        'cardCountByDeckCategory': card_count_by_category,
                         'deckCategoryMetaByKey': category_meta_by_key,
                     })
                 finally:
@@ -1172,6 +1177,7 @@ def update_kid(kid_id):
             raw_map = data.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
             if not isinstance(raw_map, dict):
                 return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD} must be an object'}), 400
+            card_count_by_category = get_kid_active_card_count_by_deck_category(kid)
             for raw_key, raw_value in raw_map.items():
                 key = normalize_shared_deck_tag(raw_key)
                 if key not in all_category_keys:
@@ -1182,6 +1188,18 @@ def update_kid(kid_id):
                     return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} must be an integer'}), 400
                 if parsed < 0:
                     return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} must be 0 or more'}), 400
+                behavior_type = str(
+                    (category_meta_by_key.get(key) or {}).get('behavior_type') or ''
+                ).strip().lower()
+                if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                    cap = int(card_count_by_category.get(key, 0))
+                    if parsed > cap:
+                        return jsonify({
+                            'error': (
+                                f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD}.{key} '
+                                f'cannot exceed {cap} (active card count for this category)'
+                            ),
+                        }), 400
                 session_count_updates_by_key[key] = parsed
 
         if INCLUDE_ORPHAN_BY_CATEGORY_FIELD in data:

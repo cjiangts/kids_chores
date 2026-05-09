@@ -3075,7 +3075,7 @@
 
         .practice-priority-score-bar {
             width: 100%;
-            height: 11px;
+            height: 6px;
             border-radius: 999px;
             overflow: hidden;
             display: flex;
@@ -3089,7 +3089,7 @@
         }
 
         .practice-priority-score-segment + .practice-priority-score-segment {
-            box-shadow: inset 2px 0 #fff;
+            box-shadow: inset 1px 0 #fff;
         }
 
         .practice-priority-score-segment.missed {
@@ -3111,8 +3111,8 @@
         .practice-priority-score-legend {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.32rem 0.8rem;
-            font-size: 0.7rem;
+            gap: 0.24rem 0.6rem;
+            font-size: 0.6rem;
             line-height: 1.2;
             color: #5e6d89;
         }
@@ -3120,12 +3120,12 @@
         .practice-priority-score-legend-item {
             display: inline-flex;
             align-items: center;
-            gap: 0.32rem;
+            gap: 0.26rem;
         }
 
         .practice-priority-score-legend-dot {
-            width: 0.62rem;
-            height: 0.62rem;
+            width: 0.5rem;
+            height: 0.5rem;
             border-radius: 50%;
             flex: 0 0 auto;
         }
@@ -4321,21 +4321,21 @@
             }
 
             .practice-priority-score-bar {
-                height: 10px;
+                height: 5px;
             }
 
             .practice-priority-score-legend {
-                gap: 0.22rem 0.55rem;
-                font-size: 0.58rem;
+                gap: 0.18rem 0.45rem;
+                font-size: 0.5rem;
             }
 
             .practice-priority-score-legend-dot {
-                width: 0.5rem;
-                height: 0.5rem;
+                width: 0.4rem;
+                height: 0.4rem;
             }
 
             .practice-priority-score-legend-item {
-                gap: 0.22rem;
+                gap: 0.18rem;
             }
 
             .practice-priority-detail-card {

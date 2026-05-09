@@ -255,6 +255,105 @@
         .error-message:not(:empty) {
             margin-bottom: 0.5rem;
         }
+
+        @media (max-width: 900px) {
+            .bank-stats {
+                font-size: 0.7rem;
+                gap: 0.3rem;
+                margin-bottom: 0.5rem;
+            }
+            .bank-stats span {
+                padding: 0.18rem 0.45rem;
+            }
+
+            .bank-filters {
+                gap: 0.3rem;
+            }
+            .bank-search-wrap {
+                min-width: 100%;
+            }
+            .bank-filter-group button {
+                padding: 0.3rem 0.4rem;
+                font-size: 0.68rem;
+            }
+
+            #bankAdminActions button {
+                font-size: 0.68rem !important;
+                padding: 0.22rem 0.45rem !important;
+            }
+
+            .bank-table {
+                font-size: 0.7rem;
+                table-layout: fixed;
+                width: 100%;
+            }
+            .bank-table th,
+            .bank-table td {
+                padding: 0.25rem 0.2rem;
+            }
+            .bank-table th:nth-child(1),
+            .bank-table td.char-cell {
+                font-size: 0.85rem;
+                min-width: 0;
+                width: 3rem;
+                padding: 0.18rem 0.2rem;
+                white-space: normal;
+                word-break: break-all;
+                line-height: 1.15;
+            }
+            .bank-table th:nth-child(1) {
+                font-size: 0.7rem;
+            }
+            .bank-table .pinyin-cell {
+                min-width: 0;
+                width: auto;
+            }
+            .bank-table .en-cell {
+                min-width: 0;
+                width: auto;
+            }
+            .bank-table th:nth-child(4),
+            .bank-table td:nth-child(4) {
+                width: 1.3rem;
+                text-align: center;
+                padding-left: 0.1rem;
+                padding-right: 0.1rem;
+            }
+            .bank-table .updated-cell {
+                font-size: 0.55rem;
+                width: 2rem;
+                white-space: nowrap;
+                overflow: hidden;
+                padding-left: 0.1rem;
+                padding-right: 0.1rem;
+            }
+            .bank-table th:nth-child(5) {
+                font-size: 0.6rem;
+                width: 2rem;
+                padding-left: 0.1rem;
+                padding-right: 0.1rem;
+            }
+            .bank-table .en-cell input,
+            .bank-table .pinyin-cell input {
+                font-size: 0.7rem;
+                padding: 0.12rem 0.2rem;
+            }
+
+            .bank-pagination {
+                font-size: 0.7rem;
+                gap: 0.3rem;
+                margin-top: 0.45rem;
+            }
+            .bank-pagination button {
+                padding: 0.22rem 0.5rem;
+                font-size: 0.7rem;
+            }
+
+            .csv-editor-textarea {
+                font-size: 0.72rem;
+                min-height: 160px;
+            }
+        }
     </style>
 </head>
 <body class="manage-page">

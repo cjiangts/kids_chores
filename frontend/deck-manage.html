@@ -103,7 +103,21 @@
             text-align: left;
             cursor: pointer;
             padding: 0.68rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
             transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+
+        .deck-category-filter-btn .subject-icon {
+            flex: 0 0 auto;
+        }
+
+        .deck-category-filter-copy {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1 1 auto;
         }
 
         .deck-category-filter-btn:hover {

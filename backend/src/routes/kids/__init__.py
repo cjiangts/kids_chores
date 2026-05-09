@@ -1692,6 +1692,48 @@ def get_kid_daily_percent_by_deck_category(opted_in_category_keys, today_latest_
     return result
 
 
+def get_kid_active_card_count_by_deck_category(kid, *, conn=None):
+    """Return active (non-skipped) card counts keyed by normalized category key.
+
+    Used as the upper bound for daily session card-count targets — parents
+    can't set a target larger than the cards available for that category.
+    """
+    local_conn = conn
+    owns_conn = False
+    if local_conn is None:
+        try:
+            local_conn = get_kid_connection_for(kid, read_only=True)
+            owns_conn = True
+        except Exception:
+            return {}
+    try:
+        rows = local_conn.execute(
+            """
+            SELECT lower(d.tags[1]) AS category_key, COUNT(c.id) AS active_count
+            FROM decks d
+            JOIN cards c ON c.deck_id = d.id
+            WHERE array_length(d.tags) >= 1
+              AND COALESCE(c.skip_practice, FALSE) = FALSE
+            GROUP BY lower(d.tags[1])
+            """
+        ).fetchall()
+    except Exception:
+        rows = []
+    finally:
+        if owns_conn and local_conn is not None:
+            local_conn.close()
+    counts = {}
+    for row in rows:
+        key = normalize_shared_deck_tag(row[0])
+        if not key:
+            continue
+        try:
+            counts[key] = int(row[1] or 0)
+        except (TypeError, ValueError):
+            counts[key] = 0
+    return counts
+
+
 def get_kid_practice_target_by_deck_category(
     kid,
     opted_in_category_keys,

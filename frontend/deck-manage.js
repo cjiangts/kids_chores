@@ -293,11 +293,13 @@ function renderCategoryFilters() {
             data-category-action="manage-category"
             aria-label="Manage subject"
         >
-            <span class="deck-category-filter-title">
-                <span class="deck-category-filter-plus" aria-hidden="true">+</span>
-                Manage Subject
+            <span class="deck-category-filter-copy">
+                <span class="deck-category-filter-title">
+                    <span class="deck-category-filter-plus" aria-hidden="true">+</span>
+                    Manage Subject
+                </span>
+                <span class="deck-category-filter-desc">Create and configure subjects.</span>
             </span>
-            <span class="deck-category-filter-desc">Create and configure subjects.</span>
         </button>
     `;
 
@@ -315,17 +317,25 @@ function renderCategoryFilters() {
         localStorage.setItem('deckManage_selectedCategory', selectedCategoryFilterKey);
     }
 
-    const categoryButtonsHtml = categoryItems.map((item) => `
+    const categoryButtonsHtml = categoryItems.map((item) => {
+        const iconHtml = (deckCategoryCommon && typeof deckCategoryCommon.renderCategorySubjectIcon === 'function')
+            ? deckCategoryCommon.renderCategorySubjectIcon(item.key, { size: 38 })
+            : '';
+        return `
         <button
             type="button"
             class="deck-category-filter-btn${item.key === selectedCategoryFilterKey ? ' active' : ''}"
             data-category-filter-key="${escapeHtml(item.key)}"
             aria-pressed="${item.key === selectedCategoryFilterKey ? 'true' : 'false'}"
         >
-            <span class="deck-category-filter-title">${escapeHtml(item.title)}</span>
-            <span class="deck-category-filter-desc">${escapeHtml(item.description)}</span>
+            ${iconHtml}
+            <span class="deck-category-filter-copy">
+                <span class="deck-category-filter-title">${escapeHtml(item.title)}</span>
+                <span class="deck-category-filter-desc">${escapeHtml(item.description)}</span>
+            </span>
         </button>
-    `).join('');
+    `;
+    }).join('');
 
     deckCategoryFilterWrap.innerHTML = `${categoryButtonsHtml}${manageCategoryButtonHtml}`;
     updateCreateActionButtons();

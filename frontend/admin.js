@@ -1,31 +1,124 @@
 // API Configuration
-// Use the same host that served the page (works on phone and computer)
 const API_BASE = `${window.location.origin}/api`;
 
 // DOM Elements
-const kidsList = document.getElementById('kidsList');
+const adminActionGrid = document.getElementById('adminActionGrid');
+const adminOptinPanel = document.getElementById('adminOptinPanel');
+const adminMatrix = document.getElementById('adminMatrix');
+const adminEditActions = document.getElementById('adminEditActions');
+const adminEmptyState = document.getElementById('adminEmptyState');
+const editToggleBtn = document.getElementById('editToggleBtn');
+const editToggleLabel = document.getElementById('editToggleLabel');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+const saveEditBtn = document.getElementById('saveEditBtn');
 const newKidBtn = document.getElementById('newKidBtn');
 const kidModal = document.getElementById('kidModal');
 const kidForm = document.getElementById('kidForm');
 const cancelBtn = document.getElementById('cancelBtn');
-const deckCategoryModal = document.getElementById('deckCategoryModal');
-const deckCategoryHeading = document.getElementById('deckCategoryHeading');
-const deckCategoryList = document.getElementById('deckCategoryList');
-const deckCategoryConfirmBtn = document.getElementById('deckCategoryConfirmBtn');
-const deckCategoryCancelBtn = document.getElementById('deckCategoryCancelBtn');
 const errorMessage = document.getElementById('errorMessage');
 const kidNameInput = document.getElementById('kidName');
-const manageDecksLink = document.getElementById('manageDecksLink');
-const parentLogoutLink = document.getElementById('parentLogoutLink');
+const kidFormSaveBtn = document.getElementById('kidFormSaveBtn');
+
 const {
+    normalizeCategoryKey,
     getOptedInDeckCategoryKeys,
     getOptedInDeckCategorySet,
     getCategoryValueMap,
     getDeckCategoryMetaMap,
     getCategoryDisplayName,
+    renderCategorySubjectIcon,
+    normalizeBehaviorType,
 } = window.DeckCategoryCommon;
+
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 const KID_AVATAR_TONE_COUNT = 6;
+const DEFAULT_OPT_IN_CARDS_PER_DAY = 20;
+const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
+const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
+const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
+const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
+
+let isCreatingKid = false;
+let isSavingMatrix = false;
+let currentKids = [];
+let currentFamilyId = '';
+let editMode = false;
+let editState = null;
+let openKidMenuKidId = '';
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadKids({ preferNavigationCache: true });
+    bindEvents();
+});
+
+function bindEvents() {
+    if (newKidBtn) {
+        newKidBtn.addEventListener('click', () => {
+            kidModal.classList.remove('hidden');
+            syncKidFormSaveBtn();
+        });
+    }
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            kidModal.classList.add('hidden');
+            kidForm.reset();
+            syncKidFormSaveBtn();
+        });
+    }
+    if (kidNameInput) {
+        kidNameInput.addEventListener('input', syncKidFormSaveBtn);
+    }
+    if (kidForm) {
+        kidForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await createKid();
+        });
+    }
+    if (editToggleBtn) {
+        editToggleBtn.addEventListener('click', () => {
+            if (editMode) {
+                exitEditMode();
+            } else {
+                enterEditMode();
+            }
+        });
+    }
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', exitEditMode);
+    }
+    if (saveEditBtn) {
+        saveEditBtn.addEventListener('click', saveMatrix);
+    }
+    document.addEventListener('click', (event) => {
+        if (!openKidMenuKidId) {
+            return;
+        }
+        const menu = document.querySelector('.admin-kid-menu');
+        if (menu && menu.contains(event.target)) {
+            return;
+        }
+        const trigger = event.target.closest('[data-kid-menu-trigger]');
+        if (trigger) {
+            return;
+        }
+        closeKidMenu();
+    });
+}
+
+function syncKidFormSaveBtn() {
+    if (kidFormSaveBtn) {
+        kidFormSaveBtn.disabled = !kidNameInput || !kidNameInput.value.trim();
+    }
+}
+
+function escapeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function getKidInitial(name) {
     const trimmed = String(name || '').trim();
@@ -46,133 +139,54 @@ function hashStringToIndex(value, modulo) {
     const m = Math.max(1, modulo);
     return ((hash % m) + m) % m;
 }
-const PARENT_NAV_CACHE_KEY_PREFIX = 'parent_admin_nav_cache_v1';
-const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
-const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
-let isCreatingKid = false;
-let isSavingDeckCategories = false;
-let currentKids = [];
-let currentFamilyId = '';
-let deckCategoryModalState = {
-    kidId: '',
-    allKeys: [],
-    optedInKeys: new Set(),
-    baselineKeys: new Set(),
-};
 
-// Load kids on page load
-document.addEventListener('DOMContentLoaded', () => {
-    applySuperFamilyUi();
-    loadKids({ preferNavigationCache: true });
-});
-
-// Event Listeners
-const kidFormSaveBtn = document.getElementById('kidFormSaveBtn');
-
-function syncKidFormSaveBtn() {
-    if (kidFormSaveBtn) {
-        kidFormSaveBtn.disabled = !kidNameInput || !kidNameInput.value.trim();
-    }
-}
-
-newKidBtn.addEventListener('click', () => {
-    kidModal.classList.remove('hidden');
-    syncKidFormSaveBtn();
-});
-
-cancelBtn.addEventListener('click', () => {
-    kidModal.classList.add('hidden');
-    kidForm.reset();
-    syncKidFormSaveBtn();
-});
-
-if (kidNameInput) {
-    kidNameInput.addEventListener('input', syncKidFormSaveBtn);
-}
-
-kidForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await createKid();
-});
-
-if (deckCategoryCancelBtn) {
-    deckCategoryCancelBtn.addEventListener('click', closeDeckCategoryModal);
-}
-if (deckCategoryList) {
-    deckCategoryList.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-category-key]');
-        if (!button) {
-            return;
-        }
-        toggleDeckCategoryByKey(button.getAttribute('data-category-key'));
-    });
-}
-if (deckCategoryConfirmBtn) {
-    deckCategoryConfirmBtn.addEventListener('click', saveDeckCategoryOptIns);
-}
-if (parentLogoutLink) {
-    parentLogoutLink.addEventListener('click', async (event) => {
-        event.preventDefault();
-        clearCurrentFamilyNavigationPointer();
-        try {
-            await fetch(`${API_BASE}/family-auth/logout`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            });
-        } catch (error) {
-            // ignore
-        }
-        window.location.href = '/index.html';
-    });
-}
-
-async function applySuperFamilyUi() {
-    if (!manageDecksLink) {
-        return;
-    }
+function readLastViewedKidId() {
     try {
-        const response = await fetch(`${API_BASE}/family-auth/status`);
-        if (!response.ok) {
-            manageDecksLink.classList.add('hidden');
-            return;
-        }
-        const auth = await response.json().catch(() => ({}));
-        currentFamilyId = String(auth?.familyId || '').trim();
-        persistCurrentFamilyNavigationPointer(currentFamilyId);
-        manageDecksLink.classList.toggle('hidden', !Boolean(auth.isSuperFamily));
+        if (!window.sessionStorage) return '';
+        return String(window.sessionStorage.getItem(LAST_VIEWED_KID_STORAGE_KEY) || '').trim();
     } catch (error) {
-        manageDecksLink.classList.add('hidden');
+        return '';
     }
 }
 
-// API Functions
+function persistLastViewedKidId(kidId) {
+    try {
+        if (!window.sessionStorage) return;
+        const normalized = String(kidId || '').trim();
+        if (!normalized) {
+            window.sessionStorage.removeItem(LAST_VIEWED_KID_STORAGE_KEY);
+            return;
+        }
+        window.sessionStorage.setItem(LAST_VIEWED_KID_STORAGE_KEY, normalized);
+    } catch (error) {
+        // ignore
+    }
+}
+
+function getMostRecentKidId(kids) {
+    const list = Array.isArray(kids) ? kids : [];
+    if (list.length === 0) return '';
+    const lastId = readLastViewedKidId();
+    if (lastId && list.some((kid) => String(kid?.id || '') === lastId)) {
+        return lastId;
+    }
+    const lastKid = list[list.length - 1];
+    return String(lastKid?.id || '');
+}
+
 function readKidsFromParentNavigationCache() {
     try {
-        if (!window.sessionStorage) {
-            return null;
-        }
+        if (!window.sessionStorage) return null;
         const familyId = String(currentFamilyId || readCurrentFamilyNavigationPointer() || '').trim();
-        if (!familyId) {
-            return null;
-        }
+        if (!familyId) return null;
         const raw = window.sessionStorage.getItem(buildParentNavCacheKey(familyId));
-        if (!raw) {
-            return null;
-        }
+        if (!raw) return null;
         const parsed = JSON.parse(raw);
-        if (String(parsed?.familyId || '').trim() !== familyId) {
-            return null;
-        }
+        if (String(parsed?.familyId || '').trim() !== familyId) return null;
         const cachedAtMs = Number(parsed?.cachedAtMs || 0);
-        if (!Number.isFinite(cachedAtMs) || cachedAtMs <= 0) {
-            return null;
-        }
-        if ((Date.now() - cachedAtMs) > PARENT_NAV_CACHE_TTL_MS) {
-            return null;
-        }
-        const kids = Array.isArray(parsed?.kids) ? parsed.kids : null;
-        return kids;
+        if (!Number.isFinite(cachedAtMs) || cachedAtMs <= 0) return null;
+        if ((Date.now() - cachedAtMs) > PARENT_NAV_CACHE_TTL_MS) return null;
+        return Array.isArray(parsed?.kids) ? parsed.kids : null;
     } catch (error) {
         return null;
     }
@@ -180,14 +194,10 @@ function readKidsFromParentNavigationCache() {
 
 function cacheKidsForParentNavigation(kids) {
     try {
-        if (!window.sessionStorage) {
-            return;
-        }
+        if (!window.sessionStorage) return;
         const list = Array.isArray(kids) ? kids : [];
         const familyId = inferFamilyIdFromKids(list) || String(currentFamilyId || '').trim();
-        if (!familyId) {
-            return;
-        }
+        if (!familyId) return;
         currentFamilyId = familyId;
         persistCurrentFamilyNavigationPointer(familyId);
         window.sessionStorage.setItem(buildParentNavCacheKey(familyId), JSON.stringify({
@@ -196,42 +206,7 @@ function cacheKidsForParentNavigation(kids) {
             kids: list,
         }));
     } catch (error) {
-        // Best-effort cache only.
-    }
-}
-
-async function loadKids(options = {}) {
-    const preferNavigationCache = Boolean(options?.preferNavigationCache);
-    let usedNavigationCache = false;
-    try {
-        showError('');
-        if (preferNavigationCache) {
-            const cachedKids = readKidsFromParentNavigationCache();
-            if (cachedKids) {
-                currentKids = Array.isArray(cachedKids) ? cachedKids : [];
-                displayKids(currentKids);
-                usedNavigationCache = true;
-            }
-        }
-        if (!usedNavigationCache) {
-            kidsList.innerHTML = '<div class="empty-state app-spinner-block" role="status" aria-label="Loading kids"><span class="app-spinner" aria-hidden="true"></span></div>';
-        }
-        const response = await fetch(`${API_BASE}/kids?view=admin`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const kids = await response.json();
-        currentKids = Array.isArray(kids) ? kids : [];
-        cacheKidsForParentNavigation(currentKids);
-        displayKids(kids);
-    } catch (error) {
-        console.error('Error loading kids:', error);
-        if (!usedNavigationCache) {
-            currentKids = [];
-            showError('Failed to load kids. Make sure the backend server is running on port 5001.');
-        }
+        // ignore
     }
 }
 
@@ -239,9 +214,7 @@ function inferFamilyIdFromKids(kids) {
     const list = Array.isArray(kids) ? kids : [];
     for (const kid of list) {
         const familyId = String(kid?.familyId || '').trim();
-        if (familyId) {
-            return familyId;
-        }
+        if (familyId) return familyId;
     }
     return '';
 }
@@ -252,9 +225,7 @@ function buildParentNavCacheKey(familyId) {
 
 function readCurrentFamilyNavigationPointer() {
     try {
-        if (!window.sessionStorage) {
-            return '';
-        }
+        if (!window.sessionStorage) return '';
         return String(window.sessionStorage.getItem(CURRENT_FAMILY_ID_STORAGE_KEY) || '').trim();
     } catch (error) {
         return '';
@@ -263,9 +234,7 @@ function readCurrentFamilyNavigationPointer() {
 
 function persistCurrentFamilyNavigationPointer(familyId) {
     try {
-        if (!window.sessionStorage) {
-            return;
-        }
+        if (!window.sessionStorage) return;
         const normalized = String(familyId || '').trim();
         if (!normalized) {
             window.sessionStorage.removeItem(CURRENT_FAMILY_ID_STORAGE_KEY);
@@ -277,41 +246,55 @@ function persistCurrentFamilyNavigationPointer(familyId) {
     }
 }
 
-function clearCurrentFamilyNavigationPointer() {
-    persistCurrentFamilyNavigationPointer('');
+async function loadKids(options = {}) {
+    const preferNavigationCache = Boolean(options?.preferNavigationCache);
+    let usedNavigationCache = false;
+    try {
+        showError('');
+        if (preferNavigationCache) {
+            const cachedKids = readKidsFromParentNavigationCache();
+            if (cachedKids) {
+                currentKids = cachedKids;
+                renderAll();
+                usedNavigationCache = true;
+            }
+        }
+        if (!usedNavigationCache && adminActionGrid) {
+            adminActionGrid.innerHTML = '<div class="empty-state app-spinner-block" role="status" aria-label="Loading"><span class="app-spinner" aria-hidden="true"></span></div>';
+        }
+        const response = await fetch(`${API_BASE}/kids?view=admin`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const kids = await response.json();
+        currentKids = Array.isArray(kids) ? kids : [];
+        cacheKidsForParentNavigation(currentKids);
+        renderAll();
+    } catch (error) {
+        console.error('Error loading kids:', error);
+        if (!usedNavigationCache) {
+            currentKids = [];
+            showError('Failed to load kids. Make sure the backend server is running on port 5001.');
+            renderAll();
+        }
+    }
 }
 
 async function createKid() {
-    if (isCreatingKid) {
-        return;
-    }
+    if (isCreatingKid) return;
     const submitBtn = kidForm.querySelector('button[type="submit"]');
     try {
         isCreatingKid = true;
         const name = document.getElementById('kidName').value;
-
         submitBtn.disabled = true;
         submitBtn.textContent = 'Creating...';
-        if (kidNameInput) {
-            kidNameInput.disabled = true;
-        }
-
+        if (kidNameInput) kidNameInput.disabled = true;
         const response = await fetch(`${API_BASE}/kids`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name }),
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const newKid = await response.json();
-        console.log('Kid created:', newKid);
-
-        // Close modal and reload
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         kidModal.classList.add('hidden');
         kidForm.reset();
         await loadKids();
@@ -322,9 +305,7 @@ async function createKid() {
         isCreatingKid = false;
         submitBtn.disabled = false;
         submitBtn.textContent = 'Save';
-        if (kidNameInput) {
-            kidNameInput.disabled = false;
-        }
+        if (kidNameInput) kidNameInput.disabled = false;
     }
 }
 
@@ -338,13 +319,8 @@ async function deleteKid(kidId, kidName) {
             }),
             { warningMessage: 'This will permanently delete this kid and all practice data.' }
         );
-        if (result.cancelled) {
-            return;
-        }
-        if (!result.ok) {
-            throw new Error(result.error || 'Failed to delete kid.');
-        }
-
+        if (result.cancelled) return;
+        if (!result.ok) throw new Error(result.error || 'Failed to delete kid.');
         await loadKids();
     } catch (error) {
         console.error('Error deleting kid:', error);
@@ -356,9 +332,7 @@ async function goToLatestTypeIIIReviewSession(kidId) {
     try {
         showError('');
         const response = await fetch(`${API_BASE}/kids/${kidId}/report/type-iii/next-to-grade`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json().catch(() => ({}));
         const targetSessionId = Number(data.session_id);
         if (!Number.isFinite(targetSessionId) || targetSessionId <= 0) {
@@ -370,6 +344,7 @@ async function goToLatestTypeIIIReviewSession(kidId) {
             }
             return;
         }
+        persistLastViewedKidId(kidId);
         window.location.href = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(targetSessionId)}`;
     } catch (error) {
         console.error('Error opening latest Type-III session:', error);
@@ -377,294 +352,661 @@ async function goToLatestTypeIIIReviewSession(kidId) {
     }
 }
 
-async function openDeckCategoryOptInModal(kidId) {
-    try {
-        const kidIdText = String(kidId || '').trim();
-        if (!kidIdText) {
+function getCategoryRowsForFamily(kids) {
+    // All kids in the same family share the same category meta map.
+    const list = Array.isArray(kids) ? kids : [];
+    const aggregated = {};
+    list.forEach((kid) => {
+        const meta = getDeckCategoryMetaMap(kid);
+        Object.entries(meta || {}).forEach(([rawKey, value]) => {
+            const key = normalizeCategoryKey(rawKey);
+            if (!key) return;
+            const behaviorType = String(value?.behavior_type || '').trim().toLowerCase();
+            if (!VALID_BEHAVIOR_TYPES.has(behaviorType)) return;
+            if (!aggregated[key]) {
+                aggregated[key] = value;
+            }
+        });
+    });
+    const rows = Object.entries(aggregated)
+        .map(([categoryKey, meta]) => ({
+            categoryKey,
+            displayName: getCategoryDisplayName(categoryKey, aggregated) || categoryKey,
+            behaviorType: normalizeBehaviorType(meta?.behavior_type),
+        }))
+        .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return rows;
+}
+
+function getKidPracticeTargetMap(kid) {
+    return getCategoryValueMap(kid?.practiceTargetByDeckCategory);
+}
+
+function getKidCardCountMap(kid) {
+    return getCategoryValueMap(kid?.cardCountByDeckCategory);
+}
+
+function parseCellMax(input) {
+    const raw = input?.getAttribute?.('data-cell-max');
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function flashInvalidInput(el) {
+    if (!el) return;
+    el.classList.remove('is-invalid');
+    void el.offsetWidth;
+    el.classList.add('is-invalid');
+    if (el._invalidTimer) clearTimeout(el._invalidTimer);
+    el._invalidTimer = setTimeout(() => {
+        el.classList.remove('is-invalid');
+        el._invalidTimer = null;
+    }, 600);
+}
+
+let _editHintTimer = null;
+function showEditHintWarning(html) {
+    const hint = document.getElementById('adminEditHint');
+    if (!hint) return;
+    const info = hint.closest('.admin-edit-bar-info');
+    hint.innerHTML = html;
+    if (info) info.classList.add('is-warning');
+    if (_editHintTimer) clearTimeout(_editHintTimer);
+    _editHintTimer = setTimeout(() => {
+        hint.textContent = hint.getAttribute('data-default-text') || '';
+        if (info) info.classList.remove('is-warning');
+        _editHintTimer = null;
+    }, 3500);
+}
+
+function cardManagementChipHtml() {
+    const iconHtml = (typeof window.icon === 'function') ? window.icon('layers', { size: 16 }) : '';
+    return `<span class="admin-cm-chip">${iconHtml}Card Management</span>`;
+}
+
+function showEditHintCapMessage(max) {
+    const cap = Number.isInteger(max) && max >= 0 ? max : 0;
+    showEditHintWarning(`Max is ${cap}. Click <strong>Save</strong>, then open ${cardManagementChipHtml()} to add more cards and raise this limit.`);
+}
+
+function showEditHintReadonlyMessage(subjectName) {
+    const safeName = escapeHtml(subjectName || 'this subject');
+    showEditHintWarning(`${safeName} daily count is set per-card. Click <strong>Save</strong>, then open ${cardManagementChipHtml()} to change it.`);
+}
+
+function buildEditStateFromKids(kids) {
+    const state = {};
+    (Array.isArray(kids) ? kids : []).forEach((kid) => {
+        const kidId = String(kid?.id || '');
+        if (!kidId) return;
+        const optedInSet = getOptedInDeckCategorySet(kid);
+        const targets = getKidPracticeTargetMap(kid);
+        const cardCounts = getKidCardCountMap(kid);
+        const meta = getDeckCategoryMetaMap(kid);
+        state[kidId] = {};
+        const allKeys = new Set();
+        Object.keys(meta || {}).forEach((rawKey) => {
+            const key = normalizeCategoryKey(rawKey);
+            if (key) allKeys.add(key);
+        });
+        optedInSet.forEach((key) => allKeys.add(key));
+        allKeys.forEach((key) => {
+            const rawTarget = Number.isInteger(targets[key]) ? targets[key] : 0;
+            const behaviorType = normalizeBehaviorType(meta?.[key]?.behavior_type);
+            const isType4 = behaviorType === 'type_iv';
+            const cap = Number.isInteger(cardCounts[key]) ? Math.max(0, cardCounts[key]) : 0;
+            const cardsPerDay = isType4 ? rawTarget : Math.min(rawTarget, cap);
+            state[kidId][key] = {
+                optedIn: optedInSet.has(key),
+                cardsPerDay,
+            };
+        });
+    });
+    return state;
+}
+
+function renderAll() {
+    renderActionGrid();
+    renderMatrix();
+}
+
+function renderActionGrid() {
+    if (!adminActionGrid) return;
+    const list = Array.isArray(currentKids) ? currentKids : [];
+    if (list.length === 0) {
+        adminActionGrid.innerHTML = '';
+        return;
+    }
+    const totalReviewCount = list.reduce((sum, kid) => {
+        const count = Number.parseInt(kid?.typeIIIToReviewCount, 10);
+        return sum + (Number.isInteger(count) && count > 0 ? count : 0);
+    }, 0);
+    const hasReviewAudio = totalReviewCount > 0;
+    const hasAnyOptIn = list.some((kid) => getOptedInDeckCategoryKeys(kid).length > 0);
+    adminActionGrid.classList.remove('admin-action-grid--two');
+    const actionsHtml = [
+        buildActionCardHtml({
+            id: 'cardMgmtBtn',
+            iconName: 'layers',
+            iconClass: 'admin-action-card-icon--blue',
+            label: 'Card Management',
+            disabled: !hasAnyOptIn,
+        }),
+        buildActionCardHtml({
+            id: 'practiceReportBtn',
+            iconName: 'bar-chart-3',
+            iconClass: 'admin-action-card-icon--violet',
+            label: 'Practice Report',
+        }),
+        buildActionCardHtml({
+            id: 'reviewAudioBtn',
+            iconName: 'headphones',
+            iconClass: 'admin-action-card-icon--coral',
+            label: 'Review Audio',
+            badge: hasReviewAudio ? totalReviewCount : null,
+            disabled: !hasReviewAudio,
+        }),
+    ].join('');
+    adminActionGrid.innerHTML = actionsHtml;
+    if (hasAnyOptIn) {
+        bindActionCard('cardMgmtBtn', () => navigateForAction('card-mgmt'));
+    }
+    bindActionCard('practiceReportBtn', () => navigateForAction('practice-report'));
+    if (hasReviewAudio) {
+        bindActionCard('reviewAudioBtn', () => navigateForAction('review-audio'));
+    }
+}
+
+function buildActionCardHtml({ id, iconName, iconClass, label, badge, disabled }) {
+    const badgeHtml = (badge != null && badge > 0)
+        ? `<span class="admin-action-card-badge">${badge}</span>`
+        : '';
+    const disabledAttr = disabled ? ' disabled aria-disabled="true"' : '';
+    const disabledClass = disabled ? ' is-disabled' : '';
+    return `
+        <button type="button" id="${id}" class="admin-action-card${disabledClass}"${disabledAttr}>
+            <span class="admin-action-card-icon ${iconClass}" aria-hidden="true">${icon(iconName, { size: 22 })}${badgeHtml}</span>
+            <span class="admin-action-card-label">${escapeHtml(label)}</span>
+        </button>
+    `;
+}
+
+function bindActionCard(id, handler) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handler);
+}
+
+function navigateForAction(action) {
+    const list = Array.isArray(currentKids) ? currentKids : [];
+    if (list.length === 0) {
+        showError('Add a kid first.');
+        return;
+    }
+    if (action === 'review-audio') {
+        const reviewKid = pickKidWithReviewAudio(list);
+        if (!reviewKid) {
+            showError('No audio to review right now.');
             return;
         }
-        const kid = currentKids.find((item) => String(item?.id || '') === kidIdText);
-        const kidName = kid?.name ? String(kid.name) : 'Kid';
-        if (deckCategoryHeading) {
-            deckCategoryHeading.textContent = `${kidName}'s Subjects`;
-        }
-        deckCategoryModalState = {
-            kidId: kidIdText,
-            allKeys: [],
-            optedInKeys: new Set(),
-            baselineKeys: new Set(),
-        };
-        renderDeckCategoryModalLists();
-        if (deckCategoryModal) {
-            deckCategoryModal.classList.remove('hidden');
-        }
-
-        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidIdText)}/deck-categories`);
-        if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            throw new Error(payload.error || `HTTP ${response.status}`);
-        }
-        const data = await response.json().catch(() => ({}));
-        const availableKeys = Array.isArray(data.available_category_keys)
-            ? data.available_category_keys.map((value) => String(value || '').trim()).filter(Boolean)
-            : [];
-        const optedInKeys = Array.isArray(data.opted_in_category_keys)
-            ? data.opted_in_category_keys.map((value) => String(value || '').trim()).filter(Boolean)
-            : [];
-
-        const allKeysSet = new Set([...optedInKeys, ...availableKeys]);
-        deckCategoryModalState.allKeys = Array.from(allKeysSet).sort((a, b) => a.localeCompare(b));
-        deckCategoryModalState.optedInKeys = new Set(optedInKeys);
-        deckCategoryModalState.baselineKeys = new Set(optedInKeys);
-        renderDeckCategoryModalLists();
-    } catch (error) {
-        console.error('Error loading deck categories:', error);
-        closeDeckCategoryModal();
-        showError('Failed to load subjects.');
-    }
-}
-
-function closeDeckCategoryModal() {
-    if (deckCategoryModal) {
-        deckCategoryModal.classList.add('hidden');
-    }
-    isSavingDeckCategories = false;
-    setDeckCategoryConfirmButtonState();
-}
-
-function renderDeckCategoryModalLists() {
-    if (!deckCategoryList) {
+        goToLatestTypeIIIReviewSession(reviewKid.id);
         return;
     }
-    const kid = currentKids.find((item) => String(item?.id || '') === String(deckCategoryModalState.kidId || ''));
-    const categoryMetaMap = getDeckCategoryMetaMap(kid);
-    const { allKeys, optedInKeys, baselineKeys } = deckCategoryModalState;
-    deckCategoryList.innerHTML = allKeys
-        .map((key) => {
-            const isSelected = optedInKeys.has(key);
-            const wasSelected = baselineKeys.has(key);
-            const label = getCategoryDisplayName(key, categoryMetaMap) || key;
-            const checkHtml = isSelected ? '<span class="deck-cat-check">&#10003;</span>' : '<span class="deck-cat-check"></span>';
-            let badgeHtml = '';
-            if (isSelected !== wasSelected) {
-                badgeHtml = isSelected
-                    ? '<span class="deck-cat-badge opt-in">+ opt-in</span>'
-                    : '<span class="deck-cat-badge opt-out">- opt-out</span>';
-            }
-            const rowClass = isSelected !== wasSelected
-                ? (isSelected ? 'deck-cat-row newly-opted-in' : 'deck-cat-row newly-opted-out')
-                : (isSelected ? 'deck-cat-row selected' : 'deck-cat-row');
-            const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(key, {
-                size: 26,
-            });
-            return `<button type="button" class="${rowClass}" data-category-key="${escapeHtml(key)}">
-                <span class="deck-cat-icon" aria-hidden="true">${subjectIconHtml}</span>
-                <span class="deck-cat-label">${escapeHtml(label)}</span>
-                ${badgeHtml}
-                ${checkHtml}
-            </button>`;
-        })
-        .join('');
-    setDeckCategoryConfirmButtonState();
-}
-
-function toggleDeckCategoryByKey(rawKey) {
-    const key = String(rawKey || '').trim();
-    if (!key) {
+    const targetKidId = getMostRecentKidId(list);
+    if (!targetKidId) {
+        showError('Add a kid first.');
         return;
     }
-    if (deckCategoryModalState.optedInKeys.has(key)) {
-        deckCategoryModalState.optedInKeys.delete(key);
+    persistLastViewedKidId(targetKidId);
+    if (action === 'card-mgmt') {
+        const targetKid = list.find((kid) => String(kid?.id || '') === targetKidId);
+        const categoryKey = pickDefaultCategoryKeyForKid(targetKid);
+        if (!categoryKey) {
+            showError('No subjects opted in for this kid yet. Use the table below to opt in.');
+            return;
+        }
+        const params = new URLSearchParams({ id: targetKidId, categoryKey });
+        window.location.href = `/kid-card-manage.html?${params.toString()}`;
+    } else if (action === 'practice-report') {
+        window.location.href = `/kid-report.html?id=${encodeURIComponent(targetKidId)}`;
+    }
+}
+
+function pickDefaultCategoryKeyForKid(kid) {
+    if (!kid) return '';
+    const optedInKeys = getOptedInDeckCategoryKeys(kid);
+    if (optedInKeys.length > 0) return optedInKeys[0];
+    const meta = getDeckCategoryMetaMap(kid);
+    const firstAvailable = Object.keys(meta || {}).find((rawKey) => {
+        const key = normalizeCategoryKey(rawKey);
+        const behaviorType = normalizeBehaviorType(meta[rawKey]?.behavior_type);
+        return key && VALID_BEHAVIOR_TYPES.has(behaviorType);
+    });
+    return firstAvailable ? normalizeCategoryKey(firstAvailable) : '';
+}
+
+function pickKidWithReviewAudio(kids) {
+    const list = Array.isArray(kids) ? kids : [];
+    const lastId = readLastViewedKidId();
+    if (lastId) {
+        const lastKid = list.find((kid) => String(kid?.id || '') === lastId);
+        if (lastKid && Number.parseInt(lastKid.typeIIIToReviewCount, 10) > 0) {
+            return lastKid;
+        }
+    }
+    for (let i = list.length - 1; i >= 0; i--) {
+        const kid = list[i];
+        if (Number.parseInt(kid?.typeIIIToReviewCount, 10) > 0) {
+            return kid;
+        }
+    }
+    return null;
+}
+
+function renderMatrix() {
+    if (!adminMatrix || !adminOptinPanel || !adminEmptyState) return;
+    const list = Array.isArray(currentKids) ? currentKids : [];
+    if (list.length === 0) {
+        adminOptinPanel.classList.add('hidden');
+        adminEmptyState.classList.remove('hidden');
+        return;
+    }
+    adminEmptyState.classList.add('hidden');
+    adminOptinPanel.classList.remove('hidden');
+
+    const rows = getCategoryRowsForFamily(list);
+    if (rows.length === 0) {
+        adminMatrix.innerHTML = `<tbody><tr><td class="admin-empty-state">No subjects available.</td></tr></tbody>`;
+        if (editToggleBtn) editToggleBtn.disabled = true;
+        return;
+    }
+    if (editToggleBtn) editToggleBtn.disabled = editMode;
+
+    if (editMode) {
+        adminMatrix.classList.add('is-editable');
+        adminEditActions.classList.remove('hidden');
+        adminEditActions.removeAttribute('inert');
+        document.body.classList.add('admin-edit-mode');
     } else {
-        deckCategoryModalState.optedInKeys.add(key);
+        if (adminEditActions.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+        adminMatrix.classList.remove('is-editable');
+        adminEditActions.classList.add('hidden');
+        adminEditActions.setAttribute('inert', '');
+        document.body.classList.remove('admin-edit-mode');
     }
-    renderDeckCategoryModalLists();
+
+    const headerHtml = `
+        <thead>
+            <tr>
+                <th class="admin-matrix-subject-head">Subject</th>
+                ${list.map((kid) => buildKidColumnHeader(kid)).join('')}
+            </tr>
+        </thead>
+    `;
+    const bodyHtml = `
+        <tbody>
+            ${rows.map((row) => buildMatrixRow(row, list)).join('')}
+        </tbody>
+    `;
+    adminMatrix.innerHTML = headerHtml + bodyHtml;
+
+    bindMatrixInteractions(rows, list);
+    if (openKidMenuKidId) {
+        // Re-render menu position if open.
+        renderKidMenu(openKidMenuKidId);
+    }
 }
 
-async function saveDeckCategoryOptIns() {
-    if (isSavingDeckCategories) {
-        return;
+function buildKidColumnHeader(kid) {
+    const kidId = String(kid?.id || '');
+    const name = String(kid?.name || '');
+    const initial = getKidInitial(name);
+    const tone = hashStringToIndex(kidId || name, KID_AVATAR_TONE_COUNT);
+    return `
+        <th class="admin-matrix-kid-head">
+            <button type="button" class="admin-matrix-kid-head-btn" data-kid-menu-trigger data-kid-id="${escapeHtml(kidId)}" aria-label="Options for ${escapeHtml(name)}">
+                <span class="admin-matrix-kid-avatar admin-matrix-kid-avatar--tone-${tone}" aria-hidden="true">${escapeHtml(initial)}</span>
+                <span class="admin-matrix-kid-name">${escapeHtml(name)}</span>
+                <span class="admin-matrix-kid-caret" aria-hidden="true">${icon('chevron-down', { size: 12 })}</span>
+            </button>
+        </th>
+    `;
+}
+
+function buildMatrixRow(row, kids) {
+    const subjectIconHtml = renderCategorySubjectIcon(row.categoryKey, { size: 36 });
+    const cellsHtml = kids.map((kid) => buildMatrixCell(row, kid)).join('');
+    return `
+        <tr data-category-key="${escapeHtml(row.categoryKey)}">
+            <th scope="row">
+                <div class="admin-matrix-subject-cell">
+                    <span class="admin-matrix-subject-tile" aria-hidden="true">${subjectIconHtml}</span>
+                    <span class="admin-matrix-subject-name">${escapeHtml(row.displayName)}</span>
+                </div>
+            </th>
+            ${cellsHtml}
+        </tr>
+    `;
+}
+
+function buildMatrixCell(row, kid) {
+    const kidId = String(kid?.id || '');
+    const cellState = (editState && editState[kidId] && editState[kidId][row.categoryKey]) || null;
+    const optedInSet = getOptedInDeckCategorySet(kid);
+    const targets = getKidPracticeTargetMap(kid);
+    const cardCounts = getKidCardCountMap(kid);
+    const optedIn = editMode && cellState ? cellState.optedIn : optedInSet.has(row.categoryKey);
+    const isType4 = row.behaviorType === 'type_iv';
+    const maxCardsPerDay = Number.isInteger(cardCounts[row.categoryKey])
+        ? Math.max(0, cardCounts[row.categoryKey])
+        : 0;
+    const rawTarget = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
+    const displayTarget = isType4 ? rawTarget : Math.min(rawTarget, maxCardsPerDay);
+    const cardsPerDay = editMode && cellState ? cellState.cardsPerDay : displayTarget;
+
+    if (!editMode) {
+        const valueHtml = optedIn
+            ? `<span class="admin-matrix-value">${cardsPerDay}</span>`
+            : `<span class="admin-matrix-value is-off">Off</span>`;
+        return `<td class="admin-matrix-cell">${valueHtml}</td>`;
     }
-    const kidId = String(deckCategoryModalState.kidId || '').trim();
-    if (!kidId) {
-        return;
+
+    if (!optedIn) {
+        return `
+            <td class="admin-matrix-cell">
+                <button type="button" class="admin-matrix-value is-off" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}">Off</button>
+            </td>
+        `;
     }
-    try {
-        isSavingDeckCategories = true;
-        setDeckCategoryConfirmButtonState();
-        const optedInKeys = [...deckCategoryModalState.optedInKeys].sort((a, b) => a.localeCompare(b));
-        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/deck-categories`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ categoryKeys: optedInKeys }),
+
+    if (isType4) {
+        return `
+            <td class="admin-matrix-cell">
+                <div class="admin-matrix-value-stack">
+                    <button type="button" class="admin-matrix-value admin-matrix-value--readonly" data-cell-readonly data-category-key="${escapeHtml(row.categoryKey)}" title="Set per-card on the Card Mgmt page">${cardsPerDay}</button>
+                    <button type="button" class="admin-matrix-cell-off" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-label="Turn off">×</button>
+                </div>
+            </td>
+        `;
+    }
+
+    return `
+        <td class="admin-matrix-cell">
+            <div class="admin-matrix-value-stack">
+                <input
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="${maxCardsPerDay}"
+                    step="1"
+                    value="${cardsPerDay}"
+                    class="admin-matrix-input"
+                    data-cell-input
+                    data-kid-id="${escapeHtml(kidId)}"
+                    data-category-key="${escapeHtml(row.categoryKey)}"
+                    data-cell-max="${maxCardsPerDay}"
+                    aria-label="Cards/day"
+                    title="Up to ${maxCardsPerDay} card${maxCardsPerDay === 1 ? '' : 's'} available"
+                />
+                <button type="button" class="admin-matrix-cell-off" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-label="Turn off">×</button>
+            </div>
+        </td>
+    `;
+}
+
+function bindMatrixInteractions(rows, kids) {
+    if (!adminMatrix) return;
+    adminMatrix.querySelectorAll('[data-cell-toggle]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            const target = event.currentTarget;
+            const kidId = target.getAttribute('data-kid-id') || '';
+            const categoryKey = target.getAttribute('data-category-key') || '';
+            toggleCellOptedIn(kidId, categoryKey);
         });
-        if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            throw new Error(payload.error || `HTTP ${response.status}`);
+    });
+    adminMatrix.querySelectorAll('[data-cell-readonly]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            const target = event.currentTarget;
+            const categoryKey = target.getAttribute('data-category-key') || '';
+            const subjectName = getCategoryDisplayName(categoryKey) || 'this subject';
+            showEditHintReadonlyMessage(subjectName);
+            flashInvalidInput(target);
+        });
+    });
+    adminMatrix.querySelectorAll('[data-cell-input]').forEach((input) => {
+        input.addEventListener('input', (event) => {
+            const target = event.currentTarget;
+            const kidId = target.getAttribute('data-kid-id') || '';
+            const categoryKey = target.getAttribute('data-category-key') || '';
+            const max = parseCellMax(target);
+            const raw = target.value;
+            const parsed = Number.parseInt(raw, 10);
+            const sanitized = Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+            const value = Math.min(sanitized, max);
+            const invalid = raw !== '' && (
+                !Number.isInteger(parsed) || parsed < 0 || parsed > max
+            );
+            if (invalid) {
+                target.value = String(value);
+                flashInvalidInput(target);
+                showEditHintCapMessage(max);
+            }
+            updateCellCardsPerDay(kidId, categoryKey, value);
+        });
+        input.addEventListener('blur', (event) => {
+            const target = event.currentTarget;
+            const max = parseCellMax(target);
+            const parsed = Number.parseInt(target.value, 10);
+            const sanitized = Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+            const value = Math.min(sanitized, max);
+            target.value = String(value);
+            const kidId = target.getAttribute('data-kid-id') || '';
+            const categoryKey = target.getAttribute('data-category-key') || '';
+            updateCellCardsPerDay(kidId, categoryKey, value);
+        });
+    });
+    adminMatrix.querySelectorAll('[data-kid-menu-trigger]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const target = event.currentTarget;
+            const kidId = target.getAttribute('data-kid-id') || '';
+            if (openKidMenuKidId === kidId) {
+                closeKidMenu();
+            } else {
+                openKidMenu(kidId, target);
+            }
+        });
+    });
+}
+
+function toggleCellOptedIn(kidId, categoryKey) {
+    if (!editMode || !editState) return;
+    if (!editState[kidId]) editState[kidId] = {};
+    const current = editState[kidId][categoryKey] || { optedIn: false, cardsPerDay: 0 };
+    const nextOptedIn = !current.optedIn;
+    let nextCardsPerDay = current.cardsPerDay;
+    if (nextOptedIn && (!Number.isInteger(nextCardsPerDay) || nextCardsPerDay <= 0)) {
+        const kid = currentKids.find((item) => String(item?.id || '') === String(kidId || ''));
+        const cap = Number.isInteger(getKidCardCountMap(kid)[categoryKey])
+            ? Math.max(0, getKidCardCountMap(kid)[categoryKey])
+            : 0;
+        nextCardsPerDay = Math.min(DEFAULT_OPT_IN_CARDS_PER_DAY, cap);
+    }
+    editState[kidId][categoryKey] = {
+        optedIn: nextOptedIn,
+        cardsPerDay: nextCardsPerDay,
+    };
+    renderMatrix();
+}
+
+function updateCellCardsPerDay(kidId, categoryKey, value) {
+    if (!editMode || !editState) return;
+    if (!editState[kidId]) editState[kidId] = {};
+    const current = editState[kidId][categoryKey] || { optedIn: true, cardsPerDay: 0 };
+    editState[kidId][categoryKey] = {
+        optedIn: current.optedIn,
+        cardsPerDay: value,
+    };
+}
+
+function enterEditMode() {
+    editMode = true;
+    editState = buildEditStateFromKids(currentKids);
+    renderMatrix();
+}
+
+function exitEditMode() {
+    editMode = false;
+    editState = null;
+    renderMatrix();
+}
+
+async function saveMatrix() {
+    if (!editMode || !editState || isSavingMatrix) return;
+    const list = Array.isArray(currentKids) ? currentKids : [];
+    const changesByKid = {};
+    list.forEach((kid) => {
+        const kidId = String(kid?.id || '');
+        if (!kidId) return;
+        const baselineOpted = getOptedInDeckCategorySet(kid);
+        const baselineTargets = getKidPracticeTargetMap(kid);
+        const newState = editState[kidId] || {};
+        const optedInKeys = [];
+        const sessionCardCountChanges = {};
+        const meta = getDeckCategoryMetaMap(kid);
+        let hasOptInChange = false;
+        Object.keys(newState).forEach((categoryKey) => {
+            const cell = newState[categoryKey];
+            if (!cell) return;
+            const wasOptedIn = baselineOpted.has(categoryKey);
+            if (cell.optedIn) {
+                optedInKeys.push(categoryKey);
+            }
+            if (cell.optedIn !== wasOptedIn) {
+                hasOptInChange = true;
+            }
+            // Only send card-count for type_i/ii/iii (type_iv recomputes from cards).
+            const behaviorType = normalizeBehaviorType(meta?.[categoryKey]?.behavior_type);
+            if (behaviorType === 'type_iv') return;
+            if (!cell.optedIn) return;
+            const previousValue = Number.isInteger(baselineTargets[categoryKey]) ? baselineTargets[categoryKey] : 0;
+            const nextValue = Number.isInteger(cell.cardsPerDay) ? Math.max(0, cell.cardsPerDay) : 0;
+            if (nextValue !== previousValue) {
+                sessionCardCountChanges[categoryKey] = nextValue;
+            }
+        });
+        if (!hasOptInChange && Object.keys(sessionCardCountChanges).length === 0) return;
+        changesByKid[kidId] = {
+            hasOptInChange,
+            optedInKeys: hasOptInChange ? optedInKeys.sort((a, b) => a.localeCompare(b)) : null,
+            sessionCardCountChanges,
+        };
+    });
+
+    const kidIdsToSave = Object.keys(changesByKid);
+    if (kidIdsToSave.length === 0) {
+        exitEditMode();
+        return;
+    }
+
+    isSavingMatrix = true;
+    setSaveButtonState();
+    try {
+        for (const kidId of kidIdsToSave) {
+            const change = changesByKid[kidId];
+            if (change.hasOptInChange) {
+                const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/deck-categories`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ categoryKeys: change.optedInKeys || [] }),
+                });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.error || `HTTP ${response.status}`);
+                }
+            }
+            if (Object.keys(change.sessionCardCountChanges).length > 0) {
+                const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionCardCountByCategory: change.sessionCardCountChanges }),
+                });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.error || `HTTP ${response.status}`);
+                }
+            }
         }
-        closeDeckCategoryModal();
+        editMode = false;
+        editState = null;
         await loadKids();
     } catch (error) {
-        console.error('Error saving deck categories:', error);
-        showError(error.message || 'Failed to save subjects.');
+        console.error('Error saving matrix:', error);
+        showError(error.message || 'Failed to save changes.');
     } finally {
-        isSavingDeckCategories = false;
-        setDeckCategoryConfirmButtonState();
+        isSavingMatrix = false;
+        setSaveButtonState();
     }
 }
 
-function getDeckCategoryChangeCounts() {
-    const { allKeys, optedInKeys, baselineKeys } = deckCategoryModalState;
-    let optIn = 0;
-    let optOut = 0;
-    allKeys.forEach((key) => {
-        const now = optedInKeys.has(key);
-        const was = baselineKeys.has(key);
-        if (now && !was) optIn++;
-        if (!now && was) optOut++;
+function setSaveButtonState() {
+    if (!saveEditBtn) return;
+    saveEditBtn.disabled = isSavingMatrix;
+    saveEditBtn.textContent = isSavingMatrix ? 'Saving...' : 'Save';
+    if (cancelEditBtn) cancelEditBtn.disabled = isSavingMatrix;
+}
+
+function openKidMenu(kidId, anchorEl) {
+    openKidMenuKidId = String(kidId || '');
+    closeKidMenuDom();
+    if (!openKidMenuKidId || !anchorEl) return;
+    renderKidMenu(openKidMenuKidId, anchorEl);
+}
+
+function closeKidMenu() {
+    openKidMenuKidId = '';
+    closeKidMenuDom();
+}
+
+function closeKidMenuDom() {
+    document.querySelectorAll('.admin-kid-menu').forEach((el) => el.remove());
+}
+
+function renderKidMenu(kidId, anchorEl) {
+    closeKidMenuDom();
+    const kid = currentKids.find((item) => String(item?.id || '') === String(kidId || ''));
+    if (!kid) return;
+    const menu = document.createElement('div');
+    menu.className = 'admin-kid-menu';
+    menu.innerHTML = `
+        <button type="button" class="admin-kid-menu-item danger" data-kid-menu-action="delete">
+            <span class="admin-kid-menu-item-icon" aria-hidden="true">${icon('trash', { size: 16 })}</span>
+            <span>Delete kid</span>
+        </button>
+    `;
+    document.body.appendChild(menu);
+    const trigger = anchorEl || document.querySelector(`[data-kid-menu-trigger][data-kid-id="${cssEscape(kidId)}"]`);
+    if (trigger) {
+        const rect = trigger.getBoundingClientRect();
+        const menuWidth = 160;
+        let left = rect.right + window.scrollX - menuWidth;
+        if (left < 8) left = 8;
+        menu.style.left = `${left}px`;
+        menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+    }
+    menu.querySelector('[data-kid-menu-action="delete"]').addEventListener('click', () => {
+        closeKidMenu();
+        deleteKid(kidId, kid.name || '');
     });
-    return { optIn, optOut };
 }
 
-function setDeckCategoryConfirmButtonState() {
-    if (!deckCategoryConfirmBtn) {
-        return;
+function cssEscape(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+        return window.CSS.escape(String(value || ''));
     }
-    if (isSavingDeckCategories) {
-        deckCategoryConfirmBtn.disabled = true;
-        deckCategoryConfirmBtn.textContent = 'Saving...';
-        return;
-    }
-    const { optIn, optOut } = getDeckCategoryChangeCounts();
-    const hasChanges = optIn > 0 || optOut > 0;
-    deckCategoryConfirmBtn.disabled = !hasChanges;
-    if (!hasChanges) {
-        deckCategoryConfirmBtn.textContent = 'Confirm';
-    } else {
-        const parts = [];
-        if (optIn > 0) parts.push(`+${optIn}`);
-        if (optOut > 0) parts.push(`-${optOut}`);
-        deckCategoryConfirmBtn.textContent = `Confirm (${parts.join(', ')})`;
-    }
-}
-
-function getManagePathByCategory(categoryKey, categoryMetaMap = {}) {
-    const key = String(categoryKey || '').trim().toLowerCase();
-    const meta = categoryMetaMap?.[key] || {};
-    const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
-    return ['type_i', 'type_ii', 'type_iii', 'type_iv'].includes(behaviorType)
-        ? '/kid-card-manage.html'
-        : '';
-}
-
-function getManageHrefByCategory(categoryKey, kidId, categoryMetaMap = {}) {
-    const key = String(categoryKey || '').trim().toLowerCase();
-    const path = getManagePathByCategory(key, categoryMetaMap);
-    if (!path) {
-        return '';
-    }
-    const params = new URLSearchParams();
-    params.set('id', String(kidId || ''));
-    params.set('categoryKey', key);
-    return `${path}?${params.toString()}`;
-}
-
-// UI Functions
-function displayKids(kids) {
-    if (kids.length === 0) {
-        kidsList.innerHTML = `
-            <div class="redesign-empty-state">
-                <h3>No kids yet</h3>
-                <p>Tap ${icon('user-round-plus', { size: 16 })} Add Kid to add your first learner.</p>
-            </div>
-        `;
-        return;
-    }
-
-    kidsList.innerHTML = kids.map(kid => {
-        const optedInCategories = getOptedInDeckCategorySet(kid);
-        const practiceTargetByCategory = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
-        const categoryMetaMap = getDeckCategoryMetaMap(kid);
-        const optedInCategoryKeys = Array.from(optedInCategories).sort((a, b) => a.localeCompare(b));
-        const availableOptInCount = Object.entries(categoryMetaMap).filter(([categoryKey, meta]) => {
-            const normalizedKey = String(categoryKey || '').trim().toLowerCase();
-            const behaviorType = String(meta?.behavior_type || '').trim().toLowerCase();
-            return normalizedKey
-                && VALID_BEHAVIOR_TYPES.has(behaviorType)
-                && !optedInCategories.has(normalizedKey);
-        }).length;
-
-        const configuredDeckCount = optedInCategoryKeys.length;
-        const summaryText = configuredDeckCount > 0
-            ? `${configuredDeckCount} active`
-            : 'No subjects yet';
-        const manageRows = optedInCategoryKeys.map((categoryKey) => {
-            const displayName = getCategoryDisplayName(categoryKey, categoryMetaMap);
-            const dailyTarget = Number.parseInt(practiceTargetByCategory[categoryKey], 10);
-            const safeDailyTarget = Number.isInteger(dailyTarget) ? Math.max(0, dailyTarget) : 0;
-            const note = `${safeDailyTarget}/day target`;
-            const href = getManageHrefByCategory(categoryKey, kid.id, categoryMetaMap);
-            const subjectIconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
-            const tileHtml = `<span class="admin-subject-tile" aria-hidden="true">${subjectIconHtml}</span>`;
-            const bodyHtml = `
-                <div class="admin-subject-body">
-                    <div class="redesign-subject-title"><span class="redesign-subject-name">${escapeHtml(displayName)}</span></div>
-                    <div class="redesign-subject-note">${escapeHtml(note)}</div>
-                </div>
-            `;
-            const trailingHtml = href
-                ? `<span class="admin-row-chevron" aria-hidden="true">›</span>`
-                : `<span class="admin-row-pill admin-row-pill-muted">Soon</span>`;
-            const rowInnerHtml = `${tileHtml}${bodyHtml}${trailingHtml}`;
-            return href
-                ? `<a class="redesign-subject-row admin-config-row admin-config-row-link" href="${href}">${rowInnerHtml}</a>`
-                : `<div class="redesign-subject-row admin-config-row admin-config-row-disabled" title="Manage page not implemented yet">${rowInnerHtml}</div>`;
-        });
-        const subjectRowsHtml = manageRows.join('');
-        const initial = getKidInitial(kid.name);
-        const avatarToneIndex = hashStringToIndex(String(kid.id || kid.name || ''), KID_AVATAR_TONE_COUNT);
-        const reviewCount = Number.parseInt(kid.typeIIIToReviewCount, 10);
-        const safeReviewCount = Number.isInteger(reviewCount) && reviewCount > 0 ? reviewCount : 0;
-        const reviewAudioHtml = safeReviewCount > 0
-            ? `<button type="button" class="admin-review-audio-btn" onclick="goToLatestTypeIIIReviewSession('${kid.id}')" title="Review audio" aria-label="Review Audio (${safeReviewCount})">
-                    <span class="admin-review-audio-icon" aria-hidden="true">${icon('headphones', { size: 20 })}</span>
-                    <span class="admin-review-audio-label">Review Audio</span>
-                    <span class="admin-review-audio-badge">${safeReviewCount}</span>
-                </button>`
-            : '';
-        return `
-            <div class="redesign-kid-card admin-kid-card">
-                <div class="redesign-kid-top">
-                    <div class="admin-kid-identity">
-                        <span class="admin-kid-avatar admin-kid-avatar--tone-${avatarToneIndex}" aria-hidden="true">${escapeHtml(initial)}</span>
-                        <div class="admin-kid-identity-text">
-                            <h3 class="redesign-kid-name">${escapeHtml(kid.name)}</h3>
-                            <div class="redesign-kid-sub">${escapeHtml(summaryText)}</div>
-                        </div>
-                    </div>
-                    <div class="admin-kid-actions">
-                        <a class="admin-optin-pill" href="#" onclick="openDeckCategoryOptInModal('${kid.id}'); return false;" title="Manage Subjects" aria-label="Manage Subjects">
-                            <span class="admin-optin-pill-icon" aria-hidden="true">${icon('book-open', { size: 20 })}</span>
-                            <span class="admin-optin-pill-label">Manage Subjects</span>
-                        </a>
-                        ${reviewAudioHtml}
-                        <a class="admin-records-pill" href="/kid-report.html?id=${kid.id}">
-                            <span class="admin-records-pill-icon" aria-hidden="true">${icon('bar-chart-3', { size: 18 })}</span>
-                            <span class="admin-records-pill-label">Practice Records</span>
-                        </a>
-                    </div>
-                </div>
-                ${subjectRowsHtml ? `<div class="redesign-subject-list admin-config-list">${subjectRowsHtml}</div>` : ''}
-                <div class="admin-card-footer">
-                    <button type="button" class="admin-delete-btn semantic-outline-btn semantic-outline-btn--red" onclick="deleteKid('${kid.id}', '${escapeHtml(kid.name)}')">
-                        ${icon('trash', { size: 18 })} Delete
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
+    return String(value || '').replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
 }
 
 function showError(message) {
@@ -680,8 +1022,6 @@ function showError(message) {
         }
     } else {
         showError._lastMessage = '';
-        if (errorMessage) {
-            errorMessage.classList.add('hidden');
-        }
+        if (errorMessage) errorMessage.classList.add('hidden');
     }
 }
