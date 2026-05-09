@@ -1395,9 +1395,7 @@ body.practice-home-redesign {
     color: #1f2950;
     line-height: 1.15;
     text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
 }
 .admin-action-card-value {
     font-size: 1.05rem;

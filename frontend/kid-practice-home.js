@@ -626,7 +626,7 @@ function renderPracticeSummaryStrip({
         summaryBoxes.push(buildStatCard({
             iconName: 'award',
             iconClass: 'admin-action-card-icon--coral',
-            label: 'Badge Shelf',
+            label: 'Badges',
             value: earnedCount,
             action: 'open-badge-shelf',
         }));
