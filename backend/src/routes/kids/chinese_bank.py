@@ -9,21 +9,18 @@ has chinese_back_content matching the mode.
 """
 from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
 
-# Per-mode config: table, primary-key column, payload column, regex for valid keys
+# Per-mode config: target table + columns. Bank routing is driven entirely
+# by the deck's category (chinese_back_content), never by character length.
 _MODES = {
     'pinyin': {
         'table': 'chinese_character_bank',
         'pk': 'character',
         'payload': 'pinyin',
-        'min_len': 1,
-        'max_len': 1,
     },
     'english': {
         'table': 'chinese_vocabulary_bank',
         'pk': 'word',
         'payload': 'en',
-        'min_len': 2,
-        'max_len': None,
     },
 }
 
@@ -40,21 +37,6 @@ def _mode_from_payload(payload):
     if raw not in _MODES:
         return None, (jsonify({'error': "mode must be 'pinyin' or 'english'"}), 400)
     return _MODES[raw], None
-
-
-def _length_predicate(cfg, col):
-    if cfg['max_len'] == cfg['min_len']:
-        return f"LENGTH({col}) = {cfg['min_len']}"
-    if cfg['max_len'] is None:
-        return f"LENGTH({col}) >= {cfg['min_len']}"
-    return f"LENGTH({col}) BETWEEN {cfg['min_len']} AND {cfg['max_len']}"
-
-
-def _row_matches_mode(cfg, value: str) -> bool:
-    n = len(value)
-    if cfg['max_len'] is None:
-        return n >= cfg['min_len']
-    return cfg['min_len'] <= n <= cfg['max_len']
 
 
 def _han_only(value: str) -> bool:
@@ -182,7 +164,7 @@ def update_chinese_bank():
         updated = 0
         for item in updates:
             key = str(item.get('key') or '').strip()
-            if not key or not _row_matches_mode(cfg, key):
+            if not key:
                 continue
             value = str(item.get('value') or '').strip()
             verified = bool(item.get('verified'))
@@ -246,7 +228,7 @@ def refresh_chinese_bank_used():
             ).fetchall()
             for row in shared_rows:
                 front = str(row[0] or '').strip()
-                if _han_only(front) and _row_matches_mode(cfg, front):
+                if _han_only(front):
                     used_keys.add(front)
 
             families_root = Path(kid_db.DATA_DIR) / 'families'
@@ -267,7 +249,7 @@ def refresh_chinese_bank_used():
                         ).fetchall()
                         for row in kid_rows:
                             front = str(row[0] or '').strip()
-                            if _han_only(front) and _row_matches_mode(cfg, front):
+                            if _han_only(front):
                                 used_keys.add(front)
                     except Exception:
                         pass

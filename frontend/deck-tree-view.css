@@ -647,6 +647,17 @@
         padding: 0 0.45rem;
     }
 
+    .deck-tree-branch-edit-btn-label,
+    .deck-tree-branch-newdeck-btn-label {
+        display: none;
+    }
+
+    .deck-tree-branch-edit-btn,
+    .deck-tree-branch-newdeck-btn {
+        gap: 0;
+        padding: 0.28rem 0.4rem;
+    }
+
     .deck-tree-search-wrap {
         flex: 1 1 auto;
         min-width: 0;
