@@ -274,23 +274,6 @@
         .trend-marker.half { color: #8b6fc0; }
         .trend-marker.pending { color: #b0b8cc; }
 
-        .trend-avg-annotation {
-            position: absolute;
-            right: 0;
-            transform: translate(50%, 50%);
-            background: #5b6acf;
-            color: #fff;
-            font-size: 0.68rem;
-            font-weight: 700;
-            padding: 0.08rem 0.4rem;
-            border-radius: 999px;
-            line-height: 1.2;
-            font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-            pointer-events: none;
-            box-shadow: 0 1px 3px rgba(31, 45, 98, 0.18);
-        }
-
         .trend-numberline-axis {
             position: relative;
             height: 2px;
@@ -353,6 +336,42 @@
         .trend-legend-sep {
             color: #ccc;
             margin: 0 0.1rem;
+        }
+
+        .trend-period-btns {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.3rem;
+            margin: 0 0 0.5rem;
+        }
+
+        .trend-period-btn {
+            background: #fff;
+            border: 1px solid #d2d9eb;
+            border-radius: 999px;
+            padding: 0.2rem 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #5b6acf;
+            cursor: pointer;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .trend-period-btn:hover {
+            background: #f4f6fc;
+        }
+
+        .trend-period-btn.active {
+            background: #5b6acf;
+            border-color: #5b6acf;
+            color: #fff;
+        }
+
+        .trend-period-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
         }
 
         .chart-legend {
@@ -760,6 +779,7 @@
                 </div>
                 <div id="trendLegend" class="trend-legend"></div>
             </div>
+            <div id="trendPeriodBtns" class="trend-period-btns" hidden></div>
             <div id="trendChart" class="chart-wrap"></div>
         </section>
 

@@ -1631,6 +1631,7 @@ function applyKidInfo(kid) {
     }
     syncType4CardOrderOptions();
     setQueueSettingsBaseline(safeTotal);
+    applyDrillSpeedSettingsFromKid(kid);
     updateQueueMixLegend();
 }
 
@@ -1708,25 +1709,46 @@ async function saveQueueSettings() {
         updateQueueSettingsSaveButtonState();
         return;
     }
+    const sessionCountChanged = total !== baselineSessionCardCount;
+    const drillSpeedChanged = hasDrillSpeedSettingsChanges();
+    const desiredDrillSpeedMs = drillSpeedChanged ? getDrillSpeedTargetInputMs() : null;
+    const payload = {};
+    if (sessionCountChanged) {
+        Object.assign(payload, buildSessionCountPayload(total));
+    }
+    if (drillSpeedChanged) {
+        Object.assign(payload, buildDrillSpeedCutoffMsPayload(desiredDrillSpeedMs));
+    }
     cancelQueuePreviewReload();
     isQueueSettingsSaving = true;
     updateQueueSettingsSaveButtonState();
     const response = await fetch(`${API_BASE}/kids/${kidId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildSessionCountPayload(total)),
+        body: JSON.stringify(payload),
     });
     try {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
             throw new Error(result.error || `Failed to save settings (HTTP ${response.status})`);
         }
-        applySessionCountFromPayload(result);
-        const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
-        sessionCardCountInput.value = String(clampSessionCardCount(persistedTotal));
-        setQueueSettingsBaseline(sessionCardCountInput.value);
+        if (sessionCountChanged) {
+            applySessionCountFromPayload(result);
+            const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
+            sessionCardCountInput.value = String(clampSessionCardCount(persistedTotal));
+            setQueueSettingsBaseline(sessionCardCountInput.value);
+        }
+        if (drillSpeedChanged) {
+            applyDrillSpeedCutoffMsFromPayload(result);
+            baselineDrillSpeedCutoffMs = clampDrillSpeedCutoffMs(
+                getCategoryIntValue(drillSpeedCutoffMsByCategory) || DEFAULT_DRILL_SPEED_CUTOFF_MS
+            );
+            setDrillSpeedTargetInputMs(baselineDrillSpeedCutoffMs);
+        }
         updateQueueMixLegend();
-        await loadSharedDeckCards();
+        if (sessionCountChanged) {
+            await loadSharedDeckCards();
+        }
     } finally {
         isQueueSettingsSaving = false;
         updateQueueSettingsSaveButtonState();

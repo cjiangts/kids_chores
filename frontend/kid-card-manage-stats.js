@@ -10,6 +10,15 @@ function setupCardsViewModeToggle() {
     const statsContainer = document.getElementById('cardsStatsView');
     if (statsContainer) {
         const handleBucketActivate = (target) => {
+            const periodBtn = target.closest('[data-progress-period-days]');
+            if (periodBtn) {
+                const days = Number(periodBtn.getAttribute('data-progress-period-days')) || 0;
+                if (days !== currentDailyProgressViewDays) {
+                    currentDailyProgressViewDays = days;
+                    renderStatsView();
+                }
+                return;
+            }
             const clearBtn = target.closest('[data-clear-bucket]');
             if (clearBtn) {
                 const key = clearBtn.getAttribute('data-clear-bucket') || '';
@@ -168,9 +177,10 @@ function renderStatsView() {
         buildLastSeenDistribution(practiced, getCardCapsuleLabel),
     ];
     const dailyProgress = buildDailyProgressChart(currentDailyProgressRows, currentFamilyTimezone);
+    const dailyProgressView = dailyProgress ? clipDailyProgressView(dailyProgress, currentDailyProgressViewDays) : null;
     container.innerHTML = `
         ${renderStatsSummary(uniqueCount, attemptTotal, bankCount)}
-        ${dailyProgress ? renderDailyProgressPanel(dailyProgress) : ''}
+        ${dailyProgressView ? renderDailyProgressPanel(dailyProgressView) : ''}
         <div class="cards-distribution-grid">
             ${panels.map((panel) => renderDistributionPanel(panel)).join('')}
         </div>
@@ -239,6 +249,7 @@ function makeCardCapsuleLabelGetter(behaviorType) {
 }
 
 const selectedBucketByPanel = new Map();
+let currentDailyProgressViewDays = 0;
 
 function buildAccuracyDistribution(cards, getCardCapsuleLabel) {
     const panelKey = 'accuracy';
@@ -424,6 +435,57 @@ function buildDailyProgressChart(dailyProgressRows, familyTimezone) {
     };
 }
 
+function renderDailyProgressPeriodBtns(fullSpanDays) {
+    const span = Math.max(0, Number(fullSpanDays) || 0);
+    const presets = [7, 14, 30, 90].filter((d) => span > d);
+    if (!presets.length) {
+        if (currentDailyProgressViewDays !== 0) currentDailyProgressViewDays = 0;
+        return '';
+    }
+    if (currentDailyProgressViewDays !== 0 && !presets.includes(currentDailyProgressViewDays)) {
+        currentDailyProgressViewDays = 0;
+    }
+    const opts = [...presets.map((d) => ({ days: d, label: `${d}d` })), { days: 0, label: 'All' }];
+    const buttonsHtml = opts.map((o) => {
+        const active = o.days === currentDailyProgressViewDays ? ' active' : '';
+        return `<button type="button" class="daily-progress-period-btn${active}" data-progress-period-days="${o.days}">${o.label}</button>`;
+    }).join('');
+    return `<div class="daily-progress-period-btns">${buttonsHtml}</div>`;
+}
+
+function clipDailyProgressView(chart, viewDays) {
+    if (!chart || !Array.isArray(chart.points) || !chart.points.length) return chart;
+    const fullSpanDays = Math.max(0, Number(chart.totalDays) - 1);
+    const requested = Math.max(0, Number(viewDays) || 0);
+    const visiblePoints = (requested > 0 && requested < fullSpanDays)
+        ? chart.points.slice(-(requested + 1))
+        : chart.points;
+    if (visiblePoints === chart.points) {
+        return { ...chart, fullSpanDays, viewDays: 0 };
+    }
+    const reindexed = visiblePoints.map((point, idx) => ({ ...point, dayIndex: idx + 1 }));
+    const yMaxVisible = Math.max(1, reindexed.reduce((max, p) => Math.max(max, p.practiced, p.learned), 0));
+    let rtMin = Infinity;
+    let rtMax = 0;
+    for (const p of reindexed) {
+        const v = Number(p.avgCorrectRtSec);
+        if (!Number.isFinite(v)) continue;
+        if (v < rtMin) rtMin = v;
+        if (v > rtMax) rtMax = v;
+    }
+    const hasRt = Number.isFinite(rtMin) && rtMax > 0;
+    return {
+        ...chart,
+        points: reindexed,
+        totalDays: reindexed.length,
+        yMax: yMaxVisible,
+        rtMin: hasRt ? rtMin : null,
+        rtMax: hasRt ? rtMax : 0,
+        fullSpanDays,
+        viewDays: requested,
+    };
+}
+
 function getTodayDateKeyInTimezone(timezone) {
     const tz = String(timezone || '').trim();
     try {
@@ -550,6 +612,7 @@ function renderDailyProgressPanel(chart) {
         if (!Number.isFinite(num)) return '';
         return Number.isInteger(num) ? `${num}s` : `${num.toFixed(1)}s`;
     };
+    const periodButtonsHtml = renderDailyProgressPeriodBtns(Number(chart?.fullSpanDays) || 0);
     return `
         <div class="cards-distribution-card daily-progress-card${hasRtData ? ' has-response-time' : ''}">
             <div class="cards-distribution-card-head">
@@ -560,6 +623,7 @@ function renderDailyProgressPanel(chart) {
                     ${hasRtData ? `<span class="daily-progress-legend-item response-time"><span class="daily-progress-legend-swatch"></span>Avg correct response (${escapeHtml(lastRtLabel)})</span>` : ''}
                 </div>
             </div>
+            ${periodButtonsHtml}
             <div class="daily-progress-chart">
                 <div class="daily-progress-y-label">Cards</div>
                 <div class="daily-progress-y-axis">

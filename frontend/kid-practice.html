@@ -174,9 +174,9 @@
             position: absolute;
             top: 14px;
             right: 14px;
-            width: 44px;
-            min-width: 44px;
-            height: 44px;
+            width: 88px;
+            min-width: 88px;
+            height: 88px;
             padding: 0;
             border-radius: 999px;
             border: 1px solid #c8d1e1;
@@ -256,12 +256,54 @@
             background: #f7faff;
         }
 
+        .practice-mode-option-head {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .practice-mode-option-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #4f63cb;
+            flex: 0 0 auto;
+        }
+
+        .practice-mode-option-emoji {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            line-height: 1;
+            flex: 0 0 auto;
+        }
+
         .practice-mode-option-title {
-            display: block;
+            display: inline-block;
             font-size: 0.96rem;
             font-weight: 700;
             color: #233044;
-            margin-bottom: 0.2rem;
+        }
+
+        .session-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .session-title-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 0;
+        }
+
+        .session-title-icon .subject-icon {
+            --subj-size: 36px;
         }
 
         .practice-mode-option-desc {
@@ -675,18 +717,24 @@
             <div id="practiceSection" class="hidden">
                 <div id="startScreen">
                     <div class="flashcard" style="cursor: default;">
-                        <h2 id="startTitle" class="session-title">Ready to start?</h2>
+                        <h2 id="startTitle" class="session-title"><span id="startTitleIcon" class="session-title-icon" aria-hidden="true"></span><span id="startTitleText">Ready to start?</span></h2>
                         <p id="sessionInfo" class="progress">Session: 10 cards</p>
                         <p id="retrySessionBadge" class="retry-session-badge hidden">Retry Session: practice only cards missed earlier today.</p>
                         <div id="drillModeRow" class="practice-mode-row hidden">
                             <span class="practice-mode-label">Choose Practice Style</span>
                             <div id="drillModeToggle" class="practice-mode-picker" aria-label="Practice style">
                                 <button type="button" class="practice-mode-option" data-drill-mode="normal" aria-pressed="true">
-                                    <span class="practice-mode-option-title">Normal Practice</span>
+                                    <span class="practice-mode-option-head">
+                                        <span class="practice-mode-option-emoji" aria-hidden="true">🐌</span>
+                                        <span class="practice-mode-option-title">Normal Practice</span>
+                                    </span>
                                     <span class="practice-mode-option-desc">Go through the daily target once at your own pace.</span>
                                 </button>
                                 <button type="button" class="practice-mode-option" data-drill-mode="drill" aria-pressed="false">
-                                    <span class="practice-mode-option-title">Speed Drill</span>
+                                    <span class="practice-mode-option-head">
+                                        <span class="practice-mode-option-emoji" aria-hidden="true">🐇</span>
+                                        <span class="practice-mode-option-title">Speed Drill</span>
+                                    </span>
                                     <span class="practice-mode-option-desc">Quick repeats. Facts cycle until they become fast.</span>
                                 </button>
                             </div>
@@ -695,15 +743,24 @@
                             <span class="practice-mode-label">Choose Practice Mode</span>
                             <div id="judgeModeToggleStart" class="practice-mode-picker" aria-label="Practice mode">
                                 <button type="button" class="practice-mode-option" data-judge-mode="self" aria-pressed="false">
-                                    <span class="practice-mode-option-title">Kid Self</span>
+                                    <span class="practice-mode-option-head">
+                                        <span class="practice-mode-option-emoji" aria-hidden="true">🧒</span>
+                                        <span class="practice-mode-option-title">Kid Self</span>
+                                    </span>
                                     <span class="practice-mode-option-desc">Kid reveals answer, then taps Right or Wrong.</span>
                                 </button>
                                 <button type="button" class="practice-mode-option" data-judge-mode="parent" aria-pressed="false">
-                                    <span class="practice-mode-option-title">Parent Assist</span>
+                                    <span class="practice-mode-option-head">
+                                        <span class="practice-mode-option-emoji" aria-hidden="true">🧑🏻‍🏫</span>
+                                        <span class="practice-mode-option-title">Parent Assist</span>
+                                    </span>
                                     <span class="practice-mode-option-desc">Parent judges immediately and taps Right or Wrong.</span>
                                 </button>
                                 <button type="button" class="practice-mode-option" data-judge-mode="multi" aria-pressed="false">
-                                    <span class="practice-mode-option-title">Multiple Choice</span>
+                                    <span class="practice-mode-option-head">
+                                        <span class="practice-mode-option-emoji" aria-hidden="true">📋</span>
+                                        <span class="practice-mode-option-title">Multiple Choice</span>
+                                    </span>
                                     <span class="practice-mode-option-desc">Pick 1 of 4 answers. System grades automatically.</span>
                                 </button>
                             </div>
@@ -728,7 +785,7 @@
                             aria-label="Play prompt audio"
                             title="Play prompt audio"
                         >
-                            <span class="icon" data-icon="volume-2" data-icon-size="22"></span>
+                            <span class="icon" data-icon="volume-2" data-icon-size="44"></span>
                         </button>
                         <div class="card-page hidden" id="cardSourceTags">Source:</div>
                         <div class="card-title hidden" id="cardTitle"></div>

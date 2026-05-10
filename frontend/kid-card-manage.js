@@ -226,6 +226,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+    if (drillSpeedTargetInput) {
+        const handleDrillSpeedInputChange = () => {
+            updateQueueSettingsSaveButtonState();
+        };
+        drillSpeedTargetInput.addEventListener('input', handleDrillSpeedInputChange);
+        drillSpeedTargetInput.addEventListener('change', handleDrillSpeedInputChange);
+    }
+    document.querySelectorAll('[data-drill-speed-step]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            if (!drillSpeedTargetInput) {
+                return;
+            }
+            const direction = Math.sign(Number.parseInt(btn.dataset.drillSpeedStep, 10) || 0);
+            if (direction === 0) return;
+            const stepMs = 500;
+            const currentMs = getDrillSpeedTargetInputMs();
+            const nextMs = clampDrillSpeedCutoffMs(currentMs + direction * stepMs);
+            if (nextMs === currentMs) return;
+            setDrillSpeedTargetInputMs(nextMs);
+            updateQueueSettingsSaveButtonState();
+        });
+    });
     viewOrderSelect.addEventListener('change', () => {
         const nextMode = getSelectedCardSortMode();
         setCurrentCardSortDirection(getDefaultCardSortDirection(nextMode));
@@ -388,7 +410,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!sessionCardCountInput) {
                 return;
             }
-            const step = Number.parseInt(btn.dataset.sessionCountStep, 10) || 0;
+            const direction = Math.sign(Number.parseInt(btn.dataset.sessionCountStep, 10) || 0);
+            const stepSize = isType3Behavior() ? 1 : 5;
+            const step = direction * stepSize;
             const current = Number.parseInt(sessionCardCountInput.value, 10) || 0;
             const min = Number.parseInt(sessionCardCountInput.min, 10);
             const max = Number.parseInt(sessionCardCountInput.max, 10);

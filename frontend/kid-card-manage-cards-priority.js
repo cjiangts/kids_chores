@@ -1326,7 +1326,10 @@ function hasQueueSettingsChanges() {
     if (isType4Behavior()) {
         return false;
     }
-    return getSessionCardCountForMixLegend() !== baselineSessionCardCount;
+    if (getSessionCardCountForMixLegend() !== baselineSessionCardCount) {
+        return true;
+    }
+    return hasDrillSpeedSettingsChanges();
 }
 
 function setQueueSettingsSaveButton(state, labelText) {
@@ -1361,6 +1364,50 @@ function updateQueueSettingsSaveButtonState() {
     } else {
         setQueueSettingsSaveButton('saved', 'Saved');
     }
+}
+
+function isDrillSpeedSettingApplicable() {
+    return isType1Behavior() && !isChineseSpecificLogic;
+}
+
+function getDrillSpeedTargetInputMs() {
+    if (!drillSpeedTargetInput) {
+        return baselineDrillSpeedCutoffMs;
+    }
+    const seconds = Number.parseFloat(drillSpeedTargetInput.value);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+        return baselineDrillSpeedCutoffMs;
+    }
+    return clampDrillSpeedCutoffMs(Math.round(seconds * 1000));
+}
+
+function setDrillSpeedTargetInputMs(ms) {
+    if (!drillSpeedTargetInput) {
+        return;
+    }
+    const safeMs = clampDrillSpeedCutoffMs(ms);
+    drillSpeedTargetInput.value = (safeMs / 1000).toFixed(1);
+}
+
+function hasDrillSpeedSettingsChanges() {
+    if (!isDrillSpeedSettingApplicable()) {
+        return false;
+    }
+    return getDrillSpeedTargetInputMs() !== baselineDrillSpeedCutoffMs;
+}
+
+function applyDrillSpeedSettingsFromKid(kid) {
+    const applicable = isDrillSpeedSettingApplicable();
+    if (drillSpeedSettingsGroup) {
+        drillSpeedSettingsGroup.classList.toggle('hidden', !applicable);
+    }
+    if (!applicable) {
+        baselineDrillSpeedCutoffMs = DEFAULT_DRILL_SPEED_CUTOFF_MS;
+        return;
+    }
+    baselineDrillSpeedCutoffMs = getDrillSpeedCutoffMsFromKid(kid);
+    setDrillSpeedTargetInputMs(baselineDrillSpeedCutoffMs);
+    updateQueueSettingsSaveButtonState();
 }
 
 function scheduleQueuePreviewReload() {

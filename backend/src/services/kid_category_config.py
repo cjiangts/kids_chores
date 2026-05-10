@@ -10,8 +10,11 @@ function body to avoid circular imports.
 """
 from src.db import kid_db
 from src.routes.kids_constants import (
+    DEFAULT_DRILL_SPEED_CUTOFF_MS,
     DEFAULT_INCLUDE_ORPHAN_IN_QUEUE,
+    DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD,
     INCLUDE_ORPHAN_BY_CATEGORY_FIELD,
+    KID_DECK_CATEGORY_OPT_IN_COL_DRILL_SPEED_CUTOFF_MS,
     KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN,
     KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN,
     KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT,
@@ -32,10 +35,12 @@ def hydrate_kid_category_config_from_db(
     if not force_reload:
         existing_session = kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
         existing_orphan = kid.get(INCLUDE_ORPHAN_BY_CATEGORY_FIELD)
+        existing_drill = kid.get(DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD)
         existing_opted = kid.get('optedInDeckCategoryKeys')
         if (
             isinstance(existing_session, dict)
             and isinstance(existing_orphan, dict)
+            and isinstance(existing_drill, dict)
             and isinstance(existing_opted, list)
         ):
             return kid
@@ -56,6 +61,7 @@ def hydrate_kid_category_config_from_db(
     )
     session_by_category = {key: 0 for key in category_keys}
     include_orphan_by_category = {key: DEFAULT_INCLUDE_ORPHAN_IN_QUEUE for key in category_keys}
+    drill_speed_by_category = {key: DEFAULT_DRILL_SPEED_CUTOFF_MS for key in category_keys}
     opted_in_set = set()
 
     local_conn = conn
@@ -70,7 +76,8 @@ def hydrate_kid_category_config_from_db(
               category_key,
               COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_IS_OPTED_IN}, FALSE) AS is_opted_in,
               COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_SESSION_CARD_COUNT}, 0) AS session_card_count,
-              COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN}, TRUE) AS include_orphan
+              COALESCE({KID_DECK_CATEGORY_OPT_IN_COL_INCLUDE_ORPHAN}, TRUE) AS include_orphan,
+              {KID_DECK_CATEGORY_OPT_IN_COL_DRILL_SPEED_CUTOFF_MS} AS drill_speed_cutoff_ms
             FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}
             """
         ).fetchall()
@@ -87,6 +94,11 @@ def hydrate_kid_category_config_from_db(
             int(row[2] or 0),
         )
         include_orphan_by_category[key] = bool(row[3])
+        if row[4] is not None:
+            try:
+                drill_speed_by_category[key] = max(0, int(row[4]))
+            except (TypeError, ValueError):
+                drill_speed_by_category[key] = DEFAULT_DRILL_SPEED_CUTOFF_MS
         if bool(row[1]):
             opted_in_set.add(key)
 
@@ -100,6 +112,7 @@ def hydrate_kid_category_config_from_db(
 
     kid[SESSION_CARD_COUNT_BY_CATEGORY_FIELD] = session_by_category
     kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD] = include_orphan_by_category
+    kid[DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD] = drill_speed_by_category
     kid['optedInDeckCategoryKeys'] = opted_in_keys
     return kid
 
@@ -187,6 +200,27 @@ def get_or_create_category_orphan_deck(conn, category_key):
         get_category_orphan_deck_name(key),
         key,
     )
+
+
+def get_category_drill_speed_cutoff_ms_for_kid(conn, category_key):
+    """Return parent-set drill speed cutoff (ms) for a category, or default."""
+    key = normalize_shared_deck_tag(category_key)
+    if not key:
+        return DEFAULT_DRILL_SPEED_CUTOFF_MS
+    row = conn.execute(
+        f"""
+        SELECT {KID_DECK_CATEGORY_OPT_IN_COL_DRILL_SPEED_CUTOFF_MS}
+        FROM {KID_DECK_CATEGORY_OPT_IN_TABLE}
+        WHERE category_key = ?
+        """,
+        [key],
+    ).fetchone()
+    if not row or row[0] is None:
+        return DEFAULT_DRILL_SPEED_CUTOFF_MS
+    try:
+        return int(row[0])
+    except (TypeError, ValueError):
+        return DEFAULT_DRILL_SPEED_CUTOFF_MS
 
 
 def get_category_orphan_deck(conn, category_key):

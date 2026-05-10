@@ -469,8 +469,9 @@ function displayKids(kids) {
             </div>`
             : '';
 
+        const playIconHtml = (typeof window.icon === 'function') ? window.icon('play', { size: 18, strokeWidth: 2.4 }) : '';
         const ctaHtml = isClickable
-            ? `<button type="button" class="redesign-kid-open-btn" onclick="selectKid('${kid.id}')">Open ${escapeHtml(kid.name)}'s practice <span aria-hidden="true">→</span></button>`
+            ? `<button type="button" class="redesign-kid-open-btn" onclick="selectKid('${kid.id}')">${playIconHtml}<span class="redesign-kid-open-btn-label">Start ${escapeHtml(kid.name)}'s Practice</span></button>`
             : '';
 
         const cardClassName = `redesign-kid-card${isClickable ? '' : ' redesign-kid-card-disabled'}`;

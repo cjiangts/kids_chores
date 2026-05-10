@@ -241,10 +241,11 @@ def start_type1_practice_session(kid_id):
                 drill_planned_count = daily_target
                 speed_conn = get_kid_connection_for(kid, read_only=True)
                 try:
-                    avg_ms = get_kid_subject_avg_correct_response_time_ms(speed_conn, category_key)
+                    drill_speed_target_ms = get_category_drill_speed_cutoff_ms_for_kid(
+                        speed_conn, category_key,
+                    )
                 finally:
                     speed_conn.close()
-                drill_speed_target_ms = compute_drill_speed_target_ms(avg_ms)
         practice_mode = compose_session_practice_mode(practice_base, drill_requested)
         pending_extras = {'practice_mode': practice_mode}
         if drill_planned_count is not None:

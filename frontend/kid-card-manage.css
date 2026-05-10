@@ -1819,6 +1819,27 @@
 
         }
 
+        @media (max-width: 720px) {
+            .queue-controls-row {
+                padding-left: 0.45rem;
+            }
+
+            .queue-settings-actions {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.4rem;
+            }
+
+            .queue-settings-actions .queue-session-count-group {
+                justify-content: flex-start;
+                gap: 0.4rem;
+            }
+
+            .manage-page .queue-settings-actions .queue-session-count-group label {
+                min-width: 7.5rem;
+            }
+        }
+
         @media (max-width: 560px) {
             .manage-page .queue-session-count-group {
                 flex-wrap: nowrap;
@@ -5201,6 +5222,37 @@
 
         .daily-progress-legend-item.response-time .daily-progress-legend-swatch {
             background: #d97706;
+        }
+
+        .daily-progress-period-btns {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.3rem;
+            margin: 0 0 0.45rem;
+        }
+
+        .daily-progress-period-btn {
+            background: #fff;
+            border: 1px solid #d2d9eb;
+            border-radius: 999px;
+            padding: 0.2rem 0.65rem;
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: #4a5688;
+            cursor: pointer;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .daily-progress-period-btn:hover {
+            background: #f4f6fc;
+        }
+
+        .daily-progress-period-btn.active {
+            background: #2f66e6;
+            border-color: #2f66e6;
+            color: #fff;
         }
 
         .daily-progress-chart {

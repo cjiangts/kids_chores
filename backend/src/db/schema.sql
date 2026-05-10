@@ -112,7 +112,8 @@ CREATE TABLE IF NOT EXISTS deck_category_opt_in (
   category_key VARCHAR PRIMARY KEY,
   is_opted_in BOOLEAN NOT NULL DEFAULT FALSE,
   session_card_count INTEGER NOT NULL DEFAULT 0,
-  include_orphan BOOLEAN NOT NULL DEFAULT TRUE
+  include_orphan BOOLEAN NOT NULL DEFAULT TRUE,
+  drill_speed_cutoff_ms INTEGER
 );
 
 ALTER TABLE sessions

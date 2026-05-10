@@ -479,31 +479,24 @@ function renderDrillProgressTable(answers) {
         return;
     }
     drillProgressSection.style.display = '';
-    const maxAttempts = groups.reduce((max, g) => Math.max(max, g.attempts.length), 0);
     const rows = groups.map(({ attempts }) => {
         const first = attempts[0] || {};
         const label = getAnswerPrimaryLabel(first) || '(blank)';
         const outcome = classifyDrillCardOutcome(attempts);
-        const cells = [];
-        for (let i = 0; i < maxAttempts; i += 1) {
-            const attempt = attempts[i];
-            if (!attempt) {
-                cells.push('<td></td>');
-                continue;
-            }
+        const pills = attempts.map((attempt) => {
             const cls = getDrillAttemptDisplayClass(attempt);
-            cells.push(`<td><span class="drill-progress-cell cell-${cls}">${escapeHtml(formatDrillCellLabel(attempt))}</span></td>`);
-        }
+            return `<span class="drill-progress-cell cell-${cls}">${escapeHtml(formatDrillCellLabel(attempt))}</span>`;
+        }).join('');
         return `
-            <tr class="outcome-${outcome}">
-                <td>${renderMathHtml(label)}</td>
-                ${cells.join('')}
-            </tr>
+            <div class="drill-progress-row outcome-${outcome}">
+                <div class="drill-progress-row-label">${renderMathHtml(label)}</div>
+                <div class="drill-progress-row-attempts">${pills}</div>
+            </div>
         `;
     }).join('');
     const cutoffMs = currentSessionDrillSpeedTargetMs > 0 ? currentSessionDrillSpeedTargetMs : 3000;
     const cutoffLabel = `Fast cut-off: ${(cutoffMs / 1000).toFixed(1)}s · Passed = 2 fast correct tries with no wrong or fixed tries`;
-    drillProgressBody.innerHTML = `<div class="drill-progress-cutoff">${escapeHtml(cutoffLabel)}</div><table class="drill-progress-table"><tbody>${rows}</tbody></table>`;
+    drillProgressBody.innerHTML = `<div class="drill-progress-cutoff">${escapeHtml(cutoffLabel)}</div><div class="drill-progress-list">${rows}</div>`;
 }
 
 function getResponseTimeCapMs() {

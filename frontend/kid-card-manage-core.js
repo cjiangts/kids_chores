@@ -5,6 +5,10 @@ const params = new URLSearchParams(window.location.search);
 const kidId = params.get('id');
 const SESSION_CARD_COUNT_BY_CATEGORY_FIELD = 'sessionCardCountByCategory';
 const INCLUDE_ORPHAN_BY_CATEGORY_FIELD = 'includeOrphanByCategory';
+const DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD = 'drillSpeedCutoffMsByCategory';
+const DEFAULT_DRILL_SPEED_CUTOFF_MS = 3000;
+const MIN_DRILL_SPEED_CUTOFF_MS = 500;
+const MAX_DRILL_SPEED_CUTOFF_MS = 30000;
 const BEHAVIOR_TYPE_TYPE_I = 'type_i';
 const BEHAVIOR_TYPE_TYPE_II = 'type_ii';
 const BEHAVIOR_TYPE_TYPE_III = 'type_iii';
@@ -138,6 +142,8 @@ const cardsViewControl = document.querySelector('.cards-view-control');
 const cardViewModeCompactBtn = document.getElementById('cardViewModeCompactBtn');
 const cardViewModeExpandBtn = document.getElementById('cardViewModeExpandBtn');
 const queueSettingsSaveBtn = document.getElementById('queueSettingsSaveBtn');
+const drillSpeedSettingsGroup = document.getElementById('drillSpeedSettingsGroup');
+const drillSpeedTargetInput = document.getElementById('drillSpeedTargetInput');
 
 let allDecks = [];
 let orphanDeck = null;
@@ -189,7 +195,9 @@ let selectedCardIds = new Set();
 let viewModeBeforeSelectMode = null;
 let sessionCardCountByCategory = {};
 let includeOrphanByCategory = {};
+let drillSpeedCutoffMsByCategory = {};
 let baselineSessionCardCount = 0;
+let baselineDrillSpeedCutoffMs = DEFAULT_DRILL_SPEED_CUTOFF_MS;
 let isQueueSettingsSaving = false;
 let queueSettingsSaveSuccessText = '';
 let previewQueueTimer = null;
@@ -531,6 +539,38 @@ function buildSessionCountPayload(total) {
 function applySessionCountFromPayload(payload) {
     sessionCardCountByCategory = toCategoryMap(
         payload && payload[SESSION_CARD_COUNT_BY_CATEGORY_FIELD]
+    );
+}
+
+function clampDrillSpeedCutoffMs(rawValue) {
+    const parsed = Number.parseInt(rawValue, 10);
+    if (!Number.isInteger(parsed)) {
+        return DEFAULT_DRILL_SPEED_CUTOFF_MS;
+    }
+    return Math.max(MIN_DRILL_SPEED_CUTOFF_MS, Math.min(MAX_DRILL_SPEED_CUTOFF_MS, parsed));
+}
+
+function getDrillSpeedCutoffMsFromKid(kid) {
+    drillSpeedCutoffMsByCategory = toCategoryMap(kid[DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD]);
+    const raw = getCategoryIntValue(drillSpeedCutoffMsByCategory);
+    if (!Number.isInteger(raw) || raw <= 0) {
+        return DEFAULT_DRILL_SPEED_CUTOFF_MS;
+    }
+    return clampDrillSpeedCutoffMs(raw);
+}
+
+function buildDrillSpeedCutoffMsPayload(ms) {
+    return {
+        [DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD]: withCategoryValue(
+            drillSpeedCutoffMsByCategory,
+            clampDrillSpeedCutoffMs(ms),
+        ),
+    };
+}
+
+function applyDrillSpeedCutoffMsFromPayload(payload) {
+    drillSpeedCutoffMsByCategory = toCategoryMap(
+        payload && payload[DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD]
     );
 }
 

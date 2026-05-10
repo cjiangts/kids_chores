@@ -22,7 +22,10 @@ const errorMessage = document.getElementById('errorMessage');
 const cardReportHero = document.getElementById('cardReportHero');
 const trendChart = document.getElementById('trendChart');
 const trendLegend = document.getElementById('trendLegend');
+const trendPeriodBtns = document.getElementById('trendPeriodBtns');
 const historyList = document.getElementById('historyList');
+let currentTrendAttempts = [];
+let currentTrendPeriodDays = 0;
 let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 let currentKidName = '';
 let currentCardFront = '';
@@ -211,14 +214,16 @@ function resolveSubjectDisplayName(attempts) {
 }
 
 function renderTrend(attempts) {
+    currentTrendAttempts = Array.isArray(attempts) ? attempts : [];
     if (trendLegend) trendLegend.innerHTML = '';
-    if (!attempts.length) {
+    if (!currentTrendAttempts.length) {
+        renderTrendPeriodBtns(0);
         trendChart.innerHTML = `<div class="chart-empty">No attempts yet for this card.</div>`;
         return;
     }
 
     const nowDate = new Date();
-    const items = attempts.map((item, index) => {
+    const allItems = currentTrendAttempts.map((item, index) => {
         const ts = item.session_completed_at || item.session_started_at || item.timestamp;
         const dt = parseUtcTimestamp(ts);
         const daysAgo = Number.isNaN(dt.getTime())
@@ -234,13 +239,28 @@ function renderTrend(attempts) {
         };
     });
 
+    const fullSpanDays = Math.max(0, ...allItems.map((it) => it.daysAgo));
+    renderTrendPeriodBtns(fullSpanDays);
+
+    const periodDays = currentTrendPeriodDays > 0 ? currentTrendPeriodDays : 0;
+    const items = periodDays > 0
+        ? allItems.filter((it) => it.daysAgo <= periodDays)
+        : allItems;
+
+    if (!items.length) {
+        trendChart.innerHTML = `<div class="chart-empty">No attempts in this period.</div>`;
+        return;
+    }
+
     const maxMs = Math.max(...items.map((it) => it.ms), 1);
     const useMinutesUnit = maxMs >= 60000;
     items.forEach((it) => {
         it.title = `#${it.index + 1} · ${formatResponseTime(it.ms)} · ${formatDateTime(it.ts)}`;
     });
 
-    const maxDays = Math.max(7, ...items.map((it) => it.daysAgo));
+    const maxDays = periodDays > 0
+        ? Math.max(1, periodDays)
+        : Math.max(7, ...items.map((it) => it.daysAgo));
     const stepMs = pickTrendTimeStepMs(maxMs);
     const yMax = Math.max(stepMs, Math.ceil(maxMs / stepMs) * stepMs);
     const yTicks = [];
@@ -284,11 +304,7 @@ function renderTrend(attempts) {
            </svg>`
         : '';
     const finalAvgMs = chronoItems.length ? avgSum / chronoItems.length : 0;
-    const finalAvgBottomPx = (finalAvgMs / yMax) * MAX_OFFSET_PX;
     const finalAvgLabel = formatTrendResponseTime(finalAvgMs, useMinutesUnit);
-    const avgAnnotationHtml = chronoItems.length >= 2
-        ? `<div class="trend-avg-annotation" style="bottom:${finalAvgBottomPx.toFixed(1)}px;">${escapeHtml(finalAvgLabel)}</div>`
-        : '';
 
     const tickSegments = 6;
     const gridVHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
@@ -329,7 +345,7 @@ function renderTrend(attempts) {
         .filter(([key]) => presentCorrectness.has(key))
         .map(([key, label]) => `<span><span class="trend-legend-dot ${key}"></span>${label}</span>`);
     if (chronoItems.length >= 2) {
-        legendParts.push('<span><span class="trend-legend-line"></span>Avg</span>');
+        legendParts.push(`<span><span class="trend-legend-line"></span>Avg ${escapeHtml(finalAvgLabel)}</span>`);
     }
     if (trendLegend) {
         trendLegend.innerHTML = legendParts.join('');
@@ -346,13 +362,42 @@ function renderTrend(attempts) {
                         <div class="trend-grid">${gridHHtml}${gridVHtml}</div>
                         ${avgLineHtml}
                         ${markerHtml}
-                        ${avgAnnotationHtml}
                     </div>
                     <div class="trend-numberline-axis"></div>
                     <div class="trend-numberline-tick-labels">${tickLabelHtml}</div>
                 </div>
             </div>
         </div>`;
+}
+
+function renderTrendPeriodBtns(fullSpanDays) {
+    if (!trendPeriodBtns) return;
+    const presets = [7, 14, 30, 90].filter((d) => fullSpanDays > d);
+    if (!presets.length) {
+        trendPeriodBtns.hidden = true;
+        trendPeriodBtns.innerHTML = '';
+        if (currentTrendPeriodDays !== 0) currentTrendPeriodDays = 0;
+        return;
+    }
+    if (currentTrendPeriodDays !== 0 && !presets.includes(currentTrendPeriodDays)) {
+        currentTrendPeriodDays = 0;
+    }
+    const opts = [...presets.map((d) => ({ days: d, label: `${d}d` })), { days: 0, label: 'All' }];
+    trendPeriodBtns.hidden = false;
+    trendPeriodBtns.innerHTML = opts
+        .map((o) => {
+            const active = o.days === currentTrendPeriodDays ? ' active' : '';
+            return `<button type="button" class="trend-period-btn${active}" data-period-days="${o.days}">${o.label}</button>`;
+        })
+        .join('');
+    trendPeriodBtns.querySelectorAll('button[data-period-days]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const days = Number(btn.dataset.periodDays) || 0;
+            if (days === currentTrendPeriodDays) return;
+            currentTrendPeriodDays = days;
+            renderTrend(currentTrendAttempts);
+        });
+    });
 }
 
 function pickTrendTimeStepMs(maxMs) {

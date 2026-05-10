@@ -418,30 +418,9 @@
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
                 <h1><span class="icon page-title-icon" data-icon="user-cog" data-icon-size="28"></span> Parent Admin</h1>
-                <div class="page-header-actions page-header-actions--admin">
-                    <button
-                        id="newKidBtn"
-                        class="btn-secondary header-action-btn"
-                        type="button"
-                        aria-label="Add Kid"
-                        title="Add Kid"
-                    >
-                        <span class="header-action-icon" aria-hidden="true">
-                            <span class="icon" data-icon="user-round-plus"></span>
-                        </span>
-                        <span class="header-action-label">Add Kid</span>
-                    </button>
-                    <a
-                        href="/parent-settings.html"
-                        class="btn-secondary header-action-btn"
-                        aria-label="Settings"
-                        title="Settings"
-                    >
-                        <span class="header-action-icon" aria-hidden="true">
-                            <span class="icon" data-icon="settings"></span>
-                        </span>
-                        <span class="header-action-label">Settings</span>
-                    </a>
+                <div class="page-header-actions">
+                    <button id="newKidBtn" class="back-btn btn-secondary page-header-back-btn" type="button" aria-label="Add Kid" title="Add Kid"><span class="icon" data-icon="user-round-plus" data-icon-size="18"></span> Add Kid</button>
+                    <a href="/parent-settings.html" class="back-btn btn-secondary page-header-back-btn" aria-label="Settings" title="Settings"><span class="icon" data-icon="settings" data-icon-size="18"></span> Settings</a>
                 </div>
             </div>
         </header>
@@ -449,15 +428,15 @@
         <main>
             <div id="adminActionGrid" class="admin-action-grid"></div>
 
-            <a href="/" class="admin-start-practice-btn" id="startPracticeBtn">
-                <span class="icon" data-icon="play" data-icon-size="22" data-icon-stroke="2.4"></span>
-                <span class="admin-start-practice-btn-label">Start Practice</span>
-            </a>
-
             <div id="adminOptinPanel" class="admin-optin-panel hidden">
                 <div id="adminMatrixWrap" class="admin-matrix-wrap">
                     <table id="adminMatrix" class="admin-matrix"></table>
                 </div>
+
+                <a href="/" class="admin-start-practice-btn" id="startPracticeBtn">
+                    <span class="icon" data-icon="play" data-icon-size="18" data-icon-stroke="2.4"></span>
+                    <span class="admin-start-practice-btn-label">Start Practice</span>
+                </a>
             </div>
 
             <div id="adminEmptyState" class="admin-empty-state hidden">

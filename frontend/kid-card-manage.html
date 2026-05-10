@@ -100,6 +100,28 @@
                                     </button>
                                 </div>
                             </div>
+                            <div id="drillSpeedSettingsGroup" class="form-group queue-session-count-group queue-drill-speed-group hidden">
+                                <span class="queue-session-count-icon" aria-hidden="true">
+                                    <span data-icon="clock" data-icon-stroke="2"></span>
+                                </span>
+                                <label for="drillSpeedTargetInput">Speed target (s)</label>
+                                <div class="queue-stepper">
+                                    <button type="button" class="queue-stepper-btn" data-drill-speed-step="-1" aria-label="Decrease speed target">
+                                        <span data-icon="minus"></span>
+                                    </button>
+                                    <input
+                                        type="number"
+                                        id="drillSpeedTargetInput"
+                                        min="0.5"
+                                        max="30"
+                                        step="0.5"
+                                        required
+                                    >
+                                    <button type="button" class="queue-stepper-btn" data-drill-speed-step="1" aria-label="Increase speed target">
+                                        <span data-icon="plus"></span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div class="queue-save-row">
                             <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn queue-save-pill" data-state="saved" disabled>

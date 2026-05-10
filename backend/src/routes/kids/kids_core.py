@@ -711,12 +711,13 @@ def get_kid_report_session_detail(kid_id, session_id):
         normalized_practice_mode = normalize_session_practice_mode(session_row[8])
         drill_speed_target_ms = None
         if is_drill_session_practice_mode(normalized_practice_mode):
-            avg_conn = get_kid_connection_for(kid, read_only=True)
+            speed_conn = get_kid_connection_for(kid, read_only=True)
             try:
-                avg_ms = get_kid_subject_avg_correct_response_time_ms(avg_conn, session_type)
+                drill_speed_target_ms = get_category_drill_speed_cutoff_ms_for_kid(
+                    speed_conn, session_type,
+                )
             finally:
-                avg_conn.close()
-            drill_speed_target_ms = int(compute_drill_speed_target_ms(avg_ms))
+                speed_conn.close()
 
         return jsonify({
             'kid': {
@@ -1165,6 +1166,7 @@ def update_kid(kid_id):
         metadata_updates = {}
         session_count_updates_by_key = {}
         include_orphan_updates_by_key = {}
+        drill_speed_updates_by_key = {}
         category_meta_by_key = get_shared_deck_category_meta_by_key()
         all_category_keys = {
             normalize_shared_deck_tag(raw_key)
@@ -1213,6 +1215,27 @@ def update_kid(kid_id):
                     return jsonify({'error': f'{INCLUDE_ORPHAN_BY_CATEGORY_FIELD}.{key} must be a boolean'}), 400
                 include_orphan_updates_by_key[key] = raw_value
 
+        if DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD in data:
+            raw_map = data.get(DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD)
+            if not isinstance(raw_map, dict):
+                return jsonify({'error': f'{DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD} must be an object'}), 400
+            for raw_key, raw_value in raw_map.items():
+                key = normalize_shared_deck_tag(raw_key)
+                if key not in all_category_keys:
+                    return jsonify({'error': f'Unknown category key in {DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD}: {raw_key}'}), 400
+                try:
+                    parsed = int(raw_value)
+                except (TypeError, ValueError):
+                    return jsonify({'error': f'{DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD}.{key} must be an integer'}), 400
+                if parsed < MIN_DRILL_SPEED_CUTOFF_MS or parsed > MAX_DRILL_SPEED_CUTOFF_MS:
+                    return jsonify({
+                        'error': (
+                            f'{DRILL_SPEED_CUTOFF_MS_BY_CATEGORY_FIELD}.{key} must be between '
+                            f'{MIN_DRILL_SPEED_CUTOFF_MS} and {MAX_DRILL_SPEED_CUTOFF_MS}'
+                        ),
+                    }), 400
+                drill_speed_updates_by_key[key] = parsed
+
         if TYPE_I_NON_CHINESE_DECK_MIX_FIELD in data:
             if not isinstance(data[TYPE_I_NON_CHINESE_DECK_MIX_FIELD], dict):
                 return jsonify({'error': f'{TYPE_I_NON_CHINESE_DECK_MIX_FIELD} must be an object'}), 400
@@ -1223,6 +1246,7 @@ def update_kid(kid_id):
         has_db_updates = bool(
             session_count_updates_by_key
             or include_orphan_updates_by_key
+            or drill_speed_updates_by_key
         )
         if not has_db_updates and not metadata_updates:
             return jsonify({'error': 'No supported fields to update'}), 400
@@ -1260,6 +1284,22 @@ def update_kid(kid_id):
                         [
                             [key, bool(value)]
                             for key, value in include_orphan_updates_by_key.items()
+                        ],
+                    )
+                if drill_speed_updates_by_key:
+                    kid_conn.executemany(
+                        f"""
+                        INSERT INTO {KID_DECK_CATEGORY_OPT_IN_TABLE} (
+                          category_key,
+                          {KID_DECK_CATEGORY_OPT_IN_COL_DRILL_SPEED_CUTOFF_MS}
+                        )
+                        VALUES (?, ?)
+                        ON CONFLICT (category_key)
+                        DO UPDATE SET {KID_DECK_CATEGORY_OPT_IN_COL_DRILL_SPEED_CUTOFF_MS} = EXCLUDED.{KID_DECK_CATEGORY_OPT_IN_COL_DRILL_SPEED_CUTOFF_MS}
+                        """,
+                        [
+                            [key, int(value)]
+                            for key, value in drill_speed_updates_by_key.items()
                         ],
                     )
             finally:

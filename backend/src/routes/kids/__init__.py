@@ -407,6 +407,7 @@ def get_kid_materialized_shared_type_ii_decks(conn, category_key):
 
 
 from src.services.kid_category_config import (
+    get_category_drill_speed_cutoff_ms_for_kid,
     get_category_include_orphan_for_kid,
     get_category_orphan_deck,
     get_category_orphan_deck_name,
@@ -5379,46 +5380,6 @@ SESSION_PRACTICE_MODE_NA = 'na'
 SESSION_PRACTICE_MODE_BASE_VALID = {'self', 'parent', 'multi', 'input', 'na'}
 SESSION_PRACTICE_MODE_DRILL_SUFFIX = '+drill'
 DRILL_SESSION_CARD_POOL_SIZE = 40
-DRILL_SESSION_FALLBACK_SPEED_TARGET_MS = 3000
-
-
-def compute_drill_speed_target_ms(avg_correct_response_time_ms):
-    """Clamp the drill cutoff to never go below the fallback (3.0s).
-
-    Prevents absurd targets when only a handful of fast correct answers exist.
-    """
-    if avg_correct_response_time_ms is None:
-        return DRILL_SESSION_FALLBACK_SPEED_TARGET_MS
-    try:
-        rounded = int(round(float(avg_correct_response_time_ms)))
-    except (TypeError, ValueError):
-        return DRILL_SESSION_FALLBACK_SPEED_TARGET_MS
-    return max(DRILL_SESSION_FALLBACK_SPEED_TARGET_MS, rounded)
-
-
-def get_kid_subject_avg_correct_response_time_ms(conn, category_key):
-    """Subject-wide avg correct response time (ms) across this kid's history.
-
-    Returns None when there are no correct timed answers yet.
-    """
-    row = conn.execute(
-        """
-        SELECT AVG(sr.response_time_ms)
-        FROM session_results sr
-        JOIN sessions s ON s.id = sr.session_id
-        WHERE LOWER(TRIM(s.type)) = ?
-          AND sr.correct > 0
-          AND sr.response_time_ms IS NOT NULL
-          AND sr.response_time_ms > 0
-        """,
-        [str(category_key or '').strip().lower()],
-    ).fetchone()
-    if not row or row[0] is None:
-        return None
-    try:
-        return float(row[0])
-    except (TypeError, ValueError):
-        return None
 
 
 def parse_session_practice_mode(raw_mode):
@@ -7961,12 +7922,11 @@ def get_decks_for_scope(kid_id, category):
                     source_deck_ids=source_deck_ids,
                 )
                 if not bool(scope_context.get('has_chinese_specific_logic')):
-                    drill_avg_ms = get_kid_subject_avg_correct_response_time_ms(
-                        conn,
-                        scope_context['category_key'],
-                    )
                     special_ready_payload['drill_speed_target_ms'] = (
-                        compute_drill_speed_target_ms(drill_avg_ms)
+                        get_category_drill_speed_cutoff_ms_for_kid(
+                            conn,
+                            scope_context['category_key'],
+                        )
                     )
             finally:
                 conn.close()

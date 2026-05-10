@@ -493,6 +493,7 @@ function buildCategoryCardInnerHtml({
         : '';
 
     const tileHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
+    const playIconHtml = (typeof window.icon === 'function') ? window.icon('play', { size: 18, strokeWidth: 2.4 }) : '';
     return `
         <span class="practice-row-tile" aria-hidden="true">${tileHtml}</span>
         <div class="practice-row-content">
@@ -510,7 +511,7 @@ function buildCategoryCardInnerHtml({
                 ${percentHtml}
             </div>
         </div>
-        <span class="practice-row-chevron" aria-hidden="true">›</span>
+        <span class="practice-row-chevron" aria-hidden="true">${playIconHtml}</span>
     `;
 }
 

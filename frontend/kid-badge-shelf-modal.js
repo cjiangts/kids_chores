@@ -51,6 +51,24 @@
         });
     }
 
+    function formatDaysAgo(value) {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        const parsed = new Date(text);
+        if (Number.isNaN(parsed.getTime())) return '';
+        const startOfDay = (d) => {
+            const c = new Date(d);
+            c.setHours(0, 0, 0, 0);
+            return c;
+        };
+        const days = Math.floor(
+            (startOfDay(new Date()) - startOfDay(parsed)) / 86400000
+        );
+        if (days <= 0) return 'today';
+        if (days === 1) return 'yesterday';
+        return `${days} days ago`;
+    }
+
     function resolveBadgeImageUrl(item) {
         const imageUrl = String(item && item.badgeImageUrl ? item.badgeImageUrl : '').trim();
         if (imageUrl) {
@@ -90,9 +108,9 @@
             <div class="modal-content modal-large badge-modal-content">
                 <div class="badge-modal-top">
                     <div class="badge-modal-title-wrap">
-                        <h2 id="kidBadgeShelfTitle">Badges</h2>
+                        <h2 id="kidBadgeShelfTitle"><span class="icon badge-modal-title-icon" data-icon="award" data-icon-size="26"></span><span class="badge-modal-title-text">Badges</span></h2>
                     </div>
-                    <button type="button" class="back-btn badge-modal-close" data-badge-action="close">Close</button>
+                    <button type="button" class="btn-secondary badge-modal-close" data-badge-action="close"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Close</span></button>
                 </div>
 
                 <div class="badge-tab-nav" role="tablist" aria-label="Badge tabs">
@@ -105,8 +123,11 @@
             </div>
         `;
         document.body.appendChild(wrapper);
+        if (window.hydrateIcons) {
+            window.hydrateIcons(wrapper);
+        }
         state.modalEl = wrapper;
-        state.titleEl = wrapper.querySelector('#kidBadgeShelfTitle');
+        state.titleEl = wrapper.querySelector('.badge-modal-title-text') || wrapper.querySelector('#kidBadgeShelfTitle');
         state.tabEarnedBtn = wrapper.querySelector('[data-badge-tab="earned"]');
         state.tabComingBtn = wrapper.querySelector('[data-badge-tab="coming"]');
         state.panelEarnedEl = wrapper.querySelector('#kidBadgeShelfPanelEarned');
@@ -208,6 +229,7 @@
             ? String(item && item.reasonText ? item.reasonText : item && item.goalText ? item.goalText : '')
             : String(item && item.goalText ? item.goalText : item && item.reasonText ? item.reasonText : '');
         const dateText = isEarned ? formatDate(item && item.awardedAt) : 'Not earned yet';
+        const daysAgoText = isEarned ? formatDaysAgo(item && item.awardedAt) : '';
         return {
             isEarned,
             themeKey,
@@ -215,6 +237,7 @@
             stateText,
             reasonText,
             dateText,
+            daysAgoText,
         };
     }
 
@@ -299,7 +322,11 @@
 
         const dateEl = detailPanelEl.querySelector('[data-badge-role="detail-date"]');
         if (dateEl) {
-            dateEl.textContent = detail.dateText;
+            const dateMain = escapeHtml(detail.dateText);
+            const relPart = detail.daysAgoText
+                ? `<span class="badge-detail-date-relative">${escapeHtml(detail.daysAgoText)}</span>`
+                : '';
+            dateEl.innerHTML = `${dateMain}${relPart}`;
         }
 
         const reasonEl = detailPanelEl.querySelector('[data-badge-role="detail-reason"]');

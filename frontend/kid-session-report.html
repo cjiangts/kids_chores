@@ -792,45 +792,43 @@
             margin-bottom: 0.5rem;
         }
 
-        .drill-progress-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0 0.45rem;
+        .drill-progress-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
         }
 
-        .drill-progress-table tbody tr {
+        .drill-progress-row {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.6rem 0.5rem 1rem;
             background: var(--dashboard-chip-bg);
             box-shadow: var(--dashboard-chip-shadow);
+            border: 1px solid #eceff6;
+            border-radius: 12px;
         }
 
-        .drill-progress-table td {
-            padding: 0.6rem 0.5rem;
-            vertical-align: middle;
-            font-size: 0.92rem;
-            color: #333;
-            border-top: 1px solid #eceff6;
-            border-bottom: 1px solid #eceff6;
-        }
-
-        .drill-progress-table td:first-child {
-            position: relative;
-            border-left: 1px solid #eceff6;
-            border-top-left-radius: 12px;
-            border-bottom-left-radius: 12px;
+        .drill-progress-row-label {
+            flex: 0 0 auto;
             font-weight: 700;
             font-size: 0.84rem;
             line-height: 1.1;
+            color: #333;
             white-space: nowrap;
-            padding-left: 1rem;
         }
 
-        .drill-progress-table td:last-child {
-            border-right: 1px solid #eceff6;
-            border-top-right-radius: 12px;
-            border-bottom-right-radius: 12px;
+        .drill-progress-row-attempts {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem;
         }
 
-        .drill-progress-table tr[class*="outcome-"] td:first-child::before {
+        .drill-progress-row[class*="outcome-"]::before {
             content: '';
             position: absolute;
             left: 6px;
@@ -842,10 +840,10 @@
             pointer-events: none;
         }
 
-        .drill-progress-table tr.outcome-passed { --row-tone-color: #2f9e44; }
-        .drill-progress-table tr.outcome-fixed { --row-tone-color: #b07a00; }
-        .drill-progress-table tr.outcome-slow { --row-tone-color: #2563eb; }
-        .drill-progress-table tr.outcome-wrong { --row-tone-color: #d63636; }
+        .drill-progress-row.outcome-passed { --row-tone-color: #2f9e44; }
+        .drill-progress-row.outcome-fixed { --row-tone-color: #b07a00; }
+        .drill-progress-row.outcome-slow { --row-tone-color: #2563eb; }
+        .drill-progress-row.outcome-wrong { --row-tone-color: #d63636; }
 
         .drill-progress-cell {
             display: inline-flex;
@@ -884,13 +882,17 @@
         }
 
         @media (max-width: 600px) {
-            .drill-progress-table td {
-                padding: 0.45rem 0.3rem;
-                font-size: 0.84rem;
+            .drill-progress-row {
+                padding: 0.4rem 0.45rem 0.4rem 0.85rem;
+                gap: 0.4rem;
             }
 
-            .drill-progress-table td:first-child {
+            .drill-progress-row-label {
                 font-size: 0.76rem;
+            }
+
+            .drill-progress-row-attempts {
+                gap: 0.3rem;
             }
 
             .drill-progress-cell {
