@@ -72,9 +72,10 @@ def get_chinese_bank():
 
         if search:
             conditions.append(
-                f"({pk} = ? OR {payload} ILIKE ?)"
+                f"({pk} ILIKE ? OR {payload} ILIKE ?)"
             )
-            params.extend([search, f'%{search}%'])
+            like = f'%{search}%'
+            params.extend([like, like])
 
         if filter_verified == 'verified':
             conditions.append("verified = TRUE")
