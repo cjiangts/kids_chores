@@ -1025,8 +1025,26 @@ h3:has(.icon) {
 }
 
 .settings-action-label,
-.btn-label {
+.btn-label,
+.btn-label-full,
+.btn-label-short {
     vertical-align: middle;
+}
+
+.btn-label-short {
+    display: none;
+}
+
+@media (max-width: 520px) {
+    .deck-row {
+        flex-wrap: nowrap;
+    }
+    .deck-row .btn-label-full {
+        display: none;
+    }
+    .deck-row .btn-label-short {
+        display: inline;
+    }
 }
 
 .manage-page .settings-save-btn:hover {

@@ -162,7 +162,8 @@ def create_kid():
         data = request.get_json()
 
         # Validate required fields
-        if not data.get('name'):
+        name = str(data.get('name') or '').strip()
+        if not name:
             return jsonify({'error': 'Name is required'}), 400
 
         family_id = current_family_id()
@@ -170,11 +171,14 @@ def create_kid():
             return jsonify({'error': 'Family login required'}), 401
 
         # Save to metadata (ID assigned atomically inside the lock)
-        kid = metadata.add_kid({
-            'familyId': family_id,
-            'name': data['name'],
-            'createdAt': datetime.now().isoformat()
-        })
+        try:
+            kid = metadata.add_kid({
+                'familyId': family_id,
+                'name': name,
+                'createdAt': datetime.now().isoformat()
+            })
+        except metadata.DuplicateKidNameError:
+            return jsonify({'error': f'A kid named "{name}" already exists.'}), 409
         kid_id = kid['id']
         db_relpath = f"data/families/family_{family_id}/kid_{kid_id}.db"
         metadata.update_kid(kid_id, {'dbFilePath': db_relpath}, family_id)

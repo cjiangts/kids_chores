@@ -51,6 +51,40 @@
             white-space: nowrap;
         }
 
+        @media (max-width: 520px) {
+            .deck-review-table {
+                width: 100%;
+                table-layout: fixed;
+                font-size: 0.78rem;
+            }
+            .deck-review-table th,
+            .deck-review-table td {
+                padding: 0.4rem 0.35rem;
+                font-size: 0.78rem;
+                word-break: normal;
+                overflow-wrap: anywhere;
+            }
+            .deck-review-table th.table-col-70,
+            .deck-review-table td:nth-child(1) {
+                width: 2.5rem;
+            }
+            .deck-review-table th.table-col-100,
+            .deck-review-table td:nth-child(3),
+            .deck-review-table th.table-col-120,
+            .deck-review-table td:nth-child(4) {
+                width: 2.6rem;
+                text-align: right;
+            }
+            .deck-review-table th.table-col-280,
+            .deck-review-table td:nth-child(5) {
+                width: 5.5rem;
+            }
+            .deck-review-table th:nth-child(2),
+            .deck-review-table td:nth-child(2) {
+                width: auto;
+            }
+        }
+
         .deck-review-head {
             display: flex;
             justify-content: space-between;
@@ -247,7 +281,6 @@
                         <div id="firstTagToggle" aria-label="First tag">
                             <span class="settings-note app-spinner-block" role="status" aria-label="Loading subjects"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></span>
                         </div>
-                        <p id="categoryPreselectNote" class="category-preselect-note hidden"></p>
                     </fieldset>
                 </div>
             </section>
@@ -260,9 +293,9 @@
                 </details>
                 <textarea id="bulkDeckInput" class="deck-bulk-textarea input-mono"></textarea>
                 <div class="deck-row mt-07">
-                    <button type="button" id="previewBtn" class="btn-primary"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span>Preview Bulk Create</span></button>
+                    <button type="button" id="previewBtn" class="btn-primary"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label-full">Preview Bulk Create</span><span class="btn-label-short">Preview</span></button>
                     <button type="button" id="clearInputBtn" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Clear</span></button>
-                    <button type="button" id="copyExampleBtn" class="btn-secondary"><span data-icon="clipboard-list" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Copy Example</span></button>
+                    <button type="button" id="copyExampleBtn" class="btn-secondary"><span data-icon="clipboard-list" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label-full">Copy Example</span><span class="btn-label-short">Copy</span></button>
                 </div>
             </section>
 

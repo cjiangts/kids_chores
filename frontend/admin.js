@@ -274,7 +274,7 @@ async function loadKids(options = {}) {
             }
         }
         if (!usedNavigationCache && adminActionGrid) {
-            adminActionGrid.innerHTML = '<div class="empty-state app-spinner-block" role="status" aria-label="Loading" style="grid-column: 1 / -1; background: transparent;"><span class="app-spinner" aria-hidden="true"></span></div>';
+            adminActionGrid.innerHTML = '<div class="empty-state app-spinner-block" role="status" aria-label="Loading" style="grid-column: 1 / -1; background: transparent;"><span class="app-spinner app-spinner--light" aria-hidden="true"></span></div>';
         }
         const response = await fetch(`${API_BASE}/kids?view=admin`);
         if (!response.ok) {
@@ -301,26 +301,33 @@ async function createKid() {
     const submitBtn = kidForm.querySelector('button[type="submit"]');
     try {
         isCreatingKid = true;
+        showError(null);
         const name = document.getElementById('kidName').value;
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Creating...';
+        const submitLabel = submitBtn.querySelector('.btn-label');
+        if (submitLabel) submitLabel.textContent = 'Creating...';
         if (kidNameInput) kidNameInput.disabled = true;
         const response = await fetch(`${API_BASE}/kids`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name }),
         });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            const message = payload?.error || `HTTP error! status: ${response.status}`;
+            throw new Error(message);
+        }
         kidModal.classList.add('hidden');
         kidForm.reset();
         await loadKids();
     } catch (error) {
         console.error('Error creating kid:', error);
-        showError('Failed to create kid. Please try again.');
+        showError(error?.message || 'Failed to create kid. Please try again.');
     } finally {
         isCreatingKid = false;
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Save';
+        const submitLabel = submitBtn.querySelector('.btn-label');
+        if (submitLabel) submitLabel.textContent = 'Save';
         if (kidNameInput) kidNameInput.disabled = false;
     }
 }

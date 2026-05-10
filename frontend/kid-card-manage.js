@@ -345,6 +345,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             await downloadSelectedType3Recordings();
         });
     }
+    if (cardsSelectionDeleteBtn) {
+        cardsSelectionDeleteBtn.addEventListener('click', async () => {
+            await deleteSelectedPersonalCards();
+        });
+    }
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && isCardsSelectModeOn) {
             setCardsSelectMode(false);

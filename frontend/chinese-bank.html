@@ -367,6 +367,10 @@
                 font-size: 0.72rem;
                 min-height: 160px;
             }
+
+            .csv-editor-section .csv-editor-toolbar .btn-label {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -378,7 +382,7 @@
                     <span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span>
                     Manage Dictionary
                 </h1>
-                <a href="/parent-settings.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
+                <a id="backBtn" href="/admin.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
             </div>
         </header>
 
@@ -407,7 +411,7 @@
                 <div class="csv-editor-section" id="csvEditorSection">
                     <div class="csv-editor-toolbar">
                         <button type="button" id="csvCopyClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="copy-plus" data-icon-size="16"></span> <span class="btn-label">Copy &amp; Clear Box</span></button>
-                        <button type="button" id="csvClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="undo-2" data-icon-size="16"></span> Clear Changes</button>
+                        <button type="button" id="csvClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="undo-2" data-icon-size="16"></span> <span class="btn-label">Clear Changes</span></button>
                         <button type="button" id="csvPreviewBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="eye" data-icon-size="16"></span> Preview</button>
                     </div>
                     <textarea id="csvEditor" class="csv-editor-textarea" spellcheck="false" placeholder="Char,Pinyin,English"></textarea>
@@ -444,6 +448,7 @@
     <script src="icons.js"></script>
     <script src="search-bar.js"></script>
     <script src="practice-manage-common.js"></script>
+    <script src="report-back-button-common.js"></script>
     <script src="chinese-bank.js"></script>
 </body>
 </html>

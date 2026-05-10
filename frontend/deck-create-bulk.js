@@ -1,7 +1,6 @@
 const API_BASE = `${window.location.origin}/api`;
 
 const firstTagToggle = document.getElementById('firstTagToggle');
-const categoryPreselectNote = document.getElementById('categoryPreselectNote');
 const bulkDeckInput = document.getElementById('bulkDeckInput');
 const bulkInputSectionTitle = document.getElementById('bulkInputSectionTitle');
 const previewBtn = document.getElementById('previewBtn');
@@ -283,15 +282,6 @@ function applyFirstTagLockMode() {
         button.disabled = Boolean(isLocked && isActive);
         button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     });
-    if (categoryPreselectNote) {
-        if (isLocked) {
-            categoryPreselectNote.textContent = 'Subject preselected from Manage Decks.';
-            categoryPreselectNote.classList.remove('hidden');
-        } else {
-            categoryPreselectNote.textContent = '';
-            categoryPreselectNote.classList.add('hidden');
-        }
-    }
 }
 
 function setCurrentFirstTag(tag) {

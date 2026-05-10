@@ -1372,6 +1372,70 @@ async function deleteExpandedPersonalCard(cardId) {
     await loadSharedType1Decks();
 }
 
+async function deleteSelectedPersonalCards() {
+    if (isBulkDeleteActionInFlight) {
+        return;
+    }
+    const selectedCards = getSelectedCardObjects();
+    const deletable = selectedCards.filter(
+        (card) => canDeleteExpandedCard(card) && !hasPracticedCardAttempts(card)
+    );
+    if (deletable.length === 0 || deletable.length !== selectedCards.length) {
+        return;
+    }
+    const confirmed = window.confirm(
+        `Delete ${deletable.length} card${deletable.length === 1 ? '' : 's'}? This cannot be undone.`
+    );
+    if (!confirmed) {
+        return;
+    }
+    isBulkDeleteActionInFlight = true;
+    renderCardsSelectionBar();
+    let successCount = 0;
+    let failedCount = 0;
+    try {
+        showError('');
+        showSuccess('');
+        showCardsBulkActionMessage('');
+        for (const card of deletable) {
+            const cardId = String(card && card.id ? card.id : '').trim();
+            if (!cardId) {
+                failedCount += 1;
+                continue;
+            }
+            const requestUrl = isType2Behavior()
+                ? buildType2ApiUrl(`cards/${encodeURIComponent(cardId)}`)
+                : buildType1PersonalCardApiUrl(cardId);
+            try {
+                const response = await fetch(requestUrl, { method: 'DELETE' });
+                if (response.ok) {
+                    successCount += 1;
+                    expandedCompactCardIds.delete(cardId);
+                    selectedCardIds.delete(cardId);
+                } else {
+                    failedCount += 1;
+                }
+            } catch (_e) {
+                failedCount += 1;
+            }
+        }
+        await loadSharedType1Decks();
+        if (failedCount > 0 && successCount > 0) {
+            showCardsBulkActionMessage(
+                `Deleted ${successCount} card(s); failed ${failedCount}.`,
+                true
+            );
+        } else if (failedCount > 0) {
+            showCardsBulkActionMessage(`Failed to delete ${failedCount} card(s).`, true);
+        } else if (successCount > 0) {
+            showCardsBulkActionMessage(`Deleted ${successCount} card(s).`, false);
+        }
+    } finally {
+        isBulkDeleteActionInFlight = false;
+        renderCardsSelectionBar();
+    }
+}
+
 async function handleCardsGridClick(event) {
     const actionBtn = event.target.closest('[data-action]');
     if (!actionBtn) {

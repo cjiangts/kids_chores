@@ -531,6 +531,12 @@
             align-items: center;
             gap: 0.3rem;
             flex-wrap: nowrap;
+            min-width: 0;
+        }
+
+        .history-detail-group.submitted-group {
+            flex-wrap: wrap;
+            row-gap: 0.25rem;
         }
 
         .history-time-group {
@@ -538,6 +544,7 @@
             border-left: 1px solid rgba(47, 60, 126, 0.18);
             flex-wrap: wrap;
             row-gap: 0.25rem;
+            align-self: stretch;
         }
 
         .history-item > .history-type4-details,

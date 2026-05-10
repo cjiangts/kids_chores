@@ -77,6 +77,9 @@ function syncCardFocusBanner() {
     if (!cardFocusBanner) return;
     const label = getFocusedCardLabel(currentCards);
     if (!focusedCardId || !label) {
+        if (cardFocusBanner.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
         cardFocusBanner.classList.add('hidden');
         cardFocusBanner.setAttribute('aria-hidden', 'true');
         if (cardFocusBannerText) cardFocusBannerText.textContent = '';
@@ -1023,6 +1026,22 @@ function renderCardsSelectionBar() {
                 label.textContent = isBulkDownloadInFlight ? 'Downloading...' : text;
             }
             cardsSelectionDownloadBtn.disabled = isBulkDownloadInFlight || selectedCount <= 0;
+        }
+    }
+    if (cardsSelectionDeleteBtn) {
+        const allDeletable = selectedCount > 0
+            && selectedCards.every((card) => canDeleteExpandedCard(card) && !hasPracticedCardAttempts(card));
+        cardsSelectionDeleteBtn.classList.toggle('hidden', !allDeletable);
+        if (allDeletable) {
+            const label = cardsSelectionDeleteBtn.querySelector('.cards-selection-action-label');
+            if (label) {
+                label.textContent = isBulkDeleteActionInFlight
+                    ? 'Deleting...'
+                    : `Delete (${selectedCount})`;
+            }
+            cardsSelectionDeleteBtn.disabled = isBulkDeleteActionInFlight;
+        } else {
+            cardsSelectionDeleteBtn.disabled = true;
         }
     }
 }

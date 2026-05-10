@@ -442,18 +442,17 @@
                         </span>
                         <span class="header-action-label">Settings</span>
                     </a>
-                    <a href="/" class="back-btn btn-secondary page-header-back-btn header-action-btn" aria-label="Kid Mode" title="Kid Mode">
-                        <span class="header-action-icon" aria-hidden="true">
-                            <span class="icon" data-icon="smile"></span>
-                        </span>
-                        <span class="header-action-label">Kid Mode</span>
-                    </a>
                 </div>
             </div>
         </header>
 
         <main>
             <div id="adminActionGrid" class="admin-action-grid"></div>
+
+            <a href="/" class="admin-start-practice-btn" id="startPracticeBtn">
+                <span class="icon" data-icon="play" data-icon-size="22" data-icon-stroke="2.4"></span>
+                <span class="admin-start-practice-btn-label">Start Practice</span>
+            </a>
 
             <div id="adminOptinPanel" class="admin-optin-panel hidden">
                 <div id="adminMatrixWrap" class="admin-matrix-wrap">
@@ -469,14 +468,14 @@
             <!-- New Kid Form Modal -->
             <div id="kidModal" class="modal hidden">
                 <div class="modal-content">
-                    <h2>Add Kid</h2>
+                    <h2><span class="icon" data-icon="user-round-plus" data-icon-size="22"></span> Add Kid</h2>
                     <form id="kidForm">
                         <div class="form-group">
                             <input type="text" id="kidName" required placeholder="Enter kid's name">
                         </div>
                         <div class="form-actions">
-                            <button type="submit" id="kidFormSaveBtn" class="btn-primary" disabled>Save</button>
-                            <button type="button" id="cancelBtn" class="btn-secondary">Close</button>
+                            <button type="submit" id="kidFormSaveBtn" class="btn-primary" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span> <span class="btn-label">Save</span></button>
+                            <button type="button" id="cancelBtn" class="btn-secondary"><span class="icon" data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span> Close</button>
                         </div>
                     </form>
                 </div>

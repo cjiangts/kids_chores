@@ -181,10 +181,23 @@ def get_kid_by_id(kid_id, family_id: Optional[str] = None) -> Optional[Dict]:
     kid_id_str = str(kid_id)
     return next((k for k in kids if str(k['id']) == kid_id_str), None)
 
+class DuplicateKidNameError(ValueError):
+    pass
+
+
 def add_kid(kid: Dict) -> Dict:
-    """Add a new kid. If 'id' is not set, assigns the next available ID atomically."""
+    """Add a new kid. If 'id' is not set, assigns the next available ID atomically.
+    Raises DuplicateKidNameError if a kid with the same name already exists in the family."""
     def _op(data: Dict):
         kids = data.get('kids', [])
+        family_id_str = str(kid.get('familyId') or '').strip()
+        target_name = str(kid.get('name') or '').strip().casefold()
+        if family_id_str and target_name:
+            for existing in kids:
+                if str(existing.get('familyId') or '').strip() != family_id_str:
+                    continue
+                if str(existing.get('name') or '').strip().casefold() == target_name:
+                    raise DuplicateKidNameError(kid.get('name'))
         if kid.get('id') is None:
             kid['id'] = (max((int(k['id']) for k in kids), default=0) + 1)
         kids.append(kid)

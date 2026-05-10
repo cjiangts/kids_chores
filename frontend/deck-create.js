@@ -5,7 +5,6 @@ const newTagInput = document.getElementById('newTagInput');
 const addTagBtn = document.getElementById('addTagBtn');
 const tagsContainer = document.getElementById('tagsContainer');
 const existingTagOptions = document.getElementById('existingTagOptions');
-const categoryPreselectNote = document.getElementById('categoryPreselectNote');
 const generatedNameEl = document.getElementById('generatedName');
 const nameStatus = document.getElementById('nameStatus');
 const staticCardsEditor = document.getElementById('staticCardsEditor');
@@ -412,15 +411,6 @@ function applyFirstTagLockMode() {
         button.disabled = Boolean(isLocked && isActive);
         button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     });
-    if (categoryPreselectNote) {
-        if (isLocked) {
-            categoryPreselectNote.textContent = 'Subject preselected from Manage Decks.';
-            categoryPreselectNote.classList.remove('hidden');
-        } else {
-            categoryPreselectNote.textContent = '';
-            categoryPreselectNote.classList.add('hidden');
-        }
-    }
 }
 
 function setCurrentFirstTag(tag) {
@@ -1260,6 +1250,10 @@ function setNameStatus(text, state) {
     nameStatus.textContent = text;
     nameStatus.classList.remove('status-ok', 'status-error', 'status-note');
     nameStatus.classList.add(`status-${state}`);
+    const step2 = document.getElementById('step2Section');
+    if (step2) {
+        step2.classList.toggle('hidden', state !== 'ok');
+    }
 }
 
 function scheduleNameAvailabilityCheck() {
@@ -1269,7 +1263,7 @@ function scheduleNameAvailabilityCheck() {
         window.clearTimeout(nameCheckTimer);
     }
     if (!hasEnoughTagsForDeck()) {
-        setNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        setNameStatus('Add at least one extra tag to build a deck path.', 'error');
         return;
     }
     setNameStatus('Checking name availability...', 'note');
@@ -1283,7 +1277,7 @@ async function ensureNameAvailable() {
     if (!hasEnoughTagsForDeck()) {
         nameAvailable = false;
         lastNameChecked = '';
-        setNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        setNameStatus('Add at least one extra tag to build a deck path.', 'error');
         return false;
     }
     const currentName = getGeneratedName();
@@ -1298,7 +1292,7 @@ async function checkNameAvailability() {
     if (!hasEnoughTagsForDeck()) {
         nameAvailable = false;
         lastNameChecked = '';
-        setNameStatus('Add at least one extra tag to build a deck path.', 'note');
+        setNameStatus('Add at least one extra tag to build a deck path.', 'error');
         return;
     }
     const currentName = getGeneratedName();

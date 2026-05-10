@@ -965,6 +965,14 @@
             cursor: not-allowed;
         }
 
+        .cards-selection-action-btn.is-danger {
+            color: #c0392b;
+        }
+
+        .cards-selection-action-btn.is-danger:hover:not(:disabled) {
+            background: #fdecea;
+        }
+
         body.cards-select-mode {
             padding-bottom: 9rem;
         }

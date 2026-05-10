@@ -1328,6 +1328,39 @@ body.practice-home-redesign {
     gap: 0.6rem;
     margin: 0 0 clamp(6px, 1.2vw, 12px);
 }
+
+.admin-start-practice-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.95rem 1rem;
+    margin: 0 0 clamp(8px, 1.4vw, 14px);
+    border-radius: 14px;
+    background: linear-gradient(135deg, #4ec27d 0%, #2fa863 100%);
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    box-shadow: 0 6px 18px rgba(47, 168, 99, 0.32);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.admin-start-practice-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(47, 168, 99, 0.38);
+    filter: brightness(1.05);
+}
+
+.admin-start-practice-btn:active {
+    transform: translateY(0);
+}
+
+.admin-start-practice-btn .icon {
+    color: #fff;
+}
 .admin-action-grid.admin-action-grid--two {
     grid-template-columns: repeat(2, minmax(0, 220px));
     justify-content: start;

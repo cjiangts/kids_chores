@@ -502,4 +502,5 @@ forceSyncBtn.addEventListener('click', async () => {
 
 applyModeChrome();
 renderSortUpdatedTh();
+window.ReportBackButtonCommon?.bindBackButton(document.getElementById('backBtn'), '/admin.html');
 loadPage();
