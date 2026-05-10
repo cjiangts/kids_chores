@@ -19,6 +19,26 @@ function setupCardsViewModeToggle() {
                 }
                 return;
             }
+            const metricBtn = target.closest('[data-progress-metric]');
+            if (metricBtn) {
+                const next = normalizeDailyProgressMetric(metricBtn.getAttribute('data-progress-metric'));
+                if (next !== currentDailyProgressMetric) {
+                    currentDailyProgressMetric = next;
+                    try { localStorage.setItem(DAILY_PROGRESS_METRIC_STORAGE_KEY, next); } catch (_err) {}
+                    renderStatsView();
+                }
+                return;
+            }
+            const tabBtn = target.closest('[data-distribution-tab]');
+            if (tabBtn) {
+                const next = normalizeDistributionTab(tabBtn.getAttribute('data-distribution-tab'));
+                if (next !== currentDistributionTab) {
+                    currentDistributionTab = next;
+                    try { localStorage.setItem(DISTRIBUTION_TAB_STORAGE_KEY, next); } catch (_err) {}
+                    renderStatsView();
+                }
+                return;
+            }
             const clearBtn = target.closest('[data-clear-bucket]');
             if (clearBtn) {
                 const key = clearBtn.getAttribute('data-clear-bucket') || '';
@@ -42,6 +62,16 @@ function setupCardsViewModeToggle() {
             renderStatsView();
         };
         statsContainer.addEventListener('click', (event) => {
+            const linkEl = event.target.closest && event.target.closest('.cards-distribution-toplist-item.is-link[data-card-id]');
+            if (linkEl) {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+                    return;
+                }
+                event.preventDefault();
+                const cardId = linkEl.getAttribute('data-card-id');
+                if (cardId) setFocusedCardById(cardId);
+                return;
+            }
             handleBucketActivate(event.target);
         });
         statsContainer.addEventListener('keydown', (event) => {
@@ -170,19 +200,38 @@ function renderStatsView() {
         return;
     }
     const getCardCapsuleLabel = makeCardCapsuleLabelGetter(currentBehaviorType);
-    const panels = [
-        buildAccuracyDistribution(practiced, getCardCapsuleLabel),
-        buildPracticeCountDistribution(practiced, getCardCapsuleLabel),
-        buildSpeedDistribution(practiced, getCardCapsuleLabel),
-        buildLastSeenDistribution(practiced, getCardCapsuleLabel),
+    const getCardHref = (cardId) => {
+        const qs = new URLSearchParams();
+        qs.set('id', String(kidId || ''));
+        qs.set('cardId', String(cardId || ''));
+        if (categoryKey) qs.set('categoryKey', categoryKey);
+        return `/kid-card-manage.html?${qs.toString()}`;
+    };
+    const tabDefs = [
+        { key: 'accuracy', label: 'Correct Rate', build: () => buildAccuracyDistribution(practiced, getCardCapsuleLabel, getCardHref) },
+        { key: 'counts', label: 'Practice Count', build: () => buildPracticeCountDistribution(practiced, getCardCapsuleLabel, getCardHref) },
+        { key: 'speed', label: 'Avg Speed', build: () => buildSpeedDistribution(practiced, getCardCapsuleLabel, getCardHref) },
+        { key: 'recency', label: 'Last Seen', build: () => buildLastSeenDistribution(practiced, getCardCapsuleLabel, getCardHref) },
     ];
+    const activeTabKey = normalizeDistributionTab(currentDistributionTab);
+    const activeTab = tabDefs.find((t) => t.key === activeTabKey) || tabDefs[0];
+    const tabsHtml = tabDefs.map((t) => {
+        const active = t.key === activeTab.key ? ' active' : '';
+        return `<button type="button" class="cards-distribution-tab${active}" data-distribution-tab="${t.key}" aria-pressed="${active ? 'true' : 'false'}">${escapeHtml(t.label)}</button>`;
+    }).join('');
     const dailyProgress = buildDailyProgressChart(currentDailyProgressRows, currentFamilyTimezone);
     const dailyProgressView = dailyProgress ? clipDailyProgressView(dailyProgress, currentDailyProgressViewDays) : null;
     container.innerHTML = `
         ${renderStatsSummary(uniqueCount, attemptTotal, bankCount)}
         ${dailyProgressView ? renderDailyProgressPanel(dailyProgressView) : ''}
-        <div class="cards-distribution-grid">
-            ${panels.map((panel) => renderDistributionPanel(panel)).join('')}
+        <div class="cards-distribution-card distribution-card">
+            <div class="cards-distribution-card-head">
+                <div class="cards-distribution-card-title">Distribution</div>
+            </div>
+            <div class="cards-distribution-tabs" role="tablist">${tabsHtml}</div>
+            <div class="distribution-card-body">
+                ${renderDistributionPanel(activeTab.build())}
+            </div>
         </div>
     `;
 }
@@ -250,8 +299,31 @@ function makeCardCapsuleLabelGetter(behaviorType) {
 
 const selectedBucketByPanel = new Map();
 let currentDailyProgressViewDays = 0;
+const DAILY_PROGRESS_METRIC_STORAGE_KEY = 'kidCardManage.dailyProgressMetric';
+function normalizeDailyProgressMetric(value) {
+    return value === 'correctness' ? 'correctness' : 'speed';
+}
+let currentDailyProgressMetric = (() => {
+    try {
+        return normalizeDailyProgressMetric(localStorage.getItem(DAILY_PROGRESS_METRIC_STORAGE_KEY));
+    } catch (_err) {
+        return 'speed';
+    }
+})();
+const DISTRIBUTION_TAB_STORAGE_KEY = 'kidCardManage.distributionTab';
+const DISTRIBUTION_TAB_KEYS = ['accuracy', 'counts', 'speed', 'recency'];
+function normalizeDistributionTab(value) {
+    return DISTRIBUTION_TAB_KEYS.includes(value) ? value : 'accuracy';
+}
+let currentDistributionTab = (() => {
+    try {
+        return normalizeDistributionTab(localStorage.getItem(DISTRIBUTION_TAB_STORAGE_KEY));
+    } catch (_err) {
+        return 'accuracy';
+    }
+})();
 
-function buildAccuracyDistribution(cards, getCardCapsuleLabel) {
+function buildAccuracyDistribution(cards, getCardCapsuleLabel, getCardHref) {
     const panelKey = 'accuracy';
     return buildHistogramDistribution({
         panelKey,
@@ -261,6 +333,7 @@ function buildAccuracyDistribution(cards, getCardCapsuleLabel) {
         formatValue: formatPercentLabel,
         getValue: getCardCorrectRatePct,
         getCardCapsuleLabel,
+        getCardHref,
         percentileMarkers: [10, 90],
         bucketing: {
             snapUnit: 1,
@@ -276,7 +349,7 @@ function buildAccuracyDistribution(cards, getCardCapsuleLabel) {
     });
 }
 
-function buildPracticeCountDistribution(cards, getCardCapsuleLabel) {
+function buildPracticeCountDistribution(cards, getCardCapsuleLabel, getCardHref) {
     const panelKey = 'counts';
     return buildHistogramDistribution({
         panelKey,
@@ -286,6 +359,7 @@ function buildPracticeCountDistribution(cards, getCardCapsuleLabel) {
         formatValue: formatCountLabel,
         getValue: getCardPracticeCount,
         getCardCapsuleLabel,
+        getCardHref,
         bucketing: {
             snapUnit: 1,
             minClamp: 1,
@@ -300,7 +374,7 @@ function buildPracticeCountDistribution(cards, getCardCapsuleLabel) {
     });
 }
 
-function buildSpeedDistribution(cards, getCardCapsuleLabel) {
+function buildSpeedDistribution(cards, getCardCapsuleLabel, getCardHref) {
     const panelKey = 'speed';
     return buildHistogramDistribution({
         panelKey,
@@ -310,6 +384,7 @@ function buildSpeedDistribution(cards, getCardCapsuleLabel) {
         formatValue: formatSpeedLabel,
         getValue: getCardAverageSpeedMs,
         getCardCapsuleLabel,
+        getCardHref,
         bucketing: {
             snapUnit: 1000,
             minClamp: 0,
@@ -324,7 +399,7 @@ function buildSpeedDistribution(cards, getCardCapsuleLabel) {
     });
 }
 
-function buildLastSeenDistribution(cards, getCardCapsuleLabel) {
+function buildLastSeenDistribution(cards, getCardCapsuleLabel, getCardHref) {
     const panelKey = 'recency';
     return buildHistogramDistribution({
         panelKey,
@@ -334,6 +409,7 @@ function buildLastSeenDistribution(cards, getCardCapsuleLabel) {
         formatValue: formatDaysLabel,
         getValue: getCardDaysSinceLastSeen,
         getCardCapsuleLabel,
+        getCardHref,
         bucketing: {
             snapUnit: 1,
             minClamp: 0,
@@ -385,6 +461,8 @@ function buildDailyProgressChart(dailyProgressRows, familyTimezone) {
     let dayIndex = 0;
     let cumRtSumMs = 0;
     let cumRtCount = 0;
+    let cumAttempts = 0;
+    let cumCorrect = 0;
     for (let epoch = startEpoch; epoch <= endEpoch; epoch += dayMs) {
         dayIndex += 1;
         const dateStr = formatEpochUtcToDateKey(epoch);
@@ -403,26 +481,23 @@ function buildDailyProgressChart(dailyProgressRows, familyTimezone) {
             }
             cumRtSumMs += row.rtSum;
             cumRtCount += row.rtCount;
+            cumAttempts += row.attempts;
+            cumCorrect += row.correct;
         }
         const avgCorrectRtSec = cumRtCount > 0 ? (cumRtSumMs / cumRtCount) / 1000 : null;
+        const cumCorrectPct = cumAttempts > 0 ? (cumCorrect / cumAttempts) * 100 : null;
         points.push({
             dayIndex,
             date: dateStr,
             practiced: practicedSet.size,
             learned: learnedSet.size,
             avgCorrectRtSec,
+            cumCorrectPct,
         });
     }
     const yMax = Math.max(1, points.reduce((max, p) => Math.max(max, p.practiced, p.learned), 0));
-    let rtMin = Infinity;
-    let rtMax = 0;
-    for (const p of points) {
-        const v = Number(p.avgCorrectRtSec);
-        if (!Number.isFinite(v)) continue;
-        if (v < rtMin) rtMin = v;
-        if (v > rtMax) rtMax = v;
-    }
-    const hasRtData = Number.isFinite(rtMin) && rtMax > 0;
+    const rtRange = computeFiniteRange(points, 'avgCorrectRtSec');
+    const crRange = computeFiniteRange(points, 'cumCorrectPct');
     return {
         title: 'Daily Progress',
         firstDate,
@@ -430,9 +505,37 @@ function buildDailyProgressChart(dailyProgressRows, familyTimezone) {
         totalDays: points.length,
         points,
         yMax,
-        rtMin: hasRtData ? rtMin : null,
-        rtMax: hasRtData ? rtMax : 0,
+        rtMin: rtRange.hasData ? rtRange.min : null,
+        rtMax: rtRange.hasData ? rtRange.max : 0,
+        crMin: crRange.hasData ? crRange.min : null,
+        crMax: crRange.hasData ? crRange.max : 0,
     };
+}
+
+function computeFiniteRange(points, key) {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const p of points) {
+        const v = Number(p?.[key]);
+        if (!Number.isFinite(v)) continue;
+        if (v < min) min = v;
+        if (v > max) max = v;
+    }
+    const hasData = Number.isFinite(min) && Number.isFinite(max);
+    return { hasData, min: hasData ? min : 0, max: hasData ? max : 0 };
+}
+
+function renderDailyProgressMetricBtns({ rtHasData, crHasData, activeMetric }) {
+    if (!rtHasData || !crHasData) return '';
+    const opts = [
+        { metric: 'speed', label: 'Speed' },
+        { metric: 'correctness', label: 'Correct' },
+    ];
+    const buttonsHtml = opts.map((o) => {
+        const active = o.metric === activeMetric ? ' active' : '';
+        return `<button type="button" class="daily-progress-metric-btn${active}" data-progress-metric="${o.metric}">${o.label}</button>`;
+    }).join('');
+    return `<div class="daily-progress-metric-btns">${buttonsHtml}</div>`;
 }
 
 function renderDailyProgressPeriodBtns(fullSpanDays) {
@@ -465,22 +568,17 @@ function clipDailyProgressView(chart, viewDays) {
     }
     const reindexed = visiblePoints.map((point, idx) => ({ ...point, dayIndex: idx + 1 }));
     const yMaxVisible = Math.max(1, reindexed.reduce((max, p) => Math.max(max, p.practiced, p.learned), 0));
-    let rtMin = Infinity;
-    let rtMax = 0;
-    for (const p of reindexed) {
-        const v = Number(p.avgCorrectRtSec);
-        if (!Number.isFinite(v)) continue;
-        if (v < rtMin) rtMin = v;
-        if (v > rtMax) rtMax = v;
-    }
-    const hasRt = Number.isFinite(rtMin) && rtMax > 0;
+    const rtRange = computeFiniteRange(reindexed, 'avgCorrectRtSec');
+    const crRange = computeFiniteRange(reindexed, 'cumCorrectPct');
     return {
         ...chart,
         points: reindexed,
         totalDays: reindexed.length,
         yMax: yMaxVisible,
-        rtMin: hasRt ? rtMin : null,
-        rtMax: hasRt ? rtMax : 0,
+        rtMin: rtRange.hasData ? rtRange.min : null,
+        rtMax: rtRange.hasData ? rtRange.max : 0,
+        crMin: crRange.hasData ? crRange.min : null,
+        crMax: crRange.hasData ? crRange.max : 0,
         fullSpanDays,
         viewDays: requested,
     };
@@ -542,6 +640,18 @@ function buildResponseTimeYTicks(rtMin, rtMax) {
     return ticks;
 }
 
+function buildCorrectnessRateYTicks(crMin, crMax) {
+    const lo = Math.max(0, Math.floor(Number(crMin) || 0));
+    const hiRaw = Math.max(lo + 1, Math.ceil(Number(crMax) || lo + 1));
+    const hi = Math.min(100, hiRaw);
+    const span = Math.max(1, hi - lo);
+    const step = getNiceHistogramStep(span / 4);
+    const axisMax = Math.min(100, lo + Math.max(step, Math.ceil(span / step) * step));
+    const ticks = [];
+    for (let value = lo; value <= axisMax; value += step) ticks.push(value);
+    return ticks;
+}
+
 function buildDailyProgressXTicks(totalDays) {
     const days = Math.max(1, Number(totalDays) || 1);
     const lastTick = days - 1;
@@ -571,31 +681,44 @@ function renderDailyProgressPanel(chart) {
     const axisMax = yTicks[yTicks.length - 1] || yMax;
     const rtMaxRaw = Number(chart?.rtMax) || 0;
     const rtMinRaw = Number(chart?.rtMin);
-    const hasRtData = rtMaxRaw > 0 && Number.isFinite(rtMinRaw);
+    const rtHasData = rtMaxRaw > 0 && Number.isFinite(rtMinRaw);
+    const crMaxRawAll = Number(chart?.crMax) || 0;
+    const crMinRawAll = Number(chart?.crMin);
+    const crHasData = crMaxRawAll > 0 && Number.isFinite(crMinRawAll);
+    const activeMetric = (currentDailyProgressMetric === 'correctness' && crHasData)
+        ? 'correctness'
+        : (rtHasData ? 'speed' : (crHasData ? 'correctness' : 'none'));
+    const hasRtData = activeMetric === 'speed' && rtHasData;
+    const hasCrData = activeMetric === 'correctness' && crHasData;
     const rtTicks = hasRtData ? buildResponseTimeYTicks(rtMinRaw, rtMaxRaw) : [];
     const rtAxisMin = rtTicks.length ? rtTicks[0] : 0;
     const rtAxisMax = rtTicks.length ? rtTicks[rtTicks.length - 1] : 0;
     const rtAxisRange = rtAxisMax - rtAxisMin;
+    const crTicks = hasCrData ? buildCorrectnessRateYTicks(crMinRawAll, crMaxRawAll) : [];
+    const crAxisMin = crTicks.length ? crTicks[0] : 0;
+    const crAxisMax = crTicks.length ? crTicks[crTicks.length - 1] : 0;
+    const crAxisRange = crAxisMax - crAxisMin;
     const xTicks = buildDailyProgressXTicks(totalDays);
     const positionForDay = (dayIndex) => totalDays <= 1 ? 50 : ((dayIndex - 1) / (totalDays - 1)) * 100;
     const positionForValue = (value) => axisMax <= 0 ? 0 : (Number(value) / axisMax) * 100;
     const positionForRt = (value) => rtAxisRange <= 0 ? 0 : ((Number(value) - rtAxisMin) / rtAxisRange) * 100;
+    const positionForCr = (value) => crAxisRange <= 0 ? 0 : ((Number(value) - crAxisMin) / crAxisRange) * 100;
     const buildLinePath = (key) => points.map((point, idx) => {
         const x = positionForDay(point.dayIndex).toFixed(2);
         const y = (100 - positionForValue(point[key])).toFixed(2);
         return `${idx === 0 ? 'M' : 'L'}${x},${y}`;
     }).join(' ');
-    const buildResponseTimePath = () => {
+    const buildSparseLinePath = (key, positionFn) => {
         const segments = [];
         let pendingMove = true;
         for (const point of points) {
-            const value = Number(point.avgCorrectRtSec);
+            const value = Number(point[key]);
             if (!Number.isFinite(value)) {
                 pendingMove = true;
                 continue;
             }
             const x = positionForDay(point.dayIndex).toFixed(2);
-            const y = (100 - positionForRt(value)).toFixed(2);
+            const y = (100 - positionFn(value)).toFixed(2);
             segments.push(`${pendingMove ? 'M' : 'L'}${x},${y}`);
             pendingMove = false;
         }
@@ -603,27 +726,43 @@ function renderDailyProgressPanel(chart) {
     };
     const practicedPath = buildLinePath('practiced');
     const learnedPath = buildLinePath('learned');
-    const responseTimePath = hasRtData ? buildResponseTimePath() : '';
-    const lastPoint = points[points.length - 1] || { practiced: 0, learned: 0, avgCorrectRtSec: null };
+    const responseTimePath = hasRtData ? buildSparseLinePath('avgCorrectRtSec', positionForRt) : '';
+    const correctnessPath = hasCrData ? buildSparseLinePath('cumCorrectPct', positionForCr) : '';
+    const lastPoint = points[points.length - 1] || { practiced: 0, learned: 0, avgCorrectRtSec: null, cumCorrectPct: null };
     const lastRtValue = Number(lastPoint?.avgCorrectRtSec);
     const lastRtLabel = Number.isFinite(lastRtValue) ? `${lastRtValue.toFixed(2)}s` : '—';
+    const lastCrValue = Number(lastPoint?.cumCorrectPct);
+    const lastCrLabel = Number.isFinite(lastCrValue) ? `${lastCrValue.toFixed(1)}%` : '—';
     const formatRtTick = (tick) => {
         const num = Number(tick);
         if (!Number.isFinite(num)) return '';
         return Number.isInteger(num) ? `${num}s` : `${num.toFixed(1)}s`;
     };
+    const formatCrTick = (tick) => {
+        const num = Number(tick);
+        if (!Number.isFinite(num)) return '';
+        return Number.isInteger(num) ? `${num}%` : `${num.toFixed(1)}%`;
+    };
     const periodButtonsHtml = renderDailyProgressPeriodBtns(Number(chart?.fullSpanDays) || 0);
+    const metricButtonsHtml = renderDailyProgressMetricBtns({ rtHasData, crHasData, activeMetric });
+    const controlsHtml = (metricButtonsHtml || periodButtonsHtml)
+        ? `<div class="daily-progress-controls">${metricButtonsHtml}${periodButtonsHtml}</div>`
+        : '';
+    const cardClasses = ['cards-distribution-card', 'daily-progress-card'];
+    if (hasRtData) cardClasses.push('has-response-time');
+    if (hasCrData) cardClasses.push('has-correctness-rate');
     return `
-        <div class="cards-distribution-card daily-progress-card${hasRtData ? ' has-response-time' : ''}">
+        <div class="${cardClasses.join(' ')}">
             <div class="cards-distribution-card-head">
                 <div class="cards-distribution-card-title">${escapeHtml(String(chart?.title || 'Daily Progress'))}</div>
                 <div class="daily-progress-legend">
                     <span class="daily-progress-legend-item practiced"><span class="daily-progress-legend-swatch"></span>Practiced (${escapeHtml(String(lastPoint.practiced))})</span>
                     <span class="daily-progress-legend-item learned"><span class="daily-progress-legend-swatch"></span>Learned (${escapeHtml(String(lastPoint.learned))})</span>
+                    ${hasCrData ? `<span class="daily-progress-legend-item correctness-rate"><span class="daily-progress-legend-swatch"></span>Cumulative correct (${escapeHtml(lastCrLabel)})</span>` : ''}
                     ${hasRtData ? `<span class="daily-progress-legend-item response-time"><span class="daily-progress-legend-swatch"></span>Avg correct response (${escapeHtml(lastRtLabel)})</span>` : ''}
                 </div>
             </div>
-            ${periodButtonsHtml}
+            ${controlsHtml}
             <div class="daily-progress-chart">
                 <div class="daily-progress-y-label">Cards</div>
                 <div class="daily-progress-y-axis">
@@ -639,6 +778,14 @@ function renderDailyProgressPanel(chart) {
                         `).join('')}
                     </div>
                 ` : ''}
+                ${hasCrData ? `
+                    <div class="daily-progress-y-label daily-progress-y-label-correctness">Correct</div>
+                    <div class="daily-progress-y-axis daily-progress-y-axis-correctness">
+                        ${crTicks.map((tick) => `
+                            <div class="daily-progress-y-tick" style="bottom:${positionForCr(tick).toFixed(2)}%">${escapeHtml(formatCrTick(tick))}</div>
+                        `).join('')}
+                    </div>
+                ` : ''}
                 <div class="daily-progress-plot">
                     <div class="daily-progress-grid">
                         ${yTicks.map((tick) => `
@@ -651,6 +798,7 @@ function renderDailyProgressPanel(chart) {
                     <svg class="daily-progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
                         <path class="daily-progress-line practiced" d="${practicedPath}" />
                         <path class="daily-progress-line learned" d="${learnedPath}" />
+                        ${correctnessPath ? `<path class="daily-progress-line correctness-rate" d="${correctnessPath}" />` : ''}
                         ${responseTimePath ? `<path class="daily-progress-line response-time" d="${responseTimePath}" />` : ''}
                     </svg>
                     <div class="daily-progress-x-axis">

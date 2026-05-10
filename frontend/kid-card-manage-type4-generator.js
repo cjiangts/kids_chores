@@ -168,7 +168,8 @@ function renderType4GeneratorModal(card) {
     }
     if (runType4GeneratorPreviewBtn) {
         runType4GeneratorPreviewBtn.disabled = !card;
-        runType4GeneratorPreviewBtn.textContent = 'Run Example';
+        const label = runType4GeneratorPreviewBtn.querySelector('.run-example-label');
+        if (label) label.textContent = 'Rerun Code';
     }
 }
 
@@ -217,7 +218,8 @@ async function runType4GeneratorPreview() {
     isType4GeneratorPreviewLoading = true;
     if (runType4GeneratorPreviewBtn) {
         runType4GeneratorPreviewBtn.disabled = true;
-        runType4GeneratorPreviewBtn.textContent = 'Running...';
+        const label = runType4GeneratorPreviewBtn.querySelector('.run-example-label');
+        if (label) label.textContent = 'Running...';
     }
     showType4GeneratorMessage('');
     try {
@@ -247,7 +249,8 @@ async function runType4GeneratorPreview() {
         isType4GeneratorPreviewLoading = false;
         if (runType4GeneratorPreviewBtn) {
             runType4GeneratorPreviewBtn.disabled = false;
-            runType4GeneratorPreviewBtn.textContent = 'Run Example';
+            const label = runType4GeneratorPreviewBtn.querySelector('.run-example-label');
+            if (label) label.textContent = 'Rerun Code';
         }
     }
 }

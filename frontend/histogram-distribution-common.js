@@ -42,7 +42,9 @@ function buildHistogramDistribution(options = {}) {
     const filteredRated = hasSelection
         ? rated.filter(({ value }) => findHistogramBucket(value, bucketDefinitions) === selectedBucket)
         : rated;
-    const topLists = buildTopCardLists(filteredRated, options?.topLists, formatValue, getCardCapsuleLabel);
+    const getCardHref = typeof options?.getCardHref === 'function' ? options.getCardHref : null;
+    const getCardId = typeof options?.getCardId === 'function' ? options.getCardId : null;
+    const topLists = buildTopCardLists(filteredRated, options?.topLists, formatValue, getCardCapsuleLabel, getCardHref, getCardId);
     return {
         panelKey: String(options?.panelKey || ''),
         title: String(options?.title || ''),
@@ -217,12 +219,14 @@ function getPercentileValue(sortedValues, percentile) {
     return lowerValue + ((upperValue - lowerValue) * weight);
 }
 
-function buildTopCardLists(rated, configs, formatValue, getCardCapsuleLabel) {
+function buildTopCardLists(rated, configs, formatValue, getCardCapsuleLabel, getCardHref, getCardId) {
     const lists = Array.isArray(configs) ? configs : [];
     if (!lists.length || !Array.isArray(rated) || !rated.length) return [];
     const labelOf = typeof getCardCapsuleLabel === 'function'
         ? getCardCapsuleLabel
         : (card) => String(card?.front || '').trim();
+    const hrefOf = typeof getCardHref === 'function' ? getCardHref : null;
+    const idOf = typeof getCardId === 'function' ? getCardId : (card) => Number(card?.id) || 0;
     const ascending = rated.slice().sort((a, b) => a.value - b.value);
     return lists.map((cfg) => {
         const count = Math.max(1, Number(cfg?.count) || 5);
@@ -231,11 +235,16 @@ function buildTopCardLists(rated, configs, formatValue, getCardCapsuleLabel) {
             : ascending.slice(0, count);
         return {
             title: String(cfg?.title || ''),
-            entries: slice.map((entry) => ({
-                cardId: Number(entry.card?.id) || 0,
-                front: String(labelOf(entry.card) || '').trim() || '—',
-                valueLabel: formatValue(entry.value),
-            })),
+            entries: slice.map((entry) => {
+                const cardId = Number(idOf(entry.card)) || 0;
+                const href = hrefOf && cardId > 0 ? String(hrefOf(cardId) || '') : '';
+                return {
+                    cardId,
+                    front: String(labelOf(entry.card) || '').trim() || '—',
+                    valueLabel: formatValue(entry.value),
+                    href,
+                };
+            }),
         };
     });
 }
@@ -385,14 +394,17 @@ function renderDistributionPanel(panel) {
                                 <div class="cards-distribution-toplist-title">${escapeHtml(String(list?.title || ''))}${selectedBucketIndex !== null ? ' <span class="cards-distribution-toplist-scope">(in bucket)</span>' : ''}</div>
                                 ${entries.length ? `
                                     <ol class="cards-distribution-toplist-items">
-                                        ${entries.map((entry) => `
-                                            <li class="cards-distribution-toplist-row">
-                                                <span class="cards-distribution-toplist-item">
-                                                    <span class="cards-distribution-toplist-front">${escapeHtml(String(entry?.front || ''))}</span>
-                                                    <span class="cards-distribution-toplist-value">${escapeHtml(String(entry?.valueLabel || ''))}</span>
-                                                </span>
-                                            </li>
-                                        `).join('')}
+                                        ${entries.map((entry) => {
+                                            const href = String(entry?.href || '').trim();
+                                            const inner = `
+                                                <span class="cards-distribution-toplist-front">${escapeHtml(String(entry?.front || ''))}</span>
+                                                <span class="cards-distribution-toplist-value">${escapeHtml(String(entry?.valueLabel || ''))}</span>
+                                            `;
+                                            const tag = href
+                                                ? `<a class="cards-distribution-toplist-item is-link" href="${escapeHtml(href)}" data-card-id="${escapeHtml(String(entry?.cardId || ''))}">${inner}</a>`
+                                                : `<span class="cards-distribution-toplist-item">${inner}</span>`;
+                                            return `<li class="cards-distribution-toplist-row">${tag}</li>`;
+                                        }).join('')}
                                     </ol>
                                 ` : '<div class="cards-distribution-toplist-empty">No cards in this bucket.</div>'}
                             </div>

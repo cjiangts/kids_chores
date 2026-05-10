@@ -100,6 +100,22 @@ function clearFocusedCard() {
     resetAndDisplayCards(currentCards);
 }
 
+function setFocusedCardById(cardId) {
+    const next = String(cardId || '').trim();
+    if (!next) return;
+    if (next !== focusedCardId) {
+        focusedCardId = next;
+        const url = new URL(window.location.href);
+        url.searchParams.set('cardId', next);
+        window.history.replaceState({}, '', url.toString());
+        syncCardFocusBanner();
+    }
+    expandedCompactCardIds.add(next);
+    setCardsViewMode('queue');
+    resetAndDisplayCards(currentCards);
+    scrollFocusedCardIntoView();
+}
+
 function getSortedCardsForDisplay(cards) {
     const focusFiltered = filterCardsByFocusedId(cards);
     if (focusedCardId) {
@@ -473,8 +489,46 @@ function getPracticePriorityDaysSinceLastSeenValue(card) {
     if (isNeverPracticedPriorityCard(card)) {
         return null;
     }
-    const days = Number.parseInt(card && card.practice_priority_days_since_last_seen, 10);
-    return Number.isInteger(days) ? Math.max(0, days) : null;
+    const explicit = Number.parseInt(card && card.practice_priority_days_since_last_seen, 10);
+    if (Number.isInteger(explicit)) {
+        return Math.max(0, explicit);
+    }
+    const lastSeenIso = card && card.last_seen_at;
+    if (!lastSeenIso) {
+        return null;
+    }
+    const lastSeenMs = Date.parse(lastSeenIso);
+    if (!Number.isFinite(lastSeenMs)) {
+        return null;
+    }
+    return Math.max(0, Math.floor((Date.now() - lastSeenMs) / 86400000));
+}
+
+function getPracticePriorityCorrectStats(card) {
+    const attempts = getPracticePriorityAttemptCount(card);
+    const explicitRate = Number.parseFloat(card && card.practice_priority_correct_rate);
+    let correctRate;
+    if (Number.isFinite(explicitRate)) {
+        correctRate = explicitRate;
+    } else {
+        const wrongRate = Number.parseFloat(card && card.overall_wrong_rate);
+        correctRate = Number.isFinite(wrongRate) ? Math.max(0, 100 - wrongRate) : null;
+    }
+    const explicitCorrect = Number.parseInt(card && card.practice_priority_correct_count, 10);
+    const explicitWrong = Number.parseInt(card && card.practice_priority_wrong_count, 10);
+    let correctCount;
+    let wrongCount;
+    if (Number.isInteger(explicitCorrect) && Number.isInteger(explicitWrong)) {
+        correctCount = Math.max(0, explicitCorrect);
+        wrongCount = Math.max(0, explicitWrong);
+    } else if (Number.isFinite(correctRate) && attempts > 0) {
+        correctCount = Math.max(0, Math.min(attempts, Math.round(attempts * correctRate / 100)));
+        wrongCount = Math.max(0, attempts - correctCount);
+    } else {
+        correctCount = 0;
+        wrongCount = 0;
+    }
+    return { correctCount, wrongCount, correctRate };
 }
 
 function getPracticePriorityLastResultTone(card) {
@@ -581,18 +635,26 @@ function buildPracticePriorityLearningDotsHtml(attemptCount, targetAttempts) {
     `;
 }
 
-function buildPracticePriorityDetailCards(card) {
+function buildPracticePriorityDetailCards(card, options = {}) {
+    const showSlow = options.showSlow !== false && !isType2Behavior() && !isType3Behavior();
+    const showMissed = options.showMissed !== false && !isType3Behavior();
+    const showPoints = options.showPoints !== false;
+    const simpleSpeed = Boolean(options.simpleSpeed);
     const segments = getPracticePrioritySegments(card);
     const isNewCard = isNeverPracticedPriorityCard(card);
-    const correctCount = Math.max(0, Number.parseInt(card && card.practice_priority_correct_count, 10) || 0);
-    const wrongCount = Math.max(0, Number.parseInt(card && card.practice_priority_wrong_count, 10) || 0);
-    const lifetimeAttempts = Math.max(0, Number.parseInt(card && card.practice_priority_attempt_count, 10) || 0);
-    const correctRate = Number(card && card.practice_priority_correct_rate);
+    const correctStats = getPracticePriorityCorrectStats(card);
+    const correctCount = correctStats.correctCount;
+    const wrongCount = correctStats.wrongCount;
+    const correctRate = correctStats.correctRate;
+    const lifetimeAttempts = getPracticePriorityAttemptCount(card);
     const incorrectRate = Number.isFinite(correctRate) ? Math.max(0, 100 - correctRate) : null;
     const incorrectRateText = formatMetricPercent(incorrectRate);
-    const avgCorrectResponseTimeText = formatMillisecondsAsSecondsOrMinutes(
-        Number(card && card.practice_priority_avg_correct_response_time)
-    );
+    const avgCorrectResponseRaw = Number.parseFloat(card && card.practice_priority_avg_correct_response_time);
+    const avgResponseFallback = Number.parseFloat(card && card.avg_response_time_ms);
+    const avgCorrectResponseValue = Number.isFinite(avgCorrectResponseRaw) && avgCorrectResponseRaw > 0
+        ? avgCorrectResponseRaw
+        : (Number.isFinite(avgResponseFallback) ? avgResponseFallback : NaN);
+    const avgCorrectResponseTimeText = formatMillisecondsAsSecondsOrMinutes(avgCorrectResponseValue);
     const subjectBaseline = currentPracticePrioritySubjectBaseline || {};
     const subjectP50Text = formatMillisecondsAsSecondsOrMinutes(
         Number(subjectBaseline.p50_correct_time)
@@ -625,14 +687,15 @@ function buildPracticePriorityDetailCards(card) {
         ? (daysSinceLastSeen / PRACTICE_PRIORITY_VERY_DUE_DAYS) * 100
         : null;
 
-    const showMissed = !isType3Behavior();
-    const showSlow = !isType2Behavior() && !isType3Behavior();
+    const renderPointsHtml = (segment) => (showPoints
+        ? `<div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segment.points))}</div>`
+        : '');
 
     return `
         ${!showMissed ? '' : `<div class="practice-priority-detail-card missed">
             <div class="practice-priority-detail-missed-header">
                 <div class="practice-priority-detail-title">${icon('circle-x', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[0]))}</span></div>
-                <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[0].points))}</div>
+                ${renderPointsHtml(segments[0])}
             </div>
             <div class="practice-priority-detail-missed-content">
                 ${isNewCard
@@ -659,30 +722,35 @@ function buildPracticePriorityDetailCards(card) {
             <div class="practice-priority-detail-slow-header">
                 <div class="practice-priority-detail-slow-header-left">
                     <div class="practice-priority-detail-title">${icon('clock', { size: 14 })}<span>${escapeHtml(segments[1].label)}</span></div>
-                    <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[1].points))}</div>
+                    ${renderPointsHtml(segments[1])}
                 </div>
             </div>
             <div class="practice-priority-detail-slow-content">
                 ${isNewCard
                     ? '<div class="practice-priority-detail-empty">Not practiced yet — answer speed will appear after the first correct answer.</div>'
-                    : `<div class="practice-priority-detail-visual">
-                        ${slowBaselineReady
-                            ? buildPracticePriorityAxisHtml({
-                                positionPct: slowMarkerPct,
-                                valueText: avgCorrectResponseTimeText,
-                                markerCaption: 'Avg time',
-                                leftText: subjectP50Text,
-                                rightText: subjectP90Text,
-                                leftNote: '(p50)',
-                                rightNote: '(p90)',
-                                leftNoteClass: 'positive',
-                                rightNoteClass: 'negative',
-                                markerClass: 'slow',
-                                tickCount: 6,
-                            })
-                            : `<div class="practice-priority-detail-empty">Speed baseline pending — needs ${PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE} correct answers across this subject.</div>`
-                        }
-                    </div>`
+                    : (simpleSpeed
+                        ? `<div class="practice-priority-detail-simple-speed">
+                            <div class="practice-priority-detail-simple-speed-value">${escapeHtml(avgCorrectResponseTimeText)}</div>
+                            <div class="practice-priority-detail-simple-speed-caption">Avg time</div>
+                        </div>`
+                        : `<div class="practice-priority-detail-visual">
+                            ${slowBaselineReady
+                                ? buildPracticePriorityAxisHtml({
+                                    positionPct: slowMarkerPct,
+                                    valueText: avgCorrectResponseTimeText,
+                                    markerCaption: 'Avg time',
+                                    leftText: subjectP50Text,
+                                    rightText: subjectP90Text,
+                                    leftNote: '(p50)',
+                                    rightNote: '(p90)',
+                                    leftNoteClass: 'positive',
+                                    rightNoteClass: 'negative',
+                                    markerClass: 'slow',
+                                    tickCount: 6,
+                                })
+                                : `<div class="practice-priority-detail-empty">Speed baseline pending — needs ${PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE} correct answers across this subject.</div>`
+                            }
+                        </div>`)
                 }
             </div>
         </div>`}
@@ -690,7 +758,7 @@ function buildPracticePriorityDetailCards(card) {
             <div class="practice-priority-detail-learning-header">
                 <div class="practice-priority-detail-learning-header-left">
                     <div class="practice-priority-detail-title">${icon('sparkles', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[2]))}</span></div>
-                    <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[2].points))}</div>
+                    ${renderPointsHtml(segments[2])}
                 </div>
             </div>
             <div class="practice-priority-detail-learning-content">
@@ -701,7 +769,7 @@ function buildPracticePriorityDetailCards(card) {
             <div class="practice-priority-detail-due-header">
                 <div class="practice-priority-detail-due-header-left">
                     <div class="practice-priority-detail-title">${icon('calendar-clock', { size: 14 })}<span>${escapeHtml(segments[3].label)}</span></div>
-                    <div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segments[3].points))}</div>
+                    ${renderPointsHtml(segments[3])}
                 </div>
             </div>
             <div class="practice-priority-detail-due-content">
@@ -803,6 +871,22 @@ function buildPracticePriorityScoreSection(card) {
             </div>
             ${legendHtml ? `<div class="practice-priority-score-legend">${legendHtml}</div>` : ''}
             ${detailCardsHtml ? `<div class="practice-priority-detail-grid">${detailCardsHtml}</div>` : ''}
+        </div>
+    `;
+}
+
+function buildType4PriorityDetailSection(card) {
+    const detailCardsHtml = buildPracticePriorityDetailCards(card, {
+        showSlow: true,
+        showPoints: false,
+        simpleSpeed: true,
+    });
+    if (!detailCardsHtml || !detailCardsHtml.trim()) {
+        return '';
+    }
+    return `
+        <div class="practice-priority-score-block type4-detail-only">
+            <div class="practice-priority-detail-grid">${detailCardsHtml}</div>
         </div>
     `;
 }

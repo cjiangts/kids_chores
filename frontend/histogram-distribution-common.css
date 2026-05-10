@@ -147,6 +147,21 @@
     overflow: hidden;
 }
 
+.cards-distribution-toplist-item.is-link {
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.cards-distribution-toplist-item.is-link:hover {
+    background: #e6ebfb;
+    border-color: #c7d4f5;
+}
+
+.cards-distribution-toplist-item.is-link:focus-visible {
+    outline: 2px solid #2f66e6;
+    outline-offset: 2px;
+}
+
 .cards-distribution-toplist-front {
     flex: 1 1 auto;
     min-width: 0;

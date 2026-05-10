@@ -271,16 +271,19 @@ function buildCardMarkup(card, options = {}) {
 
     const inNextSession = String(options.queueHighlight || '').trim().length > 0;
     const heroAsideHtml = buildPracticePriorityHeroAside(card, { inNextSession });
+    const deckRowExtraHtml = String(options.deckRowExtraHtml || '');
+    const showPreviewPill = options.showPreviewPill !== false;
     return `
         <div class="${classes.filter(Boolean).join(' ')}">
             ${prependControlsHtml}
             <div class="expanded-card-hero${heroAsideHtml ? ' has-aside' : ''}">
-                ${buildExpandedCardPreviewMarkup(card, { queueHighlight: options.queueHighlight, collapseCardId })}
+                ${showPreviewPill ? buildExpandedCardPreviewMarkup(card, { queueHighlight: options.queueHighlight, collapseCardId }) : ''}
                 <div class="expanded-card-main">
                     ${showPrimary ? `<div class="card-front">${renderMathHtml(primaryText)}</div>` : ''}
                     ${showSecondary ? `<div class="card-back${showPrimary ? '' : ' standalone'}${cardBackSizeClass}">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
                     <div class="card-deck-row">
                         <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
+                        ${deckRowExtraHtml}
                     </div>
                 </div>
                 ${heroAsideHtml}
@@ -306,48 +309,29 @@ function buildCardMarkup(card, options = {}) {
 }
 
 function buildType4RepresentativeCardMarkup(card) {
-    const sourceRaw = resolveCardSourceDeckName(card);
-    const sourceTitle = escapeHtml(sourceRaw);
-    const sourceDisplay = escapeHtml(
-        sourceRaw === getPersonalDeckDisplayName()
-            ? sourceRaw
-            : formatDeckPillName(sourceRaw)
-    );
-    const overallCorrectRateText = formatMetricPercent(getCardOverallCorrectRateValue(card));
-    const addedDateText = window.PracticeManageCommon.formatAddedDate(card && card.created_at);
-    const lastSeenText = window.PracticeManageCommon.formatLastSeenDays(card && card.last_seen_at);
-    const lifetimeAttempts = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
+    const cardIdAttr = escapeHtml(String(card && card.id ? card.id : ''));
     const isMultichoiceOnly = Boolean(card && card.type4_is_multichoice_only);
-
-    return `
-        <div class="card-item type4-summary-card">
-            <div class="card-front">${renderMathHtml(String(card && card.front ? card.front : ''))}</div>
-            <div class="card-deck-row">
-                <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
-            </div>
-            <div class="type4-summary-metrics">
-                <div>Overall correct rate: ${escapeHtml(overallCorrectRateText)}</div>
-                <div>Multi-choice only: ${isMultichoiceOnly ? 'Yes' : 'No'}</div>
-                <div>Added: ${escapeHtml(String(addedDateText || '-'))}</div>
-                <div>Lifetime attempts: ${escapeHtml(String(lifetimeAttempts))}</div>
-                <div>Last seen: ${escapeHtml(String(lastSeenText || 'Never'))}</div>
-            </div>
-            <div class="card-actions type4-summary-actions">
-                <button
-                    type="button"
-                    class="card-report-link type4-generator-trigger"
-                    data-action="open-type4-generator"
-                    data-card-id="${escapeHtml(String(card && card.id ? card.id : ''))}"
-                >Generator</button>
-                <button
-                    type="button"
-                    class="card-report-link"
-                    data-action="open-card-records"
-                    data-card-id="${escapeHtml(String(card && card.id ? card.id : ''))}"
-                >${icon('history', { size: 16 })}<span>History</span></button>
-            </div>
-        </div>
+    const multichoiceChipHtml = isMultichoiceOnly
+        ? '<span class="type4-multichoice-chip" title="This card is generated as multiple choice only">Multi-choice only</span>'
+        : '';
+    const generatorBtnHtml = `
+        <button
+            type="button"
+            class="card-report-link type4-generator-trigger"
+            data-action="open-type4-generator"
+            data-card-id="${cardIdAttr}"
+        >${icon('sparkles', { size: 16 })}<span>Generator</span></button>
     `;
+    return buildCardMarkup(card, {
+        cardClassNames: ['type4-card'],
+        primaryText: String(card && card.front ? card.front : ''),
+        showPrimary: true,
+        showSecondary: false,
+        showPreviewPill: false,
+        deckRowExtraHtml: multichoiceChipHtml,
+        extraSectionHtml: buildType4PriorityDetailSection(card),
+        trailingActionHtml: generatorBtnHtml,
+    });
 }
 
 function getCompactCardText(card) {

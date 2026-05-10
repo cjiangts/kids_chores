@@ -521,6 +521,7 @@ function renderSpeedDistribution(answers) {
         return;
     }
     speedDistributionSection.style.display = '';
+    const reportFromValue = getCardReportFromSession();
     const panel = buildHistogramDistribution({
         panelKey: speedDistributionPanelKey,
         selectedBucketIndex: selectedSpeedBucketIndex,
@@ -529,6 +530,8 @@ function renderSpeedDistribution(answers) {
         formatValue: formatSpeedLabel,
         getValue: (item) => Number(item?.response_time_ms) || null,
         getCardCapsuleLabel: (item) => getAnswerPrimaryLabel(item) || '—',
+        getCardId: (item) => Number(item?.card_id) || 0,
+        getCardHref: (cardId) => buildCardReportHref(cardId, reportFromValue),
         bucketing: {
             snapUnit: 1000,
             minClamp: 0,
