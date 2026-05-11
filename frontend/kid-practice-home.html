@@ -11,14 +11,101 @@
     <link rel="stylesheet" href="home-redesign-v4.css">
     <link rel="stylesheet" href="kid-badge-shelf-modal.css">
     <link rel="stylesheet" href="kid-badge-celebration.css">
+    <style>
+        .practice-home-redesign .page-header-with-back {
+            position: relative;
+        }
+        .kid-switch-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.35rem;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid rgba(125, 138, 184, 0.24);
+            box-shadow: 0 8px 24px rgba(31, 41, 80, 0.18);
+            z-index: 40;
+            min-width: 180px;
+            padding: 0.35rem 0;
+        }
+        .kid-switch-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            width: 100%;
+            padding: 0.55rem 0.85rem;
+            font-size: 0.95rem;
+            color: #1f2950;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .kid-switch-menu-name {
+            flex: 0 1 auto;
+            min-width: 0;
+            text-align: left;
+        }
+        .kid-switch-menu-avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 500;
+            font-size: 0.8rem;
+            flex: 0 0 auto;
+        }
+        .kid-switch-menu-avatar--tone-0 { background: linear-gradient(135deg, #8b5cf6, #6f55d8); }
+        .kid-switch-menu-avatar--tone-1 { background: linear-gradient(135deg, #4d84e3, #3b66c2); }
+        .kid-switch-menu-avatar--tone-2 { background: linear-gradient(135deg, #ec5fa1, #c83f86); }
+        .kid-switch-menu-avatar--tone-3 { background: linear-gradient(135deg, #34b89c, #1e8a73); }
+        .kid-switch-menu-avatar--tone-4 { background: linear-gradient(135deg, #f0a23a, #d27a18); }
+        .kid-switch-menu-avatar--tone-5 { background: linear-gradient(135deg, #ed6f5c, #c4493a); }
+        .kid-switch-menu-item:hover,
+        .kid-switch-menu-item:focus-visible {
+            background: #f3f5fb;
+            outline: none;
+        }
+        .kid-switch-menu-item.is-current {
+            color: #4f6bd9;
+            font-weight: 500;
+        }
+        .kid-switch-menu-check {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            flex: 0 0 auto;
+            margin-left: auto;
+            color: #4f6bd9;
+        }
+        .kid-switch-menu-check.is-empty {
+            visibility: hidden;
+        }
+        .kid-switch-menu-loading,
+        .kid-switch-menu-empty,
+        .kid-switch-menu-error {
+            padding: 0.55rem 0.85rem;
+            color: #6c7794;
+            font-size: 0.9rem;
+        }
+        .kid-switch-menu-error {
+            color: #c4493a;
+        }
+    </style>
 </head>
 <body class="practice-page practice-home-redesign">
     <div class="container">
-        <header class="page-header-with-back">
+        <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
                 <h1><span class="page-title-icon" aria-hidden="true">🧸</span> <span id="kidName" role="status" aria-label="Loading kid"><span class="app-spinner app-spinner--small app-spinner--light" aria-hidden="true"></span></span></h1>
-                <a id="kidBackBtn" href="/" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
+                <div class="page-header-actions">
+                    <a href="/admin.html" class="back-btn btn-secondary page-header-back-btn" aria-label="Home" title="Home"><span class="icon" data-icon="home" data-icon-size="18"></span> Home</a>
+                    <button id="switchKidBtn" type="button" class="back-btn btn-secondary page-header-back-btn hidden" aria-haspopup="menu" aria-expanded="false" aria-label="Switch kid" title="Switch kid"><span class="icon" data-icon="users" data-icon-size="18"></span> Switch <span class="icon" data-icon="chevron-down" data-icon-size="14"></span></button>
+                </div>
             </div>
+            <div id="switchKidMenu" class="kid-switch-menu hidden" role="menu" aria-labelledby="switchKidBtn"></div>
         </header>
 
         <div id="errorMessage" class="error redesign-error hidden"></div>

@@ -574,7 +574,7 @@ def create_app():
     @app.route('/')
     def index():
         if is_family_authenticated():
-            return send_from_directory(frontend_dir, 'family-home.html')
+            return send_from_directory(frontend_dir, 'admin.html')
         return send_from_directory(frontend_dir, 'index.html')
 
     @app.route('/<path:path>')

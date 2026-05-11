@@ -1528,7 +1528,6 @@ window.PracticeManageCommon = {
         '/admin',
         '/admin/',
         '/',
-        '/family-home.html',
         '/kid-practice-home.html',
         '/kid-practice.html',
     ]);

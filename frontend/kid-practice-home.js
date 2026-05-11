@@ -7,7 +7,8 @@ const requestedCategoryKey = window.DeckCategoryCommon.normalizeCategoryKey(
 );
 
 const kidNameEl = document.getElementById('kidName');
-const kidBackBtn = document.getElementById('kidBackBtn');
+const switchKidBtn = document.getElementById('switchKidBtn');
+const switchKidMenu = document.getElementById('switchKidMenu');
 const errorMessage = document.getElementById('errorMessage');
 const practiceSection = document.getElementById('practiceSection');
 const practiceSummaryStrip = document.getElementById('practiceSummaryStrip');
@@ -30,6 +31,21 @@ const {
 } = window.DeckCategoryCommon;
 const PRACTICE_NAV_CACHE_KEY = 'kid_practice_nav_cache_v1';
 const PRACTICE_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
+const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
+
+function persistLastViewedKidId(id) {
+    try {
+        if (!window.sessionStorage) return;
+        const normalized = String(id || '').trim();
+        if (!normalized) {
+            window.sessionStorage.removeItem(LAST_VIEWED_KID_STORAGE_KEY);
+            return;
+        }
+        window.sessionStorage.setItem(LAST_VIEWED_KID_STORAGE_KEY, normalized);
+    } catch (error) {
+        // best-effort
+    }
+}
 
 if (!buildCategoryStarsModel) {
     throw new Error('practice-star-badge-common.js is required for kid-practice-home');
@@ -127,6 +143,134 @@ function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpeci
     goType1Practice(categoryKey);
 }
 
+let switchKidList = null;
+let switchKidListLoading = false;
+const SWITCH_KID_AVATAR_TONE_COUNT = 6;
+
+function getKidInitial(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return '?';
+    const codePoint = trimmed.codePointAt(0);
+    return String.fromCodePoint(codePoint).toUpperCase();
+}
+
+function hashStringToIndex(value, modulo) {
+    const s = String(value || '');
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) {
+        hash = ((hash << 5) - hash) + s.charCodeAt(i);
+        hash |= 0;
+    }
+    const m = Math.max(1, modulo);
+    return ((hash % m) + m) % m;
+}
+
+function initSwitchKidMenu() {
+    if (!switchKidBtn || !switchKidMenu) return;
+    void loadKidsForSwitcher();
+    switchKidBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleSwitchKidMenu();
+    });
+    document.addEventListener('click', (event) => {
+        if (switchKidMenu.classList.contains('hidden')) return;
+        if (switchKidMenu.contains(event.target) || switchKidBtn.contains(event.target)) return;
+        closeSwitchKidMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !switchKidMenu.classList.contains('hidden')) {
+            closeSwitchKidMenu();
+            switchKidBtn.focus();
+        }
+    });
+}
+
+function toggleSwitchKidMenu() {
+    if (!switchKidMenu) return;
+    if (switchKidMenu.classList.contains('hidden')) {
+        openSwitchKidMenu();
+    } else {
+        closeSwitchKidMenu();
+    }
+}
+
+function openSwitchKidMenu() {
+    if (!switchKidMenu || !switchKidBtn) return;
+    switchKidMenu.classList.remove('hidden');
+    switchKidBtn.setAttribute('aria-expanded', 'true');
+    if (switchKidList) {
+        renderSwitchKidMenu(switchKidList);
+    } else {
+        switchKidMenu.innerHTML = '<div class="kid-switch-menu-loading">Loading…</div>';
+        void loadKidsForSwitcher();
+    }
+}
+
+function closeSwitchKidMenu() {
+    if (!switchKidMenu || !switchKidBtn) return;
+    switchKidMenu.classList.add('hidden');
+    switchKidBtn.setAttribute('aria-expanded', 'false');
+}
+
+function kidHasPracticeTarget(kid) {
+    const optedInKeys = getOptedInDeckCategoryKeys(kid);
+    if (!Array.isArray(optedInKeys) || optedInKeys.length === 0) return false;
+    const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
+    for (const key of optedInKeys) {
+        const target = Number.parseInt(targets?.[key], 10);
+        if (Number.isInteger(target) && target > 0) return true;
+    }
+    return false;
+}
+
+async function loadKidsForSwitcher() {
+    if (switchKidListLoading) return;
+    switchKidListLoading = true;
+    try {
+        const response = await fetch(`${API_BASE}/kids?view=admin`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const kids = await response.json();
+        const all = Array.isArray(kids) ? kids : [];
+        switchKidList = all.filter((kid) => kidHasPracticeTarget(kid) || String(kid?.id || '') === kidId);
+        if (switchKidBtn) {
+            switchKidBtn.classList.toggle('hidden', switchKidList.length <= 1);
+        }
+        if (!switchKidMenu.classList.contains('hidden')) {
+            renderSwitchKidMenu(switchKidList);
+        }
+    } catch (error) {
+        console.error('Error loading kids for switcher:', error);
+        if (!switchKidMenu.classList.contains('hidden')) {
+            switchKidMenu.innerHTML = '<div class="kid-switch-menu-error">Failed to load kids.</div>';
+        }
+    } finally {
+        switchKidListLoading = false;
+    }
+}
+
+function renderSwitchKidMenu(kids) {
+    if (!switchKidMenu) return;
+    const list = Array.isArray(kids) ? kids : [];
+    if (list.length === 0) {
+        switchKidMenu.innerHTML = '<div class="kid-switch-menu-empty">No other kids.</div>';
+        return;
+    }
+    const itemsHtml = list.map((kid) => {
+        const id = String(kid?.id || '');
+        const name = String(kid?.name || '').trim() || 'Unnamed';
+        const isCurrent = id === kidId;
+        const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
+        const currentClass = isCurrent ? ' is-current' : '';
+        const tone = hashStringToIndex(id || name, SWITCH_KID_AVATAR_TONE_COUNT);
+        const avatarHtml = `<span class="kid-switch-menu-avatar kid-switch-menu-avatar--tone-${tone}" aria-hidden="true">${escapeHtmlLocal(getKidInitial(name))}</span>`;
+        const checkSvg = (typeof window.icon === 'function') ? window.icon('check', { size: 14 }) : '';
+        const checkClass = isCurrent ? 'kid-switch-menu-check' : 'kid-switch-menu-check is-empty';
+        const checkHtml = `<span class="${checkClass}" aria-hidden="true">${checkSvg}</span>`;
+        return `<a class="kid-switch-menu-item${currentClass}" href="${escapeHtmlLocal(href)}" role="menuitem"${isCurrent ? ' aria-current="page"' : ''}>${avatarHtml}<span class="kid-switch-menu-name">${escapeHtmlLocal(name)}</span>${checkHtml}</a>`;
+    }).join('');
+    switchKidMenu.innerHTML = itemsHtml;
+}
+
 function cacheKidForPracticeNavigation() {
     try {
         if (!currentKid || !kidId) {
@@ -149,7 +293,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    kidBackBtn.href = '/';
+    persistLastViewedKidId(kidId);
+    initSwitchKidMenu();
     const cachedKid = readKidFromPracticeNavigationCache();
     if (cachedKid) {
         applyKidPayload(cachedKid);
@@ -195,7 +340,7 @@ function applyKidPayload(kid) {
         writingCardsLoadedCategoryKey = '';
     }
     activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
-    kidNameEl.textContent = `${currentKid.name}'s Practice`;
+    kidNameEl.textContent = currentKid.name;
     updatePageTitle();
 }
 

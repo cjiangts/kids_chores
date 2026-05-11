@@ -426,6 +426,59 @@ function buildEditStateFromKids(kids) {
 function renderAll() {
     renderActionGrid();
     renderMatrix();
+    updateStartPracticeHref();
+}
+
+function updateStartPracticeHref() {
+    const btn = document.getElementById('startPracticeBtn');
+    if (!btn) return;
+    const list = Array.isArray(currentKids) ? currentKids : [];
+    const targetKidId = pickKidWithPracticeTarget(list);
+    if (!targetKidId) {
+        btn.classList.add('is-disabled');
+        btn.setAttribute('aria-disabled', 'true');
+        btn.removeAttribute('href');
+        btn.title = list.length === 0
+            ? 'Add a kid first.'
+            : 'Opt in a subject and set cards-per-day above 0 to start practice.';
+        return;
+    }
+    btn.classList.remove('is-disabled');
+    btn.removeAttribute('aria-disabled');
+    btn.removeAttribute('title');
+    btn.href = `/kid-practice-home.html?id=${encodeURIComponent(targetKidId)}`;
+}
+
+function pickKidWithPracticeTarget(kids) {
+    const list = Array.isArray(kids) ? kids : [];
+    if (list.length === 0) return '';
+    const eligible = list.filter(kidHasPracticeTarget);
+    if (eligible.length === 0) return '';
+    const lastId = readLastViewedKidId();
+    if (lastId && eligible.some((kid) => String(kid?.id || '') === lastId)) {
+        return lastId;
+    }
+    return String(eligible[eligible.length - 1]?.id || '');
+}
+
+function kidHasPracticeTarget(kid) {
+    const effectiveKeys = getEffectiveOptedInKeys(kid);
+    if (effectiveKeys.length === 0) return false;
+    const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
+    for (const key of effectiveKeys) {
+        const target = Number.parseInt(targets?.[key], 10);
+        if (Number.isInteger(target) && target > 0) return true;
+    }
+    return false;
+}
+
+function getEffectiveOptedInKeys(kid) {
+    const kidId = String(kid?.id || '');
+    const stateForKid = editMode && editState ? editState[kidId] : null;
+    if (stateForKid) {
+        return Object.keys(stateForKid).filter((key) => !!stateForKid[key]);
+    }
+    return Array.from(getOptedInDeckCategorySet(kid));
 }
 
 function renderActionGrid() {
@@ -440,7 +493,7 @@ function renderActionGrid() {
         return sum + (Number.isInteger(count) && count > 0 ? count : 0);
     }, 0);
     const hasReviewAudio = totalReviewCount > 0;
-    const hasAnyOptIn = list.some((kid) => getOptedInDeckCategoryKeys(kid).length > 0);
+    const hasAnyOptIn = list.some((kid) => getEffectiveOptedInKeys(kid).length > 0);
     adminActionGrid.classList.remove('admin-action-grid--two');
     const actionsHtml = [
         buildActionCardHtml({
@@ -745,6 +798,8 @@ function toggleCellOptedIn(kidId, categoryKey) {
     editState[kidId][categoryKey] = !editState[kidId][categoryKey];
     scheduleKidSave(kidId);
     renderMatrix();
+    renderActionGrid();
+    updateStartPracticeHref();
 }
 
 function enterEditMode() {
@@ -771,6 +826,8 @@ async function exitEditMode() {
         editMode = false;
         editState = null;
         renderMatrix();
+        renderActionGrid();
+        updateStartPracticeHref();
     } finally {
         isExitingEditMode = false;
     }

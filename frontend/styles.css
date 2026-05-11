@@ -351,12 +351,6 @@ body {
     margin: 0 auto;
 }
 
-@media (min-width: 761px) {
-    .family-home-page .container {
-        max-width: 1000px;
-    }
-}
-
 @media (max-width: 540px) {
     .kid-nav-group {
         gap: 0.22rem;
@@ -1793,40 +1787,6 @@ header p {
 @media (max-width: 680px) {
     .kid-card .practice-config-row {
         gap: 8px;
-    }
-}
-
-@media (max-width: 760px) {
-    .family-home-page .kid-card {
-        padding: 18px 16px;
-    }
-
-    .family-home-page .kid-card .daily-stars {
-        gap: 4px;
-    }
-
-    .family-home-page .kid-card .daily-stars-row {
-        gap: 0.28rem;
-    }
-
-    .family-home-page .kid-card .daily-stars-label.practice-star-badge {
-        font-size: 0.94rem;
-        line-height: 1.12;
-    }
-
-    .family-home-page .kid-card .daily-stars-strip .progress-badge-icon {
-        --progress-star-size: 0.96rem;
-    }
-
-    .family-home-page .kid-card .daily-stars-strip .progress-badge-strip {
-        gap: 0.22rem;
-        align-items: center;
-    }
-
-    .family-home-page .kid-card .daily-stars-done-mark,
-    .family-home-page .kid-card .practice-done-mark {
-        margin-left: 0.14rem;
-        font-size: 0.86rem;
     }
 }
 

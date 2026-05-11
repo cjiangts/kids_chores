@@ -49,8 +49,8 @@ Categories and behavior types are defined in `shared_decks.duckdb` (`deck_catego
 
 | Page | File | Purpose |
 |------|------|---------|
-| Family home / kid selection | `family-home.html` | Entry point after login |
-| Kid practice home | `kid-practice-home.html/js` | All opted-in category buttons |
+| Parent admin (entry point) | `admin.html/js` | Subject opt-in matrix; jumps to kid practice |
+| Kid practice home | `kid-practice-home.html/js` | All opted-in category buttons; switch-kid dropdown |
 | Unified practice session | `kid-practice.html/js` | Handles type-I, II, III in one file |
 | Card & deck management | `kid-card-manage.html/js` | Shared manage UI for all behavior types |
 | Writing sheets | `kid-writing-sheets.html/js` | Print/track writing practice sheets |
