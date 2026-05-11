@@ -649,6 +649,7 @@ function buildCorrectnessRateYTicks(crMin, crMax) {
     const axisMax = Math.min(100, lo + Math.max(step, Math.ceil(span / step) * step));
     const ticks = [];
     for (let value = lo; value <= axisMax; value += step) ticks.push(value);
+    if (ticks[ticks.length - 1] < hi) ticks.push(hi);
     return ticks;
 }
 
