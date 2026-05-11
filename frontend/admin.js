@@ -7,7 +7,6 @@ const adminOptinPanel = document.getElementById('adminOptinPanel');
 const adminMatrix = document.getElementById('adminMatrix');
 const adminEmptyState = document.getElementById('adminEmptyState');
 const getEditToggleBtn = () => document.getElementById('editToggleBtn');
-const newKidBtn = document.getElementById('newKidBtn');
 const kidModal = document.getElementById('kidModal');
 const kidForm = document.getElementById('kidForm');
 const cancelBtn = document.getElementById('cancelBtn');
@@ -46,6 +45,7 @@ const savingKids = new Set();
 const KID_AUTOSAVE_DELAY_MS = 450;
 let openKidMenuKidId = '';
 let openSubjectMenuKey = '';
+let isPanelMenuOpen = false;
 let isSuperFamily = false;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -69,12 +69,14 @@ async function loadAuthStatus() {
 }
 
 function bindEvents() {
-    if (newKidBtn) {
-        newKidBtn.addEventListener('click', () => {
-            kidModal.classList.remove('hidden');
-            syncKidFormSaveBtn();
-        });
-    }
+    document.addEventListener('click', (event) => {
+        const trigger = event.target && event.target.closest
+            ? event.target.closest('[data-action="add-kid"]')
+            : null;
+        if (!trigger) return;
+        kidModal.classList.remove('hidden');
+        syncKidFormSaveBtn();
+    });
     if (cancelBtn) {
         cancelBtn.addEventListener('click', () => {
             kidModal.classList.add('hidden');
@@ -114,6 +116,12 @@ function bindEvents() {
             const subjectTrigger = event.target.closest('[data-subject-menu-trigger]');
             const inside = (subjectMenu && subjectMenu.contains(event.target)) || subjectTrigger;
             if (!inside) closeSubjectMenu();
+        }
+        if (isPanelMenuOpen) {
+            const panelMenu = document.querySelector('.admin-panel-menu');
+            const panelTrigger = event.target.closest('[data-panel-menu-trigger]');
+            const inside = (panelMenu && panelMenu.contains(event.target)) || panelTrigger;
+            if (!inside) closePanelMenu();
         }
     });
 }
@@ -639,10 +647,13 @@ function renderMatrix() {
     const editIconSvg = (typeof window.icon === 'function') ? window.icon(editIconName, { size: 14 }) : '';
     const editLabel = editMode ? 'Done' : 'Edit';
     const editBtnExtraClass = editMode ? ' admin-optin-edit-btn--done' : '';
-    const folderIconSvg = (typeof window.icon === 'function') ? window.icon('folder', { size: 14 }) : '';
-    const manageBtnHiddenClass = editMode ? ' admin-optin-edit-btn--space-keeper' : '';
-    const manageCategoriesBtnHtml = isSuperFamily
-        ? `<a href="/deck-category-create.html" class="btn-secondary admin-optin-edit-btn admin-optin-manage-btn${manageBtnHiddenClass}" ${editMode ? 'tabindex="-1" aria-hidden="true"' : ''}>${folderIconSvg}<span>Subjects</span></a>`
+    const addKidIconSvg = (typeof window.icon === 'function') ? window.icon('user-round-plus', { size: 14 }) : '';
+    const moreIconSvg = (typeof window.icon === 'function') ? window.icon('more-vertical', { size: 18 }) : '';
+    const secondaryBtnHiddenClass = editMode ? ' admin-optin-edit-btn--space-keeper' : '';
+    const secondaryBtnHiddenAttrs = editMode ? 'tabindex="-1" aria-hidden="true"' : '';
+    const addKidBtnHtml = `<button type="button" data-action="add-kid" class="btn-secondary admin-optin-edit-btn${secondaryBtnHiddenClass}" ${secondaryBtnHiddenAttrs}>${addKidIconSvg}<span>Add Kid</span></button>`;
+    const panelMenuBtnHtml = isSuperFamily
+        ? `<button type="button" data-panel-menu-trigger class="admin-panel-menu-btn${editMode ? ' is-hidden' : ''}" ${editMode ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="More options">${moreIconSvg}</button>`
         : '';
     const subText = editMode ? 'Tap to toggle · auto-saved' : 'Numbers = cards/day';
     const subClass = editMode ? 'admin-matrix-title-sub admin-matrix-title-sub--edit' : 'admin-matrix-title-sub';
@@ -651,15 +662,18 @@ function renderMatrix() {
             <tr>
                 <th class="admin-matrix-subject-head">
                     <div class="admin-matrix-title-block">
-                        <div class="admin-matrix-title-text">
-                            <span class="admin-matrix-title-main">Subject Settings</span>
-                            <span class="${subClass}">${subText}</span>
+                        <div class="admin-matrix-title-header">
+                            <div class="admin-matrix-title-text">
+                                <span class="admin-matrix-title-main">Subject Settings</span>
+                                <span class="${subClass}">${subText}</span>
+                            </div>
+                            ${panelMenuBtnHtml}
                         </div>
                         <div class="admin-matrix-title-actions">
                             <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
                                 ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
                             </button>
-                            ${manageCategoriesBtnHtml}
+                            ${addKidBtnHtml}
                         </div>
                     </div>
                 </th>
@@ -681,6 +695,9 @@ function renderMatrix() {
     }
     if (openSubjectMenuKey) {
         renderSubjectMenu(openSubjectMenuKey);
+    }
+    if (isPanelMenuOpen) {
+        renderPanelMenu();
     }
 }
 
@@ -790,6 +807,17 @@ function bindMatrixInteractions(rows, kids) {
             }
         });
     });
+    const panelTrigger = adminMatrix.querySelector('[data-panel-menu-trigger]');
+    if (panelTrigger) {
+        panelTrigger.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (isPanelMenuOpen) {
+                closePanelMenu();
+            } else {
+                openPanelMenu(event.currentTarget);
+            }
+        });
+    }
 }
 
 function toggleCellOptedIn(kidId, categoryKey) {
@@ -950,6 +978,46 @@ function renderKidMenu(kidId, anchorEl) {
         closeKidMenu();
         deleteKid(kidId, kid.name || '');
     });
+}
+
+function openPanelMenu(anchorEl) {
+    isPanelMenuOpen = true;
+    closePanelMenuDom();
+    if (!anchorEl) return;
+    renderPanelMenu(anchorEl);
+}
+
+function closePanelMenu() {
+    isPanelMenuOpen = false;
+    closePanelMenuDom();
+}
+
+function closePanelMenuDom() {
+    document.querySelectorAll('.admin-panel-menu').forEach((el) => el.remove());
+}
+
+function renderPanelMenu(anchorEl) {
+    closePanelMenuDom();
+    const trigger = anchorEl || document.querySelector('[data-panel-menu-trigger]');
+    if (!trigger) return;
+    const subjectIconSvg = (typeof window.icon === 'function') ? window.icon('layout-grid', { size: 16 }) : '';
+    const menu = document.createElement('div');
+    menu.className = 'admin-panel-menu admin-subject-menu';
+    menu.innerHTML = `
+        <a class="admin-subject-menu-item" href="/deck-category-create.html">
+            <span class="admin-subject-menu-item-icon" aria-hidden="true">${subjectIconSvg}</span>
+            <span>Manage Subject</span>
+        </a>
+    `;
+    document.body.appendChild(menu);
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 200;
+    let left = rect.right + window.scrollX - menuWidth;
+    const maxLeft = window.scrollX + document.documentElement.clientWidth - menuWidth - 8;
+    if (left > maxLeft) left = maxLeft;
+    if (left < 8) left = 8;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
 }
 
 function openSubjectMenu(categoryKey, anchorEl) {
