@@ -1485,6 +1485,9 @@ function applyDrillSpeedSettingsFromKid(kid) {
     if (drillSpeedSettingsGroup) {
         drillSpeedSettingsGroup.classList.toggle('hidden', !applicable);
     }
+    if (drillSpeedTargetInput) {
+        drillSpeedTargetInput.required = applicable;
+    }
     if (!applicable) {
         baselineDrillSpeedCutoffMs = DEFAULT_DRILL_SPEED_CUTOFF_MS;
         return;
