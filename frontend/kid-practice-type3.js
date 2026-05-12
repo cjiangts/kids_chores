@@ -1,3 +1,19 @@
+/*
+ * kid-practice-type3.js — Type-III lesson reading runtime
+ *
+ * Layout:
+ *   1. Ready check + session start
+ *   2. Card display + pause-UI sync
+ *   3. Recording start/stop + capture + visualizer
+ *   4. Recording preview + re-record + confirm-next
+ *   5. Pause / resume session
+ *   6. Source-tag formatting + session end
+ */
+
+// =====================================================================
+// === 1. Ready check + session start
+// =====================================================================
+
 async function loadType3ReadyState() {
     showError('');
     const response = await fetch(buildType3ApiUrl('decks'));
@@ -73,6 +89,10 @@ async function startType3Session() {
         showError(`Failed to start ${getCurrentCategoryDisplayName()} session`);
     }
 }
+// =====================================================================
+// === 2. Card display + pause-UI sync
+// =====================================================================
+
 function showCurrentType3Card() {
     if (state.sessionCards.length === 0 || !isType(BEHAVIOR_TYPE_III)) {
         return;
@@ -134,6 +154,10 @@ function syncSessionPauseLockUi() {
     continueBtn.disabled = shouldLock || state.isUploadingRecording;
     rerecordBtn.disabled = shouldLock || state.isUploadingRecording;
 }
+// =====================================================================
+// === 3. Recording start/stop + capture + visualizer
+// =====================================================================
+
 async function toggleRecord() {
     if (!isType(BEHAVIOR_TYPE_III)) {
         return;
@@ -338,6 +362,10 @@ function resetRecordingState() {
     state.mediaRecorder = null;
     updateFinishEarlyButtonState();
 }
+// =====================================================================
+// === 4. Recording preview + re-record + confirm-next
+// =====================================================================
+
 function clearPendingRecordingPreview() {
     state.pendingRecordedBlob = null;
     state.pendingRecordedMimeType = '';
@@ -419,6 +447,10 @@ async function confirmAndNext() {
         rerecordBtn.disabled = false;
     }
 }
+// =====================================================================
+// === 5. Pause / resume session
+// =====================================================================
+
 function mediaRecorderSupportsPauseResume() {
     return Boolean(
         state.mediaRecorder
@@ -509,6 +541,10 @@ function toggleSessionPause() {
     }
     void pauseSession();
 }
+// =====================================================================
+// === 6. Source-tag formatting + session end
+// =====================================================================
+
 function formatType3SourceTags(card) {
     if (!card || typeof card !== 'object') {
         return 'Source:';

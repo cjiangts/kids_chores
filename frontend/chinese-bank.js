@@ -1,3 +1,19 @@
+/*
+ * chinese-bank.js — Chinese character / vocabulary bank admin page
+ *
+ * Layout:
+ *   1. DOM refs + mode config + module state
+ *   2. Mode chrome + super-family visibility + util helpers
+ *   3. Load page + render stats + table
+ *   4. Pagination + save bar + field-change diff tracking
+ *   5. Save changes (bulk PATCH)
+ *   6. Sort updated-th + CSV import (populate + preview)
+ */
+
+// =====================================================================
+// === 1. DOM refs + mode config + module state
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const MODE = (() => {
@@ -61,6 +77,10 @@ let currentPageRows = [];
 let csvVisible = false;
 let isSuper = false;
 
+// =====================================================================
+// === 2. Mode chrome + super-family visibility + util helpers
+// =====================================================================
+
 function applyModeChrome() {
     document.body.classList.add(`bank-mode-${MODE}`);
     keyColumnHeader.textContent = cfg.keyHeader;
@@ -114,6 +134,10 @@ function formatDate(dateStr) {
     if (days === 0) return 'today';
     return `${days}d ago`;
 }
+
+// =====================================================================
+// === 3. Load page + render stats + table
+// =====================================================================
 
 async function loadPage() {
     showError('');
@@ -193,6 +217,10 @@ function renderTable(rows) {
     }).join('');
 }
 
+// =====================================================================
+// === 4. Pagination + save bar + field-change diff tracking
+// =====================================================================
+
 function renderPagination() {
     const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
     const unit = totalCount === 1 ? cfg.unitSingular : cfg.unitPlural;
@@ -241,6 +269,10 @@ function handleFieldChange(tr, field, value) {
     }
     updateSaveBar();
 }
+
+// =====================================================================
+// === 5. Save changes (bulk PATCH)
+// =====================================================================
 
 async function saveChanges() {
     if (pendingEdits.size === 0) return;
@@ -335,6 +367,10 @@ nextPageBtn.addEventListener('click', () => {
 });
 
 saveChangesBtn.addEventListener('click', saveChanges);
+
+// =====================================================================
+// === 6. Sort updated-th + CSV import (populate + preview)
+// =====================================================================
 
 function renderSortUpdatedTh() {
     const arrow = sortUpdated === 'asc' ? '▲' : sortUpdated === 'desc' ? '▼' : '▲▼';

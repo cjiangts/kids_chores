@@ -1,4 +1,21 @@
-// Bootstrap, constants, DOM lookups, page-level state, generic helpers, modal helpers, kid nav, page title, category UI text.
+/*
+ * kid-card-manage-core.js — bootstrap + shared state for kid-card-manage
+ *
+ * Layout:
+ *   1. Module constants + DOM lookups + page state
+ *   2. Card view-mode + Chinese back + sort-mode helpers
+ *   3. Toast / status / message helpers
+ *   4. Modal helpers (open/close/lock body scroll)
+ *   5. URL builders + behavior-type checks
+ *   6. Personal deck editor preview + mode toggle
+ *   7. Per-category accessors + payload builders (session count, drill, orphan)
+ *   8. Kid nav + page title + category UI text
+ */
+
+// =====================================================================
+// === 1. Module constants + DOM lookups + page state
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
@@ -157,6 +174,10 @@ let currentPracticePrioritySubjectBaseline = {
 };
 const CARDS_VIEW_MODE_STORAGE_KEY = 'kidCardManage_cardsViewMode';
 const CARDS_VIEW_MODES = new Set(['queue', 'stats', 'report']);
+// =====================================================================
+// === 2. Card view-mode + Chinese back + sort-mode helpers
+// =====================================================================
+
 function normalizeCardsViewMode(value) {
     return CARDS_VIEW_MODES.has(value) ? value : 'queue';
 }
@@ -299,6 +320,10 @@ function withCategoryValue(rawMap, value) {
     return map;
 }
 
+// =====================================================================
+// === 3. Toast / status / message helpers
+// =====================================================================
+
 function showError(message) {
     const text = String(message || '').trim();
     if (!text) {
@@ -376,6 +401,10 @@ function showCardsBulkActionMessage(message, isError = false) {
     cardsBulkActionMessage.classList.toggle('success', !isError);
 }
 
+// =====================================================================
+// === 4. Modal helpers (open/close/lock body scroll)
+// =====================================================================
+
 function isModalOpen(modalEl) {
     return Boolean(modalEl) && !modalEl.classList.contains('hidden');
 }
@@ -404,6 +433,10 @@ function setManageModalOpen(modalEl, shouldOpen) {
 
 function handleModalBackdropClick() {
 }
+
+// =====================================================================
+// === 5. URL builders + behavior-type checks
+// =====================================================================
 
 function withCategoryKey(url) {
     if (categoryKey) {
@@ -469,6 +502,10 @@ function supportsPersonalDeckEditor() {
     return isChineseSpecificLogic && currentBehaviorType === BEHAVIOR_TYPE_TYPE_I;
 }
 
+// =====================================================================
+// === 6. Personal deck editor preview + mode toggle
+// =====================================================================
+
 function renderPersonalDeckPreviewTable(rows, options = {}) {
     if (!personalDeckPreviewTableBody) return;
     const frontLabel = String(options.frontLabel || 'Prompt');
@@ -521,6 +558,10 @@ function setPersonalDeckMode(mode) {
         showStatusMessage('');
     }
 }
+
+// =====================================================================
+// === 7. Per-category accessors + payload builders (session count, drill, orphan)
+// =====================================================================
 
 function getSessionCountFromKid(kid) {
     sessionCardCountByCategory = toCategoryMap(kid[SESSION_CARD_COUNT_BY_CATEGORY_FIELD]);
@@ -592,6 +633,10 @@ function applyIncludeOrphanFromPayload(payload) {
 function getCurrentCategoryDisplayName() {
     return String(currentCategoryDisplayName || '').trim();
 }
+
+// =====================================================================
+// === 8. Kid nav + page title + category UI text
+// =====================================================================
 
 async function loadKidsAndApplyKidInfo() {
     const response = await fetch(`${API_BASE}/kids`);

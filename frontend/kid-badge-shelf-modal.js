@@ -1,4 +1,21 @@
+/*
+ * kid-badge-shelf-modal.js — badge shelf modal (window.KidBadgeShelfModal)
+ *
+ * Layout (all inside IIFE):
+ *   1. Module state + IIFE entry
+ *   2. Display helpers (escape, palette, dates, image URL, badge art)
+ *   3. Modal DOM build + tab switching
+ *   4. Card + detail panel HTML builders
+ *   5. Render panel + payload + loading + error
+ *   6. Fetch payload + summary
+ *   7. Modal open / close / getSummary public API
+ */
+
 (function initKidBadgeShelfModal(global) {
+    // =================================================================
+    // === 1. Module state + IIFE entry
+    // =================================================================
+
     const state = {
         apiBase: `${window.location.origin}/api`,
         modalEl: null,
@@ -22,6 +39,10 @@
     };
     const payloadCache = new Map();
     const summaryCache = new Map();
+    // =================================================================
+    // === 2. Display helpers (escape, palette, dates, image URL, badge art)
+    // =================================================================
+
     function escapeHtml(value) {
         return String(value || '')
             .replace(/&/g, '&amp;')
@@ -96,6 +117,10 @@
         }
         return `<span class="badge-theme-${escapeHtml(themeKey)}">🏅</span>`;
     }
+
+    // =================================================================
+    // === 3. Modal DOM build + tab switching
+    // =================================================================
 
     function ensureModalDom() {
         if (state.modalEl) {
@@ -203,6 +228,10 @@
         }
         return Array.isArray(state.payload.earned) ? state.payload.earned : [];
     }
+
+    // =================================================================
+    // === 4. Card + detail panel HTML builders
+    // =================================================================
 
     function buildDetailPanelShellHtml() {
         return `
@@ -335,6 +364,10 @@
         }
     }
 
+    // =================================================================
+    // === 5. Render panel + payload + loading + error
+    // =================================================================
+
     function renderPanel(tabName) {
         const panelEl = tabName === 'coming' ? state.panelComingEl : state.panelEarnedEl;
         if (!panelEl) {
@@ -437,6 +470,10 @@
         };
     }
 
+    // =================================================================
+    // === 6. Fetch payload + summary
+    // =================================================================
+
     async function fetchKidBadgePayload({ kidId, apiBase, forceRefresh = false }) {
         const normalizedKidId = String(kidId || '').trim();
         if (!normalizedKidId) {
@@ -483,6 +520,10 @@
         summaryCache.set(cacheKey, summary);
         return summary;
     }
+
+    // =================================================================
+    // === 7. Modal open / close / getSummary public API
+    // =================================================================
 
     function openModal() {
         ensureModalDom();
