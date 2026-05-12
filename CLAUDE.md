@@ -13,17 +13,17 @@ Scan/         (not source)
 
 ## Backend — where the routes live
 
-`from src.routes.kids import kids_bp` exposes 84 routes. The kids blueprint is a **package**, not a single file. To add or edit a route, find the matching prefix module — **every route file opens with a docstring TOC and `# === N. ` section banners**, so once you're in the right file you can jump straight to the cluster:
+`from src.routes.kids import kids_bp` exposes 86 routes. The kids blueprint is a **package**, not a single file. To add or edit a route, find the matching prefix module — **every route file opens with a docstring TOC and `# === N. ` section banners**, so once you're in the right file you can jump straight to the cluster:
 
 | URL prefix | File | Routes |
 |---|---|---|
 | `/shared-decks/...` | [routes/kids/shared_decks.py](backend/src/routes/kids/shared_decks.py) | 23 |
 | `/kids` (CRUD) + `/kids/<id>/report/*` + `/kids/<id>/deck-categories` | [routes/kids/kids_core.py](backend/src/routes/kids/kids_core.py) | 13 |
-| `/kids/<id>/cards*` + `/kids/<id>/<scope>/shared-decks/*` + `/kids/<id>/<scope>/decks` + `/kids/<id>/type4/shared-decks/*` | [routes/kids/kid_decks.py](backend/src/routes/kids/kid_decks.py) | 13 |
+| `/kids/<id>/cards*` + `/kids/<id>/<scope>/shared-decks/*` + `/kids/<id>/<scope>/decks` + `/kids/<id>/type4/shared-decks/*` | [routes/kids/kid_decks.py](backend/src/routes/kids/kid_decks.py) | 14 |
 | `/kids/<id>/type2/cards*` + `/type2/audio/*` + `/cards/audio/*` + `/type2/chinese-print-sheets*` | [routes/kids/type2.py](backend/src/routes/kids/type2.py) | 12 |
 | `/kids/<id>/type4/print-config` + `/type4/math-sheets*` | [routes/kids/type4.py](backend/src/routes/kids/type4.py) | 8 |
 | `/kids/<id>/<scope>/practice/start` + `/<scope>/practice/complete` + `/lesson-reading/practice/upload-audio` | [routes/kids/practice.py](backend/src/routes/kids/practice.py) | 9 |
-| `/kids/<id>/lesson-reading/audio/*` | [routes/kids/lesson_reading.py](backend/src/routes/kids/lesson_reading.py) | 2 |
+| `/kids/<id>/lesson-reading/audio/*` + `/kids/<id>/lesson-reading/recordings/download-zip` | [routes/kids/lesson_reading.py](backend/src/routes/kids/lesson_reading.py) | 3 |
 | `/chinese-bank*` | [routes/kids/chinese_bank.py](backend/src/routes/kids/chinese_bank.py) | 4 |
 
 Other blueprints:
