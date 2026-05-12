@@ -1,4 +1,15 @@
 // Type-IV generator: Ace code viewer setup, modal rendering, sample preview, run-example API call.
+//
+// Layout:
+//   1. Type-IV deck/count readers + message banners
+//   2. Generator card lookup + Ace code-viewer setup
+//   3. Sample renderer + modal renderer + preview request
+//   4. Modal opener + run-example action + opt-in help text
+
+// =====================================================================
+// === 1. Type-IV deck/count readers + message banners
+// =====================================================================
+
 function getPersistedOptedInType4Decks() {
     return (Array.isArray(allDecks) ? allDecks : []).filter((deck) => Boolean(deck && deck.opted_in));
 }
@@ -65,6 +76,10 @@ function showType4GeneratorMessage(message, isError = false) {
     type4GeneratorMessage.classList.toggle('success', !isError);
 }
 
+// =====================================================================
+// === 2. Generator card lookup + Ace code-viewer setup
+// =====================================================================
+
 function getCurrentType4GeneratorCard() {
     if (!activeType4GeneratorCardId) {
         return null;
@@ -119,6 +134,10 @@ function setType4GeneratorCodeContent(codeText) {
         type4GeneratorAceViewer.gotoLine(1, 0, false);
     }
 }
+
+// =====================================================================
+// === 3. Sample renderer + modal renderer + preview request
+// =====================================================================
 
 function renderType4GeneratorSamples(samples = [], message = '') {
     if (!type4GeneratorSamples) {
@@ -185,6 +204,10 @@ async function requestType4GeneratorPreview(card) {
     }
     return result;
 }
+
+// =====================================================================
+// === 4. Modal opener + run-example action + opt-in help text
+// =====================================================================
 
 function openType4GeneratorModal(card) {
     if (!card) {

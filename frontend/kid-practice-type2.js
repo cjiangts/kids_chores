@@ -1,3 +1,15 @@
+// Type-II practice runtime (writing prompts with audio playback).
+//
+// Layout:
+//   1. Session start: ready-state load + start
+//   2. Per-card UI: show prompt / reveal answer / answer + advance
+//   3. Audio: replay current / play for card / autoplay priming / prefetch next
+//   4. Session end
+
+// =====================================================================
+// === 1. Session start: ready-state load + start
+// =====================================================================
+
 async function loadType2ReadyState() {
     showError('');
     const response = await fetch(buildType2ApiUrl('/cards'));
@@ -65,6 +77,10 @@ async function startType2Session() {
         showError('Failed to start type-II practice session');
     }
 }
+// =====================================================================
+// === 2. Per-card UI: show prompt / reveal answer / answer + advance
+// =====================================================================
+
 function showCurrentPrompt() {
     if (state.sessionCards.length === 0 || !isType(BEHAVIOR_TYPE_II)) {
         return;
@@ -133,6 +149,10 @@ function answerType2Card(correct) {
     state.currentIndex += 1;
     showCurrentPrompt();
 }
+// =====================================================================
+// === 3. Audio: replay current / play for card / autoplay priming / prefetch next
+// =====================================================================
+
 async function replayCurrentPrompt() {
     const supportsType1Prompt = canUseType1PromptAudio();
     if (!isType(BEHAVIOR_TYPE_II) && !supportsType1Prompt) {
@@ -200,6 +220,10 @@ function prefetchNextPrompt() {
     const nextCard = state.sessionCards[nextIndex];
     promptPlayer.prefetchCard(nextCard);
 }
+// =====================================================================
+// === 4. Session end
+// =====================================================================
+
 async function endType2Session(endedEarly = false) {
     stopAudioPlayback();
 

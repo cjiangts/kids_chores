@@ -1,3 +1,15 @@
+// Type-IV practice runtime (generator-produced math problems).
+//
+// Layout:
+//   1. Session start: ready-state + start
+//   2. Multiple-choice options (compute + render + answer)
+//   3. Per-item rendering + typed-answer flow
+//   4. Session end
+
+// =====================================================================
+// === 1. Session start: ready-state + start
+// =====================================================================
+
 async function loadType4ReadyState() {
     showError('');
     const response = await fetch(buildType4ApiUrl('decks'));
@@ -86,6 +98,10 @@ async function startType4Session() {
         showError(`Failed to start ${getCurrentCategoryDisplayName()} session`);
     }
 }
+// =====================================================================
+// === 2. Multiple-choice options (compute + render + answer)
+// =====================================================================
+
 function answerType4IDontKnow() {
     if (!isType(BEHAVIOR_TYPE_IV) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
@@ -125,6 +141,10 @@ function renderType4MultipleChoiceOptions() {
     const idkHtml = `<button type="button" class="control-btn multi-choice-btn multi-choice-idk-btn" data-multi-choice-idk="1">I don't know</button>`;
     multiChoiceGrid.innerHTML = optionsHtml + idkHtml;
 }
+
+// =====================================================================
+// === 3. Per-item rendering + typed-answer flow
+// =====================================================================
 
 function showCurrentType4Item() {
     if (state.sessionCards.length === 0 || !isType(BEHAVIOR_TYPE_IV)) {
@@ -248,6 +268,10 @@ function submitType4TypedAnswer() {
     }
     answerType4Item(type4AnswerInput.value);
 }
+// =====================================================================
+// === 4. Session end
+// =====================================================================
+
 async function endType4Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');

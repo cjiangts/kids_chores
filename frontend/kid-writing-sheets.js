@@ -1,3 +1,15 @@
+// Kid writing-sheets page (list of saved Chinese print sheets for one kid).
+//
+// Layout:
+//   1. Module-scope state + DOM handles + DOMContentLoaded wiring
+//   2. URL builder + kid + sheets loaders
+//   3. Sheets renderer + per-sheet actions (mark-done, delete, print)
+//   4. UI helpers (error, date/duration formatters)
+
+// =====================================================================
+// === 1. Module-scope state + DOM handles + DOMContentLoaded wiring
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
@@ -25,6 +37,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     backBtn.href = `/kid-writing-sheet-manage.html?${backParams.toString()}`;
     await loadSheets();
 });
+
+// =====================================================================
+// === 2. URL builder + kid + sheets loaders
+// =====================================================================
 
 function buildType2ApiUrl(path) {
     return window.DeckCategoryCommon.buildType2ApiUrl({
@@ -72,6 +88,10 @@ async function loadSheets() {
         showError('Failed to load sheets');
     }
 }
+
+// =====================================================================
+// === 3. Sheets renderer + per-sheet actions (mark-done, delete, print)
+// =====================================================================
 
 function renderSheets(sheets) {
     if (sheets.length === 0) {
@@ -163,6 +183,10 @@ function printSheet(sheetId) {
     const url = `/writing-sheet-print.html?${qs.toString()}`;
     window.open(url, '_blank');
 }
+
+// =====================================================================
+// === 4. UI helpers (error, date/duration formatters)
+// =====================================================================
 
 function showError(message) {
     if (message) {

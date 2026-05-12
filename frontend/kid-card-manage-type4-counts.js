@@ -1,4 +1,16 @@
 // Type-IV daily-count modal: per-deck input rows, totals, save action, and supporting deck-target controls.
+//
+// Layout:
+//   1. Card-order + representative-cards UI sync (outside the modal)
+//   2. Deck target controls + draft-value normalizer
+//   3. Modal state (baseline + dirty tracking + save-button + total + apply-all)
+//   4. Modal renderer
+//   5. Save flow: collect payload + save action + persist-targets API call
+
+// =====================================================================
+// === 1. Card-order + representative-cards UI sync (outside the modal)
+// =====================================================================
+
 function syncType4CardOrderOptions() {
     if (!viewOrderSelect) {
         return;
@@ -51,6 +63,10 @@ function syncType4RepresentativeCardsUi() {
     updateCardsQueueLegendVisibility(0);
 }
 
+// =====================================================================
+// === 2. Deck target controls + draft-value normalizer
+// =====================================================================
+
 function renderType4DeckTargetControls() {
     if (!type4DailyTargetTotalText && !openType4DeckCountsModalBtn) {
         return;
@@ -83,6 +99,10 @@ function getType4DeckCountDraftValue(rawValue) {
     }
     return Math.min(1000, parsed);
 }
+
+// =====================================================================
+// === 3. Modal state (baseline + dirty tracking + save-button + total + apply-all)
+// =====================================================================
 
 let type4DeckCountsBaseline = {};
 
@@ -140,6 +160,10 @@ function applyType4DeckCountToAllRows(rawValue) {
     updateType4DeckCountsSaveBtn();
 }
 
+// =====================================================================
+// === 4. Modal renderer
+// =====================================================================
+
 function renderType4DeckCountsModal() {
     if (!type4DeckCountsList) {
         return;
@@ -195,6 +219,10 @@ function renderType4DeckCountsModal() {
     updateType4DeckCountsModalTotal();
     snapshotType4DeckCountsBaseline();
 }
+
+// =====================================================================
+// === 5. Save flow: collect payload + save action + persist-targets API call
+// =====================================================================
 
 function collectType4DeckCountsPayload() {
     if (!type4DeckCountsList) {

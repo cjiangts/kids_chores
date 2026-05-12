@@ -1,4 +1,13 @@
-/* ── Chinese writing mode (existing) ── */
+// Chinese + math writing-sheet list loaders, renderers, and per-sheet actions.
+//
+// Layout:
+//   1. Chinese writing mode: suggested-cards loader + chinese-sheets list + render
+//   2. Math mode: print-config + build-info + math-sheets list + render
+//   3. Sheet actions (shared): navigate to preview/print, mark-done, delete, reload
+
+// =====================================================================
+// === 1. Chinese writing mode: suggested cards + Chinese sheets list
+// =====================================================================
 
 async function loadSuggestedCards() {
     showError('');
@@ -9,8 +18,6 @@ async function loadSuggestedCards() {
     state2Cards = Array.isArray(data.practicing_cards) ? data.practicing_cards : [];
     updateBuildChineseSheetButton();
 }
-
-/* ── Chinese sheets list ── */
 
 async function loadChineseSheets() {
     if (!sheetList) return;
@@ -58,7 +65,9 @@ function renderChineseSheets(sheets) {
     }).join('');
 }
 
-/* ── Math mode ── */
+// =====================================================================
+// === 2. Math mode: print-config + build-info + math-sheets list + render
+// =====================================================================
 
 async function loadMathPrintConfig() {
     const response = await fetch(buildType4ApiUrl('/print-config'));
@@ -209,7 +218,9 @@ function renderMathSheets(sheets) {
     }).join('');
 }
 
-/* ── Sheet actions (shared) ── */
+// =====================================================================
+// === 3. Sheet actions (shared): navigate to preview/print, mark-done, delete, reload
+// =====================================================================
 
 function goToMathSheetPreview(sheetId) {
     const qs = new URLSearchParams();

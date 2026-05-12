@@ -2,13 +2,26 @@
 
 Pure DB helpers and a pure row mapper — no module-level state, all DB access
 goes through an open kid `conn` arg.
+
+Layout:
+  1. Single-card delete
+  2. Cards-with-stats readers (deck-scoped + card-id-scoped) + practiced-card ids
+  3. Row-to-API mapper (with practice-priority preview merged in)
 """
 
+
+# =====================================================================
+# === 1. Single-card delete
+# =====================================================================
 
 def delete_card_from_deck_internal(conn, card_id):
     """Delete one card from a deck."""
     conn.execute("DELETE FROM cards WHERE id = ?", [card_id])
 
+
+# =====================================================================
+# === 2. Cards-with-stats readers (deck-scoped + card-id-scoped) + practiced-card ids
+# =====================================================================
 
 def get_cards_with_stats_for_deck_ids(conn, deck_ids):
     """Return cards with hardness / attempt / last-seen stats for many decks."""
@@ -167,6 +180,10 @@ def get_card_ids_practiced_for_category(conn, category_key):
     ).fetchall()
     return [int(r[0]) for r in rows if r and r[0] is not None]
 
+
+# =====================================================================
+# === 3. Row-to-API mapper (with practice-priority preview merged in)
+# =====================================================================
 
 def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
     """Map raw card+stats row to API object."""

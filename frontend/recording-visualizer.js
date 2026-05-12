@@ -1,3 +1,12 @@
+// Live mic-input waveform visualizer for recording UIs.
+//
+// Drives a canvas inside a card via Web Audio AnalyserNode. One IIFE that
+// exposes `window.RecordingVisualizer`. The class methods (in order):
+//   constructor / start / stop / handleResize     — lifecycle
+//   _draw                                          — per-frame waveform render
+//   _fitCanvas / _getCanvas / _getStatusElement   — DOM/canvas helpers
+//   _isActive                                      — runtime-active guard
+
 (function initRecordingVisualizer() {
     class RecordingVisualizer {
         constructor(options = {}) {

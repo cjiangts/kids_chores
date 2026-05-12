@@ -1,4 +1,19 @@
+// Deck-category common helpers (shared across kid + admin pages).
+//
+// Layout:
+//   1. String/key/tag normalizers (escape, normalize key, parse/format deck tag)
+//   2. Kid opt-in + category map readers (raw/value maps + meta map)
+//   3. Display name + subject icon
+//   4. Per-behavior key getters + preferred-key resolvers (type I/II/III/IV)
+//   5. Behavior-type labels + category descriptors (title, description, visibility)
+//   6. First-tag category picker (loader + renderer)
+//   7. Kid-scoped API URL builders (generic + type-2 specific)
+
 (function initDeckCategoryCommon() {
+    // =====================================================================
+    // === 1. String/key/tag normalizers
+    // =====================================================================
+
     function escapeHtmlLocal(text) {
         return String(text || '')
             .replace(/&/g, '&amp;')
@@ -39,6 +54,10 @@
         const parsed = parseDeckTagInput(`${String(tag || '').trim()}${comment ? `(${String(comment || '').trim()})` : ''}`);
         return parsed.label;
     }
+
+    // =====================================================================
+    // === 2. Kid opt-in + category map readers
+    // =====================================================================
 
     function getCategoryRawValueMap(source) {
         const output = {};
@@ -108,6 +127,10 @@
         return output;
     }
 
+    // =====================================================================
+    // === 3. Display name + subject icon
+    // =====================================================================
+
     function getCategoryDisplayName(categoryKey, categoryMetaMap = {}) {
         const key = normalizeCategoryKey(categoryKey);
         const fromMeta = String(categoryMetaMap?.[key]?.display_name || '').trim();
@@ -137,6 +160,10 @@
             : '';
         return '<div class="subject-icon subject-blue"' + styleAttr + '>' + innerSvg + '</div>';
     }
+
+    // =====================================================================
+    // === 4. Per-behavior key getters + preferred-key resolvers
+    // =====================================================================
 
     function getCategoryKeysByPredicate(kid, predicate) {
         const optedInKeys = getOptedInDeckCategoryKeys(kid);
@@ -208,6 +235,10 @@
         getTypeIVCategoryKeys(kid),
         preferredKey,
     );
+
+    // =====================================================================
+    // === 5. Behavior-type labels + category descriptors
+    // =====================================================================
 
     function normalizeBehaviorType(type) {
         const text = String(type || '').trim().toLowerCase();
@@ -281,6 +312,10 @@
         parts.push(`${count} deck${count === 1 ? '' : 's'}`);
         return parts.join(' · ');
     }
+
+    // =====================================================================
+    // === 6. First-tag category picker (loader + renderer)
+    // =====================================================================
 
     async function loadDeckCategoriesForFirstTagPicker(config = {}) {
         const base = String(config.apiBase || `${window.location.origin}/api`).replace(/\/+$/, '');
@@ -362,6 +397,10 @@
             `;
         }).join('');
     }
+
+    // =====================================================================
+    // === 7. Kid-scoped API URL builders
+    // =====================================================================
 
     function buildKidScopedApiUrl({
         kidId,
