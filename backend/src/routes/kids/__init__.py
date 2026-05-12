@@ -148,6 +148,7 @@ from src.services.writing_audio import (
     build_writing_front_tts_text,
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
+    cleanup_uncommitted_type3_audio,
     ensure_shared_writing_audio_dir,
     ensure_type3_audio_dir,
     format_type2_bulk_card_text,
@@ -1781,17 +1782,6 @@ def split_type2_bulk_rows(raw_text, has_chinese_specific_logic):
                 seen_front.add(tok)
                 rows.append((tok, tok))
     return rows
-
-
-def _cleanup_uncommitted_type3_audio(written_paths, pending_payload):
-    """Cleanup audio files created/queued for an uncommitted type-III session."""
-    for file_path in list(written_paths or []):
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        except Exception:
-            pass
-    cleanup_type3_pending_audio_files_by_payload(pending_payload)
 
 
 def build_type_i_shared_decks_payload(

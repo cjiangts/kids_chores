@@ -12,10 +12,10 @@ from src.routes.kids_constants import (
 )
 from src.routes.kids import (
     DRILL_SESSION_CARD_POOL_SIZE,
-    _cleanup_uncommitted_type3_audio,
     build_type_i_chinese_prompt_audio_payload,
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
+    cleanup_uncommitted_type3_audio,
     datetime,
     defaultdict,
     encode_retry_recovered_session_result,
@@ -1632,7 +1632,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
         conn.execute("ROLLBACK")
         conn.close()
         if uses_type_iii_audio:
-            _cleanup_uncommitted_type3_audio(written_type3_audio_paths, pending)
+            cleanup_uncommitted_type3_audio(written_type3_audio_paths, pending)
         raise
 
     conn.close()

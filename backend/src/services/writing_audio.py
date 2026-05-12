@@ -289,3 +289,14 @@ def cleanup_type3_pending_audio_files_by_payload(pending_payload):
                 os.remove(audio_path)
             except Exception:
                 pass
+
+
+def cleanup_uncommitted_type3_audio(written_paths, pending_payload):
+    """Cleanup audio files created/queued for an uncommitted type-III session."""
+    for file_path in list(written_paths or []):
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass
+    cleanup_type3_pending_audio_files_by_payload(pending_payload)
