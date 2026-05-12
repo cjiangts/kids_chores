@@ -13,7 +13,7 @@ Scan/         (not source)
 
 ## Backend — where the routes live
 
-`from src.routes.kids import kids_bp` exposes 84 routes. The kids blueprint is a **package**, not a single file. To add or edit a route, find the matching prefix module:
+`from src.routes.kids import kids_bp` exposes 84 routes. The kids blueprint is a **package**, not a single file. To add or edit a route, find the matching prefix module — **every route file opens with a docstring TOC and `# === N. ` section banners**, so once you're in the right file you can jump straight to the cluster:
 
 | URL prefix | File | Routes |
 |---|---|---|

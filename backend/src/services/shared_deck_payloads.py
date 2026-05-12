@@ -11,6 +11,16 @@ Helpers that:
 
 Pure functions: take an open `conn` (or none) plus a kid dict, return
 plain Python data structures. No module state.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Deck/source summary helpers — orphan deck row + merged source rollup
+    2. Type-I shared-deck listing — per-deck payload + Chinese-aware back-dedupe
+    3. Type-IV shared-deck listing — per-deck representative + generator detail
+    4. Shared-card payloads — merged type-I + type-IV card listings
+    5. Type-IV practice readiness — source rows + special-session readiness
+    6. Generic shared-decks listing — type-II / type-III via parametrized
+       per-category shared-deck + materialized-deck callbacks
 """
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.services.card_stats import (
@@ -60,6 +70,9 @@ from src.services.type4_session import (
 )
 
 
+# =====================================================================
+# === 1. Deck/source summary helpers
+# =====================================================================
 def build_orphan_deck_payload(conn, orphan_deck_id, default_orphan_name):
     """Build one orphan deck summary payload."""
     orphan_row = conn.execute(
@@ -103,6 +116,9 @@ def build_merged_source_decks_payload(sources, configured_count, include_orphan_
     }
 
 
+# =====================================================================
+# === 2. Type-I shared-deck listing
+# =====================================================================
 def build_type_i_shared_decks_payload(
     kid,
     category_key,
@@ -271,6 +287,9 @@ def build_type_i_shared_decks_payload(
     return payload
 
 
+# =====================================================================
+# === 3. Type-IV shared-deck listing
+# =====================================================================
 def build_type_iv_shared_decks_payload(
     kid,
     category_key,
@@ -446,6 +465,9 @@ def build_type_iv_shared_decks_payload(
     return payload
 
 
+# =====================================================================
+# === 4. Shared-card payloads (type-I + type-IV merged listings)
+# =====================================================================
 def build_type_i_shared_cards_payload(
     kid,
     category_key,
@@ -682,6 +704,9 @@ def build_type_iv_shared_cards_payload(
     }
 
 
+# =====================================================================
+# === 5. Type-IV practice readiness
+# =====================================================================
 def get_type_iv_practice_source_rows(
     conn,
     kid,
@@ -819,6 +844,9 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
     }
 
 
+# =====================================================================
+# === 6. Generic shared-decks listing (type-II / type-III)
+# =====================================================================
 def build_shared_decks_listing_payload(
     kid,
     *,

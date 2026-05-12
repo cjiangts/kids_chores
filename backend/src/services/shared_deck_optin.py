@@ -14,6 +14,17 @@ Helpers that:
 Callers in route modules acquire `_SHARED_DECK_MUTATION_LOCK` before invoking
 these helpers. DB connections are opened and closed inside each helper. No
 module state.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Shared-deck fetch — fetch_shared_decks_by_ids
+    2. Type-I opt-in / opt-out — public entry points for type-I categories
+    3. Type-IV opt-in / opt-out — public entry points for type-IV categories
+    4. Generic shared-deck materialize — opt_in_shared_decks_internal used by
+       type-II / type-III routes (parametrized over deck-key field + reader)
+    5. Generic shared-deck cleanup — opt_out_shared_decks_internal +
+       delete_shared_deck_related_rows (cascade through session_results,
+       lesson-reading audio, type-II chinese print sheets)
 """
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.routes.kids_constants import DEFAULT_TYPE_IV_DAILY_TARGET_COUNT
@@ -38,6 +49,10 @@ from src.services.shared_deck_queries import (
 )
 from src.services.writing_candidates import remove_cards_from_type2_chinese_print_sheets
 
+
+# ============================================================================
+# 1. Shared-deck fetch
+# ============================================================================
 
 def fetch_shared_decks_by_ids(shared_conn, deck_ids):
     """Load shared deck metadata by ids and report missing ids."""
@@ -64,6 +79,10 @@ def fetch_shared_decks_by_ids(shared_conn, deck_ids):
     missing_ids = [deck_id for deck_id in normalized_ids if deck_id not in shared_by_id]
     return shared_by_id, missing_ids
 
+
+# ============================================================================
+# 2. Type-I opt-in / opt-out — Chinese-aware front-dedupe per category
+# ============================================================================
 
 def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific_logic):
     """Materialize selected shared decks for one type-I category."""
@@ -427,6 +446,10 @@ def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
     }
 
 
+# ============================================================================
+# 3. Type-IV opt-in / opt-out — single representative card per deck
+# ============================================================================
+
 def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
     """Materialize selected shared decks for one type-IV category."""
     shared_conn = None
@@ -730,6 +753,10 @@ def opt_out_type_iv_shared_decks(kid, category_key, deck_ids):
     }, 200
 
 
+# ============================================================================
+# 4. Generic shared-deck materialize — type-II / type-III via parametrized reader
+# ============================================================================
+
 def opt_in_shared_decks_internal(
     kid,
     deck_ids,
@@ -955,6 +982,10 @@ def opt_in_shared_decks_internal(
         'already_opted_in': already_opted_in,
     }, 200
 
+
+# ============================================================================
+# 5. Generic shared-deck cleanup — opt-out + cascade related rows
+# ============================================================================
 
 def delete_shared_deck_related_rows(conn, card_ids, *, delete_type3_audio):
     """Delete rows related to selected card ids when opt-out removes cards."""

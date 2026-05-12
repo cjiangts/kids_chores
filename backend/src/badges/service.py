@@ -1,4 +1,25 @@
-"""Badge evaluation and payload assembly for kid reward system."""
+"""Badge evaluation and payload assembly for kid reward system.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Date/time + normalization helpers — _normalize_category_key, _coerce_*,
+       _to_iso, _to_local_date
+    2. Catalog + art loaders — assigned categories, badge-art rows, art-id
+       resolution
+    3. Metric collection from kid-DB — session rows, accuracy lookups,
+       reading-speedup counts, strict-gold/completion gates, max-streak,
+       _collect_metrics (the umbrella that builds the metrics dict)
+    4. Award persistence — _load_award_rows, _load_pending_award_rows,
+       _load_award_summary_counts, _build_award_lookup, evidence JSON
+    5. Award decision — _metric_value_for_definition,
+       _award_definition_if_needed (the "should we award this badge?" core)
+    6. Public payload builders — build_kid_badge_payload,
+       build_kid_badge_summary_payload, build_kid_pending_celebrations_payload
+    7. Public mutators — sync_kid_badges_awards, mark_celebrations_seen
+
+External callers should only need section 6 and 7 — everything else is
+private (`_prefix`) and reused inside this file.
+"""
 from __future__ import annotations
 
 from collections import Counter, defaultdict
@@ -11,6 +32,10 @@ from src.badges import BadgeAchievementDefinition, DAY_ONE_BADGE_ACHIEVEMENTS, g
 
 DEFAULT_BADGE_THEME = 'generic'
 
+
+# ============================================================================
+# 1. Date/time + normalization helpers
+# ============================================================================
 
 def _normalize_category_key(value) -> str:
     return str(value or '').strip().lower()
@@ -54,6 +79,10 @@ def _to_local_date(value, tz_name: str):
         tzinfo = ZoneInfo('America/New_York')
     return dt.replace(tzinfo=timezone.utc).astimezone(tzinfo).date()
 
+
+# ============================================================================
+# 2. Catalog + art loaders — assigned categories, badge-art catalog + lookup
+# ============================================================================
 
 def _load_assigned_categories(kid_conn) -> Set[str]:
     """Return category keys currently assigned (>0 target and opted in)."""
@@ -135,6 +164,10 @@ def _resolve_badge_art_id_for_definition(
             return mapped_id
     return None
 
+
+# ============================================================================
+# 3. Metric collection from kid-DB
+# ============================================================================
 
 def _load_session_rows_since(kid_conn, tracking_start_dt: datetime):
     return kid_conn.execute(
@@ -377,6 +410,10 @@ def _collect_metrics(kid_conn, tracking_start_dt: datetime, family_timezone: str
     }
 
 
+# ============================================================================
+# 5. Award decision — does this definition want awarding given current metrics?
+# ============================================================================
+
 def _metric_value_for_definition(metrics: Dict, definition: BadgeAchievementDefinition) -> float:
     rule_type = str(definition.rule_type or '').strip().lower()
     category_key = _normalize_category_key(definition.category_key)
@@ -406,6 +443,10 @@ def _metric_value_for_definition(metrics: Dict, definition: BadgeAchievementDefi
         return float(metrics['reading_cards_3x_faster'])
     return 0.0
 
+
+# ============================================================================
+# 4. Award persistence — load rows, build lookups, parse evidence JSON
+# ============================================================================
 
 def _load_award_rows(kid_conn):
     return kid_conn.execute(
@@ -643,6 +684,10 @@ def _load_badge_art_meta_by_ids(shared_conn, badge_art_ids: Sequence[int]) -> Di
     return art_by_id
 
 
+# ============================================================================
+# 6. Public payload builders
+# ============================================================================
+
 def build_kid_badge_payload(
     kid_conn,
     shared_conn,
@@ -865,6 +910,10 @@ def build_kid_pending_celebrations_payload(
         'pendingCelebrations': pending_celebrations,
     }
 
+
+# ============================================================================
+# 7. Public mutators — sync awards from current metrics, mark celebrations seen
+# ============================================================================
 
 def sync_kid_badges_awards(
     kid_conn,
