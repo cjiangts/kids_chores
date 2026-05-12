@@ -69,7 +69,7 @@ No build step, no ES modules. Each `.html` page loads its `.js` siblings via `<s
 | Kid practice home | kid-practice-home.html | kid-practice-home.js | — |
 | Kid reports | kid-report.html, kid-card-report.html, kid-session-report.html | kid-report.js, kid-card-report.js, kid-session-report.js | — |
 | Deck create / view / category | deck-create*.html, deck-view.html, deck-category-create.html | deck-create*.js, deck-view.js, deck-category-create.js | — |
-| Writing sheets | kid-writing-sheets.html, kid-writing-sheet-manage.html, writing-sheet-print.html | kid-writing-sheets.js, kid-writing-sheet-manage.js (2.7k), writing-sheet-print.js | kid-writing-sheet-manage.css |
+| Writing sheets | kid-writing-sheets.html, kid-writing-sheet-manage.html, writing-sheet-print.html | kid-writing-sheets.js, **3 files** — core/lists/builder, writing-sheet-print.js | kid-writing-sheet-manage.css |
 | Math sheet print | math-sheet-print.html | math-sheet-print.js | — |
 | Chinese bank admin | chinese-bank.html | chinese-bank.js | — |
 
@@ -112,6 +112,16 @@ Load order in [kid-practice.html](frontend/kid-practice.html): core → type1 �
 | [parent-settings-backup.js](frontend/parent-settings-backup.js) | Backup download/restore |
 
 Load order in [parent-settings.html](frontend/parent-settings.html): core → rewards → badges → backup.
+
+### kid-writing-sheet-manage.js — split package
+
+| File | Owns |
+|---|---|
+| [kid-writing-sheet-manage-core.js](frontend/kid-writing-sheet-manage-core.js) | Bootstrap, shared state, helpers, page-mode toggle, DOMContentLoaded wiring |
+| [kid-writing-sheet-manage-lists.js](frontend/kid-writing-sheet-manage-lists.js) | Chinese/math sheet list loaders, rendering, mark-done/delete |
+| [kid-writing-sheet-manage-builder.js](frontend/kid-writing-sheet-manage-builder.js) | Cell-design modal, paper layout, sheet preview, build actions, PAPER_SPECS |
+
+Load order in [kid-writing-sheet-manage.html](frontend/kid-writing-sheet-manage.html): core → lists → builder.
 
 ### Common frontend modules
 
@@ -157,4 +167,4 @@ For frontend changes, run [start-local.sh](start-local.sh) and check the affecte
 
 - [refactor.md](refactor.md) — original audit + plan (2026-05-05)
 
-Files still pending split per refactor plan: `routes/kids/__init__.py` (8.3k), `kid-writing-sheet-manage.js` (2.6k), `styles.css` (2.4k), `practice-manage-common.js` (1.6k).
+Files still pending split per refactor plan: `routes/kids/__init__.py` (8.4k), `styles.css` (2.4k), `practice-manage-common.js` (1.6k).
