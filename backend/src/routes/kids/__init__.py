@@ -338,86 +338,14 @@ from src.services.shared_deck_payloads import (
     build_type_iv_special_session_ready_payload,
     get_type_iv_practice_source_rows,
 )
-
-
-def split_writing_bulk_text(raw_text):
-    """Split bulk writing input by non-Chinese chars, preserving Chinese phrase chunks."""
-    text = str(raw_text or '')
-    # Match contiguous Chinese runs; separators are any non-Chinese chars.
-    chunks = re.findall(r'[\u3400-\u9FFF\uF900-\uFAFF]+', text)
-    deduped = []
-    seen = set()
-    for chunk in chunks:
-        token = chunk.strip()
-        if not token or token in seen:
-            continue
-        deduped.append(token)
-        seen.add(token)
-    return deduped
-
-
-def split_type2_bulk_rows(raw_text, has_chinese_specific_logic):
-    """Split bulk type-II input into (front, back) rows."""
-    text = str(raw_text or '')
-    if bool(has_chinese_specific_logic):
-        text = text.replace('\uff0c', ',')
-    non_empty_lines = [
-        str(raw or '').strip()
-        for raw in text.splitlines()
-        if str(raw or '').strip()
-    ]
-    if not non_empty_lines:
-        return []
-
-    has_csv = any(',' in line for line in non_empty_lines)
-    has_blob = any(',' not in line for line in non_empty_lines)
-    if has_csv and has_blob:
-        raise ValueError(
-            'Mixed formats are not allowed. Use either "prompt, word" on every line '
-            'or a word blob with no commas — not both.'
-        )
-
-    if bool(has_chinese_specific_logic):
-        if has_csv:
-            rows = []
-            seen_back = set()
-            for line in non_empty_lines:
-                parts = line.split(',', 1)
-                front = str(parts[0] or '').strip()
-                back = str(parts[1] or '').strip()
-                if not back:
-                    back = front
-                if not front or not back or back in seen_back:
-                    continue
-                seen_back.add(back)
-                rows.append((front, back))
-            return rows
-        tokens = split_writing_bulk_text(raw_text)
-        return [(token, token) for token in tokens]
-
-    rows = []
-    seen_front = set()
-    for line in non_empty_lines:
-        if has_csv:
-            parts = line.split(',', 1)
-            front = str(parts[0] or '').strip()
-            back = str(parts[1] or '').strip()
-            if not back:
-                back = front
-            if not front or front in seen_front:
-                continue
-            seen_front.add(front)
-            rows.append((front, back))
-        else:
-            for token in line.split():
-                tok = str(token or '').strip()
-                if not tok or tok in seen_front:
-                    continue
-                seen_front.add(tok)
-                rows.append((tok, tok))
-    return rows
-
-
+from src.services.shared_card_skip import (
+    update_shared_card_skip_internal,
+    update_shared_cards_skip_bulk_internal,
+)
+from src.services.writing_bulk_split import (
+    split_type2_bulk_rows,
+    split_writing_bulk_text,
+)
 
 
 SHARED_DECK_SCOPE_TYPE1 = 'cards'
@@ -536,97 +464,6 @@ def parse_shared_card_skip_bulk_update_request():
     return card_ids, skipped
 
 
-def update_shared_card_skip_internal(kid, card_id_int, skipped, *, category_key, orphan_deck_name, deck_label):
-    """Toggle skip status for one shared/materialized/orphan card for one category."""
-    conn = get_kid_connection_for(kid)
-    try:
-        card_row = conn.execute(
-            """
-            SELECT c.id, c.deck_id, d.name, d.tags
-            FROM cards c
-            JOIN decks d ON d.id = c.deck_id
-            WHERE c.id = ?
-            LIMIT 1
-            """,
-            [card_id_int]
-        ).fetchone()
-        if not card_row:
-            return {'error': 'Card not found'}, 404
-
-        local_deck_name = str(card_row[2] or '')
-        local_deck_tags = extract_shared_deck_tags_and_labels(card_row[3])[0]
-        is_materialized_shared = parse_shared_deck_id_from_materialized_name(local_deck_name) is not None
-        is_orphan = local_deck_name == str(orphan_deck_name or '')
-        if is_materialized_shared and str(category_key or '') not in local_deck_tags:
-            return {'error': f'Card does not belong to a shared {deck_label} deck'}, 400
-        if not is_materialized_shared and not is_orphan:
-            return {'error': f'Card does not belong to a shared {deck_label} or orphan deck'}, 400
-
-        conn.execute(
-            "UPDATE cards SET skip_practice = ? WHERE id = ?",
-            [bool(skipped), card_id_int]
-        )
-    finally:
-        conn.close()
-
-    return {
-        'id': card_id_int,
-        'skip_practice': bool(skipped),
-    }, 200
-
-
-def update_shared_cards_skip_bulk_internal(kid, card_ids, skipped, *, category_key, orphan_deck_name, deck_label):
-    """Toggle skip status for many shared/materialized/orphan cards for one category."""
-    unique_card_ids = []
-    seen = set()
-    for raw_id in card_ids or []:
-        card_id_int = int(raw_id)
-        if card_id_int in seen:
-            continue
-        seen.add(card_id_int)
-        unique_card_ids.append(card_id_int)
-    if not unique_card_ids:
-        return {'error': 'No card ids provided'}, 400
-
-    conn = get_kid_connection_for(kid)
-    try:
-        placeholders = ','.join(['?'] * len(unique_card_ids))
-        card_rows = conn.execute(
-            f"""
-            SELECT c.id, c.deck_id, d.name, d.tags
-            FROM cards c
-            JOIN decks d ON d.id = c.deck_id
-            WHERE c.id IN ({placeholders})
-            """,
-            unique_card_ids
-        ).fetchall()
-        row_by_id = {int(row[0]): row for row in card_rows}
-        missing_ids = [card_id for card_id in unique_card_ids if card_id not in row_by_id]
-        if missing_ids:
-            return {'error': f'Card not found: {missing_ids[0]}'}, 404
-
-        for card_id in unique_card_ids:
-            row = row_by_id[card_id]
-            local_deck_name = str(row[2] or '')
-            local_deck_tags = extract_shared_deck_tags_and_labels(row[3])[0]
-            is_materialized_shared = parse_shared_deck_id_from_materialized_name(local_deck_name) is not None
-            is_orphan = local_deck_name == str(orphan_deck_name or '')
-            if is_materialized_shared and str(category_key or '') not in local_deck_tags:
-                return {'error': f'Card does not belong to a shared {deck_label} deck'}, 400
-            if not is_materialized_shared and not is_orphan:
-                return {'error': f'Card does not belong to a shared {deck_label} or orphan deck'}, 400
-
-        conn.execute(
-            f"UPDATE cards SET skip_practice = ? WHERE id IN ({placeholders})",
-            [bool(skipped), *unique_card_ids]
-        )
-    finally:
-        conn.close()
-
-    return {
-        'updated_count': len(unique_card_ids),
-        'skip_practice': bool(skipped),
-    }, 200
 
 
 def parse_shared_deck_ids_from_request_payload(payload):
