@@ -25,15 +25,11 @@ from src.routes.kids import (
     encode_retry_recovered_session_result,
     ensure_type3_audio_dir,
     extract_shared_deck_tags_and_labels,
-    filter_answers_to_pending_cards,
     get_category_drill_speed_cutoff_ms_for_kid,
     get_category_session_card_count_for_kid,
     get_kid_connection_for,
     get_kid_for_family,
-    get_latest_retry_source_session_for_today,
-    get_latest_unfinished_session_for_today,
     get_retry_source_wrong_card_ids,
-    get_session_practiced_card_ids,
     get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
@@ -41,7 +37,6 @@ from src.routes.kids import (
     jsonify,
     kids_bp,
     mimetypes,
-    normalize_logged_response_time_ms,
     normalize_shared_deck_category_behavior,
     os,
     plan_deck_practice_selection_for_decks,
@@ -69,6 +64,13 @@ from src.services.type4_session import (
     map_type_iv_pending_item_to_response_card,
 )
 from src.services.writing_candidates import get_pending_writing_card_ids
+from src.services.kid_today_sessions import (
+    filter_answers_to_pending_cards,
+    get_latest_retry_source_session_for_today,
+    get_latest_unfinished_session_for_today,
+    get_session_practiced_card_ids,
+    normalize_logged_response_time_ms,
+)
 from src.services.pending_sessions import (
     _PENDING_SESSIONS,
     _PENDING_SESSIONS_LOCK,

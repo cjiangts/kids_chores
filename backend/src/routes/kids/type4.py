@@ -25,7 +25,6 @@ from src.routes.kids import (
     json,
     jsonify,
     kids_bp,
-    normalize_logged_response_time_ms,
     normalize_type_iv_print_sheet_paper_size,
     normalize_type_iv_print_sheet_repeat_count,
     normalize_type_iv_print_sheet_rows,
@@ -36,6 +35,7 @@ from src.routes.kids import (
     time,
 )
 from src.services.practice_mode import normalize_session_practice_mode
+from src.services.kid_today_sessions import normalize_logged_response_time_ms
 from src.services.session_grading import (
     append_type4_result_submitted_answer,
     grade_type_iv_answer,
