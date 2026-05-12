@@ -63,9 +63,9 @@ No build step, no ES modules. Each `.html` page loads its `.js` siblings via `<s
 |---|---|---|---|
 | Family home (admin) | [admin.html](frontend/admin.html) | [admin.js](frontend/admin.js) | — (uses styles.css) |
 | Login / register | index.html, family-register.html | family-login.js, family-register.js | — |
-| Parent settings (timezone, password, badges, rewards) | [parent-settings.html](frontend/parent-settings.html) | [parent-settings.js](frontend/parent-settings.js) (2.2k — split pending) | kid-badge-shelf-modal.css |
+| Parent settings (timezone, password, badges, rewards) | [parent-settings.html](frontend/parent-settings.html) | **4 files** — core/rewards/badges/backup | kid-badge-shelf-modal.css |
 | **Kid card management** (deck setup, card list, type-IV gen) | [kid-card-manage.html](frontend/kid-card-manage.html) | **8 files** — see below | [kid-card-manage.css](frontend/kid-card-manage.css) |
-| Kid practice runtime | [kid-practice.html](frontend/kid-practice.html) | [kid-practice.js](frontend/kid-practice.js) (3.3k — split pending) | — |
+| Kid practice runtime | [kid-practice.html](frontend/kid-practice.html) | **5 files** — core + type1/2/3/4 | — |
 | Kid practice home | kid-practice-home.html | kid-practice-home.js | — |
 | Kid reports | kid-report.html, kid-card-report.html, kid-session-report.html | kid-report.js, kid-card-report.js, kid-session-report.js | — |
 | Deck create / view / category | deck-create*.html, deck-view.html, deck-category-create.html | deck-create*.js, deck-view.js, deck-category-create.js | — |
@@ -90,11 +90,36 @@ The 5,957-line page controller was split. To edit kid-card-manage features, find
 
 Load order in [kid-card-manage.html](frontend/kid-card-manage.html): core → type4-generator → type4-counts → deck-setup → cards-priority → cards → stats → kid-card-manage.js (init).
 
+### kid-practice.js — split package
+
+| File | Owns |
+|---|---|
+| [kid-practice-core.js](frontend/kid-practice-core.js) | Bootstrap, state, singletons, URL builders, session-start/end dispatchers, judge-mode init, base reset, error display, event binding, DOMContentLoaded |
+| [kid-practice-type1.js](frontend/kid-practice-type1.js) | Type-I flash cards, multiple-choice, drill engine, bonus game |
+| [kid-practice-type2.js](frontend/kid-practice-type2.js) | Type-II writing/audio prompts |
+| [kid-practice-type3.js](frontend/kid-practice-type3.js) | Type-III lesson recording + pause/resume |
+| [kid-practice-type4.js](frontend/kid-practice-type4.js) | Type-IV generator input/multi-choice |
+
+Load order in [kid-practice.html](frontend/kid-practice.html): core → type1 → type2 → type3 → type4.
+
+### parent-settings.js — split package
+
+| File | Owns |
+|---|---|
+| [parent-settings-core.js](frontend/parent-settings-core.js) | Bootstrap, shared DOM consts/helpers, timezone, password, family admin, error/success toasts |
+| [parent-settings-rewards.js](frontend/parent-settings-rewards.js) | Rewards tracking |
+| [parent-settings-badges.js](frontend/parent-settings-badges.js) | Badge Art Studio |
+| [parent-settings-backup.js](frontend/parent-settings-backup.js) | Backup download/restore |
+
+Load order in [parent-settings.html](frontend/parent-settings.html): core → rewards → badges → backup.
+
 ### Common frontend modules
 
-- [practice-manage-common.js](frontend/practice-manage-common.js) — escapeHtml, math rendering, card markup helpers (1.5k — split pending)
+- [practice-manage-common.js](frontend/practice-manage-common.js) — escapeHtml, math rendering, card markup helpers (1.6k — split pending; 15 HTML callers make this high-coordination)
 - [kid-report-common.js](frontend/kid-report-common.js) — report rendering shared by report pages
 - [deck-category-common.js](frontend/deck-category-common.js) — category labels/icons
+- [deck-form-common.js](frontend/deck-form-common.js) — secondary-tag extraction + Type-IV Ace editor setup (shared by deck-view + deck-create)
+- [math-rendering-common.js](frontend/math-rendering-common.js) — vertical arithmetic parsing + cell rendering (shared by kid-writing-sheet-manage + math-sheet-print)
 - [practice-judge-mode.js](frontend/practice-judge-mode.js), [practice-star-badge-common.js](frontend/practice-star-badge-common.js), [practice-ui-common.js](frontend/practice-ui-common.js) — practice runtime helpers
 - [audio-common.js](frontend/audio-common.js), [simple-audio-player.js](frontend/simple-audio-player.js), [recording-visualizer.js](frontend/recording-visualizer.js), [writing-audio-sequence.js](frontend/writing-audio-sequence.js) — audio playback/recording
 - [icons.js](frontend/icons.js), [subject-icons.js](frontend/subject-icons.js) — SVG icon registry
@@ -123,7 +148,7 @@ After backend changes, verify the app boots and all routes register:
 ```bash
 cd backend && source venv/bin/activate \
   && python -c "import sys; sys.path.insert(0, '.'); from src.app import create_app; app = create_app(); print('OK', len(list(app.url_map.iter_rules())))"
-# Expected: OK 109
+# Expected: OK 111
 ```
 
 For frontend changes, run [start-local.sh](start-local.sh) and check the affected page in a browser. There's no automated test suite — verify manually.
@@ -132,4 +157,4 @@ For frontend changes, run [start-local.sh](start-local.sh) and check the affecte
 
 - [refactor.md](refactor.md) — original audit + plan (2026-05-05)
 
-Files still pending split per refactor plan: `routes/kids/__init__.py` (8.3k), `kid-practice.js` (3.3k), `kid-writing-sheet-manage.js` (2.7k), `parent-settings.js` (2.2k), `styles.css` (2.4k), `deck-view.js` (1.8k), `practice-manage-common.js` (1.5k).
+Files still pending split per refactor plan: `routes/kids/__init__.py` (8.3k), `kid-writing-sheet-manage.js` (2.6k), `styles.css` (2.4k), `practice-manage-common.js` (1.6k).
