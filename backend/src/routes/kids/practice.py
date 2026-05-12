@@ -4,6 +4,7 @@ from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_II,
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
     DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+    DRILL_SESSION_CARD_POOL_SIZE,
     PENDING_CONTINUE_SOURCE_SESSION_ID_KEY,
     PENDING_RETRY_SOURCE_SESSION_ID_KEY,
     SESSION_RESULT_CORRECT,
@@ -11,7 +12,6 @@ from src.routes.kids_constants import (
     SESSION_RESULT_WRONG_UNRESOLVED,
 )
 from src.routes.kids import (
-    DRILL_SESSION_CARD_POOL_SIZE,
     build_type_i_chinese_prompt_audio_payload,
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
