@@ -20,9 +20,11 @@ from src.routes.kids import (
     normalize_type_iv_daily_counts_payload,
     preview_type4_generator,
     request,
+    time,
+)
+from src.services.kid_category_resolve import (
     resolve_kid_type_i_chinese_category_key,
     resolve_kid_type_iv_category_with_mode,
-    time,
 )
 from src.services.card_stats import (
     delete_card_from_deck_internal,

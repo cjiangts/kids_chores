@@ -20,8 +20,6 @@ from src.routes.kids import (
     normalize_writing_audio_text,
     os,
     request,
-    resolve_kid_type_i_chinese_category_key,
-    resolve_kid_type_ii_category_with_mode,
     send_from_directory,
     split_type2_bulk_rows,
     synthesize_shared_writing_audio,
@@ -31,6 +29,10 @@ from src.services.family_auth import get_kid_connection_for, get_kid_for_family
 from src.services.kid_card_queries import (
     get_kid_card_backs_for_deck_ids,
     get_kid_card_fronts_for_deck_ids,
+)
+from src.services.kid_category_resolve import (
+    resolve_kid_type_i_chinese_category_key,
+    resolve_kid_type_ii_category_with_mode,
 )
 from src.services.writing_candidates import (
     get_pending_writing_card_ids,

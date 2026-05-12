@@ -33,10 +33,6 @@ from src.routes.kids import (
     normalize_shared_deck_category_behavior,
     os,
     request,
-    resolve_kid_type_i_category_with_mode,
-    resolve_kid_type_ii_category_with_mode,
-    resolve_kid_type_iii_category_with_mode,
-    resolve_kid_type_iv_category_with_mode,
     run_type4_generator,
     secure_filename,
     sync_badges_after_session_complete,
@@ -45,6 +41,12 @@ from src.routes.kids import (
     with_preview_session_count_for_category,
 )
 from src.services.family_auth import get_kid_connection_for, get_kid_for_family
+from src.services.kid_category_resolve import (
+    resolve_kid_type_i_category_with_mode,
+    resolve_kid_type_ii_category_with_mode,
+    resolve_kid_type_iii_category_with_mode,
+    resolve_kid_type_iv_category_with_mode,
+)
 from src.services.practice_session import (
     build_continue_selected_cards_for_decks,
     build_retry_selected_cards_for_sources,

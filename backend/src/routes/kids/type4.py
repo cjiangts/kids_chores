@@ -22,10 +22,10 @@ from src.routes.kids import (
     normalize_type_iv_print_sheet_repeat_count,
     normalize_type_iv_print_sheet_rows,
     request,
-    resolve_kid_type_iv_category_with_mode,
     sync_badges_after_session_complete,
     time,
 )
+from src.services.kid_category_resolve import resolve_kid_type_iv_category_with_mode
 from src.services.family_auth import (
     current_family_id,
     get_kid_connection_for,
