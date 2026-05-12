@@ -7,7 +7,16 @@ Two parallel banks, selected by ?mode= on every route:
 Each mode is scoped to its own bank table AND to source decks whose category
 has chinese_back_content matching the mode.
 """
-from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
+from src.routes.kids import (
+    build_chinese_pinyin_text,
+    current_family_id,
+    get_shared_decks_connection,
+    is_super_family_id,
+    jsonify,
+    kids_bp,
+    request,
+    require_super_family,
+)
 
 # Per-mode config: target table + columns. Bank routing is driven entirely
 # by the deck's category (chinese_back_content), never by character length.

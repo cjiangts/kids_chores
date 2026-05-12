@@ -1,6 +1,24 @@
 """Lesson-reading (Type III) audio routes."""
 import zipfile
-from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
+from src.routes.kids import (
+    BytesIO,
+    get_kid_connection_for,
+    get_kid_for_family,
+    get_kid_type3_audio_dir,
+    is_type_iii_session_type,
+    jsonify,
+    kids_bp,
+    mimetypes,
+    os,
+    request,
+    resolve_ffmpeg_executable,
+    sanitize_download_filename_stem,
+    send_file,
+    send_from_directory,
+    subprocess,
+    threading,
+    uuid,
+)
 
 
 _TYPE3_MP3_TRANSCODE_LOCKS = {}

@@ -1,5 +1,39 @@
 """Type II writing routes — cards, audio, chinese-print-sheets."""
-from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
+from src.routes.kids import (
+    build_shared_type1_prompt_audio_file_name,
+    build_shared_writing_audio_file_name,
+    build_writing_front_tts_text,
+    build_writing_prompt_audio_payload,
+    delete_card_from_deck_internal,
+    format_type2_bulk_card_text,
+    get_category_include_orphan_for_kid,
+    get_category_orphan_deck_name,
+    get_kid_card_backs_for_deck_ids,
+    get_kid_card_fronts_for_deck_ids,
+    get_kid_connection_for,
+    get_kid_for_family,
+    get_kid_materialized_shared_type_ii_decks,
+    get_or_create_category_orphan_deck,
+    get_pending_writing_card_ids,
+    get_shared_type2_cards,
+    get_shared_type_i_merged_source_decks_for_kid,
+    get_shared_type_ii_merged_source_decks_for_kid,
+    get_shared_writing_audio_dir,
+    get_writing_candidate_card_ids,
+    json,
+    jsonify,
+    kids_bp,
+    mimetypes,
+    normalize_writing_audio_text,
+    os,
+    remove_cards_from_type2_chinese_print_sheets,
+    request,
+    resolve_kid_type_i_chinese_category_key,
+    resolve_kid_type_ii_category_with_mode,
+    send_from_directory,
+    split_type2_bulk_rows,
+    synthesize_shared_writing_audio,
+)
 
 @kids_bp.route('/kids/<kid_id>/type2/cards', methods=['GET'])
 def get_writing_cards(kid_id):

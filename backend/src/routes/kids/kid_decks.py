@@ -1,5 +1,40 @@
 """Per-kid card and deck routes (personal + shared opt-in/out)."""
-from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
+from src.routes.kids import (
+    SHARED_DECK_OP_CARD_SEARCH_INDEX,
+    SHARED_DECK_OP_GET,
+    SHARED_DECK_OP_GET_CARDS,
+    SHARED_DECK_OP_GET_DECKS,
+    SHARED_DECK_OP_OPT_IN,
+    SHARED_DECK_OP_OPT_OUT,
+    SHARED_DECK_OP_SKIP_UPDATE,
+    SHARED_DECK_OP_SKIP_UPDATE_BULK,
+    build_chinese_auto_back_text,
+    build_type_iv_generator_details_by_representative_front,
+    delete_card_from_deck_internal,
+    dispatch_shared_deck_scope_operation,
+    get_cards_with_stats_for_deck_ids,
+    get_category_chinese_back_content,
+    get_category_include_orphan_for_kid,
+    get_category_orphan_deck_name,
+    get_kid_card_fronts_for_deck_ids,
+    get_kid_connection_for,
+    get_kid_for_family,
+    get_kid_materialized_shared_decks_by_first_tag,
+    get_or_create_category_orphan_deck,
+    get_shared_deck_generator_definition,
+    get_shared_decks_connection,
+    get_shared_type_i_merged_source_decks_for_kid,
+    jsonify,
+    kids_bp,
+    map_card_row,
+    normalize_type_iv_daily_counts_payload,
+    preview_type4_generator,
+    remove_cards_from_type2_chinese_print_sheets,
+    request,
+    resolve_kid_type_i_chinese_category_key,
+    resolve_kid_type_iv_category_with_mode,
+    time,
+)
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
 def get_cards(kid_id):

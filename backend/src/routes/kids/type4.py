@@ -1,5 +1,32 @@
 """Type IV math routes — print-config, math-sheets."""
-from src.routes.kids import *  # noqa: F401,F403  -- pulls in kids_bp + helpers/state
+from src.routes.kids_constants import (
+    DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
+)
+from src.routes.kids import (
+    build_type_iv_print_sheet_display_number,
+    build_type_iv_print_sheet_layout,
+    build_type_iv_print_sheet_layout_payload,
+    build_type_iv_print_sheet_rendered_rows,
+    current_family_id,
+    get_kid_connection_for,
+    get_kid_for_family,
+    get_kid_materialized_shared_decks_by_first_tag,
+    get_shared_deck_generator_definitions_by_deck_ids,
+    get_shared_decks_connection,
+    get_shared_type_iv_deck_rows,
+    get_type_iv_print_sheet_record,
+    is_super_family_id,
+    json,
+    jsonify,
+    kids_bp,
+    normalize_type_iv_print_sheet_paper_size,
+    normalize_type_iv_print_sheet_repeat_count,
+    normalize_type_iv_print_sheet_rows,
+    paginate_type_iv_print_sheet_rendered_rows,
+    request,
+    resolve_kid_type_iv_category_with_mode,
+    time,
+)
 
 @kids_bp.route('/kids/<kid_id>/type4/print-config', methods=['GET'])
 def get_type4_print_config(kid_id):
