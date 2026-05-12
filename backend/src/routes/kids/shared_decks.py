@@ -15,12 +15,8 @@ from src.routes.kids import (
     dedupe_shared_deck_cards_by_back,
     dedupe_shared_deck_cards_by_front,
     extract_shared_deck_tags_and_labels,
-    find_shared_deck_tag_prefix_conflict,
     find_shared_type_iv_representative_label_conflict,
     format_shared_deck_tag_display_label,
-    format_shared_deck_tag_path,
-    get_all_shared_deck_tag_label_paths,
-    get_all_shared_deck_tag_paths,
     get_allowed_shared_deck_first_tags,
     get_character_bank_pinyin,
     get_current_family_id_int,
@@ -73,6 +69,12 @@ from src.services.shared_deck_category import (
     get_shared_deck_categories,
     get_shared_deck_category_meta_by_key,
     invalidate_category_meta_cache,
+)
+from src.services.shared_deck_tag_paths import (
+    find_shared_deck_tag_prefix_conflict,
+    format_shared_deck_tag_path,
+    get_all_shared_deck_tag_label_paths,
+    get_all_shared_deck_tag_paths,
 )
 
 @kids_bp.route('/shared-decks/categories', methods=['GET'])
