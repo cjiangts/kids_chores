@@ -458,10 +458,7 @@ const PAPER_HEADER_HEIGHT = 24;
 const PRINT_FIT_SAFETY_PX = 12;
 const MIN_CELL_DESIGN_W = 90;
 const MIN_CELL_DESIGN_H = 72;
-const DEFAULT_CELL_CONTENT_X = 0;
-const DEFAULT_CELL_CONTENT_Y = 0;
 const CELL_DESIGN_SIZE_STEP = 8;
-const CELL_DESIGN_CANVAS_VERSION = 2;
 const CELL_DESIGN_MIN_LEFT_PAD = 3;
 const CELL_DESIGN_MIN_TOP_PAD = 3;
 const CELL_DESIGN_MIN_RIGHT_PAD = 6;
@@ -532,73 +529,6 @@ function applyBuilderPageFrame(pageEl, scale, paperSize = currentMathPaperSize) 
     pageEl.style.height = Math.round(paperSpec.pageHeight * scale) + 'px';
 }
 
-/* ── Vertical cell rendering ── */
-
-const OPERATOR_PATTERN = /^(.+?)\s*([+\-−–×x*÷\/])\s*(.+?)(?:\s*=\s*[?？_\s]*)?\s*$/;
-
-function parseArithmetic(prompt) {
-    const m = prompt.match(OPERATOR_PATTERN);
-    if (!m) return null;
-    const a = m[1].trim();
-    const rawOp = m[2];
-    const b = m[3].trim();
-    if (!a || !b) return null;
-    let sign = rawOp;
-    if (rawOp === '-' || rawOp === '−' || rawOp === '–') sign = '−';
-    if (rawOp === '*' || rawOp === 'x') sign = '×';
-    if (rawOp === '/' || rawOp === '÷') sign = '÷';
-    return { a, sign, b };
-}
-
-function buildVerticalRows(a, b, sign) {
-    const topDigits = String(a || '');
-    const bottomDigits = String(b || '');
-    let gapCh = 1;
-    if (sign === '×') {
-        gapCh = Math.max(1, topDigits.length);
-    } else if (sign === '+' || sign === '-' || sign === '−' || sign === '–') {
-        gapCh = Math.max(1, topDigits.length - bottomDigits.length + 1);
-    }
-    const rowWidthCh = 1 + gapCh + bottomDigits.length;
-    return {
-        topDigits,
-        bottomDigits,
-        sign,
-        gapCh,
-        rowWidthCh,
-    };
-}
-
-function renderVerticalPromptCell(p) {
-    if (!p) return '<div class="math-cell-v-fallback"></div>';
-    const parsed = parseArithmetic(p.prompt);
-    if (!parsed) {
-        return `<div class="math-cell-v-fallback">
-            <div>${renderMathNotation(p.prompt)}</div>
-            <div class="cell-answer">${escapeHtml(p.answer)}</div>
-        </div>`;
-    }
-    const { a, sign, b } = parsed;
-    if (sign === '÷') {
-        return `<div class="math-cell-div">
-            <div class="div-main-row">
-                <span class="div-divisor">${escapeHtml(b)}</span>
-                <span class="div-dividend"><svg class="div-bracket-svg" viewBox="0 0 10 28" aria-hidden="true"><path d="M 1 27 Q 7 26, 7 21 L 7 0" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>${escapeHtml(a)}</span>
-            </div>
-        </div>`;
-    }
-    const rows = buildVerticalRows(a, b, sign);
-    return `<div class="math-cell-v" style="--v-row-width-ch:${rows.rowWidthCh};--v-gap-ch:${rows.gapCh};">
-        <div class="v-row v-row-top">${escapeHtml(rows.topDigits)}</div>
-        <div class="v-row v-row-op">
-            <span class="v-op">${escapeHtml(rows.sign)}</span>
-            <span class="v-gap" aria-hidden="true"></span>
-            <span class="v-row-bottom-num">${escapeHtml(rows.bottomDigits)}</span>
-        </div>
-        <div class="v-line" aria-hidden="true"></div>
-    </div>`;
-}
-
 function measureRenderedCell(html) {
     const probe = document.createElement('div');
     probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
@@ -609,16 +539,6 @@ function measureRenderedCell(html) {
     const height = cell ? Math.ceil(cell.offsetHeight) : MIN_CELL_DESIGN_H;
     document.body.removeChild(probe);
     return { width, height };
-}
-
-function getCellDesignOffsets(cellDef) {
-    if (!cellDef || Number(cellDef.canvasVersion || 0) < CELL_DESIGN_CANVAS_VERSION) {
-        return { x: DEFAULT_CELL_CONTENT_X, y: DEFAULT_CELL_CONTENT_Y };
-    }
-    return {
-        x: Math.max(0, Number(cellDef.contentOffsetX) || 0),
-        y: Math.max(0, Number(cellDef.contentOffsetY) || 0),
-    };
 }
 
 /* ── Cell Designer ── */

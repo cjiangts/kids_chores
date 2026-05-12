@@ -213,73 +213,6 @@ async function fetchJson(url, options) {
     return payload;
 }
 
-const OPERATOR_PATTERN = /^(.+?)\s*([+\-×x*÷\/])\s*(.+?)(?:\s*=\s*[?？_\s]*)?\s*$/;
-
-function parseArithmetic(prompt) {
-    const match = String(prompt || '').match(OPERATOR_PATTERN);
-    if (!match) return null;
-    const a = match[1].trim();
-    const rawOp = match[2];
-    const b = match[3].trim();
-    if (!a || !b) return null;
-    let sign = rawOp;
-    if (rawOp === '*' || rawOp === 'x') sign = '×';
-    if (rawOp === '/' || rawOp === '÷') sign = '÷';
-    return { a, sign, b };
-}
-
-function buildVerticalRows(a, b, sign) {
-    const topDigits = String(a || '');
-    const bottomDigits = String(b || '');
-    let gapCh = 1;
-    if (sign === '×') {
-        gapCh = Math.max(1, topDigits.length);
-    } else if (sign === '+' || sign === '-') {
-        gapCh = Math.max(1, topDigits.length - bottomDigits.length + 1);
-    }
-    return {
-        topDigits,
-        bottomDigits,
-        sign,
-        gapCh,
-        rowWidthCh: 1 + gapCh + bottomDigits.length,
-    };
-}
-
-function renderVerticalPromptCell(problem) {
-    if (!problem) return '<div class="math-cell-v-fallback"></div>';
-    const parsed = parseArithmetic(problem.prompt);
-    if (!parsed) {
-        return `<div class="math-cell-v-fallback"><div>${renderMathNotation(problem.prompt || '')}</div></div>`;
-    }
-    const { a, sign, b } = parsed;
-    if (sign === '÷') {
-        return `<div class="math-cell-div">
-            <div class="div-main-row">
-                <span class="div-divisor">${escapeHtml(b)}</span>
-                <span class="div-dividend"><svg class="div-bracket-svg" viewBox="0 0 10 28" aria-hidden="true"><path d="M 1 27 Q 7 26, 7 21 L 7 0" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>${escapeHtml(a)}</span>
-            </div>
-        </div>`;
-    }
-    const rows = buildVerticalRows(a, b, sign);
-    return `<div class="math-cell-v" style="--v-row-width-ch:${rows.rowWidthCh};--v-gap-ch:${rows.gapCh};">
-        <div class="v-row v-row-top">${escapeHtml(rows.topDigits)}</div>
-        <div class="v-row v-row-op">
-            <span class="v-op">${escapeHtml(rows.sign)}</span>
-            <span class="v-gap" aria-hidden="true"></span>
-            <span class="v-row-bottom-num">${escapeHtml(rows.bottomDigits)}</span>
-        </div>
-        <div class="v-line" aria-hidden="true"></div>
-    </div>`;
-}
-
-function getCellDesignOffsets(cellDesign) {
-    return {
-        x: Math.max(0, Number.parseInt(cellDesign && cellDesign.content_offset_x, 10) || 0),
-        y: Math.max(0, Number.parseInt(cellDesign && cellDesign.content_offset_y, 10) || 0),
-    };
-}
-
 function updateToolbarButtons(status) {
     const isPreview = status === 'preview';
     if (regenerateBtn) regenerateBtn.style.display = (isFromManage && isPreview) ? '' : 'none';
@@ -531,7 +464,7 @@ function drawInlineSheetRows(ctx, sheet, withAnswers) {
 
             const rawPrompt = String(problem.prompt || '').replace(/\s*=\s*[?？_\s]*$/, '');
             const answer = String(problem.answer || '').trim();
-            const parsed = rawPrompt.match(OPERATOR_PATTERN);
+            const parsed = rawPrompt.match(MATH_OPERATOR_PATTERN);
 
             ctx.font = `${inlineFontSize}px ${MATH_FONT_FAMILY}`;
             ctx.fillStyle = '#222';
