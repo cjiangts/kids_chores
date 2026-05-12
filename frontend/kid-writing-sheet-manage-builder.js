@@ -1,4 +1,30 @@
-/* ── Cell design + Sheet builder state ── */
+/*
+ * Writing-sheet builder modals + cell-design persistence for the
+ * kid-writing-sheet-manage page.
+ *
+ * Three independent builders share this file because they all hang off
+ * the same "Build sheet" entry points in the page:
+ *   - Vertical math sheet builder (per-row deck picker + scale)
+ *   - Inline (horizontal) math sheet builder (multi-deck row layout)
+ *   - Chinese writing sheet builder (character grid)
+ *
+ * Each builder owns its own state, picker modal, render loop, and save
+ * action; the cell-design modal is shared by the math builders and
+ * the deck row config.
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. Shared state + paper specs + math-paper helpers
+ *     2. Cell Designer modal
+ *     3. Vertical Sheet Builder (per-row deck picker)
+ *     4. Vertical Sheet save / cell CSS generator
+ *     5. Inline (horizontal) Sheet Builder
+ *     6. Chinese Writing Sheet Builder
+ */
+
+// =====================================================================
+// === 1. Shared state + paper specs + math-paper helpers
+// =====================================================================
 
 const cellDesigns = new Map(); /* Map<deckId, CellDefinition> */
 let sheetRows = [];
@@ -100,7 +126,9 @@ function measureRenderedCell(html) {
     return { width, height };
 }
 
-/* ── Cell Designer ── */
+// =====================================================================
+// === 2. Cell Designer modal
+// =====================================================================
 
 function updateBuildSheetButton() {
     if (buildSheetBtn) buildSheetBtn.disabled = cellDesigns.size === 0;
@@ -414,7 +442,9 @@ async function saveCellDesign() {
     }
 }
 
-/* ── Sheet Builder ── */
+// =====================================================================
+// === 3. Vertical Sheet Builder
+// =====================================================================
 
 function computeSheetPreviewScale(paperSize = currentMathPaperSize) {
     const paperSpec = getMathPaperSpec(paperSize);
@@ -961,7 +991,9 @@ function handleMathPaperSizeChange(nextPaperSize) {
     showMathSheetError(nextError);
 }
 
-/* ── Save from Sheet Builder ── */
+// =====================================================================
+// === 4. Vertical Sheet save / cell CSS generator
+// =====================================================================
 
 function buildVerticalCellCSS() {
     const mathMonoFont = "'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace";
@@ -1019,7 +1051,9 @@ async function saveSheetFromBuilder() {
     }
 }
 
-/* ── Inline (Horizontal) Sheet Builder ── */
+// =====================================================================
+// === 5. Inline (Horizontal) Sheet Builder
+// =====================================================================
 
 const buildInlineSheetBtn = document.getElementById('buildInlineSheetBtn');
 let inlineSheetRows = [];
@@ -1424,7 +1458,9 @@ function updateBuildInlineSheetButton() {
     buildInlineSheetBtn.disabled = mathPrintConfigDecks.length === 0;
 }
 
-/* ── Chinese Writing Sheet Builder ── */
+// =====================================================================
+// === 6. Chinese Writing Sheet Builder
+// =====================================================================
 
 const buildChineseSheetBtn = document.getElementById('buildChineseSheetBtn');
 const buildChineseSheetBtnMeta = document.getElementById('buildChineseSheetBtnMeta');

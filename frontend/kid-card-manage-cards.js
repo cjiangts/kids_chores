@@ -1,4 +1,31 @@
-// Card markup builders, chunked render, displayCards, bulk add/edit/delete, grid click handler, kid + decks loaders, queue settings save.
+/*
+ * kid-card-manage-cards.js — card row markup, list rendering, mutation
+ * actions, and kid/deck loaders for the kid-card-manage page.
+ *
+ * Card markup builders compose row HTML for type-I, type-II, type-IV,
+ * Chinese, and expanded preview variants. Display flow goes:
+ *
+ *     loadSharedDeckCards / loadSharedType1Decks
+ *         → displayCards(cards) → renderCardsInChunks
+ *         → buildCardMarkup / type-specific markup builder per row
+ *
+ * Click events on the cards grid hit handleCardsGridClick which
+ * dispatches to skip toggles, edit, delete, deck pickers, expand, etc.
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. Card markup builders + format helpers
+ *     2. Card list render loop + scroll/focus
+ *     3. Bulk-input parsers + preview helpers
+ *     4. Shared-deck card mutations (skip, recording download)
+ *     5. Personal card CRUD (preview, add, edit, delete)
+ *     6. Cards grid click handler
+ *     7. Kid info + decks loaders + queue settings save
+ */
+
+// =====================================================================
+// === 1. Card markup builders + format helpers
+// =====================================================================
 function buildCardReportHref(card) {
     const qs = new URLSearchParams();
     qs.set('id', String(kidId || ''));
@@ -463,6 +490,9 @@ function buildLongCardMarkup(card, options = {}) {
         : buildGenericType1CardMarkup(card, options);
 }
 
+// =====================================================================
+// === 2. Card list render loop + scroll/focus
+// =====================================================================
 function applyChineseCardFrontUniformSize() {
     if (!isChineseSpecificLogic || !cardsGrid) {
         return;
@@ -668,6 +698,9 @@ function scrollFocusedCardIntoView() {
     });
 }
 
+// =====================================================================
+// === 3. Bulk-input parsers + preview helpers
+// =====================================================================
 function updateAddReadingButtonCount() {
     if (!addReadingBtn || !chineseCharInput) {
         return;
@@ -916,6 +949,9 @@ function getType1EnglishBackBulkInputStats(text) {
     };
 }
 
+// =====================================================================
+// === 4. Shared-deck card mutations (skip, recording download)
+// =====================================================================
 async function loadSharedDeckCards() {
     const requestId = sharedDeckCardsResponseTracker
         ? sharedDeckCardsResponseTracker.begin()
@@ -1107,6 +1143,9 @@ async function downloadSelectedType3Recordings() {
     }
 }
 
+// =====================================================================
+// === 5. Personal card CRUD (preview, add, edit, delete)
+// =====================================================================
 async function previewPersonalDeck() {
     if (!supportsPersonalDeckEditor()) {
         return;
@@ -1420,6 +1459,9 @@ async function deleteSelectedPersonalCards() {
     }
 }
 
+// =====================================================================
+// === 6. Cards grid click handler
+// =====================================================================
 async function handleCardsGridClick(event) {
     const actionBtn = event.target.closest('[data-action]');
     if (!actionBtn) {
@@ -1562,6 +1604,9 @@ async function handleCardsGridClick(event) {
     }
 }
 
+// =====================================================================
+// === 7. Kid info + decks loaders + queue settings save
+// =====================================================================
 function applyKidInfo(kid) {
     const categoryMetaMap = getDeckCategoryMetaMap(kid);
     const categoryMeta = categoryMetaMap[categoryKey] || {};

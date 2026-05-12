@@ -1,3 +1,27 @@
+/*
+ * deck-view.js — single-deck inspector/editor for a shared deck.
+ *
+ * Loads one deck by id, renders its metadata + cards, and exposes:
+ *   - Read-only metadata header (id/name/tags/behavior/createdAt/count)
+ *   - CSV preview/apply for static-deck card edits
+ *   - Rename-tags modal (re-derives deck name from tags)
+ *   - Type-IV generator code editor (Ace) + preview samples
+ *   - Type-IV cell design modal (visual layout config for print sheets)
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. DOM refs + state
+ *     2. Bootstrap (DOMContentLoaded → ensureFamily → loadDeck → renderDeck)
+ *     3. Card CSV preview / apply flow
+ *     4. Rename-tags modal
+ *     5. Display formatters + toast helpers
+ *     6. Type-IV generator editor (state, preview, save)
+ *     7. Type-IV cell design modal
+ */
+
+// =====================================================================
+// === 1. DOM refs + state
+// =====================================================================
 const API_BASE = `${window.location.origin}/api`;
 
 const deckMeta = document.getElementById('deckMeta');
@@ -87,6 +111,9 @@ const CELL_DESIGN_MIN_TOP_PAD = 3;
 const CELL_DESIGN_MIN_RIGHT_PAD = 6;
 const CELL_DESIGN_MIN_BOTTOM_PAD = 6;
 
+// =====================================================================
+// === 2. Bootstrap + deck render
+// =====================================================================
 function isChineseType1Deck() {
     const behaviorType = String(currentDeck && currentDeck.behavior_type || '').trim().toLowerCase();
     return behaviorType === 'type_i' && Boolean(currentDeck && currentDeck.has_chinese_specific_logic);
@@ -470,6 +497,9 @@ function updateCloneDeckButton(deck, isTypeIV) {
     cloneDeckBtn.removeAttribute('aria-hidden');
 }
 
+// =====================================================================
+// === 3. Card CSV preview / apply
+// =====================================================================
 function parseCardsCsvInput(rawText) {
     const lines = String(rawText || '').split(/\r\n|\r|\n/);
     const cards = [];
@@ -727,6 +757,9 @@ function setMutating(isBusy) {
     }
 }
 
+// =====================================================================
+// === 4. Rename-tags modal
+// =====================================================================
 function setRenameBusy(isBusy) {
     isRenamingTags = Boolean(isBusy);
     if (saveRenameTagsBtn) {
@@ -1117,6 +1150,9 @@ async function saveRenamedTags() {
     }
 }
 
+// =====================================================================
+// === 5. Display formatters + toast helpers
+// =====================================================================
 function formatIsoTimestamp(value) {
     const text = String(value || '').trim();
     if (!text) {
@@ -1168,6 +1204,9 @@ function showSuccess(message) {
     successMessage.classList.remove('hidden');
 }
 
+// =====================================================================
+// === 6. Type-IV generator editor (state, preview, save)
+// =====================================================================
 function normalizeType4GeneratorCodeText(value) {
     return String(value || '')
         .replace(/\r\n/g, '\n')
@@ -1341,6 +1380,9 @@ async function saveType4GeneratorCode() {
     }
 }
 
+// =====================================================================
+// === 7. Type-IV cell design modal
+// =====================================================================
 function normalizeSavedType4CellDesign(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const cellWidth = Number.parseInt(raw.cell_width, 10);

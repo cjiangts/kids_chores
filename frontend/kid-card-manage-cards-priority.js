@@ -1,4 +1,29 @@
-// Card filter/sort, practice-priority scoring + detail markup, queue mix legend, sort menu, view-mode buttons, queue settings save state.
+/*
+ * kid-card-manage-cards-priority.js — filtering, sorting, practice-
+ * priority preview, selection, queue legend, and save-state for the
+ * kid-card-manage page's "Cards" view.
+ *
+ * Practice-priority is the heart of this file: it scores each card with
+ * a published reason ("Never seen", "Wrong recently", ...) and renders a
+ * detail card with score donut/axis/learning-dots. Queue mix legend
+ * tells the user how many cards of each priority bucket a session will
+ * sample given the current session count.
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. Filter + search (query, source-deck, focused-id)
+ *     2. Sort: comparators + display ordering
+ *     3. Practice priority scoring + segment helpers + detail markup
+ *     4. Visible cards + queue highlight + queue mix legend
+ *     5. Selection (bar, select mode, multi-select)
+ *     6. UI controls (sort menu, view-mode buttons)
+ *     7. Queue settings + drill-speed save state
+ *     8. Queue preview reload + auto-set session count on new cards
+ */
+
+// =====================================================================
+// === 1. Filter + search
+// =====================================================================
 function filterCardsByQuery(cards, rawQuery) {
     const query = String(rawQuery || '').trim();
     if (!query) {
@@ -116,6 +141,9 @@ function setFocusedCardById(cardId) {
     scrollFocusedCardIntoView();
 }
 
+// =====================================================================
+// === 2. Sort: comparators + display ordering
+// =====================================================================
 function getSortedCardsForDisplay(cards) {
     const focusFiltered = filterCardsByFocusedId(cards);
     if (focusedCardId) {
@@ -358,6 +386,9 @@ function sortCardsForDisplay(cards, mode, direction) {
     });
 }
 
+// =====================================================================
+// === 3. Practice priority scoring + detail markup
+// =====================================================================
 function getPracticePriorityAttemptCount(card) {
     const previewAttempts = Number.parseInt(card && card.practice_priority_attempt_count, 10);
     if (Number.isInteger(previewAttempts)) {
@@ -891,6 +922,9 @@ function buildType4PriorityDetailSection(card) {
     `;
 }
 
+// =====================================================================
+// === 4. Visible cards + queue highlight + queue mix legend
+// =====================================================================
 function getCardIdText(card) {
     const raw = String(card && card.id ? card.id : '').trim();
     return raw;
@@ -1010,6 +1044,9 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
     cardsQueueLegend.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
 }
 
+// =====================================================================
+// === 5. Selection (bar, select mode, multi-select)
+// =====================================================================
 function pruneSelectedCardIdsToCurrent() {
     if (selectedCardIds.size === 0) {
         return;
@@ -1200,6 +1237,9 @@ function clearCardSelection() {
     renderCardsSelectionBar();
 }
 
+// =====================================================================
+// === 6. UI controls (sort menu, view-mode buttons)
+// =====================================================================
 function getSortOptionLabel(option) {
     if (!option) {
         return '';
@@ -1323,6 +1363,9 @@ function setCardViewMode(nextMode) {
     resetAndDisplayCards(currentCards);
 }
 
+// =====================================================================
+// === 7. Queue settings + drill-speed save state
+// =====================================================================
 function getSessionCardCountCap() {
     if (isType4Behavior()) {
         return null;
@@ -1497,6 +1540,9 @@ function applyDrillSpeedSettingsFromKid(kid) {
     updateQueueSettingsSaveButtonState();
 }
 
+// =====================================================================
+// === 8. Queue preview reload + auto-set session count on new cards
+// =====================================================================
 function scheduleQueuePreviewReload() {
     if (isType4Behavior()) {
         return;
