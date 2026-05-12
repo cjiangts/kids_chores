@@ -9,6 +9,14 @@ Pure helpers that:
   - Update card hardness scores after one session is committed.
 
 DB helpers take an open per-kid `conn`. No module state.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Candidate + planned-selection card lists (fresh session start)
+    2. Continue selection (resume unfinished session today)
+    3. Retry selection (wrong cards + multiple-choice pool)
+    4. Continue/retry "ready" payload builders (category dashboard)
+    5. Post-session card hardness update
 """
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_I,
@@ -28,6 +36,9 @@ from src.services.shared_deck_category import get_session_behavior_type
 from src.services.shared_deck_normalize import extract_shared_deck_tags_and_labels
 
 
+# =====================================================================
+# === 1. Candidate + planned selection
+# =====================================================================
 def get_practice_candidate_cards_for_decks(conn, deck_ids, excluded_card_ids=None):
     """Return active candidate cards across one or more decks."""
     normalized_deck_ids = []
@@ -140,6 +151,9 @@ def plan_deck_practice_selection_for_decks(conn, kid, deck_ids, session_type, ex
     return cards_by_id, selected_ids
 
 
+# =====================================================================
+# === 2. Continue selection
+# =====================================================================
 def build_continue_selected_cards_for_decks(
     conn,
     kid,
@@ -192,6 +206,9 @@ def build_continue_selected_cards_for_decks(
     return selected_cards
 
 
+# =====================================================================
+# === 3. Retry selection + multiple-choice pool
+# =====================================================================
 def get_retry_source_wrong_card_ids(conn, source_session_id):
     """Return one card_id per unresolved -1 row (duplicates allowed).
 
@@ -319,6 +336,9 @@ def build_type_i_multiple_choice_pool_cards(conn, source_by_deck_id, card_ids):
     return pool_cards
 
 
+# =====================================================================
+# === 4. Continue/retry "ready" payload builders
+# =====================================================================
 def build_retry_ready_payload(conn, kid, category_key, source_by_deck_id):
     """Build retry-ready metadata for one category and source deck set."""
     retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
@@ -411,6 +431,9 @@ def build_special_session_ready_payload(
     return result
 
 
+# =====================================================================
+# === 5. Post-session card hardness update
+# =====================================================================
 def update_card_hardness_after_session(
     conn,
     *,

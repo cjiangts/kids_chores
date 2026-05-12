@@ -1,6 +1,20 @@
 """Type-IV print sheet layout helpers.
 
 Pure helpers extracted from `src.routes.kids` Phase 2 refactor.
+
+Two callsite clusters:
+  - Type-IV deck mutators normalize and persist cell-design geometry +
+    sheet config before storing on the shared deck row.
+  - The print-sheet route uses `build_type_iv_print_sheet_layout` to
+    project a per-row, per-cell layout consumed by math-sheet-print.js.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Internal helpers
+    2. Cell-design + sheet config normalizers (rows, scales, paper size)
+    3. Shared-deck print cell design builder
+    4. Row metrics + per-row print sheet layout builders
+    5. Seed + display-number helpers
 """
 import json
 import math
@@ -25,6 +39,9 @@ from src.routes.kids_constants import (
 )
 
 
+# =====================================================================
+# === 1. Internal helpers
+# =====================================================================
 def _safe_positive_int_or_none(val):
     """Return a positive int or None."""
     if val is None:
@@ -36,6 +53,9 @@ def _safe_positive_int_or_none(val):
         return None
 
 
+# =====================================================================
+# === 2. Cell-design + sheet config normalizers
+# =====================================================================
 def normalize_type_iv_print_cell_design(value):
     """Normalize persisted cell-design geometry for one type-IV deck."""
     if not isinstance(value, dict):
@@ -236,6 +256,9 @@ def get_type_iv_print_sheet_paper_spec(
     return spec
 
 
+# =====================================================================
+# === 3. Shared-deck print cell design builder
+# =====================================================================
 def build_shared_deck_print_cell_design(raw_payload):
     """Build normalized print cell design payload from stored JSON text."""
     if raw_payload in (None, ''):
@@ -278,6 +301,9 @@ def build_shared_deck_print_cell_design(raw_payload):
     }
 
 
+# =====================================================================
+# === 4. Row metrics + per-row print sheet layout builders
+# =====================================================================
 def get_type_iv_print_sheet_row_metrics(cell_design, scale, paper_size=DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE):
     """Return one persisted custom-sheet row's derived dimensions."""
     if not isinstance(cell_design, dict):
@@ -489,6 +515,9 @@ def build_type_iv_print_sheet_layout(raw_payload):
     return result
 
 
+# =====================================================================
+# === 5. Seed + display-number helpers
+# =====================================================================
 def build_type_iv_print_sheet_row_seed(seed_base, row_index, shared_deck_id):
     """Derive one deterministic per-row seed from the sheet seed."""
     base = int(seed_base or 0)

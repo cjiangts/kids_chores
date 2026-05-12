@@ -1,6 +1,15 @@
 """Normalizers / dedupers for shared-deck tags, cards, payloads.
 
 Pure helpers extracted from `src.routes.kids` Phase 2 refactor.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Single-tag normalize/parse/format
+    2. Category-level field normalizers (behavior, bool, display name)
+    3. Type-IV field normalizers (display label, generator code)
+    4. Whole-payload normalizers (tags list, cards list, dedupe)
+    5. Misc list/value normalizers (fronts, mix payload, deck ids,
+       daily counts, category keys)
 """
 import re
 
@@ -17,6 +26,9 @@ from src.routes.kids_constants import (
 )
 
 
+# =====================================================================
+# === 1. Single-tag normalize/parse/format
+# =====================================================================
 def normalize_shared_deck_tag(raw_tag):
     """Normalize one deck tag to a compact underscore format."""
     text = str(raw_tag or '').strip().lower()
@@ -72,6 +84,9 @@ def extract_shared_deck_tags_and_labels(raw_tags):
     return tags, tag_labels
 
 
+# =====================================================================
+# === 2. Category-level field normalizers
+# =====================================================================
 def normalize_shared_deck_category_behavior(raw_behavior):
     """Normalize behavior input to canonical type_i/type_ii/type_iii/type_iv."""
     text = str(raw_behavior or '').strip().lower()
@@ -108,6 +123,9 @@ def normalize_optional_display_name(value):
     return text
 
 
+# =====================================================================
+# === 3. Type-IV field normalizers
+# =====================================================================
 def normalize_type_iv_display_label(value):
     """Normalize required representative label for one type-IV deck."""
     text = str(value or '').strip()
@@ -132,6 +150,9 @@ def normalize_type_iv_generator_code(value):
     return text
 
 
+# =====================================================================
+# === 4. Whole-payload normalizers (tags, cards, dedupe)
+# =====================================================================
 def build_shared_deck_tags(first_tag, extra_tags, allowed_first_tags, *, include_comments=False):
     """Build ordered unique tags list with first tag constrained by allowed values."""
     allowed = {
@@ -227,6 +248,9 @@ def dedupe_shared_deck_cards_by_back(cards):
     return dedupe_shared_deck_cards_by_key(cards, 'back')
 
 
+# =====================================================================
+# === 5. Misc list/value normalizers
+# =====================================================================
 def normalize_shared_deck_fronts(fronts):
     """Validate and normalize a front-text array for conflict checks."""
     if fronts is None:
