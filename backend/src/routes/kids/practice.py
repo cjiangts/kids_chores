@@ -13,11 +13,7 @@ from src.routes.kids_constants import (
 from src.routes.kids import (
     DRILL_SESSION_CARD_POOL_SIZE,
     _cleanup_uncommitted_type3_audio,
-    _update_hardness_after_session,
-    build_continue_selected_cards_for_decks,
-    build_retry_selected_cards_for_sources,
     build_type_i_chinese_prompt_audio_payload,
-    build_type_i_multiple_choice_pool_cards,
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
     datetime,
@@ -29,7 +25,6 @@ from src.routes.kids import (
     get_category_session_card_count_for_kid,
     get_kid_connection_for,
     get_kid_for_family,
-    get_retry_source_wrong_card_ids,
     get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
@@ -39,7 +34,6 @@ from src.routes.kids import (
     mimetypes,
     normalize_shared_deck_category_behavior,
     os,
-    plan_deck_practice_selection_for_decks,
     request,
     resolve_kid_type_i_category_with_mode,
     resolve_kid_type_ii_category_with_mode,
@@ -51,6 +45,14 @@ from src.routes.kids import (
     timezone,
     uuid,
     with_preview_session_count_for_category,
+)
+from src.services.practice_session import (
+    build_continue_selected_cards_for_decks,
+    build_retry_selected_cards_for_sources,
+    build_type_i_multiple_choice_pool_cards,
+    get_retry_source_wrong_card_ids,
+    plan_deck_practice_selection_for_decks,
+    update_card_hardness_after_session,
 )
 from src.services.session_grading import (
     append_type1_result_submitted_answer,
@@ -1435,7 +1437,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                                 )
                                 consumed_type3_audio_files.add(file_name)
 
-            _update_hardness_after_session(
+            update_card_hardness_after_session(
                 conn,
                 session_behavior_type=session_behavior_type,
                 latest_response_by_card=latest_response_by_card,
@@ -1617,7 +1619,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                             consumed_type3_audio_files.add(file_name)
             latest_response_by_card[card_id] = response_time_ms
 
-        _update_hardness_after_session(
+        update_card_hardness_after_session(
             conn,
             session_behavior_type=session_behavior_type,
             latest_response_by_card=latest_response_by_card,
