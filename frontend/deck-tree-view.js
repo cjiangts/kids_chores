@@ -1,11 +1,30 @@
-// Shared deck-tree view: renders shared decks (and optionally a personal/orphan deck)
-// in a hierarchical tree grouped by tags. Supports two modes:
-//   'opt-in'  – tap to toggle selection, exposes pending counts for an Apply button.
-//   'browse'  – read-only; checkboxes/badges hidden via container class.
-//
-// Used by kid-card-manage (opt-in modal) and admin (browse modal).
+/*
+ * deck-tree-view.js — shared deck-tree view (window.DeckTreeView)
+ *
+ * Renders shared decks (and optionally a personal/orphan deck) in a hierarchical
+ * tree grouped by tags. Two modes:
+ *   'opt-in' – tap to toggle selection, exposes pending counts for Apply button.
+ *   'browse' – read-only; checkboxes/badges hidden via container class.
+ *
+ * Used by kid-card-manage (opt-in modal) and admin (browse modal).
+ *
+ * Layout (all inside IIFE; class DeckTreeView at line ~44):
+ *   1. Module-level utilities (escapeHtml, deck-tag accessors)
+ *   2. constructor + public setters (setDecks/Selection/Baseline/…)
+ *   3. render + expandAll / collapseAll
+ *   4. Tree build + expansion state + default labels
+ *   5. Node + leaf rendering (HTML builders)
+ *   6. Pending-badge HTML + selection / card-count getters
+ *   7. Counter / apply-button updates + branch-path collection
+ *   8. Click dispatch + branch / leaf / orphan selection toggles
+ *   9. Search + match preview + highlight
+ */
 (function () {
     'use strict';
+
+    // =====================================================================
+    // === 1. Module-level utilities (escapeHtml, deck-tag accessors)
+    // =====================================================================
 
     const ORPHAN_BUBBLE_ID = '__orphan__';
 
@@ -40,6 +59,10 @@
             return tagKey;
         });
     }
+
+    // =====================================================================
+    // === 2. constructor + public setters
+    // =====================================================================
 
     class DeckTreeView {
         constructor(options) {
@@ -209,6 +232,10 @@
             this.render();
         }
 
+        // -----------------------------------------------------------------
+        // === 3. render + expandAll / collapseAll
+        // -----------------------------------------------------------------
+
         render() {
             if (!this.container) {
                 return;
@@ -273,6 +300,10 @@
         }
 
         // ── Tree building ─────────────────────────────────────────────────────
+
+        // -----------------------------------------------------------------
+        // === 4. Tree build + expansion state + default labels
+        // -----------------------------------------------------------------
 
         _buildTree() {
             const root = { tag: null, label: null, children: new Map(), decks: [] };
@@ -363,6 +394,10 @@
             }
             return name;
         }
+
+        // -----------------------------------------------------------------
+        // === 5. Node + leaf rendering (HTML builders)
+        // -----------------------------------------------------------------
 
         _renderNode(node, depth) {
             const hasChildren = node.children.size > 0;
@@ -509,6 +544,10 @@
 
         // ── Pending badges (opt-in mode) ──────────────────────────────────────
 
+        // -----------------------------------------------------------------
+        // === 6. Pending-badge HTML + selection / card-count getters
+        // -----------------------------------------------------------------
+
         _getDeckPendingBadgeHtml(deckId) {
             if (this.mode !== 'opt-in') return '';
             const id = Number(deckId);
@@ -597,6 +636,10 @@
             }
             return count;
         }
+
+        // -----------------------------------------------------------------
+        // === 7. Counter / apply-button updates + branch-path collection
+        // -----------------------------------------------------------------
 
         _updateCounter() {
             if (!this.counter) return;
@@ -688,6 +731,10 @@
         }
 
         // ── Click handling ────────────────────────────────────────────────────
+
+        // -----------------------------------------------------------------
+        // === 8. Click dispatch + branch / leaf / orphan selection toggles
+        // -----------------------------------------------------------------
 
         _handleClick(event) {
             const leafToggle = event.target.closest('.deck-tree-leaf-toggle');
@@ -823,6 +870,10 @@
         }
 
         // ── Search ────────────────────────────────────────────────────────────
+
+        // -----------------------------------------------------------------
+        // === 9. Search + match preview + highlight
+        // -----------------------------------------------------------------
 
         _applySearch(query) {
             if (!this.container) return;

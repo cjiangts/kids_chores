@@ -1,3 +1,21 @@
+/*
+ * deck-create-bulk.js — bulk deck-creation page
+ *
+ * Layout:
+ *   1. DOM refs + module constants + common-module wiring
+ *   2. Disabled-state + category loading + existing-tree render
+ *   3. Tag list helpers + first-tag toggle / lock mode
+ *   4. Deck-mode detection + input-mode UI sync
+ *   5. Card / tag line parsers + dedupe + tag-path splitting
+ *   6. Deck-block parsing + Chinese characters back enrichment
+ *   7. Tag-path availability + overlap summary + prefix check
+ *   8. Preview / render review / bulk create / reset
+ */
+
+// =====================================================================
+// === 1. DOM refs + module constants + common-module wiring
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const firstTagToggle = document.getElementById('firstTagToggle');
@@ -116,6 +134,10 @@ if (createDecksBtn) {
     });
 }
 
+// =====================================================================
+// === 2. Disabled-state + category loading + existing-tree render
+// =====================================================================
+
 function setControlsDisabled(disabled) {
     deckCreateCommon.setControlsDisabled(disabled, {
         bulkDeckInput: { element: bulkDeckInput },
@@ -225,6 +247,10 @@ function renderExistingTreeForCurrentFirstTag() {
     existingTreeText.classList.remove('is-empty');
 }
 
+// =====================================================================
+// === 3. Tag list helpers + first-tag toggle / lock mode
+// =====================================================================
+
 function normalizeTagList(tags) {
     const out = [];
     const seen = new Set();
@@ -304,6 +330,10 @@ if (bulkDeckInput) {
         resetPreviewState();
     });
 }
+
+// =====================================================================
+// === 4. Deck-mode detection + input-mode UI sync
+// =====================================================================
 
 function parseCardLine(rawLine, lineNo) {
     const line = String(rawLine || '').trim();
@@ -464,6 +494,10 @@ function updateInputModeUi() {
     ].join('\n');
 }
 
+// =====================================================================
+// === 5. Card / tag line parsers + dedupe + tag-path splitting
+// =====================================================================
+
 function parseChineseCharactersFromLine(rawLine, lineNo) {
     const line = String(rawLine || '');
     const chars = line.match(/\p{Script=Han}/gu);
@@ -548,6 +582,10 @@ function parseRemainingTagParts(rawLine, { strict = true } = {}) {
     }
     return parsed;
 }
+
+// =====================================================================
+// === 6. Deck-block parsing + Chinese characters back enrichment
+// =====================================================================
 
 function parseDeckBlocks(rawText) {
     const lines = String(rawText || '').split(/\r\n|\r|\n/);
@@ -681,6 +719,10 @@ async function enrichChineseCharactersBacks(blocks) {
     });
 }
 
+// =====================================================================
+// === 7. Tag-path availability + overlap summary + prefix check
+// =====================================================================
+
 async function fetchTagPathAvailability(firstTag, extraTags) {
     const params = new URLSearchParams();
     params.set('firstTag', String(firstTag || '').trim());
@@ -749,6 +791,10 @@ function isStrictPrefixPath(pathA, pathB) {
     }
     return true;
 }
+
+// =====================================================================
+// === 8. Preview / render review / bulk create / reset
+// =====================================================================
 
 async function previewBulkCreate() {
     showError('');

@@ -1,7 +1,27 @@
+/*
+ * kid-report-common.js — shared report engine for kid-report / card / session pages
+ *
+ * Layout (all inside an IIFE — exported as window.KidReportCommon):
+ *   1. Theme + palette constants, subject-tone helper
+ *   2. createReport bootstrap (filtered sessions, data setter, loading state)
+ *   3. createReport render orchestration + summary block
+ *   4. Daily-minutes chart (page rows, chart page, legend)
+ *   5. Sessions list rendering
+ *   6. Dual-axis chart HTML + day-mode annotation
+ *   7. Category color theme builders
+ *   8. Date pagination + key/format helpers
+ *   9. Listener wiring (closes createReport)
+ *  10. Module-level statistical / formatting helpers
+ */
+
 (function () {
     'use strict';
 
     const { normalizeCategoryKey } = window.DeckCategoryCommon;
+
+    // =====================================================================
+    // === 1. Theme + palette constants, subject-tone helper
+    // =====================================================================
 
     const SUBJECT_TONE_THEMES = {
         orange: { bar: '#d96a00', barGradient: 'linear-gradient(180deg, #ff9a3c 0%, #d96a00 100%)', pillBg: '#ffe5cc', pillText: '#9a5b00' },
@@ -37,6 +57,10 @@
     const MINUTES_BAR_GRADIENT = 'linear-gradient(180deg, #6e9cff 0%, #2f66e6 100%)';
     const RIGHT_CARDS_BAR_GRADIENT = 'linear-gradient(180deg, #4ade80 0%, #16a34a 100%)';
     const WRONG_CARDS_BAR_GRADIENT = 'linear-gradient(180deg, #f87171 0%, #dc2626 100%)';
+
+    // =====================================================================
+    // === 2. createReport bootstrap (filtered sessions, data setter, loading)
+    // =====================================================================
 
     function createReport(config) {
         const elements = (config && config.elements) || {};
@@ -126,6 +150,10 @@
             if (elements.dailyChartOlderBtn) elements.dailyChartOlderBtn.disabled = true;
         }
 
+        // -----------------------------------------------------------------
+        // === 3. Render orchestration + summary block
+        // -----------------------------------------------------------------
+
         function renderAll() {
             filteredSessions = getFilteredSessions();
             renderSummary(filteredSessions);
@@ -155,6 +183,10 @@
                 </div>
             `;
         }
+
+        // -----------------------------------------------------------------
+        // === 4. Daily-minutes chart (page rows, chart page, legend)
+        // -----------------------------------------------------------------
 
         function renderDailyMinutesChart(sessions) {
             const dailyMap = new Map();
@@ -380,6 +412,10 @@
             elements.dailyChartLegend.style.display = legendItems.length > 0 ? '' : 'none';
         }
 
+        // -----------------------------------------------------------------
+        // === 5. Sessions list rendering
+        // -----------------------------------------------------------------
+
         function renderSessionsList() {
             if (!elements.sessionsList) return;
             const sessions = Array.isArray(filteredSessions) ? filteredSessions : [];
@@ -460,6 +496,10 @@
                 </a>
             `;
         }
+
+        // -----------------------------------------------------------------
+        // === 6. Dual-axis chart HTML + day-mode annotation
+        // -----------------------------------------------------------------
 
         function renderDualAxisChartHtml({ pageRows, maxTotal, maxCards }) {
             const N = pageRows.length;
@@ -612,6 +652,10 @@
             return `<div class="daily-vbar-mode">${chips}</div>`;
         }
 
+        // -----------------------------------------------------------------
+        // === 7. Category color theme builders
+        // -----------------------------------------------------------------
+
         function getCategoryColorTheme(categoryKey) {
             const key = String(categoryKey || '').trim().toLowerCase();
             if (!key) return DEFAULT_CATEGORY_COLOR_THEME;
@@ -684,6 +728,10 @@
             }
             return themeByKey;
         }
+
+        // -----------------------------------------------------------------
+        // === 8. Date pagination + key/format helpers
+        // -----------------------------------------------------------------
 
         function getSessionDateKey(session) {
             return formatDateKey(session?.started_at || session?.completed_at);
@@ -811,6 +859,10 @@
             return y && m && d ? `${y}-${m}-${d}` : '';
         }
 
+        // -----------------------------------------------------------------
+        // === 9. Listener wiring (closes createReport)
+        // -----------------------------------------------------------------
+
         function attachListeners() {
             if (elements.dailyChartBody) {
                 elements.dailyChartBody.addEventListener('click', (event) => {
@@ -850,6 +902,10 @@
             renderInitialLoading,
         };
     }
+
+    // =====================================================================
+    // === 10. Module-level statistical / formatting helpers
+    // =====================================================================
 
     function safeNum(value) {
         const num = Number(value);
