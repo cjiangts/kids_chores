@@ -1,6 +1,14 @@
 """Audio path / metadata / synthesis helpers for kid writing flows.
 
 Pure helpers extracted from `src.routes.kids` Phase 2 refactor.
+
+Layout:
+  1. Shared writing-audio dir + text/language normalizers
+  2. TTS text builders + bulk-format helpers
+  3. Audio file naming (writing + Type-I prompt)
+  4. Meta + payload builders (writing + Type-I Chinese)
+  5. TTS synthesis (writes shared audio files)
+  6. Type-III per-kid audio dir + pending/uncommitted cleanup
 """
 import hashlib
 import mimetypes
@@ -18,6 +26,10 @@ from src.routes.kids_constants import (
     WRITING_TTS_LANGUAGE_ZH,
 )
 
+
+# =====================================================================
+# === 1. Shared writing-audio dir + text/language normalizers
+# =====================================================================
 
 def get_shared_writing_audio_dir():
     """Get global shared directory for auto-generated writing prompt audio."""
@@ -42,6 +54,10 @@ def get_writing_tts_language(has_chinese_specific_logic=True):
     return WRITING_TTS_LANGUAGE_ZH if bool(has_chinese_specific_logic) else WRITING_TTS_LANGUAGE_EN
 
 
+# =====================================================================
+# === 2. TTS text builders + bulk-format helpers
+# =====================================================================
+
 def build_writing_front_tts_text(front_text, back_text, has_chinese_specific_logic=True):
     """Build spoken text for front prompt clip."""
     front_norm = normalize_writing_audio_text(front_text)
@@ -62,6 +78,10 @@ def format_type2_bulk_card_text(front_text, back_text, has_chinese_specific_logi
         return front or back
     return f'{front} -> {back}'
 
+
+# =====================================================================
+# === 3. Audio file naming (writing + Type-I prompt)
+# =====================================================================
 
 def build_shared_writing_audio_file_name(front_text):
     """Build deterministic shared audio filename from writing card front text."""
@@ -102,6 +122,10 @@ def build_shared_type1_prompt_audio_file_name(front_text):
     prefix = f"type1_prompt_{safe[:24].strip() or 'tts'}"
     return f"{prefix}_{digest}{WRITING_AUDIO_EXTENSION}"
 
+
+# =====================================================================
+# === 4. Meta + payload builders (writing + Type-I Chinese)
+# =====================================================================
 
 def build_writing_audio_meta_for_front(
     kid_id,
@@ -203,6 +227,10 @@ def build_type_i_chinese_prompt_audio_payload(
     }
 
 
+# =====================================================================
+# === 5. TTS synthesis (writes shared audio files)
+# =====================================================================
+
 def synthesize_shared_writing_audio(
     front_text,
     overwrite=False,
@@ -251,6 +279,10 @@ def synthesize_shared_writing_audio(
             except OSError:
                 pass
 
+
+# =====================================================================
+# === 6. Type-III per-kid audio dir + pending/uncommitted cleanup
+# =====================================================================
 
 def get_kid_type3_audio_dir(kid):
     """Get filesystem directory for kid type-III recording files."""

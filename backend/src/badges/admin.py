@@ -1,4 +1,10 @@
-"""Reward admin helpers for family-level tracking start and reset."""
+"""Reward admin helpers for family-level tracking start and reset.
+
+Layout:
+  1. Reward tracking status + family-wide badge reset
+  2. Badge-art catalog listing + assignment payload builders
+  3. Assignment target validators + bulk writer
+"""
 from __future__ import annotations
 
 from collections import Counter
@@ -8,6 +14,10 @@ from typing import Dict, Tuple
 from src.badges import DAY_ONE_BADGE_ACHIEVEMENTS, get_badge_palette_key
 from src.db import kid_db, metadata
 
+
+# =====================================================================
+# === 1. Reward tracking status + family-wide badge reset
+# =====================================================================
 
 def _family_timezone_info(family_id: str) -> str:
     return metadata.get_family_timezone(str(family_id or ''))
@@ -54,6 +64,10 @@ def clear_family_kid_badge_awards(family_id: str) -> Dict[str, int]:
         'touchedKidCount': touched_kid_count,
     }
 
+
+# =====================================================================
+# === 2. Badge-art catalog listing + assignment payload builders
+# =====================================================================
 
 def _normalize_category_key(value) -> str:
     return str(value or '').strip().lower()
@@ -215,6 +229,10 @@ def build_family_badge_art_payload(shared_conn):
         'canEdit': False,
     }
 
+
+# =====================================================================
+# === 3. Assignment target validators + bulk writer
+# =====================================================================
 
 def _valid_badge_definition_keys():
     return {

@@ -7,6 +7,12 @@ Pure helpers that:
     if missing) or get-or-create.
 
 DB helpers take an open `conn`. No module state.
+
+Layout:
+  1. Orphan-deck lookup / get-or-create by name
+  2. Category config hydration from kid DB
+  3. Per-kid category readers (session count, include-orphan)
+  4. Category orphan-deck name + lookup + drill-speed cutoff
 """
 from src.db import kid_db
 from src.routes.kids_constants import (
@@ -24,6 +30,10 @@ from src.routes.kids_constants import (
 from src.services.shared_deck_category import get_shared_deck_category_meta_by_key
 from src.services.shared_deck_normalize import normalize_shared_deck_tag
 
+
+# =====================================================================
+# === 1. Orphan-deck lookup / get-or-create by name
+# =====================================================================
 
 def get_orphan_deck(conn, orphan_deck_name):
     """Look up orphan deck id by name (read-only, no auto-create). Returns 0 if missing."""
@@ -61,6 +71,10 @@ def get_or_create_orphan_deck(conn, orphan_deck_name, first_tag):
     ).fetchone()
     return int(row[0])
 
+
+# =====================================================================
+# === 2. Category config hydration from kid DB
+# =====================================================================
 
 def hydrate_kid_category_config_from_db(
     kid,
@@ -152,6 +166,10 @@ def hydrate_kid_category_config_from_db(
     return kid
 
 
+# =====================================================================
+# === 3. Per-kid category readers (session count, include-orphan)
+# =====================================================================
+
 def get_category_session_card_count_for_kid(kid, category_key):
     """Return one category's configured cards-per-session value."""
     key = normalize_shared_deck_tag(category_key)
@@ -213,6 +231,10 @@ def get_category_include_orphan_for_kid(kid, category_key):
         return value
     return DEFAULT_INCLUDE_ORPHAN_IN_QUEUE
 
+
+# =====================================================================
+# === 4. Category orphan-deck name + lookup + drill-speed cutoff
+# =====================================================================
 
 def get_category_orphan_deck_name(category_key):
     """Return orphan deck name for one category key."""

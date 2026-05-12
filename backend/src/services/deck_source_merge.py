@@ -1,4 +1,10 @@
-"""Source-deck merging helpers for kid decks (shared + orphan)."""
+"""Source-deck merging helpers for kid decks (shared + orphan).
+
+Layout:
+  1. Entry builders (shared / orphan) + card-count summary by deck ids
+  2. Shared merged source decks for kid (generic + type-I/II/IV variants)
+  3. Type-IV bank source rows + daily target for a category
+"""
 from src.services.kid_category_config import (
     get_category_include_orphan_for_kid,
     get_category_orphan_deck,
@@ -13,6 +19,10 @@ from src.services.shared_deck_queries import (
     get_kid_materialized_shared_type_ii_decks,
 )
 
+
+# =====================================================================
+# === 1. Entry builders (shared / orphan) + card-count summary by deck ids
+# =====================================================================
 
 def _build_shared_source_deck_entry(entry, total_cards, active_cards):
     """Build one non-orphan merged-source payload."""
@@ -91,6 +101,10 @@ def get_card_count_summary_by_deck_ids(conn, deck_ids):
         if row and int(row[0] or 0) > 0
     }
 
+
+# =====================================================================
+# === 2. Shared merged source decks for kid (generic + type-I/II/IV variants)
+# =====================================================================
 
 def get_shared_merged_source_decks_for_kid(
     conn,
@@ -189,6 +203,10 @@ def get_shared_type_iv_merged_source_decks_for_kid(
         include_orphan_in_queue_override=include_orphan_in_queue_override,
     )
 
+
+# =====================================================================
+# === 3. Type-IV bank source rows + daily target for a category
+# =====================================================================
 
 def get_type_iv_bank_source_rows(
     conn,

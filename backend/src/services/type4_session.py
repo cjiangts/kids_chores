@@ -9,6 +9,12 @@ Pure helpers that:
 
 No module state. The retry-rows helper takes a kid `conn`; everything else is
 pure.
+
+Layout:
+  1. Choice options + pending-item → response card
+  2. Generator pending-item build for opted-in sources
+  3. Count distribution + initial/continue allocation
+  4. Retry source result rows (per-kid DB read)
 """
 import math
 import random
@@ -23,6 +29,10 @@ from src.services.practice_mode import normalize_type_iv_practice_mode
 from src.services.session_grading import normalize_type_iv_submitted_answer
 from src.type4_generator_preview import run_type4_generator
 
+
+# =====================================================================
+# === 1. Choice options + pending-item → response card
+# =====================================================================
 
 def build_type_iv_choice_options(answer, distractor_answers, seed):
     """Return one shuffled multiple-choice option list for a generator item."""
@@ -66,6 +76,10 @@ def map_type_iv_pending_item_to_response_card(item, practice_mode):
         )
     return response_card
 
+
+# =====================================================================
+# === 2. Generator pending-item build for opted-in sources
+# =====================================================================
 
 def build_type_iv_pending_items_for_sources(
     practice_sources,
@@ -116,6 +130,10 @@ def build_type_iv_pending_items_for_sources(
 
     return pending_items, response_cards
 
+
+# =====================================================================
+# === 3. Count distribution + initial/continue allocation
+# =====================================================================
 
 def distribute_type_iv_random_count_across_sources(source_keys, total_count, rng):
     """Spread one generator count randomly across source keys with minimal repetition."""
@@ -278,6 +296,10 @@ def build_type_iv_continue_count_by_source_key(practice_sources, target_count):
 
     return expanded_allocations
 
+
+# =====================================================================
+# === 4. Retry source result rows (per-kid DB read)
+# =====================================================================
 
 def get_type_iv_retry_source_result_rows(conn, source_session_id, allowed_representative_card_ids):
     """Return unresolved generator retry rows for one source session."""
