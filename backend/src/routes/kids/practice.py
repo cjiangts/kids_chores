@@ -35,7 +35,6 @@ from src.routes.kids import (
     get_kid_for_family,
     get_latest_retry_source_session_for_today,
     get_latest_unfinished_session_for_today,
-    get_pending_writing_card_ids,
     get_retry_source_wrong_card_ids,
     get_session_practiced_card_ids,
     get_shared_type_i_merged_source_decks_for_kid,
@@ -67,6 +66,7 @@ from src.services.session_grading import (
     append_type1_result_submitted_answer,
     insert_type1_result_item,
 )
+from src.services.writing_candidates import get_pending_writing_card_ids
 from src.services.pending_sessions import (
     _PENDING_SESSIONS,
     _PENDING_SESSIONS_LOCK,

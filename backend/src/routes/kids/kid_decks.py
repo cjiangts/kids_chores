@@ -27,7 +27,6 @@ from src.routes.kids import (
     map_card_row,
     normalize_type_iv_daily_counts_payload,
     preview_type4_generator,
-    remove_cards_from_type2_chinese_print_sheets,
     request,
     resolve_kid_type_i_chinese_category_key,
     resolve_kid_type_iv_category_with_mode,
@@ -37,6 +36,7 @@ from src.services.chinese_text import (
     build_chinese_auto_back_text,
     get_category_chinese_back_content,
 )
+from src.services.writing_candidates import remove_cards_from_type2_chinese_print_sheets
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
 def get_cards(kid_id):

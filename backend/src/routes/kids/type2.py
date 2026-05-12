@@ -14,25 +14,27 @@ from src.routes.kids import (
     get_kid_for_family,
     get_kid_materialized_shared_type_ii_decks,
     get_or_create_category_orphan_deck,
-    get_pending_writing_card_ids,
     get_shared_type2_cards,
     get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
     get_shared_writing_audio_dir,
-    get_writing_candidate_card_ids,
     json,
     jsonify,
     kids_bp,
     mimetypes,
     normalize_writing_audio_text,
     os,
-    remove_cards_from_type2_chinese_print_sheets,
     request,
     resolve_kid_type_i_chinese_category_key,
     resolve_kid_type_ii_category_with_mode,
     send_from_directory,
     split_type2_bulk_rows,
     synthesize_shared_writing_audio,
+)
+from src.services.writing_candidates import (
+    get_pending_writing_card_ids,
+    get_writing_candidate_card_ids,
+    remove_cards_from_type2_chinese_print_sheets,
 )
 
 @kids_bp.route('/kids/<kid_id>/type2/cards', methods=['GET'])
