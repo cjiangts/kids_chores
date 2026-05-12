@@ -13,6 +13,15 @@ Helpers that read each kid's per-kid SQLite to produce:
 
 `get_kid_connection_for` is opened lazily when no `conn` is supplied.
 No module state.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Category metadata helpers (kid db path, type-III key set, display name)
+    2. Dashboard stats — `get_kid_dashboard_stats` (today's session aggregates)
+    3. Opt-in + grading-queue readers
+    4. Per-category projections of dashboard stats onto report payload dicts
+    5. Active-card counts + daily practice target derivation
+    6. Composite progress section builder for the kid report
 """
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -41,6 +50,9 @@ from src.services.shared_deck_category import (
 from src.services.shared_deck_normalize import normalize_shared_deck_tag
 
 
+# =====================================================================
+# === 1. Category metadata helpers
+# =====================================================================
 def get_kid_scoped_db_relpath(kid):
     """Return family-scoped dbFilePath for a kid."""
     family_id = str(kid.get('familyId') or '')
@@ -79,6 +91,9 @@ def get_deck_category_display_name(category_key, category_meta_by_key=None):
     return str((meta.get(key) or {}).get('display_name') or '').strip()
 
 
+# =====================================================================
+# === 2. Dashboard stats — today's session aggregates
+# =====================================================================
 def get_kid_dashboard_stats(
     kid,
     *,
@@ -272,6 +287,9 @@ def get_kid_dashboard_stats(
             local_conn.close()
 
 
+# =====================================================================
+# === 3. Opt-in + grading-queue readers
+# =====================================================================
 def get_kid_opted_in_deck_category_keys(kid, *, category_meta_by_key=None, conn=None):
     """Return normalized deck-category keys opted in for one kid."""
     try:
@@ -357,6 +375,9 @@ def get_kid_ungraded_type_iii_count(kid, *, type_iii_category_keys=None, conn=No
             local_conn.close()
 
 
+# =====================================================================
+# === 4. Per-category projections of dashboard stats
+# =====================================================================
 def get_kid_daily_completed_by_deck_category(kid, opted_in_category_keys, today_counts=None):
     """Build per-category daily completed session counts using practiced card tags."""
     counts = {}
@@ -444,6 +465,9 @@ def get_kid_daily_percent_by_deck_category(opted_in_category_keys, today_latest_
     return result
 
 
+# =====================================================================
+# === 5. Active-card counts + daily practice target
+# =====================================================================
 def get_kid_active_card_count_by_deck_category(kid, *, conn=None):
     """Return active (non-skipped) card counts keyed by normalized category key.
 
@@ -519,6 +543,9 @@ def get_kid_practice_target_by_deck_category(
     return targets
 
 
+# =====================================================================
+# === 6. Composite progress section builder
+# =====================================================================
 def build_kid_daily_progress_section(kid, category_key, *, conn=None):
     """Compute per-card-per-day attempt aggregates + family timezone for one kid+category."""
     family_id = str(kid.get('familyId') or '').strip()

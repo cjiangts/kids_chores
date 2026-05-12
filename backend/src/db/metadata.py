@@ -1,4 +1,22 @@
-"""Metadata manager for kids/families metadata JSON."""
+"""Metadata manager for the kids/families JSON store.
+
+A single `data/kids.json` holds the family roster and the kid roster.
+All reads/writes go through fcntl-protected helpers (`_with_file_lock`)
+so concurrent web workers serialize their access. Mutations always run
+read-modify-write inside `_mutate_metadata` to keep the on-disk shape
+canonical via `_normalize`.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Module config + normalization helpers (password/timezone/super-family)
+    2. File I/O primitives (`_with_file_lock`, `_write_metadata_atomic`,
+       `_mutate_metadata`, `load_metadata`)
+    3. Kid CRUD (list, get, add, delete, update)
+    4. Family lookup + auth (list, get, by-username, register, authenticate,
+       verify password, is_super_family)
+    5. Family lifecycle (delete, update password)
+    6. Family settings (timezone get/set, badge-tracking-started-at)
+"""
 import json
 import os
 import tempfile
@@ -17,6 +35,9 @@ FAMILY_BADGE_TRACKING_STARTED_AT_FIELD = 'badgeTrackingStartedAt'
 _METADATA_THREAD_LOCK = threading.RLock()
 
 
+# =====================================================================
+# === 1. Module config + normalization helpers
+# =====================================================================
 def _normalize(data: Dict) -> Dict:
     """Normalize metadata shape in-memory."""
     if 'families' not in data or not isinstance(data.get('families'), list):
@@ -97,6 +118,9 @@ def _normalize_badge_tracking_started_at(value) -> str:
     return parsed.isoformat()
 
 
+# =====================================================================
+# === 2. File I/O primitives
+# =====================================================================
 def ensure_metadata_file():
     """Create metadata file if it doesn't exist"""
     os.makedirs(os.path.dirname(METADATA_FILE), exist_ok=True)
@@ -164,6 +188,9 @@ def load_metadata() -> Dict:
         return _normalize(data)
     return _with_file_lock(False, _op)
 
+# =====================================================================
+# === 3. Kid CRUD
+# =====================================================================
 def get_all_kids(family_id: Optional[str] = None) -> List[Dict]:
     """Get kids, optionally filtered by family id."""
     metadata = load_metadata()
@@ -239,6 +266,9 @@ def update_kid(kid_id, updates: Dict, family_id: Optional[str] = None) -> Option
     return _mutate_metadata(_op)
 
 
+# =====================================================================
+# === 4. Family lookup + auth
+# =====================================================================
 def get_all_families() -> List[Dict]:
     """Get all families."""
     metadata = load_metadata()
@@ -339,6 +369,9 @@ def is_super_family(family_id: str) -> bool:
     return _normalize_super_family_flag(family.get('superFamily'))
 
 
+# =====================================================================
+# === 5. Family lifecycle (delete + password update)
+# =====================================================================
 def delete_family(family_id: str) -> Dict:
     """Delete one family and all of its kids from metadata."""
     family_id = str(family_id or '')
@@ -396,6 +429,9 @@ def update_family_password(family_id: str, current_password: str, new_password: 
     return _mutate_metadata(_op)
 
 
+# =====================================================================
+# === 6. Family settings (timezone + badge-tracking-started-at)
+# =====================================================================
 def get_family_timezone(family_id: str) -> str:
     """Get family-level timezone with safe default."""
     family = get_family_by_id(str(family_id or ''))

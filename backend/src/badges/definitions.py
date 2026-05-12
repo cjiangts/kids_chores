@@ -1,5 +1,26 @@
+"""Static catalog of all badge achievement definitions.
+
+The catalog is built at import time and exported as
+`DAY_ONE_BADGE_ACHIEVEMENTS` — an ordered tuple sorted by category
+priority then estimated difficulty. Award decisions in
+`badges/service.py` consume this catalog; admin/UI code in
+`badges/admin.py` and `parent-settings-badges.js` use the metadata
+to label and group earned awards.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Maintenance contract + dataclass + key registries (palette/theme)
+    2. Per-category title/threshold tables (session/gold/card ladders)
+    3. Global achievement tables + statistical constants
+    4. Category + rule-type priority weights for the final sort
+    5. Builder functions (`_definition`, `_build_*_achievements`)
+    6. Difficulty estimator + final exported tuple
+"""
 from dataclasses import dataclass
 
+# =====================================================================
+# === 1. Maintenance contract + dataclass + key registries
+# =====================================================================
 # Badge catalog maintenance contract:
 # - This file is append-only once rewards are live for real families.
 # - Never change or reuse a shipped (achievement_key, category_key) pair.
@@ -65,6 +86,10 @@ def get_badge_palette_key(category_key: str) -> str:
     normalized = str(category_key or '').strip().lower()
     return _CATEGORY_PALETTE_BY_KEY.get(normalized, 'global')
 
+
+# =====================================================================
+# === 2. Per-category title/threshold tables
+# =====================================================================
 _CATEGORY_SESSION_TITLES = {
     'chinese_characters': {
         1: 'Character Spark',
@@ -196,6 +221,9 @@ _READING_SPEED_3X_TITLES = {
     5: '3x Reading Legend',
 }
 
+# =====================================================================
+# === 3. Global achievement tables + statistical constants
+# =====================================================================
 _TOTAL_SESSION_THRESHOLDS = (10, 25, 50, 100, 200, 350, 700)
 _TOTAL_SESSION_TITLES = {
     10: 'Practice Spark',
@@ -275,6 +303,10 @@ _OVERALL_GOLD_RATE = 0.3504
 _OVERALL_COMEBACK_RATE = 0.1538
 _READING_2X_CARD_RATE = 1.0 / 43.0
 _READING_3X_CARD_RATE = 1.0 / 43.0
+
+# =====================================================================
+# === 4. Category + rule-type priority weights (final sort)
+# =====================================================================
 _CATEGORY_PRIORITY = {
     'chinese_characters': 0,
     'chinese_writing': 1,
@@ -298,6 +330,9 @@ _RULE_TYPE_PRIORITY = {
 }
 
 
+# =====================================================================
+# === 5. Definition builders
+# =====================================================================
 def _definition(
     *,
     achievement_key: str,
@@ -547,6 +582,9 @@ def _build_global_achievements():
     return tuple(definitions)
 
 
+# =====================================================================
+# === 6. Difficulty estimator + final exported tuple
+# =====================================================================
 def _estimated_session_difficulty(definition: BadgeAchievementDefinition) -> float:
     rule_type = str(definition.rule_type or '').strip().lower()
     category_key = str(definition.category_key or '').strip().lower()

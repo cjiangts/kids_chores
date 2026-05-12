@@ -1,4 +1,20 @@
-"""Main Flask application"""
+"""Main Flask application.
+
+Single `create_app()` factory wires the auth helpers, request hooks, and
+top-level routes that don't live in a blueprint. Routes that belong to a
+specific domain live in their blueprint (kids_bp, badges_bp, backup_bp);
+what stays here is family auth + parent settings + super-family admin.
+
+Layout inside `create_app()` (search for `# === N. ` banner markers):
+
+    1. App config + auth helper closures
+    2. Request lifecycle hooks (before_request, after_request)
+    3. Blueprint registration
+    4. Family-auth routes (status/register/login/logout)
+    5. Parent-auth + parent-settings (password, timezone, rewards)
+    6. Super-family admin (list/delete families)
+    7. Health + static frontend serving
+"""
 from urllib.parse import quote
 from flask import Flask, send_from_directory, request, redirect, session, jsonify, g
 from flask_cors import CORS
@@ -37,6 +53,9 @@ FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
 
 
 def create_app():
+    # =================================================================
+    # === 1. App config + auth helper closures
+    # =================================================================
     app = Flask(__name__)
     CORS(app, origins=os.environ.get('CORS_ORIGINS', 'http://localhost:5001').split(','))
     app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
@@ -104,6 +123,9 @@ def create_app():
         CRITICAL_PASSWORD_RATE_LIMITER.reset(limit_key)
         return None
 
+    # =================================================================
+    # === 2. Request lifecycle hooks
+    # =================================================================
     @app.before_request
     def enforce_family_auth():
         g.request_started_at = time.perf_counter()
@@ -162,11 +184,16 @@ def create_app():
             )
         return response
 
-    # Register blueprints
+    # =================================================================
+    # === 3. Blueprint registration
+    # =================================================================
     app.register_blueprint(kids_bp, url_prefix='/api')
     app.register_blueprint(badges_bp, url_prefix='/api')
     app.register_blueprint(backup_bp, url_prefix='/api')
 
+    # =================================================================
+    # === 4. Family-auth routes
+    # =================================================================
     @app.route('/api/family-auth/status', methods=['GET'])
     def family_auth_status():
         family_id = session.get('family_id')
@@ -230,6 +257,9 @@ def create_app():
         session.pop('family_username', None)
         return {'authenticated': False}, 200
 
+    # =================================================================
+    # === 5. Parent-auth + parent-settings routes
+    # =================================================================
     @app.route('/api/parent-auth/change-password', methods=['POST'])
     def parent_auth_change_password():
         auth_err = require_family_auth()
@@ -357,6 +387,9 @@ def create_app():
         finally:
             shared_conn.close()
 
+    # =================================================================
+    # === 6. Super-family admin routes
+    # =================================================================
     @app.route('/api/parent-settings/families', methods=['GET'])
     def list_family_accounts():
         auth_err = require_super_family_auth()
@@ -564,11 +597,13 @@ def create_app():
             'deleted_shared_decks': int(deleted_shared_decks),
         }, 200
 
+    # =================================================================
+    # === 7. Health + static frontend serving
+    # =================================================================
     @app.route('/health', methods=['GET'])
     def health():
         return {'status': 'healthy'}, 200
 
-    # Serve frontend files
     frontend_dir = os.path.join(PROJECT_ROOT, 'frontend')
 
     @app.route('/')
