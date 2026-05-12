@@ -1,3 +1,25 @@
+/*
+ * admin.js — family home page (admin.html).
+ *
+ * Renders the kid grid, the "start practice" jump button, the deck-
+ * category opt-in matrix in edit mode, the per-kid kebab menu, and
+ * the deck-browse modal launched from a category cell.
+ *
+ * Edit mode is the matrix's "rearrange" view: it lets the parent
+ * toggle category opt-ins per kid, with debounced saves per row.
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. DOM refs + auth + DOMContentLoaded
+ *     2. Display helpers (escape, initial, hashing, last-viewed-kid)
+ *     3. Kid CRUD + cache + load
+ *     4. Action grid (start practice + entry points)
+ *     5. Opt-in matrix render
+ *     6. Matrix edit mode + per-kid debounced save
+ *     7. Per-kid + per-panel + per-subject menus
+ *     8. Deck browse modal
+ */
+
 // API Configuration
 const API_BASE = `${window.location.origin}/api`;
 
@@ -48,6 +70,9 @@ let openSubjectMenuKey = '';
 let isPanelMenuOpen = false;
 let isSuperFamily = false;
 
+// =====================================================================
+// === 1. DOM refs + auth + DOMContentLoaded
+// =====================================================================
 document.addEventListener('DOMContentLoaded', () => {
     loadKids({ preferNavigationCache: true });
     loadAuthStatus();
@@ -132,6 +157,9 @@ function syncKidFormSaveBtn() {
     }
 }
 
+// =====================================================================
+// === 2. Display helpers (escape, initial, hashing, last-viewed-kid)
+// =====================================================================
 function escapeHtml(text) {
     return String(text || '')
         .replace(/&/g, '&amp;')
@@ -267,6 +295,9 @@ function persistCurrentFamilyNavigationPointer(familyId) {
     }
 }
 
+// =====================================================================
+// === 3. Kid CRUD + cache + load
+// =====================================================================
 async function loadKids(options = {}) {
     const preferNavigationCache = Boolean(options?.preferNavigationCache);
     let usedNavigationCache = false;
@@ -489,6 +520,9 @@ function getEffectiveOptedInKeys(kid) {
     return Array.from(getOptedInDeckCategorySet(kid));
 }
 
+// =====================================================================
+// === 4. Action grid (start practice + entry points)
+// =====================================================================
 function renderActionGrid() {
     if (!adminActionGrid) return;
     const list = Array.isArray(currentKids) ? currentKids : [];
@@ -621,6 +655,9 @@ function pickKidWithReviewAudio(kids) {
     return null;
 }
 
+// =====================================================================
+// === 5. Opt-in matrix render
+// =====================================================================
 function renderMatrix() {
     if (!adminMatrix || !adminOptinPanel || !adminEmptyState) return;
     const list = Array.isArray(currentKids) ? currentKids : [];
@@ -830,6 +867,9 @@ function toggleCellOptedIn(kidId, categoryKey) {
     updateStartPracticeHref();
 }
 
+// =====================================================================
+// === 6. Matrix edit mode + per-kid debounced save
+// =====================================================================
 function enterEditMode() {
     editMode = true;
     editState = buildEditStateFromKids(currentKids);
@@ -936,6 +976,9 @@ function setKidHeaderSavingClass(kidId, isSaving) {
 }
 
 
+// =====================================================================
+// === 7. Per-kid + per-panel + per-subject menus
+// =====================================================================
 function openKidMenu(kidId, anchorEl) {
     openKidMenuKidId = String(kidId || '');
     closeKidMenuDom();
@@ -1120,6 +1163,9 @@ function showError(message) {
 let deckBrowseTreeView = null;
 let deckBrowseAllSharedDecks = null;
 
+// =====================================================================
+// === 8. Deck browse modal
+// =====================================================================
 function ensureDeckBrowseTreeView() {
     if (deckBrowseTreeView) return deckBrowseTreeView;
     const container = document.getElementById('deckBrowseContainer');

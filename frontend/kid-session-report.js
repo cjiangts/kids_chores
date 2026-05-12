@@ -1,3 +1,27 @@
+/*
+ * kid-session-report.js — single-session detail report.
+ *
+ * Loads one session by id, renders a summary hero, the outcome counts
+ * (wrong / right / drill totals), a card list grouped by outcome, plus
+ * specialty visualizations: speed distribution buckets (type-I) and
+ * drill progress table (type-I drill mode).
+ *
+ * Type-III sessions add inline grading controls (review-and-resolve).
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. DOM refs + bootstrap
+ *     2. Session load + summary render
+ *     3. Drill-mode answer cards + progress table
+ *     4. Speed distribution panel (type-I)
+ *     5. Date/time formatting + practice-mode label
+ *     6. Answer list render (card rows, response-time bars, grading)
+ *     7. Live duration backfill + active-minutes sync
+ *     8. Grading controls (type-III review-and-resolve)
+ *     9. Card report link + answer-label helpers
+ *    10. Misc helpers (timestamps, error display)
+ */
+
 const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
@@ -46,6 +70,9 @@ let liveDurationBackfillBound = false;
 let currentAnswers = [];
 let currentKidName = '';
 
+// =====================================================================
+// === 1. DOM refs + bootstrap
+// =====================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !sessionId) {
         window.location.href = '/admin.html';
@@ -96,6 +123,9 @@ async function loadReportTimezone() {
     }
 }
 
+// =====================================================================
+// === 2. Session load + summary render
+// =====================================================================
 async function loadSessionDetail() {
     try {
         showError('');
@@ -358,6 +388,9 @@ function groupAnswersByCard(answers) {
     return order.map((key) => ({ key, attempts: groups.get(key) }));
 }
 
+// =====================================================================
+// === 3. Drill-mode answer cards + progress table
+// =====================================================================
 function getDrillAttemptResultClass(attempt) {
     return getAnswerBarClassByScore(attempt?.correct_score);
 }
@@ -499,6 +532,9 @@ function renderDrillProgressTable(answers) {
     drillProgressBody.innerHTML = `<div class="drill-progress-cutoff">${escapeHtml(cutoffLabel)}</div><div class="drill-progress-list">${rows}</div>`;
 }
 
+// =====================================================================
+// === 4. Speed distribution panel
+// =====================================================================
 function getResponseTimeCapMs() {
     if (currentSessionBehaviorType === BEHAVIOR_TYPE_I) return 20 * 1000;
     if (currentSessionBehaviorType === BEHAVIOR_TYPE_II) return 2 * 60 * 1000;
@@ -568,6 +604,9 @@ function renderSpeedDistribution(answers) {
 }
 
 
+// =====================================================================
+// === 5. Date/time formatting + practice-mode label
+// =====================================================================
 function formatStartedDate(raw) {
     const dt = parseUtcTimestamp(raw);
     if (Number.isNaN(dt.getTime())) return '—';
@@ -640,6 +679,9 @@ function formatPracticeMode(raw) {
     return parts.join(' · ');
 }
 
+// =====================================================================
+// === 6. Answer list render
+// =====================================================================
 function getAnswerSortRank(item) {
     const score = Number(item?.correct_score);
     if (score <= -2) {
@@ -810,6 +852,9 @@ function getAnswerSeenCount(itemOrScore) {
     return Math.max(1, Math.abs(normalized));
 }
 
+// =====================================================================
+// === 7. Live duration backfill + active-minutes sync
+// =====================================================================
 function bindLiveDurationBackfillUpdates() {
     if (liveDurationBackfillBound) {
         return;
@@ -897,6 +942,9 @@ function formatResponseTime(ms) {
     return `${(rawMs / 1000).toFixed(2)}s`;
 }
 
+// =====================================================================
+// === 8. Grading controls (type-III review-and-resolve)
+// =====================================================================
 function renderGradingControls(item) {
     if (!isTypeIIIReviewSession()) {
         return '';
@@ -996,6 +1044,9 @@ document.addEventListener('click', async (event) => {
     }
 });
 
+// =====================================================================
+// === 9. Card report link + answer-label helpers
+// =====================================================================
 function getCardReportFromSession() {
     if (isTypeIIIReviewSession()) {
         return 'lesson-reading';
@@ -1115,6 +1166,9 @@ function isTypeIVSession() {
     return normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_IV;
 }
 
+// =====================================================================
+// === 10. Misc helpers (timestamps, error display)
+// =====================================================================
 function parseUtcTimestamp(raw) {
     if (!raw) return new Date(NaN);
     const text = String(raw).trim();

@@ -1,3 +1,24 @@
+/*
+ * deck-create.js — new shared-deck wizard (deck-create.html).
+ *
+ * Picks a category → assembles tags → derives the deck name → accepts
+ * card payload (CSV / Chinese / type-IV generator code) → previews →
+ * creates. Type-II / type-III / type-IV each have their own input mode
+ * with mode-specific parsing and review markup.
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. DOM refs + bootstrap
+ *     2. Deck category + behavior-type predicates
+ *     3. Type-IV code editor state + invalidation
+ *     4. Category load + first-tag toggle + clone-deck import
+ *     5. Tag composition + generated name preview
+ *     6. Card input parsing (CSV / Chinese / Type-IV)
+ *     7. Type-IV preview samples + representative label
+ *     8. Preview → review → create
+ *     9. Name availability check + autocomplete tags
+ */
+
 const API_BASE = `${window.location.origin}/api`;
 
 const firstTagToggle = document.getElementById('firstTagToggle');
@@ -58,6 +79,9 @@ const DEFAULT_TYPE4_GENERATOR_CODE = `def generate(rng):
         "distractors": [str(a + b - 1), str(a + b + 1)],
     }`;
 
+// =====================================================================
+// === 1. DOM refs + bootstrap
+// =====================================================================
 function parseLockedPrefixTagsFromQuery(params) {
     const raws = (params && typeof params.getAll === 'function') ? params.getAll('prefixTag') : [];
     const seen = new Set();
@@ -200,6 +224,9 @@ if (regenType4ExamplesBtn) {
     });
 }
 
+// =====================================================================
+// === 2. Deck category + behavior-type predicates
+// =====================================================================
 function getCurrentDeckCategory() {
     return deckCreateCommon.getCurrentDeckCategory(currentFirstTag, deckCategories);
 }
@@ -232,6 +259,9 @@ function isTypeIVDeckMode() {
     return deckCreateCommon.isTypeIVDeckMode(getCurrentDeckCategory());
 }
 
+// =====================================================================
+// === 3. Type-IV code editor state + invalidation
+// =====================================================================
 function getType4GeneratorCodeValue() {
     if (type4AceEditor && typeof type4AceEditor.getValue === 'function') {
         const nextValue = String(type4AceEditor.getValue() || '');
@@ -336,6 +366,9 @@ function setControlsDisabled(disabled) {
     }
 }
 
+// =====================================================================
+// === 4. Category load + first-tag toggle + clone-deck import
+// =====================================================================
 async function loadDeckCategories() {
     showError('');
     try {
@@ -487,6 +520,9 @@ function applyClonedDeck(payload) {
     );
 }
 
+// =====================================================================
+// === 5. Tag composition + generated name preview
+// =====================================================================
 function getAllTags() {
     return [currentFirstTag, ...extraTags.map((item) => item.tag)].filter(Boolean);
 }
@@ -658,6 +694,9 @@ function renderTags() {
     });
 }
 
+// =====================================================================
+// === 6. Card input parsing (CSV / Chinese / Type-IV)
+// =====================================================================
 function parseCsvRowsWithLineInfo(text) {
     const rows = [];
     let fields = [];
@@ -844,6 +883,9 @@ function parseType4Definition() {
     };
 }
 
+// =====================================================================
+// === 7. Type-IV preview samples + representative label
+// =====================================================================
 async function fetchType4PreviewSamples(generatorCode) {
     const seedBase = nextType4PreviewSeedBase();
     const response = await fetch(`${API_BASE}/shared-decks/type4/preview`, {
@@ -909,6 +951,9 @@ async function regenerateType4Examples() {
     }
 }
 
+// =====================================================================
+// === 8. Preview → review → create
+// =====================================================================
 async function previewDeckFromCsv() {
     showError('');
     showSuccess('');
@@ -1214,6 +1259,9 @@ async function createDeck() {
     }
 }
 
+// =====================================================================
+// === 9. Name availability check + autocomplete tags
+// =====================================================================
 function setNameStatus(text, state) {
     nameStatus.textContent = text;
     nameStatus.classList.remove('status-ok', 'status-error', 'status-note');

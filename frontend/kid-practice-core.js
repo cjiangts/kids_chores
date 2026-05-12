@@ -1,3 +1,28 @@
+/*
+ * kid-practice-core.js — practice runtime bootstrap, shared state, and
+ * cross-type lifecycle for the kid-practice page.
+ *
+ * Type-specific behavior (flashcards, writing prompts, lesson recording,
+ * generator problems) lives in kid-practice-type{1,2,3,4}.js. This file
+ * owns:
+ *   - Module state singletons (`state`, DOM refs, judge-mode helpers)
+ *   - URL builders that route requests by current category/scope
+ *   - Page setup (title, classes, judge-mode picker, drill toggle)
+ *   - Kid info load + ready-state probe
+ *   - start/end-session dispatchers (call into type modules)
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. DOM refs + state singletons
+ *     2. Behavior-type predicates + URL builders
+ *     3. Page UI (title, type classes, judge-mode + drill toggle)
+ *     4. Kid info + ready-state load
+ *     5. Session lifecycle (reset/start/end dispatch)
+ *     6. Card answer + reveal handlers (judge-mode aware)
+ *     7. Result actions + error display
+ *     8. Event bindings + DOMContentLoaded
+ */
+
 const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
@@ -9,6 +34,9 @@ const startTitle = document.getElementById('startTitle');
 const startTitleText = document.getElementById('startTitleText');
 const startTitleIcon = document.getElementById('startTitleIcon');
 
+// =====================================================================
+// === 1. DOM refs + state singletons
+// =====================================================================
 function setStartTitle(text) {
     if (startTitleText) {
         startTitleText.textContent = text;
@@ -240,6 +268,9 @@ const earlyFinishController = window.PracticeUiCommon.createEarlyFinishControlle
         void endSession(true);
     },
 });
+// =====================================================================
+// === 2. Behavior-type predicates + URL builders
+// =====================================================================
 function isType(behaviorType) {
     return state.behaviorType === behaviorType;
 }
@@ -286,6 +317,9 @@ function buildType4ApiUrl(pathSuffix) {
     });
 }
 
+// =====================================================================
+// === 3. Page UI (title, type classes, judge-mode + drill toggle)
+// =====================================================================
 function getCurrentCategoryDisplayName() {
     return String(state.categoryDisplayName || '').trim();
 }
@@ -589,6 +623,9 @@ function chooseEffectiveCategoryMeta(categoryMetaMap, preferredKey) {
     return { key: '', meta: {} };
 }
 
+// =====================================================================
+// === 4. Kid info + ready-state load
+// =====================================================================
 function readKidFromPracticeNavigationCache() {
     try {
         const raw = window.sessionStorage.getItem(PRACTICE_NAV_CACHE_KEY);
@@ -746,6 +783,9 @@ function applyServerPracticeMode(serverMode) {
     syncJudgeModeToggles();
     applyJudgeModeUi();
 }
+// =====================================================================
+// === 5. Session lifecycle (reset/start/end dispatch)
+// =====================================================================
 function resetBaseSessionState() {
     state.sessionCards = [];
     window.PracticeSession.clearSessionStart(state.activePendingSessionId);
@@ -920,6 +960,9 @@ async function startSession() {
         await startType4Session();
     }
 }
+// =====================================================================
+// === 6. Card answer + reveal handlers
+// =====================================================================
 function onFlashcardClick() {
     if (isType(BEHAVIOR_TYPE_I)) {
         togglePauseFromCard();
@@ -1052,6 +1095,9 @@ function updateFinishEarlyButtonState() {
         syncSessionPauseLockUi();
     }
 }
+// =====================================================================
+// === 7. Result actions + error display
+// =====================================================================
 function getUniqueWrongCards(cardsList) {
     const uniqueCards = [];
     const seen = new Set();
@@ -1104,6 +1150,9 @@ function showError(message) {
     window.PracticeUiCommon.showAlertError(errorState, errorMessage, message);
 }
 
+// =====================================================================
+// === 8. Event bindings + DOMContentLoaded
+// =====================================================================
 function bindEventHandlers() {
     bindDrillModeToggle();
     startBtn.addEventListener('click', () => {
