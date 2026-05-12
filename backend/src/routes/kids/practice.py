@@ -26,7 +26,6 @@ from src.routes.kids import (
     build_type_iv_pending_items_for_sources,
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
-    complete_type_iv_session_internal,
     compose_session_practice_mode,
     create_pending_session,
     datetime,
@@ -81,6 +80,7 @@ from src.routes.kids import (
     uuid,
     with_preview_session_count_for_category,
 )
+from src.routes.kids.type4 import complete_type_iv_session_internal
 
 @kids_bp.route('/kids/<kid_id>/type2/practice/start', methods=['POST'])
 def start_writing_practice_session(kid_id):

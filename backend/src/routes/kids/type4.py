@@ -1,13 +1,20 @@
 """Type IV math routes — print-config, math-sheets."""
 from src.routes.kids_constants import (
+    DECK_CATEGORY_BEHAVIOR_TYPE_IV,
     DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
+    SESSION_RESULT_CORRECT,
+    SESSION_RESULT_PARTIAL,
+    SESSION_RESULT_RETRY_FIXED_FIRST,
+    SESSION_RESULT_WRONG_UNRESOLVED,
 )
 from src.routes.kids import (
+    append_type4_result_submitted_answer,
     build_type_iv_print_sheet_display_number,
     build_type_iv_print_sheet_layout,
     build_type_iv_print_sheet_layout_payload,
     build_type_iv_print_sheet_rendered_rows,
     current_family_id,
+    encode_retry_recovered_session_result,
     get_kid_connection_for,
     get_kid_for_family,
     get_kid_materialized_shared_decks_by_first_tag,
@@ -15,16 +22,22 @@ from src.routes.kids import (
     get_shared_decks_connection,
     get_shared_type_iv_deck_rows,
     get_type_iv_print_sheet_record,
+    grade_type_iv_answer,
+    insert_type4_result_item,
     is_super_family_id,
     json,
     jsonify,
     kids_bp,
+    normalize_logged_response_time_ms,
+    normalize_session_practice_mode,
     normalize_type_iv_print_sheet_paper_size,
     normalize_type_iv_print_sheet_repeat_count,
     normalize_type_iv_print_sheet_rows,
+    normalize_type_iv_submitted_answer,
     paginate_type_iv_print_sheet_rendered_rows,
     request,
     resolve_kid_type_iv_category_with_mode,
+    sync_badges_after_session_complete,
     time,
 )
 
@@ -580,3 +593,457 @@ def finalize_type4_print_sheet(kid_id, sheet_id):
 ## ── Type-2 Chinese print sheets (builder) ──────────────────────────────────
 
 
+def complete_type_iv_session_internal(
+    conn,
+    kid,
+    session_type,
+    pending_session_id,
+    pending,
+    answers,
+    planned_count,
+    started_at_utc,
+    completed_at_utc,
+    is_retry_session,
+    retry_source_session_id,
+    is_continue_session,
+    continue_source_session_id,
+):
+    """Complete one generator practice session using server-side grading."""
+    pending_cards = pending.get('cards')
+    if not isinstance(pending_cards, list) or len(pending_cards) == 0:
+        conn.close()
+        return {'error': 'Pending session is missing generated questions'}, 400
+
+    pending_by_id = {}
+    for item in pending_cards:
+        if not isinstance(item, dict):
+            continue
+        try:
+            item_id = int(item.get('id'))
+        except (TypeError, ValueError):
+            continue
+        if item_id <= 0:
+            continue
+        pending_by_id[item_id] = item
+    if len(pending_by_id) == 0:
+        conn.close()
+        return {'error': 'Pending session is missing generated questions'}, 400
+
+    normalized_answers = []
+    for answer in answers:
+        try:
+            item_id = int(answer.get('cardId'))
+        except (TypeError, ValueError):
+            conn.close()
+            return {'error': 'Each answer needs cardId (int)'}, 400
+        pending_item = pending_by_id.get(item_id)
+        if not pending_item:
+            conn.close()
+            return {'error': 'answers do not match this pending session'}, 400
+        response_time_ms = normalize_logged_response_time_ms(
+            answer.get('responseTimeMs'),
+            session_behavior_type=DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+        )
+        normalized_answers.append({
+            'item_id': item_id,
+            'pending_item': pending_item,
+            'submitted_answer': normalize_type_iv_submitted_answer(answer.get('submittedAnswer')),
+            'response_time_ms': response_time_ms,
+        })
+
+    try:
+        conn.execute("BEGIN TRANSACTION")
+
+        if is_retry_session:
+            source_row = conn.execute(
+                """
+                SELECT
+                    s.id,
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count,
+                    COALESCE(s.retry_count, 0) AS retry_count,
+                    COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
+                    COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                  AND s.type = ?
+                GROUP BY
+                    s.id,
+                    s.retry_count,
+                    s.retry_total_response_ms,
+                    s.retry_best_rety_correct_count
+                """,
+                [SESSION_RESULT_PARTIAL, retry_source_session_id, session_type],
+            ).fetchone()
+            if not source_row:
+                raise ValueError('Retry source session not found')
+
+            source_answer_count = int(source_row[1] or 0)
+            source_right_count = int(source_row[2] or 0)
+            source_wrong_count = int(source_row[3] or 0)
+            source_retry_count = int(source_row[4] or 0)
+            source_target_answer_count = max(source_answer_count, source_right_count + source_wrong_count)
+            if source_target_answer_count <= 0:
+                raise ValueError('Retry source session has no graded answers')
+
+            retry_right_count = 0
+            retry_wrong_count = 0
+            retry_partial_count = 0
+            retry_total_response_ms = 0
+            retry_success_result_ids = []
+            retry_partial_result_ids = []
+            for answer in normalized_answers:
+                submitted_answer = answer['submitted_answer']
+                pending_item = answer['pending_item']
+                expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
+                retry_correct_value = grade_type_iv_answer(
+                    submitted_answer, expected_answer, pending_item.get('validate')
+                )
+                is_correct = retry_correct_value == SESSION_RESULT_CORRECT
+                if retry_correct_value == SESSION_RESULT_PARTIAL:
+                    retry_partial_count += 1
+                    retry_partial_result_ids.append(int(answer['item_id']))
+                if is_correct:
+                    retry_right_count += 1
+                    retry_success_result_ids.append(int(answer['item_id']))
+                else:
+                    retry_wrong_count += 1
+                retry_total_response_ms += int(answer['response_time_ms'] or 0)
+                append_type4_result_submitted_answer(
+                    conn,
+                    answer['item_id'],
+                    submitted_answer,
+                    retry_correct_value,
+                )
+
+            if retry_success_result_ids:
+                placeholders = ','.join(['?'] * len(retry_success_result_ids))
+                recovered_correct_value = encode_retry_recovered_session_result(source_retry_count)
+                conn.execute(
+                    f"""
+                    UPDATE session_results
+                    SET correct = ?
+                    WHERE id IN ({placeholders})
+                      AND session_id = ?
+                      AND correct IN (?, ?)
+                    """,
+                    [
+                        recovered_correct_value,
+                        *sorted(retry_success_result_ids),
+                        int(retry_source_session_id),
+                        SESSION_RESULT_WRONG_UNRESOLVED,
+                        SESSION_RESULT_PARTIAL,
+                    ],
+                )
+
+            if retry_partial_result_ids:
+                partial_placeholders = ','.join(['?'] * len(retry_partial_result_ids))
+                conn.execute(
+                    f"""
+                    UPDATE session_results
+                    SET correct = ?
+                    WHERE id IN ({partial_placeholders})
+                      AND session_id = ?
+                      AND correct = ?
+                    """,
+                    [
+                        SESSION_RESULT_PARTIAL,
+                        *sorted(retry_partial_result_ids),
+                        int(retry_source_session_id),
+                        SESSION_RESULT_WRONG_UNRESOLVED,
+                    ],
+                )
+
+            best_retry_row = conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM session_results
+                WHERE session_id = ?
+                  AND correct <= ?
+                """,
+                [retry_source_session_id, SESSION_RESULT_RETRY_FIXED_FIRST],
+            ).fetchone()
+            candidate_best_retry_correct = max(0, int(best_retry_row[0] or 0)) if best_retry_row else 0
+            conn.execute(
+                """
+                UPDATE sessions
+                SET
+                    retry_count = COALESCE(retry_count, 0) + 1,
+                    retry_total_response_ms = COALESCE(retry_total_response_ms, 0) + ?,
+                    retry_best_rety_correct_count = GREATEST(
+                        COALESCE(retry_best_rety_correct_count, 0),
+                        ?
+                    )
+                WHERE id = ?
+                """,
+                [retry_total_response_ms, candidate_best_retry_correct, retry_source_session_id],
+            )
+            updated_retry_row = conn.execute(
+                """
+                SELECT
+                    COALESCE(retry_count, 0),
+                    COALESCE(retry_total_response_ms, 0),
+                    COALESCE(retry_best_rety_correct_count, 0)
+                FROM sessions
+                WHERE id = ?
+                """,
+                [retry_source_session_id],
+            ).fetchone()
+
+            conn.execute("COMMIT")
+            conn.close()
+            sync_badges_after_session_complete(kid)
+            updated_retry_count = int(updated_retry_row[0] or 0) if updated_retry_row else 0
+            updated_retry_total_ms = int(updated_retry_row[1] or 0) if updated_retry_row else 0
+            updated_best_retry_correct = int(updated_retry_row[2] or 0) if updated_retry_row else 0
+            total_correct_percent = (
+                float(source_right_count + updated_best_retry_correct) * 100.0 / float(source_target_answer_count)
+                if source_target_answer_count > 0 else 0.0
+            )
+            achieved_gold_star = total_correct_percent >= 100.0
+            attempt_count_today_for_chain = 1 + max(0, updated_retry_count)
+            return {
+                'session_id': int(retry_source_session_id),
+                'answer_count': len(normalized_answers),
+                'planned_count': planned_count,
+                'right_count': retry_right_count,
+                'wrong_count': retry_wrong_count,
+                'partial_count': retry_partial_count,
+                'completed': True,
+                'is_continue_session': False,
+                'continue_source_session_id': None,
+                'is_retry_session': True,
+                'retry_source_session_id': int(retry_source_session_id),
+                'retry_count': updated_retry_count,
+                'retry_total_response_ms': updated_retry_total_ms,
+                'retry_best_rety_correct_count': updated_best_retry_correct,
+                'target_answer_count': int(source_target_answer_count),
+                'attempt_count_today_for_chain': int(attempt_count_today_for_chain),
+                'attempt_star_tiers': ['gold'],
+                'total_correct_percentage': float(total_correct_percent),
+                'achieved_gold_star': bool(achieved_gold_star),
+                'star_tier': 'gold',
+            }, 200
+
+        if is_continue_session:
+            source_row = conn.execute(
+                """
+                SELECT
+                    s.id,
+                    COALESCE(s.planned_count, 0) AS planned_count,
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                  AND s.type = ?
+                GROUP BY s.id, s.planned_count
+                """,
+                [continue_source_session_id, session_type],
+            ).fetchone()
+            if not source_row:
+                raise ValueError('Continue source session not found')
+
+            source_planned_count = max(0, int(source_row[1] or 0))
+            source_answer_count = max(0, int(source_row[2] or 0))
+            source_right_count = max(0, int(source_row[3] or 0))
+            source_wrong_count = max(0, int(source_row[4] or 0))
+            if source_planned_count <= 0:
+                raise ValueError('Continue source session has invalid planned count')
+
+            right_count = 0
+            wrong_count = 0
+            partial_count = 0
+            for answer in normalized_answers:
+                pending_item = answer['pending_item']
+                representative_card_id = int(pending_item.get('representative_card_id') or 0)
+                if representative_card_id <= 0:
+                    raise ValueError('Pending generator item is missing representative card')
+                submitted_answer = answer['submitted_answer']
+                expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
+                correct_value = grade_type_iv_answer(
+                    submitted_answer, expected_answer, pending_item.get('validate')
+                )
+                if correct_value == SESSION_RESULT_PARTIAL:
+                    partial_count += 1
+                elif correct_value > 0:
+                    right_count += 1
+                else:
+                    wrong_count += 1
+                result_row = conn.execute(
+                    """
+                    INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
+                    VALUES (?, ?, ?, ?)
+                    RETURNING id
+                    """,
+                    [
+                        continue_source_session_id,
+                        representative_card_id,
+                        correct_value,
+                        int(answer['response_time_ms'] or 0),
+                    ],
+                ).fetchone()
+                insert_type4_result_item(
+                    conn,
+                    int(result_row[0]),
+                    pending_item,
+                    submitted_answer,
+                    correct_value,
+                )
+
+            conn.execute(
+                """
+                UPDATE sessions
+                SET completed_at = ?
+                WHERE id = ?
+                """,
+                [completed_at_utc, continue_source_session_id],
+            )
+            updated_row = conn.execute(
+                """
+                SELECT
+                    COALESCE(planned_count, 0),
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                GROUP BY s.id, s.planned_count
+                """,
+                [continue_source_session_id],
+            ).fetchone()
+            updated_planned_count = max(0, int(updated_row[0] or 0)) if updated_row else source_planned_count
+            updated_answer_count = max(0, int(updated_row[1] or 0)) if updated_row else (source_answer_count + len(normalized_answers))
+            updated_right_count = max(0, int(updated_row[2] or 0)) if updated_row else (source_right_count + right_count)
+            updated_wrong_count = max(0, int(updated_row[3] or 0)) if updated_row else (source_wrong_count + wrong_count)
+            target_answer_count = max(updated_planned_count, updated_answer_count, updated_right_count + updated_wrong_count)
+            is_incomplete = updated_planned_count > 0 and updated_answer_count < updated_planned_count
+            total_correct_percentage = (
+                float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
+                if is_incomplete
+                else float(updated_right_count) * 100.0 / float(max(1, target_answer_count))
+            )
+            achieved_gold_star = (not is_incomplete) and total_correct_percentage >= 100.0
+            star_tier = 'half_silver' if is_incomplete else 'gold'
+            attempt_star_tiers = ['half_silver'] if is_incomplete else ['gold']
+
+            conn.execute("COMMIT")
+            conn.close()
+            sync_badges_after_session_complete(kid)
+            return {
+                'session_id': int(continue_source_session_id),
+                'answer_count': int(updated_answer_count),
+                'planned_count': int(updated_planned_count),
+                'right_count': int(updated_right_count),
+                'wrong_count': int(updated_wrong_count),
+                'partial_count': int(partial_count),
+                'completed': True,
+                'is_continue_session': True,
+                'continue_source_session_id': int(continue_source_session_id),
+                'is_retry_session': False,
+                'retry_source_session_id': None,
+                'retry_count': 0,
+                'retry_total_response_ms': 0,
+                'retry_best_rety_correct_count': 0,
+                'target_answer_count': int(target_answer_count),
+                'attempt_count_today_for_chain': 1,
+                'attempt_star_tiers': attempt_star_tiers,
+                'total_correct_percentage': float(total_correct_percentage),
+                'achieved_gold_star': bool(achieved_gold_star),
+                'star_tier': star_tier,
+            }, 200
+
+        right_count = 0
+        wrong_count = 0
+        partial_count = 0
+        session_practice_mode = normalize_session_practice_mode(pending.get('practice_mode'))
+        session_id = conn.execute(
+            """
+            INSERT INTO sessions (type, planned_count, retry_count, retry_total_response_ms, retry_best_rety_correct_count, started_at, completed_at, practice_mode)
+            VALUES (?, ?, 0, 0, 0, ?, ?, ?)
+            RETURNING id
+            """,
+            [session_type, planned_count, started_at_utc, completed_at_utc, session_practice_mode]
+        ).fetchone()[0]
+
+        for answer in normalized_answers:
+            pending_item = answer['pending_item']
+            representative_card_id = int(pending_item.get('representative_card_id') or 0)
+            if representative_card_id <= 0:
+                raise ValueError('Pending generator item is missing representative card')
+            submitted_answer = answer['submitted_answer']
+            expected_answer = normalize_type_iv_submitted_answer(pending_item.get('answer'))
+            correct_value = grade_type_iv_answer(
+                submitted_answer, expected_answer, pending_item.get('validate')
+            )
+            if correct_value == SESSION_RESULT_PARTIAL:
+                partial_count += 1
+            elif correct_value > 0:
+                right_count += 1
+            else:
+                wrong_count += 1
+            result_row = conn.execute(
+                """
+                INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
+                VALUES (?, ?, ?, ?)
+                RETURNING id
+                """,
+                [
+                    session_id,
+                    representative_card_id,
+                    correct_value,
+                    int(answer['response_time_ms'] or 0),
+                ],
+            ).fetchone()
+            insert_type4_result_item(
+                conn,
+                int(result_row[0]),
+                pending_item,
+                submitted_answer,
+                correct_value,
+            )
+
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        conn.close()
+        raise
+
+    conn.close()
+    sync_badges_after_session_complete(kid)
+    target_answer_count = int(max(planned_count, len(normalized_answers), right_count + wrong_count + partial_count))
+    is_incomplete = planned_count > 0 and len(normalized_answers) < planned_count
+    total_correct_percentage = (
+        float(len(normalized_answers)) * 100.0 / float(max(1, target_answer_count))
+        if is_incomplete
+        else float(right_count) * 100.0 / float(max(1, target_answer_count))
+    )
+    achieved_gold_star = (not is_incomplete) and total_correct_percentage >= 100.0
+    star_tier = 'half_silver' if is_incomplete else 'gold'
+    attempt_star_tiers = ['half_silver'] if is_incomplete else ['gold']
+    return {
+        'session_id': session_id,
+        'answer_count': len(normalized_answers),
+        'planned_count': planned_count,
+        'right_count': int(right_count),
+        'wrong_count': int(wrong_count),
+        'partial_count': int(partial_count),
+        'completed': True,
+        'is_continue_session': False,
+        'continue_source_session_id': None,
+        'is_retry_session': False,
+        'retry_source_session_id': None,
+        'retry_count': 0,
+        'retry_total_response_ms': 0,
+        'retry_best_rety_correct_count': 0,
+        'target_answer_count': target_answer_count,
+        'attempt_count_today_for_chain': 1,
+        'attempt_star_tiers': attempt_star_tiers,
+        'total_correct_percentage': float(total_correct_percentage),
+        'achieved_gold_star': bool(achieved_gold_star),
+        'star_tier': star_tier,
+    }, 200
