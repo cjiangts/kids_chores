@@ -34,18 +34,30 @@ Other blueprints:
 ### Where helpers live
 
 - **Constants** for the kids domain → [routes/kids_constants.py](backend/src/routes/kids_constants.py). Sibling route modules import names explicitly from `src.routes.kids_constants` and `src.routes.kids`.
-- **Pure helpers** by concern (extracted from kids):
-  - [services/writing_audio.py](backend/src/services/writing_audio.py) — TTS audio file paths, prompt synthesis
-  - [services/shared_deck_normalize.py](backend/src/services/shared_deck_normalize.py) — tag/card/category normalizers
-  - [services/type4_print_layout.py](backend/src/services/type4_print_layout.py) — type-IV print sheet layout math
-  - [services/shared_deck_materialize.py](backend/src/services/shared_deck_materialize.py) — materialized shared-deck sync
-  - [services/kid_category_config.py](backend/src/services/kid_category_config.py) — kid/category config hydration
-  - [services/deck_source_merge.py](backend/src/services/deck_source_merge.py) — source-deck merging, card-count summaries
-  - [services/practice_priority.py](backend/src/services/practice_priority.py) — practice-priority preview scoring (pure; caller supplies session behavior type)
+- **Pure helpers** by concern (extracted from kids; all live in [backend/src/services/](backend/src/services/)):
+  - [writing_audio.py](backend/src/services/writing_audio.py) — TTS audio file paths, prompt synthesis
+  - [audio_io.py](backend/src/services/audio_io.py) — download filename sanitizer + ffmpeg path resolver
+  - [shared_deck_normalize.py](backend/src/services/shared_deck_normalize.py) — tag/card/category normalizers
+  - [shared_deck_materialize.py](backend/src/services/shared_deck_materialize.py) — materialized shared-deck sync
+  - [shared_deck_queries.py](backend/src/services/shared_deck_queries.py) — shared-deck and materialized-deck row readers
+  - [shared_deck_optin.py](backend/src/services/shared_deck_optin.py) — type-I/II/III/IV opt-in & opt-out workflows
+  - [shared_deck_payloads.py](backend/src/services/shared_deck_payloads.py) — opt-in & merged-bank cards payload builders
+  - [shared_card_skip.py](backend/src/services/shared_card_skip.py) — toggle skip_practice on shared/orphan cards (single + bulk)
+  - [type4_print_layout.py](backend/src/services/type4_print_layout.py) — type-IV print sheet layout math
+  - [type4_print_sheet.py](backend/src/services/type4_print_sheet.py) — type-IV print sheet rendering
+  - [type4_generator_definitions.py](backend/src/services/type4_generator_definitions.py) — type-IV generator code lookups
+  - [kid_category_config.py](backend/src/services/kid_category_config.py) — kid/category config hydration + orphan-deck lookups
+  - [kid_category_resolve.py](backend/src/services/kid_category_resolve.py) — resolve raw category-key arg → (key, mode)
+  - [kid_card_queries.py](backend/src/services/kid_card_queries.py) — kid-DB card readers reused across routes
+  - [kid_daily_progress.py](backend/src/services/kid_daily_progress.py) — daily-progress section + category stats
+  - [deck_source_merge.py](backend/src/services/deck_source_merge.py) — source-deck merging, card-count summaries
+  - [practice_priority.py](backend/src/services/practice_priority.py) — practice-priority preview scoring (pure; caller supplies session behavior type)
+  - [family_auth.py](backend/src/services/family_auth.py) — get_kid_for_family, get_kid_connection_for, critical-password gate
+  - [writing_bulk_split.py](backend/src/services/writing_bulk_split.py) — split bulk writing / type-II input into deduped tokens or (front, back) rows
 - **Type-specific session helpers** (extracted from kids):
   - `start_type_i_practice_session_internal`, `complete_session_internal` → [routes/kids/practice.py](backend/src/routes/kids/practice.py)
   - `complete_type_iv_session_internal` → [routes/kids/type4.py](backend/src/routes/kids/type4.py)
-- **Tangled helpers + module state** still in [routes/kids/__init__.py](backend/src/routes/kids/__init__.py) (6.8k lines) — auth helpers, pending-session locks, `_PENDING_SESSIONS`, `_SHARED_DECK_MUTATION_LOCK`, kid-DB readers reused across routes, opt-in/opt-out shared-deck helpers tangled with a dispatch table. Add new helpers to a service module if pure; only put in `__init__.py` if it touches module state.
+- **Tangled helpers + module state** still in [routes/kids/__init__.py](backend/src/routes/kids/__init__.py) (~1.4k lines, was 8.4k — see file docstring for section map) — auth helpers, `_PENDING_SESSIONS`, `_SHARED_DECK_MUTATION_LOCK`, shared-deck scope dispatch (CATEGORY_CONFIG + SHARED_DECK_OPERATION_HANDLERS + per-scope route handlers), Flask request-parsing helpers. Add new helpers to a service module if pure; only put in `__init__.py` if it touches Flask request/response or module state.
 - **Badges** → [badges/](backend/src/badges/): `definitions.py` (catalog), `service.py` (compute), `session_sync.py` (post-session hook), `admin.py` (super-family ops).
 - **DB layer** → [db/](backend/src/db/): `kid_db.py` (per-kid SQLite), `shared_deck_db.py` (shared decks DB), `metadata.py` (family/kid CRUD), schema in `*.sql`.
 
@@ -171,4 +183,4 @@ For frontend changes, run [start-local.sh](start-local.sh) and check the affecte
 
 - [refactor.md](refactor.md) — original audit + plan (2026-05-05)
 
-Files still pending split per refactor plan: `routes/kids/__init__.py` (6.8k — down from 8.4k after evacuating four type-specific helpers), `styles.css` (2.4k), `practice-manage-common.js` (1.6k).
+Files still pending split per refactor plan: `styles.css` (2.4k), `practice-manage-common.js` (1.6k). `routes/kids/__init__.py` is down to ~1.4k (from 8.4k) and now holds only Flask plumbing + the scope dispatcher — section-commented for easy navigation.
