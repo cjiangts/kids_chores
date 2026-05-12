@@ -8,7 +8,6 @@ from src.routes.kids_constants import (
     SESSION_RESULT_WRONG_UNRESOLVED,
 )
 from src.routes.kids import (
-    append_type4_result_submitted_answer,
     build_type_iv_print_sheet_display_number,
     build_type_iv_print_sheet_layout,
     build_type_iv_print_sheet_layout_payload,
@@ -22,8 +21,6 @@ from src.routes.kids import (
     get_shared_decks_connection,
     get_shared_type_iv_deck_rows,
     get_type_iv_print_sheet_record,
-    grade_type_iv_answer,
-    insert_type4_result_item,
     is_super_family_id,
     json,
     jsonify,
@@ -32,7 +29,6 @@ from src.routes.kids import (
     normalize_type_iv_print_sheet_paper_size,
     normalize_type_iv_print_sheet_repeat_count,
     normalize_type_iv_print_sheet_rows,
-    normalize_type_iv_submitted_answer,
     paginate_type_iv_print_sheet_rendered_rows,
     request,
     resolve_kid_type_iv_category_with_mode,
@@ -40,6 +36,12 @@ from src.routes.kids import (
     time,
 )
 from src.services.practice_mode import normalize_session_practice_mode
+from src.services.session_grading import (
+    append_type4_result_submitted_answer,
+    grade_type_iv_answer,
+    insert_type4_result_item,
+    normalize_type_iv_submitted_answer,
+)
 
 @kids_bp.route('/kids/<kid_id>/type4/print-config', methods=['GET'])
 def get_type4_print_config(kid_id):

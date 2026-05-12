@@ -14,7 +14,6 @@ from src.routes.kids import (
     DRILL_SESSION_CARD_POOL_SIZE,
     _cleanup_uncommitted_type3_audio,
     _update_hardness_after_session,
-    append_type1_result_submitted_answer,
     build_continue_selected_cards_for_decks,
     build_retry_selected_cards_for_sources,
     build_type_i_chinese_prompt_audio_payload,
@@ -43,7 +42,6 @@ from src.routes.kids import (
     get_shared_type_ii_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
     get_type_iv_retry_source_result_rows,
-    insert_type1_result_item,
     json,
     jsonify,
     kids_bp,
@@ -64,6 +62,10 @@ from src.routes.kids import (
     timezone,
     uuid,
     with_preview_session_count_for_category,
+)
+from src.services.session_grading import (
+    append_type1_result_submitted_answer,
+    insert_type1_result_item,
 )
 from src.services.pending_sessions import (
     _PENDING_SESSIONS,
