@@ -1,3 +1,22 @@
+/*
+ * kid-practice-type1.js — Type-I flash-card / multiple-choice runtime
+ *
+ * Layout:
+ *   1. Chinese back helpers + prompt-audio gating
+ *   2. Session start (ready check, kick off Type-I)
+ *   3. Drill state + selection (round build, next pick)
+ *   4. Drill end summary + per-attempt recording
+ *   5. Question display + multiple-choice option builders
+ *   6. Answer handling (choice, I-don't-know, reveal, pause)
+ *   7. Card answer recording + advance
+ *   8. Session end (post results, schedule next)
+ *   9. Bonus game for wrong-answer cards
+ */
+
+// =====================================================================
+// === 1. Chinese back helpers + prompt-audio gating
+// =====================================================================
+
 function getChineseType1BackText(rawBack) {
     return String(rawBack || '').trim();
 }
@@ -34,6 +53,10 @@ function updatePromptReplayButtonState() {
         || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)
     );
 }
+// =====================================================================
+// === 2. Session start (ready check, kick off Type-I)
+// =====================================================================
+
 async function loadType1ReadyState() {
     showError('');
     const decksResponse = await fetch(buildType1ApiUrl('decks'));
@@ -154,6 +177,10 @@ async function startType1Session() {
         showError(`Failed to start ${getCurrentCategoryDisplayName()} session`);
     }
 }
+// =====================================================================
+// === 3. Drill state + selection (round build, next pick)
+// =====================================================================
+
 function resetDrillSessionState() {
     state.drillActive = false;
     state.drillTargetAttempts = 0;
@@ -242,6 +269,10 @@ function pickNextDrillCardIndex() {
     return pickNextDrillCardIndex();
 }
 
+// =====================================================================
+// === 4. Drill end summary + per-attempt recording
+// =====================================================================
+
 function buildDrillEndSummary(endedEarly) {
     const totalDone = Math.max(0, Number.parseInt(state.drillAttemptsDone, 10) || 0);
     const target = Math.max(totalDone, Number.parseInt(state.drillTargetAttempts, 10) || 0);
@@ -310,6 +341,10 @@ function recordDrillAttempt(cardId, correct, responseTimeMs) {
         }
     }
 }
+// =====================================================================
+// === 5. Question display + multiple-choice option builders
+// =====================================================================
+
 function showCurrentQuestion() {
     if (state.sessionCards.length === 0 || !isType(BEHAVIOR_TYPE_I)) {
         return;
@@ -483,6 +518,10 @@ function renderType1MultipleChoiceOptions() {
     multiChoiceGrid.innerHTML = optionsHtml + idkHtml;
 }
 
+// =====================================================================
+// === 6. Answer handling (choice, I-don't-know, reveal, pause)
+// =====================================================================
+
 function answerType1IDontKnow() {
     if (!isType(BEHAVIOR_TYPE_I) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
@@ -600,6 +639,10 @@ function setPausedVisual(paused) {
     pauseMask.classList.toggle('hidden', !paused);
     applyJudgeModeUi();
 }
+// =====================================================================
+// === 7. Card answer recording + advance
+// =====================================================================
+
 function answerType1Card(correct, loggedChoice = null, options = {}) {
     const judgeState = getJudgeModeUiState();
     if (judgeState.isSelfMode && !state.answerRevealed) {
@@ -682,6 +725,10 @@ function advanceType1Card() {
     state.currentIndex += 1;
     showCurrentQuestion();
 }
+// =====================================================================
+// === 8. Session end (post results, schedule next)
+// =====================================================================
+
 async function endType1Session(endedEarly = false) {
     sessionScreen.classList.add('hidden');
     resultScreen.classList.remove('hidden');
@@ -735,6 +782,10 @@ async function endType1Session(endedEarly = false) {
     }
 
 }
+// =====================================================================
+// === 9. Bonus game for wrong-answer cards
+// =====================================================================
+
 function resetBonusGame() {
     state.bonusSourceCards = [];
     state.bonusTiles = [];

@@ -1,3 +1,20 @@
+/*
+ * parent-settings-core.js — bootstrap + shared DOM for parent settings page
+ *
+ * Layout:
+ *   1. DOM refs + module state
+ *   2. Shared helpers (modal body lock, escape, closest target)
+ *   3. Change-password dialog + family logout
+ *   4. Timezone picker (load, save, pill selection, formatting)
+ *   5. Password change submit
+ *   6. Family role + super-family account list + delete
+ *   7. Toast / status message helpers (global, password, timezone, rewards)
+ */
+
+// =====================================================================
+// === 1. DOM refs + module state
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const passwordForm = document.getElementById('passwordForm');
@@ -61,6 +78,10 @@ const passwordSuccess = document.getElementById('passwordSuccess');
 let pendingRestorePassword = null;
 const DEFAULT_FAMILY_TIMEZONE = 'America/New_York';
 let isSuperFamily = false;
+
+// =====================================================================
+// === 2. Shared helpers (modal body lock, escape, closest target)
+// =====================================================================
 
 function syncModalBodyLock() {
     const shouldLock = [
@@ -258,6 +279,10 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+// =====================================================================
+// === 3. Change-password dialog + family logout
+// =====================================================================
+
 function resetPasswordDialogState() {
     if (passwordForm) {
         passwordForm.reset();
@@ -332,6 +357,10 @@ if (familyAccountsList) {
         await deleteFamilyAccount(familyId, familyUsername);
     });
 }
+
+// =====================================================================
+// === 4. Timezone picker (load, save, pill selection, formatting)
+// =====================================================================
 
 function getTimezoneOptionButtons() {
     if (!familyTimezonePicker) {
@@ -463,6 +492,10 @@ async function saveTimezoneSettings(timezoneName) {
     }
 }
 
+// =====================================================================
+// === 5. Password change submit
+// =====================================================================
+
 async function changePassword() {
     const currentPassword = currentPasswordInput.value || '';
     const newPassword = newPasswordInput.value || '';
@@ -514,6 +547,10 @@ async function changePassword() {
         if (changePwLabelReset) changePwLabelReset.textContent = 'Update Password';
     }
 }
+
+// =====================================================================
+// === 6. Family role + super-family account list + delete
+// =====================================================================
 
 async function loadFamilyRole() {
     try {
@@ -721,6 +758,10 @@ async function deleteFamilyAccount(familyId, familyUsername) {
     showFamilyAdminSuccess(`Deleted family "${familyUsername || familyId}".`);
     await loadFamilyAccounts();
 }
+
+// =====================================================================
+// === 7. Toast / status message helpers (global, password, timezone, rewards)
+// =====================================================================
 
 function showFamilyAdminError(message) {
     if (!familyAdminError) {

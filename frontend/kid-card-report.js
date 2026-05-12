@@ -1,3 +1,22 @@
+/*
+ * kid-card-report.js — single-card history page
+ *
+ * Layout:
+ *   1. DOM refs + module constants + DOMContentLoaded bootstrap
+ *   2. Back button + report data fetch
+ *   3. Hero block (card header + stats card)
+ *   4. Trend chart + period selector
+ *   5. History list rendering
+ *   6. Scroll-to-target + attempt classifiers
+ *   7. Attempt prompt / answer / logged-choice accessors
+ *   8. Formatting helpers (response time, date, type label)
+ *   9. Error display
+ */
+
+// =====================================================================
+// === 1. DOM refs + module constants + DOMContentLoaded bootstrap
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
@@ -40,6 +59,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindBackButton();
     await loadCardReport();
 });
+
+// =====================================================================
+// === 2. Back button + report data fetch
+// =====================================================================
 
 function bindBackButton() {
     window.ReportBackButtonCommon?.bindBackButton(backBtn, resolveBackHref());
@@ -105,6 +128,10 @@ async function loadReportTimezone() {
         // Keep browser timezone.
     }
 }
+
+// =====================================================================
+// === 3. Hero block (card header + stats card)
+// =====================================================================
 
 function renderHero(card, attempts) {
     if (!cardReportHero) return;
@@ -212,6 +239,10 @@ function resolveSubjectDisplayName(attempts) {
     }
     return key.charAt(0).toUpperCase() + key.slice(1);
 }
+
+// =====================================================================
+// === 4. Trend chart + period selector
+// =====================================================================
 
 function renderTrend(attempts) {
     currentTrendAttempts = Array.isArray(attempts) ? attempts : [];
@@ -424,6 +455,10 @@ function formatTrendResponseTime(ms, useMinutesUnit) {
     return `${(rawMs / 1000).toFixed(1)}s`;
 }
 
+// =====================================================================
+// === 5. History list rendering
+// =====================================================================
+
 function renderHistory(attempts) {
     if (!attempts.length) {
         historyList.innerHTML = `<div class="chart-empty">No practice history yet.</div>`;
@@ -570,6 +605,10 @@ function buildSessionReportUrl(item) {
     return `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(sessionId)}${fromSuffix}`;
 }
 
+// =====================================================================
+// === 6. Scroll-to-target + attempt classifiers
+// =====================================================================
+
 function scrollToTargetAttempt() {
     if (!Number.isFinite(targetResultId) || targetResultId <= 0 || !historyList) {
         return;
@@ -652,6 +691,10 @@ function isType4Attempt(item) {
 function isType3Attempt(item) {
     return String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_III;
 }
+
+// =====================================================================
+// === 7. Attempt prompt / answer / logged-choice accessors
+// =====================================================================
 
 function getType4AttemptPrompt(item) {
     return String(item?.materialized_prompt || currentCardFront || 'Problem').trim() || 'Problem';
@@ -753,6 +796,10 @@ function getType1AttemptSubmittedPills(item) {
         .join('');
 }
 
+// =====================================================================
+// === 8. Formatting helpers (response time, date, type label)
+// =====================================================================
+
 function isChineseLikeText(value) {
     return /[\u3400-\u9fff\uf900-\ufaff]/.test(String(value || ''));
 }
@@ -853,6 +900,10 @@ function safeNum(value) {
     const num = Number(value);
     return Number.isFinite(num) ? num : 0;
 }
+
+// =====================================================================
+// === 9. Error display
+// =====================================================================
 
 function showError(message) {
     if (message) {

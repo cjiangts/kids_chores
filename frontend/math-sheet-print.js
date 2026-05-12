@@ -1,3 +1,22 @@
+/*
+ * math-sheet-print.js — print/preview a Type-IV math sheet
+ *
+ * Layout:
+ *   1. DOM refs + module constants
+ *   2. Paper-spec builders + dynamic @page style
+ *   3. Misc helpers (escape, math notation, font scale, URL, back)
+ *   4. JSON fetch + toolbar button state
+ *   5. Sheet canvas + render image + handlePrint
+ *   6. Canvas drawing — header / row layout / rows
+ *   7. Cell + prompt drawing (text, vertical arithmetic, division)
+ *   8. Answer drawing + preview render
+ *   9. Load / regenerate / finalize / repeat handlers
+ */
+
+// =====================================================================
+// === 1. DOM refs + module constants
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const sheetTitle = document.getElementById('sheetTitle');
@@ -52,6 +71,10 @@ const PAPER_SPECS = Object.freeze({
 });
 
 let currentPaperSpec = PAPER_SPECS[DEFAULT_PAPER_SIZE];
+
+// =====================================================================
+// === 2. Paper-spec builders + dynamic @page style
+// =====================================================================
 
 function buildPrintPaperSpec(key, pageWidthPx, pageHeightPx, pageWidthMm, pageHeightMm, cssPageSize) {
     const safeWidthPx = pageWidthPx - (2 * PAPER_MARGIN_PX);
@@ -134,6 +157,10 @@ function applyPaperSpec(paperSize) {
     ensureDynamicPrintPageStyle().textContent = `@media print { @page { size: ${currentPaperSpec.cssPageSize}; margin: 5mm; } }`;
 }
 
+// =====================================================================
+// === 3. Misc helpers (escape, math notation, font scale, URL, back)
+// =====================================================================
+
 function escapeHtml(text) {
     const el = document.createElement('span');
     el.textContent = text;
@@ -204,6 +231,10 @@ function goBack() {
     window.location.href = `/kid-writing-sheet-manage.html?${qs.toString()}`;
 }
 
+// =====================================================================
+// === 4. JSON fetch + toolbar button state
+// =====================================================================
+
 async function fetchJson(url, options) {
     const response = await fetch(url, options);
     const payload = await response.json().catch(() => ({}));
@@ -221,6 +252,10 @@ function updateToolbarButtons(status) {
     if (repeatControl) repeatControl.style.display = isPreview ? '' : 'none';
     if (repeatCountInput) repeatCountInput.disabled = !isPreview;
 }
+
+// =====================================================================
+// === 5. Sheet canvas + render image + handlePrint
+// =====================================================================
 
 function createSheetCanvas(sheet, withAnswers, showDebugBorder = true) {
     const dpr = Math.max(2, Math.ceil(window.devicePixelRatio || 1));
@@ -315,6 +350,10 @@ function handlePrint() {
     const url = URL.createObjectURL(blob);
     window.location.href = url;
 }
+
+// =====================================================================
+// === 6. Canvas drawing — header / row layout / rows
+// =====================================================================
 
 function buildDeckSummaryText(layoutRows) {
     if (!Array.isArray(layoutRows) || layoutRows.length === 0) return '';
@@ -506,6 +545,10 @@ function drawInlineSheetRows(ctx, sheet, withAnswers) {
     });
 }
 
+// =====================================================================
+// === 7. Cell + prompt drawing (text, vertical arithmetic, division)
+// =====================================================================
+
 function drawSheetCell(ctx, problem, row, cellX, cellY, cellWidth, cellHeight, scale, withAnswers) {
     const cellDesign = row && row.cell_design ? row.cell_design : {};
     const offsets = getCellDesignOffsets(cellDesign);
@@ -628,6 +671,10 @@ function drawDivisionPrompt(ctx, parsed, x, y, scale) {
     ctx.stroke();
 }
 
+// =====================================================================
+// === 8. Answer drawing + preview render
+// =====================================================================
+
 function drawAnswer(ctx, problem, cellX, cellY, cellWidth, cellHeight, scale) {
     const answer = String((problem && problem.answer) || '').trim();
     if (!answer) return;
@@ -667,6 +714,10 @@ function rerenderCanvas() {
     if (!currentSheetData) return;
     renderSheetPreview(currentSheetData);
 }
+
+// =====================================================================
+// === 9. Load / regenerate / finalize / repeat handlers
+// =====================================================================
 
 async function loadAndRender() {
     if (!kidId || !sheetId) {

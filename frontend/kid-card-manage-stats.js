@@ -1,4 +1,22 @@
-// Stats / report views: cards-view-mode toggle, report renderer wiring, distribution histograms, daily progress chart.
+/*
+ * kid-card-manage-stats.js — view-mode toggle, distributions, daily-progress
+ *
+ * Layout:
+ *   1. Cards view-mode toggle + setter
+ *   2. Loading spinner + report renderer + report-view loader
+ *   3. Stats view + summary
+ *   4. Card-stat accessors + capsule label getter
+ *   5. Daily progress metric + distribution tab normalizers
+ *   6. Distribution histogram builders (accuracy / count / speed / last-seen)
+ *   7. Daily progress chart build + finite-range
+ *   8. Metric / period button rendering + view clipping + date-key helpers
+ *   9. Daily progress Y / X tick builders + panel render
+ */
+
+// =====================================================================
+// === 1. Cards view-mode toggle + setter
+// =====================================================================
+
 function setupCardsViewModeToggle() {
     const buttons = document.querySelectorAll('[data-cards-view-toggle]');
     buttons.forEach((btn) => {
@@ -116,6 +134,10 @@ function setCardsViewMode(mode) {
     }
 }
 
+// =====================================================================
+// === 2. Loading spinner + report renderer + report-view loader
+// =====================================================================
+
 function renderCardsLoadingSpinner() {
     const targetId = currentCardsViewMode === 'stats' ? 'cardsStatsView'
         : currentCardsViewMode === 'queue' ? 'cardsGrid'
@@ -183,6 +205,10 @@ async function loadReportViewIfNeeded() {
         renderer.renderInitialLoading('Failed to load practice report.');
     }
 }
+
+// =====================================================================
+// === 3. Stats view + summary
+// =====================================================================
 
 function renderStatsView() {
     const container = document.getElementById('cardsStatsView');
@@ -258,6 +284,10 @@ function renderStatsSummary(uniqueCount, attemptTotal, bankCount) {
     `;
 }
 
+// =====================================================================
+// === 4. Card-stat accessors + capsule label getter
+// =====================================================================
+
 function getCardPracticeCount(card) {
     const attempts = Number.parseInt(card?.lifetime_attempts, 10);
     return Number.isInteger(attempts) ? Math.max(0, attempts) : 0;
@@ -300,6 +330,10 @@ function makeCardCapsuleLabelGetter(behaviorType) {
 const selectedBucketByPanel = new Map();
 let currentDailyProgressViewDays = 0;
 const DAILY_PROGRESS_METRIC_STORAGE_KEY = 'kidCardManage.dailyProgressMetric';
+// =====================================================================
+// === 5. Daily progress metric + distribution tab normalizers
+// =====================================================================
+
 function normalizeDailyProgressMetric(value) {
     return value === 'correctness' ? 'correctness' : 'speed';
 }
@@ -322,6 +356,10 @@ let currentDistributionTab = (() => {
         return 'accuracy';
     }
 })();
+
+// =====================================================================
+// === 6. Distribution histogram builders (accuracy / count / speed / last-seen)
+// =====================================================================
 
 function buildAccuracyDistribution(cards, getCardCapsuleLabel, getCardHref) {
     const panelKey = 'accuracy';
@@ -425,6 +463,10 @@ function buildLastSeenDistribution(cards, getCardCapsuleLabel, getCardHref) {
     });
 }
 
+// =====================================================================
+// === 7. Daily progress chart build + finite-range
+// =====================================================================
+
 function buildDailyProgressChart(dailyProgressRows, familyTimezone) {
     const rows = Array.isArray(dailyProgressRows) ? dailyProgressRows : [];
     const validRows = [];
@@ -525,6 +567,10 @@ function computeFiniteRange(points, key) {
     return { hasData, min: hasData ? min : 0, max: hasData ? max : 0 };
 }
 
+// =====================================================================
+// === 8. Metric / period button rendering + view clipping + date-key helpers
+// =====================================================================
+
 function renderDailyProgressMetricBtns({ rtHasData, crHasData, activeMetric }) {
     if (!rtHasData || !crHasData) return '';
     const opts = [
@@ -619,6 +665,10 @@ function formatEpochUtcToDateKey(epochMs) {
     const d = String(dt.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
+
+// =====================================================================
+// === 9. Daily progress Y / X tick builders + panel render
+// =====================================================================
 
 function buildDailyProgressYTicks(yMax) {
     const safeMax = Math.max(1, Number(yMax) || 0);
