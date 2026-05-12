@@ -1,7 +1,30 @@
+/**
+ * Standalone <audio>-element wrapper with play/pause, speed cycling and waveform scrubbing.
+ *
+ * Replaces the native controls with a custom toolbar; in waveform mode it decodes
+ * the audio source through Web Audio API to render a peak-bar canvas seekable by
+ * pointer or keyboard. Exposed as `window.SimpleAudioPlayer`.
+ *
+ * Layout:
+ *   1. Constants + module state
+ *   2. Format + waveform-class helpers
+ *   3. Audio context + peak computation
+ *   4. Waveform canvas drawing
+ *   5. wrapAudio — build DOM + bind playback / seek / resize listeners
+ *   6. attach + setVisible + public API export
+ */
 (function initSimpleAudioPlayer(global) {
+    // =====================================================================
+    // === 1. Constants + module state
+    // =====================================================================
+
     const SPEED_OPTIONS = [1, 1.5, 2];
     const WAVEFORM_BAR_COUNT = 96;
     const allPlayers = [];
+
+    // =====================================================================
+    // === 2. Format + waveform-class helpers
+    // =====================================================================
 
     function formatDuration(secondsRaw) {
         const secondsNum = Number(secondsRaw);
@@ -26,6 +49,10 @@
             }
         });
     }
+
+    // =====================================================================
+    // === 3. Audio context + peak computation
+    // =====================================================================
 
     function generateFlatPeaks(count) {
         const peaks = new Array(count);
@@ -110,6 +137,10 @@
         }
     }
 
+    // =====================================================================
+    // === 4. Waveform canvas drawing
+    // =====================================================================
+
     function drawWaveform(canvas, peaks, ratio, colors) {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -157,6 +188,10 @@
             ctx.fillRect(Math.round(playedX) - 1, 0, 2, height);
         }
     }
+
+    // =====================================================================
+    // === 5. wrapAudio — build DOM + bind playback / seek / resize listeners
+    // =====================================================================
 
     function wrapAudio(audioEl, options = {}) {
         if (!audioEl || !(audioEl instanceof HTMLElement)) {
@@ -424,6 +459,10 @@
         }
         return wrapper;
     }
+
+    // =====================================================================
+    // === 6. attach + setVisible + public API export
+    // =====================================================================
 
     function attach(root, options = {}) {
         const scope = root && typeof root.querySelectorAll === 'function' ? root : document;

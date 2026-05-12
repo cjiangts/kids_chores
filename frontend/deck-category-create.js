@@ -1,3 +1,23 @@
+/**
+ * Subject (deck-category) admin page — super-family only.
+ *
+ * Lists shared deck_category rows from /api/shared-decks/categories, lets the
+ * super-family create new subjects with behavior type + optional Chinese-specific
+ * logic, share to non-super families (one-way), or delete unshared ones.
+ *
+ * Layout:
+ *   1. DOM refs + module state
+ *   2. Bootstrap + form / table event wiring
+ *   3. Selectors + behavior-type + chinese-logic sync
+ *   4. Super-family gate + categories load / render
+ *   5. Create / share / delete category actions
+ *   6. Success/error toast helpers
+ */
+
+// =====================================================================
+// === 1. DOM refs + module state
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const createCategoryForm = document.getElementById('createCategoryForm');
@@ -19,6 +39,10 @@ let categoriesByKey = {};
 
 const renderCategorySubjectIcon = (window.DeckCategoryCommon && window.DeckCategoryCommon.renderCategorySubjectIcon)
     || ((key) => '');
+
+// =====================================================================
+// === 2. Bootstrap + form / table event wiring
+// =====================================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureSuperFamily();
@@ -56,6 +80,10 @@ if (createCategoryForm) {
     });
 }
 
+
+// =====================================================================
+// === 3. Selectors + behavior-type + chinese-logic sync
+// =====================================================================
 
 function normalizeCategoryKey(text) {
     return String(text || '')
@@ -153,6 +181,10 @@ function syncBehaviorDependentInputs() {
         }
     }
 }
+
+// =====================================================================
+// === 4. Super-family gate + categories load / render
+// =====================================================================
 
 async function ensureSuperFamily() {
     try {
@@ -258,6 +290,10 @@ function renderCategories(categories) {
         }).join('');
     }
 }
+
+// =====================================================================
+// === 5. Create / share / delete category actions
+// =====================================================================
 
 async function createCategory() {
     if (isCreating) {
@@ -408,6 +444,10 @@ async function deleteCategory(categoryKey) {
         await loadCategories();
     }
 }
+
+// =====================================================================
+// === 6. Success/error toast helpers
+// =====================================================================
 
 function showSuccess(message) {
     if (!successMessage) {

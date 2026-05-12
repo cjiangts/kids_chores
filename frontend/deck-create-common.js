@@ -1,4 +1,24 @@
+/**
+ * Shared helpers for the super-family deck-create flows.
+ *
+ * Used by deck-create-single.js + deck-create-bulk.js. Provides the auth gate,
+ * tag/category accessors, behavior-type mode classifiers, the first-tag picker
+ * renderer, Chinese back-map / overlap-card REST calls and status-cell HTML.
+ * Exposed as `window.DeckCreateCommon`.
+ *
+ * Layout:
+ *   1. Bootstrap + ensureSuperFamily auth gate
+ *   2. Tag normalize/parse/format + category & behavior-type mode helpers
+ *   3. Controls disable + category loader + first-tag picker
+ *   4. Tag-path format + Chinese back-map + category card-overlap REST
+ *   5. Overlap → name list / status-cell HTML + message helpers
+ *   6. Public API export (window.DeckCreateCommon)
+ */
 (function initDeckCreateCommon() {
+    // =====================================================================
+    // === 1. Bootstrap + ensureSuperFamily auth gate
+    // =====================================================================
+
     const deckCategoryCommon = window.DeckCategoryCommon;
     if (!deckCategoryCommon) {
         throw new Error('deck-category-common.js is required for deck-create-common');
@@ -29,6 +49,10 @@
                 return false;
             });
     }
+
+    // =====================================================================
+    // === 2. Tag normalize/parse/format + category & behavior-type mode helpers
+    // =====================================================================
 
     function normalizeTag(text) {
         return deckCategoryCommon.parseDeckTagInput(text).tag;
@@ -105,6 +129,10 @@
         return Boolean(category && category.behavior_type === 'type_iv');
     }
 
+    // =====================================================================
+    // === 3. Controls disable + category loader + first-tag picker
+    // =====================================================================
+
     function setControlsDisabled(disabled, controls = {}) {
         const isDisabled = Boolean(disabled);
         Object.values(controls || {}).forEach((item) => {
@@ -174,6 +202,10 @@
         return next;
     }
 
+    // =====================================================================
+    // === 4. Tag-path format + Chinese back-map + category card-overlap REST
+    // =====================================================================
+
     function formatTagPath(tags) {
         const list = Array.isArray(tags) ? tags.map((tag) => String(tag || '').trim()).filter(Boolean) : [];
         if (list.length === 0) {
@@ -238,6 +270,10 @@
             overlaps: Array.isArray(result && result.overlaps) ? result.overlaps : [],
         };
     }
+
+    // =====================================================================
+    // === 5. Overlap → name list / status-cell HTML + message helpers
+    // =====================================================================
 
     function toOverlapByValue(overlapInfo) {
         const overlapByValue = {};
@@ -310,6 +346,10 @@
         element.textContent = text;
         element.classList.remove('hidden');
     }
+
+    // =====================================================================
+    // === 6. Public API export (window.DeckCreateCommon)
+    // =====================================================================
 
     window.DeckCreateCommon = {
         ensureSuperFamily,

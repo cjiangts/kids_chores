@@ -1,9 +1,24 @@
-// Shared histogram-distribution helpers.
-// Used by kid-card-manage-stats.js (per-card distributions) and
-// kid-session-report.js (per-answer response-time distribution).
-// Loaded as a plain script — exposes globals so consumers don't need ES modules.
+/**
+ * Shared histogram-distribution helpers.
+ *
+ * Used by kid-card-manage-stats.js (per-card distributions) and
+ * kid-session-report.js (per-answer response-time distribution).
+ * Loaded as a plain script — exposes globals so consumers don't need ES modules.
+ *
+ * Layout:
+ *   1. Entry point — buildHistogramDistribution
+ *   2. Bucket construction + bar counts + count axis
+ *   3. Bucket lookup + percentile + marker positioning
+ *   4. Top-card lists (highest / lowest)
+ *   5. Number / label formatters
+ *   6. renderDistributionPanel — HTML template
+ */
 
 const HISTOGRAM_BUCKET_COUNT = 7;
+
+// =====================================================================
+// === 1. Entry point — buildHistogramDistribution
+// =====================================================================
 
 function buildHistogramDistribution(options = {}) {
     const cards = Array.isArray(options?.cards) ? options.cards : [];
@@ -60,6 +75,10 @@ function buildHistogramDistribution(options = {}) {
         filteredCount: filteredRated.length,
     };
 }
+
+// =====================================================================
+// === 2. Bucket construction + bar counts + count axis
+// =====================================================================
 
 function buildDynamicBuckets(values, bucketing = {}) {
     if (!Array.isArray(values) || !values.length) return [];
@@ -177,6 +196,10 @@ function getHistogramVerticalPositionPct(value, maxValue) {
     return (value / maxValue) * 100;
 }
 
+// =====================================================================
+// === 3. Bucket lookup + percentile + marker positioning
+// =====================================================================
+
 function findHistogramBucket(value, bucketDefinitions) {
     const list = Array.isArray(bucketDefinitions) ? bucketDefinitions : [];
     for (const bucket of list) {
@@ -219,6 +242,10 @@ function getPercentileValue(sortedValues, percentile) {
     return lowerValue + ((upperValue - lowerValue) * weight);
 }
 
+// =====================================================================
+// === 4. Top-card lists (highest / lowest)
+// =====================================================================
+
 function buildTopCardLists(rated, configs, formatValue, getCardCapsuleLabel, getCardHref, getCardId) {
     const lists = Array.isArray(configs) ? configs : [];
     if (!lists.length || !Array.isArray(rated) || !rated.length) return [];
@@ -248,6 +275,10 @@ function buildTopCardLists(rated, configs, formatValue, getCardCapsuleLabel, get
         };
     });
 }
+
+// =====================================================================
+// === 5. Number / label formatters
+// =====================================================================
 
 function formatIntegerCaptureRange(min, max) {
     const lo = Math.ceil(min);
@@ -307,6 +338,10 @@ function formatBoundarySeconds(ms) {
     if (Number.isInteger(seconds)) return String(seconds);
     return trimTrailingZeros(seconds.toFixed(1));
 }
+
+// =====================================================================
+// === 6. renderDistributionPanel — HTML template
+// =====================================================================
 
 function renderDistributionPanel(panel) {
     const bars = Array.isArray(panel?.bars) ? panel.bars : [];

@@ -1,3 +1,23 @@
+/**
+ * Type-II Chinese-writing-sheet print page.
+ *
+ * Fetches one saved Chinese print sheet, renders a preview at fitted scale, and
+ * exports a 1:1 PDF using html2canvas + jsPDF. Cells reproduce the builder's
+ * cell-design (Kaiti font, demo + empty cells per character row).
+ *
+ * Layout:
+ *   1. DOM refs + URL params + module state + paper-spec constants
+ *   2. Paper-spec builder + size resolvers
+ *   3. Utility helpers (escape, scale clamp, preview scale, URL/fetch, back nav)
+ *   4. Row cells + sheet page markup builder
+ *   5. Preview render + PDF export (handlePrint)
+ *   6. Load + render + DOMContentLoaded bootstrap
+ */
+
+// =====================================================================
+// === 1. DOM refs + URL params + module state + paper-spec constants
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const sheetTitle = document.getElementById('sheetTitle');
@@ -38,6 +58,10 @@ const PAPER_SPECS = Object.freeze({
 });
 
 let currentPaperSpec = PAPER_SPECS[DEFAULT_PAPER_SIZE];
+
+// =====================================================================
+// === 2. Paper-spec builder + size resolvers
+// =====================================================================
 
 function buildPrintPaperSpec(key, pageWidth, pageHeight, pageWidthMm, pageHeightMm, cssPageSize) {
     const gridWidth = pageWidth - (2 * PAPER_MARGIN);
@@ -80,6 +104,10 @@ function getPaperSpec(value, fallback = DEFAULT_PAPER_SIZE) {
 function applyPaperSpec(paperSize) {
     currentPaperSpec = getPaperSpec(paperSize);
 }
+
+// =====================================================================
+// === 3. Utility helpers (escape, scale clamp, preview scale, URL/fetch, back nav)
+// =====================================================================
 
 function escapeHtml(text) {
     const el = document.createElement('span');
@@ -126,6 +154,10 @@ function goBack() {
     if (categoryKey) qs.set('categoryKey', categoryKey);
     window.location.href = `/kid-writing-sheet-manage.html?${qs.toString()}`;
 }
+
+// =====================================================================
+// === 4. Row cells + sheet page markup builder
+// =====================================================================
 
 function buildRowCells(character, emptyCount, colCount) {
     const chars = [...(character || '')];
@@ -228,6 +260,10 @@ function buildSheetPageMarkup(sheet, scale, { showDebugBorder }) {
     return html;
 }
 
+// =====================================================================
+// === 5. Preview render + PDF export (handlePrint)
+// =====================================================================
+
 function renderSheetPreview(sheet) {
     if (!sheetPreviewWrap) return;
     const paperSize = normalizePaperSize(sheet?.layout?.paper_size || DEFAULT_PAPER_SIZE);
@@ -297,6 +333,10 @@ async function handlePrint() {
         }
     }
 }
+
+// =====================================================================
+// === 6. Load + render + DOMContentLoaded bootstrap
+// =====================================================================
 
 async function loadAndRender() {
     if (!kidId || !sheetId) {

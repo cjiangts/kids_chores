@@ -1,4 +1,23 @@
+/**
+ * Post-session badge-unlock celebration modal.
+ *
+ * Polls /api/kids/<id>/badges/celebrations/pending after a session, builds a
+ * confetti overlay with a swipeable carousel of newly-earned badges, and posts
+ * /celebrations/seen on dismiss. Exposed as `window.KidBadgeCelebration`.
+ *
+ * Layout:
+ *   1. Module state + small helpers (escape, image URL, palette key)
+ *   2. Confetti markup builder
+ *   3. markSeen API + closeOverlay
+ *   4. Badge slide markup + carousel init
+ *   5. buildOverlay — overlay constructor + action wiring
+ *   6. maybeShowForKid + public API export
+ */
 (function initKidBadgeCelebration(global) {
+    // =====================================================================
+    // === 1. Module state + small helpers (escape, image URL, palette key)
+    // =====================================================================
+
     const state = {
         checkedKidIds: new Set(),
         activeOverlay: null,
@@ -28,6 +47,10 @@
     function getPaletteKey(item) {
         return String(item && item.paletteKey ? item.paletteKey : '').trim().toLowerCase() || 'global';
     }
+
+    // =====================================================================
+    // === 2. Confetti markup builder
+    // =====================================================================
 
     function buildConfettiMarkup() {
         const pieces = [
@@ -59,6 +82,10 @@
             ></span>
         `).join('');
     }
+
+    // =====================================================================
+    // === 3. markSeen API + closeOverlay
+    // =====================================================================
 
     async function markSeen({ kidId, apiBase, awardIds }) {
         try {
@@ -93,6 +120,10 @@
             }, 210);
         });
     }
+
+    // =====================================================================
+    // === 4. Badge slide markup + carousel init
+    // =====================================================================
 
     function buildBadgeSlideMarkup(item, index) {
         const imageUrl = resolveBadgeImageUrl(item);
@@ -224,6 +255,10 @@
         window.setTimeout(updateState, 0);
     }
 
+    // =====================================================================
+    // === 5. buildOverlay — overlay constructor + action wiring
+    // =====================================================================
+
     function buildOverlay({ kidId, apiBase, pendingCelebrations }) {
         const awardIds = pendingCelebrations
             .map((item) => Number.parseInt(item && item.awardId, 10))
@@ -316,6 +351,10 @@
         initializeCelebrationCarousel(overlay);
         return overlay;
     }
+
+    // =====================================================================
+    // === 6. maybeShowForKid + public API export
+    // =====================================================================
 
     async function maybeShowForKid({ kidId, apiBase }) {
         const normalizedKidId = String(kidId || '').trim();
