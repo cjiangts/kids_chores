@@ -34,15 +34,11 @@ from src.routes.kids import (
     get_kid_type3_audio_dir,
     get_kid_ungraded_type_iii_count,
     get_or_create_category_orphan_deck,
-    get_session_behavior_type,
-    get_shared_deck_categories,
-    get_shared_deck_category_meta_by_key,
     get_shared_decks_connection,
     get_type_iii_category_keys,
     hydrate_kid_category_config_from_db,
     is_drill_session_practice_mode,
     is_super_family_id,
-    is_type_iii_session_type,
     jsonify,
     kid_db,
     kids_bp,
@@ -55,6 +51,12 @@ from src.routes.kids import (
     require_critical_password,
     sanitize_deck_mix_payload,
     shutil,
+)
+from src.services.shared_deck_category import (
+    get_session_behavior_type,
+    get_shared_deck_categories,
+    get_shared_deck_category_meta_by_key,
+    is_type_iii_session_type,
 )
 from src.badges.service import build_kid_badge_summary_payload
 

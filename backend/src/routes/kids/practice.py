@@ -43,17 +43,14 @@ from src.routes.kids import (
     get_pending_session,
     get_pending_writing_card_ids,
     get_retry_source_wrong_card_ids,
-    get_session_behavior_type,
     get_session_practice_mode,
     get_session_practice_mode_base,
     get_session_practiced_card_ids,
-    get_shared_deck_category_meta_by_key,
     get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
     get_type_iv_retry_source_result_rows,
     insert_type1_result_item,
-    is_type_iii_session_type,
     json,
     jsonify,
     kids_bp,
@@ -79,6 +76,11 @@ from src.routes.kids import (
     timezone,
     uuid,
     with_preview_session_count_for_category,
+)
+from src.services.shared_deck_category import (
+    get_session_behavior_type,
+    get_shared_deck_category_meta_by_key,
+    is_type_iii_session_type,
 )
 from src.routes.kids.type4 import complete_type_iv_session_internal
 

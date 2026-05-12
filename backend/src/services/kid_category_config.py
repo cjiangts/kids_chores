@@ -2,9 +2,8 @@
 
 Pure helpers extracted from `src.routes.kids` Phase 2 refactor.
 
-These helpers depend on a small handful of stateful kids.py helpers
-(`get_shared_deck_category_meta_by_key`, `get_kid_connection_for`,
-`get_or_create_orphan_deck`, `get_orphan_deck`) that hold module-level
+These helpers still depend on a couple of stateful kids.py helpers
+(`get_or_create_orphan_deck`, `get_orphan_deck`) that hold module-level
 state and live in kids.py. Those calls are resolved lazily inside each
 function body to avoid circular imports.
 """
@@ -21,6 +20,7 @@ from src.routes.kids_constants import (
     KID_DECK_CATEGORY_OPT_IN_TABLE,
     SESSION_CARD_COUNT_BY_CATEGORY_FIELD,
 )
+from src.services.shared_deck_category import get_shared_deck_category_meta_by_key
 from src.services.shared_deck_normalize import normalize_shared_deck_tag
 
 
@@ -48,9 +48,6 @@ def hydrate_kid_category_config_from_db(
     if isinstance(category_meta_by_key, dict):
         metadata_map = category_meta_by_key
     else:
-        # Lazy import: get_shared_deck_category_meta_by_key is stateful
-        # (TTL cache) and lives in kids.py.
-        from src.routes.kids import get_shared_deck_category_meta_by_key
         metadata_map = get_shared_deck_category_meta_by_key()
     category_keys = sorted(
         {

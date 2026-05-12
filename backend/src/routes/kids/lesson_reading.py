@@ -5,7 +5,6 @@ from src.routes.kids import (
     get_kid_connection_for,
     get_kid_for_family,
     get_kid_type3_audio_dir,
-    is_type_iii_session_type,
     jsonify,
     kids_bp,
     mimetypes,
@@ -19,6 +18,7 @@ from src.routes.kids import (
     threading,
     uuid,
 )
+from src.services.shared_deck_category import is_type_iii_session_type
 
 
 _TYPE3_MP3_TRANSCODE_LOCKS = {}
