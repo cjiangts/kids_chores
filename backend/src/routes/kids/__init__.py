@@ -1,4 +1,22 @@
-"""Kid management API routes"""
+"""Kid management API routes — package entrypoint.
+
+Layout (search for `# ===` markers to jump between sections):
+
+    1. Imports (stdlib, services, sibling-route-module helpers)
+    2. Module state — `_SHARED_DECK_MUTATION_LOCK` + small helpers
+    3. Shared-deck scope dispatch — scope/op constants + CATEGORY_CONFIG
+    4. Type-specific cards handlers — `get_shared_type<N>_cards`
+    5. Request-parsing helpers — Flask `request.*` extractors
+    6. Scope-management context resolvers — kid + raw-key → context dict
+    7. Per-scope route handlers — `*_for_scope(kid_id, category, ...)`
+    8. Operation dispatch table — `SHARED_DECK_OPERATION_HANDLERS`
+    9. CATEGORY_CONFIG wiring — final scope → config map
+   10. Re-exports + sibling-route-module loads
+
+Most logic now lives in `src/services/*`; this file holds Flask-level
+plumbing (auth, request parsing, response framing, mutation lock) and
+the dispatch table that wires URL scopes to handlers.
+"""
 from flask import Blueprint, request, jsonify, send_from_directory, send_file, session
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
@@ -129,6 +147,12 @@ from src.services.shared_deck_queries import (
     get_shared_type_iv_deck_rows,
     is_shared_deck_chinese_type_i,
 )
+
+# ====================================================================
+# Module state
+#   `_SHARED_DECK_MUTATION_LOCK` serializes opt-in/opt-out across kids
+#   (acquired by handlers below before mutating per-kid DBs).
+# ====================================================================
 
 _SHARED_DECK_MUTATION_LOCK = threading.RLock()
 
@@ -347,6 +371,14 @@ from src.services.writing_bulk_split import (
 )
 
 
+# ====================================================================
+# Shared-deck scope dispatch
+#   Every /kids/<id>/<scope>/... route flows through the dispatcher
+#   below. SHARED_DECK_SCOPE_* are URL segments; SHARED_DECK_OP_* are
+#   logical operations; CATEGORY_CONFIG (built at end of module) maps
+#   each scope to its behavior kind and per-scope handlers.
+# ====================================================================
+
 SHARED_DECK_SCOPE_TYPE1 = 'cards'
 SHARED_DECK_SCOPE_TYPE3 = 'lesson-reading'
 SHARED_DECK_SCOPE_TYPE2 = 'type2'
@@ -385,6 +417,13 @@ def dispatch_shared_deck_scope_operation(scope, operation, kid_id, card_id=None)
     return run_shared_deck_scope_operation(operation, kid_id, category, card_id=card_id)
 
 
+# ====================================================================
+# Type-specific cards handlers
+#   Each scope has a dedicated `get_shared_type<N>_cards(kid_id)` that
+#   wires up category resolution + payload assembly. CATEGORY_CONFIG
+#   below maps each scope to its handler.
+# ====================================================================
+
 def get_shared_type1_cards(kid_id):
     """Get merged cards across opted-in type-I decks and orphan deck."""
     try:
@@ -413,6 +452,10 @@ def get_shared_type1_cards(kid_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ====================================================================
+# Request-parsing helpers (Flask `request.args` / `request.get_json()`)
+# ====================================================================
 
 def parse_include_practiced_from_other_arg():
     """Return True when the request opts into including practiced-but-not-opted-in cards."""
@@ -474,7 +517,12 @@ def parse_shared_deck_ids_from_request_payload(payload):
     return normalize_shared_deck_ids(raw_ids)
 
 
-
+# ====================================================================
+# Scope-management context resolvers
+#   Translate a kid + raw category key into the operating parameters
+#   (first_tag, orphan_deck_name, unique_key_field, ...) that all
+#   per-scope handlers below consume.
+# ====================================================================
 
 def resolve_type2_scope_context(kid, raw_category_key):
     """Resolve per-request type-II scope settings for shared deck operations."""
@@ -543,6 +591,15 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
         }
     raise ValueError('Unsupported shared-deck operation for scope')
 
+
+# ====================================================================
+# Per-scope route handlers
+#   Each `*_for_scope(kid_id, category, ...)` is a JSON-returning
+#   handler invoked by the dispatcher. They acquire the mutation lock
+#   when mutating, do auth via get_kid_for_family, and delegate the
+#   heavy lifting to services. SHARED_DECK_OPERATION_HANDLERS (built
+#   below) maps each SHARED_DECK_OP_* constant to one of these.
+# ====================================================================
 
 def get_shared_decks_for_scope(kid_id, category):
     """Handle shared-decks listing by scope config."""
@@ -1015,6 +1072,13 @@ def update_shared_card_skip_bulk_for_scope(kid_id, category):
         return jsonify({'error': str(e)}), 500
 
 
+# ====================================================================
+# Operation dispatch table
+#   Maps SHARED_DECK_OP_* constants to per-scope handlers above.
+#   run_shared_deck_scope_operation looks up the handler and invokes
+#   it; SKIP_UPDATE is the only op that passes a card_id arg.
+# ====================================================================
+
 SHARED_DECK_OPERATION_HANDLERS = {
     SHARED_DECK_OP_GET: get_shared_decks_for_scope,
     SHARED_DECK_OP_OPT_IN: opt_in_shared_decks_for_scope,
@@ -1318,6 +1382,13 @@ def get_shared_type2_cards(kid_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ====================================================================
+# CATEGORY_CONFIG wiring
+#   Final scope → config map (populated after all handlers are defined).
+#   Each scope maps to a behavior kind + cards_handler used by the
+#   dispatcher above.
+# ====================================================================
 
 CATEGORY_CONFIG.update({
     SHARED_DECK_SCOPE_TYPE1: {
