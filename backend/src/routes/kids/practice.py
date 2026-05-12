@@ -10,6 +10,8 @@ from src.routes.kids import (
     _PENDING_SESSIONS_LOCK,
     build_continue_selected_cards_for_decks,
     build_retry_selected_cards_for_sources,
+    build_type_i_chinese_prompt_audio_payload,
+    build_type_i_multiple_choice_pool_cards,
     build_type_iv_continue_count_by_source_key,
     build_type_iv_initial_count_by_source_key,
     build_type_iv_pending_items_for_sources,
@@ -29,8 +31,10 @@ from src.routes.kids import (
     get_pending_writing_card_ids,
     get_retry_source_wrong_card_ids,
     get_session_practice_mode,
+    get_session_practice_mode_base,
     get_session_practiced_card_ids,
     get_shared_deck_category_meta_by_key,
+    get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
     get_type_iv_retry_source_result_rows,
@@ -51,7 +55,6 @@ from src.routes.kids import (
     resolve_kid_type_iv_category_with_mode,
     run_type4_generator,
     secure_filename,
-    start_type_i_practice_session_internal,
     uuid,
     with_preview_session_count_for_category,
 )
@@ -776,3 +779,229 @@ def complete_type4_practice_session(kid_id):
 # Chinese Character Bank
 # ──────────────────────────────────────────────────────────────
 
+
+def start_type_i_practice_session_internal(
+    kid_id,
+    kid,
+    category_key,
+    *,
+    session_card_count_override=None,
+    include_orphan_in_queue_override=None,
+    pending_session_payload_extras=None,
+    include_category_key_in_response=True,
+    include_multiple_choice_pool_cards=False,
+):
+    """Start one merged type-I practice session with optional per-category overrides."""
+    conn = get_kid_connection_for(kid)
+    try:
+        source_decks = get_shared_type_i_merged_source_decks_for_kid(
+            conn,
+            kid,
+            category_key,
+            include_orphan_in_queue_override=include_orphan_in_queue_override,
+        )
+        included_sources = [src for src in source_decks if bool(src.get('included_in_queue'))]
+        source_deck_ids = [
+            int(src['local_deck_id'])
+            for src in included_sources
+            if int(src.get('active_card_count') or 0) > 0
+        ]
+        source_by_deck_id = {int(src['local_deck_id']): src for src in included_sources}
+        continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
+        continue_practiced_card_ids = []
+        is_continue_session = continue_source_session is not None
+        retry_source_session = None
+        is_retry_session = False
+        if is_continue_session:
+            continue_practiced_card_ids = get_session_practiced_card_ids(
+                conn,
+                continue_source_session['session_id'],
+            )
+            missing_count = max(
+                0,
+                int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
+            )
+            continue_cards = build_continue_selected_cards_for_decks(
+                conn,
+                kid,
+                source_deck_ids,
+                category_key,
+                missing_count,
+                excluded_card_ids=continue_practiced_card_ids,
+            )
+            selected_cards = []
+            for card in continue_cards:
+                local_deck_id = int(card.get('deck_id') or 0)
+                src = source_by_deck_id.get(local_deck_id) or {}
+                selected_cards.append({
+                    **card,
+                    'shared_deck_id': int(src['shared_deck_id']) if src.get('shared_deck_id') is not None else None,
+                    'deck_id': local_deck_id,
+                    'deck_name': str(src.get('local_name') or ''),
+                    'source_tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
+                    'source_is_orphan': bool(src.get('is_orphan')),
+                })
+        else:
+            retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
+            is_retry_session = retry_source_session is not None
+        if is_continue_session:
+            pass
+        elif is_retry_session:
+            retry_wrong_card_ids = get_retry_source_wrong_card_ids(
+                conn,
+                retry_source_session['session_id'],
+            )
+            selected_cards = build_retry_selected_cards_for_sources(
+                conn,
+                source_by_deck_id,
+                retry_wrong_card_ids,
+            )
+        else:
+            preview_kid = with_preview_session_count_for_category(
+                kid,
+                category_key,
+                (
+                    int(session_card_count_override)
+                    if session_card_count_override is not None
+                    else get_category_session_card_count_for_kid(kid, category_key)
+                ),
+            )
+            cards_by_id, selected_ids = plan_deck_practice_selection_for_decks(
+                conn,
+                preview_kid,
+                source_deck_ids,
+                category_key
+            )
+            selected_cards = []
+            for card_id in selected_ids:
+                card = cards_by_id.get(card_id) or {}
+                local_deck_id = int(card.get('deck_id') or 0)
+                src = source_by_deck_id.get(local_deck_id) or {}
+                selected_cards.append({
+                    **card,
+                    'shared_deck_id': int(src['shared_deck_id']) if src.get('shared_deck_id') is not None else None,
+                    'deck_id': local_deck_id,
+                    'deck_name': str(src.get('local_name') or ''),
+                    'source_tags': extract_shared_deck_tags_and_labels(src.get('tags') or [])[0],
+                    'source_is_orphan': bool(src.get('is_orphan')),
+                })
+
+        if len(selected_cards) == 0:
+            payload = {'pending_session_id': None, 'cards': [], 'planned_count': 0}
+            if include_category_key_in_response:
+                payload['category_key'] = category_key
+            payload['is_continue_session'] = bool(is_continue_session)
+            payload['continue_source_session_id'] = (
+                int(continue_source_session['session_id'])
+                if is_continue_session and continue_source_session is not None
+                else None
+            )
+            payload['is_retry_session'] = bool(is_retry_session)
+            payload['retry_source_session_id'] = (
+                int(retry_source_session['session_id'])
+                if is_retry_session and retry_source_session is not None
+                else None
+            )
+            extras_mode = (pending_session_payload_extras or {}).get('practice_mode') if isinstance(pending_session_payload_extras, dict) else None
+            payload['practice_mode'] = normalize_session_practice_mode(extras_mode)
+            return payload, 200
+
+        multiple_choice_pool_cards = []
+        if include_multiple_choice_pool_cards and (is_continue_session or is_retry_session):
+            source_session_card_ids = []
+            if is_continue_session and continue_source_session is not None:
+                selected_card_ids = [int(card.get('id') or 0) for card in selected_cards]
+                source_session_card_ids = [
+                    card_id
+                    for card_id in [*continue_practiced_card_ids, *selected_card_ids]
+                    if int(card_id or 0) > 0
+                ]
+            elif is_retry_session and retry_source_session is not None:
+                source_session_card_ids = get_session_practiced_card_ids(
+                    conn,
+                    retry_source_session['session_id'],
+                )
+            multiple_choice_pool_cards = build_type_i_multiple_choice_pool_cards(
+                conn,
+                source_by_deck_id,
+                source_session_card_ids,
+            )
+
+        pending_session_payload = {
+            'kind': category_key,
+            'planned_count': len(selected_cards),
+            'cards': [{'id': int(card['id'])} for card in selected_cards],
+        }
+        if is_continue_session and continue_source_session is not None:
+            pending_session_payload[PENDING_CONTINUE_SOURCE_SESSION_ID_KEY] = int(continue_source_session['session_id'])
+        if is_retry_session and retry_source_session is not None:
+            pending_session_payload[PENDING_RETRY_SOURCE_SESSION_ID_KEY] = int(retry_source_session['session_id'])
+        if isinstance(pending_session_payload_extras, dict):
+            pending_session_payload.update(pending_session_payload_extras)
+
+        source_session_id = None
+        if is_continue_session and continue_source_session is not None:
+            source_session_id = int(continue_source_session['session_id'])
+        elif is_retry_session and retry_source_session is not None:
+            source_session_id = int(retry_source_session['session_id'])
+        if source_session_id is not None:
+            inherited_mode = get_session_practice_mode(conn, source_session_id)
+            inherited_base = get_session_practice_mode_base(inherited_mode)
+            pending_session_payload['practice_mode'] = compose_session_practice_mode(
+                inherited_base, drill=False
+            )
+
+        resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
+
+        pending_session_id = create_pending_session(
+            kid_id,
+            category_key,
+            pending_session_payload
+        )
+    finally:
+        conn.close()
+
+    category_meta = get_shared_deck_category_meta_by_key().get(category_key) or {}
+    has_type_i_chinese_prompt_audio = (
+        normalize_shared_deck_category_behavior(category_meta.get('behavior_type'))
+        == DECK_CATEGORY_BEHAVIOR_TYPE_I
+        and bool(category_meta.get('has_chinese_specific_logic'))
+    )
+    response_cards = []
+    for card in selected_cards:
+        response_card = dict(card)
+        if has_type_i_chinese_prompt_audio:
+            audio_meta = build_type_i_chinese_prompt_audio_payload(
+                kid_id,
+                response_card.get('front'),
+                category_key=category_key,
+            )
+            response_card['audio_file_name'] = audio_meta.get('audio_file_name')
+            response_card['audio_mime_type'] = audio_meta.get('audio_mime_type')
+            response_card['audio_url'] = audio_meta.get('audio_url')
+            response_card['prompt_audio_url'] = audio_meta.get('prompt_audio_url')
+        response_cards.append(response_card)
+
+    payload = {
+        'pending_session_id': pending_session_id,
+        'planned_count': len(response_cards),
+        'cards': response_cards,
+        'practice_mode': resolved_practice_mode,
+        'is_continue_session': bool(is_continue_session),
+        'continue_source_session_id': (
+            int(continue_source_session['session_id'])
+            if is_continue_session and continue_source_session is not None
+            else None
+        ),
+        'is_retry_session': bool(is_retry_session),
+        'retry_source_session_id': (
+            int(retry_source_session['session_id'])
+            if is_retry_session and retry_source_session is not None
+            else None
+        ),
+    }
+    if include_multiple_choice_pool_cards:
+        payload['multiple_choice_pool_cards'] = multiple_choice_pool_cards
+    if include_category_key_in_response:
+        payload['category_key'] = category_key
+    return payload, 200
