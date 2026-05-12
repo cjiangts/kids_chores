@@ -1,4 +1,19 @@
-// Deck setup: opt-in summary, deck-tag helpers, source-name resolution, opt-in/opt-out APIs, and tree-view modal.
+/*
+ * kid-card-manage-deck-setup.js — opt-in summary, deck-tag helpers, tree modal
+ *
+ * Layout:
+ *   1. Deck lookup + opt-in summary + action buttons
+ *   2. Deck tag helpers + display labels (bubble, prefix strip)
+ *   3. Source-name resolution + count-mismatch warnings
+ *   4. Opt-in / opt-out APIs + shared-deck card search index
+ *   5. Deck-tree view instance + render + modal open/close
+ *   6. Stage + apply deck membership changes
+ */
+
+// =====================================================================
+// === 1. Deck lookup + opt-in summary + action buttons
+// =====================================================================
+
 function getDeckById(deckId) {
     return allDecks.find((deck) => Number(deck.deck_id) === Number(deckId)) || null;
 }
@@ -57,6 +72,10 @@ function renderDeckPendingInfo() {
     renderDeckSetupSummary();
 }
 
+
+// =====================================================================
+// === 2. Deck tag helpers + display labels (bubble, prefix strip)
+// =====================================================================
 
 function getDeckTags(deck) {
     return Array.isArray(deck.tags)
@@ -129,6 +148,10 @@ function getPersonalDeckDisplayName() {
     return 'Personal Deck';
 }
 
+// =====================================================================
+// === 3. Source-name resolution + count-mismatch warnings
+// =====================================================================
+
 function resolveCardSourceDeckName(card) {
     const raw = String(card?.source_deck_label || card?.source_deck_name || '').trim();
     const normalized = raw.toLowerCase().replace(/[\s_]+/g, '');
@@ -172,6 +195,10 @@ function clearDeckSelectionMessages() {
     showSuccess('');
     showDeckChangeMessage('');
 }
+
+// =====================================================================
+// === 4. Opt-in / opt-out APIs + shared-deck card search index
+// =====================================================================
 
 async function refreshDeckSelectionViews() {
     renderDeckPendingInfo();
@@ -242,6 +269,10 @@ async function ensureSharedDeckCardSearchIndex() {
     sharedDeckCardSearchIndexPromise = null;
     return cards;
 }
+
+// =====================================================================
+// === 5. Deck-tree view instance + render + modal open/close
+// =====================================================================
 
 function ensureDeckTreeViewInstance() {
     if (deckTreeViewInstance) {
@@ -339,6 +370,10 @@ function collapseAllDeckTree() {
     if (deckTreeViewInstance) deckTreeViewInstance.collapseAll();
 }
 
+
+// =====================================================================
+// === 6. Stage + apply deck membership changes
+// =====================================================================
 
 async function stageDeckMembershipChange(deckId, direction) {
     if (isDeckMoveInFlight) {

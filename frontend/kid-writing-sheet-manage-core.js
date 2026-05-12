@@ -1,3 +1,18 @@
+/*
+ * kid-writing-sheet-manage-core.js — bootstrap + shared helpers
+ *
+ * Layout:
+ *   1. DOM refs + module state
+ *   2. Display helpers (escape, math, toasts, date parse)
+ *   3. URL builders + category-key resolver
+ *   4. Page text + kid info load + page mode (math vs chinese)
+ *   5. pageshow refresh handler + DOMContentLoaded init wiring
+ */
+
+// =====================================================================
+// === 1. DOM refs + module state
+// =====================================================================
+
 const API_BASE = `${window.location.origin}/api`;
 
 const params = new URLSearchParams(window.location.search);
@@ -33,6 +48,10 @@ let mathSheetsById = new Map();
 let canDesignMathCells = false;
 
 /* ── Shared utilities ── */
+
+// =====================================================================
+// === 2. Display helpers (escape, math, toasts, date parse)
+// =====================================================================
 
 function escapeHtml(text) {
     return String(text || '')
@@ -89,6 +108,10 @@ function parseTimestamp(value) {
     return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+// =====================================================================
+// === 3. URL builders + category-key resolver
+// =====================================================================
+
 function buildType2ApiUrl(path) {
     return window.DeckCategoryCommon.buildType2ApiUrl({
         kidId, path, categoryKey: activeCategoryKey, apiBase: API_BASE,
@@ -117,6 +140,10 @@ function getMatchingCategoryKey(kid, behaviorType, extraCheck) {
     if (preferred && matchingKeys.includes(preferred)) return preferred;
     return matchingKeys[0];
 }
+
+// =====================================================================
+// === 4. Page text + kid info load + page mode (math vs chinese)
+// =====================================================================
 
 function updatePageText() {
     const modeLabel = pageMode === 'math' ? 'Math Practice' : 'Chinese Writing';
@@ -174,6 +201,10 @@ function applyPageMode() {
         if (sheetHistoryNote) sheetHistoryNote.classList.add('hidden');
     }
 }
+
+// =====================================================================
+// === 5. pageshow refresh handler + DOMContentLoaded init wiring
+// =====================================================================
 
 /* ── Refresh sheets when returning via back button (bfcache) ── */
 

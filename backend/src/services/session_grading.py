@@ -3,6 +3,11 @@
 Pure functions for normalizing/grading submitted answers, plus DB helpers that
 write to the per-kid `type1_result_item` / `type4_result_item` sidecar tables.
 DB helpers take an open kid `conn` — no module-level state.
+
+Layout:
+  1. Answer normalizers + prompt-audio detection + Type-I/IV grade encoding
+  2. Initial result-item inserts (per-card grade row)
+  3. Submitted-answer appenders (append to existing result row)
 """
 from src.routes.kids_constants import (
     SESSION_RESULT_CORRECT,
@@ -12,6 +17,10 @@ from src.routes.kids_constants import (
     TYPE_I_RESULT_GRADE_IDK_AUDIO,
 )
 
+
+# =====================================================================
+# === 1. Answer normalizers + prompt-audio detection + Type-I/IV grade encoding
+# =====================================================================
 
 def normalize_type_iv_submitted_answer(raw_value):
     """Normalize one submitted generator answer for exact-string grading."""
@@ -110,6 +119,10 @@ def grade_type_iv_answer(submitted_answer, expected_answer, validate_fn=None):
     return SESSION_RESULT_WRONG_UNRESOLVED
 
 
+# =====================================================================
+# === 2. Initial result-item inserts (per-card grade row)
+# =====================================================================
+
 def insert_type4_result_item(conn, result_id, pending_item, submitted_answer, grade):
     """Insert one generator sidecar row for a saved session result."""
     conn.execute(
@@ -147,6 +160,10 @@ def insert_type1_result_item(conn, result_id, answer, grade):
     )
     return True
 
+
+# =====================================================================
+# === 3. Submitted-answer appenders (append to existing result row)
+# =====================================================================
 
 def append_type4_result_submitted_answer(conn, result_id, submitted_answer, grade):
     """Append one submitted answer to an existing generator result sidecar row."""

@@ -12,6 +12,11 @@ Pure helpers that:
 
 DB helpers take a `conn` for the shared-decks DB (or a per-kid `conn` for the
 materialized-deck readers). No module state.
+
+Layout:
+  1. Allowed first tags + shared-deck row queries (first-tag, type-II/IV)
+  2. Type-IV representative-label conflict + per-kid materialized decks
+  3. Single-deck lookups + behavior-type resolution + card rows
 """
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_I,
@@ -26,6 +31,10 @@ from src.services.shared_deck_normalize import (
     normalize_type_iv_display_label,
 )
 
+
+# =====================================================================
+# === 1. Allowed first tags + shared-deck row queries (first-tag, type-II/IV)
+# =====================================================================
 
 def get_allowed_shared_deck_first_tags(conn):
     """Return allowed first tags from deck categories."""
@@ -120,6 +129,10 @@ def get_shared_type_iv_deck_rows(conn, category_key):
     return decks
 
 
+# =====================================================================
+# === 2. Type-IV representative-label conflict + per-kid materialized decks
+# =====================================================================
+
 def find_shared_type_iv_representative_label_conflict(
     conn,
     category_key,
@@ -189,6 +202,10 @@ def get_kid_materialized_shared_type_ii_decks(conn, category_key):
         return {}
     return get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
 
+
+# =====================================================================
+# === 3. Single-deck lookups + behavior-type resolution + card rows
+# =====================================================================
 
 def get_shared_deck_owned_by_family(conn, deck_id, family_id_int):
     """Fetch one shared deck row if it belongs to the given family."""
