@@ -10,6 +10,11 @@ Helpers that:
 
 All helpers raise `ValueError` on validation failure — route handlers wrap
 those into 4xx responses. No module state.
+
+Layout:
+  1. Single-behavior resolver + type-I + type-I-Chinese variants
+  2. Multi-behavior resolver returning chinese-specific mode flag
+  3. Per-behavior thin wrappers (type-I/II/III/IV with custom error messages)
 """
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_I,
@@ -22,6 +27,10 @@ from src.services.kid_daily_progress import get_kid_opted_in_deck_category_keys
 from src.services.shared_deck_category import get_shared_deck_category_meta_by_key
 from src.services.shared_deck_normalize import normalize_shared_deck_tag
 
+
+# =====================================================================
+# === 1. Single-behavior resolver + type-I + type-I-Chinese variants
+# =====================================================================
 
 def resolve_kid_deck_category_key_for_behavior(
     kid,
@@ -109,6 +118,10 @@ def resolve_kid_type_i_chinese_category_key(kid, raw_category_key, *, allow_defa
     )
 
 
+# =====================================================================
+# === 2. Multi-behavior resolver returning chinese-specific mode flag
+# =====================================================================
+
 def resolve_kid_category_with_mode(
     kid,
     raw_category_key,
@@ -177,6 +190,10 @@ def resolve_kid_category_with_mode(
         raise ValueError(str(no_match_error))
     raise ValueError(str(multiple_match_error))
 
+
+# =====================================================================
+# === 3. Per-behavior thin wrappers (type-I/II/III/IV with custom error messages)
+# =====================================================================
 
 def resolve_kid_type_i_category_with_mode(kid, raw_category_key, *, conn=None):
     """Resolve explicit type-I/type-III category key and return its chinese-specific mode flag."""

@@ -3,9 +3,18 @@
 Pure DB helpers that take an open kid `conn`. The Chinese print-sheet helpers
 are tightly coupled to writing-candidate selection because pending print sheets
 block their cards from re-entering the candidate pool.
+
+Layout:
+  1. Writing-candidate row + id readers (newly-added or latest-failed)
+  2. Chinese print-sheet layout parse + per-row card-id accessor
+  3. Pending-sheet card ids + bulk card removal from in-progress sheets
 """
 import json
 
+
+# =====================================================================
+# === 1. Writing-candidate row + id readers (newly-added or latest-failed)
+# =====================================================================
 
 def get_writing_candidate_rows(conn, deck_ids, session_type, excluded_card_ids=None, limit=None):
     """Return ordered candidate cards for writing sheets: newly-added (never-seen) or latest-failed."""
@@ -102,6 +111,10 @@ def get_writing_candidate_card_ids(conn, deck_ids, session_type, excluded_card_i
     return [int(row[0]) for row in rows]
 
 
+# =====================================================================
+# === 2. Chinese print-sheet layout parse + per-row card-id accessor
+# =====================================================================
+
 def _load_type2_chinese_print_sheet_layout(layout_json):
     """Parse one saved Chinese print-sheet layout payload."""
     try:
@@ -127,6 +140,10 @@ def _get_type2_chinese_print_sheet_row_card_id(row):
         return None
     return card_id if card_id > 0 else None
 
+
+# =====================================================================
+# === 3. Pending-sheet card ids + bulk card removal from in-progress sheets
+# =====================================================================
 
 def get_pending_writing_card_ids(conn):
     """Return card ids currently blocked by pending Chinese print sheets."""

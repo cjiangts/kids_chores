@@ -7,11 +7,20 @@ Pure helpers that:
   - Build per-deck and per-representative-front generator detail maps.
 
 DB helpers take an open `conn` (shared-decks DB). No module state.
+
+Layout:
+  1. Column-probe helpers (multichoice flag, print-cell-design columns)
+  2. Row parser + single/bulk generator-definition readers
+  3. Category detail-map builders (by deck id + by representative front)
 """
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.services.shared_deck_queries import get_shared_type_iv_deck_rows
 from src.services.type4_print_layout import build_shared_deck_print_cell_design
 
+
+# =====================================================================
+# === 1. Column-probe helpers (multichoice flag, print-cell-design columns)
+# =====================================================================
 
 def shared_deck_generator_definition_has_column(conn, column_name):
     """Return whether shared generator definitions include one named column."""
@@ -38,6 +47,10 @@ def shared_deck_generator_definition_has_print_cell_design_columns(conn):
     """Return whether shared generator definitions include persisted print cell design columns."""
     return shared_deck_generator_definition_has_column(conn, 'print_cell_design_json')
 
+
+# =====================================================================
+# === 2. Row parser + single/bulk generator-definition readers
+# =====================================================================
 
 def parse_shared_deck_generator_definition_row(
     row,
@@ -146,6 +159,10 @@ def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
         )
     return definitions
 
+
+# =====================================================================
+# === 3. Category detail-map builders (by deck id + by representative front)
+# =====================================================================
 
 def build_type_iv_generator_detail_maps(category_key, deck_ids=None, *, shared_conn=None, include_code=True):
     """Return generator details keyed by shared deck id and representative front."""

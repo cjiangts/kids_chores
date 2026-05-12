@@ -8,6 +8,11 @@ Pure helpers that:
   - Cap logged response-time by session behavior type.
 
 DB helpers take an open per-kid `conn`. No module state.
+
+Layout:
+  1. Today UTC bounds + latest retry-source session lookup
+  2. Latest unfinished session + practiced card ids
+  3. Submitted-answer filtering + response-time cap
 """
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -25,6 +30,10 @@ from src.services.shared_deck_normalize import (
     normalize_shared_deck_tag,
 )
 
+
+# =====================================================================
+# === 1. Today UTC bounds + latest retry-source session lookup
+# =====================================================================
 
 def get_kid_today_bounds_utc(kid):
     """Return today's [start, end) UTC bounds for one kid's family timezone."""
@@ -94,6 +103,10 @@ def get_latest_retry_source_session_for_today(conn, kid, session_type):
         'wrong_count': wrong_count,
     }
 
+
+# =====================================================================
+# === 2. Latest unfinished session + practiced card ids
+# =====================================================================
 
 def get_latest_unfinished_session_for_today(conn, kid, session_type):
     """Return latest unfinished session for today when planned_count > answer_count."""
@@ -165,6 +178,10 @@ def get_session_practiced_card_ids(conn, session_id):
             card_ids.append(card_id)
     return card_ids
 
+
+# =====================================================================
+# === 3. Submitted-answer filtering + response-time cap
+# =====================================================================
 
 def filter_answers_to_pending_cards(answers, pending):
     """Keep answers that match planned slots; ignore extras/unplanned cards.
