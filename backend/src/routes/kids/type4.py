@@ -1,4 +1,15 @@
-"""Type IV math routes — print-config, math-sheets."""
+"""Type IV math routes — print-config, math-sheets.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Print config       — GET /kids/<id>/type4/print-config
+    2. Print-sheet CRUD   — POST/GET /kids/<id>/type4/math-sheets
+                            GET /kids/<id>/type4/math-sheets/<sid>
+    3. Print-sheet flow   — POST .../complete, .../withdraw, .../regenerate,
+                            .../finalize  (sheet lifecycle state transitions)
+    4. Session helpers    — complete_type_iv_session_internal (reused by
+                            routes/kids/practice.py complete-route)
+"""
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_IV,
     DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE,
@@ -48,6 +59,10 @@ from src.services.session_grading import (
     insert_type4_result_item,
     normalize_type_iv_submitted_answer,
 )
+
+# ============================================================================
+# 1. Print config — per-kid type-IV print template
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/type4/print-config', methods=['GET'])
 def get_type4_print_config(kid_id):
@@ -111,6 +126,10 @@ def get_type4_print_config(kid_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 2. Print-sheet CRUD — create, list, detail
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/type4/math-sheets', methods=['POST'])
 def create_type4_print_sheet(kid_id):
@@ -441,6 +460,10 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 3. Print-sheet flow — lifecycle state transitions
+# ============================================================================
+
 @kids_bp.route('/kids/<kid_id>/type4/math-sheets/<int:sheet_id>/complete', methods=['POST'])
 def complete_type4_print_sheet(kid_id, sheet_id):
     """Mark one persisted custom sheet as done."""
@@ -600,6 +623,10 @@ def finalize_type4_print_sheet(kid_id, sheet_id):
 
 ## ── Type-2 Chinese print sheets (builder) ──────────────────────────────────
 
+
+# ============================================================================
+# 4. Session helpers — reused by routes/kids/practice.py
+# ============================================================================
 
 def complete_type_iv_session_internal(
     conn,

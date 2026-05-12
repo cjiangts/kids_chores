@@ -1,4 +1,26 @@
-"""Per-kid card and deck routes (personal + shared opt-in/out)."""
+"""Per-kid card and deck routes (personal + shared opt-in/out).
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Personal card CRUD     — /kids/<id>/cards (GET/POST/bulk/DELETE)
+    2. Scope dispatch routes  — /kids/<id>/<scope>/shared-decks[...]
+       All delegated to routes.kids.__init__ scope-handler dispatch.
+         /<scope>/shared-decks                   (GET listing)
+         /<scope>/shared-decks/opt-in            (POST)
+         /<scope>/shared-decks/opt-out           (POST)
+         /<scope>/shared-decks/cards             (GET cards listing)
+         /<scope>/shared-decks/card-search-index (GET search index)
+         /<scope>/shared-decks/cards/<cid>/skip  (PUT toggle one)
+         /<scope>/shared-decks/cards/skip-bulk   (PUT toggle many)
+         /<scope>/decks                          (GET deck listing)
+    3. Type-IV specific       — /kids/<id>/type4/shared-decks/...
+         /cards/<cid>/generator-preview
+         /daily-targets
+
+The 7 scope routes are 4-line shims into the scope-handler dispatch in
+routes.kids.__init__ — the real per-op logic lives there in
+SHARED_DECK_OPERATION_HANDLERS.
+"""
 from src.routes.kids import (
     SHARED_DECK_OP_CARD_SEARCH_INDEX,
     SHARED_DECK_OP_GET,
@@ -42,6 +64,10 @@ from src.services.type4_generator_definitions import (
     get_shared_deck_generator_definition,
 )
 from src.services.writing_candidates import remove_cards_from_type2_chinese_print_sheets
+
+# ============================================================================
+# 1. Personal card CRUD
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/cards', methods=['GET'])
 def get_cards(kid_id):
@@ -289,6 +315,10 @@ def delete_card(kid_id, card_id):
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 2. Scope dispatch routes — see routes.kids.__init__ for the actual handlers
+# ============================================================================
+
 @kids_bp.route('/kids/<kid_id>/<scope>/shared-decks', methods=['GET'])
 def get_kid_shared_decks_by_scope(kid_id, scope):
     """Get shared decks for one category scope."""
@@ -336,6 +366,10 @@ def get_kid_decks_by_scope(kid_id, scope):
     """Get practice readiness deck summary for one category scope."""
     return dispatch_shared_deck_scope_operation(scope, SHARED_DECK_OP_GET_DECKS, kid_id)
 
+
+# ============================================================================
+# 3. Type-IV specific — per-card generator preview + daily-targets bulk update
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/type4/shared-decks/cards/<card_id>/generator-preview', methods=['POST'])
 def preview_type4_generator_for_card(kid_id, card_id):

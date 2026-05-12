@@ -1,4 +1,15 @@
-"""Type II writing routes — cards, audio, chinese-print-sheets."""
+"""Type II writing routes — cards, audio, chinese-print-sheets.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Type-II card CRUD       — GET/POST /kids/<id>/type2/cards
+                                 PUT/DELETE /kids/<id>/type2/cards/<cid>
+                                 POST /kids/<id>/type2/cards/bulk
+    2. Writing/audio serving   — GET /kids/<id>/type2/audio/<file>
+                                 GET /kids/<id>/cards/audio/<file>  (type-I Chinese prompt)
+    3. Chinese print-sheets    — CRUD + complete/withdraw lifecycle
+                                 /kids/<id>/type2/chinese-print-sheets[...]
+"""
 from src.routes.kids import (
     build_shared_type1_prompt_audio_file_name,
     build_shared_writing_audio_file_name,
@@ -39,6 +50,10 @@ from src.services.writing_candidates import (
     get_writing_candidate_card_ids,
     remove_cards_from_type2_chinese_print_sheets,
 )
+
+# ============================================================================
+# 1. Type-II card CRUD
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/type2/cards', methods=['GET'])
 def get_writing_cards(kid_id):
@@ -354,6 +369,10 @@ def add_writing_cards_bulk(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 2. Writing/audio serving
+# ============================================================================
+
 @kids_bp.route('/kids/<kid_id>/type2/audio/<path:file_name>', methods=['GET'])
 def get_writing_audio(kid_id, file_name):
     """Serve type-II prompt audio file for a kid."""
@@ -511,6 +530,8 @@ def get_type1_chinese_prompt_audio(kid_id, file_name):
         return jsonify({'error': str(e)}), 500
 
 
+# --- delete_writing_card sits between "audio" and "chinese-print-sheets" ---
+
 @kids_bp.route('/kids/<kid_id>/type2/cards/<card_id>', methods=['DELETE'])
 def delete_writing_card(kid_id, card_id):
     """Delete a type-II orphan card and remove its shared generated clip."""
@@ -568,6 +589,10 @@ def delete_writing_card(kid_id, card_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# 3. Chinese print-sheets — CRUD + complete/withdraw lifecycle
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/type2/chinese-print-sheets', methods=['POST'])
 def create_chinese_print_sheet(kid_id):

@@ -1,4 +1,25 @@
-"""Practice session start/complete routes."""
+"""Practice session start/complete routes.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Session start routes — per-behavior-type entry points
+         /kids/<id>/type2/practice/start                 (type-II writing/audio)
+         /kids/<id>/cards/practice/start                 (type-I flash cards)
+         /kids/<id>/type4/practice/start                 (type-IV math generator)
+         /kids/<id>/lesson-reading/practice/start        (type-III lesson reading)
+    2. Type-III audio upload — /lesson-reading/practice/upload-audio
+    3. Session complete routes — per-behavior-type completion
+         /kids/<id>/cards/practice/complete
+         /kids/<id>/lesson-reading/practice/complete
+         /kids/<id>/type2/practice/complete
+         /kids/<id>/type4/practice/complete
+    4. Shared helpers — start_type_i_practice_session_internal,
+       complete_session_internal (reused by start and complete routes)
+
+Practice runs live in `_PENDING_SESSIONS` (in routes.kids.__init__) until
+`practice/complete` is hit. The lock dict `_PENDING_SESSION_LOCKS` guards
+concurrent edits to a single in-flight session.
+"""
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_I,
     DECK_CATEGORY_BEHAVIOR_TYPE_II,
@@ -96,6 +117,10 @@ from src.services.shared_deck_category import (
     is_type_iii_session_type,
 )
 from src.routes.kids.type4 import complete_type_iv_session_internal
+
+# ============================================================================
+# 1. Session start routes — per-behavior-type entry points
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/type2/practice/start', methods=['POST'])
 def start_writing_practice_session(kid_id):
@@ -561,6 +586,10 @@ def start_type3_practice_session(kid_id):
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 2. Type-III audio upload
+# ============================================================================
+
 @kids_bp.route('/kids/<kid_id>/lesson-reading/practice/upload-audio', methods=['POST'])
 def upload_type3_practice_audio(kid_id):
     """Upload one type-III recording clip for an active pending session."""
@@ -666,6 +695,10 @@ def upload_type3_practice_audio(kid_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 3. Session complete routes — per-behavior-type completion
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/cards/practice/complete', methods=['POST'])
 def complete_type1_practice_session(kid_id):
@@ -817,6 +850,10 @@ def complete_type4_practice_session(kid_id):
 # Chinese Character Bank
 # ──────────────────────────────────────────────────────────────
 
+
+# ============================================================================
+# 4. Shared helpers — reused by both start and complete routes
+# ============================================================================
 
 def start_type_i_practice_session_internal(
     kid_id,

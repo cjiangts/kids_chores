@@ -1,4 +1,22 @@
-"""Shared-deck (super-family-managed) routes."""
+"""Shared-deck (super-family-managed) routes.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Deck categories — create / list / share / delete (cascade across kids)
+    2. Validation + preview helpers — name availability, pinyin, type4 preview
+    3. Type-IV uniqueness helpers — representative-label + card overlap checks
+    4. Tag browser — `/shared-decks/tags`
+    5. "Mine" listing — super-family deck-and-categories overview
+    6. Single-deck reads — get_shared_deck_details
+    7. Tag mutation — update_shared_deck_tags + global rename_shared_deck_tag
+    8. Type-IV generator / print-cell mutation — update_shared_deck_generator_definition,
+       generate_shared_deck_print_problems, update_shared_deck_print_cell_design
+    9. Card mutation — add / delete / replace
+   10. Deck lifecycle — delete_shared_deck, create_shared_deck
+
+All write routes acquire `_SHARED_DECK_MUTATION_LOCK` (imported from routes.kids)
+to serialize structural changes that have to fan out to materialized per-kid views.
+"""
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPES,
     DECK_CATEGORY_BEHAVIOR_TYPE_I,
@@ -80,6 +98,10 @@ from src.services.type4_generator_definitions import (
     get_shared_deck_generator_definition,
     shared_deck_generator_definition_has_print_cell_design_columns,
 )
+
+# ============================================================================
+# 1. Deck categories — CRUD + share-to-non-super + cascade-delete-across-kids
+# ============================================================================
 
 @kids_bp.route('/shared-decks/categories', methods=['GET'])
 def list_shared_deck_categories():
@@ -522,6 +544,10 @@ def delete_category_data_for_kid(kid, key):
     return changed
 
 
+# ============================================================================
+# 2. Validation + preview helpers — name availability, pinyin, type4 preview
+# ============================================================================
+
 @kids_bp.route('/shared-decks/name-availability', methods=['GET'])
 def shared_deck_name_availability():
     """Check whether a shared deck name is globally available."""
@@ -694,6 +720,10 @@ def test_shared_type4_validate():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 3. Type-IV uniqueness helpers — representative-label + card-overlap checks
+# ============================================================================
 
 @kids_bp.route('/shared-decks/type4/representative-label-availability', methods=['POST'])
 def shared_type4_representative_label_availability():
@@ -870,6 +900,10 @@ def shared_deck_category_card_overlap():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 4. Tag browser — `/shared-decks/tags`
+# ============================================================================
+
 @kids_bp.route('/shared-decks/tags', methods=['GET'])
 def shared_deck_tags():
     """Return shared-deck ordered tag paths for autocomplete."""
@@ -891,6 +925,10 @@ def shared_deck_tags():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 5. "Mine" listing — super-family deck-and-categories overview
+# ============================================================================
 
 @kids_bp.route('/shared-decks/mine', methods=['GET'])
 def list_my_shared_decks():
@@ -990,6 +1028,10 @@ def list_my_shared_decks():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 6. Single-deck reads — get_shared_deck_details
+# ============================================================================
+
 @kids_bp.route('/shared-decks/<int:deck_id>', methods=['GET'])
 def get_shared_deck_details(deck_id):
     """Return one shared deck and cards for view UI."""
@@ -1035,6 +1077,10 @@ def get_shared_deck_details(deck_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 7. Tag mutation — update_shared_deck_tags + global rename_shared_deck_tag
+# ============================================================================
 
 @kids_bp.route('/shared-decks/<int:deck_id>/tags', methods=['PUT'])
 def update_shared_deck_tags(deck_id):
@@ -1291,6 +1337,10 @@ def rename_shared_deck_tag():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 8. Type-IV generator / print-cell mutation
+# ============================================================================
+
 @kids_bp.route('/shared-decks/<int:deck_id>/generator-definition', methods=['PUT'])
 def update_shared_deck_generator_definition(deck_id):
     """Update the stored Python generator code for one owned type-IV shared deck."""
@@ -1475,6 +1525,10 @@ def update_shared_deck_print_cell_design(deck_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 9. Card mutation — add / delete / replace
+# ============================================================================
 
 @kids_bp.route('/shared-decks/<int:deck_id>/cards', methods=['POST'])
 def add_shared_deck_cards(deck_id):
@@ -1740,6 +1794,10 @@ def replace_shared_deck_cards(deck_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 10. Deck lifecycle — delete_shared_deck, create_shared_deck
+# ============================================================================
 
 @kids_bp.route('/shared-decks/<int:deck_id>', methods=['DELETE'])
 def delete_shared_deck(deck_id):

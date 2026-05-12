@@ -1,4 +1,17 @@
-"""Kid CRUD, deck-categories, and report routes."""
+"""Kid CRUD, deck-categories, and report routes.
+
+Layout (search for `# === N. ` banner markers to jump between sections):
+
+    1. Kid listing + create  — GET / POST /kids
+    2. Kid detail            — GET /kids/<id>
+    3. Deck-category opt-in  — GET / PUT /kids/<id>/deck-categories
+    4. Reports               — GET /kids/<id>/report
+                               GET /kids/<id>/report/sessions/<sid>
+                               GET /kids/<id>/report/type-iii/next-to-grade
+                               GET /kids/<id>/report/cards/<cid>
+    5. Report mutations      — PUT .../grade, PUT .../response-time
+    6. Kid update + delete   — PUT / DELETE /kids/<id>
+"""
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
     DECK_CATEGORY_BEHAVIOR_TYPE_IV,
@@ -65,6 +78,10 @@ from src.services.shared_deck_category import (
     is_type_iii_session_type,
 )
 from src.badges.service import build_kid_badge_summary_payload
+
+# ============================================================================
+# 1. Kid listing + create
+# ============================================================================
 
 @kids_bp.route('/kids', methods=['GET'])
 def get_kids():
@@ -256,6 +273,10 @@ def create_kid():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 2. Kid detail
+# ============================================================================
+
 @kids_bp.route('/kids/<kid_id>', methods=['GET'])
 def get_kid(kid_id):
     """Get a specific kid"""
@@ -370,6 +391,10 @@ def get_kid(kid_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 3. Deck-category opt-in
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/deck-categories', methods=['GET'])
 def get_kid_deck_categories(kid_id):
@@ -516,6 +541,10 @@ def update_kid_deck_categories(kid_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 4. Reports — overall, per-session, type-III next-to-grade, per-card
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>/report', methods=['GET'])
 def get_kid_report(kid_id):
@@ -1060,6 +1089,10 @@ def get_kid_report_card_detail(kid_id, card_id):
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# 5. Report mutations — grade override + response-time backfill
+# ============================================================================
+
 @kids_bp.route('/kids/<kid_id>/report/sessions/<session_id>/results/<result_id>/grade', methods=['PUT'])
 def grade_kid_report_session_result(kid_id, session_id, result_id):
     """Persist parent pass/fail grade for one session result row."""
@@ -1214,6 +1247,10 @@ def backfill_kid_report_result_response_time(kid_id, result_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# ============================================================================
+# 6. Kid update + delete
+# ============================================================================
 
 @kids_bp.route('/kids/<kid_id>', methods=['PUT'])
 def update_kid(kid_id):
