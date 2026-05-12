@@ -242,6 +242,8 @@ from src.services.kid_category_config import (
     get_category_orphan_deck_name,
     get_category_session_card_count_for_kid,
     get_or_create_category_orphan_deck,
+    get_or_create_orphan_deck,
+    get_orphan_deck,
     hydrate_kid_category_config_from_db,
     with_preview_session_count_for_category,
 )
@@ -315,43 +317,6 @@ from src.services.kid_category_resolve import (
     resolve_kid_type_iii_category_with_mode,
     resolve_kid_type_iv_category_with_mode,
 )
-
-
-def get_orphan_deck(conn, orphan_deck_name):
-    """Look up orphan deck id by name (read-only, no auto-create). Returns 0 if missing."""
-    deck_name = str(orphan_deck_name or '').strip()
-    if not deck_name:
-        return 0
-    result = conn.execute(
-        "SELECT id FROM decks WHERE name = ?",
-        [deck_name]
-    ).fetchone()
-    return int(result[0]) if result else 0
-
-
-def get_or_create_orphan_deck(conn, orphan_deck_name, first_tag):
-    """Get or create one reserved orphan deck by explicit name/tag."""
-    deck_name = str(orphan_deck_name or '').strip()
-    tag = normalize_shared_deck_tag(first_tag)
-    if not deck_name or not tag:
-        raise ValueError('orphan deck name and first tag are required')
-
-    result = conn.execute(
-        "SELECT id FROM decks WHERE name = ?",
-        [deck_name]
-    ).fetchone()
-    if result:
-        return int(result[0])
-
-    row = conn.execute(
-        """
-        INSERT INTO decks (name, tags)
-        VALUES (?, ?)
-        RETURNING id
-        """,
-        [deck_name, [tag, 'orphan']]
-    ).fetchone()
-    return int(row[0])
 
 
 def split_writing_bulk_text(raw_text):

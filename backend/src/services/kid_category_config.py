@@ -1,11 +1,12 @@
-"""Kid category-config hydration helpers.
+"""Kid category-config hydration helpers + orphan-deck lookups.
 
-Pure helpers extracted from `src.routes.kids` Phase 2 refactor.
+Pure helpers that:
+  - Hydrate per-kid category config (session card count, include-orphan,
+    drill-speed cutoff) from the kid DB.
+  - Resolve orphan deck ids by category key — either read-only (returns 0
+    if missing) or get-or-create.
 
-These helpers still depend on a couple of stateful kids.py helpers
-(`get_or_create_orphan_deck`, `get_orphan_deck`) that hold module-level
-state and live in kids.py. Those calls are resolved lazily inside each
-function body to avoid circular imports.
+DB helpers take an open `conn`. No module state.
 """
 from src.db import kid_db
 from src.routes.kids_constants import (
@@ -22,6 +23,43 @@ from src.routes.kids_constants import (
 )
 from src.services.shared_deck_category import get_shared_deck_category_meta_by_key
 from src.services.shared_deck_normalize import normalize_shared_deck_tag
+
+
+def get_orphan_deck(conn, orphan_deck_name):
+    """Look up orphan deck id by name (read-only, no auto-create). Returns 0 if missing."""
+    deck_name = str(orphan_deck_name or '').strip()
+    if not deck_name:
+        return 0
+    result = conn.execute(
+        "SELECT id FROM decks WHERE name = ?",
+        [deck_name]
+    ).fetchone()
+    return int(result[0]) if result else 0
+
+
+def get_or_create_orphan_deck(conn, orphan_deck_name, first_tag):
+    """Get or create one reserved orphan deck by explicit name/tag."""
+    deck_name = str(orphan_deck_name or '').strip()
+    tag = normalize_shared_deck_tag(first_tag)
+    if not deck_name or not tag:
+        raise ValueError('orphan deck name and first tag are required')
+
+    result = conn.execute(
+        "SELECT id FROM decks WHERE name = ?",
+        [deck_name]
+    ).fetchone()
+    if result:
+        return int(result[0])
+
+    row = conn.execute(
+        """
+        INSERT INTO decks (name, tags)
+        VALUES (?, ?)
+        RETURNING id
+        """,
+        [deck_name, [tag, 'orphan']]
+    ).fetchone()
+    return int(row[0])
 
 
 def hydrate_kid_category_config_from_db(
@@ -189,9 +227,6 @@ def get_or_create_category_orphan_deck(conn, category_key):
     key = normalize_shared_deck_tag(category_key)
     if not key:
         raise ValueError('categoryKey is required')
-    # Lazy import: get_or_create_orphan_deck is also reused by other
-    # routes in kids.py and stays there.
-    from src.routes.kids import get_or_create_orphan_deck
     return get_or_create_orphan_deck(
         conn,
         get_category_orphan_deck_name(key),
@@ -225,5 +260,4 @@ def get_category_orphan_deck(conn, category_key):
     key = normalize_shared_deck_tag(category_key)
     if not key:
         raise ValueError('categoryKey is required')
-    from src.routes.kids import get_orphan_deck
     return get_orphan_deck(conn, get_category_orphan_deck_name(key))
