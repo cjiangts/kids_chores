@@ -8,12 +8,8 @@ from src.routes.kids_constants import (
     TYPE_IV_PREVIEW_SAMPLE_COUNT,
 )
 from src.routes.kids import (
-    CHINESE_BACK_CONTENTS,
-    CHINESE_BACK_CONTENT_PINYIN,
     _SHARED_DECK_MUTATION_LOCK,
     _safe_positive_int_or_none,
-    build_chinese_auto_back_text,
-    build_chinese_pinyin_text,
     build_shared_deck_tags,
     current_family_id,
     dedupe_shared_deck_cards_by_back,
@@ -32,7 +28,6 @@ from src.routes.kids import (
     get_kid_type3_audio_dir,
     get_shared_deck_behavior_type_from_raw_tags,
     get_shared_deck_cards,
-    get_shared_deck_chinese_back_content,
     get_shared_deck_dedupe_key,
     get_shared_deck_generator_definition,
     get_shared_deck_owned_by_family,
@@ -44,7 +39,6 @@ from src.routes.kids import (
     jsonify,
     kids_bp,
     metadata,
-    normalize_chinese_back_content,
     normalize_optional_bool,
     normalize_optional_display_name,
     normalize_shared_deck_cards,
@@ -66,6 +60,14 @@ from src.routes.kids import (
     sync_materialized_shared_deck_metadata_for_all_kids,
     test_type4_validate,
     time,
+)
+from src.services.chinese_text import (
+    CHINESE_BACK_CONTENTS,
+    CHINESE_BACK_CONTENT_PINYIN,
+    build_chinese_auto_back_text,
+    build_chinese_pinyin_text,
+    get_shared_deck_chinese_back_content,
+    normalize_chinese_back_content,
 )
 from src.services.shared_deck_category import (
     get_shared_deck_categories,
