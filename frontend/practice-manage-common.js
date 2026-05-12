@@ -1,3 +1,31 @@
+/* practice-manage-common.js — shared helpers loaded by 15 HTML pages.
+ *
+ * Layout (search for `// ===` markers to jump between sections):
+ *
+ *   1. Text rendering — escapeHtml, math notation, KaTeX auto-loader
+ *   2. PracticeManageCommon singleton — exposes everything below on `window`
+ *     2a. Password dialogs — input/message modals + requestWithPasswordDialog
+ *     2b. Card sorting + formatters — sortCardsForView, parseTime, format*
+ *     2c. Slider + status + tracker controllers
+ *     2d. Kid hardness controller — fetches/saves kid hardness %, drives slider
+ *     2e. Available-deck rendering + opt-in controllers
+ *     2f. Hierarchical tag filter — multi-level deck tag filter w/ chips
+ *     2g. Kid-manage tab visibility — per-category tab nav re-rendering
+ *     2h. Type-IV validate-test box — generator validator preview UI
+ *   3. Auto-injected home button — IIFE that adds a Home link to page headers
+ *
+ * Conventions:
+ *   - All methods on PracticeManageCommon are accessed via `window.PracticeManageCommon.foo`
+ *     so callers don't depend on script load order beyond "this file loaded first".
+ *   - Sub-methods marked `_prefix` are internal to the singleton; don't call from outside.
+ *   - No ES modules. No build step. Order matters: this file must load before any page
+ *     script that calls PracticeManageCommon (see CLAUDE.md frontend section).
+ */
+
+// ============================================================================
+// 1. Text rendering — escapeHtml, math notation, KaTeX auto-loader
+// ============================================================================
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = String(text ?? '');
@@ -48,7 +76,12 @@ function hasMathNotation(text) {
     document.head.appendChild(script);
 })();
 
+// ============================================================================
+// 2. PracticeManageCommon singleton
+// ============================================================================
+
 window.PracticeManageCommon = {
+    // --- 2a. Password dialogs --------------------------------------------------
     _passwordDialogStyleInjected: false,
 
     _ensurePasswordDialogStyles() {
@@ -245,6 +278,7 @@ window.PracticeManageCommon = {
         return { ok: false, error: apiError, response, payload };
     },
 
+    // --- 2b. Card sorting + formatters ---------------------------------------
     sortCardsForView(cards, mode) {
         const copy = [...cards];
 
@@ -386,6 +420,7 @@ window.PracticeManageCommon = {
         return Math.max(0, Math.min(100, parsed));
     },
 
+    // --- 2c. Slider + status + tracker controllers ---------------------------
     createHardnessSliderController(config = {}) {
         const sliderEl = config.sliderEl || null;
         const valueEl = config.valueEl || null;
@@ -527,6 +562,7 @@ window.PracticeManageCommon = {
         };
     },
 
+    // --- 2d. Kid hardness controller (combines 2c + fetch + save) ------------
     createKidHardnessController(config = {}) {
         const sliderEl = config.sliderEl || null;
         const valueEl = config.valueEl || null;
@@ -646,6 +682,7 @@ window.PracticeManageCommon = {
         };
     },
 
+    // --- 2e. Available-deck rendering + opt-in controllers -------------------
     renderLimitedAvailableDecks(config = {}) {
         const containerEl = config.containerEl || null;
         const emptyEl = config.emptyEl || null;
@@ -808,6 +845,7 @@ window.PracticeManageCommon = {
         });
     },
 
+    // --- 2f. Hierarchical tag filter -----------------------------------------
     createHierarchicalTagFilterController(config = {}) {
         const selectEl = config.selectEl || null;
         const clearBtn = config.clearBtn || null;
@@ -1119,6 +1157,7 @@ window.PracticeManageCommon = {
         };
     },
 
+    // --- 2g. Kid-manage tab visibility ---------------------------------------
     applyKidManageTabVisibility(config = {}) {
         const kidId = String(config.kidId || '').trim();
         const normalizeKey = (value) => String(value || '').trim().toLowerCase();
@@ -1362,6 +1401,7 @@ window.PracticeManageCommon = {
         });
     },
 
+    // --- 2h. Type-IV validate-test box ---------------------------------------
     _validateTestStyleInjected: false,
 
     _ensureValidateTestStyles() {
@@ -1517,6 +1557,11 @@ window.PracticeManageCommon = {
         }
     },
 };
+
+// ============================================================================
+// 3. Auto-injected home button — adds a Home link to page headers/toolbars.
+//    Runs on DOMContentLoaded for every page that loads this file.
+// ============================================================================
 
 (() => {
     const HOME_HREF = '/admin.html';

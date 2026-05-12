@@ -1,3 +1,29 @@
+/* styles.css — global stylesheet loaded by nearly every page.
+ *
+ * Layout (search for `/* === N. ` banner markers to jump between sections):
+ *
+ *    1. CSS reset + .hidden utility
+ *    2. Atomic widgets — search bar, spinner, icons, tag-filter chips, chinese-back
+ *    3. Design tokens — :root CSS variables (fonts, spacings, surfaces, controls)
+ *    4. Page layout primitives — body, container, section-stack/surface, kid-nav,
+ *       deck/manage page wrappers, shared h2 styles
+ *    5. Practice page — runtime UI (header, controls, sessions, progress badges)
+ *    6. Manage page — toolbar, settings sections, cards toolbar, bulk import
+ *    7. Sheet item cards — done/print/delete/clone buttons
+ *    8. Page-header-with-back + semantic action buttons (.btn-primary etc.)
+ *    9. Admin home — kids grid + kid card widgets
+ *   10. Tab nav + modal base + deck-category modal
+ *   11. Toggle rows + form groups + form utilities
+ *   12. Practice progress bar + error + empty state + admin link
+ *   13. Report page — summary cards, detail/chart cards, daily chart
+ *
+ * Note: per-page rules still live here (see CLAUDE.md refactor backlog —
+ * eventual moves to per-page CSS files). When adding new rules, prefer the
+ * section that matches the feature; create a new sub-banner if none fits.
+ */
+
+/* === 1. CSS reset + .hidden utility ====================================== */
+
 * {
     margin: 0;
     padding: 0;
@@ -7,6 +33,8 @@
 .hidden {
     display: none !important;
 }
+
+/* === 2. Atomic widgets =================================================== */
 
 .search-bar {
     position: relative;
@@ -185,6 +213,8 @@
     color: #4c6a3a;
 }
 
+/* === 3. Design tokens — :root CSS variables ============================== */
+
 :root {
     --font-kaiti: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
     --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -223,6 +253,8 @@
     --dashboard-chip-radius: 10px;
     --dashboard-chip-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
+
+/* === 4. Page layout primitives =========================================== */
 
 body {
     font-family: var(--font-ui);
@@ -401,6 +433,8 @@ h3:has(.icon) {
     gap: 0.4rem;
 }
 
+
+/* === 5. Practice page — runtime UI ======================================= */
 
 .practice-page * {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -828,6 +862,8 @@ h3:has(.icon) {
     padding: 1.2rem !important;
 }
 
+/* === 6. Manage page — header, tables, settings, cards toolbar ============ */
+
 .manage-page .header {
     display: flex;
     justify-content: space-between;
@@ -1171,6 +1207,8 @@ h3:has(.icon) {
     margin-top: 0;
 }
 
+/* === 7. Sheet item cards ================================================= */
+
 .semantic-outline-btn,
 .sheet-item .done-btn,
 .sheet-item .print-btn,
@@ -1252,6 +1290,8 @@ header {
     color: white;
     margin-bottom: 40px;
 }
+
+/* === 8. Page-header-with-back + semantic action buttons ================== */
 
 header h1 {
     font-size: clamp(1.45rem, 3.2vw, 2rem);
@@ -1568,6 +1608,8 @@ header p {
     }
 }
 
+/* === 9. Admin home — kids grid + kid card widget ========================= */
+
 .kids-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -1805,6 +1847,8 @@ header p {
     background: #da190b;
 }
 
+/* === 10. Tab nav + modal base + deck-category modal ===================== */
+
 .manage-tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1988,6 +2032,8 @@ header p {
     color: #b91c1c;
     border: 1px solid #f5c6c6;
 }
+
+/* === 11. Toggle rows + form groups + form utilities ===================== */
 
 /* Toggle switch row — mobile-friendly checkbox replacement */
 .toggle-row {
@@ -2201,6 +2247,8 @@ header p {
     margin-top: 20px;
 }
 
+/* === 12. Practice progress + error + empty state + admin link =========== */
+
 .practice-progress {
     margin-bottom: 1rem;
 }
@@ -2276,6 +2324,8 @@ footer {
     background: rgba(255, 255, 255, 0.3);
     transform: translateY(-2px);
 }
+
+/* === 13. Report page ==================================================== */
 
 /* Report pages (kid-report, kid-session-report, kid-card-report) */
 .report-page .header {

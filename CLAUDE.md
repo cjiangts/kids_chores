@@ -141,7 +141,7 @@ Load order in [kid-writing-sheet-manage.html](frontend/kid-writing-sheet-manage.
 
 ### Common frontend modules
 
-- [practice-manage-common.js](frontend/practice-manage-common.js) — escapeHtml, math rendering, card markup helpers (1.6k — split pending; 15 HTML callers make this high-coordination)
+- [practice-manage-common.js](frontend/practice-manage-common.js) — escapeHtml, math rendering, card markup helpers, password dialogs, slider/status controllers, deck opt-in helpers, hierarchical tag filter, kid-manage tab visibility, Type-IV validate-test box, auto-injected Home button (1.6k single file; jump via `// === N.` section markers — 15 HTML callers made splitting too high-coordination)
 - [kid-report-common.js](frontend/kid-report-common.js) — report rendering shared by report pages
 - [deck-category-common.js](frontend/deck-category-common.js) — category labels/icons
 - [deck-form-common.js](frontend/deck-form-common.js) — secondary-tag extraction + Type-IV Ace editor setup (shared by deck-view + deck-create)
@@ -149,7 +149,7 @@ Load order in [kid-writing-sheet-manage.html](frontend/kid-writing-sheet-manage.
 - [practice-judge-mode.js](frontend/practice-judge-mode.js), [practice-star-badge-common.js](frontend/practice-star-badge-common.js), [practice-ui-common.js](frontend/practice-ui-common.js) — practice runtime helpers
 - [audio-common.js](frontend/audio-common.js), [simple-audio-player.js](frontend/simple-audio-player.js), [recording-visualizer.js](frontend/recording-visualizer.js), [writing-audio-sequence.js](frontend/writing-audio-sequence.js) — audio playback/recording
 - [icons.js](frontend/icons.js), [subject-icons.js](frontend/subject-icons.js) — SVG icon registry
-- [styles.css](frontend/styles.css) — global stylesheet (2.4k, includes per-page rules that should eventually move out)
+- [styles.css](frontend/styles.css) — global stylesheet (2.5k; jump via `/* === N. ` section markers — 13 numbered sections from reset → atomic widgets → design tokens → page layout → practice/manage/report-page rules. Includes per-page rules that should eventually move out)
 - [home-redesign-v4.css](frontend/home-redesign-v4.css) — family home layout
 
 ## Domain concepts
@@ -183,4 +183,4 @@ For frontend changes, run [start-local.sh](start-local.sh) and check the affecte
 
 - [refactor.md](refactor.md) — original audit + plan (2026-05-05)
 
-Files still pending split per refactor plan: `styles.css` (2.4k), `practice-manage-common.js` (1.6k). `routes/kids/__init__.py` is down to ~1.4k (from 8.4k) and now holds only Flask plumbing + the scope dispatcher — section-commented for easy navigation.
+Files that were on the split list but landed at single-file + section-comments instead (splitting required touching 15+ HTML pages — coordination cost outweighed the gain): `styles.css` (2.5k, 13 sections), `practice-manage-common.js` (1.6k, 8 sub-sections inside the singleton). `routes/kids/__init__.py` is down to ~1.4k (from 8.4k) and now holds only Flask plumbing + the scope dispatcher — also section-commented.
