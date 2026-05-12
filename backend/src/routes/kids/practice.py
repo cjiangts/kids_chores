@@ -18,9 +18,6 @@ from src.routes.kids import (
     build_retry_selected_cards_for_sources,
     build_type_i_chinese_prompt_audio_payload,
     build_type_i_multiple_choice_pool_cards,
-    build_type_iv_continue_count_by_source_key,
-    build_type_iv_initial_count_by_source_key,
-    build_type_iv_pending_items_for_sources,
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
     datetime,
@@ -40,11 +37,9 @@ from src.routes.kids import (
     get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
-    get_type_iv_retry_source_result_rows,
     json,
     jsonify,
     kids_bp,
-    map_type_iv_pending_item_to_response_card,
     mimetypes,
     normalize_logged_response_time_ms,
     normalize_shared_deck_category_behavior,
@@ -65,6 +60,13 @@ from src.routes.kids import (
 from src.services.session_grading import (
     append_type1_result_submitted_answer,
     insert_type1_result_item,
+)
+from src.services.type4_session import (
+    build_type_iv_continue_count_by_source_key,
+    build_type_iv_initial_count_by_source_key,
+    build_type_iv_pending_items_for_sources,
+    get_type_iv_retry_source_result_rows,
+    map_type_iv_pending_item_to_response_card,
 )
 from src.services.writing_candidates import get_pending_writing_card_ids
 from src.services.pending_sessions import (
