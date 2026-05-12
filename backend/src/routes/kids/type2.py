@@ -4,7 +4,6 @@ from src.routes.kids import (
     build_shared_writing_audio_file_name,
     build_writing_front_tts_text,
     build_writing_prompt_audio_payload,
-    delete_card_from_deck_internal,
     format_type2_bulk_card_text,
     get_category_include_orphan_for_kid,
     get_category_orphan_deck_name,
@@ -31,6 +30,7 @@ from src.routes.kids import (
     split_type2_bulk_rows,
     synthesize_shared_writing_audio,
 )
+from src.services.card_stats import delete_card_from_deck_internal
 from src.services.writing_candidates import (
     get_pending_writing_card_ids,
     get_writing_candidate_card_ids,

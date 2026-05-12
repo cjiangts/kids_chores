@@ -9,9 +9,7 @@ from src.routes.kids import (
     SHARED_DECK_OP_SKIP_UPDATE,
     SHARED_DECK_OP_SKIP_UPDATE_BULK,
     build_type_iv_generator_details_by_representative_front,
-    delete_card_from_deck_internal,
     dispatch_shared_deck_scope_operation,
-    get_cards_with_stats_for_deck_ids,
     get_category_include_orphan_for_kid,
     get_category_orphan_deck_name,
     get_kid_card_fronts_for_deck_ids,
@@ -24,13 +22,17 @@ from src.routes.kids import (
     get_shared_type_i_merged_source_decks_for_kid,
     jsonify,
     kids_bp,
-    map_card_row,
     normalize_type_iv_daily_counts_payload,
     preview_type4_generator,
     request,
     resolve_kid_type_i_chinese_category_key,
     resolve_kid_type_iv_category_with_mode,
     time,
+)
+from src.services.card_stats import (
+    delete_card_from_deck_internal,
+    get_cards_with_stats_for_deck_ids,
+    map_card_row,
 )
 from src.services.chinese_text import (
     build_chinese_auto_back_text,
