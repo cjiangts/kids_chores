@@ -289,30 +289,17 @@ function initializeType4CodeEditor() {
     if (!type4GeneratorCodeInput || !type4GeneratorCodeEditor) {
         return;
     }
-    const ace = window.ace;
-    if (!ace || typeof ace.edit !== 'function') {
+    type4AceEditor = initializeType4GeneratorEditor(
+        type4GeneratorCodeEditor,
+        type4GeneratorCodeInput.value || '',
+        (value) => {
+            type4GeneratorCodeInput.value = value;
+            invalidateType4Preview();
+        },
+    );
+    if (!type4AceEditor) {
         return;
     }
-    type4AceEditor = ace.edit(type4GeneratorCodeEditor);
-    type4AceEditor.setTheme('ace/theme/github_light_default');
-    type4AceEditor.session.setMode('ace/mode/python');
-    type4AceEditor.session.setUseSoftTabs(true);
-    type4AceEditor.session.setTabSize(4);
-    type4AceEditor.session.setUseWrapMode(true);
-    type4AceEditor.setShowPrintMargin(false);
-    type4AceEditor.setHighlightActiveLine(true);
-    type4AceEditor.setOption('fontFamily', 'ui-monospace, SFMono-Regular, Menlo, monospace');
-    type4AceEditor.setOption('fontSize', '16px');
-    type4AceEditor.setOption('wrap', true);
-    type4AceEditor.setOption('showLineNumbers', true);
-    type4AceEditor.setOption('useWorker', false);
-    type4AceEditor.renderer.setScrollMargin(10, 10);
-    type4AceEditor.setValue(String(type4GeneratorCodeInput.value || ''), -1);
-    type4AceEditor.clearSelection();
-    type4AceEditor.session.on('change', () => {
-        type4GeneratorCodeInput.value = type4AceEditor.getValue();
-        invalidateType4Preview();
-    });
     type4GeneratorCodeInput.classList.add('hidden');
     type4GeneratorCodeInput.setAttribute('aria-hidden', 'true');
     type4GeneratorCodeEditor.classList.remove('hidden');
@@ -474,7 +461,7 @@ function applyClonedDeck(payload) {
     if (!lockedFirstTagFromQuery) {
         lockedFirstTagFromQuery = firstTag;
     }
-    extraTags = extractCloneExtraTags(tags, tagLabels);
+    extraTags = extractSecondaryTagConfigs(tags, tagLabels);
     previewCards = [];
     previewRows = [];
     previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
@@ -498,25 +485,6 @@ function applyClonedDeck(payload) {
     setType4GeneratorCodeValue(
         String(generatorDefinition && generatorDefinition.code ? generatorDefinition.code : '')
     );
-}
-
-function extractCloneExtraTags(tags, tagLabels) {
-    const seen = new Set();
-    return (Array.isArray(tags) ? tags : [])
-        .slice(1)
-        .map((rawTag, index) => {
-            const normalizedTag = normalizeTag(rawTag);
-            if (!normalizedTag || seen.has(normalizedTag)) {
-                return null;
-            }
-            const parsed = parseTagInput(tagLabels[index + 1] || rawTag);
-            seen.add(normalizedTag);
-            return {
-                tag: normalizedTag,
-                comment: parsed.tag === normalizedTag ? parsed.comment : '',
-            };
-        })
-        .filter(Boolean);
 }
 
 function getAllTags() {

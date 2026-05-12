@@ -267,28 +267,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function initializeType4CodeEditor() {
     if (!type4GeneratorCodeText || !type4GeneratorCodeEditor) return;
-    const ace = window.ace;
-    if (!ace || typeof ace.edit !== 'function') return;
-    type4AceEditor = ace.edit(type4GeneratorCodeEditor);
-    type4AceEditor.setTheme('ace/theme/github_light_default');
-    type4AceEditor.session.setMode('ace/mode/python');
-    type4AceEditor.session.setUseSoftTabs(true);
-    type4AceEditor.session.setTabSize(4);
-    type4AceEditor.session.setUseWrapMode(true);
-    type4AceEditor.setShowPrintMargin(false);
-    type4AceEditor.setHighlightActiveLine(true);
-    type4AceEditor.setOption('fontFamily', 'ui-monospace, SFMono-Regular, Menlo, monospace');
-    type4AceEditor.setOption('fontSize', '16px');
-    type4AceEditor.setOption('wrap', true);
-    type4AceEditor.setOption('showLineNumbers', true);
-    type4AceEditor.setOption('useWorker', false);
-    type4AceEditor.renderer.setScrollMargin(10, 10);
-    type4AceEditor.setValue(String(type4GeneratorCodeText.value || ''), -1);
-    type4AceEditor.clearSelection();
-    type4AceEditor.session.on('change', () => {
-        type4GeneratorCodeText.value = type4AceEditor.getValue();
-        updateType4GeneratorSaveState();
-    });
+    type4AceEditor = initializeType4GeneratorEditor(
+        type4GeneratorCodeEditor,
+        type4GeneratorCodeText.value || '',
+        (value) => {
+            type4GeneratorCodeText.value = value;
+            updateType4GeneratorSaveState();
+        },
+    );
+    if (!type4AceEditor) return;
     type4GeneratorCodeText.classList.add('hidden');
     type4GeneratorCodeText.setAttribute('aria-hidden', 'true');
     type4GeneratorCodeEditor.classList.remove('hidden');
@@ -373,7 +360,7 @@ function renderDeck(payload) {
     deckMeta.classList.remove('hidden');
     deckIdText.textContent = String(deck.deck_id || deckId);
     deckNameText.textContent = String(deck.name || '');
-    deckTagsText.innerHTML = renderTags(
+    deckTagsText.innerHTML = renderDeckTagsHtml(
         Array.isArray(deck.tags) ? deck.tags.slice(1) : [],
         Array.isArray(deck.tag_labels) ? deck.tag_labels.slice(1) : [],
     );
@@ -768,20 +755,6 @@ function setRenameBusy(isBusy) {
     }
 }
 
-function renderTags(tags, tagLabels = []) {
-    if (!Array.isArray(tags) || tags.length === 0) {
-        return '-';
-    }
-    return `<span class="deck-tags">${tags.map((tag, index) => {
-        const normalizedTag = String(tag || '').trim();
-        const parsed = deckCategoryCommon.parseDeckTagInput(tagLabels[index]);
-        const text = parsed.tag === normalizedTag && parsed.label
-            ? parsed.label
-            : normalizedTag;
-        return `<span class="deck-tag">${escapeHtml(text)}</span>`;
-    }).join('')}</span>`;
-}
-
 function getCurrentDeckFirstTag() {
     const tags = Array.isArray(currentDeck && currentDeck.tags) ? currentDeck.tags : [];
     return String(tags[0] || '').trim().toLowerCase();
@@ -801,20 +774,8 @@ function getCurrentDeckTagLabelAt(index) {
 
 function getCurrentDeckSecondaryTagConfigs() {
     const tags = Array.isArray(currentDeck && currentDeck.tags) ? currentDeck.tags : [];
-    const seen = new Set();
-    return tags.slice(1).map((tag, index) => {
-        const normalizedTag = String(tag || '').trim().toLowerCase();
-        const parsed = deckCategoryCommon.parseDeckTagInput(getCurrentDeckTagLabelAt(index + 1));
-        const resolvedTag = normalizedTag || parsed.tag;
-        if (!resolvedTag || seen.has(resolvedTag)) {
-            return null;
-        }
-        seen.add(resolvedTag);
-        return {
-            tag: resolvedTag,
-            comment: parsed.tag === resolvedTag ? parsed.comment : '',
-        };
-    }).filter(Boolean);
+    const tagLabels = Array.isArray(currentDeck && currentDeck.tag_labels) ? currentDeck.tag_labels : [];
+    return extractSecondaryTagConfigs(tags, tagLabels);
 }
 
 function getCurrentDeckSecondaryTagLabels() {
