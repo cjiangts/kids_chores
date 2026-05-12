@@ -36,8 +36,16 @@ from src.routes.kids_constants import *  # noqa: F401,F403
 
 kids_bp = Blueprint('kids', __name__)
 
-_PENDING_SESSIONS = {}
-_PENDING_SESSIONS_LOCK = threading.Lock()
+from src.services.pending_sessions import (
+    _PENDING_SESSIONS,
+    _PENDING_SESSIONS_LOCK,
+    _cleanup_expired_pending_sessions,
+    create_pending_session,
+    get_pending_session,
+    parse_client_started_at,
+    pop_pending_session,
+)
+
 _SHARED_DECK_MUTATION_LOCK = threading.RLock()
 
 
@@ -1773,111 +1781,6 @@ def split_type2_bulk_rows(raw_text, has_chinese_specific_logic):
                 seen_front.add(tok)
                 rows.append((tok, tok))
     return rows
-
-
-def _cleanup_expired_pending_sessions():
-    now = time.time()
-    expired_keys = [
-        key for key, payload in _PENDING_SESSIONS.items()
-        if now - float(payload.get('created_at_ts', 0)) > PENDING_SESSION_TTL_SECONDS
-    ]
-    for key in expired_keys:
-        payload = _PENDING_SESSIONS.pop(key, None)
-        if not payload:
-            continue
-        if not is_type_iii_session_type(payload.get('session_type')):
-            continue
-        cleanup_type3_pending_audio_files_by_payload(payload)
-
-
-def create_pending_session(kid_id, session_type, payload):
-    """Store one in-memory pending session and return its token."""
-    token = uuid.uuid4().hex
-    record = {
-        **(payload or {}),
-        'kid_id': str(kid_id),
-        'session_type': str(session_type),
-        'created_at_ts': time.time(),
-    }
-    with _PENDING_SESSIONS_LOCK:
-        _cleanup_expired_pending_sessions()
-        _PENDING_SESSIONS[token] = record
-    return token
-
-
-def pop_pending_session(token, kid_id, session_type):
-    """Pop one pending session token if it matches kid/type."""
-    if not token:
-        return None
-    with _PENDING_SESSIONS_LOCK:
-        _cleanup_expired_pending_sessions()
-        payload = _PENDING_SESSIONS.pop(str(token), None)
-    if not payload:
-        return None
-    if str(payload.get('kid_id')) != str(kid_id):
-        if is_type_iii_session_type(payload.get('session_type')):
-            cleanup_type3_pending_audio_files_by_payload(payload)
-        return None
-    if str(payload.get('session_type')) != str(session_type):
-        if is_type_iii_session_type(payload.get('session_type')):
-            cleanup_type3_pending_audio_files_by_payload(payload)
-        return None
-    return payload
-
-
-def get_pending_session(token, kid_id, session_type):
-    """Get one pending session token without removing it."""
-    if not token:
-        return None
-    with _PENDING_SESSIONS_LOCK:
-        _cleanup_expired_pending_sessions()
-        payload = _PENDING_SESSIONS.get(str(token))
-        if not payload:
-            return None
-        if str(payload.get('kid_id')) != str(kid_id):
-            return None
-        if str(payload.get('session_type')) != str(session_type):
-            return None
-        return payload
-
-
-def parse_client_started_at(raw_started_at, pending=None):
-    """Parse client-provided session start time into naive UTC datetime."""
-    dt = None
-
-    if isinstance(raw_started_at, (int, float)):
-        try:
-            dt = datetime.fromtimestamp(float(raw_started_at) / 1000.0, tz=timezone.utc)
-        except Exception:
-            dt = None
-    elif isinstance(raw_started_at, str):
-        text = raw_started_at.strip()
-        if text:
-            try:
-                if re.fullmatch(r'\d+(\.\d+)?', text):
-                    dt = datetime.fromtimestamp(float(text) / 1000.0, tz=timezone.utc)
-                else:
-                    normalized = text.replace('Z', '+00:00')
-                    parsed = datetime.fromisoformat(normalized)
-                    if parsed.tzinfo is None:
-                        dt = parsed.replace(tzinfo=timezone.utc)
-                    else:
-                        dt = parsed.astimezone(timezone.utc)
-            except Exception:
-                dt = None
-
-    if dt is None and isinstance(pending, dict):
-        created_at_ts = pending.get('created_at_ts')
-        try:
-            if created_at_ts is not None:
-                dt = datetime.fromtimestamp(float(created_at_ts), tz=timezone.utc)
-        except Exception:
-            dt = None
-
-    if dt is None:
-        dt = datetime.now(timezone.utc)
-
-    return dt.replace(tzinfo=None)
 
 
 def get_kid_today_bounds_utc(kid):

@@ -12,8 +12,6 @@ from src.routes.kids_constants import (
 )
 from src.routes.kids import (
     DRILL_SESSION_CARD_POOL_SIZE,
-    _PENDING_SESSIONS,
-    _PENDING_SESSIONS_LOCK,
     _cleanup_uncommitted_type3_audio,
     _update_hardness_after_session,
     append_type1_result_submitted_answer,
@@ -27,7 +25,6 @@ from src.routes.kids import (
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
     compose_session_practice_mode,
-    create_pending_session,
     datetime,
     defaultdict,
     encode_retry_recovered_session_result,
@@ -40,7 +37,6 @@ from src.routes.kids import (
     get_kid_for_family,
     get_latest_retry_source_session_for_today,
     get_latest_unfinished_session_for_today,
-    get_pending_session,
     get_pending_writing_card_ids,
     get_retry_source_wrong_card_ids,
     get_session_practice_mode,
@@ -61,10 +57,8 @@ from src.routes.kids import (
     normalize_shared_deck_category_behavior,
     normalize_type_iv_practice_mode,
     os,
-    parse_client_started_at,
     parse_session_practice_mode,
     plan_deck_practice_selection_for_decks,
-    pop_pending_session,
     request,
     resolve_kid_type_i_category_with_mode,
     resolve_kid_type_ii_category_with_mode,
@@ -76,6 +70,14 @@ from src.routes.kids import (
     timezone,
     uuid,
     with_preview_session_count_for_category,
+)
+from src.services.pending_sessions import (
+    _PENDING_SESSIONS,
+    _PENDING_SESSIONS_LOCK,
+    create_pending_session,
+    get_pending_session,
+    parse_client_started_at,
+    pop_pending_session,
 )
 from src.services.shared_deck_category import (
     get_session_behavior_type,
