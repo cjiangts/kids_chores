@@ -1,13 +1,22 @@
 """Practice session start/complete routes."""
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_I,
+    DECK_CATEGORY_BEHAVIOR_TYPE_II,
+    DECK_CATEGORY_BEHAVIOR_TYPE_III,
+    DECK_CATEGORY_BEHAVIOR_TYPE_IV,
     PENDING_CONTINUE_SOURCE_SESSION_ID_KEY,
     PENDING_RETRY_SOURCE_SESSION_ID_KEY,
+    SESSION_RESULT_CORRECT,
+    SESSION_RESULT_RETRY_FIXED_FIRST,
+    SESSION_RESULT_WRONG_UNRESOLVED,
 )
 from src.routes.kids import (
     DRILL_SESSION_CARD_POOL_SIZE,
     _PENDING_SESSIONS,
     _PENDING_SESSIONS_LOCK,
+    _cleanup_uncommitted_type3_audio,
+    _update_hardness_after_session,
+    append_type1_result_submitted_answer,
     build_continue_selected_cards_for_decks,
     build_retry_selected_cards_for_sources,
     build_type_i_chinese_prompt_audio_payload,
@@ -16,11 +25,16 @@ from src.routes.kids import (
     build_type_iv_initial_count_by_source_key,
     build_type_iv_pending_items_for_sources,
     build_writing_prompt_audio_payload,
-    complete_session_internal,
+    cleanup_type3_pending_audio_files_by_payload,
+    complete_type_iv_session_internal,
     compose_session_practice_mode,
     create_pending_session,
+    datetime,
+    defaultdict,
+    encode_retry_recovered_session_result,
     ensure_type3_audio_dir,
     extract_shared_deck_tags_and_labels,
+    filter_answers_to_pending_cards,
     get_category_drill_speed_cutoff_ms_for_kid,
     get_category_session_card_count_for_kid,
     get_kid_connection_for,
@@ -30,6 +44,7 @@ from src.routes.kids import (
     get_pending_session,
     get_pending_writing_card_ids,
     get_retry_source_wrong_card_ids,
+    get_session_behavior_type,
     get_session_practice_mode,
     get_session_practice_mode_base,
     get_session_practiced_card_ids,
@@ -38,16 +53,22 @@ from src.routes.kids import (
     get_shared_type_ii_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
     get_type_iv_retry_source_result_rows,
+    insert_type1_result_item,
+    is_type_iii_session_type,
     json,
     jsonify,
     kids_bp,
     map_type_iv_pending_item_to_response_card,
+    mimetypes,
+    normalize_logged_response_time_ms,
     normalize_session_practice_mode,
     normalize_shared_deck_category_behavior,
     normalize_type_iv_practice_mode,
     os,
+    parse_client_started_at,
     parse_session_practice_mode,
     plan_deck_practice_selection_for_decks,
+    pop_pending_session,
     request,
     resolve_kid_type_i_category_with_mode,
     resolve_kid_type_ii_category_with_mode,
@@ -55,6 +76,8 @@ from src.routes.kids import (
     resolve_kid_type_iv_category_with_mode,
     run_type4_generator,
     secure_filename,
+    sync_badges_after_session_complete,
+    timezone,
     uuid,
     with_preview_session_count_for_category,
 )
@@ -1005,3 +1028,650 @@ def start_type_i_practice_session_internal(
     if include_category_key_in_response:
         payload['category_key'] = category_key
     return payload, 200
+
+def complete_session_internal(kid, kid_id, session_type, data):
+    """Complete a session by saving all answers in one batch."""
+    pending_session_id = data.get('pendingSessionId')
+    if not pending_session_id:
+        return {'error': 'pendingSessionId is required'}, 400
+    answers = data.get('answers')
+    if not isinstance(answers, list) or len(answers) == 0:
+        return {'error': 'answers must be a non-empty list'}, 400
+
+    pending = pop_pending_session(pending_session_id, kid_id, session_type)
+    if not pending:
+        return {'error': 'Pending session not found or expired'}, 404
+    answers = filter_answers_to_pending_cards(answers, pending)
+    if len(answers) == 0:
+        return {'error': 'answers do not match this pending session'}, 400
+    started_at_utc = parse_client_started_at(data.get('startedAt'), pending)
+    completed_at_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    conn = get_kid_connection_for(kid)
+    planned_count = int(pending.get('planned_count') or 0)
+    uses_type_iii_audio = is_type_iii_session_type(session_type)
+    try:
+        category_meta_by_key = get_shared_deck_category_meta_by_key()
+    except Exception:
+        category_meta_by_key = {}
+    session_behavior_type = get_session_behavior_type(
+        session_type,
+        category_meta_by_key=category_meta_by_key,
+    )
+    try:
+        retry_source_session_id = int(pending.get(PENDING_RETRY_SOURCE_SESSION_ID_KEY) or 0)
+    except (TypeError, ValueError):
+        retry_source_session_id = 0
+    try:
+        continue_source_session_id = int(pending.get(PENDING_CONTINUE_SOURCE_SESSION_ID_KEY) or 0)
+    except (TypeError, ValueError):
+        continue_source_session_id = 0
+    is_retry_session = (
+        retry_source_session_id > 0
+        and session_behavior_type in (
+            DECK_CATEGORY_BEHAVIOR_TYPE_I,
+            DECK_CATEGORY_BEHAVIOR_TYPE_II,
+            DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+        )
+    )
+    is_continue_session = (
+        continue_source_session_id > 0
+        and session_behavior_type in (
+            DECK_CATEGORY_BEHAVIOR_TYPE_I,
+            DECK_CATEGORY_BEHAVIOR_TYPE_II,
+            DECK_CATEGORY_BEHAVIOR_TYPE_III,
+            DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+        )
+    )
+    if is_continue_session:
+        is_retry_session = False
+    uploaded_type3_audio = data.get('_uploaded_type3_audio_by_card') if uses_type_iii_audio else {}
+    if not isinstance(uploaded_type3_audio, dict):
+        uploaded_type3_audio = {}
+    pending_type3_audio = pending.get('type3_audio_by_card') if uses_type_iii_audio else {}
+    if not isinstance(pending_type3_audio, dict):
+        pending_type3_audio = {}
+    written_type3_audio_paths = []
+
+    if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+        return complete_type_iv_session_internal(
+            conn,
+            kid,
+            session_type,
+            pending_session_id,
+            pending,
+            answers,
+            planned_count,
+            started_at_utc,
+            completed_at_utc,
+            is_retry_session,
+            retry_source_session_id,
+            is_continue_session,
+            continue_source_session_id,
+        )
+
+    # Validate answers before starting transaction
+    for answer in answers:
+        card_id = answer.get('cardId')
+        known = answer.get('known')
+        if not card_id or not isinstance(known, bool):
+            conn.close()
+            if uses_type_iii_audio:
+                cleanup_type3_pending_audio_files_by_payload(pending)
+            return {'error': 'Each answer needs cardId (int) and known (bool)'}, 400
+
+    try:
+        conn.execute("BEGIN TRANSACTION")
+
+        consumed_type3_audio_files = set()
+        if is_retry_session:
+            retry_result_ids_by_card_id = defaultdict(list)
+            answer_card_ids_unique = []
+            seen_answer_card_ids = set()
+            for answer in answers:
+                try:
+                    answer_card_id = int(answer.get('cardId'))
+                except (TypeError, ValueError):
+                    continue
+                if answer_card_id <= 0 or answer_card_id in seen_answer_card_ids:
+                    continue
+                seen_answer_card_ids.add(answer_card_id)
+                answer_card_ids_unique.append(answer_card_id)
+            if answer_card_ids_unique:
+                placeholders = ','.join(['?'] * len(answer_card_ids_unique))
+                retry_result_rows = conn.execute(
+                    f"""
+                    SELECT id, card_id
+                    FROM session_results
+                    WHERE session_id = ?
+                      AND card_id IN ({placeholders})
+                      AND correct = ?
+                    ORDER BY id ASC
+                    """,
+                    [
+                        retry_source_session_id,
+                        *answer_card_ids_unique,
+                        SESSION_RESULT_WRONG_UNRESOLVED,
+                    ],
+                ).fetchall()
+                for row in retry_result_rows:
+                    if row[0] is None or row[1] is None:
+                        continue
+                    retry_result_ids_by_card_id[int(row[1])].append(int(row[0]))
+
+            source_row = conn.execute(
+                """
+                SELECT
+                    s.id,
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count,
+                    COALESCE(s.retry_count, 0) AS retry_count,
+                    COALESCE(s.retry_total_response_ms, 0) AS retry_total_response_ms,
+                    COALESCE(s.retry_best_rety_correct_count, 0) AS retry_best_rety_correct_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                  AND s.type = ?
+                GROUP BY
+                    s.id,
+                    s.retry_count,
+                    s.retry_total_response_ms,
+                    s.retry_best_rety_correct_count
+                """,
+                [retry_source_session_id, session_type],
+            ).fetchone()
+            if not source_row:
+                raise ValueError('Retry source session not found')
+
+            source_answer_count = int(source_row[1] or 0)
+            source_right_count = int(source_row[2] or 0)
+            source_wrong_count = int(source_row[3] or 0)
+            source_retry_count = int(source_row[4] or 0)
+            source_target_answer_count = max(source_answer_count, source_right_count + source_wrong_count)
+            if source_target_answer_count <= 0:
+                raise ValueError('Retry source session has no graded answers')
+
+            retry_right_count = 0
+            retry_wrong_count = 0
+            retry_total_response_ms = 0
+            promoted_result_ids = []
+            recovered_correct_value = encode_retry_recovered_session_result(source_retry_count)
+            for answer in answers:
+                try:
+                    answer_card_id = int(answer.get('cardId'))
+                except (TypeError, ValueError):
+                    answer_card_id = 0
+                known = bool(answer.get('known'))
+                if known:
+                    retry_right_count += 1
+                else:
+                    retry_wrong_count += 1
+                response_time_ms = normalize_logged_response_time_ms(
+                    answer.get('responseTimeMs'),
+                    session_behavior_type=session_behavior_type,
+                )
+                retry_total_response_ms += int(response_time_ms or 0)
+
+                claimed_result_id = None
+                if answer_card_id > 0:
+                    queue = retry_result_ids_by_card_id.get(answer_card_id)
+                    if queue:
+                        claimed_result_id = queue.pop(0)
+
+                if known and claimed_result_id is not None:
+                    promoted_result_ids.append(claimed_result_id)
+
+                if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I and claimed_result_id is not None:
+                    append_type1_result_submitted_answer(
+                        conn,
+                        claimed_result_id,
+                        answer,
+                        SESSION_RESULT_CORRECT if known else SESSION_RESULT_WRONG_UNRESOLVED,
+                    )
+
+            for result_id in promoted_result_ids:
+                conn.execute(
+                    """
+                    UPDATE session_results
+                    SET correct = ?
+                    WHERE id = ?
+                      AND session_id = ?
+                      AND correct = ?
+                    """,
+                    [
+                        recovered_correct_value,
+                        int(result_id),
+                        retry_source_session_id,
+                        SESSION_RESULT_WRONG_UNRESOLVED,
+                    ],
+                )
+
+            best_retry_row = conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM session_results
+                WHERE session_id = ?
+                  AND correct <= ?
+                  AND card_id IS NOT NULL
+                """,
+                [retry_source_session_id, SESSION_RESULT_RETRY_FIXED_FIRST],
+            ).fetchone()
+            candidate_best_retry_correct = max(0, int(best_retry_row[0] or 0)) if best_retry_row else 0
+            conn.execute(
+                """
+                UPDATE sessions
+                SET
+                    retry_count = COALESCE(retry_count, 0) + 1,
+                    retry_total_response_ms = COALESCE(retry_total_response_ms, 0) + ?,
+                    retry_best_rety_correct_count = GREATEST(
+                        COALESCE(retry_best_rety_correct_count, 0),
+                        ?
+                    )
+                WHERE id = ?
+                """,
+                [retry_total_response_ms, candidate_best_retry_correct, retry_source_session_id],
+            )
+            updated_retry_row = conn.execute(
+                """
+                SELECT
+                    COALESCE(retry_count, 0),
+                    COALESCE(retry_total_response_ms, 0),
+                    COALESCE(retry_best_rety_correct_count, 0)
+                FROM sessions
+                WHERE id = ?
+                """,
+                [retry_source_session_id],
+            ).fetchone()
+
+            conn.execute("COMMIT")
+            conn.close()
+            sync_badges_after_session_complete(kid)
+            updated_retry_count = int(updated_retry_row[0] or 0) if updated_retry_row else 0
+            updated_retry_total_ms = int(updated_retry_row[1] or 0) if updated_retry_row else 0
+            updated_best_retry_correct = int(updated_retry_row[2] or 0) if updated_retry_row else 0
+            total_correct_percent = (
+                float(source_right_count + updated_best_retry_correct) * 100.0 / float(source_target_answer_count)
+                if source_target_answer_count > 0 else 0.0
+            )
+            achieved_gold_star = total_correct_percent >= 100.0
+            attempt_count_today_for_chain = 1 + max(0, updated_retry_count)
+            attempt_star_tiers = ['gold']
+            return {
+                'session_id': int(retry_source_session_id),
+                'answer_count': len(answers),
+                'planned_count': planned_count,
+                'right_count': retry_right_count,
+                'wrong_count': retry_wrong_count,
+                'completed': True,
+                'is_continue_session': False,
+                'continue_source_session_id': None,
+                'is_retry_session': True,
+                'retry_source_session_id': int(retry_source_session_id),
+                'retry_count': updated_retry_count,
+                'retry_total_response_ms': updated_retry_total_ms,
+                'retry_best_rety_correct_count': updated_best_retry_correct,
+                'target_answer_count': int(source_target_answer_count),
+                'attempt_count_today_for_chain': int(attempt_count_today_for_chain),
+                'attempt_star_tiers': attempt_star_tiers,
+                'total_correct_percentage': float(total_correct_percent),
+                'achieved_gold_star': bool(achieved_gold_star),
+                'star_tier': 'gold',
+            }, 200
+
+        if is_continue_session:
+            source_row = conn.execute(
+                """
+                SELECT
+                    s.id,
+                    COALESCE(s.planned_count, 0) AS planned_count,
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                  AND s.type = ?
+                GROUP BY s.id, s.planned_count
+                """,
+                [continue_source_session_id, session_type],
+            ).fetchone()
+            if not source_row:
+                raise ValueError('Continue source session not found')
+
+            source_planned_count = max(0, int(source_row[1] or 0))
+            source_answer_count = max(0, int(source_row[2] or 0))
+            source_right_count = max(0, int(source_row[3] or 0))
+            source_wrong_count = max(0, int(source_row[4] or 0))
+            if source_planned_count <= 0:
+                raise ValueError('Continue source session has invalid planned count')
+
+            right_count = 0
+            wrong_count = 0
+            latest_response_by_card = {}
+            touched_card_ids = set()
+            for answer in answers:
+                card_id = answer.get('cardId')
+                known = answer.get('known')
+                response_time_ms = normalize_logged_response_time_ms(
+                    answer.get('responseTimeMs'),
+                    session_behavior_type=session_behavior_type,
+                )
+                if uses_type_iii_audio:
+                    correct_value = 0
+                else:
+                    correct_value = SESSION_RESULT_CORRECT if bool(known) else SESSION_RESULT_WRONG_UNRESOLVED
+                if correct_value > 0:
+                    right_count += 1
+                elif correct_value < 0:
+                    wrong_count += 1
+                result_row = conn.execute(
+                    """
+                    INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
+                    VALUES (?, ?, ?, ?)
+                    RETURNING id
+                    """,
+                    [continue_source_session_id, card_id, correct_value, response_time_ms]
+                ).fetchone()
+                result_id = int(result_row[0])
+                touched_card_ids.add(card_id)
+                latest_response_by_card[card_id] = response_time_ms
+                if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
+                    insert_type1_result_item(conn, result_id, answer, correct_value)
+
+                if uses_type_iii_audio:
+                    uploaded_audio = uploaded_type3_audio.get(card_id)
+                    if uploaded_audio is None:
+                        uploaded_audio = uploaded_type3_audio.get(str(card_id))
+                    if isinstance(uploaded_audio, dict):
+                        audio_bytes = uploaded_audio.get('bytes')
+                        if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) == 0:
+                            raise ValueError(f'Uploaded audio for card {card_id} is empty')
+                        mime_type = str(uploaded_audio.get('mime_type') or 'application/octet-stream').strip()
+                        original_filename = str(uploaded_audio.get('filename') or '').strip()
+                        safe_name = secure_filename(original_filename)
+                        ext = os.path.splitext(safe_name)[1].lower()
+                        if not ext:
+                            guessed_ext = mimetypes.guess_extension(mime_type) or ''
+                            ext = guessed_ext.lower() if guessed_ext else '.webm'
+                        audio_dir = ensure_type3_audio_dir(kid)
+                        file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
+                        file_path = os.path.join(audio_dir, file_name)
+                        with open(file_path, 'wb') as f:
+                            f.write(bytes(audio_bytes))
+                        written_type3_audio_paths.append(file_path)
+                        conn.execute(
+                            """
+                            INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                            VALUES (?, ?, ?)
+                            """,
+                            [result_id, file_name, mime_type]
+                        )
+                        consumed_type3_audio_files.add(file_name)
+                    else:
+                        audio_meta = pending_type3_audio.get(str(card_id))
+                        if isinstance(audio_meta, dict):
+                            file_name = str(audio_meta.get('file_name') or '').strip()
+                            mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
+                            if file_name:
+                                conn.execute(
+                                    """
+                                    INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                                    VALUES (?, ?, ?)
+                                    """,
+                                    [result_id, file_name, mime_type]
+                                )
+                                consumed_type3_audio_files.add(file_name)
+
+            _update_hardness_after_session(
+                conn,
+                session_behavior_type=session_behavior_type,
+                latest_response_by_card=latest_response_by_card,
+                touched_card_ids=touched_card_ids,
+                session_type=session_type,
+            )
+
+            conn.execute(
+                """
+                UPDATE sessions
+                SET completed_at = ?
+                WHERE id = ?
+                """,
+                [completed_at_utc, continue_source_session_id],
+            )
+            updated_row = conn.execute(
+                """
+                SELECT
+                    COALESCE(planned_count, 0),
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE WHEN sr.correct = 1 THEN 1 ELSE 0 END), 0) AS right_count,
+                    COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = 2 THEN 1 ELSE 0 END), 0) AS wrong_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                GROUP BY s.id, s.planned_count
+                """,
+                [continue_source_session_id],
+            ).fetchone()
+            updated_planned_count = max(0, int(updated_row[0] or 0)) if updated_row else source_planned_count
+            updated_answer_count = max(0, int(updated_row[1] or 0)) if updated_row else (source_answer_count + len(answers))
+            updated_right_count = max(0, int(updated_row[2] or 0)) if updated_row else (source_right_count + right_count)
+            updated_wrong_count = max(0, int(updated_row[3] or 0)) if updated_row else (source_wrong_count + wrong_count)
+            target_answer_count = max(updated_planned_count, updated_answer_count, updated_right_count + updated_wrong_count)
+            is_incomplete = updated_planned_count > 0 and updated_answer_count < updated_planned_count
+            if is_incomplete:
+                total_correct_percentage = (
+                    float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
+                )
+            elif uses_type_iii_audio and (updated_right_count + updated_wrong_count) <= 0:
+                total_correct_percentage = (
+                    float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
+                )
+            else:
+                total_correct_percentage = (
+                    float(updated_right_count) * 100.0 / float(max(1, target_answer_count))
+                )
+            if is_incomplete:
+                attempt_star_tiers = ['half_silver']
+                achieved_gold_star = False
+                star_tier = 'half_silver'
+            else:
+                achieved_gold_star = total_correct_percentage >= 100.0
+                star_tier = 'gold'
+                attempt_star_tiers = ['gold']
+
+            conn.execute("COMMIT")
+            conn.close()
+            sync_badges_after_session_complete(kid)
+            if uses_type_iii_audio and isinstance(pending_type3_audio, dict):
+                leftovers = {}
+                for item in pending_type3_audio.values():
+                    if not isinstance(item, dict):
+                        continue
+                    file_name = str(item.get('file_name') or '').strip()
+                    if file_name and file_name not in consumed_type3_audio_files:
+                        leftovers[file_name] = item
+                if len(leftovers) > 0:
+                    cleanup_type3_pending_audio_files_by_payload({
+                        'type3_audio_dir': pending.get('type3_audio_dir'),
+                        'type3_audio_by_card': {name: meta for name, meta in leftovers.items()},
+                    })
+            return {
+                'session_id': int(continue_source_session_id),
+                'answer_count': int(updated_answer_count),
+                'planned_count': int(updated_planned_count),
+                'right_count': int(updated_right_count),
+                'wrong_count': int(updated_wrong_count),
+                'completed': True,
+                'is_continue_session': True,
+                'continue_source_session_id': int(continue_source_session_id),
+                'is_retry_session': False,
+                'retry_source_session_id': None,
+                'retry_count': 0,
+                'retry_total_response_ms': 0,
+                'retry_best_rety_correct_count': 0,
+                'target_answer_count': int(target_answer_count),
+                'attempt_count_today_for_chain': 1,
+                'attempt_star_tiers': attempt_star_tiers,
+                'total_correct_percentage': float(total_correct_percentage),
+                'achieved_gold_star': bool(achieved_gold_star),
+                'star_tier': star_tier,
+            }, 200
+
+        right_count = 0
+        wrong_count = 0
+        session_practice_mode = normalize_session_practice_mode(pending.get('practice_mode'))
+        session_id = conn.execute(
+            """
+            INSERT INTO sessions (type, planned_count, retry_count, retry_total_response_ms, retry_best_rety_correct_count, started_at, completed_at, practice_mode)
+            VALUES (?, ?, 0, 0, 0, ?, ?, ?)
+            RETURNING id
+            """,
+            [session_type, planned_count, started_at_utc, completed_at_utc, session_practice_mode]
+        ).fetchone()[0]
+
+        latest_response_by_card = {}
+        touched_card_ids = set()
+        for answer in answers:
+            card_id = answer.get('cardId')
+            known = answer.get('known')
+            response_time_ms = normalize_logged_response_time_ms(
+                answer.get('responseTimeMs'),
+                session_behavior_type=session_behavior_type,
+            )
+            if uses_type_iii_audio:
+                correct_value = 0
+            else:
+                correct_value = SESSION_RESULT_CORRECT if bool(known) else SESSION_RESULT_WRONG_UNRESOLVED
+            if correct_value > 0:
+                right_count += 1
+            elif correct_value < 0:
+                wrong_count += 1
+            result_row = conn.execute(
+                """
+                INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
+                VALUES (?, ?, ?, ?)
+                RETURNING id
+                """,
+                [session_id, card_id, correct_value, response_time_ms]
+            ).fetchone()
+            result_id = int(result_row[0])
+            touched_card_ids.add(card_id)
+            if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
+                insert_type1_result_item(conn, result_id, answer, correct_value)
+
+            if uses_type_iii_audio:
+                uploaded_audio = uploaded_type3_audio.get(card_id)
+                if uploaded_audio is None:
+                    uploaded_audio = uploaded_type3_audio.get(str(card_id))
+                if isinstance(uploaded_audio, dict):
+                    audio_bytes = uploaded_audio.get('bytes')
+                    if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) == 0:
+                        raise ValueError(f'Uploaded audio for card {card_id} is empty')
+                    mime_type = str(uploaded_audio.get('mime_type') or 'application/octet-stream').strip()
+                    original_filename = str(uploaded_audio.get('filename') or '').strip()
+                    safe_name = secure_filename(original_filename)
+                    ext = os.path.splitext(safe_name)[1].lower()
+                    if not ext:
+                        guessed_ext = mimetypes.guess_extension(mime_type) or ''
+                        ext = guessed_ext.lower() if guessed_ext else '.webm'
+                    audio_dir = ensure_type3_audio_dir(kid)
+                    file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
+                    file_path = os.path.join(audio_dir, file_name)
+                    with open(file_path, 'wb') as f:
+                        f.write(bytes(audio_bytes))
+                    written_type3_audio_paths.append(file_path)
+                    conn.execute(
+                        """
+                        INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                        VALUES (?, ?, ?)
+                        """,
+                        [result_id, file_name, mime_type]
+                    )
+                    consumed_type3_audio_files.add(file_name)
+                else:
+                    audio_meta = pending_type3_audio.get(str(card_id))
+                    if isinstance(audio_meta, dict):
+                        file_name = str(audio_meta.get('file_name') or '').strip()
+                        mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
+                        if file_name:
+                            conn.execute(
+                                """
+                                INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                                VALUES (?, ?, ?)
+                                """,
+                                [result_id, file_name, mime_type]
+                            )
+                            consumed_type3_audio_files.add(file_name)
+            latest_response_by_card[card_id] = response_time_ms
+
+        _update_hardness_after_session(
+            conn,
+            session_behavior_type=session_behavior_type,
+            latest_response_by_card=latest_response_by_card,
+            touched_card_ids=touched_card_ids,
+            session_type=session_type,
+        )
+
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        conn.close()
+        if uses_type_iii_audio:
+            _cleanup_uncommitted_type3_audio(written_type3_audio_paths, pending)
+        raise
+
+    conn.close()
+    sync_badges_after_session_complete(kid)
+    if uses_type_iii_audio and isinstance(pending_type3_audio, dict):
+        leftovers = {}
+        for item in pending_type3_audio.values():
+            if not isinstance(item, dict):
+                continue
+            file_name = str(item.get('file_name') or '').strip()
+            if file_name and file_name not in consumed_type3_audio_files:
+                leftovers[file_name] = item
+        if len(leftovers) > 0:
+            cleanup_type3_pending_audio_files_by_payload({
+                'type3_audio_dir': pending.get('type3_audio_dir'),
+                'type3_audio_by_card': {name: meta for name, meta in leftovers.items()},
+            })
+    target_answer_count = int(max(planned_count, len(answers), right_count + wrong_count))
+    is_incomplete = planned_count > 0 and len(answers) < planned_count
+    if is_incomplete:
+        total_correct_percentage = float(len(answers)) * 100.0 / float(max(1, target_answer_count))
+    elif uses_type_iii_audio and (right_count + wrong_count) <= 0:
+        total_correct_percentage = float(len(answers)) * 100.0 / float(max(1, target_answer_count))
+    else:
+        total_correct_percentage = float(right_count) * 100.0 / float(max(1, target_answer_count))
+    if is_incomplete:
+        attempt_star_tiers = ['half_silver']
+        achieved_gold_star = False
+        star_tier = 'half_silver'
+    else:
+        achieved_gold_star = total_correct_percentage >= 100.0
+        star_tier = 'gold'
+        attempt_star_tiers = ['gold']
+    return {
+        'session_id': session_id,
+        'answer_count': len(answers),
+        'planned_count': planned_count,
+        'right_count': int(right_count),
+        'wrong_count': int(wrong_count),
+        'completed': True,
+        'is_continue_session': False,
+        'continue_source_session_id': None,
+        'is_retry_session': False,
+        'retry_source_session_id': None,
+        'retry_count': 0,
+        'retry_total_response_ms': 0,
+        'retry_best_rety_correct_count': 0,
+        'target_answer_count': target_answer_count,
+        'attempt_count_today_for_chain': 1,
+        'attempt_star_tiers': attempt_star_tiers,
+        'total_correct_percentage': float(total_correct_percentage),
+        'achieved_gold_star': achieved_gold_star,
+        'star_tier': star_tier,
+    }, 200
+
+
