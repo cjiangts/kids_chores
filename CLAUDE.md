@@ -33,7 +33,7 @@ Other blueprints:
 
 ### Where helpers live
 
-- **Constants** for the kids domain → [routes/kids_constants.py](backend/src/routes/kids_constants.py). All route modules import via `from src.routes.kids import *` which re-exports constants.
+- **Constants** for the kids domain → [routes/kids_constants.py](backend/src/routes/kids_constants.py). Sibling route modules import names explicitly from `src.routes.kids_constants` and `src.routes.kids`.
 - **Pure helpers** by concern (extracted from kids):
   - [services/writing_audio.py](backend/src/services/writing_audio.py) — TTS audio file paths, prompt synthesis
   - [services/shared_deck_normalize.py](backend/src/services/shared_deck_normalize.py) — tag/card/category normalizers
@@ -41,16 +41,20 @@ Other blueprints:
   - [services/shared_deck_materialize.py](backend/src/services/shared_deck_materialize.py) — materialized shared-deck sync
   - [services/kid_category_config.py](backend/src/services/kid_category_config.py) — kid/category config hydration
   - [services/deck_source_merge.py](backend/src/services/deck_source_merge.py) — source-deck merging, card-count summaries
-- **Tangled helpers + module state** still in [routes/kids/__init__.py](backend/src/routes/kids/__init__.py) (8.3k lines) — auth helpers, pending-session locks, `_PENDING_SESSIONS`, `_SHARED_DECK_MUTATION_LOCK`, kid-DB readers reused across routes. Add new helpers to a service module if pure; only put in `__init__.py` if it touches module state.
+  - [services/practice_priority.py](backend/src/services/practice_priority.py) — practice-priority preview scoring (pure; caller supplies session behavior type)
+- **Type-specific session helpers** (extracted from kids):
+  - `start_type_i_practice_session_internal`, `complete_session_internal` → [routes/kids/practice.py](backend/src/routes/kids/practice.py)
+  - `complete_type_iv_session_internal` → [routes/kids/type4.py](backend/src/routes/kids/type4.py)
+- **Tangled helpers + module state** still in [routes/kids/__init__.py](backend/src/routes/kids/__init__.py) (6.8k lines) — auth helpers, pending-session locks, `_PENDING_SESSIONS`, `_SHARED_DECK_MUTATION_LOCK`, kid-DB readers reused across routes, opt-in/opt-out shared-deck helpers tangled with a dispatch table. Add new helpers to a service module if pure; only put in `__init__.py` if it touches module state.
 - **Badges** → [badges/](backend/src/badges/): `definitions.py` (catalog), `service.py` (compute), `session_sync.py` (post-session hook), `admin.py` (super-family ops).
 - **DB layer** → [db/](backend/src/db/): `kid_db.py` (per-kid SQLite), `shared_deck_db.py` (shared decks DB), `metadata.py` (family/kid CRUD), schema in `*.sql`.
 
 ### Adding a new route — recipe
 
 1. Pick the right module by URL prefix (table above). If none fits, create a new module under `routes/kids/` and add it to the import list at the END of [routes/kids/__init__.py](backend/src/routes/kids/__init__.py).
-2. In the module, add `@kids_bp.route('/your-path', methods=['...'])` — `kids_bp` is already imported via `from src.routes.kids import *`.
-3. Use existing helpers (`current_family_id()`, `get_kid_for_family()`, `require_critical_password()`, etc.) — they're imported via `*`.
-4. For state access (`_PENDING_SESSIONS`, locks), they're underscore-prefixed but `__all__` is built from `globals()` so `import *` re-exports them.
+2. In the module, add `@kids_bp.route('/your-path', methods=['...'])` — `kids_bp` is imported explicitly from `src.routes.kids`.
+3. Use existing helpers (`current_family_id()`, `get_kid_for_family()`, `require_critical_password()`, etc.) — add them to the module's explicit `from src.routes.kids import (...)` block.
+4. For state access (`_PENDING_SESSIONS`, locks): they're underscore-prefixed but `__all__` is built from `globals()` so they're still importable explicitly.
 5. New pure helper → `services/<topic>.py`. New stateful helper → `routes/kids/__init__.py`.
 
 ## Frontend — where the page code lives
@@ -167,4 +171,4 @@ For frontend changes, run [start-local.sh](start-local.sh) and check the affecte
 
 - [refactor.md](refactor.md) — original audit + plan (2026-05-05)
 
-Files still pending split per refactor plan: `routes/kids/__init__.py` (8.4k), `styles.css` (2.4k), `practice-manage-common.js` (1.6k).
+Files still pending split per refactor plan: `routes/kids/__init__.py` (6.8k — down from 8.4k after evacuating four type-specific helpers), `styles.css` (2.4k), `practice-manage-common.js` (1.6k).
