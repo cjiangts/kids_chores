@@ -1,3 +1,22 @@
+/*
+ * parent-settings-badges.js — Badge Art Studio (parent settings)
+ *
+ * Layout:
+ *   1. Identity helpers + studio state singletons
+ *   2. Payload clone / set / reset + edit-mode copy
+ *   3. Assignment lookups + dirty-state + catalog finders
+ *   4. Asset preload + draft assignment mutators
+ *   5. Display helpers + filtering (search / palette / usage)
+ *   6. Selection + keyboard nav across achievement list and art bank
+ *   7. Render (achievement list, selected, art bank, full studio)
+ *   8. Load + save (fetch, build payload, bulk write)
+ *   9. Open / close + notice dialog + error / success toasts
+ */
+
+// =====================================================================
+// === 1. Identity helpers + studio state singletons
+// =====================================================================
+
 function badgeArtIdentityKeyFromPath(imagePath) {
     const normalized = String(imagePath || '').trim().toLowerCase();
     if (!normalized) {
@@ -23,6 +42,10 @@ let badgeArtStudioSaving = false;
 let badgeArtStudioNoticeResolver = null;
 const badgeArtStudioObjectUrlByIdentityKey = new Map();
 let badgeArtStudioAssetPreloadPromise = null;
+
+// =====================================================================
+// === 2. Payload clone / set / reset + edit-mode copy
+// =====================================================================
 
 function cloneBadgeArtStudioPayload(payload) {
     const source = payload && typeof payload === 'object' ? payload : {};
@@ -79,6 +102,10 @@ function syncBadgeArtStudioModeCopy() {
     }
 }
 
+// =====================================================================
+// === 3. Assignment lookups + dirty-state + catalog finders
+// =====================================================================
+
 function badgeAssignmentKey(achievementKey, categoryKey = '') {
     return `${String(achievementKey || '').trim()}::${String(categoryKey || '').trim().toLowerCase()}`;
 }
@@ -130,6 +157,10 @@ function getBadgeArtIdentityKey(item) {
     const imagePath = String(item.imagePath || item.currentImagePath || '').trim();
     return badgeArtIdentityKeyFromPath(imagePath);
 }
+
+// =====================================================================
+// === 4. Asset preload + draft assignment mutators
+// =====================================================================
 
 function getBadgeArtStudioPreloadCandidates() {
     const artCatalog = Array.isArray(badgeArtStudioData.artCatalog) ? badgeArtStudioData.artCatalog : [];
@@ -216,6 +247,10 @@ function setDraftBadgeArtAssignment(item, badgeArtId) {
     item.currentBadgeLicense = String(artItem.license || '');
     item.currentBadgeIsActive = true;
 }
+
+// =====================================================================
+// === 5. Display helpers + filtering (search / palette / usage)
+// =====================================================================
 
 function normalizeSearchText(value) {
     return String(value || '').trim().toLowerCase();
@@ -366,6 +401,10 @@ function getFilteredBadgeArtCatalog() {
         })
         .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
 }
+
+// =====================================================================
+// === 6. Selection + keyboard nav across achievement list and art bank
+// =====================================================================
 
 function syncBadgeArtStudioControls() {
     const canEdit = badgeArtStudioIsEditable();
@@ -575,6 +614,10 @@ function handleBadgeArtStudioArrowKey(event) {
     return handled;
 }
 
+// =====================================================================
+// === 7. Render (achievement list, selected, art bank, full studio)
+// =====================================================================
+
 function renderBadgeAchievementList() {
     if (!badgeArtAchievementList) {
         return;
@@ -746,6 +789,10 @@ function selectBadgeAchievement(achievementKey, categoryKey) {
     renderBadgeArtBank();
 }
 
+// =====================================================================
+// === 8. Load + save (fetch, build payload, bulk write)
+// =====================================================================
+
 async function loadBadgeArtStudio() {
     if (!badgeArtStudioModal) {
         return;
@@ -915,6 +962,10 @@ async function saveBadgeArtStudioAssignments() {
         renderBadgeArtBank();
     }
 }
+
+// =====================================================================
+// === 9. Open / close + notice dialog + error / success toasts
+// =====================================================================
 
 async function openBadgeArtStudio() {
     if (!badgeArtStudioModal) {

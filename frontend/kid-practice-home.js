@@ -1,3 +1,25 @@
+/*
+ * kid-practice-home.js — practice landing page for one kid.
+ *
+ * Shows a per-category "what's left today" summary strip, a chooser
+ * grid of practice options (one card per opted-in category), and an
+ * inline switch-kid menu in the header.
+ *
+ * Each option card dispatches to a type-specific go* navigation
+ * function that builds the kid-practice.html URL with the right
+ * category + behavior-type query params.
+ *
+ * Layout (search for `// === N. ` banners to jump between sections):
+ *
+ *     1. DOM refs + navigation helpers (persistLast, title, badge)
+ *     2. Switch-kid menu
+ *     3. Bootstrap (DOMContentLoaded → loadKidInfo → render)
+ *     4. Badge shelf summary + writing warm-up
+ *     5. Category progress model + chooser rendering
+ *     6. Per-type practice launch (goType1/Writing/Type3/Type4)
+ *     7. Misc helpers
+ */
+
 const API_BASE = `${window.location.origin}/api`;
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -33,6 +55,9 @@ const PRACTICE_NAV_CACHE_KEY = 'kid_practice_nav_cache_v1';
 const PRACTICE_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
 
+// =====================================================================
+// === 1. DOM refs + navigation helpers
+// =====================================================================
 function persistLastViewedKidId(id) {
     try {
         if (!window.sessionStorage) return;
@@ -165,6 +190,9 @@ function hashStringToIndex(value, modulo) {
     return ((hash % m) + m) % m;
 }
 
+// =====================================================================
+// === 2. Switch-kid menu
+// =====================================================================
 function initSwitchKidMenu() {
     if (!switchKidBtn || !switchKidMenu) return;
     void loadKidsForSwitcher();
@@ -287,6 +315,9 @@ function cacheKidForPracticeNavigation() {
     }
 }
 
+// =====================================================================
+// === 3. Bootstrap (DOMContentLoaded → loadKidInfo → render)
+// =====================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
         window.location.href = '/';
@@ -444,6 +475,9 @@ async function warmWritingCards() {
     }
 }
 
+// =====================================================================
+// === 4. Badge shelf summary + writing warm-up
+// =====================================================================
 async function loadBadgeShelfSummary({ forceRefresh = false } = {}) {
     if (!kidId || !window.KidBadgeShelfModal || typeof window.KidBadgeShelfModal.getSummary !== 'function') {
         return;
@@ -475,6 +509,9 @@ async function loadBadgeShelfSummary({ forceRefresh = false } = {}) {
     renderPracticeOptions();
 }
 
+// =====================================================================
+// === 5. Category progress model + chooser rendering
+// =====================================================================
 function buildCategoryProgressModel({
     categoryKey,
     behaviorType,
@@ -928,6 +965,9 @@ function renderPracticeOptions() {
     }
 }
 
+// =====================================================================
+// === 6. Per-type practice launch
+// =====================================================================
 async function chooseChinesePractice(category) {
     const categoryKey = normalizeCategoryKey(category);
     if (!categoryKey) {
@@ -1041,6 +1081,9 @@ function goType4Practice(category) {
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
 
+// =====================================================================
+// === 7. Misc helpers
+// =====================================================================
 function showError(message) {
     window.PracticeUiCommon.showAlertError(errorState, errorMessage, message);
 }
