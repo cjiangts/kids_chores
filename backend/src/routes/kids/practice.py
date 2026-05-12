@@ -24,7 +24,6 @@ from src.routes.kids import (
     build_type_iv_pending_items_for_sources,
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
-    compose_session_practice_mode,
     datetime,
     defaultdict,
     encode_retry_recovered_session_result,
@@ -39,8 +38,6 @@ from src.routes.kids import (
     get_latest_unfinished_session_for_today,
     get_pending_writing_card_ids,
     get_retry_source_wrong_card_ids,
-    get_session_practice_mode,
-    get_session_practice_mode_base,
     get_session_practiced_card_ids,
     get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
@@ -53,11 +50,8 @@ from src.routes.kids import (
     map_type_iv_pending_item_to_response_card,
     mimetypes,
     normalize_logged_response_time_ms,
-    normalize_session_practice_mode,
     normalize_shared_deck_category_behavior,
-    normalize_type_iv_practice_mode,
     os,
-    parse_session_practice_mode,
     plan_deck_practice_selection_for_decks,
     request,
     resolve_kid_type_i_category_with_mode,
@@ -78,6 +72,14 @@ from src.services.pending_sessions import (
     get_pending_session,
     parse_client_started_at,
     pop_pending_session,
+)
+from src.services.practice_mode import (
+    compose_session_practice_mode,
+    get_session_practice_mode,
+    get_session_practice_mode_base,
+    normalize_session_practice_mode,
+    normalize_type_iv_practice_mode,
+    parse_session_practice_mode,
 )
 from src.services.shared_deck_category import (
     get_session_behavior_type,

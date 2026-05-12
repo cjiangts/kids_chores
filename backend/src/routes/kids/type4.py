@@ -29,7 +29,6 @@ from src.routes.kids import (
     jsonify,
     kids_bp,
     normalize_logged_response_time_ms,
-    normalize_session_practice_mode,
     normalize_type_iv_print_sheet_paper_size,
     normalize_type_iv_print_sheet_repeat_count,
     normalize_type_iv_print_sheet_rows,
@@ -40,6 +39,7 @@ from src.routes.kids import (
     sync_badges_after_session_complete,
     time,
 )
+from src.services.practice_mode import normalize_session_practice_mode
 
 @kids_bp.route('/kids/<kid_id>/type4/print-config', methods=['GET'])
 def get_type4_print_config(kid_id):

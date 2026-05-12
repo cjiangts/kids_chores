@@ -37,20 +37,22 @@ from src.routes.kids import (
     get_shared_decks_connection,
     get_type_iii_category_keys,
     hydrate_kid_category_config_from_db,
-    is_drill_session_practice_mode,
     is_super_family_id,
     jsonify,
     kid_db,
     kids_bp,
     metadata,
     normalize_deck_category_keys,
-    normalize_session_practice_mode,
     normalize_shared_deck_tag,
     os,
     request,
     require_critical_password,
     sanitize_deck_mix_payload,
     shutil,
+)
+from src.services.practice_mode import (
+    is_drill_session_practice_mode,
+    normalize_session_practice_mode,
 )
 from src.services.shared_deck_category import (
     get_session_behavior_type,
