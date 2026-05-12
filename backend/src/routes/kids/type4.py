@@ -11,16 +11,13 @@ from src.routes.kids import (
     build_type_iv_print_sheet_display_number,
     build_type_iv_print_sheet_layout,
     build_type_iv_print_sheet_layout_payload,
-    build_type_iv_print_sheet_rendered_rows,
     current_family_id,
     encode_retry_recovered_session_result,
     get_kid_connection_for,
     get_kid_for_family,
     get_kid_materialized_shared_decks_by_first_tag,
-    get_shared_deck_generator_definitions_by_deck_ids,
     get_shared_decks_connection,
     get_shared_type_iv_deck_rows,
-    get_type_iv_print_sheet_record,
     is_super_family_id,
     json,
     jsonify,
@@ -28,11 +25,18 @@ from src.routes.kids import (
     normalize_type_iv_print_sheet_paper_size,
     normalize_type_iv_print_sheet_repeat_count,
     normalize_type_iv_print_sheet_rows,
-    paginate_type_iv_print_sheet_rendered_rows,
     request,
     resolve_kid_type_iv_category_with_mode,
     sync_badges_after_session_complete,
     time,
+)
+from src.services.type4_generator_definitions import (
+    get_shared_deck_generator_definitions_by_deck_ids,
+)
+from src.services.type4_print_sheet import (
+    build_type_iv_print_sheet_rendered_rows,
+    get_type_iv_print_sheet_record,
+    paginate_type_iv_print_sheet_rendered_rows,
 )
 from src.services.practice_mode import normalize_session_practice_mode
 from src.services.kid_today_sessions import normalize_logged_response_time_ms

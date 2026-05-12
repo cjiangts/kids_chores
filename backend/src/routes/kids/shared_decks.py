@@ -24,8 +24,6 @@ from src.routes.kids import (
     get_kid_type3_audio_dir,
     get_shared_deck_behavior_type_from_raw_tags,
     get_shared_deck_cards,
-    get_shared_deck_dedupe_key,
-    get_shared_deck_generator_definition,
     get_shared_deck_owned_by_family,
     get_shared_decks_connection,
     is_chinese_text,
@@ -52,7 +50,6 @@ from src.routes.kids import (
     require_critical_password,
     require_super_family,
     run_type4_generator,
-    shared_deck_generator_definition_has_print_cell_design_columns,
     sync_materialized_shared_deck_metadata_for_all_kids,
     test_type4_validate,
     time,
@@ -75,6 +72,11 @@ from src.services.shared_deck_tag_paths import (
     format_shared_deck_tag_path,
     get_all_shared_deck_tag_label_paths,
     get_all_shared_deck_tag_paths,
+)
+from src.services.kid_card_queries import get_shared_deck_dedupe_key
+from src.services.type4_generator_definitions import (
+    get_shared_deck_generator_definition,
+    shared_deck_generator_definition_has_print_cell_design_columns,
 )
 
 @kids_bp.route('/shared-decks/categories', methods=['GET'])

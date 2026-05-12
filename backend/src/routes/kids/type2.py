@@ -7,8 +7,6 @@ from src.routes.kids import (
     format_type2_bulk_card_text,
     get_category_include_orphan_for_kid,
     get_category_orphan_deck_name,
-    get_kid_card_backs_for_deck_ids,
-    get_kid_card_fronts_for_deck_ids,
     get_kid_connection_for,
     get_kid_for_family,
     get_kid_materialized_shared_type_ii_decks,
@@ -31,6 +29,10 @@ from src.routes.kids import (
     synthesize_shared_writing_audio,
 )
 from src.services.card_stats import delete_card_from_deck_internal
+from src.services.kid_card_queries import (
+    get_kid_card_backs_for_deck_ids,
+    get_kid_card_fronts_for_deck_ids,
+)
 from src.services.writing_candidates import (
     get_pending_writing_card_ids,
     get_writing_candidate_card_ids,

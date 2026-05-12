@@ -8,16 +8,13 @@ from src.routes.kids import (
     SHARED_DECK_OP_OPT_OUT,
     SHARED_DECK_OP_SKIP_UPDATE,
     SHARED_DECK_OP_SKIP_UPDATE_BULK,
-    build_type_iv_generator_details_by_representative_front,
     dispatch_shared_deck_scope_operation,
     get_category_include_orphan_for_kid,
     get_category_orphan_deck_name,
-    get_kid_card_fronts_for_deck_ids,
     get_kid_connection_for,
     get_kid_for_family,
     get_kid_materialized_shared_decks_by_first_tag,
     get_or_create_category_orphan_deck,
-    get_shared_deck_generator_definition,
     get_shared_decks_connection,
     get_shared_type_i_merged_source_decks_for_kid,
     jsonify,
@@ -37,6 +34,11 @@ from src.services.card_stats import (
 from src.services.chinese_text import (
     build_chinese_auto_back_text,
     get_category_chinese_back_content,
+)
+from src.services.kid_card_queries import get_kid_card_fronts_for_deck_ids
+from src.services.type4_generator_definitions import (
+    build_type_iv_generator_details_by_representative_front,
+    get_shared_deck_generator_definition,
 )
 from src.services.writing_candidates import remove_cards_from_type2_chinese_print_sheets
 
