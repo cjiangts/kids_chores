@@ -1,4 +1,10 @@
-"""Lesson-reading (Type III) audio routes."""
+"""Lesson-reading (Type III) audio routes.
+
+Layout:
+  1. Per-file MP3 transcode locks + on-demand MP3-sibling materializer
+  2. Single-recording fetch + MP3 download (transcoded on demand)
+  3. Fastest-correct recordings zip bundle
+"""
 import zipfile
 from src.routes.kids import (
     BytesIO,
@@ -21,6 +27,10 @@ from src.services.audio_io import (
 from src.services.family_auth import get_kid_connection_for, get_kid_for_family
 from src.services.shared_deck_category import is_type_iii_session_type
 
+
+# =====================================================================
+# === 1. Per-file MP3 transcode locks + on-demand MP3-sibling materializer
+# =====================================================================
 
 _TYPE3_MP3_TRANSCODE_LOCKS = {}
 _TYPE3_MP3_TRANSCODE_LOCKS_GUARD = threading.Lock()
@@ -93,6 +103,10 @@ def _ensure_type3_mp3_sibling(audio_dir, file_name, stored_mime_type):
 
     return sibling_name, 'audio/mpeg'
 
+
+# =====================================================================
+# === 2. Single-recording fetch + MP3 download (transcoded on demand)
+# =====================================================================
 
 @kids_bp.route('/kids/<kid_id>/lesson-reading/audio/<path:file_name>', methods=['GET'])
 def get_type3_audio(kid_id, file_name):
@@ -215,6 +229,10 @@ def download_type3_audio_as_mp3(kid_id, file_name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# =====================================================================
+# === 3. Fastest-correct recordings zip bundle
+# =====================================================================
 
 @kids_bp.route('/kids/<kid_id>/lesson-reading/recordings/download-zip', methods=['POST'])
 def download_type3_fastest_correct_recordings_zip(kid_id):

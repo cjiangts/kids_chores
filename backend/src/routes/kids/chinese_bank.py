@@ -6,6 +6,11 @@ Two parallel banks, selected by ?mode= on every route:
 
 Each mode is scoped to its own bank table AND to source decks whose category
 has chinese_back_content matching the mode.
+
+Layout:
+  1. Per-mode config + request/payload mode resolvers + Han-only matcher
+  2. GET bank listing (paginated + search + filters)
+  3. Write routes: PUT update + refresh-used + force-sync-backs
 """
 from src.routes.kids import (
     get_shared_decks_connection,
@@ -19,6 +24,11 @@ from src.services.family_auth import (
     is_super_family_id,
     require_super_family,
 )
+
+
+# =====================================================================
+# === 1. Per-mode config + request/payload mode resolvers + Han-only matcher
+# =====================================================================
 
 # Per-mode config: target table + columns. Bank routing is driven entirely
 # by the deck's category (chinese_back_content), never by character length.
@@ -54,6 +64,10 @@ def _han_only(value: str) -> bool:
     import re
     return bool(re.fullmatch(r'[\u3400-\u9FFF\uF900-\uFAFF]+', value or ''))
 
+
+# =====================================================================
+# === 2. GET bank listing (paginated + search + filters)
+# =====================================================================
 
 @kids_bp.route('/chinese-bank', methods=['GET'])
 def get_chinese_bank():
@@ -151,6 +165,10 @@ def get_chinese_bank():
     finally:
         conn.close()
 
+
+# =====================================================================
+# === 3. Write routes: PUT update + refresh-used + force-sync-backs
+# =====================================================================
 
 @kids_bp.route('/chinese-bank', methods=['PUT'])
 def update_chinese_bank():
