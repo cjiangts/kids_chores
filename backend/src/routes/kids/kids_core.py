@@ -15,19 +15,15 @@ from src.routes.kids_constants import (
     SESSION_RESULT_RETRY_FIXED_FIRST,
 )
 from src.routes.kids import (
-    can_family_access_deck_category,
-    current_family_id,
     datetime,
     defaultdict,
     get_category_drill_speed_cutoff_ms_for_kid,
     get_deck_category_display_name,
     get_kid_active_card_count_by_deck_category,
-    get_kid_connection_for,
     get_kid_daily_completed_by_deck_category,
     get_kid_daily_percent_by_deck_category,
     get_kid_daily_star_tiers_by_deck_category,
     get_kid_dashboard_stats,
-    get_kid_for_family,
     get_kid_opted_in_deck_category_keys,
     get_kid_practice_target_by_deck_category,
     get_kid_scoped_db_relpath,
@@ -37,7 +33,6 @@ from src.routes.kids import (
     get_shared_decks_connection,
     get_type_iii_category_keys,
     hydrate_kid_category_config_from_db,
-    is_super_family_id,
     jsonify,
     kid_db,
     kids_bp,
@@ -46,9 +41,16 @@ from src.routes.kids import (
     normalize_shared_deck_tag,
     os,
     request,
-    require_critical_password,
     sanitize_deck_mix_payload,
     shutil,
+)
+from src.services.family_auth import (
+    can_family_access_deck_category,
+    current_family_id,
+    get_kid_connection_for,
+    get_kid_for_family,
+    is_super_family_id,
+    require_critical_password,
 )
 from src.services.practice_mode import (
     is_drill_session_practice_mode,

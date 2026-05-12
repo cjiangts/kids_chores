@@ -23,8 +23,6 @@ from src.routes.kids import (
     extract_shared_deck_tags_and_labels,
     get_category_drill_speed_cutoff_ms_for_kid,
     get_category_session_card_count_for_kid,
-    get_kid_connection_for,
-    get_kid_for_family,
     get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
@@ -46,6 +44,7 @@ from src.routes.kids import (
     uuid,
     with_preview_session_count_for_category,
 )
+from src.services.family_auth import get_kid_connection_for, get_kid_for_family
 from src.services.practice_session import (
     build_continue_selected_cards_for_decks,
     build_retry_selected_cards_for_sources,

@@ -11,14 +11,10 @@ from src.routes.kids import (
     build_type_iv_print_sheet_display_number,
     build_type_iv_print_sheet_layout,
     build_type_iv_print_sheet_layout_payload,
-    current_family_id,
     encode_retry_recovered_session_result,
-    get_kid_connection_for,
-    get_kid_for_family,
     get_kid_materialized_shared_decks_by_first_tag,
     get_shared_decks_connection,
     get_shared_type_iv_deck_rows,
-    is_super_family_id,
     json,
     jsonify,
     kids_bp,
@@ -29,6 +25,12 @@ from src.routes.kids import (
     resolve_kid_type_iv_category_with_mode,
     sync_badges_after_session_complete,
     time,
+)
+from src.services.family_auth import (
+    current_family_id,
+    get_kid_connection_for,
+    get_kid_for_family,
+    is_super_family_id,
 )
 from src.services.type4_generator_definitions import (
     get_shared_deck_generator_definitions_by_deck_ids,

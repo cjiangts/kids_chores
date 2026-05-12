@@ -8,15 +8,17 @@ Each mode is scoped to its own bank table AND to source decks whose category
 has chinese_back_content matching the mode.
 """
 from src.routes.kids import (
-    current_family_id,
     get_shared_decks_connection,
-    is_super_family_id,
     jsonify,
     kids_bp,
     request,
-    require_super_family,
 )
 from src.services.chinese_text import build_chinese_pinyin_text
+from src.services.family_auth import (
+    current_family_id,
+    is_super_family_id,
+    require_super_family,
+)
 
 # Per-mode config: target table + columns. Bank routing is driven entirely
 # by the deck's category (chinese_back_content), never by character length.

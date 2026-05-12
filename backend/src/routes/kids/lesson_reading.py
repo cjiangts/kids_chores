@@ -2,8 +2,6 @@
 import zipfile
 from src.routes.kids import (
     BytesIO,
-    get_kid_connection_for,
-    get_kid_for_family,
     get_kid_type3_audio_dir,
     jsonify,
     kids_bp,
@@ -18,6 +16,7 @@ from src.routes.kids import (
     threading,
     uuid,
 )
+from src.services.family_auth import get_kid_connection_for, get_kid_for_family
 from src.services.shared_deck_category import is_type_iii_session_type
 
 

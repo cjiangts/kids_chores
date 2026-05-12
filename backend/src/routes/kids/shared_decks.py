@@ -11,7 +11,6 @@ from src.routes.kids import (
     _SHARED_DECK_MUTATION_LOCK,
     _safe_positive_int_or_none,
     build_shared_deck_tags,
-    current_family_id,
     dedupe_shared_deck_cards_by_back,
     dedupe_shared_deck_cards_by_front,
     extract_shared_deck_tags_and_labels,
@@ -19,8 +18,6 @@ from src.routes.kids import (
     format_shared_deck_tag_display_label,
     get_allowed_shared_deck_first_tags,
     get_character_bank_pinyin,
-    get_current_family_id_int,
-    get_kid_connection_for,
     get_kid_type3_audio_dir,
     get_shared_deck_behavior_type_from_raw_tags,
     get_shared_deck_cards,
@@ -47,12 +44,17 @@ from src.routes.kids import (
     parse_shared_deck_tag_with_comment,
     preview_type4_generator,
     request,
-    require_critical_password,
-    require_super_family,
     run_type4_generator,
     sync_materialized_shared_deck_metadata_for_all_kids,
     test_type4_validate,
     time,
+)
+from src.services.family_auth import (
+    current_family_id,
+    get_current_family_id_int,
+    get_kid_connection_for,
+    require_critical_password,
+    require_super_family,
 )
 from src.services.chinese_text import (
     CHINESE_BACK_CONTENTS,

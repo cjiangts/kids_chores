@@ -11,8 +11,6 @@ from src.routes.kids import (
     dispatch_shared_deck_scope_operation,
     get_category_include_orphan_for_kid,
     get_category_orphan_deck_name,
-    get_kid_connection_for,
-    get_kid_for_family,
     get_kid_materialized_shared_decks_by_first_tag,
     get_or_create_category_orphan_deck,
     get_shared_decks_connection,
@@ -35,6 +33,7 @@ from src.services.chinese_text import (
     build_chinese_auto_back_text,
     get_category_chinese_back_content,
 )
+from src.services.family_auth import get_kid_connection_for, get_kid_for_family
 from src.services.kid_card_queries import get_kid_card_fronts_for_deck_ids
 from src.services.type4_generator_definitions import (
     build_type_iv_generator_details_by_representative_front,
