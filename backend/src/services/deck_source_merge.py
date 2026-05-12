@@ -1,13 +1,4 @@
-"""Source-deck merging helpers for kid decks (shared + orphan).
-
-Pure helpers extracted from `src.routes.kids` Phase 2 refactor.
-
-The type-I/II/IV merged-source-deck functions need access to the
-kid-local materialized-deck readers (`get_kid_materialized_shared_decks_by_first_tag`,
-`get_kid_materialized_shared_type_ii_decks`) which still live in
-kids.py. Those callables are resolved lazily inside each function body
-to avoid circular imports.
-"""
+"""Source-deck merging helpers for kid decks (shared + orphan)."""
 from src.services.kid_category_config import (
     get_category_include_orphan_for_kid,
     get_category_orphan_deck,
@@ -16,6 +7,10 @@ from src.services.kid_category_config import (
 from src.services.shared_deck_normalize import (
     extract_shared_deck_tags_and_labels,
     normalize_shared_deck_tag,
+)
+from src.services.shared_deck_queries import (
+    get_kid_materialized_shared_decks_by_first_tag,
+    get_kid_materialized_shared_type_ii_decks,
 )
 
 
@@ -159,9 +154,6 @@ def get_shared_type_i_merged_source_decks_for_kid(
     include_orphan_in_queue_override=None,
 ):
     """Return type-I source decks for merged bank and merged practice queue."""
-    # Lazy import: get_kid_materialized_shared_decks_by_first_tag still
-    # lives in kids.py (not in the Phase-2 extract list).
-    from src.routes.kids import get_kid_materialized_shared_decks_by_first_tag
     return get_shared_merged_source_decks_for_kid(
         conn,
         kid,
@@ -173,7 +165,6 @@ def get_shared_type_i_merged_source_decks_for_kid(
 
 def get_shared_type_ii_merged_source_decks_for_kid(conn, kid, category_key):
     """Return type-II source decks for merged bank and merged practice queue."""
-    from src.routes.kids import get_kid_materialized_shared_type_ii_decks
     return get_shared_merged_source_decks_for_kid(
         conn,
         kid,
@@ -190,7 +181,6 @@ def get_shared_type_iv_merged_source_decks_for_kid(
     include_orphan_in_queue_override=None,
 ):
     """Return type-IV source decks for merged bank and merged practice queue."""
-    from src.routes.kids import get_kid_materialized_shared_decks_by_first_tag
     return get_shared_merged_source_decks_for_kid(
         conn,
         kid,
@@ -238,7 +228,6 @@ def get_type_iv_total_daily_target_for_category(
     first_tag = normalize_shared_deck_tag(category_key)
     if not first_tag:
         return 0
-    from src.routes.kids import get_kid_materialized_shared_decks_by_first_tag
     materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
     local_deck_ids = [int(deck_id) for deck_id in materialized_by_local_id.keys()]
     total_count = 0
