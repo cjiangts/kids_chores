@@ -64,12 +64,13 @@ body.practice-home-redesign {
 .practice-home-redesign .redesign-practice-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 0;
 }
 
 @media (min-width: 900px) {
     .practice-home-redesign .redesign-practice-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 0;
     }
 }
 
@@ -79,17 +80,33 @@ body.practice-home-redesign {
     align-items: center;
     gap: 12px;
     border: 0;
-    border-radius: var(--section-surface-radius);
-    background: #fff;
-    box-shadow: 0 2px 4px rgba(31, 45, 98, 0.08), 0 12px 28px rgba(31, 45, 98, 0.3);
-    padding: 12px;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 14px 4px;
     text-align: left;
-    transition: transform 0.22s ease, box-shadow 0.22s ease;
+    transition: background-color 0.18s ease;
+}
+
+.practice-home-redesign .redesign-practice-option + .redesign-practice-option {
+    border-top: 1px solid rgba(31, 45, 98, 0.1);
+}
+
+@media (min-width: 900px) {
+    .practice-home-redesign .redesign-practice-option:nth-child(2) {
+        border-top: 0;
+    }
+    .practice-home-redesign .redesign-practice-option:nth-child(odd) {
+        padding-right: 18px;
+        border-right: 1px solid rgba(31, 45, 98, 0.1);
+    }
+    .practice-home-redesign .redesign-practice-option:nth-child(even) {
+        padding-left: 18px;
+    }
 }
 
 .practice-home-redesign .redesign-practice-option:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(31, 45, 98, 0.1), 0 16px 36px rgba(31, 45, 98, 0.36);
+    background: rgba(111, 125, 240, 0.06);
 }
 
 .practice-home-redesign .practice-row-tile {
@@ -256,11 +273,11 @@ body.practice-home-redesign {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 22px;
-    padding: 0.04rem 0.46rem;
+    min-height: 18px;
+    padding: 0.02rem 0.4rem;
     border-radius: 999px;
-    font-size: 0.76rem;
-    font-weight: 700;
+    font-size: 0.66rem;
+    font-weight: 500;
     line-height: 1;
     white-space: nowrap;
 }
@@ -527,7 +544,7 @@ body.practice-home-redesign {
     }
 
     .practice-home-redesign .redesign-practice-option {
-        padding: 10px;
+        padding: 12px 2px;
         gap: 10px;
     }
 
@@ -578,7 +595,7 @@ body.practice-home-redesign {
 
     .practice-home-redesign .redesign-practice-option {
         gap: 8px;
-        padding: 9px;
+        padding: 11px 2px;
     }
 
     .practice-home-redesign .practice-row-tile {
