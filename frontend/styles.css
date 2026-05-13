@@ -378,6 +378,15 @@ body {
     opacity: 1;
 }
 
+.kid-nav-card-meta {
+    margin-left: auto;
+    font-size: 0.9rem;
+    font-weight: 700;
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+
 .deck-page {
     max-width: 1000px;
     margin: 0 auto;
@@ -401,11 +410,6 @@ body {
         height: 16px;
     }
 }
-
-.practice-page .header h1 {
-    color: #fff;
-}
-
 
 .settings-card h2,
 .manage-page .settings-section h2,
@@ -438,43 +442,6 @@ h3:has(.icon) {
 
 .practice-page * {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.practice-page .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-}
-
-@media (max-width: 520px) {
-    .practice-page .header {
-        margin-bottom: 6px;
-    }
-}
-
-.practice-page .header-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-}
-
-.practice-page .header.header-with-actions {
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 0.75rem 1rem;
-}
-
-.practice-page .header.header-with-actions h1 {
-    flex: 1 1 auto;
-    min-width: 0;
-    line-height: 1.15;
-}
-
-.practice-page .header.header-with-actions .header-actions {
-    margin-left: auto;
-    justify-content: flex-end;
-    flex: 0 0 auto;
 }
 
 .back-btn {
@@ -863,19 +830,6 @@ h3:has(.icon) {
 }
 
 /* === 6. Manage page — header, tables, settings, cards toolbar ============ */
-
-.manage-page .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-}
-
-@media (max-width: 520px) {
-    .manage-page .header {
-        margin-bottom: 6px;
-    }
-}
 
 .shared-report-table-wrap,
 .deck-review-table-wrap,
@@ -1299,18 +1253,13 @@ header h1 {
     line-height: 1.2;
 }
 
-.header h1 {
-    font-size: clamp(1.45rem, 3.2vw, 2rem);
-    line-height: 1.2;
-}
-
 header p {
     font-size: 1.2em;
     opacity: 0.9;
 }
 
 .page-header-with-back {
-    margin-bottom: 28px;
+    margin-bottom: 14px;
     color: #fff;
 }
 
@@ -1327,12 +1276,34 @@ header p {
     flex: 1 1 auto;
     min-width: 0;
     text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
 }
 
 .page-header-with-back .page-header-row h1 .page-title-icon {
-    vertical-align: -0.18em;
-    margin-right: 0.35rem;
+    flex: 0 0 auto;
 }
+
+.kid-initial-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 500;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.kid-initial-avatar--tone-0 { background: linear-gradient(135deg, #8b5cf6, #6f55d8); }
+.kid-initial-avatar--tone-1 { background: linear-gradient(135deg, #4d84e3, #3b66c2); }
+.kid-initial-avatar--tone-2 { background: linear-gradient(135deg, #ec5fa1, #c83f86); }
+.kid-initial-avatar--tone-3 { background: linear-gradient(135deg, #34b89c, #1e8a73); }
+.kid-initial-avatar--tone-4 { background: linear-gradient(135deg, #f0a23a, #d27a18); }
+.kid-initial-avatar--tone-5 { background: linear-gradient(135deg, #ed6f5c, #c4493a); }
 
 .page-header-with-back .page-header-back-btn {
     flex: 0 0 auto;
@@ -1481,15 +1452,8 @@ header p {
     background: #aeb7c9;
 }
 
-/* Keep manage-page titles responsive on all devices. */
-.manage-page .header h1 {
-    font-size: clamp(1.45rem, 3.2vw, 2rem);
-    line-height: 1.2;
-}
-
 @media (max-width: 760px) {
-    header h1,
-    .header h1 {
+    header h1 {
         font-size: clamp(1.45rem, 3.2vw, 2rem);
         line-height: 1.2;
     }
@@ -1515,6 +1479,12 @@ header p {
     .page-header-with-back .page-header-row h1 .page-title-icon {
         width: 22px;
         height: 22px;
+    }
+
+    .page-header-with-back .page-header-row h1 .kid-initial-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 1.05rem;
     }
 
     .page-header-with-back .page-header-back-btn {
@@ -1546,14 +1516,6 @@ header p {
         flex: 0 0 auto;
     }
 
-    .practice-page .header.header-with-actions h1 {
-        flex-basis: 100%;
-    }
-
-    .practice-page .header.header-with-actions .header-actions {
-        width: 100%;
-    }
-
     .manage-page .settings-row {
         flex-direction: column;
         align-items: stretch;
@@ -1567,19 +1529,6 @@ header p {
 
     .manage-page .settings-row .settings-save-btn {
         width: 100%;
-    }
-
-    .manage-page .header {
-        flex-direction: row;
-        align-items: flex-start;
-        gap: 0.65rem;
-    }
-
-    .manage-page .header h1 {
-        flex: 1 1 auto;
-        min-width: 0;
-        font-size: clamp(1.45rem, 3.2vw, 2rem);
-        line-height: 1.2;
     }
 
     .manage-page .back-btn {
@@ -2327,18 +2276,6 @@ footer {
 
 /* === 13. Report page ==================================================== */
 
-/* Report pages (kid-report, kid-session-report, kid-card-report) */
-.report-page .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.report-page .header h1 {
-    color: #fff;
-}
-
 .report-page .summary-shell {
     background: var(--section-surface-bg-soft);
     border: 1px solid var(--section-surface-border);
@@ -2412,11 +2349,6 @@ footer {
         max-width: none;
     }
 
-    .report-page .header {
-        margin-bottom: 0.56rem;
-        gap: 0.5rem;
-    }
-
     .report-page .summary-shell,
     .report-page .detail-card,
     .report-page .chart-card,
@@ -2456,10 +2388,6 @@ footer {
 @media (max-width: 520px) {
     body.report-page {
         padding: 6px;
-    }
-
-    .report-page .header {
-        margin-bottom: 6px;
     }
 
     .report-page .summary-shell,

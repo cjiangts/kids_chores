@@ -6,21 +6,6 @@
             max-width: 960px;
         }
 
-        .worksheet-manage-page .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }
-
-        .worksheet-manage-page .header h1 {
-            margin: 0;
-            color: #fff;
-            font-size: clamp(1.45rem, 3.2vw, 2rem);
-            line-height: 1.2;
-        }
-
         .type2-sheet-layout {
             display: flex;
             flex-direction: column;
@@ -30,10 +15,6 @@
         @media (max-width: 520px) {
             .type2-sheet-layout {
                 gap: 6px;
-            }
-
-            .worksheet-manage-page .header {
-                margin-bottom: 6px;
             }
         }
 
@@ -424,18 +405,6 @@
         }
 
         @media (max-width: 760px) {
-            .worksheet-manage-page .header {
-                flex-direction: row;
-                align-items: flex-start;
-                justify-content: space-between;
-            }
-
-            .worksheet-manage-page .header h1 {
-                flex: 1 1 auto;
-                min-width: 0;
-                margin-right: 0.35rem;
-            }
-
             .worksheet-manage-page .back-btn {
                 width: auto;
                 min-width: 92px;

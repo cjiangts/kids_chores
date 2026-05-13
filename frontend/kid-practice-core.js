@@ -685,7 +685,8 @@ function applyKidInfoPayload(kidPayload) {
         throw new Error('No practice subject is available for this kid.');
     }
 
-    kidNameEl.textContent = state.currentKid.name;
+    kidNameEl.textContent = window.PracticeUiCommon.formatKidPracticeTitle(state.currentKid.name);
+    window.PracticeUiCommon.applyKidInitialAvatar(document.getElementById('kidTitleIcon'), state.currentKid);
     setStartTitle(`Ready for ${state.categoryDisplayName}?`);
     updatePageTitle();
 }

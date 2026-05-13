@@ -59,7 +59,6 @@ body.practice-home-redesign {
 /* Kid practice home */
 .practice-home-redesign .practice-home-container {
     margin: 0 auto;
-    max-width: 760px;
 }
 
 .practice-home-redesign .redesign-practice-grid {
@@ -68,15 +67,21 @@ body.practice-home-redesign {
     gap: 10px;
 }
 
+@media (min-width: 900px) {
+    .practice-home-redesign .redesign-practice-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 .practice-home-redesign .redesign-practice-option {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px;
     border: 0;
-    border-radius: 20px;
+    border-radius: var(--section-surface-radius);
     background: #fff;
-    box-shadow: 0 14px 34px rgba(31, 45, 98, 0.16);
+    box-shadow: 0 2px 4px rgba(31, 45, 98, 0.08), 0 12px 28px rgba(31, 45, 98, 0.3);
     padding: 12px;
     text-align: left;
     transition: transform 0.22s ease, box-shadow 0.22s ease;
@@ -84,7 +89,7 @@ body.practice-home-redesign {
 
 .practice-home-redesign .redesign-practice-option:hover {
     transform: translateY(-1px);
-    box-shadow: 0 18px 40px rgba(31, 45, 98, 0.2);
+    box-shadow: 0 3px 6px rgba(31, 45, 98, 0.1), 0 16px 36px rgba(31, 45, 98, 0.36);
 }
 
 .practice-home-redesign .practice-row-tile {
@@ -299,11 +304,57 @@ body.practice-home-redesign {
     color: #4b5a70;
 }
 
+.practice-home-redesign .practice-home-topbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    margin-bottom: 10px;
+}
+
+@media (min-width: 900px) {
+    .practice-home-redesign .practice-home-topbar {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .practice-home-redesign .practice-home-topbar .redesign-summary-strip {
+        margin-left: auto;
+        width: fit-content;
+    }
+}
+
 .practice-home-redesign .redesign-summary-strip {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    max-width: 100%;
     gap: 10px;
-    margin-bottom: 14px;
+}
+
+.practice-home-redesign .redesign-summary-strip .admin-action-card-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #6b7299;
+    line-height: 1.2;
+}
+
+.practice-home-redesign .redesign-summary-strip .admin-action-card-value {
+    font-size: 1.18rem;
+    font-weight: 700;
+    color: #2f3c7e;
+    line-height: 1.1;
+}
+
+@media (max-width: 600px) {
+    .practice-home-redesign .redesign-summary-strip .admin-action-card-label {
+        font-size: 0.64rem;
+    }
+    .practice-home-redesign .redesign-summary-strip .admin-action-card-value {
+        font-size: 1.02rem;
+    }
 }
 
 .admin-action-grid {
@@ -470,19 +521,12 @@ body.practice-home-redesign {
     }
 }
 
-@media (max-width: 980px) {
-    .practice-home-redesign .redesign-practice-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
 @media (max-width: 760px) {
     body.practice-home-redesign {
         padding: 12px;
     }
 
     .practice-home-redesign .redesign-practice-option {
-        border-radius: 18px;
         padding: 10px;
         gap: 10px;
     }
@@ -523,27 +567,12 @@ body.practice-home-redesign {
 }
 
 @media (max-width: 520px) {
-    .practice-home-redesign .header {
-        align-items: flex-start;
-        gap: 10px;
-    }
-
-    .practice-home-redesign .header-actions {
-        justify-content: flex-end;
-    }
-
-    .practice-page .header h1 {
-        font-size: clamp(1.2rem, 6vw, 1.7rem);
-        line-height: 1.1;
-    }
-
     .practice-home-redesign .back-btn {
         padding: 0.42rem 0.72rem;
         font-size: 0.92rem;
     }
 
     .practice-home-redesign .redesign-summary-strip {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 6px;
     }
 

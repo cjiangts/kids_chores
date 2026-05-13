@@ -1,4 +1,38 @@
 window.PracticeUiCommon = {
+    formatKidPracticeTitle(kidName) {
+        return `${String(kidName || '').trim()}'s Practice`;
+    },
+
+    getKidInitial(name) {
+        const trimmed = String(name || '').trim();
+        if (!trimmed) {
+            return '?';
+        }
+        return String.fromCodePoint(trimmed.codePointAt(0)).toUpperCase();
+    },
+
+    hashStringToToneIndex(value, toneCount = 6) {
+        const s = String(value || '');
+        let hash = 0;
+        for (let i = 0; i < s.length; i += 1) {
+            hash = ((hash << 5) - hash) + s.charCodeAt(i);
+            hash |= 0;
+        }
+        const m = Math.max(1, toneCount);
+        return ((hash % m) + m) % m;
+    },
+
+    applyKidInitialAvatar(el, kid) {
+        if (!el) {
+            return;
+        }
+        const name = String(kid?.name || '');
+        const initial = window.PracticeUiCommon.getKidInitial(name);
+        const tone = window.PracticeUiCommon.hashStringToToneIndex(kid?.id || name);
+        el.className = `page-title-icon kid-initial-avatar kid-initial-avatar--tone-${tone}`;
+        el.textContent = initial;
+    },
+
     shuffleCards(cardsList) {
         const shuffled = [...(Array.isArray(cardsList) ? cardsList : [])];
         for (let i = shuffled.length - 1; i > 0; i -= 1) {

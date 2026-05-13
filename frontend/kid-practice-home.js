@@ -3,7 +3,7 @@
  *
  * Shows a per-category "what's left today" summary strip, a chooser
  * grid of practice options (one card per opted-in category), and an
- * inline switch-kid menu in the header.
+ * inline kid toggle (segmented pill) under the header.
  *
  * Each option card dispatches to a type-specific go* navigation
  * function that builds the kid-practice.html URL with the right
@@ -12,7 +12,7 @@
  * Layout (search for `// === N. ` banners to jump between sections):
  *
  *     1. DOM refs + navigation helpers (persistLast, title, badge)
- *     2. Switch-kid menu
+ *     2. Kid toggle
  *     3. Bootstrap (DOMContentLoaded → loadKidInfo → render)
  *     4. Badge shelf summary + writing warm-up
  *     5. Category progress model + chooser rendering
@@ -29,8 +29,7 @@ const requestedCategoryKey = window.DeckCategoryCommon.normalizeCategoryKey(
 );
 
 const kidNameEl = document.getElementById('kidName');
-const switchKidBtn = document.getElementById('switchKidBtn');
-const switchKidMenu = document.getElementById('switchKidMenu');
+const kidToggleGroup = document.getElementById('kidToggleGroup');
 const errorMessage = document.getElementById('errorMessage');
 const practiceSection = document.getElementById('practiceSection');
 const practiceSummaryStrip = document.getElementById('practiceSummaryStrip');
@@ -168,78 +167,11 @@ function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpeci
     goType1Practice(categoryKey);
 }
 
-let switchKidList = null;
-let switchKidListLoading = false;
-const SWITCH_KID_AVATAR_TONE_COUNT = 6;
-
-function getKidInitial(name) {
-    const trimmed = String(name || '').trim();
-    if (!trimmed) return '?';
-    const codePoint = trimmed.codePointAt(0);
-    return String.fromCodePoint(codePoint).toUpperCase();
-}
-
-function hashStringToIndex(value, modulo) {
-    const s = String(value || '');
-    let hash = 0;
-    for (let i = 0; i < s.length; i++) {
-        hash = ((hash << 5) - hash) + s.charCodeAt(i);
-        hash |= 0;
-    }
-    const m = Math.max(1, modulo);
-    return ((hash % m) + m) % m;
-}
+let kidToggleLoading = false;
 
 // =====================================================================
-// === 2. Switch-kid menu
+// === 2. Kid toggle
 // =====================================================================
-function initSwitchKidMenu() {
-    if (!switchKidBtn || !switchKidMenu) return;
-    void loadKidsForSwitcher();
-    switchKidBtn.addEventListener('click', (event) => {
-        event.stopPropagation();
-        toggleSwitchKidMenu();
-    });
-    document.addEventListener('click', (event) => {
-        if (switchKidMenu.classList.contains('hidden')) return;
-        if (switchKidMenu.contains(event.target) || switchKidBtn.contains(event.target)) return;
-        closeSwitchKidMenu();
-    });
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !switchKidMenu.classList.contains('hidden')) {
-            closeSwitchKidMenu();
-            switchKidBtn.focus();
-        }
-    });
-}
-
-function toggleSwitchKidMenu() {
-    if (!switchKidMenu) return;
-    if (switchKidMenu.classList.contains('hidden')) {
-        openSwitchKidMenu();
-    } else {
-        closeSwitchKidMenu();
-    }
-}
-
-function openSwitchKidMenu() {
-    if (!switchKidMenu || !switchKidBtn) return;
-    switchKidMenu.classList.remove('hidden');
-    switchKidBtn.setAttribute('aria-expanded', 'true');
-    if (switchKidList) {
-        renderSwitchKidMenu(switchKidList);
-    } else {
-        switchKidMenu.innerHTML = '<div class="kid-switch-menu-loading">Loading…</div>';
-        void loadKidsForSwitcher();
-    }
-}
-
-function closeSwitchKidMenu() {
-    if (!switchKidMenu || !switchKidBtn) return;
-    switchKidMenu.classList.add('hidden');
-    switchKidBtn.setAttribute('aria-expanded', 'false');
-}
-
 function kidHasPracticeTarget(kid) {
     const optedInKeys = getOptedInDeckCategoryKeys(kid);
     if (!Array.isArray(optedInKeys) || optedInKeys.length === 0) return false;
@@ -251,52 +183,77 @@ function kidHasPracticeTarget(kid) {
     return false;
 }
 
-async function loadKidsForSwitcher() {
-    if (switchKidListLoading) return;
-    switchKidListLoading = true;
+function computeKidToggleProgress(kid) {
+    const optedInKeys = getOptedInDeckCategoryKeys(kid);
+    const metaMap = getDeckCategoryMetaMap(kid);
+    const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
+    const tiers = getCategoryRawValueMap(kid?.dailyStarTiersByDeckCategory);
+    let assigned = 0;
+    let done = 0;
+    optedInKeys.forEach((key) => {
+        const normalized = normalizeCategoryKey(key);
+        if (!normalized) return;
+        const target = Number.parseInt(targets?.[normalized], 10);
+        if (!(Number.isInteger(target) && target > 0)) return;
+        const behaviorType = String(metaMap?.[normalized]?.behavior_type || '').trim().toLowerCase();
+        if (!VALID_BEHAVIOR_TYPES.has(behaviorType)) return;
+        assigned += 1;
+        const tierList = Array.isArray(tiers?.[normalized]) ? tiers[normalized] : [];
+        if (tierList.some((tier) => String(tier || '').toLowerCase() === 'gold')) {
+            done += 1;
+        }
+    });
+    return { assigned, done };
+}
+
+async function loadKidsForToggle() {
+    if (kidToggleLoading) return;
+    kidToggleLoading = true;
     try {
         const response = await fetch(`${API_BASE}/kids?view=admin`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const kids = await response.json();
         const all = Array.isArray(kids) ? kids : [];
-        switchKidList = all.filter((kid) => kidHasPracticeTarget(kid) || String(kid?.id || '') === kidId);
-        if (switchKidBtn) {
-            switchKidBtn.classList.toggle('hidden', switchKidList.length <= 1);
-        }
-        if (!switchKidMenu.classList.contains('hidden')) {
-            renderSwitchKidMenu(switchKidList);
-        }
+        const list = all.filter((kid) => kidHasPracticeTarget(kid) || String(kid?.id || '') === kidId);
+        renderKidToggle(list);
     } catch (error) {
-        console.error('Error loading kids for switcher:', error);
-        if (!switchKidMenu.classList.contains('hidden')) {
-            switchKidMenu.innerHTML = '<div class="kid-switch-menu-error">Failed to load kids.</div>';
+        console.error('Error loading kids for toggle:', error);
+        if (kidToggleGroup) {
+            kidToggleGroup.classList.add('hidden');
+            kidToggleGroup.innerHTML = '';
         }
     } finally {
-        switchKidListLoading = false;
+        kidToggleLoading = false;
     }
 }
 
-function renderSwitchKidMenu(kids) {
-    if (!switchKidMenu) return;
+function renderKidToggle(kids) {
+    if (!kidToggleGroup) return;
     const list = Array.isArray(kids) ? kids : [];
-    if (list.length === 0) {
-        switchKidMenu.innerHTML = '<div class="kid-switch-menu-empty">No other kids.</div>';
+    if (list.length < 2) {
+        kidToggleGroup.classList.add('hidden');
+        kidToggleGroup.innerHTML = '';
         return;
     }
-    const itemsHtml = list.map((kid) => {
+    const userIconSvg = (typeof window.icon === 'function')
+        ? window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 })
+        : '';
+    kidToggleGroup.innerHTML = list.map((kid) => {
         const id = String(kid?.id || '');
-        const name = String(kid?.name || '').trim() || 'Unnamed';
-        const isCurrent = id === kidId;
+        const name = String(kid?.name || '').trim() || 'Kid';
+        const isActive = id === String(kidId);
+        const { assigned, done } = computeKidToggleProgress(kid);
+        const metaHtml = assigned > 0
+            ? `<span class="kid-nav-card-meta">${done}/${assigned}</span>`
+            : '';
+        const nameHtml = `<span>${escapeHtmlLocal(name)}</span>`;
+        if (isActive) {
+            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}${nameHtml}${metaHtml}</span>`;
+        }
         const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
-        const currentClass = isCurrent ? ' is-current' : '';
-        const tone = hashStringToIndex(id || name, SWITCH_KID_AVATAR_TONE_COUNT);
-        const avatarHtml = `<span class="kid-switch-menu-avatar kid-switch-menu-avatar--tone-${tone}" aria-hidden="true">${escapeHtmlLocal(getKidInitial(name))}</span>`;
-        const checkSvg = (typeof window.icon === 'function') ? window.icon('check', { size: 14 }) : '';
-        const checkClass = isCurrent ? 'kid-switch-menu-check' : 'kid-switch-menu-check is-empty';
-        const checkHtml = `<span class="${checkClass}" aria-hidden="true">${checkSvg}</span>`;
-        return `<a class="kid-switch-menu-item${currentClass}" href="${escapeHtmlLocal(href)}" role="menuitem"${isCurrent ? ' aria-current="page"' : ''}>${avatarHtml}<span class="kid-switch-menu-name">${escapeHtmlLocal(name)}</span>${checkHtml}</a>`;
+        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${metaHtml}</a>`;
     }).join('');
-    switchKidMenu.innerHTML = itemsHtml;
+    kidToggleGroup.classList.remove('hidden');
 }
 
 function cacheKidForPracticeNavigation() {
@@ -325,7 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     persistLastViewedKidId(kidId);
-    initSwitchKidMenu();
+    void loadKidsForToggle();
     const cachedKid = readKidFromPracticeNavigationCache();
     if (cachedKid) {
         applyKidPayload(cachedKid);
@@ -371,7 +328,8 @@ function applyKidPayload(kid) {
         writingCardsLoadedCategoryKey = '';
     }
     activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
-    kidNameEl.textContent = currentKid.name;
+    kidNameEl.textContent = window.PracticeUiCommon.formatKidPracticeTitle(currentKid.name);
+    window.PracticeUiCommon.applyKidInitialAvatar(document.getElementById('kidTitleIcon'), currentKid);
     updatePageTitle();
 }
 
@@ -749,7 +707,6 @@ function renderPracticeSummaryStrip({
 
     let assignedCount = 0;
     let doneCount = 0;
-    let starsTodayCount = 0;
 
     optedInCategoryKeys.forEach((categoryKey) => {
         const key = normalizeCategoryKey(categoryKey);
@@ -780,7 +737,6 @@ function renderPracticeSummaryStrip({
             dailyRightByCategory,
             practiceTargetByCategory,
         });
-        starsTodayCount += model.starCount;
         if (model.isFullyComplete) {
             doneCount += 1;
         }
@@ -789,17 +745,10 @@ function renderPracticeSummaryStrip({
     const summaryBoxes = [];
     if (assignedCount > 0) {
         summaryBoxes.push(buildStatCard({
-            iconName: 'star',
-            iconFill: 'currentColor',
-            iconClass: 'admin-action-card-icon--amber',
-            label: 'Stars Today',
-            value: starsTodayCount,
-        }));
-        summaryBoxes.push(buildStatCard({
-            iconName: 'bar-chart-3',
+            iconName: 'calendar',
             iconClass: 'admin-action-card-icon--violet',
-            label: 'Report',
-            value: `${doneCount}/${assignedCount}`,
+            label: "Today's Sessions",
+            value: doneCount,
             action: 'open-progress-report',
             ariaLabel: "View today's practice report",
         }));
@@ -809,7 +758,7 @@ function renderPracticeSummaryStrip({
         summaryBoxes.push(buildStatCard({
             iconName: 'award',
             iconClass: 'admin-action-card-icon--coral',
-            label: 'Badges',
+            label: 'Earned Badges',
             value: earnedCount,
             action: 'open-badge-shelf',
         }));
