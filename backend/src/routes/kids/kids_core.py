@@ -26,7 +26,9 @@ from src.routes.kids_constants import (
     MIN_DRILL_SPEED_CUTOFF_MS,
     SESSION_CARD_COUNT_BY_CATEGORY_FIELD,
     SESSION_RESULT_RETRY_FIXED_FIRST,
+    TYPE_I_NON_CHINESE_DECK_MIX_FIELD,
 )
+from src.services.kid_category_config import get_category_orphan_deck_name
 from src.routes.kids import (
     datetime,
     defaultdict,
