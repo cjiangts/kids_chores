@@ -66,7 +66,6 @@ from src.services.kid_daily_progress import (
     get_kid_opted_in_deck_category_keys,
     get_kid_practice_target_by_deck_category,
     get_kid_scoped_db_relpath,
-    get_kid_ungraded_type_iii_count,
     get_type_iii_category_keys,
 )
 from src.services.practice_mode import (
@@ -105,6 +104,7 @@ def get_kids():
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
 
         if is_admin_view:
+            family_timezone = metadata.get_family_timezone(family_id)
             kids_with_admin_summary = []
             for kid in kids:
                 conn = None
@@ -124,16 +124,31 @@ def get_kids():
                         category_meta_by_key,
                         conn=conn,
                     )
-                    ungraded_count = get_kid_ungraded_type_iii_count(
+                    (
+                        _today_counts,
+                        today_star_tiers,
+                        _today_latest_percent,
+                        _today_latest_target_count,
+                        _today_latest_tried_count,
+                        _today_latest_right_count,
+                        ungraded_count,
+                    ) = get_kid_dashboard_stats(
                         kid,
+                        category_meta_by_key=category_meta_by_key,
                         type_iii_category_keys=type_iii_category_keys,
                         conn=conn,
+                        family_timezone=family_timezone,
+                    )
+                    daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
+                        opted_in_category_keys,
+                        today_star_tiers=today_star_tiers,
                     )
                     kids_with_admin_summary.append({
                         **kid,
                         'typeIIIToReviewCount': ungraded_count,
                         'optedInDeckCategoryKeys': opted_in_category_keys,
                         'practiceTargetByDeckCategory': practice_target_by_deck_category,
+                        'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
                         'deckCategoryMetaByKey': category_meta_by_key,
                     })
                 finally:

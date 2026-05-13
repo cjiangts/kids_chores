@@ -1,22 +1,23 @@
 /*
  * admin.js — family home page (admin.html).
  *
- * Renders the kid grid, the "start practice" jump button, the deck-
- * category opt-in matrix in edit mode, the per-kid kebab menu, and
- * the deck-browse modal launched from a category cell.
+ * Renders the audio-review banner, the deck-category opt-in matrix
+ * with a per-kid daily-progress ring, the "start practice" jump
+ * button, edit-mode delete overlay, and the deck-browse modal.
  *
  * Edit mode is the matrix's "rearrange" view: it lets the parent
- * toggle category opt-ins per kid, with debounced saves per row.
+ * toggle category opt-ins per kid (with debounced saves per row) and
+ * delete a kid via the trash overlay on the avatar.
  *
  * Layout (search for `// === N. ` banners to jump between sections):
  *
  *     1. DOM refs + auth + DOMContentLoaded
  *     2. Display helpers (escape, initial, hashing, last-viewed-kid)
  *     3. Kid CRUD + cache + load
- *     4. Action grid (start practice + entry points)
+ *     4. Audio-review banner
  *     5. Opt-in matrix render
  *     6. Matrix edit mode + per-kid debounced save
- *     7. Per-kid + per-panel + per-subject menus
+ *     7. Per-subject menu
  *     8. Deck browse modal
  */
 
@@ -24,7 +25,7 @@
 const API_BASE = `${window.location.origin}/api`;
 
 // DOM Elements
-const adminActionGrid = document.getElementById('adminActionGrid');
+const adminReviewBanner = document.getElementById('adminReviewBanner');
 const adminOptinPanel = document.getElementById('adminOptinPanel');
 const adminMatrix = document.getElementById('adminMatrix');
 const adminEmptyState = document.getElementById('adminEmptyState');
@@ -38,7 +39,6 @@ const kidFormSaveBtn = document.getElementById('kidFormSaveBtn');
 
 const {
     normalizeCategoryKey,
-    getOptedInDeckCategoryKeys,
     getOptedInDeckCategorySet,
     getCategoryValueMap,
     getDeckCategoryMetaMap,
@@ -65,7 +65,6 @@ const pendingSaveTimers = new Map();
 const inFlightSaves = new Map();
 const savingKids = new Set();
 const KID_AUTOSAVE_DELAY_MS = 450;
-let openKidMenuKidId = '';
 let openSubjectMenuKey = '';
 let isPanelMenuOpen = false;
 let isSuperFamily = false;
@@ -130,12 +129,6 @@ function bindEvents() {
         });
     }
     document.addEventListener('click', (event) => {
-        if (openKidMenuKidId) {
-            const menu = document.querySelector('.admin-kid-menu');
-            const trigger = event.target.closest('[data-kid-menu-trigger]');
-            const inside = (menu && menu.contains(event.target)) || trigger;
-            if (!inside) closeKidMenu();
-        }
         if (openSubjectMenuKey) {
             const subjectMenu = document.querySelector('.admin-subject-menu');
             const subjectTrigger = event.target.closest('[data-subject-menu-trigger]');
@@ -312,8 +305,8 @@ async function loadKids(options = {}) {
                 usedNavigationCache = true;
             }
         }
-        if (!usedNavigationCache && adminActionGrid) {
-            adminActionGrid.innerHTML = '<div class="empty-state app-spinner-block" role="status" aria-label="Loading" style="grid-column: 1 / -1; background: transparent;"><span class="app-spinner app-spinner--light" aria-hidden="true"></span></div>';
+        if (!usedNavigationCache && adminOptinPanel) {
+            adminOptinPanel.classList.add('hidden');
         }
         const response = await fetch(`${API_BASE}/kids?view=admin`);
         if (!response.ok) {
@@ -463,7 +456,7 @@ function buildEditStateFromKids(kids) {
 }
 
 function renderAll() {
-    renderActionGrid();
+    renderReviewBanner();
     renderMatrix();
     updateStartPracticeHref();
 }
@@ -521,120 +514,38 @@ function getEffectiveOptedInKeys(kid) {
 }
 
 // =====================================================================
-// === 4. Action grid (start practice + entry points)
+// === 4. Audio-review banner
 // =====================================================================
-function renderActionGrid() {
-    if (!adminActionGrid) return;
+function renderReviewBanner() {
+    if (!adminReviewBanner) return;
     const list = Array.isArray(currentKids) ? currentKids : [];
-    if (list.length === 0) {
-        adminActionGrid.innerHTML = '';
-        return;
-    }
     const totalReviewCount = list.reduce((sum, kid) => {
         const count = Number.parseInt(kid?.typeIIIToReviewCount, 10);
         return sum + (Number.isInteger(count) && count > 0 ? count : 0);
     }, 0);
-    const hasReviewAudio = totalReviewCount > 0;
-    const hasAnyOptIn = list.some((kid) => getEffectiveOptedInKeys(kid).length > 0);
-    adminActionGrid.classList.remove('admin-action-grid--two');
-    const actionsHtml = [
-        buildActionCardHtml({
-            id: 'cardMgmtBtn',
-            iconName: 'layers',
-            iconClass: 'admin-action-card-icon--blue',
-            label: 'Manage Cards',
-            disabled: !hasAnyOptIn,
-        }),
-        buildActionCardHtml({
-            id: 'practiceReportBtn',
-            iconName: 'bar-chart-3',
-            iconClass: 'admin-action-card-icon--violet',
-            label: 'View Reports',
-        }),
-        buildActionCardHtml({
-            id: 'reviewAudioBtn',
-            iconName: 'headphones',
-            iconClass: 'admin-action-card-icon--coral',
-            label: 'Review Audio',
-            badge: hasReviewAudio ? totalReviewCount : null,
-            disabled: !hasReviewAudio,
-        }),
-    ].join('');
-    adminActionGrid.innerHTML = actionsHtml;
-    if (hasAnyOptIn) {
-        bindActionCard('cardMgmtBtn', () => navigateForAction('card-mgmt'));
-    }
-    bindActionCard('practiceReportBtn', () => navigateForAction('practice-report'));
-    if (hasReviewAudio) {
-        bindActionCard('reviewAudioBtn', () => navigateForAction('review-audio'));
-    }
-}
-
-function buildActionCardHtml({ id, iconName, iconClass, label, badge, disabled }) {
-    const badgeHtml = (badge != null && badge > 0)
-        ? `<span class="admin-action-card-badge">${badge}</span>`
-        : '';
-    const disabledAttr = disabled ? ' disabled aria-disabled="true"' : '';
-    const disabledClass = disabled ? ' is-disabled' : '';
-    return `
-        <button type="button" id="${id}" class="admin-action-card${disabledClass}"${disabledAttr}>
-            <span class="admin-action-card-icon ${iconClass}" aria-hidden="true">${icon(iconName, { size: 22 })}${badgeHtml}</span>
-            <span class="admin-action-card-label">${escapeHtml(label)}</span>
-        </button>
-    `;
-}
-
-function bindActionCard(id, handler) {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('click', handler);
-}
-
-function navigateForAction(action) {
-    const list = Array.isArray(currentKids) ? currentKids : [];
-    if (list.length === 0) {
-        showError('Add a kid first.');
+    if (totalReviewCount <= 0) {
+        adminReviewBanner.classList.add('hidden');
+        adminReviewBanner.innerHTML = '';
         return;
     }
-    if (action === 'review-audio') {
+    adminReviewBanner.classList.remove('hidden');
+    adminReviewBanner.className = 'admin-review-banner';
+    const noun = totalReviewCount === 1 ? 'audio recording' : 'audio recordings';
+    const iconHtml = icon('headphones', { size: 20 });
+    const chevronHtml = icon('chevron-right', { size: 16, strokeWidth: 2.4 });
+    adminReviewBanner.innerHTML = `
+        <span class="admin-review-banner-icon" aria-hidden="true">${iconHtml}</span>
+        <span class="admin-review-banner-text">${totalReviewCount} ${escapeHtml(noun)} waiting for review</span>
+        <span class="admin-review-banner-cta">Review ${chevronHtml}</span>
+    `;
+    adminReviewBanner.onclick = () => {
         const reviewKid = pickKidWithReviewAudio(list);
         if (!reviewKid) {
             showError('No audio to review right now.');
             return;
         }
         goToLatestTypeIIIReviewSession(reviewKid.id);
-        return;
-    }
-    const targetKidId = getMostRecentKidId(list);
-    if (!targetKidId) {
-        showError('Add a kid first.');
-        return;
-    }
-    persistLastViewedKidId(targetKidId);
-    if (action === 'card-mgmt') {
-        const targetKid = list.find((kid) => String(kid?.id || '') === targetKidId);
-        const categoryKey = pickDefaultCategoryKeyForKid(targetKid);
-        if (!categoryKey) {
-            showError('No subjects opted in for this kid yet. Use the table below to opt in.');
-            return;
-        }
-        const params = new URLSearchParams({ id: targetKidId, categoryKey });
-        window.location.href = `/kid-card-manage.html?${params.toString()}`;
-    } else if (action === 'practice-report') {
-        window.location.href = `/kid-report.html?id=${encodeURIComponent(targetKidId)}`;
-    }
-}
-
-function pickDefaultCategoryKeyForKid(kid) {
-    if (!kid) return '';
-    const optedInKeys = getOptedInDeckCategoryKeys(kid);
-    if (optedInKeys.length > 0) return optedInKeys[0];
-    const meta = getDeckCategoryMetaMap(kid);
-    const firstAvailable = Object.keys(meta || {}).find((rawKey) => {
-        const key = normalizeCategoryKey(rawKey);
-        const behaviorType = normalizeBehaviorType(meta[rawKey]?.behavior_type);
-        return key && VALID_BEHAVIOR_TYPES.has(behaviorType);
-    });
-    return firstAvailable ? normalizeCategoryKey(firstAvailable) : '';
+    };
 }
 
 function pickKidWithReviewAudio(kids) {
@@ -726,10 +637,6 @@ function renderMatrix() {
     adminMatrix.innerHTML = headerHtml + bodyHtml;
 
     bindMatrixInteractions(rows, list);
-    if (openKidMenuKidId) {
-        // Re-render menu position if open.
-        renderKidMenu(openKidMenuKidId);
-    }
     if (openSubjectMenuKey) {
         renderSubjectMenu(openSubjectMenuKey);
     }
@@ -744,15 +651,84 @@ function buildKidColumnHeader(kid) {
     const initial = getKidInitial(name);
     const tone = hashStringToIndex(kidId || name, KID_AVATAR_TONE_COUNT);
     const savingClass = savingKids.has(kidId) ? ' is-saving' : '';
+    const progress = computeKidDailyProgress(kid);
+    const ringSegmentsHtml = buildKidRingSegmentsHtml(progress);
+    const reportHref = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
+    const trashBtnHtml = editMode
+        ? `<button type="button" class="admin-matrix-kid-delete-btn" data-kid-delete data-kid-id="${escapeHtml(kidId)}" aria-label="Delete ${escapeHtml(name)}">${icon('trash', { size: 26, strokeWidth: 2 })}</button>`
+        : '';
+    const avatarHtml = `
+        <span class="admin-matrix-kid-ring-wrap">
+            <svg class="admin-matrix-kid-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+                <circle class="admin-matrix-kid-ring-track" cx="50" cy="50" r="46" />
+                ${ringSegmentsHtml}
+            </svg>
+            <span class="admin-matrix-kid-avatar admin-matrix-kid-avatar--tone-${tone}" aria-hidden="true">${escapeHtml(initial)}</span>
+            ${trashBtnHtml}
+        </span>
+        <span class="admin-matrix-kid-name">${escapeHtml(name)}</span>
+    `;
+    let interactiveHtml;
+    if (editMode) {
+        interactiveHtml = `
+            <span class="admin-matrix-kid-head-btn">
+                ${avatarHtml}
+            </span>
+        `;
+    } else {
+        interactiveHtml = `
+            <a href="${escapeHtml(reportHref)}" class="admin-matrix-kid-head-btn" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} — today's report">
+                ${avatarHtml}
+            </a>
+        `;
+    }
     return `
         <th class="admin-matrix-kid-head${savingClass}" data-kid-id="${escapeHtml(kidId)}">
-            <button type="button" class="admin-matrix-kid-head-btn" data-kid-menu-trigger data-kid-id="${escapeHtml(kidId)}" aria-label="Options for ${escapeHtml(name)}">
-                <span class="admin-matrix-kid-avatar admin-matrix-kid-avatar--tone-${tone}" aria-hidden="true">${escapeHtml(initial)}</span>
-                <span class="admin-matrix-kid-name">${escapeHtml(name)}</span>
-                <span class="admin-matrix-kid-caret" aria-hidden="true">${icon('chevron-down', { size: 12 })}</span>
-            </button>
+            ${interactiveHtml}
         </th>
     `;
+}
+
+function computeKidDailyProgress(kid) {
+    const optedInKeys = Array.from(getOptedInDeckCategorySet(kid));
+    const meta = getDeckCategoryMetaMap(kid);
+    const practiceTargets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
+    const dailyStarTiers = (kid && typeof kid.dailyStarTiersByDeckCategory === 'object')
+        ? kid.dailyStarTiersByDeckCategory || {}
+        : {};
+    const assigned = optedInKeys.filter((key) => {
+        const target = Number.parseInt(practiceTargets[key], 10);
+        if (!(Number.isInteger(target) && target > 0)) return false;
+        const behaviorType = normalizeBehaviorType(meta?.[key]?.behavior_type);
+        return VALID_BEHAVIOR_TYPES.has(behaviorType);
+    });
+    let complete = 0;
+    let inProgress = 0;
+    assigned.forEach((key) => {
+        const tiers = Array.isArray(dailyStarTiers[key]) ? dailyStarTiers[key] : [];
+        if (tiers.some((tier) => String(tier || '').toLowerCase() === 'gold')) {
+            complete += 1;
+        } else if (tiers.length > 0) {
+            inProgress += 1;
+        }
+    });
+    return { total: assigned.length, complete, inProgress };
+}
+
+function buildKidRingSegmentsHtml({ total, complete, inProgress }) {
+    if (!Number.isInteger(total) || total <= 0) return '';
+    const radius = 46;
+    const circumference = 2 * Math.PI * radius;
+    const completeLen = circumference * (complete / total);
+    const inProgressLen = circumference * (inProgress / total);
+    const segments = [];
+    if (completeLen > 0) {
+        segments.push(`<circle class="admin-matrix-kid-ring-seg complete" cx="50" cy="50" r="${radius}" stroke-dasharray="${completeLen} ${circumference - completeLen}" stroke-dashoffset="0" />`);
+    }
+    if (inProgressLen > 0) {
+        segments.push(`<circle class="admin-matrix-kid-ring-seg in-progress" cx="50" cy="50" r="${radius}" stroke-dasharray="${inProgressLen} ${circumference - inProgressLen}" stroke-dashoffset="${-completeLen}" />`);
+    }
+    return segments.join('');
 }
 
 function buildMatrixRow(row, kids) {
@@ -832,16 +808,20 @@ function bindMatrixInteractions(rows, kids) {
             }
         });
     });
-    adminMatrix.querySelectorAll('[data-kid-menu-trigger]').forEach((btn) => {
+    adminMatrix.querySelectorAll('[data-kid-report]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            persistLastViewedKidId(event.currentTarget.getAttribute('data-kid-id') || '');
+        });
+    });
+    adminMatrix.querySelectorAll('[data-kid-delete]').forEach((btn) => {
         btn.addEventListener('click', (event) => {
+            event.preventDefault();
             event.stopPropagation();
             const target = event.currentTarget;
             const kidId = target.getAttribute('data-kid-id') || '';
-            if (openKidMenuKidId === kidId) {
-                closeKidMenu();
-            } else {
-                openKidMenu(kidId, target);
-            }
+            const kid = currentKids.find((item) => String(item?.id || '') === kidId);
+            const name = String(kid?.name || '').trim();
+            deleteKid(kidId, name);
         });
     });
     const panelTrigger = adminMatrix.querySelector('[data-panel-menu-trigger]');
@@ -863,7 +843,7 @@ function toggleCellOptedIn(kidId, categoryKey) {
     editState[kidId][categoryKey] = !editState[kidId][categoryKey];
     scheduleKidSave(kidId);
     renderMatrix();
-    renderActionGrid();
+    renderReviewBanner();
     updateStartPracticeHref();
 }
 
@@ -894,7 +874,7 @@ async function exitEditMode() {
         editMode = false;
         editState = null;
         renderMatrix();
-        renderActionGrid();
+        renderReviewBanner();
         updateStartPracticeHref();
     } finally {
         isExitingEditMode = false;
@@ -977,52 +957,8 @@ function setKidHeaderSavingClass(kidId, isSaving) {
 
 
 // =====================================================================
-// === 7. Per-kid + per-panel + per-subject menus
+// === 7. Per-subject menu
 // =====================================================================
-function openKidMenu(kidId, anchorEl) {
-    openKidMenuKidId = String(kidId || '');
-    closeKidMenuDom();
-    if (!openKidMenuKidId || !anchorEl) return;
-    renderKidMenu(openKidMenuKidId, anchorEl);
-}
-
-function closeKidMenu() {
-    openKidMenuKidId = '';
-    closeKidMenuDom();
-}
-
-function closeKidMenuDom() {
-    document.querySelectorAll('.admin-kid-menu').forEach((el) => el.remove());
-}
-
-function renderKidMenu(kidId, anchorEl) {
-    closeKidMenuDom();
-    const kid = currentKids.find((item) => String(item?.id || '') === String(kidId || ''));
-    if (!kid) return;
-    const menu = document.createElement('div');
-    menu.className = 'admin-kid-menu';
-    menu.innerHTML = `
-        <button type="button" class="admin-kid-menu-item danger" data-kid-menu-action="delete">
-            <span class="admin-kid-menu-item-icon" aria-hidden="true">${icon('trash', { size: 16 })}</span>
-            <span>Delete kid</span>
-        </button>
-    `;
-    document.body.appendChild(menu);
-    const trigger = anchorEl || document.querySelector(`[data-kid-menu-trigger][data-kid-id="${cssEscape(kidId)}"]`);
-    if (trigger) {
-        const rect = trigger.getBoundingClientRect();
-        const menuWidth = 160;
-        let left = rect.right + window.scrollX - menuWidth;
-        if (left < 8) left = 8;
-        menu.style.left = `${left}px`;
-        menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
-    }
-    menu.querySelector('[data-kid-menu-action="delete"]').addEventListener('click', () => {
-        closeKidMenu();
-        deleteKid(kidId, kid.name || '');
-    });
-}
-
 function openPanelMenu(anchorEl) {
     isPanelMenuOpen = true;
     closePanelMenuDom();
