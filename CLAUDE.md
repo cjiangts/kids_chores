@@ -54,6 +54,17 @@ Other blueprints:
   - [practice_priority.py](backend/src/services/practice_priority.py) — practice-priority preview scoring (pure; caller supplies session behavior type)
   - [family_auth.py](backend/src/services/family_auth.py) — get_kid_for_family, get_kid_connection_for, critical-password gate
   - [writing_bulk_split.py](backend/src/services/writing_bulk_split.py) — split bulk writing / type-II input into deduped tokens or (front, back) rows
+  - [normalize_inputs.py](backend/src/services/normalize_inputs.py) — `normalize_positive_int_list` + `normalize_lowercase_string_list` (shared dedupe/coerce for caller-supplied id/tag lists)
+  - [practice_session.py](backend/src/services/practice_session.py) / [practice_priority.py](backend/src/services/practice_priority.py) / [practice_mode.py](backend/src/services/practice_mode.py) — fresh/continue/retry selection, preview-only priority scoring, session-mode normalization
+  - [session_grading.py](backend/src/services/session_grading.py) — type-I/IV answer normalize + grade encoding, result-row inserts/appends
+  - [pending_sessions.py](backend/src/services/pending_sessions.py) — in-memory pending session dict + lock; create/get/pop helpers
+  - [type4_session.py](backend/src/services/type4_session.py) — type-IV choice options, pending-item builder, count distribution, retry rows
+  - [writing_candidates.py](backend/src/services/writing_candidates.py) — type-II writing candidate selection + chinese-print-sheet cleanup
+  - [card_stats.py](backend/src/services/card_stats.py) — cards-with-stats readers + practiced-card-ids by category
+  - [chinese_text.py](backend/src/services/chinese_text.py) — pinyin generation, auto back-text fill, category lookups
+  - [kid_today_sessions.py](backend/src/services/kid_today_sessions.py) — today-bounds + per-kid latest/unfinished/retry session lookups
+  - [shared_deck_category.py](backend/src/services/shared_deck_category.py) — category-meta cache + session-behavior + type-III session-type guard
+  - [shared_deck_tag_paths.py](backend/src/services/shared_deck_tag_paths.py) — shared-deck tag path tree + prefix-conflict detection
 - **Type-specific session helpers** (extracted from kids):
   - `start_type_i_practice_session_internal`, `complete_session_internal` → [routes/kids/practice.py](backend/src/routes/kids/practice.py)
   - `complete_type_iv_session_internal` → [routes/kids/type4.py](backend/src/routes/kids/type4.py)
