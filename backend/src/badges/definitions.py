@@ -656,10 +656,10 @@ if len({(item.achievement_key, item.category_key) for item in DAY_ONE_BADGE_ACHI
     raise ValueError('Achievement definitions must be unique by (achievement_key, category_key).')
 
 
-for _definition in DAY_ONE_BADGE_ACHIEVEMENTS:
-    if _definition.theme_key not in THEME_KEYS:
-        raise ValueError(f'Unknown theme key: {_definition.theme_key}')
+for _achievement in DAY_ONE_BADGE_ACHIEVEMENTS:
+    if _achievement.theme_key not in THEME_KEYS:
+        raise ValueError(f'Unknown theme key: {_achievement.theme_key}')
 
-    palette_key = get_badge_palette_key(_definition.category_key)
+    palette_key = get_badge_palette_key(_achievement.category_key)
     if palette_key not in PALETTE_KEYS:
         raise ValueError(f'Unknown palette key: {palette_key}')

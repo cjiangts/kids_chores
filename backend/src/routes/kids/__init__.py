@@ -17,14 +17,11 @@ Most logic now lives in `src/services/*`; this file holds Flask-level
 plumbing (auth, request parsing, response framing, mutation lock) and
 the dispatch table that wires URL scopes to handlers.
 """
-from flask import Blueprint, request, jsonify, send_from_directory, send_file, session
-from datetime import datetime, timedelta, timezone
+from flask import Blueprint, request, jsonify, send_from_directory, send_file
+from datetime import datetime, timezone
 from collections import defaultdict
-import hashlib
-import math
 import json
 import os
-import random
 import shutil
 import subprocess
 import uuid
@@ -32,58 +29,20 @@ import time
 import threading
 import mimetypes
 from io import BytesIO
-from urllib.parse import quote
-from zoneinfo import ZoneInfo
 from werkzeug.utils import secure_filename
 from src.badges.session_sync import sync_badges_after_session_complete
 from src.chinese_character_meanings import (
-    get_bank_meaning,
     get_character_bank_pinyin,
     is_chinese_text,
     is_single_chinese_character,
 )
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import get_shared_decks_connection
-from src.security_rate_limit import (
-    CRITICAL_PASSWORD_RATE_LIMITER,
-    build_critical_password_limit_key,
-)
 from src.type4_generator_preview import preview_type4_generator, run_type4_generator, test_type4_validate
 from src.routes.kids_constants import *  # noqa: F401,F403
 
 kids_bp = Blueprint('kids', __name__)
 
-from src.services.pending_sessions import (
-    _PENDING_SESSIONS,
-    _PENDING_SESSIONS_LOCK,
-    _cleanup_expired_pending_sessions,
-    create_pending_session,
-    get_pending_session,
-    parse_client_started_at,
-    pop_pending_session,
-)
-from src.services.practice_mode import (
-    compose_session_practice_mode,
-    get_session_practice_mode,
-    get_session_practice_mode_base,
-    is_drill_session_practice_mode,
-    normalize_session_practice_mode,
-    normalize_type_iv_practice_mode,
-    parse_session_practice_mode,
-)
-from src.services.session_grading import (
-    append_type1_result_submitted_answer,
-    append_type4_result_submitted_answer,
-    build_type1_result_item_payload,
-    did_use_type_i_prompt_audio,
-    encode_type1_submitted_grade,
-    grade_type_iv_answer,
-    insert_type1_result_item,
-    insert_type4_result_item,
-    normalize_type_i_distractor_answers,
-    normalize_type_i_submitted_answer,
-    normalize_type_iv_submitted_answer,
-)
 from src.services.card_stats import (
     delete_card_from_deck_internal,
     get_card_ids_practiced_for_category,
@@ -92,35 +51,11 @@ from src.services.card_stats import (
     get_cards_with_stats_for_deck_ids,
     map_card_row,
 )
-from src.services.shared_deck_tag_paths import (
-    find_shared_deck_tag_prefix_conflict,
-    format_shared_deck_tag_path,
-    get_all_shared_deck_tag_label_paths,
-    get_all_shared_deck_tag_paths,
-    normalize_shared_deck_tag_path,
-)
-from src.services.type4_session import (
-    build_type_iv_choice_options,
-    build_type_iv_continue_count_by_source_key,
-    build_type_iv_initial_count_by_source_key,
-    build_type_iv_pending_items_for_sources,
-    distribute_type_iv_random_count_across_sources,
-    get_type_iv_retry_source_result_rows,
-    map_type_iv_pending_item_to_response_card,
-)
 from src.services.writing_candidates import (
     get_pending_writing_card_ids,
     get_writing_candidate_card_ids,
     get_writing_candidate_rows,
     remove_cards_from_type2_chinese_print_sheets,
-)
-from src.services.kid_today_sessions import (
-    filter_answers_to_pending_cards,
-    get_kid_today_bounds_utc,
-    get_latest_retry_source_session_for_today,
-    get_latest_unfinished_session_for_today,
-    get_session_practiced_card_ids,
-    normalize_logged_response_time_ms,
 )
 from src.services.practice_session import (
     build_continue_selected_cards_for_decks,
@@ -294,27 +229,6 @@ from src.services.chinese_text import (
     get_category_chinese_back_content,
     get_shared_deck_chinese_back_content,
     normalize_chinese_back_content,
-)
-from src.services.type4_generator_definitions import (
-    build_type_iv_card_generator_details_by_shared_id,
-    build_type_iv_generator_detail_maps,
-    build_type_iv_generator_details_by_representative_front,
-    get_shared_deck_generator_definition,
-    get_shared_deck_generator_definitions_by_deck_ids,
-    parse_shared_deck_generator_definition_row,
-    shared_deck_generator_definition_has_column,
-    shared_deck_generator_definition_has_multichoice_only_column,
-    shared_deck_generator_definition_has_print_cell_design_columns,
-)
-from src.services.type4_print_sheet import (
-    build_type_iv_print_sheet_rendered_rows,
-    get_type_iv_print_sheet_record,
-    paginate_type_iv_print_sheet_rendered_rows,
-)
-from src.services.kid_card_queries import (
-    get_kid_card_backs_for_deck_ids,
-    get_kid_card_fronts_for_deck_ids,
-    get_shared_deck_dedupe_key,
 )
 from src.services.kid_daily_progress import (
     build_kid_daily_progress_section,
