@@ -11,6 +11,11 @@ Layout:
 """
 import json
 
+from src.services.normalize_inputs import (
+    normalize_lowercase_string_list,
+    normalize_positive_int_list,
+)
+
 
 # =====================================================================
 # === 1. Writing-candidate row + id readers (newly-added or latest-failed)
@@ -18,27 +23,11 @@ import json
 
 def get_writing_candidate_rows(conn, deck_ids, session_type, excluded_card_ids=None, limit=None):
     """Return ordered candidate cards for writing sheets: newly-added (never-seen) or latest-failed."""
-    normalized_deck_ids = []
-    for raw in list(deck_ids or []):
-        try:
-            deck_id = int(raw)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in normalized_deck_ids:
-            continue
-        normalized_deck_ids.append(deck_id)
-    if len(normalized_deck_ids) == 0:
+    normalized_deck_ids = normalize_positive_int_list(deck_ids)
+    if not normalized_deck_ids:
         return []
 
-    excluded = []
-    for raw in list(excluded_card_ids or []):
-        try:
-            card_id = int(raw)
-        except (TypeError, ValueError):
-            continue
-        if card_id <= 0 or card_id in excluded:
-            continue
-        excluded.append(card_id)
+    excluded = normalize_positive_int_list(excluded_card_ids)
 
     safe_limit = None
     if limit is not None:
@@ -169,22 +158,8 @@ def get_pending_writing_card_ids(conn):
 
 def remove_cards_from_type2_chinese_print_sheets(conn, card_ids, *, statuses=('preview', 'pending')):
     """Remove selected cards from saved in-progress Chinese print sheets."""
-    normalized_card_ids = []
-    for raw in list(card_ids or []):
-        try:
-            card_id = int(raw)
-        except (TypeError, ValueError):
-            continue
-        if card_id <= 0 or card_id in normalized_card_ids:
-            continue
-        normalized_card_ids.append(card_id)
-
-    normalized_statuses = []
-    for raw in list(statuses or []):
-        status = str(raw or '').strip().lower()
-        if not status or status in normalized_statuses:
-            continue
-        normalized_statuses.append(status)
+    normalized_card_ids = normalize_positive_int_list(card_ids)
+    normalized_statuses = normalize_lowercase_string_list(statuses)
 
     if not normalized_card_ids or not normalized_statuses:
         return

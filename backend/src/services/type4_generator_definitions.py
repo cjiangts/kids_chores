@@ -14,6 +14,7 @@ Layout:
   3. Category detail-map builders (by deck id + by representative front)
 """
 from src.db.shared_deck_db import get_shared_decks_connection
+from src.services.normalize_inputs import normalize_positive_int_list
 from src.services.shared_deck_queries import get_shared_type_iv_deck_rows
 from src.services.type4_print_layout import build_shared_deck_print_cell_design
 
@@ -115,17 +116,7 @@ def get_shared_deck_generator_definition(conn, deck_id):
 
 def get_shared_deck_generator_definitions_by_deck_ids(conn, deck_ids):
     """Return immutable generator definitions by shared type-IV deck id."""
-    normalized_ids = []
-    seen = set()
-    for raw_id in list(deck_ids or []):
-        try:
-            deck_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in seen:
-            continue
-        seen.add(deck_id)
-        normalized_ids.append(deck_id)
+    normalized_ids = normalize_positive_int_list(deck_ids)
     if not normalized_ids:
         return {}
 
@@ -172,13 +163,7 @@ def build_type_iv_generator_detail_maps(category_key, deck_ids=None, *, shared_c
     try:
         decks = get_shared_type_iv_deck_rows(shared_conn, category_key)
         lookup_ids = {int(deck.get('deck_id') or 0) for deck in decks if int(deck.get('deck_id') or 0) > 0}
-        for raw_id in list(deck_ids or []):
-            try:
-                deck_id = int(raw_id)
-            except (TypeError, ValueError):
-                continue
-            if deck_id > 0:
-                lookup_ids.add(deck_id)
+        lookup_ids.update(normalize_positive_int_list(deck_ids))
         definitions_by_id = get_shared_deck_generator_definitions_by_deck_ids(shared_conn, sorted(lookup_ids))
     finally:
         if should_close and shared_conn is not None:

@@ -7,6 +7,7 @@ Pure helpers that:
 DB helpers take an open `conn`. No module state.
 """
 from src.routes.kids_constants import DECK_CATEGORY_BEHAVIOR_TYPE_II
+from src.services.normalize_inputs import normalize_positive_int_list
 from src.services.shared_deck_queries import get_shared_deck_behavior_type_from_raw_tags
 
 
@@ -18,43 +19,23 @@ def get_shared_deck_dedupe_key(conn, raw_tags):
     return 'front'
 
 
-def get_kid_card_fronts_for_deck_ids(conn, deck_ids):
-    """Return distinct card fronts across selected kid-local deck ids."""
-    normalized = []
-    for raw_id in list(deck_ids or []):
-        try:
-            deck_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in normalized:
-            continue
-        normalized.append(deck_id)
-    if not normalized:
+def _get_kid_card_distinct_column_for_deck_ids(conn, deck_ids, column):
+    deck_id_list = normalize_positive_int_list(deck_ids)
+    if not deck_id_list:
         return set()
-    placeholders = ','.join(['?'] * len(normalized))
+    placeholders = ','.join(['?'] * len(deck_id_list))
     rows = conn.execute(
-        f"SELECT DISTINCT front FROM cards WHERE deck_id IN ({placeholders})",
-        normalized
+        f"SELECT DISTINCT {column} FROM cards WHERE deck_id IN ({placeholders})",
+        deck_id_list,
     ).fetchall()
     return {str(row[0] or '') for row in rows if str(row[0] or '')}
+
+
+def get_kid_card_fronts_for_deck_ids(conn, deck_ids):
+    """Return distinct card fronts across selected kid-local deck ids."""
+    return _get_kid_card_distinct_column_for_deck_ids(conn, deck_ids, 'front')
 
 
 def get_kid_card_backs_for_deck_ids(conn, deck_ids):
     """Return distinct card backs across selected kid-local deck ids."""
-    normalized = []
-    for raw_id in list(deck_ids or []):
-        try:
-            deck_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in normalized:
-            continue
-        normalized.append(deck_id)
-    if not normalized:
-        return set()
-    placeholders = ','.join(['?'] * len(normalized))
-    rows = conn.execute(
-        f"SELECT DISTINCT back FROM cards WHERE deck_id IN ({placeholders})",
-        normalized
-    ).fetchall()
-    return {str(row[0] or '') for row in rows if str(row[0] or '')}
+    return _get_kid_card_distinct_column_for_deck_ids(conn, deck_ids, 'back')

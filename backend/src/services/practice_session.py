@@ -30,6 +30,7 @@ from src.services.kid_today_sessions import (
     get_latest_unfinished_session_for_today,
     get_session_practiced_card_ids,
 )
+from src.services.normalize_inputs import normalize_positive_int_list
 from src.services.practice_mode import get_session_practice_mode
 from src.services.practice_priority import build_practice_priority_preview_for_decks
 from src.services.shared_deck_category import get_session_behavior_type
@@ -41,16 +42,8 @@ from src.services.shared_deck_normalize import extract_shared_deck_tags_and_labe
 # =====================================================================
 def get_practice_candidate_cards_for_decks(conn, deck_ids, excluded_card_ids=None):
     """Return active candidate cards across one or more decks."""
-    normalized_deck_ids = []
-    for raw_deck_id in list(deck_ids or []):
-        try:
-            deck_id = int(raw_deck_id)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in normalized_deck_ids:
-            continue
-        normalized_deck_ids.append(deck_id)
-    if len(normalized_deck_ids) == 0:
+    normalized_deck_ids = normalize_positive_int_list(deck_ids)
+    if not normalized_deck_ids:
         return {}, []
 
     excluded_set = set(excluded_card_ids or [])
@@ -165,18 +158,8 @@ def build_continue_selected_cards_for_decks(
 ):
     """Build continuation card selection for one unfinished session."""
     target_count = max(0, int(missing_count or 0))
-    normalized_deck_ids = []
-    seen_deck_ids = set()
-    for raw_deck_id in list(deck_ids or []):
-        try:
-            deck_id = int(raw_deck_id)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in seen_deck_ids:
-            continue
-        normalized_deck_ids.append(deck_id)
-        seen_deck_ids.add(deck_id)
-    if target_count <= 0 or len(normalized_deck_ids) == 0:
+    normalized_deck_ids = normalize_positive_int_list(deck_ids)
+    if target_count <= 0 or not normalized_deck_ids:
         return []
 
     cards_by_id, candidate_ids = get_practice_candidate_cards_for_decks(
@@ -295,18 +278,8 @@ def build_retry_selected_cards_for_sources(conn, source_by_deck_id, wrong_card_i
 
 def build_type_i_multiple_choice_pool_cards(conn, source_by_deck_id, card_ids):
     """Build ordered type-I multiple-choice pool cards from source session card ids."""
-    normalized_ids = []
-    seen = set()
-    for raw_card_id in list(card_ids or []):
-        try:
-            card_id = int(raw_card_id)
-        except (TypeError, ValueError):
-            continue
-        if card_id <= 0 or card_id in seen:
-            continue
-        normalized_ids.append(card_id)
-        seen.add(card_id)
-    if len(normalized_ids) == 0:
+    normalized_ids = normalize_positive_int_list(card_ids)
+    if not normalized_ids:
         return []
 
     placeholders = ', '.join(['?'] * len(normalized_ids))

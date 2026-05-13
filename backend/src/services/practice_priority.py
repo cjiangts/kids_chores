@@ -16,6 +16,7 @@ from src.routes.kids_constants import (
     PRACTICE_PRIORITY_SLOW_WEIGHT,
     PRACTICE_PRIORITY_VERY_DUE_DAYS,
 )
+from src.services.normalize_inputs import normalize_positive_int_list
 
 
 def build_practice_priority_preview_for_decks(
@@ -27,33 +28,14 @@ def build_practice_priority_preview_for_decks(
     excluded_card_ids=None,
 ):
     """Compute preview-only priority ranking data for one category's active cards."""
-    normalized_deck_ids = []
-    for raw_deck_id in list(deck_ids or []):
-        try:
-            deck_id = int(raw_deck_id)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in normalized_deck_ids:
-            continue
-        normalized_deck_ids.append(deck_id)
-
-    if len(normalized_deck_ids) == 0:
+    normalized_deck_ids = normalize_positive_int_list(deck_ids)
+    if not normalized_deck_ids:
         return {
             'order_by_card_id': {},
             'details_by_card_id': {},
         }
 
-    excluded_ids = []
-    seen_excluded = set()
-    for raw_card_id in list(excluded_card_ids or []):
-        try:
-            card_id = int(raw_card_id)
-        except (TypeError, ValueError):
-            continue
-        if card_id <= 0 or card_id in seen_excluded:
-            continue
-        seen_excluded.add(card_id)
-        excluded_ids.append(card_id)
+    excluded_ids = normalize_positive_int_list(excluded_card_ids)
 
     deck_placeholders = ','.join(['?'] * len(normalized_deck_ids))
     exclude_clause = ''

@@ -25,6 +25,7 @@ from src.routes.kids_constants import (
     SESSION_RESULT_WRONG_UNRESOLVED,
     TYPE_IV_PRACTICE_MODE_MULTI,
 )
+from src.services.normalize_inputs import normalize_positive_int_list
 from src.services.practice_mode import normalize_type_iv_practice_mode
 from src.services.session_grading import normalize_type_iv_submitted_answer
 from src.type4_generator_preview import run_type4_generator
@@ -137,17 +138,7 @@ def build_type_iv_pending_items_for_sources(
 
 def distribute_type_iv_random_count_across_sources(source_keys, total_count, rng):
     """Spread one generator count randomly across source keys with minimal repetition."""
-    normalized_keys = []
-    seen = set()
-    for raw_key in list(source_keys or []):
-        try:
-            key = int(raw_key)
-        except (TypeError, ValueError):
-            continue
-        if key <= 0 or key in seen:
-            continue
-        seen.add(key)
-        normalized_keys.append(key)
+    normalized_keys = normalize_positive_int_list(source_keys)
     if total_count <= 0 or not normalized_keys:
         return {}
 
@@ -303,17 +294,7 @@ def build_type_iv_continue_count_by_source_key(practice_sources, target_count):
 
 def get_type_iv_retry_source_result_rows(conn, source_session_id, allowed_representative_card_ids):
     """Return unresolved generator retry rows for one source session."""
-    normalized_card_ids = []
-    seen = set()
-    for raw_card_id in list(allowed_representative_card_ids or []):
-        try:
-            card_id = int(raw_card_id)
-        except (TypeError, ValueError):
-            continue
-        if card_id <= 0 or card_id in seen:
-            continue
-        seen.add(card_id)
-        normalized_card_ids.append(card_id)
+    normalized_card_ids = normalize_positive_int_list(allowed_representative_card_ids)
     if not normalized_card_ids:
         return []
 

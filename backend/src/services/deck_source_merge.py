@@ -10,6 +10,7 @@ from src.services.kid_category_config import (
     get_category_orphan_deck,
     get_category_orphan_deck_name,
 )
+from src.services.normalize_inputs import normalize_positive_int_list
 from src.services.shared_deck_normalize import (
     extract_shared_deck_tags_and_labels,
     normalize_shared_deck_tag,
@@ -62,17 +63,7 @@ def _build_orphan_source_deck_entry(orphan_row, orphan_deck_name, orphan_total, 
 
 def get_card_count_summary_by_deck_ids(conn, deck_ids):
     """Return total / active / skipped counts keyed by deck id."""
-    normalized_ids = []
-    seen = set()
-    for raw_id in list(deck_ids or []):
-        try:
-            deck_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in seen:
-            continue
-        seen.add(deck_id)
-        normalized_ids.append(deck_id)
+    normalized_ids = normalize_positive_int_list(deck_ids)
     if not normalized_ids:
         return {}
 

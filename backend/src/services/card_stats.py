@@ -8,6 +8,7 @@ Layout:
   2. Cards-with-stats readers (deck-scoped + card-id-scoped) + practiced-card ids
   3. Row-to-API mapper (with practice-priority preview merged in)
 """
+from src.services.normalize_inputs import normalize_positive_int_list
 
 
 # =====================================================================
@@ -25,17 +26,7 @@ def delete_card_from_deck_internal(conn, card_id):
 
 def get_cards_with_stats_for_deck_ids(conn, deck_ids):
     """Return cards with hardness / attempt / last-seen stats for many decks."""
-    normalized_ids = []
-    seen = set()
-    for raw_id in list(deck_ids or []):
-        try:
-            deck_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        if deck_id <= 0 or deck_id in seen:
-            continue
-        seen.add(deck_id)
-        normalized_ids.append(deck_id)
+    normalized_ids = normalize_positive_int_list(deck_ids)
     if not normalized_ids:
         return []
 
@@ -98,17 +89,7 @@ def get_cards_with_stats(conn, deck_id):
 
 def get_cards_with_stats_for_card_ids(conn, card_ids):
     """Return cards with hardness / attempt / last-seen stats by explicit card ids."""
-    normalized_ids = []
-    seen = set()
-    for raw_id in list(card_ids or []):
-        try:
-            cid = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        if cid <= 0 or cid in seen:
-            continue
-        seen.add(cid)
-        normalized_ids.append(cid)
+    normalized_ids = normalize_positive_int_list(card_ids)
     if not normalized_ids:
         return []
 
