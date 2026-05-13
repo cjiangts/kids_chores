@@ -25,6 +25,7 @@ from src.services.audio_io import (
     sanitize_download_filename_stem,
 )
 from src.services.family_auth import get_kid_connection_for, get_kid_for_family
+from src.services.normalize_inputs import normalize_positive_int_list
 from src.services.shared_deck_category import is_type_iii_session_type
 
 
@@ -108,47 +109,57 @@ def _ensure_type3_mp3_sibling(audio_dir, file_name, stored_mime_type):
 # === 2. Single-recording fetch + MP3 download (transcoded on demand)
 # =====================================================================
 
+def _resolve_type3_audio_request(kid_id, file_name):
+    """Return ({kid, audio_dir, audio_path, stored_mime_type, raw_mime_type}, None) or (None, error_response)."""
+    kid = get_kid_for_family(kid_id)
+    if not kid:
+        return None, (jsonify({'error': 'Kid not found'}), 404)
+    if file_name != os.path.basename(file_name):
+        return None, (jsonify({'error': 'Invalid file name'}), 400)
+    audio_dir = get_kid_type3_audio_dir(kid)
+    audio_path = os.path.join(audio_dir, file_name)
+    if not os.path.exists(audio_path):
+        return None, (jsonify({'error': 'Audio file not found'}), 404)
+    conn = get_kid_connection_for(kid, read_only=True)
+    row = conn.execute(
+        """
+        SELECT lra.mime_type, s.type
+        FROM lesson_reading_audio lra
+        JOIN session_results sr ON sr.id = lra.result_id
+        JOIN sessions s ON s.id = sr.session_id
+        WHERE lra.file_name = ?
+        LIMIT 1
+        """,
+        [file_name],
+    ).fetchone()
+    conn.close()
+    if not row or not is_type_iii_session_type(row[1]):
+        return None, (jsonify({'error': 'Audio file not found'}), 404)
+    raw_mime_type = row[0] if row[0] else None
+    return {
+        'kid': kid,
+        'audio_dir': audio_dir,
+        'audio_path': audio_path,
+        'stored_mime_type': str(raw_mime_type or '').strip().lower(),
+        'raw_mime_type': raw_mime_type,
+    }, None
+
+
 @kids_bp.route('/kids/<kid_id>/lesson-reading/audio/<path:file_name>', methods=['GET'])
 def get_type3_audio(kid_id, file_name):
     """Serve type-III recording audio file for one kid."""
     try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-
-        if file_name != os.path.basename(file_name):
-            return jsonify({'error': 'Invalid file name'}), 400
-
-        audio_dir = get_kid_type3_audio_dir(kid)
-        audio_path = os.path.join(audio_dir, file_name)
-        if not os.path.exists(audio_path):
-            return jsonify({'error': 'Audio file not found'}), 404
-
-        conn = get_kid_connection_for(kid, read_only=True)
-        row = conn.execute(
-            """
-            SELECT lra.mime_type, s.type
-            FROM lesson_reading_audio lra
-            JOIN session_results sr ON sr.id = lra.result_id
-            JOIN sessions s ON s.id = sr.session_id
-            WHERE lra.file_name = ?
-            LIMIT 1
-            """,
-            [file_name]
-        ).fetchone()
-        conn.close()
-
-        if not row or not is_type_iii_session_type(row[1]):
-            return jsonify({'error': 'Audio file not found'}), 404
-
-        stored_mime_type = str(row[0] or '').strip().lower() if row and row[0] else ''
+        ctx, err = _resolve_type3_audio_request(kid_id, file_name)
+        if err:
+            return err
+        audio_dir = ctx['audio_dir']
+        stored_mime_type = ctx['stored_mime_type']
 
         sibling_name, sibling_mime = _ensure_type3_mp3_sibling(audio_dir, file_name, stored_mime_type)
         if sibling_name:
             return send_from_directory(audio_dir, sibling_name, as_attachment=False, mimetype=sibling_mime)
 
-        mime_type = row[0] if row and row[0] else None
-        return send_from_directory(audio_dir, file_name, as_attachment=False, mimetype=mime_type)
+        return send_from_directory(audio_dir, file_name, as_attachment=False, mimetype=ctx['raw_mime_type'])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -157,35 +168,12 @@ def get_type3_audio(kid_id, file_name):
 def download_type3_audio_as_mp3(kid_id, file_name):
     """Download one type-III recording as MP3 (transcoded on demand)."""
     try:
-        kid = get_kid_for_family(kid_id)
-        if not kid:
-            return jsonify({'error': 'Kid not found'}), 404
-
-        if file_name != os.path.basename(file_name):
-            return jsonify({'error': 'Invalid file name'}), 400
-
-        audio_dir = get_kid_type3_audio_dir(kid)
-        audio_path = os.path.join(audio_dir, file_name)
-        if not os.path.exists(audio_path):
-            return jsonify({'error': 'Audio file not found'}), 404
-
-        conn = get_kid_connection_for(kid, read_only=True)
-        row = conn.execute(
-            """
-            SELECT lra.mime_type, s.type
-            FROM lesson_reading_audio lra
-            JOIN session_results sr ON sr.id = lra.result_id
-            JOIN sessions s ON s.id = sr.session_id
-            WHERE lra.file_name = ?
-            LIMIT 1
-            """,
-            [file_name]
-        ).fetchone()
-        conn.close()
-
-        if not row or not is_type_iii_session_type(row[1]):
-            return jsonify({'error': 'Audio file not found'}), 404
-        stored_mime_type = str(row[0] or '').strip().lower()
+        ctx, err = _resolve_type3_audio_request(kid_id, file_name)
+        if err:
+            return err
+        audio_dir = ctx['audio_dir']
+        audio_path = ctx['audio_path']
+        stored_mime_type = ctx['stored_mime_type']
 
         requested_name = request.args.get('downloadName')
         base_stem = sanitize_download_filename_stem(
@@ -243,16 +231,7 @@ def download_type3_fastest_correct_recordings_zip(kid_id):
             return jsonify({'error': 'Kid not found'}), 404
 
         payload = request.get_json(silent=True) or {}
-        raw_card_ids = payload.get('card_ids') or []
-        card_ids = []
-        for value in raw_card_ids:
-            try:
-                card_id_int = int(value)
-            except (TypeError, ValueError):
-                continue
-            if card_id_int > 0:
-                card_ids.append(card_id_int)
-        card_ids = sorted(set(card_ids))
+        card_ids = sorted(normalize_positive_int_list(payload.get('card_ids') or []))
         if not card_ids:
             return jsonify({'error': 'No card ids provided'}), 400
 
