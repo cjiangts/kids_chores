@@ -472,7 +472,6 @@ def build_type_i_shared_cards_payload(
     kid,
     category_key,
     *,
-    session_card_count_override=None,
     include_orphan_in_queue_override=None,
     include_practiced_from_other=False,
     conn=None,
@@ -489,11 +488,6 @@ def build_type_i_shared_cards_payload(
             kid,
             category_meta_by_key=category_meta_by_key,
             conn=conn,
-        )
-        session_card_count = (
-            int(session_card_count_override)
-            if session_card_count_override is not None
-            else get_category_session_card_count_for_kid(kid, category_key)
         )
         include_orphan_in_queue = (
             bool(include_orphan_in_queue_override)
