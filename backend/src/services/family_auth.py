@@ -67,6 +67,21 @@ def get_kid_connection_for(kid, read_only: bool = False):
     return kid_db.get_kid_connection_by_path(rel, read_only=read_only)
 
 
+def resolve_family_id_int_or_error():
+    """Return (family_id_int, None) on success or (None, (response, status)).
+
+    Use after `require_super_family()` (or in any route that already requires
+    family login) to extract a positive integer family id from the session,
+    distinguishing missing-login (401) from a malformed session value (400).
+    """
+    family_id_int = get_current_family_id_int()
+    if family_id_int is not None:
+        return family_id_int, None
+    if not current_family_id():
+        return None, (jsonify({'error': 'Family login required'}), 401)
+    return None, (jsonify({'error': 'Invalid family id in session'}), 400)
+
+
 def require_super_family():
     """Require authenticated super family for privileged operations."""
     family_id = current_family_id()

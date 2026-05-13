@@ -69,10 +69,10 @@ from src.routes.kids import (
 )
 from src.services.family_auth import (
     current_family_id,
-    get_current_family_id_int,
     get_kid_connection_for,
     require_critical_password,
     require_super_family,
+    resolve_family_id_int_or_error,
 )
 from src.services.chinese_text import (
     CHINESE_BACK_CONTENTS,
@@ -1089,11 +1089,9 @@ def update_shared_deck_tags(deck_id):
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         payload = request.get_json(silent=True) or {}
         extra_tags_payload = payload.get('extraTags')
@@ -1219,11 +1217,9 @@ def rename_shared_deck_tag():
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         payload = request.get_json(silent=True) or {}
         old_tag_raw = str(payload.get('oldTag') or '').strip()
@@ -1348,11 +1344,9 @@ def update_shared_deck_generator_definition(deck_id):
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         payload = request.get_json(silent=True) or {}
         generator_code = normalize_type_iv_generator_code(payload.get('generatorCode'))
@@ -1407,11 +1401,9 @@ def generate_shared_deck_print_problems(deck_id):
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         payload = request.get_json(silent=True) or {}
         count = _safe_positive_int_or_none(payload.get('count'))
@@ -1475,11 +1467,9 @@ def update_shared_deck_print_cell_design(deck_id):
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         payload = request.get_json(silent=True) or {}
         raw_cell_design = payload.get('cellDesign')
@@ -1537,11 +1527,9 @@ def add_shared_deck_cards(deck_id):
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         conn = None
         try:
@@ -1636,11 +1624,9 @@ def delete_shared_deck_card(deck_id, card_id):
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         conn = None
         try:
@@ -1688,11 +1674,9 @@ def replace_shared_deck_cards(deck_id):
         auth_err = require_super_family()
         if auth_err:
             return auth_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         conn = None
         try:
@@ -1809,11 +1793,9 @@ def delete_shared_deck(deck_id):
         pwd_err = require_critical_password()
         if pwd_err:
             return pwd_err
-        family_id_int = get_current_family_id_int()
-        if family_id_int is None:
-            if not current_family_id():
-                return jsonify({'error': 'Family login required'}), 401
-            return jsonify({'error': 'Invalid family id in session'}), 400
+        family_id_int, err = resolve_family_id_int_or_error()
+        if err:
+            return err
 
         with _SHARED_DECK_MUTATION_LOCK:
             conn = None
