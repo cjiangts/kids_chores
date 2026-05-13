@@ -52,7 +52,7 @@ Other blueprints:
   - [kid_daily_progress.py](backend/src/services/kid_daily_progress.py) — daily-progress section + category stats
   - [deck_source_merge.py](backend/src/services/deck_source_merge.py) — source-deck merging, card-count summaries
   - [practice_priority.py](backend/src/services/practice_priority.py) — practice-priority preview scoring (pure; caller supplies session behavior type)
-  - [family_auth.py](backend/src/services/family_auth.py) — get_kid_for_family, get_kid_connection_for, critical-password gate
+  - [family_auth.py](backend/src/services/family_auth.py) — get_kid_for_family, get_kid_connection_for, critical-password gate, resolve_family_id_int_or_error (401/400 fork after require_super_family)
   - [writing_bulk_split.py](backend/src/services/writing_bulk_split.py) — split bulk writing / type-II input into deduped tokens or (front, back) rows
   - [normalize_inputs.py](backend/src/services/normalize_inputs.py) — `normalize_positive_int_list` + `normalize_lowercase_string_list` (shared dedupe/coerce for caller-supplied id/tag lists)
   - [practice_session.py](backend/src/services/practice_session.py) / [practice_priority.py](backend/src/services/practice_priority.py) / [practice_mode.py](backend/src/services/practice_mode.py) — fresh/continue/retry selection, preview-only priority scoring, session-mode normalization
