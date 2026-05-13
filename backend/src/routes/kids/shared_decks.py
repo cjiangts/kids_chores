@@ -70,6 +70,7 @@ from src.routes.kids import (
 from src.services.family_auth import (
     current_family_id,
     get_kid_connection_for,
+    is_super_family_id,
     require_critical_password,
     require_super_family,
     resolve_family_id_int_or_error,
@@ -110,7 +111,7 @@ def list_shared_deck_categories():
         family_id = current_family_id()
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
-        is_super = metadata.is_super_family(family_id)
+        is_super = is_super_family_id(family_id)
 
         conn = get_shared_decks_connection(read_only=True)
         try:
@@ -937,7 +938,7 @@ def list_my_shared_decks():
         family_id = current_family_id()
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
-        is_super = metadata.is_super_family(family_id)
+        is_super = is_super_family_id(family_id)
 
         conn = get_shared_decks_connection(read_only=True)
         try:
