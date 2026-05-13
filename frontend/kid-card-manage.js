@@ -1,5 +1,27 @@
-// Page controller: DOMContentLoaded handler wires up event handlers and kicks off initial load.
+/*
+ * kid-card-manage.js — residual page init for kid-card-manage.html
+ *
+ * The 5,957-line page controller was split across kid-card-manage-{core, type4-generator,
+ * type4-counts, deck-setup, cards-priority, cards, stats}.js; what remains here is the
+ * single DOMContentLoaded handler that wires their exported handlers to DOM events
+ * and kicks off the initial async load.
+ *
+ * Layout (all inside the DOMContentLoaded callback):
+ *   1. Page guards + type-IV generator viewer init
+ *   2. Deck-tree opt-in modal wiring (open/cancel/apply/clear/info/search/expand)
+ *   3. Type-IV deck-counts + generator preview modal wiring
+ *   4. Personal-deck modal + add-card status dismiss
+ *   5. Modal backdrop + Escape key + initial-hidden state
+ *   6. Kid-manage tab visibility + cards-grid + font-reflow listeners
+ *   7. Session settings form (queue mix + drill-speed stepper)
+ *   8. View-order / sort-menu / source-deck-filter / sort-direction / view-mode buttons
+ *   9. Card search + focus-banner clear + cards-selection toolbar
+ *  10. Add-card form + Chinese-char input + session-card-count stepper
+ *  11. Type-IV deck-counts modal input listeners
+ *  12. Latest-response tracker + initial async load
+ */
 document.addEventListener('DOMContentLoaded', async () => {
+    // === 1. Page guards + type-IV generator viewer init ===
     if (!kidId) {
         window.location.href = '/admin.html';
         return;
@@ -9,6 +31,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     initializeType4GeneratorCodeViewer();
+
+    // === 2. Deck-tree opt-in modal wiring ===
     if (openDeckOptInModalBtn) {
         openDeckOptInModalBtn.addEventListener('click', openDeckTreeModal);
     }
@@ -54,6 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (deckTreeCollapseAllBtn) {
         deckTreeCollapseAllBtn.addEventListener('click', collapseAllDeckTree);
     }
+    // === 3. Type-IV deck-counts + generator preview modal wiring ===
     if (openType4DeckCountsModalBtn) {
         openType4DeckCountsModalBtn.addEventListener('click', () => {
             if (!isType4Behavior() || hasPendingDeckChanges()) {
@@ -114,6 +139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+    // === 4. Personal-deck modal + add-card status dismiss ===
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.addEventListener('click', () => {
             setPersonalDeckMode('edit');
@@ -147,6 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             showStatusMessage('');
         });
     }
+    // === 5. Modal backdrop + Escape key + initial-hidden state ===
     if (deckTreeModal) {
         deckTreeModal.addEventListener('click', handleModalBackdropClick);
     }
@@ -198,6 +225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncModalBodyLock();
     applyCategoryUiText();
 
+    // === 6. Kid-manage tab visibility + cards-grid + font-reflow listeners ===
     window.PracticeManageCommon.applyKidManageTabVisibility({
         kidId,
         defaultCategoryByRoute: {
@@ -215,6 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // === 7. Session settings form (queue mix + drill-speed stepper) ===
     if (sessionSettingsForm) {
         sessionSettingsForm.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -248,6 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateQueueSettingsSaveButtonState();
         });
     });
+    // === 8. View-order / sort-menu / source-deck-filter / sort-direction / view-mode buttons ===
     viewOrderSelect.addEventListener('change', () => {
         const nextMode = getSelectedCardSortMode();
         setCurrentCardSortDirection(getDefaultCardSortDirection(nextMode));
@@ -323,6 +353,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cardViewModeExpandBtn) {
         cardViewModeExpandBtn.addEventListener('click', () => setCardViewMode('long'));
     }
+    // === 9. Card search + focus-banner clear + cards-selection toolbar ===
     if (cardSearchInput) {
         window.SearchBar.enhance(cardSearchInput);
         cardSearchInput.addEventListener('input', () => {
@@ -377,6 +408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             setCardsSelectMode(false);
         }
     });
+    // === 10. Add-card form + Chinese-char input + session-card-count stepper ===
     if (addCardForm) {
         addCardForm.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -427,6 +459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             sessionCardCountInput.dispatchEvent(new Event('change', { bubbles: true }));
         });
     });
+    // === 11. Type-IV deck-counts modal input listeners ===
     if (type4DeckCountsList) {
         type4DeckCountsList.addEventListener('input', (event) => {
             const target = event.target;
@@ -446,6 +479,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // === 12. Latest-response tracker + initial async load ===
     sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();
 
     try {
