@@ -197,17 +197,6 @@ def build_type_iv_generator_detail_maps(category_key, deck_ids=None, *, shared_c
     return details_by_id, details_by_front
 
 
-def build_type_iv_card_generator_details_by_shared_id(deck_ids, *, category_key=None, shared_conn=None):
-    """Return generator code keyed by shared type-IV deck id."""
-    details_by_id, _ = build_type_iv_generator_detail_maps(
-        category_key,
-        deck_ids=deck_ids,
-        shared_conn=shared_conn,
-        include_code=True,
-    )
-    return details_by_id
-
-
 def build_type_iv_generator_details_by_representative_front(category_key, *, deck_ids=None, shared_conn=None):
     """Return generator details keyed by representative front label."""
     _, details_by_front = build_type_iv_generator_detail_maps(
