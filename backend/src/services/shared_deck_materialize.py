@@ -1,17 +1,39 @@
 """Materialized shared-deck synchronization helpers.
 
-Pure helpers extracted from `src.routes.kids` Phase 2 refactor.
+Materialized decks live in each kid's per-kid DB with a deterministic name
+(`shared_deck_<id>__<source name>`). These helpers build/parse that name and
+keep the kid-local copies aligned with the shared source row when shared
+decks are renamed or retagged.
+
+Layout:
+  1. Deterministic kid-local name + tag builders
+  2. Reverse lookup (parse name → shared id; rows for one shared id)
+  3. Per-kid + cross-kid metadata sync
 """
 from src.db import kid_db, metadata
 from src.routes.kids_constants import MATERIALIZED_SHARED_DECK_NAME_PREFIX
 from src.services.shared_deck_normalize import extract_shared_deck_tags_and_labels
 
 
+# =====================================================================
+# === 1. Deterministic kid-local name + tag builders
+# =====================================================================
+
 def build_materialized_shared_deck_name(shared_deck_id, shared_deck_name):
     """Build deterministic kid-local deck name for one shared deck."""
     shared_name = str(shared_deck_name or '').strip()
     return f"{MATERIALIZED_SHARED_DECK_NAME_PREFIX}{int(shared_deck_id)}__{shared_name}"
 
+
+def build_materialized_shared_deck_tags(shared_tags):
+    """Build kid-local deck tags for materialized shared decks."""
+    tags, _ = extract_shared_deck_tags_and_labels(shared_tags)
+    return tags
+
+
+# =====================================================================
+# === 2. Reverse lookup (parse name → shared id; rows for one shared id)
+# =====================================================================
 
 def parse_shared_deck_id_from_materialized_name(deck_name):
     """Parse shared deck id from kid-local materialized deck name."""
@@ -30,12 +52,6 @@ def parse_shared_deck_id_from_materialized_name(deck_name):
     if deck_id <= 0:
         return None
     return deck_id
-
-
-def build_materialized_shared_deck_tags(shared_tags):
-    """Build kid-local deck tags for materialized shared decks."""
-    tags, _ = extract_shared_deck_tags_and_labels(shared_tags)
-    return tags
 
 
 def get_materialized_shared_deck_rows_by_shared_deck_id(conn, shared_deck_id):
@@ -59,6 +75,10 @@ def get_materialized_shared_deck_rows_by_shared_deck_id(conn, shared_deck_id):
         matched.append(row)
     return matched
 
+
+# =====================================================================
+# === 3. Per-kid + cross-kid metadata sync
+# =====================================================================
 
 def sync_materialized_shared_deck_metadata_for_kid(conn, shared_deck_id, shared_deck_name, shared_storage_tags):
     """Align one kid DB's materialized deck metadata with the shared deck source."""
