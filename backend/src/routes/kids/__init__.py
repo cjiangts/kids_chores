@@ -796,13 +796,12 @@ def opt_out_shared_decks_for_scope(kid_id, category):
         )
         deck_ids = parse_shared_deck_ids_from_request_payload(req_payload)
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_I:
-            return jsonify(
-                opt_out_type_i_shared_decks(
-                    kid,
-                    scope_context['category_key'],
-                    deck_ids,
-                )
-            ), 200
+            payload, status_code = opt_out_type_i_shared_decks(
+                kid,
+                scope_context['category_key'],
+                deck_ids,
+            )
+            return jsonify(payload), status_code
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_IV:
             payload, status_code = opt_out_type_iv_shared_decks(
                 kid,

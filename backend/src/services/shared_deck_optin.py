@@ -18,13 +18,13 @@ module state.
 Layout (search for `# === N. ` banner markers to jump between sections):
 
     1. Shared-deck fetch — fetch_shared_decks_by_ids
-    2. Type-I opt-in / opt-out — public entry points for type-I categories
-    3. Type-IV opt-in / opt-out — public entry points for type-IV categories
+    2. Type-I opt-in (+ opt-out wrapper that delegates to internal)
+    3. Type-IV opt-in (+ opt-out wrapper that delegates to internal)
     4. Generic shared-deck materialize — opt_in_shared_decks_internal used by
        type-II / type-III routes (parametrized over deck-key field + reader)
-    5. Generic shared-deck cleanup — opt_out_shared_decks_internal +
-       delete_shared_deck_related_rows (cascade through session_results,
-       lesson-reading audio, type-II chinese print sheets)
+    5. Generic shared-deck cleanup — opt_out_shared_decks_internal (used by
+       all four types) + delete_shared_deck_related_rows (cascade through
+       session_results, lesson-reading audio, type-II chinese print sheets)
 """
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.routes.kids_constants import DEFAULT_TYPE_IV_DAILY_TARGET_COUNT
@@ -303,147 +303,17 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
 
 def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
     """Remove selected opted-in shared decks for one type-I category."""
-    kid_conn = None
-    try:
-        kid_conn = get_kid_connection_for(kid)
-        materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
-            kid_conn,
+    return opt_out_shared_decks_internal(
+        kid,
+        deck_ids,
+        first_tag=category_key,
+        orphan_deck_name=get_category_orphan_deck_name(category_key),
+        get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_decks_by_first_tag(
+            conn,
             category_key,
-        )
-        local_by_shared_id = {
-            int(entry['shared_deck_id']): {
-                'local_deck_id': int(entry['local_deck_id']),
-                'local_name': str(entry['local_name'] or ''),
-            }
-            for entry in materialized_by_local_id.values()
-        }
-
-        removed = []
-        already_opted_out = []
-        for shared_deck_id in deck_ids:
-            local_entry = local_by_shared_id.get(shared_deck_id)
-            if not local_entry:
-                already_opted_out.append({
-                    'shared_deck_id': int(shared_deck_id),
-                })
-                continue
-
-            local_deck_id = int(local_entry['local_deck_id'])
-            local_name = str(local_entry['local_name'])
-            card_rows = kid_conn.execute(
-                "SELECT id FROM cards WHERE deck_id = ?",
-                [local_deck_id]
-            ).fetchall()
-            card_ids = [int(row[0]) for row in card_rows]
-            card_count = len(card_ids)
-
-            practiced_card_ids = []
-            if card_ids:
-                placeholders = ','.join(['?'] * len(card_ids))
-                practiced_rows = kid_conn.execute(
-                    f"""
-                    SELECT DISTINCT card_id
-                    FROM session_results
-                    WHERE card_id IN ({placeholders})
-                    """,
-                    card_ids
-                ).fetchall()
-                practiced_card_ids = [int(row[0]) for row in practiced_rows]
-            had_practice_sessions = len(practiced_card_ids) > 0
-
-            if had_practice_sessions:
-                orphan_deck_id = get_or_create_category_orphan_deck(kid_conn, category_key)
-                practiced_placeholders = ','.join(['?'] * len(practiced_card_ids))
-                practiced_cards = kid_conn.execute(
-                    f"""
-                    SELECT id, front, back, skip_practice, hardness_score, created_at
-                    FROM cards
-                    WHERE id IN ({practiced_placeholders})
-                    """,
-                    practiced_card_ids
-                ).fetchall()
-                if practiced_cards:
-                    kid_conn.execute(
-                        f"DELETE FROM cards WHERE id IN ({practiced_placeholders})",
-                        practiced_card_ids
-                    )
-                    kid_conn.executemany(
-                        """
-                        INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        [
-                            [
-                                int(row[0]),
-                                orphan_deck_id,
-                                row[1],
-                                row[2],
-                                bool(row[3]),
-                                float(row[4] or 0.0),
-                                row[5],
-                            ]
-                            for row in practiced_cards
-                        ]
-                    )
-
-                practiced_card_id_set = set(practiced_card_ids)
-                unpracticed_ids = [
-                    card_id for card_id in card_ids
-                    if card_id not in practiced_card_id_set
-                ]
-                if unpracticed_ids:
-                    unpracticed_placeholders = ','.join(['?'] * len(unpracticed_ids))
-                    remove_cards_from_type2_chinese_print_sheets(kid_conn, unpracticed_ids)
-                    kid_conn.execute(
-                        f"""
-                        DELETE FROM lesson_reading_audio
-                        WHERE result_id IN (
-                            SELECT id FROM session_results WHERE card_id IN ({unpracticed_placeholders})
-                        )
-                        """,
-                        unpracticed_ids
-                    )
-                    kid_conn.execute(
-                        f"DELETE FROM session_results WHERE card_id IN ({unpracticed_placeholders})",
-                        unpracticed_ids
-                    )
-                    kid_conn.execute(
-                        f"DELETE FROM cards WHERE id IN ({unpracticed_placeholders})",
-                        unpracticed_ids
-                    )
-            else:
-                # No practice yet: hard-delete cards and related rows.
-                if card_ids:
-                    placeholders = ','.join(['?'] * len(card_ids))
-                    remove_cards_from_type2_chinese_print_sheets(kid_conn, card_ids)
-                    # Safety no-op in clean state; prevents FK errors from stale rows.
-                    kid_conn.execute(
-                        f"DELETE FROM session_results WHERE card_id IN ({placeholders})",
-                        card_ids
-                    )
-                kid_conn.execute("DELETE FROM cards WHERE deck_id = ?", [local_deck_id])
-
-            kid_conn.execute("DELETE FROM decks WHERE id = ?", [local_deck_id])
-
-            removed.append({
-                'shared_deck_id': int(shared_deck_id),
-                'deck_id': local_deck_id,
-                'materialized_name': local_name,
-                'had_practice_sessions': had_practice_sessions,
-                'cards_removed': card_count - len(practiced_card_ids),
-                'cards_detached': len(practiced_card_ids),
-            })
-    finally:
-        if kid_conn is not None:
-            kid_conn.close()
-
-    return {
-        'requested_count': len(deck_ids),
-        'removed_count': len(removed),
-        'already_opted_out_count': len(already_opted_out),
-        'removed': removed,
-        'already_opted_out': already_opted_out,
-    }
+        ),
+        delete_type3_audio=True,
+    )
 
 
 # ============================================================================
@@ -627,130 +497,17 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
 
 def opt_out_type_iv_shared_decks(kid, category_key, deck_ids):
     """Remove selected opted-in shared decks for one type-IV category."""
-    kid_conn = None
-    try:
-        kid_conn = get_kid_connection_for(kid)
-        materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
-            kid_conn,
+    return opt_out_shared_decks_internal(
+        kid,
+        deck_ids,
+        first_tag=category_key,
+        orphan_deck_name=get_category_orphan_deck_name(category_key),
+        get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_decks_by_first_tag(
+            conn,
             category_key,
-        )
-        local_by_shared_id = {
-            int(entry['shared_deck_id']): {
-                'local_deck_id': int(entry['local_deck_id']),
-                'local_name': str(entry['local_name'] or ''),
-            }
-            for entry in materialized_by_local_id.values()
-        }
-
-        removed = []
-        already_opted_out = []
-        for shared_deck_id in deck_ids:
-            local_entry = local_by_shared_id.get(shared_deck_id)
-            if not local_entry:
-                already_opted_out.append({
-                    'shared_deck_id': int(shared_deck_id),
-                })
-                continue
-
-            local_deck_id = int(local_entry['local_deck_id'])
-            local_name = str(local_entry['local_name'])
-            card_rows = kid_conn.execute(
-                "SELECT id FROM cards WHERE deck_id = ?",
-                [local_deck_id]
-            ).fetchall()
-            card_ids = [int(row[0]) for row in card_rows]
-            card_count = len(card_ids)
-
-            practiced_card_ids = []
-            if card_ids:
-                placeholders = ','.join(['?'] * len(card_ids))
-                practiced_rows = kid_conn.execute(
-                    f"""
-                    SELECT DISTINCT card_id
-                    FROM session_results
-                    WHERE card_id IN ({placeholders})
-                    """,
-                    card_ids
-                ).fetchall()
-                practiced_card_ids = [int(row[0]) for row in practiced_rows]
-            had_practice_sessions = len(practiced_card_ids) > 0
-
-            if had_practice_sessions:
-                orphan_deck_id = get_or_create_category_orphan_deck(kid_conn, category_key)
-                practiced_placeholders = ','.join(['?'] * len(practiced_card_ids))
-                practiced_cards = kid_conn.execute(
-                    f"""
-                    SELECT id, front, back, skip_practice, hardness_score, created_at
-                    FROM cards
-                    WHERE id IN ({practiced_placeholders})
-                    """,
-                    practiced_card_ids
-                ).fetchall()
-                if practiced_cards:
-                    kid_conn.execute(
-                        f"DELETE FROM cards WHERE id IN ({practiced_placeholders})",
-                        practiced_card_ids
-                    )
-                    kid_conn.executemany(
-                        """
-                        INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        [
-                            [
-                                int(row[0]),
-                                orphan_deck_id,
-                                row[1],
-                                row[2],
-                                bool(row[3]),
-                                float(row[4] or 0.0),
-                                row[5],
-                            ]
-                            for row in practiced_cards
-                        ]
-                    )
-
-                practiced_card_id_set = set(practiced_card_ids)
-                unpracticed_ids = [card_id for card_id in card_ids if card_id not in practiced_card_id_set]
-                if unpracticed_ids:
-                    delete_shared_deck_related_rows(
-                        kid_conn,
-                        unpracticed_ids,
-                        delete_type3_audio=False,
-                    )
-                    unpracticed_placeholders = ','.join(['?'] * len(unpracticed_ids))
-                    kid_conn.execute(
-                        f"DELETE FROM cards WHERE id IN ({unpracticed_placeholders})",
-                        unpracticed_ids
-                    )
-            else:
-                if card_ids:
-                    delete_shared_deck_related_rows(
-                        kid_conn,
-                        card_ids,
-                        delete_type3_audio=False,
-                    )
-                    kid_conn.execute("DELETE FROM cards WHERE deck_id = ?", [local_deck_id])
-            kid_conn.execute("DELETE FROM decks WHERE id = ?", [local_deck_id])
-            removed.append({
-                'shared_deck_id': int(shared_deck_id),
-                'deck_id': local_deck_id,
-                'materialized_name': local_name,
-                'had_practice_sessions': had_practice_sessions,
-                'cards_removed': card_count - len(practiced_card_ids),
-                'cards_detached': len(practiced_card_ids),
-            })
-    finally:
-        if kid_conn is not None:
-            kid_conn.close()
-
-    return {
-        'requested_count': len(deck_ids),
-        'removed_count': len(removed),
-        'already_opted_out_count': len(already_opted_out),
-        'removed': removed,
-        'already_opted_out': already_opted_out,
-    }, 200
+        ),
+        delete_type3_audio=False,
+    )
 
 
 # ============================================================================
