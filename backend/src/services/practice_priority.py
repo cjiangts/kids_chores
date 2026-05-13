@@ -1,4 +1,42 @@
-"""Practice-priority preview computation for one category's active cards."""
+"""Practice-priority preview computation for one category's active cards.
+
+`build_practice_priority_preview_for_decks` returns a per-card ordering used
+by the card-manage page to show "what would practice pick next" — pure
+preview, no DB mutations.
+
+Inputs:
+  - `conn` (kid DB)
+  - `deck_ids` — caller-resolved practice source decks for the category
+  - `session_type` — practiced under this session type (e.g. 'type_i')
+  - `session_behavior_type` — DECK_CATEGORY_BEHAVIOR_TYPE_I/II/III/IV;
+    decides which weights are zeroed (type-II/III drop SLOW; type-III drops
+    MISSED).
+  - `excluded_card_ids` — cards to omit (e.g. already-queued today)
+
+The single SQL statement is one 9-stage CTE — read top-to-bottom:
+
+  1. subject_cards            — non-skipped cards in the selected decks
+  2. card_records             — session_results joined for `session_type`
+  3. speed_baseline           — subject-wide p50/p90 of correct response_time_ms
+  4. record_features          — per-record slow_value 0..1 from baseline
+  5. record_features_with_exposure — add correct_response_time_ms column
+  6. per_card                 — aggregate attempt/correct/wrong/last per card
+  7. score_terms              — derive missed/slow/learning/due NEED values
+  8. scored                   — combine NEEDs × weights into priority_score
+  9. Final SELECT             — emit ordered rows + primary_reason label
+
+The weights live in `kids_constants`:
+  - PRACTICE_PRIORITY_MISSED_WEIGHT / SLOW_WEIGHT / LEARNING_WEIGHT / DUE_WEIGHT
+  - PRACTICE_PRIORITY_LAST_FAILED_BOOST — pumps "missed" if last attempt failed
+  - PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS — learning need = 1 - attempts/target
+  - PRACTICE_PRIORITY_VERY_DUE_DAYS — due_need saturates at this many days
+  - PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE — gate before
+    `slow_value` is non-zero; below threshold the baseline is unreliable so
+    slow contribution collapses to 0.
+
+The Python loop after the query just packs rows into two dicts (preview
+order by card_id + per-card detail dict) plus the subject baseline.
+"""
 
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_II,
