@@ -69,7 +69,7 @@ from src.services.shared_deck_queries import (
 )
 
 # ====================================================================
-# Module state
+# 2. Module state
 #   `_SHARED_DECK_MUTATION_LOCK` serializes opt-in/opt-out across kids
 #   (acquired by handlers below before mutating per-kid DBs).
 # ====================================================================
@@ -206,7 +206,7 @@ from src.services.writing_bulk_split import split_type2_bulk_rows
 
 
 # ====================================================================
-# Shared-deck scope dispatch
+# 3. Shared-deck scope dispatch
 #   Every /kids/<id>/<scope>/... route flows through the dispatcher
 #   below. SHARED_DECK_SCOPE_* are URL segments; SHARED_DECK_OP_* are
 #   logical operations; CATEGORY_CONFIG (built at end of module) maps
@@ -252,7 +252,7 @@ def dispatch_shared_deck_scope_operation(scope, operation, kid_id, card_id=None)
 
 
 # ====================================================================
-# Type-specific cards handlers
+# 4. Type-specific cards handlers
 #   Each scope has a dedicated `get_shared_type<N>_cards(kid_id)` that
 #   wires up category resolution + payload assembly. CATEGORY_CONFIG
 #   below maps each scope to its handler.
@@ -288,7 +288,7 @@ def get_shared_type1_cards(kid_id):
 
 
 # ====================================================================
-# Request-parsing helpers (Flask `request.args` / `request.get_json()`)
+# 5. Request-parsing helpers (Flask `request.args` / `request.get_json()`)
 # ====================================================================
 
 def parse_include_practiced_from_other_arg():
@@ -352,7 +352,7 @@ def parse_shared_deck_ids_from_request_payload(payload):
 
 
 # ====================================================================
-# Scope-management context resolvers
+# 6. Scope-management context resolvers
 #   Translate a kid + raw category key into the operating parameters
 #   (first_tag, orphan_deck_name, unique_key_field, ...) that all
 #   per-scope handlers below consume.
@@ -427,7 +427,7 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
 
 
 # ====================================================================
-# Per-scope route handlers
+# 7. Per-scope route handlers
 #   Each `*_for_scope(kid_id, category, ...)` is a JSON-returning
 #   handler invoked by the dispatcher. They acquire the mutation lock
 #   when mutating, do auth via get_kid_for_family, and delegate the
@@ -906,7 +906,7 @@ def update_shared_card_skip_bulk_for_scope(kid_id, category):
 
 
 # ====================================================================
-# Operation dispatch table
+# 8. Operation dispatch table
 #   Maps SHARED_DECK_OP_* constants to per-scope handlers above.
 #   run_shared_deck_scope_operation looks up the handler and invokes
 #   it; SKIP_UPDATE is the only op that passes a card_id arg.
@@ -1217,7 +1217,7 @@ def get_shared_type2_cards(kid_id):
 
 
 # ====================================================================
-# CATEGORY_CONFIG wiring
+# 9. CATEGORY_CONFIG wiring
 #   Final scope → config map (populated after all handlers are defined).
 #   Each scope maps to a behavior kind + cards_handler used by the
 #   dispatcher above.
@@ -1246,14 +1246,18 @@ CATEGORY_CONFIG.update({
 
 
 
-# Re-export everything (including underscore-prefixed module state and helpers)
-# so that route sub-modules can do `from src.routes.kids import *`.
+# ====================================================================
+# 10. Re-exports + sibling-route-module loads
+#   __all__ exposes underscore-prefixed module state so sibling modules
+#   can `from src.routes.kids import _PENDING_SESSIONS, ...`. Sibling
+#   imports MUST be the last lines so all helpers + __all__ are ready.
+# ====================================================================
+
 __all__ = [
     _name for _name in dict(globals()).keys()
     if not _name.startswith('__') and _name != '_name'
 ]
 
-# Register routes — must be the LAST imports so all helpers + __all__ are defined first.
 from . import shared_decks  # noqa: E402,F401
 from . import kids_core  # noqa: E402,F401
 from . import kid_decks  # noqa: E402,F401
