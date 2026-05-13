@@ -44,31 +44,16 @@ from src.routes.kids_constants import *  # noqa: F401,F403
 kids_bp = Blueprint('kids', __name__)
 
 from src.services.card_stats import (
-    delete_card_from_deck_internal,
     get_card_ids_practiced_for_category,
-    get_cards_with_stats,
     get_cards_with_stats_for_card_ids,
     get_cards_with_stats_for_deck_ids,
     map_card_row,
 )
 from src.services.writing_candidates import (
     get_pending_writing_card_ids,
-    get_writing_candidate_card_ids,
     get_writing_candidate_rows,
-    remove_cards_from_type2_chinese_print_sheets,
 )
-from src.services.practice_session import (
-    build_continue_selected_cards_for_decks,
-    build_retry_ready_payload,
-    build_retry_selected_cards_for_sources,
-    build_special_session_ready_payload,
-    build_type_i_multiple_choice_pool_cards,
-    get_practice_candidate_cards_for_decks,
-    get_retry_source_wrong_card_ids,
-    plan_deck_practice_selection_for_decks,
-    preview_deck_practice_order_for_decks,
-    update_card_hardness_after_session,
-)
+from src.services.practice_session import build_special_session_ready_payload
 from src.services.shared_deck_queries import (
     find_shared_type_iv_representative_label_conflict,
     get_allowed_shared_deck_first_tags,
@@ -106,31 +91,21 @@ def encode_retry_recovered_session_result(existing_retry_count):
 from src.services.writing_audio import (
     build_shared_type1_prompt_audio_file_name,
     build_shared_writing_audio_file_name,
-    build_type_i_chinese_audio_meta_for_front,
     build_type_i_chinese_prompt_audio_payload,
-    build_writing_audio_meta_for_front,
     build_writing_front_tts_text,
     build_writing_prompt_audio_payload,
     cleanup_type3_pending_audio_files_by_payload,
     cleanup_uncommitted_type3_audio,
-    ensure_shared_writing_audio_dir,
     ensure_type3_audio_dir,
     format_type2_bulk_card_text,
     get_kid_type3_audio_dir,
     get_shared_writing_audio_dir,
-    get_writing_tts_language,
     normalize_writing_audio_text,
     synthesize_shared_writing_audio,
 )
 from src.services.family_auth import (
-    can_family_access_deck_category,
-    current_family_id,
-    get_current_family_id_int,
     get_kid_connection_for,
     get_kid_for_family,
-    is_super_family_id,
-    require_critical_password,
-    require_super_family,
 )
 
 
@@ -138,7 +113,6 @@ from src.services.shared_deck_normalize import (
     build_shared_deck_tags,
     dedupe_shared_deck_cards_by_back,
     dedupe_shared_deck_cards_by_front,
-    dedupe_shared_deck_cards_by_key,
     extract_shared_deck_tags_and_labels,
     format_shared_deck_tag_display_label,
     normalize_deck_category_keys,
@@ -149,7 +123,6 @@ from src.services.shared_deck_normalize import (
     normalize_shared_deck_fronts,
     normalize_shared_deck_ids,
     normalize_shared_deck_tag,
-    normalize_type_iv_daily_count,
     normalize_type_iv_daily_counts_payload,
     normalize_type_iv_display_label,
     normalize_type_iv_generator_code,
@@ -159,38 +132,22 @@ from src.services.shared_deck_normalize import (
 )
 from src.services.shared_deck_category import (
     get_session_behavior_type,
-    get_shared_deck_categories,
     get_shared_deck_category_meta_by_key,
-    invalidate_category_meta_cache,
-    is_type_iii_session_type,
 )
 from src.services.type4_print_layout import (
     _safe_positive_int_or_none,
-    build_shared_deck_print_cell_design,
     build_type_iv_print_sheet_display_number,
     build_type_iv_print_sheet_layout,
     build_type_iv_print_sheet_layout_payload,
-    build_type_iv_print_sheet_row_seed,
-    get_type_iv_print_sheet_paper_spec,
-    get_type_iv_print_sheet_row_metrics,
     normalize_type_iv_print_cell_design,
-    normalize_type_iv_print_sheet_inline_font_scale,
     normalize_type_iv_print_sheet_paper_size,
     normalize_type_iv_print_sheet_repeat_count,
-    normalize_type_iv_print_sheet_row_scale,
     normalize_type_iv_print_sheet_rows,
 )
 
 
 
-from src.services.shared_deck_materialize import (
-    build_materialized_shared_deck_name,
-    build_materialized_shared_deck_tags,
-    get_materialized_shared_deck_rows_by_shared_deck_id,
-    parse_shared_deck_id_from_materialized_name,
-    sync_materialized_shared_deck_metadata_for_all_kids,
-    sync_materialized_shared_deck_metadata_for_kid,
-)
+from src.services.shared_deck_materialize import sync_materialized_shared_deck_metadata_for_all_kids
 
 
 from src.services.kid_category_config import (
@@ -200,7 +157,6 @@ from src.services.kid_category_config import (
     get_category_orphan_deck_name,
     get_category_session_card_count_for_kid,
     get_or_create_category_orphan_deck,
-    get_or_create_orphan_deck,
     get_orphan_deck,
     hydrate_kid_category_config_from_db,
     with_preview_session_count_for_category,
@@ -208,55 +164,23 @@ from src.services.kid_category_config import (
 
 
 from src.services.deck_source_merge import (
-    _build_orphan_source_deck_entry,
-    _build_shared_source_deck_entry,
-    get_card_count_summary_by_deck_ids,
-    get_shared_merged_source_decks_for_kid,
     get_shared_type_i_merged_source_decks_for_kid,
     get_shared_type_ii_merged_source_decks_for_kid,
-    get_shared_type_iv_merged_source_decks_for_kid,
-    get_type_iv_bank_source_rows,
-    get_type_iv_total_daily_target_for_category,
 )
 
 from src.services.practice_priority import build_practice_priority_preview_for_decks
-from src.services.chinese_text import (
-    CHINESE_BACK_CONTENTS,
-    CHINESE_BACK_CONTENT_ENGLISH,
-    CHINESE_BACK_CONTENT_PINYIN,
-    build_chinese_auto_back_text,
-    build_chinese_pinyin_text,
-    get_category_chinese_back_content,
-    get_shared_deck_chinese_back_content,
-    normalize_chinese_back_content,
-)
+from src.services.chinese_text import get_category_chinese_back_content
 from src.services.kid_daily_progress import (
     build_kid_daily_progress_section,
     get_deck_category_display_name,
-    get_kid_active_card_count_by_deck_category,
-    get_kid_daily_completed_by_deck_category,
-    get_kid_daily_percent_by_deck_category,
-    get_kid_daily_star_tiers_by_deck_category,
-    get_kid_dashboard_stats,
-    get_kid_opted_in_deck_category_keys,
-    get_kid_practice_target_by_deck_category,
-    get_kid_scoped_db_relpath,
-    get_kid_ungraded_type_iii_count,
-    get_type_iii_category_keys,
 )
 from src.services.kid_category_resolve import (
-    resolve_kid_category_with_mode,
-    resolve_kid_deck_category_key_for_behavior,
-    resolve_kid_type_i_category_key,
     resolve_kid_type_i_category_with_mode,
-    resolve_kid_type_i_chinese_category_key,
     resolve_kid_type_ii_category_with_mode,
     resolve_kid_type_iii_category_with_mode,
     resolve_kid_type_iv_category_with_mode,
 )
 from src.services.shared_deck_optin import (
-    delete_shared_deck_related_rows,
-    fetch_shared_decks_by_ids,
     opt_in_shared_decks_internal,
     opt_in_type_i_shared_decks,
     opt_in_type_iv_shared_decks,
@@ -266,7 +190,6 @@ from src.services.shared_deck_optin import (
 )
 from src.services.shared_deck_payloads import (
     build_merged_source_decks_payload,
-    build_orphan_deck_payload,
     build_shared_decks_listing_payload,
     build_type_i_shared_cards_payload,
     build_type_i_shared_decks_payload,
@@ -279,10 +202,7 @@ from src.services.shared_card_skip import (
     update_shared_card_skip_internal,
     update_shared_cards_skip_bulk_internal,
 )
-from src.services.writing_bulk_split import (
-    split_type2_bulk_rows,
-    split_writing_bulk_text,
-)
+from src.services.writing_bulk_split import split_type2_bulk_rows
 
 
 # ====================================================================
