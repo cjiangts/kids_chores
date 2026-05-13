@@ -188,6 +188,8 @@ cd backend && source venv/bin/activate \
 # Expected: OK 111
 ```
 
+Optionally run `python -m pyflakes src/services/ src/routes/` to catch undefined names (the package re-exports in `routes/kids/__init__.py` will produce many "imported but unused" warnings — those are expected; the things to fix are `undefined name` errors and bare unused-local warnings in sibling modules).
+
 For frontend changes, run [start-local.sh](start-local.sh) and check the affected page in a browser. There's no automated test suite — verify manually.
 
 ## Refactor history
