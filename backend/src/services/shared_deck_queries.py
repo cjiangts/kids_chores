@@ -2,7 +2,7 @@
 
 Pure helpers that:
   - List allowed shared-deck first tags from the deck_category table.
-  - List shared decks by first-tag and per-behavior shortcuts.
+  - List shared decks by first-tag.
   - List type-IV decks with representative front/back labels.
   - Find a representative-label conflict for a type-IV deck.
   - List kid-local materialized shared decks (per-kid SQLite) by first tag.
@@ -14,7 +14,7 @@ DB helpers take a `conn` for the shared-decks DB (or a per-kid `conn` for the
 materialized-deck readers). No module state.
 
 Layout:
-  1. Allowed first tags + shared-deck row queries (first-tag, type-II/IV)
+  1. Allowed first tags + shared-deck row queries (first-tag, type-IV)
   2. Type-IV representative-label conflict + per-kid materialized decks
   3. Single-deck lookups + behavior-type resolution + card rows
 """
@@ -33,7 +33,7 @@ from src.services.shared_deck_normalize import (
 
 
 # =====================================================================
-# === 1. Allowed first tags + shared-deck row queries (first-tag, type-II/IV)
+# === 1. Allowed first tags + shared-deck row queries (first-tag, type-IV)
 # =====================================================================
 
 def get_allowed_shared_deck_first_tags(conn):
@@ -81,14 +81,6 @@ def get_shared_deck_rows_by_first_tag(conn, first_tag):
             'card_count': int(row[5] or 0),
         })
     return decks
-
-
-def get_shared_type_ii_deck_rows(conn, category_key):
-    """Return all shared decks tagged by one type-II category key with card counts."""
-    first_tag = normalize_shared_deck_tag(category_key)
-    if not first_tag:
-        return []
-    return get_shared_deck_rows_by_first_tag(conn, first_tag)
 
 
 def get_shared_type_iv_deck_rows(conn, category_key):
@@ -193,14 +185,6 @@ def get_kid_materialized_shared_decks_by_first_tag(conn, first_tag):
             'tag_labels': tag_labels,
         }
     return decks
-
-
-def get_kid_materialized_shared_type_ii_decks(conn, category_key):
-    """Return kid-local materialized shared type-II decks keyed by local deck id."""
-    first_tag = normalize_shared_deck_tag(category_key)
-    if not first_tag:
-        return {}
-    return get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
 
 
 # =====================================================================

@@ -2,7 +2,7 @@
 
 Layout:
   1. Entry builders (shared / orphan) + card-count summary by deck ids
-  2. Shared merged source decks for kid (generic + type-I/II/IV variants)
+  2. Shared merged source decks for kid
   3. Type-IV bank source rows + daily target for a category
 """
 from src.services.kid_category_config import (
@@ -17,7 +17,6 @@ from src.services.shared_deck_normalize import (
 )
 from src.services.shared_deck_queries import (
     get_kid_materialized_shared_decks_by_first_tag,
-    get_kid_materialized_shared_type_ii_decks,
 )
 
 
@@ -94,7 +93,7 @@ def get_card_count_summary_by_deck_ids(conn, deck_ids):
 
 
 # =====================================================================
-# === 2. Shared merged source decks for kid (generic + type-I/II/IV variants)
+# === 2. Shared merged source decks for kid
 # =====================================================================
 
 def get_shared_merged_source_decks_for_kid(
@@ -102,14 +101,13 @@ def get_shared_merged_source_decks_for_kid(
     kid,
     category_key,
     *,
-    get_materialized_func,
     include_orphan_in_queue_override=None,
 ):
     """Return merged source decks (normal + orphan) for one category."""
     first_tag = normalize_shared_deck_tag(category_key)
     if not first_tag:
         return []
-    materialized_by_local_id = get_materialized_func(conn, first_tag)
+    materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(conn, first_tag)
     include_orphan_in_queue = (
         bool(include_orphan_in_queue_override)
         if include_orphan_in_queue_override is not None
@@ -151,50 +149,6 @@ def get_shared_merged_source_decks_for_kid(
     return sources
 
 
-def get_shared_type_i_merged_source_decks_for_kid(
-    conn,
-    kid,
-    category_key,
-    *,
-    include_orphan_in_queue_override=None,
-):
-    """Return type-I source decks for merged bank and merged practice queue."""
-    return get_shared_merged_source_decks_for_kid(
-        conn,
-        kid,
-        category_key,
-        get_materialized_func=get_kid_materialized_shared_decks_by_first_tag,
-        include_orphan_in_queue_override=include_orphan_in_queue_override,
-    )
-
-
-def get_shared_type_ii_merged_source_decks_for_kid(conn, kid, category_key):
-    """Return type-II source decks for merged bank and merged practice queue."""
-    return get_shared_merged_source_decks_for_kid(
-        conn,
-        kid,
-        category_key,
-        get_materialized_func=get_kid_materialized_shared_type_ii_decks,
-    )
-
-
-def get_shared_type_iv_merged_source_decks_for_kid(
-    conn,
-    kid,
-    category_key,
-    *,
-    include_orphan_in_queue_override=None,
-):
-    """Return type-IV source decks for merged bank and merged practice queue."""
-    return get_shared_merged_source_decks_for_kid(
-        conn,
-        kid,
-        category_key,
-        get_materialized_func=get_kid_materialized_shared_decks_by_first_tag,
-        include_orphan_in_queue_override=include_orphan_in_queue_override,
-    )
-
-
 # =====================================================================
 # === 3. Type-IV bank source rows + daily target for a category
 # =====================================================================
@@ -208,7 +162,7 @@ def get_type_iv_bank_source_rows(
 ):
     """Return type-IV bank sources currently included in the bank view."""
     sources = []
-    for source in list(get_shared_type_iv_merged_source_decks_for_kid(
+    for source in list(get_shared_merged_source_decks_for_kid(
         conn,
         kid,
         category_key,

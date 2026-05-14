@@ -18,16 +18,16 @@ from src.routes.kids import (
     format_type2_bulk_card_text,
     get_category_include_orphan_for_kid,
     get_category_orphan_deck_name,
-    get_kid_materialized_shared_type_ii_decks,
+    get_kid_materialized_shared_decks_by_first_tag,
     get_or_create_category_orphan_deck,
+    get_shared_merged_source_decks_for_kid,
     get_shared_type2_cards,
-    get_shared_type_i_merged_source_decks_for_kid,
-    get_shared_type_ii_merged_source_decks_for_kid,
     get_shared_writing_audio_dir,
     json,
     jsonify,
     kids_bp,
     mimetypes,
+    normalize_shared_deck_tag,
     normalize_writing_audio_text,
     os,
     request,
@@ -107,7 +107,7 @@ def add_writing_cards(kid_id):
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_category_orphan_deck(conn, category_key)
 
-        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
+        source_decks = get_shared_merged_source_decks_for_kid(
             conn,
             kid,
             category_key,
@@ -183,7 +183,7 @@ def update_writing_card(kid_id, card_id):
             return jsonify({'error': 'back is required'}), 400
 
         conn = get_kid_connection_for(kid)
-        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
+        source_decks = get_shared_merged_source_decks_for_kid(
             conn,
             kid,
             category_key,
@@ -277,7 +277,7 @@ def add_writing_cards_bulk(kid_id):
 
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_category_orphan_deck(conn, category_key)
-        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
+        source_decks = get_shared_merged_source_decks_for_kid(
             conn,
             kid,
             category_key,
@@ -367,7 +367,9 @@ def get_writing_audio(kid_id, file_name):
         conn = get_kid_connection_for(kid, read_only=True)
         try:
             # Keep this endpoint read-only. Do not create orphan decks while serving audio.
-            materialized_by_local_id = get_kid_materialized_shared_type_ii_decks(conn, category_key)
+            materialized_by_local_id = get_kid_materialized_shared_decks_by_first_tag(
+                conn, normalize_shared_deck_tag(category_key)
+            )
             source_deck_ids = [
                 int(entry['local_deck_id'])
                 for entry in materialized_by_local_id.values()
@@ -443,7 +445,7 @@ def get_type1_chinese_prompt_audio(kid_id, file_name):
 
         conn = get_kid_connection_for(kid, read_only=True)
         try:
-            sources = get_shared_type_i_merged_source_decks_for_kid(
+            sources = get_shared_merged_source_decks_for_kid(
                 conn,
                 kid,
                 category_key,
@@ -594,7 +596,7 @@ def create_chinese_print_sheet(kid_id):
                 if card_id not in card_ids:
                     card_ids.append(card_id)
 
-            source_decks = get_shared_type_ii_merged_source_decks_for_kid(
+            source_decks = get_shared_merged_source_decks_for_kid(
                 conn,
                 kid,
                 category_key,

@@ -31,8 +31,7 @@ from src.services.card_stats import (
 )
 from src.services.deck_source_merge import (
     get_card_count_summary_by_deck_ids,
-    get_shared_type_i_merged_source_decks_for_kid,
-    get_shared_type_iv_merged_source_decks_for_kid,
+    get_shared_merged_source_decks_for_kid,
     get_type_iv_bank_source_rows,
     get_type_iv_total_daily_target_for_category,
 )
@@ -494,7 +493,7 @@ def build_type_i_shared_cards_payload(
             if include_orphan_in_queue_override is not None
             else get_category_include_orphan_for_kid(kid, category_key)
         )
-        sources = get_shared_type_i_merged_source_decks_for_kid(
+        sources = get_shared_merged_source_decks_for_kid(
             conn,
             kid,
             category_key,
@@ -713,7 +712,7 @@ def get_type_iv_practice_source_rows(
 ):
     """Return opted-in generator sources ready for session generation."""
     sources = [
-        source for source in list(get_shared_type_iv_merged_source_decks_for_kid(
+        source for source in list(get_shared_merged_source_decks_for_kid(
             conn,
             kid,
             category_key,

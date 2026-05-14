@@ -36,7 +36,7 @@ from src.routes.kids import (
     get_kid_materialized_shared_decks_by_first_tag,
     get_or_create_category_orphan_deck,
     get_shared_decks_connection,
-    get_shared_type_i_merged_source_decks_for_kid,
+    get_shared_merged_source_decks_for_kid,
     jsonify,
     kids_bp,
     normalize_type_iv_daily_counts_payload,
@@ -85,7 +85,7 @@ def get_cards(kid_id):
         conn = get_kid_connection_for(kid)
         try:
             orphan_deck_id = get_or_create_category_orphan_deck(conn, category_key)
-            sources = get_shared_type_i_merged_source_decks_for_kid(
+            sources = get_shared_merged_source_decks_for_kid(
                 conn,
                 kid,
                 category_key,
@@ -137,7 +137,7 @@ def add_card(kid_id):
         conn = get_kid_connection_for(kid)
         try:
             deck_id = get_or_create_category_orphan_deck(conn, category_key)
-            source_decks = get_shared_type_i_merged_source_decks_for_kid(
+            source_decks = get_shared_merged_source_decks_for_kid(
                 conn,
                 kid,
                 category_key,
@@ -214,7 +214,7 @@ def add_cards_bulk(kid_id):
         conn = get_kid_connection_for(kid)
         try:
             deck_id = get_or_create_category_orphan_deck(conn, category_key)
-            source_decks = get_shared_type_i_merged_source_decks_for_kid(
+            source_decks = get_shared_merged_source_decks_for_kid(
                 conn,
                 kid,
                 category_key,

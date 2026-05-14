@@ -18,8 +18,8 @@ module state.
 Layout (search for `# === N. ` banner markers to jump between sections):
 
     1. Shared-deck fetch — fetch_shared_decks_by_ids
-    2. Type-I opt-in (+ opt-out wrapper that delegates to internal)
-    3. Type-IV opt-in (+ opt-out wrapper that delegates to internal)
+    2. Type-I opt-in — opt_in_type_i_shared_decks (Chinese-aware front-dedupe)
+    3. Type-IV opt-in — opt_in_type_iv_shared_decks (single representative card)
     4. Generic shared-deck materialize — opt_in_shared_decks_internal used by
        type-II / type-III routes (parametrized over deck-key field + reader)
     5. Generic shared-deck cleanup — opt_out_shared_decks_internal (used by
@@ -78,7 +78,7 @@ def fetch_shared_decks_by_ids(shared_conn, deck_ids):
 
 
 # ============================================================================
-# 2. Type-I opt-in / opt-out — Chinese-aware front-dedupe per category
+# 2. Type-I opt-in — Chinese-aware front-dedupe per category
 # ============================================================================
 
 def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific_logic):
@@ -298,23 +298,8 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
     }, 200
 
 
-def opt_out_type_i_shared_decks(kid, category_key, deck_ids):
-    """Remove selected opted-in shared decks for one type-I category."""
-    return opt_out_shared_decks_internal(
-        kid,
-        deck_ids,
-        first_tag=category_key,
-        orphan_deck_name=get_category_orphan_deck_name(category_key),
-        get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_decks_by_first_tag(
-            conn,
-            category_key,
-        ),
-        delete_type3_audio=True,
-    )
-
-
 # ============================================================================
-# 3. Type-IV opt-in / opt-out — single representative card per deck
+# 3. Type-IV opt-in — single representative card per deck
 # ============================================================================
 
 def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
@@ -490,21 +475,6 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
         'created': created,
         'already_opted_in': already_opted_in,
     }, 200
-
-
-def opt_out_type_iv_shared_decks(kid, category_key, deck_ids):
-    """Remove selected opted-in shared decks for one type-IV category."""
-    return opt_out_shared_decks_internal(
-        kid,
-        deck_ids,
-        first_tag=category_key,
-        orphan_deck_name=get_category_orphan_deck_name(category_key),
-        get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_decks_by_first_tag(
-            conn,
-            category_key,
-        ),
-        delete_type3_audio=False,
-    )
 
 
 # ============================================================================

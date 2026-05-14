@@ -58,12 +58,10 @@ from src.services.shared_deck_queries import (
     find_shared_type_iv_representative_label_conflict,
     get_allowed_shared_deck_first_tags,
     get_kid_materialized_shared_decks_by_first_tag,
-    get_kid_materialized_shared_type_ii_decks,
     get_shared_deck_behavior_type_from_raw_tags,
     get_shared_deck_cards,
     get_shared_deck_owned_by_family,
     get_shared_deck_rows_by_first_tag,
-    get_shared_type_ii_deck_rows,
     get_shared_type_iv_deck_rows,
     is_shared_deck_chinese_type_i,
 )
@@ -162,10 +160,7 @@ from src.services.kid_category_config import (
 )
 
 
-from src.services.deck_source_merge import (
-    get_shared_type_i_merged_source_decks_for_kid,
-    get_shared_type_ii_merged_source_decks_for_kid,
-)
+from src.services.deck_source_merge import get_shared_merged_source_decks_for_kid
 
 from src.services.practice_priority import build_practice_priority_preview_for_decks
 from src.services.chinese_text import get_category_chinese_back_content
@@ -184,8 +179,6 @@ from src.services.shared_deck_optin import (
     opt_in_type_i_shared_decks,
     opt_in_type_iv_shared_decks,
     opt_out_shared_decks_internal,
-    opt_out_type_i_shared_decks,
-    opt_out_type_iv_shared_decks,
 )
 from src.services.shared_deck_payloads import (
     build_merged_source_decks_payload,
@@ -465,17 +458,18 @@ def get_shared_decks_for_scope(kid_id, category):
             )
             return jsonify(payload), 200
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
+            first_tag = scope_context['first_tag']
             payload = build_shared_decks_listing_payload(
                 kid,
-                first_tag=scope_context['first_tag'],
+                first_tag=first_tag,
                 orphan_deck_name=scope_context['orphan_deck_name'],
-                get_shared_decks_fn=lambda conn: get_shared_type_ii_deck_rows(
+                get_shared_decks_fn=lambda conn: get_shared_deck_rows_by_first_tag(
                     conn,
-                    scope_context['category_key'],
+                    first_tag,
                 ),
-                get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_type_ii_decks(
+                get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_decks_by_first_tag(
                     conn,
-                    scope_context['category_key'],
+                    first_tag,
                 ),
                 session_card_count=get_category_session_card_count_for_kid(
                     kid,
@@ -593,14 +587,15 @@ def opt_in_shared_decks_for_scope(kid_id, category):
             )
             return jsonify(payload), status_code
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
+            first_tag = scope_context['first_tag']
             payload, status_code = opt_in_shared_decks_internal(
                 kid,
                 deck_ids,
-                first_tag=scope_context['first_tag'],
+                first_tag=first_tag,
                 orphan_deck_name=scope_context['orphan_deck_name'],
-                get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_type_ii_decks(
+                get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_decks_by_first_tag(
                     conn,
-                    scope_context['category_key'],
+                    first_tag,
                 ),
             )
             return jsonify(payload), status_code
@@ -626,35 +621,26 @@ def opt_out_shared_decks_for_scope(kid_id, category):
             req_payload.get('categoryKey') or request.args.get('categoryKey'),
         )
         deck_ids = parse_shared_deck_ids_from_request_payload(req_payload)
-        if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_I:
-            payload, status_code = opt_out_type_i_shared_decks(
-                kid,
-                scope_context['category_key'],
-                deck_ids,
-            )
-            return jsonify(payload), status_code
-        if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_IV:
-            payload, status_code = opt_out_type_iv_shared_decks(
-                kid,
-                scope_context['category_key'],
-                deck_ids,
-            )
-            return jsonify(payload), status_code
-        if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
-            payload, status_code = opt_out_shared_decks_internal(
-                kid,
-                deck_ids,
-                first_tag=scope_context['first_tag'],
-                orphan_deck_name=scope_context['orphan_deck_name'],
-                get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_type_ii_decks(
-                    conn,
-                    scope_context['category_key'],
-                ),
-                delete_type3_audio=False,
-            )
-            return jsonify(payload), status_code
-
-        return jsonify({'error': 'Unsupported shared-deck operation for scope'}), 404
+        management_type = scope_context['management_type']
+        if management_type not in (
+            SHARED_SCOPE_MANAGEMENT_TYPE_I,
+            SHARED_SCOPE_MANAGEMENT_TYPE_II,
+            SHARED_SCOPE_MANAGEMENT_TYPE_IV,
+        ):
+            return jsonify({'error': 'Unsupported shared-deck operation for scope'}), 404
+        category_key = scope_context['category_key']
+        payload, status_code = opt_out_shared_decks_internal(
+            kid,
+            deck_ids,
+            first_tag=category_key,
+            orphan_deck_name=scope_context['orphan_deck_name'],
+            get_materialized_decks_fn=lambda conn: get_kid_materialized_shared_decks_by_first_tag(
+                conn,
+                category_key,
+            ),
+            delete_type3_audio=management_type == SHARED_SCOPE_MANAGEMENT_TYPE_I,
+        )
+        return jsonify(payload), status_code
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -723,7 +709,7 @@ def get_decks_for_scope(kid_id, category):
         if scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_I:
             conn = get_kid_connection_for(kid, read_only=True)
             try:
-                sources = get_shared_type_i_merged_source_decks_for_kid(
+                sources = get_shared_merged_source_decks_for_kid(
                     conn,
                     kid,
                     scope_context['category_key'],
@@ -753,7 +739,7 @@ def get_decks_for_scope(kid_id, category):
         elif scope_context['management_type'] == SHARED_SCOPE_MANAGEMENT_TYPE_II:
             conn = get_kid_connection_for(kid, read_only=True)
             try:
-                sources = get_shared_type_ii_merged_source_decks_for_kid(
+                sources = get_shared_merged_source_decks_for_kid(
                     conn,
                     kid,
                     scope_context['category_key'],
@@ -993,7 +979,7 @@ def get_shared_type2_cards(kid_id):
 
         conn = get_kid_connection_for(kid, read_only=True)
         try:
-            sources = get_shared_type_ii_merged_source_decks_for_kid(
+            sources = get_shared_merged_source_decks_for_kid(
                 conn,
                 kid,
                 category_key,

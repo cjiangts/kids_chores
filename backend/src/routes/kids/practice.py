@@ -44,8 +44,7 @@ from src.routes.kids import (
     extract_shared_deck_tags_and_labels,
     get_category_drill_speed_cutoff_ms_for_kid,
     get_category_session_card_count_for_kid,
-    get_shared_type_i_merged_source_decks_for_kid,
-    get_shared_type_ii_merged_source_decks_for_kid,
+    get_shared_merged_source_decks_for_kid,
     get_type_iv_practice_source_rows,
     json,
     jsonify,
@@ -137,7 +136,7 @@ def start_writing_practice_session(kid_id):
         )
         practice_mode = normalize_session_practice_mode(payload.get('practiceMode'))
         conn = get_kid_connection_for(kid)
-        source_decks = get_shared_type_ii_merged_source_decks_for_kid(
+        source_decks = get_shared_merged_source_decks_for_kid(
             conn,
             kid,
             category_key,
@@ -869,7 +868,7 @@ def start_type_i_practice_session_internal(
     """Start one merged type-I practice session with optional per-category overrides."""
     conn = get_kid_connection_for(kid)
     try:
-        source_decks = get_shared_type_i_merged_source_decks_for_kid(
+        source_decks = get_shared_merged_source_decks_for_kid(
             conn,
             kid,
             category_key,
