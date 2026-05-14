@@ -123,7 +123,7 @@ def add_writing_cards(kid_id):
                 'error': (
                     'This Chinese writing answer already exists in the card bank'
                     if has_chinese_specific_logic
-                    else 'This type-II prompt already exists in the card bank'
+                    else 'This type-II answer already exists in the card bank'
                 )
             }), 400
 
