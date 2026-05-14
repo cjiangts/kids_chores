@@ -136,7 +136,7 @@ async function loadReportTimezone() {
 function renderHero(card, attempts) {
     if (!cardReportHero) return;
 
-    const cardLabel = getCardDisplayLabel(card?.front, card?.back, from)
+    const cardLabel = getCardDisplayLabel(card?.front, card?.back)
         || `#${card?.id || cardId}`;
     const labelText = String(cardLabel || '');
     const len = [...labelText].length;
@@ -819,18 +819,10 @@ function formatType(sessionCategoryDisplayName = '') {
     return String(sessionCategoryDisplayName || '').trim();
 }
 
-function getCardDisplayLabel(front, back, source) {
+function getCardDisplayLabel(front, back) {
     const frontText = String(front || '').trim();
     const backText = String(back || '').trim();
-
-    if (source === 'cards' || source === 'lesson-reading') {
-        return frontText || backText;
-    }
-    if (source === 'type2') {
-        return backText || frontText;
-    }
-
-    return backText || frontText;
+    return frontText || backText;
 }
 
 function formatSourceDeckLabel(deckName) {
