@@ -243,8 +243,9 @@ function renderKidToggle(kids) {
         const name = String(kid?.name || '').trim() || 'Kid';
         const isActive = id === String(kidId);
         const { assigned, done } = computeKidToggleProgress(kid);
+        const isDone = assigned > 0 && done >= assigned;
         const metaHtml = assigned > 0
-            ? `<span class="kid-nav-card-meta">${done}/${assigned}</span>`
+            ? `<span class="kid-nav-card-meta${isDone ? ' is-done' : ''}">${done}/${assigned} done</span>`
             : '';
         const nameHtml = `<span>${escapeHtmlLocal(name)}</span>`;
         if (isActive) {
@@ -554,14 +555,11 @@ function buildCategoryProgressModel({
         : Boolean(starsModel.isDoneToday && latestPercentValue >= 100);
     const hasStarted = isFullyComplete || isReview || fillPercent > 0 || seenCount > 0;
 
-    let statusClass = 'not-started';
-    let statusText = 'Not started';
+    let actionLabel = 'Start';
     if (isReview) {
-        statusClass = 'review';
-        statusText = 'Review';
-    } else if (!isFullyComplete && hasStarted) {
-        statusClass = 'in-progress';
-        statusText = 'In progress';
+        actionLabel = 'Review';
+    } else if (hasStarted && !isFullyComplete) {
+        actionLabel = 'Resume';
     }
 
     const subText = targetCount > 0
@@ -570,8 +568,7 @@ function buildCategoryProgressModel({
     const unseenPercent = Math.max(0, 100 - seenPercent);
 
     return {
-        statusClass,
-        statusText,
+        actionLabel,
         subText,
         percentValue: percentValueRaw,
         fillPercent,
@@ -598,14 +595,12 @@ function buildCategoryCardInnerHtml({
     displayName,
     progressModel,
 }) {
-    let rightBadgeHtml;
+    let rightBadgeHtml = '';
     if (progressModel.isFullyComplete) {
         rightBadgeHtml = renderStarTokenSetHtml(Math.max(1, progressModel.starCount), {
             starClass: 'practice-row-token-star',
             overflowClass: 'practice-row-token-overflow',
         });
-    } else {
-        rightBadgeHtml = `<span class="practice-row-status-pill ${progressModel.statusClass}">${escapeHtmlLocal(progressModel.statusText)}</span>`;
     }
 
     const subTextHtml = progressModel.targetCount > 0
@@ -616,7 +611,7 @@ function buildCategoryCardInnerHtml({
             </span>
             <span class="practice-row-legend-item">
                 <span class="practice-row-legend-dot redo" aria-hidden="true"></span>
-                ${escapeHtmlLocal(String(progressModel.redoCount))} to redo
+                ${escapeHtmlLocal(String(progressModel.redoCount))} to fix
             </span>
             <span class="practice-row-legend-item">
                 <span class="practice-row-legend-dot unseen" aria-hidden="true"></span>
@@ -633,7 +628,12 @@ function buildCategoryCardInnerHtml({
         : '';
 
     const tileHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
-    const playIconHtml = (typeof window.icon === 'function') ? window.icon('play', { size: 18, strokeWidth: 2.4 }) : '';
+    const iconByLabel = { Start: 'play', Review: 'refresh-cw', Resume: 'circle-arrow-right' };
+    const actionIconName = iconByLabel[progressModel.actionLabel] || 'play';
+    const actionIconHtml = (typeof window.icon === 'function') ? window.icon(actionIconName, { size: 17, strokeWidth: 2.4 }) : '';
+    const percentLineHtml = percentHtml
+        ? `<div class="practice-row-percent-line">${percentHtml}</div>`
+        : '';
     return `
         <span class="practice-row-tile" aria-hidden="true">${tileHtml}</span>
         <div class="practice-row-content">
@@ -648,10 +648,15 @@ function buildCategoryCardInnerHtml({
                     <span class="practice-row-seg redo" style="width:${progressModel.redoPercent}%"></span>
                     <span class="practice-row-seg unseen" style="width:${progressModel.unseenPercent}%"></span>
                 </div>
-                ${percentHtml}
             </div>
+            ${percentLineHtml}
         </div>
-        <span class="practice-row-chevron" aria-hidden="true">${playIconHtml}</span>
+        <span class="practice-row-action-col">
+            <span class="practice-row-chevron" aria-hidden="true">
+                ${actionIconHtml}
+                <span class="practice-row-action-label">${escapeHtmlLocal(progressModel.actionLabel)}</span>
+            </span>
+        </span>
     `;
 }
 

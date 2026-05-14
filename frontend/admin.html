@@ -365,17 +365,30 @@
         .parent-admin-page a.admin-matrix-value--link {
             text-decoration: none;
             cursor: pointer;
-            gap: 0.18rem;
-            padding-right: 0.42rem;
+            gap: 0.24rem;
+            padding-right: 0.46rem;
+            border-color: #9bcfa9;
+            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 3px 6px rgba(47, 138, 72, 0.22), 0 8px 18px rgba(47, 138, 72, 0.18);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
         }
         .parent-admin-page a.admin-matrix-value--link:hover {
             background: #d6ebda;
+            border-color: #6fb583;
+            transform: translateY(-1px);
+            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 5px 10px rgba(47, 138, 72, 0.28), 0 12px 24px rgba(47, 138, 72, 0.24);
+        }
+        .parent-admin-page a.admin-matrix-value--link:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 2px 4px rgba(47, 138, 72, 0.22), 0 4px 10px rgba(47, 138, 72, 0.16);
         }
         .parent-admin-page .admin-matrix-value-chev {
             display: inline-flex;
             align-items: center;
             color: #2f8a48;
             margin-right: -0.1rem;
+        }
+        .parent-admin-page a.admin-matrix-value--link .admin-matrix-value-chev {
+            color: #2a7a40;
         }
         /* Edit-mode visual treatment — make it obvious the user is in edit mode. */
         .parent-admin-page .admin-optin-panel.is-editing {

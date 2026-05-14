@@ -603,7 +603,7 @@ function renderMatrix() {
     const panelMenuBtnHtml = isSuperFamily
         ? `<button type="button" data-panel-menu-trigger class="admin-panel-menu-btn${editMode ? ' is-hidden' : ''}" ${editMode ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="More options">${moreIconSvg}</button>`
         : '';
-    const subText = editMode ? 'Tap to toggle · auto-saved' : 'Numbers = cards/day';
+    const subText = editMode ? 'Tap to toggle · auto-saved' : 'Numbers = cards/day · tap a number to manage';
     const subClass = editMode ? 'admin-matrix-title-sub admin-matrix-title-sub--edit' : 'admin-matrix-title-sub';
     const headerHtml = `
         <thead>

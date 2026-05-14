@@ -387,6 +387,15 @@ body {
     opacity: 0.85;
 }
 
+.kid-nav-card-meta.is-done {
+    color: #16a34a;
+    opacity: 1;
+}
+
+.kid-nav-card:not(.active) .kid-nav-card-meta.is-done {
+    color: #bbf7d0;
+}
+
 .deck-page {
     max-width: 1000px;
     margin: 0 auto;

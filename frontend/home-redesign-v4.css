@@ -130,18 +130,25 @@ body.practice-home-redesign {
 .practice-home-redesign .practice-row-chevron {
     flex: 0 0 auto;
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: linear-gradient(90deg, #6f7df0, #8a7ce8);
+    gap: 3px;
+    width: 56px;
+    height: 56px;
+    padding: 4px;
+    box-sizing: border-box;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #6f7df0, #8a7ce8);
     color: #fff;
-    box-shadow: 0 4px 10px rgba(111, 125, 240, 0.32);
+    box-shadow: 0 3px 8px rgba(111, 125, 240, 0.28);
 }
 
-.practice-home-redesign .practice-row-chevron .icon {
-    margin-left: 2px;
+.practice-home-redesign .practice-row-action-label {
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1;
+    color: #fff;
 }
 
 .practice-home-redesign .practice-row-head {
@@ -235,14 +242,24 @@ body.practice-home-redesign {
     display: flex;
 }
 
+.practice-home-redesign .practice-row-action-col {
+    width: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    align-self: center;
+}
+
+.practice-home-redesign .practice-row-percent-line {
+    margin-top: 4px;
+    text-align: right;
+}
+
 .practice-home-redesign .practice-row-percent {
-    flex: 0 0 auto;
     font-size: 0.82rem;
     font-weight: 800;
     color: #4b5a70;
     line-height: 1;
-    min-width: 36px;
-    text-align: right;
 }
 
 .practice-home-redesign .practice-row-seg {
@@ -267,37 +284,6 @@ body.practice-home-redesign {
 
 .practice-home-redesign .practice-row-seg.unseen {
     background: #e4e8f7;
-}
-
-.practice-home-redesign .practice-row-status-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 18px;
-    padding: 0.02rem 0.4rem;
-    border-radius: 999px;
-    font-size: 0.66rem;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
-}
-
-.practice-home-redesign .practice-row-status-pill.in-progress {
-    background: #fff3da;
-    color: #a16207;
-    border: 1px solid #f0d6a0;
-}
-
-.practice-home-redesign .practice-row-status-pill.review {
-    background: #e9f0ff;
-    color: #2457c5;
-    border: 1px solid #bfd0fb;
-}
-
-.practice-home-redesign .practice-row-status-pill.not-started {
-    background: #edf2f7;
-    color: #64748b;
-    border: 1px solid #d8e0ea;
 }
 
 .practice-home-redesign .practice-row-token-star {
@@ -557,14 +543,24 @@ body.practice-home-redesign {
         font-size: 2.15rem;
     }
 
+    .practice-home-redesign .practice-row-action-col {
+        width: 48px;
+    }
+
     .practice-home-redesign .practice-row-chevron {
-        width: 32px;
-        height: 32px;
+        width: 48px;
+        height: 48px;
+        padding: 4px;
+        border-radius: 12px;
     }
 
     .practice-home-redesign .practice-row-chevron .icon {
         width: 16px;
         height: 16px;
+    }
+
+    .practice-home-redesign .practice-row-action-label {
+        font-size: 0.68rem;
     }
 
     .practice-home-redesign .practice-row-head h3 {
@@ -609,17 +605,27 @@ body.practice-home-redesign {
 
     .practice-home-redesign .practice-row-percent {
         font-size: 0.72rem;
-        min-width: 28px;
+    }
+
+    .practice-home-redesign .practice-row-action-col {
+        width: 54px;
     }
 
     .practice-home-redesign .practice-row-chevron {
-        width: 28px;
-        height: 28px;
+        width: 54px;
+        height: 42px;
+        padding: 3px;
+        border-radius: 11px;
+        gap: 2px;
     }
 
     .practice-home-redesign .practice-row-chevron .icon {
         width: 14px;
         height: 14px;
+    }
+
+    .practice-home-redesign .practice-row-action-label {
+        font-size: 0.64rem;
     }
 
     .practice-home-redesign .redesign-summary-label {
