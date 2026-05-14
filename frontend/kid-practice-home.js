@@ -243,9 +243,8 @@ function renderKidToggle(kids) {
         const name = String(kid?.name || '').trim() || 'Kid';
         const isActive = id === String(kidId);
         const { assigned, done } = computeKidToggleProgress(kid);
-        const isDone = assigned > 0 && done >= assigned;
         const metaHtml = assigned > 0
-            ? `<span class="kid-nav-card-meta${isDone ? ' is-done' : ''}">${done}/${assigned} done</span>`
+            ? `<span class="kid-nav-card-meta${done >= assigned ? ' is-done' : ''}">${done}/${assigned} done</span>`
             : '';
         const nameHtml = `<span>${escapeHtmlLocal(name)}</span>`;
         if (isActive) {
@@ -628,8 +627,7 @@ function buildCategoryCardInnerHtml({
         : '';
 
     const tileHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
-    const iconByLabel = { Start: 'play', Review: 'refresh-cw', Resume: 'circle-arrow-right' };
-    const actionIconName = iconByLabel[progressModel.actionLabel] || 'play';
+    const actionIconName = { Start: 'play', Review: 'refresh-cw', Resume: 'circle-arrow-right' }[progressModel.actionLabel] || 'play';
     const actionIconHtml = (typeof window.icon === 'function') ? window.icon(actionIconName, { size: 17, strokeWidth: 2.4 }) : '';
     const percentLineHtml = percentHtml
         ? `<div class="practice-row-percent-line">${percentHtml}</div>`
@@ -651,11 +649,9 @@ function buildCategoryCardInnerHtml({
             </div>
             ${percentLineHtml}
         </div>
-        <span class="practice-row-action-col">
-            <span class="practice-row-chevron" aria-hidden="true">
-                ${actionIconHtml}
-                <span class="practice-row-action-label">${escapeHtmlLocal(progressModel.actionLabel)}</span>
-            </span>
+        <span class="practice-row-chevron" aria-hidden="true">
+            ${actionIconHtml}
+            <span class="practice-row-action-label">${escapeHtmlLocal(progressModel.actionLabel)}</span>
         </span>
     `;
 }

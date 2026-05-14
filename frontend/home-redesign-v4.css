@@ -242,14 +242,6 @@ body.practice-home-redesign {
     display: flex;
 }
 
-.practice-home-redesign .practice-row-action-col {
-    width: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    align-self: center;
-}
-
 .practice-home-redesign .practice-row-percent-line {
     margin-top: 4px;
     text-align: right;
@@ -543,10 +535,6 @@ body.practice-home-redesign {
         font-size: 2.15rem;
     }
 
-    .practice-home-redesign .practice-row-action-col {
-        width: 48px;
-    }
-
     .practice-home-redesign .practice-row-chevron {
         width: 48px;
         height: 48px;
@@ -605,10 +593,6 @@ body.practice-home-redesign {
 
     .practice-home-redesign .practice-row-percent {
         font-size: 0.72rem;
-    }
-
-    .practice-home-redesign .practice-row-action-col {
-        width: 54px;
     }
 
     .practice-home-redesign .practice-row-chevron {
