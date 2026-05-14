@@ -89,7 +89,7 @@ function buildType2CardMarkup(card, options = {}) {
             <button
                 type="button"
                 class="type2-prompt-edit"
-                data-action="edit-front"
+                data-action="edit-back"
                 data-card-id="${escapeHtml(card.id)}"
                 aria-label="Edit prompt"
                 title="Edit prompt"
@@ -1323,17 +1323,17 @@ async function editType2CardPrompt(cardId) {
             return;
         }
 
-        const currentFront = String(targetCard.front || '').trim();
-        const nextFrontRaw = window.prompt('Edit voice prompt (front):', currentFront);
-        if (nextFrontRaw === null) {
+        const currentBack = String(targetCard.back || '').trim();
+        const nextBackRaw = window.prompt('Edit voice prompt:', currentBack);
+        if (nextBackRaw === null) {
             return;
         }
-        const nextFront = String(nextFrontRaw || '').trim();
-        if (!nextFront) {
+        const nextBack = String(nextBackRaw || '').trim();
+        if (!nextBack) {
             showError('Prompt text cannot be empty.');
             return;
         }
-        if (nextFront === currentFront) {
+        if (nextBack === currentBack) {
             return;
         }
 
@@ -1341,7 +1341,7 @@ async function editType2CardPrompt(cardId) {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                front: nextFront,
+                back: nextBack,
                 categoryKey,
             }),
         });
@@ -1550,7 +1550,7 @@ async function handleCardsGridClick(event) {
         return;
     }
 
-    if (action === 'edit-front') {
+    if (action === 'edit-back') {
         const cardId = actionBtn.dataset.cardId;
         if (!cardId) {
             return;

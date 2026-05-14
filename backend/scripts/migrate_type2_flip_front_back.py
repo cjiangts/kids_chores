@@ -10,6 +10,7 @@ the swap to a backup zip:
   - shared_decks.duckdb: type_ii decks (categories whose deck_category.behavior_type == 'type_ii')
   - every kid_*.db under families/family_*/: decks whose tags[1] is a type_ii category key
   - each kid's type2_chinese_print_sheets.layout_json snapshot rows (front/back per row)
+  - wipes shared/writing_audio/ so files regenerate under the new (front, back)-keyed names
 
 Usage:
     python migrate_type2_flip_front_back.py <input_zip> <output_zip>
@@ -134,6 +135,20 @@ def swap_chinese_print_sheet_layouts(conn):
     return total_swapped
 
 
+def wipe_shared_writing_audio(unpacked_root):
+    """Delete every file under shared/writing_audio/ so they regenerate."""
+    audio_dir = os.path.join(unpacked_root, 'shared', 'writing_audio')
+    if not os.path.isdir(audio_dir):
+        return 0
+    removed = 0
+    for entry in os.listdir(audio_dir):
+        full = os.path.join(audio_dir, entry)
+        if os.path.isfile(full):
+            os.remove(full)
+            removed += 1
+    return removed
+
+
 def find_kid_dbs(root):
     out = []
     families_dir = os.path.join(root, 'families')
@@ -199,6 +214,9 @@ def run(input_zip, output_zip):
             f'kid total: {total_kid_decks} decks ({total_kid_neq} non-trivial rows), '
             f'sheet layout rows swapped: {total_kid_sheet_rows}'
         )
+
+        wiped_audio = wipe_shared_writing_audio(unpacked)
+        print(f'shared/writing_audio: wiped {wiped_audio} files (will regenerate on demand)')
 
         print(f'Repacking -> {output_zip}')
         repack(unpacked, output_zip)

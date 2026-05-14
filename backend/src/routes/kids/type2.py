@@ -140,8 +140,8 @@ def add_writing_cards(kid_id):
         audio_meta = build_writing_prompt_audio_payload(
             kid_id,
             row[2],
+            row[3],
             category_key=category_key,
-            has_chinese_specific_logic=has_chinese_specific_logic,
         )
         return jsonify({
             'category_key': category_key,
@@ -167,20 +167,20 @@ def add_writing_cards(kid_id):
 
 @kids_bp.route('/kids/<kid_id>/type2/cards/<card_id>', methods=['PUT'])
 def update_writing_card(kid_id, card_id):
-    """Update one type-II card front text (voice prompt source)."""
+    """Update one type-II card back text (the voice prompt / clue)."""
     try:
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
 
         data = request.get_json(silent=True) or {}
-        category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
+        category_key, _has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             data.get('categoryKey') or request.args.get('categoryKey'),
         )
-        next_front = str(data.get('front') or '').strip()
-        if not next_front:
-            return jsonify({'error': 'front is required'}), 400
+        next_back = str(data.get('back') or '').strip()
+        if not next_back:
+            return jsonify({'error': 'back is required'}), 400
 
         conn = get_kid_connection_for(kid)
         source_decks = get_shared_type_ii_merged_source_decks_for_kid(
@@ -206,28 +206,24 @@ def update_writing_card(kid_id, card_id):
             conn.close()
             return jsonify({'error': 'Writing card not found'}), 404
 
-        old_front = str(row[2] or '')
-        card_back = str(row[3] or '')
-        if old_front != next_front:
+        card_front = str(row[2] or '')
+        old_back = str(row[3] or '')
+        if old_back != next_back:
             conn.execute(
-                "UPDATE cards SET front = ? WHERE id = ?",
-                [next_front, row[0]]
+                "UPDATE cards SET back = ? WHERE id = ?",
+                [next_back, row[0]]
             )
         conn.close()
 
-        old_file_name = build_shared_writing_audio_file_name(old_front)
+        old_file_name = build_shared_writing_audio_file_name(card_front, old_back)
         new_audio_meta = build_writing_prompt_audio_payload(
             kid_id,
-            next_front,
+            card_front,
+            next_back,
             category_key=category_key,
-            has_chinese_specific_logic=has_chinese_specific_logic,
         )
-        kept_file_names = {
-            build_shared_writing_audio_file_name(next_front),
-            build_shared_writing_audio_file_name(card_back),
-        }
-        kept_file_names.discard('')
-        if old_file_name and old_file_name not in kept_file_names:
+        new_file_name = new_audio_meta.get('audio_file_name') or ''
+        if old_file_name and old_file_name != new_file_name:
             old_audio_path = os.path.join(get_shared_writing_audio_dir(), old_file_name)
             if os.path.exists(old_audio_path):
                 try:
@@ -239,8 +235,8 @@ def update_writing_card(kid_id, card_id):
             'category_key': category_key,
             'id': int(row[0]),
             'deck_id': int(row[1]),
-            'front': next_front,
-            'back': card_back,
+            'front': card_front,
+            'back': next_back,
             'skip_practice': bool(row[4]),
             'hardness_score': float(row[5] if row[5] is not None else 0),
             'created_at': row[6].isoformat() if row[6] else None,
@@ -318,8 +314,8 @@ def add_writing_cards_bulk(kid_id):
             audio_meta = build_writing_prompt_audio_payload(
                 kid_id,
                 front_text,
+                back_text,
                 category_key=category_key,
-                has_chinese_specific_logic=has_chinese_specific_logic,
             )
             created.append({
                 'id': int(row[0]),
@@ -398,28 +394,24 @@ def get_writing_audio(kid_id, file_name):
         finally:
             conn.close()
 
-        synth_args_by_file_name = {}
+        spoken_by_file_name = {}
         for row in rows:
             front_text = normalize_writing_audio_text(row[0])
             back_text = normalize_writing_audio_text(row[1])
-            front_file = build_shared_writing_audio_file_name(front_text)
-            if front_file and front_file not in synth_args_by_file_name:
-                synth_args_by_file_name[front_file] = {
-                    'file_key_text': front_text,
-                    'spoken_text': build_writing_front_tts_text(front_text, back_text),
-                }
+            card_file = build_shared_writing_audio_file_name(front_text, back_text)
+            if card_file and card_file not in spoken_by_file_name:
+                spoken_by_file_name[card_file] = build_writing_front_tts_text(front_text, back_text)
 
-        synth_args = synth_args_by_file_name.get(file_name)
-        if not synth_args:
+        spoken_text = spoken_by_file_name.get(file_name)
+        if not spoken_text:
             return jsonify({'error': 'Audio file not found'}), 404
 
         audio_dir = get_shared_writing_audio_dir()
         audio_path = os.path.join(audio_dir, file_name)
         if not os.path.exists(audio_path):
             synthesize_shared_writing_audio(
-                synth_args.get('file_key_text'),
-                overwrite=False,
-                spoken_text=synth_args.get('spoken_text'),
+                file_name,
+                spoken_text,
                 has_chinese_specific_logic=has_chinese_specific_logic,
             )
             if not os.path.exists(audio_path):
@@ -471,29 +463,24 @@ def get_type1_chinese_prompt_audio(kid_id, file_name):
         finally:
             conn.close()
 
-        synth_args_by_file_name = {}
+        spoken_by_file_name = {}
         for row in rows:
             front_text = normalize_writing_audio_text(row[0])
             front_file = build_shared_type1_prompt_audio_file_name(front_text)
-            if front_file and front_file not in synth_args_by_file_name:
-                synth_args_by_file_name[front_file] = {
-                    'file_key_text': front_text,
-                    'spoken_text': front_text,
-                }
+            if front_file and front_file not in spoken_by_file_name:
+                spoken_by_file_name[front_file] = front_text
 
-        synth_args = synth_args_by_file_name.get(file_name)
-        if not synth_args:
+        spoken_text = spoken_by_file_name.get(file_name)
+        if not spoken_text:
             return jsonify({'error': 'Audio file not found'}), 404
 
         audio_dir = get_shared_writing_audio_dir()
         audio_path = os.path.join(audio_dir, file_name)
         if not os.path.exists(audio_path):
             synthesize_shared_writing_audio(
-                synth_args.get('file_key_text'),
-                overwrite=False,
-                spoken_text=synth_args.get('spoken_text'),
+                file_name,
+                spoken_text,
                 has_chinese_specific_logic=True,
-                file_name_builder=build_shared_type1_prompt_audio_file_name,
             )
             if not os.path.exists(audio_path):
                 return jsonify({'error': 'Audio file not found'}), 404
@@ -547,11 +534,8 @@ def delete_writing_card(kid_id, card_id):
         delete_card_from_deck_internal(conn, card_id)
         conn.close()
 
-        clip_names = {
-            build_shared_writing_audio_file_name(row[1]),
-            build_shared_writing_audio_file_name(row[2]),
-        }
-        clip_names.discard('')
+        clip_name = build_shared_writing_audio_file_name(row[1], row[2])
+        clip_names = {clip_name} if clip_name else set()
         for file_name in clip_names:
             audio_path = os.path.join(get_shared_writing_audio_dir(), file_name)
             if os.path.exists(audio_path):

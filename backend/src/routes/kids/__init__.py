@@ -1124,8 +1124,8 @@ def get_shared_type2_cards(kid_id):
                     audio_meta = build_writing_prompt_audio_payload(
                         kid_id,
                         mapped.get('front'),
+                        mapped.get('back'),
                         category_key=category_key,
-                        has_chinese_specific_logic=has_chinese_specific_logic,
                     )
                     mapped['audio_file_name'] = audio_meta['audio_file_name']
                     mapped['audio_mime_type'] = audio_meta['audio_mime_type']

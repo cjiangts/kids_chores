@@ -82,22 +82,31 @@ def format_type2_bulk_card_text(front_text, back_text, has_chinese_specific_logi
 # === 3. Audio file naming (writing + Type-I prompt)
 # =====================================================================
 
-def build_shared_writing_audio_file_name(front_text):
-    """Build deterministic shared audio filename from writing card front text."""
-    normalized = normalize_writing_audio_text(front_text)
-    if not normalized:
-        return ''
+def build_shared_writing_audio_file_name(front_text, back_text):
+    """Build deterministic shared audio filename keyed on the (front, back) pair.
 
-    safe = normalized.replace('/', '／').replace('\\', '＼').replace('\x00', '')
+    Different cards that happen to share a front but have different backs must
+    produce different audio files — the spoken clip is "{front}, {back}" so the
+    content differs and they cannot share an mp3.
+    """
+    normalized_front = normalize_writing_audio_text(front_text)
+    if not normalized_front:
+        return ''
+    normalized_back = normalize_writing_audio_text(back_text)
+
+    safe = normalized_front.replace('/', '／').replace('\\', '＼').replace('\x00', '')
     safe = safe.strip().strip('.')
     if not safe:
         safe = 'tts'
 
-    file_name = f"{safe}{WRITING_AUDIO_EXTENSION}"
+    digest = hashlib.sha1(
+        f"{normalized_front}\x1f{normalized_back}".encode('utf-8')
+    ).hexdigest()[:8]
+
+    file_name = f"{safe}_{digest}{WRITING_AUDIO_EXTENSION}"
     if len(file_name.encode('utf-8')) <= WRITING_AUDIO_FILE_NAME_MAX_BYTES:
         return file_name
 
-    digest = hashlib.sha1(normalized.encode('utf-8')).hexdigest()[:12]
     prefix = safe[:40].strip() or 'tts'
     return f"{prefix}_{digest}{WRITING_AUDIO_EXTENSION}"
 
@@ -126,14 +135,15 @@ def build_shared_type1_prompt_audio_file_name(front_text):
 # === 4. Meta + payload builders (writing + Type-I Chinese)
 # =====================================================================
 
-def build_writing_audio_meta_for_front(
+def build_writing_audio_meta_for_card(
     kid_id,
     front_text,
+    back_text,
     *,
     category_key,
 ):
-    """Build writing audio metadata payload for one front text."""
-    file_name = build_shared_writing_audio_file_name(front_text)
+    """Build writing audio metadata payload for one (front, back) card."""
+    file_name = build_shared_writing_audio_file_name(front_text, back_text)
     if not file_name:
         return {
             'audio_file_name': None,
@@ -158,22 +168,23 @@ def build_writing_audio_meta_for_front(
 def build_writing_prompt_audio_payload(
     kid_id,
     front_text,
+    back_text,
     *,
     category_key,
-    has_chinese_specific_logic,
 ):
-    """Build writing prompt audio payload using a single front-prompt clip."""
-    front_meta = build_writing_audio_meta_for_front(
+    """Build writing prompt audio payload for one (front, back) card."""
+    meta = build_writing_audio_meta_for_card(
         kid_id,
         front_text,
+        back_text,
         category_key=category_key,
     )
 
     return {
-        'audio_file_name': front_meta.get('audio_file_name'),
-        'audio_mime_type': front_meta.get('audio_mime_type'),
-        'audio_url': front_meta.get('audio_url'),
-        'prompt_audio_url': front_meta.get('audio_url'),
+        'audio_file_name': meta.get('audio_file_name'),
+        'audio_mime_type': meta.get('audio_mime_type'),
+        'audio_url': meta.get('audio_url'),
+        'prompt_audio_url': meta.get('audio_url'),
     }
 
 
@@ -231,29 +242,22 @@ def build_type_i_chinese_prompt_audio_payload(
 # =====================================================================
 
 def synthesize_shared_writing_audio(
-    front_text,
-    overwrite=False,
-    spoken_text=None,
+    file_name,
+    spoken_text,
     *,
     has_chinese_specific_logic=True,
-    file_name_builder=None,
+    overwrite=False,
 ):
-    """Generate shared TTS clip for writing text, returns (file_name, generated_now)."""
-    normalized_front = normalize_writing_audio_text(front_text)
-    if not normalized_front:
-        raise ValueError('Card front is empty, cannot generate audio')
-
-    tts_language = get_writing_tts_language(has_chinese_specific_logic)
-    if not callable(file_name_builder):
-        file_name_builder = build_shared_writing_audio_file_name
-    file_name = file_name_builder(normalized_front)
+    """Generate shared TTS clip for `spoken_text` into `file_name`."""
+    file_name = str(file_name or '').strip()
     if not file_name:
-        raise ValueError('Unable to derive audio file name from card front')
-    normalized_spoken = normalize_writing_audio_text(
-        spoken_text if spoken_text is not None else normalized_front
-    )
+        raise ValueError('Audio file name is empty')
+
+    normalized_spoken = normalize_writing_audio_text(spoken_text)
     if not normalized_spoken:
         raise ValueError('Card prompt text is empty, cannot generate audio')
+
+    tts_language = get_writing_tts_language(has_chinese_specific_logic)
 
     audio_dir = ensure_shared_writing_audio_dir()
     audio_path = os.path.join(audio_dir, file_name)

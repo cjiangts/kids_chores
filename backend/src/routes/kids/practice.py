@@ -293,8 +293,8 @@ def start_writing_practice_session(kid_id):
             audio_meta = build_writing_prompt_audio_payload(
                 kid_id,
                 card.get('front'),
+                card.get('back'),
                 category_key=category_key,
-                has_chinese_specific_logic=has_chinese_specific_logic,
             )
             cards_with_audio.append({
                 **card,
