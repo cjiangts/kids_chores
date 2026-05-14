@@ -233,7 +233,7 @@ function buildSheetPageMarkup(sheet, scale, { showDebugBorder }) {
     html += `<div class="sb-grid-area" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
 
     layoutRows.forEach((row) => {
-        const character = String(row?.back || row?.front || '').trim();
+        const character = String(row?.front || row?.back || '').trim();
         const emptyCount = Number.parseInt(
             row?.empty_count != null ? row.empty_count : row?.emptyCount,
             10,

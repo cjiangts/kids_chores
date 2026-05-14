@@ -241,7 +241,7 @@
 
     async function fetchCategoryCardOverlap(apiBase, categoryKey, cards) {
         if (!Array.isArray(cards) || cards.length === 0) {
-            return { dedupeKey: 'front', otherKey: 'back', overlaps: [] };
+            return { overlaps: [] };
         }
         const response = await fetch(`${String(apiBase || `${window.location.origin}/api`).replace(/\/+$/, '')}/shared-decks/category-card-overlap`, {
             method: 'POST',
@@ -258,15 +258,7 @@
         if (!response.ok) {
             throw new Error(result.error || `Failed to compare with existing cards (HTTP ${response.status})`);
         }
-        const dedupeKey = String(result && result.dedupe_key ? result.dedupe_key : 'front').trim().toLowerCase() === 'back'
-            ? 'back'
-            : 'front';
-        const otherKeyRaw = String(result && result.other_key ? result.other_key : '').trim().toLowerCase();
         return {
-            dedupeKey,
-            otherKey: (otherKeyRaw === 'front' || otherKeyRaw === 'back')
-                ? otherKeyRaw
-                : (dedupeKey === 'back' ? 'front' : 'back'),
             overlaps: Array.isArray(result && result.overlaps) ? result.overlaps : [],
         };
     }
@@ -279,11 +271,11 @@
         const overlapByValue = {};
         const overlaps = Array.isArray(overlapInfo && overlapInfo.overlaps) ? overlapInfo.overlaps : [];
         overlaps.forEach((item) => {
-            const dedupeValue = String(item && item.dedupe_value ? item.dedupe_value : '');
-            if (!dedupeValue) {
+            const front = String(item && item.front ? item.front : '');
+            if (!front) {
                 return;
             }
-            overlapByValue[dedupeValue] = {
+            overlapByValue[front] = {
                 exactDecks: Array.isArray(item && item.exact_match_decks) ? item.exact_match_decks : [],
                 mismatchDecks: Array.isArray(item && item.mismatch_decks) ? item.mismatch_decks : [],
             };

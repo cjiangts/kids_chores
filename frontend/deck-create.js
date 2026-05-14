@@ -106,7 +106,7 @@ let nameAvailable = null;
 let lastNameChecked = '';
 let nameCheckToken = 0;
 let nameCheckTimer = null;
-let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
+let previewDiagnostics = { totalRows: 0, dedupWithinDeck: [] };
 let currentFirstTag = '';
 let autocompleteTagPaths = [];
 let deckCountByCategoryKey = {};
@@ -497,7 +497,7 @@ function applyClonedDeck(payload) {
     extraTags = extractSecondaryTagConfigs(tags, tagLabels);
     previewCards = [];
     previewRows = [];
-    previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
+    previewDiagnostics = { totalRows: 0, dedupWithinDeck: [] };
     previewType4Definition = null;
     reviewSection.classList.add('hidden');
 
@@ -610,9 +610,9 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii subjects, dedup is keyed by <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. <code>front</code> is the Chinese character/word to practice; <code>back</code> is an optional clue.';
         }
-        cardsCsvInput.placeholder = '上面的上,上\n不要的不,不\n走路的走,走';
+        cardsCsvInput.placeholder = '上,上面的上\n不,不要的不\n走,走路的走';
         return;
     }
     if (isChineseLessonReadingDeckMode()) {
@@ -630,9 +630,9 @@ function updateCardsInputModeUi() {
             cardsInputSectionTitle.textContent = '2) Paste Cards CSV';
         }
         if (cardsInputHelpText) {
-            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. For type_ii subjects, dedup is keyed by <code>back</code>.';
+            cardsInputHelpText.innerHTML = 'Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed. <code>front</code> is the word to practice; <code>back</code> is the prompt/clue.';
         }
-        cardsCsvInput.placeholder = 'A guy with makeup on,clown\nA baby dog,puppy\nFrozen water from the sky,snow';
+        cardsCsvInput.placeholder = 'clown,A guy with makeup on\npuppy,A baby dog\nsnow,Frozen water from the sky';
         return;
     }
     if (cardsInputSectionTitle) {
@@ -975,7 +975,7 @@ async function previewDeckFromCsv() {
             };
             previewCards = [];
             previewRows = [];
-            previewDiagnostics = { totalRows: 0, dedupWithinDeck: [], dedupeKey: 'front' };
+            previewDiagnostics = { totalRows: 0, dedupWithinDeck: [] };
             renderReview([], []);
             reviewSection.classList.remove('hidden');
         } catch (error) {
@@ -994,27 +994,24 @@ async function previewDeckFromCsv() {
     }
 
     previewType4Definition = null;
-    const dedupeKey = isTypeIIDeckMode() ? 'back' : 'front';
     const withinDeckDedup = [];
-    const firstByKey = new Map();
+    const firstByFront = new Map();
     cards.forEach((card) => {
-        const keyValue = String(card[dedupeKey] || '');
-        const kept = firstByKey.get(keyValue);
+        const keyValue = String(card.front || '');
+        const kept = firstByFront.get(keyValue);
         if (kept) {
             withinDeckDedup.push({
-                dedupe_key: dedupeKey,
                 dedupe_value: keyValue,
                 line: card.line,
                 kept_line: kept.line,
             });
             return;
         }
-        firstByKey.set(keyValue, card);
+        firstByFront.set(keyValue, card);
     });
 
-    const uniqueCards = Array.from(firstByKey.values());
+    const uniqueCards = Array.from(firstByFront.values());
     let overlapByValue = {};
-    let overlapOtherKey = dedupeKey === 'back' ? 'front' : 'back';
     try {
         const overlapInfo = await deckCreateCommon.fetchCategoryCardOverlap(
             API_BASE,
@@ -1022,7 +1019,6 @@ async function previewDeckFromCsv() {
             uniqueCards,
         );
         overlapByValue = deckCreateCommon.toOverlapByValue(overlapInfo);
-        overlapOtherKey = overlapInfo.otherKey || overlapOtherKey;
     } catch (error) {
         showError(error.message || 'Failed to compare with existing cards.');
         return;
@@ -1032,11 +1028,10 @@ async function previewDeckFromCsv() {
     previewDiagnostics = {
         totalRows: cards.length,
         dedupWithinDeck: withinDeckDedup,
-        dedupeKey,
     };
     previewRows = cards.map((card) => {
-        const keyValue = String(card[dedupeKey] || '');
-        const first = firstByKey.get(keyValue);
+        const keyValue = String(card.front || '');
+        const first = firstByFront.get(keyValue);
         const isFirst = Boolean(first && first.line === card.line);
         if (!isFirst) {
             return {
@@ -1044,7 +1039,7 @@ async function previewDeckFromCsv() {
                 front: card.front,
                 back: card.back,
                 kept: false,
-                statusText: `Removed: duplicate ${dedupeKey} of line ${first.line}`,
+                statusText: `Removed: duplicate front of line ${first.line}`,
             };
         }
         const overlap = overlapByValue[keyValue] || null;
@@ -1062,7 +1057,7 @@ async function previewDeckFromCsv() {
                 ? `Exact card already exists in: ${exactDeckText}.`
                 : '',
             warningText: mismatchDeckText
-                ? `Warning: same ${dedupeKey} exists with different ${overlapOtherKey} in: ${mismatchDeckText}.`
+                ? `Warning: same front exists with different back in: ${mismatchDeckText}.`
                 : '',
         };
     });
@@ -1172,7 +1167,6 @@ function renderReview(cardsToCreate, allRows) {
 
 function renderDedupeSummary() {
     const within = Array.isArray(previewDiagnostics.dedupWithinDeck) ? previewDiagnostics.dedupWithinDeck : [];
-    const dedupeKey = previewDiagnostics.dedupeKey === 'back' ? 'back' : 'front';
     if (within.length === 0) {
         dedupeSummary.innerHTML = '';
         dedupeSummary.classList.add('hidden');
@@ -1182,7 +1176,7 @@ function renderDedupeSummary() {
     const lines = [];
     lines.push('<h3>Deduplication Details</h3>');
     if (within.length > 0) {
-        lines.push(`<p><strong>Within current deck CSV (keyed by ${dedupeKey}):</strong></p>`);
+        lines.push('<p><strong>Within current deck CSV (keyed by front):</strong></p>');
         within.slice(0, 30).forEach((item) => {
             lines.push(`<p>Line ${item.line} (${escapeHtml(item.dedupe_value || '')}) removed, kept line ${item.kept_line}.</p>`);
         });

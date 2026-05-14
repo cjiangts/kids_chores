@@ -1220,7 +1220,6 @@ async function openDeckBrowseModal(categoryKey) {
     if (!tv) return;
     currentBrowseCategoryKey = categoryKey;
     tv.setCategoryKey(categoryKey);
-    tv.setMatchBack(false);
     tv.setDecks([], { orphanDeck: null });
     tv.setBaseline([], false);
     tv.setSelection([], false);

@@ -222,30 +222,17 @@ def normalize_shared_deck_cards(cards, allow_empty_back=False):
     return normalized
 
 
-def dedupe_shared_deck_cards_by_key(cards, key):
-    """Deduplicate cards by one key field, preserving first-seen order."""
-    key_name = str(key or '').strip()
-    if key_name not in {'front', 'back'}:
-        raise ValueError('key must be "front" or "back"')
+def dedupe_shared_deck_cards_by_front(cards):
+    """Deduplicate cards by front text, preserving first-seen order."""
     deduped = []
     seen_values = set()
     for card in cards:
-        key_value = str(card.get(key_name) or '')
+        key_value = str(card.get('front') or '')
         if key_value in seen_values:
             continue
         seen_values.add(key_value)
         deduped.append(card)
     return deduped
-
-
-def dedupe_shared_deck_cards_by_front(cards):
-    """Deduplicate cards by front text, preserving first-seen order."""
-    return dedupe_shared_deck_cards_by_key(cards, 'front')
-
-
-def dedupe_shared_deck_cards_by_back(cards):
-    """Deduplicate cards by back text, preserving first-seen order."""
-    return dedupe_shared_deck_cards_by_key(cards, 'back')
 
 
 # =====================================================================

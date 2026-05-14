@@ -41,32 +41,14 @@ def split_type2_bulk_rows(raw_text, has_chinese_specific_logic):
     has_blob = any(',' not in line for line in non_empty_lines)
     if has_csv and has_blob:
         raise ValueError(
-            'Mixed formats are not allowed. Use either "prompt, word" on every line '
+            'Mixed formats are not allowed. Use either "word, prompt" on every line '
             'or a word blob with no commas — not both.'
         )
 
-    if bool(has_chinese_specific_logic):
-        if has_csv:
-            rows = []
-            seen_back = set()
-            for line in non_empty_lines:
-                parts = line.split(',', 1)
-                front = str(parts[0] or '').strip()
-                back = str(parts[1] or '').strip()
-                if not back:
-                    back = front
-                if not front or not back or back in seen_back:
-                    continue
-                seen_back.add(back)
-                rows.append((front, back))
-            return rows
-        tokens = split_writing_bulk_text(raw_text)
-        return [(token, token) for token in tokens]
-
-    rows = []
-    seen_front = set()
-    for line in non_empty_lines:
-        if has_csv:
+    if has_csv:
+        rows = []
+        seen_front = set()
+        for line in non_empty_lines:
             parts = line.split(',', 1)
             front = str(parts[0] or '').strip()
             back = str(parts[1] or '').strip()
@@ -76,11 +58,19 @@ def split_type2_bulk_rows(raw_text, has_chinese_specific_logic):
                 continue
             seen_front.add(front)
             rows.append((front, back))
-        else:
-            for token in line.split():
-                tok = str(token or '').strip()
-                if not tok or tok in seen_front:
-                    continue
-                seen_front.add(tok)
-                rows.append((tok, tok))
+        return rows
+
+    if bool(has_chinese_specific_logic):
+        tokens = split_writing_bulk_text(raw_text)
+        return [(token, token) for token in tokens]
+
+    rows = []
+    seen_front = set()
+    for line in non_empty_lines:
+        for token in line.split():
+            tok = str(token or '').strip()
+            if not tok or tok in seen_front:
+                continue
+            seen_front.add(tok)
+            rows.append((tok, tok))
     return rows

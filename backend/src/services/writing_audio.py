@@ -58,15 +58,14 @@ def get_writing_tts_language(has_chinese_specific_logic=True):
 # === 2. TTS text builders + bulk-format helpers
 # =====================================================================
 
-def build_writing_front_tts_text(front_text, back_text, has_chinese_specific_logic=True):
+def build_writing_front_tts_text(front_text, back_text):
     """Build spoken text for front prompt clip."""
     front_norm = normalize_writing_audio_text(front_text)
     back_norm = normalize_writing_audio_text(back_text)
     if not front_norm:
         return ''
-    _ = has_chinese_specific_logic  # keep arg for call-site compatibility
     if back_norm and back_norm != front_norm:
-        return f"{back_norm}, {front_norm}"
+        return f"{front_norm}, {back_norm}"
     return front_norm
 
 

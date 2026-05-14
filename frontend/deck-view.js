@@ -411,11 +411,11 @@ function renderDeck(payload) {
             }
             cardsInput.placeholder = '一二三四五六七八九十';
         } else if (behaviorType === 'type_ii' && hasChinese) {
-            cardsInput.placeholder = '上面的上,上\n不要的不,不\n走路的走,走';
+            cardsInput.placeholder = '上,上面的上\n不,不要的不\n走,走路的走';
         } else if (behaviorType === 'type_iii' && hasChinese) {
             cardsInput.placeholder = '小猴子下山,Page 101\n摘桃,Page 109';
         } else if (behaviorType === 'type_ii') {
-            cardsInput.placeholder = 'A baby dog,puppy\nFrozen water from the sky,snow';
+            cardsInput.placeholder = 'puppy,A baby dog\nsnow,Frozen water from the sky';
         }
         cardsInput.value = cardsToCsv(cards);
         syncPreviewCsvBtnState();
@@ -628,38 +628,33 @@ function previewCsvChanges() {
         }
     }
 
-    const isTypeII = String(currentDeck && currentDeck.behavior_type || '').trim().toLowerCase() === 'type_ii';
     const chineseMode = isChineseType1Deck();
-    const keyField = isTypeII ? 'back' : 'front';
-    const valueField = isTypeII ? 'front' : 'back';
 
-    // Build lookup: primary key -> { front, back } for old cards
-    const oldByKey = new Map();
+    const oldByFront = new Map();
     for (const card of currentCards) {
-        const k = String(card[keyField] || '').trim();
-        if (k) oldByKey.set(k, { front: String(card.front || '').trim(), back: String(card.back || '').trim() });
+        const k = String(card.front || '').trim();
+        if (k) oldByFront.set(k, { front: k, back: String(card.back || '').trim() });
     }
 
     const diffRows = [];
-    const seenKeys = new Set();
+    const seenFronts = new Set();
 
     for (const card of newCards) {
-        const k = String(card[keyField] || '').trim();
-        seenKeys.add(k);
-        const old = oldByKey.get(k);
+        const k = String(card.front || '').trim();
+        seenFronts.add(k);
+        const old = oldByFront.get(k);
         if (!old) {
             diffRows.push({ front: card.front, back: card.back, _diffStatus: 'added' });
-        } else if (!chineseMode && String(old[valueField] || '') !== String(card[valueField] || '')) {
+        } else if (!chineseMode && String(old.back || '') !== String(card.back || '')) {
             diffRows.push({ front: card.front, back: card.back, _diffStatus: 'updated' });
         } else {
             diffRows.push({ front: card.front, back: card.back, _diffStatus: '' });
         }
     }
 
-    // Cards in old whose key is not in new => removed
     for (const card of currentCards) {
-        const k = String(card[keyField] || '').trim();
-        if (!seenKeys.has(k)) {
+        const k = String(card.front || '').trim();
+        if (!seenFronts.has(k)) {
             diffRows.push({ front: card.front, back: card.back, _diffStatus: 'removed' });
         }
     }

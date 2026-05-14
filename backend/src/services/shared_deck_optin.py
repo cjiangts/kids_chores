@@ -29,10 +29,7 @@ Layout (search for `# === N. ` banner markers to jump between sections):
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.routes.kids_constants import DEFAULT_TYPE_IV_DAILY_TARGET_COUNT
 from src.services.family_auth import get_kid_connection_for
-from src.services.kid_card_queries import (
-    get_kid_card_backs_for_deck_ids,
-    get_kid_card_fronts_for_deck_ids,
-)
+from src.services.kid_card_queries import get_kid_card_fronts_for_deck_ids
 from src.services.kid_category_config import (
     get_category_orphan_deck_name,
     get_or_create_category_orphan_deck,
@@ -521,7 +518,6 @@ def opt_in_shared_decks_internal(
     first_tag,
     orphan_deck_name,
     get_materialized_decks_fn,
-    unique_key_field,
 ):
     """Materialize shared decks into kid DB for type-II/type-III categories."""
     shared_conn = None
@@ -563,11 +559,9 @@ def opt_in_shared_decks_internal(
 
         kid_conn = get_kid_connection_for(kid)
         existing_materialized = get_materialized_decks_fn(kid_conn)
-        occupied_deck_ids = list(existing_materialized.keys())
-        occupied_values = (
-            get_kid_card_fronts_for_deck_ids(kid_conn, occupied_deck_ids)
-            if unique_key_field == 'front'
-            else get_kid_card_backs_for_deck_ids(kid_conn, occupied_deck_ids)
+        occupied_fronts = get_kid_card_fronts_for_deck_ids(
+            kid_conn,
+            list(existing_materialized.keys()),
         )
         orphan_deck_id = get_or_create_orphan_deck(
             kid_conn,
@@ -577,7 +571,6 @@ def opt_in_shared_decks_internal(
 
         created = []
         already_opted_in = []
-        skipped_existing_key = f'cards_skipped_existing_{unique_key_field}'
         for src_deck_id in deck_ids:
             src_deck = shared_by_id[src_deck_id]
             materialized_name = build_materialized_shared_deck_name(src_deck_id, src_deck['name'])
@@ -610,75 +603,53 @@ def opt_in_shared_decks_internal(
             cards_moved_from_orphan = 0
             cards_skipped_existing = 0
             if cards:
-                source_keys = []
-                seen_keys = set()
-                source_front_by_back = {}
+                source_fronts = []
+                seen_fronts = set()
                 for card in cards:
                     front = str(card.get('front') or '')
-                    back = str(card.get('back') or '')
-                    key_value = front if unique_key_field == 'front' else back
-                    if not key_value or key_value in seen_keys:
+                    if not front or front in seen_fronts:
                         continue
-                    seen_keys.add(key_value)
-                    source_keys.append(key_value)
-                    if unique_key_field == 'back':
-                        source_front_by_back[key_value] = front
+                    seen_fronts.add(front)
+                    source_fronts.append(front)
 
-                orphan_by_key = {}
-                if source_keys:
-                    key_placeholders = ','.join(['?'] * len(source_keys))
+                orphan_by_front = {}
+                if source_fronts:
+                    front_placeholders = ','.join(['?'] * len(source_fronts))
                     orphan_rows = kid_conn.execute(
                         f"""
                         SELECT id, front, back, skip_practice, hardness_score, created_at
                         FROM cards
                         WHERE deck_id = ?
-                          AND {unique_key_field} IN ({key_placeholders})
+                          AND front IN ({front_placeholders})
                         ORDER BY id ASC
                         """,
-                        [orphan_deck_id, *source_keys]
+                        [orphan_deck_id, *source_fronts]
                     ).fetchall()
                     for row in orphan_rows:
-                        row_key = str(row[1] or '') if unique_key_field == 'front' else str(row[2] or '')
-                        if row_key in orphan_by_key:
+                        row_front = str(row[1] or '')
+                        if row_front in orphan_by_front:
                             continue
-                        orphan_by_key[row_key] = row
+                        orphan_by_front[row_front] = row
 
                 moved_rows = []
                 insert_rows = []
                 for card in cards:
                     front = str(card.get('front') or '')
                     back = str(card.get('back') or '')
-                    key_value = front if unique_key_field == 'front' else back
-                    if not key_value:
+                    if not front:
                         continue
-                    if key_value in occupied_values:
+                    if front in occupied_fronts:
                         cards_skipped_existing += 1
                         continue
 
-                    orphan_row = orphan_by_key.pop(key_value, None)
+                    orphan_row = orphan_by_front.pop(front, None)
                     if orphan_row is not None:
-                        if unique_key_field == 'back':
-                            orphan_front = str(orphan_row[1] or '')
-                            orphan_back = str(orphan_row[2] or '')
-                            source_front = str(source_front_by_back.get(key_value) or '')
-                            resolved_front = orphan_front if orphan_front != orphan_back else (source_front or orphan_back)
-                            moved_rows.append(
-                                (
-                                    int(orphan_row[0]),
-                                    resolved_front,
-                                    orphan_back,
-                                    bool(orphan_row[3]),
-                                    float(orphan_row[4] or 0.0),
-                                    orphan_row[5],
-                                )
-                            )
-                        else:
-                            moved_rows.append(orphan_row)
-                        occupied_values.add(key_value)
+                        moved_rows.append(orphan_row)
+                        occupied_fronts.add(front)
                         continue
 
                     insert_rows.append([local_deck_id, front, back])
-                    occupied_values.add(key_value)
+                    occupied_fronts.add(front)
 
                 if moved_rows:
                     moved_ids = [int(row[0]) for row in moved_rows]
@@ -714,17 +685,16 @@ def opt_in_shared_decks_internal(
                     )
                     cards_added = len(insert_rows)
 
-            created_item = {
+            created.append({
                 'shared_deck_id': src_deck_id,
                 'shared_name': src_deck['name'],
                 'materialized_name': materialized_name,
                 'deck_id': local_deck_id,
                 'cards_added': cards_added,
                 'cards_moved_from_orphan': cards_moved_from_orphan,
+                'cards_skipped_existing_front': cards_skipped_existing,
                 'cards_total': len(cards),
-            }
-            created_item[skipped_existing_key] = cards_skipped_existing
-            created.append(created_item)
+            })
     finally:
         if kid_conn is not None:
             kid_conn.close()

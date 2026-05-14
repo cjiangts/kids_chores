@@ -324,7 +324,6 @@ async function openDeckTreeModal() {
     }
     const tv = ensureDeckTreeViewInstance();
     tv.setCategoryKey(categoryKey);
-    tv.setMatchBack(isType2Behavior());
     tv.setApplyDisabled(isDeckMoveInFlight);
     tv.setDecks(allDecks, { orphanDeck });
     tv.setBaseline(baselineOptedDeckIdSet, baselineIncludeOrphanInQueue);

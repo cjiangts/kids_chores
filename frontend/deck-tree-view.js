@@ -79,8 +79,6 @@
             this.orphanDeck = null;
             this.cardIndex = null;
 
-            this.matchBack = Boolean(opts.matchBack);
-
             this.selectedDeckIds = new Set();
             this.includeOrphan = false;
             this.baselineSelectedDeckIds = new Set();
@@ -187,10 +185,6 @@
             if (this.searchInput && this.searchInput.value && this.searchInput.value.trim()) {
                 this._applySearch(this.searchInput.value);
             }
-        }
-
-        setMatchBack(value) {
-            this.matchBack = Boolean(value);
         }
 
         setApplyDisabled(disabled) {
@@ -513,7 +507,6 @@
         }
 
         _buildLeafCardListHtml(deckIdStr) {
-            const matchBack = this.matchBack;
             let cards = [];
             if (deckIdStr === ORPHAN_BUBBLE_ID) {
                 if (!Array.isArray(this.cardIndex)) {
@@ -532,8 +525,8 @@
                 return `<div class="deck-tree-leaf-cards-empty">No cards.</div>`;
             }
             const items = cards.map((card) => {
-                const primary = matchBack ? String(card.back || '') : String(card.front || '');
-                const secondary = matchBack ? String(card.front || '') : String(card.back || '');
+                const primary = String(card.front || '');
+                const secondary = String(card.back || '');
                 const secondaryHtml = secondary
                     ? `<span class="deck-tree-leaf-card-secondary">${escapeHtml(secondary)}</span>`
                     : '';
@@ -942,12 +935,11 @@
         _getMatchingCardsByDeckId(q) {
             const byDeck = new Map();
             if (!q) return byDeck;
-            const matchBack = this.matchBack;
             const limitPerDeck = 8;
             const cards = Array.isArray(this.cardIndex) ? this.cardIndex : [];
             for (const card of cards) {
                 if (!card) continue;
-                const primary = matchBack ? String(card.back || '') : String(card.front || '');
+                const primary = String(card.front || '');
                 if (!primary.toLowerCase().includes(q)) continue;
                 const bucketKey = card.is_orphan
                     ? ORPHAN_BUBBLE_ID
@@ -966,10 +958,9 @@
 
         _buildLeafMatchPreviewHtml(bucket, query) {
             if (!bucket || !bucket.shown.length) return '';
-            const matchBack = this.matchBack;
             const items = bucket.shown.map((card) => {
-                const primary = matchBack ? String(card.back || '') : String(card.front || '');
-                const secondary = matchBack ? String(card.front || '') : String(card.back || '');
+                const primary = String(card.front || '');
+                const secondary = String(card.back || '');
                 const primaryHtml = this._highlightQueryHtml(primary, query);
                 const secondaryHtml = secondary
                     ? `<span class="deck-tree-card-match-secondary">${escapeHtml(secondary)}</span>`

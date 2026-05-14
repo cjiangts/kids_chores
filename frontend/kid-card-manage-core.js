@@ -508,8 +508,8 @@ function supportsPersonalDeckEditor() {
 
 function renderPersonalDeckPreviewTable(rows, options = {}) {
     if (!personalDeckPreviewTableBody) return;
-    const frontLabel = String(options.frontLabel || 'Prompt');
-    const backLabel = String(options.backLabel || 'Word');
+    const frontLabel = String(options.frontLabel || 'Word');
+    const backLabel = String(options.backLabel || 'Prompt');
     const tableEl = personalDeckPreviewTableBody.closest('table');
     if (tableEl) {
         const headers = tableEl.querySelectorAll('thead th');
@@ -747,7 +747,7 @@ function applyCategoryUiText() {
         if (isType1ChineseEnglishBackMode()) {
             chineseCharInput.placeholder = '添加生词 — 中文 + 英文释义。\n\n格式：「<中文>，<english>」一行一张卡\n（中英文逗号都可以；缺英文释义会留空，可在卡片中补充）\n\n比如:\n中国，china\n你好，hello\n学校，school';
         } else if (isType2Behavior() && !isChineseSpecificLogic) {
-            chineseCharInput.placeholder = 'Add words to practice writing. Pick ONE format — don\'t mix.\n\n• Format A — blob (prompt = word, each word is one card)\napple banana orange grape\ncat dog rabbit elephant\n\n• Format B — "prompt, word" (one card per line)\nA red round fruit, apple\nMan\'s best friend, dog\nGoes "moo", cow';
+            chineseCharInput.placeholder = 'Add words to practice writing. Pick ONE format — don\'t mix.\n\n• Format A — blob (prompt = word, each word is one card)\napple banana orange grape\ncat dog rabbit elephant\n\n• Format B — "word, prompt" (one card per line)\napple, A red round fruit\ndog, Man\'s best friend\ncow, Goes "moo"';
         } else if (isType2Behavior()) {
             chineseCharInput.placeholder = '添加生词练习。两种格式 — 只能选一种。\n\n• 格式 A — 词块（听到的词 = 要写的词）\n好像 香菜 为难 关心 事情\n答应 知道 从来 勇敢\n\n• 格式 B —「提示，答案」一行一张卡\n看起来很像，好像\n有香味的蔬菜，香菜\n感到困难，为难';
         } else {

@@ -1686,7 +1686,7 @@ function countFillPageCards() {
     let testRows = [...chineseSheetRows];
     let count = 0;
     for (const card of available) {
-        const label = String(card.back || card.front || '').trim();
+        const label = String(card.front || card.back || '').trim();
         if (!label) continue;
         const candidate = { cardId: card.id, character: label, emptyCount: cwGlobalEmptyCount, scale: cwCurrentGlobalScale() };
         const nextRows = [...testRows, candidate];
@@ -1701,7 +1701,7 @@ function fillPageWithCards() {
     const available = getAvailableChineseCharacters(null);
     let added = 0;
     for (const card of available) {
-        const label = String(card.back || card.front || '').trim();
+        const label = String(card.front || card.back || '').trim();
         if (!label) continue;
         const candidate = { cardId: card.id, character: label, emptyCount: cwGlobalEmptyCount, scale: cwCurrentGlobalScale() };
         const nextRows = [...chineseSheetRows, candidate];
@@ -1736,7 +1736,7 @@ function renderChineseSheetPickerOptions() {
         return;
     }
     optionsEl.innerHTML = available.map((card) => {
-        const label = String(card.back || card.front || '').trim();
+        const label = String(card.front || card.back || '').trim();
         const reasonMeta = getChineseSheetPickerReasonMeta(card);
         const optionTitle = reasonMeta.label ? `${label} · ${reasonMeta.label}` : label;
         return `<button type="button" class="sb-picker-option sb-picker-bubble ${reasonMeta.className}" data-cwb-picker-card-id="${card.id}" title="${escapeHtml(optionTitle)}" aria-label="${escapeHtml(optionTitle)}">
@@ -1776,7 +1776,7 @@ function closeChineseSheetPicker() {
 }
 
 function addChineseSheetRow(card) {
-    const label = String(card.back || card.front || '').trim();
+    const label = String(card.front || card.back || '').trim();
     if (!label) return false;
     const nextRow = { cardId: card.id, character: label, emptyCount: cwGlobalEmptyCount, scale: cwCurrentGlobalScale() };
     const nextRows = [...chineseSheetRows, nextRow];
@@ -1792,7 +1792,7 @@ function addChineseSheetRow(card) {
 
 function replaceChineseSheetRow(rowIndex, card) {
     if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= chineseSheetRows.length) return false;
-    const label = String(card.back || card.front || '').trim();
+    const label = String(card.front || card.back || '').trim();
     if (!label) return false;
     showSheetError('');
     chineseSheetRows[rowIndex] = Object.assign({}, chineseSheetRows[rowIndex], { cardId: card.id, character: label });

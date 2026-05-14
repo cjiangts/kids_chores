@@ -225,7 +225,7 @@ function renderStatsView() {
         `;
         return;
     }
-    const getCardCapsuleLabel = makeCardCapsuleLabelGetter(currentBehaviorType);
+    const getCardCapsuleLabel = makeCardCapsuleLabelGetter();
     const getCardHref = (cardId) => {
         const qs = new URLSearchParams();
         qs.set('id', String(kidId || ''));
@@ -318,11 +318,10 @@ function getCardDaysSinceLastSeen(card) {
     return Math.max(0, dayDiff);
 }
 
-function makeCardCapsuleLabelGetter(behaviorType) {
+function makeCardCapsuleLabelGetter() {
     return (card) => {
         const front = String(card?.front || '').trim();
         const back = String(card?.back || '').trim();
-        if (behaviorType === BEHAVIOR_TYPE_TYPE_II) return back || front;
         return front || back;
     };
 }

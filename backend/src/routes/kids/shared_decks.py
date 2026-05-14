@@ -20,7 +20,6 @@ to serialize structural changes that have to fan out to materialized per-kid vie
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPES,
     DECK_CATEGORY_BEHAVIOR_TYPE_I,
-    DECK_CATEGORY_BEHAVIOR_TYPE_II,
     DECK_CATEGORY_BEHAVIOR_TYPE_IV,
     MAX_SHARED_TAG_LENGTH,
     TYPE_IV_PREVIEW_SAMPLE_COUNT,
@@ -29,7 +28,6 @@ from src.routes.kids import (
     _SHARED_DECK_MUTATION_LOCK,
     _safe_positive_int_or_none,
     build_shared_deck_tags,
-    dedupe_shared_deck_cards_by_back,
     dedupe_shared_deck_cards_by_front,
     extract_shared_deck_tags_and_labels,
     find_shared_type_iv_representative_label_conflict,
@@ -94,7 +92,6 @@ from src.services.shared_deck_tag_paths import (
     get_all_shared_deck_tag_label_paths,
     get_all_shared_deck_tag_paths,
 )
-from src.services.kid_card_queries import get_shared_deck_dedupe_key
 from src.services.type4_generator_definitions import (
     get_shared_deck_generator_definition,
     shared_deck_generator_definition_has_print_cell_design_columns,
@@ -820,8 +817,6 @@ def shared_deck_category_card_overlap():
             )
             if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
                 raise ValueError('type_iv categories use Python generators, not static cards')
-            dedupe_key = 'back' if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II else 'front'
-            other_key = 'front' if dedupe_key == 'back' else 'back'
 
             rows = conn.execute(
                 """
@@ -841,12 +836,11 @@ def shared_deck_category_card_overlap():
         finally:
             conn.close()
 
-        existing_by_dedupe = {}
+        existing_by_front = {}
         for row in rows:
             front = str(row[0] or '')
             back = str(row[1] or '')
-            dedupe_value = back if dedupe_key == 'back' else front
-            existing_by_dedupe.setdefault(dedupe_value, []).append({
+            existing_by_front.setdefault(front, []).append({
                 'front': front,
                 'back': back,
                 'deck_id': int(row[2]),
@@ -871,8 +865,7 @@ def shared_deck_category_card_overlap():
         for idx, card in enumerate(cards):
             front = str(card.get('front') or '')
             back = str(card.get('back') or '')
-            dedupe_value = back if dedupe_key == 'back' else front
-            matches = list(existing_by_dedupe.get(dedupe_value) or [])
+            matches = list(existing_by_front.get(front) or [])
             if not matches:
                 continue
 
@@ -882,17 +875,12 @@ def shared_deck_category_card_overlap():
                 'index': idx,
                 'front': front,
                 'back': back,
-                'dedupe_key': dedupe_key,
-                'dedupe_value': dedupe_value,
-                'other_key': other_key,
                 'exact_match_decks': unique_decks(exact_matches),
                 'mismatch_decks': unique_decks(mismatch_matches),
             })
 
         return jsonify({
             'category_key': category_key,
-            'dedupe_key': dedupe_key,
-            'other_key': other_key,
             'overlaps': overlaps,
         }), 200
     except ValueError as e:
@@ -979,26 +967,19 @@ def list_my_shared_decks():
             ).fetchall()
 
             shared_category_keys = set()
-            type_ii_category_keys = set()
-            cat_rows = conn.execute(
-                "SELECT category_key, behavior_type, is_shared_with_non_super_family FROM deck_category"
-            ).fetchall()
-            for cr in cat_rows:
-                ck = str(cr[0]).strip().lower()
-                if str(cr[1] or '').strip().lower() == 'type_ii':
-                    type_ii_category_keys.add(ck)
-                if not is_super and cr[2]:
-                    shared_category_keys.add(ck)
+            if not is_super:
+                cat_rows = conn.execute(
+                    "SELECT category_key FROM deck_category WHERE is_shared_with_non_super_family"
+                ).fetchall()
+                shared_category_keys = {str(cr[0]).strip().lower() for cr in cat_rows}
 
             card_rows_all = conn.execute(
-                "SELECT deck_id, front, back FROM cards ORDER BY deck_id, id"
+                "SELECT deck_id, front FROM cards ORDER BY deck_id, id"
             ).fetchall()
             card_fronts_by_deck = {}
-            card_backs_by_deck = {}
             for cf_row in card_rows_all:
                 cf_deck_id = int(cf_row[0])
                 card_fronts_by_deck.setdefault(cf_deck_id, []).append(str(cf_row[1]))
-                card_backs_by_deck.setdefault(cf_deck_id, []).append(str(cf_row[2]))
         finally:
             conn.close()
 
@@ -1009,7 +990,6 @@ def list_my_shared_decks():
             if not is_super and first_tag not in shared_category_keys:
                 continue
             deck_id_val = int(row[0])
-            is_type_ii = first_tag in type_ii_category_keys
             deck_entry = {
                 'deck_id': deck_id_val,
                 'name': str(row[1]),
@@ -1020,7 +1000,7 @@ def list_my_shared_decks():
                 'card_count': int(row[5] or 0),
                 'single_card_front': str(row[6] or '').strip(),
                 'has_print_cell_design': bool(row[7]) if len(row) > 7 and row[7] is not None else False,
-                'card_texts': card_backs_by_deck.get(deck_id_val, []) if is_type_ii else card_fronts_by_deck.get(deck_id_val, []),
+                'card_texts': card_fronts_by_deck.get(deck_id_val, []),
             }
             decks.append(deck_entry)
 
@@ -1552,34 +1532,23 @@ def add_shared_deck_cards(deck_id):
                     return jsonify({'error': 'Provide cards[] or one front/back pair.'}), 400
                 cards = [{'front': front, 'back': back}]
 
-            dedupe_key = get_shared_deck_dedupe_key(conn, deck_row[2])
-            cards = (
-                dedupe_shared_deck_cards_by_back(cards)
-                if dedupe_key == 'back'
-                else dedupe_shared_deck_cards_by_front(cards)
-            )
+            cards = dedupe_shared_deck_cards_by_front(cards)
 
             existing_rows = conn.execute(
-                "SELECT front, back FROM cards WHERE deck_id = ?",
+                "SELECT front FROM cards WHERE deck_id = ?",
                 [deck_id]
             ).fetchall()
             existing_fronts = {str(row[0] or '') for row in existing_rows if str(row[0] or '')}
-            existing_backs = {str(row[1] or '') for row in existing_rows if str(row[1] or '')}
 
             insert_rows = []
             skipped_existing_front = 0
-            skipped_existing_back = 0
             for card in cards:
                 front = str(card.get('front') or '')
                 back = str(card.get('back') or '')
                 if front in existing_fronts:
                     skipped_existing_front += 1
                     continue
-                if dedupe_key == 'back' and back in existing_backs:
-                    skipped_existing_back += 1
-                    continue
                 existing_fronts.add(front)
-                existing_backs.add(back)
                 insert_rows.append([deck_id, front, back])
 
             if insert_rows:
@@ -1601,12 +1570,10 @@ def add_shared_deck_cards(deck_id):
 
         return jsonify({
             'deck_id': int(deck_id),
-            'dedupe_key': dedupe_key,
             'input_count': len(cards),
             'inserted_count': len(insert_rows),
             'skipped_existing_front': skipped_existing_front,
-            'skipped_existing_back': skipped_existing_back,
-            'skipped_existing_count': int(skipped_existing_front + skipped_existing_back),
+            'skipped_existing_count': skipped_existing_front,
             'card_count': card_count,
         }), 200
     except ValueError as e:
@@ -1703,56 +1670,45 @@ def replace_shared_deck_cards(deck_id):
                     if not card['back']:
                         card['back'] = build_chinese_auto_back_text(card['front'], chinese_back_content)
 
-            dedupe_key = get_shared_deck_dedupe_key(conn, deck_row[2])
-            new_cards = (
-                dedupe_shared_deck_cards_by_back(new_cards)
-                if dedupe_key == 'back'
-                else dedupe_shared_deck_cards_by_front(new_cards)
-            )
+            new_cards = dedupe_shared_deck_cards_by_front(new_cards)
 
             existing_rows = conn.execute(
                 "SELECT id, front, back FROM cards WHERE deck_id = ? ORDER BY id ASC",
                 [deck_id]
             ).fetchall()
 
-            old_by_key = {}
+            old_by_front = {}
             for row in existing_rows:
                 card_id = int(row[0])
                 front = str(row[1] or '')
                 back = str(row[2] or '')
-                k = back if dedupe_key == 'back' else front
-                old_by_key[k] = {'id': card_id, 'front': front, 'back': back}
+                old_by_front[front] = {'id': card_id, 'front': front, 'back': back}
 
             added = 0
             updated = 0
             removed = 0
-            seen_keys = set()
+            seen_fronts = set()
 
             for card in new_cards:
                 front = str(card.get('front') or '')
                 back = str(card.get('back') or '')
-                k = back if dedupe_key == 'back' else front
-                seen_keys.add(k)
-                old = old_by_key.get(k)
+                seen_fronts.add(front)
+                old = old_by_front.get(front)
                 if old is None:
                     conn.execute(
                         "INSERT INTO cards (deck_id, front, back) VALUES (?, ?, ?)",
                         [deck_id, front, back]
                     )
                     added += 1
-                else:
-                    value_field = 'front' if dedupe_key == 'back' else 'back'
-                    old_value = old[value_field]
-                    new_value = front if dedupe_key == 'back' else back
-                    if old_value != new_value:
-                        conn.execute(
-                            f"UPDATE cards SET {value_field} = ? WHERE id = ? AND deck_id = ?",
-                            [new_value, old['id'], deck_id]
-                        )
-                        updated += 1
+                elif old['back'] != back:
+                    conn.execute(
+                        "UPDATE cards SET back = ? WHERE id = ? AND deck_id = ?",
+                        [back, old['id'], deck_id]
+                    )
+                    updated += 1
 
-            for k, old in old_by_key.items():
-                if k not in seen_keys:
+            for front, old in old_by_front.items():
+                if front not in seen_fronts:
                     conn.execute(
                         "DELETE FROM cards WHERE id = ? AND deck_id = ?",
                         [old['id'], deck_id]
@@ -1881,7 +1837,6 @@ def create_shared_deck():
                     preview_type4_generator(generator_code, sample_count=1)
                     cards = [{'front': display_label, 'back': ''}]
                 else:
-                    dedupe_by_back = behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_II
                     category_meta = (
                         get_shared_deck_category_meta_by_key().get(tags[0])
                         or {}
@@ -1904,11 +1859,7 @@ def create_shared_deck():
                                 card['back'] = build_chinese_auto_back_text(
                                     card['front'], chinese_back_content
                                 )
-                    cards = (
-                        dedupe_shared_deck_cards_by_back(cards)
-                        if dedupe_by_back
-                        else dedupe_shared_deck_cards_by_front(cards)
-                    )
+                    cards = dedupe_shared_deck_cards_by_front(cards)
                 deck_name = '_'.join(tags)
                 storage_tags = [
                     format_shared_deck_tag_display_label(tag, comments_by_tag.get(tag))

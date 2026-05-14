@@ -74,7 +74,7 @@ function buildGenericType1CardMarkup(card, options = {}) {
 
 function buildType2CardMarkup(card, options = {}) {
     const hasSavedAudio = !!card.audio_url;
-    const secondaryText = String(card.front || '');
+    const secondaryText = String(card.back || card.front || '');
     const promptHtml = `
         <div class="type2-prompt-row">
             <button
@@ -362,9 +362,6 @@ function buildType4RepresentativeCardMarkup(card) {
 }
 
 function getCompactCardText(card) {
-    if (isType2Behavior()) {
-        return String(card && (card.back || card.front || '')).trim();
-    }
     return String(card && (card.front || card.back || '')).trim();
 }
 
@@ -382,7 +379,6 @@ function buildCompactCardMarkup(card, options = {}) {
         classes.push(`queue-${queueHighlight}`);
     }
     const scoreValue = usesPracticePriorityDisplay() ? getPracticePriorityScoreValue(card) : null;
-    const titlePrefix = isType2Behavior() ? 'Back' : 'Front';
     const totalPracticed = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
     const cardId = getCardIdText(card);
     const isSelected = isCardsSelectModeOn && cardId && selectedCardIds.has(cardId);
@@ -419,8 +415,8 @@ function buildCompactCardMarkup(card, options = {}) {
         : '';
     const action = isCardsSelectModeOn ? 'toggle-select' : 'expand-compact';
     const titleAttr = isCardsSelectModeOn
-        ? escapeHtml(`${isSelected ? 'Deselect' : 'Select'} • ${titlePrefix}: ${text}`)
-        : escapeHtml(`Open details • ${titlePrefix}: ${text}${highlightHint}${scoreHint}`);
+        ? escapeHtml(`${isSelected ? 'Deselect' : 'Select'} • Front: ${text}`)
+        : escapeHtml(`Open details • Front: ${text}${highlightHint}${scoreHint}`);
     const ariaLabel = isCardsSelectModeOn
         ? escapeHtml(`${isSelected ? 'Deselect' : 'Select'} card: ${text}`)
         : escapeHtml(`Open card details: ${text}${highlightHint}${scoreHint}`);
@@ -788,20 +784,20 @@ function getType2ChineseBulkInputStats(text) {
         return { totalCount: 0, uniqueCount: 0, dedupedCount: 0, uniqueValues: [], mixedFormat: true };
     }
     if (hasCsv) {
-        const backs = [];
+        const fronts = [];
         lines.forEach((line) => {
             const idx = line.indexOf(',');
             const front = line.slice(0, idx).trim();
             let back = line.slice(idx + 1).trim();
             if (!back) back = front;
             if (!front || !back) return;
-            backs.push(back);
+            fronts.push(front);
         });
-        const uniqueValues = [...new Set(backs)];
+        const uniqueValues = [...new Set(fronts)];
         return {
-            totalCount: backs.length,
+            totalCount: fronts.length,
             uniqueCount: uniqueValues.length,
-            dedupedCount: Math.max(0, backs.length - uniqueValues.length),
+            dedupedCount: Math.max(0, fronts.length - uniqueValues.length),
             uniqueValues,
             mixedFormat: false,
         };
@@ -821,7 +817,7 @@ function getType2ChineseBulkInputStats(text) {
     };
 }
 
-const TYPE2_MIXED_FORMAT_ERROR = 'Mixed formats — use either "prompt, word" on every line or a word blob with no commas, not both.';
+const TYPE2_MIXED_FORMAT_ERROR = 'Mixed formats — use either "word, prompt" on every line or a word blob with no commas, not both.';
 
 function getType2BulkPreviewRows(text, isChinese) {
     const normalized = isChinese ? String(text || '').replace(/\uff0c/g, ',') : String(text || '');
@@ -845,10 +841,9 @@ function getType2BulkPreviewRows(text, isChinese) {
             const front = line.slice(0, idx).trim();
             let back = line.slice(idx + 1).trim();
             if (!back) back = front;
-            if (!front || !back) return;
-            const key = isChinese ? back : front;
-            if (seen.has(key)) return;
-            seen.add(key);
+            if (!front) return;
+            if (seen.has(front)) return;
+            seen.add(front);
             rows.push({ front, back });
         });
         return { rows, mixedFormat: false, format: 'csv' };
@@ -1167,7 +1162,7 @@ async function previewPersonalDeck() {
         showStatusMessage('');
         showError('');
         showSuccess('');
-        renderPersonalDeckPreviewTable(result.rows, { frontLabel: 'Prompt', backLabel: 'Word' });
+        renderPersonalDeckPreviewTable(result.rows, { frontLabel: 'Word', backLabel: 'Prompt' });
         setPersonalDeckMode('preview');
         return;
     }

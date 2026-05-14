@@ -1073,10 +1073,7 @@ function getAnswerPrimaryLabel(item) {
     if (isTypeIVSession()) {
         return String(item?.materialized_prompt || item?.front || item?.back || '').trim();
     }
-    const primary = normalizeBehaviorType(currentSessionBehaviorType) === BEHAVIOR_TYPE_II
-        ? item?.back
-        : item?.front;
-    return String(primary || item?.front || item?.back || '').trim();
+    return String(item?.front || item?.back || '').trim();
 }
 
 function getAnswerSecondaryLabel(item) {

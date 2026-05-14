@@ -37,10 +37,7 @@ from src.routes.kids import (
 )
 from src.services.card_stats import delete_card_from_deck_internal
 from src.services.family_auth import get_kid_connection_for, get_kid_for_family
-from src.services.kid_card_queries import (
-    get_kid_card_backs_for_deck_ids,
-    get_kid_card_fronts_for_deck_ids,
-)
+from src.services.kid_card_queries import get_kid_card_fronts_for_deck_ids
 from src.services.kid_category_resolve import (
     resolve_kid_type_i_chinese_category_key,
     resolve_kid_type_ii_category_with_mode,
@@ -116,20 +113,11 @@ def add_writing_cards(kid_id):
             category_key,
         )
         source_deck_ids = [int(src['local_deck_id']) for src in source_decks]
-        existing_values = {
+        existing_fronts = {
             str(value or '').strip()
-            for value in (
-                get_kid_card_backs_for_deck_ids(conn, source_deck_ids)
-                if has_chinese_specific_logic
-                else get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
-            )
+            for value in get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
         }
-        dedupe_value = (
-            str(card_back or '').strip()
-            if has_chinese_specific_logic
-            else str(card_front or '').strip()
-        )
-        if dedupe_value in existing_values:
+        if str(card_front or '').strip() in existing_fronts:
             conn.close()
             return jsonify({
                 'error': (
@@ -299,27 +287,19 @@ def add_writing_cards_bulk(kid_id):
             category_key,
         )
         source_deck_ids = [int(src['local_deck_id']) for src in source_decks]
-        existing_set = {
+        existing_fronts = {
             str(value or '').strip()
-            for value in (
-                get_kid_card_backs_for_deck_ids(conn, source_deck_ids)
-                if has_chinese_specific_logic
-                else get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
-            )
+            for value in get_kid_card_fronts_for_deck_ids(conn, source_deck_ids)
         }
 
         created = []
         skipped_existing = 0
         skipped_existing_cards = []
         for front_text, back_text in rows_to_insert:
-            dedupe_value = (
-                str(back_text or '').strip()
-                if has_chinese_specific_logic
-                else str(front_text or '').strip()
-            )
-            if not dedupe_value:
+            front_value = str(front_text or '').strip()
+            if not front_value:
                 continue
-            if dedupe_value in existing_set:
+            if front_value in existing_fronts:
                 skipped_existing += 1
                 skipped_existing_cards.append(
                     format_type2_bulk_card_text(front_text, back_text, has_chinese_specific_logic)
@@ -334,7 +314,7 @@ def add_writing_cards_bulk(kid_id):
                 """,
                 [deck_id, front_text, back_text]
             ).fetchone()
-            existing_set.add(dedupe_value)
+            existing_fronts.add(front_value)
             audio_meta = build_writing_prompt_audio_payload(
                 kid_id,
                 front_text,
@@ -426,11 +406,7 @@ def get_writing_audio(kid_id, file_name):
             if front_file and front_file not in synth_args_by_file_name:
                 synth_args_by_file_name[front_file] = {
                     'file_key_text': front_text,
-                    'spoken_text': build_writing_front_tts_text(
-                        front_text,
-                        back_text,
-                        has_chinese_specific_logic=has_chinese_specific_logic,
-                    ),
+                    'spoken_text': build_writing_front_tts_text(front_text, back_text),
                 }
 
         synth_args = synth_args_by_file_name.get(file_name)
@@ -761,7 +737,7 @@ def list_chinese_print_sheets(kid_id):
             layout_rows = list(layout.get('rows') or [])
             card_labels = []
             for lr in layout_rows:
-                label = str(lr.get('back') or lr.get('front') or '')
+                label = str(lr.get('front') or lr.get('back') or '')
                 if label and label not in card_labels:
                     card_labels.append(label)
             sheets.append({

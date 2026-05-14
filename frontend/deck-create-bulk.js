@@ -452,14 +452,14 @@ function updateInputModeUi() {
         }
         bulkDeckInput.placeholder = [
             'ma1(马立平1年级)_unit1_week1',
-            '上面的上,上',
-            '不要的不,不',
-            '走路的走,走',
+            '上,上面的上',
+            '不,不要的不',
+            '走,走路的走',
             '',
             'ma1(马立平1年级)_unit1_week2',
-            '飞机的飞,飞',
-            '天空的天,天',
-            '叫声的叫,叫',
+            '飞,飞机的飞',
+            '天,天空的天',
+            '叫,叫声的叫',
         ].join('\n');
         return;
     }
@@ -469,14 +469,14 @@ function updateInputModeUi() {
         }
         bulkDeckInput.placeholder = [
             'grade2_week1',
-            'A guy with makeup on,clown',
-            'A baby dog,puppy',
-            'Frozen water from the sky,snow',
+            'clown,A guy with makeup on',
+            'puppy,A baby dog',
+            'snow,Frozen water from the sky',
             '',
             'grade2_week2',
-            'Where you cook food,kitchen',
-            'The day after Friday,Saturday',
-            'A small flying insect that makes honey,bee',
+            'kitchen,Where you cook food',
+            'Saturday,The day after Friday',
+            'bee,A small flying insect that makes honey',
         ].join('\n');
         return;
     }
@@ -524,15 +524,14 @@ function isLikelyRemainingTagLine(rawLine) {
 }
 
 function dedupeCards(cards) {
-    const dedupeKey = isTypeIIDeckMode() ? 'back' : 'front';
-    const firstByKey = new Map();
+    const firstByFront = new Map();
     cards.forEach((card) => {
-        const key = String(card[dedupeKey] || '');
-        if (!firstByKey.has(key)) {
-            firstByKey.set(key, card);
+        const key = String(card.front || '');
+        if (!firstByFront.has(key)) {
+            firstByFront.set(key, card);
         }
     });
-    return Array.from(firstByKey.values()).map((card) => ({ front: card.front, back: card.back }));
+    return Array.from(firstByFront.values()).map((card) => ({ front: card.front, back: card.back }));
 }
 
 function splitRawTagPath(rawLine) {
@@ -764,8 +763,6 @@ function buildOverlapSummary(overlapInfo) {
             mismatchDecks.push(...mismatch);
         }
     });
-    const dedupeKey = String(overlapInfo && overlapInfo.dedupeKey ? overlapInfo.dedupeKey : 'front');
-    const otherKey = String(overlapInfo && overlapInfo.otherKey ? overlapInfo.otherKey : (dedupeKey === 'back' ? 'front' : 'back'));
     const exactDeckText = deckCreateCommon.formatDeckNameList(exactDecks);
     const mismatchDeckText = deckCreateCommon.formatDeckNameList(mismatchDecks);
     return {
@@ -773,7 +770,7 @@ function buildOverlapSummary(overlapInfo) {
             ? `Exact card match for ${exactCount} card(s) in: ${exactDeckText}.`
             : '',
         warningText: mismatchCount > 0
-            ? `Warning: ${mismatchCount} card(s) share same ${dedupeKey} with different ${otherKey} in: ${mismatchDeckText}.`
+            ? `Warning: ${mismatchCount} card(s) share same front with different back in: ${mismatchDeckText}.`
             : '',
     };
 }

@@ -111,7 +111,6 @@ from src.services.family_auth import (
 
 from src.services.shared_deck_normalize import (
     build_shared_deck_tags,
-    dedupe_shared_deck_cards_by_back,
     dedupe_shared_deck_cards_by_front,
     extract_shared_deck_tags_and_labels,
     format_shared_deck_tag_display_label,
@@ -354,8 +353,8 @@ def parse_shared_deck_ids_from_request_payload(payload):
 # ====================================================================
 # 6. Scope-management context resolvers
 #   Translate a kid + raw category key into the operating parameters
-#   (first_tag, orphan_deck_name, unique_key_field, ...) that all
-#   per-scope handlers below consume.
+#   (first_tag, orphan_deck_name, ...) that all per-scope handlers
+#   below consume.
 # ====================================================================
 
 def resolve_type2_scope_context(kid, raw_category_key):
@@ -369,7 +368,6 @@ def resolve_type2_scope_context(kid, raw_category_key):
         'has_chinese_specific_logic': bool(has_chinese_specific_logic),
         'first_tag': category_key,
         'orphan_deck_name': get_category_orphan_deck_name(category_key),
-        'unique_key_field': 'back',
         'include_orphan_in_queue': get_category_include_orphan_for_kid(kid, category_key),
     }
 
@@ -604,7 +602,6 @@ def opt_in_shared_decks_for_scope(kid_id, category):
                     conn,
                     scope_context['category_key'],
                 ),
-                unique_key_field=scope_context['unique_key_field'],
             )
             return jsonify(payload), status_code
 
@@ -1100,8 +1097,6 @@ def get_shared_type2_cards(kid_id):
                 is_orphan = bool(src.get('is_orphan'))
                 for row in rows:
                     mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
-                    if not mapped.get('front') and mapped.get('back'):
-                        mapped['front'] = mapped.get('back')
                     card_id = int(row[0])
                     is_candidate = card_id in candidate_card_set
                     mapped['pending_sheet'] = card_id in pending_card_set
@@ -1148,8 +1143,6 @@ def get_shared_type2_cards(kid_id):
                 extra_ids = [cid for cid in practiced_ids if cid not in existing_ids]
                 for row in get_cards_with_stats_for_card_ids(conn, extra_ids):
                     mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
-                    if not mapped.get('front') and mapped.get('back'):
-                        mapped['front'] = mapped.get('back')
                     mapped['pending_sheet'] = False
                     mapped['available_for_practice'] = False
                     mapped['practicing_reason'] = None
