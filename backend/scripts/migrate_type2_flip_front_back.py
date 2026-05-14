@@ -136,17 +136,37 @@ def swap_chinese_print_sheet_layouts(conn):
 
 
 def wipe_shared_writing_audio(unpacked_root):
-    """Delete every file under shared/writing_audio/ so they regenerate."""
+    """Delete every file under shared/writing_audio/ and prune the manifest.
+
+    The restore endpoint validates each file listed in full_manifest.json
+    exists in the zip, so the audio entries must be dropped from the manifest
+    too — otherwise restore fails with 'Backup is missing file: ...'.
+    """
     audio_dir = os.path.join(unpacked_root, 'shared', 'writing_audio')
-    if not os.path.isdir(audio_dir):
-        return 0
     removed = 0
-    for entry in os.listdir(audio_dir):
-        full = os.path.join(audio_dir, entry)
-        if os.path.isfile(full):
-            os.remove(full)
-            removed += 1
-    return removed
+    if os.path.isdir(audio_dir):
+        for entry in os.listdir(audio_dir):
+            full = os.path.join(audio_dir, entry)
+            if os.path.isfile(full):
+                os.remove(full)
+                removed += 1
+
+    manifest_path = os.path.join(unpacked_root, 'full_manifest.json')
+    pruned = 0
+    if os.path.isfile(manifest_path):
+        with open(manifest_path, 'r', encoding='utf-8') as fh:
+            manifest = json.load(fh)
+        files = manifest.get('files')
+        if isinstance(files, list):
+            kept = [
+                entry for entry in files
+                if not str(entry or '').replace('\\', '/').startswith('shared/writing_audio/')
+            ]
+            pruned = len(files) - len(kept)
+            manifest['files'] = kept
+            with open(manifest_path, 'w', encoding='utf-8') as fh:
+                json.dump(manifest, fh, ensure_ascii=False)
+    return removed, pruned
 
 
 def find_kid_dbs(root):
@@ -215,8 +235,11 @@ def run(input_zip, output_zip):
             f'sheet layout rows swapped: {total_kid_sheet_rows}'
         )
 
-        wiped_audio = wipe_shared_writing_audio(unpacked)
-        print(f'shared/writing_audio: wiped {wiped_audio} files (will regenerate on demand)')
+        wiped_audio, pruned_manifest = wipe_shared_writing_audio(unpacked)
+        print(
+            f'shared/writing_audio: wiped {wiped_audio} files, '
+            f'pruned {pruned_manifest} entries from full_manifest.json'
+        )
 
         print(f'Repacking -> {output_zip}')
         repack(unpacked, output_zip)
