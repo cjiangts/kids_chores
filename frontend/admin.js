@@ -610,17 +610,14 @@ function renderMatrix() {
             <span class="admin-matrix-title-main">Subject Settings</span>
             <span class="${subClass}">${subText}</span>
         </div>
-        <div class="admin-matrix-section-header-actions">
-            <div class="admin-matrix-title-actions">
-                ${addKidBtnHtml}
-                <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
-                    ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
-                </button>
-            </div>
+        <div class="admin-matrix-title-actions">
+            ${addKidBtnHtml}
+            <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
+                ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
+            </button>
         </div>
     `;
-    const adminMatrixHeader = document.getElementById('adminMatrixHeader');
-    if (adminMatrixHeader) adminMatrixHeader.innerHTML = sectionHeaderHtml;
+    document.getElementById('adminMatrixHeader').innerHTML = sectionHeaderHtml;
     const headerHtml = `
         <thead>
             <tr>
