@@ -597,34 +597,34 @@ function renderMatrix() {
     const editBtnExtraClass = editMode ? ' admin-optin-edit-btn--done' : '';
     const addKidIconSvg = (typeof window.icon === 'function') ? window.icon('user-round-plus', { size: 14 }) : '';
     const moreIconSvg = (typeof window.icon === 'function') ? window.icon('more-vertical', { size: 18 }) : '';
-    const secondaryBtnHiddenClass = editMode ? ' admin-optin-edit-btn--space-keeper' : '';
-    const secondaryBtnHiddenAttrs = editMode ? 'tabindex="-1" aria-hidden="true"' : '';
-    const addKidBtnHtml = `<button type="button" data-action="add-kid" class="btn-secondary admin-optin-edit-btn${secondaryBtnHiddenClass}" ${secondaryBtnHiddenAttrs}>${addKidIconSvg}<span>Add Kid</span></button>`;
+    const addKidBtnHtml = editMode
+        ? `<button type="button" data-action="add-kid" class="btn-secondary admin-optin-edit-btn admin-optin-edit-btn--add-kid">${addKidIconSvg}<span>Add Kid</span></button>`
+        : '';
     const panelMenuBtnHtml = isSuperFamily
         ? `<button type="button" data-panel-menu-trigger class="admin-panel-menu-btn${editMode ? ' is-hidden' : ''}" ${editMode ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="More options">${moreIconSvg}</button>`
         : '';
     const subText = editMode ? 'Tap to toggle · auto-saved' : 'Numbers = cards/day · tap a number to manage';
     const subClass = editMode ? 'admin-matrix-title-sub admin-matrix-title-sub--edit' : 'admin-matrix-title-sub';
+    const sectionHeaderHtml = `
+        <div class="admin-matrix-section-header-text">
+            <span class="admin-matrix-title-main">Subject Settings</span>
+            <span class="${subClass}">${subText}</span>
+        </div>
+        <div class="admin-matrix-section-header-actions">
+            <div class="admin-matrix-title-actions">
+                ${addKidBtnHtml}
+                <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
+                    ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
+                </button>
+            </div>
+        </div>
+    `;
+    const adminMatrixHeader = document.getElementById('adminMatrixHeader');
+    if (adminMatrixHeader) adminMatrixHeader.innerHTML = sectionHeaderHtml;
     const headerHtml = `
         <thead>
             <tr>
-                <th class="admin-matrix-subject-head">
-                    <div class="admin-matrix-title-block">
-                        <div class="admin-matrix-title-header">
-                            <div class="admin-matrix-title-text">
-                                <span class="admin-matrix-title-main">Subject Settings</span>
-                                <span class="${subClass}">${subText}</span>
-                            </div>
-                            ${panelMenuBtnHtml}
-                        </div>
-                        <div class="admin-matrix-title-actions">
-                            <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
-                                ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
-                            </button>
-                            ${addKidBtnHtml}
-                        </div>
-                    </div>
-                </th>
+                <th class="admin-matrix-subject-head"><span class="admin-matrix-subject-head-label"><span class="admin-matrix-subject-head-icon" aria-hidden="true">${(typeof window.icon === 'function') ? window.icon('book-open', { size: 16, strokeWidth: 2 }) : ''}</span>Subjects</span>${panelMenuBtnHtml}</th>
                 ${list.map((kid) => buildKidColumnHeader(kid)).join('')}
             </tr>
         </thead>
