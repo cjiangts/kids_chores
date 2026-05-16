@@ -102,7 +102,9 @@ def build_practice_priority_preview_for_decks(
         f"""
         WITH subject_cards AS (
             SELECT
-                c.id AS card_id
+                c.id AS card_id,
+                c.correct_time_ema AS correct_time_ema,
+                COALESCE(c.correct_time_ema_count, 0) AS correct_time_ema_count
             FROM cards c
             WHERE c.deck_id IN ({deck_placeholders})
               AND COALESCE(c.skip_practice, FALSE) = FALSE
@@ -128,6 +130,16 @@ def build_practice_priority_preview_for_decks(
                 COUNT(*)
                     FILTER (WHERE correct > 0 AND response_time_ms > 0) AS correct_sample_count
             FROM card_records
+        ),
+        speed_baseline_ema AS (
+            SELECT
+                quantile_cont(correct_time_ema, 0.50)
+                    FILTER (WHERE correct_time_ema IS NOT NULL AND correct_time_ema_count > 0) AS p50_correct_time_ema,
+                quantile_cont(correct_time_ema, 0.90)
+                    FILTER (WHERE correct_time_ema IS NOT NULL AND correct_time_ema_count > 0) AS p90_correct_time_ema,
+                COUNT(*)
+                    FILTER (WHERE correct_time_ema IS NOT NULL AND correct_time_ema_count > 0) AS ema_card_count
+            FROM subject_cards
         ),
         record_features AS (
             SELECT
@@ -207,6 +219,23 @@ def build_practice_priority_preview_for_decks(
                         1.0
                     )
                 END AS slow_need,
+                CASE
+                    WHEN b.correct_sample_count < {PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE}
+                      OR c.correct_time_ema IS NULL
+                      OR c.correct_time_ema_count <= 0
+                      OR be.p50_correct_time_ema IS NULL
+                      OR be.p90_correct_time_ema IS NULL
+                      OR be.p90_correct_time_ema <= be.p50_correct_time_ema
+                    THEN 0.0
+                    ELSE LEAST(
+                        GREATEST(
+                            (c.correct_time_ema - be.p50_correct_time_ema)
+                            / (be.p90_correct_time_ema - be.p50_correct_time_ema),
+                            0.0
+                        ),
+                        1.0
+                    )
+                END AS slow_need_ema,
                 GREATEST(
                     0.0,
                     1.0 - (
@@ -237,9 +266,14 @@ def build_practice_priority_preview_for_decks(
                 COALESCE(p.wrong_count, 0) AS wrong_count,
                 COALESCE(p.attempt_count, 0) AS attempt_count,
                 p.avg_correct_response_time,
+                c.correct_time_ema,
+                c.correct_time_ema_count,
                 b.p50_correct_time,
                 b.p90_correct_time,
                 COALESCE(b.correct_sample_count, 0) AS correct_sample_count,
+                be.p50_correct_time_ema,
+                be.p90_correct_time_ema,
+                COALESCE(be.ema_card_count, 0) AS ema_card_count,
                 CASE
                     WHEN p.last_practiced_at IS NULL THEN NULL
                     ELSE GREATEST(date_diff('day', p.last_practiced_at, current_date), 0)
@@ -248,6 +282,7 @@ def build_practice_priority_preview_for_decks(
             FROM subject_cards c
             LEFT JOIN per_card p ON p.card_id = c.card_id
             CROSS JOIN speed_baseline b
+            CROSS JOIN speed_baseline_ema be
         ),
         scored AS (
             SELECT
@@ -255,6 +290,7 @@ def build_practice_priority_preview_for_decks(
                 {missed_weight:.6f}
                     * GREATEST(wrong_rate, {PRACTICE_PRIORITY_LAST_FAILED_BOOST:.6f} * last_wrong) AS missed_points,
                 {slow_weight:.6f} * slow_need AS slow_points,
+                {slow_weight:.6f} * slow_need_ema AS slow_points_ema,
                 {PRACTICE_PRIORITY_LEARNING_WEIGHT:.6f} * learning_need AS learning_points,
                 {PRACTICE_PRIORITY_DUE_WEIGHT:.6f} * COALESCE(due_need, 0.0) AS due_points,
                 ({missed_weight:.6f}
@@ -267,9 +303,14 @@ def build_practice_priority_preview_for_decks(
                 wrong_count,
                 attempt_count,
                 avg_correct_response_time,
+                correct_time_ema,
+                correct_time_ema_count,
                 p50_correct_time,
                 p90_correct_time,
                 correct_sample_count,
+                p50_correct_time_ema,
+                p90_correct_time_ema,
+                ema_card_count,
                 days_since_last_seen,
                 last_practiced_at
             FROM score_terms
@@ -291,6 +332,12 @@ def build_practice_priority_preview_for_decks(
             correct_sample_count,
             days_since_last_seen,
             last_practiced_at,
+            slow_points_ema,
+            correct_time_ema,
+            correct_time_ema_count,
+            p50_correct_time_ema,
+            p90_correct_time_ema,
+            ema_card_count,
             CASE
                 WHEN missed_points >= slow_points
                   AND missed_points >= learning_points
@@ -325,6 +372,11 @@ def build_practice_priority_preview_for_decks(
         'p90_correct_time': None,
         'correct_sample_count': 0,
     }
+    subject_baseline_ema = {
+        'p50_correct_time_ema': None,
+        'p90_correct_time_ema': None,
+        'ema_card_count': 0,
+    }
     for index, row in enumerate(rows, start=1):
         card_id = int(row[0] or 0)
         if card_id <= 0:
@@ -344,7 +396,10 @@ def build_practice_priority_preview_for_decks(
             'avg_correct_response_time': float(row[10]) if row[10] is not None else None,
             'days_since_last_seen': int(row[14]) if row[14] is not None else None,
             'last_practiced_at': row[15].isoformat() if row[15] else None,
-            'primary_reason': str(row[16] or PRACTICE_PRIORITY_REASON_LEARNING),
+            'slow_points_ema': float(row[16] or 0.0),
+            'correct_time_ema': float(row[17]) if row[17] is not None else None,
+            'correct_time_ema_count': int(row[18] or 0),
+            'primary_reason': str(row[22] or PRACTICE_PRIORITY_REASON_LEARNING),
         }
         if index == 1:
             subject_baseline = {
@@ -352,9 +407,15 @@ def build_practice_priority_preview_for_decks(
                 'p90_correct_time': float(row[12]) if row[12] is not None else None,
                 'correct_sample_count': int(row[13] or 0),
             }
+            subject_baseline_ema = {
+                'p50_correct_time_ema': float(row[19]) if row[19] is not None else None,
+                'p90_correct_time_ema': float(row[20]) if row[20] is not None else None,
+                'ema_card_count': int(row[21] or 0),
+            }
 
     return {
         'order_by_card_id': order_by_card_id,
         'details_by_card_id': details_by_card_id,
         'subject_baseline': subject_baseline,
+        'subject_baseline_ema': subject_baseline_ema,
     }

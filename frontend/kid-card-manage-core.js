@@ -172,6 +172,45 @@ let currentPracticePrioritySubjectBaseline = {
     p90_correct_time: null,
     correct_sample_count: 0,
 };
+let currentPracticePrioritySubjectBaselineEma = {
+    p50_correct_time_ema: null,
+    p90_correct_time_ema: null,
+    ema_card_count: 0,
+};
+let useEmaSpeedMode = false;
+function isEmaSpeedModeOn() {
+    return !!useEmaSpeedMode;
+}
+function setEmaSpeedMode(enabled) {
+    useEmaSpeedMode = !!enabled;
+}
+function getActivePracticePrioritySpeedBaseline() {
+    if (useEmaSpeedMode) {
+        const ema = currentPracticePrioritySubjectBaselineEma || {};
+        return {
+            p50_correct_time: ema.p50_correct_time_ema,
+            p90_correct_time: ema.p90_correct_time_ema,
+            correct_sample_count: ema.ema_card_count,
+        };
+    }
+    return currentPracticePrioritySubjectBaseline || {
+        p50_correct_time: null,
+        p90_correct_time: null,
+        correct_sample_count: 0,
+    };
+}
+function getCardActiveSlowPoints(card) {
+    if (useEmaSpeedMode) {
+        return card && card.practice_priority_slow_points_ema;
+    }
+    return card && card.practice_priority_slow_points;
+}
+function getCardActiveCorrectTimeMs(card) {
+    if (useEmaSpeedMode) {
+        return card && card.practice_priority_correct_time_ema;
+    }
+    return card && card.practice_priority_avg_correct_response_time;
+}
 const CARDS_VIEW_MODE_STORAGE_KEY = 'kidCardManage_cardsViewMode';
 const CARDS_VIEW_MODES = new Set(['queue', 'stats', 'report']);
 // =====================================================================

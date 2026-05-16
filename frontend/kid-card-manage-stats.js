@@ -301,6 +301,11 @@ function getCardCorrectRatePct(card) {
 }
 
 function getCardAverageSpeedMs(card) {
+    if (isEmaSpeedModeOn()) {
+        const ema = Number(card?.practice_priority_correct_time_ema);
+        if (Number.isFinite(ema) && ema > 0) return ema;
+        return null;
+    }
     const avgMs = Number(card?.avg_response_time_ms);
     if (Number.isFinite(avgMs) && avgMs > 0) return avgMs;
     const fallback = Number(card?.practice_priority_avg_correct_response_time);

@@ -353,6 +353,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cardViewModeExpandBtn) {
         cardViewModeExpandBtn.addEventListener('click', () => setCardViewMode('long'));
     }
+    const emaSpeedToggle = document.getElementById('emaSpeedToggle');
+    if (emaSpeedToggle) {
+        emaSpeedToggle.checked = false;
+        setEmaSpeedMode(false);
+        emaSpeedToggle.addEventListener('change', () => {
+            setEmaSpeedMode(emaSpeedToggle.checked);
+            resetAndDisplayCards(currentCards);
+            if (currentCardsViewMode === 'stats') {
+                renderStatsView();
+            }
+        });
+    }
     // === 9. Card search + focus-banner clear + cards-selection toolbar ===
     if (cardSearchInput) {
         window.SearchBar.enhance(cardSearchInput);

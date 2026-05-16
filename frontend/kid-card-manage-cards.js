@@ -969,6 +969,8 @@ async function loadSharedDeckCards() {
         currentFamilyTimezone = String(data.family_timezone || '').trim();
         currentPracticePrioritySubjectBaseline = data.practice_priority_subject_baseline
             || { p50_correct_time: null, p90_correct_time: null, correct_sample_count: 0 };
+        currentPracticePrioritySubjectBaselineEma = data.practice_priority_subject_baseline_ema
+            || { p50_correct_time_ema: null, p90_correct_time_ema: null, ema_card_count: 0 };
         updateSessionCardCountCapFromCardsPayload(data);
         const normalizedSessionCount = normalizeSessionCountInputValue();
         if (!hadQueueSettingChanges) {

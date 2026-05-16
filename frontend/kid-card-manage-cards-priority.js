@@ -279,7 +279,7 @@ function getCardIncorrectRateSortValue(card) {
 }
 
 function getCardAverageResponseTimeSortValue(card) {
-    const priorityAvg = Number(card && card.practice_priority_avg_correct_response_time);
+    const priorityAvg = Number(getCardActiveCorrectTimeMs(card));
     if (Number.isFinite(priorityAvg) && priorityAvg > 0) {
         return priorityAvg;
     }
@@ -408,7 +408,7 @@ function getPracticePriorityPoints(card, reason) {
         return Number.isFinite(value) ? Math.max(0, value) : 0;
     }
     if (reason === PRACTICE_PRIORITY_REASON_SLOW) {
-        const value = Number(card && card.practice_priority_slow_points);
+        const value = Number(getCardActiveSlowPoints(card));
         return Number.isFinite(value) ? Math.max(0, value) : 0;
     }
     if (reason === PRACTICE_PRIORITY_REASON_DUE) {
@@ -680,13 +680,13 @@ function buildPracticePriorityDetailCards(card, options = {}) {
     const lifetimeAttempts = getPracticePriorityAttemptCount(card);
     const incorrectRate = Number.isFinite(correctRate) ? Math.max(0, 100 - correctRate) : null;
     const incorrectRateText = formatMetricPercent(incorrectRate);
-    const avgCorrectResponseRaw = Number.parseFloat(card && card.practice_priority_avg_correct_response_time);
+    const avgCorrectResponseRaw = Number.parseFloat(getCardActiveCorrectTimeMs(card));
     const avgResponseFallback = Number.parseFloat(card && card.avg_response_time_ms);
     const avgCorrectResponseValue = Number.isFinite(avgCorrectResponseRaw) && avgCorrectResponseRaw > 0
         ? avgCorrectResponseRaw
         : (Number.isFinite(avgResponseFallback) ? avgResponseFallback : NaN);
     const avgCorrectResponseTimeText = formatMillisecondsAsSecondsOrMinutes(avgCorrectResponseValue);
-    const subjectBaseline = currentPracticePrioritySubjectBaseline || {};
+    const subjectBaseline = getActivePracticePrioritySpeedBaseline() || {};
     const subjectP50Text = formatMillisecondsAsSecondsOrMinutes(
         Number(subjectBaseline.p50_correct_time)
     );
@@ -702,7 +702,7 @@ function buildPracticePriorityDetailCards(card, options = {}) {
     );
     const p50Value = Number(subjectBaseline.p50_correct_time);
     const p90Value = Number(subjectBaseline.p90_correct_time);
-    const avgCorrectValue = Number(card && card.practice_priority_avg_correct_response_time);
+    const avgCorrectValue = Number(getCardActiveCorrectTimeMs(card));
     const slowRange = Number.isFinite(p50Value) && Number.isFinite(p90Value) && p90Value > p50Value
         ? p90Value - p50Value
         : null;
@@ -762,14 +762,14 @@ function buildPracticePriorityDetailCards(card, options = {}) {
                     : (simpleSpeed
                         ? `<div class="practice-priority-detail-simple-speed">
                             <div class="practice-priority-detail-simple-speed-value">${escapeHtml(avgCorrectResponseTimeText)}</div>
-                            <div class="practice-priority-detail-simple-speed-caption">Avg time</div>
+                            <div class="practice-priority-detail-simple-speed-caption">${isEmaSpeedModeOn() ? 'EMA time' : 'Avg time'}</div>
                         </div>`
                         : `<div class="practice-priority-detail-visual">
                             ${slowBaselineReady
                                 ? buildPracticePriorityAxisHtml({
                                     positionPct: slowMarkerPct,
                                     valueText: avgCorrectResponseTimeText,
-                                    markerCaption: 'Avg time',
+                                    markerCaption: isEmaSpeedModeOn() ? 'EMA time' : 'Avg time',
                                     leftText: subjectP50Text,
                                     rightText: subjectP90Text,
                                     leftNote: '(p50)',

@@ -29,8 +29,20 @@ CREATE TABLE IF NOT EXISTS cards (
   back VARCHAR NOT NULL,
   skip_practice BOOLEAN NOT NULL DEFAULT FALSE,
   hardness_score DOUBLE NOT NULL DEFAULT 0,
+  correct_time_ema DOUBLE,
+  correct_time_ema_count INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE cards
+ADD COLUMN IF NOT EXISTS correct_time_ema DOUBLE;
+
+ALTER TABLE cards
+ADD COLUMN IF NOT EXISTS correct_time_ema_count INTEGER DEFAULT 0;
+
+UPDATE cards
+SET correct_time_ema_count = 0
+WHERE correct_time_ema_count IS NULL;
 
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (

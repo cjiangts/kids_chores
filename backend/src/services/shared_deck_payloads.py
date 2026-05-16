@@ -517,6 +517,11 @@ def build_type_i_shared_cards_payload(
             'p90_correct_time': None,
             'correct_sample_count': 0,
         }
+        practice_priority_subject_baseline_ema = {
+            'p50_correct_time_ema': None,
+            'p90_correct_time_ema': None,
+            'ema_card_count': 0,
+        }
         if practice_source_ids:
             priority_preview = build_practice_priority_preview_for_decks(
                 conn,
@@ -527,6 +532,7 @@ def build_type_i_shared_cards_payload(
             preview_order = priority_preview['order_by_card_id']
             practice_priority_preview_by_card_id = priority_preview['details_by_card_id']
             practice_priority_subject_baseline = priority_preview['subject_baseline']
+            practice_priority_subject_baseline_ema = priority_preview['subject_baseline_ema']
 
         def _source_label(source):
             tags = extract_shared_deck_tags_and_labels(source.get('tags') or [])[0]
@@ -591,6 +597,7 @@ def build_type_i_shared_cards_payload(
         'active_card_count': active_count,
         'skipped_card_count': skipped_count,
         'practice_priority_subject_baseline': practice_priority_subject_baseline,
+        'practice_priority_subject_baseline_ema': practice_priority_subject_baseline_ema,
         'cards': merged_cards
     }
 
