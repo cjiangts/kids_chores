@@ -22,8 +22,9 @@ from src.routes.kids_constants import (
 def update_card_correct_time_ema(conn, card_id, correct, response_time_ms):
     """Incrementally update one card's correct-response-time EMA after an attempt.
 
-    Skips updates for wrong attempts or non-positive response times — matches
-    the existing avg-based slow signal's contributor filter.
+    Stores the **raw Adam-style accumulator** (seeded at 0, no first-value anchor).
+    Bias correction is applied at read time as `raw / (1 - (1-α)^count)`.
+    Skips updates for wrong attempts or non-positive response times.
     """
     try:
         card_id_int = int(card_id)
@@ -38,14 +39,11 @@ def update_card_correct_time_ema(conn, card_id, correct, response_time_ms):
         """
         UPDATE cards
         SET
-            correct_time_ema = CASE
-                WHEN correct_time_ema IS NULL THEN ?
-                ELSE ? * ? + (1.0 - ?) * correct_time_ema
-            END,
+            correct_time_ema = ? * ? + (1.0 - ?) * COALESCE(correct_time_ema, 0),
             correct_time_ema_count = COALESCE(correct_time_ema_count, 0) + 1
         WHERE id = ?
         """,
-        [float(rt_ms), alpha, float(rt_ms), alpha, card_id_int],
+        [alpha, float(rt_ms), alpha, card_id_int],
     )
 
 

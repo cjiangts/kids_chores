@@ -175,7 +175,7 @@
                         <select id="viewOrderSelect" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
                             <option value="new_queue" selected data-label="Practice Priority">Sort by: Practice Priority</option>
                             <option value="incorrect_rate" data-label="Incorrect Rate">Sort by: Incorrect Rate</option>
-                            <option value="avg_response_time" data-label="Avg Response Time">Sort by: Avg Response Time</option>
+                            <option value="avg_response_time" data-label="EMA Response Time">Sort by: EMA Response Time</option>
                             <option value="lifetime_attempts" data-label="Lifetime Attempts">Sort by: Lifetime Attempts</option>
                             <option value="last_seen" data-label="Last Seen">Sort by: Last Seen</option>
                             <option value="added_time" data-label="Added Time">Sort by: Added Time</option>
@@ -209,10 +209,6 @@
                     <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
                     <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
                 </div>
-                <label id="emaSpeedToggleLabel" class="ema-speed-toggle" title="Display EMA-based speed signal instead of average-based speed signal">
-                    <input type="checkbox" id="emaSpeedToggle">
-                    <span class="ema-speed-toggle-text">Use EMA speed</span>
-                </label>
                 <div class="card-view-mode-group" role="group" aria-label="Card view mode">
                     <button type="button" id="cardViewModeCompactBtn" class="card-view-mode-btn" data-card-view-mode="short" title="Compact pill/tile view" aria-label="Compact view" aria-pressed="false"></button>
                     <button type="button" id="cardViewModeExpandBtn" class="card-view-mode-btn active" data-card-view-mode="long" title="Detailed expanded view" aria-label="Detailed view" aria-pressed="true"></button>

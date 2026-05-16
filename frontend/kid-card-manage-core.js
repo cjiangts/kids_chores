@@ -40,7 +40,7 @@ const PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS = 5;
 const PRACTICE_PRIORITY_VERY_DUE_DAYS = 30;
 const CARD_SORT_MODE_PRACTICE_QUEUE = 'new_queue';
 const CARD_SORT_MODE_INCORRECT_RATE = 'incorrect_rate';
-const CARD_SORT_MODE_AVG_RESPONSE_TIME = 'avg_response_time';
+const CARD_SORT_MODE_EMA_RESPONSE_TIME = 'avg_response_time';
 const CARD_SORT_MODE_LIFETIME_ATTEMPTS = 'lifetime_attempts';
 const CARD_SORT_MODE_LAST_SEEN = 'last_seen';
 const CARD_SORT_MODE_ADDED_TIME = 'added_time';
@@ -49,7 +49,7 @@ const CARD_SORT_DIRECTION_DESC = 'desc';
 const VALID_CARD_SORT_MODES = new Set([
     CARD_SORT_MODE_PRACTICE_QUEUE,
     CARD_SORT_MODE_INCORRECT_RATE,
-    CARD_SORT_MODE_AVG_RESPONSE_TIME,
+    CARD_SORT_MODE_EMA_RESPONSE_TIME,
     CARD_SORT_MODE_LIFETIME_ATTEMPTS,
     CARD_SORT_MODE_LAST_SEEN,
     CARD_SORT_MODE_ADDED_TIME,
@@ -172,45 +172,6 @@ let currentPracticePrioritySubjectBaseline = {
     p90_correct_time: null,
     correct_sample_count: 0,
 };
-let currentPracticePrioritySubjectBaselineEma = {
-    p50_correct_time_ema: null,
-    p90_correct_time_ema: null,
-    ema_card_count: 0,
-};
-let useEmaSpeedMode = false;
-function isEmaSpeedModeOn() {
-    return !!useEmaSpeedMode;
-}
-function setEmaSpeedMode(enabled) {
-    useEmaSpeedMode = !!enabled;
-}
-function getActivePracticePrioritySpeedBaseline() {
-    if (useEmaSpeedMode) {
-        const ema = currentPracticePrioritySubjectBaselineEma || {};
-        return {
-            p50_correct_time: ema.p50_correct_time_ema,
-            p90_correct_time: ema.p90_correct_time_ema,
-            correct_sample_count: ema.ema_card_count,
-        };
-    }
-    return currentPracticePrioritySubjectBaseline || {
-        p50_correct_time: null,
-        p90_correct_time: null,
-        correct_sample_count: 0,
-    };
-}
-function getCardActiveSlowPoints(card) {
-    if (useEmaSpeedMode) {
-        return card && card.practice_priority_slow_points_ema;
-    }
-    return card && card.practice_priority_slow_points;
-}
-function getCardActiveCorrectTimeMs(card) {
-    if (useEmaSpeedMode) {
-        return card && card.practice_priority_correct_time_ema;
-    }
-    return card && card.practice_priority_avg_correct_response_time;
-}
 const CARDS_VIEW_MODE_STORAGE_KEY = 'kidCardManage_cardsViewMode';
 const CARDS_VIEW_MODES = new Set(['queue', 'stats', 'report']);
 // =====================================================================

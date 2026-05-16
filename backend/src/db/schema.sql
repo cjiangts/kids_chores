@@ -34,16 +34,6 @@ CREATE TABLE IF NOT EXISTS cards (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE cards
-ADD COLUMN IF NOT EXISTS correct_time_ema DOUBLE;
-
-ALTER TABLE cards
-ADD COLUMN IF NOT EXISTS correct_time_ema_count INTEGER DEFAULT 0;
-
-UPDATE cards
-SET correct_time_ema_count = 0
-WHERE correct_time_ema_count IS NULL;
-
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),

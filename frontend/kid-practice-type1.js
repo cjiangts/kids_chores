@@ -24,6 +24,18 @@ function getChineseType1BackText(rawBack) {
 function getChineseType1BackHtml(rawBack) {
     return escapeHtml(getChineseType1BackText(rawBack));
 }
+
+function getPinyinInitial(text) {
+    const lower = String(text || '').trim().toLowerCase();
+    if (!lower) {
+        return '';
+    }
+    const first = lower.charAt(0);
+    if ((first === 'z' || first === 'c' || first === 's') && lower.charAt(1) === 'h') {
+        return lower.slice(0, 2);
+    }
+    return first;
+}
 function canUseType1PromptAudio(card = null) {
     if (
         !isType(BEHAVIOR_TYPE_I)
@@ -456,7 +468,23 @@ function buildType1MultipleChoiceOptions(card) {
         seenUnique.add(normalized);
         distractors.push(normalized);
     };
-    shuffleCopy(distractorPool).forEach(addUniqueDistractor);
+    const isPinyinMode = state.hasChineseSpecificLogic && state.chineseBackContent === 'pinyin';
+    const correctInitial = isPinyinMode ? getPinyinInitial(correctText) : '';
+    if (isPinyinMode && correctInitial) {
+        const differentInitial = [];
+        const sameInitial = [];
+        distractorPool.forEach((text) => {
+            if (getPinyinInitial(text) === correctInitial) {
+                sameInitial.push(text);
+            } else {
+                differentInitial.push(text);
+            }
+        });
+        shuffleCopy(differentInitial).forEach(addUniqueDistractor);
+        shuffleCopy(sameInitial).forEach(addUniqueDistractor);
+    } else {
+        shuffleCopy(distractorPool).forEach(addUniqueDistractor);
+    }
     while (
         distractors.length < (TYPE1_MULTIPLE_CHOICE_OPTION_COUNT - 1)
         && distractorPool.length > 0

@@ -64,14 +64,7 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
                     ELSE sr.correct
                 END,
                 sr.timestamp
-            ) AS last_result_correct,
-            AVG(
-                CASE
-                    WHEN sr.id IS NULL THEN NULL
-                    WHEN COALESCE(sr.response_time_ms, 0) > 0 THEN COALESCE(sr.response_time_ms, 0)
-                    ELSE NULL
-                END
-            ) AS avg_response_time_ms
+            ) AS last_result_correct
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.deck_id IN ({placeholders})
@@ -127,14 +120,7 @@ def get_cards_with_stats_for_card_ids(conn, card_ids):
                     ELSE sr.correct
                 END,
                 sr.timestamp
-            ) AS last_result_correct,
-            AVG(
-                CASE
-                    WHEN sr.id IS NULL THEN NULL
-                    WHEN COALESCE(sr.response_time_ms, 0) > 0 THEN COALESCE(sr.response_time_ms, 0)
-                    ELSE NULL
-                END
-            ) AS avg_response_time_ms
+            ) AS last_result_correct
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.id IN ({placeholders})
@@ -197,7 +183,6 @@ def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
         'overall_wrong_rate': float(row[10]) if row[10] is not None else None,
         'last_response_time_ms': int(row[11]) if row[11] is not None else None,
         'last_result': last_result,
-        'avg_response_time_ms': float(row[13]) if row[13] is not None else None,
         'practice_priority_order': practice_priority_preview.get('order'),
         'practice_priority_score': practice_priority_preview.get('priority_score'),
         'practice_priority_missed_points': practice_priority_preview.get('missed_points'),
@@ -208,10 +193,7 @@ def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
         'practice_priority_correct_count': practice_priority_preview.get('correct_count'),
         'practice_priority_wrong_count': practice_priority_preview.get('wrong_count'),
         'practice_priority_attempt_count': practice_priority_preview.get('attempt_count'),
-        'practice_priority_avg_correct_response_time': practice_priority_preview.get('avg_correct_response_time'),
         'practice_priority_correct_time_ema': practice_priority_preview.get('correct_time_ema'),
-        'practice_priority_correct_time_ema_count': practice_priority_preview.get('correct_time_ema_count'),
-        'practice_priority_slow_points_ema': practice_priority_preview.get('slow_points_ema'),
         'practice_priority_days_since_last_seen': practice_priority_preview.get('days_since_last_seen'),
         'practice_priority_last_practiced_at': practice_priority_preview.get('last_practiced_at'),
         'practice_priority_primary_reason': practice_priority_preview.get('primary_reason'),
