@@ -28,7 +28,9 @@ function buildHistogramDistribution(options = {}) {
     const values = [];
     const rated = [];
     for (const card of cards) {
-        const value = Number(getValue(card));
+        const raw = getValue(card);
+        if (raw === null || raw === undefined) continue;
+        const value = Number(raw);
         if (Number.isFinite(value)) {
             values.push(value);
             rated.push({ card, value });
