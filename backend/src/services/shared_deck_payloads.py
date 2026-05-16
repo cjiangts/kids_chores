@@ -49,7 +49,10 @@ from src.services.kid_today_sessions import (
     get_latest_retry_source_session_for_today,
     get_latest_unfinished_session_for_today,
 )
-from src.services.practice_mode import get_session_practice_mode
+from src.services.practice_mode import (
+    get_latest_session_practice_mode,
+    get_session_practice_mode,
+)
 from src.services.practice_priority import build_practice_priority_preview_for_decks
 from src.services.shared_deck_category import (
     get_session_behavior_type,
@@ -791,6 +794,7 @@ def get_type_iv_practice_source_rows(
 
 def build_type_iv_special_session_ready_payload(conn, kid, category_key, practice_sources):
     """Build continue/retry readiness metadata for one generator category."""
+    latest_practice_mode = get_latest_session_practice_mode(conn, category_key)
     continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
     if continue_source_session is not None:
         missing_count = max(
@@ -807,6 +811,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
             'retry_source_session_id': None,
             'retry_card_count': 0,
             'source_practice_mode': source_practice_mode,
+            'latest_practice_mode': latest_practice_mode,
         }
 
     retry_source_session = get_latest_retry_source_session_for_today(conn, kid, category_key)
@@ -818,6 +823,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
             'is_retry_session': False,
             'retry_source_session_id': None,
             'retry_card_count': 0,
+            'latest_practice_mode': latest_practice_mode,
         }
 
     retry_rows = get_type_iv_retry_source_result_rows(
@@ -834,6 +840,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
         'retry_source_session_id': int(retry_source_session['session_id']),
         'retry_card_count': len(retry_rows),
         'source_practice_mode': source_practice_mode,
+        'latest_practice_mode': latest_practice_mode,
     }
 
 

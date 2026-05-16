@@ -64,6 +64,23 @@ def get_session_practice_mode(conn, session_id):
     return normalize_session_practice_mode(row[0])
 
 
+def get_latest_session_practice_mode(conn, session_type):
+    """Read the latest stored practice_mode for one session type."""
+    row = conn.execute(
+        """
+        SELECT practice_mode
+        FROM sessions
+        WHERE type = ?
+        ORDER BY COALESCE(completed_at, started_at) DESC, id DESC
+        LIMIT 1
+        """,
+        [str(session_type or '').strip().lower()],
+    ).fetchone()
+    if not row:
+        return SESSION_PRACTICE_MODE_NA
+    return normalize_session_practice_mode(row[0])
+
+
 def normalize_type_iv_practice_mode(raw_mode):
     """Normalize generator practice mode to input or multi."""
     text = str(raw_mode or '').strip().lower()

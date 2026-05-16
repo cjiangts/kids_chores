@@ -749,8 +749,13 @@ function applyReadyRetryState(payload) {
     state.readyRetryCardCount = Math.max(0, Number.parseInt(payload?.retry_card_count, 10) || 0);
 
     const sourcePracticeMode = String(payload?.source_practice_mode || '').trim().toLowerCase();
+    const latestPracticeMode = String(payload?.latest_practice_mode || '').trim().toLowerCase();
     if ((state.readyIsContinueSession || state.readyIsRetrySession) && sourcePracticeMode && sourcePracticeMode !== 'na') {
         applyServerPracticeMode(sourcePracticeMode);
+        return;
+    }
+    if (latestPracticeMode && latestPracticeMode !== 'na') {
+        applyServerPracticeMode(latestPracticeMode);
     }
 }
 

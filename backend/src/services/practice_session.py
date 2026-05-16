@@ -31,7 +31,10 @@ from src.services.kid_today_sessions import (
     get_session_practiced_card_ids,
 )
 from src.services.normalize_inputs import normalize_positive_int_list
-from src.services.practice_mode import get_session_practice_mode
+from src.services.practice_mode import (
+    get_latest_session_practice_mode,
+    get_session_practice_mode,
+)
 from src.services.practice_priority import build_practice_priority_preview_for_decks
 from src.services.shared_deck_category import get_session_behavior_type
 from src.services.shared_deck_normalize import extract_shared_deck_tags_and_labels
@@ -348,6 +351,7 @@ def build_special_session_ready_payload(
     excluded_card_ids=None,
 ):
     """Build continuation/retry readiness metadata for one category."""
+    latest_practice_mode = get_latest_session_practice_mode(conn, category_key)
     continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
     if continue_source_session is not None:
         practiced_card_ids = get_session_practiced_card_ids(
@@ -390,6 +394,7 @@ def build_special_session_ready_payload(
             'retry_source_session_id': None,
             'retry_card_count': 0,
             'source_practice_mode': source_practice_mode,
+            'latest_practice_mode': latest_practice_mode,
         }
 
     retry_payload = build_retry_ready_payload(conn, kid, category_key, source_by_deck_id)
@@ -397,6 +402,7 @@ def build_special_session_ready_payload(
         'is_continue_session': False,
         'continue_source_session_id': None,
         'continue_card_count': 0,
+        'latest_practice_mode': latest_practice_mode,
         **retry_payload,
     }
     if retry_payload.get('is_retry_session') and retry_payload.get('retry_source_session_id'):
