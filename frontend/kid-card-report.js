@@ -42,6 +42,7 @@ const cardReportHero = document.getElementById('cardReportHero');
 const trendChart = document.getElementById('trendChart');
 const trendLegend = document.getElementById('trendLegend');
 const trendPeriodBtns = document.getElementById('trendPeriodBtns');
+const trendFootnote = document.getElementById('trendFootnote');
 const historyList = document.getElementById('historyList');
 const TREND_EMA_ALPHA = 0.067;
 const TREND_EMA_HALF_LIFE_ATTEMPTS = Math.round(Math.log(0.5) / Math.log(1 - TREND_EMA_ALPHA));
@@ -249,6 +250,7 @@ function resolveSubjectDisplayName(attempts) {
 function renderTrend(attempts) {
     currentTrendAttempts = Array.isArray(attempts) ? attempts : [];
     if (trendLegend) trendLegend.innerHTML = '';
+    if (trendFootnote) trendFootnote.textContent = '';
     if (!currentTrendAttempts.length) {
         renderTrendPeriodBtns(0);
         trendChart.innerHTML = `<div class="chart-empty">No attempts yet for this card.</div>`;
@@ -319,25 +321,32 @@ function renderTrend(attempts) {
         return at - bt;
     });
     let avgSum = 0;
-    const avgPoints = chronoItems.map((it, i) => {
-        avgSum += it.ms;
-        const avg = avgSum / (i + 1);
+    let avgCount = 0;
+    const avgPoints = chronoItems.map((it) => {
+        const isCorrect = it.correctness === 'right';
+        if (isCorrect && it.ms > 0) {
+            avgSum += it.ms;
+            avgCount += 1;
+        }
+        if (avgCount === 0) return null;
+        const avg = avgSum / avgCount;
         const x = it.xPct;
         const y = stageHeight - (avg / yMax) * MAX_OFFSET_PX;
         return { x, y };
-    });
+    }).filter((p) => p !== null);
     if (avgPoints.length && avgPoints[avgPoints.length - 1].x < 100) {
         const last = avgPoints[avgPoints.length - 1];
         avgPoints.push({ x: 100, y: last.y });
     }
     const avgPathPoints = avgPoints.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(1)}`).join(' ');
-    const avgLineHtml = chronoItems.length >= 2
+    const showAvgLine = avgPoints.length >= 2;
+    const avgLineHtml = showAvgLine
         ? `<svg preserveAspectRatio="none" viewBox="0 0 100 ${stageHeight}" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
             <polyline points="${avgPathPoints}" fill="none" stroke="#5b6acf" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.85" />
            </svg>`
         : '';
-    const finalAvgMs = chronoItems.length ? avgSum / chronoItems.length : 0;
-    const finalAvgLabel = formatTrendResponseTime(finalAvgMs, useMinutesUnit);
+    const finalAvgMs = avgCount ? avgSum / avgCount : 0;
+    const finalAvgLabel = avgCount ? formatTrendResponseTime(finalAvgMs, useMinutesUnit) : '';
 
     let emaRaw = 0;
     let emaCount = 0;
@@ -405,14 +414,17 @@ function renderTrend(attempts) {
     const legendParts = legendOrder
         .filter(([key]) => presentCorrectness.has(key))
         .map(([key, label]) => `<span><span class="trend-legend-dot ${key}"></span>${label}</span>`);
-    if (chronoItems.length >= 2) {
+    if (showAvgLine) {
         legendParts.push(`<span><span class="trend-legend-line"></span>Avg ${escapeHtml(finalAvgLabel)}</span>`);
     }
     if (showEmaLine) {
-        legendParts.push(`<span><span class="trend-legend-line ema"></span>EMA t½≈${TREND_EMA_HALF_LIFE_ATTEMPTS} ${escapeHtml(finalEmaLabel)}</span>`);
+        legendParts.push(`<span><span class="trend-legend-line ema"></span>EMA ${escapeHtml(finalEmaLabel)}</span>`);
     }
     if (trendLegend) {
         trendLegend.innerHTML = legendParts.join('');
+    }
+    if (trendFootnote) {
+        trendFootnote.textContent = `Avg and EMA include only fully-correct (green) attempts. EMA half-life ≈ ${TREND_EMA_HALF_LIFE_ATTEMPTS} attempts.`;
     }
 
     trendChart.innerHTML = `

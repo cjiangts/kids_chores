@@ -606,11 +606,16 @@
         }
 
         @media (max-width: 520px) {
+            #personalDeckModal {
+                align-items: flex-start;
+            }
+
             #personalDeckModal .modal-content {
                 width: calc(100vw - 12px);
                 max-width: calc(100vw - 12px);
-                height: calc(100dvh - 16px);
-                max-height: calc(100dvh - 16px);
+                height: calc(90dvh - 8px);
+                max-height: calc(90dvh - 8px);
+                margin-top: 8px;
             }
         }
 
