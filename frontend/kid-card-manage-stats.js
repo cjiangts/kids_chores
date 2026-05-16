@@ -300,9 +300,10 @@ function getCardCorrectRatePct(card) {
     return Math.max(0, Math.min(100, 100 - wrongRate));
 }
 
-function getCardEmaResponseMs(card) {
-    const ema = Number(card?.practice_priority_correct_time_ema);
-    if (Number.isFinite(ema) && ema > 0) return ema;
+function getCardAverageSpeedMs(card) {
+    if (getCardPracticeCount(card) <= 0) return null;
+    const avgMs = Number(card?.practice_priority_avg_correct_response_time);
+    if (Number.isFinite(avgMs) && avgMs > 0) return avgMs;
     return null;
 }
 
@@ -414,10 +415,10 @@ function buildSpeedDistribution(cards, getCardCapsuleLabel, getCardHref) {
     return buildHistogramDistribution({
         panelKey,
         selectedBucketIndex: selectedBucketByPanel.get(panelKey),
-        title: 'EMA Response Time',
+        title: 'Avg Speed',
         tone: 'speed',
         formatValue: formatSpeedLabel,
-        getValue: getCardEmaResponseMs,
+        getValue: getCardAverageSpeedMs,
         getCardCapsuleLabel,
         getCardHref,
         bucketing: {
