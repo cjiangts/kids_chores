@@ -25,7 +25,7 @@ def delete_card_from_deck_internal(conn, card_id):
 # =====================================================================
 
 def get_cards_with_stats_for_deck_ids(conn, deck_ids):
-    """Return cards with hardness / attempt / last-seen stats for many decks."""
+    """Return cards with attempt / last-seen stats for many decks."""
     normalized_ids = normalize_positive_int_list(deck_ids)
     if not normalized_ids:
         return []
@@ -39,7 +39,6 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
             c.front,
             c.back,
             COALESCE(c.skip_practice, FALSE) AS skip_practice,
-            c.hardness_score,
             c.created_at,
             COUNT(sr.id) AS lifetime_attempts,
             MAX(sr.timestamp) AS last_seen_at,
@@ -68,7 +67,7 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.deck_id IN ({placeholders})
-        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.hardness_score, c.created_at
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.created_at
         ORDER BY c.deck_id ASC, c.id ASC
         """,
         normalized_ids,
@@ -76,12 +75,12 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
 
 
 def get_cards_with_stats(conn, deck_id):
-    """Return cards with hardness / attempt / last-seen stats."""
+    """Return cards with attempt / last-seen stats."""
     return get_cards_with_stats_for_deck_ids(conn, [deck_id])
 
 
 def get_cards_with_stats_for_card_ids(conn, card_ids):
-    """Return cards with hardness / attempt / last-seen stats by explicit card ids."""
+    """Return cards with attempt / last-seen stats by explicit card ids."""
     normalized_ids = normalize_positive_int_list(card_ids)
     if not normalized_ids:
         return []
@@ -95,7 +94,6 @@ def get_cards_with_stats_for_card_ids(conn, card_ids):
             c.front,
             c.back,
             COALESCE(c.skip_practice, FALSE) AS skip_practice,
-            c.hardness_score,
             c.created_at,
             COUNT(sr.id) AS lifetime_attempts,
             MAX(sr.timestamp) AS last_seen_at,
@@ -124,7 +122,7 @@ def get_cards_with_stats_for_card_ids(conn, card_ids):
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.id IN ({placeholders})
-        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.hardness_score, c.created_at
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.created_at
         ORDER BY c.id ASC
         """,
         normalized_ids,
@@ -154,7 +152,7 @@ def get_card_ids_practiced_for_category(conn, category_key):
 
 def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
     """Map raw card+stats row to API object."""
-    last_result_correct = row[12]
+    last_result_correct = row[11]
     if last_result_correct is None:
         last_result = None
     elif int(last_result_correct) > 0:
@@ -174,14 +172,13 @@ def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
         'front': row[2],
         'back': row[3],
         'skip_practice': bool(row[4]),
-        'hardness_score': float(row[5]) if row[5] is not None else 0,
-        'created_at': row[6].isoformat() if row[6] else None,
+        'created_at': row[5].isoformat() if row[5] else None,
         'next_session_order': preview_order.get(row[0]),
-        'lifetime_attempts': int(row[7]) if row[7] is not None else 0,
-        'last_seen_at': row[8].isoformat() if row[8] else None,
-        'first_practiced_at': row[9].isoformat() if row[9] else None,
-        'overall_wrong_rate': float(row[10]) if row[10] is not None else None,
-        'last_response_time_ms': int(row[11]) if row[11] is not None else None,
+        'lifetime_attempts': int(row[6]) if row[6] is not None else 0,
+        'last_seen_at': row[7].isoformat() if row[7] else None,
+        'first_practiced_at': row[8].isoformat() if row[8] else None,
+        'overall_wrong_rate': float(row[9]) if row[9] is not None else None,
+        'last_response_time_ms': int(row[10]) if row[10] is not None else None,
         'last_result': last_result,
         'practice_priority_order': practice_priority_preview.get('order'),
         'practice_priority_score': practice_priority_preview.get('priority_score'),

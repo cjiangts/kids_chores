@@ -195,7 +195,7 @@ def update_writing_card(kid_id, card_id):
         placeholders = ','.join(['?'] * len(source_deck_ids))
         row = conn.execute(
             f"""
-            SELECT id, deck_id, front, back, COALESCE(skip_practice, FALSE), hardness_score, created_at
+            SELECT id, deck_id, front, back, COALESCE(skip_practice, FALSE), created_at
             FROM cards
             WHERE id = ? AND deck_id IN ({placeholders})
             LIMIT 1
@@ -238,8 +238,7 @@ def update_writing_card(kid_id, card_id):
             'front': card_front,
             'back': next_back,
             'skip_practice': bool(row[4]),
-            'hardness_score': float(row[5] if row[5] is not None else 0),
-            'created_at': row[6].isoformat() if row[6] else None,
+            'created_at': row[5].isoformat() if row[5] else None,
             'audio_file_name': new_audio_meta.get('audio_file_name'),
             'audio_mime_type': new_audio_meta.get('audio_mime_type'),
             'audio_url': new_audio_meta.get('audio_url'),

@@ -80,7 +80,7 @@ async function startType3Session() {
         startScreen.classList.add('hidden');
         resultScreen.classList.add('hidden');
         sessionScreen.classList.remove('hidden');
-        setHeaderBackToPracticeVisible(true);
+        setHeaderBackToPracticeVisible(false);
 
         showCurrentType3Card();
         updateFinishEarlyButtonState();

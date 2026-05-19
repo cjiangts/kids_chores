@@ -92,10 +92,21 @@ window.PracticeUiCommon = {
         getHasActiveSession,
         getTotalCount,
         getRecordedCount,
-        emptyAnswerMessage,
         showError,
         onConfirmFinish,
+        onCancelBeforeFirstAnswer,
     }) {
+        const FINISH_HTML = '<span class="icon" data-icon="flag" data-icon-size="18"></span> Finish Early';
+        const CANCEL_HTML = '<span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Cancel';
+        let currentMode = 'finish';
+        const renderMode = (mode) => {
+            if (!button || mode === currentMode) return;
+            currentMode = mode;
+            button.innerHTML = mode === 'cancel' ? CANCEL_HTML : FINISH_HTML;
+            if (window.hydrateIcons) {
+                window.hydrateIcons(button);
+            }
+        };
         return {
             updateButtonState() {
                 if (!button) {
@@ -108,22 +119,24 @@ window.PracticeUiCommon = {
                     : hasActiveSession;
                 button.classList.toggle('hidden', !shouldShow);
                 const recordedCount = Math.max(0, Number.parseInt(getRecordedCount && getRecordedCount(), 10) || 0);
-                button.disabled = !hasActiveSession || recordedCount <= 0;
+                const cancelMode = hasActiveSession && recordedCount <= 0 && typeof onCancelBeforeFirstAnswer === 'function';
+                renderMode(cancelMode ? 'cancel' : 'finish');
+                button.disabled = !hasActiveSession || (recordedCount <= 0 && !cancelMode);
             },
 
             requestFinish() {
                 if (!(getHasActiveSession && getHasActiveSession())) {
                     return;
                 }
-                const totalCount = Math.max(0, Number.parseInt(getTotalCount && getTotalCount(), 10) || 0);
-                if (totalCount <= 0) {
-                    return;
-                }
                 const recordedCount = Math.max(0, Number.parseInt(getRecordedCount && getRecordedCount(), 10) || 0);
                 if (recordedCount <= 0) {
-                    if (showError && emptyAnswerMessage) {
-                        showError(emptyAnswerMessage);
+                    if (typeof onCancelBeforeFirstAnswer === 'function') {
+                        onCancelBeforeFirstAnswer();
                     }
+                    return;
+                }
+                const totalCount = Math.max(0, Number.parseInt(getTotalCount && getTotalCount(), 10) || 0);
+                if (totalCount <= 0) {
                     return;
                 }
                 const confirmed = window.PracticeUiCommon.confirmEarlyFinish({

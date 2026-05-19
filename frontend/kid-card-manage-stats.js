@@ -237,6 +237,7 @@ function renderStatsView() {
         { key: 'accuracy', label: 'Correct Rate', build: () => buildAccuracyDistribution(practiced, getCardCapsuleLabel, getCardHref) },
         { key: 'counts', label: 'Practice Count', build: () => buildPracticeCountDistribution(practiced, getCardCapsuleLabel, getCardHref) },
         { key: 'speed', label: 'Avg Speed', build: () => buildSpeedDistribution(practiced, getCardCapsuleLabel, getCardHref) },
+        { key: 'ema', label: 'EMA Speed', build: () => buildEmaSpeedDistribution(practiced, getCardCapsuleLabel, getCardHref) },
         { key: 'recency', label: 'Last Seen', build: () => buildLastSeenDistribution(practiced, getCardCapsuleLabel, getCardHref) },
     ];
     const activeTabKey = normalizeDistributionTab(currentDistributionTab);
@@ -307,6 +308,13 @@ function getCardAverageSpeedMs(card) {
     return null;
 }
 
+function getCardEmaSpeedMs(card) {
+    if (getCardPracticeCount(card) <= 0) return null;
+    const emaMs = Number(card?.practice_priority_correct_time_ema);
+    if (Number.isFinite(emaMs) && emaMs > 0) return emaMs;
+    return null;
+}
+
 function getCardDaysSinceLastSeen(card) {
     if (getCardPracticeCount(card) <= 0) return null;
     const seenAt = card?.last_seen_at;
@@ -343,7 +351,7 @@ let currentDailyProgressMetric = (() => {
     }
 })();
 const DISTRIBUTION_TAB_STORAGE_KEY = 'kidCardManage.distributionTab';
-const DISTRIBUTION_TAB_KEYS = ['accuracy', 'counts', 'speed', 'recency'];
+const DISTRIBUTION_TAB_KEYS = ['accuracy', 'counts', 'speed', 'ema', 'recency'];
 function normalizeDistributionTab(value) {
     return DISTRIBUTION_TAB_KEYS.includes(value) ? value : 'accuracy';
 }
@@ -370,7 +378,7 @@ function buildAccuracyDistribution(cards, getCardCapsuleLabel, getCardHref) {
         getValue: getCardCorrectRatePct,
         getCardCapsuleLabel,
         getCardHref,
-        percentileMarkers: [10, 90],
+        percentileMarkers: [10, 95],
         bucketing: {
             snapUnit: 1,
             minClamp: 0,
@@ -419,6 +427,31 @@ function buildSpeedDistribution(cards, getCardCapsuleLabel, getCardHref) {
         tone: 'speed',
         formatValue: formatSpeedLabel,
         getValue: getCardAverageSpeedMs,
+        getCardCapsuleLabel,
+        getCardHref,
+        bucketing: {
+            snapUnit: 1000,
+            minClamp: 0,
+            anchorLo: 'dataMin',
+            formatRange: (min, max) => `${formatBoundarySeconds(min)}–${formatBoundarySeconds(max)}s`,
+        },
+        topLists: [
+            { title: 'Slowest 5', mode: 'highest', count: 5 },
+            { title: 'Fastest 5', mode: 'lowest', count: 5 },
+        ],
+        cards,
+    });
+}
+
+function buildEmaSpeedDistribution(cards, getCardCapsuleLabel, getCardHref) {
+    const panelKey = 'ema';
+    return buildHistogramDistribution({
+        panelKey,
+        selectedBucketIndex: selectedBucketByPanel.get(panelKey),
+        title: 'EMA Speed',
+        tone: 'speed',
+        formatValue: formatSpeedLabel,
+        getValue: getCardEmaSpeedMs,
         getCardCapsuleLabel,
         getCardHref,
         bucketing: {

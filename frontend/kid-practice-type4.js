@@ -89,7 +89,7 @@ async function startType4Session() {
         startScreen.classList.add('hidden');
         resultScreen.classList.add('hidden');
         sessionScreen.classList.remove('hidden');
-        setHeaderBackToPracticeVisible(true);
+        setHeaderBackToPracticeVisible(false);
 
         showCurrentType4Item();
         updateFinishEarlyButtonState();

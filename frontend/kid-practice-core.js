@@ -262,12 +262,24 @@ const earlyFinishController = window.PracticeUiCommon.createEarlyFinishControlle
         state.drillActive ? state.drillTargetAttempts : state.sessionCards.length
     ),
     getRecordedCount: () => state.sessionAnswers.length,
-    emptyAnswerMessage: 'Complete at least one card before finishing early.',
     showError: (message) => showError(message),
     onConfirmFinish: () => {
         void endSession(true);
     },
+    onCancelBeforeFirstAnswer: () => {
+        cancelSessionBeforeFirstAnswer();
+    },
 });
+
+function cancelSessionBeforeFirstAnswer() {
+    if (state.sessionAnswers.length > 0) {
+        return;
+    }
+    window.PracticeSession.clearSessionStart(state.activePendingSessionId);
+    state.activePendingSessionId = '';
+    state.sessionCards = [];
+    window.location.href = `/kid-practice-home.html?id=${kidId}`;
+}
 // =====================================================================
 // === 2. Behavior-type predicates + URL builders
 // =====================================================================
@@ -1270,18 +1282,12 @@ function bindEventHandlers() {
 
     bonusGameBoard.addEventListener('click', onBonusGameBoardClick);
 
-    backToPractice.addEventListener('click', (event) => {
+    window.addEventListener('beforeunload', (event) => {
         if (!isSessionInProgress()) {
             return;
         }
-        const confirmed = window.confirm('Go back now? Your current session progress will be lost.');
-        if (!confirmed) {
-            event.preventDefault();
-            return;
-        }
-        stopAudioPlayback();
-        resetRecordingState();
-        clearPendingRecordingPreview();
+        event.preventDefault();
+        event.returnValue = '';
     });
 }
 

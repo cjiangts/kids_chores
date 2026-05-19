@@ -19,13 +19,13 @@ The single SQL statement is one 6-stage CTE — read top-to-bottom:
                        bias-corrected `correct_time_ema` (raw / (1-(1-α)^n))
   2. card_records    — session_results joined for `session_type`
   3. per_card        — aggregate attempt/correct/wrong/avg/last per card
-  4. speed_baseline  — subject-wide p50/p90 of per-card avg_correct_response_time
+  4. speed_baseline  — subject-wide p50/p95 of per-card avg_correct_response_time
                        (per-card averages, not per-attempt — avoids single-attempt
                        outliers blowing out the band).
   5. score_terms     — derive missed/slow/learning/due NEED values.
-                       slow_need = clamp((ema − p50) / (p90 − p50), 0, 1)
+                       slow_need = clamp((ema − p50) / (p95 − p50), 0, 1)
                        compares the card's smoothed EMA against the subject's
-                       per-card avg p50/p90 band.
+                       per-card avg p50/p95 band.
   6. scored          — combine NEEDs × weights into priority_score
   Final SELECT       — emit ordered rows + primary_reason label
 
@@ -37,7 +37,7 @@ The weights live in `kids_constants`:
   - PRACTICE_PRIORITY_CORRECT_TIME_EMA_ALPHA — EMA α (half-life ≈ 10 attempts)
   - PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE — min number
     of cards with a non-null avg_correct_response_time required before the
-    per-card avg p50/p90 band is considered trustworthy; below that
+    per-card avg p50/p95 band is considered trustworthy; below that
     slow_need collapses to 0 for every card.
 
 The Python loop after the query just packs rows into two dicts (preview
@@ -152,7 +152,7 @@ def build_practice_priority_preview_for_decks(
         speed_baseline AS (
             SELECT
                 quantile_cont(avg_correct_response_time, 0.50) AS p50_correct_time,
-                quantile_cont(avg_correct_response_time, 0.90) AS p90_correct_time,
+                quantile_cont(avg_correct_response_time, 0.95) AS p95_correct_time,
                 COUNT(*)
                     FILTER (WHERE avg_correct_response_time IS NOT NULL) AS correct_sample_count
             FROM per_card
@@ -175,13 +175,13 @@ def build_practice_priority_preview_for_decks(
                     WHEN b.correct_sample_count < {PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE}
                       OR c.correct_time_ema IS NULL
                       OR b.p50_correct_time IS NULL
-                      OR b.p90_correct_time IS NULL
-                      OR b.p90_correct_time <= b.p50_correct_time
+                      OR b.p95_correct_time IS NULL
+                      OR b.p95_correct_time <= b.p50_correct_time
                     THEN 0.0
                     ELSE LEAST(
                         GREATEST(
                             (c.correct_time_ema - b.p50_correct_time)
-                            / (b.p90_correct_time - b.p50_correct_time),
+                            / (b.p95_correct_time - b.p50_correct_time),
                             0.0
                         ),
                         1.0
@@ -219,7 +219,7 @@ def build_practice_priority_preview_for_decks(
                 p.avg_correct_response_time,
                 c.correct_time_ema,
                 b.p50_correct_time,
-                b.p90_correct_time,
+                b.p95_correct_time,
                 COALESCE(b.correct_sample_count, 0) AS correct_sample_count,
                 CASE
                     WHEN p.last_practiced_at IS NULL THEN NULL
@@ -250,7 +250,7 @@ def build_practice_priority_preview_for_decks(
                 avg_correct_response_time,
                 correct_time_ema,
                 p50_correct_time,
-                p90_correct_time,
+                p95_correct_time,
                 correct_sample_count,
                 days_since_last_seen,
                 last_practiced_at
@@ -269,7 +269,7 @@ def build_practice_priority_preview_for_decks(
             attempt_count,
             avg_correct_response_time,
             p50_correct_time,
-            p90_correct_time,
+            p95_correct_time,
             correct_sample_count,
             days_since_last_seen,
             last_practiced_at,
@@ -305,7 +305,7 @@ def build_practice_priority_preview_for_decks(
     details_by_card_id = {}
     subject_baseline = {
         'p50_correct_time': None,
-        'p90_correct_time': None,
+        'p95_correct_time': None,
         'correct_sample_count': 0,
     }
     for index, row in enumerate(rows, start=1):
@@ -333,7 +333,7 @@ def build_practice_priority_preview_for_decks(
         if index == 1:
             subject_baseline = {
                 'p50_correct_time': float(row[11]) if row[11] is not None else None,
-                'p90_correct_time': float(row[12]) if row[12] is not None else None,
+                'p95_correct_time': float(row[12]) if row[12] is not None else None,
                 'correct_sample_count': int(row[13] or 0),
             }
 

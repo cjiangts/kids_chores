@@ -181,7 +181,7 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
                     front_placeholders = ','.join(['?'] * len(source_fronts))
                     orphan_rows = kid_conn.execute(
                         f"""
-                        SELECT id, front, back, skip_practice, hardness_score, created_at
+                        SELECT id, front, back, skip_practice, created_at
                         FROM cards
                         WHERE deck_id = ?
                           AND front IN ({front_placeholders})
@@ -229,8 +229,8 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
                     if has_chinese_specific_logic:
                         kid_conn.executemany(
                             """
-                            INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO cards (id, deck_id, front, back, skip_practice, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?)
                             """,
                             [
                                 [
@@ -239,8 +239,7 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
                                     str(orphan_row[1] or ''),
                                     shared_back,
                                     bool(orphan_row[3]),
-                                    float(orphan_row[4] or 0.0),
-                                    orphan_row[5],
+                                    orphan_row[4],
                                 ]
                                 for orphan_row, shared_back in moved_rows
                             ]
@@ -248,8 +247,8 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
                     else:
                         kid_conn.executemany(
                             """
-                            INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO cards (id, deck_id, front, back, skip_practice, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?)
                             """,
                             [
                                 [
@@ -258,8 +257,7 @@ def opt_in_type_i_shared_decks(kid, category_key, deck_ids, has_chinese_specific
                                     str(row[1] or ''),
                                     str(row[2] or ''),
                                     bool(row[3]),
-                                    float(row[4] or 0.0),
-                                    row[5],
+                                    row[4],
                                 ]
                                 for row in moved_rows
                             ]
@@ -373,7 +371,7 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
             front_placeholders = ','.join(['?'] * len(representative_fronts))
             orphan_rows = kid_conn.execute(
                 f"""
-                SELECT id, front, back, skip_practice, hardness_score, created_at
+                SELECT id, front, back, skip_practice, created_at
                 FROM cards
                 WHERE deck_id = ?
                   AND front IN ({front_placeholders})
@@ -430,8 +428,8 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
                 kid_conn.execute("DELETE FROM cards WHERE id = ?", [moved_card_id])
                 kid_conn.execute(
                     """
-                    INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO cards (id, deck_id, front, back, skip_practice, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     [
                         moved_card_id,
@@ -439,8 +437,7 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
                         representative_front,
                         representative_back,
                         bool(orphan_row[3]),
-                        float(orphan_row[4] or 0.0),
-                        orphan_row[5],
+                        orphan_row[4],
                     ]
                 )
                 cards_moved_from_orphan = 1
@@ -587,7 +584,7 @@ def opt_in_shared_decks_internal(
                     front_placeholders = ','.join(['?'] * len(source_fronts))
                     orphan_rows = kid_conn.execute(
                         f"""
-                        SELECT id, front, back, skip_practice, hardness_score, created_at
+                        SELECT id, front, back, skip_practice, created_at
                         FROM cards
                         WHERE deck_id = ?
                           AND front IN ({front_placeholders})
@@ -630,8 +627,8 @@ def opt_in_shared_decks_internal(
                     )
                     kid_conn.executemany(
                         """
-                        INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO cards (id, deck_id, front, back, skip_practice, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
                         """,
                         [
                             [
@@ -640,8 +637,7 @@ def opt_in_shared_decks_internal(
                                 str(row[1] or ''),
                                 str(row[2] or ''),
                                 bool(row[3]),
-                                float(row[4] or 0.0),
-                                row[5],
+                                row[4],
                             ]
                             for row in moved_rows
                         ]
@@ -764,7 +760,7 @@ def opt_out_shared_decks_internal(
                 practiced_placeholders = ','.join(['?'] * len(practiced_card_ids))
                 practiced_cards = kid_conn.execute(
                     f"""
-                    SELECT id, front, back, skip_practice, hardness_score, created_at
+                    SELECT id, front, back, skip_practice, created_at
                     FROM cards
                     WHERE id IN ({practiced_placeholders})
                     """,
@@ -777,8 +773,8 @@ def opt_out_shared_decks_internal(
                     )
                     kid_conn.executemany(
                         """
-                        INSERT INTO cards (id, deck_id, front, back, skip_practice, hardness_score, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO cards (id, deck_id, front, back, skip_practice, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
                         """,
                         [
                             [
@@ -787,8 +783,7 @@ def opt_out_shared_decks_internal(
                                 row[1],
                                 row[2],
                                 bool(row[3]),
-                                float(row[4] or 0.0),
-                                row[5],
+                                row[4],
                             ]
                             for row in practiced_cards
                         ]

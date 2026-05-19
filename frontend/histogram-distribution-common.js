@@ -142,7 +142,7 @@ function buildHistogramBars(values, bucketDefinitions) {
 function buildHistogramPercentiles(values, bucketDefinitions, observedMax, formatValue, percentileMarkers) {
     const sortedValues = values.slice().sort((a, b) => a - b);
     const formatter = typeof formatValue === 'function' ? formatValue : (value) => String(value);
-    const requested = Array.isArray(percentileMarkers) && percentileMarkers.length ? percentileMarkers : [50, 90];
+    const requested = Array.isArray(percentileMarkers) && percentileMarkers.length ? percentileMarkers : [50, 95];
     const markers = requested.map((percentile) => ({
         percentile,
         label: `P${percentile}`,

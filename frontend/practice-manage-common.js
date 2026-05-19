@@ -286,24 +286,6 @@ window.PracticeManageCommon = {
             return copy.sort((a, b) => this.parseTime(b.created_at) - this.parseTime(a.created_at));
         }
 
-        if (mode === 'hardness_desc') {
-            return copy.sort((a, b) => {
-                const aAttempts = Number.isFinite(a.lifetime_attempts) ? a.lifetime_attempts : 0;
-                const bAttempts = Number.isFinite(b.lifetime_attempts) ? b.lifetime_attempts : 0;
-                const aNeverSeen = aAttempts <= 0;
-                const bNeverSeen = bAttempts <= 0;
-                if (aNeverSeen !== bNeverSeen) {
-                    return aNeverSeen ? -1 : 1;
-                }
-                const aHard = Number.isFinite(a.hardness_score) ? a.hardness_score : -1;
-                const bHard = Number.isFinite(b.hardness_score) ? b.hardness_score : -1;
-                if (aHard === bHard) {
-                    return this.compareQueueOrder(a, b);
-                }
-                return bHard - aHard;
-            });
-        }
-
         if (mode === 'new_queue') {
             return copy.sort((a, b) => {
                 const aSkipped = Boolean(a && a.skip_practice);

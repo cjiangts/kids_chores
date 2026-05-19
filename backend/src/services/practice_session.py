@@ -1,4 +1,4 @@
-"""Practice session selection, planning, and post-session helpers.
+"""Practice session selection and planning helpers.
 
 Pure helpers that:
   - Build candidate / ordered / planned card lists for a session start.
@@ -6,7 +6,6 @@ Pure helpers that:
   - Build retry card lists from a source session's wrong rows.
   - Build the multiple-choice pool for type-I retry.
   - Compose continue/retry "ready" payloads for category dashboards.
-  - Update card hardness scores after one session is committed.
 
 DB helpers take an open per-kid `conn`. No module state.
 
@@ -16,12 +15,8 @@ Layout (search for `# === N. ` banner markers to jump between sections):
     2. Continue selection (resume unfinished session today)
     3. Retry selection (wrong cards + multiple-choice pool)
     4. Continue/retry "ready" payload builders (category dashboard)
-    5. Post-session card hardness update
 """
 from src.routes.kids_constants import (
-    DECK_CATEGORY_BEHAVIOR_TYPE_I,
-    DECK_CATEGORY_BEHAVIOR_TYPE_II,
-    DECK_CATEGORY_BEHAVIOR_TYPE_III,
     SESSION_RESULT_WRONG_UNRESOLVED,
 )
 from src.services.kid_category_config import get_category_session_card_count_for_kid
@@ -408,45 +403,3 @@ def build_special_session_ready_payload(
     if retry_payload.get('is_retry_session') and retry_payload.get('retry_source_session_id'):
         result['source_practice_mode'] = get_session_practice_mode(conn, retry_payload['retry_source_session_id'])
     return result
-
-
-# =====================================================================
-# === 5. Post-session card hardness update
-# =====================================================================
-def update_card_hardness_after_session(
-    conn,
-    *,
-    session_behavior_type,
-    latest_response_by_card,
-    touched_card_ids,
-    session_type,
-):
-    """Update card hardness for one completed session."""
-    if session_behavior_type in (DECK_CATEGORY_BEHAVIOR_TYPE_I, DECK_CATEGORY_BEHAVIOR_TYPE_III):
-        for card_id, latest_ms in latest_response_by_card.items():
-            conn.execute(
-                "UPDATE cards SET hardness_score = ? WHERE id = ?",
-                [float(latest_ms or 0), card_id]
-            )
-        return
-    if session_behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_II or len(touched_card_ids) == 0:
-        return
-    placeholders = ','.join(['?'] * len(touched_card_ids))
-    conn.execute(
-        f"""
-        UPDATE cards
-        SET hardness_score = stats.hardness_score
-        FROM (
-            SELECT
-                sr.card_id,
-                COALESCE(100.0 - (100.0 * AVG(CASE WHEN sr.correct = 1 THEN 1.0 ELSE 0.0 END)), 0) AS hardness_score
-            FROM session_results sr
-            JOIN sessions s ON s.id = sr.session_id
-            WHERE s.type = ?
-              AND sr.card_id IN ({placeholders})
-            GROUP BY sr.card_id
-        ) AS stats
-        WHERE cards.id = stats.card_id
-        """,
-        [session_type, *list(touched_card_ids)]
-    )

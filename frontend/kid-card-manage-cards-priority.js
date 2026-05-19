@@ -687,8 +687,8 @@ function buildPracticePriorityDetailCards(card, options = {}) {
     const subjectP50Text = formatMillisecondsAsSecondsOrMinutes(
         Number(subjectBaseline.p50_correct_time)
     );
-    const subjectP90Text = formatMillisecondsAsSecondsOrMinutes(
-        Number(subjectBaseline.p90_correct_time)
+    const subjectP95Text = formatMillisecondsAsSecondsOrMinutes(
+        Number(subjectBaseline.p95_correct_time)
     );
     const lastResponseTimeText = formatMillisecondsAsSecondsOrMinutes(getCardLastResponseTimeValue(card));
     const lastResultText = formatCardLastResult(card);
@@ -698,14 +698,14 @@ function buildPracticePriorityDetailCards(card, options = {}) {
         Number.parseInt(subjectBaseline.correct_sample_count, 10) || 0
     );
     const p50Value = Number(subjectBaseline.p50_correct_time);
-    const p90Value = Number(subjectBaseline.p90_correct_time);
-    const slowRange = Number.isFinite(p50Value) && Number.isFinite(p90Value) && p90Value > p50Value
-        ? p90Value - p50Value
+    const p95Value = Number(subjectBaseline.p95_correct_time);
+    const slowRange = Number.isFinite(p50Value) && Number.isFinite(p95Value) && p95Value > p50Value
+        ? p95Value - p50Value
         : null;
     const slowBaselineReady = subjectCorrectSampleCount >= PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE
         && Number.isFinite(p50Value)
-        && Number.isFinite(p90Value)
-        && p90Value > p50Value;
+        && Number.isFinite(p95Value)
+        && p95Value > p50Value;
     const slowMarkerPct = slowRange && Number.isFinite(emaCorrectResponseValue)
         ? ((emaCorrectResponseValue - p50Value) / slowRange) * 100
         : null;
@@ -767,9 +767,9 @@ function buildPracticePriorityDetailCards(card, options = {}) {
                                     valueText: emaCorrectResponseTimeText,
                                     markerCaption: 'EMA time',
                                     leftText: subjectP50Text,
-                                    rightText: subjectP90Text,
+                                    rightText: subjectP95Text,
                                     leftNote: '(p50)',
-                                    rightNote: '(p90)',
+                                    rightNote: '(p95)',
                                     leftNoteClass: 'positive',
                                     rightNoteClass: 'negative',
                                     markerClass: 'slow',

@@ -145,13 +145,6 @@ function getCardOverallWrongRateValue(card) {
     if (Number.isFinite(explicit)) {
         return explicit;
     }
-    if (!Number.isInteger(attempts) || attempts <= 0) {
-        return null;
-    }
-    if (isType2Behavior()) {
-        const fallback = Number(card && card.hardness_score);
-        return Number.isFinite(fallback) ? fallback : null;
-    }
     return null;
 }
 
@@ -167,14 +160,6 @@ function getCardLastResponseTimeValue(card) {
     const explicit = Number(card && card.last_response_time_ms);
     if (Number.isFinite(explicit) && explicit > 0) {
         return explicit;
-    }
-    const attempts = Number.parseInt(card && card.lifetime_attempts, 10);
-    if (!Number.isInteger(attempts) || attempts <= 0) {
-        return null;
-    }
-    if (!isType2Behavior()) {
-        const fallback = Number(card && card.hardness_score);
-        return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
     }
     return null;
 }
@@ -968,7 +953,7 @@ async function loadSharedDeckCards() {
         currentDailyProgressRows = Array.isArray(data.daily_progress_rows) ? data.daily_progress_rows : [];
         currentFamilyTimezone = String(data.family_timezone || '').trim();
         currentPracticePrioritySubjectBaseline = data.practice_priority_subject_baseline
-            || { p50_correct_time: null, p90_correct_time: null, correct_sample_count: 0 };
+            || { p50_correct_time: null, p95_correct_time: null, correct_sample_count: 0 };
         updateSessionCardCountCapFromCardsPayload(data);
         const normalizedSessionCount = normalizeSessionCountInputValue();
         if (!hadQueueSettingChanges) {

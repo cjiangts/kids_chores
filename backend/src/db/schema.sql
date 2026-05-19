@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS cards (
   front VARCHAR NOT NULL,
   back VARCHAR NOT NULL,
   skip_practice BOOLEAN NOT NULL DEFAULT FALSE,
-  hardness_score DOUBLE NOT NULL DEFAULT 0,
   correct_time_ema DOUBLE,
   correct_time_ema_count INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

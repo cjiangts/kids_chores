@@ -517,7 +517,7 @@ def build_type_i_shared_cards_payload(
         practice_priority_preview_by_card_id = {}
         practice_priority_subject_baseline = {
             'p50_correct_time': None,
-            'p90_correct_time': None,
+            'p95_correct_time': None,
             'correct_sample_count': 0,
         }
         if practice_source_ids:

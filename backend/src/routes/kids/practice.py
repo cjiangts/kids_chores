@@ -73,7 +73,6 @@ from src.services.practice_session import (
     build_type_i_multiple_choice_pool_cards,
     get_retry_source_wrong_card_ids,
     plan_deck_practice_selection_for_decks,
-    update_card_hardness_after_session,
 )
 from src.services.session_grading import (
     append_type1_result_submitted_answer,
@@ -1400,8 +1399,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
             right_count = 0
             wrong_count = 0
-            latest_response_by_card = {}
-            touched_card_ids = set()
             for answer in answers:
                 card_id = answer.get('cardId')
                 known = answer.get('known')
@@ -1426,8 +1423,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
                     [continue_source_session_id, card_id, correct_value, response_time_ms]
                 ).fetchone()
                 result_id = int(result_row[0])
-                touched_card_ids.add(card_id)
-                latest_response_by_card[card_id] = response_time_ms
                 update_card_correct_time_ema(conn, card_id, correct_value, response_time_ms)
                 if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
                     insert_type1_result_item(conn, result_id, answer, correct_value)
@@ -1475,14 +1470,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
                                     [result_id, file_name, mime_type]
                                 )
                                 consumed_type3_audio_files.add(file_name)
-
-            update_card_hardness_after_session(
-                conn,
-                session_behavior_type=session_behavior_type,
-                latest_response_by_card=latest_response_by_card,
-                touched_card_ids=touched_card_ids,
-                session_type=session_type,
-            )
 
             conn.execute(
                 """
@@ -1583,8 +1570,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
             [session_type, planned_count, started_at_utc, completed_at_utc, session_practice_mode]
         ).fetchone()[0]
 
-        latest_response_by_card = {}
-        touched_card_ids = set()
         for answer in answers:
             card_id = answer.get('cardId')
             known = answer.get('known')
@@ -1609,7 +1594,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 [session_id, card_id, correct_value, response_time_ms]
             ).fetchone()
             result_id = int(result_row[0])
-            touched_card_ids.add(card_id)
             update_card_correct_time_ema(conn, card_id, correct_value, response_time_ms)
             if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
                 insert_type1_result_item(conn, result_id, answer, correct_value)
@@ -1657,15 +1641,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
                                 [result_id, file_name, mime_type]
                             )
                             consumed_type3_audio_files.add(file_name)
-            latest_response_by_card[card_id] = response_time_ms
-
-        update_card_hardness_after_session(
-            conn,
-            session_behavior_type=session_behavior_type,
-            latest_response_by_card=latest_response_by_card,
-            touched_card_ids=touched_card_ids,
-            session_type=session_type,
-        )
 
         conn.execute("COMMIT")
     except Exception:

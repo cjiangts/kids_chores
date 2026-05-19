@@ -72,6 +72,7 @@ from src.services.practice_mode import (
     is_drill_session_practice_mode,
     normalize_session_practice_mode,
 )
+from src.services.session_delete import delete_session_with_recompute
 from src.services.shared_deck_category import (
     get_session_behavior_type,
     get_shared_deck_categories,
@@ -860,6 +861,49 @@ def get_kid_report_session_detail(kid_id, session_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/report/sessions/<session_id>', methods=['DELETE'])
+def delete_kid_report_session(kid_id, session_id):
+    """Delete one session + its result rows and recompute affected card EMA.
+
+    Critical-password-gated. Used by parents to remove an unwanted session
+    (e.g. one the kid abandoned or that the parent considers invalid). EMA is
+    rebuilt from a chronological replay of the remaining correct attempts so
+    the per-card priority signal stays consistent.
+    """
+    try:
+        auth_err = require_critical_password()
+        if auth_err:
+            return auth_err
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        try:
+            session_id_int = int(session_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid session id'}), 400
+
+        conn = get_kid_connection_for(kid)
+        try:
+            session_row = conn.execute(
+                "SELECT id FROM sessions WHERE id = ?",
+                [session_id_int],
+            ).fetchone()
+            if session_row is None:
+                return jsonify({'error': 'Session not found'}), 404
+
+            kid_audio_dir = get_kid_type3_audio_dir(kid)
+            delete_session_with_recompute(
+                conn,
+                session_id_int,
+                kid_audio_dir=kid_audio_dir,
+            )
+        finally:
+            conn.close()
+        return jsonify({'message': 'Session deleted'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @kids_bp.route('/kids/<kid_id>/report/type-iii/next-to-grade', methods=['GET'])
 def get_kid_type_iii_next_to_grade(kid_id):
     """Return the latest type-III session that still has ungraded cards."""
@@ -949,7 +993,6 @@ def get_kid_report_card_detail(kid_id, card_id):
                 c.front,
                 c.back,
                 c.created_at,
-                COALESCE(c.hardness_score, 0) AS hardness_score,
                 d.id,
                 d.name
             FROM cards c
@@ -1088,9 +1131,8 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'front': card_row[1] or '',
                 'back': card_row[2] or '',
                 'created_at': card_row[3].isoformat() if card_row[3] else None,
-                'hardness_score': float(card_row[4] or 0),
-                'deck_id': int(card_row[5]) if card_row[5] is not None else None,
-                'deck_name': card_row[6] or '',
+                'deck_id': int(card_row[4]) if card_row[4] is not None else None,
+                'deck_name': card_row[5] or '',
             },
             'summary': {
                 'attempt_count': attempts_count,
@@ -1209,7 +1251,6 @@ def backfill_kid_report_result_response_time(kid_id, result_id):
                 """
                 SELECT
                     sr.id,
-                    sr.card_id,
                     COALESCE(sr.response_time_ms, 0) AS response_time_ms,
                     s.type
                 FROM session_results sr
@@ -1222,9 +1263,8 @@ def backfill_kid_report_result_response_time(kid_id, result_id):
             if not row:
                 return jsonify({'error': 'Session result not found'}), 404
 
-            card_id = int(row[1]) if row[1] is not None else None
-            current_ms = int(row[2] or 0)
-            session_type = normalize_shared_deck_tag(row[3])
+            current_ms = int(row[1] or 0)
+            session_type = normalize_shared_deck_tag(row[2])
             if not is_type_iii_session_type(session_type):
                 return jsonify({'error': 'Only type-III results support duration backfill'}), 400
 
@@ -1235,24 +1275,6 @@ def backfill_kid_report_result_response_time(kid_id, result_id):
                     [response_time_ms, result_id_int]
                 )
                 updated = True
-
-                if card_id is not None:
-                    latest_row = conn.execute(
-                        """
-                        SELECT sr.id
-                        FROM session_results sr
-                        JOIN sessions s ON s.id = sr.session_id
-                        WHERE sr.card_id = ? AND s.type = ?
-                        ORDER BY COALESCE(s.completed_at, s.started_at, sr.timestamp) DESC, sr.id DESC
-                        LIMIT 1
-                        """,
-                        [card_id, session_type]
-                    ).fetchone()
-                    if latest_row and int(latest_row[0]) == result_id_int:
-                        conn.execute(
-                            "UPDATE cards SET hardness_score = ? WHERE id = ?",
-                            [float(response_time_ms), card_id]
-                        )
 
             return jsonify({
                 'result_id': result_id_int,

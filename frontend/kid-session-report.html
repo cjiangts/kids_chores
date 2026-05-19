@@ -881,6 +881,32 @@
             border-color: #f6bcbc;
         }
 
+        .session-delete-row {
+            margin-top: 1.4rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .session-delete-btn {
+            background: transparent;
+            border: none;
+            color: #a0a8c0;
+            font-size: 0.75rem;
+            padding: 0.35rem 0.6rem;
+            cursor: pointer;
+            text-decoration: underline dotted;
+            text-underline-offset: 3px;
+        }
+
+        .session-delete-btn:hover {
+            color: #c34a4a;
+        }
+
+        .session-delete-btn:disabled {
+            cursor: progress;
+            opacity: 0.55;
+        }
+
         @media (max-width: 600px) {
             .drill-progress-row {
                 padding: 0.4rem 0.45rem 0.4rem 0.85rem;
@@ -945,6 +971,10 @@
             <h2 class="section-title"><span class="icon" data-icon="target" data-icon-size="22"></span> Card Progress</h2>
             <div id="drillProgressBody"></div>
         </section>
+
+        <div class="session-delete-row">
+            <button id="deleteSessionBtn" type="button" class="session-delete-btn" hidden>Delete this session</button>
+        </div>
     </div>
 
     <script src="practice-manage-common.js"></script>

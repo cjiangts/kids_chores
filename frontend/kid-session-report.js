@@ -79,10 +79,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     bindBackButton();
+    bindDeleteSessionButton();
     bindLiveDurationBackfillUpdates();
     await loadReportTimezone();
     await loadSessionDetail();
 });
+
+function bindDeleteSessionButton() {
+    const btn = document.getElementById('deleteSessionBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        void handleDeleteSession(btn);
+    });
+}
+
+async function handleDeleteSession(btn) {
+    if (!kidId || !sessionId) return;
+    if (!window.PracticeManageCommon?.requestWithPasswordDialog) return;
+    btn.disabled = true;
+    try {
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            'deleting this session',
+            (password) => fetch(`${API_BASE}/kids/${kidId}/report/sessions/${sessionId}`, {
+                method: 'DELETE',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+            }),
+            { warningMessage: 'This permanently removes the session and rebuilds card priority from the remaining attempts.' }
+        );
+        if (result.cancelled) return;
+        if (!result.ok) {
+            throw new Error(result.error || 'Failed to delete session.');
+        }
+        window.location.href = resolveBackHref();
+    } catch (error) {
+        console.error('Error deleting session:', error);
+        showError(error.message || 'Failed to delete session.');
+    } finally {
+        btn.disabled = false;
+    }
+}
 
 function bindBackButton() {
     window.ReportBackButtonCommon?.bindBackButton(backBtn, resolveBackHref());
@@ -158,6 +193,8 @@ async function loadSessionDetail() {
         renderSummary(session, answers);
         renderAnswerSections(answers);
         renderSpeedDistribution(answers);
+        const deleteBtn = document.getElementById('deleteSessionBtn');
+        if (deleteBtn) deleteBtn.hidden = false;
     } catch (error) {
         console.error('Error loading session detail:', error);
         showError('Failed to load session detail.');
