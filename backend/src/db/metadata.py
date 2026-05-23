@@ -347,6 +347,22 @@ def authenticate_family(username: str, password: str) -> Optional[Dict]:
     return family
 
 
+def get_family_password_token(family_id: str) -> Optional[str]:
+    """Return a stable token derived from the family's password hash.
+
+    Stored in the session at login; checked on every authenticated request so
+    that changing the password invalidates all existing sessions for that
+    family across every device.
+    """
+    family = get_family_by_id(str(family_id or ''))
+    if not family:
+        return None
+    stored_password = str(family.get('password') or '')
+    if not stored_password:
+        return None
+    return stored_password[:24]
+
+
 def verify_family_password(family_id: str, password: str) -> bool:
     """Verify a family's password by family id."""
     family = get_family_by_id(str(family_id or ''))

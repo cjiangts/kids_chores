@@ -15,6 +15,7 @@ Layout inside `create_app()` (search for `# === N. ` banner markers):
     6. Super-family admin (list/delete families)
     7. Health + static frontend serving
 """
+from datetime import timedelta
 from urllib.parse import quote
 from flask import Flask, send_from_directory, request, redirect, session, jsonify, g
 from flask_cors import CORS
@@ -50,6 +51,28 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 BACKEND_DIR = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BACKEND_DIR, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
+# SECRET_KEY lives OUTSIDE DATA_DIR on purpose: the super-family backup zip
+# replaces all of DATA_DIR on restore, and we want session keys to stay bound
+# to the device, not travel with the data.
+SECRET_KEY_FILE = os.path.join(BACKEND_DIR, '.secret_key')
+SESSION_AUTH_TOKEN_KEY = 'auth_token'
+PERMANENT_SESSION_DAYS = 3650
+
+
+def _load_or_create_secret_key():
+    env_key = os.environ.get('FLASK_SECRET_KEY')
+    if env_key:
+        return env_key
+    if os.path.exists(SECRET_KEY_FILE):
+        with open(SECRET_KEY_FILE, 'r', encoding='utf-8') as f:
+            stored = f.read().strip()
+        if stored:
+            return stored
+    generated = secrets.token_hex(32)
+    with open(SECRET_KEY_FILE, 'w', encoding='utf-8') as f:
+        f.write(generated)
+    os.chmod(SECRET_KEY_FILE, 0o600)
+    return generated
 
 
 def create_app():
@@ -58,9 +81,10 @@ def create_app():
     # =================================================================
     app = Flask(__name__)
     CORS(app, origins=os.environ.get('CORS_ORIGINS', 'http://localhost:5001').split(','))
-    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
+    app.config['SECRET_KEY'] = _load_or_create_secret_key()
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=PERMANENT_SESSION_DAYS)
     raw_secure_cookie = str(os.environ.get('SESSION_COOKIE_SECURE') or '').strip().lower()
     if raw_secure_cookie in {'1', 'true', 'yes', 'on'}:
         session_cookie_secure = True
@@ -80,7 +104,20 @@ def create_app():
     start_kid_audio_cleanup_scheduler(app.logger)
 
     def is_family_authenticated():
-        return bool(session.get('family_id'))
+        family_id = session.get('family_id')
+        if not family_id:
+            return False
+        stored_token = session.get(SESSION_AUTH_TOKEN_KEY)
+        current_token = metadata.get_family_password_token(str(family_id))
+        if not current_token or stored_token != current_token:
+            # Password changed (or family deleted / data restored from a backup
+            # whose password hashes differ). Drop the stale session so the
+            # client falls back to the login flow.
+            session.pop('family_id', None)
+            session.pop('family_username', None)
+            session.pop(SESSION_AUTH_TOKEN_KEY, None)
+            return False
+        return True
 
     def require_family_auth():
         if not is_family_authenticated():
@@ -196,14 +233,14 @@ def create_app():
     # =================================================================
     @app.route('/api/family-auth/status', methods=['GET'])
     def family_auth_status():
+        if not is_family_authenticated():
+            return {'authenticated': False, 'familyId': None, 'familyUsername': None, 'isSuperFamily': False}, 200
         family_id = session.get('family_id')
-        family_name = session.get('family_username')
-        is_super_family = metadata.is_super_family(str(family_id)) if family_id else False
         return {
-            'authenticated': bool(family_id),
+            'authenticated': True,
             'familyId': family_id,
-            'familyUsername': family_name,
-            'isSuperFamily': bool(is_super_family),
+            'familyUsername': session.get('family_username'),
+            'isSuperFamily': bool(metadata.is_super_family(str(family_id))),
         }, 200
 
     @app.route('/api/family-auth/register', methods=['POST'])
@@ -216,8 +253,10 @@ def create_app():
         except ValueError as e:
             return {'error': str(e)}, 400
 
+        session.permanent = True
         session['family_id'] = str(family['id'])
         session['family_username'] = family['username']
+        session[SESSION_AUTH_TOKEN_KEY] = metadata.get_family_password_token(str(family['id']))
         return {
             'authenticated': True,
             'familyId': family['id'],
@@ -242,8 +281,10 @@ def create_app():
             return {'error': 'Invalid username or password'}, 401
         LOGIN_RATE_LIMITER.reset(limit_key)
 
+        session.permanent = True
         session['family_id'] = str(family['id'])
         session['family_username'] = family['username']
+        session[SESSION_AUTH_TOKEN_KEY] = metadata.get_family_password_token(str(family['id']))
         return {
             'authenticated': True,
             'familyId': family['id'],
@@ -255,6 +296,7 @@ def create_app():
     def family_auth_logout():
         session.pop('family_id', None)
         session.pop('family_username', None)
+        session.pop(SESSION_AUTH_TOKEN_KEY, None)
         return {'authenticated': False}, 200
 
     # =================================================================
@@ -276,6 +318,11 @@ def create_app():
         if not metadata.update_family_password(family_id, current_password, new_password):
             return {'error': 'Current password is incorrect'}, 400
 
+        # Refresh the auth token in *this* browser's session so the user who
+        # just changed their password isn't kicked out by the very next
+        # request. Every other device's session still holds the old token and
+        # will be invalidated by is_family_authenticated().
+        session[SESSION_AUTH_TOKEN_KEY] = metadata.get_family_password_token(family_id)
         return {'success': True}, 200
 
     @app.route('/api/parent-settings/timezone', methods=['GET'])
