@@ -14,13 +14,6 @@ CREATE TABLE IF NOT EXISTS decks (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE decks
-ADD COLUMN IF NOT EXISTS daily_target_count INTEGER DEFAULT 0;
-
-UPDATE decks
-SET daily_target_count = 0
-WHERE daily_target_count IS NULL;
-
 -- Flashcards
 CREATE TABLE IF NOT EXISTS cards (
   id INTEGER PRIMARY KEY DEFAULT nextval('cards_id_seq'),
@@ -34,13 +27,6 @@ CREATE TABLE IF NOT EXISTS cards (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE cards
-ADD COLUMN IF NOT EXISTS thumb_down_count INTEGER DEFAULT 0;
-
-UPDATE cards
-SET thumb_down_count = 0
-WHERE thumb_down_count IS NULL;
-
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),
@@ -49,6 +35,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   retry_count INTEGER NOT NULL DEFAULT 0,
   retry_total_response_ms BIGINT NOT NULL DEFAULT 0,
   retry_best_rety_correct_count INTEGER NOT NULL DEFAULT 0,
+  practice_mode VARCHAR NOT NULL DEFAULT 'na',
   started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP
 );
@@ -71,9 +58,6 @@ CREATE TABLE IF NOT EXISTS type4_result_item (
   submitted_answers VARCHAR[] NOT NULL DEFAULT [],
   submitted_grades INTEGER[] NOT NULL DEFAULT []
 );
-
-ALTER TABLE type4_result_item
-ADD COLUMN IF NOT EXISTS submitted_grades INTEGER[] DEFAULT [];
 
 CREATE TABLE IF NOT EXISTS type1_result_item (
   result_id INTEGER PRIMARY KEY,
@@ -124,9 +108,6 @@ CREATE TABLE IF NOT EXISTS deck_category_opt_in (
   include_orphan BOOLEAN NOT NULL DEFAULT TRUE,
   drill_speed_cutoff_ms INTEGER
 );
-
-ALTER TABLE sessions
-ADD COLUMN IF NOT EXISTS practice_mode VARCHAR DEFAULT 'na';
 
 -- Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id);
