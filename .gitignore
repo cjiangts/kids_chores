@@ -31,9 +31,6 @@ backend/build/
 .env.local
 .env.*.local
 
-# Flask session signing key (device-local, never commit)
-backend/.secret_key
-
 # IDEs
 .vscode/
 .idea/

@@ -20,7 +20,6 @@ from urllib.parse import quote
 from flask import Flask, send_from_directory, request, redirect, session, jsonify, g
 from flask_cors import CORS
 import os
-import secrets
 import shutil
 import time
 
@@ -51,28 +50,18 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 BACKEND_DIR = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BACKEND_DIR, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
-# SECRET_KEY lives OUTSIDE DATA_DIR on purpose: the super-family backup zip
-# replaces all of DATA_DIR on restore, and we want session keys to stay bound
-# to the device, not travel with the data.
-SECRET_KEY_FILE = os.path.join(BACKEND_DIR, '.secret_key')
 SESSION_AUTH_TOKEN_KEY = 'auth_token'
 PERMANENT_SESSION_DAYS = 3650
 
 
-def _load_or_create_secret_key():
-    env_key = os.environ.get('FLASK_SECRET_KEY')
-    if env_key:
-        return env_key
-    if os.path.exists(SECRET_KEY_FILE):
-        with open(SECRET_KEY_FILE, 'r', encoding='utf-8') as f:
-            stored = f.read().strip()
-        if stored:
-            return stored
-    generated = secrets.token_hex(32)
-    with open(SECRET_KEY_FILE, 'w', encoding='utf-8') as f:
-        f.write(generated)
-    os.chmod(SECRET_KEY_FILE, 0o600)
-    return generated
+def _require_secret_key():
+    key = os.environ.get('FLASK_SECRET_KEY')
+    if not key:
+        raise RuntimeError(
+            "FLASK_SECRET_KEY is not set. Locally, start-local.sh writes/loads "
+            "backend/.env.local; on Railway, set it in the dashboard's Variables."
+        )
+    return key
 
 
 def create_app():
@@ -81,7 +70,7 @@ def create_app():
     # =================================================================
     app = Flask(__name__)
     CORS(app, origins=os.environ.get('CORS_ORIGINS', 'http://localhost:5001').split(','))
-    app.config['SECRET_KEY'] = _load_or_create_secret_key()
+    app.config['SECRET_KEY'] = _require_secret_key()
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=PERMANENT_SESSION_DAYS)

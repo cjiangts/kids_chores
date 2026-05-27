@@ -26,6 +26,19 @@ fi
 echo "🔧 Activating virtual environment..."
 source backend/venv/bin/activate
 
+# Ensure backend/.env.local holds a FLASK_SECRET_KEY so sessions survive
+# server restarts. Generated once, then reused on every subsequent start.
+ENV_LOCAL="backend/.env.local"
+if [ ! -f "$ENV_LOCAL" ] || ! grep -q '^FLASK_SECRET_KEY=' "$ENV_LOCAL"; then
+    echo "🔑 Generating FLASK_SECRET_KEY in $ENV_LOCAL (first run)..."
+    GEN_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')
+    printf 'FLASK_SECRET_KEY=%s\n' "$GEN_KEY" >> "$ENV_LOCAL"
+    chmod 600 "$ENV_LOCAL"
+fi
+set -a
+. "$ENV_LOCAL"
+set +a
+
 # Navigate to backend directory
 cd backend
 
