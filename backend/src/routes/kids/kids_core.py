@@ -68,6 +68,7 @@ from src.services.kid_daily_progress import (
     get_kid_scoped_db_relpath,
     get_type_iii_category_keys,
 )
+from src.services.offline_locks import get_locks_for_family
 from src.services.practice_mode import (
     is_drill_session_practice_mode,
     normalize_session_practice_mode,
@@ -103,6 +104,11 @@ def get_kids():
             if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
         }
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
+        offline_lock_by_kid = {
+            str(entry.get('kid_id') or ''): entry
+            for entry in get_locks_for_family(family_id)
+            if entry.get('kid_id') is not None
+        }
 
         if is_admin_view:
             family_timezone = metadata.get_family_timezone(family_id)
@@ -151,6 +157,8 @@ def get_kids():
                         'practiceTargetByDeckCategory': practice_target_by_deck_category,
                         'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
                         'deckCategoryMetaByKey': category_meta_by_key,
+                        'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
+                        'familyTimezone': family_timezone,
                     })
                 finally:
                     if conn is not None:
@@ -243,6 +251,7 @@ def get_kids():
                     'deckCategoryMetaByKey': category_meta_by_key,
                     'badgeTrackingEnabled': badge_tracking_enabled,
                     'earnedBadgeCount': earned_badge_count,
+                    'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
                 }
                 kids_with_progress.append(kid_with_progress)
             finally:

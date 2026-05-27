@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="offline-redirect-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kids Daily Chores</title>
     <link rel="stylesheet" href="fonts-local.css">
@@ -151,6 +152,7 @@
         .parent-admin-page .admin-matrix-kid-head {
             text-align: center;
             min-width: 78px;
+            position: relative;
         }
         .parent-admin-page .admin-matrix-kid-avatar {
             width: 32px;
@@ -562,6 +564,246 @@
                 padding: 0.22rem 0.4rem;
             }
         }
+
+        /* ==== Offline mode (home page) ==== */
+        .admin-offline-btn.is-active,
+        .admin-offline-btn.is-active:hover {
+            background: #ffe6e0;
+            color: #c2410c;
+            border-color: #fdba74;
+        }
+        /* Selection mode: soft column tint only — no per-cell borders.
+           The avatar checkmark badge is the primary selection signal. */
+        .admin-matrix.is-offline-selecting .admin-matrix-kid-head,
+        .admin-matrix.is-offline-selecting .admin-matrix-cell {
+            transition: background 0.15s;
+        }
+        .admin-matrix.is-offline-selecting .admin-matrix-cell.is-offline-selected,
+        .admin-matrix.is-offline-selecting .admin-matrix-kid-head.is-offline-selected {
+            background: rgba(251, 146, 60, 0.10);
+        }
+        .admin-matrix.is-offline-selecting .admin-matrix-cell.is-offline-locked,
+        .admin-matrix.is-offline-selecting .admin-matrix-kid-head.is-offline-locked {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        /* Offline-selecting mode: the column tint + check badge carry the
+           "this is selectable" signal. No outline/pulse on the head button —
+           layered indicators read as noise on the avatar. */
+        .admin-matrix.is-offline-selecting button.admin-matrix-kid-head-btn {
+            background: transparent;
+        }
+        .admin-matrix.is-offline-selecting button.admin-matrix-kid-head-btn:hover {
+            background: #fff7ed;
+        }
+        /* Check-badge overlay — sits directly over the kid avatar so the
+           selection indicator IS the visual identity in offline-selecting
+           mode (no competing corner dot). Unselected: empty white disc with
+           a thick orange ring. Selected: filled orange disc with white ✓. */
+        .admin-matrix-kid-check-badge {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid #c2410c;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 800;
+            line-height: 1;
+            color: transparent;
+            z-index: 2;
+            pointer-events: none;
+            box-shadow: 0 1px 3px rgba(124, 45, 18, 0.25);
+        }
+        .admin-matrix-kid-check-badge.is-checked {
+            background: #c2410c;
+            color: #fff;
+            border-color: #fff;
+            box-shadow: 0 0 0 2px #c2410c, 0 2px 6px rgba(124, 45, 18, 0.4);
+        }
+        /* Locked-elsewhere indicator: small badge on avatar corner + desaturated
+           avatar. Keeps the kid name on the same baseline as siblings. */
+        .admin-matrix-kid-avatar--locked {
+            filter: grayscale(0.6);
+            opacity: 0.55;
+        }
+        .admin-matrix-kid-lock-badge {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(75, 85, 99, 0.92);
+            color: #fff;
+            border: 2px solid #fff;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            pointer-events: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+        .admin-matrix-kid-lock-badge svg {
+            display: block;
+        }
+        /* Offline-info chip floats below the kid name when in
+           offline-selection mode for locked kids. Compact: device + HH:MM
+           time + size/file/audio summary + Resume link if owned-here.
+           Absolutely positioned so it overlays the row below without
+           pushing column height or width. */
+        .admin-matrix-kid-offline-info {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 0.25rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.08rem;
+            padding: 0.25rem 0.35rem;
+            background: #fff7ed;
+            border: 1px solid #fdba74;
+            border-radius: 8px;
+            color: #7c2d12;
+            font-size: 0.68rem;
+            line-height: 1.15;
+            text-align: center;
+            width: 78px;
+            max-width: 78px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 12px rgba(124, 45, 18, 0.18);
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            white-space: normal;
+            z-index: 10;
+            pointer-events: auto;
+        }
+        .admin-matrix-kid-offline-info-device {
+            font-weight: 600;
+            color: #7c2d12;
+        }
+        .admin-matrix-kid-offline-info-meta {
+            color: #9a3412;
+            opacity: 0.9;
+        }
+        .admin-matrix-kid-offline-info-resume {
+            margin-top: 0.18rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            background: #c2410c;
+            color: #fff;
+            border-radius: 999px;
+            padding: 0.15rem 0.55rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .admin-matrix-kid-offline-info-resume:hover {
+            background: #9a3412;
+        }
+        .admin-matrix-kid-offline-info-release {
+            margin-top: 0.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(196, 73, 58, 0.92);
+            color: #fff;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            line-height: 0;
+            box-shadow: 0 2px 6px rgba(196, 73, 58, 0.35);
+        }
+        .admin-matrix-kid-offline-info-release:hover,
+        .admin-matrix-kid-offline-info-release:focus-visible {
+            background: #9a3412;
+            outline: none;
+        }
+        .admin-matrix .admin-matrix-value.is-offline-onoff {
+            pointer-events: none;
+            cursor: default;
+        }
+        /* Offline-selection visual treatment — parallel to edit-mode but warm/orange. */
+        .parent-admin-page .admin-optin-panel.is-offline-selecting {
+            background: linear-gradient(180deg, #fff7ed 0%, #ffe6cf 100%);
+            border-color: #fb923c;
+            box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.22), 0 6px 18px rgba(124, 45, 18, 0.16);
+        }
+        .parent-admin-page .admin-matrix-title-sub--offline {
+            color: #c2410c;
+            font-weight: 600;
+        }
+        .parent-admin-page .admin-matrix.is-offline-selecting {
+            background: rgba(255, 247, 237, 0.6);
+        }
+        /* Offline action footer — replaces the Start Practice button while selecting. */
+        .offline-action-footer {
+            display: flex;
+            align-items: stretch;
+            gap: 0.7rem;
+            margin-top: 0.9rem;
+        }
+        .offline-action-footer-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            border-radius: 14px;
+            font-weight: 700;
+            border: 1px solid transparent;
+            cursor: pointer;
+            line-height: 1.2;
+            transition: background 0.15s, transform 0.05s;
+        }
+        .offline-action-footer-btn--cancel {
+            flex: 0 0 auto;
+            padding: 0.85rem 1.2rem;
+            background: #fff;
+            color: #7c2d12;
+            border-color: #fed7aa;
+            font-size: 0.95rem;
+        }
+        .offline-action-footer-btn--cancel:hover:not(:disabled) {
+            background: #fff7ed;
+        }
+        .offline-action-footer-btn--download {
+            flex: 1 1 auto;
+            padding: 1rem 1.4rem;
+            background: #c2410c;
+            color: #fff;
+            font-size: 1.05rem;
+            box-shadow: 0 4px 12px rgba(194, 65, 12, 0.25);
+        }
+        .offline-action-footer-btn--download:hover:not(:disabled) {
+            background: #9a3412;
+        }
+        .offline-action-footer-btn--download:disabled {
+            background: #fed7aa;
+            color: #fff;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .offline-action-footer-btn--download.is-busy {
+            background: #c2410c;
+            color: #fff;
+            cursor: progress;
+            opacity: 0.95;
+        }
     </style>
 </head>
 <body class="parent-admin-page">
@@ -570,6 +812,7 @@
             <div class="page-header-row">
                 <h1><span class="page-title-icon" aria-hidden="true">🧸</span> Kids Daily Chores</h1>
                 <div class="page-header-actions">
+                    <button type="button" id="offlineModeBtn" class="back-btn btn-secondary page-header-back-btn admin-offline-btn" aria-label="Offline mode" title="Offline mode"><span class="icon" data-icon="cloud-off" data-icon-size="18"></span> Offline</button>
                     <a href="/parent-settings.html" class="back-btn btn-secondary page-header-back-btn" aria-label="Settings" title="Settings"><span class="icon" data-icon="settings" data-icon-size="18"></span> Settings</a>
                 </div>
             </div>
@@ -588,6 +831,7 @@
                     <span class="icon" data-icon="play" data-icon-size="18" data-icon-stroke="2.4"></span>
                     <span class="admin-start-practice-btn-label">Start Practice</span>
                 </a>
+                <div id="offlineActionFooter" class="offline-action-footer hidden"></div>
             </div>
 
             <div id="adminEmptyState" class="admin-empty-state hidden">
@@ -730,6 +974,15 @@
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-tree-view.js"></script>
+    <script src="offline-storage.js"></script>
+    <script src="offline-common.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+            });
+        }
+    </script>
     <script src="admin.js"></script>
 </body>
 </html>

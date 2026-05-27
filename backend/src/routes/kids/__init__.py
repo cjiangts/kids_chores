@@ -1245,3 +1245,4 @@ from . import type4  # noqa: E402,F401
 from . import lesson_reading  # noqa: E402,F401
 from . import practice  # noqa: E402,F401
 from . import chinese_bank  # noqa: E402,F401
+from . import offline  # noqa: E402,F401

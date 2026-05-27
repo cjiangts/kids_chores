@@ -920,6 +920,15 @@
     <script src="audio-history-common.js"></script>
     <script src="audio-common.js"></script>
     <script src="recording-visualizer.js"></script>
+    <script src="offline-storage.js"></script>
+    <script src="offline-common.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+            });
+        }
+    </script>
     <script src="kid-practice-core.js"></script>
     <script src="kid-practice-type1.js"></script>
     <script src="kid-practice-type2.js"></script>

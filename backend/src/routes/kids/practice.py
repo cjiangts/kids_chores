@@ -280,6 +280,7 @@ def start_writing_practice_session(kid_id):
 
         resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
 
+        pending_session_payload['offline_pack_id'] = request.headers.get('X-Offline-Pack-Id') or None
         pending_session_id = create_pending_session(
             kid_id,
             category_key,
@@ -525,6 +526,7 @@ def start_type4_practice_session(kid_id):
 
             resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
 
+            pending_session_payload['offline_pack_id'] = request.headers.get('X-Offline-Pack-Id') or None
             pending_session_id = create_pending_session(
                 kid_id,
                 category_key,
@@ -1027,6 +1029,7 @@ def start_type_i_practice_session_internal(
 
         resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
 
+        pending_session_payload['offline_pack_id'] = request.headers.get('X-Offline-Pack-Id') or None
         pending_session_id = create_pending_session(
             kid_id,
             category_key,

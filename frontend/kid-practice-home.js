@@ -92,6 +92,27 @@ let badgeShelfSummary = {
 const errorState = { lastMessage: '' };
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 
+let isOfflineMode = false;
+let offlinePackCategorySet = null;
+let offlinePackExpired = false;
+
+function appendOfflineFlagIfNeeded(params) {
+    if (isOfflineMode) params.set('offline', '1');
+}
+
+function offlineGuardOrError(categoryKey) {
+    if (!isOfflineMode) return true;
+    if (offlinePackExpired) {
+        showError('Offline pack expired — tap Sync to return online.');
+        return false;
+    }
+    if (offlinePackCategorySet && !offlinePackCategorySet.has(categoryKey)) {
+        showError('This subject was not downloaded for offline practice. Tap Sync to return online.');
+        return false;
+    }
+    return true;
+}
+
 function escapeHtmlLocal(text) {
     return String(text || '')
         .replace(/&/g, '&amp;')
@@ -210,12 +231,20 @@ async function loadKidsForToggle() {
     if (kidToggleLoading) return;
     kidToggleLoading = true;
     try {
-        const response = await fetch(`${API_BASE}/kids?view=admin`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const kids = await response.json();
+        if (isOfflineMode) {
+            await loadKidsForToggleFromLocalPacks();
+            return;
+        }
+        const [kidsResponse, locksByKidId, ownedKidIdSet] = await Promise.all([
+            fetch(`${API_BASE}/kids?view=admin`),
+            fetchOfflineLockMap(),
+            loadOwnedKidIdSet(),
+        ]);
+        if (!kidsResponse.ok) throw new Error(`HTTP ${kidsResponse.status}`);
+        const kids = await kidsResponse.json();
         const all = Array.isArray(kids) ? kids : [];
         const list = all.filter((kid) => kidHasPracticeTarget(kid) || String(kid?.id || '') === kidId);
-        renderKidToggle(list);
+        renderKidToggle(list, { locksByKidId, ownedKidIdSet });
     } catch (error) {
         console.error('Error loading kids for toggle:', error);
         if (kidToggleGroup) {
@@ -227,7 +256,61 @@ async function loadKidsForToggle() {
     }
 }
 
-function renderKidToggle(kids) {
+async function loadKidsForToggleFromLocalPacks() {
+    if (!window.OfflineStorage) {
+        if (kidToggleGroup) { kidToggleGroup.classList.add('hidden'); kidToggleGroup.innerHTML = ''; }
+        return;
+    }
+    const packs = await window.OfflineStorage.listAllPacks();
+    const ownedKidIdSet = new Set((packs || []).map((p) => String(p.kidId)));
+    const locksByKidId = {};
+    const list = (packs || []).map((p) => {
+        const env = p.packEnvelope || {};
+        const info = env.kidInfo || {};
+        const id = String(p.kidId);
+        locksByKidId[id] = {
+            pack_id: String(env.pack_id || ''),
+            device_label: String(env.device_label || ''),
+            acquired_at_utc: env.acquired_at_utc || null,
+            expires_at_utc: env.expires_at_utc || null,
+        };
+        return {
+            ...info,
+            id,
+            name: String(info.name || env.kid_name || '').trim() || 'Kid',
+        };
+    }).filter((kid) => kidHasPracticeTarget(kid) || String(kid.id) === String(kidId));
+    renderKidToggle(list, { locksByKidId, ownedKidIdSet });
+}
+
+async function fetchOfflineLockMap() {
+    try {
+        const res = await fetch(`${API_BASE}/offline/status`);
+        if (!res.ok) return {};
+        const payload = await res.json();
+        const locks = Array.isArray(payload?.locks) ? payload.locks : [];
+        const map = {};
+        for (const lock of locks) {
+            const kid = String(lock?.kid_id || '');
+            if (kid) map[kid] = lock;
+        }
+        return map;
+    } catch (_) {
+        return {};
+    }
+}
+
+async function loadOwnedKidIdSet() {
+    if (!window.OfflineStorage) return new Set();
+    try {
+        const ids = await window.OfflineStorage.listOwnedKidIds();
+        return new Set((ids || []).map((v) => String(v)));
+    } catch (_) {
+        return new Set();
+    }
+}
+
+function renderKidToggle(kids, opts) {
     if (!kidToggleGroup) return;
     const list = Array.isArray(kids) ? kids : [];
     if (list.length < 2) {
@@ -235,6 +318,8 @@ function renderKidToggle(kids) {
         kidToggleGroup.innerHTML = '';
         return;
     }
+    const locksByKidId = (opts && opts.locksByKidId) || {};
+    const ownedKidIdSet = (opts && opts.ownedKidIdSet) || new Set();
     const userIconSvg = (typeof window.icon === 'function')
         ? window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 })
         : '';
@@ -242,16 +327,42 @@ function renderKidToggle(kids) {
         const id = String(kid?.id || '');
         const name = String(kid?.name || '').trim() || 'Kid';
         const isActive = id === String(kidId);
+        const lock = locksByKidId[id];
+        const isOwned = ownedKidIdSet.has(id);
+        const isLockedHere = Boolean(lock) && isOwned;
+        const isLockedElsewhere = Boolean(lock) && !isOwned;
+        const nameHtml = `<span>${escapeHtmlLocal(name)}</span>`;
         const { assigned, done } = computeKidToggleProgress(kid);
-        const metaHtml = assigned > 0
+        const progressMeta = assigned > 0
             ? `<span class="kid-nav-card-meta${done >= assigned ? ' is-done' : ''}">${done}/${assigned} done</span>`
             : '';
-        const nameHtml = `<span>${escapeHtmlLocal(name)}</span>`;
+
         if (isActive) {
-            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}${nameHtml}${metaHtml}</span>`;
+            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}${nameHtml}${progressMeta}</span>`;
+        }
+        if (isLockedElsewhere) {
+            const deviceLabel = String(lock.device_label || '').trim() || 'another device';
+            const offlineMeta = `<span class="kid-nav-card-meta is-offline-elsewhere" title="Offline on ${escapeHtmlLocal(deviceLabel)}">Offline</span>`;
+            return `<span class="kid-nav-card is-offline-elsewhere" role="tab" aria-selected="false" aria-disabled="true" title="Offline on ${escapeHtmlLocal(deviceLabel)}">${userIconSvg}${nameHtml}${offlineMeta}</span>`;
+        }
+        if (isLockedHere) {
+            // Kid has an offline pack on this device. When we're also in offline
+            // mode, both kids "match" the current mode — show normal progress
+            // numbers and let the click switch into her offline home. The
+            // "Offline" badge is only useful in online mode (signals that this
+            // kid has been checked out into a local pack).
+            const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
+            if (isOfflineMode) {
+                return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${progressMeta}</a>`;
+            }
+            const offlineMeta = '<span class="kid-nav-card-meta is-offline-here" title="Offline on this device">Offline</span>';
+            return `<a class="kid-nav-card is-offline-here" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${offlineMeta}</a>`;
+        }
+        if (isOfflineMode) {
+            return `<span class="kid-nav-card is-offline-elsewhere" role="tab" aria-selected="false" aria-disabled="true" title="Sync before switching kids">${userIconSvg}${nameHtml}${progressMeta}</span>`;
         }
         const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
-        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${metaHtml}</a>`;
+        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${progressMeta}</a>`;
     }).join('');
     kidToggleGroup.classList.remove('hidden');
 }
@@ -277,11 +388,31 @@ function cacheKidForPracticeNavigation() {
 // =====================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
-        window.location.href = '/';
+        // If this device owns an offline pack, recover by routing to that kid's
+        // offline practice home instead of bouncing to '/', which (when the SW
+        // shell falls back to this very page) would loop forever.
+        let ownedIds = [];
+        if (window.OfflineStorage) {
+            try { ownedIds = await window.OfflineStorage.listOwnedKidIds(); } catch (_) { /* ignore */ }
+        }
+        if (ownedIds.length > 0) {
+            window.location.replace(`/kid-practice-home.html?id=${encodeURIComponent(ownedIds[0])}`);
+        } else {
+            window.location.replace('/index.html');
+        }
         return;
     }
 
     persistLastViewedKidId(kidId);
+
+    if (window.OfflineCommon) {
+        const pack = await window.OfflineCommon.findActivePack(kidId);
+        if (pack && pack.packEnvelope) {
+            await bootstrapOfflinePracticeHome(pack);
+            return;
+        }
+    }
+
     void loadKidsForToggle();
     const cachedKid = readKidFromPracticeNavigationCache();
     if (cachedKid) {
@@ -954,9 +1085,11 @@ function goType1Practice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
+    if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
+    appendOfflineFlagIfNeeded(params);
     cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
@@ -984,9 +1117,11 @@ function goWritingPractice(category) {
         showError(`No ${label} cards yet. Ask your parent to add some first.`);
         return;
     }
+    if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
+    appendOfflineFlagIfNeeded(params);
     cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
@@ -1004,9 +1139,11 @@ function goType3Practice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
+    if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
+    appendOfflineFlagIfNeeded(params);
     cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
@@ -1024,9 +1161,11 @@ function goType4Practice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
+    if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
+    appendOfflineFlagIfNeeded(params);
     cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
@@ -1036,4 +1175,271 @@ function goType4Practice(category) {
 // =====================================================================
 function showError(message) {
     window.PracticeUiCommon.showAlertError(errorState, errorMessage, message);
+}
+
+// =====================================================================
+// === 8. Offline practice home (replaces sections 4–6 when offline)
+// =====================================================================
+
+async function bootstrapOfflinePracticeHome(pack) {
+    const env = pack.packEnvelope || {};
+    const baseKidInfo = env.kidInfo || { id: kidId, name: env.kid_name || '' };
+
+    // Engage offline mode so navigation appends &offline=1 and gates subjects
+    // not present in the downloaded pack.
+    isOfflineMode = true;
+    offlinePackExpired = isPackExpired(env);
+
+    // Fold locally-saved practice answers into the (acquire-time-frozen)
+    // daily counts so progress bars actually move as the kid practices.
+    let pendingResults = [];
+    if (window.OfflineStorage) {
+        try {
+            pendingResults = await window.OfflineStorage.listPendingResults(kidId);
+        } catch (_) { /* best-effort */ }
+    }
+    const kidInfo = mergeOfflineLocalProgress(baseKidInfo, pendingResults);
+
+    // Build the available-category set. A subject stays clickable while any
+    // cached card is still unanswered OR any answered card is still wrong
+    // (retry available). Once every card is answered and all are correct,
+    // grey it out — the kid has nothing left to practice in this pack and
+    // letting them in would just hit the "practice is off" guard.
+    const answersByPendingId = new Map();
+    for (const row of (pendingResults || [])) {
+        const pid = String(row?.pendingSessionId || '');
+        if (!pid) continue;
+        answersByPendingId.set(pid, Array.isArray(row?.answers) ? row.answers : []);
+    }
+    offlinePackCategorySet = new Set(
+        (Array.isArray(pack.sessions) ? pack.sessions : [])
+            .filter((s) => {
+                const cards = Array.isArray(s?.payload?.cards) ? s.payload.cards : [];
+                if (cards.length === 0) return false;
+                const answers = answersByPendingId.get(String(s?.pendingSessionId || '')) || [];
+                if (answers.length < cards.length) return true;
+                return answers.some((a) => a && a.known === false);
+            })
+            .map((s) => normalizeCategoryKey(s.categoryKey))
+            .filter(Boolean)
+    );
+
+    applyKidPayload(kidInfo);
+
+    // Replace Home button with Sync (only visible offline-mode chrome).
+    const headerActions = document.getElementById('practiceHomeHeaderActions');
+    if (headerActions) {
+        headerActions.innerHTML = `
+            <button type="button" id="offlineSyncBtn" class="back-btn btn-secondary page-header-back-btn offline-sync-btn" aria-label="Sync practice results" title="Sync practice results"></button>
+        `;
+        await renderSyncButtonContents();
+        const syncBtn = document.getElementById('offlineSyncBtn');
+        if (syncBtn) syncBtn.addEventListener('click', () => handleOfflineSyncClick(pack));
+    }
+
+    // Kid toggle is rebuilt from local IndexedDB packs (no network).
+    void loadKidsForToggle();
+    renderPracticeOptions();
+
+    // Suppress the Today's Sessions / Earned Badges strip in offline mode.
+    if (practiceSummaryStrip) {
+        practiceSummaryStrip.classList.add('hidden');
+        practiceSummaryStrip.innerHTML = '';
+    }
+
+    // Dim subjects whose pack wasn't downloaded (offlineGuardOrError handles
+    // the click rejection).
+    if (practiceChooser) {
+        practiceChooser.querySelectorAll('.practice-option[data-category-key]').forEach((btn) => {
+            const key = normalizeCategoryKey(btn.getAttribute('data-category-key'));
+            if (offlinePackExpired || !offlinePackCategorySet.has(key)) {
+                btn.classList.add('is-offline-unavailable');
+            }
+        });
+    }
+
+    if (practiceSection) practiceSection.classList.remove('hidden');
+}
+
+function mergeOfflineLocalProgress(baseKidInfo, pendingResults) {
+    const completedDelta = {};
+    const triedDelta = {};
+    const rightDelta = {};
+    for (const row of (pendingResults || [])) {
+        const cat = String(row?.sessionType || '').trim();
+        if (!cat) continue;
+        const answers = Array.isArray(row.answers) ? row.answers : [];
+        completedDelta[cat] = (completedDelta[cat] || 0) + 1;
+        triedDelta[cat] = (triedDelta[cat] || 0) + answers.length;
+        rightDelta[cat] = (rightDelta[cat] || 0) + answers.filter((a) => a && a.known === true).length;
+    }
+    const bump = (base, delta) => {
+        const out = { ...(base || {}) };
+        for (const k of Object.keys(delta)) {
+            out[k] = (Number.parseInt(out[k], 10) || 0) + delta[k];
+        }
+        return out;
+    };
+    return {
+        ...baseKidInfo,
+        dailyCompletedByDeckCategory: bump(baseKidInfo.dailyCompletedByDeckCategory, completedDelta),
+        dailyTriedByDeckCategory: bump(baseKidInfo.dailyTriedByDeckCategory, triedDelta),
+        dailyRightByDeckCategory: bump(baseKidInfo.dailyRightByDeckCategory, rightDelta),
+    };
+}
+
+function isPackExpired(envelope) {
+    if (!envelope || !envelope.expires_at_utc) return false;
+    const expMs = Date.parse(String(envelope.expires_at_utc).endsWith('Z') ? envelope.expires_at_utc : envelope.expires_at_utc + 'Z');
+    return Number.isFinite(expMs) && expMs <= Date.now();
+}
+
+function _isNetworkErrorMessage(text) {
+    const s = String(text || '').toLowerCase();
+    return s.includes('load failed')
+        || s.includes('failed to fetch')
+        || s.includes('networkerror')
+        || s.includes('network request failed')
+        || s.includes('err_internet_disconnected');
+}
+
+async function _probeServerReachable() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+    try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        const res = await fetch('/api/family/me', {
+            method: 'GET',
+            cache: 'no-store',
+            credentials: 'same-origin',
+            signal: ctrl.signal,
+        });
+        clearTimeout(timer);
+        return res && (res.ok || res.status === 401 || res.status === 403);
+    } catch (_) {
+        return false;
+    }
+}
+
+function _showOfflineSyncAlert() {
+    window.alert(
+        'Can\'t reach the server.\n\n'
+        + 'Your practice results are still saved on this device — '
+        + 'reconnect to the internet and tap Sync again. Nothing is lost.',
+    );
+}
+
+async function countPendingAnswersAcrossOwnedKids() {
+    if (!window.OfflineStorage) return 0;
+    try {
+        const ownedIds = await window.OfflineStorage.listOwnedKidIds();
+        let total = 0;
+        for (const id of ownedIds) {
+            const rows = await window.OfflineStorage.listPendingResults(id);
+            for (const row of rows) {
+                total += Array.isArray(row?.answers) ? row.answers.length : 0;
+            }
+        }
+        return total;
+    } catch (_) {
+        return 0;
+    }
+}
+
+async function renderSyncButtonContents() {
+    const btn = document.getElementById('offlineSyncBtn');
+    if (!btn) return;
+    const pendingCount = await countPendingAnswersAcrossOwnedKids();
+    const iconHtml = (typeof window.icon === 'function') ? window.icon('refresh-ccw', { size: 18 }) : '';
+    const countHtml = pendingCount > 0
+        ? `<span class="offline-sync-count" aria-label="${pendingCount} answers pending">${pendingCount}</span>`
+        : '';
+    btn.innerHTML = `${iconHtml}<span>Sync</span>${countHtml}`;
+}
+
+async function handleOfflineSyncClick(pack) {
+    const btn = document.getElementById('offlineSyncBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Syncing…</span>';
+    }
+    const restoreBtn = async () => {
+        if (!btn) return;
+        btn.disabled = false;
+        await renderSyncButtonContents();
+    };
+    try {
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            window.alert('No internet connection — connect to the network and tap Sync again.');
+            await restoreBtn();
+            return;
+        }
+        let ownedIds = [];
+        if (window.OfflineStorage) {
+            try {
+                ownedIds = await window.OfflineStorage.listOwnedKidIds();
+            } catch (_) { /* ignore */ }
+        }
+        const targetIds = Array.from(new Set([String(kidId), ...ownedIds.map((v) => String(v))])).filter(Boolean);
+
+        const failures = [];
+        const discards = [];
+        for (const targetId of targetIds) {
+            const pendingCount = window.OfflineStorage
+                ? (await window.OfflineStorage.listPendingResults(targetId)).length
+                : 0;
+            const result = pendingCount === 0
+                ? await window.OfflineCommon.releasePack(targetId)
+                : await window.OfflineCommon.syncPack(targetId);
+            if (!result || !result.ok) {
+                const errText = (result && (result.error || (result.response && result.response.error))) || 'Sync failed';
+                failures.push({ kidId: targetId, error: errText });
+                continue;
+            }
+            const resp = result.response || {};
+            if (resp.conflict_warning) {
+                discards.push({
+                    kidId: targetId,
+                    reason: String(resp.conflict_warning || ''),
+                    sessions: Number(resp.discarded_session_count) || 0,
+                    answers: Number(resp.discarded_answer_count) || 0,
+                });
+            }
+        }
+
+        if (failures.length > 0) {
+            const allNetwork = failures.every((f) => _isNetworkErrorMessage(f.error));
+            const reachable = allNetwork ? false : await _probeServerReachable();
+            if (allNetwork || !reachable) {
+                _showOfflineSyncAlert();
+            } else {
+                const msg = failures.map((f) => `kid ${f.kidId}: ${f.error}`).join('\n');
+                window.alert(`Could not sync ${failures.length} pack(s):\n${msg}`);
+            }
+            await restoreBtn();
+            return;
+        }
+        if (discards.length > 0) {
+            const totalAnswers = discards.reduce((sum, d) => sum + d.answers, 0);
+            const anyForceReleased = discards.some((d) => d.reason === 'lock_expired_or_released');
+            const headline = anyForceReleased
+                ? 'The server has dropped this offline pack — most likely because someone clicked the trash button on the family home, or the pack expired at midnight.'
+                : 'Another device has taken over this offline pack since this device went offline.';
+            window.alert(
+                `${headline}\n\n`
+                + `${totalAnswers} practice answer${totalAnswers === 1 ? '' : 's'} from this device `
+                + `had to be discarded. Nothing on the server changed.`,
+            );
+        }
+        window.location.href = '/admin.html';
+    } catch (e) {
+        const msg = (e && e.message) ? String(e.message) : String(e);
+        const reachable = _isNetworkErrorMessage(msg) ? false : await _probeServerReachable();
+        if (!reachable) {
+            _showOfflineSyncAlert();
+        } else {
+            window.alert(`Sync error: ${msg}`);
+        }
+        await restoreBtn();
+    }
 }

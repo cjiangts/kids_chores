@@ -1314,7 +1314,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.AudioHistoryCommon.attachPlayers(reviewAudioRow);
     }
 
-    backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+    let offlinePack = null;
+    if (window.OfflineCommon) {
+        try {
+            offlinePack = await window.OfflineCommon.findActivePack(kidId);
+        } catch (_) { offlinePack = null; }
+        if (offlinePack && offlinePack.packEnvelope && !offlinePack.expired) {
+            window.OfflineCommon.installFetchInterceptor(kidId);
+            applyOfflinePracticeHeader(offlinePack);
+        }
+    }
+
+    if (!offlinePack) {
+        backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+    }
     setResultActionMode('back');
     setHeaderBackToPracticeVisible(true);
     bindEventHandlers();
@@ -1333,3 +1346,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         updatePageTitle();
     }
 });
+
+function applyOfflinePracticeHeader(pack) {
+    // In offline mode, the "Back" button on the practice runtime should
+    // return to the offline practice home for this kid (which holds the
+    // Sync action). We never go back to /admin.html directly because the
+    // owner device's only safe exit is via Sync.
+    if (backToPractice) {
+        backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
+        backToPractice.setAttribute('title', 'Back to offline practice home');
+    }
+    const headerActions = document.querySelector('.page-header-actions');
+    if (!headerActions) return;
+    // Hide finish-early flag in offline mode (sessions finish locally; no server round-trip).
+    // It still works, just isn't styled differently.
+}

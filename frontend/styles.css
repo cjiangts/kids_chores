@@ -378,6 +378,36 @@ body {
     opacity: 1;
 }
 
+.kid-nav-card.is-offline-elsewhere {
+    color: rgba(255, 255, 255, 0.55);
+    cursor: not-allowed;
+    background: transparent;
+}
+
+.kid-nav-card.is-offline-elsewhere:hover {
+    background: transparent;
+}
+
+.kid-nav-card.is-offline-elsewhere .kid-nav-card-icon {
+    opacity: 0.55;
+}
+
+.kid-nav-card-meta.is-offline-elsewhere {
+    color: #fde68a;
+    opacity: 1;
+    font-weight: 600;
+}
+
+.kid-nav-card-meta.is-offline-here {
+    color: #fdba74;
+    opacity: 1;
+    font-weight: 700;
+}
+
+.kid-nav-card.active .kid-nav-card-meta.is-offline-here {
+    color: #c2410c;
+}
+
 .kid-nav-card-meta {
     margin-left: auto;
     font-size: 0.9rem;

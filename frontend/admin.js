@@ -68,6 +68,10 @@ const KID_AUTOSAVE_DELAY_MS = 450;
 let openSubjectMenuKey = '';
 let isPanelMenuOpen = false;
 let isSuperFamily = false;
+let offlineSelectionMode = false;
+const offlineSelectedKidIds = new Set();
+const offlineDownloadingKidIds = new Set();
+let offlineOwnedKidIds = new Set();
 
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
@@ -142,6 +146,7 @@ function bindEvents() {
             if (!inside) closePanelMenu();
         }
     });
+    bindOfflineModeEvents();
 }
 
 function syncKidFormSaveBtn() {
@@ -160,6 +165,15 @@ function escapeHtml(text) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function formatBytesShort(bytes) {
+    const v = Number(bytes);
+    if (!Number.isFinite(v) || v <= 0) return '0 B';
+    if (v < 1024) return `${Math.round(v)} B`;
+    if (v < 1024 * 1024) return `${(v / 1024).toFixed(1)} KB`;
+    if (v < 1024 * 1024 * 1024) return `${(v / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(v / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function getKidInitial(name) {
@@ -383,6 +397,37 @@ async function deleteKid(kidId, kidName) {
     }
 }
 
+async function forceReleaseOfflineLock(kidId, kidName) {
+    const kid = currentKids.find((item) => String(item?.id || '') === String(kidId));
+    const lock = kid && kid.offlineLock;
+    if (!lock || !lock.pack_id) {
+        showError('No active offline lock found for this child.');
+        return;
+    }
+    const deviceLabel = String(lock.device_label || 'the other device');
+    const warning =
+        `This drops ${kidName}'s offline lock so the child can practice online again.\n\n`
+        + `Any unsynced practice results still on "${deviceLabel}" will be discarded `
+        + `next time that device tries to sync. Use this only if that device is lost or unreachable.`;
+    try {
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            `dropping ${kidName}'s offline pack`,
+            (password) => fetch(`${API_BASE}/kids/${kidId}/offline/force-release`, {
+                method: 'POST',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+            }),
+            { warningMessage: warning }
+        );
+        if (result.cancelled) return;
+        if (!result.ok) throw new Error(result.error || 'Failed to drop offline lock.');
+        exitOfflineSelectionMode();
+        await loadKids();
+    } catch (error) {
+        console.error('Error force-releasing offline lock:', error);
+        showError(error.message || 'Failed to drop offline lock. Please try again.');
+    }
+}
+
 async function goToLatestTypeIIIReviewSession(kidId) {
     try {
         showError('');
@@ -459,13 +504,33 @@ function renderAll() {
     renderReviewBanner();
     renderMatrix();
     updateStartPracticeHref();
+    refreshOfflineOwnedAndStats();
+    renderOfflineActionFooter();
 }
 
 function updateStartPracticeHref() {
     const btn = document.getElementById('startPracticeBtn');
     if (!btn) return;
     const list = Array.isArray(currentKids) ? currentKids : [];
-    const targetKidId = pickKidWithPracticeTarget(list);
+    if (offlineSelectionMode) {
+        // The offline action footer takes over this slot — fully hide the
+        // Start Practice button so it doesn't peek above the footer.
+        btn.classList.add('hidden');
+        btn.setAttribute('aria-hidden', 'true');
+        btn.removeAttribute('href');
+        return;
+    }
+    btn.classList.remove('hidden');
+    btn.removeAttribute('aria-hidden');
+    const eligible = list.filter((kid) => !kid?.offlineLock).filter(kidHasPracticeTarget);
+    if (eligible.length === 0 && list.length > 0 && list.every((k) => k?.offlineLock)) {
+        btn.classList.add('is-disabled');
+        btn.setAttribute('aria-disabled', 'true');
+        btn.removeAttribute('href');
+        btn.title = 'All kids are currently in offline mode.';
+        return;
+    }
+    const targetKidId = pickKidWithPracticeTarget(list.filter((k) => !k?.offlineLock));
     if (!targetKidId) {
         btn.classList.add('is-disabled');
         btn.setAttribute('aria-disabled', 'true');
@@ -589,7 +654,9 @@ function renderMatrix() {
         return;
     }
     adminOptinPanel.classList.toggle('is-editing', editMode);
+    adminOptinPanel.classList.toggle('is-offline-selecting', offlineSelectionMode);
     adminMatrix.classList.toggle('is-editable', editMode);
+    adminMatrix.classList.toggle('is-offline-selecting', offlineSelectionMode);
 
     const editIconName = editMode ? 'check' : 'pencil';
     const editIconSvg = (typeof window.icon === 'function') ? window.icon(editIconName, { size: 14 }) : '';
@@ -597,14 +664,28 @@ function renderMatrix() {
     const editBtnExtraClass = editMode ? ' admin-optin-edit-btn--done' : '';
     const addKidIconSvg = (typeof window.icon === 'function') ? window.icon('user-round-plus', { size: 14 }) : '';
     const moreIconSvg = (typeof window.icon === 'function') ? window.icon('more-vertical', { size: 18 }) : '';
-    const addKidBtnHtml = editMode
+    const addKidBtnHtml = (editMode && !offlineSelectionMode)
         ? `<button type="button" data-action="add-kid" class="btn-secondary admin-optin-edit-btn admin-optin-edit-btn--add-kid">${addKidIconSvg}<span>Add Kid</span></button>`
         : '';
-    const panelMenuBtnHtml = isSuperFamily
+    const panelMenuBtnHtml = (isSuperFamily && !offlineSelectionMode)
         ? `<button type="button" data-panel-menu-trigger class="admin-panel-menu-btn${editMode ? ' is-hidden' : ''}" ${editMode ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="More options">${moreIconSvg}</button>`
         : '';
-    const subText = editMode ? 'Tap to toggle · auto-saved' : 'Numbers = cards/day · tap a number to manage';
-    const subClass = editMode ? 'admin-matrix-title-sub admin-matrix-title-sub--edit' : 'admin-matrix-title-sub';
+    let subText;
+    if (offlineSelectionMode) {
+        subText = 'Pick kids for offline practice · packs expire at midnight';
+    } else if (editMode) {
+        subText = 'Tap to toggle · auto-saved';
+    } else {
+        subText = 'Numbers = cards/day · tap a number to manage';
+    }
+    let subClass = 'admin-matrix-title-sub';
+    if (offlineSelectionMode) subClass += ' admin-matrix-title-sub--offline';
+    else if (editMode) subClass += ' admin-matrix-title-sub--edit';
+    const editToggleHtml = offlineSelectionMode
+        ? ''
+        : `<button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
+                ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
+            </button>`;
     const sectionHeaderHtml = `
         <div class="admin-matrix-section-header-text">
             <span class="admin-matrix-title-main">Subject Settings</span>
@@ -612,9 +693,7 @@ function renderMatrix() {
         </div>
         <div class="admin-matrix-title-actions">
             ${addKidBtnHtml}
-            <button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
-                ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
-            </button>
+            ${editToggleHtml}
         </div>
     `;
     document.getElementById('adminMatrixHeader').innerHTML = sectionHeaderHtml;
@@ -648,25 +727,54 @@ function buildKidColumnHeader(kid) {
     const initial = getKidInitial(name);
     const tone = hashStringToIndex(kidId || name, KID_AVATAR_TONE_COUNT);
     const savingClass = savingKids.has(kidId) ? ' is-saving' : '';
+    const offlineLocked = Boolean(kid?.offlineLock);
+    const offlineSelected = offlineSelectionMode && offlineSelectedKidIds.has(kidId);
+    const offlineLockClass = offlineLocked ? ' is-offline-locked' : '';
+    const offlineSelectClass = offlineSelected ? ' is-offline-selected' : '';
     const progress = computeKidDailyProgress(kid);
     const ringSegmentsHtml = buildKidRingSegmentsHtml(progress);
     const reportHref = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
-    const trashBtnHtml = editMode
-        ? `<button type="button" class="admin-matrix-kid-delete-btn" data-kid-delete data-kid-id="${escapeHtml(kidId)}" aria-label="Delete ${escapeHtml(name)}">${icon('trash', { size: 26, strokeWidth: 2 })}</button>`
+    let trashBtnHtml = '';
+    if (editMode && !offlineSelectionMode) {
+        trashBtnHtml = `<button type="button" class="admin-matrix-kid-delete-btn" data-kid-delete data-kid-id="${escapeHtml(kidId)}" aria-label="Delete ${escapeHtml(name)}">${icon('trash', { size: 26, strokeWidth: 2 })}</button>`;
+    }
+    const checkBadgeHtml = offlineSelectionMode && !offlineLocked
+        ? `<span class="admin-matrix-kid-check-badge${offlineSelected ? ' is-checked' : ''}" aria-hidden="true">${offlineSelected ? '✓' : ''}</span>`
         : '';
+    const lockBadgeHtml = offlineLocked
+        ? `<span class="admin-matrix-kid-lock-badge" aria-label="${escapeHtml(name)} is offline on another device">${icon('cloud-off', { size: 18, strokeWidth: 2.5 })}</span>`
+        : '';
+    const avatarLockedClass = offlineLocked ? ' admin-matrix-kid-avatar--locked' : '';
+    const offlineInfoHtml = (offlineSelectionMode && offlineLocked) ? buildOfflineLockInfoChipHtml(kid) : '';
     const avatarHtml = `
         <span class="admin-matrix-kid-ring-wrap">
             <svg class="admin-matrix-kid-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                 <circle class="admin-matrix-kid-ring-track" cx="50" cy="50" r="46" />
                 ${ringSegmentsHtml}
             </svg>
-            <span class="admin-matrix-kid-avatar admin-matrix-kid-avatar--tone-${tone}" aria-hidden="true">${escapeHtml(initial)}</span>
+            <span class="admin-matrix-kid-avatar admin-matrix-kid-avatar--tone-${tone}${avatarLockedClass}" aria-hidden="true">${escapeHtml(initial)}</span>
+            ${lockBadgeHtml}
+            ${checkBadgeHtml}
             ${trashBtnHtml}
         </span>
         <span class="admin-matrix-kid-name">${escapeHtml(name)}</span>
     `;
     let interactiveHtml;
-    if (editMode) {
+    if (offlineSelectionMode) {
+        if (offlineLocked) {
+            interactiveHtml = `
+                <span class="admin-matrix-kid-head-btn">
+                    ${avatarHtml}
+                </span>
+            `;
+        } else {
+            interactiveHtml = `
+                <button type="button" class="admin-matrix-kid-head-btn" data-offline-kid-toggle data-kid-id="${escapeHtml(kidId)}" aria-pressed="${offlineSelected ? 'true' : 'false'}" aria-label="${offlineSelected ? 'Unselect' : 'Select'} ${escapeHtml(name)} for offline">
+                    ${avatarHtml}
+                </button>
+            `;
+        }
+    } else if (editMode) {
         interactiveHtml = `
             <span class="admin-matrix-kid-head-btn">
                 ${avatarHtml}
@@ -680,10 +788,43 @@ function buildKidColumnHeader(kid) {
         `;
     }
     return `
-        <th class="admin-matrix-kid-head${savingClass}" data-kid-id="${escapeHtml(kidId)}">
+        <th class="admin-matrix-kid-head${savingClass}${offlineLockClass}${offlineSelectClass}" data-kid-id="${escapeHtml(kidId)}">
             ${interactiveHtml}
+            ${offlineInfoHtml}
         </th>
     `;
+}
+
+function buildOfflineLockInfoChipHtml(kid) {
+    const kidId = String(kid?.id || '');
+    const lock = kid?.offlineLock || {};
+    const device = String(lock.device_label || 'Another device');
+    const familyTz = kid?.familyTimezone || kid?.timezone || '';
+    const timeText = (window.OfflineCommon && typeof window.OfflineCommon.formatHourMinute === 'function')
+        ? window.OfflineCommon.formatHourMinute(lock.acquired_at_utc, familyTz)
+        : '';
+    const totalBytes = Number(lock.pack_total_bytes);
+    const totalFiles = Number(lock.pack_total_file_count);
+    const audioCount = Number(lock.pack_audio_file_count);
+    const lines = [];
+    lines.push(`<div class="admin-matrix-kid-offline-info-device">${escapeHtml(device)}</div>`);
+    if (timeText) lines.push(`<div class="admin-matrix-kid-offline-info-meta">${escapeHtml(timeText)}</div>`);
+    if (Number.isFinite(totalBytes) && totalBytes > 0) {
+        lines.push(`<div class="admin-matrix-kid-offline-info-meta">${escapeHtml(formatBytesShort(totalBytes))}</div>`);
+    }
+    if (Number.isFinite(totalFiles) && totalFiles > 0) {
+        lines.push(`<div class="admin-matrix-kid-offline-info-meta">${totalFiles} file${totalFiles === 1 ? '' : 's'}</div>`);
+    }
+    if (Number.isFinite(audioCount) && audioCount > 0) {
+        lines.push(`<div class="admin-matrix-kid-offline-info-meta">${audioCount} audio</div>`);
+    }
+    const ownedHere = offlineOwnedKidIds.has(kidId);
+    if (ownedHere) {
+        lines.push(`<a class="admin-matrix-kid-offline-info-resume" href="/kid-practice-home.html?id=${encodeURIComponent(kidId)}" data-offline-resume>${(typeof window.icon === 'function') ? window.icon('cloud-off', { size: 11 }) : ''}<span>Resume</span></a>`);
+    }
+    const safeName = String(kid?.name || '').trim() || 'this child';
+    lines.push(`<button type="button" class="admin-matrix-kid-offline-info-release" data-offline-force-release data-kid-id="${escapeHtml(kidId)}" aria-label="Force-release offline lock for ${escapeHtml(safeName)}">${(typeof window.icon === 'function') ? window.icon('trash', { size: 14, strokeWidth: 2 }) : ''}</button>`);
+    return `<div class="admin-matrix-kid-offline-info">${lines.join('')}</div>`;
 }
 
 function computeKidDailyProgress(kid) {
@@ -756,6 +897,18 @@ function buildMatrixCell(row, kid) {
     const baselineOptedIn = optedInSet.has(row.categoryKey);
     const stateOptedIn = editState && editState[kidId] ? !!editState[kidId][row.categoryKey] : baselineOptedIn;
     const optedIn = editMode ? stateOptedIn : baselineOptedIn;
+    const offlineLocked = Boolean(kid?.offlineLock);
+    const offlineSelected = offlineSelectionMode && offlineSelectedKidIds.has(kidId);
+
+    if (offlineSelectionMode) {
+        const classes = ['admin-matrix-cell'];
+        if (offlineLocked) classes.push('is-offline-locked');
+        else if (offlineSelected) classes.push('is-offline-selected');
+        const valClasses = ['admin-matrix-value', 'is-offline-onoff'];
+        if (!optedIn) valClasses.push('is-off');
+        const label = optedIn ? 'On' : 'Off';
+        return `<td class="${classes.join(' ')}"><span class="${valClasses.join(' ')}">${label}</span></td>`;
+    }
 
     if (!editMode) {
         if (!baselineOptedIn) {
@@ -819,6 +972,22 @@ function bindMatrixInteractions(rows, kids) {
             const kid = currentKids.find((item) => String(item?.id || '') === kidId);
             const name = String(kid?.name || '').trim();
             deleteKid(kidId, name);
+        });
+    });
+    adminMatrix.querySelectorAll('[data-offline-force-release]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const target = event.currentTarget;
+            const kidId = target.getAttribute('data-kid-id') || '';
+            const kid = currentKids.find((item) => String(item?.id || '') === kidId);
+            const name = String(kid?.name || '').trim() || 'this child';
+            forceReleaseOfflineLock(kidId, name);
+        });
+    });
+    adminMatrix.querySelectorAll('[data-offline-resume]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            event.stopPropagation();
         });
     });
     const panelTrigger = adminMatrix.querySelector('[data-panel-menu-trigger]');
@@ -1283,3 +1452,260 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// =====================================================================
+// === 9. Offline mode (selection toolbar, status banner, download flow)
+// =====================================================================
+
+function bindOfflineModeEvents() {
+    const offlineBtn = document.getElementById('offlineModeBtn');
+    if (offlineBtn) {
+        offlineBtn.addEventListener('click', () => {
+            if (offlineSelectionMode) {
+                exitOfflineSelectionMode();
+            } else {
+                enterOfflineSelectionMode();
+            }
+        });
+    }
+    if (adminMatrix) {
+        adminMatrix.addEventListener('click', (event) => {
+            const toggleBtn = event.target.closest('[data-offline-kid-toggle]');
+            if (!toggleBtn) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const kidId = toggleBtn.getAttribute('data-kid-id') || '';
+            toggleOfflineKidSelection(kidId);
+        });
+    }
+}
+
+function enterOfflineSelectionMode() {
+    if (editMode) exitEditMode();
+    offlineSelectionMode = true;
+    offlineSelectedKidIds.clear();
+    const btn = document.getElementById('offlineModeBtn');
+    if (btn) btn.classList.add('is-active');
+    renderAll();
+}
+
+function exitOfflineSelectionMode() {
+    offlineSelectionMode = false;
+    offlineSelectedKidIds.clear();
+    const btn = document.getElementById('offlineModeBtn');
+    if (btn) btn.classList.remove('is-active');
+    renderAll();
+}
+
+function toggleOfflineKidSelection(kidId) {
+    if (!offlineSelectionMode) return;
+    const id = String(kidId || '').trim();
+    if (!id) return;
+    const kid = currentKids.find((k) => String(k?.id || '') === id);
+    if (!kid || kid.offlineLock) return;
+    if (offlineSelectedKidIds.has(id)) {
+        offlineSelectedKidIds.delete(id);
+    } else {
+        offlineSelectedKidIds.add(id);
+    }
+    renderMatrix();
+    renderOfflineActionFooter();
+}
+
+function renderOfflineActionFooter() {
+    const footer = document.getElementById('offlineActionFooter');
+    if (!footer) return;
+    if (!offlineSelectionMode) {
+        footer.classList.add('hidden');
+        footer.innerHTML = '';
+        return;
+    }
+    const count = offlineSelectedKidIds.size;
+    const downloadDisabled = count === 0;
+    const downloadLabel = count === 0 ? 'Download' : `Download ${count} kid${count === 1 ? '' : 's'}`;
+    footer.classList.remove('hidden');
+    footer.innerHTML = `
+        <button type="button" class="offline-action-footer-btn offline-action-footer-btn--cancel" data-offline-cancel>Cancel</button>
+        <button type="button" class="offline-action-footer-btn offline-action-footer-btn--download" data-offline-download ${downloadDisabled ? 'disabled' : ''}>
+            ${(typeof window.icon === 'function') ? window.icon('download', { size: 18 }) : ''}
+            <span data-offline-download-label>${downloadLabel}</span>
+        </button>
+    `;
+    const cancelBtnEl = footer.querySelector('[data-offline-cancel]');
+    if (cancelBtnEl) cancelBtnEl.addEventListener('click', exitOfflineSelectionMode);
+    const downloadBtnEl = footer.querySelector('[data-offline-download]');
+    if (downloadBtnEl) downloadBtnEl.addEventListener('click', downloadSelectedOffline);
+}
+
+async function downloadSelectedOffline() {
+    if (!offlineSelectionMode || offlineSelectedKidIds.size === 0) return;
+    const ids = Array.from(offlineSelectedKidIds);
+    const footer = document.getElementById('offlineActionFooter');
+    const downloadBtn = footer ? footer.querySelector('[data-offline-download]') : null;
+    const cancelBtn = footer ? footer.querySelector('[data-offline-cancel]') : null;
+
+    // Per-kid progress counters; reset on each kid's `subjects_known` event.
+    let currentKidName = '';
+    let totalSubjects = 0;
+    let completedSubjects = 0;
+    let totalAudio = 0;
+    let completedAudio = 0;
+    let inAudioPhase = false;
+    const setLabel = (text) => {
+        if (!downloadBtn) return;
+        const labelEl = downloadBtn.querySelector('[data-offline-download-label]');
+        if (labelEl) labelEl.textContent = text;
+    };
+    const refreshLabel = () => {
+        const prefix = currentKidName ? `${currentKidName} · ` : '';
+        if (inAudioPhase && totalAudio > 0 && completedAudio < totalAudio) {
+            setLabel(`${prefix}Audio ${completedAudio}/${totalAudio}…`);
+            return;
+        }
+        if (totalSubjects === 0) {
+            setLabel(`${prefix}Preparing…`);
+        } else if (completedSubjects < totalSubjects) {
+            setLabel(`${prefix}Subject ${completedSubjects + 1}/${totalSubjects}…`);
+        } else if (inAudioPhase && totalAudio === 0) {
+            setLabel(`${prefix}Finishing…`);
+        } else {
+            setLabel(`${prefix}Done ${completedSubjects}/${totalSubjects}`);
+        }
+    };
+
+    if (downloadBtn) {
+        downloadBtn.disabled = true;
+        downloadBtn.classList.add('is-busy');
+    }
+    if (cancelBtn) cancelBtn.disabled = true;
+    setLabel('Preparing…');
+
+    const onProgress = (info) => {
+        if (!info) return;
+        if (info.kidName) currentKidName = String(info.kidName);
+        if (info.phase === 'subjects_known') {
+            totalSubjects = Number(info.subjectCount || 0);
+            completedSubjects = 0;
+            totalAudio = 0;
+            completedAudio = 0;
+            inAudioPhase = false;
+        } else if (info.phase === 'subject_done') {
+            completedSubjects += 1;
+        } else if (info.phase === 'audio_start') {
+            inAudioPhase = true;
+            totalAudio = Number(info.audioCount || 0);
+            completedAudio = 0;
+        } else if (info.phase === 'audio_progress') {
+            completedAudio = Number(info.completed || 0);
+            totalAudio = Number(info.total || totalAudio);
+        } else if (info.phase === 'audio_done') {
+            completedAudio = totalAudio;
+            inAudioPhase = false;
+        }
+        refreshLabel();
+    };
+
+    const results = [];
+    for (const kidId of ids) {
+        try {
+            const res = await window.OfflineCommon.acquirePack(kidId, {
+                deviceLabel: window.OfflineCommon.parseDeviceLabel(),
+                onProgress,
+            });
+            results.push({ kidId, res });
+            if (!res.ok && res.inflight) {
+                const proceed = window.confirm('This child has unfinished practice in progress. Discard and continue offline?');
+                if (proceed) {
+                    const retry = await window.OfflineCommon.acquirePack(kidId, {
+                        deviceLabel: window.OfflineCommon.parseDeviceLabel(),
+                        forceDiscardInflight: true,
+                        onProgress,
+                    });
+                    results[results.length - 1] = { kidId, res: retry };
+                }
+            }
+        } catch (e) {
+            results.push({ kidId, res: { ok: false, error: String(e) } });
+        }
+    }
+
+    const firstSuccess = results.find((r) => r.res && r.res.ok);
+    const failures = results.filter((r) => !(r.res && r.res.ok));
+    if (failures.length > 0) {
+        const msgs = failures.map((f) => {
+            if (f.res && f.res.conflict) return `Kid ${f.kidId}: already offline on another device.`;
+            if (f.res && f.res.inflight) return `Kid ${f.kidId}: unfinished session in progress.`;
+            return `Kid ${f.kidId}: ${(f.res && f.res.error) || 'unknown error'}`;
+        }).join('\n');
+        alert(`Some kids could not be taken offline:\n${msgs}`);
+    }
+
+    if (firstSuccess) {
+        const kidId = firstSuccess.kidId;
+        setLabel('Done');
+        window.location.href = `/kid-practice-home.html?id=${encodeURIComponent(kidId)}`;
+        return;
+    }
+    if (downloadBtn) {
+        downloadBtn.disabled = false;
+        downloadBtn.classList.remove('is-busy');
+    }
+    if (cancelBtn) cancelBtn.disabled = false;
+    exitOfflineSelectionMode();
+    loadKids({ preferNavigationCache: false });
+}
+
+async function refreshOfflineOwnedAndStats() {
+    const lockedKids = (currentKids || []).filter((k) => k && k.offlineLock);
+    if (lockedKids.length === 0) {
+        if (offlineOwnedKidIds.size > 0) {
+            offlineOwnedKidIds = new Set();
+            renderMatrix();
+        }
+        return;
+    }
+    const ownedKidIds = window.OfflineStorage
+        ? await window.OfflineStorage.listOwnedKidIds()
+        : [];
+    offlineOwnedKidIds = new Set(ownedKidIds.map(String));
+    // Back-fill: any locked kid whose pack lives here but whose lock JSON
+    // doesn't yet carry the size/count fields (older acquires) gets reported
+    // now. Idempotent — server overwrites with the same values on repeats.
+    let mutated = false;
+    if (window.OfflineStorage && typeof window.OfflineStorage.getPackStats === 'function') {
+        const needsReport = lockedKids.filter((kid) => {
+            if (!offlineOwnedKidIds.has(String(kid.id))) return false;
+            const lk = kid.offlineLock || {};
+            return !(Number(lk.pack_total_bytes) > 0) || !(Number(lk.pack_total_file_count) > 0);
+        });
+        if (needsReport.length > 0) {
+            await Promise.all(needsReport.map(async (kid) => {
+                try {
+                    const stats = await window.OfflineStorage.getPackStats(String(kid.id));
+                    if (!stats || !stats.hasPack) return;
+                    const lk = kid.offlineLock || {};
+                    const res = await fetch(`/api/kids/${encodeURIComponent(String(kid.id))}/offline/report-pack-stats`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            packId: lk.pack_id,
+                            totalBytes: stats.totalBytes,
+                            totalFileCount: stats.totalFileCount,
+                            audioFileCount: stats.audioFileCount,
+                        }),
+                    });
+                    if (res.ok) {
+                        const payload = await res.json().catch(() => ({}));
+                        if (payload && payload.lock) {
+                            kid.offlineLock = { ...lk, ...payload.lock };
+                            mutated = true;
+                        }
+                    }
+                } catch (_) { /* best-effort */ }
+            }));
+        }
+    }
+    renderMatrix();
+    if (mutated) renderMatrix();
+}
+
