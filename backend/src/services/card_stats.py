@@ -63,11 +63,12 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
                     ELSE sr.correct
                 END,
                 sr.timestamp
-            ) AS last_result_correct
+            ) AS last_result_correct,
+            COALESCE(c.thumb_down_count, 0) AS thumb_down_count
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.deck_id IN ({placeholders})
-        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.created_at
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.created_at, c.thumb_down_count
         ORDER BY c.deck_id ASC, c.id ASC
         """,
         normalized_ids,
@@ -118,11 +119,12 @@ def get_cards_with_stats_for_card_ids(conn, card_ids):
                     ELSE sr.correct
                 END,
                 sr.timestamp
-            ) AS last_result_correct
+            ) AS last_result_correct,
+            COALESCE(c.thumb_down_count, 0) AS thumb_down_count
         FROM cards c
         LEFT JOIN session_results sr ON c.id = sr.card_id
         WHERE c.id IN ({placeholders})
-        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.created_at
+        GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.created_at, c.thumb_down_count
         ORDER BY c.id ASC
         """,
         normalized_ids,
@@ -180,6 +182,7 @@ def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
         'overall_wrong_rate': float(row[9]) if row[9] is not None else None,
         'last_response_time_ms': int(row[10]) if row[10] is not None else None,
         'last_result': last_result,
+        'thumb_down_count': int(row[12]) if row[12] is not None else 0,
         'practice_priority_order': practice_priority_preview.get('order'),
         'practice_priority_score': practice_priority_preview.get('priority_score'),
         'practice_priority_missed_points': practice_priority_preview.get('missed_points'),

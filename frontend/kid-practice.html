@@ -195,6 +195,41 @@
             cursor: default;
         }
 
+        .thumb-down-btn {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            width: 64px;
+            min-width: 64px;
+            height: 64px;
+            padding: 0;
+            border-radius: 999px;
+            border: 1px solid #f3c4c4;
+            background: rgba(255, 255, 255, 0.96);
+            color: #c0392b;
+            box-shadow: 0 3px 10px rgba(17, 24, 39, 0.08);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        .thumb-down-btn:hover:not(:disabled) {
+            background: #fdecea;
+        }
+
+        .thumb-down-btn.is-thumbed,
+        .thumb-down-btn:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
+
+        .thumb-down-btn.is-thumbed {
+            background: #c0392b;
+            color: #fff;
+            border-color: #c0392b;
+        }
+
         .pause-mask {
             font-size: 2rem;
             font-weight: 700;
@@ -782,6 +817,15 @@
                             title="Play prompt audio"
                         >
                             <span class="icon" data-icon="volume-2" data-icon-size="44"></span>
+                        </button>
+                        <button
+                            type="button"
+                            class="thumb-down-btn hidden"
+                            id="thumbDownBtn"
+                            aria-label="I don't like this prompt"
+                            title="I don't like this prompt"
+                        >
+                            <span class="icon" data-icon="thumbs-down" data-icon-size="28"></span>
                         </button>
                         <div class="card-page hidden" id="cardSourceTags">Source:</div>
                         <div class="card-title hidden" id="cardTitle"></div>

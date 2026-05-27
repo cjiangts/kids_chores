@@ -103,8 +103,47 @@ function showCurrentPrompt() {
     doneBtn.disabled = false;
 
     state.cardShownAtMs = Date.now();
+    showThumbDownButton();
     playPromptForCard(card);
     prefetchNextPrompt();
+}
+
+function showThumbDownButton() {
+    if (!thumbDownBtn) {
+        return;
+    }
+    thumbDownBtn.classList.remove('hidden', 'is-thumbed');
+    thumbDownBtn.disabled = false;
+}
+
+async function submitThumbDownForCurrentCard() {
+    if (!isType(BEHAVIOR_TYPE_II)) {
+        return;
+    }
+    if (!window.PracticeSession.hasActiveSession(state.activePendingSessionId) || state.sessionCards.length === 0) {
+        return;
+    }
+    if (!thumbDownBtn || thumbDownBtn.disabled) {
+        return;
+    }
+    const card = state.sessionCards[state.currentIndex];
+    if (!card || !card.id) {
+        return;
+    }
+    thumbDownBtn.disabled = true;
+    thumbDownBtn.classList.add('is-thumbed');
+    try {
+        const response = await fetch(`${API_BASE}/kids/${kidId}/cards/${card.id}/thumb-down`, {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error submitting thumb-down:', error);
+        thumbDownBtn.classList.remove('is-thumbed');
+        thumbDownBtn.disabled = false;
+    }
 }
 function revealType2Answer() {
     if (!isType(BEHAVIOR_TYPE_II)) {

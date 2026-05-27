@@ -44,6 +44,7 @@ const CARD_SORT_MODE_EMA_RESPONSE_TIME = 'avg_response_time';
 const CARD_SORT_MODE_LIFETIME_ATTEMPTS = 'lifetime_attempts';
 const CARD_SORT_MODE_LAST_SEEN = 'last_seen';
 const CARD_SORT_MODE_ADDED_TIME = 'added_time';
+const CARD_SORT_MODE_THUMB_DOWNS = 'thumb_downs';
 const CARD_SORT_DIRECTION_ASC = 'asc';
 const CARD_SORT_DIRECTION_DESC = 'desc';
 const VALID_CARD_SORT_MODES = new Set([
@@ -53,6 +54,7 @@ const VALID_CARD_SORT_MODES = new Set([
     CARD_SORT_MODE_LIFETIME_ATTEMPTS,
     CARD_SORT_MODE_LAST_SEEN,
     CARD_SORT_MODE_ADDED_TIME,
+    CARD_SORT_MODE_THUMB_DOWNS,
 ]);
 const SHARED_SCOPE_CARDS = 'cards';
 const SHARED_SCOPE_TYPE2 = 'type2';

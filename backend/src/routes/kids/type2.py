@@ -210,7 +210,7 @@ def update_writing_card(kid_id, card_id):
         old_back = str(row[3] or '')
         if old_back != next_back:
             conn.execute(
-                "UPDATE cards SET back = ? WHERE id = ?",
+                "UPDATE cards SET back = ?, thumb_down_count = 0 WHERE id = ?",
                 [next_back, row[0]]
             )
         conn.close()

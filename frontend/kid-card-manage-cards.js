@@ -75,6 +75,11 @@ function buildGenericType1CardMarkup(card, options = {}) {
 function buildType2CardMarkup(card, options = {}) {
     const hasSavedAudio = !!card.audio_url;
     const secondaryText = String(card.back || card.front || '');
+    const thumbDownCount = Number.parseInt(card && card.thumb_down_count, 10);
+    const hasThumbDown = Number.isInteger(thumbDownCount) && thumbDownCount > 0;
+    const thumbDownBadgeHtml = hasThumbDown
+        ? `<span class="type2-prompt-thumb-down-badge" title="Kid disliked this prompt ${thumbDownCount} time${thumbDownCount === 1 ? '' : 's'}">${icon('thumbs-down', { size: 12, strokeWidth: 2.2 })}<span>${thumbDownCount}</span></span>`
+        : '';
     const promptHtml = `
         <div class="type2-prompt-row">
             <button
@@ -86,6 +91,7 @@ function buildType2CardMarkup(card, options = {}) {
                 title="Play prompt"
             ><svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg></button>
             <span class="type2-prompt-text">${escapeHtml(secondaryText)}</span>
+            ${thumbDownBadgeHtml}
             <button
                 type="button"
                 class="type2-prompt-edit"

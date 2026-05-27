@@ -3789,6 +3789,24 @@
             text-align: left;
         }
 
+        .type2-prompt-thumb-down-badge {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: rgba(220, 38, 38, 0.12);
+            color: #b91c1c;
+            font-size: 0.72rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .type2-prompt-thumb-down-badge svg {
+            display: block;
+        }
+
         @media (max-width: 680px) {
             .expanded-card-hero {
                 grid-template-columns: fit-content(84px) minmax(0, 1fr);

@@ -3,6 +3,7 @@
 Layout (search for `# === N. ` banner markers to jump between sections):
 
     1. Personal card CRUD     — /kids/<id>/cards (GET/POST/bulk/DELETE)
+                                /kids/<id>/cards/<cid>/thumb-down (POST)
     2. Scope dispatch routes  — /kids/<id>/<scope>/shared-decks[...]
        All delegated to routes.kids.__init__ scope-handler dispatch.
          /<scope>/shared-decks                   (GET listing)
@@ -308,6 +309,45 @@ def delete_card(kid_id, card_id):
             'category_key': category_key,
             'card_id': int(card_id),
             'deleted': True,
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/cards/<card_id>/thumb-down', methods=['POST'])
+def thumb_down_card(kid_id, card_id):
+    """Record a kid's thumb-down on one card; returns the new count."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+
+        conn = get_kid_connection_for(kid)
+        try:
+            row = conn.execute(
+                "SELECT id FROM cards WHERE id = ? LIMIT 1",
+                [card_id]
+            ).fetchone()
+            if not row:
+                return jsonify({'error': 'Card not found'}), 404
+
+            new_count = conn.execute(
+                """
+                UPDATE cards
+                SET thumb_down_count = COALESCE(thumb_down_count, 0) + 1
+                WHERE id = ?
+                RETURNING thumb_down_count
+                """,
+                [card_id]
+            ).fetchone()[0]
+        finally:
+            conn.close()
+
+        return jsonify({
+            'card_id': int(card_id),
+            'thumb_down_count': int(new_count),
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

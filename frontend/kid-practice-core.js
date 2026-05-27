@@ -70,6 +70,7 @@ const cardQuestion = document.getElementById('cardQuestion');
 const promptText = document.getElementById('promptText');
 const tapHint = document.getElementById('tapHint');
 const promptReplayBtn = document.getElementById('promptReplayBtn');
+const thumbDownBtn = document.getElementById('thumbDownBtn');
 const cardAnswer = document.getElementById('cardAnswer');
 const pauseMask = document.getElementById('pauseMask');
 const recordingViz = document.getElementById('recordingViz');
@@ -584,6 +585,11 @@ function showTypeSpecificCardSections() {
     tapHint.classList.add('hidden');
     if (promptReplayBtn) {
         promptReplayBtn.classList.add('hidden');
+    }
+    if (thumbDownBtn) {
+        thumbDownBtn.classList.add('hidden');
+        thumbDownBtn.classList.remove('is-thumbed');
+        thumbDownBtn.disabled = false;
     }
     cardAnswer.classList.add('hidden');
     pauseMask.classList.add('hidden');
@@ -1187,6 +1193,13 @@ function bindEventHandlers() {
             event.preventDefault();
             event.stopPropagation();
             void replayCurrentPrompt();
+        });
+    }
+    if (thumbDownBtn) {
+        thumbDownBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void submitThumbDownForCurrentCard();
         });
     }
     knewBtn.addEventListener('click', () => {

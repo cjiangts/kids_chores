@@ -305,6 +305,11 @@ function getCardAddedTimeSortValue(card) {
     return Number.isFinite(createdAt) && createdAt > 0 ? createdAt : null;
 }
 
+function getCardThumbDownsSortValue(card) {
+    const count = Number.parseInt(card && card.thumb_down_count, 10);
+    return Number.isInteger(count) ? Math.max(0, count) : 0;
+}
+
 function comparePracticeQueueCards(a, b, direction) {
     const aSkipped = Boolean(a && a.skip_practice);
     const bSkipped = Boolean(b && b.skip_practice);
@@ -357,6 +362,13 @@ function compareMetricCards(a, b, mode, direction) {
         comparison = compareNullableSortValues(
             getCardAddedTimeSortValue(a),
             getCardAddedTimeSortValue(b),
+            direction,
+            'last'
+        );
+    } else if (mode === CARD_SORT_MODE_THUMB_DOWNS) {
+        comparison = compareNullableSortValues(
+            getCardThumbDownsSortValue(a),
+            getCardThumbDownsSortValue(b),
             direction,
             'last'
         );
@@ -931,6 +943,21 @@ function getQueueHighlightMap(cards) {
         return new Map();
     }
 
+    if (getSelectedCardSortMode() === CARD_SORT_MODE_THUMB_DOWNS) {
+        const highlights = new Map();
+        (Array.isArray(cards) ? cards : []).forEach((card) => {
+            const count = Number.parseInt(card && card.thumb_down_count, 10);
+            if (!Number.isInteger(count) || count <= 0) {
+                return;
+            }
+            const cardId = getCardIdText(card);
+            if (cardId) {
+                highlights.set(cardId, 'missed');
+            }
+        });
+        return highlights;
+    }
+
     const targetCount = getSessionCardCountForMixLegend();
     if (targetCount <= 0) {
         return new Map();
@@ -1013,22 +1040,27 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
     if (!cardsQueueLegend) {
         return;
     }
-    const shouldShow = usesPracticePriorityDisplay()
+    const sortingByThumbDowns = getSelectedCardSortMode() === CARD_SORT_MODE_THUMB_DOWNS;
+    const shouldShow = (usesPracticePriorityDisplay() || sortingByThumbDowns)
         && Number.parseInt(cardCount, 10) > 0;
     if (shouldShow) {
-        const missedLegendHtml = isType3Behavior()
-            ? ''
-            : '<span class="cards-queue-legend-item missed"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Missed</span>';
-        const slowLegendHtml = (isType2Behavior() || isType3Behavior())
-            ? ''
-            : '<span class="cards-queue-legend-item slow"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Slow</span>';
-        cardsQueueLegend.innerHTML = `
-            ${missedLegendHtml}
-            ${slowLegendHtml}
-            <span class="cards-queue-legend-item learning"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Learning</span>
-            <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
-            <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
-        `;
+        if (sortingByThumbDowns) {
+            cardsQueueLegend.innerHTML = '<span class="cards-queue-legend-item missed"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Thumbed-down</span>';
+        } else {
+            const missedLegendHtml = isType3Behavior()
+                ? ''
+                : '<span class="cards-queue-legend-item missed"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Missed</span>';
+            const slowLegendHtml = (isType2Behavior() || isType3Behavior())
+                ? ''
+                : '<span class="cards-queue-legend-item slow"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Slow</span>';
+            cardsQueueLegend.innerHTML = `
+                ${missedLegendHtml}
+                ${slowLegendHtml}
+                <span class="cards-queue-legend-item learning"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Learning</span>
+                <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
+                <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
+            `;
+        }
     }
     cardsQueueLegend.classList.toggle('hidden', !shouldShow);
     cardsQueueLegend.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');

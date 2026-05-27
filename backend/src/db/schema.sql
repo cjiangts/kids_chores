@@ -30,8 +30,16 @@ CREATE TABLE IF NOT EXISTS cards (
   skip_practice BOOLEAN NOT NULL DEFAULT FALSE,
   correct_time_ema DOUBLE,
   correct_time_ema_count INTEGER DEFAULT 0,
+  thumb_down_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE cards
+ADD COLUMN IF NOT EXISTS thumb_down_count INTEGER DEFAULT 0;
+
+UPDATE cards
+SET thumb_down_count = 0
+WHERE thumb_down_count IS NULL;
 
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (

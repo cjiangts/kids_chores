@@ -16,10 +16,13 @@ function syncType4CardOrderOptions() {
         return;
     }
     const hideAllExceptAdded = isType4Behavior();
+    const showType2Only = isType2Behavior();
     const options = viewOrderSelect.querySelectorAll('option');
     options.forEach((option) => {
         const value = String(option.value || '').trim().toLowerCase();
-        const shouldHide = hideAllExceptAdded && value !== CARD_SORT_MODE_ADDED_TIME;
+        const isType2Only = option.dataset && option.dataset.type2Only === '1';
+        const shouldHide = (hideAllExceptAdded && value !== CARD_SORT_MODE_ADDED_TIME)
+            || (isType2Only && !showType2Only);
         option.hidden = shouldHide;
         option.disabled = shouldHide;
     });
@@ -30,6 +33,10 @@ function syncType4CardOrderOptions() {
     if (hideAllExceptAdded && currentValue !== CARD_SORT_MODE_ADDED_TIME) {
         viewOrderSelect.value = CARD_SORT_MODE_ADDED_TIME;
         setCurrentCardSortDirection(getDefaultCardSortDirection(CARD_SORT_MODE_ADDED_TIME));
+        syncCardSortDirectionButton();
+    } else if (currentValue === CARD_SORT_MODE_THUMB_DOWNS && !showType2Only) {
+        viewOrderSelect.value = CARD_SORT_MODE_PRACTICE_QUEUE;
+        setCurrentCardSortDirection(getDefaultCardSortDirection(CARD_SORT_MODE_PRACTICE_QUEUE));
         syncCardSortDirectionButton();
     } else if (!VALID_CARD_SORT_MODES.has(currentValue)) {
         viewOrderSelect.value = CARD_SORT_MODE_PRACTICE_QUEUE;
