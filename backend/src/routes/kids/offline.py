@@ -561,9 +561,18 @@ def offline_sync(kid_id):
                 if not isinstance(entry, dict):
                     results.append({'ok': False, 'error': 'invalid session entry'})
                     continue
-                response_dict, status_code = _replay_completed_session(
-                    kid, kid_id, entry, source_pid_to_session_id, source_pid_to_item_id_map,
-                )
+                # Catch per-session exceptions so the loop always reaches
+                # release_lock below. Otherwise an unexpected raise (DB error,
+                # type-IV id-map query failure, etc.) would propagate to the
+                # outer except, skip release_lock, and leave the lock held —
+                # the client's next sync retry would then re-commit every
+                # session that already succeeded, producing duplicates.
+                try:
+                    response_dict, status_code = _replay_completed_session(
+                        kid, kid_id, entry, source_pid_to_session_id, source_pid_to_item_id_map,
+                    )
+                except Exception as exc:
+                    response_dict, status_code = {'error': f'replay_failed: {exc}'}, 500
                 ok = 200 <= int(status_code or 500) < 300
                 if ok:
                     committed_count += 1
@@ -574,7 +583,10 @@ def offline_sync(kid_id):
                     'sessionType': entry.get('sessionType'),
                     'response': response_dict,
                 })
-            thumb_down_committed = _replay_thumb_down_events(kid, thumb_down_events)
+            try:
+                thumb_down_committed = _replay_thumb_down_events(kid, thumb_down_events)
+            except Exception:
+                thumb_down_committed = 0
             release_info = release_lock(kid_id, pack_id)
 
         return jsonify({
