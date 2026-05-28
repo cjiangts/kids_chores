@@ -1,18 +1,7 @@
 """Offline pack claims: one offline pack per kid at a time.
 
-Backed by the `offlineClaim` field on each kid record in `kids.json` via
-`src/db/metadata.py`. While a claim is active, mutating routes for that kid
-are rejected; the claim auto-expires at the family-timezone midnight after
-acquisition. Claims are cleaned up lazily on read.
-
-Public API (consumed by `routes/kids/offline.py` and `routes/kids/kids_core.py`):
-  - `acquire_lock(kid_id, family_id, device_label)` -> {lock|conflict|error}
-  - `get_lock(kid_id)` -> snake_case lock dict or None
-  - `get_locks_for_family(family_id)` -> list of lock dicts
-  - `release_lock(kid_id, pack_id)` -> {released, reason, current}
-  - `force_release_lock(kid_id)` -> {released, previous}
-  - `update_pack_stats(kid_id, pack_id, bytes, files, audio)` -> updated dict or None
-  - `assert_kid_online(kid_id)` -> None or (error_dict, 423) for middleware use
+Stored as `offlineClaim` on each kid in `kids.json`. Expires at family-tz
+midnight; cleanup is lazy on read.
 """
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -25,38 +14,7 @@ from src.db.metadata import _mutate_metadata
 _CLAIM_FIELD = 'offlineClaim'
 
 
-def _utcnow_iso():
-    return datetime.now(timezone.utc).replace(microsecond=0, tzinfo=None).isoformat()
-
-
-def _parse_iso_utc(value):
-    if not value:
-        return None
-    try:
-        text = str(value).replace('Z', '+00:00')
-        dt = datetime.fromisoformat(text)
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-        return dt
-    except Exception:
-        return None
-
-
-def _compute_expiry_utc(family_id):
-    tz_name = metadata.get_family_timezone(str(family_id or ''))
-    try:
-        tzinfo = ZoneInfo(tz_name)
-    except Exception:
-        tzinfo = ZoneInfo('UTC')
-    now_local = datetime.now(tzinfo)
-    next_midnight = (now_local + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0,
-    )
-    return next_midnight.astimezone(timezone.utc).replace(tzinfo=None)
-
-
 def _public_lock_dict(kid, claim):
-    """Project an in-memory kid claim into the snake_case shape callers expect."""
     return {
         'kid_id': str(kid.get('id') or ''),
         'family_id': str(kid.get('familyId') or ''),
@@ -78,12 +36,17 @@ def _find_kid(data, kid_key):
 
 
 def _pop_expired_claim(kid):
-    """Drop expired/malformed claim in-place. Returns the active claim dict or None."""
     claim = kid.get(_CLAIM_FIELD)
     if not isinstance(claim, dict):
         kid.pop(_CLAIM_FIELD, None)
         return None
-    exp = _parse_iso_utc(claim.get('expiresAtUtc'))
+    try:
+        raw = str(claim.get('expiresAtUtc') or '').replace('Z', '+00:00')
+        exp = datetime.fromisoformat(raw)
+        if exp.tzinfo is not None:
+            exp = exp.astimezone(timezone.utc).replace(tzinfo=None)
+    except Exception:
+        exp = None
     if exp is None or exp <= datetime.now(timezone.utc).replace(tzinfo=None):
         kid.pop(_CLAIM_FIELD, None)
         return None
@@ -131,7 +94,14 @@ def acquire_lock(kid_id, family_id, device_label):
     if not fid:
         return {'error': 'family_id required'}
     label = str(device_label or '').strip()[:64] or 'Unknown device'
-    expires_iso = _compute_expiry_utc(fid).isoformat()
+
+    try:
+        tzinfo = ZoneInfo(metadata.get_family_timezone(fid))
+    except Exception:
+        tzinfo = ZoneInfo('UTC')
+    next_midnight_utc = (datetime.now(tzinfo) + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0,
+    ).astimezone(timezone.utc).replace(tzinfo=None)
     pack_id = uuid.uuid4().hex
 
     def _op(data):
@@ -144,8 +114,8 @@ def acquire_lock(kid_id, family_id, device_label):
         new_claim = {
             'packId': pack_id,
             'deviceLabel': label,
-            'acquiredAtUtc': _utcnow_iso(),
-            'expiresAtUtc': expires_iso,
+            'acquiredAtUtc': datetime.now(timezone.utc).replace(microsecond=0, tzinfo=None).isoformat(),
+            'expiresAtUtc': next_midnight_utc.isoformat(),
         }
         kid[_CLAIM_FIELD] = new_claim
         return {'lock': _public_lock_dict(kid, new_claim)}
@@ -158,15 +128,11 @@ def update_pack_stats(kid_id, pack_id, total_bytes, total_file_count, audio_file
     if not kid_key:
         return None
 
-    def _nonneg_int(value):
+    def _nonneg(v):
         try:
-            return max(0, int(value))
+            return max(0, int(v))
         except (TypeError, ValueError):
             return 0
-
-    bytes_int = _nonneg_int(total_bytes)
-    files_int = _nonneg_int(total_file_count)
-    audio_int = _nonneg_int(audio_file_count)
 
     def _op(data):
         kid = _find_kid(data, kid_key)
@@ -175,15 +141,16 @@ def update_pack_stats(kid_id, pack_id, total_bytes, total_file_count, audio_file
         claim = _pop_expired_claim(kid)
         if not claim or str(claim.get('packId')) != str(pack_id):
             return None
-        claim['packTotalBytes'] = bytes_int
-        claim['packTotalFileCount'] = files_int
-        claim['packAudioFileCount'] = audio_int
+        claim['packTotalBytes'] = _nonneg(total_bytes)
+        claim['packTotalFileCount'] = _nonneg(total_file_count)
+        claim['packAudioFileCount'] = _nonneg(audio_file_count)
         return _public_lock_dict(kid, claim)
 
     return _mutate_metadata(_op)
 
 
-def release_lock(kid_id, pack_id):
+def release_lock(kid_id, pack_id=None):
+    """Release a kid's offline claim. pack_id=None force-releases."""
     kid_key = str(kid_id or '').strip()
     missing = {'released': False, 'reason': 'expired_or_missing', 'current': None}
     if not kid_key:
@@ -196,34 +163,15 @@ def release_lock(kid_id, pack_id):
         claim = _pop_expired_claim(kid)
         if not claim:
             return missing
-        if str(claim.get('packId')) != str(pack_id):
+        if pack_id is not None and str(claim.get('packId')) != str(pack_id):
             return {
                 'released': False,
                 'reason': 'taken_by_other',
                 'current': _public_lock_dict(kid, claim),
             }
-        kid.pop(_CLAIM_FIELD, None)
-        return {'released': True, 'reason': 'released', 'current': None}
-
-    return _mutate_metadata(_op)
-
-
-def force_release_lock(kid_id):
-    kid_key = str(kid_id or '').strip()
-    if not kid_key:
-        return {'released': False, 'previous': None}
-
-    def _op(data):
-        kid = _find_kid(data, kid_key)
-        if kid is None:
-            return {'released': False, 'previous': None}
-        claim = kid.get(_CLAIM_FIELD)
-        if not isinstance(claim, dict):
-            kid.pop(_CLAIM_FIELD, None)
-            return {'released': False, 'previous': None}
         previous = _public_lock_dict(kid, claim)
         kid.pop(_CLAIM_FIELD, None)
-        return {'released': True, 'previous': previous}
+        return {'released': True, 'reason': 'released', 'current': None, 'previous': previous}
 
     return _mutate_metadata(_op)
 

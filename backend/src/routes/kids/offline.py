@@ -58,7 +58,6 @@ from src.services.kid_daily_progress import (
 from src.services.offline_locks import (
     acquire_lock,
     assert_kid_online,
-    force_release_lock,
     get_lock,
     get_locks_for_family,
     release_lock,
@@ -755,5 +754,5 @@ def offline_force_release(kid_id):
     password_error = require_critical_password()
     if password_error is not None:
         return password_error
-    info = force_release_lock(kid_id)
+    info = release_lock(kid_id)
     return jsonify(info), 200
