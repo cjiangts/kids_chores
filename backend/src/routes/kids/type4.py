@@ -60,10 +60,66 @@ from src.services.session_grading import (
     normalize_type_iv_submitted_answer,
     update_card_correct_time_ema,
 )
+from src.type4_generator_preview import run_type4_generator
 
 # ============================================================================
 # 1. Print config — per-kid type-IV print template
 # ============================================================================
+
+def build_type_iv_offline_pending_payload(pending_payload):
+    """Return a JSON-safe type-IV pending payload for offline storage.
+
+    Strips the validate Python callable (not JSON-safe) and practice_mode
+    (the kid picks the real mode at runtime and the client injects it at
+    completion time, so anything baked here would be misleading).
+    """
+    if not isinstance(pending_payload, dict):
+        return {}
+    offline_payload = {
+        key: value
+        for key, value in pending_payload.items()
+        if key not in ('cards', 'practice_mode')
+    }
+    cards = []
+    for raw_item in list(pending_payload.get('cards') or []):
+        if not isinstance(raw_item, dict):
+            continue
+        item = dict(raw_item)
+        item.pop('validate', None)
+        cards.append(item)
+    offline_payload['cards'] = cards
+    return offline_payload
+
+
+def _rehydrate_type_iv_validate_fn(pending_item):
+    """Restore one serialized validate callable from generator snapshot metadata."""
+    validate_fn = pending_item.get('validate')
+    if callable(validate_fn):
+        return validate_fn
+    if not bool(pending_item.get('has_validate')):
+        return None
+
+    generator_code = str(pending_item.get('validate_generator_code') or '').strip()
+    try:
+        validate_seed = int(pending_item.get('validate_seed'))
+    except (TypeError, ValueError):
+        raise ValueError('Offline math pack is missing validate replay metadata')
+    if not generator_code:
+        raise ValueError('Offline math pack is missing validate generator code')
+
+    sample = run_type4_generator(
+        generator_code,
+        sample_count=1,
+        seed_base=validate_seed,
+        max_samples=1,
+    )[0]
+    if normalize_type_iv_submitted_answer(sample.get('answer')) != normalize_type_iv_submitted_answer(pending_item.get('answer')):
+        raise ValueError('Offline math pack validate replay metadata no longer matches the saved answer')
+    restored_validate = sample.get('validate')
+    if restored_validate is None or not callable(restored_validate):
+        raise ValueError('Offline math pack validate replay metadata did not restore a validate function')
+    pending_item['validate'] = restored_validate
+    return restored_validate
 
 @kids_bp.route('/kids/<kid_id>/type4/print-config', methods=['GET'])
 def get_type4_print_config(kid_id):
@@ -651,6 +707,7 @@ def complete_type_iv_session_internal(
         return {'error': 'Pending session is missing generated questions'}, 400
 
     pending_by_id = {}
+    missing_sync_metadata = False
     for item in pending_cards:
         if not isinstance(item, dict):
             continue
@@ -660,10 +717,33 @@ def complete_type_iv_session_internal(
             continue
         if item_id <= 0:
             continue
+        if int(item.get('representative_card_id') or 0) <= 0:
+            missing_sync_metadata = True
+        if bool(item.get('has_validate')):
+            if not str(item.get('validate_generator_code') or '').strip():
+                missing_sync_metadata = True
+            try:
+                int(item.get('validate_seed'))
+            except (TypeError, ValueError):
+                missing_sync_metadata = True
         pending_by_id[item_id] = item
     if len(pending_by_id) == 0:
         conn.close()
         return {'error': 'Pending session is missing generated questions'}, 400
+    if missing_sync_metadata:
+        conn.close()
+        return {
+            'error': (
+                'This offline math pack is missing sync metadata. '
+                'Please re-download the offline pack before doing math offline.'
+            )
+        }, 400
+    for item in pending_by_id.values():
+        try:
+            _rehydrate_type_iv_validate_fn(item)
+        except ValueError as exc:
+            conn.close()
+            return {'error': str(exc)}, 400
 
     normalized_answers = []
     for answer in answers:

@@ -103,6 +103,7 @@ from src.services.pending_sessions import (
     pop_pending_session,
 )
 from src.services.practice_mode import (
+    TYPE_IV_PRACTICE_MODE_MULTI,
     compose_session_practice_mode,
     get_session_practice_mode,
     get_session_practice_mode_base,
@@ -115,7 +116,10 @@ from src.services.shared_deck_category import (
     get_shared_deck_category_meta_by_key,
     is_type_iii_session_type,
 )
-from src.routes.kids.type4 import complete_type_iv_session_internal
+from src.routes.kids.type4 import (
+    build_type_iv_offline_pending_payload,
+    complete_type_iv_session_internal,
+)
 
 # ============================================================================
 # 1. Session start routes — per-behavior-type entry points
@@ -403,7 +407,15 @@ def start_type4_practice_session(kid_id):
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
         )
-        practice_mode = normalize_type_iv_practice_mode(payload.get('practiceMode'))
+        # Offline packs always bake choices (multi mode) so the kid can switch
+        # modes mid-pack without re-fetching. The actual mode they pick is
+        # supplied at completion time and overrides the baked value.
+        is_offline_acquire = bool(request.headers.get('X-Offline-Pack-Id'))
+        practice_mode = (
+            TYPE_IV_PRACTICE_MODE_MULTI
+            if is_offline_acquire
+            else normalize_type_iv_practice_mode(payload.get('practiceMode'))
+        )
 
         conn = get_kid_connection_for(kid)
         try:
@@ -525,6 +537,7 @@ def start_type4_practice_session(kid_id):
                 pending_session_payload['practice_mode'] = get_session_practice_mode(conn, source_session_id)
 
             resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
+            include_pending_payload = bool(request.headers.get('X-Offline-Pack-Id'))
 
             pending_session_payload['offline_pack_id'] = request.headers.get('X-Offline-Pack-Id') or None
             pending_session_id = create_pending_session(
@@ -535,7 +548,7 @@ def start_type4_practice_session(kid_id):
         finally:
             conn.close()
 
-        return jsonify({
+        response_payload = {
             'category_key': category_key,
             'pending_session_id': pending_session_id,
             'planned_count': len(response_cards),
@@ -553,7 +566,12 @@ def start_type4_practice_session(kid_id):
                 if is_retry_session and retry_source_session is not None
                 else None
             ),
-        }), 200
+        }
+        if include_pending_payload:
+            response_payload['pending_payload'] = build_type_iv_offline_pending_payload(
+                pending_session_payload
+            )
+        return jsonify(response_payload), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -1147,6 +1165,80 @@ def complete_session_internal(kid, kid_id, session_type, data):
         pending_type3_audio = {}
     written_type3_audio_paths = []
 
+    def _record_written_type3_audio_path(file_path):
+        written_type3_audio_paths.append(file_path)
+
+    def _queue_type3_pending_cleanup(payload):
+        if not payload:
+            return
+        cleanup_type3_pending_audio_files_by_payload(payload)
+
+    def _queue_type3_leftover_cleanup(consumed_type3_audio_files):
+        if not uses_type_iii_audio or not isinstance(pending_type3_audio, dict):
+            return
+        leftovers = {}
+        for item in pending_type3_audio.values():
+            if not isinstance(item, dict):
+                continue
+            file_name = str(item.get('file_name') or '').strip()
+            if file_name and file_name not in consumed_type3_audio_files:
+                leftovers[file_name] = item
+        if len(leftovers) > 0:
+            _queue_type3_pending_cleanup({
+                'type3_audio_dir': pending.get('type3_audio_dir'),
+                'type3_audio_by_card': {name: meta for name, meta in leftovers.items()},
+            })
+
+    def _attach_type3_audio_to_result(card_id, result_id, consumed_type3_audio_files):
+        uploaded_audio = uploaded_type3_audio.get(card_id)
+        if uploaded_audio is None:
+            uploaded_audio = uploaded_type3_audio.get(str(card_id))
+        if isinstance(uploaded_audio, dict):
+            audio_bytes = uploaded_audio.get('bytes')
+            if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) == 0:
+                raise ValueError(f'Uploaded audio for card {card_id} is empty')
+            mime_type = str(uploaded_audio.get('mime_type') or 'application/octet-stream').strip()
+            original_filename = str(uploaded_audio.get('filename') or '').strip()
+            safe_name = secure_filename(original_filename)
+            ext = os.path.splitext(safe_name)[1].lower()
+            if not ext:
+                guessed_ext = mimetypes.guess_extension(mime_type) or ''
+                ext = guessed_ext.lower() if guessed_ext else '.webm'
+            audio_dir = ensure_type3_audio_dir(kid)
+            file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
+            file_path = os.path.join(audio_dir, file_name)
+            with open(file_path, 'wb') as f:
+                f.write(bytes(audio_bytes))
+            _record_written_type3_audio_path(file_path)
+            conn.execute(
+                """
+                INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                VALUES (?, ?, ?)
+                """,
+                [result_id, file_name, mime_type]
+            )
+            consumed_type3_audio_files.add(file_name)
+            return
+
+        audio_meta = pending_type3_audio.get(str(card_id))
+        if isinstance(audio_meta, dict):
+            file_name = str(audio_meta.get('file_name') or '').strip()
+            mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
+            if file_name:
+                conn.execute(
+                    """
+                    INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
+                    VALUES (?, ?, ?)
+                    """,
+                    [result_id, file_name, mime_type]
+                )
+                consumed_type3_audio_files.add(file_name)
+
+    def _finalize_success():
+        conn.execute("COMMIT")
+        conn.close()
+        sync_badges_after_session_complete(kid)
+
     if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
         return complete_type_iv_session_internal(
             conn,
@@ -1338,9 +1430,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 [retry_source_session_id],
             ).fetchone()
 
-            conn.execute("COMMIT")
-            conn.close()
-            sync_badges_after_session_complete(kid)
+            _finalize_success()
             updated_retry_count = int(updated_retry_row[0] or 0) if updated_retry_row else 0
             updated_retry_total_ms = int(updated_retry_row[1] or 0) if updated_retry_row else 0
             updated_best_retry_correct = int(updated_retry_row[2] or 0) if updated_retry_row else 0
@@ -1431,48 +1521,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                     insert_type1_result_item(conn, result_id, answer, correct_value)
 
                 if uses_type_iii_audio:
-                    uploaded_audio = uploaded_type3_audio.get(card_id)
-                    if uploaded_audio is None:
-                        uploaded_audio = uploaded_type3_audio.get(str(card_id))
-                    if isinstance(uploaded_audio, dict):
-                        audio_bytes = uploaded_audio.get('bytes')
-                        if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) == 0:
-                            raise ValueError(f'Uploaded audio for card {card_id} is empty')
-                        mime_type = str(uploaded_audio.get('mime_type') or 'application/octet-stream').strip()
-                        original_filename = str(uploaded_audio.get('filename') or '').strip()
-                        safe_name = secure_filename(original_filename)
-                        ext = os.path.splitext(safe_name)[1].lower()
-                        if not ext:
-                            guessed_ext = mimetypes.guess_extension(mime_type) or ''
-                            ext = guessed_ext.lower() if guessed_ext else '.webm'
-                        audio_dir = ensure_type3_audio_dir(kid)
-                        file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
-                        file_path = os.path.join(audio_dir, file_name)
-                        with open(file_path, 'wb') as f:
-                            f.write(bytes(audio_bytes))
-                        written_type3_audio_paths.append(file_path)
-                        conn.execute(
-                            """
-                            INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
-                            VALUES (?, ?, ?)
-                            """,
-                            [result_id, file_name, mime_type]
-                        )
-                        consumed_type3_audio_files.add(file_name)
-                    else:
-                        audio_meta = pending_type3_audio.get(str(card_id))
-                        if isinstance(audio_meta, dict):
-                            file_name = str(audio_meta.get('file_name') or '').strip()
-                            mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
-                            if file_name:
-                                conn.execute(
-                                    """
-                                    INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
-                                    VALUES (?, ?, ?)
-                                    """,
-                                    [result_id, file_name, mime_type]
-                                )
-                                consumed_type3_audio_files.add(file_name)
+                    _attach_type3_audio_to_result(card_id, result_id, consumed_type3_audio_files)
 
             conn.execute(
                 """
@@ -1523,22 +1572,8 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 star_tier = 'gold'
                 attempt_star_tiers = ['gold']
 
-            conn.execute("COMMIT")
-            conn.close()
-            sync_badges_after_session_complete(kid)
-            if uses_type_iii_audio and isinstance(pending_type3_audio, dict):
-                leftovers = {}
-                for item in pending_type3_audio.values():
-                    if not isinstance(item, dict):
-                        continue
-                    file_name = str(item.get('file_name') or '').strip()
-                    if file_name and file_name not in consumed_type3_audio_files:
-                        leftovers[file_name] = item
-                if len(leftovers) > 0:
-                    cleanup_type3_pending_audio_files_by_payload({
-                        'type3_audio_dir': pending.get('type3_audio_dir'),
-                        'type3_audio_by_card': {name: meta for name, meta in leftovers.items()},
-                    })
+            _finalize_success()
+            _queue_type3_leftover_cleanup(consumed_type3_audio_files)
             return {
                 'session_id': int(continue_source_session_id),
                 'answer_count': int(updated_answer_count),
@@ -1602,49 +1637,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
                 insert_type1_result_item(conn, result_id, answer, correct_value)
 
             if uses_type_iii_audio:
-                uploaded_audio = uploaded_type3_audio.get(card_id)
-                if uploaded_audio is None:
-                    uploaded_audio = uploaded_type3_audio.get(str(card_id))
-                if isinstance(uploaded_audio, dict):
-                    audio_bytes = uploaded_audio.get('bytes')
-                    if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) == 0:
-                        raise ValueError(f'Uploaded audio for card {card_id} is empty')
-                    mime_type = str(uploaded_audio.get('mime_type') or 'application/octet-stream').strip()
-                    original_filename = str(uploaded_audio.get('filename') or '').strip()
-                    safe_name = secure_filename(original_filename)
-                    ext = os.path.splitext(safe_name)[1].lower()
-                    if not ext:
-                        guessed_ext = mimetypes.guess_extension(mime_type) or ''
-                        ext = guessed_ext.lower() if guessed_ext else '.webm'
-                    audio_dir = ensure_type3_audio_dir(kid)
-                    file_name = f"lr_{pending_session_id}_{card_id}_{uuid.uuid4().hex}{ext}"
-                    file_path = os.path.join(audio_dir, file_name)
-                    with open(file_path, 'wb') as f:
-                        f.write(bytes(audio_bytes))
-                    written_type3_audio_paths.append(file_path)
-                    conn.execute(
-                        """
-                        INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
-                        VALUES (?, ?, ?)
-                        """,
-                        [result_id, file_name, mime_type]
-                    )
-                    consumed_type3_audio_files.add(file_name)
-                else:
-                    audio_meta = pending_type3_audio.get(str(card_id))
-                    if isinstance(audio_meta, dict):
-                        file_name = str(audio_meta.get('file_name') or '').strip()
-                        mime_type = str(audio_meta.get('mime_type') or 'application/octet-stream').strip()
-                        if file_name:
-                            conn.execute(
-                                """
-                                INSERT INTO lesson_reading_audio (result_id, file_name, mime_type)
-                                VALUES (?, ?, ?)
-                                """,
-                                [result_id, file_name, mime_type]
-                            )
-                            consumed_type3_audio_files.add(file_name)
-
+                _attach_type3_audio_to_result(card_id, result_id, consumed_type3_audio_files)
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -1655,19 +1648,7 @@ def complete_session_internal(kid, kid_id, session_type, data):
 
     conn.close()
     sync_badges_after_session_complete(kid)
-    if uses_type_iii_audio and isinstance(pending_type3_audio, dict):
-        leftovers = {}
-        for item in pending_type3_audio.values():
-            if not isinstance(item, dict):
-                continue
-            file_name = str(item.get('file_name') or '').strip()
-            if file_name and file_name not in consumed_type3_audio_files:
-                leftovers[file_name] = item
-        if len(leftovers) > 0:
-            cleanup_type3_pending_audio_files_by_payload({
-                'type3_audio_dir': pending.get('type3_audio_dir'),
-                'type3_audio_by_card': {name: meta for name, meta in leftovers.items()},
-            })
+    _queue_type3_leftover_cleanup(consumed_type3_audio_files)
     target_answer_count = int(max(planned_count, len(answers), right_count + wrong_count))
     is_incomplete = planned_count > 0 and len(answers) < planned_count
     if is_incomplete:
@@ -1705,5 +1686,3 @@ def complete_session_internal(kid, kid_id, session_type, data):
         'achieved_gold_star': achieved_gold_star,
         'star_tier': star_tier,
     }, 200
-
-

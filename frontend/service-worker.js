@@ -27,8 +27,6 @@
 
 const SHELL_CACHE = 'offline-shell';
 const RUNTIME_CACHE = 'offline-runtime';
-// Bump this when forcing a reinstall (any source-byte change triggers it).
-const SW_BUILD = '2026-05-27-sync-btn-neutral';
 
 const SHELL_URLS = [
     '/kid-practice.html',

@@ -70,7 +70,6 @@ let isPanelMenuOpen = false;
 let isSuperFamily = false;
 let offlineSelectionMode = false;
 const offlineSelectedKidIds = new Set();
-const offlineDownloadingKidIds = new Set();
 let offlineOwnedKidIds = new Set();
 
 // =====================================================================
@@ -1708,4 +1707,3 @@ async function refreshOfflineOwnedAndStats() {
     renderMatrix();
     if (mutated) renderMatrix();
 }
-

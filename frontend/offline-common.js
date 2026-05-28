@@ -3,7 +3,6 @@
  *
  * Public API:
  *   OfflineCommon.parseDeviceLabel()            -> 'Mac Safari'
- *   OfflineCommon.formatBannerTime(iso, tz)     -> 'May 26, 7:14 PM'
  *   OfflineCommon.formatHourMinute(iso, tz)     -> '7:14 PM'
  *   OfflineCommon.acquirePack(kidId, opts)      -> { ok, pack, error, conflict, inflight }
  *   OfflineCommon.syncPack(kidId)               -> { ok, response, error }
@@ -71,24 +70,6 @@
         const text = String(iso);
         const ms = Date.parse(text.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(text) ? text : text + 'Z');
         return Number.isFinite(ms) ? new Date(ms) : null;
-    }
-
-    function formatBannerTime(iso, timezone) {
-        const d = _parseIsoUtc(iso);
-        if (!d) return '';
-        const tz = String(timezone || '').trim() || 'UTC';
-        try {
-            return new Intl.DateTimeFormat(undefined, {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true,
-                timeZone: tz,
-            }).format(d);
-        } catch (_) {
-            return d.toUTCString();
-        }
     }
 
     function formatHourMinute(iso, timezone) {
@@ -171,6 +152,69 @@
         return urls;
     }
 
+    function _collectAudioUrlsFromSessions(sessions) {
+        const urls = [];
+        for (const session of (sessions || [])) {
+            urls.push(..._collectAudioUrlsFromSession(session && session.payload ? session.payload : session));
+        }
+        return urls;
+    }
+
+    async function _cleanupRuntimeCacheForSessions(sessions) {
+        if (typeof caches === 'undefined' || !window.OfflineStorage) return;
+        const dropSet = new Set(_collectAudioUrlsFromSessions(sessions));
+        if (dropSet.size === 0) return;
+        try {
+            const remainingPacks = await window.OfflineStorage.listAllPacks();
+            for (const pack of (remainingPacks || [])) {
+                for (const url of _collectAudioUrlsFromSessions(pack.sessions)) {
+                    dropSet.delete(url);
+                }
+            }
+        } catch (_) {
+            return;
+        }
+        if (dropSet.size === 0) return;
+        try {
+            const cache = await caches.open(RUNTIME_CACHE);
+            await Promise.all(Array.from(dropSet).map(async (url) => {
+                try {
+                    await cache.delete(new Request(url, { credentials: 'same-origin' }));
+                } catch (_) {
+                    try { await cache.delete(url); } catch (_) { /* ignore */ }
+                }
+            }));
+        } catch (_) { /* ignore */ }
+    }
+
+    async function _bestEffortReleaseServerPack(kidId, packId) {
+        try {
+            const res = await fetch(`${API_BASE}/kids/${kidId}/offline/release`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ packId }),
+            });
+            return res.ok || res.status === 409;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function _stripTypeIvModeFromStartPayload(startPayload) {
+        if (!startPayload || typeof startPayload !== 'object') return startPayload;
+        const out = { ...startPayload };
+        out.practice_mode = 'na';
+        return out;
+    }
+
+    function _stripTypeIvModeFromReadyPayload(readyPayload) {
+        if (!readyPayload || typeof readyPayload !== 'object') return readyPayload;
+        const out = { ...readyPayload };
+        out.latest_practice_mode = 'na';
+        out.source_practice_mode = 'na';
+        return out;
+    }
+
     async function acquirePack(kidId, opts) {
         const options = opts || {};
         const deviceLabel = options.deviceLabel || parseDeviceLabel();
@@ -215,6 +259,10 @@
             const startUrl = new URL(`${API_BASE}/kids/${kidId}/${scope}/practice/start`);
             startUrl.searchParams.set('categoryKey', categoryKey);
             try {
+                // The X-Offline-Pack-Id header signals offline acquire — the
+                // server ships a sanitized pending payload (no Python
+                // callables, no baked practice_mode) and forces choices for
+                // type-IV so the kid can switch input/multi at runtime.
                 const startRes = await fetch(startUrl.toString(), {
                     method: 'POST',
                     headers: {
@@ -252,15 +300,26 @@
                     }
                 } catch (_) { /* best-effort */ }
 
+                // For type-IV, the kid's local judge-mode picker is the source
+                // of truth offline (cards are baked with `choices` so they can
+                // render in either input or multi at runtime). Strip the
+                // server-reported mode fields so `applyServerPracticeMode`
+                // becomes a no-op and the kid's local toggle wins.
+                const sanitizedStart = (scope === 'type4')
+                    ? _stripTypeIvModeFromStartPayload(startPayload)
+                    : startPayload;
+                const sanitizedReady = (scope === 'type4')
+                    ? _stripTypeIvModeFromReadyPayload(readyPayload)
+                    : readyPayload;
                 sessions.push({
                     categoryKey,
                     behaviorType: cat.behavior_type,
                     scope,
                     displayName,
-                    pendingSessionId: String(startPayload.pending_session_id || ''),
+                    pendingSessionId: String(sanitizedStart.pending_session_id || ''),
                     startedAtUtc: packEnvelope.acquired_at_utc,
-                    payload: startPayload,
-                    readyPayload,
+                    payload: sanitizedStart,
+                    readyPayload: sanitizedReady,
                 });
                 audioUrlsToPrefetch.push(..._collectAudioUrlsFromSession(startPayload));
                 emit({ phase: 'subject_done', kidId: String(kidId), kidName, subjectIndex: i, subjectCount: categories.length, subjectName: displayName, ok: true });
@@ -281,7 +340,18 @@
             }
         } catch (_) { /* best-effort */ }
 
-        await window.OfflineStorage.savePack(kidId, packEnvelope, sessions);
+        try {
+            await window.OfflineStorage.savePack(kidId, packEnvelope, sessions);
+        } catch (e) {
+            console.error('[OfflineCommon] savePack failed after acquire:', e);
+            const released = await _bestEffortReleaseServerPack(kidId, packId);
+            return {
+                ok: false,
+                error: released
+                    ? 'Failed to save the offline pack on this device. The server lock was released; please try again.'
+                    : 'Failed to save the offline pack on this device. The server may still think this kid is offline, so you may need to retry or force-release from the family home.',
+            };
+        }
         emit({ phase: 'audio_start', kidId: String(kidId), kidName, audioCount: audioUrlsToPrefetch.length });
         await _prefetchAudioUrls(audioUrlsToPrefetch, (completed, total) => {
             emit({ phase: 'audio_progress', kidId: String(kidId), kidName, completed, total });
@@ -328,6 +398,12 @@
         }
         const packId = String(pack.packEnvelope.pack_id || '');
         const pendingResults = await window.OfflineStorage.listPendingResults(kidId);
+        // Sort by createdAtTs ASC so each source pid is replayed before any
+        // of its retry rounds (the backend's stable sort keeps retries in
+        // the order we send them).
+        pendingResults.sort(
+            (a, b) => (Number(a?.createdAtTs) || 0) - (Number(b?.createdAtTs) || 0),
+        );
 
         const sessions = [];
         for (const row of pendingResults) {
@@ -373,11 +449,7 @@
         }
 
         await window.OfflineStorage.deletePack(kidId);
-        try {
-            const cache = await caches.open(RUNTIME_CACHE);
-            const keys = await cache.keys();
-            await Promise.all(keys.map((k) => cache.delete(k)));
-        } catch (_) { /* ignore */ }
+        await _cleanupRuntimeCacheForSessions(pack.sessions);
         return { ok: true, response: payload };
     }
 
@@ -401,9 +473,17 @@
             return { ok: false, error: String(e && e.message || e) };
         }
         const payload = await res.json().catch(() => ({}));
-        // Server responded — even on conflict (409) we drop the local pack
-        // because the server owner has moved on; nothing useful remains.
+        if (!(res.ok || res.status === 409)) {
+            return {
+                ok: false,
+                error: payload.error || `HTTP ${res.status}`,
+                response: payload,
+            };
+        }
+        // A server-side 409 here means the lock is already gone or belongs to
+        // another device, so this local pack is no longer recoverable/useful.
         await window.OfflineStorage.deletePack(kidId);
+        await _cleanupRuntimeCacheForSessions(pack.sessions);
         return { ok: true, response: payload };
     }
 
@@ -489,9 +569,10 @@
                 return realFetch(input, init);
             }
 
-            // --- practice/start: serve from cached session payload, with
-            // already-answered cards filtered out so Finish Early resumes
-            // pick up where the kid left off instead of forcing a full redo.
+            // --- practice/start: serve from cached session payload. Pick
+            // the next action from the LATEST IndexedDB row in this category
+            // (source pid or its `__retry_N` siblings): mid-round resume,
+            // spawn the next retry round, or signal "done".
             if (method === 'POST') {
                 const startMatch = _matchPracticeStart(url);
                 if (startMatch && startMatch.kidId === targetId) {
@@ -502,45 +583,102 @@
                     if (!session) {
                         return _jsonResponse({ error: 'offline_session_not_found' }, 404);
                     }
-                    const requestedMode = _extractPracticeMode(init);
-                    if (requestedMode && String(session.payload?.practice_mode || '') !== requestedMode) {
-                        session.payload = { ...session.payload, practice_mode: requestedMode };
-                        try {
-                            await window.OfflineStorage.savePack(targetId, pack.packEnvelope, pack.sessions);
-                        } catch (_) { /* best-effort; in-memory copy still updated */ }
+                    const allRows = await window.OfflineStorage.listPendingResults(targetId);
+                    const categoryRows = _categoryRowsFor(allRows, session.pendingSessionId);
+                    const resolved = _resolveStartPayloadFromRows(
+                        session.payload, session.pendingSessionId, categoryRows,
+                    );
+                    // Resume after finish-early: restore the mode the kid was
+                    // practicing in (saved on offline complete). Type-IV defers
+                    // to the kid's local toggle so leave its 'na' alone.
+                    const latestRow = categoryRows.length > 0
+                        ? categoryRows[categoryRows.length - 1]
+                        : null;
+                    const priorStartMode = String(latestRow?.pendingPayload?.practice_mode || '').trim().toLowerCase();
+                    if (startMatch.scope !== 'type4' && priorStartMode && priorStartMode !== 'na'
+                        && resolved && typeof resolved === 'object') {
+                        resolved.practice_mode = priorStartMode;
                     }
-                    const priorAnswers = await _loadPriorOfflineAnswers(targetId, session.pendingSessionId);
-                    return _jsonResponse(_filterStartPayloadByPriorAnswers(session.payload, priorAnswers), 200);
+                    return _jsonResponse(resolved, 200);
                 }
 
                 const completeMatch = _matchPracticeComplete(url);
                 if (completeMatch && completeMatch.kidId === targetId) {
                     const body = await _readJsonBody(init);
                     const pendingSessionId = String(body.pendingSessionId || '');
-                    const session = (pack.sessions || []).find(
-                        (s) => String(s.pendingSessionId) === pendingSessionId,
+                    const parsedRetry = _parseRetryPid(pendingSessionId);
+                    const isRetry = parsedRetry !== null;
+                    const sourcePendingId = isRetry ? parsedRetry.sourcePid : pendingSessionId;
+                    const sourceSession = (pack.sessions || []).find(
+                        (s) => String(s.pendingSessionId) === sourcePendingId,
                     );
-                    if (!session) {
+                    if (!sourceSession) {
                         return _jsonResponse({ error: 'offline_unknown_pending_session' }, 404);
                     }
-                    // Merge with any prior Finish-Early save for this session:
-                    // dedupe by cardId, latest answer wins so the user keeps
-                    // earlier work when they resume and add more cards.
+                    const allRows = await window.OfflineStorage.listPendingResults(targetId);
+                    const existingRow = allRows.find(
+                        (r) => String(r.pendingSessionId) === pendingSessionId,
+                    ) || null;
+                    // Merge answers across finish-early resumes within the
+                    // same round. Drill mode legitimately repeats a cardId —
+                    // keep every attempt so sync preserves the full history.
                     const newAnswers = Array.isArray(body.answers) ? body.answers : [];
-                    const priorAnswers = await _loadPriorOfflineAnswers(targetId, session.pendingSessionId);
-                    const mergedAnswers = _mergeAnswersByCardId(priorAnswers, newAnswers);
-                    await window.OfflineStorage.savePendingResult(targetId, session.pendingSessionId, {
-                        pendingSessionId: session.pendingSessionId,
-                        sessionType: session.categoryKey,
-                        pendingPayload: session.payload.pending_payload || session.payload,
+                    const priorAnswers = (existingRow && Array.isArray(existingRow.answers))
+                        ? existingRow.answers
+                        : [];
+                    const mergedAnswers = [...priorAnswers, ...newAnswers];
+                    // Pick the pending_payload to persist:
+                    //  - resume → reuse what was saved earlier (same round)
+                    //  - first save of source → source session's payload
+                    //  - first save of retry round N → rebuild from the
+                    //    most recent prior row's wrong cards (round N-1)
+                    let basePending;
+                    if (existingRow && existingRow.pendingPayload) {
+                        basePending = existingRow.pendingPayload;
+                    } else if (isRetry) {
+                        const categoryRows = _categoryRowsFor(allRows, sourcePendingId);
+                        const priorRow = categoryRows.length > 0
+                            ? categoryRows[categoryRows.length - 1]
+                            : null;
+                        const wrongIds = priorRow ? _wrongCardIdsFromRow(priorRow) : new Set();
+                        const sourceCards = Array.isArray(sourceSession.payload?.cards)
+                            ? sourceSession.payload.cards
+                            : [];
+                        const retryCards = sourceCards.filter((c) => c && wrongIds.has(String(c.id)));
+                        basePending = _buildRetryStartPayload(
+                            sourceSession.payload, retryCards, sourcePendingId, parsedRetry.roundNumber,
+                        ).pending_payload;
+                    } else {
+                        basePending = sourceSession.payload.pending_payload || sourceSession.payload;
+                    }
+                    // The server strips practice_mode from offline pending
+                    // payloads — inject the runtime's actual choice here so
+                    // sync records the correct mode. (Body field optional;
+                    // type-IV runtime sends it, other types skip.)
+                    const pendingPayload = body.practiceMode
+                        ? { ...basePending, practice_mode: String(body.practiceMode) }
+                        : basePending;
+                    await window.OfflineStorage.savePendingResult(targetId, pendingSessionId, {
+                        pendingSessionId,
+                        sessionType: sourceSession.categoryKey,
+                        pendingPayload,
                         answers: mergedAnswers,
-                        startedAt: session.startedAtUtc,
-                        createdAtTs: Date.now() / 1000,
+                        startedAt: sourceSession.startedAtUtc,
+                        createdAtTs: (existingRow && Number.isFinite(Number(existingRow.createdAtTs)))
+                            ? Number(existingRow.createdAtTs)
+                            : (Date.now() / 1000),
                     });
+                    // Type-IV completion screen reads wrong_count/answer_count
+                    // from the response. Server isn't reachable offline, so
+                    // grade locally by string equality against the cached
+                    // expected answers — same approach the home page uses
+                    // for "to fix" tally.
+                    const counts = _gradeOfflineCounts(pendingPayload, mergedAnswers);
                     return _jsonResponse({
                         ok: true,
                         offline: true,
                         message: 'Saved locally; will sync when you tap Sync.',
+                        ...counts,
                     }, 200);
                 }
 
@@ -597,10 +735,10 @@
                 }
 
                 // --- Ready-state probe (/{scope}/decks or /type2/cards):
-                // serve the response cached at acquire time so the practice
-                // page can bootstrap without hitting the server. Subtract
-                // already-answered cards so the start screen reflects what's
-                // actually left after offline practice.
+                // serve the response cached at acquire time, but project
+                // the LATEST round row onto continue/retry counts so the
+                // start screen reflects what's actually left after offline
+                // practice (including multi-round retries).
                 const readyMatch = _matchReadyState(url);
                 if (readyMatch && readyMatch.kidId === targetId) {
                     const categoryKey = url.searchParams.get('categoryKey') || '';
@@ -609,11 +747,24 @@
                             && String(s.categoryKey) === String(categoryKey),
                     );
                     if (session && session.readyPayload) {
-                        const priorAnswers = await _loadPriorOfflineAnswers(targetId, session.pendingSessionId);
-                        const cachedCards = Array.isArray(session.payload?.cards) ? session.payload.cards : [];
-                        const lastMode = String(session.payload?.practice_mode || '').trim().toLowerCase();
+                        const allRows = await window.OfflineStorage.listPendingResults(targetId);
+                        const categoryRows = _categoryRowsFor(allRows, session.pendingSessionId);
+                        const latestRow = categoryRows.length > 0
+                            ? categoryRows[categoryRows.length - 1]
+                            : null;
+                        // Prefer the mode the kid actually used in their prior
+                        // offline chunk (saved at finish-early) over the
+                        // acquire-time 'na' baked into session.payload.
+                        // Type-IV defers to the kid's local toggle.
+                        const priorMode = String(latestRow?.pendingPayload?.practice_mode || '').trim().toLowerCase();
+                        const fallbackMode = String(session.payload?.practice_mode || '').trim().toLowerCase();
+                        const lastMode = (readyMatch.scope !== 'type4' && priorMode && priorMode !== 'na')
+                            ? priorMode
+                            : fallbackMode;
                         return _jsonResponse(
-                            _filterReadyPayloadByPriorAnswers(session.readyPayload, priorAnswers, cachedCards.length, lastMode),
+                            _resolveReadyPayloadFromRows(
+                                session.readyPayload, session.pendingSessionId, categoryRows, session.payload, lastMode,
+                            ),
                             200,
                         );
                     }
@@ -625,107 +776,271 @@
         };
     }
 
-    async function _loadPriorOfflineAnswers(kidId, pendingSessionId) {
-        try {
-            const rows = await window.OfflineStorage.listPendingResults(kidId);
-            const match = rows.find((r) => String(r.pendingSessionId) === String(pendingSessionId));
-            return (match && Array.isArray(match.answers)) ? match.answers : [];
-        } catch (_) {
-            return [];
+    // Offline grading: type-I/II/III answers carry a kid-self-graded `known`
+    // flag; type-IV doesn't, so we string-equality-compare submittedAnswer
+    // against the expected answer baked into the pending payload cards
+    // (which have `.answer`). Custom validate fns can't run on-device —
+    // sync will reconcile partial credit.
+    function _buildExpectedAnswerMap(cards) {
+        const map = new Map();
+        for (const card of (Array.isArray(cards) ? cards : [])) {
+            if (!card || card.id == null) continue;
+            map.set(String(card.id), String(card.answer || '').trim());
         }
+        return map;
     }
 
-    function _filterStartPayloadByPriorAnswers(payload, priorAnswers) {
-        if (!payload || !Array.isArray(priorAnswers) || priorAnswers.length === 0) {
-            return payload;
+    function _isAnswerLocallyWrong(answer, expectedById) {
+        if (!answer) return false;
+        if (typeof answer.known === 'boolean') return answer.known === false;
+        const expected = expectedById.get(String(answer.cardId));
+        // Defensive: missing expected (shouldn't happen if pending_payload is
+        // intact) counts as wrong so the kid still gets a retry path.
+        if (expected === undefined) return true;
+        return String(answer.submittedAnswer ?? '').trim() !== expected;
+    }
+
+    // Offline retry rounds: each completed round (source + every retry pass)
+    // is its own IndexedDB row. Retry pids encode the source pid so sync can
+    // pair them back to the source's real session_id, and so the
+    // /practice/complete interceptor can find the source session in the pack.
+    const _RETRY_PID_PATTERN = /^(.+)__retry_(\d+)$/;
+
+    function _retryPidFor(sourcePid, roundNumber) {
+        return `${sourcePid}__retry_${roundNumber}`;
+    }
+
+    function _parseRetryPid(pid) {
+        const m = String(pid || '').match(_RETRY_PID_PATTERN);
+        if (!m) return null;
+        return { sourcePid: m[1], roundNumber: parseInt(m[2], 10) };
+    }
+
+    function _isRetryPid(pid) {
+        return _RETRY_PID_PATTERN.test(String(pid || ''));
+    }
+
+    function _categoryRowsFor(allRows, sourcePid) {
+        const out = [];
+        for (const row of (allRows || [])) {
+            const pid = String(row?.pendingSessionId || '');
+            if (pid === sourcePid) { out.push(row); continue; }
+            const parsed = _parseRetryPid(pid);
+            if (parsed && parsed.sourcePid === sourcePid) out.push(row);
         }
-        const cards = Array.isArray(payload.cards) ? payload.cards : null;
-        if (!cards) return payload;
-        const answeredIds = new Set(
-            priorAnswers
-                .map((a) => (a && a.cardId != null) ? String(a.cardId) : '')
-                .filter(Boolean)
-        );
-        if (answeredIds.size === 0) return payload;
-        const remaining = cards.filter((c) => !answeredIds.has(String(c && c.id)));
-        if (remaining.length > 0) {
-            // Mid-session resume: serve only the cards the kid hasn't touched
-            // yet (Finish-Early flow).
-            if (remaining.length === cards.length) return payload;
-            return {
-                ...payload,
-                cards: remaining,
-                planned_count: remaining.length,
-            };
+        out.sort((a, b) => (Number(a?.createdAtTs) || 0) - (Number(b?.createdAtTs) || 0));
+        return out;
+    }
+
+    // Mirror the server's type-I multiple-choice distractor pool. The runtime
+    // builds choices from `state.type1MultipleChoicePoolCards` when non-empty,
+    // else falls back to `sessionCards`. Whenever the active session reduces
+    // below the source's full card set (retry round, mid-round resume) the
+    // fallback yields too few options — inject the full source cards as the
+    // pool so multi-choice always has enough distractors.
+    function _type1PoolCardsFromSource(sourcePayload) {
+        const cards = Array.isArray(sourcePayload?.cards) ? sourcePayload.cards : [];
+        const out = [];
+        for (const c of cards) {
+            if (!c || c.id == null) continue;
+            out.push({ id: c.id, front: c.front, back: c.back });
         }
-        // Every cached card has been answered → present a retry session of
-        // just the wrong ones. Online mode generates this from server-side
-        // grades; here we synthesize it from local IDB answer rows.
-        const wrongIds = new Set(
-            priorAnswers
-                .filter((a) => a && a.known === false && a.cardId != null)
-                .map((a) => String(a.cardId))
-        );
-        const retryCards = cards.filter((c) => wrongIds.has(String(c && c.id)));
+        return out;
+    }
+
+    // Build the retry start-response (and inner pending_payload) for round N.
+    // Top-level uses snake_case `pending_session_id` because the practice
+    // runtime reads it from the start response. For type-I/II/III the start
+    // response itself acts as the pending payload (no separate inner object).
+    // Type-IV uses a separate inner pending_payload whose cards carry the
+    // per-item `answer` + validate metadata that the outer response_cards
+    // strip — filter the inner cards from baseInner.cards by retry ids so
+    // the saved row keeps the expected answer for downstream rounds (else
+    // the next retry's local grading sees `answer === undefined` and treats
+    // every card as wrong, snapping retries back to the round-1 set).
+    function _buildRetryStartPayload(sourcePayload, retryCards, sourcePid, roundNumber) {
+        const retryPid = _retryPidFor(sourcePid, roundNumber);
+        const retryIdSet = new Set();
+        const plannedById = {};
+        for (const card of retryCards) {
+            if (card && card.id != null) {
+                retryIdSet.add(String(card.id));
+                plannedById[String(card.id)] = 1;
+            }
+        }
+        const sourceInner = sourcePayload?.pending_payload;
+        const baseInner = (sourceInner && typeof sourceInner === 'object')
+            ? sourceInner
+            : sourcePayload;
+        const innerSourceCards = Array.isArray(baseInner?.cards) ? baseInner.cards : [];
+        const innerRetryCards = innerSourceCards.length > 0
+            ? innerSourceCards.filter((c) => c && retryIdSet.has(String(c.id)))
+            : retryCards;
+        const retryPending = {
+            ...baseInner,
+            pending_session_id: retryPid,
+            cards: innerRetryCards,
+            planned_count: retryCards.length,
+            planned_count_by_id: plannedById,
+            is_retry_session: true,
+            retry_card_count: retryCards.length,
+            is_continue_session: false,
+            continue_source_session_id: null,
+            retry_source_offline_pending_id: sourcePid,
+        };
         return {
-            ...payload,
+            ...sourcePayload,
+            pending_session_id: retryPid,
             cards: retryCards,
             planned_count: retryCards.length,
-            is_retry_session: retryCards.length > 0,
+            is_retry_session: true,
+            retry_card_count: retryCards.length,
+            is_continue_session: false,
+            continue_source_session_id: null,
+            multiple_choice_pool_cards: _type1PoolCardsFromSource(sourcePayload),
+            pending_payload: retryPending,
         };
     }
 
-    function _filterReadyPayloadByPriorAnswers(readyPayload, priorAnswers, totalCachedCards, lastPracticeMode) {
+    function _wrongCardIdsFromRow(row) {
+        const cards = Array.isArray(row?.pendingPayload?.cards) ? row.pendingPayload.cards : [];
+        const answers = Array.isArray(row?.answers) ? row.answers : [];
+        const expectedById = _buildExpectedAnswerMap(cards);
+        const wrongIds = new Set();
+        for (const a of answers) {
+            if (a && a.cardId != null && _isAnswerLocallyWrong(a, expectedById)) {
+                wrongIds.add(String(a.cardId));
+            }
+        }
+        return wrongIds;
+    }
+
+    function _resolveStartPayloadFromRows(sourcePayload, sourcePid, rows) {
+        if (!sourcePayload) return sourcePayload;
+        if (!Array.isArray(rows) || rows.length === 0) return sourcePayload;
+        const latest = rows[rows.length - 1];
+        const rowCards = Array.isArray(latest?.pendingPayload?.cards)
+            ? latest.pendingPayload.cards
+            : (Array.isArray(sourcePayload.cards) ? sourcePayload.cards : []);
+        const answers = Array.isArray(latest?.answers) ? latest.answers : [];
+        const answeredIds = new Set(
+            answers.map((a) => (a && a.cardId != null) ? String(a.cardId) : '').filter(Boolean)
+        );
+        const remaining = rowCards.filter((c) => c && !answeredIds.has(String(c.id)));
+
+        if (remaining.length > 0) {
+            // Mid-round resume — finish-early then restart.
+            const poolCards = _type1PoolCardsFromSource(sourcePayload);
+            const isSource = String(latest.pendingSessionId) === sourcePid;
+            if (isSource) {
+                return {
+                    ...sourcePayload,
+                    cards: remaining,
+                    planned_count: remaining.length,
+                    multiple_choice_pool_cards: poolCards,
+                };
+            }
+            return {
+                ...sourcePayload,
+                pending_session_id: String(latest.pendingSessionId),
+                cards: remaining,
+                planned_count: rowCards.length,
+                is_retry_session: true,
+                retry_card_count: rowCards.length,
+                is_continue_session: false,
+                continue_source_session_id: null,
+                multiple_choice_pool_cards: poolCards,
+                pending_payload: latest.pendingPayload,
+            };
+        }
+
+        // Latest round complete — spawn next retry round from its wrongs.
+        const wrongIds = _wrongCardIdsFromRow(latest);
+        if (wrongIds.size === 0) {
+            return {
+                ...sourcePayload,
+                cards: [],
+                planned_count: 0,
+                is_retry_session: false,
+                is_continue_session: false,
+            };
+        }
+        const retryRoundsSoFar = rows.filter((r) => _isRetryPid(r.pendingSessionId)).length;
+        const nextRound = retryRoundsSoFar + 1;
+        const sourceCards = Array.isArray(sourcePayload.cards) ? sourcePayload.cards : [];
+        const retryCards = sourceCards.filter((c) => c && wrongIds.has(String(c.id)));
+        return _buildRetryStartPayload(sourcePayload, retryCards, sourcePid, nextRound);
+    }
+
+    function _resolveReadyPayloadFromRows(readyPayload, sourcePid, rows, sessionPayload, lastPracticeMode) {
         if (!readyPayload || typeof readyPayload !== 'object') return readyPayload;
-        const answers = Array.isArray(priorAnswers) ? priorAnswers : [];
-        if (answers.length === 0) return readyPayload;
+        if (!Array.isArray(rows) || rows.length === 0) return readyPayload;
         const out = { ...readyPayload };
-        const total = Math.max(0, Number(totalCachedCards) || 0);
-        const remainingFresh = Math.max(0, total - answers.length);
-        // Preserve the mode the kid last practiced in so Review/Continue
-        // pre-selects the same Parent-Assist / Multiple-Choice toggle
-        // instead of falling back to the default.
         const modeForSession = String(lastPracticeMode || '').trim().toLowerCase();
-        if (remainingFresh > 0) {
-            // Some cards still untouched → continue from where they left off.
-            out.is_continue_session = true;
-            out.continue_card_count = remainingFresh;
-            out.is_retry_session = false;
-            out.retry_card_count = 0;
-            out.total_session_count = remainingFresh;
+        const applyMode = () => {
             if (modeForSession && modeForSession !== 'na') {
                 out.source_practice_mode = modeForSession;
                 out.latest_practice_mode = modeForSession;
             }
+        };
+        const latest = rows[rows.length - 1];
+        const rowCards = Array.isArray(latest?.pendingPayload?.cards)
+            ? latest.pendingPayload.cards
+            : (Array.isArray(sessionPayload?.cards) ? sessionPayload.cards : []);
+        const answers = Array.isArray(latest?.answers) ? latest.answers : [];
+        const answeredIds = new Set(
+            answers.map((a) => (a && a.cardId != null) ? String(a.cardId) : '').filter(Boolean)
+        );
+        const remaining = Math.max(0, rowCards.length - answeredIds.size);
+        const isSource = String(latest?.pendingSessionId) === sourcePid;
+
+        if (remaining > 0) {
+            if (isSource) {
+                out.is_continue_session = true;
+                out.continue_card_count = remaining;
+                out.is_retry_session = false;
+                out.retry_card_count = 0;
+                out.total_session_count = remaining;
+            } else {
+                out.is_continue_session = false;
+                out.continue_card_count = 0;
+                out.is_retry_session = true;
+                out.retry_card_count = remaining;
+                out.total_session_count = remaining;
+            }
+            applyMode();
             return out;
         }
-        // All fresh cards done → if any wrong, surface a retry session;
-        // otherwise nothing left to practice (greyed on home).
-        const wrongCount = answers.filter((a) => a && a.known === false).length;
+        const wrongCount = _wrongCardIdsFromRow(latest).size;
         out.is_continue_session = false;
         out.continue_card_count = 0;
         out.is_retry_session = wrongCount > 0;
         out.retry_card_count = wrongCount;
         out.total_session_count = wrongCount;
-        if (modeForSession && modeForSession !== 'na') {
-            out.source_practice_mode = modeForSession;
-            out.latest_practice_mode = modeForSession;
-        }
+        applyMode();
         return out;
     }
 
-    function _mergeAnswersByCardId(priorAnswers, newAnswers) {
-        const byId = new Map();
-        const order = [];
-        const push = (a) => {
-            if (!a || typeof a !== 'object') return;
-            const key = String(a.cardId);
-            if (!byId.has(key)) order.push(key);
-            byId.set(key, a);
+    // Returns {wrong_count, right_count, partial_count, answer_count,
+    // target_answer_count} for the type-IV Session Complete summary.
+    // partial_count is always 0 — custom validate fns can't run offline.
+    function _gradeOfflineCounts(pendingPayload, answers) {
+        const ans = Array.isArray(answers) ? answers : [];
+        const expectedById = _buildExpectedAnswerMap(pendingPayload?.cards);
+        let wrong = 0;
+        for (const a of ans) {
+            if (_isAnswerLocallyWrong(a, expectedById)) wrong += 1;
+        }
+        const right = ans.length - wrong;
+        const plannedRaw = Number.parseInt(pendingPayload?.planned_count, 10);
+        const planned = Number.isFinite(plannedRaw) ? plannedRaw : ans.length;
+        return {
+            wrong_count: wrong,
+            right_count: right,
+            partial_count: 0,
+            answer_count: ans.length,
+            target_answer_count: Math.max(planned, ans.length),
         };
-        for (const a of (priorAnswers || [])) push(a);
-        for (const a of (newAnswers || [])) push(a);
-        return order.map((k) => byId.get(k));
     }
 
     function _extractCategoryKey(init) {
@@ -734,17 +1049,6 @@
             try {
                 const parsed = JSON.parse(init.body);
                 return String(parsed.categoryKey || '');
-            } catch (_) { return ''; }
-        }
-        return '';
-    }
-
-    function _extractPracticeMode(init) {
-        if (!init || !init.body) return '';
-        if (typeof init.body === 'string') {
-            try {
-                const parsed = JSON.parse(init.body);
-                return String(parsed.practiceMode || '').trim().toLowerCase();
             } catch (_) { return ''; }
         }
         return '';
@@ -774,7 +1078,7 @@
 
     window.OfflineCommon = {
         parseDeviceLabel,
-        formatBannerTime,
+        parseIsoUtc: _parseIsoUtc,
         formatHourMinute,
         findActivePack,
         acquirePack,

@@ -12,9 +12,10 @@ Endpoint summary (all routes are POST/GET on the kids blueprint):
       - Receive completed session payloads (and optional in-progress
         snapshots) collected offline. Reinjects each into the in-memory
         pending-session dict and calls the shared complete pipeline.
-        Releases the lock on success (or even when the lock has been
-        taken by another device — late-sync data is still accepted with
-        a `conflict_warning` returned).
+        Each session is replayed independently — successes commit, the
+        per-session results array tells the client what landed. If the
+        lock has already expired or moved to another device, the stale
+        local pack is discarded instead of being merged.
 
   GET  /kids/offline/status
       - Returns all active offline locks for the current family.
@@ -23,7 +24,8 @@ Endpoint summary (all routes are POST/GET on the kids blueprint):
       - Force-release without uploading any data. Used by the user-facing
         "exit offline" path when there is no local data to flush.
 
-Lock state lives in `services/offline_locks.py` (JSON file under DATA_DIR).
+Lock state lives in `services/offline_locks.py` as an `offlineClaim` field on
+each kid record in `kids.json` (managed via `src/db/metadata.py`).
 """
 import base64
 from flask import jsonify, request
@@ -34,7 +36,9 @@ from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_II,
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
     DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+    PENDING_RETRY_SOURCE_SESSION_ID_KEY,
 )
+from src.services.shared_deck_category import get_session_behavior_type
 from src.services.family_auth import (
     can_family_access_deck_category,
     current_family_id,
@@ -129,12 +133,11 @@ def _build_kid_today_pack_plan(kid, family_id, family_timezone):
         if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
     }
     type_iii_keys = get_type_iii_category_keys(category_meta_by_key)
-    conn = None
     try:
-        try:
-            conn = get_kid_connection_for(kid, read_only=True)
-        except Exception:
-            conn = None
+        conn = get_kid_connection_for(kid, read_only=True)
+    except Exception:
+        conn = None
+    try:
         opted_in = get_kid_opted_in_deck_category_keys(
             kid,
             category_meta_by_key=category_meta_by_key,
@@ -306,8 +309,89 @@ def _decode_type3_audio_uploads(session_entry):
     return decoded
 
 
-def _replay_completed_session(kid, kid_id, session_entry):
+def _capture_type_iv_item_id_map(kid, real_session_id, source_answers):
+    """Build offline-item-id -> real session_results.id map for a synced type-IV source.
+
+    Offline pending items are id'd 1..N at acquire time, but each source replay
+    inserts brand-new `session_results` rows with auto-increment ids. Retries
+    `append_type4_result_submitted_answer(conn, item_id, ...)` would 404 against
+    the offline ids — pair the source's answers (preserved insert order) with
+    the new rows ordered by id to recover the mapping.
+    """
+    conn = get_kid_connection_for(kid, read_only=True)
+    try:
+        rows = conn.execute(
+            "SELECT id FROM session_results WHERE session_id = ? ORDER BY id ASC",
+            [int(real_session_id)],
+        ).fetchall()
+    finally:
+        conn.close()
+    real_ids = [int(r[0]) for r in rows]
+    # Continue sessions append rows; take the tail that matches the offline batch.
+    n = len(source_answers)
+    if n > 0 and len(real_ids) > n:
+        real_ids = real_ids[-n:]
+    id_map = {}
+    for offline_answer, real_id in zip(source_answers, real_ids):
+        try:
+            offline_id = int(offline_answer.get('cardId'))
+        except (TypeError, ValueError):
+            continue
+        id_map[offline_id] = int(real_id)
+    return id_map
+
+
+def _remap_type_iv_retry_offline_ids(pending_payload, answers, id_map):
+    """Rewrite retry pending_payload.cards[*].id and answers[*].cardId using id_map."""
+    new_cards = []
+    for card in pending_payload.get('cards') or []:
+        if not isinstance(card, dict):
+            continue
+        try:
+            offline_id = int(card.get('id') or 0)
+        except (TypeError, ValueError):
+            return None, None, 'retry_item_invalid_id'
+        real_id = id_map.get(offline_id)
+        if real_id is None:
+            return None, None, 'retry_source_item_not_mapped'
+        new_card = dict(card)
+        new_card['id'] = int(real_id)
+        new_cards.append(new_card)
+    new_pending = dict(pending_payload)
+    new_pending['cards'] = new_cards
+
+    new_answers = []
+    for ans in answers:
+        if not isinstance(ans, dict):
+            continue
+        try:
+            offline_id = int(ans.get('cardId') or 0)
+        except (TypeError, ValueError):
+            return None, None, 'retry_answer_invalid_id'
+        real_id = id_map.get(offline_id)
+        if real_id is None:
+            return None, None, 'retry_source_item_not_mapped'
+        new_ans = dict(ans)
+        new_ans['cardId'] = int(real_id)
+        new_answers.append(new_ans)
+    return new_pending, new_answers, None
+
+
+def _replay_completed_session(
+    kid, kid_id, session_entry, source_pid_to_session_id, source_pid_to_item_id_map,
+):
     """Re-inject pending payload and run complete_session_internal for one session.
+
+    `source_pid_to_session_id` maps each committed source pendingSessionId to
+    the real DB `session_id`. Retry entries carry `retry_source_offline_pending_id`
+    in their pending payload; we look up the source's real session_id here and
+    inject it as `retry_source_session_id` so complete_session_internal hits
+    the retry branch (UPDATE source.correct, append submitted_grades).
+    Successful non-retry replays add their own mapping to the dict in-place.
+
+    For type-IV sources we also capture `source_pid_to_item_id_map[source_pid]`
+    = {offline_item_id -> real session_results.id} so each retry can remap its
+    per-item ids before the append path looks them up.
 
     Returns (response_dict, status_code).
     """
@@ -325,12 +409,31 @@ def _replay_completed_session(kid, kid_id, session_entry):
     if not isinstance(answers, list) or len(answers) == 0:
         return {'error': 'answers must be a non-empty list'}, 400
 
+    is_type_iv = get_session_behavior_type(session_type) == DECK_CATEGORY_BEHAVIOR_TYPE_IV
+    retry_source_offline_pid = str(pending_payload.get('retry_source_offline_pending_id') or '')
+    if retry_source_offline_pid and is_type_iv:
+        id_map = source_pid_to_item_id_map.get(retry_source_offline_pid)
+        if not id_map:
+            return {'error': 'retry_source_not_synced'}, 400
+        remapped_pending, remapped_answers, err = _remap_type_iv_retry_offline_ids(
+            pending_payload, answers, id_map,
+        )
+        if err is not None:
+            return {'error': err}, 400
+        pending_payload = remapped_pending
+        answers = remapped_answers
+
     record = {
         **pending_payload,
         'kid_id': str(kid_id),
         'session_type': str(session_type),
         'created_at_ts': float(session_entry.get('createdAtTs') or 0.0),
     }
+    if retry_source_offline_pid:
+        real_source_id = source_pid_to_session_id.get(retry_source_offline_pid)
+        if not real_source_id:
+            return {'error': 'retry_source_not_synced'}, 400
+        record[PENDING_RETRY_SOURCE_SESSION_ID_KEY] = int(real_source_id)
     with _PENDING_SESSIONS_LOCK:
         _PENDING_SESSIONS[str(pending_session_id)] = record
 
@@ -344,10 +447,19 @@ def _replay_completed_session(kid, kid_id, session_entry):
     if is_type_iii_session_type(session_type):
         complete_data['_uploaded_type3_audio_by_card'] = _decode_type3_audio_uploads(session_entry)
     try:
-        return complete_session_internal(kid, kid_id, session_type, complete_data)
+        response_dict, status_code = complete_session_internal(kid, kid_id, session_type, complete_data)
     finally:
         with _PENDING_SESSIONS_LOCK:
             _PENDING_SESSIONS.pop(str(pending_session_id), None)
+    if not retry_source_offline_pid and 200 <= int(status_code or 500) < 300:
+        real_id = (response_dict or {}).get('session_id') if isinstance(response_dict, dict) else None
+        if real_id:
+            source_pid_to_session_id[str(pending_session_id)] = int(real_id)
+            if is_type_iv:
+                source_pid_to_item_id_map[str(pending_session_id)] = (
+                    _capture_type_iv_item_id_map(kid, int(real_id), answers)
+                )
+    return response_dict, status_code
 
 
 def _replay_thumb_down_events(kid, events):
@@ -418,6 +530,8 @@ def offline_sync(kid_id):
         results = []
         committed_count = 0
         discarded_answer_count = 0
+        thumb_down_committed = 0
+        release_info = None
         if conflict_warning is not None:
             # The lock is gone or has moved on. Refuse to replay — the kid may
             # have already practiced online since, and merging stale offline
@@ -429,11 +543,27 @@ def offline_sync(kid_id):
                     if isinstance(answers, list):
                         discarded_answer_count += len(answers)
         else:
-            for entry in sessions:
+            # Sort source sessions before retry sessions so each retry can map
+            # its `retry_source_offline_pending_id` to the source's real
+            # session_id committed earlier in this loop.
+            def _is_retry_entry(entry):
+                if not isinstance(entry, dict):
+                    return False
+                pp = entry.get('pendingPayload')
+                if not isinstance(pp, dict):
+                    return False
+                return bool(pp.get('retry_source_offline_pending_id'))
+
+            ordered_sessions = sorted(sessions, key=lambda e: 1 if _is_retry_entry(e) else 0)
+            source_pid_to_session_id = {}
+            source_pid_to_item_id_map = {}
+            for entry in ordered_sessions:
                 if not isinstance(entry, dict):
                     results.append({'ok': False, 'error': 'invalid session entry'})
                     continue
-                response_dict, status_code = _replay_completed_session(kid, kid_id, entry)
+                response_dict, status_code = _replay_completed_session(
+                    kid, kid_id, entry, source_pid_to_session_id, source_pid_to_item_id_map,
+                )
                 ok = 200 <= int(status_code or 500) < 300
                 if ok:
                     committed_count += 1
@@ -444,14 +574,7 @@ def offline_sync(kid_id):
                     'sessionType': entry.get('sessionType'),
                     'response': response_dict,
                 })
-
-        if conflict_warning is None:
             thumb_down_committed = _replay_thumb_down_events(kid, thumb_down_events)
-        else:
-            thumb_down_committed = 0
-
-        release_info = None
-        if conflict_warning is None:
             release_info = release_lock(kid_id, pack_id)
 
         return jsonify({

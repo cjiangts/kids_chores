@@ -278,7 +278,7 @@ async function endType2Session(endedEarly = false) {
             buildType2ApiUrl('/practice/complete'),
             state.activePendingSessionId,
             state.sessionAnswers,
-            { categoryKey: state.categoryKey }
+            { categoryKey: state.categoryKey, practiceMode: state.judgeMode || 'self' }
         );
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {

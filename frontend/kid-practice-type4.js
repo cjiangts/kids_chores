@@ -284,11 +284,14 @@ async function endType4Session(endedEarly = false) {
 
     try {
         showError('');
+        const practiceMode = window.PracticeJudgeMode?.isMultiMode(state.judgeMode)
+            ? 'multi'
+            : 'input';
         const response = await window.PracticeSessionFlow.postCompleteSession(
             buildType4ApiUrl('practice/complete'),
             state.activePendingSessionId,
             state.sessionAnswers,
-            { categoryKey: state.categoryKey }
+            { categoryKey: state.categoryKey, practiceMode }
         );
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {

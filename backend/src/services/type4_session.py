@@ -110,8 +110,11 @@ def build_type_iv_pending_items_for_sources(
             sample_count=sample_count,
             seed_base=next_seed_base,
         )
+        current_seed_base = next_seed_base
         next_seed_base += sample_count + 97
-        for sample in samples:
+        generator_code = str(source.get('generator_code') or '')
+        for sample_index, sample in enumerate(samples):
+            sample_seed = current_seed_base + sample_index
             pending_item = {
                 'id': next_pending_id,
                 'representative_card_id': int(source.get('representative_card_id') or 0),
@@ -120,9 +123,12 @@ def build_type_iv_pending_items_for_sources(
                 'answer': str(sample.get('answer') or ''),
                 'distractor_answers': [str(item) for item in list(sample.get('distractors') or [])],
                 'is_multichoice_only': bool(source.get('is_multichoice_only')),
+                'has_validate': bool(sample.get('validate') is not None),
             }
             if sample.get('validate') is not None:
                 pending_item['validate'] = sample['validate']
+                pending_item['validate_seed'] = int(sample_seed)
+                pending_item['validate_generator_code'] = generator_code
             pending_items.append(pending_item)
             response_cards.append(
                 map_type_iv_pending_item_to_response_card(pending_item, practice_mode)

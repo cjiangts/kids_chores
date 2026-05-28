@@ -1,28 +1,28 @@
-"""Offline-mode lock registry.
+"""Offline pack claims: one offline pack per kid at a time.
 
-A single JSON file under DATA_DIR records which kids have been pulled into a
-browser's offline practice pack. The lock binds (kid_id, family_id) to a
-specific (pack_id, device_label) pair and auto-expires at family-timezone
-midnight.
+Backed by the `offlineClaim` field on each kid record in `kids.json` via
+`src/db/metadata.py`. While a claim is active, mutating routes for that kid
+are rejected; the claim auto-expires at the family-timezone midnight after
+acquisition. Claims are cleaned up lazily on read.
 
-While a kid is locked, all online write paths for that kid must be rejected.
-Lock release happens on explicit sync or lazily after expiry.
-
-The file lives inside DATA_DIR so it is automatically included in backup zips
-and restored alongside the rest of family data.
+Public API (consumed by `routes/kids/offline.py` and `routes/kids/kids_core.py`):
+  - `acquire_lock(kid_id, family_id, device_label)` -> {lock|conflict|error}
+  - `get_lock(kid_id)` -> snake_case lock dict or None
+  - `get_locks_for_family(family_id)` -> list of lock dicts
+  - `release_lock(kid_id, pack_id)` -> {released, reason, current}
+  - `force_release_lock(kid_id)` -> {released, previous}
+  - `update_pack_stats(kid_id, pack_id, bytes, files, audio)` -> updated dict or None
+  - `assert_kid_online(kid_id)` -> None or (error_dict, 423) for middleware use
 """
-import json
-import os
-import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from src.db import metadata
-from src.routes.kids_constants import DATA_DIR
+from src.db.metadata import _mutate_metadata
 
-OFFLINE_LOCKS_FILE = os.path.join(DATA_DIR, 'offline_locks.json')
-_OFFLINE_LOCKS_LOCK = threading.Lock()
+
+_CLAIM_FIELD = 'offlineClaim'
 
 
 def _utcnow_iso():
@@ -43,234 +43,192 @@ def _parse_iso_utc(value):
 
 
 def _compute_expiry_utc(family_id):
-    """Return the next family-timezone midnight as a naive UTC datetime."""
     tz_name = metadata.get_family_timezone(str(family_id or ''))
     try:
         tzinfo = ZoneInfo(tz_name)
     except Exception:
         tzinfo = ZoneInfo('UTC')
     now_local = datetime.now(tzinfo)
-    next_midnight_local = (now_local + timedelta(days=1)).replace(
+    next_midnight = (now_local + timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0,
     )
-    return next_midnight_local.astimezone(timezone.utc).replace(tzinfo=None)
+    return next_midnight.astimezone(timezone.utc).replace(tzinfo=None)
 
 
-def _load_raw():
-    if not os.path.exists(OFFLINE_LOCKS_FILE):
-        return {'locks': {}}
-    try:
-        with open(OFFLINE_LOCKS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except Exception:
-        return {'locks': {}}
-    if not isinstance(data, dict):
-        return {'locks': {}}
-    locks = data.get('locks')
-    if not isinstance(locks, dict):
-        locks = {}
-    return {'locks': locks}
+def _public_lock_dict(kid, claim):
+    """Project an in-memory kid claim into the snake_case shape callers expect."""
+    return {
+        'kid_id': str(kid.get('id') or ''),
+        'family_id': str(kid.get('familyId') or ''),
+        'pack_id': str(claim.get('packId') or ''),
+        'device_label': str(claim.get('deviceLabel') or ''),
+        'acquired_at_utc': claim.get('acquiredAtUtc') or '',
+        'expires_at_utc': claim.get('expiresAtUtc') or '',
+        'pack_total_bytes': int(claim.get('packTotalBytes') or 0),
+        'pack_total_file_count': int(claim.get('packTotalFileCount') or 0),
+        'pack_audio_file_count': int(claim.get('packAudioFileCount') or 0),
+    }
 
 
-def _save_raw(data):
-    os.makedirs(os.path.dirname(OFFLINE_LOCKS_FILE), exist_ok=True)
-    tmp_path = OFFLINE_LOCKS_FILE + '.tmp'
-    with open(tmp_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp_path, OFFLINE_LOCKS_FILE)
+def _find_kid(data, kid_key):
+    for kid in data.get('kids', []):
+        if str(kid.get('id')) == kid_key:
+            return kid
+    return None
 
 
-def _drop_expired_in_place(data):
-    """Mutate data, removing expired locks. Return (data, removed_count)."""
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    locks = data.get('locks') or {}
-    removed = 0
-    for kid_id in list(locks.keys()):
-        entry = locks.get(kid_id) or {}
-        exp = _parse_iso_utc(entry.get('expires_at_utc'))
-        if exp is None or exp <= now:
-            del locks[kid_id]
-            removed += 1
-    data['locks'] = locks
-    return data, removed
-
-
-def _normalize_kid_id(kid_id):
-    return str(kid_id).strip() if kid_id is not None else ''
-
-
-def cleanup_expired():
-    """Drop expired entries; persist if anything changed."""
-    with _OFFLINE_LOCKS_LOCK:
-        data = _load_raw()
-        data, removed = _drop_expired_in_place(data)
-        if removed > 0:
-            _save_raw(data)
+def _pop_expired_claim(kid):
+    """Drop expired/malformed claim in-place. Returns the active claim dict or None."""
+    claim = kid.get(_CLAIM_FIELD)
+    if not isinstance(claim, dict):
+        kid.pop(_CLAIM_FIELD, None)
+        return None
+    exp = _parse_iso_utc(claim.get('expiresAtUtc'))
+    if exp is None or exp <= datetime.now(timezone.utc).replace(tzinfo=None):
+        kid.pop(_CLAIM_FIELD, None)
+        return None
+    return claim
 
 
 def get_lock(kid_id):
-    """Return the active lock for one kid, or None."""
-    kid_key = _normalize_kid_id(kid_id)
+    kid_key = str(kid_id or '').strip()
     if not kid_key:
         return None
-    with _OFFLINE_LOCKS_LOCK:
-        data = _load_raw()
-        data, removed = _drop_expired_in_place(data)
-        if removed > 0:
-            _save_raw(data)
-        entry = data['locks'].get(kid_key)
-        return dict(entry) if isinstance(entry, dict) else None
 
+    def _op(data):
+        kid = _find_kid(data, kid_key)
+        if kid is None:
+            return None
+        claim = _pop_expired_claim(kid)
+        return _public_lock_dict(kid, claim) if claim else None
 
-def is_kid_locked(kid_id):
-    return get_lock(kid_id) is not None
+    return _mutate_metadata(_op)
 
 
 def get_locks_for_family(family_id):
-    """Return all active locks belonging to one family."""
     fid = str(family_id or '')
     if not fid:
         return []
-    with _OFFLINE_LOCKS_LOCK:
-        data = _load_raw()
-        data, removed = _drop_expired_in_place(data)
-        if removed > 0:
-            _save_raw(data)
-        return [
-            {**entry, 'kid_id': kid_id}
-            for kid_id, entry in data['locks'].items()
-            if isinstance(entry, dict) and str(entry.get('family_id') or '') == fid
-        ]
+
+    def _op(data):
+        out = []
+        for kid in data.get('kids', []):
+            if str(kid.get('familyId') or '') != fid:
+                continue
+            claim = _pop_expired_claim(kid)
+            if claim:
+                out.append(_public_lock_dict(kid, claim))
+        return out
+
+    return _mutate_metadata(_op)
 
 
 def acquire_lock(kid_id, family_id, device_label):
-    """Try to acquire an offline lock for one kid.
-
-    Returns the new lock dict on success, or {'conflict': existing_lock}
-    when the kid is already locked by someone else.
-    """
-    kid_key = _normalize_kid_id(kid_id)
+    kid_key = str(kid_id or '').strip()
+    fid = str(family_id or '')
     if not kid_key:
         return {'error': 'kid_id required'}
-    fid = str(family_id or '')
     if not fid:
         return {'error': 'family_id required'}
     label = str(device_label or '').strip()[:64] or 'Unknown device'
-    with _OFFLINE_LOCKS_LOCK:
-        data = _load_raw()
-        data, removed = _drop_expired_in_place(data)
-        existing = data['locks'].get(kid_key)
-        if isinstance(existing, dict):
-            return {'conflict': dict(existing)}
-        pack_id = uuid.uuid4().hex
-        entry = {
-            'family_id': fid,
-            'pack_id': pack_id,
-            'device_label': label,
-            'acquired_at_utc': _utcnow_iso(),
-            'expires_at_utc': _compute_expiry_utc(fid).isoformat(),
+    expires_iso = _compute_expiry_utc(fid).isoformat()
+    pack_id = uuid.uuid4().hex
+
+    def _op(data):
+        kid = _find_kid(data, kid_key)
+        if kid is None:
+            return {'error': 'kid not found'}
+        claim = _pop_expired_claim(kid)
+        if claim:
+            return {'conflict': _public_lock_dict(kid, claim)}
+        new_claim = {
+            'packId': pack_id,
+            'deviceLabel': label,
+            'acquiredAtUtc': _utcnow_iso(),
+            'expiresAtUtc': expires_iso,
         }
-        data['locks'][kid_key] = entry
-        _save_raw(data)
-        return {'lock': {**entry, 'kid_id': kid_key}}
+        kid[_CLAIM_FIELD] = new_claim
+        return {'lock': _public_lock_dict(kid, new_claim)}
+
+    return _mutate_metadata(_op)
 
 
 def update_pack_stats(kid_id, pack_id, total_bytes, total_file_count, audio_file_count):
-    """Record download stats on the lock entry. Returns updated lock dict or None."""
-    kid_key = _normalize_kid_id(kid_id)
+    kid_key = str(kid_id or '').strip()
     if not kid_key:
         return None
-    def _to_nonneg_int(value):
+
+    def _nonneg_int(value):
         try:
             return max(0, int(value))
         except (TypeError, ValueError):
             return 0
-    total_int = _to_nonneg_int(total_bytes)
-    total_files_int = _to_nonneg_int(total_file_count)
-    audio_count_int = _to_nonneg_int(audio_file_count)
-    with _OFFLINE_LOCKS_LOCK:
-        data = _load_raw()
-        data, removed = _drop_expired_in_place(data)
-        entry = data['locks'].get(kid_key)
-        if not isinstance(entry, dict):
-            if removed > 0:
-                _save_raw(data)
+
+    bytes_int = _nonneg_int(total_bytes)
+    files_int = _nonneg_int(total_file_count)
+    audio_int = _nonneg_int(audio_file_count)
+
+    def _op(data):
+        kid = _find_kid(data, kid_key)
+        if kid is None:
             return None
-        if str(entry.get('pack_id')) != str(pack_id):
-            if removed > 0:
-                _save_raw(data)
+        claim = _pop_expired_claim(kid)
+        if not claim or str(claim.get('packId')) != str(pack_id):
             return None
-        entry['pack_total_bytes'] = total_int
-        entry['pack_total_file_count'] = total_files_int
-        entry['pack_audio_file_count'] = audio_count_int
-        data['locks'][kid_key] = entry
-        _save_raw(data)
-        return dict(entry)
+        claim['packTotalBytes'] = bytes_int
+        claim['packTotalFileCount'] = files_int
+        claim['packAudioFileCount'] = audio_int
+        return _public_lock_dict(kid, claim)
+
+    return _mutate_metadata(_op)
 
 
 def release_lock(kid_id, pack_id):
-    """Release the offline lock if the pack_id matches.
-
-    Returns dict with keys:
-      - 'released' (bool): True if this call deleted the lock.
-      - 'reason' (str): 'released' | 'expired_or_missing' | 'taken_by_other'
-      - 'current' (dict|None): current lock state if mismatch.
-    """
-    kid_key = _normalize_kid_id(kid_id)
+    kid_key = str(kid_id or '').strip()
+    missing = {'released': False, 'reason': 'expired_or_missing', 'current': None}
     if not kid_key:
-        return {'released': False, 'reason': 'expired_or_missing', 'current': None}
-    with _OFFLINE_LOCKS_LOCK:
-        data = _load_raw()
-        data, removed = _drop_expired_in_place(data)
-        existing = data['locks'].get(kid_key)
-        if not isinstance(existing, dict):
-            if removed > 0:
-                _save_raw(data)
-            return {'released': False, 'reason': 'expired_or_missing', 'current': None}
-        if str(existing.get('pack_id')) != str(pack_id):
-            if removed > 0:
-                _save_raw(data)
+        return missing
+
+    def _op(data):
+        kid = _find_kid(data, kid_key)
+        if kid is None:
+            return missing
+        claim = _pop_expired_claim(kid)
+        if not claim:
+            return missing
+        if str(claim.get('packId')) != str(pack_id):
             return {
                 'released': False,
                 'reason': 'taken_by_other',
-                'current': dict(existing),
+                'current': _public_lock_dict(kid, claim),
             }
-        del data['locks'][kid_key]
-        _save_raw(data)
+        kid.pop(_CLAIM_FIELD, None)
         return {'released': True, 'reason': 'released', 'current': None}
+
+    return _mutate_metadata(_op)
 
 
 def force_release_lock(kid_id):
-    """Drop any active lock for one kid regardless of pack_id.
-
-    Used by the family-home escape hatch when the offline device is lost.
-    The owner device's later sync attempt is rejected by the sync route
-    because its pack_id no longer matches what's on the server.
-
-    Returns dict with:
-      - 'released' (bool): True if a lock was actually removed.
-      - 'previous' (dict|None): the lock entry that was dropped, if any.
-    """
-    kid_key = _normalize_kid_id(kid_id)
+    kid_key = str(kid_id or '').strip()
     if not kid_key:
         return {'released': False, 'previous': None}
-    with _OFFLINE_LOCKS_LOCK:
-        data = _load_raw()
-        data, _removed = _drop_expired_in_place(data)
-        existing = data['locks'].get(kid_key)
-        if not isinstance(existing, dict):
-            _save_raw(data)
+
+    def _op(data):
+        kid = _find_kid(data, kid_key)
+        if kid is None:
             return {'released': False, 'previous': None}
-        del data['locks'][kid_key]
-        _save_raw(data)
-        return {'released': True, 'previous': dict(existing)}
+        claim = kid.get(_CLAIM_FIELD)
+        if not isinstance(claim, dict):
+            kid.pop(_CLAIM_FIELD, None)
+            return {'released': False, 'previous': None}
+        previous = _public_lock_dict(kid, claim)
+        kid.pop(_CLAIM_FIELD, None)
+        return {'released': True, 'previous': previous}
+
+    return _mutate_metadata(_op)
 
 
 def assert_kid_online(kid_id):
-    """Return None when the kid is online, or (response_dict, status) when locked.
-
-    Routes that mutate kid state should call this and return early on lock.
-    """
     lock = get_lock(kid_id)
     if not lock:
         return None

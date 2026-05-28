@@ -112,30 +112,24 @@
         return rows || [];
     }
 
+    function _deleteAllByIndex(store, indexName, key) {
+        const req = store.index(indexName).openCursor(IDBKeyRange.only(key));
+        return new Promise((resolve, reject) => {
+            req.onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) { cursor.delete(); cursor.continue(); }
+                else resolve();
+            };
+            req.onerror = () => reject(req.error);
+        });
+    }
+
     async function deletePack(kidId) {
         const t = await tx([STORE_PACKS, STORE_AUDIO, STORE_RESULTS], 'readwrite');
         const id = kidKey(kidId);
         await asPromise(t.objectStore(STORE_PACKS).delete(id));
-        const audioIdx = t.objectStore(STORE_AUDIO).index('byKid');
-        const audioReq = audioIdx.openCursor(IDBKeyRange.only(id));
-        await new Promise((resolve, reject) => {
-            audioReq.onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) { cursor.delete(); cursor.continue(); }
-                else resolve();
-            };
-            audioReq.onerror = () => reject(audioReq.error);
-        });
-        const resIdx = t.objectStore(STORE_RESULTS).index('byKid');
-        const resReq = resIdx.openCursor(IDBKeyRange.only(id));
-        await new Promise((resolve, reject) => {
-            resReq.onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) { cursor.delete(); cursor.continue(); }
-                else resolve();
-            };
-            resReq.onerror = () => reject(resReq.error);
-        });
+        await _deleteAllByIndex(t.objectStore(STORE_AUDIO), 'byKid', id);
+        await _deleteAllByIndex(t.objectStore(STORE_RESULTS), 'byKid', id);
         _syncOwnedKidsLocalStorage();
     }
 
@@ -157,13 +151,6 @@
             audioBuffer,
         };
         await asPromise(store.put(entry));
-    }
-
-    async function loadAudioBlob(kidId, sessionId, cardId) {
-        const t = await tx(STORE_AUDIO, 'readonly');
-        const store = t.objectStore(STORE_AUDIO);
-        const row = await asPromise(store.get(audioKey(kidId, sessionId, cardId)));
-        return row || null;
     }
 
     async function listAudioForSession(kidId, sessionId) {
@@ -201,42 +188,7 @@
         return rows || [];
     }
 
-    async function deletePendingResult(kidId, sessionId) {
-        const t = await tx(STORE_RESULTS, 'readwrite');
-        const store = t.objectStore(STORE_RESULTS);
-        await asPromise(store.delete(resultKey(kidId, sessionId)));
-    }
-
-    async function clearPendingResults(kidId) {
-        const t = await tx(STORE_RESULTS, 'readwrite');
-        const store = t.objectStore(STORE_RESULTS);
-        const idx = store.index('byKid');
-        const req = idx.openCursor(IDBKeyRange.only(kidKey(kidId)));
-        await new Promise((resolve, reject) => {
-            req.onsuccess = (e) => {
-                const cursor = e.target.result;
-                if (cursor) { cursor.delete(); cursor.continue(); }
-                else resolve();
-            };
-            req.onerror = () => reject(req.error);
-        });
-    }
-
     // ----- Convenience -----
-
-    async function isOfflineOwnerForKid(kidId) {
-        const pack = await loadPack(kidId);
-        if (!pack || !pack.packEnvelope) return false;
-        const exp = pack.packEnvelope.expires_at_utc;
-        if (!exp) return true;
-        try {
-            const expMs = Date.parse(exp.endsWith('Z') ? exp : exp + 'Z');
-            if (Number.isFinite(expMs) && expMs <= Date.now()) {
-                return 'expired';
-            }
-        } catch (_) { /* ignore */ }
-        return true;
-    }
 
     async function listOwnedKidIds() {
         const packs = await listAllPacks();
@@ -270,16 +222,7 @@
         const id = kidKey(kidId);
         const pack = await loadPack(id);
         if (!pack || !pack.packEnvelope) {
-            return {
-                hasPack: false,
-                totalBytes: 0,
-                totalFileCount: 0,
-                shellBytes: 0,
-                shellFileCount: 0,
-                audioBytes: 0,
-                audioFileCount: 0,
-                payloadBytes: 0,
-            };
+            return { hasPack: false, totalBytes: 0, totalFileCount: 0, audioFileCount: 0 };
         }
         let payloadBytes = 0;
         try { payloadBytes += JSON.stringify(pack.packEnvelope).length; } catch (_) { /* ignore */ }
@@ -303,18 +246,11 @@
 
         const shellStats = await _measureCache('offline-shell');
         const audioStats = await _measureCache('offline-runtime', (url) => audioUrlSet.has(url));
-
-        const totalBytes = payloadBytes + shellStats.bytes + audioStats.bytes;
-        const totalFileCount = shellStats.count + audioStats.count + 1;
         return {
             hasPack: true,
-            totalBytes,
-            totalFileCount,
-            shellBytes: shellStats.bytes,
-            shellFileCount: shellStats.count,
-            audioBytes: audioStats.bytes,
+            totalBytes: payloadBytes + shellStats.bytes + audioStats.bytes,
+            totalFileCount: shellStats.count + audioStats.count + 1,
             audioFileCount: audioStats.count,
-            payloadBytes,
         };
     }
 
@@ -324,13 +260,9 @@
         listAllPacks,
         deletePack,
         saveAudioBlob,
-        loadAudioBlob,
         listAudioForSession,
         savePendingResult,
         listPendingResults,
-        deletePendingResult,
-        clearPendingResults,
-        isOfflineOwnerForKid,
         listOwnedKidIds,
         getPackStats,
         syncOwnedKidsLocalStorage: _syncOwnedKidsLocalStorage,

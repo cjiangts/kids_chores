@@ -243,7 +243,14 @@ async function loadKidsForToggle() {
         if (!kidsResponse.ok) throw new Error(`HTTP ${kidsResponse.status}`);
         const kids = await kidsResponse.json();
         const all = Array.isArray(kids) ? kids : [];
-        const list = all.filter((kid) => kidHasPracticeTarget(kid) || String(kid?.id || '') === kidId);
+        const list = all.filter((kid) => {
+            const id = String(kid?.id || '');
+            if (id === kidId) return true;
+            if (!kidHasPracticeTarget(kid)) return false;
+            const lock = locksByKidId[id];
+            if (lock && !ownedKidIdSet.has(id)) return false;
+            return true;
+        });
         renderKidToggle(list, { locksByKidId, ownedKidIdSet });
     } catch (error) {
         console.error('Error loading kids for toggle:', error);
@@ -1201,24 +1208,27 @@ async function bootstrapOfflinePracticeHome(pack) {
     const kidInfo = mergeOfflineLocalProgress(baseKidInfo, pendingResults);
 
     // Build the available-category set. A subject stays clickable while any
-    // cached card is still unanswered OR any answered card is still wrong
-    // (retry available). Once every card is answered and all are correct,
-    // grey it out — the kid has nothing left to practice in this pack and
-    // letting them in would just hit the "practice is off" guard.
-    const answersByPendingId = new Map();
-    for (const row of (pendingResults || [])) {
-        const pid = String(row?.pendingSessionId || '');
-        if (!pid) continue;
-        answersByPendingId.set(pid, Array.isArray(row?.answers) ? row.answers : []);
-    }
+    // cached card has no latest answer (unattempted) OR its latest answer is
+    // still wrong (retry available). Latest = most recent across the source
+    // row + every `__retry_N` round, so a card the kid retried to success
+    // correctly drops out of the "to fix" set and the subject can grey out.
+    const rowsBySourcePid = _groupOfflineRowsBySourcePid(pendingResults);
     offlinePackCategorySet = new Set(
         (Array.isArray(pack.sessions) ? pack.sessions : [])
             .filter((s) => {
+                const sourcePid = String(s?.pendingSessionId || '');
                 const cards = Array.isArray(s?.payload?.cards) ? s.payload.cards : [];
                 if (cards.length === 0) return false;
-                const answers = answersByPendingId.get(String(s?.pendingSessionId || '')) || [];
-                if (answers.length < cards.length) return true;
-                return answers.some((a) => a && a.known === false);
+                const latestByCardId = _latestAnswersByCardId(rowsBySourcePid.get(sourcePid) || []);
+                const expectedCards = Array.isArray(s?.payload?.pending_payload?.cards)
+                    ? s.payload.pending_payload.cards : cards;
+                for (const card of cards) {
+                    if (!card || card.id == null) continue;
+                    const latest = latestByCardId.get(String(card.id));
+                    if (!latest) return true;
+                    if (isOfflineAnswerWrong(latest, expectedCards)) return true;
+                }
+                return false;
             })
             .map((s) => normalizeCategoryKey(s.categoryKey))
             .filter(Boolean)
@@ -1234,7 +1244,7 @@ async function bootstrapOfflinePracticeHome(pack) {
         `;
         await renderSyncButtonContents();
         const syncBtn = document.getElementById('offlineSyncBtn');
-        if (syncBtn) syncBtn.addEventListener('click', () => handleOfflineSyncClick(pack));
+        if (syncBtn) syncBtn.addEventListener('click', () => handleOfflineSyncClick());
     }
 
     // Kid toggle is rebuilt from local IndexedDB packs (no network).
@@ -1261,72 +1271,147 @@ async function bootstrapOfflinePracticeHome(pack) {
     if (practiceSection) practiceSection.classList.remove('hidden');
 }
 
+// Type-I/II/III answers carry `known` (kid self-grades). Type-IV has no
+// `known` field — the server grades by string equality (or a custom
+// validate fn). Offline we mirror the simple equality path against the
+// cached pending payload's expected answers; custom validators can't run
+// client-side, so partial credit waits for sync.
+function _buildExpectedAnswerMap(cards) {
+    const map = new Map();
+    for (const card of (cards || [])) {
+        if (!card || card.id == null) continue;
+        map.set(String(card.id), String(card.answer || '').trim());
+    }
+    return map;
+}
+
+function isOfflineAnswerWrong(answer, expectedCards) {
+    if (!answer) return false;
+    if (typeof answer.known === 'boolean') return answer.known === false;
+    const expectedById = _buildExpectedAnswerMap(expectedCards);
+    const expected = expectedById.get(String(answer.cardId));
+    // Defensive: missing expected counts as wrong so the subject stays
+    // reviewable (sync will reconcile).
+    if (expected === undefined) return true;
+    return String(answer.submittedAnswer ?? '').trim() !== expected;
+}
+
+function countLocallyRightAnswers(row, answers) {
+    const expectedById = _buildExpectedAnswerMap(row?.pendingPayload?.cards);
+    let right = 0;
+    for (const a of answers) {
+        if (!a) continue;
+        if (typeof a.known === 'boolean') {
+            if (a.known === true) right += 1;
+            continue;
+        }
+        const expected = expectedById.get(String(a.cardId));
+        if (expected === undefined) continue;
+        const submitted = String(a.submittedAnswer ?? '').trim();
+        if (submitted === expected) right += 1;
+    }
+    return right;
+}
+
+// Group rows by their source pid so each retry round folds back into the
+// session it belongs to (online retries UPDATE the source session row instead
+// of inserting new ones — offline mirrors that aggregation here).
+function _retryPidSourceOf(pid) {
+    const m = String(pid || '').match(/^(.+)__retry_(\d+)$/);
+    return m ? m[1] : String(pid || '');
+}
+
+function _groupOfflineRowsBySourcePid(rows) {
+    const out = new Map();
+    for (const row of (rows || [])) {
+        const pid = String(row?.pendingSessionId || '');
+        if (!pid) continue;
+        const src = _retryPidSourceOf(pid);
+        if (!out.has(src)) out.set(src, []);
+        out.get(src).push(row);
+    }
+    for (const list of out.values()) {
+        list.sort((a, b) => (Number(a?.createdAtTs) || 0) - (Number(b?.createdAtTs) || 0));
+    }
+    return out;
+}
+
+function _latestAnswersByCardId(rows) {
+    const map = new Map();
+    for (const row of (rows || [])) {
+        for (const a of (Array.isArray(row.answers) ? row.answers : [])) {
+            if (!a || a.cardId == null) continue;
+            map.set(String(a.cardId), a);
+        }
+    }
+    return map;
+}
+
 function mergeOfflineLocalProgress(baseKidInfo, pendingResults) {
     const completedDelta = {};
     const triedDelta = {};
     const rightDelta = {};
-    for (const row of (pendingResults || [])) {
-        const cat = String(row?.sessionType || '').trim();
+    const tierDelta = {};
+    const latestPercentByCategory = {};
+    const groups = [..._groupOfflineRowsBySourcePid(pendingResults).values()]
+        .filter((rows) => rows.length > 0)
+        .sort((a, b) => (Number(a[0]?.createdAtTs) || 0) - (Number(b[0]?.createdAtTs) || 0));
+    for (const rows of groups) {
+        const cat = String(rows[0]?.sessionType || '').trim();
         if (!cat) continue;
-        const answers = Array.isArray(row.answers) ? row.answers : [];
+        const latest = [..._latestAnswersByCardId(rows).values()];
+        const sourceCards = Array.isArray(rows[0]?.pendingPayload?.cards)
+            ? rows[0].pendingPayload.cards : [];
+        const tried = latest.length;
+        const right = countLocallyRightAnswers(rows[0], latest);
+        const target = Math.max(sourceCards.length, tried);
+        const isIncomplete = sourceCards.length > 0 && tried < sourceCards.length;
+        // Match server semantics: 1 session row per source pid; base_tier is
+        // half_silver while the source isn't finished and gold once it is.
         completedDelta[cat] = (completedDelta[cat] || 0) + 1;
-        triedDelta[cat] = (triedDelta[cat] || 0) + answers.length;
-        rightDelta[cat] = (rightDelta[cat] || 0) + answers.filter((a) => a && a.known === true).length;
+        triedDelta[cat] = (triedDelta[cat] || 0) + tried;
+        rightDelta[cat] = (rightDelta[cat] || 0) + right;
+        tierDelta[cat] = tierDelta[cat] || [];
+        tierDelta[cat].push(isIncomplete ? 'half_silver' : 'gold');
+        const percentNumer = isIncomplete ? tried : right;
+        latestPercentByCategory[cat] = target > 0
+            ? Math.max(0, Math.min(100, Math.round((percentNumer / target) * 100)))
+            : 0;
     }
-    const bump = (base, delta) => {
+    const bumpNumber = (base, delta) => {
         const out = { ...(base || {}) };
         for (const k of Object.keys(delta)) {
             out[k] = (Number.parseInt(out[k], 10) || 0) + delta[k];
         }
         return out;
     };
+    const bumpArray = (base, delta) => {
+        const out = { ...(base || {}) };
+        for (const k of Object.keys(delta)) {
+            const existing = Array.isArray(out[k]) ? out[k] : [];
+            out[k] = [...existing, ...delta[k]];
+        }
+        return out;
+    };
+    const overwrite = (base, delta) => {
+        const out = { ...(base || {}) };
+        for (const k of Object.keys(delta)) out[k] = delta[k];
+        return out;
+    };
     return {
         ...baseKidInfo,
-        dailyCompletedByDeckCategory: bump(baseKidInfo.dailyCompletedByDeckCategory, completedDelta),
-        dailyTriedByDeckCategory: bump(baseKidInfo.dailyTriedByDeckCategory, triedDelta),
-        dailyRightByDeckCategory: bump(baseKidInfo.dailyRightByDeckCategory, rightDelta),
+        dailyCompletedByDeckCategory: bumpNumber(baseKidInfo.dailyCompletedByDeckCategory, completedDelta),
+        dailyTriedByDeckCategory: bumpNumber(baseKidInfo.dailyTriedByDeckCategory, triedDelta),
+        dailyRightByDeckCategory: bumpNumber(baseKidInfo.dailyRightByDeckCategory, rightDelta),
+        dailyStarTiersByDeckCategory: bumpArray(baseKidInfo.dailyStarTiersByDeckCategory, tierDelta),
+        dailyPercentByDeckCategory: overwrite(baseKidInfo.dailyPercentByDeckCategory, latestPercentByCategory),
     };
 }
 
 function isPackExpired(envelope) {
     if (!envelope || !envelope.expires_at_utc) return false;
-    const expMs = Date.parse(String(envelope.expires_at_utc).endsWith('Z') ? envelope.expires_at_utc : envelope.expires_at_utc + 'Z');
-    return Number.isFinite(expMs) && expMs <= Date.now();
-}
-
-function _isNetworkErrorMessage(text) {
-    const s = String(text || '').toLowerCase();
-    return s.includes('load failed')
-        || s.includes('failed to fetch')
-        || s.includes('networkerror')
-        || s.includes('network request failed')
-        || s.includes('err_internet_disconnected');
-}
-
-async function _probeServerReachable() {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
-    try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 4000);
-        const res = await fetch('/api/family/me', {
-            method: 'GET',
-            cache: 'no-store',
-            credentials: 'same-origin',
-            signal: ctrl.signal,
-        });
-        clearTimeout(timer);
-        return res && (res.ok || res.status === 401 || res.status === 403);
-    } catch (_) {
-        return false;
-    }
-}
-
-function _showOfflineSyncAlert() {
-    window.alert(
-        'Can\'t reach the server.\n\n'
-        + 'Your practice results are still saved on this device — '
-        + 'reconnect to the internet and tap Sync again. Nothing is lost.',
-    );
+    const d = window.OfflineCommon && window.OfflineCommon.parseIsoUtc(envelope.expires_at_utc);
+    return !!(d && d.getTime() <= Date.now());
 }
 
 async function countPendingAnswersAcrossOwnedKids() {
@@ -1357,7 +1442,7 @@ async function renderSyncButtonContents() {
     btn.innerHTML = `${iconHtml}<span>Sync</span>${countHtml}`;
 }
 
-async function handleOfflineSyncClick(pack) {
+async function handleOfflineSyncClick() {
     const btn = document.getElementById('offlineSyncBtn');
     if (btn) {
         btn.disabled = true;
@@ -1369,11 +1454,6 @@ async function handleOfflineSyncClick(pack) {
         await renderSyncButtonContents();
     };
     try {
-        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-            window.alert('No internet connection — connect to the network and tap Sync again.');
-            await restoreBtn();
-            return;
-        }
         let ownedIds = [];
         if (window.OfflineStorage) {
             try {
@@ -1385,10 +1465,17 @@ async function handleOfflineSyncClick(pack) {
         const failures = [];
         const discards = [];
         for (const targetId of targetIds) {
-            const pendingCount = window.OfflineStorage
-                ? (await window.OfflineStorage.listPendingResults(targetId)).length
+            const localPack = window.OfflineStorage
+                ? await window.OfflineStorage.loadPack(targetId)
+                : null;
+            const rows = window.OfflineStorage
+                ? await window.OfflineStorage.listPendingResults(targetId)
+                : [];
+            const pendingCount = rows.length;
+            const queuedThumbDownCount = Array.isArray(localPack?.packEnvelope?.thumbDownEvents)
+                ? localPack.packEnvelope.thumbDownEvents.length
                 : 0;
-            const result = pendingCount === 0
+            const result = (pendingCount === 0 && queuedThumbDownCount === 0)
                 ? await window.OfflineCommon.releasePack(targetId)
                 : await window.OfflineCommon.syncPack(targetId);
             if (!result || !result.ok) {
@@ -1408,14 +1495,11 @@ async function handleOfflineSyncClick(pack) {
         }
 
         if (failures.length > 0) {
-            const allNetwork = failures.every((f) => _isNetworkErrorMessage(f.error));
-            const reachable = allNetwork ? false : await _probeServerReachable();
-            if (allNetwork || !reachable) {
-                _showOfflineSyncAlert();
-            } else {
-                const msg = failures.map((f) => `kid ${f.kidId}: ${f.error}`).join('\n');
-                window.alert(`Could not sync ${failures.length} pack(s):\n${msg}`);
-            }
+            const msg = failures.map((f) => `kid ${f.kidId}: ${f.error}`).join('\n');
+            window.alert(
+                `Could not sync ${failures.length} pack(s):\n${msg}\n\n`
+                + 'Your practice results are still saved on this device — reconnect and tap Sync again.',
+            );
             await restoreBtn();
             return;
         }
@@ -1434,12 +1518,10 @@ async function handleOfflineSyncClick(pack) {
         window.location.href = '/admin.html';
     } catch (e) {
         const msg = (e && e.message) ? String(e.message) : String(e);
-        const reachable = _isNetworkErrorMessage(msg) ? false : await _probeServerReachable();
-        if (!reachable) {
-            _showOfflineSyncAlert();
-        } else {
-            window.alert(`Sync error: ${msg}`);
-        }
+        window.alert(
+            `Sync error: ${msg}\n\n`
+            + 'Your practice results are still saved on this device — reconnect and tap Sync again.',
+        );
         await restoreBtn();
     }
 }

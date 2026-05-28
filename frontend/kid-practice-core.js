@@ -1321,7 +1321,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (_) { offlinePack = null; }
         if (offlinePack && offlinePack.packEnvelope && !offlinePack.expired) {
             window.OfflineCommon.installFetchInterceptor(kidId);
-            applyOfflinePracticeHeader(offlinePack);
+            applyOfflinePracticeHeader();
         }
     }
 
@@ -1347,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-function applyOfflinePracticeHeader(pack) {
+function applyOfflinePracticeHeader() {
     // In offline mode, the "Back" button on the practice runtime should
     // return to the offline practice home for this kid (which holds the
     // Sync action). We never go back to /admin.html directly because the

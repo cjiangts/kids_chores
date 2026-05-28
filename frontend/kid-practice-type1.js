@@ -768,11 +768,15 @@ async function endType1Session(endedEarly = false) {
 
     try {
         showError('');
+        const baseJudgeMode = state.judgeMode || 'parent';
+        const practiceMode = state.drillActive
+            ? `${baseJudgeMode}${PRACTICE_MODE_DRILL_SUFFIX}`
+            : baseJudgeMode;
         const response = await window.PracticeSessionFlow.postCompleteSession(
             buildType1ApiUrl('practice/complete'),
             state.activePendingSessionId,
             state.sessionAnswers,
-            { categoryKey: state.categoryKey }
+            { categoryKey: state.categoryKey, practiceMode }
         );
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
