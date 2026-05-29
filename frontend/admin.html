@@ -53,8 +53,12 @@
         .parent-admin-page .admin-matrix-title-sub {
             font-size: 0.78rem;
             color: #6c7794;
-            margin-top: 0.12rem;
             font-weight: 400;
+        }
+        /* Keep each "·"-separated phrase intact: browser only breaks at
+           the spaces around " · ", never mid-phrase. */
+        .admin-matrix-title-sub-phrase {
+            white-space: nowrap;
         }
         .parent-admin-page .admin-matrix-title-actions {
             display: inline-flex;
@@ -71,10 +75,16 @@
             border-bottom: 1px solid rgba(125, 138, 184, 0.18);
             margin-bottom: 0.4rem;
         }
+        /* Title block lays out title + sub inline when there's room,
+           wrapping sub below the title when the row gets too narrow.
+           min-width:0 lets it shrink before the Edit button gets bumped
+           to a new line. */
         .parent-admin-page .admin-matrix-section-header-text {
             display: flex;
-            flex-direction: column;
-            gap: 0.18rem;
+            flex-wrap: wrap;
+            align-items: baseline;
+            column-gap: 0.6rem;
+            row-gap: 0.1rem;
             flex: 1 1 auto;
             min-width: 0;
         }
@@ -232,30 +242,30 @@
         }
         .parent-admin-page .admin-matrix-kid-ring-seg.complete { stroke: #34b89c; }
         .parent-admin-page .admin-matrix-kid-ring-seg.in-progress { stroke: #f0a23a; }
-        .parent-admin-page .admin-matrix-kid-delete-btn {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: rgba(196, 73, 58, 0.82);
-            color: #fff;
-            border: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            padding: 0;
-            line-height: 0;
-            box-shadow: 0 2px 6px rgba(196, 73, 58, 0.35);
-            z-index: 2;
+        /* Avatar SVG sizing — keep the icon centered with comfortable
+           padding inside the 32px (desktop) / 20px (mobile) avatar disc.
+           The avatar already sets color:#fff so SVG stroke = white. */
+        .parent-admin-page .admin-matrix-kid-avatar svg {
+            display: block;
         }
-        .parent-admin-page .admin-matrix-kid-delete-btn:hover,
-        .parent-admin-page .admin-matrix-kid-delete-btn:focus-visible {
-            background: #a8392c;
-            outline: none;
+        /* Mode overrides — when the avatar shows an action icon instead of
+           the letter, swap the tone background for the action's color. */
+        .parent-admin-page .admin-matrix-kid-avatar--mode-delete {
+            background: rgba(196, 73, 58, 0.82);
+        }
+        .parent-admin-page .admin-matrix-kid-avatar--mode-locked {
+            background: rgba(75, 85, 99, 0.92);
+        }
+        /* Offline-selecting + unchecked: empty white disc with an inset
+           orange ring — signals "tap to select" without an icon. */
+        .parent-admin-page .admin-matrix-kid-avatar--mode-select-empty {
+            background: #fff;
+            box-shadow: inset 0 0 0 2px #c2410c;
+        }
+        /* Offline-selecting + checked: uniform orange for ALL kids so the
+           selection set reads as a group, not per-kid tone variations. */
+        .parent-admin-page .admin-matrix-kid-avatar--mode-select-checked {
+            background: #c2410c;
         }
         .parent-admin-page .admin-review-banner {
             display: flex;
@@ -510,13 +520,6 @@
                 min-width: 132px;
                 font-size: 0.85rem;
             }
-            .parent-admin-page .admin-matrix-section-header {
-                flex-wrap: wrap;
-                gap: 0.45rem;
-            }
-            .parent-admin-page .admin-matrix-title-actions {
-                margin-left: auto;
-            }
             .parent-admin-page .admin-panel-menu-btn {
                 margin-left: auto;
             }
@@ -543,10 +546,6 @@
             .parent-admin-page .admin-matrix-kid-ring-wrap {
                 width: 28px;
                 height: 28px;
-            }
-            .parent-admin-page .admin-matrix-kid-delete-btn {
-                width: 20px;
-                height: 20px;
             }
             .parent-admin-page .admin-matrix-kid-name {
                 font-size: 0.75rem;
@@ -599,66 +598,6 @@
         }
         .admin-matrix.is-offline-selecting button.admin-matrix-kid-head-btn:hover {
             background: #fff7ed;
-        }
-        /* Check-badge overlay — sits directly over the kid avatar so the
-           selection indicator IS the visual identity in offline-selecting
-           mode (no competing corner dot). Unselected: empty white disc with
-           a thick orange ring. Selected: filled orange disc with white ✓. */
-        .admin-matrix-kid-check-badge {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #fff;
-            border: 3px solid #c2410c;
-            box-sizing: border-box;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            font-weight: 800;
-            line-height: 1;
-            color: transparent;
-            z-index: 2;
-            pointer-events: none;
-            box-shadow: 0 1px 3px rgba(124, 45, 18, 0.25);
-        }
-        .admin-matrix-kid-check-badge.is-checked {
-            background: #c2410c;
-            color: #fff;
-            border-color: #fff;
-            box-shadow: 0 0 0 2px #c2410c, 0 2px 6px rgba(124, 45, 18, 0.4);
-        }
-        /* Locked-elsewhere indicator: small badge on avatar corner + desaturated
-           avatar. Keeps the kid name on the same baseline as siblings. */
-        .admin-matrix-kid-avatar--locked {
-            filter: grayscale(0.6);
-            opacity: 0.55;
-        }
-        .admin-matrix-kid-lock-badge {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: rgba(75, 85, 99, 0.92);
-            color: #fff;
-            border: 2px solid #fff;
-            box-sizing: border-box;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2;
-            pointer-events: none;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-        }
-        .admin-matrix-kid-lock-badge svg {
-            display: block;
         }
         /* Offline-info chip floats below the kid name when in
            offline-selection mode for locked kids. Compact: device + HH:MM

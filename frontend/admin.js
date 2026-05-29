@@ -680,6 +680,10 @@ function renderMatrix() {
     let subClass = 'admin-matrix-title-sub';
     if (offlineSelectionMode) subClass += ' admin-matrix-title-sub--offline';
     else if (editMode) subClass += ' admin-matrix-title-sub--edit';
+    const subTextHtml = subText
+        .split(' · ')
+        .map((p) => `<span class="admin-matrix-title-sub-phrase">${escapeHtml(p)}</span>`)
+        .join(' · ');
     const editToggleHtml = offlineSelectionMode
         ? ''
         : `<button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
@@ -688,7 +692,7 @@ function renderMatrix() {
     const sectionHeaderHtml = `
         <div class="admin-matrix-section-header-text">
             <span class="admin-matrix-title-main">Subject Settings</span>
-            <span class="${subClass}">${subText}</span>
+            <span class="${subClass}">${subTextHtml}</span>
         </div>
         <div class="admin-matrix-title-actions">
             ${addKidBtnHtml}
@@ -733,28 +737,31 @@ function buildKidColumnHeader(kid) {
     const progress = computeKidDailyProgress(kid);
     const ringSegmentsHtml = buildKidRingSegmentsHtml(progress);
     const reportHref = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
-    let trashBtnHtml = '';
-    if (editMode && !offlineSelectionMode) {
-        trashBtnHtml = `<button type="button" class="admin-matrix-kid-delete-btn" data-kid-delete data-kid-id="${escapeHtml(kidId)}" aria-label="Delete ${escapeHtml(name)}">${icon('trash', { size: 26, strokeWidth: 2 })}</button>`;
-    }
-    const checkBadgeHtml = offlineSelectionMode && !offlineLocked
-        ? `<span class="admin-matrix-kid-check-badge${offlineSelected ? ' is-checked' : ''}" aria-hidden="true">${offlineSelected ? '✓' : ''}</span>`
-        : '';
-    const lockBadgeHtml = offlineLocked
-        ? `<span class="admin-matrix-kid-lock-badge" aria-label="${escapeHtml(name)} is offline on another device">${icon('cloud-off', { size: 18, strokeWidth: 2.5 })}</span>`
-        : '';
-    const avatarLockedClass = offlineLocked ? ' admin-matrix-kid-avatar--locked' : '';
     const offlineInfoHtml = (offlineSelectionMode && offlineLocked) ? buildOfflineLockInfoChipHtml(kid) : '';
+    let avatarContentHtml;
+    let avatarModeClass = '';
+    if (offlineLocked) {
+        avatarContentHtml = icon('cloud-off', { size: 16, strokeWidth: 2.5 });
+        avatarModeClass = ' admin-matrix-kid-avatar--mode-locked';
+    } else if (offlineSelectionMode && offlineSelected) {
+        avatarContentHtml = icon('check', { size: 16, strokeWidth: 3 });
+        avatarModeClass = ' admin-matrix-kid-avatar--mode-select-checked';
+    } else if (offlineSelectionMode) {
+        avatarContentHtml = '';
+        avatarModeClass = ' admin-matrix-kid-avatar--mode-select-empty';
+    } else if (editMode) {
+        avatarContentHtml = icon('trash', { size: 16, strokeWidth: 2 });
+        avatarModeClass = ' admin-matrix-kid-avatar--mode-delete';
+    } else {
+        avatarContentHtml = escapeHtml(initial);
+    }
     const avatarHtml = `
         <span class="admin-matrix-kid-ring-wrap">
             <svg class="admin-matrix-kid-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
                 <circle class="admin-matrix-kid-ring-track" cx="50" cy="50" r="46" />
                 ${ringSegmentsHtml}
             </svg>
-            <span class="admin-matrix-kid-avatar admin-matrix-kid-avatar--tone-${tone}${avatarLockedClass}" aria-hidden="true">${escapeHtml(initial)}</span>
-            ${lockBadgeHtml}
-            ${checkBadgeHtml}
-            ${trashBtnHtml}
+            <span class="admin-matrix-kid-avatar admin-matrix-kid-avatar--tone-${tone}${avatarModeClass}" aria-hidden="true">${avatarContentHtml}</span>
         </span>
         <span class="admin-matrix-kid-name">${escapeHtml(name)}</span>
     `;
@@ -774,11 +781,19 @@ function buildKidColumnHeader(kid) {
             `;
         }
     } else if (editMode) {
-        interactiveHtml = `
-            <span class="admin-matrix-kid-head-btn">
-                ${avatarHtml}
-            </span>
-        `;
+        if (offlineLocked) {
+            interactiveHtml = `
+                <span class="admin-matrix-kid-head-btn">
+                    ${avatarHtml}
+                </span>
+            `;
+        } else {
+            interactiveHtml = `
+                <button type="button" class="admin-matrix-kid-head-btn" data-kid-delete data-kid-id="${escapeHtml(kidId)}" aria-label="Delete ${escapeHtml(name)}">
+                    ${avatarHtml}
+                </button>
+            `;
+        }
     } else {
         interactiveHtml = `
             <a href="${escapeHtml(reportHref)}" class="admin-matrix-kid-head-btn" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} — today's report">
