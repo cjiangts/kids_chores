@@ -57,7 +57,6 @@ const pendingCount = document.getElementById('pendingCount');
 const saveChangesBtn = document.getElementById('saveChangesBtn');
 const errorMessage = document.getElementById('errorMessage');
 const refreshUsedBtn = document.getElementById('refreshUsedBtn');
-const forceSyncBtn = document.getElementById('forceSyncBtn');
 const sortUpdatedTh = document.getElementById('sortUpdatedTh');
 const csvToggleBtn = document.getElementById('csvToggleBtn');
 const csvPreviewBtn = document.getElementById('csvPreviewBtn');
@@ -97,7 +96,7 @@ function applyModeChrome() {
 
 function applySuperVisibility() {
     const adminActions = document.getElementById('bankAdminActions');
-    const superOnly = [refreshUsedBtn, forceSyncBtn, csvToggleBtn, saveBar, adminActions];
+    const superOnly = [refreshUsedBtn, csvToggleBtn, saveBar, adminActions];
     for (const el of superOnly) {
         if (el) el.style.display = isSuper ? '' : 'none';
     }
@@ -185,6 +184,7 @@ function renderStats(stats) {
         'used': `Used (${(stats.used || 0).toLocaleString()})`,
         'all': `All (${(stats.total || 0).toLocaleString()})`,
         'verified': `Verified (${(stats.verified || 0).toLocaleString()})`,
+        'thumbed': `👎 Thumbed (${(stats.thumbed || 0).toLocaleString()})`,
     };
     for (const [value, text] of Object.entries(btnTexts)) {
         const btn = filterVerifiedGroup.querySelector(`[data-value="${value}"]`);
@@ -198,11 +198,17 @@ function renderTable(rows) {
         const valueVal = edited ? edited.value : r.value;
         const isVerified = edited ? edited.verified : r.verified;
         const valueEdited = edited && edited.value !== r.value ? ' edited' : '';
+        const hasThumbs = r.thumbDown > 0;
+        const thumbCellClasses = ['thumb-down-cell'];
+        if (hasThumbs) thumbCellClasses.push('has-thumbs');
+        if (hasThumbs && isSuper) thumbCellClasses.push('is-clickable');
+        const thumbCell = `<td class="${thumbCellClasses.join(' ')}"${hasThumbs && isSuper ? ' title="Click to dismiss"' : ''}>${hasThumbs ? r.thumbDown : ''}</td>`;
         if (!isSuper) {
             return `<tr>
                 <td class="char-cell ${isVerified ? 'verified' : 'unverified'}" style="cursor:default;">${escapeHtml(r.key)}</td>
                 <td class="value-cell">${escapeHtml(valueVal)}</td>
                 <td style="text-align:center;">${r.used ? icon('check', { size: 16 }) : ''}</td>
+                ${thumbCell}
                 <td class="updated-cell">${formatDate(r.lastUpdated)}</td>
             </tr>`;
         }
@@ -212,6 +218,7 @@ function renderTable(rows) {
                 <input type="text" value="${escapeHtml(valueVal)}" data-field="value" data-original="${escapeHtml(r.value)}" />
             </td>
             <td style="text-align:center;">${r.used ? icon('check', { size: 16 }) : ''}</td>
+            ${thumbCell}
             <td class="updated-cell">${formatDate(r.lastUpdated)}</td>
         </tr>`;
     }).join('');
@@ -241,7 +248,6 @@ function updateSaveBar() {
 function handleFieldChange(tr, field, value) {
     const key = tr.dataset.key;
     const existing = pendingEdits.get(key) || {};
-
     const valueInput = tr.querySelector('input[data-field="value"]');
     const valueOriginal = valueInput.dataset.original;
     const verifiedOriginal = tr.dataset.originalVerified === 'true';
@@ -254,12 +260,7 @@ function handleFieldChange(tr, field, value) {
         if (existing.verified === undefined) {
             existing.verified = tr.querySelector('td.char-cell').classList.contains('verified');
         }
-        const cell = valueInput.closest('td');
-        if (value !== valueInput.dataset.original) {
-            cell.classList.add('edited');
-        } else {
-            cell.classList.remove('edited');
-        }
+        valueInput.closest('td').classList.toggle('edited', value !== valueOriginal);
     }
 
     if (existing.value === valueOriginal && existing.verified === verifiedOriginal) {
@@ -282,11 +283,7 @@ async function saveChanges() {
 
     const updates = [];
     for (const [key, edit] of pendingEdits) {
-        updates.push({
-            key,
-            value: edit.value,
-            verified: edit.verified,
-        });
+        updates.push({ key, value: edit.value, verified: edit.verified });
     }
 
     try {
@@ -299,6 +296,13 @@ async function saveChanges() {
         if (!res.ok) {
             showError(data.error || 'Failed to save');
             return;
+        }
+        const pushed = Array.isArray(data.pushed) ? data.pushed : [];
+        if (pushed.length > 0) {
+            const lines = pushed.map((c) =>
+                `${c.key}: ${c.shared} shared card${c.shared !== 1 ? 's' : ''}, ${c.kid_dbs} kid DB${c.kid_dbs !== 1 ? 's' : ''}`
+            );
+            alert(`Pushed ${pushed.length} verified ${cfg.unitPlural} to:\n\n${lines.join('\n')}`);
         }
         pendingEdits.clear();
         updateSaveBar();
@@ -320,15 +324,48 @@ bankTableBody.addEventListener('input', (e) => {
 
 bankTableBody.addEventListener('click', (e) => {
     if (!isSuper) return;
-    const cell = e.target.closest('td.char-cell');
-    if (!cell) return;
-    const tr = cell.closest('tr');
-    if (!tr) return;
-    const isNowVerified = cell.classList.contains('unverified');
-    cell.classList.toggle('verified', isNowVerified);
-    cell.classList.toggle('unverified', !isNowVerified);
-    handleFieldChange(tr, 'verified', isNowVerified);
+    const verifiedCell = e.target.closest('td.char-cell');
+    if (verifiedCell) {
+        const tr = verifiedCell.closest('tr');
+        if (!tr) return;
+        const isNowVerified = verifiedCell.classList.contains('unverified');
+        verifiedCell.classList.toggle('verified', isNowVerified);
+        verifiedCell.classList.toggle('unverified', !isNowVerified);
+        handleFieldChange(tr, 'verified', isNowVerified);
+        return;
+    }
+    const dismissCell = e.target.closest('td.thumb-down-cell.is-clickable');
+    if (dismissCell) {
+        const tr = dismissCell.closest('tr');
+        if (tr) void dismissThumbsForKey(tr.dataset.key, dismissCell);
+    }
 });
+
+async function dismissThumbsForKey(key, cell) {
+    const prevText = cell.textContent;
+    cell.classList.remove('has-thumbs', 'is-clickable');
+    cell.removeAttribute('title');
+    cell.textContent = '';
+    try {
+        const res = await fetch(`${API_BASE}/chinese-bank/dismiss-thumbs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: MODE, keys: [key] }),
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            cell.classList.add('has-thumbs', 'is-clickable');
+            cell.title = 'Click to dismiss';
+            cell.textContent = prevText;
+            showError(data.error || `Failed to dismiss (HTTP ${res.status})`);
+        }
+    } catch (err) {
+        cell.classList.add('has-thumbs', 'is-clickable');
+        cell.title = 'Click to dismiss';
+        cell.textContent = prevText;
+        showError(err.message || 'Failed to dismiss');
+    }
+}
 
 if (window.SearchBar) {
     window.SearchBar.enhance(searchInput);
@@ -502,38 +539,6 @@ csvClearBtn.addEventListener('click', () => {
     populateCsv();
     renderTable(currentPageRows);
     updateSaveBar();
-});
-
-forceSyncBtn.addEventListener('click', async () => {
-    if (!confirm('Re-generate back text for all cards matching verified bank entries?\nThis will update shared decks and all kid DBs.')) {
-        return;
-    }
-    showError('');
-    forceSyncBtn.disabled = true;
-    forceSyncBtn.querySelector('.btn-label').textContent = 'Syncing...';
-    try {
-        const params = new URLSearchParams({ mode: MODE });
-        const res = await fetch(`${API_BASE}/chinese-bank/force-sync-backs?${params}`, { method: 'POST' });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            showError(data.error || 'Failed to sync');
-            return;
-        }
-        const changes = data.changed || [];
-        if (changes.length === 0) {
-            alert(`All ${data.verified_count} verified ${cfg.unitPlural} already in sync. Nothing to update.`);
-        } else {
-            const lines = changes.map((c) =>
-                `${c.key}: ${c.shared} shared card${c.shared !== 1 ? 's' : ''}, ${c.kid_dbs} kid DB${c.kid_dbs !== 1 ? 's' : ''}`
-            );
-            alert(`Updated ${changes.length} of ${data.verified_count} verified ${cfg.unitPlural}:\n\n${lines.join('\n')}`);
-        }
-    } catch (err) {
-        showError(err.message || 'Failed to sync');
-    } finally {
-        forceSyncBtn.disabled = false;
-        forceSyncBtn.querySelector('.btn-label').textContent = 'Force Sync Backs';
-    }
 });
 
 applyModeChrome();

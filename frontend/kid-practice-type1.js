@@ -402,6 +402,9 @@ function showCurrentQuestion() {
     state.pauseStartedAtMs = 0;
     state.isPaused = false;
     prepareType1MultipleChoiceOptions(card);
+    if (state.hasChineseSpecificLogic) {
+        showThumbDownButton();
+    }
 
     setPausedVisual(false);
     applyJudgeModeUi();

@@ -117,7 +117,8 @@ function showThumbDownButton() {
 }
 
 async function submitThumbDownForCurrentCard() {
-    if (!isType(BEHAVIOR_TYPE_II)) {
+    const isType1Chinese = isType(BEHAVIOR_TYPE_I) && state.hasChineseSpecificLogic;
+    if (!isType(BEHAVIOR_TYPE_II) && !isType1Chinese) {
         return;
     }
     if (!window.PracticeSession.hasActiveSession(state.activePendingSessionId) || state.sessionCards.length === 0) {
