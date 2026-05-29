@@ -26,8 +26,16 @@ const openChangePasswordBtn = document.getElementById('openChangePasswordBtn');
 const familySettingsLogoutBtn = document.getElementById('familySettingsLogoutBtn');
 const changePasswordModal = document.getElementById('changePasswordModal');
 const closeChangePasswordBtn = document.getElementById('closeChangePasswordBtn');
-const familyTimezonePicker = document.getElementById('familyTimezonePicker');
+const timezoneMenuBtn = document.getElementById('timezoneMenuBtn');
+const timezoneMenuBtnLabel = document.getElementById('timezoneMenuBtnLabel');
+const timezoneMenuPopover = document.getElementById('timezoneMenuPopover');
 const timezoneCurrentNote = document.getElementById('timezoneCurrentNote');
+const TIMEZONE_OPTIONS = [
+    { value: 'America/New_York',    label: 'Eastern', sub: 'New York' },
+    { value: 'America/Chicago',     label: 'Central', sub: 'Chicago' },
+    { value: 'America/Los_Angeles', label: 'Pacific', sub: 'California' },
+    { value: 'Asia/Shanghai',       label: 'China',   sub: 'Shanghai' },
+];
 let currentFamilyTimezone = '';
 const timezoneError = document.getElementById('timezoneError');
 const timezoneSuccess = document.getElementById('timezoneSuccess');
@@ -183,17 +191,39 @@ restoreBackupBtn.addEventListener('click', async () => {
     backupFileInput.click();
 });
 
-if (familyTimezonePicker) {
-    familyTimezonePicker.addEventListener('click', async (event) => {
-        const button = event.target.closest('.tz-option');
-        if (!button || button.disabled) {
+if (timezoneMenuBtn && timezoneMenuPopover) {
+    timezoneMenuBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setTimezoneMenuOpen(!isTimezoneMenuOpen());
+    });
+    timezoneMenuPopover.addEventListener('click', async (event) => {
+        const item = event.target.closest('.tz-dropdown-item');
+        if (!item || item.disabled) {
             return;
         }
-        const tz = String(button.dataset.tz || '').trim();
+        const tz = String(item.dataset.tz || '').trim();
+        setTimezoneMenuOpen(false);
+        timezoneMenuBtn.focus();
         if (!tz || tz === currentFamilyTimezone) {
             return;
         }
         await saveTimezoneSettings(tz);
+    });
+    document.addEventListener('click', (event) => {
+        if (!isTimezoneMenuOpen()) {
+            return;
+        }
+        const target = event.target;
+        if (timezoneMenuPopover.contains(target) || timezoneMenuBtn.contains(target)) {
+            return;
+        }
+        setTimezoneMenuOpen(false);
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && isTimezoneMenuOpen()) {
+            setTimezoneMenuOpen(false);
+            timezoneMenuBtn.focus();
+        }
     });
 }
 
@@ -362,23 +392,54 @@ if (familyAccountsList) {
 // === 4. Timezone picker (load, save, pill selection, formatting)
 // =====================================================================
 
-function getTimezoneOptionButtons() {
-    if (!familyTimezonePicker) {
+function getTimezoneMenuItems() {
+    if (!timezoneMenuPopover) {
         return [];
     }
-    return Array.from(familyTimezonePicker.querySelectorAll('.tz-option'));
+    return Array.from(timezoneMenuPopover.querySelectorAll('.tz-dropdown-item'));
+}
+
+function buildTimezoneMenuItems() {
+    if (!timezoneMenuPopover) {
+        return;
+    }
+    timezoneMenuPopover.innerHTML = '';
+    TIMEZONE_OPTIONS.forEach((option) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'tz-dropdown-item';
+        item.setAttribute('role', 'menuitemradio');
+        item.setAttribute('aria-checked', 'false');
+        item.dataset.tz = option.value;
+        item.innerHTML = `
+            ${window.icon('check', { className: 'tz-dropdown-item-check', strokeWidth: 2.6 })}
+            <span class="tz-dropdown-item-label"></span>
+            <span class="tz-dropdown-item-sub"></span>
+        `;
+        item.querySelector('.tz-dropdown-item-label').textContent = option.label;
+        item.querySelector('.tz-dropdown-item-sub').textContent = option.sub;
+        timezoneMenuPopover.appendChild(item);
+    });
 }
 
 function setSelectedTimezonePill(tz) {
     currentFamilyTimezone = tz || '';
-    const buttons = getTimezoneOptionButtons();
-    let matched = false;
-    buttons.forEach((btn) => {
-        const isSelected = btn.dataset.tz === tz;
-        if (isSelected) matched = true;
-        btn.classList.toggle('is-selected', isSelected);
-        btn.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+    const items = getTimezoneMenuItems();
+    let matched = null;
+    items.forEach((item) => {
+        const isSelected = item.dataset.tz === tz;
+        if (isSelected) matched = item;
+        item.classList.toggle('selected', isSelected);
+        item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
     });
+    if (timezoneMenuBtnLabel) {
+        if (matched) {
+            const option = TIMEZONE_OPTIONS.find((opt) => opt.value === tz);
+            timezoneMenuBtnLabel.textContent = option ? `${option.label} (${option.sub})` : tz;
+        } else {
+            timezoneMenuBtnLabel.textContent = tz ? tz : 'Select…';
+        }
+    }
     if (timezoneCurrentNote) {
         if (!matched && tz) {
             timezoneCurrentNote.textContent = `Currently set to ${tz}. Pick one of the options to change.`;
@@ -391,12 +452,29 @@ function setSelectedTimezonePill(tz) {
 }
 
 function setTimezonePickerDisabled(disabled) {
-    getTimezoneOptionButtons().forEach((btn) => {
-        btn.disabled = disabled;
+    if (timezoneMenuBtn) {
+        timezoneMenuBtn.disabled = disabled;
+    }
+    getTimezoneMenuItems().forEach((item) => {
+        item.disabled = disabled;
     });
 }
 
+function setTimezoneMenuOpen(open) {
+    if (!timezoneMenuBtn || !timezoneMenuPopover) {
+        return;
+    }
+    timezoneMenuPopover.classList.toggle('hidden', !open);
+    timezoneMenuPopover.setAttribute('aria-hidden', open ? 'false' : 'true');
+    timezoneMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function isTimezoneMenuOpen() {
+    return !!(timezoneMenuPopover && !timezoneMenuPopover.classList.contains('hidden'));
+}
+
 function initializeTimezoneOptions() {
+    buildTimezoneMenuItems();
     setSelectedTimezonePill('');
 }
 

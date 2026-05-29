@@ -65,91 +65,148 @@
             font-size: 0.9rem;
         }
 
-        .tz-picker {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 0.55rem;
-            margin: 0;
-        }
-
-        .tz-option {
+        .tz-dropdown {
             position: relative;
-            appearance: none;
-            background: #fff;
-            border: 1.5px solid var(--section-surface-border-muted);
-            border-radius: 14px;
-            padding: 0.85rem 0.95rem 0.8rem 2.35rem;
-            text-align: left;
-            cursor: pointer;
-            font: inherit;
-            color: inherit;
             display: flex;
-            flex-direction: column;
-            gap: 0.18rem;
-            transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+            align-items: center;
+            min-width: 0;
+            max-width: 320px;
+            margin-top: 0.25rem;
         }
 
-        .tz-option::before {
-            content: '';
-            position: absolute;
-            top: 1.05rem;
-            left: 0.95rem;
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            background: var(--tz-accent, #c8d1e1);
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 4px var(--tz-accent, transparent);
-            opacity: 0.55;
-            transition: opacity 0.12s ease;
+        .tz-dropdown-btn {
+            appearance: none;
+            -webkit-appearance: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            min-width: 0;
+            border: 1px solid #d4ddf0;
+            background: #fff;
+            color: #2f3c7e;
+            border-radius: 10px;
+            height: 40px;
+            padding: 0 0.8rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            line-height: 1;
+            cursor: pointer;
+            text-align: left;
         }
 
-        .tz-option[data-tz="America/New_York"]    { --tz-accent: #4f83ff; }
-        .tz-option[data-tz="America/Chicago"]     { --tz-accent: #6ec46e; }
-        .tz-option[data-tz="America/Los_Angeles"] { --tz-accent: #ff9a3c; }
-        .tz-option[data-tz="Asia/Shanghai"]       { --tz-accent: #e85a7a; }
-
-        .tz-option:hover {
-            border-color: var(--tz-accent, var(--control-border-focus));
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(31, 45, 98, 0.08);
+        .tz-dropdown-btn-icon {
+            width: 16px;
+            height: 16px;
+            flex: 0 0 auto;
+            color: #5f6b8a;
         }
 
-        .tz-option:hover::before { opacity: 1; }
-
-        .tz-option:focus-visible {
-            outline: none;
-            border-color: var(--tz-accent, var(--control-border-focus));
-            box-shadow: var(--control-shadow-focus);
+        .tz-dropdown-btn-label {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .tz-option.is-selected {
-            background: #f3f6ff;
-            border-color: var(--tz-accent);
-            box-shadow: 0 6px 16px rgba(31, 45, 98, 0.12);
+        .tz-dropdown-btn-caret {
+            width: 14px;
+            height: 14px;
+            flex: 0 0 auto;
+            color: #5f6b8a;
         }
 
-        .tz-option.is-selected::before { opacity: 1; }
+        .tz-dropdown-btn:hover,
+        .tz-dropdown-btn[aria-expanded="true"] {
+            border-color: #9ab5f3;
+            background: #f6f9ff;
+        }
 
-        .tz-option:disabled {
+        .tz-dropdown-btn:disabled {
             cursor: progress;
             opacity: 0.6;
         }
 
-        .tz-option-label {
-            font-weight: 700;
-            font-size: 1rem;
+        .tz-dropdown-popover {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border: 1px solid rgba(28, 42, 82, 0.12);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(28, 42, 82, 0.16);
+            padding: 0.3rem;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        .tz-dropdown-item {
+            appearance: none;
+            -webkit-appearance: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 0;
+            background: transparent;
+            text-align: left;
+            padding: 0.6rem 0.7rem;
+            font-size: 0.95rem;
+            font-weight: 600;
             color: #2f3c7e;
-            line-height: 1.2;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
         }
 
-        .tz-option-sub {
-            font-size: 0.8rem;
-            color: #6f7894;
-            line-height: 1.2;
+        .tz-dropdown-item:hover:not(:disabled) {
+            background: #eef3ff;
         }
 
-        .tz-option.is-selected .tz-option-label { color: #1f2c6e; }
-        .tz-option.is-selected .tz-option-sub   { color: #4f6082; }
+        .tz-dropdown-item:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+
+        .tz-dropdown-item.selected {
+            background: #eef3ff;
+            color: #1d3a96;
+        }
+
+        .tz-dropdown-item-check {
+            width: 14px;
+            height: 14px;
+            flex: 0 0 auto;
+            color: #1d3a96;
+            visibility: hidden;
+        }
+
+        .tz-dropdown-item.selected .tz-dropdown-item-check {
+            visibility: visible;
+        }
+
+        .tz-dropdown-item-label {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tz-dropdown-item-sub {
+            flex: 0 0 auto;
+            margin-left: 0.6rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #6b7494;
+        }
+
+        .tz-dropdown-item.selected .tz-dropdown-item-sub {
+            color: #4d63a8;
+        }
 
         .tz-current-note {
             font-size: 0.82rem;
@@ -865,23 +922,13 @@
                     <div class="settings-card-body">
                         <h2><span class="icon" data-icon="clock" data-icon-size="22"></span> Timezone Setting</h2>
                         <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
-                        <div id="familyTimezonePicker" class="tz-picker" role="radiogroup" aria-label="Time zone">
-                            <button type="button" class="tz-option" data-tz="America/New_York" role="radio" aria-checked="false">
-                                <span class="tz-option-label">Eastern</span>
-                                <span class="tz-option-sub">New York</span>
+                        <div class="tz-dropdown">
+                            <button id="timezoneMenuBtn" type="button" class="tz-dropdown-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Time zone">
+                                <span class="tz-dropdown-btn-icon" data-icon="clock" data-icon-stroke="2"></span>
+                                <span id="timezoneMenuBtnLabel" class="tz-dropdown-btn-label">Select…</span>
+                                <span class="tz-dropdown-btn-caret" data-icon="chevron-down"></span>
                             </button>
-                            <button type="button" class="tz-option" data-tz="America/Chicago" role="radio" aria-checked="false">
-                                <span class="tz-option-label">Central</span>
-                                <span class="tz-option-sub">Chicago</span>
-                            </button>
-                            <button type="button" class="tz-option" data-tz="America/Los_Angeles" role="radio" aria-checked="false">
-                                <span class="tz-option-label">Pacific</span>
-                                <span class="tz-option-sub">California</span>
-                            </button>
-                            <button type="button" class="tz-option" data-tz="Asia/Shanghai" role="radio" aria-checked="false">
-                                <span class="tz-option-label">China</span>
-                                <span class="tz-option-sub">Shanghai</span>
-                            </button>
+                            <div id="timezoneMenuPopover" class="tz-dropdown-popover hidden" role="menu" aria-hidden="true"></div>
                         </div>
                         <div id="timezoneCurrentNote" class="tz-current-note hidden"></div>
                         <div id="timezoneError" class="error hidden"></div>
