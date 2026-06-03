@@ -57,6 +57,7 @@ const pendingCount = document.getElementById('pendingCount');
 const saveChangesBtn = document.getElementById('saveChangesBtn');
 const errorMessage = document.getElementById('errorMessage');
 const refreshUsedBtn = document.getElementById('refreshUsedBtn');
+const forceSyncBacksBtn = document.getElementById('forceSyncBacksBtn');
 const sortUpdatedTh = document.getElementById('sortUpdatedTh');
 const csvToggleBtn = document.getElementById('csvToggleBtn');
 const csvPreviewBtn = document.getElementById('csvPreviewBtn');
@@ -132,6 +133,41 @@ function formatDate(dateStr) {
     const days = Math.max(0, Math.round((startOfDay(new Date()) - startOfDay(d)) / 86400000));
     if (days === 0) return 'today';
     return `${days}d ago`;
+}
+
+function buildPushSummary(title, data, changedKey) {
+    const changed = Array.isArray(data[changedKey]) ? data[changedKey] : [];
+    const errors = Array.isArray(data.pushErrors) ? data.pushErrors : [];
+    const lines = [title];
+
+    if (Number.isFinite(Number(data.verifiedCount))) {
+        lines.push(`Verified ${cfg.unitPlural}: ${Number(data.verifiedCount).toLocaleString()}`);
+    }
+    if (Number.isFinite(Number(data.kidDbCount))) {
+        lines.push(`Kid DBs scanned: ${Number(data.kidDbCount).toLocaleString()}`);
+    }
+    lines.push(`Changed ${cfg.unitPlural}: ${changed.length.toLocaleString()}`);
+
+    if (changed.length > 0) {
+        const shown = changed.slice(0, 25).map((c) =>
+            `${c.key}: ${c.shared} shared card${c.shared !== 1 ? 's' : ''}, ${c.kid_dbs} kid DB${c.kid_dbs !== 1 ? 's' : ''}`
+        );
+        lines.push('');
+        lines.push(...shown);
+        if (changed.length > shown.length) {
+            lines.push(`...and ${changed.length - shown.length} more`);
+        }
+    }
+
+    if (errors.length > 0) {
+        lines.push('');
+        lines.push(`Errors: ${errors.length}`);
+        lines.push(...errors.slice(0, 5).map((e) => `${e.db || 'kid DB'}: ${e.error || 'failed'}`));
+        if (errors.length > 5) {
+            lines.push(`...and ${errors.length - 5} more errors`);
+        }
+    }
+    return lines.join('\n');
 }
 
 // =====================================================================
@@ -298,11 +334,9 @@ async function saveChanges() {
             return;
         }
         const pushed = Array.isArray(data.pushed) ? data.pushed : [];
-        if (pushed.length > 0) {
-            const lines = pushed.map((c) =>
-                `${c.key}: ${c.shared} shared card${c.shared !== 1 ? 's' : ''}, ${c.kid_dbs} kid DB${c.kid_dbs !== 1 ? 's' : ''}`
-            );
-            alert(`Pushed ${pushed.length} verified ${cfg.unitPlural} to:\n\n${lines.join('\n')}`);
+        const pushErrors = Array.isArray(data.pushErrors) ? data.pushErrors : [];
+        if (pushed.length > 0 || pushErrors.length > 0) {
+            alert(buildPushSummary('Saved and pushed verified changes.', data, 'pushed'));
         }
         pendingEdits.clear();
         updateSaveBar();
@@ -358,6 +392,15 @@ async function dismissThumbsForKey(key, cell) {
             cell.title = 'Click to dismiss';
             cell.textContent = prevText;
             showError(data.error || `Failed to dismiss (HTTP ${res.status})`);
+            return;
+        }
+        const data = await res.json().catch(() => ({}));
+        const errors = Array.isArray(data.errors) ? data.errors : [];
+        if (errors.length > 0) {
+            cell.classList.add('has-thumbs', 'is-clickable');
+            cell.title = 'Click to dismiss';
+            cell.textContent = prevText;
+            showError(`Failed to dismiss in ${errors.length} kid DB${errors.length !== 1 ? 's' : ''}.`);
         }
     } catch (err) {
         cell.classList.add('has-thumbs', 'is-clickable');
@@ -458,6 +501,30 @@ refreshUsedBtn.addEventListener('click', async () => {
     } finally {
         refreshUsedBtn.disabled = false;
         refreshUsedBtn.querySelector('.btn-label').textContent = 'Refresh Used';
+    }
+});
+
+forceSyncBacksBtn.addEventListener('click', async () => {
+    const ok = confirm(`Force sync every verified ${cfg.unitSingular}/${cfg.unitPlural} back text to all shared and kid cards?`);
+    if (!ok) return;
+    showError('');
+    forceSyncBacksBtn.disabled = true;
+    forceSyncBacksBtn.querySelector('.btn-label').textContent = 'Syncing...';
+    try {
+        const params = new URLSearchParams({ mode: MODE });
+        const res = await fetch(`${API_BASE}/chinese-bank/force-sync-backs?${params}`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showError(data.error || 'Failed to force sync');
+            return;
+        }
+        alert(buildPushSummary('Force sync complete.', data, 'changed'));
+        await loadPage();
+    } catch (err) {
+        showError(err.message || 'Failed to force sync');
+    } finally {
+        forceSyncBacksBtn.disabled = false;
+        forceSyncBacksBtn.querySelector('.btn-label').textContent = 'Force Sync Backs';
     }
 });
 

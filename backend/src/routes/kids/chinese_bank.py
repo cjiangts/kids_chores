@@ -14,7 +14,7 @@ Layout:
 """
 from pathlib import Path
 
-from src.db import kid_db
+from src.db import kid_db, metadata
 from src.routes.kids import (
     get_shared_decks_connection,
     jsonify,
@@ -91,11 +91,11 @@ def _aggregate_thumb_down_by_front(back_content_value):
     category_keys = _mode_category_keys(back_content_value)
     if not category_keys:
         return totals
-    families_root = Path(kid_db.DATA_DIR) / 'families'
-    if not families_root.exists():
+    kid_db_paths = _iter_kid_db_paths()
+    if not kid_db_paths:
         return totals
     cat_ph = ', '.join(['?'] * len(category_keys))
-    for db_path in sorted(families_root.glob('family_*/kid_*.db')):
+    for db_path in kid_db_paths:
         conn = None
         try:
             conn = kid_db.duckdb.connect(str(db_path), read_only=True)
@@ -119,6 +119,38 @@ def _aggregate_thumb_down_by_front(back_content_value):
             if conn is not None:
                 conn.close()
     return totals
+
+
+def _iter_kid_db_paths():
+    """Return known kid DB paths, preferring metadata and falling back to files."""
+    paths = []
+    seen = set()
+
+    try:
+        kids = metadata.get_all_kids()
+    except Exception:
+        kids = []
+    for kid in kids:
+        rel = str((kid or {}).get('dbFilePath') or '').strip()
+        if not rel:
+            continue
+        try:
+            path = Path(kid_db.get_absolute_db_path(rel))
+        except Exception:
+            continue
+        key = str(path)
+        if path.exists() and key not in seen:
+            paths.append(path)
+            seen.add(key)
+
+    families_root = Path(kid_db.DATA_DIR) / 'families'
+    if families_root.exists():
+        for path in sorted(families_root.glob('family_*/kid_*.db')):
+            key = str(path)
+            if key not in seen:
+                paths.append(path)
+                seen.add(key)
+    return paths
 
 
 # =====================================================================
@@ -292,13 +324,14 @@ def update_chinese_bank():
     finally:
         conn.close()
 
-    pushed = _push_bank_backs(push_bank, back_content_value) if push_bank else {}
+    push_result = (
+        _push_bank_backs(push_bank, back_content_value)
+        if push_bank
+        else {'changed': {}, 'errors': [], 'kid_db_count': 0}
+    )
     return jsonify({
         'updated': updated,
-        'pushed': [
-            {'key': key, 'shared': c['shared'], 'kid_dbs': c['kid_dbs']}
-            for key, c in pushed.items()
-        ],
+        **_push_result_payload(push_result, 'pushed'),
     })
 
 
@@ -315,8 +348,8 @@ def dismiss_chinese_bank_thumbs():
     back_content_value = 'pinyin' if cfg['payload'] == 'pinyin' else 'english'
     keys = [str(k).strip() for k in (body.get('keys') or []) if str(k).strip()]
     category_keys = _mode_category_keys(back_content_value) if keys else []
-    families_root = Path(kid_db.DATA_DIR) / 'families'
-    if not keys or not category_keys or not families_root.exists():
+    kid_db_paths = _iter_kid_db_paths()
+    if not keys or not category_keys or not kid_db_paths:
         return jsonify({'ok': True})
 
     key_ph = ', '.join(['?'] * len(keys))
@@ -328,17 +361,18 @@ def dismiss_chinese_bank_thumbs():
         f"AND lower(tags[1]) IN ({cat_ph}))"
     )
     params = keys + category_keys
-    for db_path in sorted(families_root.glob('family_*/kid_*.db')):
+    errors = []
+    for db_path in kid_db_paths:
         conn = None
         try:
             conn = kid_db.duckdb.connect(str(db_path))
             conn.execute(sql, params)
-        except Exception:
-            pass
+        except Exception as exc:
+            errors.append({'db': db_path.name, 'error': str(exc)})
         finally:
             if conn is not None:
                 conn.close()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, 'errors': errors})
 
 
 @kids_bp.route('/chinese-bank/refresh-used', methods=['POST'])
@@ -388,9 +422,9 @@ def refresh_chinese_bank_used():
                 if _han_only(front):
                     used_keys.add(front)
 
-            families_root = Path(kid_db.DATA_DIR) / 'families'
-            if families_root.exists():
-                for db_path in sorted(families_root.glob('family_*/kid_*.db')):
+            kid_db_paths = _iter_kid_db_paths()
+            if kid_db_paths:
+                for db_path in kid_db_paths:
                     kid_conn = None
                     try:
                         kid_conn = kid_db.duckdb.connect(str(db_path), read_only=True)
@@ -468,15 +502,62 @@ def refresh_chinese_bank_used():
         conn.close()
 
 
+@kids_bp.route('/chinese-bank/force-sync-backs', methods=['POST'])
+def force_sync_chinese_bank_backs():
+    """Push every verified bank value to shared and kid card backs."""
+    auth_err = require_super_family()
+    if auth_err:
+        return auth_err
+
+    cfg, err = _get_mode()
+    if err:
+        return err
+    table = cfg['table']
+    pk = cfg['pk']
+    payload_col = cfg['payload']
+    back_content_value = 'pinyin' if payload_col == 'pinyin' else 'english'
+
+    conn = get_shared_decks_connection(read_only=True)
+    try:
+        verified_rows = conn.execute(
+            f"SELECT {pk}, {payload_col} FROM {table} WHERE verified = TRUE"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    bank = {
+        r[0]: str(r[1] or '').strip()
+        for r in verified_rows
+    }
+    push_result = _push_bank_backs(bank, back_content_value)
+    return jsonify({
+        'verifiedCount': len(bank),
+        **_push_result_payload(push_result, 'changed'),
+    })
+
+
+def _push_result_payload(push_result, changed_key):
+    changed = push_result.get('changed') or {}
+    return {
+        changed_key: [
+            {'key': key, 'shared': counts['shared'], 'kid_dbs': counts['kid_dbs']}
+            for key, counts in changed.items()
+        ],
+        'kidDbCount': push_result.get('kid_db_count') or 0,
+        'pushErrors': push_result.get('errors') or [],
+    }
+
+
 def _push_bank_backs(bank, back_content_value):
     """Push bank values to shared+kid card backs (mode-decks only).
 
-    Returns `changed` map: key -> {'shared': n, 'kid_dbs': n}.
+    Returns {'changed', 'errors', 'kid_db_count'}.
     Also resets cards.thumb_down_count to 0 on each touched kid card.
     """
     changed = {}
+    errors = []
     if not bank:
-        return changed
+        return {'changed': changed, 'errors': errors, 'kid_db_count': 0}
 
     shared_conn = get_shared_decks_connection()
     try:
@@ -485,7 +566,7 @@ def _push_bank_backs(bank, back_content_value):
             """
             SELECT d.deck_id
             FROM deck d
-            JOIN deck_category dc ON dc.category_key = d.tags[1]
+            JOIN deck_category dc ON dc.category_key = lower(d.tags[1])
             WHERE dc.has_chinese_specific_logic = TRUE
               AND dc.chinese_back_content = ?
               AND NOT list_contains(d.tags, 'chinese_writing')
@@ -515,10 +596,8 @@ def _push_bank_backs(bank, back_content_value):
     finally:
         shared_conn.close()
 
-    families_root = Path(kid_db.DATA_DIR) / 'families'
-    if not families_root.exists():
-        return changed
-    for db_path in sorted(families_root.glob('family_*/kid_*.db')):
+    kid_db_paths = _iter_kid_db_paths()
+    for db_path in kid_db_paths:
         kid_conn = None
         try:
             kid_conn = kid_db.duckdb.connect(str(db_path))
@@ -534,7 +613,7 @@ def _push_bank_backs(bank, back_content_value):
                     """
                 ).fetchall()
                 for deck_id, tags in deck_rows:
-                    first_tag = (tags or [''])[0] if tags else ''
+                    first_tag = str((tags or [''])[0] if tags else '').strip().lower()
                     if not first_tag:
                         continue
                     meta_row = kid_shared_conn.execute(
@@ -578,9 +657,9 @@ def _push_bank_backs(bank, back_content_value):
                 if touched:
                     changed.setdefault(key, {'shared': 0, 'kid_dbs': 0})
                     changed[key]['kid_dbs'] += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            errors.append({'db': db_path.name, 'error': str(exc)})
         finally:
             if kid_conn is not None:
                 kid_conn.close()
-    return changed
+    return {'changed': changed, 'errors': errors, 'kid_db_count': len(kid_db_paths)}
