@@ -1,7 +1,7 @@
-"""Reward admin helpers for family-level tracking start and reset.
+"""Badge admin helpers for family-level tracking start and reset.
 
 Layout:
-  1. Reward tracking status + family-wide badge reset
+  1. Badge tracking status + family-wide badge reset
   2. Badge-art catalog listing + assignment payload builders
   3. Assignment target validators + bulk writer
 """
@@ -16,14 +16,14 @@ from src.db import kid_db, metadata
 
 
 # =====================================================================
-# === 1. Reward tracking status + family-wide badge reset
+# === 1. Badge tracking status + family-wide badge reset
 # =====================================================================
 
 def _family_timezone_info(family_id: str) -> str:
     return metadata.get_family_timezone(str(family_id or ''))
 
 
-def build_reward_tracking_status(
+def build_badge_tracking_status(
     family_id: str,
 ) -> Dict[str, object]:
     family_id = str(family_id or '').strip()

@@ -8,7 +8,7 @@
  *   4. Timezone picker (load, save, pill selection, formatting)
  *   5. Password change submit
  *   6. Family role + super-family account list + delete
- *   7. Toast / status message helpers (global, password, timezone, rewards)
+ *   7. Toast / status message helpers (global, password, timezone, badges)
  */
 
 // =====================================================================
@@ -39,11 +39,11 @@ const TIMEZONE_OPTIONS = [
 let currentFamilyTimezone = '';
 const timezoneError = document.getElementById('timezoneError');
 const timezoneSuccess = document.getElementById('timezoneSuccess');
-const rewardsStatusText = document.getElementById('rewardsStatusText');
-const startRewardsBtn = document.getElementById('startRewardsBtn');
-const resetRewardsBtn = document.getElementById('resetRewardsBtn');
-const rewardsError = document.getElementById('rewardsError');
-const rewardsSuccess = document.getElementById('rewardsSuccess');
+const badgeTrackingStatusText = document.getElementById('badgeTrackingStatusText');
+const startBadgeTrackingBtn = document.getElementById('startBadgeTrackingBtn');
+const resetBadgeTrackingBtn = document.getElementById('resetBadgeTrackingBtn');
+const badgeTrackingError = document.getElementById('badgeTrackingError');
+const badgeTrackingSuccess = document.getElementById('badgeTrackingSuccess');
 const openBadgeArtStudioBtn = document.getElementById('openBadgeArtStudioBtn');
 const badgeArtStudioModal = document.getElementById('badgeArtStudioModal');
 const badgeArtStudioDialog = badgeArtStudioModal
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadFamilyRole();
     initializeTimezoneOptions();
     await loadTimezoneSettings();
-    await loadRewardsStatus();
+    await loadBadgeTrackingStatus();
     renderBadgeArtStudioStatus();
     if (isSuperFamily) {
         loadBackupInfo();
@@ -227,15 +227,15 @@ if (timezoneMenuBtn && timezoneMenuPopover) {
     });
 }
 
-if (startRewardsBtn) {
-    startRewardsBtn.addEventListener('click', async () => {
-        await startRewardsTracking();
+if (startBadgeTrackingBtn) {
+    startBadgeTrackingBtn.addEventListener('click', async () => {
+        await startBadgeTracking();
     });
 }
 
-if (resetRewardsBtn) {
-    resetRewardsBtn.addEventListener('click', async () => {
-        await resetRewardsTracking();
+if (resetBadgeTrackingBtn) {
+    resetBadgeTrackingBtn.addEventListener('click', async () => {
+        await resetBadgeTracking();
     });
 }
 
@@ -504,7 +504,7 @@ function formatStartedAt(value, timeZone = DEFAULT_FAMILY_TIMEZONE) {
             timeZoneName: 'short',
         });
     } catch (error) {
-        console.error('Error formatting reward timestamp:', error);
+        console.error('Error formatting badge timestamp:', error);
     }
     const fallback = parseApiTimestamp(value);
     if (!fallback) {
@@ -559,8 +559,8 @@ async function saveTimezoneSettings(timezoneName) {
 
         const saved = String(result.familyTimezone || tz);
         setSelectedTimezonePill(saved);
-        rewardsFamilyTimezone = saved || DEFAULT_FAMILY_TIMEZONE;
-        await loadRewardsStatus();
+        badgeTrackingFamilyTimezone = saved || DEFAULT_FAMILY_TIMEZONE;
+        await loadBadgeTrackingStatus();
         showTimezoneSuccess('Family timezone saved.');
     } catch (error) {
         console.error('Error saving timezone settings:', error);
@@ -838,7 +838,7 @@ async function deleteFamilyAccount(familyId, familyUsername) {
 }
 
 // =====================================================================
-// === 7. Toast / status message helpers (global, password, timezone, rewards)
+// === 7. Toast / status message helpers (global, password, timezone, badges)
 // =====================================================================
 
 function showFamilyAdminError(message) {
@@ -948,34 +948,34 @@ function showTimezoneSuccess(message) {
     }
 }
 
-function showRewardsError(message) {
-    if (!rewardsError) {
+function showBadgeTrackingError(message) {
+    if (!badgeTrackingError) {
         return;
     }
     if (message) {
         const text = String(message);
-        if (rewardsError) {
-            rewardsError.textContent = '';
-            rewardsError.classList.add('hidden');
+        if (badgeTrackingError) {
+            badgeTrackingError.textContent = '';
+            badgeTrackingError.classList.add('hidden');
         }
-        if (showRewardsError._lastMessage !== text) {
+        if (showBadgeTrackingError._lastMessage !== text) {
             window.alert(text);
-            showRewardsError._lastMessage = text;
+            showBadgeTrackingError._lastMessage = text;
         }
     } else {
-        showRewardsError._lastMessage = '';
-        rewardsError.classList.add('hidden');
+        showBadgeTrackingError._lastMessage = '';
+        badgeTrackingError.classList.add('hidden');
     }
 }
 
-function showRewardsSuccess(message) {
-    if (!rewardsSuccess) {
+function showBadgeTrackingSuccess(message) {
+    if (!badgeTrackingSuccess) {
         return;
     }
     if (message) {
-        rewardsSuccess.textContent = String(message);
-        rewardsSuccess.classList.remove('hidden');
+        badgeTrackingSuccess.textContent = String(message);
+        badgeTrackingSuccess.classList.remove('hidden');
     } else {
-        rewardsSuccess.classList.add('hidden');
+        badgeTrackingSuccess.classList.add('hidden');
     }
 }

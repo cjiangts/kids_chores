@@ -905,7 +905,7 @@ function renderPracticeSummaryStrip({
         summaryBoxes.push(buildStatCard({
             iconName: 'award',
             iconClass: 'admin-action-card-icon--coral',
-            label: 'Rewards',
+            label: 'Badges',
             value: '…',
         }));
     }

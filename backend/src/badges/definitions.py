@@ -22,7 +22,7 @@ from dataclasses import dataclass
 # === 1. Maintenance contract + dataclass + key registries
 # =====================================================================
 # Badge catalog maintenance contract:
-# - This file is append-only once rewards are live for real families.
+# - This file is append-only once badges are live for real families.
 # - Never change or reuse a shipped (achievement_key, category_key) pair.
 # - Never rename an existing key to match a new title or idea; add a new key instead.
 # - Safe live edits: new titles/threshold ladders as brand-new keys, and copy tweaks only
@@ -44,7 +44,7 @@ THEME_KEYS = (
 
 # `theme_key` is only a stable badge-art/theme label for definitions + DB validation.
 # The exact token text is not semantically important for category behavior:
-# - reward color buckets come from `paletteKey` / `get_badge_palette_key(category_key)`
+# - badge color buckets come from `paletteKey` / `get_badge_palette_key(category_key)`
 # - badge assignment is keyed by (achievement_key, category_key)
 # So `theme_key='math'` does not need to text-match `basic_math_facts`; we keep
 # readable names here unless/until theme_key is removed entirely.

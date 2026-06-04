@@ -477,7 +477,7 @@ def update_family_timezone(family_id: str, family_timezone: str) -> bool:
 
 
 def get_family_badge_tracking_started_at(family_id: str) -> str:
-    """Get family-level reward tracking start timestamp (ISO) or empty string."""
+    """Get family-level badge tracking start timestamp (ISO) or empty string."""
     family = get_family_by_id(str(family_id or ''))
     if not family:
         return ''
@@ -490,7 +490,7 @@ def set_family_badge_tracking_started_at(
     *,
     overwrite: bool = False,
 ) -> str:
-    """Set one family's reward tracking start timestamp if not already set."""
+    """Set one family's badge tracking start timestamp if not already set."""
     family_id = str(family_id or '').strip()
     if not family_id:
         return ''
@@ -522,7 +522,7 @@ def set_family_badge_tracking_started_at(
 
 
 def clear_family_badge_tracking_started_at(family_id: str) -> bool:
-    """Remove one family's reward tracking start timestamp field from metadata."""
+    """Remove one family's badge tracking start timestamp field from metadata."""
     family_id = str(family_id or '').strip()
     if not family_id:
         return False

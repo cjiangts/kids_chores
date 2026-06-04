@@ -1,4 +1,4 @@
-"""Badge evaluation and payload assembly for kid reward system.
+"""Badge evaluation and payload assembly for kid badge system.
 
 Layout (search for `# === N. ` banner markers to jump between sections):
 
@@ -696,7 +696,7 @@ def build_kid_badge_payload(
     tracking_started_at: Optional[str],
     allow_award_mutation: bool = False,
 ):
-    """Evaluate rewards and build one kid badge payload."""
+    """Evaluate badge achievements and build one kid badge payload."""
     assigned_categories = _load_assigned_categories(kid_conn)
     tracking_start_dt = _coerce_utc_naive_datetime(tracking_started_at)
     tracking_enabled = tracking_start_dt is not None

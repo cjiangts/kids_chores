@@ -129,7 +129,7 @@
         const imageUrl = resolveBadgeImageUrl(item);
         const paletteKey = getPaletteKey(item);
         const title = String(item && item.title ? item.title : 'New badge');
-        const reason = String(item && item.reasonText ? item.reasonText : 'You unlocked a new reward badge!');
+        const reason = String(item && item.reasonText ? item.reasonText : 'You unlocked a new badge!');
         return `
             <article class="kid-badge-celebration-slide" data-slide-index="${index}">
                 <div class="kid-badge-celebration-art-wrap kid-badge-celebration-palette-${escapeHtml(paletteKey)}">
@@ -266,8 +266,8 @@
         const totalCount = Math.max(1, pendingCelebrations.length);
         const titleText = totalCount === 1 ? 'New badge unlocked' : 'New badges unlocked';
         const subText = totalCount === 1
-            ? 'Your hard work added a new reward to your badge shelf.'
-            : 'Swipe through your new rewards.';
+            ? 'Your hard work added a new badge to your shelf.'
+            : 'Swipe through your new badges.';
         const metaText = totalCount === 1
             ? '1 new badge added to your shelf.'
             : `${totalCount} new badges added to your shelf.`;
@@ -293,7 +293,7 @@
                 ${buildConfettiMarkup()}
             </div>
             <div class="kid-badge-celebration-modal" role="dialog" aria-modal="true" aria-label="New badge unlocked">
-                <div class="kid-badge-celebration-kicker">Reward unlocked</div>
+                <div class="kid-badge-celebration-kicker">Badge unlocked</div>
                 <h2 class="kid-badge-celebration-title">${escapeHtml(titleText)}</h2>
                 <p class="kid-badge-celebration-sub">${escapeHtml(subText)}</p>
                 <div class="kid-badge-celebration-carousel${totalCount === 1 ? ' kid-badge-celebration-carousel-single' : ''}" data-active-index="0">

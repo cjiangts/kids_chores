@@ -11,7 +11,7 @@ Layout inside `create_app()` (search for `# === N. ` banner markers):
     2. Request lifecycle hooks (before_request, after_request)
     3. Blueprint registration
     4. Family-auth routes (status/register/login/logout)
-    5. Parent-auth + parent-settings (password, timezone, rewards)
+    5. Parent-auth + parent-settings (password, timezone, badges)
     6. Super-family admin (list/delete families)
     7. Health + static frontend serving
 """
@@ -29,7 +29,7 @@ from src.routes.kids import (
 from src.badges.admin import (
     build_family_badge_art_payload,
     build_super_family_badge_art_payload,
-    build_reward_tracking_status,
+    build_badge_tracking_status,
     clear_family_kid_badge_awards,
     replace_badge_art_assignments,
 )
@@ -344,16 +344,16 @@ def create_app():
             'updated': True
         }, 200
 
-    @app.route('/api/parent-settings/rewards/status', methods=['GET'])
-    def get_parent_rewards_status():
+    @app.route('/api/parent-settings/badges/status', methods=['GET'])
+    def get_parent_badges_status():
         auth_err = require_family_auth()
         if auth_err:
             return auth_err
         family_id = str(session.get('family_id') or '')
-        return build_reward_tracking_status(family_id), 200
+        return build_badge_tracking_status(family_id), 200
 
-    @app.route('/api/parent-settings/rewards/start', methods=['POST'])
-    def start_parent_rewards_tracking():
+    @app.route('/api/parent-settings/badges/start', methods=['POST'])
+    def start_parent_badge_tracking():
         auth_err = require_critical_password()
         if auth_err:
             return auth_err
@@ -361,19 +361,19 @@ def create_app():
         family_id = str(session.get('family_id') or '')
         existing_started_at = metadata.get_family_badge_tracking_started_at(family_id)
         if existing_started_at:
-            status = build_reward_tracking_status(family_id)
+            status = build_badge_tracking_status(family_id)
             status['updated'] = False
             return status, 200
 
         started_at = metadata.set_family_badge_tracking_started_at(family_id)
-        status = build_reward_tracking_status(family_id)
+        status = build_badge_tracking_status(family_id)
         status['started'] = bool(started_at)
         status['startedAt'] = started_at or None
         status['updated'] = True
         return status, 200
 
-    @app.route('/api/parent-settings/rewards/reset', methods=['POST'])
-    def reset_parent_rewards_tracking():
+    @app.route('/api/parent-settings/badges/reset', methods=['POST'])
+    def reset_parent_badge_tracking():
         auth_err = require_critical_password()
         if auth_err:
             return auth_err
@@ -381,13 +381,13 @@ def create_app():
         family_id = str(session.get('family_id') or '')
         reset_result = clear_family_kid_badge_awards(family_id)
         metadata.clear_family_badge_tracking_started_at(family_id)
-        status = build_reward_tracking_status(family_id)
+        status = build_badge_tracking_status(family_id)
         status['reset'] = True
         status.update(reset_result)
         return status, 200
 
-    @app.route('/api/parent-settings/rewards/badge-art', methods=['GET'])
-    def get_parent_rewards_badge_art():
+    @app.route('/api/parent-settings/badges/art', methods=['GET'])
+    def get_parent_badge_art():
         auth_err = require_family_auth()
         if auth_err:
             return auth_err
@@ -401,8 +401,8 @@ def create_app():
         finally:
             shared_conn.close()
 
-    @app.route('/api/parent-settings/rewards/badge-art/bulk', methods=['PUT'])
-    def save_parent_rewards_badge_art():
+    @app.route('/api/parent-settings/badges/art/bulk', methods=['PUT'])
+    def save_parent_badge_art():
         auth_err = require_super_family_auth()
         if auth_err:
             return auth_err

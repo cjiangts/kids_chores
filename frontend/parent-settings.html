@@ -938,17 +938,17 @@
 
                 <section class="settings-card settings-section">
                     <div class="settings-card-body">
-                        <h2><span class="icon" data-icon="sparkles" data-icon-size="22"></span> Rewards</h2>
+                        <h2><span class="icon" data-icon="sparkles" data-icon-size="22"></span> Badges</h2>
                         <div class="settings-note">Start or reset family badges.</div>
-                        <div id="rewardsStatusText" class="settings-status" role="status" aria-label="Loading rewards"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></div>
+                        <div id="badgeTrackingStatusText" class="settings-status" role="status" aria-label="Loading badges"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></div>
                         <div class="settings-row actions-row">
-                            <button type="button" id="startRewardsBtn" class="btn-secondary">
+                            <button type="button" id="startBadgeTrackingBtn" class="btn-secondary">
                                 <span class="btn-icon" aria-hidden="true">
                                     <span class="icon" data-icon="play" data-icon-size="20"></span>
                                 </span>
                                 <span class="btn-label">Start</span>
                             </button>
-                            <button type="button" id="resetRewardsBtn" class="btn-secondary">
+                            <button type="button" id="resetBadgeTrackingBtn" class="btn-secondary">
                                 <span class="btn-icon" aria-hidden="true">
                                     <span class="icon" data-icon="rotate-ccw" data-icon-size="20"></span>
                                 </span>
@@ -961,8 +961,8 @@
                                 <span class="btn-label">View Badges</span>
                             </button>
                         </div>
-                        <div id="rewardsError" class="error hidden"></div>
-                        <div id="rewardsSuccess" class="success hidden"></div>
+                        <div id="badgeTrackingError" class="error hidden"></div>
+                        <div id="badgeTrackingSuccess" class="success hidden"></div>
                     </div>
                 </section>
 
@@ -1123,7 +1123,7 @@
     <script src="icons.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="parent-settings-core.js"></script>
-    <script src="parent-settings-rewards.js"></script>
+    <script src="parent-settings-badge-tracking.js"></script>
     <script src="parent-settings-badges.js"></script>
     <script src="parent-settings-backup.js"></script>
 </body>

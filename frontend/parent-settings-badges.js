@@ -803,7 +803,7 @@ async function loadBadgeArtStudio() {
         showBadgeArtStudioError('');
         showBadgeArtStudioSuccess('');
         syncBadgeArtStudioControls();
-        const response = await fetch(`${API_BASE}/parent-settings/rewards/badge-art`);
+        const response = await fetch(`${API_BASE}/parent-settings/badges/art`);
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
             throw new Error(result.error || `HTTP ${response.status}`);
@@ -832,7 +832,7 @@ async function loadBadgeArtStudio() {
             showBadgeArtStudioError(
                 badgeArtStudioIsEditable()
                     ? 'Failed to load the Noto badge bank.'
-                    : 'Failed to load active reward achievements.'
+                    : 'Failed to load active badge achievements.'
             );
         }
     } finally {
@@ -905,7 +905,7 @@ async function requestBadgeArtStudioJson(url, options = {}) {
 }
 
 async function saveBadgeArtStudioAssignmentsBulk(savePayload) {
-    return requestBadgeArtStudioJson(`${API_BASE}/parent-settings/rewards/badge-art/bulk`, {
+    return requestBadgeArtStudioJson(`${API_BASE}/parent-settings/badges/art/bulk`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
