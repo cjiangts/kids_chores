@@ -55,7 +55,6 @@ from src.routes.kids import (
     request,
     run_type4_generator,
     secure_filename,
-    sync_badges_after_session_complete,
     timezone,
     uuid,
     with_preview_session_count_for_category,
@@ -1237,7 +1236,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
     def _finalize_success():
         conn.execute("COMMIT")
         conn.close()
-        sync_badges_after_session_complete(kid)
 
     if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
         return complete_type_iv_session_internal(
@@ -1647,7 +1645,6 @@ def complete_session_internal(kid, kid_id, session_type, data):
         raise
 
     conn.close()
-    sync_badges_after_session_complete(kid)
     _queue_type3_leftover_cleanup(consumed_type3_audio_files)
     target_answer_count = int(max(planned_count, len(answers), right_count + wrong_count))
     is_incomplete = planned_count > 0 and len(answers) < planned_count

@@ -11,10 +11,10 @@
  *
  * Layout (search for `// === N. ` banners to jump between sections):
  *
- *     1. DOM refs + navigation helpers (persistLast, title, badge)
+ *     1. DOM refs + navigation helpers (persistLast, title)
  *     2. Kid toggle
  *     3. Bootstrap (DOMContentLoaded → loadKidInfo → render)
- *     4. Badge shelf summary + writing warm-up
+ *     4. Writing warm-up
  *     5. Category progress model + chooser rendering
  *     6. Per-type practice launch (goType1/Writing/Type3/Type4)
  *     7. Misc helpers
@@ -86,12 +86,6 @@ let activeChineseCategoryKey = requestedCategoryKey;
 let activeTypeINonChineseCategoryKey = requestedCategoryKey;
 let activeTypeIICategoryKey = requestedCategoryKey;
 let activeTypeIIICategoryKey = requestedCategoryKey;
-let badgeShelfSummary = {
-    loaded: false,
-    loading: false,
-    earnedCount: 0,
-    trackingEnabled: false,
-};
 let offAppChoreState = {
     loaded: false,
     loading: false,
@@ -150,38 +144,6 @@ function updatePageTitle() {
     document.title = kidName
         ? `${kidName} - Practice Home - Kids Daily Chores`
         : 'Practice Home - Kids Daily Chores';
-}
-
-function maybeShowBadgeCelebration() {
-    if (!kidId || !window.KidBadgeCelebration || typeof window.KidBadgeCelebration.maybeShowForKid !== 'function') {
-        return;
-    }
-    void window.KidBadgeCelebration.maybeShowForKid({
-        kidId,
-        apiBase: API_BASE,
-    });
-}
-
-async function openBadgeShelf() {
-    if (!kidId || !currentKid || !window.KidBadgeShelfModal || typeof window.KidBadgeShelfModal.open !== 'function') {
-        return;
-    }
-    const payload = await window.KidBadgeShelfModal.open({
-        kidId,
-        kidName: currentKid.name,
-        apiBase: API_BASE,
-        forceRefresh: true,
-    });
-    if (payload && typeof payload === 'object') {
-        const summary = payload.summary || {};
-        badgeShelfSummary = {
-            loaded: true,
-            loading: false,
-            earnedCount: Number(summary.earnedCount || 0),
-            trackingEnabled: Boolean(payload.trackingEnabled),
-        };
-        renderPracticeOptions();
-    }
 }
 
 function openProgressReport() {
@@ -447,8 +409,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyKidPayload(cachedKid);
         renderPracticeOptions();
         void loadOffAppChores();
-        void loadBadgeShelfSummary();
-        maybeShowBadgeCelebration();
         window.setTimeout(() => { void warmWritingCards(); }, 0);
         // Revalidate in background — update UI silently when fresh data arrives
         loadKidInfo().then(() => { renderPracticeOptions(); }).catch(() => {});
@@ -457,19 +417,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadKidInfo();
         renderPracticeOptions();
         void offAppPromise;
-        void loadBadgeShelfSummary();
-        maybeShowBadgeCelebration();
         window.setTimeout(() => { void warmWritingCards(); }, 0);
     }
 });
 
 if (practiceSummaryStrip) {
     practiceSummaryStrip.addEventListener('click', (event) => {
-        const shelfBtn = event.target.closest('[data-practice-action="open-badge-shelf"]');
-        if (shelfBtn) {
-            void openBadgeShelf();
-            return;
-        }
         const progressBtn = event.target.closest('[data-practice-action="open-progress-report"]');
         if (progressBtn) {
             openProgressReport();
@@ -622,39 +575,8 @@ async function warmWritingCards() {
 }
 
 // =====================================================================
-// === 4. Badge shelf summary + writing warm-up
+// === 4. Writing warm-up
 // =====================================================================
-async function loadBadgeShelfSummary({ forceRefresh = false } = {}) {
-    if (!kidId || !window.KidBadgeShelfModal || typeof window.KidBadgeShelfModal.getSummary !== 'function') {
-        return;
-    }
-    if (badgeShelfSummary.loading) {
-        return;
-    }
-    badgeShelfSummary.loading = true;
-    try {
-        const summary = await window.KidBadgeShelfModal.getSummary({
-            kidId,
-            apiBase: API_BASE,
-            forceRefresh,
-        });
-        badgeShelfSummary = {
-            loaded: Boolean(summary && summary.ok),
-            loading: false,
-            earnedCount: Number(summary && summary.earnedCount || 0),
-            trackingEnabled: Boolean(summary && summary.trackingEnabled),
-        };
-    } catch (error) {
-        badgeShelfSummary = {
-            loaded: false,
-            loading: false,
-            earnedCount: 0,
-            trackingEnabled: false,
-        };
-    }
-    renderPracticeOptions();
-}
-
 // =====================================================================
 // === 5. Category progress model + chooser rendering
 // =====================================================================
@@ -922,19 +844,6 @@ function renderPracticeSummaryStrip({
             label: `${startedCount} ${startedCount === 1 ? 'session' : 'sessions'}`,
             action: 'open-progress-report',
             ariaLabel: "View today's practice report",
-        }));
-    }
-    if (badgeShelfSummary.loaded && badgeShelfSummary.trackingEnabled) {
-        const earnedCount = Math.max(0, Number.parseInt(badgeShelfSummary.earnedCount, 10) || 0);
-        summaryBoxes.push(buildSummaryPill({
-            iconName: 'award',
-            label: `${earnedCount} ${earnedCount === 1 ? 'badge' : 'badges'}`,
-            action: 'open-badge-shelf',
-        }));
-    } else if (!badgeShelfSummary.loaded) {
-        summaryBoxes.push(buildSummaryPill({
-            iconName: 'award',
-            label: '… badges',
         }));
     }
 

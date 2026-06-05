@@ -8,7 +8,7 @@
  *   4. Timezone picker (load, save, pill selection, formatting)
  *   5. Password change submit
  *   6. Family role + super-family account list + delete
- *   7. Toast / status message helpers (global, password, timezone, badges)
+ *   7. Toast / status message helpers (global, password, timezone)
  */
 
 // =====================================================================
@@ -39,35 +39,6 @@ const TIMEZONE_OPTIONS = [
 let currentFamilyTimezone = '';
 const timezoneError = document.getElementById('timezoneError');
 const timezoneSuccess = document.getElementById('timezoneSuccess');
-const badgeTrackingStatusText = document.getElementById('badgeTrackingStatusText');
-const startBadgeTrackingBtn = document.getElementById('startBadgeTrackingBtn');
-const resetBadgeTrackingBtn = document.getElementById('resetBadgeTrackingBtn');
-const badgeTrackingError = document.getElementById('badgeTrackingError');
-const badgeTrackingSuccess = document.getElementById('badgeTrackingSuccess');
-const openBadgeArtStudioBtn = document.getElementById('openBadgeArtStudioBtn');
-const badgeArtStudioModal = document.getElementById('badgeArtStudioModal');
-const badgeArtStudioDialog = badgeArtStudioModal
-    ? badgeArtStudioModal.querySelector('.badge-art-studio-modal')
-    : null;
-const badgeArtStudioTitle = document.getElementById('badgeArtStudioTitle');
-const badgeArtStudioSubtitle = document.getElementById('badgeArtStudioSubtitle');
-const badgeArtStudioSaveBtn = document.getElementById('badgeArtStudioSaveBtn');
-const badgeArtStudioNoticeModal = document.getElementById('badgeArtStudioNoticeModal');
-const badgeArtStudioNoticeTitle = document.getElementById('badgeArtStudioNoticeTitle');
-const badgeArtStudioNoticeText = document.getElementById('badgeArtStudioNoticeText');
-const badgeArtStudioNoticeOkBtn = document.getElementById('badgeArtStudioNoticeOkBtn');
-const badgeAchievementCount = document.getElementById('badgeAchievementCount');
-const badgeArtAchievementSectionTitle = document.getElementById('badgeArtAchievementSectionTitle');
-const badgeArtAchievementList = document.getElementById('badgeArtAchievementList');
-const badgeArtSelectionSectionTitle = document.getElementById('badgeArtSelectionSectionTitle');
-const badgeArtSelectionEmpty = document.getElementById('badgeArtSelectionEmpty');
-const badgeArtSelectionPanel = document.getElementById('badgeArtSelectionPanel');
-const badgeArtSelectedPreview = document.getElementById('badgeArtSelectedPreview');
-const badgeArtSelectedTitle = document.getElementById('badgeArtSelectedTitle');
-const badgeArtSelectedMeta = document.getElementById('badgeArtSelectedMeta');
-const badgeArtSelectedCurrent = document.getElementById('badgeArtSelectedCurrent');
-const badgeArtBankCount = document.getElementById('badgeArtBankCount');
-const badgeArtBankGrid = document.getElementById('badgeArtBankGrid');
 const downloadBackupBtn = document.getElementById('downloadBackupBtn');
 const restoreBackupBtn = document.getElementById('restoreBackupBtn');
 const backupFileInput = document.getElementById('backupFileInput');
@@ -93,8 +64,6 @@ let isSuperFamily = false;
 function syncModalBodyLock() {
     const shouldLock = [
         changePasswordModal,
-        badgeArtStudioModal,
-        badgeArtStudioNoticeModal,
     ].some((modal) => modal && !modal.classList.contains('hidden'));
     document.body.style.overflow = shouldLock ? 'hidden' : '';
 }
@@ -126,8 +95,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadFamilyRole();
     initializeTimezoneOptions();
     await loadTimezoneSettings();
-    await loadBadgeTrackingStatus();
-    renderBadgeArtStudioStatus();
     if (isSuperFamily) {
         loadBackupInfo();
         loadFamilyAccounts();
@@ -226,85 +193,9 @@ if (timezoneMenuBtn && timezoneMenuPopover) {
     });
 }
 
-if (startBadgeTrackingBtn) {
-    startBadgeTrackingBtn.addEventListener('click', async () => {
-        await startBadgeTracking();
-    });
-}
-
-if (resetBadgeTrackingBtn) {
-    resetBadgeTrackingBtn.addEventListener('click', async () => {
-        await resetBadgeTracking();
-    });
-}
-
-if (badgeArtAchievementList) {
-    badgeArtAchievementList.addEventListener('click', (event) => {
-        const button = getClosestEventTarget(event, 'button[data-achievement-key][data-category-key]');
-        if (!button) {
-            return;
-        }
-        const achievementKey = String(button.getAttribute('data-achievement-key') || '').trim();
-        const categoryKey = String(button.getAttribute('data-category-key') || '').trim();
-        selectBadgeAchievement(achievementKey, categoryKey);
-    });
-}
-
-if (badgeArtBankGrid) {
-    badgeArtBankGrid.addEventListener('click', (event) => {
-        const button = getClosestEventTarget(event, 'button[data-badge-art-id]');
-        if (!button) {
-            return;
-        }
-        const badgeArtId = Number.parseInt(button.getAttribute('data-badge-art-id') || '', 10);
-        if (!Number.isInteger(badgeArtId) || badgeArtId < 0) {
-            return;
-        }
-        assignBadgeArtToSelectedAchievement(badgeArtId);
-    });
-}
-
-if (openBadgeArtStudioBtn) {
-    openBadgeArtStudioBtn.addEventListener('click', async () => {
-        await openBadgeArtStudio();
-    });
-}
-
-if (badgeArtStudioSaveBtn) {
-    badgeArtStudioSaveBtn.addEventListener('click', async () => {
-        await saveBadgeArtStudioAssignments();
-    });
-}
-
-if (badgeArtStudioNoticeOkBtn) {
-    badgeArtStudioNoticeOkBtn.addEventListener('click', () => {
-        closeBadgeArtStudioNoticeDialog();
-    });
-}
-
-if (badgeArtStudioModal) {
-    badgeArtStudioModal.addEventListener('click', (event) => {
-        const closeBtn = getClosestEventTarget(event, '[data-badge-art-action="close"]');
-        if (closeBtn) {
-            closeBadgeArtStudio({ discardDraft: true });
-        }
-    });
-}
-
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && changePasswordModal && !changePasswordModal.classList.contains('hidden')) {
         closeChangePasswordDialog();
-        return;
-    }
-    if (event.key === 'Escape' && badgeArtStudioNoticeModal && !badgeArtStudioNoticeModal.classList.contains('hidden')) {
-        closeBadgeArtStudioNoticeDialog();
-        return;
-    }
-    if (handleBadgeArtStudioArrowKey(event)) {
-        return;
-    }
-    if (event.key === 'Escape' && badgeArtStudioModal && !badgeArtStudioModal.classList.contains('hidden')) {
-        closeBadgeArtStudio({ discardDraft: true });
     }
 });
 
@@ -477,51 +368,6 @@ function initializeTimezoneOptions() {
     setSelectedTimezonePill('');
 }
 
-function parseApiTimestamp(value) {
-    const text = String(value || '').trim();
-    if (!text) {
-        return null;
-    }
-    const normalized = /[zZ]$|[+-]\d{2}:\d{2}$/.test(text) ? text : `${text}Z`;
-    const parsed = new Date(normalized);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function formatStartedAt(value, timeZone) {
-    const parsed = parseApiTimestamp(value);
-    if (!parsed) {
-        return String(value || '').trim();
-    }
-    const tz = String(timeZone || '').trim();
-    if (!tz) {
-        return String(value || '').trim();
-    }
-    try {
-        return parsed.toLocaleString([], {
-            timeZone: tz,
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            timeZoneName: 'short',
-        });
-    } catch (error) {
-        console.error('Error formatting badge timestamp:', error);
-    }
-    const fallback = parseApiTimestamp(value);
-    if (!fallback) {
-        return String(value || '').trim();
-    }
-    return fallback.toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-    });
-}
-
 async function loadTimezoneSettings() {
     try {
         showTimezoneError('');
@@ -569,8 +415,6 @@ async function saveTimezoneSettings(timezoneName) {
             return;
         }
         setSelectedTimezonePill(saved);
-        badgeTrackingFamilyTimezone = saved;
-        await loadBadgeTrackingStatus();
         showTimezoneSuccess('Family timezone saved.');
     } catch (error) {
         console.error('Error saving timezone settings:', error);
@@ -659,12 +503,7 @@ async function loadFamilyRole() {
     if (familyAdminCard) {
         familyAdminCard.classList.toggle('hidden', !isSuperFamily);
     }
-    resetBadgeArtStudioState();
-    badgeArtStudioCanEdit = isSuperFamily;
-    syncBadgeArtStudioModeCopy();
-    renderBadgeArtStudioStatus();
     if (!isSuperFamily) {
-        closeBadgeArtStudio({ force: true, discardDraft: true });
         if (familyAccountsList) {
             familyAccountsList.innerHTML = '';
         }
@@ -675,24 +514,9 @@ async function loadFamilyRole() {
         if (familyAccountsEmpty) {
             familyAccountsEmpty.classList.add('hidden');
         }
-        if (badgeArtAchievementList) {
-            badgeArtAchievementList.innerHTML = '';
-        }
-        if (badgeArtBankGrid) {
-            badgeArtBankGrid.innerHTML = '';
-        }
-        if (badgeAchievementCount) {
-            badgeAchievementCount.textContent = '';
-        }
-        if (badgeArtBankCount) {
-            badgeArtBankCount.textContent = '';
-        }
         showFamilyAdminError('');
         showFamilyAdminSuccess('');
-        showBadgeArtStudioError('');
-        showBadgeArtStudioSuccess('');
     }
-    syncBadgeArtStudioControls();
 }
 
 async function loadFamilyAccounts() {
@@ -848,7 +672,7 @@ async function deleteFamilyAccount(familyId, familyUsername) {
 }
 
 // =====================================================================
-// === 7. Toast / status message helpers (global, password, timezone, badges)
+// === 7. Toast / status message helpers (global, password, timezone)
 // =====================================================================
 
 function showFamilyAdminError(message) {
@@ -955,37 +779,5 @@ function showTimezoneSuccess(message) {
         timezoneSuccess.classList.remove('hidden');
     } else {
         timezoneSuccess.classList.add('hidden');
-    }
-}
-
-function showBadgeTrackingError(message) {
-    if (!badgeTrackingError) {
-        return;
-    }
-    if (message) {
-        const text = String(message);
-        if (badgeTrackingError) {
-            badgeTrackingError.textContent = '';
-            badgeTrackingError.classList.add('hidden');
-        }
-        if (showBadgeTrackingError._lastMessage !== text) {
-            window.alert(text);
-            showBadgeTrackingError._lastMessage = text;
-        }
-    } else {
-        showBadgeTrackingError._lastMessage = '';
-        badgeTrackingError.classList.add('hidden');
-    }
-}
-
-function showBadgeTrackingSuccess(message) {
-    if (!badgeTrackingSuccess) {
-        return;
-    }
-    if (message) {
-        badgeTrackingSuccess.textContent = String(message);
-        badgeTrackingSuccess.classList.remove('hidden');
-    } else {
-        badgeTrackingSuccess.classList.add('hidden');
     }
 }

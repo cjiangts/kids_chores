@@ -27,7 +27,6 @@ Scan/         (not source)
 | `/chinese-bank*` | [routes/kids/chinese_bank.py](backend/src/routes/kids/chinese_bank.py) | 4 |
 
 Other blueprints:
-- `badges_bp` → [routes/badges.py](backend/src/routes/badges.py)
 - `backup_bp` → [routes/backup.py](backend/src/routes/backup.py)
 - Auth/family routes → [app.py](backend/src/app.py) directly
 
@@ -69,7 +68,6 @@ Other blueprints:
   - `start_type_i_practice_session_internal`, `complete_session_internal` → [routes/kids/practice.py](backend/src/routes/kids/practice.py)
   - `complete_type_iv_session_internal` → [routes/kids/type4.py](backend/src/routes/kids/type4.py)
 - **Tangled helpers + module state** still in [routes/kids/__init__.py](backend/src/routes/kids/__init__.py) (~1.26k lines, was 8.4k — see file docstring for section map) — auth helpers, `_PENDING_SESSIONS`, `_SHARED_DECK_MUTATION_LOCK`, shared-deck scope dispatch (CATEGORY_CONFIG + SHARED_DECK_OPERATION_HANDLERS + per-scope route handlers), Flask request-parsing helpers. Add new helpers to a service module if pure; only put in `__init__.py` if it touches Flask request/response or module state. Sibling modules `from src.routes.kids import ...` is wired through re-exports; pyflakes flags those as "imported but unused" in `__init__.py` — that's expected and benign.
-- **Badges** → [badges/](backend/src/badges/): `definitions.py` (catalog), `service.py` (compute), `session_sync.py` (post-session hook), `admin.py` (super-family ops).
 - **DB layer** → [db/](backend/src/db/): `kid_db.py` (per-kid SQLite), `shared_deck_db.py` (shared decks DB), `metadata.py` (family/kid CRUD), schema in `*.sql`.
 
 ### Adding a new route — recipe
@@ -90,7 +88,7 @@ No build step, no ES modules. Each `.html` page loads its `.js` siblings via `<s
 |---|---|---|---|
 | Family home (admin) | [admin.html](frontend/admin.html) | [admin.js](frontend/admin.js) | — (uses styles.css) |
 | Login / register | index.html, family-register.html | family-login.js, family-register.js | — |
-| Parent settings (timezone, password, badges, rewards) | [parent-settings.html](frontend/parent-settings.html) | **4 files** — core/rewards/badges/backup | kid-badge-shelf-modal.css |
+| Parent settings (timezone, password, backup, family admin) | [parent-settings.html](frontend/parent-settings.html) | **2 files** — core/backup | — |
 | **Kid card management** (deck setup, card list, type-IV gen) | [kid-card-manage.html](frontend/kid-card-manage.html) | **8 files** — see below | [kid-card-manage.css](frontend/kid-card-manage.css) |
 | Kid practice runtime | [kid-practice.html](frontend/kid-practice.html) | **5 files** — core + type1/2/3/4 | — |
 | Kid practice home | kid-practice-home.html | kid-practice-home.js | — |
@@ -134,11 +132,9 @@ Load order in [kid-practice.html](frontend/kid-practice.html): core → type1 �
 | File | Owns |
 |---|---|
 | [parent-settings-core.js](frontend/parent-settings-core.js) | Bootstrap, shared DOM consts/helpers, timezone, password, family admin, error/success toasts |
-| [parent-settings-rewards.js](frontend/parent-settings-rewards.js) | Rewards tracking |
-| [parent-settings-badges.js](frontend/parent-settings-badges.js) | Badge Art Studio |
 | [parent-settings-backup.js](frontend/parent-settings-backup.js) | Backup download/restore |
 
-Load order in [parent-settings.html](frontend/parent-settings.html): core → rewards → badges → backup.
+Load order in [parent-settings.html](frontend/parent-settings.html): core → backup.
 
 ### kid-writing-sheet-manage.js — split package
 

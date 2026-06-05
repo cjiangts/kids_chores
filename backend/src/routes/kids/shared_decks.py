@@ -361,10 +361,6 @@ def delete_shared_deck_category(category_key):
                         shared_deck_ids,
                     )
                 shared_conn.execute(
-                    "DELETE FROM achievement_badge_art WHERE category_key = ?",
-                    [key],
-                )
-                shared_conn.execute(
                     "DELETE FROM deck_category WHERE category_key = ?",
                     [key],
                 )
@@ -529,13 +525,9 @@ def delete_category_data_for_kid(kid, key):
             "DELETE FROM type2_chinese_print_sheets WHERE category_key = ?",
             [key],
         )
-        badges_deleted = kid_conn.execute(
-            "DELETE FROM kid_badge_award WHERE category_key = ?",
-            [key],
-        )
         # Best-effort flag — these executes don't return rowcount uniformly in DuckDB,
         # so we rely on the deck/session paths above to set `changed`.
-        del opt_in_deleted, sheets_deleted, chinese_sheets_deleted, badges_deleted
+        del opt_in_deleted, sheets_deleted, chinese_sheets_deleted
     finally:
         if kid_conn is not None:
             kid_conn.close()
@@ -1926,5 +1918,4 @@ def create_shared_deck():
         if 'unique' in err and 'front' in err:
             return jsonify({'error': 'Shared deck DB schema mismatch on card uniqueness. Expected UNIQUE(deck_id, front).'}), 409
         return jsonify({'error': str(e)}), 500
-
 

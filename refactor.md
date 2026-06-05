@@ -22,9 +22,8 @@ Across `backend/`, `frontend/`, `shared/` (excluding `node_modules`, `__pycache_
 | 10 | [frontend/practice-manage-common.js](frontend/practice-manage-common.js) | 1,533 | 🟡 Medium |
 | 11 | [frontend/deck-create.js](frontend/deck-create.js) | 1,334 | 🟡 Medium |
 | 12 | [frontend/kid-writing-sheet-manage.html](frontend/kid-writing-sheet-manage.html) | 1,255 | 🟡 Medium |
-| 13 | [backend/src/badges/service.py](backend/src/badges/service.py) | 920 | 🟢 Low |
-| 14 | [frontend/kid-practice-home.js](frontend/kid-practice-home.js) | 909 | 🟢 Low |
-| 15 | [frontend/math-sheet-print.js](frontend/math-sheet-print.js) | 901 | 🟢 Low |
+| 13 | [frontend/kid-practice-home.js](frontend/kid-practice-home.js) | 909 | 🟢 Low |
+| 14 | [frontend/math-sheet-print.js](frontend/math-sheet-print.js) | 901 | 🟢 Low |
 
 Severity bands: 🔴 must-split (>3k lines blows context budget), 🟠 should-split (>2k), 🟡 nice-to-split (>1.2k), 🟢 monitor only.
 
@@ -151,14 +150,9 @@ Page-controller pattern: each module attaches its handlers conditionally based o
 
 ---
 
-## 6. High: `parent-settings.js` (2,168)
+## 6. Parent settings
 
-Function clusters: badge-art studio (~900), rewards tracking (~300), password change (~150), timezone/family settings (~300), badge achievement render helpers (~500).
-
-Split:
-- `parent-settings-core.js` — bootstrap + family/timezone/password (~600)
-- `parent-settings-rewards.js` — rewards tracking UI (~300)
-- `parent-settings-badges.js` — badge-art studio + assignment dirty tracking (~1,200)
+This page has already been split into `parent-settings-core.js` and `parent-settings-backup.js`.
 
 ---
 
@@ -195,7 +189,6 @@ Estimate: this file shrinks to ~600 lines after split.
 
 ## 10. Low / monitor only
 
-- [backend/src/badges/service.py](backend/src/badges/service.py) (920) — internally well-organized; split only if it crosses ~1,500.
 - [frontend/kid-practice-home.js](frontend/kid-practice-home.js) (909) — fine.
 - [frontend/math-sheet-print.js](frontend/math-sheet-print.js) (901) — will benefit from the shared `print-cell-design-common.js` extraction (Section 5).
 - [frontend/deck-create-bulk.js](frontend/deck-create-bulk.js) (848), [frontend/kid-report-common.js](frontend/kid-report-common.js) (847), [frontend/kid-card-report.js](frontend/kid-card-report.js) (804) — all under threshold.

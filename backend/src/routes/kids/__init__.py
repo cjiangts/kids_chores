@@ -30,7 +30,6 @@ import threading
 import mimetypes
 from io import BytesIO
 from werkzeug.utils import secure_filename
-from src.badges.session_sync import sync_badges_after_session_complete
 from src.chinese_character_meanings import (
     get_character_bank_pinyin,
     is_chinese_text,

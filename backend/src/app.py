@@ -2,7 +2,7 @@
 
 Single `create_app()` factory wires the auth helpers, request hooks, and
 top-level routes that don't live in a blueprint. Routes that belong to a
-specific domain live in their blueprint (kids_bp, badges_bp, backup_bp);
+specific domain live in their blueprint (kids_bp, backup_bp);
 what stays here is family auth + parent settings + super-family admin.
 
 Layout inside `create_app()` (search for `# === N. ` banner markers):
@@ -11,7 +11,7 @@ Layout inside `create_app()` (search for `# === N. ` banner markers):
     2. Request lifecycle hooks (before_request, after_request)
     3. Blueprint registration
     4. Family-auth routes (status/register/login/logout)
-    5. Parent-auth + parent-settings (password, timezone, badges)
+    5. Parent-auth + parent-settings (password, timezone)
     6. Super-family admin (list/delete families)
     7. Health + static frontend serving
 """
@@ -26,14 +26,6 @@ import time
 from src.routes.kids import (
     kids_bp,
 )
-from src.badges.admin import (
-    build_family_badge_art_payload,
-    build_super_family_badge_art_payload,
-    build_badge_tracking_status,
-    clear_family_kid_badge_awards,
-    replace_badge_art_assignments,
-)
-from src.routes.badges import badges_bp
 from src.routes.backup import backup_bp
 from src.routes.points import points_bp
 from src.db import metadata, kid_db
@@ -215,7 +207,6 @@ def create_app():
     # === 3. Blueprint registration
     # =================================================================
     app.register_blueprint(kids_bp, url_prefix='/api')
-    app.register_blueprint(badges_bp, url_prefix='/api')
     app.register_blueprint(backup_bp, url_prefix='/api')
     app.register_blueprint(points_bp, url_prefix='/api')
 
@@ -349,85 +340,6 @@ def create_app():
             'familyTimezone': metadata.get_family_timezone(family_id),
             'updated': True
         }, 200
-
-    @app.route('/api/parent-settings/badges/status', methods=['GET'])
-    def get_parent_badges_status():
-        auth_err = require_family_auth()
-        if auth_err:
-            return auth_err
-        family_id = str(session.get('family_id') or '')
-        return build_badge_tracking_status(family_id), 200
-
-    @app.route('/api/parent-settings/badges/start', methods=['POST'])
-    def start_parent_badge_tracking():
-        auth_err = require_critical_password()
-        if auth_err:
-            return auth_err
-
-        family_id = str(session.get('family_id') or '')
-        existing_started_at = metadata.get_family_badge_tracking_started_at(family_id)
-        if existing_started_at:
-            status = build_badge_tracking_status(family_id)
-            status['updated'] = False
-            return status, 200
-
-        started_at = metadata.set_family_badge_tracking_started_at(family_id)
-        status = build_badge_tracking_status(family_id)
-        status['started'] = bool(started_at)
-        status['startedAt'] = started_at or None
-        status['updated'] = True
-        return status, 200
-
-    @app.route('/api/parent-settings/badges/reset', methods=['POST'])
-    def reset_parent_badge_tracking():
-        auth_err = require_critical_password()
-        if auth_err:
-            return auth_err
-
-        family_id = str(session.get('family_id') or '')
-        reset_result = clear_family_kid_badge_awards(family_id)
-        metadata.clear_family_badge_tracking_started_at(family_id)
-        status = build_badge_tracking_status(family_id)
-        status['reset'] = True
-        status.update(reset_result)
-        return status, 200
-
-    @app.route('/api/parent-settings/badges/art', methods=['GET'])
-    def get_parent_badge_art():
-        auth_err = require_family_auth()
-        if auth_err:
-            return auth_err
-        family_id = str(session.get('family_id') or '')
-        is_super_family = metadata.is_super_family(family_id)
-        shared_conn = get_shared_decks_connection(read_only=True)
-        try:
-            if is_super_family:
-                return build_super_family_badge_art_payload(shared_conn), 200
-            return build_family_badge_art_payload(shared_conn), 200
-        finally:
-            shared_conn.close()
-
-    @app.route('/api/parent-settings/badges/art/bulk', methods=['PUT'])
-    def save_parent_badge_art():
-        auth_err = require_super_family_auth()
-        if auth_err:
-            return auth_err
-
-        payload = request.get_json() or {}
-        assignments = payload.get('assignments')
-        if not isinstance(assignments, list):
-            return {'error': 'assignments must be a list'}, 400
-
-        shared_conn = get_shared_decks_connection()
-        try:
-            result = replace_badge_art_assignments(shared_conn, assignments)
-            response_payload = build_super_family_badge_art_payload(shared_conn)
-            response_payload.update(result)
-            return response_payload, 200
-        except ValueError as exc:
-            return {'error': str(exc)}, 400
-        finally:
-            shared_conn.close()
 
     # =================================================================
     # === 6. Super-family admin routes

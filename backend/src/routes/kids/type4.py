@@ -33,7 +33,6 @@ from src.routes.kids import (
     normalize_type_iv_print_sheet_repeat_count,
     normalize_type_iv_print_sheet_rows,
     request,
-    sync_badges_after_session_complete,
     time,
 )
 from src.services.kid_category_resolve import resolve_kid_type_iv_category_with_mode
@@ -910,7 +909,6 @@ def complete_type_iv_session_internal(
 
             conn.execute("COMMIT")
             conn.close()
-            sync_badges_after_session_complete(kid)
             updated_retry_count = int(updated_retry_row[0] or 0) if updated_retry_row else 0
             updated_retry_total_ms = int(updated_retry_row[1] or 0) if updated_retry_row else 0
             updated_best_retry_correct = int(updated_retry_row[2] or 0) if updated_retry_row else 0
@@ -1055,7 +1053,6 @@ def complete_type_iv_session_internal(
 
             conn.execute("COMMIT")
             conn.close()
-            sync_badges_after_session_complete(kid)
             return {
                 'session_id': int(continue_source_session_id),
                 'answer_count': int(updated_answer_count),
@@ -1142,7 +1139,6 @@ def complete_type_iv_session_internal(
         raise
 
     conn.close()
-    sync_badges_after_session_complete(kid)
     target_answer_count = int(max(planned_count, len(normalized_answers), right_count + wrong_count + partial_count))
     is_incomplete = planned_count > 0 and len(normalized_answers) < planned_count
     total_correct_percentage = (

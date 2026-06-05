@@ -15,13 +15,13 @@ Layout (search for `# === N. ` banner markers to jump between sections):
     4. Family lookup + auth (list, get, by-username, register, authenticate,
        verify password, is_super_family)
     5. Family lifecycle (delete, update password)
-    6. Family settings (timezone get/set, badge-tracking-started-at)
+    6. Family settings (timezone get/set)
 """
 import json
 import os
 import tempfile
 import threading
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Dict, Optional
 import fcntl
 from zoneinfo import ZoneInfo
@@ -31,7 +31,6 @@ METADATA_FILE = os.path.join(os.path.dirname(__file__), '../../data/kids.json')
 METADATA_LOCK_FILE = f"{METADATA_FILE}.lock"
 PASSWORD_HASH_METHOD = 'pbkdf2:sha256'
 INITIAL_FAMILY_TIMEZONE = 'America/New_York'
-FAMILY_BADGE_TRACKING_STARTED_AT_FIELD = 'badgeTrackingStartedAt'
 _METADATA_THREAD_LOCK = threading.RLock()
 
 
@@ -49,18 +48,11 @@ def _normalize(data: Dict) -> Dict:
             continue
         timezone_name = _validate_family_timezone(family.get('familyTimezone'))
         super_family = _normalize_super_family_flag(family.get('superFamily'))
-        badge_tracking_started_at = _normalize_badge_tracking_started_at(
-            family.get(FAMILY_BADGE_TRACKING_STARTED_AT_FIELD)
-        )
         normalized_family = {
             **family,
             'familyTimezone': timezone_name,
             'superFamily': super_family,
         }
-        if badge_tracking_started_at:
-            normalized_family[FAMILY_BADGE_TRACKING_STARTED_AT_FIELD] = badge_tracking_started_at
-        else:
-            normalized_family.pop(FAMILY_BADGE_TRACKING_STARTED_AT_FIELD, None)
         data['families'][i] = normalized_family
     normalized_kids = []
     for kid in data['kids']:
@@ -102,22 +94,6 @@ def _normalize_super_family_flag(value) -> bool:
     if text in {'0', 'false', 'no', 'n', 'off'}:
         return False
     return False
-
-
-def _normalize_badge_tracking_started_at(value) -> str:
-    """Normalize one family badge tracking start timestamp to ISO string or empty."""
-    text = str(value or '').strip()
-    if not text:
-        return ''
-    if text.endswith('Z'):
-        text = f"{text[:-1]}+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return ''
-    if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
-    return parsed.isoformat()
 
 
 # =====================================================================
@@ -322,7 +298,6 @@ def register_family(username: str, password: str) -> Dict:
             'password': generate_password_hash(password, method=PASSWORD_HASH_METHOD),
             'familyTimezone': INITIAL_FAMILY_TIMEZONE,
             'superFamily': len(families) == 0,
-            FAMILY_BADGE_TRACKING_STARTED_AT_FIELD: datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             'createdAt': datetime.now().isoformat(),
         }
         families.append(family)
@@ -448,7 +423,7 @@ def update_family_password(family_id: str, current_password: str, new_password: 
 
 
 # =====================================================================
-# === 6. Family settings (timezone + badge-tracking-started-at)
+# === 6. Family settings (timezone)
 # =====================================================================
 def get_family_timezone(family_id: str) -> str:
     """Get the configured family timezone."""
@@ -476,71 +451,3 @@ def update_family_timezone(family_id: str, family_timezone: str) -> bool:
         return False
 
     return _mutate_metadata(_op)
-
-
-def get_family_badge_tracking_started_at(family_id: str) -> str:
-    """Get family-level badge tracking start timestamp (ISO) or empty string."""
-    family = get_family_by_id(str(family_id or ''))
-    if not family:
-        return ''
-    return _normalize_badge_tracking_started_at(family.get(FAMILY_BADGE_TRACKING_STARTED_AT_FIELD))
-
-
-def set_family_badge_tracking_started_at(
-    family_id: str,
-    started_at: Optional[str] = None,
-    *,
-    overwrite: bool = False,
-) -> str:
-    """Set one family's badge tracking start timestamp if not already set."""
-    family_id = str(family_id or '').strip()
-    if not family_id:
-        return ''
-    normalized = _normalize_badge_tracking_started_at(
-        started_at or datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-    )
-    if not normalized:
-        normalized = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-
-    def _op(data: Dict):
-        families = data.get('families', [])
-        for idx, family in enumerate(families):
-            if str(family.get('id')) != family_id:
-                continue
-            existing = _normalize_badge_tracking_started_at(
-                family.get(FAMILY_BADGE_TRACKING_STARTED_AT_FIELD)
-            )
-            if existing and not overwrite:
-                return existing
-            families[idx] = {
-                **family,
-                FAMILY_BADGE_TRACKING_STARTED_AT_FIELD: normalized,
-            }
-            data['families'] = families
-            return normalized
-        return ''
-
-    return str(_mutate_metadata(_op) or '')
-
-
-def clear_family_badge_tracking_started_at(family_id: str) -> bool:
-    """Remove one family's badge tracking start timestamp field from metadata."""
-    family_id = str(family_id or '').strip()
-    if not family_id:
-        return False
-
-    def _op(data: Dict):
-        families = data.get('families', [])
-        for idx, family in enumerate(families):
-            if str(family.get('id')) != family_id:
-                continue
-            if FAMILY_BADGE_TRACKING_STARTED_AT_FIELD not in family:
-                return False
-            next_family = dict(family)
-            next_family.pop(FAMILY_BADGE_TRACKING_STARTED_AT_FIELD, None)
-            families[idx] = next_family
-            data['families'] = families
-            return True
-        return False
-
-    return bool(_mutate_metadata(_op))
