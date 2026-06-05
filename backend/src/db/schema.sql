@@ -3,6 +3,8 @@ CREATE SEQUENCE IF NOT EXISTS decks_id_seq;
 CREATE SEQUENCE IF NOT EXISTS cards_id_seq;
 CREATE SEQUENCE IF NOT EXISTS sessions_id_seq;
 CREATE SEQUENCE IF NOT EXISTS session_results_id_seq;
+CREATE SEQUENCE IF NOT EXISTS point_events_id_seq;
+CREATE SEQUENCE IF NOT EXISTS pending_off_app_chores_id_seq;
 
 -- Flashcard decks
 CREATE TABLE IF NOT EXISTS decks (
@@ -109,8 +111,28 @@ CREATE TABLE IF NOT EXISTS deck_category_opt_in (
   drill_speed_cutoff_ms INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS kid_off_app_chore (
+  rule_id INTEGER PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS pending_off_app_chore (
+  pending_id INTEGER PRIMARY KEY DEFAULT nextval('pending_off_app_chores_id_seq'),
+  rule_id INTEGER NOT NULL,
+  submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS point_event (
+  event_id INTEGER PRIMARY KEY DEFAULT nextval('point_events_id_seq'),
+  rule_id INTEGER NOT NULL,
+  points_delta INTEGER NOT NULL,
+  note VARCHAR,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_type_completed ON sessions(type, completed_at);
 CREATE INDEX IF NOT EXISTS idx_session_results_session_id ON session_results(session_id);
 CREATE INDEX IF NOT EXISTS idx_session_results_card_id ON session_results(card_id);
+CREATE INDEX IF NOT EXISTS idx_pending_off_app_chore_rule ON pending_off_app_chore(rule_id);
+CREATE INDEX IF NOT EXISTS idx_point_event_rule_created ON point_event(rule_id, created_at);

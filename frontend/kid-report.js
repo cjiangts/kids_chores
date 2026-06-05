@@ -35,11 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     reportRenderer.renderInitialLoading();
-    if (backBtn) {
-        backBtn.href = from === 'kid-home'
-            ? `/kid-practice-home.html?id=${encodeURIComponent(kidId)}`
-            : '/admin.html';
-    }
+    window.BackButtonCommon?.bindBackButton(backBtn);
     loadKidNav();
     await loadReport();
 });

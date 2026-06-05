@@ -71,6 +71,7 @@ let isSuperFamily = false;
 let offlineSelectionMode = false;
 const offlineSelectedKidIds = new Set();
 let offlineOwnedKidIds = new Set();
+let offAppReviewPendingByKidId = new Map();
 
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
@@ -329,7 +330,11 @@ async function loadKids(options = {}) {
         currentKids = Array.isArray(kids) ? kids : [];
         kidsLoaded = true;
         cacheKidsForParentNavigation(currentKids);
+        offAppReviewPendingByKidId = new Map();
         renderAll();
+        loadOffAppReviewPending().then(() => {
+            renderReviewBanner();
+        }).catch(() => {});
     } catch (error) {
         console.error('Error loading kids:', error);
         if (!usedNavigationCache) {
@@ -339,6 +344,28 @@ async function loadKids(options = {}) {
             renderAll();
         }
     }
+}
+
+async function loadOffAppReviewPending() {
+    const list = Array.isArray(currentKids) ? currentKids : [];
+    if (!list.length) {
+        offAppReviewPendingByKidId = new Map();
+        return;
+    }
+    const entries = await Promise.all(list.map(async (kid) => {
+        const kidId = String(kid?.id || '').trim();
+        if (!kidId) return null;
+        try {
+            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores`);
+            if (!response.ok) return [kidId, []];
+            const data = await response.json().catch(() => ({}));
+            const pending = Array.isArray(data.pending) ? data.pending : [];
+            return [kidId, pending];
+        } catch (error) {
+            return [kidId, []];
+        }
+    }));
+    offAppReviewPendingByKidId = new Map(entries.filter(Boolean));
 }
 
 async function createKid() {
@@ -502,6 +529,9 @@ function buildEditStateFromKids(kids) {
 function renderAll() {
     renderReviewBanner();
     renderMatrix();
+    if (window.KidAppNavigation) {
+        window.KidAppNavigation.setKids(currentKids);
+    }
     updateStartPracticeHref();
     refreshOfflineOwnedAndStats();
     renderOfflineActionFooter();
@@ -543,6 +573,9 @@ function updateStartPracticeHref() {
     btn.removeAttribute('aria-disabled');
     btn.removeAttribute('title');
     btn.href = `/kid-practice-home.html?id=${encodeURIComponent(targetKidId)}`;
+    if (window.KidAppNavigation) {
+        window.KidAppNavigation.setKidId(targetKidId);
+    }
 }
 
 function pickKidWithPracticeTarget(kids) {
@@ -587,22 +620,59 @@ function renderReviewBanner() {
         const count = Number.parseInt(kid?.typeIIIToReviewCount, 10);
         return sum + (Number.isInteger(count) && count > 0 ? count : 0);
     }, 0);
-    if (totalReviewCount <= 0) {
+    const totalOffAppPending = Array.from(offAppReviewPendingByKidId.values()).reduce((sum, pending) => {
+        const count = Array.isArray(pending) ? pending.length : 0;
+        return sum + count;
+    }, 0);
+    const items = [];
+    if (totalReviewCount > 0) {
+        const noun = totalReviewCount === 1 ? 'audio recording' : 'audio recordings';
+        items.push({
+            kind: 'audio',
+            iconName: 'headphones',
+            text: `${totalReviewCount} ${noun} waiting for review`,
+            cta: 'Review',
+        });
+    }
+    if (totalOffAppPending > 0) {
+        const noun = totalOffAppPending === 1 ? 'off-app chore' : 'off-app chores';
+        items.push({
+            kind: 'off-app',
+            iconName: 'clipboard-check',
+            text: `${totalOffAppPending} ${noun} waiting for confirm`,
+            cta: 'Confirm',
+        });
+    }
+    if (items.length <= 0) {
         adminReviewBanner.classList.add('hidden');
         adminReviewBanner.innerHTML = '';
         return;
     }
     adminReviewBanner.classList.remove('hidden');
-    adminReviewBanner.className = 'admin-review-banner';
-    const noun = totalReviewCount === 1 ? 'audio recording' : 'audio recordings';
-    const iconHtml = icon('headphones', { size: 20 });
     const chevronHtml = icon('chevron-right', { size: 16, strokeWidth: 2.4 });
-    adminReviewBanner.innerHTML = `
-        <span class="admin-review-banner-icon" aria-hidden="true">${iconHtml}</span>
-        <span class="admin-review-banner-text">${totalReviewCount} ${escapeHtml(noun)} waiting for review</span>
-        <span class="admin-review-banner-cta">Review ${chevronHtml}</span>
-    `;
-    adminReviewBanner.onclick = () => {
+    adminReviewBanner.className = 'admin-review-banner-stack';
+    adminReviewBanner.innerHTML = items.map((item) => `
+        <button type="button" class="admin-review-banner" data-review-kind="${escapeHtml(item.kind)}">
+            <span class="admin-review-banner-icon" aria-hidden="true">${icon(item.iconName, { size: 20 })}</span>
+            <span class="admin-review-banner-text">${escapeHtml(item.text)}</span>
+            <span class="admin-review-banner-cta">${escapeHtml(item.cta)} ${chevronHtml}</span>
+        </button>
+    `).join('');
+    adminReviewBanner.onclick = (event) => {
+        const button = event.target.closest('[data-review-kind]');
+        if (!button) return;
+        const reviewKind = button.getAttribute('data-review-kind') || '';
+        if (reviewKind === 'off-app') {
+            const reviewKid = pickKidWithOffAppReview(list);
+            if (!reviewKid) {
+                showError('No off-app chores need confirmation right now.');
+                return;
+            }
+            const kidId = String(reviewKid.id || '');
+            persistLastViewedKidId(kidId);
+            window.location.href = `/point-log.html?kidId=${encodeURIComponent(kidId)}&mode=review`;
+            return;
+        }
         const reviewKid = pickKidWithReviewAudio(list);
         if (!reviewKid) {
             showError('No audio to review right now.');
@@ -624,6 +694,25 @@ function pickKidWithReviewAudio(kids) {
     for (let i = list.length - 1; i >= 0; i--) {
         const kid = list[i];
         if (Number.parseInt(kid?.typeIIIToReviewCount, 10) > 0) {
+            return kid;
+        }
+    }
+    return null;
+}
+
+function pickKidWithOffAppReview(kids) {
+    const list = Array.isArray(kids) ? kids : [];
+    const hasPending = (kidId) => {
+        const pending = offAppReviewPendingByKidId.get(String(kidId || ''));
+        return Array.isArray(pending) && pending.length > 0;
+    };
+    const lastId = readLastViewedKidId();
+    if (lastId && hasPending(lastId)) {
+        return list.find((kid) => String(kid?.id || '') === lastId) || null;
+    }
+    for (let i = list.length - 1; i >= 0; i--) {
+        const kid = list[i];
+        if (hasPending(kid?.id)) {
             return kid;
         }
     }
@@ -813,7 +902,7 @@ function buildOfflineLockInfoChipHtml(kid) {
     const kidId = String(kid?.id || '');
     const lock = kid?.offlineLock || {};
     const device = String(lock.device_label || 'Another device');
-    const familyTz = kid?.familyTimezone || kid?.timezone || '';
+    const familyTz = kid?.familyTimezone || '';
     const timeText = (window.OfflineCommon && typeof window.OfflineCommon.formatHourMinute === 'function')
         ? window.OfflineCommon.formatHourMinute(lock.acquired_at_utc, familyTz)
         : '';

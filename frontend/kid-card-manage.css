@@ -4443,64 +4443,6 @@
             }
         }
 
-        .cards-view-toggle-group {
-            display: inline-flex;
-            align-items: stretch;
-            gap: 0.25rem;
-            background: #ffffff;
-            border-radius: 14px;
-            padding: 4px;
-            border: 1px solid #e3e7f3;
-            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
-        }
-
-        .cards-view-toggle-btn {
-            border: 0;
-            background: transparent;
-            color: #2f3c7e;
-            font-size: 0.92rem;
-            font-weight: 700;
-            padding: 0.55rem 1.4rem;
-            border-radius: 10px;
-            cursor: pointer;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
-        }
-
-        .cards-view-toggle-btn-icon {
-            display: inline-flex;
-            align-items: center;
-            color: currentColor;
-        }
-
-        .cards-view-toggle-btn:hover:not(.active) {
-            background: #f3f5fc;
-        }
-
-        .cards-view-toggle-btn.active {
-            background: #6366f1;
-            color: #ffffff;
-            box-shadow: 0 6px 14px rgba(99, 102, 241, 0.32);
-        }
-
-        @media (max-width: 640px) {
-            .cards-view-toggle-group {
-                display: flex;
-                width: 100%;
-            }
-
-            .cards-view-toggle-btn {
-                flex: 1 1 0;
-                min-width: 0;
-                padding-left: 0.4rem;
-                padding-right: 0.4rem;
-            }
-        }
-
         body.cards-view-mode-stats .cards-toolbar,
         body.cards-view-mode-stats .cards-view-control,
         body.cards-view-mode-stats #cardsQueueLegend,
@@ -5577,4 +5519,3 @@
         body.cards-view-mode-stats .cards-view-control {
             display: none !important;
         }
-

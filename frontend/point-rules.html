@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="offline-redirect-guard.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Point Rules - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="home-redesign-v4.css">
+    <link rel="stylesheet" href="subject-icons.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
+    <link rel="stylesheet" href="point-rules.css">
+</head>
+<body class="manage-page point-rules-page">
+    <div class="container">
+        <header class="page-header-with-back page-header-with-actions">
+            <div class="page-header-row">
+                <h1>
+                    <span class="page-title-icon" aria-hidden="true">🏛</span>
+                    Point Rules
+                </h1>
+                <div class="page-header-actions"></div>
+            </div>
+        </header>
+
+        <main class="point-rules-layout">
+            <div id="ruleError" class="error hidden"></div>
+
+            <section class="settings-card settings-section point-rule-list-section">
+                <div class="settings-card-body">
+                    <section class="point-rules-tabs cards-view-toggle-group cards-view-toggle-group-centered" aria-label="Point rule types">
+                        <button type="button" class="point-rule-tab cards-view-toggle-btn active" data-rule-kind="in_app_chore"><span class="cards-view-toggle-btn-icon" data-icon="smartphone" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">In-App Chores</span><span class="point-rule-tab-short">In-App</span></button>
+                        <button type="button" class="point-rule-tab cards-view-toggle-btn" data-rule-kind="off_app_chore"><span class="cards-view-toggle-btn-icon" data-icon="clipboard-check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Off-App Chores</span><span class="point-rule-tab-short">Off-App</span></button>
+                        <button type="button" class="point-rule-tab cards-view-toggle-btn" data-rule-kind="bonus_event"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-up" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Bonus Events</span><span class="point-rule-tab-short">Bonus</span></button>
+                        <button type="button" class="point-rule-tab cards-view-toggle-btn" data-rule-kind="deduction_event"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-down" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Deduction Events</span><span class="point-rule-tab-short">Deduction</span></button>
+                        <button type="button" class="point-rule-tab cards-view-toggle-btn" data-rule-kind="redeemed_reward"><span class="cards-view-toggle-btn-icon" data-icon="gift" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Reward Catalog</span><span class="point-rule-tab-short">Reward</span></button>
+                    </section>
+                    <div id="ruleList" class="point-rule-list"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="icons.js"></script>
+    <script src="kid-app-navigation.js"></script>
+    <script src="subject-icons.js"></script>
+    <script src="back-button-common.js"></script>
+    <script src="point-rules.js"></script>
+</body>
+</html>

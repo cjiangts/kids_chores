@@ -57,7 +57,7 @@ const BEHAVIOR_TYPE_III = 'type_iii';
 const BEHAVIOR_TYPE_IV = 'type_iv';
 const DRILL_FAST_CORRECT_NEEDED = 2;
 const SUMMARY_FIXED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
-let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+let reportTimezone = '';
 let currentSessionType = '';
 let currentSessionBehaviorType = '';
 let currentSessionCategoryDisplayName = '';
@@ -81,8 +81,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindBackButton();
     bindDeleteSessionButton();
     bindLiveDurationBackfillUpdates();
-    await loadReportTimezone();
-    await loadSessionDetail();
+    try {
+        await loadReportTimezone();
+        await loadSessionDetail();
+    } catch (error) {
+        console.error('Error loading session report:', error);
+        showError(error.message || 'Failed to load session report.');
+    }
 });
 
 function bindDeleteSessionButton() {
@@ -120,7 +125,7 @@ async function handleDeleteSession(btn) {
 }
 
 function bindBackButton() {
-    window.ReportBackButtonCommon?.bindBackButton(backBtn, resolveBackHref());
+    window.BackButtonCommon?.bindBackButton(backBtn);
 }
 
 function resolveBackHref() {
@@ -143,19 +148,16 @@ function resolveBackHref() {
 }
 
 async function loadReportTimezone() {
-    try {
-        const response = await fetch(`${API_BASE}/parent-settings/timezone`);
-        if (!response.ok) {
-            return;
-        }
-        const data = await response.json().catch(() => ({}));
-        const tz = String(data.familyTimezone || '').trim();
-        if (tz) {
-            reportTimezone = tz;
-        }
-    } catch (error) {
-        // Keep browser timezone.
+    const response = await fetch(`${API_BASE}/parent-settings/timezone`);
+    if (!response.ok) {
+        throw new Error(`Timezone request failed (${response.status})`);
     }
+    const data = await response.json().catch(() => ({}));
+    const tz = String(data.familyTimezone || '').trim();
+    if (!tz) {
+        throw new Error('familyTimezone missing from timezone response');
+    }
+    reportTimezone = tz;
 }
 
 // =====================================================================
@@ -668,9 +670,11 @@ function formatRelativeDay(raw) {
 }
 
 function formatDateKeyInTimezone(date, timezone) {
+    const tz = String(timezone || '').trim();
+    if (!tz) return '';
     try {
         const formatter = new Intl.DateTimeFormat('en-CA', {
-            timeZone: String(timezone || '') || undefined,
+            timeZone: tz,
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',

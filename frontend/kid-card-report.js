@@ -48,7 +48,7 @@ const TREND_EMA_ALPHA = 0.067;
 const TREND_EMA_HALF_LIFE_ATTEMPTS = Math.round(Math.log(0.5) / Math.log(1 - TREND_EMA_ALPHA));
 let currentTrendAttempts = [];
 let currentTrendPeriodDays = 0;
-let reportTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+let reportTimezone = '';
 let currentKidName = '';
 let currentCardFront = '';
 let currentCardBack = '';
@@ -68,19 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // =====================================================================
 
 function bindBackButton() {
-    window.ReportBackButtonCommon?.bindBackButton(backBtn, resolveBackHref());
-}
-
-function resolveBackHref() {
-    if (from !== 'cards' && from !== 'type2' && from !== 'lesson-reading') {
-        return '/admin.html';
-    }
-    const qs = new URLSearchParams();
-    qs.set('id', String(kidId || ''));
-    if (categoryKey) {
-        qs.set('categoryKey', categoryKey);
-    }
-    return `/kid-card-manage.html?${qs.toString()}`;
+    window.BackButtonCommon?.bindBackButton(backBtn);
 }
 
 async function loadCardReport() {
@@ -117,19 +105,16 @@ async function loadCardReport() {
 }
 
 async function loadReportTimezone() {
-    try {
-        const response = await fetch(`${API_BASE}/parent-settings/timezone`);
-        if (!response.ok) {
-            return;
-        }
-        const data = await response.json().catch(() => ({}));
-        const tz = String(data.familyTimezone || '').trim();
-        if (tz) {
-            reportTimezone = tz;
-        }
-    } catch (error) {
-        // Keep browser timezone.
+    const response = await fetch(`${API_BASE}/parent-settings/timezone`);
+    if (!response.ok) {
+        throw new Error(`Timezone request failed (${response.status})`);
     }
+    const data = await response.json().catch(() => ({}));
+    const tz = String(data.familyTimezone || '').trim();
+    if (!tz) {
+        throw new Error('familyTimezone missing from timezone response');
+    }
+    reportTimezone = tz;
 }
 
 // =====================================================================

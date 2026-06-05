@@ -16,6 +16,7 @@ ACHIEVEMENT_BADGE_MAP_SCHEMA_FILE = os.path.join(
     os.path.dirname(__file__),
     'shared_deck_achievement_badge_map.sql',
 )
+POINTS_SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'shared_deck_points.sql')
 
 _schema_sql_cache: Optional[str] = None
 
@@ -29,6 +30,7 @@ def _get_schema_sql() -> str:
             SCHEMA_FILE,
             BADGE_ART_SCHEMA_FILE,
             ACHIEVEMENT_BADGE_MAP_SCHEMA_FILE,
+            POINTS_SCHEMA_FILE,
         ):
             if not os.path.exists(file_path):
                 continue
@@ -36,6 +38,13 @@ def _get_schema_sql() -> str:
                 parts.append(f.read().strip())
         _schema_sql_cache = '\n\n'.join(part for part in parts if part)
     return _schema_sql_cache
+
+
+def _connect_shared_db() -> duckdb.DuckDBPyConnection:
+    """Open the shared DB with UTC as the only DB timestamp timezone."""
+    conn = duckdb.connect(SHARED_DB_PATH)
+    conn.execute("SET TimeZone='UTC'")
+    return conn
 
 
 def _sync_noto_badge_bank(conn: duckdb.DuckDBPyConnection):
@@ -93,7 +102,7 @@ def _sync_noto_badge_bank(conn: duckdb.DuckDBPyConnection):
 def init_shared_decks_database() -> str:
     """Initialize shared decks database file and schema."""
     os.makedirs(DATA_DIR, exist_ok=True)
-    conn = duckdb.connect(SHARED_DB_PATH)
+    conn = _connect_shared_db()
     conn.execute(_get_schema_sql())
     _sync_noto_badge_bank(conn)
     conn.close()
@@ -109,4 +118,4 @@ def get_shared_decks_connection(read_only: bool = False) -> duckdb.DuckDBPyConne
     """
     if not os.path.exists(SHARED_DB_PATH):
         init_shared_decks_database()
-    return duckdb.connect(SHARED_DB_PATH)
+    return _connect_shared_db()

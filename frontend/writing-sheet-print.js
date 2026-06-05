@@ -144,17 +144,6 @@ async function fetchJson(url, options) {
     return payload;
 }
 
-function goBack() {
-    if (window.history.length > 1) {
-        window.history.back();
-        return;
-    }
-    const qs = new URLSearchParams();
-    if (kidId) qs.set('id', kidId);
-    if (categoryKey) qs.set('categoryKey', categoryKey);
-    window.location.href = `/kid-writing-sheet-manage.html?${qs.toString()}`;
-}
-
 // =====================================================================
 // === 4. Row cells + sheet page markup builder
 // =====================================================================
@@ -386,11 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (backBtn) {
-        backBtn.href = '#';
-        backBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            goBack();
-        });
+        window.BackButtonCommon?.bindBackButton(backBtn);
     }
 
     if (printBtn) {

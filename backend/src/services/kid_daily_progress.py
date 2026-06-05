@@ -105,6 +105,7 @@ def get_kid_dashboard_stats(
 ):
     """Get today's dashboard counts + latest session progress by category in one connection."""
     default_counts = defaultdict(int)
+    default_started_counts = defaultdict(int)
     default_star_tiers = defaultdict(list)
     default_latest_percent = defaultdict(float)
     default_latest_target_count = defaultdict(int)
@@ -119,6 +120,7 @@ def get_kid_dashboard_stats(
         except Exception:
             return (
                 default_counts,
+                default_started_counts,
                 default_star_tiers,
                 default_latest_percent,
                 default_latest_target_count,
@@ -163,25 +165,54 @@ def get_kid_dashboard_stats(
                 s.type,
                 COALESCE(s.planned_count, 0) AS planned_count,
                 COUNT(sr.id) AS answer_count,
-                COALESCE(uc.unresolved_count, 0) AS unresolved_count
+                COALESCE(uc.unresolved_count, 0) AS unresolved_count,
+                CASE
+                    WHEN s.completed_at IS NOT NULL
+                     AND s.completed_at >= ?
+                     AND s.completed_at < ?
+                    THEN 1 ELSE 0
+                END AS completed_today,
+                CASE
+                    WHEN s.started_at IS NOT NULL
+                     AND s.started_at >= ?
+                     AND s.started_at < ?
+                    THEN 1 ELSE 0
+                END AS started_today
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
             LEFT JOIN unresolved_counts uc ON uc.session_id = s.id
-            WHERE s.completed_at IS NOT NULL
-              AND s.completed_at >= ?
-              AND s.completed_at < ?
+            WHERE (
+                s.completed_at IS NOT NULL
+                AND s.completed_at >= ?
+                AND s.completed_at < ?
+            ) OR (
+                s.started_at IS NOT NULL
+                AND s.started_at >= ?
+                AND s.started_at < ?
+            )
             GROUP BY
                 s.id,
                 s.type,
                 s.planned_count,
                 s.completed_at,
+                s.started_at,
                 uc.unresolved_count
-            ORDER BY s.completed_at ASC, s.id ASC
+            ORDER BY COALESCE(s.completed_at, s.started_at) ASC, s.id ASC
             """,
-            [day_start_utc, day_end_utc]
+            [
+                day_start_utc,
+                day_end_utc,
+                day_start_utc,
+                day_end_utc,
+                day_start_utc,
+                day_end_utc,
+                day_start_utc,
+                day_end_utc,
+            ]
         ).fetchall()
 
         today_counts = defaultdict(int)
+        today_started_counts = defaultdict(int)
         today_star_tiers = defaultdict(list)
         today_latest_percent = defaultdict(float)
         today_latest_target_count = defaultdict(int)
@@ -198,6 +229,13 @@ def get_kid_dashboard_stats(
             planned_count = max(0, int(row[1] or 0))
             answer_count = int(row[2] or 0)
             unresolved_count = max(0, int(row[3] or 0))
+            completed_today = int(row[4] or 0) == 1
+            started_today = int(row[5] or 0) == 1
+            if started_today:
+                today_started_counts[session_type] += 1
+                today_started_counts['total'] += 1
+            if not completed_today:
+                continue
             wrong_count = unresolved_count
             right_count = max(0, answer_count - unresolved_count)
             target_answer_count = max(planned_count, answer_count, right_count + wrong_count)
@@ -265,6 +303,7 @@ def get_kid_dashboard_stats(
 
         return (
             today_counts,
+            today_started_counts,
             today_star_tiers,
             today_latest_percent,
             today_latest_target_count,
@@ -275,6 +314,7 @@ def get_kid_dashboard_stats(
     except Exception:
         return (
             default_counts,
+            default_started_counts,
             default_star_tiers,
             default_latest_percent,
             default_latest_target_count,

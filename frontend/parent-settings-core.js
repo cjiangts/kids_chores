@@ -84,7 +84,6 @@ const errorMessage = document.getElementById('errorMessage');
 const passwordError = document.getElementById('passwordError');
 const passwordSuccess = document.getElementById('passwordSuccess');
 let pendingRestorePassword = null;
-const DEFAULT_FAMILY_TIMEZONE = 'America/New_York';
 let isSuperFamily = false;
 
 // =====================================================================
@@ -488,14 +487,18 @@ function parseApiTimestamp(value) {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function formatStartedAt(value, timeZone = DEFAULT_FAMILY_TIMEZONE) {
+function formatStartedAt(value, timeZone) {
     const parsed = parseApiTimestamp(value);
     if (!parsed) {
         return String(value || '').trim();
     }
+    const tz = String(timeZone || '').trim();
+    if (!tz) {
+        return String(value || '').trim();
+    }
     try {
         return parsed.toLocaleString([], {
-            timeZone: String(timeZone || DEFAULT_FAMILY_TIMEZONE),
+            timeZone: tz,
             month: 'short',
             day: 'numeric',
             year: 'numeric',
@@ -528,7 +531,10 @@ async function loadTimezoneSettings() {
             throw new Error(`HTTP ${response.status}`);
         }
         const data = await response.json();
-        const value = String(data.familyTimezone || DEFAULT_FAMILY_TIMEZONE);
+        const value = String(data.familyTimezone || '').trim();
+        if (!value) {
+            throw new Error('familyTimezone missing from response');
+        }
         setSelectedTimezonePill(value);
     } catch (error) {
         console.error('Error loading timezone settings:', error);
@@ -557,9 +563,13 @@ async function saveTimezoneSettings(timezoneName) {
             return;
         }
 
-        const saved = String(result.familyTimezone || tz);
+        const saved = String(result.familyTimezone || '').trim();
+        if (!saved) {
+            showTimezoneError('Timezone save response was missing familyTimezone.');
+            return;
+        }
         setSelectedTimezonePill(saved);
-        badgeTrackingFamilyTimezone = saved || DEFAULT_FAMILY_TIMEZONE;
+        badgeTrackingFamilyTimezone = saved;
         await loadBadgeTrackingStatus();
         showTimezoneSuccess('Family timezone saved.');
     } catch (error) {

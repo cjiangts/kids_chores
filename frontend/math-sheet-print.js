@@ -220,17 +220,6 @@ function setRepeatCountValue(value) {
     syncRepeatCountUrl();
 }
 
-function goBack() {
-    if (window.history.length > 1) {
-        window.history.back();
-        return;
-    }
-    const qs = new URLSearchParams();
-    if (kidId) qs.set('id', kidId);
-    if (categoryKey) qs.set('categoryKey', categoryKey);
-    window.location.href = `/kid-writing-sheet-manage.html?${qs.toString()}`;
-}
-
 // =====================================================================
 // === 4. JSON fetch + toolbar button state
 // =====================================================================
@@ -851,11 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
         handlePrint();
     });
     if (backBtn) {
-        backBtn.href = '#';
-        backBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            goBack();
-        });
+        window.BackButtonCommon?.bindBackButton(backBtn);
     }
     if (printBtn) {
         printBtn.addEventListener('click', () => {

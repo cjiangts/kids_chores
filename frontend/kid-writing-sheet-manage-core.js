@@ -183,7 +183,7 @@ async function loadKidInfo() {
 
     activeCategoryDisplayName = window.DeckCategoryCommon.getCategoryDisplayName(activeCategoryKey, categoryMetaMap) || '';
     updatePageText();
-    if (backBtn) backBtn.href = '/admin.html';
+    window.BackButtonCommon?.bindBackButton(backBtn);
 }
 
 function applyPageMode() {

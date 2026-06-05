@@ -28,6 +28,7 @@ const API_BASE = `${window.location.origin}/api`;
 const params = new URLSearchParams(window.location.search);
 const kidId = String(params.get('id') || '').trim();
 const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
+const requestedOfflineMode = String(params.get('offline') || '').trim() === '1';
 
 const kidNameEl = document.getElementById('kidName');
 const startTitle = document.getElementById('startTitle');
@@ -272,6 +273,15 @@ const earlyFinishController = window.PracticeUiCommon.createEarlyFinishControlle
     },
 });
 
+function getPracticeHomeUrl() {
+    const homeParams = new URLSearchParams();
+    homeParams.set('id', kidId);
+    if (requestedOfflineMode) {
+        homeParams.set('offline', '1');
+    }
+    return `/kid-practice-home.html?${homeParams.toString()}`;
+}
+
 function cancelSessionBeforeFirstAnswer() {
     if (state.sessionAnswers.length > 0) {
         return;
@@ -279,7 +289,7 @@ function cancelSessionBeforeFirstAnswer() {
     window.PracticeSession.clearSessionStart(state.activePendingSessionId);
     state.activePendingSessionId = '';
     state.sessionCards = [];
-    window.location.href = `/kid-practice-home.html?id=${kidId}`;
+    window.location.href = getPracticeHomeUrl();
 }
 // =====================================================================
 // === 2. Behavior-type predicates + URL builders
@@ -1162,12 +1172,10 @@ function setResultActionMode(mode) {
     }
     if (nextMode === 'retry-save') {
         resultBackToPractice.textContent = 'Retry Save';
-        resultBackToPractice.href = '#';
         setResultBackToPracticeVisible(true);
         return;
     }
     resultBackToPractice.textContent = '\u2190 Back';
-    resultBackToPractice.href = `/kid-practice-home.html?id=${kidId}`;
     setResultBackToPracticeVisible(nextMode === 'back');
 }
 function showError(message) {
@@ -1281,6 +1289,13 @@ function bindEventHandlers() {
     continueBtn.addEventListener('click', () => {
         void confirmAndNext();
     });
+    if (backToPractice) {
+        backToPractice.href = getPracticeHomeUrl();
+        backToPractice.addEventListener('click', (event) => {
+            event.preventDefault();
+            window.location.href = getPracticeHomeUrl();
+        });
+    }
     resultBackToPractice.addEventListener('click', (event) => {
         if (state.resultActionMode === 'saving') {
             event.preventDefault();
@@ -1290,7 +1305,10 @@ function bindEventHandlers() {
             event.preventDefault();
             showError('');
             void endSession(state.pendingResultEndedEarly);
+            return;
         }
+        event.preventDefault();
+        window.location.href = getPracticeHomeUrl();
     });
 
     bonusGameBoard.addEventListener('click', onBonusGameBoardClick);
@@ -1325,9 +1343,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    if (!offlinePack) {
-        backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
-    }
     setResultActionMode('back');
     setHeaderBackToPracticeVisible(true);
     bindEventHandlers();
@@ -1348,13 +1363,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function applyOfflinePracticeHeader() {
-    // In offline mode, the "Back" button on the practice runtime should
-    // return to the offline practice home for this kid (which holds the
-    // Sync action). We never go back to /admin.html directly because the
-    // owner device's only safe exit is via Sync.
     if (backToPractice) {
-        backToPractice.href = `/kid-practice-home.html?id=${kidId}`;
-        backToPractice.setAttribute('title', 'Back to offline practice home');
+        backToPractice.href = getPracticeHomeUrl();
+        backToPractice.setAttribute('title', 'Back to practice home');
     }
     const headerActions = document.querySelector('.page-header-actions');
     if (!headerActions) return;

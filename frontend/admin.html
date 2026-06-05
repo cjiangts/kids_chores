@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="home-redesign-v4.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
     <link rel="stylesheet" href="deck-tree-view.css">
     <style>
         .parent-admin-page .admin-optin-panel {
@@ -267,18 +268,28 @@
         .parent-admin-page .admin-matrix-kid-avatar--mode-select-checked {
             background: #c2410c;
         }
+        .parent-admin-page .admin-review-banner-stack {
+            display: grid;
+            gap: 0.55rem;
+            margin: 0 0 0.7rem;
+        }
         .parent-admin-page .admin-review-banner {
+            appearance: none;
+            -webkit-appearance: none;
             display: flex;
             align-items: center;
             gap: 0.8rem;
+            width: 100%;
             padding: 0.7rem 1rem;
             background: #fff;
             border-radius: 14px;
             border: 1px solid rgba(125, 138, 184, 0.18);
             box-shadow: 0 2px 10px rgba(54, 71, 138, 0.08);
-            margin: 0 0 0.7rem;
+            margin: 0;
             text-decoration: none;
             color: inherit;
+            font: inherit;
+            text-align: left;
             cursor: pointer;
         }
         .parent-admin-page .admin-review-banner:hover {
@@ -913,6 +924,7 @@
     </script>
 
     <script src="icons.js"></script>
+    <script src="kid-app-navigation.js"></script>
     <script src="subject-icons.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>

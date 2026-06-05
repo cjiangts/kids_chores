@@ -98,7 +98,7 @@ def _aggregate_thumb_down_by_front(back_content_value):
     for db_path in kid_db_paths:
         conn = None
         try:
-            conn = kid_db.duckdb.connect(str(db_path), read_only=True)
+            conn = kid_db._connect_kid_db(str(db_path))
             rows = conn.execute(
                 f"""
                 SELECT c.front, SUM(c.thumb_down_count)
@@ -365,7 +365,7 @@ def dismiss_chinese_bank_thumbs():
     for db_path in kid_db_paths:
         conn = None
         try:
-            conn = kid_db.duckdb.connect(str(db_path))
+            conn = kid_db._connect_kid_db(str(db_path))
             conn.execute(sql, params)
         except Exception as exc:
             errors.append({'db': db_path.name, 'error': str(exc)})
@@ -427,7 +427,7 @@ def refresh_chinese_bank_used():
                 for db_path in kid_db_paths:
                     kid_conn = None
                     try:
-                        kid_conn = kid_db.duckdb.connect(str(db_path), read_only=True)
+                        kid_conn = kid_db._connect_kid_db(str(db_path))
                         kid_rows = kid_conn.execute(
                             f"""
                             SELECT DISTINCT c.front
@@ -600,7 +600,7 @@ def _push_bank_backs(bank, back_content_value):
     for db_path in kid_db_paths:
         kid_conn = None
         try:
-            kid_conn = kid_db.duckdb.connect(str(db_path))
+            kid_conn = kid_db._connect_kid_db(str(db_path))
             kid_shared_conn = get_shared_decks_connection(read_only=True)
             try:
                 kid_decks_in_mode = set()

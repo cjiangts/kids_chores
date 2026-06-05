@@ -32,8 +32,11 @@ const kidNameEl = document.getElementById('kidName');
 const kidToggleGroup = document.getElementById('kidToggleGroup');
 const errorMessage = document.getElementById('errorMessage');
 const practiceSection = document.getElementById('practiceSection');
+const inAppPracticeSection = document.getElementById('inAppPracticeSection');
 const practiceSummaryStrip = document.getElementById('practiceSummaryStrip');
 const practiceChooser = document.getElementById('practiceChooser');
+const offAppPracticeSection = document.getElementById('offAppPracticeSection');
+const offAppChooser = document.getElementById('offAppChooser');
 const {
     buildCategoryStarsModel,
 } = window.PracticeStarBadgeCommon || {};
@@ -89,6 +92,13 @@ let badgeShelfSummary = {
     earnedCount: 0,
     trackingEnabled: false,
 };
+let offAppChoreState = {
+    loaded: false,
+    loading: false,
+    chores: [],
+    pendingByRuleId: new Map(),
+    savingRuleId: null,
+};
 const errorState = { lastMessage: '' };
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 
@@ -98,6 +108,19 @@ let offlinePackExpired = false;
 
 function appendOfflineFlagIfNeeded(params) {
     if (isOfflineMode) params.set('offline', '1');
+}
+
+function markOfflineHomeUrl() {
+    try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('offline') === '1') {
+            return;
+        }
+        url.searchParams.set('offline', '1');
+        window.history.replaceState(window.history.state, '', url.toString());
+    } catch (_) {
+        // best-effort URL marker only
+    }
 }
 
 function offlineGuardOrError(categoryKey) {
@@ -339,8 +362,8 @@ function renderKidToggle(kids, opts) {
         const isLockedHere = Boolean(lock) && isOwned;
         const isLockedElsewhere = Boolean(lock) && !isOwned;
         const nameHtml = `<span>${escapeHtmlLocal(name)}</span>`;
-        const { assigned, done } = computeKidToggleProgress(kid);
-        const progressMeta = assigned > 0
+        const { assigned, done } = isOfflineMode ? { assigned: 0, done: 0 } : computeKidToggleProgress(kid);
+        const progressMeta = !isOfflineMode && assigned > 0
             ? `<span class="kid-nav-card-meta${done >= assigned ? ' is-done' : ''}">${done}/${assigned} done</span>`
             : '';
 
@@ -353,11 +376,9 @@ function renderKidToggle(kids, opts) {
             return `<span class="kid-nav-card is-offline-elsewhere" role="tab" aria-selected="false" aria-disabled="true" title="Offline on ${escapeHtmlLocal(deviceLabel)}">${userIconSvg}${nameHtml}${offlineMeta}</span>`;
         }
         if (isLockedHere) {
-            // Kid has an offline pack on this device. When we're also in offline
-            // mode, both kids "match" the current mode — show normal progress
-            // numbers and let the click switch into her offline home. The
-            // "Offline" badge is only useful in online mode (signals that this
-            // kid has been checked out into a local pack).
+            // Kid has an offline pack on this device. In offline mode, let the
+            // click switch into her offline home; the online "done" count is
+            // intentionally hidden because it can be stale.
             const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
             if (isOfflineMode) {
                 return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${progressMeta}</a>`;
@@ -425,14 +446,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cachedKid) {
         applyKidPayload(cachedKid);
         renderPracticeOptions();
+        void loadOffAppChores();
         void loadBadgeShelfSummary();
         maybeShowBadgeCelebration();
         window.setTimeout(() => { void warmWritingCards(); }, 0);
         // Revalidate in background — update UI silently when fresh data arrives
         loadKidInfo().then(() => { renderPracticeOptions(); }).catch(() => {});
     } else {
+        const offAppPromise = loadOffAppChores();
         await loadKidInfo();
         renderPracticeOptions();
+        void offAppPromise;
         void loadBadgeShelfSummary();
         maybeShowBadgeCelebration();
         window.setTimeout(() => { void warmWritingCards(); }, 0);
@@ -453,6 +477,28 @@ if (practiceSummaryStrip) {
     });
 }
 
+if (offAppChooser) {
+    offAppChooser.addEventListener('click', (event) => {
+        const taskButton = event.target.closest('[data-off-app-rule-id]');
+        if (!taskButton) {
+            return;
+        }
+        void handleOffAppTaskToggle(taskButton.getAttribute('data-off-app-rule-id'));
+    });
+}
+
+window.addEventListener('focus', () => {
+    if (offAppChoreState.loaded && !isOfflineMode) {
+        void loadOffAppChores();
+    }
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && offAppChoreState.loaded && !isOfflineMode) {
+        void loadOffAppChores();
+    }
+});
+
 function applyKidPayload(kid) {
     currentKid = kid;
     activeChineseCategoryKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
@@ -467,7 +513,11 @@ function applyKidPayload(kid) {
     }
     activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
     kidNameEl.textContent = window.PracticeUiCommon.formatKidPracticeTitle(currentKid.name);
-    window.PracticeUiCommon.applyKidInitialAvatar(document.getElementById('kidTitleIcon'), currentKid);
+    const titleIcon = document.getElementById('kidTitleIcon');
+    if (titleIcon) {
+        titleIcon.className = 'page-title-icon';
+        titleIcon.textContent = '🎓';
+    }
     updatePageTitle();
 }
 
@@ -833,19 +883,15 @@ function renderPracticeSummaryStrip({
     optedInCategoryKeys,
     categoryMetaMap,
     dailyCompletedByCategory,
-    dailyStarTiersByCategory,
-    dailyPercentByCategory,
+    dailyStartedByCategory,
     practiceTargetByCategory,
-    dailyTargetByCategory,
-    dailyTriedByCategory,
-    dailyRightByCategory,
 }) {
     if (!practiceSummaryStrip) {
         return;
     }
 
     let assignedCount = 0;
-    let doneCount = 0;
+    let startedCount = 0;
 
     optedInCategoryKeys.forEach((categoryKey) => {
         const key = normalizeCategoryKey(categoryKey);
@@ -866,47 +912,29 @@ function renderPracticeSummaryStrip({
         }
 
         assignedCount += 1;
-        const model = buildCategoryProgressModel({
-            categoryKey: key,
-            dailyStarTiersByCategory,
-            dailyCompletedByCategory,
-            dailyPercentByCategory,
-            dailyTargetByCategory,
-            dailyTriedByCategory,
-            dailyRightByCategory,
-            practiceTargetByCategory,
-        });
-        if (model.isFullyComplete) {
-            doneCount += 1;
-        }
+        startedCount += Math.max(0, Number.parseInt(dailyStartedByCategory?.[key], 10) || 0);
     });
 
     const summaryBoxes = [];
     if (assignedCount > 0) {
-        summaryBoxes.push(buildStatCard({
+        summaryBoxes.push(buildSummaryPill({
             iconName: 'calendar',
-            iconClass: 'admin-action-card-icon--violet',
-            label: "Today's Sessions",
-            value: doneCount,
+            label: `${startedCount} ${startedCount === 1 ? 'session' : 'sessions'}`,
             action: 'open-progress-report',
             ariaLabel: "View today's practice report",
         }));
     }
     if (badgeShelfSummary.loaded && badgeShelfSummary.trackingEnabled) {
         const earnedCount = Math.max(0, Number.parseInt(badgeShelfSummary.earnedCount, 10) || 0);
-        summaryBoxes.push(buildStatCard({
+        summaryBoxes.push(buildSummaryPill({
             iconName: 'award',
-            iconClass: 'admin-action-card-icon--coral',
-            label: 'Earned Badges',
-            value: earnedCount,
+            label: `${earnedCount} ${earnedCount === 1 ? 'badge' : 'badges'}`,
             action: 'open-badge-shelf',
         }));
     } else if (!badgeShelfSummary.loaded) {
-        summaryBoxes.push(buildStatCard({
+        summaryBoxes.push(buildSummaryPill({
             iconName: 'award',
-            iconClass: 'admin-action-card-icon--coral',
-            label: 'Badges',
-            value: '…',
+            label: '… badges',
         }));
     }
 
@@ -914,22 +942,14 @@ function renderPracticeSummaryStrip({
     practiceSummaryStrip.classList.remove('hidden');
 }
 
-function buildStatCard({ iconName, iconFill, iconClass, label, value, action, ariaLabel }) {
-    const iconOpts = { size: 22 };
-    if (iconFill) iconOpts.fill = iconFill;
-    const iconHtml = `<span class="admin-action-card-icon ${iconClass}" aria-hidden="true">${icon(iconName, iconOpts)}</span>`;
-    const textHtml = `
-        <span class="admin-action-card-text">
-            <span class="admin-action-card-label">${escapeHtmlLocal(label)}</span>
-            <span class="admin-action-card-value">${escapeHtmlLocal(String(value))}</span>
-        </span>
-    `;
+function buildSummaryPill({ iconName, label, action, ariaLabel }) {
+    const iconHtml = `<span class="practice-summary-pill-icon" aria-hidden="true">${icon(iconName, { size: 17, strokeWidth: 2.4 })}</span>`;
+    const textHtml = `<span class="practice-summary-pill-label">${escapeHtmlLocal(label)}</span>`;
     if (action) {
         const aria = ariaLabel ? ` aria-label="${escapeHtmlLocal(ariaLabel)}"` : '';
-        const chevron = '<span class="admin-action-card-chevron" aria-hidden="true">›</span>';
-        return `<button type="button" class="admin-action-card" data-practice-action="${action}"${aria}>${iconHtml}${textHtml}${chevron}</button>`;
+        return `<button type="button" class="practice-summary-pill" data-practice-action="${action}"${aria}>${iconHtml}${textHtml}</button>`;
     }
-    return `<div class="admin-action-card is-static">${iconHtml}${textHtml}</div>`;
+    return `<div class="practice-summary-pill is-static">${iconHtml}${textHtml}</div>`;
 }
 
 function clearPracticeOptionButtons() {
@@ -937,6 +957,214 @@ function clearPracticeOptionButtons() {
         return;
     }
     practiceChooser.innerHTML = '';
+}
+
+function normalizeOffAppChorePayload(payload) {
+    const chores = Array.isArray(payload?.chores) ? payload.chores : [];
+    const pendingItems = Array.isArray(payload?.pending) ? payload.pending : [];
+    const pendingByRuleId = new Map();
+    pendingItems.forEach((pending) => {
+        const ruleId = Number.parseInt(pending?.ruleId, 10);
+        if (Number.isInteger(ruleId) && ruleId > 0) {
+            pendingByRuleId.set(ruleId, pending);
+        }
+    });
+    chores.forEach((chore) => {
+        const ruleId = Number.parseInt(chore?.ruleId, 10);
+        if (!Number.isInteger(ruleId) || ruleId <= 0 || pendingByRuleId.has(ruleId)) {
+            return;
+        }
+        if (chore?.pending && typeof chore.pending === 'object') {
+            pendingByRuleId.set(ruleId, chore.pending);
+        }
+    });
+    return { chores, pendingByRuleId };
+}
+
+async function loadOffAppChores() {
+    if (!kidId || isOfflineMode || offAppChoreState.loading) {
+        return;
+    }
+    offAppChoreState = {
+        ...offAppChoreState,
+        loading: true,
+    };
+    renderPracticeOptions();
+    try {
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const normalized = normalizeOffAppChorePayload(await response.json());
+        offAppChoreState = {
+            loaded: true,
+            loading: false,
+            chores: normalized.chores,
+            pendingByRuleId: normalized.pendingByRuleId,
+            savingRuleId: null,
+        };
+    } catch (error) {
+        console.error('Error loading off-app chores:', error);
+        offAppChoreState = {
+            ...offAppChoreState,
+            loaded: true,
+            loading: false,
+            chores: [],
+            pendingByRuleId: new Map(),
+            savingRuleId: null,
+        };
+    }
+    renderPracticeOptions();
+}
+
+function renderOffAppTaskIcon(chore) {
+    const emoji = String(chore?.emoji || '').trim();
+    if (emoji) {
+        return `<span class="off-app-task-emoji" aria-hidden="true">${escapeHtmlLocal(emoji)}</span>`;
+    }
+    return `<span class="off-app-task-fallback-icon" aria-hidden="true">${icon('clipboard-check', { size: 22 })}</span>`;
+}
+
+function formatCreditedOffAppStatus(event) {
+    const points = Number.parseInt(event?.pointsDelta, 10);
+    if (!Number.isInteger(points) || points === 0) {
+        return 'Done Today';
+    }
+    return `Done ${points > 0 ? '+' : ''}${points}`;
+}
+
+function renderOffAppTaskRow(chore) {
+    const ruleId = Number.parseInt(chore?.ruleId, 10);
+    if (!Number.isInteger(ruleId) || ruleId <= 0) {
+        return '';
+    }
+    const creditedEvent = chore?.creditedEvent && typeof chore.creditedEvent === 'object'
+        ? chore.creditedEvent
+        : null;
+    const pending = offAppChoreState.pendingByRuleId.get(ruleId) || null;
+    const isPending = Boolean(pending);
+    const isCreditedToday = Boolean(chore?.creditedToday || creditedEvent);
+    const isChecked = isPending || isCreditedToday;
+    const isSaving = Number.parseInt(offAppChoreState.savingRuleId, 10) === ruleId;
+    const name = String(chore?.name || '').trim() || 'Task';
+    const statusText = isCreditedToday
+        ? formatCreditedOffAppStatus(creditedEvent)
+        : (isPending ? 'Pending Review' : "I'm done");
+    const actionIcon = isCreditedToday
+        ? 'check'
+        : (isPending ? 'clock' : 'check');
+    const classes = [
+        'off-app-task-row',
+        isChecked ? 'is-checked' : '',
+        isCreditedToday ? 'is-credited' : '',
+        isSaving ? 'is-saving' : '',
+    ].filter(Boolean).join(' ');
+    const disabled = (isSaving || isCreditedToday) ? ' disabled' : '';
+    const ariaPressed = isChecked ? 'true' : 'false';
+    return `
+        <button type="button" class="${classes}" data-off-app-rule-id="${ruleId}" aria-pressed="${ariaPressed}"${disabled}>
+            <span class="off-app-task-tile">${renderOffAppTaskIcon(chore)}</span>
+            <span class="off-app-task-name">${escapeHtmlLocal(name)}</span>
+            <span class="off-app-task-action">
+                ${icon(actionIcon, { size: 18 })}
+                <span>${isSaving ? 'Saving...' : escapeHtmlLocal(statusText)}</span>
+            </span>
+        </button>
+    `;
+}
+
+function renderOffAppTasks() {
+    if (!offAppPracticeSection || !offAppChooser) {
+        return 0;
+    }
+    if (isOfflineMode) {
+        offAppPracticeSection.classList.add('hidden');
+        offAppChooser.innerHTML = '';
+        return 0;
+    }
+    if (offAppChoreState.loading && !offAppChoreState.loaded) {
+        offAppPracticeSection.classList.remove('hidden');
+        offAppChooser.innerHTML = '<div class="off-app-task-empty">Loading tasks...</div>';
+        return 0;
+    }
+    const chores = Array.isArray(offAppChoreState.chores)
+        ? offAppChoreState.chores.filter((chore) => chore && chore.isActive !== false)
+        : [];
+    if (chores.length <= 0) {
+        offAppPracticeSection.classList.add('hidden');
+        offAppChooser.innerHTML = '';
+        return 0;
+    }
+    offAppPracticeSection.classList.remove('hidden');
+    offAppChooser.innerHTML = chores.map((chore) => renderOffAppTaskRow(chore)).join('');
+    return chores.length;
+}
+
+async function handleOffAppTaskToggle(ruleIdValue) {
+    const ruleId = Number.parseInt(ruleIdValue, 10);
+    if (!Number.isInteger(ruleId) || ruleId <= 0 || offAppChoreState.savingRuleId) {
+        return;
+    }
+    const chore = (offAppChoreState.chores || []).find((item) => Number.parseInt(item?.ruleId, 10) === ruleId);
+    if (!chore) {
+        return;
+    }
+    if (chore.creditedToday || chore.creditedEvent) {
+        showError('This task has already been checked by your parent today.');
+        return;
+    }
+    const pending = offAppChoreState.pendingByRuleId.get(ruleId) || null;
+    if (pending) {
+        const confirmed = window.confirm(`Remove the check mark for "${String(chore.name || 'this task').trim() || 'this task'}"?`);
+        if (!confirmed) {
+            return;
+        }
+        const pendingId = Number.parseInt(pending.pendingId, 10);
+        if (!Number.isInteger(pendingId) || pendingId <= 0) {
+            showError('This task is already waiting for review. Refresh the page before changing it.');
+            return;
+        }
+        offAppChoreState = { ...offAppChoreState, savingRuleId: ruleId };
+        renderPracticeOptions();
+        try {
+            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores/pending/${pendingId}`, {
+                method: 'DELETE',
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload.error || `HTTP ${response.status}`);
+            }
+            offAppChoreState = { ...offAppChoreState, savingRuleId: null };
+            await loadOffAppChores();
+        } catch (error) {
+            showError(error.message || 'Could not remove the check mark.');
+            void loadOffAppChores();
+        } finally {
+            offAppChoreState = { ...offAppChoreState, savingRuleId: null };
+            renderPracticeOptions();
+        }
+        return;
+    }
+
+    offAppChoreState = { ...offAppChoreState, savingRuleId: ruleId };
+    renderPracticeOptions();
+    try {
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores/${ruleId}/submit`, {
+            method: 'POST',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        offAppChoreState = { ...offAppChoreState, savingRuleId: null };
+        await loadOffAppChores();
+    } catch (error) {
+        showError(error.message || 'Could not check off this task.');
+        void loadOffAppChores();
+    } finally {
+        offAppChoreState = { ...offAppChoreState, savingRuleId: null };
+        renderPracticeOptions();
+    }
 }
 
 function renderPracticeOptionButtons({
@@ -1006,6 +1234,7 @@ function renderPracticeOptions() {
     const optedInKeys = getOptedInDeckCategoryKeys(currentKid);
     const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
     const dailyCompletedByCategory = getCategoryValueMap(currentKid?.dailyCompletedByDeckCategory);
+    const dailyStartedByCategory = getCategoryValueMap(currentKid?.dailyStartedByDeckCategory);
     const dailyStarTiersByCategory = getCategoryRawValueMap(currentKid?.dailyStarTiersByDeckCategory);
     const dailyPercentByCategory = getCategoryValueMap(currentKid?.dailyPercentByDeckCategory);
     const dailyTargetByCategory = getCategoryValueMap(currentKid?.dailyTargetByDeckCategory);
@@ -1027,12 +1256,8 @@ function renderPracticeOptions() {
         optedInCategoryKeys: optedInKeys,
         categoryMetaMap,
         dailyCompletedByCategory,
-        dailyStarTiersByCategory,
-        dailyPercentByCategory,
+        dailyStartedByCategory,
         practiceTargetByCategory,
-        dailyTargetByCategory,
-        dailyTriedByCategory,
-        dailyRightByCategory,
     });
     const renderedOptionCount = renderPracticeOptionButtons({
         optedInCategoryKeys: optedInKeys,
@@ -1045,8 +1270,15 @@ function renderPracticeOptions() {
         dailyTriedByCategory,
         dailyRightByCategory,
     });
+    if (inAppPracticeSection) {
+        inAppPracticeSection.classList.toggle('hidden', renderedOptionCount <= 0);
+    }
+    const renderedOffAppCount = renderOffAppTasks();
+    const hasOffAppSection = renderedOffAppCount > 0 || (offAppChoreState.loading && !offAppChoreState.loaded);
     practiceSection.classList.remove('hidden');
-    if (renderedOptionCount <= 0) {
+    practiceSection.classList.toggle('has-in-app', renderedOptionCount > 0);
+    practiceSection.classList.toggle('has-off-app', hasOffAppSection);
+    if (renderedOptionCount <= 0 && renderedOffAppCount <= 0 && offAppChoreState.loaded && !offAppChoreState.loading) {
         showError('No daily practice is assigned. Ask your parent to set per-session counts above 0.');
     } else {
         showError('');
@@ -1196,6 +1428,7 @@ async function bootstrapOfflinePracticeHome(pack) {
     // not present in the downloaded pack.
     isOfflineMode = true;
     offlinePackExpired = isPackExpired(env);
+    markOfflineHomeUrl();
 
     // Fold locally-saved practice answers into the (acquire-time-frozen)
     // daily counts so progress bars actually move as the kid practices.
@@ -1251,7 +1484,7 @@ async function bootstrapOfflinePracticeHome(pack) {
     void loadKidsForToggle();
     renderPracticeOptions();
 
-    // Suppress the Today's Sessions / Earned Badges strip in offline mode.
+    // Suppress the practice summary strip in offline mode.
     if (practiceSummaryStrip) {
         practiceSummaryStrip.classList.add('hidden');
         practiceSummaryStrip.innerHTML = '';

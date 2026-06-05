@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="offline-redirect-guard.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rewards - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="home-redesign-v4.css">
+    <link rel="stylesheet" href="subject-icons.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
+    <link rel="stylesheet" href="point-log.css">
+    <link rel="stylesheet" href="point-rules.css">
+    <link rel="stylesheet" href="kid-rewards.css">
+</head>
+<body class="manage-page kid-rewards-page">
+    <div class="container">
+        <header class="page-header-with-back page-header-with-actions kid-rewards-header">
+            <div class="page-header-row">
+                <h1>
+                    <span class="page-title-icon" aria-hidden="true">🎁</span>
+                    Rewards
+                </h1>
+                <div class="page-header-actions">
+                    <a href="/point-log.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="pencil" data-icon-size="18"></span> Log Points</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="point-log-layout">
+            <section id="kidRewardTabs" class="kid-nav-group" role="tablist" aria-label="Kids"></section>
+            <div id="kidRewardsError" class="error hidden"></div>
+
+            <section class="settings-card settings-section point-history-section">
+                <div class="settings-card-body">
+                    <div class="point-panel-title">
+                        <span class="point-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="18"></span></span>
+                        <h2>Recent Activity</h2>
+                    </div>
+                    <div id="kidRewardHistory" class="point-history"></div>
+                </div>
+            </section>
+
+            <section class="settings-card settings-section point-rule-list-section">
+                <div class="settings-card-body">
+                    <div class="cards-view-toggle-group cards-view-toggle-group-centered cards-view-toggle-group-compact" role="group" aria-label="Reward rule buckets">
+                        <button type="button" class="cards-view-toggle-btn" data-reward-bucket="earn"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-up" data-icon-size="16" data-icon-stroke="2.4"></span>Earn</button>
+                        <button type="button" class="cards-view-toggle-btn" data-reward-bucket="corrections"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-down" data-icon-size="16" data-icon-stroke="2.4"></span>Lose</button>
+                        <button type="button" class="cards-view-toggle-btn active" data-reward-bucket="rewards"><span class="cards-view-toggle-btn-icon" data-icon="gift" data-icon-size="16" data-icon-stroke="2.4"></span>Reward</button>
+                    </div>
+                    <div id="kidRewardRules" class="point-rule-list"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="icons.js"></script>
+    <script src="kid-app-navigation.js"></script>
+    <script src="subject-icons.js"></script>
+    <script src="deck-category-common.js"></script>
+    <script src="point-history-common.js"></script>
+    <script src="kid-rewards.js"></script>
+</body>
+</html>

@@ -27,6 +27,13 @@ def _apply_schema_sql(conn: duckdb.DuckDBPyConnection) -> None:
     """Apply the current kid schema to an open connection."""
     conn.execute(_get_schema_sql())
 
+
+def _connect_kid_db(db_path: str) -> duckdb.DuckDBPyConnection:
+    """Open a kid DB connection with UTC as the only DB timestamp timezone."""
+    conn = duckdb.connect(db_path)
+    conn.execute("SET TimeZone='UTC'")
+    return conn
+
 def get_absolute_db_path(db_file_path: str) -> str:
     """Resolve a metadata dbFilePath (relative to backend/data) to absolute path."""
     rel = str(db_file_path or '').strip()
@@ -44,7 +51,7 @@ def init_kid_database_by_path(db_file_path: str) -> str:
     """Initialize a kid database at provided dbFilePath."""
     db_path = get_absolute_db_path(db_file_path)
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = duckdb.connect(db_path)
+    conn = _connect_kid_db(db_path)
     _apply_schema_sql(conn)
     conn.close()
     return db_path
@@ -55,7 +62,7 @@ def ensure_kid_database_schema_by_path(db_file_path: str) -> str:
     db_path = get_absolute_db_path(db_file_path)
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database not found at {db_file_path}")
-    conn = duckdb.connect(db_path)
+    conn = _connect_kid_db(db_path)
     _apply_schema_sql(conn)
     conn.close()
     return db_path
@@ -71,7 +78,7 @@ def get_kid_connection_by_path(db_file_path: str, read_only: bool = False) -> du
     db_path = get_absolute_db_path(db_file_path)
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database not found at {db_file_path}")
-    return duckdb.connect(db_path)
+    return _connect_kid_db(db_path)
 
 
 def delete_kid_database_by_path(db_file_path: str) -> bool:

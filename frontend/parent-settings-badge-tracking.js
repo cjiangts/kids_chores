@@ -1,6 +1,6 @@
 let badgeTrackingStarted = false;
 let badgeTrackingStartedAt = '';
-let badgeTrackingFamilyTimezone = DEFAULT_FAMILY_TIMEZONE;
+let badgeTrackingFamilyTimezone = '';
 let badgeTrackingStatusState = 'loading';
 
 function syncBadgeTrackingButtonsState(activeAction = '') {
@@ -57,7 +57,10 @@ async function loadBadgeTrackingStatus() {
         badgeTrackingStatusState = 'ready';
         badgeTrackingStarted = Boolean(result.started);
         badgeTrackingStartedAt = String(result.startedAt || '');
-        badgeTrackingFamilyTimezone = String(result.familyTimezone || badgeTrackingFamilyTimezone || DEFAULT_FAMILY_TIMEZONE);
+        badgeTrackingFamilyTimezone = String(result.familyTimezone || '').trim();
+        if (!badgeTrackingFamilyTimezone) {
+            throw new Error('familyTimezone missing from badge tracking status');
+        }
         renderBadgeTrackingStatus();
         syncBadgeTrackingButtonsState('');
     } catch (error) {
@@ -97,7 +100,11 @@ async function startBadgeTracking() {
         }
         badgeTrackingStarted = Boolean(result.started);
         badgeTrackingStartedAt = String(result.startedAt || '');
-        badgeTrackingFamilyTimezone = String(result.familyTimezone || badgeTrackingFamilyTimezone || DEFAULT_FAMILY_TIMEZONE);
+        badgeTrackingFamilyTimezone = String(result.familyTimezone || '').trim();
+        if (!badgeTrackingFamilyTimezone) {
+            showBadgeTrackingError('Family timezone is missing.');
+            return;
+        }
         renderBadgeTrackingStatus();
         syncBadgeTrackingButtonsState('');
         const startedText = formatStartedAt(badgeTrackingStartedAt, badgeTrackingFamilyTimezone);
@@ -134,7 +141,11 @@ async function resetBadgeTracking() {
         }
         badgeTrackingStarted = Boolean(result.started);
         badgeTrackingStartedAt = String(result.startedAt || '');
-        badgeTrackingFamilyTimezone = String(result.familyTimezone || badgeTrackingFamilyTimezone || DEFAULT_FAMILY_TIMEZONE);
+        badgeTrackingFamilyTimezone = String(result.familyTimezone || '').trim();
+        if (!badgeTrackingFamilyTimezone) {
+            showBadgeTrackingError('Family timezone is missing.');
+            return;
+        }
         renderBadgeTrackingStatus();
         syncBadgeTrackingButtonsState('');
         const deletedAwardCount = Number.isFinite(Number(result.deletedAwardCount))

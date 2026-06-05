@@ -75,7 +75,8 @@
     function formatHourMinute(iso, timezone) {
         const d = _parseIsoUtc(iso);
         if (!d) return '';
-        const tz = String(timezone || '').trim() || 'UTC';
+        const tz = String(timezone || '').trim();
+        if (!tz) return '';
         try {
             return new Intl.DateTimeFormat(undefined, {
                 hour: 'numeric',

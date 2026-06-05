@@ -73,10 +73,7 @@ def _to_local_date(value, tz_name: str):
     dt = _coerce_utc_naive_datetime(value)
     if dt is None:
         return None
-    try:
-        tzinfo = ZoneInfo(str(tz_name or 'America/New_York'))
-    except Exception:
-        tzinfo = ZoneInfo('America/New_York')
+    tzinfo = ZoneInfo(str(tz_name or '').strip())
     return dt.replace(tzinfo=timezone.utc).astimezone(tzinfo).date()
 
 

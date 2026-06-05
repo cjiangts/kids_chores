@@ -7,7 +7,8 @@
  *     a blank page.
  *   - On install: warm the SHELL cache.
  *   - On fetch:
- *       * Same-origin GET for shell assets   -> cache-first (SHELL)
+ *       * Same-origin GET for offline shell assets  -> cache-first (SHELL)
+ *       * Same-origin GET for online shell assets   -> network-first, cache fallback (SHELL)
  *       * Same-origin GET that already lives in the runtime cache
  *         (audio blobs etc. prefetched at acquire time)  -> cache-first
  *       * Everything else (API, auth)  -> network-only
@@ -20,9 +21,10 @@
  * Cache names are intentionally unversioned. Any time the SW source bytes
  * change, the browser reinstalls, the install handler re-fetches every
  * SHELL_URL fresh from the network, and `cache.put` overwrites the entries
- * in place. For non-shell shell-listed file edits, stale-while-revalidate
- * in the fetch handler updates entries on next request. There is nothing
- * to bump.
+ * in place. Shell fetches are network-first while online, so local edits are
+ * visible immediately after reload instead of waiting behind stale cache.
+ * When the page URL carries offline=1, shell fetches switch to cache-first
+ * so offline practice does not wait on failing network probes.
  */
 
 const SHELL_CACHE = 'offline-shell';
@@ -36,12 +38,14 @@ const SHELL_URLS = [
     '/styles.css',
     '/subject-icons.css',
     '/home-redesign-v4.css',
+    '/kid-app-navigation.css',
     '/kid-badge-shelf-modal.css',
     '/kid-badge-celebration.css',
     '/audio-history-common.css',
     '/fonts-local.css',
     '/fonts/HuaWenKaiTi.ttf',
     '/icons.js',
+    '/kid-app-navigation.js',
     '/subject-icons.js',
     '/deck-category-common.js',
     '/practice-star-badge-common.js',
@@ -112,16 +116,40 @@ self.addEventListener('fetch', (event) => {
         if (isApi || isAuth) return fetch(req);
 
         const shellCache = await caches.open(SHELL_CACHE);
-        const shellHit = await shellCache.match(req, { ignoreSearch: true });
-        if (shellHit) {
-            // Stale-while-revalidate for the shell.
-            event.waitUntil((async () => {
-                try {
-                    const fresh = await fetch(req);
-                    if (fresh && fresh.ok) await shellCache.put(req, fresh.clone());
-                } catch (_) { /* offline */ }
-            })());
-            return shellHit;
+        const isShellAsset = SHELL_URLS.includes(url.pathname);
+        let clientUrl = '';
+        if (event.clientId) {
+            try {
+                const client = await self.clients.get(event.clientId);
+                clientUrl = client && client.url ? client.url : '';
+            } catch (_) { /* ignore */ }
+        }
+        let isOfflineModeClient = false;
+        if (clientUrl) {
+            try {
+                isOfflineModeClient = new URL(clientUrl).searchParams.get('offline') === '1';
+            } catch (_) { /* ignore */ }
+        }
+        const isOfflineModeRequest = url.searchParams.get('offline') === '1' || isOfflineModeClient;
+        if (isShellAsset) {
+            if (isOfflineModeRequest) {
+                const shellHit = await shellCache.match(req, { ignoreSearch: true });
+                if (shellHit) return shellHit;
+                const fallback = await shellCache.match('/kid-practice-home.html');
+                if (fallback) return fallback;
+                return fetch(req);
+            }
+            try {
+                const fresh = await fetch(req);
+                if (fresh && fresh.ok) await shellCache.put(url.pathname, fresh.clone());
+                return fresh;
+            } catch (_) {
+                const shellHit = await shellCache.match(req, { ignoreSearch: true });
+                if (shellHit) return shellHit;
+                const fallback = await shellCache.match('/kid-practice-home.html');
+                if (fallback) return fallback;
+                throw _;
+            }
         }
         try {
             return await fetch(req);

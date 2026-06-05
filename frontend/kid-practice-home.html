@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="home-redesign-v4.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
     <link rel="stylesheet" href="kid-badge-shelf-modal.css">
     <link rel="stylesheet" href="kid-badge-celebration.css">
     <style>
@@ -41,9 +42,8 @@
     <div class="container">
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
-                <h1><span id="kidTitleIcon" class="page-title-icon" aria-hidden="true"></span> <span id="kidName" role="status" aria-label="Loading kid"><span class="app-spinner app-spinner--small app-spinner--light" aria-hidden="true"></span></span></h1>
+                <h1><span id="kidTitleIcon" class="page-title-icon" aria-hidden="true">🎓</span> <span id="kidName" role="status" aria-label="Loading kid"><span class="app-spinner app-spinner--small app-spinner--light" aria-hidden="true"></span></span></h1>
                 <div class="page-header-actions" id="practiceHomeHeaderActions">
-                    <a href="/admin.html" class="back-btn btn-secondary page-header-back-btn" aria-label="Home" title="Home"><span class="icon" data-icon="home" data-icon-size="18"></span> Home</a>
                 </div>
             </div>
         </header>
@@ -51,16 +51,34 @@
         <div class="practice-home-container">
             <div class="practice-home-topbar">
                 <div id="kidToggleGroup" class="kid-nav-group hidden" role="tablist" aria-label="Kids"></div>
-                <section id="practiceSummaryStrip" class="redesign-summary-strip hidden"></section>
             </div>
             <div id="errorMessage" class="error redesign-error hidden"></div>
-            <div id="practiceSection" class="section-surface section-surface-lg hidden">
-                <div id="practiceChooser" class="redesign-practice-grid"></div>
+            <div id="practiceSection" class="practice-home-section-stack hidden">
+                <section id="inAppPracticeSection" class="section-surface section-surface-lg practice-home-card">
+                    <div class="practice-home-card-head">
+                        <div class="practice-home-card-title">
+                            <span class="practice-home-card-icon practice-home-card-icon--in-app" aria-hidden="true"><span data-icon="smartphone" data-icon-size="16"></span></span>
+                            <span>In-App Chores</span>
+                        </div>
+                        <section id="practiceSummaryStrip" class="redesign-summary-strip hidden"></section>
+                    </div>
+                    <div id="practiceChooser" class="redesign-practice-grid"></div>
+                </section>
+                <section id="offAppPracticeSection" class="section-surface section-surface-lg practice-home-card hidden">
+                    <div class="practice-home-card-head">
+                        <div class="practice-home-card-title">
+                            <span class="practice-home-card-icon practice-home-card-icon--off-app" aria-hidden="true"><span data-icon="clipboard-check" data-icon-size="16"></span></span>
+                            <span>Off-App Chores</span>
+                        </div>
+                    </div>
+                    <div id="offAppChooser" class="off-app-task-list"></div>
+                </section>
             </div>
         </div>
     </div>
 
     <script src="icons.js"></script>
+    <script src="kid-app-navigation.js"></script>
     <script src="subject-icons.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="practice-star-badge-common.js"></script>

@@ -610,5 +610,5 @@ csvClearBtn.addEventListener('click', () => {
 
 applyModeChrome();
 renderSortUpdatedTh();
-window.ReportBackButtonCommon?.bindBackButton(document.getElementById('backBtn'), '/admin.html');
+window.BackButtonCommon?.bindBackButton(document.getElementById('backBtn'));
 loadPage();

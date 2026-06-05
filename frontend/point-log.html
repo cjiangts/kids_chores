@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="offline-redirect-guard.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Log Points - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="home-redesign-v4.css">
+    <link rel="stylesheet" href="subject-icons.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
+    <link rel="stylesheet" href="point-log.css">
+</head>
+<body class="manage-page point-log-page">
+    <div class="container">
+        <header class="page-header-with-back page-header-with-actions point-log-header">
+            <div class="page-header-row">
+                <h1>
+                    <span class="page-title-icon" aria-hidden="true">📝</span>
+                    Log Points
+                </h1>
+                <div class="page-header-actions">
+                    <a href="/point-rules.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="clipboard-list" data-icon-size="18"></span> Rules</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="point-log-layout">
+            <section id="kidTabs" class="kid-nav-group" role="tablist" aria-label="Kids"></section>
+            <div id="logError" class="error hidden"></div>
+
+            <section class="settings-card settings-section point-log-workbench">
+                <div class="settings-card-body">
+                    <div class="cards-view-toggle-group cards-view-toggle-group-centered" role="group" aria-label="Point log modes">
+                        <button type="button" class="cards-view-toggle-btn active" data-mode="bonus"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-up" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Bonus Events</span><span class="point-rule-tab-short">Bonus</span></button>
+                        <button type="button" class="cards-view-toggle-btn" data-mode="deduction"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-down" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Deduction Events</span><span class="point-rule-tab-short">Deduction</span></button>
+                        <button type="button" class="cards-view-toggle-btn" data-mode="review"><span class="cards-view-toggle-btn-icon" data-icon="clipboard-check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Off-App Chores</span><span class="point-rule-tab-short">Off-App</span></button>
+                        <button type="button" class="cards-view-toggle-btn" data-mode="redeemed"><span class="cards-view-toggle-btn-icon" data-icon="gift" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Reward Catalog</span><span class="point-rule-tab-short">Reward</span></button>
+                    </div>
+
+                    <div id="templateList" class="point-template-list"></div>
+
+                    <div id="selectionPanel" class="point-selection-panel hidden"></div>
+
+                    <form id="pointLogForm" class="point-log-form">
+                        <div class="point-log-entry-row">
+                            <div id="noteGroup" class="form-group">
+                                <label for="pointNote">Note <span>(optional)</span></label>
+                                <input id="pointNote" type="text" autocomplete="off" placeholder="What happened?">
+                            </div>
+                            <div class="point-log-actions">
+                                <button id="submitPointLogBtn" type="submit" class="btn-primary point-apply-btn" disabled>Apply</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="settings-card settings-section point-history-section">
+                <div class="settings-card-body">
+                    <div class="point-panel-title">
+                        <span class="point-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="18"></span></span>
+                        <h2>Recent Activity</h2>
+                        <button id="pullTodaySessionsBtn" type="button" class="semantic-outline-btn point-pull-sessions-btn"><span class="icon" data-icon="download" data-icon-size="16"></span>Pull Today</button>
+                    </div>
+                    <div id="pointHistory" class="point-history"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="icons.js"></script>
+    <script src="kid-app-navigation.js"></script>
+    <script src="subject-icons.js"></script>
+    <script src="back-button-common.js"></script>
+    <script src="point-history-common.js"></script>
+    <script src="point-log.js"></script>
+</body>
+</html>

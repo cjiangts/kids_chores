@@ -35,6 +35,7 @@ from src.badges.admin import (
 )
 from src.routes.badges import badges_bp
 from src.routes.backup import backup_bp
+from src.routes.points import points_bp
 from src.db import metadata, kid_db
 from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection
 from src.startup_backfills import ensure_kid_db_schema
@@ -216,6 +217,7 @@ def create_app():
     app.register_blueprint(kids_bp, url_prefix='/api')
     app.register_blueprint(badges_bp, url_prefix='/api')
     app.register_blueprint(backup_bp, url_prefix='/api')
+    app.register_blueprint(points_bp, url_prefix='/api')
 
     # =================================================================
     # === 4. Family-auth routes
@@ -336,7 +338,11 @@ def create_app():
             return {'error': 'familyTimezone is required'}, 400
 
         family_id = str(session.get('family_id') or '')
-        if not metadata.update_family_timezone(family_id, timezone_name):
+        try:
+            updated = metadata.update_family_timezone(family_id, timezone_name)
+        except ValueError as exc:
+            return {'error': str(exc)}, 400
+        if not updated:
             return {'error': 'Failed to update family timezone'}, 400
 
         return {

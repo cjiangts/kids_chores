@@ -1,6 +1,7 @@
 flask==3.0.0
 flask-cors==4.0.0
 duckdb==1.4.4
+pytz==2025.2
 python-dotenv==1.0.0
 gTTS==2.5.4
 pypinyin==0.52.0

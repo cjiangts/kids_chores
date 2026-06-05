@@ -72,7 +72,7 @@
         const clickBarToSession = Boolean(config?.clickBarToSession);
         const initialHighlightSessionId = String(config?.highlightSessionId || '').trim();
 
-        let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        let timezone = '';
         let allSessions = [];
         let filteredSessions = [];
         let dailyChartRows = [];
@@ -92,7 +92,10 @@
         function setData({ sessions, familyTimezone } = {}) {
             allSessions = Array.isArray(sessions) ? sessions : [];
             const tz = String(familyTimezone || '').trim();
-            if (tz) timezone = tz;
+            if (!tz) {
+                throw new Error('familyTimezone is required for reports');
+            }
+            timezone = tz;
             categoryThemeByKey = buildCategoryThemeByKey(getFilteredSessions());
             dailyChartPageIndex = 0;
             collapsedDayKeys.clear();

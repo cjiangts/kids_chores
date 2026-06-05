@@ -133,6 +133,7 @@ def get_kids():
                     )
                     (
                         _today_counts,
+                        _today_started_counts,
                         today_star_tiers,
                         _today_latest_percent,
                         _today_latest_target_count,
@@ -189,6 +190,7 @@ def get_kids():
                 )
                 (
                     today_counts,
+                    today_started_counts,
                     today_star_tiers,
                     today_latest_percent,
                     today_latest_target_count,
@@ -206,6 +208,11 @@ def get_kids():
                     kid,
                     opted_in_category_keys,
                     today_counts=today_counts,
+                )
+                daily_started_by_deck_category = get_kid_daily_completed_by_deck_category(
+                    kid,
+                    opted_in_category_keys,
+                    today_counts=today_started_counts,
                 )
                 daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
                     opted_in_category_keys,
@@ -242,6 +249,7 @@ def get_kids():
                     'typeIIIToReviewCount': ungraded_count,
                     'optedInDeckCategoryKeys': opted_in_category_keys,
                     'dailyCompletedByDeckCategory': daily_completed_by_deck_category,
+                    'dailyStartedByDeckCategory': daily_started_by_deck_category,
                     'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
                     'dailyPercentByDeckCategory': daily_percent_by_deck_category,
                     'dailyTargetByDeckCategory': daily_target_by_deck_category,
@@ -333,6 +341,7 @@ def get_kid(kid_id):
             if include_dashboard_metrics:
                 (
                     today_counts,
+                    today_started_counts,
                     today_star_tiers,
                     today_latest_percent,
                     today_latest_target_count,
@@ -349,6 +358,7 @@ def get_kid(kid_id):
                 )
             else:
                 today_counts = defaultdict(int)
+                today_started_counts = defaultdict(int)
                 today_star_tiers = defaultdict(list)
                 today_latest_percent = defaultdict(float)
                 today_latest_target_count = defaultdict(int)
@@ -375,6 +385,11 @@ def get_kid(kid_id):
                 opted_in_category_keys,
                 today_counts=today_counts,
             )
+            daily_started_by_deck_category = get_kid_daily_completed_by_deck_category(
+                kid,
+                opted_in_category_keys,
+                today_counts=today_started_counts,
+            )
             daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
                 opted_in_category_keys,
                 today_star_tiers=today_star_tiers,
@@ -385,6 +400,7 @@ def get_kid(kid_id):
             )
         else:
             daily_completed_by_deck_category = {}
+            daily_started_by_deck_category = {}
             daily_star_tiers_by_deck_category = {}
             daily_percent_by_deck_category = {}
         daily_target_by_deck_category = {
@@ -405,6 +421,7 @@ def get_kid(kid_id):
             'typeIIIToReviewCount': ungraded_count,
             'optedInDeckCategoryKeys': opted_in_category_keys,
             'dailyCompletedByDeckCategory': daily_completed_by_deck_category,
+            'dailyStartedByDeckCategory': daily_started_by_deck_category,
             'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
             'dailyPercentByDeckCategory': daily_percent_by_deck_category,
             'dailyTargetByDeckCategory': daily_target_by_deck_category,
@@ -1500,4 +1517,3 @@ def delete_kid(kid_id):
 
 
 # Card routes
-

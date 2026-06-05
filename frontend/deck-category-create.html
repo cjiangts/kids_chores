@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
     <style>
 
 
@@ -215,13 +216,13 @@
 </head>
 <body class="manage-page">
     <div class="container deck-page">
-        <header class="page-header-with-back">
+        <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
                 <h1>
-                    <span class="icon page-title-icon" data-icon="layout-grid" data-icon-size="28"></span>
+                    <span class="page-title-icon" aria-hidden="true">🧩</span>
                     Manage Subject
                 </h1>
-                <a href="/admin.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
+                <div class="page-header-actions"></div>
             </div>
         </header>
 
@@ -345,6 +346,8 @@
     </div>
 
     <script src="icons.js"></script>
+    <script src="kid-app-navigation.js"></script>
+    <script src="back-button-common.js"></script>
     <script src="subject-icons.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-category-common.js"></script>

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
     <link rel="stylesheet" href="audio-history-common.css">
     <link rel="stylesheet" href="report-hero-action.css">
     <link rel="stylesheet" href="report-hero-meta.css">
@@ -768,13 +769,13 @@
 </head>
 <body class="report-page">
     <div class="container">
-        <header class="page-header-with-back">
+        <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
                 <h1>
-                    <span class="icon page-title-icon" data-icon="history" data-icon-size="28"></span>
+                    <span class="page-title-icon" aria-hidden="true">📊</span>
                     <span id="pageTitle">Card Report</span>
                 </h1>
-                <a id="backBtn" href="/admin.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
+                <div class="page-header-actions"></div>
             </div>
         </header>
 
@@ -806,10 +807,11 @@
     <script src="practice-manage-common.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="icons.js"></script>
+    <script src="kid-app-navigation.js"></script>
     <script src="subject-icons.js"></script>
     <script src="simple-audio-player.js"></script>
     <script src="lesson-reading-duration-backfill.js"></script>
-    <script src="report-back-button-common.js"></script>
+    <script src="back-button-common.js"></script>
     <script src="audio-history-common.js"></script>
     <script src="report-hero-action-common.js"></script>
     <script src="kid-card-report.js"></script>

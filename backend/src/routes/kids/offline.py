@@ -150,6 +150,7 @@ def _build_kid_today_pack_plan(kid, family_id, family_timezone):
         )
         (
             _today_counts,
+            _today_started_counts,
             today_star_tiers,
             _percent,
             _target_count,

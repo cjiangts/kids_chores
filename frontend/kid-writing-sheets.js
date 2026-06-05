@@ -29,12 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     await loadKid();
-    const backParams = new URLSearchParams();
-    backParams.set('id', String(kidId || ''));
-    if (activeCategoryKey) {
-        backParams.set('categoryKey', activeCategoryKey);
-    }
-    backBtn.href = `/kid-writing-sheet-manage.html?${backParams.toString()}`;
+    window.BackButtonCommon?.bindBackButton(backBtn);
     await loadSheets();
 });
 

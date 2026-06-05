@@ -30,7 +30,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 METADATA_FILE = os.path.join(os.path.dirname(__file__), '../../data/kids.json')
 METADATA_LOCK_FILE = f"{METADATA_FILE}.lock"
 PASSWORD_HASH_METHOD = 'pbkdf2:sha256'
-DEFAULT_FAMILY_TIMEZONE = 'America/New_York'
+INITIAL_FAMILY_TIMEZONE = 'America/New_York'
 FAMILY_BADGE_TRACKING_STARTED_AT_FIELD = 'badgeTrackingStartedAt'
 _METADATA_THREAD_LOCK = threading.RLock()
 
@@ -47,7 +47,7 @@ def _normalize(data: Dict) -> Dict:
     for i, family in enumerate(data['families']):
         if not isinstance(family, dict):
             continue
-        timezone_name = _normalize_family_timezone(family.get('familyTimezone'))
+        timezone_name = _validate_family_timezone(family.get('familyTimezone'))
         super_family = _normalize_super_family_flag(family.get('superFamily'))
         badge_tracking_started_at = _normalize_badge_tracking_started_at(
             family.get(FAMILY_BADGE_TRACKING_STARTED_AT_FIELD)
@@ -80,14 +80,16 @@ def _is_password_hashed(value: str) -> bool:
     return text.startswith('pbkdf2:') or text.startswith('scrypt:')
 
 
-def _normalize_family_timezone(value) -> str:
-    """Validate timezone string and normalize invalid/missing values."""
-    candidate = str(value or '').strip() or DEFAULT_FAMILY_TIMEZONE
+def _validate_family_timezone(value) -> str:
+    """Return a valid configured timezone, or raise for broken family config."""
+    candidate = str(value or '').strip()
+    if not candidate:
+        raise ValueError('familyTimezone is missing from family metadata')
     try:
         ZoneInfo(candidate)
-        return candidate
     except Exception:
-        return DEFAULT_FAMILY_TIMEZONE
+        raise ValueError(f'familyTimezone is invalid: {candidate}')
+    return candidate
 
 
 def _normalize_super_family_flag(value) -> bool:
@@ -318,7 +320,7 @@ def register_family(username: str, password: str) -> Dict:
             'id': str(next_id),
             'username': username,
             'password': generate_password_hash(password, method=PASSWORD_HASH_METHOD),
-            'familyTimezone': DEFAULT_FAMILY_TIMEZONE,
+            'familyTimezone': INITIAL_FAMILY_TIMEZONE,
             'superFamily': len(families) == 0,
             FAMILY_BADGE_TRACKING_STARTED_AT_FIELD: datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             'createdAt': datetime.now().isoformat(),
@@ -449,17 +451,17 @@ def update_family_password(family_id: str, current_password: str, new_password: 
 # === 6. Family settings (timezone + badge-tracking-started-at)
 # =====================================================================
 def get_family_timezone(family_id: str) -> str:
-    """Get family-level timezone with safe default."""
+    """Get the configured family timezone."""
     family = get_family_by_id(str(family_id or ''))
     if not family:
-        return DEFAULT_FAMILY_TIMEZONE
-    return _normalize_family_timezone(family.get('familyTimezone'))
+        raise KeyError(f'Family not found: {family_id}')
+    return _validate_family_timezone(family.get('familyTimezone'))
 
 
 def update_family_timezone(family_id: str, family_timezone: str) -> bool:
     """Update family-level timezone."""
     family_id = str(family_id or '')
-    timezone_name = _normalize_family_timezone(family_timezone)
+    timezone_name = _validate_family_timezone(family_timezone)
     if not family_id:
         return False
 

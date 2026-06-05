@@ -1,0 +1,117 @@
+.kid-rewards-page .container {
+    max-width: 980px;
+}
+
+.kid-rewards-page .kid-nav-group {
+    width: 100%;
+}
+
+.kid-rewards-page .point-history-section .point-panel-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.55rem;
+    color: #6c7794;
+}
+
+.kid-rewards-page .point-history-section .point-panel-title h2 {
+    margin: 0;
+    color: inherit;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.kid-rewards-page .point-history-section .point-panel-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    line-height: 0;
+}
+
+.kid-reward-rule-table {
+    border-top: 1px solid var(--section-surface-border-muted);
+}
+
+.kid-reward-rule-row {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(92px, auto) minmax(98px, auto);
+    gap: 0.58rem;
+    min-height: 54px;
+    padding: 0.52rem 0;
+}
+
+.kid-reward-rule-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kid-reward-rule-name {
+    color: #1f2950;
+    font-size: 0.95rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kid-reward-rule-status-cell {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.kid-reward-rule-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #66718f;
+    font-size: 0.82rem;
+    font-weight: 560;
+    white-space: nowrap;
+}
+
+.kid-reward-rule-status.available {
+    color: #16a34a;
+}
+
+.kid-reward-rule-status.muted {
+    color: #66718f;
+}
+
+.kid-rewards-page .point-history-row.no-delete > .point-rule-delta {
+    grid-column: 5 / 6;
+}
+
+.kid-rewards-page .point-empty,
+.kid-rewards-page .point-rule-empty {
+    font-weight: 560;
+}
+
+@media (max-width: 700px) {
+    .kid-reward-rule-row {
+        grid-template-columns: 34px minmax(0, 1fr) minmax(72px, auto) minmax(76px, auto);
+        gap: 0.4rem;
+        min-height: 48px;
+        padding: 0.42rem 0;
+    }
+
+    .kid-reward-rule-name {
+        font-size: 0.86rem;
+    }
+
+    .kid-reward-rule-status {
+        font-size: 0.74rem;
+    }
+
+    .kid-rewards-page .point-rule-delta {
+        font-size: 0.74rem;
+        padding: 0.18rem 0.42rem;
+    }
+}
