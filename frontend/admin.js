@@ -352,20 +352,24 @@ async function loadOffAppReviewPending() {
         offAppReviewPendingByKidId = new Map();
         return;
     }
-    const entries = await Promise.all(list.map(async (kid) => {
-        const kidId = String(kid?.id || '').trim();
-        if (!kidId) return null;
-        try {
-            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores`);
-            if (!response.ok) return [kidId, []];
-            const data = await response.json().catch(() => ({}));
-            const pending = Array.isArray(data.pending) ? data.pending : [];
-            return [kidId, pending];
-        } catch (error) {
-            return [kidId, []];
+    try {
+        const response = await fetch(`${API_BASE}/kids/off-app-chores/pending-summary`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
-    }));
-    offAppReviewPendingByKidId = new Map(entries.filter(Boolean));
+        const payload = await response.json().catch(() => ({}));
+        const rows = Array.isArray(payload?.kids) ? payload.kids : [];
+        offAppReviewPendingByKidId = new Map(rows
+            .map((row) => {
+                const kidId = String(row?.kidId || '').trim();
+                const pendingCount = Number.parseInt(row?.pendingCount, 10);
+                if (!kidId) return null;
+                return [kidId, Number.isInteger(pendingCount) && pendingCount > 0 ? pendingCount : 0];
+            })
+            .filter(Boolean));
+    } catch (error) {
+        offAppReviewPendingByKidId = new Map();
+    }
 }
 
 async function createKid() {
@@ -620,9 +624,9 @@ function renderReviewBanner() {
         const count = Number.parseInt(kid?.typeIIIToReviewCount, 10);
         return sum + (Number.isInteger(count) && count > 0 ? count : 0);
     }, 0);
-    const totalOffAppPending = Array.from(offAppReviewPendingByKidId.values()).reduce((sum, pending) => {
-        const count = Array.isArray(pending) ? pending.length : 0;
-        return sum + count;
+    const totalOffAppPending = Array.from(offAppReviewPendingByKidId.values()).reduce((sum, pendingCount) => {
+        const count = Number.parseInt(pendingCount, 10);
+        return sum + (Number.isInteger(count) && count > 0 ? count : 0);
     }, 0);
     const items = [];
     if (totalReviewCount > 0) {
@@ -703,8 +707,8 @@ function pickKidWithReviewAudio(kids) {
 function pickKidWithOffAppReview(kids) {
     const list = Array.isArray(kids) ? kids : [];
     const hasPending = (kidId) => {
-        const pending = offAppReviewPendingByKidId.get(String(kidId || ''));
-        return Array.isArray(pending) && pending.length > 0;
+        const pendingCount = Number.parseInt(offAppReviewPendingByKidId.get(String(kidId || '')), 10);
+        return Number.isInteger(pendingCount) && pendingCount > 0;
     };
     const lastId = readLastViewedKidId();
     if (lastId && hasPending(lastId)) {

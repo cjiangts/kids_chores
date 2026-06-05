@@ -1,10 +1,44 @@
 const API_BASE = `${window.location.origin}/api`;
+const POINT_RULE_KIND_STORAGE_KEY = 'point_rules_last_kind_v1';
 
 const tabs = Array.from(document.querySelectorAll('.point-rule-tab'));
 const ruleError = document.getElementById('ruleError');
 const ruleList = document.getElementById('ruleList');
 
-let activeRuleKind = 'in_app_chore';
+const RULE_KINDS = new Set([
+    'in_app_chore',
+    'off_app_chore',
+    'bonus_event',
+    'deduction_event',
+    'redeemed_reward',
+]);
+
+function normalizeRuleKind(kind) {
+    const normalized = String(kind || '').trim();
+    return RULE_KINDS.has(normalized) ? normalized : '';
+}
+
+function readStoredRuleKind() {
+    try {
+        if (!window.sessionStorage) return '';
+        return normalizeRuleKind(window.sessionStorage.getItem(POINT_RULE_KIND_STORAGE_KEY));
+    } catch (error) {
+        return '';
+    }
+}
+
+function rememberRuleKind(kind) {
+    const normalized = normalizeRuleKind(kind);
+    if (!normalized) return;
+    try {
+        if (!window.sessionStorage) return;
+        window.sessionStorage.setItem(POINT_RULE_KIND_STORAGE_KEY, normalized);
+    } catch (error) {
+        // best-effort UI memory
+    }
+}
+
+let activeRuleKind = readStoredRuleKind() || 'in_app_chore';
 let rules = [];
 let categories = [];
 let kids = [];
@@ -89,12 +123,16 @@ async function loadOffAppChoreOptIns() {
 }
 
 function setActiveRuleKind(kind) {
-    activeRuleKind = kind || 'in_app_chore';
+    activeRuleKind = normalizeRuleKind(kind) || 'in_app_chore';
+    rememberRuleKind(activeRuleKind);
+    showError('');
+    render();
+}
+
+function renderRuleTabs() {
     tabs.forEach((tab) => {
         tab.classList.toggle('active', tab.dataset.ruleKind === activeRuleKind);
     });
-    showError('');
-    render();
 }
 
 function inputCell(label, field, value, extraClass = '', type = 'text') {
@@ -480,6 +518,7 @@ async function setKidOffAppChoreEnabled(kidId, ruleId, enabled) {
 }
 
 function render() {
+    renderRuleTabs();
     renderRules();
 }
 
@@ -544,6 +583,7 @@ ruleList.addEventListener('keydown', (event) => {
 
 document.addEventListener('DOMContentLoaded', async () => {
     hydrateIcons(document);
+    renderRuleTabs();
     try {
         await loadAll();
     } catch (error) {

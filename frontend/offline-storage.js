@@ -76,6 +76,39 @@
         return String(kidId);
     }
 
+    function _readOwnedKidsLocalStorage() {
+        try {
+            const raw = localStorage.getItem(OWNED_KIDS_LS_KEY);
+            const ids = JSON.parse(raw || '[]');
+            return Array.isArray(ids) ? ids.map(String).filter(Boolean) : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function _writeOwnedKidsLocalStorage(ids) {
+        try {
+            const uniqueIds = Array.from(new Set((ids || []).map(String).filter(Boolean)));
+            if (uniqueIds.length === 0) {
+                localStorage.removeItem(OWNED_KIDS_LS_KEY);
+            } else {
+                localStorage.setItem(OWNED_KIDS_LS_KEY, JSON.stringify(uniqueIds));
+            }
+        } catch (_) { /* ignore */ }
+    }
+
+    function _addOwnedKidLocalStorage(kidId) {
+        const id = kidKey(kidId);
+        if (!id) return;
+        _writeOwnedKidsLocalStorage([..._readOwnedKidsLocalStorage(), id]);
+    }
+
+    function _removeOwnedKidLocalStorage(kidId) {
+        const id = kidKey(kidId);
+        if (!id) return;
+        _writeOwnedKidsLocalStorage(_readOwnedKidsLocalStorage().filter((item) => item !== id));
+    }
+
     function audioKey(kidId, sessionId, cardId) {
         return `kid_${kidId}::session_${sessionId}::card_${cardId}`;
     }
@@ -95,6 +128,7 @@
             sessions: Array.isArray(sessions) ? sessions : [],
         };
         await asPromise(store.put(entry));
+        _addOwnedKidLocalStorage(kidId);
         _syncOwnedKidsLocalStorage();
     }
 
@@ -130,6 +164,7 @@
         await asPromise(t.objectStore(STORE_PACKS).delete(id));
         await _deleteAllByIndex(t.objectStore(STORE_AUDIO), 'byKid', id);
         await _deleteAllByIndex(t.objectStore(STORE_RESULTS), 'byKid', id);
+        _removeOwnedKidLocalStorage(kidId);
         _syncOwnedKidsLocalStorage();
     }
 

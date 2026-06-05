@@ -14,10 +14,9 @@
  *     1. DOM refs + navigation helpers (persistLast, title)
  *     2. Kid toggle
  *     3. Bootstrap (DOMContentLoaded → loadKidInfo → render)
- *     4. Writing warm-up
- *     5. Category progress model + chooser rendering
- *     6. Per-type practice launch (goType1/Writing/Type3/Type4)
- *     7. Misc helpers
+ *     4. Category progress model + chooser rendering
+ *     5. Per-type practice launch (goType1/Writing/Type3/Type4)
+ *     6. Misc helpers
  */
 
 const API_BASE = `${window.location.origin}/api`;
@@ -79,9 +78,6 @@ if (!buildCategoryStarsModel) {
 }
 
 let currentKid = null;
-let writingCards = null;
-let writingCardsLoadedCategoryKey = '';
-let writingCardsLoading = false;
 let activeChineseCategoryKey = requestedCategoryKey;
 let activeTypeINonChineseCategoryKey = requestedCategoryKey;
 let activeTypeIICategoryKey = requestedCategoryKey;
@@ -178,39 +174,6 @@ let kidToggleLoading = false;
 // =====================================================================
 // === 2. Kid toggle
 // =====================================================================
-function kidHasPracticeTarget(kid) {
-    const optedInKeys = getOptedInDeckCategoryKeys(kid);
-    if (!Array.isArray(optedInKeys) || optedInKeys.length === 0) return false;
-    const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
-    for (const key of optedInKeys) {
-        const target = Number.parseInt(targets?.[key], 10);
-        if (Number.isInteger(target) && target > 0) return true;
-    }
-    return false;
-}
-
-function computeKidToggleProgress(kid) {
-    const optedInKeys = getOptedInDeckCategoryKeys(kid);
-    const metaMap = getDeckCategoryMetaMap(kid);
-    const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
-    const tiers = getCategoryRawValueMap(kid?.dailyStarTiersByDeckCategory);
-    let assigned = 0;
-    let done = 0;
-    optedInKeys.forEach((key) => {
-        const normalized = normalizeCategoryKey(key);
-        if (!normalized) return;
-        const target = Number.parseInt(targets?.[normalized], 10);
-        if (!(Number.isInteger(target) && target > 0)) return;
-        const behaviorType = String(metaMap?.[normalized]?.behavior_type || '').trim().toLowerCase();
-        if (!VALID_BEHAVIOR_TYPES.has(behaviorType)) return;
-        assigned += 1;
-        const tierList = Array.isArray(tiers?.[normalized]) ? tiers[normalized] : [];
-        if (tierList.some((tier) => String(tier || '').toLowerCase() === 'gold')) {
-            done += 1;
-        }
-    });
-    return { assigned, done };
-}
 
 async function loadKidsForToggle() {
     if (kidToggleLoading) return;
@@ -221,7 +184,7 @@ async function loadKidsForToggle() {
             return;
         }
         const [kidsResponse, locksByKidId, ownedKidIdSet] = await Promise.all([
-            fetch(`${API_BASE}/kids?view=admin`),
+            fetch(`${API_BASE}/kids?view=practice_nav`),
             fetchOfflineLockMap(),
             loadOwnedKidIdSet(),
         ]);
@@ -231,7 +194,6 @@ async function loadKidsForToggle() {
         const list = all.filter((kid) => {
             const id = String(kid?.id || '');
             if (id === kidId) return true;
-            if (!kidHasPracticeTarget(kid)) return false;
             const lock = locksByKidId[id];
             if (lock && !ownedKidIdSet.has(id)) return false;
             return true;
@@ -271,7 +233,7 @@ async function loadKidsForToggleFromLocalPacks() {
             id,
             name: String(info.name || env.kid_name || '').trim() || 'Kid',
         };
-    }).filter((kid) => kidHasPracticeTarget(kid) || String(kid.id) === String(kidId));
+    }).filter((kid) => String(kid.id || '').trim());
     renderKidToggle(list, { locksByKidId, ownedKidIdSet });
 }
 
@@ -324,13 +286,9 @@ function renderKidToggle(kids, opts) {
         const isLockedHere = Boolean(lock) && isOwned;
         const isLockedElsewhere = Boolean(lock) && !isOwned;
         const nameHtml = `<span>${escapeHtmlLocal(name)}</span>`;
-        const { assigned, done } = isOfflineMode ? { assigned: 0, done: 0 } : computeKidToggleProgress(kid);
-        const progressMeta = !isOfflineMode && assigned > 0
-            ? `<span class="kid-nav-card-meta${done >= assigned ? ' is-done' : ''}">${done}/${assigned} done</span>`
-            : '';
 
         if (isActive) {
-            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}${nameHtml}${progressMeta}</span>`;
+            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}${nameHtml}</span>`;
         }
         if (isLockedElsewhere) {
             const deviceLabel = String(lock.device_label || '').trim() || 'another device';
@@ -339,20 +297,19 @@ function renderKidToggle(kids, opts) {
         }
         if (isLockedHere) {
             // Kid has an offline pack on this device. In offline mode, let the
-            // click switch into her offline home; the online "done" count is
-            // intentionally hidden because it can be stale.
+            // click switch into her offline home.
             const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
             if (isOfflineMode) {
-                return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${progressMeta}</a>`;
+                return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}</a>`;
             }
             const offlineMeta = '<span class="kid-nav-card-meta is-offline-here" title="Offline on this device">Offline</span>';
             return `<a class="kid-nav-card is-offline-here" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${offlineMeta}</a>`;
         }
         if (isOfflineMode) {
-            return `<span class="kid-nav-card is-offline-elsewhere" role="tab" aria-selected="false" aria-disabled="true" title="Sync before switching kids">${userIconSvg}${nameHtml}${progressMeta}</span>`;
+            return `<span class="kid-nav-card is-offline-elsewhere" role="tab" aria-selected="false" aria-disabled="true" title="Sync before switching kids">${userIconSvg}${nameHtml}</span>`;
         }
         const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
-        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${progressMeta}</a>`;
+        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}</a>`;
     }).join('');
     kidToggleGroup.classList.remove('hidden');
 }
@@ -409,7 +366,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyKidPayload(cachedKid);
         renderPracticeOptions();
         void loadOffAppChores();
-        window.setTimeout(() => { void warmWritingCards(); }, 0);
         // Revalidate in background — update UI silently when fresh data arrives
         loadKidInfo().then(() => { renderPracticeOptions(); }).catch(() => {});
     } else {
@@ -417,7 +373,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadKidInfo();
         renderPracticeOptions();
         void offAppPromise;
-        window.setTimeout(() => { void warmWritingCards(); }, 0);
     }
 });
 
@@ -440,18 +395,6 @@ if (offAppChooser) {
     });
 }
 
-window.addEventListener('focus', () => {
-    if (offAppChoreState.loaded && !isOfflineMode) {
-        void loadOffAppChores();
-    }
-});
-
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && offAppChoreState.loaded && !isOfflineMode) {
-        void loadOffAppChores();
-    }
-});
-
 function applyKidPayload(kid) {
     currentKid = kid;
     activeChineseCategoryKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
@@ -460,10 +403,6 @@ function applyKidPayload(kid) {
         activeTypeINonChineseCategoryKey,
     );
     activeTypeIICategoryKey = resolveTypeIIPracticeCategoryKey(currentKid, activeTypeIICategoryKey);
-    if (writingCardsLoadedCategoryKey && writingCardsLoadedCategoryKey !== activeTypeIICategoryKey) {
-        writingCards = null;
-        writingCardsLoadedCategoryKey = '';
-    }
     activeTypeIIICategoryKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
     kidNameEl.textContent = window.PracticeUiCommon.formatKidPracticeTitle(currentKid.name);
     const titleIcon = document.getElementById('kidTitleIcon');
@@ -545,40 +484,8 @@ async function loadKidInfo() {
     }
 }
 
-async function warmWritingCards() {
-    try {
-        if (writingCardsLoading) {
-            return;
-        }
-        if (!activeTypeIICategoryKey) {
-            writingCards = [];
-            writingCardsLoadedCategoryKey = '';
-            return;
-        }
-        writingCardsLoading = true;
-        const url = new URL(`${API_BASE}/kids/${kidId}/type2/cards`);
-        url.searchParams.set('categoryKey', activeTypeIICategoryKey);
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
-        writingCards = (data.cards || []).filter((card) => card.available_for_practice !== false);
-        writingCardsLoadedCategoryKey = activeTypeIICategoryKey;
-    } catch (error) {
-        console.error('Error loading writing cards:', error);
-        writingCards = [];
-        writingCardsLoadedCategoryKey = activeTypeIICategoryKey || '';
-    } finally {
-        writingCardsLoading = false;
-    }
-}
-
 // =====================================================================
-// === 4. Writing warm-up
-// =====================================================================
-// =====================================================================
-// === 5. Category progress model + chooser rendering
+// === 4. Category progress model + chooser rendering
 // =====================================================================
 function buildCategoryProgressModel({
     categoryKey,
@@ -1195,7 +1102,7 @@ function renderPracticeOptions() {
 }
 
 // =====================================================================
-// === 6. Per-type practice launch
+// === 5. Per-type practice launch
 // =====================================================================
 async function chooseChinesePractice(category) {
     const categoryKey = normalizeCategoryKey(category);
@@ -1255,16 +1162,6 @@ function goWritingPractice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
-    if (
-        categoryKey === writingCardsLoadedCategoryKey
-        && Array.isArray(writingCards)
-        && writingCards.length === 0
-    ) {
-        const categoryMetaMap = getDeckCategoryMetaMap(currentKid);
-        const label = getCategoryDisplayName(categoryKey, categoryMetaMap);
-        showError(`No ${label} cards yet. Ask your parent to add some first.`);
-        return;
-    }
     if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
@@ -1319,14 +1216,14 @@ function goType4Practice(category) {
 }
 
 // =====================================================================
-// === 7. Misc helpers
+// === 6. Misc helpers
 // =====================================================================
 function showError(message) {
     window.PracticeUiCommon.showAlertError(errorState, errorMessage, message);
 }
 
 // =====================================================================
-// === 8. Offline practice home (replaces sections 4–6 when offline)
+// === 7. Offline practice home (replaces sections 4–5 when offline)
 // =====================================================================
 
 async function bootstrapOfflinePracticeHome(pack) {

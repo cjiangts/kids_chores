@@ -1523,6 +1523,17 @@ header p {
     flex: 0 0 auto;
 }
 
+.print-sheet-page .page-header-actions {
+    flex-wrap: wrap;
+}
+
+@media print {
+    .print-sheet-page .page-header-with-back,
+    .print-sheet-page .kid-app-nav {
+        display: none !important;
+    }
+}
+
 .page-header-with-back p {
     margin: 0;
 }

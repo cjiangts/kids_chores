@@ -135,6 +135,10 @@
         setKidId(String(fallback?.id || ''));
     }
 
+    function getKidId() {
+        return String(state.kidId || '').trim();
+    }
+
     function boot() {
         const urlKidId = readKidIdFromUrl();
         if (urlKidId) {
@@ -145,6 +149,7 @@
     }
 
     window.KidAppNavigation = {
+        getKidId,
         render,
         setKidId,
         setKids,

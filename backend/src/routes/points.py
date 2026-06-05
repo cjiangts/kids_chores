@@ -1,11 +1,13 @@
 """Point rules, point events, and off-app chore routes."""
 from flask import Blueprint, jsonify, request
 
+from src.db import metadata
 from src.db.shared_deck_db import get_shared_decks_connection
 from src.services.family_auth import current_family_id, get_kid_connection_for, get_kid_for_family
 from src.services.points import (
     apply_direct_rule_event,
     cancel_pending_off_app_chore,
+    count_pending_off_app_chores,
     create_family_rule,
     deactivate_family_rule,
     delete_point_event,
@@ -113,6 +115,32 @@ def delete_point_rule(rule_id):
     return jsonify({'rule': rule}), 200
 
 
+@points_bp.route('/points/kid-totals', methods=['GET'])
+def get_kid_point_totals():
+    family_id, error = _family_id_or_response()
+    if error:
+        return error
+    rows = []
+    for kid in metadata.get_all_kids(family_id=family_id):
+        kid_id = str(kid.get('id') or '')
+        if not kid_id:
+            continue
+        kid_conn = None
+        try:
+            kid_conn = get_kid_connection_for(kid, read_only=True)
+            total = get_point_total(kid_conn)
+        except Exception:
+            total = 0
+        finally:
+            if kid_conn is not None:
+                kid_conn.close()
+        rows.append({
+            'kidId': kid_id,
+            'totalPoints': total,
+        })
+    return jsonify({'totals': rows}), 200
+
+
 @points_bp.route('/kids/<kid_id>/points', methods=['GET'])
 def get_kid_points(kid_id):
     kid, family_id, error = _kid_or_response(kid_id)
@@ -191,6 +219,39 @@ def pull_kid_point_events_from_today_sessions(kid_id):
     return jsonify({
         'kidId': str(kid.get('id') or ''),
         **result,
+    }), 200
+
+
+@points_bp.route('/kids/off-app-chores/pending-summary', methods=['GET'])
+def get_off_app_chore_pending_summary():
+    family_id, error = _family_id_or_response()
+    if error:
+        return error
+
+    rows = []
+    total_pending_count = 0
+    for kid in metadata.get_all_kids(family_id=family_id):
+        kid_id = str(kid.get('id') or '').strip()
+        if not kid_id:
+            continue
+        kid_conn = None
+        try:
+            kid_conn = get_kid_connection_for(kid, read_only=True)
+            pending_count = count_pending_off_app_chores(kid_conn)
+        except Exception:
+            pending_count = 0
+        finally:
+            if kid_conn is not None:
+                kid_conn.close()
+        rows.append({
+            'kidId': kid_id,
+            'pendingCount': pending_count,
+        })
+        total_pending_count += pending_count
+
+    return jsonify({
+        'kids': rows,
+        'totalPendingCount': total_pending_count,
     }), 200
 
 

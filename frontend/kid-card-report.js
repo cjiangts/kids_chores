@@ -3,7 +3,7 @@
  *
  * Layout:
  *   1. DOM refs + module constants + DOMContentLoaded bootstrap
- *   2. Back button + report data fetch
+ *   2. Report data fetch
  *   3. Hero block (card header + stats card)
  *   4. Trend chart + period selector
  *   5. History list rendering
@@ -36,7 +36,6 @@ const BEHAVIOR_TYPE_III = 'type_iii';
 const BEHAVIOR_TYPE_IV = 'type_iv';
 
 const pageTitle = document.getElementById('pageTitle');
-const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const cardReportHero = document.getElementById('cardReportHero');
 const trendChart = document.getElementById('trendChart');
@@ -59,17 +58,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    bindBackButton();
     await loadCardReport();
 });
 
 // =====================================================================
-// === 2. Back button + report data fetch
+// === 2. Report data fetch
 // =====================================================================
-
-function bindBackButton() {
-    window.BackButtonCommon?.bindBackButton(backBtn);
-}
 
 async function loadCardReport() {
     try {

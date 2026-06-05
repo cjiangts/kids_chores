@@ -19,7 +19,6 @@ let activeCategoryKey = requestedCategoryKey;
 let activeCategoryDisplayName = 'Type-II';
 
 const kidNameEl = document.getElementById('kidName');
-const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const sheetList = document.getElementById('sheetList');
 
@@ -29,7 +28,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     await loadKid();
-    window.BackButtonCommon?.bindBackButton(backBtn);
     await loadSheets();
 });
 

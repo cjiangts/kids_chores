@@ -5,7 +5,6 @@ const kidId = params.get('id');
 const from = String(params.get('from') || '').trim().toLowerCase();
 
 const reportTitle = document.getElementById('reportTitle');
-const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const kidNavGroup = document.getElementById('kidNavGroup');
 let cachedKidsForNav = [];
@@ -35,7 +34,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     reportRenderer.renderInitialLoading();
-    window.BackButtonCommon?.bindBackButton(backBtn);
     loadKidNav();
     await loadReport();
 });

@@ -8,7 +8,7 @@
  * Layout:
  *   1. DOM refs + URL params + module state + paper-spec constants
  *   2. Paper-spec builder + size resolvers
- *   3. Utility helpers (escape, scale clamp, preview scale, URL/fetch, back nav)
+ *   3. Utility helpers (escape, scale clamp, preview scale, URL/fetch)
  *   4. Row cells + sheet page markup builder
  *   5. Preview render + PDF export (handlePrint)
  *   6. Load + render + DOMContentLoaded bootstrap
@@ -21,10 +21,8 @@
 const API_BASE = `${window.location.origin}/api`;
 
 const sheetTitle = document.getElementById('sheetTitle');
-const sheetMeta = document.getElementById('sheetMeta');
 const sheetPreviewWrap = document.getElementById('sheetPreviewWrap');
 const printBtn = document.getElementById('printBtn');
-const backBtn = document.getElementById('backBtn');
 
 const params = new URLSearchParams(window.location.search);
 const kidId = String(params.get('id') || '').trim();
@@ -106,7 +104,7 @@ function applyPaperSpec(paperSize) {
 }
 
 // =====================================================================
-// === 3. Utility helpers (escape, scale clamp, preview scale, URL/fetch, back nav)
+// === 3. Utility helpers (escape, scale clamp, preview scale, URL/fetch)
 // =====================================================================
 
 function escapeHtml(text) {
@@ -342,14 +340,7 @@ async function loadAndRender() {
 
         const layout = sheet.layout || {};
         applyPaperSpec(layout.paper_size || DEFAULT_PAPER_SIZE);
-
-        const status = String(sheet.status || '').trim().toLowerCase();
-        const rowCount = Array.isArray(layout.rows) ? layout.rows.length : 0;
-        if (sheetTitle) sheetTitle.textContent = `Sheet #${sheet.id}`;
-        if (sheetMeta) {
-            const statusLabel = status === 'done' ? 'Done' : 'Ready to print';
-            sheetMeta.textContent = `${statusLabel} · ${rowCount} row${rowCount === 1 ? '' : 's'}`;
-        }
+        updateSheetTitle(sheet);
 
         currentSheetData = sheet;
         renderSheetPreview(sheet);
@@ -364,6 +355,12 @@ async function loadAndRender() {
     }
 }
 
+function updateSheetTitle(sheet) {
+    if (!sheetTitle) return;
+    const displaySheetNumber = String(sheet?.display_sheet_number || sheet?.id || '').trim();
+    sheetTitle.textContent = `Sheet #${displaySheetNumber || '___'}`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     applyPaperSpec(DEFAULT_PAPER_SIZE);
 
@@ -373,10 +370,6 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         handlePrint();
     });
-
-    if (backBtn) {
-        window.BackButtonCommon?.bindBackButton(backBtn);
-    }
 
     if (printBtn) {
         printBtn.addEventListener('click', () => handlePrint());

@@ -4,7 +4,7 @@
  * Layout:
  *   1. DOM refs + module constants
  *   2. Paper-spec builders + dynamic @page style
- *   3. Misc helpers (escape, math notation, font scale, URL, back)
+ *   3. Misc helpers (escape, math notation, font scale, URL)
  *   4. JSON fetch + toolbar button state
  *   5. Sheet canvas + render image + handlePrint
  *   6. Canvas drawing — header / row layout / rows
@@ -20,7 +20,6 @@
 const API_BASE = `${window.location.origin}/api`;
 
 const sheetTitle = document.getElementById('sheetTitle');
-const sheetMeta = document.getElementById('sheetMeta');
 const sheetPreviewWrap = document.getElementById('sheetPreviewWrap');
 const repeatControl = document.getElementById('repeatControl');
 const repeatCountInput = document.getElementById('repeatCountInput');
@@ -28,7 +27,6 @@ const regenerateBtn = document.getElementById('regenerateBtn');
 const finalizeBtn = document.getElementById('finalizeBtn');
 const printBtn = document.getElementById('printBtn');
 const showAnswersBtn = document.getElementById('showAnswersBtn');
-const backBtn = document.getElementById('backBtn');
 
 const params = new URLSearchParams(window.location.search);
 const kidId = String(params.get('id') || '').trim();
@@ -158,7 +156,7 @@ function applyPaperSpec(paperSize) {
 }
 
 // =====================================================================
-// === 3. Misc helpers (escape, math notation, font scale, URL, back)
+// === 3. Misc helpers (escape, math notation, font scale, URL)
 // =====================================================================
 
 function escapeHtml(text) {
@@ -738,25 +736,8 @@ async function loadAndRender() {
         }
         updateToolbarButtons(currentSheetStatus);
         setRepeatCountValue(sheet.repeat_count);
+        updateSheetTitle(sheet);
 
-        if (sheetTitle) {
-            sheetTitle.textContent = currentSheetStatus === 'preview'
-                ? `Sheet #${sheet.id} Preview`
-                : `Sheet #${sheet.id}`;
-        }
-        if (sheetMeta) {
-            const label = currentSheetStatus === 'preview' ? 'Preview' : (currentSheetStatus === 'done' ? 'Done' : 'Ready to print');
-            const pageCount = Math.max(1, Number.parseInt(sheet.page_count, 10) || 1);
-            if (pageCount > 1) {
-                const totalProblemCount = Math.max(
-                    Number.parseInt(sheet.total_problem_count, 10) || 0,
-                    (Number.parseInt(sheet.problem_count, 10) || 0) * pageCount,
-                );
-                sheetMeta.textContent = `${label} · ${pageCount} pages · ${sheet.problem_count || 0} problems/page · ${totalProblemCount} total`;
-            } else {
-                sheetMeta.textContent = `${label} · ${sheet.problem_count || 0} problems · ${sheet.row_count || 0} rows`;
-            }
-        }
         currentSheetData = sheet;
         renderSheetPreview(sheet);
     } catch (error) {
@@ -831,6 +812,14 @@ async function handleRepeatCountChange() {
     await loadAndRender();
 }
 
+function updateSheetTitle(sheet) {
+    if (!sheetTitle) return;
+    const displaySheetNumber = String(
+        (sheet && (sheet.display_sheet_number || sheet.id || '')) || ''
+    ).trim();
+    sheetTitle.textContent = `Sheet #${displaySheetNumber || '___'}`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     applyPaperSpec(DEFAULT_PAPER_SIZE);
     document.addEventListener('keydown', (event) => {
@@ -839,9 +828,6 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         handlePrint();
     });
-    if (backBtn) {
-        window.BackButtonCommon?.bindBackButton(backBtn);
-    }
     if (printBtn) {
         printBtn.addEventListener('click', () => {
             handlePrint();

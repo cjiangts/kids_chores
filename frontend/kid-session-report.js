@@ -30,7 +30,6 @@ const sessionId = params.get('sessionId');
 const from = String(params.get('from') || '').trim().toLowerCase();
 
 const pageTitle = document.getElementById('pageTitle');
-const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 const summaryCard = document.getElementById('summaryCard');
 const wrongSection = document.getElementById('wrongSection');
@@ -78,7 +77,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/admin.html';
         return;
     }
-    bindBackButton();
     bindDeleteSessionButton();
     bindLiveDurationBackfillUpdates();
     try {
@@ -122,10 +120,6 @@ async function handleDeleteSession(btn) {
     } finally {
         btn.disabled = false;
     }
-}
-
-function bindBackButton() {
-    window.BackButtonCommon?.bindBackButton(backBtn);
 }
 
 function resolveBackHref() {

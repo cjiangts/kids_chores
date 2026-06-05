@@ -20,7 +20,6 @@ const kidId = String(params.get('id') || '').trim();
 const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 
 const pageTitleEl = document.getElementById('pageTitle');
-const backBtn = document.getElementById('backBtn');
 const errorMessage = document.getElementById('errorMessage');
 
 const chineseGenerateSection = document.getElementById('chineseGenerateSection');
@@ -183,7 +182,6 @@ async function loadKidInfo() {
 
     activeCategoryDisplayName = window.DeckCategoryCommon.getCategoryDisplayName(activeCategoryKey, categoryMetaMap) || '';
     updatePageText();
-    window.BackButtonCommon?.bindBackButton(backBtn);
 }
 
 function applyPageMode() {

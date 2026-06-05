@@ -6,6 +6,8 @@
     <script src="offline-redirect-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Math Practice Sheet - Kids Daily Chores</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
     <style>
         :root {
             --math-mono-font: 'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace;
@@ -20,35 +22,6 @@
             --sheet-box-width: calc(var(--sheet-safe-width) - (2 * var(--sheet-extra-safe-margin-x)));
             --sheet-box-height: calc(var(--sheet-safe-height) - var(--sheet-extra-safe-margin-top) - var(--sheet-extra-safe-margin-bottom));
             --sheet-print-height: calc(var(--sheet-safe-height) - 1mm);
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 16px;
-            background: #f5f7fb;
-            color: #222;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .toolbar-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto;
-            flex-wrap: wrap;
         }
 
         .repeat-control {
@@ -75,37 +48,6 @@
             font: inherit;
             color: #234b9a;
             background: #f8fbff;
-        }
-
-        .toolbar button,
-        .toolbar .toolbar-link {
-            border: none;
-            border-radius: 8px;
-            padding: 9px 13px;
-            cursor: pointer;
-            background: #2d7ef7;
-            color: #fff;
-            font-size: 0.95rem;
-            text-decoration: none;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 40px;
-            white-space: nowrap;
-        }
-
-        .toolbar .toolbar-link.secondary,
-        .toolbar button.secondary {
-            background: #eaf0ff;
-            color: #234b9a;
-        }
-
-        .sheet-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            line-height: 1.2;
-            min-width: 0;
         }
 
         .sheet-preview-wrap {
@@ -315,23 +257,6 @@
         }
 
         @media (max-width: 860px) {
-            body {
-                padding: 10px;
-            }
-
-            .toolbar {
-                margin-bottom: 10px;
-            }
-
-            .sheet-title {
-                flex: 1 1 100%;
-            }
-
-            .toolbar-actions {
-                width: 100%;
-                justify-content: flex-end;
-            }
-
             .repeat-control {
                 margin-left: 0;
             }
@@ -356,25 +281,6 @@
         }
 
         @media (max-width: 520px) {
-            body {
-                padding: 6px;
-            }
-
-            .toolbar {
-                gap: 6px;
-                margin-bottom: 6px;
-            }
-
-            .sheet-title {
-                font-size: 1.05rem;
-            }
-
-            .toolbar-actions {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 6px;
-            }
-
             .repeat-control {
                 width: 100%;
                 justify-content: space-between;
@@ -382,22 +288,6 @@
 
             .repeat-control input {
                 width: 88px;
-            }
-
-            .toolbar button,
-            .toolbar .toolbar-link {
-                width: 100%;
-                min-width: 0;
-                min-height: 36px;
-                padding: 0.55rem 0.65rem;
-                font-size: 0.88rem;
-                white-space: normal;
-                text-align: center;
-            }
-
-            .sheet-meta {
-                margin-bottom: 6px;
-                font-size: 0.8rem;
             }
 
             .sheet-preview-wrap {
@@ -411,35 +301,29 @@
             }
         }
 
-        @media print {
-            .toolbar {
-                display: none !important;
-            }
-        }
     </style>
 </head>
-<body>
-    <div class="toolbar">
-        <div class="sheet-title" id="sheetTitle">Math Practice Sheet</div>
-        <div id="repeatControl" class="repeat-control" style="display:none;">
-            <label for="repeatCountInput">Print Sheets</label>
-            <input id="repeatCountInput" type="number" min="1" step="1" value="1" inputmode="numeric">
+<body class="print-sheet-page">
+    <header class="page-header-with-back page-header-with-actions">
+        <div class="page-header-row">
+            <h1><span class="page-title-icon" aria-hidden="true">🖨️</span> <span id="sheetTitle">Sheet</span></h1>
+            <div class="page-header-actions">
+                <div id="repeatControl" class="repeat-control" style="display:none;">
+                    <label for="repeatCountInput">Print Sheets</label>
+                    <input id="repeatCountInput" type="number" min="1" step="1" value="1" inputmode="numeric">
+                </div>
+                <button id="showAnswersBtn" type="button" class="btn-secondary">Show Answers</button>
+                <button id="regenerateBtn" type="button" class="btn-secondary">Regenerate</button>
+                <button id="finalizeBtn" type="button" class="btn-primary">Finalize</button>
+                <button id="printBtn" type="button" class="btn-primary">Print</button>
+            </div>
         </div>
-        <div class="toolbar-actions">
-            <button id="showAnswersBtn" type="button" class="secondary">Show Answers</button>
-            <button id="regenerateBtn" type="button" class="secondary">Regenerate</button>
-            <button id="finalizeBtn" type="button" style="background:#2b8a3e;">Finalize</button>
-            <button id="printBtn" type="button">Print</button>
-            <a id="backBtn" class="toolbar-link secondary" href="#"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
-        </div>
-    </div>
-
-    <div id="sheetMeta" class="sheet-meta"></div>
+    </header>
 
     <div id="sheetPreviewWrap" class="sheet-preview-wrap"></div>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="icons.js"></script>
-    <script src="back-button-common.js"></script>
+    <script src="kid-app-navigation.js"></script>
     <script src="math-rendering-common.js"></script>
     <script src="math-sheet-print.js"></script>
 </body>

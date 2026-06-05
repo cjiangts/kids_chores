@@ -7,69 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Writing Practice Sheet - Kids Daily Chores</title>
     <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="kid-app-navigation.css">
     <style>
         :root {
             --font-kaiti: 'KidsKaiti', '华文楷体', 'STKaiti', 'Kaiti SC', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 16px;
-            background: #f5f7fb;
-            color: #222;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .toolbar-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto;
-            flex-wrap: wrap;
-        }
-
-        .toolbar button,
-        .toolbar .toolbar-link {
-            border: none;
-            border-radius: 8px;
-            padding: 9px 13px;
-            cursor: pointer;
-            background: #2d7ef7;
-            color: #fff;
-            font-size: 0.95rem;
-            text-decoration: none;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 40px;
-            white-space: nowrap;
-        }
-
-        .toolbar .toolbar-link.secondary,
-        .toolbar button.secondary {
-            background: #eaf0ff;
-            color: #234b9a;
-        }
-
-        .sheet-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            line-height: 1.2;
-            min-width: 0;
         }
 
         .sheet-preview-wrap {
@@ -207,36 +149,12 @@
             font-weight: 400;
         }
 
-        .sheet-meta {
-            color: #5b6783;
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-            line-height: 1.35;
-        }
-
         .error {
             color: #b00020;
             font-weight: 600;
         }
 
         @media (max-width: 860px) {
-            body {
-                padding: 10px;
-            }
-
-            .toolbar {
-                margin-bottom: 10px;
-            }
-
-            .sheet-title {
-                flex: 1 1 100%;
-            }
-
-            .toolbar-actions {
-                width: 100%;
-                justify-content: flex-end;
-            }
-
             .sheet-preview-wrap {
                 align-items: stretch;
                 padding-bottom: 8px;
@@ -248,41 +166,6 @@
         }
 
         @media (max-width: 520px) {
-            body {
-                padding: 6px;
-            }
-
-            .toolbar {
-                gap: 6px;
-                margin-bottom: 6px;
-            }
-
-            .sheet-title {
-                font-size: 1.05rem;
-            }
-
-            .toolbar-actions {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 6px;
-            }
-
-            .toolbar button,
-            .toolbar .toolbar-link {
-                width: 100%;
-                min-width: 0;
-                min-height: 36px;
-                padding: 0.55rem 0.65rem;
-                font-size: 0.88rem;
-                white-space: normal;
-                text-align: center;
-            }
-
-            .sheet-meta {
-                margin-bottom: 6px;
-                font-size: 0.8rem;
-            }
-
             .sheet-preview-wrap {
                 gap: 6px;
                 padding-bottom: 6px;
@@ -291,21 +174,20 @@
         }
     </style>
 </head>
-<body>
-    <div class="toolbar">
-        <div class="sheet-title" id="sheetTitle">Chinese Writing Practice Sheet</div>
-        <div class="toolbar-actions">
-            <button id="printBtn" type="button">Print</button>
-            <a id="backBtn" class="toolbar-link secondary" href="#"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
+<body class="print-sheet-page">
+    <header class="page-header-with-back page-header-with-actions">
+        <div class="page-header-row">
+            <h1><span class="page-title-icon" aria-hidden="true">🖨️</span> <span id="sheetTitle">Sheet</span></h1>
+            <div class="page-header-actions">
+                <button id="printBtn" type="button" class="btn-primary">Print</button>
+            </div>
         </div>
-    </div>
-
-    <div id="sheetMeta" class="sheet-meta"></div>
+    </header>
 
     <div id="sheetPreviewWrap" class="sheet-preview-wrap"></div>
 
     <script src="icons.js"></script>
-    <script src="back-button-common.js"></script>
+    <script src="kid-app-navigation.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>

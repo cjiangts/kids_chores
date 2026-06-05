@@ -1,4 +1,6 @@
 const API_BASE = `${window.location.origin}/api`;
+const POINT_LOG_MODE_STORAGE_KEY = 'point_log_last_mode_v1';
+const POINT_HISTORY_LIMIT = 200;
 
 const kidTabs = document.getElementById('kidTabs');
 const logError = document.getElementById('logError');
@@ -43,10 +45,30 @@ function normalizePointLogMode(value) {
     return '';
 }
 
+function readStoredPointLogMode() {
+    try {
+        if (!window.sessionStorage) return '';
+        return normalizePointLogMode(window.sessionStorage.getItem(POINT_LOG_MODE_STORAGE_KEY));
+    } catch (error) {
+        return '';
+    }
+}
+
+function rememberPointLogMode(mode) {
+    const normalized = normalizePointLogMode(mode);
+    if (!normalized) return;
+    try {
+        if (!window.sessionStorage) return;
+        window.sessionStorage.setItem(POINT_LOG_MODE_STORAGE_KEY, normalized);
+    } catch (error) {
+        // best-effort UI memory
+    }
+}
+
 let kids = [];
 let rules = [];
 let selectedKidId = '';
-let activeMode = 'bonus';
+let activeMode = requestedMode || readStoredPointLogMode() || 'bonus';
 let selectedRuleId = 0;
 let selectedPendingKey = '';
 let selectedRating = 3;
@@ -127,6 +149,22 @@ function selectedBalance() {
     return Number.parseInt(pointData.totalPoints, 10) || 0;
 }
 
+function rememberedKidId() {
+    return String(window.KidAppNavigation?.getKidId?.() || '').trim();
+}
+
+function initialKidId() {
+    const candidates = [requestedKidId, rememberedKidId()];
+    const match = candidates.find((kidId) => kidId && kids.some((kid) => String(kid?.id || '') === kidId));
+    return match || String(kids[0]?.id || '');
+}
+
+function syncSelectedKidNavigation() {
+    if (window.KidAppNavigation && selectedKidId) {
+        window.KidAppNavigation.setKidId(selectedKidId);
+    }
+}
+
 function cannotAffordSelectedReward() {
     const rule = selectedRule();
     if (!rule || rule.ruleKind !== 'redeemed_reward') return false;
@@ -156,6 +194,10 @@ function selectedPending() {
 function selectedReviewPoints(item = selectedPending()) {
     const rule = item?.rule || {};
     return Number.parseInt(rule[`rating${selectedRating}Points`], 10) || 0;
+}
+
+function hasActiveSelection() {
+    return activeMode === 'review' ? Boolean(selectedPending()) : Boolean(selectedRule());
 }
 
 function reviewRatingMeta(rating) {
@@ -224,6 +266,7 @@ function reviewTemplateRow(item) {
 }
 
 function renderTemplates() {
+    templateList.classList.toggle('has-selection', hasActiveSelection());
     if (activeMode === 'review') {
         if (!pendingItems.length) {
             templateList.innerHTML = `<div class="point-empty">${escapeHtml(MODE_META.review.empty)}</div>`;
@@ -287,8 +330,9 @@ function renderHistory() {
 }
 
 function updateSubmitState() {
-    const hasSelection = activeMode === 'review' ? Boolean(selectedPending()) : Boolean(selectedRule());
+    const hasSelection = hasActiveSelection();
     const cannotAfford = activeMode !== 'review' && cannotAffordSelectedReward();
+    pointLogForm.classList.toggle('hidden', !hasSelection);
     submitPointLogBtn.disabled = !(selectedKidId && hasSelection) || cannotAfford;
     if (activeMode === 'review') {
         submitPointLogBtn.textContent = hasSelection ? `Apply ${formatDelta(selectedReviewPoints())}` : 'Apply';
@@ -314,22 +358,18 @@ function render() {
 async function loadPointsForSelectedKid() {
     if (!selectedKidId) {
         pointData = { totalPoints: 0, events: [] };
-        render();
         return;
     }
-    const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=80`);
+    const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=${POINT_HISTORY_LIMIT}`);
     pointData = data || { totalPoints: 0, events: [] };
-    render();
 }
 
 async function loadPointTotalsForKids() {
-    const entries = await Promise.all(kids.map(async (kid) => {
-        const id = String(kid.id || '');
-        if (!id) return null;
-        const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(id)}/points?limit=1`);
-        return [id, Number.parseInt(data.totalPoints, 10) || 0];
-    }));
-    pointTotalsByKidId = new Map(entries.filter(Boolean));
+    const data = await fetchJson(`${API_BASE}/points/kid-totals`);
+    const entries = (Array.isArray(data.totals) ? data.totals : [])
+        .map((item) => [String(item.kidId || ''), Number.parseInt(item.totalPoints, 10) || 0])
+        .filter(([kidId]) => kidId);
+    pointTotalsByKidId = new Map(entries);
     const selectedTotal = pointTotalsByKidId.get(selectedKidId);
     if (selectedTotal !== undefined) {
         pointData = { ...pointData, totalPoints: selectedTotal };
@@ -337,6 +377,11 @@ async function loadPointTotalsForKids() {
 }
 
 async function loadPendingReviews() {
+    if (activeMode !== 'review') {
+        pendingItems = [];
+        selectedPendingKey = '';
+        return;
+    }
     if (!selectedKidId) {
         pendingItems = [];
         return;
@@ -350,7 +395,7 @@ async function loadPendingReviews() {
     if (activeMode === 'review') {
         const stillSelected = pendingItems.some((pending) => String(pending.pendingId || '') === selectedPendingKey);
         if (!stillSelected) {
-            selectedPendingKey = String(pendingItems[0]?.pendingId || '');
+            selectedPendingKey = '';
         }
         selectedRuleId = 0;
     }
@@ -359,17 +404,16 @@ async function loadPendingReviews() {
 async function loadInitialData() {
     showError('');
     const [kidsData, rulesData] = await Promise.all([
-        fetchJson(`${API_BASE}/kids?view=admin`),
+        fetchJson(`${API_BASE}/kids?view=reward_nav`),
         fetchJson(`${API_BASE}/points/rules?includeInactive=0`),
     ]);
     kids = Array.isArray(kidsData) ? kidsData : [];
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
-    selectedKidId = requestedKidId && kids.some((kid) => String(kid?.id || '') === requestedKidId)
-        ? requestedKidId
-        : String(kids[0]?.id || '');
-    activeMode = requestedMode || activeMode;
+    selectedKidId = initialKidId();
+    syncSelectedKidNavigation();
+    rememberPointLogMode(activeMode);
     selectedHistoryDayKey = todayHistoryDayKey();
-    selectedRuleId = activeMode === 'review' ? 0 : Number(currentRulesForMode()[0]?.ruleId || 0);
+    clearSelection();
     await Promise.all([loadPendingReviews(), loadPointsForSelectedKid(), loadPointTotalsForKids()]);
     render();
 }
@@ -385,9 +429,9 @@ kidTabs.addEventListener('click', async (event) => {
     const nextKidId = String(button.dataset.kidId || '');
     if (!nextKidId || nextKidId === selectedKidId) return;
     selectedKidId = nextKidId;
+    syncSelectedKidNavigation();
     selectedHistoryDayKey = todayHistoryDayKey();
     clearSelection();
-    selectedRuleId = Number(currentRulesForMode()[0]?.ruleId || 0);
     showError('');
     try {
         await Promise.all([loadPendingReviews(), loadPointsForSelectedKid(), loadPointTotalsForKids()]);
@@ -398,18 +442,20 @@ kidTabs.addEventListener('click', async (event) => {
 });
 
 modeTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', async () => {
         const nextMode = tab.dataset.mode || 'bonus';
         if (nextMode === activeMode) return;
         activeMode = nextMode;
+        rememberPointLogMode(activeMode);
         clearSelection();
-        if (activeMode === 'review') {
-            selectedPendingKey = String(pendingItems[0]?.pendingId || '');
-            selectedRuleId = 0;
-        } else {
-            selectedRuleId = Number(currentRulesForMode()[0]?.ruleId || 0);
+        showError('');
+        try {
+            await loadPendingReviews();
+            render();
+        } catch (error) {
+            showError(error.message || 'Failed to load off-app chores.');
+            render();
         }
-        render();
     });
 });
 
@@ -471,7 +517,6 @@ pointLogForm.addEventListener('submit', async (event) => {
             });
         }
         clearSelection();
-        selectedRuleId = Number(currentRulesForMode()[0]?.ruleId || 0);
         await refreshAfterMutation();
     } catch (error) {
         showError(error.message || 'Failed to log points.');
@@ -501,7 +546,7 @@ pointHistory.addEventListener('click', async (event) => {
         await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events/${eventId}`, {
             method: 'DELETE',
         });
-        await loadPointsForSelectedKid();
+        await refreshAfterMutation();
     } catch (error) {
         showError(error.message || 'Failed to delete point event.');
         button.disabled = false;
@@ -535,6 +580,7 @@ pullTodaySessionsBtn?.addEventListener('click', async () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
     hydrateIcons(document);
+    renderModeTabs();
     try {
         await loadInitialData();
     } catch (error) {

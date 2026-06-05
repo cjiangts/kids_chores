@@ -94,6 +94,25 @@ def get_kids():
         view = str(request.args.get('view') or '').strip().lower()
         is_admin_view = (view == 'admin')
         kids = metadata.get_all_kids(family_id=family_id)
+        if view == 'practice_nav':
+            return jsonify([
+                {
+                    'id': kid.get('id'),
+                    'name': kid.get('name'),
+                }
+                for kid in kids
+            ]), 200
+        if view == 'reward_nav':
+            family_timezone = metadata.get_family_timezone(family_id)
+            return jsonify([
+                {
+                    'id': kid.get('id'),
+                    'name': kid.get('name'),
+                    'familyTimezone': family_timezone,
+                }
+                for kid in kids
+            ]), 200
+
         is_super = is_super_family_id(family_id)
         all_category_meta_by_key = get_shared_deck_category_meta_by_key()
         category_meta_by_key = {

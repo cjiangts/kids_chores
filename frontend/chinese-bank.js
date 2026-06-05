@@ -610,5 +610,4 @@ csvClearBtn.addEventListener('click', () => {
 
 applyModeChrome();
 renderSortUpdatedTh();
-window.BackButtonCommon?.bindBackButton(document.getElementById('backBtn'));
 loadPage();

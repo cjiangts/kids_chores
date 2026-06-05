@@ -606,6 +606,13 @@ def list_pending_off_app_chores(kid_conn, shared_conn, family_id):
     return [_pending_row_to_payload(row, lookup) for row in rows]
 
 
+def count_pending_off_app_chores(kid_conn):
+    row = kid_conn.execute(
+        "SELECT COUNT(*) FROM pending_off_app_chore"
+    ).fetchone()
+    return int(row[0] or 0) if row else 0
+
+
 def submit_off_app_chore(kid_conn, shared_conn, family_id, rule_id):
     rule = get_family_rule(shared_conn, family_id, rule_id)
     if not rule or not rule['isActive'] or rule['ruleKind'] != RULE_KIND_OFF_APP_CHORE:
