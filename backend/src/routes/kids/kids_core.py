@@ -66,6 +66,7 @@ from src.services.kid_daily_progress import (
     get_kid_opted_in_deck_category_keys,
     get_kid_practice_target_by_deck_category,
     get_kid_scoped_db_relpath,
+    get_kid_ungraded_type_iii_count,
     get_type_iii_category_keys,
 )
 from src.services.offline_locks import get_locks_for_family
@@ -94,6 +95,7 @@ def get_kids():
         view = str(request.args.get('view') or '').strip().lower()
         is_admin_view = view in ('admin', 'admin_compact')
         include_admin_category_meta = view != 'admin_compact'
+        include_admin_review_counts = view != 'admin_compact'
         kids = metadata.get_all_kids(family_id=family_id)
         if view == 'practice_nav':
             return jsonify([
@@ -122,6 +124,30 @@ def get_kids():
             if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
         }
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
+        if view == 'manage_nav':
+            kids_with_manage_context = []
+            for kid in kids:
+                conn = None
+                try:
+                    conn = get_kid_connection_for(kid, read_only=True)
+                except Exception:
+                    conn = None
+                try:
+                    opted_in_category_keys = get_kid_opted_in_deck_category_keys(
+                        kid,
+                        category_meta_by_key=category_meta_by_key,
+                        conn=conn,
+                    )
+                    kids_with_manage_context.append({
+                        **kid,
+                        'optedInDeckCategoryKeys': opted_in_category_keys,
+                        'deckCategoryMetaByKey': category_meta_by_key,
+                    })
+                finally:
+                    if conn is not None:
+                        conn.close()
+            return jsonify(kids_with_manage_context), 200
+
         offline_lock_by_kid = {
             str(entry.get('kid_id') or ''): entry
             for entry in get_locks_for_family(family_id)
@@ -162,6 +188,7 @@ def get_kids():
                         kid,
                         category_meta_by_key=category_meta_by_key,
                         type_iii_category_keys=type_iii_category_keys,
+                        include_ungraded_count=include_admin_review_counts,
                         conn=conn,
                         family_timezone=family_timezone,
                     )
@@ -273,6 +300,49 @@ def get_kids():
                     conn.close()
 
         return jsonify(kids_with_progress), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/type-iii/pending-summary', methods=['GET'])
+def get_type_iii_pending_summary():
+    """Return per-kid Type-III grading pending counts for the current family."""
+    try:
+        family_id = current_family_id()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
+        is_super = is_super_family_id(family_id)
+        all_category_meta_by_key = get_shared_deck_category_meta_by_key()
+        category_meta_by_key = {
+            key: meta
+            for key, meta in all_category_meta_by_key.items()
+            if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
+        }
+        type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
+        rows = []
+        for kid in metadata.get_all_kids(family_id=family_id):
+            kid_id = str(kid.get('id') or '').strip()
+            if not kid_id:
+                continue
+            conn = None
+            try:
+                conn = get_kid_connection_for(kid, read_only=True)
+            except Exception:
+                conn = None
+            try:
+                pending_count = get_kid_ungraded_type_iii_count(
+                    kid,
+                    type_iii_category_keys=type_iii_category_keys,
+                    conn=conn,
+                )
+                rows.append({
+                    'kidId': kid_id,
+                    'pendingCount': int(pending_count or 0),
+                })
+            finally:
+                if conn is not None:
+                    conn.close()
+        return jsonify({'kids': rows}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

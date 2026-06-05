@@ -641,7 +641,7 @@ function getCurrentCategoryDisplayName() {
 // =====================================================================
 
 async function loadKidsAndApplyKidInfo() {
-    const response = await fetch(`${API_BASE}/kids`);
+    const response = await fetch(`${API_BASE}/kids?view=manage_nav`);
     const kids = await response.json().catch(() => []);
     if (!response.ok) {
         const errorMessage = kids && kids.error ? kids.error : `Failed to load kids (HTTP ${response.status})`;
@@ -763,4 +763,3 @@ function applyCategoryUiText() {
     renderDeckSetupSummary();
     updatePageTitle();
 }
-

@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadKidNav() {
     if (!kidNavGroup) return;
     try {
-        const response = await fetch(`${API_BASE}/kids`);
+        const response = await fetch(`${API_BASE}/kids?view=practice_nav`);
         if (!response.ok) return;
         const kids = await response.json();
         cachedKidsForNav = Array.isArray(kids) ? kids : [];

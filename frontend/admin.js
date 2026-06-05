@@ -73,6 +73,7 @@ let offlineSelectionMode = false;
 const offlineSelectedKidIds = new Set();
 let offlineOwnedKidIds = new Set();
 let offAppReviewPendingByKidId = new Map();
+let typeIIIReviewPendingByKidId = new Map();
 
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
@@ -365,10 +366,14 @@ async function loadKids(options = {}) {
         kidsLoaded = true;
         cacheKidsForParentNavigation(currentKids);
         offAppReviewPendingByKidId = new Map();
+        typeIIIReviewPendingByKidId = new Map();
         renderAll();
-        loadOffAppReviewPending().then(() => {
+        Promise.allSettled([
+            loadOffAppReviewPending(),
+            loadTypeIIIReviewPending(),
+        ]).then(() => {
             renderReviewBanner();
-        }).catch(() => {});
+        });
     } catch (error) {
         console.error('Error loading kids:', error);
         if (!usedNavigationCache) {
@@ -403,6 +408,32 @@ async function loadOffAppReviewPending() {
             .filter(Boolean));
     } catch (error) {
         offAppReviewPendingByKidId = new Map();
+    }
+}
+
+async function loadTypeIIIReviewPending() {
+    const list = Array.isArray(currentKids) ? currentKids : [];
+    if (!list.length) {
+        typeIIIReviewPendingByKidId = new Map();
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/kids/type-iii/pending-summary`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.json().catch(() => ({}));
+        const rows = Array.isArray(payload?.kids) ? payload.kids : [];
+        typeIIIReviewPendingByKidId = new Map(rows
+            .map((row) => {
+                const kidId = String(row?.kidId || '').trim();
+                const pendingCount = Number.parseInt(row?.pendingCount, 10);
+                if (!kidId) return null;
+                return [kidId, Number.isInteger(pendingCount) && pendingCount > 0 ? pendingCount : 0];
+            })
+            .filter(Boolean));
+    } catch (error) {
+        typeIIIReviewPendingByKidId = new Map();
     }
 }
 
@@ -654,8 +685,8 @@ function getEffectiveOptedInKeys(kid) {
 function renderReviewBanner() {
     if (!adminReviewBanner) return;
     const list = Array.isArray(currentKids) ? currentKids : [];
-    const totalReviewCount = list.reduce((sum, kid) => {
-        const count = Number.parseInt(kid?.typeIIIToReviewCount, 10);
+    const totalReviewCount = Array.from(typeIIIReviewPendingByKidId.values()).reduce((sum, pendingCount) => {
+        const count = Number.parseInt(pendingCount, 10);
         return sum + (Number.isInteger(count) && count > 0 ? count : 0);
     }, 0);
     const totalOffAppPending = Array.from(offAppReviewPendingByKidId.values()).reduce((sum, pendingCount) => {
@@ -722,16 +753,17 @@ function renderReviewBanner() {
 
 function pickKidWithReviewAudio(kids) {
     const list = Array.isArray(kids) ? kids : [];
+    const hasPending = (kidId) => {
+        const pendingCount = Number.parseInt(typeIIIReviewPendingByKidId.get(String(kidId || '')), 10);
+        return Number.isInteger(pendingCount) && pendingCount > 0;
+    };
     const lastId = readLastViewedKidId();
-    if (lastId) {
-        const lastKid = list.find((kid) => String(kid?.id || '') === lastId);
-        if (lastKid && Number.parseInt(lastKid.typeIIIToReviewCount, 10) > 0) {
-            return lastKid;
-        }
+    if (lastId && hasPending(lastId)) {
+        return list.find((kid) => String(kid?.id || '') === lastId) || null;
     }
     for (let i = list.length - 1; i >= 0; i--) {
         const kid = list[i];
-        if (Number.parseInt(kid?.typeIIIToReviewCount, 10) > 0) {
+        if (hasPending(kid?.id)) {
             return kid;
         }
     }
