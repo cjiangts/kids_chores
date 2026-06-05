@@ -43,6 +43,7 @@ let rules = [];
 let categories = [];
 let kids = [];
 let enabledOffAppRuleIdsByKidId = new Map();
+let offAppOptInsLoaded = false;
 
 function escapeHtml(value) {
     return String(value || '')
@@ -90,18 +91,22 @@ async function loadAll() {
     const [rulesData, categoryData, kidsData] = await Promise.all([
         fetchJson(`${API_BASE}/points/rules?includeInactive=1`),
         fetchJson(`${API_BASE}/shared-decks/categories`),
-        fetchJson(`${API_BASE}/kids?view=admin`),
+        fetchJson(`${API_BASE}/kids?view=reward_nav`),
     ]);
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
     categories = Array.isArray(categoryData.categories) ? categoryData.categories : [];
     kids = Array.isArray(kidsData) ? kidsData : [];
-    await loadOffAppChoreOptIns();
+    offAppOptInsLoaded = false;
+    if (activeRuleKind === 'off_app_chore') {
+        await loadOffAppChoreOptIns();
+    }
     render();
 }
 
 async function loadOffAppChoreOptIns() {
     enabledOffAppRuleIdsByKidId = new Map();
     if (!kids.length) {
+        offAppOptInsLoaded = true;
         return;
     }
     const entries = await Promise.all(kids.map(async (kid) => {
@@ -120,12 +125,25 @@ async function loadOffAppChoreOptIns() {
             enabledOffAppRuleIdsByKidId.set(entry[0], entry[1]);
         }
     });
+    offAppOptInsLoaded = true;
 }
 
-function setActiveRuleKind(kind) {
+async function ensureOffAppOptInsLoaded() {
+    if (offAppOptInsLoaded || activeRuleKind !== 'off_app_chore') {
+        return;
+    }
+    await loadOffAppChoreOptIns();
+}
+
+async function setActiveRuleKind(kind) {
     activeRuleKind = normalizeRuleKind(kind) || 'in_app_chore';
     rememberRuleKind(activeRuleKind);
     showError('');
+    try {
+        await ensureOffAppOptInsLoaded();
+    } catch (error) {
+        showError(error.message || 'Failed to load kid task opt-ins.');
+    }
     render();
 }
 

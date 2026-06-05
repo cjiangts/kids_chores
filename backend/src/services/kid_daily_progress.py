@@ -154,9 +154,40 @@ def get_kid_dashboard_stats(
 
         rows = local_conn.execute(
             """
-            WITH unresolved_counts AS (
+            WITH todays_sessions AS (
+                SELECT
+                    id,
+                    type,
+                    planned_count,
+                    completed_at,
+                    started_at,
+                    CASE
+                        WHEN completed_at IS NOT NULL
+                         AND completed_at >= ?
+                         AND completed_at < ?
+                        THEN 1 ELSE 0
+                    END AS completed_today,
+                    CASE
+                        WHEN started_at IS NOT NULL
+                         AND started_at >= ?
+                         AND started_at < ?
+                        THEN 1 ELSE 0
+                    END AS started_today
+                FROM sessions
+                WHERE (
+                    completed_at IS NOT NULL
+                    AND completed_at >= ?
+                    AND completed_at < ?
+                ) OR (
+                    started_at IS NOT NULL
+                    AND started_at >= ?
+                    AND started_at < ?
+                )
+            ),
+            unresolved_counts AS (
                 SELECT sr.session_id, COUNT(*) AS unresolved_count
                 FROM session_results sr
+                JOIN todays_sessions ts ON ts.id = sr.session_id
                 WHERE sr.card_id IS NOT NULL
                   AND (sr.correct = -1 OR sr.correct = 2)
                 GROUP BY sr.session_id
@@ -166,36 +197,19 @@ def get_kid_dashboard_stats(
                 COALESCE(s.planned_count, 0) AS planned_count,
                 COUNT(sr.id) AS answer_count,
                 COALESCE(uc.unresolved_count, 0) AS unresolved_count,
-                CASE
-                    WHEN s.completed_at IS NOT NULL
-                     AND s.completed_at >= ?
-                     AND s.completed_at < ?
-                    THEN 1 ELSE 0
-                END AS completed_today,
-                CASE
-                    WHEN s.started_at IS NOT NULL
-                     AND s.started_at >= ?
-                     AND s.started_at < ?
-                    THEN 1 ELSE 0
-                END AS started_today
-            FROM sessions s
+                s.completed_today,
+                s.started_today
+            FROM todays_sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
             LEFT JOIN unresolved_counts uc ON uc.session_id = s.id
-            WHERE (
-                s.completed_at IS NOT NULL
-                AND s.completed_at >= ?
-                AND s.completed_at < ?
-            ) OR (
-                s.started_at IS NOT NULL
-                AND s.started_at >= ?
-                AND s.started_at < ?
-            )
             GROUP BY
                 s.id,
                 s.type,
                 s.planned_count,
                 s.completed_at,
                 s.started_at,
+                s.completed_today,
+                s.started_today,
                 uc.unresolved_count
             ORDER BY COALESCE(s.completed_at, s.started_at) ASC, s.id ASC
             """,

@@ -92,7 +92,8 @@ def get_kids():
         if not family_id:
             return jsonify({'error': 'Family login required'}), 401
         view = str(request.args.get('view') or '').strip().lower()
-        is_admin_view = (view == 'admin')
+        is_admin_view = view in ('admin', 'admin_compact')
+        include_admin_category_meta = view != 'admin_compact'
         kids = metadata.get_all_kids(family_id=family_id)
         if view == 'practice_nav':
             return jsonify([
@@ -174,7 +175,7 @@ def get_kids():
                         'optedInDeckCategoryKeys': opted_in_category_keys,
                         'practiceTargetByDeckCategory': practice_target_by_deck_category,
                         'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
-                        'deckCategoryMetaByKey': category_meta_by_key,
+                        **({'deckCategoryMetaByKey': category_meta_by_key} if include_admin_category_meta else {}),
                         'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
                         'familyTimezone': family_timezone,
                     })

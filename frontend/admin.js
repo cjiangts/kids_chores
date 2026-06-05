@@ -57,6 +57,7 @@ const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 let isCreatingKid = false;
 let currentKids = [];
 let kidsLoaded = false;
+let adminCategoryMetaByKey = {};
 let currentFamilyId = '';
 let editMode = false;
 let editState = null;
@@ -242,6 +243,9 @@ function readKidsFromParentNavigationCache() {
         const cachedAtMs = Number(parsed?.cachedAtMs || 0);
         if (!Number.isFinite(cachedAtMs) || cachedAtMs <= 0) return null;
         if ((Date.now() - cachedAtMs) > PARENT_NAV_CACHE_TTL_MS) return null;
+        adminCategoryMetaByKey = (parsed?.categoryMetaByKey && typeof parsed.categoryMetaByKey === 'object')
+            ? parsed.categoryMetaByKey
+            : {};
         return Array.isArray(parsed?.kids) ? parsed.kids : null;
     } catch (error) {
         return null;
@@ -259,11 +263,33 @@ function cacheKidsForParentNavigation(kids) {
         window.sessionStorage.setItem(buildParentNavCacheKey(familyId), JSON.stringify({
             familyId,
             cachedAtMs: Date.now(),
+            categoryMetaByKey: adminCategoryMetaByKey,
             kids: list,
         }));
     } catch (error) {
         // ignore
     }
+}
+
+function buildCategoryMetaByKey(categories) {
+    const output = {};
+    (Array.isArray(categories) ? categories : []).forEach((category) => {
+        const key = normalizeCategoryKey(category?.category_key);
+        if (!key) return;
+        output[key] = {
+            behavior_type: normalizeBehaviorType(category?.behavior_type),
+            has_chinese_specific_logic: Boolean(category?.has_chinese_specific_logic),
+            is_shared_with_non_super_family: Boolean(category?.is_shared_with_non_super_family),
+            display_name: String(category?.display_name || '').trim(),
+            chinese_back_content: String(category?.chinese_back_content || '').trim().toLowerCase(),
+        };
+    });
+    return output;
+}
+
+function getAdminDeckCategoryMetaMap(kid) {
+    const fromKid = getDeckCategoryMetaMap(kid);
+    return Object.keys(fromKid).length > 0 ? fromKid : adminCategoryMetaByKey;
 }
 
 function inferFamilyIdFromKids(kids) {
@@ -322,11 +348,19 @@ async function loadKids(options = {}) {
         if (!usedNavigationCache && adminOptinPanel) {
             adminOptinPanel.classList.add('hidden');
         }
-        const response = await fetch(`${API_BASE}/kids?view=admin`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const [kidsResponse, categoriesResponse] = await Promise.all([
+            fetch(`${API_BASE}/kids?view=admin_compact`),
+            fetch(`${API_BASE}/shared-decks/categories`),
+        ]);
+        if (!kidsResponse.ok) {
+            throw new Error(`HTTP error! status: ${kidsResponse.status}`);
         }
-        const kids = await response.json();
+        if (!categoriesResponse.ok) {
+            throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
+        }
+        const kids = await kidsResponse.json();
+        const categoryData = await categoriesResponse.json().catch(() => ({}));
+        adminCategoryMetaByKey = buildCategoryMetaByKey(categoryData.categories);
         currentKids = Array.isArray(kids) ? kids : [];
         kidsLoaded = true;
         cacheKidsForParentNavigation(currentKids);
@@ -487,7 +521,7 @@ function getCategoryRowsForFamily(kids) {
     const list = Array.isArray(kids) ? kids : [];
     const aggregated = {};
     list.forEach((kid) => {
-        const meta = getDeckCategoryMetaMap(kid);
+        const meta = getAdminDeckCategoryMetaMap(kid);
         Object.entries(meta || {}).forEach(([rawKey, value]) => {
             const key = normalizeCategoryKey(rawKey);
             if (!key) return;
@@ -515,7 +549,7 @@ function buildEditStateFromKids(kids) {
         const kidId = String(kid?.id || '');
         if (!kidId) return;
         const optedInSet = getOptedInDeckCategorySet(kid);
-        const meta = getDeckCategoryMetaMap(kid);
+        const meta = getAdminDeckCategoryMetaMap(kid);
         state[kidId] = {};
         const allKeys = new Set();
         Object.keys(meta || {}).forEach((rawKey) => {
@@ -936,7 +970,7 @@ function buildOfflineLockInfoChipHtml(kid) {
 
 function computeKidDailyProgress(kid) {
     const optedInKeys = Array.from(getOptedInDeckCategorySet(kid));
-    const meta = getDeckCategoryMetaMap(kid);
+    const meta = getAdminDeckCategoryMetaMap(kid);
     const practiceTargets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
     const dailyStarTiers = (kid && typeof kid.dailyStarTiersByDeckCategory === 'object')
         ? kid.dailyStarTiersByDeckCategory || {}
@@ -1482,7 +1516,7 @@ async function openDeckBrowseModal(categoryKey) {
     if (titleEl) {
         const niceLabel = (function () {
             const row = (currentKids || [])
-                .flatMap((kid) => Object.entries(getDeckCategoryMetaMap(kid) || {}))
+                .flatMap((kid) => Object.entries(getAdminDeckCategoryMetaMap(kid) || {}))
                 .find(([key]) => normalizeCategoryKey(key) === normalizeCategoryKey(categoryKey));
             return row ? (getCategoryDisplayName(row[0], { [row[0]]: row[1] }) || categoryKey) : categoryKey;
         })();
