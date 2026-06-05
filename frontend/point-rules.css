@@ -212,10 +212,12 @@
 .point-rule-empty {
     border: 1px dashed #cfd8ef;
     border-radius: var(--control-radius);
-    padding: 1rem;
+    padding: 0.72rem 0.82rem;
     color: #66718f;
-    font-weight: 700;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.62);
+    font-size: 0.86rem;
+    font-weight: 560;
+    line-height: 1.35;
 }
 
 .point-rules-page .error {

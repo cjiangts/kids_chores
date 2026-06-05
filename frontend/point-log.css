@@ -7,14 +7,6 @@
     gap: 0.95rem;
 }
 
-.point-panel-title h2 {
-    margin: 0;
-    color: #1f2950;
-    font-size: 1.05rem;
-    font-weight: 820;
-    line-height: 1.2;
-}
-
 .point-template-list,
 .point-history {
     display: grid;
@@ -275,29 +267,43 @@
 }
 
 .point-panel-title {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.35rem;
     margin-bottom: 0.55rem;
+    color: #6c7794;
 }
 
-.point-panel-title h2 {
-    flex: 1 1 auto;
-    min-width: 0;
+.point-log-page .point-panel-title {
+    display: flex;
+    width: 100%;
+}
+
+.manage-page .settings-section .point-panel-title h2 {
+    margin: 0;
+    margin-bottom: 0;
+    color: inherit;
+    font-size: 0.78rem;
+    font-weight: 560;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+    text-transform: uppercase;
 }
 
 .point-panel-title-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: #f0e9ff;
-    color: #6f55d8;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    line-height: 0;
 }
 
 .point-pull-sessions-btn {
+    margin-left: auto;
     min-height: 34px;
     padding: 0 0.62rem;
     gap: 0.32rem;
@@ -547,10 +553,12 @@
 .point-empty {
     border: 1px dashed #cfd8ef;
     border-radius: 8px;
-    padding: 1rem;
+    padding: 0.72rem 0.82rem;
     color: #66718f;
-    font-weight: 700;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.62);
+    font-size: 0.86rem;
+    font-weight: 560;
+    line-height: 1.35;
 }
 
 .point-log-page .error {
