@@ -11,6 +11,7 @@ from src.services.points import (
     create_family_rule,
     deactivate_family_rule,
     delete_point_event,
+    get_reward_bucket_totals,
     get_point_total,
     list_latest_point_events_today_by_rule,
     list_enabled_off_app_chores,
@@ -22,6 +23,7 @@ from src.services.points import (
     set_enabled_off_app_chores,
     submit_off_app_chore,
     update_family_rule,
+    update_point_event,
 )
 
 points_bp = Blueprint('points', __name__)
@@ -126,17 +128,24 @@ def get_kid_point_totals():
         if not kid_id:
             continue
         kid_conn = None
+        shared_conn = None
         try:
             kid_conn = get_kid_connection_for(kid, read_only=True)
+            shared_conn = get_shared_decks_connection(read_only=True)
             total = get_point_total(kid_conn)
+            reward_bucket_totals = get_reward_bucket_totals(kid_conn, shared_conn, family_id)
         except Exception:
             total = 0
+            reward_bucket_totals = {}
         finally:
+            if shared_conn is not None:
+                shared_conn.close()
             if kid_conn is not None:
                 kid_conn.close()
         rows.append({
             'kidId': kid_id,
             'totalPoints': total,
+            'rewardBucketTotals': reward_bucket_totals,
         })
     return jsonify({'totals': rows}), 200
 
@@ -154,6 +163,7 @@ def get_kid_points(kid_id):
     shared_conn = get_shared_decks_connection(read_only=True)
     try:
         total = get_point_total(kid_conn)
+        reward_bucket_totals = get_reward_bucket_totals(kid_conn, shared_conn, family_id)
         events = list_point_events(kid_conn, shared_conn, family_id, limit=limit)
     finally:
         shared_conn.close()
@@ -161,6 +171,7 @@ def get_kid_points(kid_id):
     return jsonify({
         'kidId': str(kid.get('id') or ''),
         'totalPoints': total,
+        'rewardBucketTotals': reward_bucket_totals,
         'events': events,
     }), 200
 
@@ -179,6 +190,7 @@ def post_kid_point_event(kid_id):
             shared_conn,
             family_id,
             payload.get('ruleId'),
+            points_delta=payload.get('pointsDelta'),
             note=payload.get('note'),
         )
     except ValueError as exc:
@@ -202,6 +214,29 @@ def delete_kid_point_event(kid_id, event_id):
     if not deleted:
         return jsonify({'error': 'Point event not found'}), 404
     return jsonify({'deleted': True, 'eventId': int(event_id)}), 200
+
+
+@points_bp.route('/kids/<kid_id>/points/events/<int:event_id>', methods=['PATCH'])
+def patch_kid_point_event(kid_id, event_id):
+    kid, _family_id, error = _kid_or_response(kid_id)
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    kid_conn = get_kid_connection_for(kid)
+    try:
+        event = update_point_event(
+            kid_conn,
+            event_id,
+            points_delta=payload.get('pointsDelta'),
+            note=payload.get('note'),
+        )
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    finally:
+        kid_conn.close()
+    if not event:
+        return jsonify({'error': 'Point event not found'}), 404
+    return jsonify({'event': event}), 200
 
 
 @points_bp.route('/kids/<kid_id>/points/pull-today-sessions', methods=['POST'])
@@ -375,6 +410,7 @@ def post_kid_off_app_chore_review(kid_id, pending_id):
             family_id,
             pending_id,
             payload.get('rating'),
+            points_delta=payload.get('pointsDelta'),
             note=payload.get('note'),
         )
     except KeyError:

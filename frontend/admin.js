@@ -1,9 +1,9 @@
 /*
  * admin.js — family home page (admin.html).
  *
- * Renders the audio-review banner, the deck-category opt-in matrix
- * with a per-kid daily-progress ring, the "start practice" jump
- * button, edit-mode delete overlay, and the deck-browse modal.
+ * Renders the deck-category opt-in matrix with a per-kid daily-progress
+ * ring, the "start practice" jump button, edit-mode delete overlay, and
+ * the deck-browse modal.
  *
  * Edit mode is the matrix's "rearrange" view: it lets the parent
  * toggle category opt-ins per kid (with debounced saves per row) and
@@ -14,7 +14,7 @@
  *     1. DOM refs + auth + DOMContentLoaded
  *     2. Display helpers (escape, initial, hashing, last-viewed-kid)
  *     3. Kid CRUD + cache + load
- *     4. Audio-review banner
+ *     4. Review helpers
  *     5. Opt-in matrix render
  *     6. Matrix edit mode + per-kid debounced save
  *     7. Per-subject menu
@@ -25,9 +25,11 @@
 const API_BASE = `${window.location.origin}/api`;
 
 // DOM Elements
-const adminReviewBanner = document.getElementById('adminReviewBanner');
 const adminOptinPanel = document.getElementById('adminOptinPanel');
 const adminMatrix = document.getElementById('adminMatrix');
+const adminKidTabs = document.getElementById('adminKidTabs');
+const adminOffAppPanel = document.getElementById('adminOffAppPanel');
+const adminOffAppList = document.getElementById('adminOffAppList');
 const adminEmptyState = document.getElementById('adminEmptyState');
 const getEditToggleBtn = () => document.getElementById('editToggleBtn');
 const kidModal = document.getElementById('kidModal');
@@ -57,6 +59,7 @@ const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 let isCreatingKid = false;
 let currentKids = [];
 let kidsLoaded = false;
+let selectedAdminKidId = '';
 let adminCategoryMetaByKey = {};
 let currentFamilyId = '';
 let editMode = false;
@@ -67,18 +70,22 @@ const inFlightSaves = new Map();
 const savingKids = new Set();
 const KID_AUTOSAVE_DELAY_MS = 450;
 let openSubjectMenuKey = '';
-let isPanelMenuOpen = false;
 let isSuperFamily = false;
-let offlineSelectionMode = false;
-const offlineSelectedKidIds = new Set();
-let offlineOwnedKidIds = new Set();
 let offAppReviewPendingByKidId = new Map();
 let typeIIIReviewPendingByKidId = new Map();
+const adminOffAppByKidId = new Map();
+const adminOffAppLoadingKidIds = new Set();
+const adminOffAppDraftByKey = new Map();
+const adminOffAppSavingKeys = new Set();
+const adminOffAppEditingKeys = new Set();
 
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
 // =====================================================================
 document.addEventListener('DOMContentLoaded', () => {
+    if (typeof window.hydrateIcons === 'function') {
+        window.hydrateIcons(document);
+    }
     loadKids({ preferNavigationCache: true });
     loadAuthStatus();
     bindEvents();
@@ -141,14 +148,11 @@ function bindEvents() {
             const inside = (subjectMenu && subjectMenu.contains(event.target)) || subjectTrigger;
             if (!inside) closeSubjectMenu();
         }
-        if (isPanelMenuOpen) {
-            const panelMenu = document.querySelector('.admin-panel-menu');
-            const panelTrigger = event.target.closest('[data-panel-menu-trigger]');
-            const inside = (panelMenu && panelMenu.contains(event.target)) || panelTrigger;
-            if (!inside) closePanelMenu();
-        }
     });
-    bindOfflineModeEvents();
+    if (adminOffAppPanel) {
+        adminOffAppPanel.addEventListener('click', handleAdminOffAppClick);
+        adminOffAppPanel.addEventListener('input', handleAdminOffAppInput);
+    }
 }
 
 function syncKidFormSaveBtn() {
@@ -492,37 +496,6 @@ async function deleteKid(kidId, kidName) {
     }
 }
 
-async function forceReleaseOfflineLock(kidId, kidName) {
-    const kid = currentKids.find((item) => String(item?.id || '') === String(kidId));
-    const lock = kid && kid.offlineLock;
-    if (!lock || !lock.pack_id) {
-        showError('No active offline lock found for this child.');
-        return;
-    }
-    const deviceLabel = String(lock.device_label || 'the other device');
-    const warning =
-        `This drops ${kidName}'s offline lock so the child can practice online again.\n\n`
-        + `Any unsynced practice results still on "${deviceLabel}" will be discarded `
-        + `next time that device tries to sync. Use this only if that device is lost or unreachable.`;
-    try {
-        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
-            `dropping ${kidName}'s offline pack`,
-            (password) => fetch(`${API_BASE}/kids/${kidId}/offline/force-release`, {
-                method: 'POST',
-                headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
-            }),
-            { warningMessage: warning }
-        );
-        if (result.cancelled) return;
-        if (!result.ok) throw new Error(result.error || 'Failed to drop offline lock.');
-        exitOfflineSelectionMode();
-        await loadKids();
-    } catch (error) {
-        console.error('Error force-releasing offline lock:', error);
-        showError(error.message || 'Failed to drop offline lock. Please try again.');
-    }
-}
-
 async function goToLatestTypeIIIReviewSession(kidId) {
     try {
         showError('');
@@ -599,156 +572,19 @@ function renderAll() {
     renderReviewBanner();
     renderMatrix();
     if (window.KidAppNavigation) {
-        window.KidAppNavigation.setKids(currentKids);
+        if (selectedAdminKidId && typeof window.KidAppNavigation.setKidId === 'function') {
+            window.KidAppNavigation.setKidId(selectedAdminKidId);
+        } else {
+            window.KidAppNavigation.setKids(currentKids);
+        }
     }
-    updateStartPracticeHref();
-    refreshOfflineOwnedAndStats();
-    renderOfflineActionFooter();
-}
-
-function updateStartPracticeHref() {
-    const btn = document.getElementById('startPracticeBtn');
-    if (!btn) return;
-    const list = Array.isArray(currentKids) ? currentKids : [];
-    if (offlineSelectionMode) {
-        // The offline action footer takes over this slot — fully hide the
-        // Start Practice button so it doesn't peek above the footer.
-        btn.classList.add('hidden');
-        btn.setAttribute('aria-hidden', 'true');
-        btn.removeAttribute('href');
-        return;
-    }
-    btn.classList.remove('hidden');
-    btn.removeAttribute('aria-hidden');
-    const eligible = list.filter((kid) => !kid?.offlineLock).filter(kidHasPracticeTarget);
-    if (eligible.length === 0 && list.length > 0 && list.every((k) => k?.offlineLock)) {
-        btn.classList.add('is-disabled');
-        btn.setAttribute('aria-disabled', 'true');
-        btn.removeAttribute('href');
-        btn.title = 'All kids are currently in offline mode.';
-        return;
-    }
-    const targetKidId = pickKidWithPracticeTarget(list.filter((k) => !k?.offlineLock));
-    if (!targetKidId) {
-        btn.classList.add('is-disabled');
-        btn.setAttribute('aria-disabled', 'true');
-        btn.removeAttribute('href');
-        btn.title = list.length === 0
-            ? 'Add a kid first.'
-            : 'Opt in a subject and set cards-per-day above 0 to start practice.';
-        return;
-    }
-    btn.classList.remove('is-disabled');
-    btn.removeAttribute('aria-disabled');
-    btn.removeAttribute('title');
-    btn.href = `/kid-practice-home.html?id=${encodeURIComponent(targetKidId)}`;
-    if (window.KidAppNavigation) {
-        window.KidAppNavigation.setKidId(targetKidId);
-    }
-}
-
-function pickKidWithPracticeTarget(kids) {
-    const list = Array.isArray(kids) ? kids : [];
-    if (list.length === 0) return '';
-    const eligible = list.filter(kidHasPracticeTarget);
-    if (eligible.length === 0) return '';
-    const lastId = readLastViewedKidId();
-    if (lastId && eligible.some((kid) => String(kid?.id || '') === lastId)) {
-        return lastId;
-    }
-    return String(eligible[eligible.length - 1]?.id || '');
-}
-
-function kidHasPracticeTarget(kid) {
-    const effectiveKeys = getEffectiveOptedInKeys(kid);
-    if (effectiveKeys.length === 0) return false;
-    const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
-    for (const key of effectiveKeys) {
-        const target = Number.parseInt(targets?.[key], 10);
-        if (Number.isInteger(target) && target > 0) return true;
-    }
-    return false;
-}
-
-function getEffectiveOptedInKeys(kid) {
-    const kidId = String(kid?.id || '');
-    const stateForKid = editMode && editState ? editState[kidId] : null;
-    if (stateForKid) {
-        return Object.keys(stateForKid).filter((key) => !!stateForKid[key]);
-    }
-    return Array.from(getOptedInDeckCategorySet(kid));
 }
 
 // =====================================================================
-// === 4. Audio-review banner
+// === 4. Review helpers
 // =====================================================================
 function renderReviewBanner() {
-    if (!adminReviewBanner) return;
-    const list = Array.isArray(currentKids) ? currentKids : [];
-    const totalReviewCount = Array.from(typeIIIReviewPendingByKidId.values()).reduce((sum, pendingCount) => {
-        const count = Number.parseInt(pendingCount, 10);
-        return sum + (Number.isInteger(count) && count > 0 ? count : 0);
-    }, 0);
-    const totalOffAppPending = Array.from(offAppReviewPendingByKidId.values()).reduce((sum, pendingCount) => {
-        const count = Number.parseInt(pendingCount, 10);
-        return sum + (Number.isInteger(count) && count > 0 ? count : 0);
-    }, 0);
-    const items = [];
-    if (totalReviewCount > 0) {
-        const noun = totalReviewCount === 1 ? 'audio recording' : 'audio recordings';
-        items.push({
-            kind: 'audio',
-            iconName: 'headphones',
-            text: `${totalReviewCount} ${noun} waiting for review`,
-            cta: 'Review',
-        });
-    }
-    if (totalOffAppPending > 0) {
-        const noun = totalOffAppPending === 1 ? 'off-app chore' : 'off-app chores';
-        items.push({
-            kind: 'off-app',
-            iconName: 'clipboard-check',
-            text: `${totalOffAppPending} ${noun} waiting for confirm`,
-            cta: 'Confirm',
-        });
-    }
-    if (items.length <= 0) {
-        adminReviewBanner.classList.add('hidden');
-        adminReviewBanner.innerHTML = '';
-        return;
-    }
-    adminReviewBanner.classList.remove('hidden');
-    const chevronHtml = icon('chevron-right', { size: 16, strokeWidth: 2.4 });
-    adminReviewBanner.className = 'admin-review-banner-stack';
-    adminReviewBanner.innerHTML = items.map((item) => `
-        <button type="button" class="admin-review-banner" data-review-kind="${escapeHtml(item.kind)}">
-            <span class="admin-review-banner-icon" aria-hidden="true">${icon(item.iconName, { size: 20 })}</span>
-            <span class="admin-review-banner-text">${escapeHtml(item.text)}</span>
-            <span class="admin-review-banner-cta">${escapeHtml(item.cta)} ${chevronHtml}</span>
-        </button>
-    `).join('');
-    adminReviewBanner.onclick = (event) => {
-        const button = event.target.closest('[data-review-kind]');
-        if (!button) return;
-        const reviewKind = button.getAttribute('data-review-kind') || '';
-        if (reviewKind === 'off-app') {
-            const reviewKid = pickKidWithOffAppReview(list);
-            if (!reviewKid) {
-                showError('No off-app chores need confirmation right now.');
-                return;
-            }
-            const kidId = String(reviewKid.id || '');
-            persistLastViewedKidId(kidId);
-            window.location.href = `/point-log.html?kidId=${encodeURIComponent(kidId)}&mode=review`;
-            return;
-        }
-        const reviewKid = pickKidWithReviewAudio(list);
-        if (!reviewKid) {
-            showError('No audio to review right now.');
-            return;
-        }
-        goToLatestTypeIIIReviewSession(reviewKid.id);
-    };
+    // Review shortcuts are intentionally hidden on the redesigned admin home.
 }
 
 function pickKidWithReviewAudio(kids) {
@@ -797,118 +633,510 @@ function renderMatrix() {
     const list = Array.isArray(currentKids) ? currentKids : [];
     if (list.length === 0) {
         adminOptinPanel.classList.add('hidden');
+        renderAdminKidTabs(list);
+        renderAdminOffAppSection(list);
         if (kidsLoaded) adminEmptyState.classList.remove('hidden');
         else adminEmptyState.classList.add('hidden');
         return;
     }
     adminEmptyState.classList.add('hidden');
     adminOptinPanel.classList.remove('hidden');
+    ensureSelectedAdminKidId(list);
+    renderAdminKidTabs(list);
 
     const rows = getCategoryRowsForFamily(list);
     if (rows.length === 0) {
         adminMatrix.innerHTML = `<tbody><tr><td class="admin-empty-state">No subjects available.</td></tr></tbody>`;
+        renderAdminOffAppSection(list);
         const eb = getEditToggleBtn();
         if (eb) eb.disabled = true;
         return;
     }
     adminOptinPanel.classList.toggle('is-editing', editMode);
-    adminOptinPanel.classList.toggle('is-offline-selecting', offlineSelectionMode);
     adminMatrix.classList.toggle('is-editable', editMode);
-    adminMatrix.classList.toggle('is-offline-selecting', offlineSelectionMode);
 
-    const editIconName = editMode ? 'check' : 'pencil';
-    const editIconSvg = (typeof window.icon === 'function') ? window.icon(editIconName, { size: 14 }) : '';
-    const editLabel = editMode ? 'Done' : 'Edit';
-    const editBtnExtraClass = editMode ? ' admin-optin-edit-btn--done' : '';
-    const addKidIconSvg = (typeof window.icon === 'function') ? window.icon('user-round-plus', { size: 14 }) : '';
-    const moreIconSvg = (typeof window.icon === 'function') ? window.icon('more-vertical', { size: 18 }) : '';
-    const addKidBtnHtml = (editMode && !offlineSelectionMode)
-        ? `<button type="button" data-action="add-kid" class="btn-secondary admin-optin-edit-btn admin-optin-edit-btn--add-kid">${addKidIconSvg}<span>Add Kid</span></button>`
-        : '';
-    const panelMenuBtnHtml = (isSuperFamily && !offlineSelectionMode)
-        ? `<button type="button" data-panel-menu-trigger class="admin-panel-menu-btn${editMode ? ' is-hidden' : ''}" ${editMode ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="More options">${moreIconSvg}</button>`
-        : '';
-    let subText;
-    if (offlineSelectionMode) {
-        subText = 'Pick kids for offline practice · packs expire at midnight';
-    } else if (editMode) {
-        subText = 'Tap to toggle · auto-saved';
-    } else {
-        subText = 'Numbers = cards/day · tap a number to manage';
-    }
-    let subClass = 'admin-matrix-title-sub';
-    if (offlineSelectionMode) subClass += ' admin-matrix-title-sub--offline';
-    else if (editMode) subClass += ' admin-matrix-title-sub--edit';
-    const subTextHtml = subText
-        .split(' · ')
-        .map((p) => `<span class="admin-matrix-title-sub-phrase">${escapeHtml(p)}</span>`)
-        .join(' · ');
-    const editToggleHtml = offlineSelectionMode
-        ? ''
-        : `<button id="editToggleBtn" type="button" class="btn-secondary admin-optin-edit-btn${editBtnExtraClass}">
-                ${editIconSvg}<span id="editToggleLabel">${editLabel}</span>
-            </button>`;
-    const sectionHeaderHtml = `
-        <div class="admin-matrix-section-header-text">
-            <span class="admin-matrix-title-main">Subject Settings</span>
-            <span class="${subClass}">${subTextHtml}</span>
-        </div>
-        <div class="admin-matrix-title-actions">
-            ${addKidBtnHtml}
-            ${editToggleHtml}
-        </div>
-    `;
-    document.getElementById('adminMatrixHeader').innerHTML = sectionHeaderHtml;
+    const matrixKids = getSelectedAdminKids(list);
+    const showTodayStatusColumn = matrixKids.length === 1;
     const headerHtml = `
         <thead>
             <tr>
-                <th class="admin-matrix-subject-head"><span class="admin-matrix-subject-head-label"><span class="admin-matrix-subject-head-icon" aria-hidden="true">${(typeof window.icon === 'function') ? window.icon('book-open', { size: 16, strokeWidth: 2 }) : ''}</span>Subjects</span>${panelMenuBtnHtml}</th>
-                ${list.map((kid) => buildKidColumnHeader(kid)).join('')}
+                <th class="admin-matrix-subject-head"><span class="admin-chore-group-title"><span class="admin-chore-group-title-icon" aria-hidden="true">${(typeof window.icon === 'function') ? window.icon('smartphone', { size: 16, strokeWidth: 2 }) : ''}</span>In-App Chores</span></th>
+                ${matrixKids.map((kid) => buildKidColumnHeader(kid)).join('')}
+                ${showTodayStatusColumn ? buildTodayColumnHeader(matrixKids[0]) : ''}
             </tr>
         </thead>
     `;
     const bodyHtml = `
         <tbody>
-            ${rows.map((row) => buildMatrixRow(row, list)).join('')}
+            ${rows.map((row) => buildMatrixRow(row, matrixKids, { showTodayStatusColumn })).join('')}
         </tbody>
     `;
     adminMatrix.innerHTML = headerHtml + bodyHtml;
+    if (typeof window.hydrateIcons === 'function') {
+        window.hydrateIcons(adminMatrix);
+    }
+    renderAdminOffAppSection(list);
 
-    bindMatrixInteractions(rows, list);
+    bindMatrixInteractions(rows, matrixKids);
     if (openSubjectMenuKey) {
         renderSubjectMenu(openSubjectMenuKey);
     }
-    if (isPanelMenuOpen) {
-        renderPanelMenu();
+}
+
+function renderAdminKidTabs(kids) {
+    if (!adminKidTabs) return;
+    if (window.KidAppNavigation && typeof window.KidAppNavigation.renderKidSelector === 'function') {
+        window.KidAppNavigation.renderKidSelector(adminKidTabs, kids, {
+            selectedKidId: selectedAdminKidId,
+            onSelect: (kidId) => {
+                selectedAdminKidId = kidId;
+                persistLastViewedKidId(kidId);
+                renderMatrix();
+            },
+        });
+        return;
     }
+    adminKidTabs.innerHTML = '';
+    adminKidTabs.classList.add('hidden');
+}
+
+function ensureSelectedAdminKidId(kids) {
+    const list = Array.isArray(kids) ? kids : [];
+    if (selectedAdminKidId && list.some((kid) => String(kid?.id || '') === selectedAdminKidId)) {
+        return;
+    }
+    const lastId = readLastViewedKidId();
+    const fallback = list.find((kid) => String(kid?.id || '') === lastId) || list[0];
+    selectedAdminKidId = String(fallback?.id || '');
+}
+
+function getSelectedAdminKids(kids) {
+    const list = Array.isArray(kids) ? kids : [];
+    const selected = list.find((kid) => String(kid?.id || '') === selectedAdminKidId);
+    return selected ? [selected] : list.slice(0, 1);
+}
+
+function normalizeAdminOffAppChorePayload(payload) {
+    const chores = Array.isArray(payload?.chores) ? payload.chores : [];
+    const pendingItems = Array.isArray(payload?.pending) ? payload.pending : [];
+    const pendingByRuleId = new Map();
+    pendingItems.forEach((pending) => {
+        const ruleId = Number.parseInt(pending?.ruleId, 10);
+        if (Number.isInteger(ruleId) && ruleId > 0) {
+            pendingByRuleId.set(ruleId, pending);
+        }
+    });
+    chores.forEach((chore) => {
+        const ruleId = Number.parseInt(chore?.ruleId, 10);
+        if (!Number.isInteger(ruleId) || ruleId <= 0 || pendingByRuleId.has(ruleId)) {
+            return;
+        }
+        if (chore?.pending && typeof chore.pending === 'object') {
+            pendingByRuleId.set(ruleId, chore.pending);
+        }
+    });
+    return { chores, pendingByRuleId };
+}
+
+async function loadAdminOffAppChores(kidId) {
+    const normalizedKidId = String(kidId || '').trim();
+    if (!normalizedKidId || adminOffAppLoadingKidIds.has(normalizedKidId)) return;
+    adminOffAppLoadingKidIds.add(normalizedKidId);
+    try {
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/off-app-chores`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const normalized = normalizeAdminOffAppChorePayload(await response.json());
+        adminOffAppByKidId.set(normalizedKidId, {
+            chores: normalized.chores,
+            pendingByRuleId: normalized.pendingByRuleId,
+            error: '',
+        });
+    } catch (error) {
+        adminOffAppByKidId.set(normalizedKidId, {
+            chores: [],
+            pendingByRuleId: new Map(),
+            error: 'Failed to load off-app chores.',
+        });
+    } finally {
+        adminOffAppLoadingKidIds.delete(normalizedKidId);
+        renderMatrix();
+    }
+}
+
+function renderAdminOffAppIcon(chore) {
+    const emoji = String(chore?.emoji || '').trim();
+    if (emoji) {
+        return `<span class="admin-off-app-emoji" aria-hidden="true">${escapeHtml(emoji)}</span>`;
+    }
+    return (typeof window.icon === 'function') ? window.icon('clipboard-check', { size: 21 }) : '';
+}
+
+function adminOffAppMaxPoint(chore, reviewItem) {
+    const rule = (reviewItem?.rule && typeof reviewItem.rule === 'object') ? reviewItem.rule : chore;
+    const maxPoint = Number.parseInt(rule?.maxPoint, 10);
+    return Number.isInteger(maxPoint) && maxPoint > 0 ? maxPoint : 1;
+}
+
+function clampAdminOffAppPoints(value, maxPoint) {
+    const parsed = Number.parseInt(value, 10);
+    const safeMax = Math.max(1, Number.parseInt(maxPoint, 10) || 1);
+    const safeValue = Number.isInteger(parsed) ? parsed : 1;
+    return Math.min(safeMax, Math.max(1, safeValue));
+}
+
+function adminOffAppReviewKey(reviewKind, id) {
+    const normalizedKind = reviewKind === 'event' ? 'event' : 'pending';
+    const normalizedId = Number.parseInt(id, 10);
+    return Number.isInteger(normalizedId) && normalizedId > 0 ? `${normalizedKind}:${normalizedId}` : '';
+}
+
+function getAdminOffAppDraft(reviewKind, reviewItem, chore) {
+    const key = adminOffAppReviewKey(
+        reviewKind,
+        reviewKind === 'event' ? reviewItem?.eventId : reviewItem?.pendingId,
+    );
+    if (key && adminOffAppDraftByKey.has(key)) {
+        return adminOffAppDraftByKey.get(key);
+    }
+    const maxPoint = adminOffAppMaxPoint(chore, reviewItem);
+    const eventPoints = Number.parseInt(reviewItem?.pointsDelta, 10);
+    const initialPoints = clampAdminOffAppPoints(
+        Number.isInteger(eventPoints) ? eventPoints : maxPoint,
+        maxPoint,
+    );
+    const initialNote = String(reviewItem?.note || '');
+    const draft = {
+        pointsDelta: initialPoints,
+        note: initialNote,
+        initialPointsDelta: initialPoints,
+        initialNote,
+        maxPoint,
+        isNewReview: reviewKind !== 'event',
+    };
+    if (key) adminOffAppDraftByKey.set(key, draft);
+    return draft;
+}
+
+function setAdminOffAppDraftValue(reviewKey, patch) {
+    const key = String(reviewKey || '');
+    if (!key) return null;
+    const previous = adminOffAppDraftByKey.get(key) || { pointsDelta: 0, note: '' };
+    const next = { ...previous, ...(patch || {}) };
+    if (Object.prototype.hasOwnProperty.call(patch || {}, 'pointsDelta')) {
+        next.pointsDelta = clampAdminOffAppPoints(next.pointsDelta, next.maxPoint);
+    }
+    adminOffAppDraftByKey.set(key, next);
+    return next;
+}
+
+function isAdminOffAppDraftDirty(draft) {
+    if (!draft) return false;
+    if (draft.isNewReview) return true;
+    const currentPoints = Number.parseInt(draft.pointsDelta, 10);
+    const initialPoints = Number.parseInt(draft.initialPointsDelta, 10);
+    return currentPoints !== initialPoints || String(draft.note || '') !== String(draft.initialNote || '');
+}
+
+function buildAdminOffAppActionButtonContent(isDirty) {
+    const iconName = isDirty ? 'check' : 'x';
+    const label = isDirty ? 'Save' : 'Cancel';
+    const iconHtml = (typeof window.icon === 'function') ? window.icon(iconName, { size: 15, strokeWidth: 2.7 }) : '';
+    return `${iconHtml}<span>${label}</span>`;
+}
+
+function updateAdminOffAppSaveButtonState(reviewKey) {
+    const key = String(reviewKey || '');
+    if (!key || !adminOffAppPanel) return;
+    const draft = adminOffAppDraftByKey.get(key);
+    const button = adminOffAppPanel.querySelector(`[data-off-app-grade-submit][data-review-key="${key}"]`);
+    if (!button) return;
+    const isSaving = adminOffAppSavingKeys.has(key);
+    const isDirty = isAdminOffAppDraftDirty(draft);
+    button.disabled = isSaving;
+    button.classList.toggle('admin-off-app-grade-btn--cancel', !isDirty && !isSaving);
+    button.setAttribute('aria-label', isDirty ? 'Save off-app chore grade' : 'Cancel editing off-app chore grade');
+    button.innerHTML = buildAdminOffAppActionButtonContent(isDirty);
+}
+
+function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
+    const id = reviewKind === 'event'
+        ? Number.parseInt(reviewItem?.eventId, 10)
+        : Number.parseInt(reviewItem?.pendingId, 10);
+    const reviewKey = adminOffAppReviewKey(reviewKind, id);
+    if (!reviewKey) {
+        return '<span class="admin-off-app-status admin-off-app-status--pending">Reviewing</span>';
+    }
+    const draft = getAdminOffAppDraft(reviewKind, reviewItem, chore);
+    const note = String(draft?.note || '');
+    const isSaving = adminOffAppSavingKeys.has(reviewKey);
+    const isDirty = isAdminOffAppDraftDirty(draft);
+    return `
+        <div class="admin-off-app-grade" data-off-app-review-key="${escapeHtml(reviewKey)}" data-off-app-review-kind="${escapeHtml(reviewKind)}">
+            <input class="admin-off-app-note-input" type="text" value="${escapeHtml(note)}" placeholder="Note" data-off-app-note-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Note for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
+            <button type="button" class="admin-off-app-grade-btn${!isDirty && !isSaving ? ' admin-off-app-grade-btn--cancel' : ''}" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="${isDirty ? 'Save off-app chore grade' : 'Cancel editing off-app chore grade'}"${isSaving ? ' disabled' : ''}>
+                ${buildAdminOffAppActionButtonContent(isDirty)}
+            </button>
+        </div>
+    `;
+}
+
+function buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) {
+    const id = reviewKind === 'event'
+        ? Number.parseInt(reviewItem?.eventId, 10)
+        : Number.parseInt(reviewItem?.pendingId, 10);
+    const reviewKey = adminOffAppReviewKey(reviewKind, id);
+    if (!reviewKey) return '';
+    const draft = getAdminOffAppDraft(reviewKind, reviewItem, chore);
+    const points = Number.parseInt(draft?.pointsDelta, 10);
+    const maxPoint = Number.parseInt(draft?.maxPoint, 10) || adminOffAppMaxPoint(chore, reviewItem);
+    const isSaving = adminOffAppSavingKeys.has(reviewKey);
+    const safePoints = clampAdminOffAppPoints(points, maxPoint);
+    return `
+        <div class="admin-off-app-point-stepper" aria-label="Points" data-off-app-review-key="${escapeHtml(reviewKey)}">
+            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="-1" data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Decrease points"${(isSaving || safePoints <= 1) ? ' disabled' : ''}>-</button>
+            <input class="admin-off-app-points-input" type="number" inputmode="numeric" min="1" max="${maxPoint}" value="${safePoints}" data-off-app-points-input data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Points for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
+            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="1" data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Increase points"${(isSaving || safePoints >= maxPoint) ? ' disabled' : ''}>+</button>
+        </div>
+    `;
+}
+
+function formatAdminOffAppPillPoints(points) {
+    const value = Number.parseInt(points, 10);
+    return Number.isInteger(value) ? String(value) : '0';
+}
+
+function buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem) {
+    const id = reviewKind === 'event'
+        ? Number.parseInt(reviewItem?.eventId, 10)
+        : Number.parseInt(reviewItem?.pendingId, 10);
+    const reviewKey = adminOffAppReviewKey(reviewKind, id);
+    if (!reviewKey) {
+        return '<span class="admin-off-app-status admin-off-app-status--pending">Reviewing</span>';
+    }
+    const draft = getAdminOffAppDraft(reviewKind, reviewItem, chore);
+    const points = formatAdminOffAppPillPoints(draft?.pointsDelta);
+    const isSaving = adminOffAppSavingKeys.has(reviewKey);
+    const checkHtml = (typeof window.icon === 'function') ? window.icon('check', { size: 15, strokeWidth: 2.8 }) : '';
+    const reviewHtml = (typeof window.icon === 'function') ? window.icon('clipboard-check', { size: 15, strokeWidth: 2.5 }) : '';
+    const editHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 13, strokeWidth: 2.5 }) : '';
+    const taskName = String(chore?.name || 'task');
+    const isPendingReview = reviewKind === 'pending';
+    const mainContent = isPendingReview
+        ? `${reviewHtml}<span>Review</span>`
+        : `${checkHtml}<span>${escapeHtml(points)}</span>`;
+    return `
+        <button type="button" class="admin-off-app-result-pill${isPendingReview ? ' is-review' : ' is-credited'}${isSaving ? ' is-saving' : ''}" data-off-app-edit data-review-key="${escapeHtml(reviewKey)}" aria-label="${isPendingReview ? `Review ${escapeHtml(taskName)}` : `Edit ${escapeHtml(points)} points for ${escapeHtml(taskName)}`}"${isSaving ? ' disabled' : ''}>
+            <span class="admin-off-app-result-pill-main">${mainContent}</span>
+            <span class="admin-off-app-result-pill-edit" aria-hidden="true">
+                ${editHtml}
+            </span>
+        </button>
+    `;
+}
+
+function buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) {
+    const draft = getAdminOffAppDraft(reviewKind, reviewItem, chore);
+    const note = String(draft?.note || '').trim();
+    if (!note) return '';
+    return `<span class="admin-off-app-note-preview">${escapeHtml(note)}</span>`;
+}
+
+function buildAdminOffAppStatusHtml(chore, pending, kidId) {
+    const creditedEvent = chore?.creditedEvent && typeof chore.creditedEvent === 'object'
+        ? chore.creditedEvent
+        : null;
+    if (chore?.creditedToday || creditedEvent) {
+        return buildAdminOffAppGradeFormHtml(chore, 'event', creditedEvent || chore?.creditedEvent);
+    }
+    if (pending) {
+        return buildAdminOffAppGradeFormHtml(chore, 'pending', pending);
+    }
+    const readyHtml = (typeof window.icon === 'function') ? window.icon('clipboard-check', { size: 15, strokeWidth: 2.4 }) : '';
+    return `<span class="admin-off-app-status admin-off-app-status--ready">${readyHtml}<span>Not Started</span></span>`;
+}
+
+function buildAdminOffAppRow(chore, state, kidId) {
+    const ruleId = Number.parseInt(chore?.ruleId, 10);
+    if (!Number.isInteger(ruleId) || ruleId <= 0) return '';
+    const name = String(chore?.name || '').trim() || 'Task';
+    const pending = state.pendingByRuleId.get(ruleId) || null;
+    const creditedEvent = chore?.creditedEvent && typeof chore.creditedEvent === 'object' ? chore.creditedEvent : null;
+    const reviewKind = pending ? 'pending' : (chore?.creditedToday || creditedEvent ? 'event' : '');
+    const reviewItem = pending || creditedEvent || null;
+    const isReviewable = Boolean(reviewKind && reviewItem);
+    const reviewId = reviewKind === 'event'
+        ? Number.parseInt(reviewItem?.eventId, 10)
+        : Number.parseInt(reviewItem?.pendingId, 10);
+    const reviewKey = isReviewable ? adminOffAppReviewKey(reviewKind, reviewId) : '';
+    const isEditing = Boolean(reviewKey && adminOffAppEditingKeys.has(reviewKey));
+    return `
+        <div class="admin-off-app-row${isReviewable ? ' is-reviewable' : ''}${isEditing ? ' is-editing' : ''}" data-off-app-rule-id="${ruleId}">
+            <span class="admin-off-app-tile" aria-hidden="true">${renderAdminOffAppIcon(chore)}</span>
+            <span class="admin-off-app-title-wrap">
+                <span class="admin-off-app-name">${escapeHtml(name)}</span>
+                ${isReviewable && !isEditing ? buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) : ''}
+            </span>
+            ${isReviewable && isEditing ? buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) : ''}
+            ${isReviewable
+                ? (isEditing ? buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) : buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem))
+                : buildAdminOffAppStatusHtml(chore, pending, kidId)}
+        </div>
+    `;
+}
+
+function handleAdminOffAppInput(event) {
+    const target = event.target;
+    if (!target || !target.matches) return;
+    const reviewKey = target.getAttribute('data-review-key') || '';
+    if (target.matches('[data-off-app-points-input]')) {
+        const maxPoint = Number.parseInt(target.getAttribute('data-max-point'), 10) || 1;
+        const points = clampAdminOffAppPoints(target.value, maxPoint);
+        target.value = String(points);
+        setAdminOffAppDraftValue(reviewKey, { pointsDelta: points });
+        updateAdminOffAppSaveButtonState(reviewKey);
+        return;
+    }
+    if (target.matches('[data-off-app-note-input]')) {
+        setAdminOffAppDraftValue(reviewKey, { note: target.value || '' });
+        updateAdminOffAppSaveButtonState(reviewKey);
+    }
+}
+
+function handleAdminOffAppClick(event) {
+    const target = event.target && event.target.closest
+        ? event.target.closest('[data-off-app-edit], [data-off-app-point-step], [data-off-app-grade-submit]')
+        : null;
+    if (!target) return;
+    const reviewKey = target.getAttribute('data-review-key') || '';
+    if (target.hasAttribute('data-off-app-edit')) {
+        adminOffAppEditingKeys.add(reviewKey);
+        renderAdminOffAppSection(currentKids);
+        return;
+    }
+    if (target.hasAttribute('data-off-app-point-step')) {
+        const step = Number.parseInt(target.getAttribute('data-off-app-point-step'), 10);
+        const maxPoint = Number.parseInt(target.getAttribute('data-max-point'), 10) || 1;
+        const row = target.closest('.admin-off-app-row');
+        const input = row?.querySelector('[data-off-app-points-input]');
+        const current = Number.parseInt(input?.value, 10);
+        const nextPoints = clampAdminOffAppPoints(
+            (Number.isInteger(current) ? current : maxPoint) + (Number.isInteger(step) ? step : 0),
+            maxPoint,
+        );
+        if (input) input.value = String(nextPoints);
+        setAdminOffAppDraftValue(reviewKey, { pointsDelta: nextPoints });
+        updateAdminOffAppSaveButtonState(reviewKey);
+        renderAdminOffAppSection(currentKids);
+        return;
+    }
+    if (target.hasAttribute('data-off-app-grade-submit')) {
+        const draft = adminOffAppDraftByKey.get(reviewKey);
+        if (!isAdminOffAppDraftDirty(draft)) {
+            adminOffAppEditingKeys.delete(reviewKey);
+            renderAdminOffAppSection(currentKids);
+            return;
+        }
+        void submitAdminOffAppGrade(reviewKey);
+    }
+}
+
+async function submitAdminOffAppGrade(reviewKey) {
+    const normalizedReviewKey = String(reviewKey || '');
+    const [reviewKind, rawId] = normalizedReviewKey.split(':');
+    const reviewId = String(Number.parseInt(rawId, 10) || '');
+    const selectedKid = getSelectedAdminKids(currentKids)[0] || null;
+    const kidId = String(selectedKid?.id || '').trim();
+    if (!kidId || !reviewId || adminOffAppSavingKeys.has(normalizedReviewKey)) {
+        return;
+    }
+    const draft = adminOffAppDraftByKey.get(normalizedReviewKey) || { pointsDelta: 0, note: '' };
+    const maxPoint = Number.parseInt(draft.maxPoint, 10) || 1;
+    const pointsDelta = clampAdminOffAppPoints(draft.pointsDelta, maxPoint);
+    if (!Number.isInteger(pointsDelta) || pointsDelta <= 0) {
+        showError('Enter a positive point value before grading.');
+        return;
+    }
+    adminOffAppSavingKeys.add(normalizedReviewKey);
+    renderAdminOffAppSection(currentKids);
+    try {
+        const isEventUpdate = reviewKind === 'event';
+        const url = isEventUpdate
+            ? `${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events/${encodeURIComponent(reviewId)}`
+            : `${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores/pending/${encodeURIComponent(reviewId)}/review`;
+        const response = await fetch(url, {
+            method: isEventUpdate ? 'PATCH' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pointsDelta,
+                note: String(draft.note || '').trim(),
+            }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        adminOffAppDraftByKey.delete(normalizedReviewKey);
+        adminOffAppEditingKeys.delete(normalizedReviewKey);
+        adminOffAppByKidId.delete(kidId);
+        await loadAdminOffAppChores(kidId);
+        showError('');
+    } catch (error) {
+        showError(error.message || 'Failed to save off-app chore grade.');
+    } finally {
+        adminOffAppSavingKeys.delete(normalizedReviewKey);
+        renderAdminOffAppSection(currentKids);
+    }
+}
+
+function renderAdminOffAppSection(kids) {
+    if (!adminOffAppPanel || !adminOffAppList) return;
+    const selectedKid = getSelectedAdminKids(kids)[0] || null;
+    const kidId = String(selectedKid?.id || '').trim();
+    if (!kidId) {
+        adminOffAppPanel.classList.add('hidden');
+        adminOffAppList.innerHTML = '';
+        return;
+    }
+    adminOffAppPanel.classList.remove('hidden');
+    const state = adminOffAppByKidId.get(kidId);
+    if (!state) {
+        adminOffAppList.innerHTML = '<div class="admin-off-app-empty">Loading off-app chores...</div>';
+        void loadAdminOffAppChores(kidId);
+        return;
+    }
+    if (state.error) {
+        adminOffAppList.innerHTML = `<div class="admin-off-app-empty">${escapeHtml(state.error)}</div>`;
+        return;
+    }
+    const chores = Array.isArray(state.chores)
+        ? state.chores.filter((chore) => chore && chore.isActive !== false)
+        : [];
+    if (chores.length <= 0) {
+        adminOffAppList.innerHTML = '<div class="admin-off-app-empty">No off-app chores enabled.</div>';
+        return;
+    }
+    adminOffAppList.innerHTML = chores.map((chore) => buildAdminOffAppRow(chore, state, kidId)).join('');
 }
 
 function buildKidColumnHeader(kid) {
     const kidId = String(kid?.id || '');
     const name = String(kid?.name || '');
+    if (!editMode) {
+        return `
+            <th class="admin-matrix-kid-head admin-matrix-cards-head" data-kid-id="${escapeHtml(kidId)}">
+                <span class="admin-matrix-column-head-label">Cards/day</span>
+            </th>
+        `;
+    }
     const initial = getKidInitial(name);
     const tone = hashStringToIndex(kidId || name, KID_AVATAR_TONE_COUNT);
     const savingClass = savingKids.has(kidId) ? ' is-saving' : '';
-    const offlineLocked = Boolean(kid?.offlineLock);
-    const offlineSelected = offlineSelectionMode && offlineSelectedKidIds.has(kidId);
-    const offlineLockClass = offlineLocked ? ' is-offline-locked' : '';
-    const offlineSelectClass = offlineSelected ? ' is-offline-selected' : '';
     const progress = computeKidDailyProgress(kid);
     const ringSegmentsHtml = buildKidRingSegmentsHtml(progress);
     const reportHref = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
-    const offlineInfoHtml = (offlineSelectionMode && offlineLocked) ? buildOfflineLockInfoChipHtml(kid) : '';
     let avatarContentHtml;
     let avatarModeClass = '';
-    if (offlineLocked) {
-        avatarContentHtml = icon('cloud-off', { size: 16, strokeWidth: 2.5 });
-        avatarModeClass = ' admin-matrix-kid-avatar--mode-locked';
-    } else if (offlineSelectionMode && offlineSelected) {
-        avatarContentHtml = icon('check', { size: 16, strokeWidth: 3 });
-        avatarModeClass = ' admin-matrix-kid-avatar--mode-select-checked';
-    } else if (offlineSelectionMode) {
-        avatarContentHtml = '';
-        avatarModeClass = ' admin-matrix-kid-avatar--mode-select-empty';
-    } else if (editMode) {
+    if (editMode) {
         avatarContentHtml = icon('trash', { size: 16, strokeWidth: 2 });
         avatarModeClass = ' admin-matrix-kid-avatar--mode-delete';
     } else {
@@ -925,34 +1153,12 @@ function buildKidColumnHeader(kid) {
         <span class="admin-matrix-kid-name">${escapeHtml(name)}</span>
     `;
     let interactiveHtml;
-    if (offlineSelectionMode) {
-        if (offlineLocked) {
-            interactiveHtml = `
-                <span class="admin-matrix-kid-head-btn">
-                    ${avatarHtml}
-                </span>
-            `;
-        } else {
-            interactiveHtml = `
-                <button type="button" class="admin-matrix-kid-head-btn" data-offline-kid-toggle data-kid-id="${escapeHtml(kidId)}" aria-pressed="${offlineSelected ? 'true' : 'false'}" aria-label="${offlineSelected ? 'Unselect' : 'Select'} ${escapeHtml(name)} for offline">
-                    ${avatarHtml}
-                </button>
-            `;
-        }
-    } else if (editMode) {
-        if (offlineLocked) {
-            interactiveHtml = `
-                <span class="admin-matrix-kid-head-btn">
-                    ${avatarHtml}
-                </span>
-            `;
-        } else {
-            interactiveHtml = `
-                <button type="button" class="admin-matrix-kid-head-btn" data-kid-delete data-kid-id="${escapeHtml(kidId)}" aria-label="Delete ${escapeHtml(name)}">
-                    ${avatarHtml}
-                </button>
-            `;
-        }
+    if (editMode) {
+        interactiveHtml = `
+            <button type="button" class="admin-matrix-kid-head-btn" data-kid-delete data-kid-id="${escapeHtml(kidId)}" aria-label="Delete ${escapeHtml(name)}">
+                ${avatarHtml}
+            </button>
+        `;
     } else {
         interactiveHtml = `
             <a href="${escapeHtml(reportHref)}" class="admin-matrix-kid-head-btn" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} — today's report">
@@ -961,43 +1167,10 @@ function buildKidColumnHeader(kid) {
         `;
     }
     return `
-        <th class="admin-matrix-kid-head${savingClass}${offlineLockClass}${offlineSelectClass}" data-kid-id="${escapeHtml(kidId)}">
+        <th class="admin-matrix-kid-head${savingClass}" data-kid-id="${escapeHtml(kidId)}">
             ${interactiveHtml}
-            ${offlineInfoHtml}
         </th>
     `;
-}
-
-function buildOfflineLockInfoChipHtml(kid) {
-    const kidId = String(kid?.id || '');
-    const lock = kid?.offlineLock || {};
-    const device = String(lock.device_label || 'Another device');
-    const familyTz = kid?.familyTimezone || '';
-    const timeText = (window.OfflineCommon && typeof window.OfflineCommon.formatHourMinute === 'function')
-        ? window.OfflineCommon.formatHourMinute(lock.acquired_at_utc, familyTz)
-        : '';
-    const totalBytes = Number(lock.pack_total_bytes);
-    const totalFiles = Number(lock.pack_total_file_count);
-    const audioCount = Number(lock.pack_audio_file_count);
-    const lines = [];
-    lines.push(`<div class="admin-matrix-kid-offline-info-device">${escapeHtml(device)}</div>`);
-    if (timeText) lines.push(`<div class="admin-matrix-kid-offline-info-meta">${escapeHtml(timeText)}</div>`);
-    if (Number.isFinite(totalBytes) && totalBytes > 0) {
-        lines.push(`<div class="admin-matrix-kid-offline-info-meta">${escapeHtml(formatBytesShort(totalBytes))}</div>`);
-    }
-    if (Number.isFinite(totalFiles) && totalFiles > 0) {
-        lines.push(`<div class="admin-matrix-kid-offline-info-meta">${totalFiles} file${totalFiles === 1 ? '' : 's'}</div>`);
-    }
-    if (Number.isFinite(audioCount) && audioCount > 0) {
-        lines.push(`<div class="admin-matrix-kid-offline-info-meta">${audioCount} audio</div>`);
-    }
-    const ownedHere = offlineOwnedKidIds.has(kidId);
-    if (ownedHere) {
-        lines.push(`<a class="admin-matrix-kid-offline-info-resume" href="/kid-practice-home.html?id=${encodeURIComponent(kidId)}" data-offline-resume>${(typeof window.icon === 'function') ? window.icon('cloud-off', { size: 11 }) : ''}<span>Resume</span></a>`);
-    }
-    const safeName = String(kid?.name || '').trim() || 'this child';
-    lines.push(`<button type="button" class="admin-matrix-kid-offline-info-release" data-offline-force-release data-kid-id="${escapeHtml(kidId)}" aria-label="Force-release offline lock for ${escapeHtml(safeName)}">${(typeof window.icon === 'function') ? window.icon('trash', { size: 14, strokeWidth: 2 }) : ''}</button>`);
-    return `<div class="admin-matrix-kid-offline-info">${lines.join('')}</div>`;
 }
 
 function computeKidDailyProgress(kid) {
@@ -1042,9 +1215,26 @@ function buildKidRingSegmentsHtml({ total, complete, inProgress }) {
     return segments.join('');
 }
 
-function buildMatrixRow(row, kids) {
+function buildTodayColumnHeader(kid) {
+    const kidId = String(kid?.id || '');
+    const name = String(kid?.name || '').trim() || 'this child';
+    const href = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
+    const iconHtml = (typeof window.icon === 'function') ? window.icon('external-link', { size: 11, strokeWidth: 2.5 }) : '';
+    return `
+        <th class="admin-matrix-status-head">
+            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-today-head-link" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} today's report">
+                <span class="admin-matrix-column-head-icon" aria-hidden="true">${iconHtml}</span>
+                <span class="admin-matrix-column-head-label">Today</span>
+            </a>
+        </th>
+    `;
+}
+
+function buildMatrixRow(row, kids, options = {}) {
     const subjectIconHtml = renderCategorySubjectIcon(row.categoryKey, { size: 36 });
     const cellsHtml = kids.map((kid) => buildMatrixCell(row, kid)).join('');
+    const showTodayStatusColumn = Boolean(options?.showTodayStatusColumn);
+    const todayStatusCellHtml = showTodayStatusColumn ? buildTodayStatusCell(row, kids[0]) : '';
     const showSubjectMenu = isSuperFamily;
     const moreIconHtml = (showSubjectMenu && typeof window.icon === 'function') ? window.icon('more-vertical', { size: 16 }) : '';
     const subjectMenuBtnHtml = showSubjectMenu
@@ -1060,46 +1250,86 @@ function buildMatrixRow(row, kids) {
                 </div>
             </th>
             ${cellsHtml}
+            ${todayStatusCellHtml}
         </tr>
     `;
 }
 
+function buildTodayStatusCell(row, kid) {
+    const kidId = String(kid?.id || '');
+    if (!getEffectiveKidCategoryOptedIn(kid, row.categoryKey)) {
+        return '<td class="admin-matrix-status-cell"></td>';
+    }
+    const statusMap = (kid && typeof kid.todaySessionStatusByDeckCategory === 'object')
+        ? kid.todaySessionStatusByDeckCategory || {}
+        : {};
+    const statusInfo = statusMap[row.categoryKey] || {};
+    const rawStatus = String(statusInfo.status || 'not_started').trim().toLowerCase();
+    const status = rawStatus === 'done' || rawStatus === 'in_progress' ? rawStatus : 'not_started';
+    const labelByStatus = {
+        not_started: 'Not started',
+        in_progress: 'In progress',
+        done: 'Done',
+    };
+    const wrongCount = Math.max(0, Number.parseInt(statusInfo.wrongCount ?? statusInfo.wrong_count, 10) || 0);
+    const label = status === 'done'
+        ? `Done · ${wrongCount} wrong`
+        : (labelByStatus[status] || labelByStatus.not_started);
+    const sessionId = Number.parseInt(statusInfo.sessionId ?? statusInfo.session_id, 10);
+    const className = `admin-matrix-status admin-matrix-status--${status}`;
+    if (Number.isInteger(sessionId) && sessionId > 0) {
+        const href = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(sessionId)}`;
+        return `<td class="admin-matrix-status-cell"><a href="${escapeHtml(href)}" class="${className} admin-matrix-status--link" data-session-link data-kid-id="${escapeHtml(kidId)}">${escapeHtml(label)}</a></td>`;
+    }
+    return `<td class="admin-matrix-status-cell"><span class="${className}">${escapeHtml(label)}</span></td>`;
+}
+
+function buildRowOptInCheckbox(row, kid) {
+    const kidId = String(kid?.id || '');
+    const optedIn = getEffectiveKidCategoryOptedIn(kid, row.categoryKey);
+    const label = optedIn ? 'Opt out' : 'Opt in';
+    return `
+        <button type="button" role="checkbox" class="admin-matrix-row-check${optedIn ? ' is-checked' : ''}" data-row-opt-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-checked="${optedIn ? 'true' : 'false'}" aria-label="${label} ${escapeHtml(row.displayName)}">
+            <span class="admin-matrix-row-check-box" aria-hidden="true">${optedIn && typeof window.icon === 'function' ? window.icon('check', { size: 13, strokeWidth: 3 }) : ''}</span>
+        </button>
+    `;
+}
+
+function getEffectiveKidCategoryOptedIn(kid, categoryKey) {
+    const kidId = String(kid?.id || '');
+    const key = String(categoryKey || '');
+    if (editState && editState[kidId] && Object.prototype.hasOwnProperty.call(editState[kidId], key)) {
+        return !!editState[kidId][key];
+    }
+    return getOptedInDeckCategorySet(kid).has(key);
+}
+
 function buildMatrixCell(row, kid) {
     const kidId = String(kid?.id || '');
-    const optedInSet = getOptedInDeckCategorySet(kid);
-    const baselineOptedIn = optedInSet.has(row.categoryKey);
-    const stateOptedIn = editState && editState[kidId] ? !!editState[kidId][row.categoryKey] : baselineOptedIn;
-    const optedIn = editMode ? stateOptedIn : baselineOptedIn;
-    const offlineLocked = Boolean(kid?.offlineLock);
-    const offlineSelected = offlineSelectionMode && offlineSelectedKidIds.has(kidId);
-
-    if (offlineSelectionMode) {
-        const classes = ['admin-matrix-cell'];
-        if (offlineLocked) classes.push('is-offline-locked');
-        else if (offlineSelected) classes.push('is-offline-selected');
-        const valClasses = ['admin-matrix-value', 'is-offline-onoff'];
-        if (!optedIn) valClasses.push('is-off');
-        const label = optedIn ? 'On' : 'Off';
-        return `<td class="${classes.join(' ')}"><span class="${valClasses.join(' ')}">${label}</span></td>`;
-    }
+    const baselineOptedIn = getEffectiveKidCategoryOptedIn(kid, row.categoryKey);
+    const optedIn = baselineOptedIn;
+    const rowCheckboxHtml = buildRowOptInCheckbox(row, kid);
 
     if (!editMode) {
         if (!baselineOptedIn) {
-            return `<td class="admin-matrix-cell"><span class="admin-matrix-value is-off">Off</span></td>`;
+            return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap">${rowCheckboxHtml}<span class="admin-matrix-value is-off">Off</span></div></td>`;
         }
         const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
         const cardsPerDay = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
         const params = new URLSearchParams({ id: kidId, categoryKey: row.categoryKey });
         const href = `/kid-card-manage.html?${params.toString()}`;
-        const chevronHtml = (typeof window.icon === 'function') ? window.icon('chevron-right', { size: 12, strokeWidth: 2.5 }) : '';
-        return `<td class="admin-matrix-cell"><a class="admin-matrix-value admin-matrix-value--link" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${chevronHtml}</span></a></td>`;
+        const editIconHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 12, strokeWidth: 2.5 }) : '';
+        return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap">${rowCheckboxHtml}<a class="admin-matrix-value admin-matrix-value--link" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a></div></td>`;
     }
 
     const valueClass = optedIn ? 'admin-matrix-value' : 'admin-matrix-value is-off';
     const label = optedIn ? 'On' : 'Off';
     return `
         <td class="admin-matrix-cell">
-            <button type="button" class="${valueClass}" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-pressed="${optedIn ? 'true' : 'false'}">${label}</button>
+            <div class="admin-matrix-value-wrap">
+                ${rowCheckboxHtml}
+                <button type="button" class="${valueClass}" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-pressed="${optedIn ? 'true' : 'false'}">${label}</button>
+            </div>
         </td>
     `;
 }
@@ -1114,7 +1344,22 @@ function bindMatrixInteractions(rows, kids) {
             toggleCellOptedIn(kidId, categoryKey);
         });
     });
+    adminMatrix.querySelectorAll('[data-row-opt-toggle]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const target = event.currentTarget;
+            const kidId = target.getAttribute('data-kid-id') || '';
+            const categoryKey = target.getAttribute('data-category-key') || '';
+            toggleKidCategoryOptedIn(kidId, categoryKey);
+        });
+    });
     adminMatrix.querySelectorAll('[data-cell-link]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            persistLastViewedKidId(event.currentTarget.getAttribute('data-kid-id') || '');
+        });
+    });
+    adminMatrix.querySelectorAll('[data-session-link]').forEach((link) => {
         link.addEventListener('click', (event) => {
             persistLastViewedKidId(event.currentTarget.getAttribute('data-kid-id') || '');
         });
@@ -1147,43 +1392,23 @@ function bindMatrixInteractions(rows, kids) {
             deleteKid(kidId, name);
         });
     });
-    adminMatrix.querySelectorAll('[data-offline-force-release]').forEach((btn) => {
-        btn.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const target = event.currentTarget;
-            const kidId = target.getAttribute('data-kid-id') || '';
-            const kid = currentKids.find((item) => String(item?.id || '') === kidId);
-            const name = String(kid?.name || '').trim() || 'this child';
-            forceReleaseOfflineLock(kidId, name);
-        });
-    });
-    adminMatrix.querySelectorAll('[data-offline-resume]').forEach((link) => {
-        link.addEventListener('click', (event) => {
-            event.stopPropagation();
-        });
-    });
-    const panelTrigger = adminMatrix.querySelector('[data-panel-menu-trigger]');
-    if (panelTrigger) {
-        panelTrigger.addEventListener('click', (event) => {
-            event.stopPropagation();
-            if (isPanelMenuOpen) {
-                closePanelMenu();
-            } else {
-                openPanelMenu(event.currentTarget);
-            }
-        });
-    }
 }
 
 function toggleCellOptedIn(kidId, categoryKey) {
     if (!editMode || !editState || isExitingEditMode) return;
+    toggleKidCategoryOptedIn(kidId, categoryKey);
+}
+
+function toggleKidCategoryOptedIn(kidId, categoryKey) {
+    if (!kidId || !categoryKey || isExitingEditMode) return;
+    if (!editState) {
+        editState = buildEditStateFromKids(currentKids);
+    }
     if (!editState[kidId]) editState[kidId] = {};
     editState[kidId][categoryKey] = !editState[kidId][categoryKey];
     scheduleKidSave(kidId);
     renderMatrix();
     renderReviewBanner();
-    updateStartPracticeHref();
 }
 
 // =====================================================================
@@ -1214,7 +1439,6 @@ async function exitEditMode() {
         editState = null;
         renderMatrix();
         renderReviewBanner();
-        updateStartPracticeHref();
     } finally {
         isExitingEditMode = false;
     }
@@ -1261,6 +1485,9 @@ async function flushKidSave(kidId) {
     setKidHeaderSavingClass(kidId, true);
     try {
         await promise;
+        if (!editMode) {
+            applyEditStateToCurrentKids();
+        }
         showError('');
     } catch (error) {
         console.error('Error saving categories for kid', kidId, error);
@@ -1298,46 +1525,6 @@ function setKidHeaderSavingClass(kidId, isSaving) {
 // =====================================================================
 // === 7. Per-subject menu
 // =====================================================================
-function openPanelMenu(anchorEl) {
-    isPanelMenuOpen = true;
-    closePanelMenuDom();
-    if (!anchorEl) return;
-    renderPanelMenu(anchorEl);
-}
-
-function closePanelMenu() {
-    isPanelMenuOpen = false;
-    closePanelMenuDom();
-}
-
-function closePanelMenuDom() {
-    document.querySelectorAll('.admin-panel-menu').forEach((el) => el.remove());
-}
-
-function renderPanelMenu(anchorEl) {
-    closePanelMenuDom();
-    const trigger = anchorEl || document.querySelector('[data-panel-menu-trigger]');
-    if (!trigger) return;
-    const subjectIconSvg = (typeof window.icon === 'function') ? window.icon('layout-grid', { size: 16 }) : '';
-    const menu = document.createElement('div');
-    menu.className = 'admin-panel-menu admin-subject-menu';
-    menu.innerHTML = `
-        <a class="admin-subject-menu-item" href="/deck-category-create.html">
-            <span class="admin-subject-menu-item-icon" aria-hidden="true">${subjectIconSvg}</span>
-            <span>Manage Subject</span>
-        </a>
-    `;
-    document.body.appendChild(menu);
-    const rect = trigger.getBoundingClientRect();
-    const menuWidth = 200;
-    let left = rect.right + window.scrollX - menuWidth;
-    const maxLeft = window.scrollX + document.documentElement.clientWidth - menuWidth - 8;
-    if (left > maxLeft) left = maxLeft;
-    if (left < 8) left = 8;
-    menu.style.left = `${left}px`;
-    menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
-}
-
 function openSubjectMenu(categoryKey, anchorEl) {
     openSubjectMenuKey = String(categoryKey || '');
     closeSubjectMenuDom();
@@ -1625,259 +1812,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-// =====================================================================
-// === 9. Offline mode (selection toolbar, status banner, download flow)
-// =====================================================================
-
-function bindOfflineModeEvents() {
-    const offlineBtn = document.getElementById('offlineModeBtn');
-    if (offlineBtn) {
-        offlineBtn.addEventListener('click', () => {
-            if (offlineSelectionMode) {
-                exitOfflineSelectionMode();
-            } else {
-                enterOfflineSelectionMode();
-            }
-        });
-    }
-    if (adminMatrix) {
-        adminMatrix.addEventListener('click', (event) => {
-            const toggleBtn = event.target.closest('[data-offline-kid-toggle]');
-            if (!toggleBtn) return;
-            event.preventDefault();
-            event.stopPropagation();
-            const kidId = toggleBtn.getAttribute('data-kid-id') || '';
-            toggleOfflineKidSelection(kidId);
-        });
-    }
-}
-
-function enterOfflineSelectionMode() {
-    if (editMode) exitEditMode();
-    offlineSelectionMode = true;
-    offlineSelectedKidIds.clear();
-    const btn = document.getElementById('offlineModeBtn');
-    if (btn) btn.classList.add('is-active');
-    renderAll();
-}
-
-function exitOfflineSelectionMode() {
-    offlineSelectionMode = false;
-    offlineSelectedKidIds.clear();
-    const btn = document.getElementById('offlineModeBtn');
-    if (btn) btn.classList.remove('is-active');
-    renderAll();
-}
-
-function toggleOfflineKidSelection(kidId) {
-    if (!offlineSelectionMode) return;
-    const id = String(kidId || '').trim();
-    if (!id) return;
-    const kid = currentKids.find((k) => String(k?.id || '') === id);
-    if (!kid || kid.offlineLock) return;
-    if (offlineSelectedKidIds.has(id)) {
-        offlineSelectedKidIds.delete(id);
-    } else {
-        offlineSelectedKidIds.add(id);
-    }
-    renderMatrix();
-    renderOfflineActionFooter();
-}
-
-function renderOfflineActionFooter() {
-    const footer = document.getElementById('offlineActionFooter');
-    if (!footer) return;
-    if (!offlineSelectionMode) {
-        footer.classList.add('hidden');
-        footer.innerHTML = '';
-        return;
-    }
-    const count = offlineSelectedKidIds.size;
-    const downloadDisabled = count === 0;
-    const downloadLabel = count === 0 ? 'Download' : `Download ${count} kid${count === 1 ? '' : 's'}`;
-    footer.classList.remove('hidden');
-    footer.innerHTML = `
-        <button type="button" class="offline-action-footer-btn offline-action-footer-btn--cancel" data-offline-cancel>Cancel</button>
-        <button type="button" class="offline-action-footer-btn offline-action-footer-btn--download" data-offline-download ${downloadDisabled ? 'disabled' : ''}>
-            ${(typeof window.icon === 'function') ? window.icon('download', { size: 18 }) : ''}
-            <span data-offline-download-label>${downloadLabel}</span>
-        </button>
-    `;
-    const cancelBtnEl = footer.querySelector('[data-offline-cancel]');
-    if (cancelBtnEl) cancelBtnEl.addEventListener('click', exitOfflineSelectionMode);
-    const downloadBtnEl = footer.querySelector('[data-offline-download]');
-    if (downloadBtnEl) downloadBtnEl.addEventListener('click', downloadSelectedOffline);
-}
-
-async function downloadSelectedOffline() {
-    if (!offlineSelectionMode || offlineSelectedKidIds.size === 0) return;
-    const ids = Array.from(offlineSelectedKidIds);
-    const footer = document.getElementById('offlineActionFooter');
-    const downloadBtn = footer ? footer.querySelector('[data-offline-download]') : null;
-    const cancelBtn = footer ? footer.querySelector('[data-offline-cancel]') : null;
-
-    // Per-kid progress counters; reset on each kid's `subjects_known` event.
-    let currentKidName = '';
-    let totalSubjects = 0;
-    let completedSubjects = 0;
-    let totalAudio = 0;
-    let completedAudio = 0;
-    let inAudioPhase = false;
-    const setLabel = (text) => {
-        if (!downloadBtn) return;
-        const labelEl = downloadBtn.querySelector('[data-offline-download-label]');
-        if (labelEl) labelEl.textContent = text;
-    };
-    const refreshLabel = () => {
-        const prefix = currentKidName ? `${currentKidName} · ` : '';
-        if (inAudioPhase && totalAudio > 0 && completedAudio < totalAudio) {
-            setLabel(`${prefix}Audio ${completedAudio}/${totalAudio}…`);
-            return;
-        }
-        if (totalSubjects === 0) {
-            setLabel(`${prefix}Preparing…`);
-        } else if (completedSubjects < totalSubjects) {
-            setLabel(`${prefix}Subject ${completedSubjects + 1}/${totalSubjects}…`);
-        } else if (inAudioPhase && totalAudio === 0) {
-            setLabel(`${prefix}Finishing…`);
-        } else {
-            setLabel(`${prefix}Done ${completedSubjects}/${totalSubjects}`);
-        }
-    };
-
-    if (downloadBtn) {
-        downloadBtn.disabled = true;
-        downloadBtn.classList.add('is-busy');
-    }
-    if (cancelBtn) cancelBtn.disabled = true;
-    setLabel('Preparing…');
-
-    const onProgress = (info) => {
-        if (!info) return;
-        if (info.kidName) currentKidName = String(info.kidName);
-        if (info.phase === 'subjects_known') {
-            totalSubjects = Number(info.subjectCount || 0);
-            completedSubjects = 0;
-            totalAudio = 0;
-            completedAudio = 0;
-            inAudioPhase = false;
-        } else if (info.phase === 'subject_done') {
-            completedSubjects += 1;
-        } else if (info.phase === 'audio_start') {
-            inAudioPhase = true;
-            totalAudio = Number(info.audioCount || 0);
-            completedAudio = 0;
-        } else if (info.phase === 'audio_progress') {
-            completedAudio = Number(info.completed || 0);
-            totalAudio = Number(info.total || totalAudio);
-        } else if (info.phase === 'audio_done') {
-            completedAudio = totalAudio;
-            inAudioPhase = false;
-        }
-        refreshLabel();
-    };
-
-    const results = [];
-    for (const kidId of ids) {
-        try {
-            const res = await window.OfflineCommon.acquirePack(kidId, {
-                deviceLabel: window.OfflineCommon.parseDeviceLabel(),
-                onProgress,
-            });
-            results.push({ kidId, res });
-            if (!res.ok && res.inflight) {
-                const proceed = window.confirm('This child has unfinished practice in progress. Discard and continue offline?');
-                if (proceed) {
-                    const retry = await window.OfflineCommon.acquirePack(kidId, {
-                        deviceLabel: window.OfflineCommon.parseDeviceLabel(),
-                        forceDiscardInflight: true,
-                        onProgress,
-                    });
-                    results[results.length - 1] = { kidId, res: retry };
-                }
-            }
-        } catch (e) {
-            results.push({ kidId, res: { ok: false, error: String(e) } });
-        }
-    }
-
-    const firstSuccess = results.find((r) => r.res && r.res.ok);
-    const failures = results.filter((r) => !(r.res && r.res.ok));
-    if (failures.length > 0) {
-        const msgs = failures.map((f) => {
-            if (f.res && f.res.conflict) return `Kid ${f.kidId}: already offline on another device.`;
-            if (f.res && f.res.inflight) return `Kid ${f.kidId}: unfinished session in progress.`;
-            return `Kid ${f.kidId}: ${(f.res && f.res.error) || 'unknown error'}`;
-        }).join('\n');
-        alert(`Some kids could not be taken offline:\n${msgs}`);
-    }
-
-    if (firstSuccess) {
-        const kidId = firstSuccess.kidId;
-        setLabel('Done');
-        window.location.href = `/kid-practice-home.html?id=${encodeURIComponent(kidId)}`;
-        return;
-    }
-    if (downloadBtn) {
-        downloadBtn.disabled = false;
-        downloadBtn.classList.remove('is-busy');
-    }
-    if (cancelBtn) cancelBtn.disabled = false;
-    exitOfflineSelectionMode();
-    loadKids({ preferNavigationCache: false });
-}
-
-async function refreshOfflineOwnedAndStats() {
-    const lockedKids = (currentKids || []).filter((k) => k && k.offlineLock);
-    if (lockedKids.length === 0) {
-        if (offlineOwnedKidIds.size > 0) {
-            offlineOwnedKidIds = new Set();
-            renderMatrix();
-        }
-        return;
-    }
-    const ownedKidIds = window.OfflineStorage
-        ? await window.OfflineStorage.listOwnedKidIds()
-        : [];
-    offlineOwnedKidIds = new Set(ownedKidIds.map(String));
-    // Back-fill: any locked kid whose pack lives here but whose lock JSON
-    // doesn't yet carry the size/count fields (older acquires) gets reported
-    // now. Idempotent — server overwrites with the same values on repeats.
-    let mutated = false;
-    if (window.OfflineStorage && typeof window.OfflineStorage.getPackStats === 'function') {
-        const needsReport = lockedKids.filter((kid) => {
-            if (!offlineOwnedKidIds.has(String(kid.id))) return false;
-            const lk = kid.offlineLock || {};
-            return !(Number(lk.pack_total_bytes) > 0) || !(Number(lk.pack_total_file_count) > 0);
-        });
-        if (needsReport.length > 0) {
-            await Promise.all(needsReport.map(async (kid) => {
-                try {
-                    const stats = await window.OfflineStorage.getPackStats(String(kid.id));
-                    if (!stats || !stats.hasPack) return;
-                    const lk = kid.offlineLock || {};
-                    const res = await fetch(`/api/kids/${encodeURIComponent(String(kid.id))}/offline/report-pack-stats`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            packId: lk.pack_id,
-                            totalBytes: stats.totalBytes,
-                            totalFileCount: stats.totalFileCount,
-                            audioFileCount: stats.audioFileCount,
-                        }),
-                    });
-                    if (res.ok) {
-                        const payload = await res.json().catch(() => ({}));
-                        if (payload && payload.lock) {
-                            kid.offlineLock = { ...lk, ...payload.lock };
-                            mutated = true;
-                        }
-                    }
-                } catch (_) { /* best-effort */ }
-            }));
-        }
-    }
-    renderMatrix();
-    if (mutated) renderMatrix();
-}

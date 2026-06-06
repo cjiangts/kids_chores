@@ -69,6 +69,17 @@ let liveDurationBackfillBound = false;
 let currentAnswers = [];
 let currentKidName = '';
 
+function renderKidSessionReportUserSwitcher(name) {
+    const container = document.querySelector('[data-family-user-switcher]');
+    if (!container || !window.FamilyUserSwitcher?.renderAuto) return;
+    const label = String(name || '').trim();
+    if (!label) return;
+    container.setAttribute('data-user-name', label);
+    container.setAttribute('data-user-icon', 'user');
+    container.setAttribute('data-user-title', `Switch user from ${label}`);
+    window.FamilyUserSwitcher.renderAuto(container);
+}
+
 // =====================================================================
 // === 1. DOM refs + bootstrap
 // =====================================================================
@@ -166,8 +177,10 @@ async function loadSessionDetail() {
         }
 
         const data = await response.json();
-        const kidName = data.kid?.name || 'Kid';
+        const kidName = String(data.kid?.name || '').trim();
+        const displayKidName = kidName || '...';
         currentKidName = kidName;
+        renderKidSessionReportUserSwitcher(currentKidName);
         const session = data.session || {};
         currentSessionType = normalizeCategoryKey(session.type);
         currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type);
@@ -180,8 +193,8 @@ async function loadSessionDetail() {
             0,
             Number.parseInt(session.drill_speed_target_ms, 10) || 0
         );
-        pageTitle.textContent = `${kidName} · Session`;
-        document.title = `${kidName} - Session #${session.id || sessionId} - Kids Daily Chores`;
+        pageTitle.textContent = `${displayKidName} · Session`;
+        document.title = `${displayKidName} - Session #${session.id || sessionId} - Kids Daily Chores`;
 
         const answers = Array.isArray(data.answers) ? data.answers : [];
         currentAnswers = answers;

@@ -4,7 +4,7 @@
  * Layout:
  *   1. DOM refs + module state
  *   2. Shared helpers (modal body lock, escape, closest target)
- *   3. Change-password dialog + family logout
+ *   3. Header user switcher + change-password dialog
  *   4. Timezone picker (load, save, pill selection, formatting)
  *   5. Password change submit
  *   6. Family role + super-family account list + delete
@@ -23,7 +23,7 @@ const newPasswordInput = document.getElementById('newPassword');
 const confirmPasswordInput = document.getElementById('confirmPassword');
 const changePasswordBtn = document.getElementById('changePasswordBtn');
 const openChangePasswordBtn = document.getElementById('openChangePasswordBtn');
-const familySettingsLogoutBtn = document.getElementById('familySettingsLogoutBtn');
+const manageSubjectBtn = document.getElementById('manageSubjectBtn');
 const changePasswordModal = document.getElementById('changePasswordModal');
 const closeChangePasswordBtn = document.getElementById('closeChangePasswordBtn');
 const timezoneMenuBtn = document.getElementById('timezoneMenuBtn');
@@ -131,12 +131,6 @@ if (changePasswordModal) {
     });
 }
 
-if (familySettingsLogoutBtn) {
-    familySettingsLogoutBtn.addEventListener('click', async () => {
-        await logoutFamily();
-    });
-}
-
 downloadBackupBtn.addEventListener('click', async () => {
     await downloadBackup();
 });
@@ -200,7 +194,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 // =====================================================================
-// === 3. Change-password dialog + family logout
+// === 3. Change-password dialog
 // =====================================================================
 
 function resetPasswordDialogState() {
@@ -232,19 +226,6 @@ function closeChangePasswordDialog() {
     changePasswordModal.classList.add('hidden');
     resetPasswordDialogState();
     syncModalBodyLock();
-}
-
-async function logoutFamily() {
-    try {
-        await fetch(`${API_BASE}/family-auth/logout`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-    } catch (error) {
-        // ignore
-    }
-    window.location.href = '/index.html';
 }
 
 backupFileInput.addEventListener('change', async (event) => {
@@ -502,6 +483,9 @@ async function loadFamilyRole() {
     }
     if (familyAdminCard) {
         familyAdminCard.classList.toggle('hidden', !isSuperFamily);
+    }
+    if (manageSubjectBtn) {
+        manageSubjectBtn.classList.toggle('hidden', !isSuperFamily);
     }
     if (!isSuperFamily) {
         if (familyAccountsList) {

@@ -41,15 +41,12 @@
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
                 <h1><span id="kidTitleIcon" class="page-title-icon" aria-hidden="true">🎓</span> <span id="kidName" role="status" aria-label="Loading kid"><span class="app-spinner app-spinner--small app-spinner--light" aria-hidden="true"></span></span></h1>
-                <div class="page-header-actions" id="practiceHomeHeaderActions">
+                <div class="page-header-actions" id="practiceHomeHeaderActions" data-family-user-switcher data-user-name="..." data-user-icon="user" data-user-title="Switch user">
                 </div>
             </div>
         </header>
 
         <div class="practice-home-container">
-            <div class="practice-home-topbar">
-                <div id="kidToggleGroup" class="kid-nav-group hidden" role="tablist" aria-label="Kids"></div>
-            </div>
             <div id="errorMessage" class="error redesign-error hidden"></div>
             <div id="practiceSection" class="practice-home-section-stack hidden">
                 <section id="inAppPracticeSection" class="section-surface section-surface-lg practice-home-card">
@@ -58,7 +55,6 @@
                             <span class="practice-home-card-icon practice-home-card-icon--in-app" aria-hidden="true"><span data-icon="smartphone" data-icon-size="16"></span></span>
                             <span>In-App Chores</span>
                         </div>
-                        <section id="practiceSummaryStrip" class="redesign-summary-strip hidden"></section>
                     </div>
                     <div id="practiceChooser" class="redesign-practice-grid"></div>
                 </section>
@@ -76,6 +72,7 @@
     </div>
 
     <script src="icons.js"></script>
+    <script src="family-user-switcher.js"></script>
     <script src="kid-app-navigation.js"></script>
     <script src="subject-icons.js"></script>
     <script src="deck-category-common.js"></script>

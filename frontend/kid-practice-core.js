@@ -29,6 +29,7 @@ const params = new URLSearchParams(window.location.search);
 const kidId = String(params.get('id') || '').trim();
 const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 const requestedOfflineMode = String(params.get('offline') || '').trim() === '1';
+let activeOfflinePracticeMode = false;
 
 const kidNameEl = document.getElementById('kidName');
 const startTitle = document.getElementById('startTitle');
@@ -249,10 +250,10 @@ const earlyFinishController = window.PracticeUiCommon.createEarlyFinishControlle
         if (!isSessionInProgress()) {
             return false;
         }
-        if (state.activeIsRetrySession) {
+        if (state.activeIsRetrySession && !activeOfflinePracticeMode) {
             return false;
         }
-        if (state.drillActive) {
+        if (state.drillActive && !activeOfflinePracticeMode) {
             return false;
         }
         if (isType(BEHAVIOR_TYPE_III)) {
@@ -1338,6 +1339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             offlinePack = await window.OfflineCommon.findActivePack(kidId);
         } catch (_) { offlinePack = null; }
         if (offlinePack && offlinePack.packEnvelope && !offlinePack.expired) {
+            activeOfflinePracticeMode = true;
             window.OfflineCommon.installFetchInterceptor(kidId);
             applyOfflinePracticeHeader();
         }
@@ -1369,6 +1371,6 @@ function applyOfflinePracticeHeader() {
     }
     const headerActions = document.querySelector('.page-header-actions');
     if (!headerActions) return;
-    // Hide finish-early flag in offline mode (sessions finish locally; no server round-trip).
-    // It still works, just isn't styled differently.
+    // Offline practice keeps the in-session actions here; global navigation
+    // is suppressed by kid-app-navigation.js.
 }

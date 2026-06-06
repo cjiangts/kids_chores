@@ -67,6 +67,41 @@ def normalize_rule_kind(value):
     return str(value or '').strip().lower()
 
 
+def normalize_reward_type(value):
+    normalized = ' '.join(str(value or '').strip().lower().split())
+    return normalized[:64]
+
+
+def reward_type_for_rule(rule):
+    if not isinstance(rule, dict) or rule.get('ruleKind') != RULE_KIND_REDEEMED_REWARD:
+        return None
+    return normalize_reward_type(rule.get('rewardType')) or None
+
+
+def _event_sign_for_rule_kind(rule_kind):
+    normalized = normalize_rule_kind(rule_kind)
+    if normalized in {RULE_KIND_DEDUCTION_EVENT, RULE_KIND_REDEEMED_REWARD}:
+        return -1
+    return 1
+
+
+def _event_delta_for_rule(rule, *, points_delta=None, field_name='pointsDelta'):
+    if not isinstance(rule, dict):
+        raise ValueError('Rule not found')
+    max_point = rule.get('maxPoint')
+    if points_delta is None:
+        if max_point is None:
+            raise ValueError('Rule maxPoint is not configured')
+        amount = int(max_point)
+    else:
+        amount = _coerce_int(points_delta, field_name=field_name)
+    if amount <= 0:
+        raise ValueError(f'{field_name} must be positive')
+    if max_point is not None and amount > int(max_point):
+        raise ValueError(f'{field_name} cannot exceed rule max point')
+    return _event_sign_for_rule_kind(rule.get('ruleKind')) * amount
+
+
 def _coerce_int(value, *, field_name, required=True):
     if value is None or value == '':
         if required:
@@ -98,11 +133,9 @@ def _rule_row_to_payload(row):
         'emoji': str(row[3] or ''),
         'ruleKind': normalize_rule_kind(row[4]),
         'triggerKey': str(row[5] or ''),
-        'pointsDelta': int(row[6]) if row[6] is not None else None,
-        'rating1Points': int(row[7]) if row[7] is not None else None,
-        'rating2Points': int(row[8]) if row[8] is not None else None,
-        'rating3Points': int(row[9]) if row[9] is not None else None,
-        'isActive': bool(row[10]),
+        'maxPoint': int(row[6]) if row[6] is not None else None,
+        'rewardType': normalize_reward_type(row[7]),
+        'isActive': bool(row[8]),
     }
 
 
@@ -154,42 +187,27 @@ def _normalize_rule_payload(payload, *, existing=None):
         if not trigger_key:
             raise ValueError('triggerKey is required for in_app_chore rules')
 
-    if rule_kind == RULE_KIND_OFF_APP_CHORE:
-        points_delta = None
-        rating_1_points = _coerce_int(
-            data.get('rating1Points', base.get('rating1Points')),
-            field_name='rating1Points',
-        )
-        rating_2_points = _coerce_int(
-            data.get('rating2Points', base.get('rating2Points')),
-            field_name='rating2Points',
-        )
-        rating_3_points = _coerce_int(
-            data.get('rating3Points', base.get('rating3Points')),
-            field_name='rating3Points',
-        )
-    else:
-        points_delta = _coerce_int(
-            data.get('pointsDelta', base.get('pointsDelta')),
-            field_name='pointsDelta',
-        )
-        if rule_kind == RULE_KIND_BONUS_EVENT and points_delta < 0:
-            raise ValueError('bonus_event pointsDelta must be zero or positive')
-        if rule_kind in (RULE_KIND_DEDUCTION_EVENT, RULE_KIND_REDEEMED_REWARD) and points_delta > 0:
-            raise ValueError(f'{rule_kind} pointsDelta must be zero or negative')
-        rating_1_points = None
-        rating_2_points = None
-        rating_3_points = None
+    max_point = _coerce_int(
+        data.get('maxPoint', base.get('maxPoint')),
+        field_name='maxPoint',
+        required=False,
+    )
+    if max_point is not None and max_point <= 0:
+        raise ValueError('maxPoint must be positive')
+
+    reward_type = None
+    if rule_kind == RULE_KIND_REDEEMED_REWARD:
+        reward_type = normalize_reward_type(data.get('rewardType', base.get('rewardType')))
+        if not reward_type:
+            raise ValueError('rewardType is required for reward rules')
 
     return {
         'name': name,
         'emoji': emoji,
         'ruleKind': rule_kind,
         'triggerKey': trigger_key,
-        'pointsDelta': points_delta,
-        'rating1Points': rating_1_points,
-        'rating2Points': rating_2_points,
-        'rating3Points': rating_3_points,
+        'maxPoint': max_point,
+        'rewardType': reward_type,
         'isActive': is_active,
     }
 
@@ -205,10 +223,8 @@ def get_family_rule(conn, family_id, rule_id):
           emoji,
           rule_kind,
           trigger_key,
-          points_delta,
-          rating_1_points,
-          rating_2_points,
-          rating_3_points,
+          max_point,
+          reward_type,
           is_active
         FROM point_rule
         WHERE family_id = ? AND rule_id = ?
@@ -239,10 +255,8 @@ def list_family_rules(conn, family_id, *, rule_kind=None, include_inactive=True)
           emoji,
           rule_kind,
           trigger_key,
-          points_delta,
-          rating_1_points,
-          rating_2_points,
-          rating_3_points,
+          max_point,
+          reward_type,
           is_active
         FROM point_rule
         WHERE {' AND '.join(filters)}
@@ -264,13 +278,11 @@ def create_family_rule(conn, family_id, payload):
           emoji,
           rule_kind,
           trigger_key,
-          points_delta,
-          rating_1_points,
-          rating_2_points,
-          rating_3_points,
+          max_point,
+          reward_type,
           is_active
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING
           rule_id,
           family_id,
@@ -278,10 +290,8 @@ def create_family_rule(conn, family_id, payload):
           emoji,
           rule_kind,
           trigger_key,
-          points_delta,
-          rating_1_points,
-          rating_2_points,
-          rating_3_points,
+          max_point,
+          reward_type,
           is_active
         """,
         [
@@ -290,10 +300,8 @@ def create_family_rule(conn, family_id, payload):
             normalized['emoji'],
             normalized['ruleKind'],
             normalized['triggerKey'],
-            normalized['pointsDelta'],
-            normalized['rating1Points'],
-            normalized['rating2Points'],
-            normalized['rating3Points'],
+            normalized['maxPoint'],
+            normalized['rewardType'],
             normalized['isActive'],
         ],
     ).fetchone()
@@ -313,10 +321,8 @@ def update_family_rule(conn, family_id, rule_id, payload):
           emoji = ?,
           rule_kind = ?,
           trigger_key = ?,
-          points_delta = ?,
-          rating_1_points = ?,
-          rating_2_points = ?,
-          rating_3_points = ?,
+          max_point = ?,
+          reward_type = ?,
           is_active = ?
         WHERE family_id = ? AND rule_id = ?
         RETURNING
@@ -326,10 +332,8 @@ def update_family_rule(conn, family_id, rule_id, payload):
           emoji,
           rule_kind,
           trigger_key,
-          points_delta,
-          rating_1_points,
-          rating_2_points,
-          rating_3_points,
+          max_point,
+          reward_type,
           is_active
         """,
         [
@@ -337,10 +341,8 @@ def update_family_rule(conn, family_id, rule_id, payload):
             normalized['emoji'],
             normalized['ruleKind'],
             normalized['triggerKey'],
-            normalized['pointsDelta'],
-            normalized['rating1Points'],
-            normalized['rating2Points'],
-            normalized['rating3Points'],
+            normalized['maxPoint'],
+            normalized['rewardType'],
             normalized['isActive'],
             _family_id_int(family_id),
             int(rule_id or 0),
@@ -362,10 +364,8 @@ def deactivate_family_rule(conn, family_id, rule_id):
           emoji,
           rule_kind,
           trigger_key,
-          points_delta,
-          rating_1_points,
-          rating_2_points,
-          rating_3_points,
+          max_point,
+          reward_type,
           is_active
         """,
         [_family_id_int(family_id), int(rule_id or 0)],
@@ -387,10 +387,8 @@ def _load_rule_lookup(conn, family_id, rule_ids):
           emoji,
           rule_kind,
           trigger_key,
-          points_delta,
-          rating_1_points,
-          rating_2_points,
-          rating_3_points,
+          max_point,
+          reward_type,
           is_active
         FROM point_rule
         WHERE family_id = ? AND rule_id IN ({placeholders})
@@ -544,6 +542,20 @@ def insert_point_event(kid_conn, rule_id, points_delta, *, note=None, created_at
     return _event_row_to_payload(row)
 
 
+def update_point_event(kid_conn, event_id, *, points_delta, note=None):
+    points_delta_value = _coerce_int(points_delta, field_name='pointsDelta')
+    row = kid_conn.execute(
+        """
+        UPDATE point_event
+        SET points_delta = ?, note = ?
+        WHERE event_id = ?
+        RETURNING event_id, rule_id, points_delta, note, created_at
+        """,
+        [points_delta_value, str(note or '').strip() or None, int(event_id or 0)],
+    ).fetchone()
+    return _event_row_to_payload(row)
+
+
 def list_point_events(kid_conn, shared_conn, family_id, *, limit=100):
     safe_limit = max(1, min(500, int(limit or 100)))
     rows = kid_conn.execute(
@@ -567,6 +579,51 @@ def get_point_total(kid_conn):
     return int(row[0] or 0) if row else 0
 
 
+def get_reward_bucket_totals(kid_conn, shared_conn, family_id):
+    rows = kid_conn.execute(
+        """
+        SELECT rule_id, points_delta
+        FROM point_event
+        """
+    ).fetchall()
+    rule_ids = [int(row[0] or 0) for row in rows]
+    lookup = _load_rule_lookup(shared_conn, family_id, rule_ids)
+    base_points = 0
+    buckets = set()
+    reward_rules = list_family_rules(
+        shared_conn,
+        family_id,
+        rule_kind=RULE_KIND_REDEEMED_REWARD,
+        include_inactive=True,
+    )
+    for rule in reward_rules:
+        bucket = reward_type_for_rule(rule)
+        if bucket:
+            buckets.add(bucket)
+    redeemed_by_bucket = {bucket: 0 for bucket in buckets}
+    for row in rows:
+        if not row:
+            continue
+        rule_id = int(row[0] or 0)
+        delta = int(row[1] or 0)
+        bucket = reward_type_for_rule(lookup.get(rule_id, {}))
+        if bucket:
+            buckets.add(bucket)
+            redeemed_by_bucket.setdefault(bucket, 0)
+            redeemed_by_bucket[bucket] += delta
+        else:
+            base_points += delta
+    return {
+        bucket: {
+            'bucket': bucket,
+            'basePoints': base_points,
+            'redeemedPoints': redeemed_by_bucket[bucket],
+            'totalPoints': base_points + redeemed_by_bucket[bucket],
+        }
+        for bucket in sorted(buckets)
+    }
+
+
 def delete_point_event(kid_conn, event_id):
     row = kid_conn.execute(
         """
@@ -579,16 +636,23 @@ def delete_point_event(kid_conn, event_id):
     return bool(row)
 
 
-def apply_direct_rule_event(kid_conn, shared_conn, family_id, rule_id, *, note=None):
+def apply_direct_rule_event(kid_conn, shared_conn, family_id, rule_id, *, points_delta=None, note=None):
     rule = get_family_rule(shared_conn, family_id, rule_id)
     if not rule or not rule['isActive']:
         raise ValueError('Rule not found')
-    if rule['ruleKind'] not in (RULE_KIND_BONUS_EVENT, RULE_KIND_DEDUCTION_EVENT, RULE_KIND_REDEEMED_REWARD):
+    if rule['ruleKind'] not in {RULE_KIND_BONUS_EVENT, RULE_KIND_DEDUCTION_EVENT, RULE_KIND_REDEEMED_REWARD}:
         raise ValueError('Only bonus_event, deduction_event, and redeemed_reward rules can be applied directly')
+    points_delta = _event_delta_for_rule(rule, points_delta=points_delta, field_name='points')
+    bucket = reward_type_for_rule(rule)
+    if bucket:
+        bucket_totals = get_reward_bucket_totals(kid_conn, shared_conn, family_id)
+        current_bucket_total = int(bucket_totals.get(bucket, {}).get('totalPoints') or 0)
+        if current_bucket_total + points_delta < 0:
+            raise ValueError('Not enough points for this reward bucket')
     return insert_point_event(
         kid_conn,
         rule['ruleId'],
-        rule['pointsDelta'],
+        points_delta,
         note=note,
     )
 
@@ -642,10 +706,7 @@ def submit_off_app_chore(kid_conn, shared_conn, family_id, rule_id):
     return _pending_row_to_payload(row, {rule['ruleId']: rule})
 
 
-def review_pending_off_app_chore(kid_conn, shared_conn, family_id, pending_id, rating, *, note=None):
-    rating_int = _coerce_int(rating, field_name='rating')
-    if rating_int not in (1, 2, 3):
-        raise ValueError('rating must be 1, 2, or 3')
+def review_pending_off_app_chore(kid_conn, shared_conn, family_id, pending_id, rating=None, *, points_delta=None, note=None):
     pending_row = kid_conn.execute(
         """
         SELECT pending_id, rule_id, submitted_at
@@ -660,12 +721,10 @@ def review_pending_off_app_chore(kid_conn, shared_conn, family_id, pending_id, r
     rule = get_family_rule(shared_conn, family_id, rule_id)
     if not rule or rule['ruleKind'] != RULE_KIND_OFF_APP_CHORE:
         raise ValueError('Off-app chore rule not found')
-    points_delta = rule[f'rating{rating_int}Points']
-    if points_delta is None:
-        raise ValueError('Rule rating points are not configured')
+    points_delta_value = _event_delta_for_rule(rule, points_delta=points_delta)
     kid_conn.execute('BEGIN TRANSACTION')
     try:
-        event = insert_point_event(kid_conn, rule_id, points_delta, note=note)
+        event = insert_point_event(kid_conn, rule_id, points_delta_value, note=note)
         kid_conn.execute(
             "DELETE FROM pending_off_app_chore WHERE pending_id = ?",
             [int(pending_id or 0)],
@@ -675,7 +734,6 @@ def review_pending_off_app_chore(kid_conn, shared_conn, family_id, pending_id, r
         kid_conn.execute('ROLLBACK')
         raise
     event['rule'] = rule
-    event['rating'] = rating_int
     return event
 
 
@@ -764,8 +822,9 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id):
     kid_conn.execute('BEGIN TRANSACTION')
     try:
         for rule in rules:
-            if rule.get('pointsDelta') is None:
+            if rule.get('maxPoint') is None:
                 continue
+            points_delta = _event_delta_for_rule(rule)
             sessions = list_app_category_strictly_done_sessions_today(
                 kid_conn,
                 family_id,
@@ -779,7 +838,7 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id):
                 event = insert_point_event(
                     kid_conn,
                     rule['ruleId'],
-                    rule['pointsDelta'],
+                    points_delta,
                     created_at=completed_at,
                 )
                 event['rule'] = rule

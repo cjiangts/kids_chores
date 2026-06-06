@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="point-rules.css">
     <link rel="stylesheet" href="kid-rewards.css">
 </head>
-<body class="manage-page kid-rewards-page">
+<body class="manage-page kid-rewards-page parent-rewards-page">
     <div class="container">
         <header class="page-header-with-back page-header-with-actions kid-rewards-header">
             <div class="page-header-row">
@@ -23,18 +23,21 @@
                     <span class="page-title-icon" aria-hidden="true">🎁</span>
                     Rewards
                 </h1>
-                <div class="page-header-actions" data-family-user-switcher data-user-name="..." data-user-icon="user" data-user-title="Switch user"></div>
+                <div class="page-header-actions" data-family-user-switcher></div>
             </div>
         </header>
 
         <main class="point-log-layout">
-            <section id="kidRewardTabs" class="kid-nav-group" role="tablist" aria-label="Kids"></section>
-            <div id="kidRewardsError" class="error hidden"></div>
+            <section id="parentRewardKids" class="kid-nav-group hidden" role="tablist" aria-label="Kids"></section>
+            <div id="parentRewardsError" class="error hidden"></div>
 
-            <section class="settings-card settings-section point-rule-list-section">
-                <div class="settings-card-body">
-                    <div id="kidRewardBucketTabs" class="cards-view-toggle-group cards-view-toggle-group-centered" role="group" aria-label="Reward rule buckets"></div>
-                    <div id="kidRewardRules" class="point-template-list parent-reward-list"></div>
+            <section class="settings-card settings-section parent-reward-catalog-section">
+                <div class="settings-card-body parent-reward-catalog-body">
+                    <div class="point-log-mode-row">
+                        <div id="parentRewardTabs" class="cards-view-toggle-group cards-view-toggle-group-centered" role="tablist" aria-label="Reward types"></div>
+                        <a id="parentRewardRulesLink" href="/point-rules.html?kind=redeemed_reward" class="point-rules-link" aria-label="Open reward rules" title="Rules"><span class="icon" data-icon="pencil" data-icon-size="17"></span><span class="point-rules-link-text">Rules</span></a>
+                    </div>
+                    <div id="parentRewardRules" class="point-template-list parent-reward-list"></div>
                 </div>
             </section>
 
@@ -45,18 +48,7 @@
                         <h2>Redeem Activity</h2>
                         <span class="point-history-current-day" data-point-history-day-label></span>
                     </div>
-                    <div id="kidRedeemHistory" class="point-history"></div>
-                </div>
-            </section>
-
-            <section class="settings-card settings-section point-history-section">
-                <div class="settings-card-body">
-                    <div class="point-panel-title">
-                        <span class="point-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="18"></span></span>
-                        <h2>Points Activity</h2>
-                        <span class="point-history-current-day" data-point-history-day-label></span>
-                    </div>
-                    <div id="kidPointHistory" class="point-history"></div>
+                    <div id="parentRewardHistory" class="point-history"></div>
                 </div>
             </section>
         </main>
@@ -64,9 +56,8 @@
     <script src="icons.js"></script>
     <script src="family-user-switcher.js"></script>
     <script src="kid-app-navigation.js"></script>
-    <script src="subject-icons.js"></script>
-    <script src="deck-category-common.js"></script>
+    <script src="point-rule-template-common.js"></script>
     <script src="point-history-common.js"></script>
-    <script src="kid-rewards.js"></script>
+    <script src="parent-rewards.js"></script>
 </body>
 </html>

@@ -32,6 +32,7 @@ from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPES,
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
     DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+    SESSION_RESULT_PARTIAL,
 )
 from src.services.deck_source_merge import get_type_iv_total_daily_target_for_category
 from src.services.family_auth import (
@@ -424,6 +425,114 @@ def get_kid_ungraded_type_iii_count(kid, *, type_iii_category_keys=None, conn=No
             return 0
     except Exception:
         return 0
+    finally:
+        if owns_conn and local_conn is not None:
+            local_conn.close()
+
+
+def get_kid_today_session_status_by_deck_category(
+    kid,
+    opted_in_category_keys,
+    *,
+    conn=None,
+    family_timezone=None,
+):
+    keys = [normalize_shared_deck_tag(key) for key in list(opted_in_category_keys or [])]
+    keys = [key for key in keys if key]
+    keys = list(dict.fromkeys(keys))
+    status_by_key = {
+        key: {
+            'status': 'not_started',
+            'sessionId': None,
+            'wrongCount': 0,
+        }
+        for key in keys
+    }
+    if not keys:
+        return status_by_key
+
+    local_conn = conn
+    owns_conn = False
+    if local_conn is None:
+        try:
+            local_conn = get_kid_connection_for(kid, read_only=True)
+            owns_conn = True
+        except Exception:
+            return status_by_key
+
+    try:
+        family_id = str(kid.get('familyId') or '')
+        effective_family_timezone = (
+            str(family_timezone).strip()
+            if str(family_timezone or '').strip()
+            else metadata.get_family_timezone(family_id)
+        )
+        tzinfo = ZoneInfo(effective_family_timezone)
+        day_start_local = datetime.now(tzinfo).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end_local = day_start_local + timedelta(days=1)
+        day_start_utc = day_start_local.astimezone(timezone.utc).replace(tzinfo=None)
+        day_end_utc = day_end_local.astimezone(timezone.utc).replace(tzinfo=None)
+        placeholders = ', '.join(['?'] * len(keys))
+        rows = local_conn.execute(
+            f"""
+            SELECT
+                s.id,
+                s.type,
+                COALESCE(s.planned_count, 0) AS planned_count,
+                s.completed_at,
+                s.started_at,
+                COUNT(sr.id) AS answer_count,
+                COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count
+            FROM sessions s
+            LEFT JOIN session_results sr ON sr.session_id = s.id
+            WHERE s.type IN ({placeholders})
+              AND (
+                (
+                    s.started_at IS NOT NULL
+                    AND s.started_at >= ?
+                    AND s.started_at < ?
+                ) OR (
+                    s.completed_at IS NOT NULL
+                    AND s.completed_at >= ?
+                    AND s.completed_at < ?
+                )
+              )
+            GROUP BY
+                s.id,
+                s.type,
+                s.planned_count,
+                s.completed_at,
+                s.started_at
+            ORDER BY COALESCE(s.completed_at, s.started_at) ASC, s.id ASC
+            """,
+            [
+                SESSION_RESULT_PARTIAL,
+                *keys,
+                day_start_utc,
+                day_end_utc,
+                day_start_utc,
+                day_end_utc,
+            ],
+        ).fetchall()
+
+        for row in rows:
+            session_id = int(row[0] or 0)
+            category_key = normalize_shared_deck_tag(row[1])
+            if session_id <= 0 or category_key not in status_by_key:
+                continue
+            planned_count = max(0, int(row[2] or 0))
+            completed_at = row[3]
+            answer_count = max(0, int(row[5] or 0))
+            wrong_count = max(0, int(row[6] or 0))
+            done = completed_at is not None and (planned_count <= 0 or answer_count >= planned_count)
+            status_by_key[category_key] = {
+                'status': 'done' if done else 'in_progress',
+                'sessionId': session_id,
+                'wrongCount': wrong_count,
+            }
+        return status_by_key
+    except Exception:
+        return status_by_key
     finally:
         if owns_conn and local_conn is not None:
             local_conn.close()

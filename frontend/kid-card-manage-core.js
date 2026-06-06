@@ -661,23 +661,16 @@ function renderKidNav() {
         return;
     }
     const kids = Array.isArray(cachedKidsForNav) ? cachedKidsForNav : [];
-    if (kids.length < 2) {
-        kidNavGroup.classList.add('hidden');
-        kidNavGroup.innerHTML = '';
+    if (window.KidAppNavigation?.renderKidSelector) {
+        window.KidAppNavigation.renderKidSelector(kidNavGroup, kids, {
+            selectedKidId: String(kidId || ''),
+            hrefForKid: (kid) => buildKidCardManageHref(String(kid?.id || ''), kid),
+            persist: false,
+        });
         return;
     }
-    const userIconSvg = window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 });
-    kidNavGroup.innerHTML = kids.map((kid) => {
-        const id = String(kid?.id || '').trim();
-        const name = String(kid?.name || '').trim() || 'Kid';
-        const isActive = id === String(kidId);
-        if (isActive) {
-            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}<span>${escapeHtml(name)}</span></span>`;
-        }
-        const href = buildKidCardManageHref(id, kid);
-        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtml(href)}">${userIconSvg}<span>${escapeHtml(name)}</span></a>`;
-    }).join('');
-    kidNavGroup.classList.remove('hidden');
+    kidNavGroup.classList.add('hidden');
+    kidNavGroup.innerHTML = '';
 }
 
 function buildKidCardManageHref(targetKidId, targetKid) {

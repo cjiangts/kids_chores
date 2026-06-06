@@ -3,7 +3,7 @@ const API_BASE = `${window.location.origin}/api`;
 const loginForm = document.getElementById('familyLoginForm');
 const errorMessage = document.getElementById('errorMessage');
 const params = new URLSearchParams(window.location.search);
-const next = params.get('next') || '/';
+const next = params.get('next') || '/family-home.html';
 const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
 
 document.addEventListener('DOMContentLoaded', async () => {

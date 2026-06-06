@@ -21,9 +21,7 @@
                     <span class="page-title-icon" aria-hidden="true">📝</span>
                     Log Points
                 </h1>
-                <div class="page-header-actions">
-                    <a href="/point-rules.html" class="back-btn btn-secondary page-header-back-btn"><span class="icon" data-icon="clipboard-list" data-icon-size="18"></span> Rules</a>
-                </div>
+                <div class="page-header-actions" data-family-user-switcher></div>
             </div>
         </header>
 
@@ -33,28 +31,49 @@
 
             <section class="settings-card settings-section point-log-workbench">
                 <div class="settings-card-body">
-                    <div class="cards-view-toggle-group cards-view-toggle-group-centered" role="group" aria-label="Point log modes">
-                        <button type="button" class="cards-view-toggle-btn active" data-mode="bonus"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-up" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Bonus Events</span><span class="point-rule-tab-short">Bonus</span></button>
-                        <button type="button" class="cards-view-toggle-btn" data-mode="deduction"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-down" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Deduction Events</span><span class="point-rule-tab-short">Deduction</span></button>
-                        <button type="button" class="cards-view-toggle-btn" data-mode="review"><span class="cards-view-toggle-btn-icon" data-icon="clipboard-check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Off-App Chores</span><span class="point-rule-tab-short">Off-App</span></button>
-                        <button type="button" class="cards-view-toggle-btn" data-mode="redeemed"><span class="cards-view-toggle-btn-icon" data-icon="gift" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Reward Catalog</span><span class="point-rule-tab-short">Reward</span></button>
+                    <div class="point-log-mode-row">
+                        <div class="cards-view-toggle-group cards-view-toggle-group-centered" role="group" aria-label="Point log modes">
+                            <button type="button" class="cards-view-toggle-btn active" data-mode="bonus"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-up" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Bonus Events</span><span class="point-rule-tab-short">Bonus</span></button>
+                            <button type="button" class="cards-view-toggle-btn" data-mode="deduction"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-down" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Deduction Events</span><span class="point-rule-tab-short">Deduction</span></button>
+                        </div>
+                        <a href="/point-rules.html" class="point-rules-link" aria-label="Open rules" title="Rules"><span class="icon" data-icon="pencil" data-icon-size="17"></span><span class="point-rules-link-text">Rules</span></a>
                     </div>
+
+                    <form id="pointLogForm" class="point-log-form">
+                        <div class="point-log-entry-row">
+                            <div class="form-group point-log-emoji-group">
+                                <label for="pointEmoji">Emoji</label>
+                                <input id="pointEmoji" type="text" autocomplete="off" inputmode="text" maxlength="8">
+                            </div>
+                            <div class="form-group point-log-name-group">
+                                <label for="pointRuleName">Name</label>
+                                <input id="pointRuleName" type="text" autocomplete="off" placeholder="What happened?">
+                            </div>
+                            <div class="form-group point-log-points-group">
+                                <label for="pointPoints">Points</label>
+                                <div class="point-log-stepper" role="group" aria-label="Points">
+                                    <button type="button" class="point-log-stepper-btn" data-point-step="-1" aria-label="Decrease points">
+                                        <span class="icon" data-icon="minus" data-icon-size="16" data-icon-stroke="2.6"></span>
+                                    </button>
+                                    <input id="pointPoints" class="point-log-stepper-input" type="number" autocomplete="off" inputmode="numeric" min="1" step="1">
+                                    <button type="button" class="point-log-stepper-btn" data-point-step="1" aria-label="Increase points">
+                                        <span class="icon" data-icon="plus" data-icon-size="16" data-icon-stroke="2.6"></span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="noteGroup" class="form-group">
+                                <label for="pointNote">Note <span>(optional)</span></label>
+                                <input id="pointNote" type="text" autocomplete="off" placeholder="Details">
+                            </div>
+                            <div class="point-log-actions">
+                                <button id="submitPointLogBtn" type="submit" class="btn-primary point-apply-btn" disabled>Confirm</button>
+                            </div>
+                        </div>
+                    </form>
 
                     <div id="templateList" class="point-template-list"></div>
 
                     <div id="selectionPanel" class="point-selection-panel hidden"></div>
-
-                    <form id="pointLogForm" class="point-log-form hidden">
-                        <div class="point-log-entry-row">
-                            <div id="noteGroup" class="form-group">
-                                <label for="pointNote">Note <span>(optional)</span></label>
-                                <input id="pointNote" type="text" autocomplete="off" placeholder="What happened?">
-                            </div>
-                            <div class="point-log-actions">
-                                <button id="submitPointLogBtn" type="submit" class="btn-primary point-apply-btn" disabled>Apply</button>
-                            </div>
-                        </div>
-                    </form>
                 </div>
             </section>
 
@@ -63,7 +82,8 @@
                     <div class="point-panel-title">
                         <span class="point-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="18"></span></span>
                         <h2>Recent Activity</h2>
-                        <button id="pullTodaySessionsBtn" type="button" class="semantic-outline-btn point-pull-sessions-btn"><span class="icon" data-icon="download" data-icon-size="16"></span>Pull Today</button>
+                        <span class="point-history-current-day" data-point-history-day-label></span>
+                        <button id="pullTodaySessionsBtn" type="button" class="semantic-outline-btn point-pull-sessions-btn" aria-label="Pull today" title="Pull today"><span class="icon" data-icon="refresh-cw" data-icon-size="16"></span></button>
                     </div>
                     <div id="pointHistory" class="point-history"></div>
                 </div>
@@ -71,9 +91,11 @@
         </main>
     </div>
     <script src="icons.js"></script>
+    <script src="family-user-switcher.js"></script>
     <script src="kid-app-navigation.js"></script>
     <script src="subject-icons.js"></script>
     <script src="point-history-common.js"></script>
+    <script src="point-rule-template-common.js"></script>
     <script src="point-log.js"></script>
 </body>
 </html>

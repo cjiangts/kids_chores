@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="offline-redirect-guard.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Family Home - Kids Daily Chores</title>
+    <link rel="stylesheet" href="fonts-local.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="family-home.css">
+</head>
+<body class="family-home-page">
+    <main class="family-home-shell" aria-labelledby="familyHomeTitle">
+        <header class="family-home-header">
+            <div class="family-home-title-block">
+                <div class="family-home-eyebrow">Kids Daily Chores</div>
+                <h1 id="familyHomeTitle">Choose user</h1>
+            </div>
+            <div class="family-home-actions">
+                <button id="offlineModeBtn" type="button" class="family-home-action family-home-offline-btn" aria-label="Offline mode">
+                    <span data-icon="cloud-off" data-icon-size="18" data-icon-stroke="2.2"></span>
+                    <span class="family-home-action-label">Offline</span>
+                </button>
+                <button id="logoutBtn" type="button" class="family-home-action family-home-logout" aria-label="Log out">
+                    <span data-icon="log-out" data-icon-size="19" data-icon-stroke="2.2"></span>
+                </button>
+            </div>
+        </header>
+
+        <section id="userBubbleGrid" class="user-bubble-grid" aria-label="Family users">
+            <div class="family-home-loading" role="status">
+                <span class="app-spinner app-spinner--large" aria-hidden="true"></span>
+            </div>
+        </section>
+
+        <div id="offlineActionFooter" class="family-offline-footer hidden"></div>
+        <div id="errorMessage" class="error family-home-error hidden"></div>
+    </main>
+
+    <script src="icons.js"></script>
+    <script src="offline-storage.js"></script>
+    <script src="offline-common.js"></script>
+    <script src="family-home.js"></script>
+</body>
+</html>

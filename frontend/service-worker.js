@@ -29,6 +29,7 @@
 
 const SHELL_CACHE = 'offline-shell';
 const RUNTIME_CACHE = 'offline-runtime';
+const SHELL_BUILD_MARKER = 'point-log-max-point-form-20260606';
 
 const SHELL_URLS = [
     '/kid-practice.html',
@@ -43,6 +44,7 @@ const SHELL_URLS = [
     '/fonts-local.css',
     '/fonts/HuaWenKaiTi.ttf',
     '/icons.js',
+    '/family-user-switcher.js',
     '/kid-app-navigation.js',
     '/subject-icons.js',
     '/deck-category-common.js',

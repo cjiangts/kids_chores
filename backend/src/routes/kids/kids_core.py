@@ -66,6 +66,7 @@ from src.services.kid_daily_progress import (
     get_kid_opted_in_deck_category_keys,
     get_kid_practice_target_by_deck_category,
     get_kid_scoped_db_relpath,
+    get_kid_today_session_status_by_deck_category,
     get_kid_ungraded_type_iii_count,
     get_type_iii_category_keys,
 )
@@ -196,12 +197,19 @@ def get_kids():
                         opted_in_category_keys,
                         today_star_tiers=today_star_tiers,
                     )
+                    today_session_status_by_deck_category = get_kid_today_session_status_by_deck_category(
+                        kid,
+                        opted_in_category_keys,
+                        conn=conn,
+                        family_timezone=family_timezone,
+                    )
                     kids_with_admin_summary.append({
                         **kid,
                         'typeIIIToReviewCount': ungraded_count,
                         'optedInDeckCategoryKeys': opted_in_category_keys,
                         'practiceTargetByDeckCategory': practice_target_by_deck_category,
                         'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
+                        'todaySessionStatusByDeckCategory': today_session_status_by_deck_category,
                         **({'deckCategoryMetaByKey': category_meta_by_key} if include_admin_category_meta else {}),
                         'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
                         'familyTimezone': family_timezone,

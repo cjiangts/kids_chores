@@ -5,13 +5,16 @@ const POINT_HISTORY_LIMIT = 200;
 const kidTabs = document.getElementById('kidTabs');
 const logError = document.getElementById('logError');
 const pointLogForm = document.getElementById('pointLogForm');
+const pointEmoji = document.getElementById('pointEmoji');
+const pointRuleName = document.getElementById('pointRuleName');
+const pointPoints = document.getElementById('pointPoints');
 const pointNote = document.getElementById('pointNote');
-const noteGroup = document.getElementById('noteGroup');
 const submitPointLogBtn = document.getElementById('submitPointLogBtn');
 const templateList = document.getElementById('templateList');
 const selectionPanel = document.getElementById('selectionPanel');
 const pointHistory = document.getElementById('pointHistory');
 const pullTodaySessionsBtn = document.getElementById('pullTodaySessionsBtn');
+const pointRulesLink = document.querySelector('.point-rules-link');
 const modeTabs = Array.from(document.querySelectorAll('[data-mode]'));
 const initialParams = new URLSearchParams(window.location.search);
 const requestedKidId = String(initialParams.get('kidId') || initialParams.get('id') || '').trim();
@@ -26,21 +29,11 @@ const MODE_META = {
         title: 'Deduction Event Rules',
         empty: 'No active deduction event rules yet. Add Deduction Events from Rules.',
     },
-    review: {
-        title: 'Review Off-App Chores',
-        empty: 'No off-app chores are waiting for review.',
-    },
-    redeemed: {
-        title: 'Redeemed Reward Rules',
-        empty: 'No active redeemed reward rules yet. Add rewards from Reward Catalog.',
-    },
 };
 
 function normalizePointLogMode(value) {
     const raw = String(value || '').trim().toLowerCase().replace(/_/g, '-');
-    if (raw === 'review' || raw === 'off-app' || raw === 'offapp' || raw === 'off-app-chores') return 'review';
     if (raw === 'deduction' || raw === 'deduction-events') return 'deduction';
-    if (raw === 'redeemed' || raw === 'reward' || raw === 'reward-catalog') return 'redeemed';
     if (raw === 'bonus' || raw === 'bonus-events') return 'bonus';
     return '';
 }
@@ -70,11 +63,10 @@ let rules = [];
 let selectedKidId = '';
 let activeMode = requestedMode || readStoredPointLogMode() || 'bonus';
 let selectedRuleId = 0;
-let selectedPendingKey = '';
-let selectedRating = 3;
+let pointDraft = { emoji: '', name: '', points: '', note: '' };
 let pointData = { totalPoints: 0, events: [] };
 let pointTotalsByKidId = new Map();
-let pendingItems = [];
+let rewardBucketTotalsByKidId = new Map();
 let pullTodayStatusTimer = 0;
 let selectedHistoryDayKey = '';
 
@@ -127,26 +119,71 @@ function currentRulesForMode() {
         if (!rule.isActive) return false;
         if (activeMode === 'bonus') return rule.ruleKind === 'bonus_event';
         if (activeMode === 'deduction') return rule.ruleKind === 'deduction_event';
-        if (activeMode === 'redeemed') return rule.ruleKind === 'redeemed_reward';
         return false;
     });
 }
 
+function filteredRulesForMode() {
+    const query = String(pointDraft.name || '').trim().toLowerCase();
+    const modeRules = currentRulesForMode();
+    const filtered = query
+        ? modeRules.filter((rule) => String(rule?.name || '').toLowerCase().includes(query))
+        : modeRules;
+    const selected = selectedRule();
+    if (!selected || filtered.some((rule) => Number(rule.ruleId) === Number(selected.ruleId))) {
+        return filtered;
+    }
+    return [selected, ...filtered];
+}
+
 function formatDelta(value) {
-    const delta = Number.parseInt(value, 10) || 0;
-    return `${delta > 0 ? '+' : ''}${delta}`;
+    return window.PointRuleTemplateCommon.formatDelta(value);
 }
 
 function deltaClassForRule(rule) {
-    const delta = Number.parseInt(rule?.pointsDelta, 10) || 0;
-    if (rule?.ruleKind === 'redeemed_reward') return 'redeemed';
-    return delta >= 0 ? 'positive' : 'negative';
+    return window.PointRuleTemplateCommon.deltaClassForRule(rule);
 }
 
 function selectedBalance() {
     const fromTotals = pointTotalsByKidId.get(selectedKidId);
     if (fromTotals !== undefined) return Number.parseInt(fromTotals, 10) || 0;
     return Number.parseInt(pointData.totalPoints, 10) || 0;
+}
+
+function normalizeRewardBucketTotals(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    const totalFor = (bucket) => Number.parseInt(source[bucket]?.totalPoints ?? source[bucket] ?? 0, 10) || 0;
+    return {
+        small: totalFor('small'),
+        big: totalFor('big'),
+    };
+}
+
+function rewardBucketForRule(rule) {
+    if (!window.PointRuleTemplateCommon.isRewardRule(rule)) return '';
+    return window.PointRuleTemplateCommon.rewardType(rule);
+}
+
+function signedPointValueForRule(rule, points) {
+    const amount = Math.abs(Number.parseInt(points, 10) || 0);
+    const ruleKind = String(rule?.ruleKind || '').trim();
+    return (ruleKind === 'deduction_event' || ruleKind === 'redeemed_reward') ? -amount : amount;
+}
+
+function ruleMaxPoint(rule) {
+    const maxPoint = Number.parseInt(rule?.maxPoint, 10);
+    return Number.isInteger(maxPoint) && maxPoint > 0 ? maxPoint : 0;
+}
+
+function rewardBucketLabel(bucket) {
+    return window.PointRuleTemplateCommon.rewardTypeLabel(bucket);
+}
+
+function selectedRewardBucketBalance(rule = selectedRule()) {
+    const bucket = rewardBucketForRule(rule);
+    if (!bucket) return selectedBalance();
+    const totals = rewardBucketTotalsByKidId.get(selectedKidId) || normalizeRewardBucketTotals(pointData.rewardBucketTotals);
+    return Number.parseInt(totals?.[bucket], 10) || 0;
 }
 
 function rememberedKidId() {
@@ -166,10 +203,7 @@ function syncSelectedKidNavigation() {
 }
 
 function cannotAffordSelectedReward() {
-    const rule = selectedRule();
-    if (!rule || rule.ruleKind !== 'redeemed_reward') return false;
-    const delta = Number.parseInt(rule.pointsDelta, 10) || 0;
-    return selectedBalance() + delta < 0;
+    return false;
 }
 
 function formatPointsTotal(value) {
@@ -179,141 +213,135 @@ function formatPointsTotal(value) {
 function setPullTodayButton(label = 'Pull Today', { busy = false } = {}) {
     if (!pullTodaySessionsBtn) return;
     pullTodaySessionsBtn.disabled = busy || !selectedKidId;
-    const iconName = busy ? 'refresh-cw' : 'download';
-    pullTodaySessionsBtn.innerHTML = `${icon(iconName, { size: 16 })}<span>${escapeHtml(label)}</span>`;
+    pullTodaySessionsBtn.setAttribute('aria-label', label);
+    pullTodaySessionsBtn.title = label;
+    pullTodaySessionsBtn.innerHTML = icon('refresh-cw', { size: 16 });
 }
 
 function selectedRule() {
     return rules.find((rule) => Number(rule.ruleId) === Number(selectedRuleId)) || null;
 }
 
-function selectedPending() {
-    return pendingItems.find((item) => String(item.pendingId || '') === selectedPendingKey) || null;
-}
-
-function selectedReviewPoints(item = selectedPending()) {
-    const rule = item?.rule || {};
-    return Number.parseInt(rule[`rating${selectedRating}Points`], 10) || 0;
-}
-
 function hasActiveSelection() {
-    return activeMode === 'review' ? Boolean(selectedPending()) : Boolean(selectedRule());
+    return Boolean(selectedRule());
 }
 
-function reviewRatingMeta(rating) {
-    if (rating === 1) return { label: 'Needs Work', emoji: '🙁' };
-    if (rating === 2) return { label: 'OK', emoji: '🙂' };
-    return { label: 'Great', emoji: '🤩' };
+function exactDraftRule() {
+    const name = String(pointDraft.name || '').trim().toLowerCase();
+    if (!name) return null;
+    return currentRulesForMode().find((rule) => String(rule?.name || '').trim().toLowerCase() === name) || null;
+}
+
+function draftRuleForSubmit() {
+    return selectedRule() || exactDraftRule();
 }
 
 function clearSelection() {
     selectedRuleId = 0;
-    selectedPendingKey = '';
-    selectedRating = 3;
-    pointNote.value = '';
+}
+
+function clearDraft() {
+    selectedRuleId = 0;
+    pointDraft = { emoji: '', name: '', points: '', note: '' };
+    if (pointEmoji) pointEmoji.value = '';
+    if (pointRuleName) pointRuleName.value = '';
+    if (pointPoints) pointPoints.value = '';
+    if (pointNote) pointNote.value = '';
+}
+
+function syncDraftFromInputs({ preserveSelection = false } = {}) {
+    pointDraft = {
+        emoji: String(pointEmoji?.value || '').trim(),
+        name: String(pointRuleName?.value || '').trim(),
+        points: String(pointPoints?.value || '').trim(),
+        note: String(pointNote?.value || '').trim(),
+    };
+}
+
+function populateDraftFromRule(rule) {
+    if (!rule) return;
+    selectedRuleId = Number.parseInt(rule.ruleId, 10) || 0;
+    pointDraft = {
+        ...pointDraft,
+        emoji: String(rule.emoji || '').trim(),
+        name: String(rule.name || '').trim(),
+        points: rule.maxPoint == null ? '' : String(rule.maxPoint),
+    };
+    if (pointEmoji) pointEmoji.value = pointDraft.emoji;
+    if (pointRuleName) pointRuleName.value = pointDraft.name;
+    if (pointPoints) pointPoints.value = pointDraft.points;
+}
+
+function stepPoints(delta) {
+    if (!pointPoints) return;
+    const current = Number.parseInt(pointPoints.value, 10);
+    const base = Number.isInteger(current) && current > 0 ? current : 1;
+    const next = Math.max(1, base + delta);
+    pointPoints.value = String(next);
+    syncDraftFromInputs();
+    renderTemplates();
+    updateSubmitState();
+    if (typeof window.hydrateIcons === 'function') {
+        window.hydrateIcons(templateList);
+    }
 }
 
 function renderKids() {
-    if (kids.length < 2) {
-        kidTabs.classList.add('hidden');
-        kidTabs.innerHTML = '';
-        return;
-    }
-    kidTabs.innerHTML = kids.map((kid) => {
-        const id = String(kid.id || '');
-        const isActive = id === selectedKidId;
-        const total = Number.parseInt(pointTotalsByKidId.get(id), 10) || 0;
-        const totalClass = total < 0 ? ' negative' : (total > 0 ? ' positive' : '');
-        const totalHtml = `<span class="kid-nav-card-meta point-kid-total${totalClass}">${escapeHtml(formatPointsTotal(total))}</span>`;
-        return `<button type="button" class="kid-nav-card${isActive ? ' active' : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-kid-id="${escapeHtml(id)}">${icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 })}<span>${escapeHtml(kidName(kid))}</span>${totalHtml}</button>`;
-    }).join('');
-    kidTabs.classList.remove('hidden');
+    if (!window.KidAppNavigation?.renderKidSelector) return;
+    window.KidAppNavigation.renderKidSelector(kidTabs, kids, {
+        selectedKidId,
+        onSelect: async (kidId) => {
+            if (!kidId || kidId === selectedKidId) return;
+            selectedKidId = kidId;
+            syncSelectedKidNavigation();
+            selectedHistoryDayKey = todayHistoryDayKey();
+            clearDraft();
+            showError('');
+            try {
+                await Promise.all([loadPointsForSelectedKid(), loadPointTotalsForKids()]);
+                render();
+            } catch (error) {
+                showError(error.message || 'Failed to load points.');
+            }
+        },
+    });
 }
 
 function renderModeTabs() {
     modeTabs.forEach((tab) => {
         tab.classList.toggle('active', tab.dataset.mode === activeMode);
     });
+    if (pointRulesLink) {
+        const ruleKind = activeMode === 'deduction' ? 'deduction_event' : 'bonus_event';
+        pointRulesLink.href = `/point-rules.html?kind=${encodeURIComponent(ruleKind)}`;
+    }
 }
 
 function templateRow(rule) {
-    const delta = Number.parseInt(rule.pointsDelta, 10) || 0;
-    const signClass = deltaClassForRule(rule);
     const isActive = Number(rule.ruleId) === Number(selectedRuleId);
-    const active = isActive ? ' active' : '';
-    return `
-        <button type="button" class="point-template-row${active}" data-rule-id="${escapeHtml(rule.ruleId)}">
-            <span class="point-rule-emoji">${escapeHtml(rule.emoji || (delta < 0 ? '-' : '+'))}</span>
-            <span class="point-template-name">${escapeHtml(rule.name)}</span>
-            <span class="point-rule-delta ${signClass}">${escapeHtml(formatDelta(delta))}</span>
-            ${isActive ? '<span class="point-template-check" aria-hidden="true">✓</span>' : ''}
-        </button>
-    `;
-}
-
-function reviewTemplateRow(item) {
-    const pendingId = String(item.pendingId || '');
-    const isActive = pendingId === selectedPendingKey;
-    const active = isActive ? ' active' : '';
-    const rule = item.rule || {};
-    return `
-        <button type="button" class="point-template-row point-template-row--pending${active}" data-pending-key="${escapeHtml(pendingId)}">
-            <span class="point-rule-emoji">${escapeHtml(rule.emoji || '✓')}</span>
-            <span class="point-template-name">${escapeHtml(rule.name || 'Chore')}</span>
-            ${isActive ? '<span class="point-template-check" aria-hidden="true">✓</span>' : ''}
-        </button>
-    `;
+    const displayRule = isActive
+        ? {
+            ...rule,
+            emoji: String(pointDraft.emoji || rule.emoji || '').trim(),
+            name: String(pointDraft.name || rule.name || '').trim(),
+            maxPoint: Math.max(ruleMaxPoint(rule), Number.parseInt(pointDraft.points, 10) || 0) || rule.maxPoint,
+        }
+        : rule;
+    return window.PointRuleTemplateCommon.renderRuleRow(displayRule, { active: isActive });
 }
 
 function renderTemplates() {
     templateList.classList.toggle('has-selection', hasActiveSelection());
-    if (activeMode === 'review') {
-        if (!pendingItems.length) {
-            templateList.innerHTML = `<div class="point-empty">${escapeHtml(MODE_META.review.empty)}</div>`;
-            return;
-        }
-        templateList.innerHTML = `<div class="point-template-frame">${pendingItems.map(reviewTemplateRow).join('')}</div>`;
-        return;
-    }
-
-    const modeRules = currentRulesForMode();
+    const modeRules = filteredRulesForMode();
     if (!modeRules.length) {
-        templateList.innerHTML = `<div class="point-empty">${escapeHtml(MODE_META[activeMode]?.empty || '')}</div>`;
+        const hasQuery = Boolean(String(pointDraft.name || '').trim());
+        templateList.innerHTML = `<div class="point-empty">${escapeHtml(hasQuery ? 'No matching rules yet.' : (MODE_META[activeMode]?.empty || ''))}</div>`;
         return;
     }
     templateList.innerHTML = `<div class="point-template-frame">${modeRules.map(templateRow).join('')}</div>`;
 }
 
 function renderSelectionPanel() {
-    selectionPanel.classList.toggle('point-selection-panel--review', activeMode === 'review');
-    if (activeMode === 'review') {
-        const item = selectedPending();
-        if (!item) {
-            selectionPanel.classList.add('hidden');
-            selectionPanel.innerHTML = '';
-            return;
-        }
-        const rule = item.rule || {};
-        const ratingButtons = [1, 2, 3].map((rating) => {
-            const points = Number.parseInt(rule[`rating${rating}Points`], 10) || 0;
-            const ratingMeta = reviewRatingMeta(rating);
-            const active = rating === selectedRating ? ' active' : '';
-            return `
-                <button type="button" class="point-rating-btn${active}" data-rating="${rating}" aria-label="${escapeHtml(`${ratingMeta.label} ${formatDelta(points)}`)}">
-                    <span class="point-rating-emoji" aria-hidden="true">${escapeHtml(ratingMeta.emoji)}</span>
-                    <span class="point-rating-label">${escapeHtml(ratingMeta.label)}</span>
-                </button>
-            `;
-        }).join('');
-        const points = selectedReviewPoints(item);
-        selectionPanel.innerHTML = `
-            <div class="point-rating-control" aria-label="Chore rating">${ratingButtons}</div>
-            <div class="point-rule-delta positive">${escapeHtml(formatDelta(points))} pts</div>
-        `;
-        selectionPanel.classList.remove('hidden');
-        return;
-    }
-
     selectionPanel.classList.add('hidden');
     selectionPanel.innerHTML = '';
 }
@@ -330,18 +358,22 @@ function renderHistory() {
 }
 
 function updateSubmitState() {
-    const hasSelection = hasActiveSelection();
-    const cannotAfford = activeMode !== 'review' && cannotAffordSelectedReward();
-    pointLogForm.classList.toggle('hidden', !hasSelection);
-    submitPointLogBtn.disabled = !(selectedKidId && hasSelection) || cannotAfford;
-    if (activeMode === 'review') {
-        submitPointLogBtn.textContent = hasSelection ? `Apply ${formatDelta(selectedReviewPoints())}` : 'Apply';
-    } else {
-        const rule = selectedRule();
-        submitPointLogBtn.textContent = cannotAfford
-            ? 'Not enough points'
-            : (rule ? `Apply ${formatDelta(rule.pointsDelta)}` : 'Apply');
+    const name = String(pointDraft.name || '').trim();
+    const emoji = String(pointDraft.emoji || '').trim();
+    const points = Number.parseInt(pointDraft.points, 10);
+    const hasPositivePoints = Number.isInteger(points) && points > 0;
+    const rule = draftRuleForSubmit();
+    const canCreate = Boolean(name && emoji && hasPositivePoints);
+    const canSubmit = Boolean(selectedKidId && hasPositivePoints && (rule || canCreate));
+    const cannotAfford = cannotAffordSelectedReward();
+    submitPointLogBtn.disabled = !canSubmit || cannotAfford;
+    if (!name) {
+        submitPointLogBtn.textContent = 'Confirm';
+        return;
     }
+    submitPointLogBtn.textContent = rule
+        ? `Confirm ${formatDelta(signedPointValueForRule(rule, hasPositivePoints ? points : 1))}`
+        : `Create ${activeMode === 'deduction' ? '-' : '+'}${hasPositivePoints ? points : 1}`;
 }
 
 function render() {
@@ -362,6 +394,7 @@ async function loadPointsForSelectedKid() {
     }
     const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=${POINT_HISTORY_LIMIT}`);
     pointData = data || { totalPoints: 0, events: [] };
+    rewardBucketTotalsByKidId.set(selectedKidId, normalizeRewardBucketTotals(pointData.rewardBucketTotals));
 }
 
 async function loadPointTotalsForKids() {
@@ -370,34 +403,12 @@ async function loadPointTotalsForKids() {
         .map((item) => [String(item.kidId || ''), Number.parseInt(item.totalPoints, 10) || 0])
         .filter(([kidId]) => kidId);
     pointTotalsByKidId = new Map(entries);
+    rewardBucketTotalsByKidId = new Map((Array.isArray(data.totals) ? data.totals : [])
+        .map((item) => [String(item.kidId || ''), normalizeRewardBucketTotals(item.rewardBucketTotals)])
+        .filter(([kidId]) => kidId));
     const selectedTotal = pointTotalsByKidId.get(selectedKidId);
     if (selectedTotal !== undefined) {
         pointData = { ...pointData, totalPoints: selectedTotal };
-    }
-}
-
-async function loadPendingReviews() {
-    if (activeMode !== 'review') {
-        pendingItems = [];
-        selectedPendingKey = '';
-        return;
-    }
-    if (!selectedKidId) {
-        pendingItems = [];
-        return;
-    }
-    const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/off-app-chores`);
-    pendingItems = (Array.isArray(data.pending) ? data.pending : []).map((pending) => ({
-        pendingId: pending.pendingId,
-        submittedAt: pending.submittedAt,
-        rule: pending.rule || {},
-    }));
-    if (activeMode === 'review') {
-        const stillSelected = pendingItems.some((pending) => String(pending.pendingId || '') === selectedPendingKey);
-        if (!stillSelected) {
-            selectedPendingKey = '';
-        }
-        selectedRuleId = 0;
     }
 }
 
@@ -413,110 +424,139 @@ async function loadInitialData() {
     syncSelectedKidNavigation();
     rememberPointLogMode(activeMode);
     selectedHistoryDayKey = todayHistoryDayKey();
-    clearSelection();
-    await Promise.all([loadPendingReviews(), loadPointsForSelectedKid(), loadPointTotalsForKids()]);
+    clearDraft();
+    await Promise.all([loadPointsForSelectedKid(), loadPointTotalsForKids()]);
     render();
 }
 
 async function refreshAfterMutation() {
-    await Promise.all([loadPendingReviews(), loadPointsForSelectedKid(), loadPointTotalsForKids()]);
+    await Promise.all([loadPointsForSelectedKid(), loadPointTotalsForKids()]);
     render();
 }
 
-kidTabs.addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-kid-id]');
-    if (!button) return;
-    const nextKidId = String(button.dataset.kidId || '');
-    if (!nextKidId || nextKidId === selectedKidId) return;
-    selectedKidId = nextKidId;
-    syncSelectedKidNavigation();
-    selectedHistoryDayKey = todayHistoryDayKey();
-    clearSelection();
-    showError('');
-    try {
-        await Promise.all([loadPendingReviews(), loadPointsForSelectedKid(), loadPointTotalsForKids()]);
-        render();
-    } catch (error) {
-        showError(error.message || 'Failed to load points.');
+async function createAdhocRuleFromDraft() {
+    const name = String(pointDraft.name || '').trim();
+    const emoji = String(pointDraft.emoji || '').trim();
+    const points = Number.parseInt(pointDraft.points, 10);
+    if (!name || !emoji) {
+        throw new Error('Enter a name and emoji before creating a new rule.');
     }
-});
+    if (!Number.isInteger(points) || points <= 0) {
+        throw new Error('Enter positive points before creating a new rule.');
+    }
+    const data = await fetchJson(`${API_BASE}/points/rules`, {
+        method: 'POST',
+        body: JSON.stringify({
+            name,
+            emoji,
+            ruleKind: activeMode === 'deduction' ? 'deduction_event' : 'bonus_event',
+            maxPoint: points,
+            isActive: true,
+        }),
+    });
+    const rule = data.rule || null;
+    if (!rule?.ruleId) {
+        throw new Error('Failed to create rule.');
+    }
+    rules = [...rules, rule];
+    selectedRuleId = Number.parseInt(rule.ruleId, 10) || 0;
+    return rule;
+}
+
+async function saveSelectedRuleFromDraft(rule) {
+    if (!rule || Number(rule.ruleId) !== Number(selectedRuleId)) return rule;
+    const name = String(pointDraft.name || '').trim();
+    const emoji = String(pointDraft.emoji || '').trim();
+    const points = Number.parseInt(pointDraft.points, 10);
+    if (!name || !emoji || !Number.isInteger(points) || points <= 0) return rule;
+    const nextMaxPoint = Math.max(ruleMaxPoint(rule), points);
+    const didChange = name !== String(rule.name || '').trim()
+        || emoji !== String(rule.emoji || '').trim()
+        || nextMaxPoint !== ruleMaxPoint(rule);
+    if (!didChange) return rule;
+    const data = await fetchJson(`${API_BASE}/points/rules/${encodeURIComponent(rule.ruleId)}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+            name,
+            emoji,
+            maxPoint: nextMaxPoint,
+        }),
+    });
+    const updatedRule = data.rule || rule;
+    rules = rules.map((item) => (Number(item.ruleId) === Number(updatedRule.ruleId) ? updatedRule : item));
+    selectedRuleId = Number.parseInt(updatedRule.ruleId, 10) || selectedRuleId;
+    return updatedRule;
+}
 
 modeTabs.forEach((tab) => {
-    tab.addEventListener('click', async () => {
+    tab.addEventListener('click', () => {
         const nextMode = tab.dataset.mode || 'bonus';
         if (nextMode === activeMode) return;
         activeMode = nextMode;
         rememberPointLogMode(activeMode);
-        clearSelection();
+        clearDraft();
         showError('');
-        try {
-            await loadPendingReviews();
-            render();
-        } catch (error) {
-            showError(error.message || 'Failed to load off-app chores.');
-            render();
-        }
+        render();
     });
 });
 
 templateList.addEventListener('click', async (event) => {
     const ruleButton = event.target.closest('[data-rule-id]');
     if (ruleButton) {
-        selectedRuleId = Number.parseInt(ruleButton.dataset.ruleId || '', 10) || 0;
-        selectedPendingKey = '';
-        render();
-        return;
-    }
-    const pendingButton = event.target.closest('[data-pending-key]');
-    if (pendingButton) {
-        const item = pendingItems.find((pending) => String(pending.pendingId || '') === pendingButton.dataset.pendingKey);
-        selectedPendingKey = pendingButton.dataset.pendingKey || '';
-        selectedRuleId = 0;
+        const ruleId = Number.parseInt(ruleButton.dataset.ruleId || '', 10) || 0;
+        if (ruleId && Number(ruleId) === Number(selectedRuleId)) {
+            clearDraft();
+            render();
+            return;
+        }
+        const rule = rules.find((item) => Number(item.ruleId) === ruleId);
+        populateDraftFromRule(rule);
+        syncDraftFromInputs({ preserveSelection: true });
         render();
     }
 });
 
-selectionPanel.addEventListener('click', (event) => {
-    const ratingButton = event.target.closest('[data-rating]');
-    if (!ratingButton) return;
-    selectedRating = Number.parseInt(ratingButton.dataset.rating || '', 10) || 3;
-    render();
+[pointEmoji, pointRuleName, pointPoints, pointNote].forEach((input) => {
+    input?.addEventListener('input', () => {
+        syncDraftFromInputs();
+        renderTemplates();
+        updateSubmitState();
+        if (typeof window.hydrateIcons === 'function') {
+            window.hydrateIcons(templateList);
+        }
+    });
 });
 
-pointNote.addEventListener('input', updateSubmitState);
+pointLogForm.addEventListener('click', (event) => {
+    const stepButton = event.target.closest('[data-point-step]');
+    if (!stepButton) return;
+    const delta = Number.parseInt(stepButton.dataset.pointStep || '', 10);
+    if (!Number.isInteger(delta) || delta === 0) return;
+    stepPoints(delta);
+});
 
 pointLogForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     submitPointLogBtn.disabled = true;
     showError('');
     try {
-        if (activeMode === 'review') {
-            const pending = selectedPending();
-            if (!pending) return;
-            await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/off-app-chores/pending/${pending.pendingId}/review`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    rating: selectedRating,
-                    note: pointNote.value.trim(),
-                }),
-            });
-        } else {
-            const rule = selectedRule();
-            if (!selectedKidId || !rule) return;
-            if (cannotAffordSelectedReward()) {
-                showError('Not enough points for this reward.');
-                updateSubmitState();
-                return;
-            }
-            await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    ruleId: rule.ruleId,
-                    note: pointNote.value.trim(),
-                }),
-            });
+        syncDraftFromInputs({ preserveSelection: true });
+        let rule = draftRuleForSubmit();
+        if (!selectedKidId) return;
+        if (!rule) {
+            rule = await createAdhocRuleFromDraft();
+        } else if (Number(rule.ruleId) === Number(selectedRuleId)) {
+            rule = await saveSelectedRuleFromDraft(rule);
         }
-        clearSelection();
+        await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events`, {
+            method: 'POST',
+            body: JSON.stringify({
+                ruleId: rule.ruleId,
+                pointsDelta: Number.parseInt(pointDraft.points, 10),
+                note: pointDraft.note,
+            }),
+        });
+        clearDraft();
         await refreshAfterMutation();
     } catch (error) {
         showError(error.message || 'Failed to log points.');

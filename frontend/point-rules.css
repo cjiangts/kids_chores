@@ -47,8 +47,12 @@
 }
 
 .point-rule-table-row.off-app {
-    grid-template-columns: 74px minmax(180px, 1fr) 88px 88px 88px 92px minmax(160px, auto);
+    grid-template-columns: 74px minmax(180px, 1fr) minmax(96px, 130px) 92px minmax(160px, auto);
     align-items: start;
+}
+
+.point-rule-table-row.reward {
+    grid-template-columns: 74px minmax(160px, 1fr) minmax(96px, 118px) minmax(96px, 130px) 92px minmax(160px, auto);
 }
 
 .point-rule-table-row.off-app .point-rule-active,
@@ -244,7 +248,11 @@
     }
 
     .point-rule-table-row.off-app {
-        grid-template-columns: 42px minmax(0, 1fr) 42px 42px 42px 30px 38px;
+        grid-template-columns: 42px minmax(0, 1fr) 68px 30px 38px;
+    }
+
+    .point-rule-table-row.reward {
+        grid-template-columns: 42px minmax(0, 1fr) 58px 64px 30px 38px;
     }
 
     .point-rule-table-row.off-app .point-rule-active,
@@ -272,6 +280,11 @@
     .point-rule-input.points {
         text-align: center;
         padding: 0 0.25rem;
+    }
+
+    .point-rule-input.reward-type {
+        padding: 0 0.25rem;
+        font-size: 0.78rem;
     }
 
     .point-rule-name-stack {
@@ -340,7 +353,8 @@
 @media (max-width: 480px) {
     .point-rule-table-row.header,
     .point-rule-table-row.header.in-app,
-    .point-rule-table-row.header.off-app {
+    .point-rule-table-row.header.off-app,
+    .point-rule-table-row.header.reward {
         display: grid;
         border: 0;
         background: transparent;
@@ -378,7 +392,11 @@
     }
 
     .point-rule-table-row.off-app {
-        grid-template-columns: 38px minmax(0, 1fr) 38px 38px 38px 28px 34px;
+        grid-template-columns: 38px minmax(0, 1fr) 56px 28px 34px;
+    }
+
+    .point-rule-table-row.reward {
+        grid-template-columns: 38px minmax(0, 1fr) 50px 56px 28px 34px;
     }
 
     .point-rule-table-row.off-app .point-rule-active,

@@ -2,8 +2,8 @@
  * kid-practice-home.js — practice landing page for one kid.
  *
  * Shows a per-category "what's left today" summary strip, a chooser
- * grid of practice options (one card per opted-in category), and an
- * inline kid toggle (segmented pill) under the header.
+ * grid of practice options (one card per opted-in category), and a
+ * current-kid switch button that returns to the family home.
  *
  * Each option card dispatches to a type-specific go* navigation
  * function that builds the kid-practice.html URL with the right
@@ -12,11 +12,10 @@
  * Layout (search for `// === N. ` banners to jump between sections):
  *
  *     1. DOM refs + navigation helpers (persistLast, title)
- *     2. Kid toggle
- *     3. Bootstrap (DOMContentLoaded → loadKidInfo → render)
- *     4. Category progress model + chooser rendering
- *     5. Per-type practice launch (goType1/Writing/Type3/Type4)
- *     6. Misc helpers
+ *     2. Bootstrap (DOMContentLoaded → loadKidInfo → render)
+ *     3. Category progress model + chooser rendering
+ *     4. Per-type practice launch (goType1/Writing/Type3/Type4)
+ *     5. Misc helpers
  */
 
 const API_BASE = `${window.location.origin}/api`;
@@ -28,11 +27,9 @@ const requestedCategoryKey = window.DeckCategoryCommon.normalizeCategoryKey(
 );
 
 const kidNameEl = document.getElementById('kidName');
-const kidToggleGroup = document.getElementById('kidToggleGroup');
 const errorMessage = document.getElementById('errorMessage');
 const practiceSection = document.getElementById('practiceSection');
 const inAppPracticeSection = document.getElementById('inAppPracticeSection');
-const practiceSummaryStrip = document.getElementById('practiceSummaryStrip');
 const practiceChooser = document.getElementById('practiceChooser');
 const offAppPracticeSection = document.getElementById('offAppPracticeSection');
 const offAppChooser = document.getElementById('offAppChooser');
@@ -169,151 +166,6 @@ function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpeci
     goType1Practice(categoryKey);
 }
 
-let kidToggleLoading = false;
-
-// =====================================================================
-// === 2. Kid toggle
-// =====================================================================
-
-async function loadKidsForToggle() {
-    if (kidToggleLoading) return;
-    kidToggleLoading = true;
-    try {
-        if (isOfflineMode) {
-            await loadKidsForToggleFromLocalPacks();
-            return;
-        }
-        const [kidsResponse, locksByKidId, ownedKidIdSet] = await Promise.all([
-            fetch(`${API_BASE}/kids?view=practice_nav`),
-            fetchOfflineLockMap(),
-            loadOwnedKidIdSet(),
-        ]);
-        if (!kidsResponse.ok) throw new Error(`HTTP ${kidsResponse.status}`);
-        const kids = await kidsResponse.json();
-        const all = Array.isArray(kids) ? kids : [];
-        const list = all.filter((kid) => {
-            const id = String(kid?.id || '');
-            if (id === kidId) return true;
-            const lock = locksByKidId[id];
-            if (lock && !ownedKidIdSet.has(id)) return false;
-            return true;
-        });
-        renderKidToggle(list, { locksByKidId, ownedKidIdSet });
-    } catch (error) {
-        console.error('Error loading kids for toggle:', error);
-        if (kidToggleGroup) {
-            kidToggleGroup.classList.add('hidden');
-            kidToggleGroup.innerHTML = '';
-        }
-    } finally {
-        kidToggleLoading = false;
-    }
-}
-
-async function loadKidsForToggleFromLocalPacks() {
-    if (!window.OfflineStorage) {
-        if (kidToggleGroup) { kidToggleGroup.classList.add('hidden'); kidToggleGroup.innerHTML = ''; }
-        return;
-    }
-    const packs = await window.OfflineStorage.listAllPacks();
-    const ownedKidIdSet = new Set((packs || []).map((p) => String(p.kidId)));
-    const locksByKidId = {};
-    const list = (packs || []).map((p) => {
-        const env = p.packEnvelope || {};
-        const info = env.kidInfo || {};
-        const id = String(p.kidId);
-        locksByKidId[id] = {
-            pack_id: String(env.pack_id || ''),
-            device_label: String(env.device_label || ''),
-            acquired_at_utc: env.acquired_at_utc || null,
-            expires_at_utc: env.expires_at_utc || null,
-        };
-        return {
-            ...info,
-            id,
-            name: String(info.name || env.kid_name || '').trim() || 'Kid',
-        };
-    }).filter((kid) => String(kid.id || '').trim());
-    renderKidToggle(list, { locksByKidId, ownedKidIdSet });
-}
-
-async function fetchOfflineLockMap() {
-    try {
-        const res = await fetch(`${API_BASE}/offline/status`);
-        if (!res.ok) return {};
-        const payload = await res.json();
-        const locks = Array.isArray(payload?.locks) ? payload.locks : [];
-        const map = {};
-        for (const lock of locks) {
-            const kid = String(lock?.kid_id || '');
-            if (kid) map[kid] = lock;
-        }
-        return map;
-    } catch (_) {
-        return {};
-    }
-}
-
-async function loadOwnedKidIdSet() {
-    if (!window.OfflineStorage) return new Set();
-    try {
-        const ids = await window.OfflineStorage.listOwnedKidIds();
-        return new Set((ids || []).map((v) => String(v)));
-    } catch (_) {
-        return new Set();
-    }
-}
-
-function renderKidToggle(kids, opts) {
-    if (!kidToggleGroup) return;
-    const list = Array.isArray(kids) ? kids : [];
-    if (list.length < 2) {
-        kidToggleGroup.classList.add('hidden');
-        kidToggleGroup.innerHTML = '';
-        return;
-    }
-    const locksByKidId = (opts && opts.locksByKidId) || {};
-    const ownedKidIdSet = (opts && opts.ownedKidIdSet) || new Set();
-    const userIconSvg = (typeof window.icon === 'function')
-        ? window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 })
-        : '';
-    kidToggleGroup.innerHTML = list.map((kid) => {
-        const id = String(kid?.id || '');
-        const name = String(kid?.name || '').trim() || 'Kid';
-        const isActive = id === String(kidId);
-        const lock = locksByKidId[id];
-        const isOwned = ownedKidIdSet.has(id);
-        const isLockedHere = Boolean(lock) && isOwned;
-        const isLockedElsewhere = Boolean(lock) && !isOwned;
-        const nameHtml = `<span>${escapeHtmlLocal(name)}</span>`;
-
-        if (isActive) {
-            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}${nameHtml}</span>`;
-        }
-        if (isLockedElsewhere) {
-            const deviceLabel = String(lock.device_label || '').trim() || 'another device';
-            const offlineMeta = `<span class="kid-nav-card-meta is-offline-elsewhere" title="Offline on ${escapeHtmlLocal(deviceLabel)}">Offline</span>`;
-            return `<span class="kid-nav-card is-offline-elsewhere" role="tab" aria-selected="false" aria-disabled="true" title="Offline on ${escapeHtmlLocal(deviceLabel)}">${userIconSvg}${nameHtml}${offlineMeta}</span>`;
-        }
-        if (isLockedHere) {
-            // Kid has an offline pack on this device. In offline mode, let the
-            // click switch into her offline home.
-            const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
-            if (isOfflineMode) {
-                return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}</a>`;
-            }
-            const offlineMeta = '<span class="kid-nav-card-meta is-offline-here" title="Offline on this device">Offline</span>';
-            return `<a class="kid-nav-card is-offline-here" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}${offlineMeta}</a>`;
-        }
-        if (isOfflineMode) {
-            return `<span class="kid-nav-card is-offline-elsewhere" role="tab" aria-selected="false" aria-disabled="true" title="Sync before switching kids">${userIconSvg}${nameHtml}</span>`;
-        }
-        const href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
-        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtmlLocal(href)}">${userIconSvg}${nameHtml}</a>`;
-    }).join('');
-    kidToggleGroup.classList.remove('hidden');
-}
-
 function cacheKidForPracticeNavigation() {
     try {
         if (!currentKid || !kidId) {
@@ -360,7 +212,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    void loadKidsForToggle();
     const cachedKid = readKidFromPracticeNavigationCache();
     if (cachedKid) {
         applyKidPayload(cachedKid);
@@ -375,15 +226,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         void offAppPromise;
     }
 });
-
-if (practiceSummaryStrip) {
-    practiceSummaryStrip.addEventListener('click', (event) => {
-        const progressBtn = event.target.closest('[data-practice-action="open-progress-report"]');
-        if (progressBtn) {
-            openProgressReport();
-        }
-    });
-}
 
 if (offAppChooser) {
     offAppChooser.addEventListener('click', (event) => {
@@ -411,6 +253,29 @@ function applyKidPayload(kid) {
         titleIcon.textContent = '🎓';
     }
     updatePageTitle();
+    renderCurrentKidSwitchButton();
+}
+
+function renderCurrentKidSwitchButton(extraHtml = '') {
+    const headerActions = document.getElementById('practiceHomeHeaderActions');
+    if (!headerActions) return;
+    const name = String(currentKid?.name || '').trim() || '...';
+    headerActions.setAttribute('data-family-user-switcher', '');
+    headerActions.setAttribute('data-user-name', name);
+    headerActions.setAttribute('data-user-icon', 'user');
+    headerActions.setAttribute('data-user-title', `Switch user from ${name}`);
+    if (window.FamilyUserSwitcher && typeof window.FamilyUserSwitcher.renderAuto === 'function') {
+        window.FamilyUserSwitcher.renderAuto(headerActions);
+        if (extraHtml) headerActions.insertAdjacentHTML('beforeend', extraHtml);
+    }
+}
+
+function renderOfflineHeaderActions() {
+    const headerActions = document.getElementById('practiceHomeHeaderActions');
+    if (!headerActions) return;
+    headerActions.innerHTML = `
+        <button type="button" id="offlineSyncBtn" class="back-btn btn-secondary page-header-back-btn offline-sync-btn" aria-label="Sync practice results" title="Sync practice results"></button>
+    `;
 }
 
 function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
@@ -708,66 +573,6 @@ function renderPracticeOptionCard({
     return model;
 }
 
-function renderPracticeSummaryStrip({
-    optedInCategoryKeys,
-    categoryMetaMap,
-    dailyCompletedByCategory,
-    dailyStartedByCategory,
-    practiceTargetByCategory,
-}) {
-    if (!practiceSummaryStrip) {
-        return;
-    }
-
-    let assignedCount = 0;
-    let startedCount = 0;
-
-    optedInCategoryKeys.forEach((categoryKey) => {
-        const key = normalizeCategoryKey(categoryKey);
-        if (!key) {
-            return;
-        }
-        const meta = categoryMetaMap[key] || {};
-        const behaviorType = String(meta.behavior_type || '').trim().toLowerCase();
-        if (!VALID_BEHAVIOR_TYPES.has(behaviorType)) {
-            return;
-        }
-        const targetCount = Number.parseInt(practiceTargetByCategory?.[key], 10);
-        const completedCount = Number.parseInt(dailyCompletedByCategory?.[key], 10);
-        const safeTargetCount = Number.isInteger(targetCount) ? Math.max(0, targetCount) : 0;
-        const safeCompletedCount = Number.isInteger(completedCount) ? Math.max(0, completedCount) : 0;
-        if (safeTargetCount <= 0 && safeCompletedCount <= 0) {
-            return;
-        }
-
-        assignedCount += 1;
-        startedCount += Math.max(0, Number.parseInt(dailyStartedByCategory?.[key], 10) || 0);
-    });
-
-    const summaryBoxes = [];
-    if (assignedCount > 0) {
-        summaryBoxes.push(buildSummaryPill({
-            iconName: 'calendar',
-            label: `${startedCount} ${startedCount === 1 ? 'session' : 'sessions'}`,
-            action: 'open-progress-report',
-            ariaLabel: "View today's practice report",
-        }));
-    }
-
-    practiceSummaryStrip.innerHTML = summaryBoxes.join('');
-    practiceSummaryStrip.classList.remove('hidden');
-}
-
-function buildSummaryPill({ iconName, label, action, ariaLabel }) {
-    const iconHtml = `<span class="practice-summary-pill-icon" aria-hidden="true">${icon(iconName, { size: 17, strokeWidth: 2.4 })}</span>`;
-    const textHtml = `<span class="practice-summary-pill-label">${escapeHtmlLocal(label)}</span>`;
-    if (action) {
-        const aria = ariaLabel ? ` aria-label="${escapeHtmlLocal(ariaLabel)}"` : '';
-        return `<button type="button" class="practice-summary-pill" data-practice-action="${action}"${aria}>${iconHtml}${textHtml}</button>`;
-    }
-    return `<div class="practice-summary-pill is-static">${iconHtml}${textHtml}</div>`;
-}
-
 function clearPracticeOptionButtons() {
     if (!practiceChooser) {
         return;
@@ -865,7 +670,7 @@ function renderOffAppTaskRow(chore) {
     const name = String(chore?.name || '').trim() || 'Task';
     const statusText = isCreditedToday
         ? formatCreditedOffAppStatus(creditedEvent)
-        : (isPending ? 'Pending Review' : "I'm done");
+        : (isPending ? 'Reviewing' : "I'm done");
     const actionIcon = isCreditedToday
         ? 'check'
         : (isPending ? 'clock' : 'check');
@@ -875,7 +680,7 @@ function renderOffAppTaskRow(chore) {
         isCreditedToday ? 'is-credited' : '',
         isSaving ? 'is-saving' : '',
     ].filter(Boolean).join(' ');
-    const disabled = (isSaving || isCreditedToday) ? ' disabled' : '';
+    const disabled = (isSaving || isPending || isCreditedToday) ? ' disabled' : '';
     const ariaPressed = isChecked ? 'true' : 'false';
     return `
         <button type="button" class="${classes}" data-off-app-rule-id="${ruleId}" aria-pressed="${ariaPressed}"${disabled}>
@@ -931,34 +736,7 @@ async function handleOffAppTaskToggle(ruleIdValue) {
     }
     const pending = offAppChoreState.pendingByRuleId.get(ruleId) || null;
     if (pending) {
-        const confirmed = window.confirm(`Remove the check mark for "${String(chore.name || 'this task').trim() || 'this task'}"?`);
-        if (!confirmed) {
-            return;
-        }
-        const pendingId = Number.parseInt(pending.pendingId, 10);
-        if (!Number.isInteger(pendingId) || pendingId <= 0) {
-            showError('This task is already waiting for review. Refresh the page before changing it.');
-            return;
-        }
-        offAppChoreState = { ...offAppChoreState, savingRuleId: ruleId };
-        renderPracticeOptions();
-        try {
-            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores/pending/${pendingId}`, {
-                method: 'DELETE',
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(payload.error || `HTTP ${response.status}`);
-            }
-            offAppChoreState = { ...offAppChoreState, savingRuleId: null };
-            await loadOffAppChores();
-        } catch (error) {
-            showError(error.message || 'Could not remove the check mark.');
-            void loadOffAppChores();
-        } finally {
-            offAppChoreState = { ...offAppChoreState, savingRuleId: null };
-            renderPracticeOptions();
-        }
+        showError('This task is waiting for parent review.');
         return;
     }
 
@@ -1068,13 +846,6 @@ function renderPracticeOptions() {
     activeTypeIICategoryKey = typeIIKey;
     const typeIIIKey = resolveTypeIIIPracticeCategoryKey(currentKid, activeTypeIIICategoryKey);
     activeTypeIIICategoryKey = typeIIIKey;
-    renderPracticeSummaryStrip({
-        optedInCategoryKeys: optedInKeys,
-        categoryMetaMap,
-        dailyCompletedByCategory,
-        dailyStartedByCategory,
-        practiceTargetByCategory,
-    });
     const renderedOptionCount = renderPracticeOptionButtons({
         optedInCategoryKeys: optedInKeys,
         categoryMetaMap,
@@ -1235,6 +1006,9 @@ async function bootstrapOfflinePracticeHome(pack) {
     isOfflineMode = true;
     offlinePackExpired = isPackExpired(env);
     markOfflineHomeUrl();
+    if (window.KidAppNavigation && typeof window.KidAppNavigation.setSuppressed === 'function') {
+        window.KidAppNavigation.setSuppressed(true);
+    }
 
     // Fold locally-saved practice answers into the (acquire-time-frozen)
     // daily counts so progress bars actually move as the kid practices.
@@ -1275,26 +1049,12 @@ async function bootstrapOfflinePracticeHome(pack) {
 
     applyKidPayload(kidInfo);
 
-    // Replace Home button with Sync (only visible offline-mode chrome).
-    const headerActions = document.getElementById('practiceHomeHeaderActions');
-    if (headerActions) {
-        headerActions.innerHTML = `
-            <button type="button" id="offlineSyncBtn" class="back-btn btn-secondary page-header-back-btn offline-sync-btn" aria-label="Sync practice results" title="Sync practice results"></button>
-        `;
-        await renderSyncButtonContents();
-        const syncBtn = document.getElementById('offlineSyncBtn');
-        if (syncBtn) syncBtn.addEventListener('click', () => handleOfflineSyncClick());
-    }
+    renderOfflineHeaderActions();
+    await renderSyncButtonContents();
+    const syncBtn = document.getElementById('offlineSyncBtn');
+    if (syncBtn) syncBtn.addEventListener('click', () => handleOfflineSyncClick());
 
-    // Kid toggle is rebuilt from local IndexedDB packs (no network).
-    void loadKidsForToggle();
     renderPracticeOptions();
-
-    // Suppress the practice summary strip in offline mode.
-    if (practiceSummaryStrip) {
-        practiceSummaryStrip.classList.add('hidden');
-        practiceSummaryStrip.innerHTML = '';
-    }
 
     // Dim subjects whose pack wasn't downloaded (offlineGuardOrError handles
     // the click rejection).

@@ -12,10 +12,21 @@ const RULE_KINDS = new Set([
     'deduction_event',
     'redeemed_reward',
 ]);
-
 function normalizeRuleKind(kind) {
     const normalized = String(kind || '').trim();
     return RULE_KINDS.has(normalized) ? normalized : '';
+}
+
+function normalizeRequestedRuleKind(value) {
+    const raw = String(value || '').trim().toLowerCase().replace(/-/g, '_');
+    if (raw === 'bonus' || raw === 'bonus_event' || raw === 'bonus_events') return 'bonus_event';
+    if (raw === 'deduction' || raw === 'deduction_event' || raw === 'deduction_events') return 'deduction_event';
+    return normalizeRuleKind(raw);
+}
+
+function requestedRuleKind() {
+    const params = new URLSearchParams(window.location.search);
+    return normalizeRequestedRuleKind(params.get('kind') || params.get('ruleKind') || params.get('mode') || params.get('tab'));
 }
 
 function readStoredRuleKind() {
@@ -38,7 +49,7 @@ function rememberRuleKind(kind) {
     }
 }
 
-let activeRuleKind = readStoredRuleKind() || 'in_app_chore';
+let activeRuleKind = requestedRuleKind() || readStoredRuleKind() || 'in_app_chore';
 let rules = [];
 let categories = [];
 let kids = [];
@@ -68,10 +79,27 @@ function getRuleKindRules(kind = activeRuleKind) {
     return rules.filter((rule) => rule.ruleKind === kind);
 }
 
-function offAppRatingLabel(rating) {
-    if (rating === 1) return 'Bad';
-    if (rating === 2) return 'OK';
-    return 'Great';
+function rewardType(rule) {
+    const value = String(rule?.rewardType || '').trim().toLowerCase();
+    return value;
+}
+
+function rewardTypeLabel(value) {
+    const normalized = rewardType({ rewardType: value });
+    return normalized
+        .replace(/[_-]+/g, ' ')
+        .replace(/\b\w/g, (ch) => ch.toUpperCase())
+        .trim() || 'Reward';
+}
+
+function rewardTypeSuggestions() {
+    const types = new Set();
+    rules
+        .filter((rule) => String(rule?.ruleKind || '') === 'redeemed_reward')
+        .forEach((rule) => types.add(rewardType(rule)));
+    return Array.from(types).filter(Boolean).sort((a, b) => {
+        return rewardTypeLabel(a).localeCompare(rewardTypeLabel(b));
+    });
 }
 
 async function fetchJson(url, options = {}) {
@@ -165,6 +193,33 @@ function inputCell(label, field, value, extraClass = '', type = 'text') {
                 autocomplete="off"
             >
         </div>
+    `;
+}
+
+function rewardTypeCell(rule) {
+    const type = rule ? rewardType(rule) : '';
+    const value = type ? rewardTypeLabel(type) : '';
+    return `
+        <div class="point-rule-cell">
+            <input
+                class="point-rule-input reward-type"
+                type="text"
+                data-field="rewardType"
+                value="${escapeHtml(value)}"
+                list="rewardTypeSuggestions"
+                autocomplete="off"
+            >
+        </div>
+    `;
+}
+
+function rewardTypeDatalist() {
+    return `
+        <datalist id="rewardTypeSuggestions">
+            ${rewardTypeSuggestions().map((type) => `
+                <option value="${escapeHtml(rewardTypeLabel(type))}"></option>
+            `).join('')}
+        </datalist>
     `;
 }
 
@@ -263,10 +318,12 @@ function actionCell(rule) {
 
 function renderRuleRow(rule) {
     const isOffApp = activeRuleKind === 'off_app_chore';
+    const isRewardCatalog = activeRuleKind === 'redeemed_reward';
     const isNew = !rule;
     const rowClasses = [
         'point-rule-table-row',
         isOffApp ? 'off-app' : '',
+        isRewardCatalog ? 'reward' : '',
         isNew ? 'new-row' : '',
         rule && !rule.isActive ? 'inactive' : '',
     ].filter(Boolean).join(' ');
@@ -274,15 +331,10 @@ function renderRuleRow(rule) {
         inputCell('Emoji', 'emoji', rule?.emoji || '', 'emoji'),
         isOffApp ? offAppNameCell(rule) : inputCell('Name', 'name', rule?.name || '', 'name'),
     ];
-    if (isOffApp) {
-        cells.push(
-            inputCell(offAppRatingLabel(1), 'rating1Points', rule?.rating1Points ?? '', 'points', 'number'),
-            inputCell(offAppRatingLabel(2), 'rating2Points', rule?.rating2Points ?? '', 'points', 'number'),
-            inputCell(offAppRatingLabel(3), 'rating3Points', rule?.rating3Points ?? '', 'points', 'number'),
-        );
-    } else {
-        cells.push(inputCell('Points', 'pointsDelta', rule?.pointsDelta ?? '', 'points', 'number'));
+    if (isRewardCatalog) {
+        cells.push(rewardTypeCell(rule));
     }
+    cells.push(inputCell('Max point', 'maxPoint', rule?.maxPoint ?? '', 'points', 'number'));
     cells.push(activeCell(rule));
     cells.push(actionCell(rule));
     return `
@@ -304,7 +356,7 @@ function renderAppDailyRow(category) {
     const defaultName = categoryLabel(category);
     const cells = [
         subjectCell(category),
-        inputCell('Points', 'pointsDelta', rule?.pointsDelta ?? '', 'points', 'number'),
+        inputCell('Max point', 'maxPoint', rule?.maxPoint ?? '', 'points', 'number'),
         activeCell(rule),
         actionCell(rule),
     ];
@@ -332,7 +384,7 @@ function renderRuleHeader() {
             <div class="point-rule-table-row header in-app">
                 ${[
                     headerCell('Subject'),
-                    headerCell('Points'),
+                    headerCell('Max point', 'Max'),
                     headerCell('Active', 'On'),
                     headerCell('Actions', ''),
                 ].join('')}
@@ -340,25 +392,33 @@ function renderRuleHeader() {
         `;
     }
     const isOffApp = activeRuleKind === 'off_app_chore';
+    const isRewardCatalog = activeRuleKind === 'redeemed_reward';
     const headers = isOffApp
         ? [
             ['Emoji', 'Emoji'],
             ['Name', 'Name'],
-            [offAppRatingLabel(1), offAppRatingLabel(1)],
-            [offAppRatingLabel(2), offAppRatingLabel(2)],
-            [offAppRatingLabel(3), offAppRatingLabel(3)],
+            ['Max point', 'Max'],
             ['Active', 'On'],
             ['Actions', ''],
         ]
+        : isRewardCatalog
+            ? [
+                ['Emoji', 'Emoji'],
+                ['Name', 'Name'],
+                ['Reward type', 'Type'],
+                ['Max point', 'Max'],
+                ['Active', 'On'],
+                ['Actions', ''],
+            ]
         : [
             ['Emoji', 'Emoji'],
             ['Name', 'Name'],
-            ['Points', 'Points'],
+            ['Max point', 'Max'],
             ['Active', 'On'],
             ['Actions', ''],
         ];
     return `
-        <div class="point-rule-table-row header ${isOffApp ? 'off-app' : ''}">
+        <div class="point-rule-table-row header ${isOffApp ? 'off-app' : ''} ${isRewardCatalog ? 'reward' : ''}">
             ${headers.map(([label, shortLabel]) => headerCell(label, shortLabel)).join('')}
         </div>
     `;
@@ -408,6 +468,7 @@ function renderRules() {
             ${renderRuleRow(null)}
             ${visibleRules.map(renderRuleRow).join('')}
         </div>
+        ${activeRuleKind === 'redeemed_reward' ? rewardTypeDatalist() : ''}
     `;
     hydrateIcons(ruleList);
     initializeRowSaveStates();
@@ -430,20 +491,17 @@ function collectPayloadFromRow(row) {
     if (isInApp) {
         payload.triggerKey = String(row.dataset.categoryKey || '').trim();
     }
-    if (activeRuleKind === 'off_app_chore') {
-        payload.rating1Points = getNumber('rating1Points');
-        payload.rating2Points = getNumber('rating2Points');
-        payload.rating3Points = getNumber('rating3Points');
-    } else {
-        payload.pointsDelta = getNumber('pointsDelta');
+    if (activeRuleKind === 'redeemed_reward') {
+        payload.rewardType = getValue('rewardType');
     }
+    payload.maxPoint = getValue('maxPoint') ? getNumber('maxPoint') : null;
     return payload;
 }
 
 async function saveAppDailyRow(row) {
     let ruleId = Number.parseInt(row.dataset.ruleId || '', 10);
     const payload = collectPayloadFromRow(row);
-    const pointsText = String(row.querySelector('[data-field="pointsDelta"]')?.value || '').trim();
+    const pointsText = String(row.querySelector('[data-field="maxPoint"]')?.value || '').trim();
 
     try {
         if (!(ruleId > 0) && !payload.isActive && !pointsText) {
@@ -578,7 +636,7 @@ ruleList.addEventListener('change', async (event) => {
 
 function handleRuleFieldEdit(event) {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
+    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
     if (!target.matches('[data-field]')) return;
     const row = target.closest('.point-rule-table-row');
     updateRowSaveState(row);

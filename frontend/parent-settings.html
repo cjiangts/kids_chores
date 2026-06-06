@@ -240,7 +240,7 @@
         }
 
         .family-settings-actions {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
             margin-bottom: 1rem;
         }
 
@@ -445,18 +445,12 @@
                     <span class="page-title-icon" aria-hidden="true">⚙️</span>
                     Family Settings
                 </h1>
-                <div class="page-header-actions"></div>
+                <div class="page-header-actions" data-family-user-switcher></div>
             </div>
         </header>
 
         <main>
             <div class="family-settings-actions admin-action-grid" role="toolbar" aria-label="Family settings actions">
-                <a href="/point-log.html" class="admin-action-card">
-                    <span class="admin-action-card-icon admin-action-card-icon--amber" aria-hidden="true">
-                        <span class="icon" data-icon="credit-card" data-icon-size="22"></span>
-                    </span>
-                    <span class="admin-action-card-label">Log Points</span>
-                </a>
                 <a href="/point-rules.html" class="admin-action-card">
                     <span class="admin-action-card-icon admin-action-card-icon--blue" aria-hidden="true">
                         <span class="icon" data-icon="clipboard-list" data-icon-size="22"></span>
@@ -469,12 +463,12 @@
                     </span>
                     <span class="admin-action-card-label">Change Password</span>
                 </button>
-                <button type="button" id="familySettingsLogoutBtn" class="admin-action-card">
-                    <span class="admin-action-card-icon admin-action-card-icon--coral" aria-hidden="true">
-                        <span class="icon" data-icon="log-out" data-icon-size="22"></span>
+                <a href="/deck-category-create.html" id="manageSubjectBtn" class="admin-action-card hidden">
+                    <span class="admin-action-card-icon admin-action-card-icon--blue" aria-hidden="true">
+                        <span class="icon" data-icon="layout-grid" data-icon-size="22"></span>
                     </span>
-                    <span class="admin-action-card-label">Log Out</span>
-                </button>
+                    <span class="admin-action-card-label">Manage Subject</span>
+                </a>
             </div>
 
             <div class="settings-grid">
@@ -592,6 +586,7 @@
     </div>
 
     <script src="icons.js"></script>
+    <script src="family-user-switcher.js"></script>
     <script src="kid-app-navigation.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="parent-settings-core.js"></script>

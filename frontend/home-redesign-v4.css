@@ -112,6 +112,70 @@ body.practice-home-redesign {
     line-height: 0;
 }
 
+.practice-current-kid-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 42px;
+    padding: 0.3rem 1rem 0.3rem 0.38rem;
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1;
+    text-decoration: none;
+    box-shadow: 0 8px 18px rgba(31, 45, 98, 0.12);
+    transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.practice-current-kid-btn:hover,
+.practice-current-kid-btn:focus-visible {
+    background: #fff;
+    color: #5f49ec;
+    outline: none;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(31, 45, 98, 0.18);
+}
+
+.practice-current-kid-btn .icon {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.96);
+    color: #6f7df0;
+    box-shadow:
+        0 6px 14px rgba(31, 45, 98, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    box-sizing: border-box;
+}
+
+@media (max-width: 560px) {
+    .practice-current-kid-btn {
+        min-height: 38px;
+        max-width: 42vw;
+        padding: 0.25rem 0.72rem 0.25rem 0.34rem;
+        font-size: 0.86rem;
+    }
+
+    .practice-current-kid-btn .icon {
+        width: 28px;
+        height: 28px;
+        padding: 5px;
+    }
+
+    .practice-current-kid-btn span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
 @media (min-width: 900px) {
     .practice-home-redesign .practice-home-section-stack.has-in-app.has-off-app {
         display: grid;
@@ -471,7 +535,9 @@ body.practice-home-redesign {
     align-items: center;
     justify-content: center;
     gap: 7px;
+    width: 136px;
     min-width: 136px;
+    flex: 0 0 136px;
     padding: 8px 12px;
     border: 1px solid #18b95f;
     border-radius: 10px;
@@ -481,6 +547,7 @@ body.practice-home-redesign {
     line-height: 1;
     font-weight: 800;
     white-space: nowrap;
+    box-sizing: border-box;
 }
 
 .practice-home-redesign .off-app-task-row.is-checked .off-app-task-action {
@@ -764,7 +831,9 @@ body.practice-home-redesign {
     }
 
     .practice-home-redesign .off-app-task-action {
-        min-width: 0;
+        width: 104px;
+        min-width: 104px;
+        flex-basis: 104px;
         padding: 7px 8px;
         gap: 5px;
         font-size: 0.72rem;

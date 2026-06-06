@@ -3,10 +3,11 @@ const POINT_HISTORY_LIMIT = 200;
 
 const kidRewardTabs = document.getElementById('kidRewardTabs');
 const kidRewardsError = document.getElementById('kidRewardsError');
-const kidRewardHistory = document.getElementById('kidRewardHistory');
+const kidRedeemHistory = document.getElementById('kidRedeemHistory');
+const kidPointHistory = document.getElementById('kidPointHistory');
 const kidRewardRules = document.getElementById('kidRewardRules');
-const rewardBucketTabs = Array.from(document.querySelectorAll('[data-reward-bucket]'));
-
+const kidRewardBucketTabs = document.getElementById('kidRewardBucketTabs');
+const kidRewardsUserSwitcher = document.querySelector('[data-family-user-switcher]');
 const params = new URLSearchParams(window.location.search);
 const requestedKidId = String(params.get('id') || params.get('kidId') || '').trim();
 
@@ -14,9 +15,11 @@ let kids = [];
 let selectedKidId = '';
 let pointData = { totalPoints: 0, events: [] };
 let pointTotalsByKidId = new Map();
+let rewardBucketTotalsByKidId = new Map();
 let rules = [];
-let activeRewardBucket = 'rewards';
-let selectedHistoryDayKey = '';
+let activeRewardBucket = '';
+let selectedRedeemHistoryDayKey = '';
+let selectedPointHistoryDayKey = '';
 
 function escapeHtml(value) {
     return String(value || '')
@@ -53,6 +56,17 @@ function kidName(kid) {
     return String(kid?.name || kid?.id || '').trim();
 }
 
+function renderKidRewardsUserSwitcher() {
+    if (!kidRewardsUserSwitcher || !window.FamilyUserSwitcher?.renderAuto) return;
+    const selectedKid = kids.find((item) => String(item?.id || '') === selectedKidId);
+    const name = kidName(selectedKid);
+    if (!name) return;
+    kidRewardsUserSwitcher.setAttribute('data-user-name', name);
+    kidRewardsUserSwitcher.setAttribute('data-user-icon', 'user');
+    kidRewardsUserSwitcher.setAttribute('data-user-title', `Switch user from ${name}`);
+    window.FamilyUserSwitcher.renderAuto(kidRewardsUserSwitcher);
+}
+
 function selectedFamilyTimezone() {
     const kid = kids.find((item) => String(item?.id || '') === selectedKidId);
     return String(kid?.familyTimezone || '').trim();
@@ -62,17 +76,68 @@ function todayHistoryDayKey() {
     return window.PointHistoryCommon.dateKeyInTimezone(new Date(), selectedFamilyTimezone());
 }
 
-function formatBalance(value) {
-    const total = Number.parseInt(value, 10) || 0;
-    return `${total} pts`;
+function formatDelta(value) {
+    const delta = Number.parseInt(value, 10) || 0;
+    return `${delta > 0 ? '+' : ''}${delta}`;
 }
 
 function selectedBalance() {
     return Number.parseInt(pointTotalsByKidId.get(selectedKidId), 10) || 0;
 }
 
+function normalizeRewardBucketTotals(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    const result = {};
+    Object.entries(source).forEach(([bucket, entry]) => {
+        const normalized = String(bucket || '').trim().toLowerCase();
+        if (!normalized) return;
+        result[normalized] = Number.parseInt(entry?.totalPoints ?? entry ?? 0, 10) || 0;
+    });
+    return result;
+}
+
+function rewardBucketTotalForKid(kidId, bucket) {
+    const totals = rewardBucketTotalsByKidId.get(String(kidId || '')) || normalizeRewardBucketTotals(pointData.rewardBucketTotals);
+    return Number.parseInt(totals?.[bucket], 10) || 0;
+}
+
+function selectedRewardBucketBalance(bucket) {
+    return rewardBucketTotalForKid(selectedKidId, bucket);
+}
+
+function rewardBucketLabel(bucket) {
+    const normalized = String(bucket || '').trim().toLowerCase();
+    return normalized.replace(/[_-]+/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase()).trim()
+        || 'Reward';
+}
+
+function rewardBuckets() {
+    const buckets = new Set();
+    rules
+        .filter((rule) => isRedeemedRewardRule(rule))
+        .forEach((rule) => buckets.add(ruleBucket(rule)));
+    return Array.from(buckets).filter(Boolean).sort((a, b) => {
+        return rewardBucketLabel(a).localeCompare(rewardBucketLabel(b));
+    });
+}
+
+function rewardTabParts(label, value) {
+    const nbsp = '\u00a0';
+    const labelText = String(label || '').trim();
+    const totalText = String(Number.parseInt(value, 10) || 0);
+    return {
+        label: labelText.padEnd(5, nbsp),
+        gap: nbsp.repeat(5),
+        balance: `${totalText.padStart(3, nbsp)} pts`,
+    };
+}
+
 function rememberedKidId() {
     return String(window.KidAppNavigation?.getKidId?.() || '').trim();
+}
+
+function isKidUserMode() {
+    return window.KidAppNavigation?.getMode?.() === 'kid';
 }
 
 function initialKidId() {
@@ -90,16 +155,42 @@ function syncSelectedKidNavigation() {
 function ruleBucket(rule) {
     const kind = String(rule?.ruleKind || '');
     if (kind === 'deduction_event') return 'corrections';
-    if (kind === 'redeemed_reward') return 'rewards';
+    if (kind === 'redeemed_reward') return String(rule?.rewardType || '').trim().toLowerCase();
     if (kind === 'in_app_chore' || kind === 'off_app_chore' || kind === 'bonus_event') return 'earn';
     return '';
 }
 
+function isRedeemedRewardRule(rule) {
+    return String(rule?.ruleKind || '') === 'redeemed_reward';
+}
+
 function rulePointValue(rule) {
-    if (rule?.ruleKind === 'off_app_chore') {
-        return Number.parseInt(rule.rating3Points, 10) || 0;
+    const maxPoint = Number.parseInt(rule?.maxPoint, 10) || 0;
+    if (isRedeemedRewardRule(rule) || rule?.ruleKind === 'deduction_event') {
+        return -Math.abs(maxPoint);
     }
-    return Number.parseInt(rule?.pointsDelta, 10) || 0;
+    return Math.abs(maxPoint);
+}
+
+function ruleCost(rule) {
+    return Math.abs(rulePointValue(rule));
+}
+
+function ruleRewardProgress(rule) {
+    const cost = ruleCost(rule);
+    const balance = selectedRewardBucketBalance(ruleBucket(rule));
+    const remaining = Math.max(cost - balance, 0);
+    const progress = cost > 0 ? Math.min(Math.max(balance / cost, 0), 1) : 1;
+    return {
+        cost,
+        remaining,
+        percent: Math.round(progress * 100),
+    };
+}
+
+function canRedeemRule(rule) {
+    if (!isRedeemedRewardRule(rule)) return false;
+    return selectedRewardBucketBalance(ruleBucket(rule)) >= ruleCost(rule);
 }
 
 function ruleIconHtml(rule) {
@@ -108,18 +199,18 @@ function ruleIconHtml(rule) {
         return window.subjectIcon(triggerKey, { size: 32 });
     }
     if (rule?.emoji) {
-        return `<span class="point-rule-emoji">${escapeHtml(rule.emoji)}</span>`;
+        return escapeHtml(rule.emoji);
     }
-    if (rule?.ruleKind === 'redeemed_reward') {
-        return `<span class="point-rule-emoji">${icon('gift', { size: 18 })}</span>`;
+    if (isRedeemedRewardRule(rule)) {
+        return icon('gift', { size: 18 });
     }
-    return `<span class="point-rule-emoji">${escapeHtml(rule?.ruleKind === 'deduction_event' ? '-' : '+')}</span>`;
+    return escapeHtml(rule?.ruleKind === 'deduction_event' ? '-' : '+');
 }
 
 function rulePointsLabel(rule) {
     const value = rulePointValue(rule);
-    if (rule?.ruleKind === 'redeemed_reward') {
-        return `${Math.abs(value)} pts`;
+    if (isRedeemedRewardRule(rule)) {
+        return `${ruleCost(rule)} pts`;
     }
     if (rule?.ruleKind === 'off_app_chore') {
         return `up to +${value}`;
@@ -128,11 +219,10 @@ function rulePointsLabel(rule) {
 }
 
 function ruleStatusHtml(rule) {
-    if (rule?.ruleKind !== 'redeemed_reward') {
+    if (!isRedeemedRewardRule(rule)) {
         return '<span class="kid-reward-rule-status muted">Rule</span>';
     }
-    const cost = Math.abs(rulePointValue(rule));
-    const remaining = cost - selectedBalance();
+    const { remaining } = ruleRewardProgress(rule);
     if (remaining <= 0) {
         return '<span class="kid-reward-rule-status available">Available</span>';
     }
@@ -141,65 +231,107 @@ function ruleStatusHtml(rule) {
 
 function renderKids() {
     if (!kidRewardTabs) return;
-    if (!kids.length) {
+    if (isKidUserMode() || !window.KidAppNavigation?.renderKidSelector) {
         kidRewardTabs.innerHTML = '';
         kidRewardTabs.classList.add('hidden');
         return;
     }
-    kidRewardTabs.innerHTML = kids.map((kid) => {
-        const id = String(kid.id || '');
-        const isActive = id === selectedKidId;
-        const total = Number.parseInt(pointTotalsByKidId.get(id), 10) || 0;
-        const totalClass = total < 0 ? ' negative' : (total > 0 ? ' positive' : '');
-        return `
-            <button type="button" class="kid-nav-card${isActive ? ' active' : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-kid-id="${escapeHtml(id)}">
-                ${icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 })}
-                <span>${escapeHtml(kidName(kid))}</span>
-                <span class="kid-nav-card-meta point-kid-total${totalClass}">${escapeHtml(formatBalance(total))}</span>
-            </button>
-        `;
-    }).join('');
-    kidRewardTabs.classList.remove('hidden');
+    window.KidAppNavigation.renderKidSelector(kidRewardTabs, kids, {
+        selectedKidId,
+        onSelect: async (kidId) => {
+            if (!kidId || kidId === selectedKidId) return;
+            selectedKidId = kidId;
+            syncSelectedKidNavigation();
+            selectedRedeemHistoryDayKey = todayHistoryDayKey();
+            selectedPointHistoryDayKey = todayHistoryDayKey();
+            showError('');
+            try {
+                await loadPointsForSelectedKid();
+                render();
+            } catch (error) {
+                showError(error.message || 'Failed to load rewards.');
+            }
+        },
+    });
 }
 
 function renderHistory() {
-    selectedHistoryDayKey = window.PointHistoryCommon.render(kidRewardHistory, {
+    selectedRedeemHistoryDayKey = window.PointHistoryCommon.render(kidRedeemHistory, {
         selectedKidId,
         events: Array.isArray(pointData.events) ? pointData.events : [],
-        selectedDayKey: selectedHistoryDayKey,
+        selectedDayKey: selectedRedeemHistoryDayKey,
         familyTimezone: selectedFamilyTimezone(),
         showDelete: false,
+        mode: 'redeemed',
+        emptyDay: 'No rewards redeemed for this day.',
+    });
+    selectedPointHistoryDayKey = window.PointHistoryCommon.render(kidPointHistory, {
+        selectedKidId,
+        events: Array.isArray(pointData.events) ? pointData.events : [],
+        selectedDayKey: selectedPointHistoryDayKey,
+        familyTimezone: selectedFamilyTimezone(),
+        showDelete: false,
+        emptyDay: 'No point activity for this day.',
     });
 }
 
 function renderRuleTabs() {
-    rewardBucketTabs.forEach((tab) => {
-        tab.classList.toggle('active', tab.dataset.rewardBucket === activeRewardBucket);
-    });
+    if (!kidRewardBucketTabs) return;
+    const buckets = rewardBuckets();
+    if (!buckets.includes(activeRewardBucket)) {
+        activeRewardBucket = buckets[0] || '';
+    }
+    kidRewardBucketTabs.innerHTML = buckets.map((bucket) => {
+        const tab = rewardTabParts(rewardBucketLabel(bucket), selectedRewardBucketBalance(bucket));
+        const isActive = bucket === activeRewardBucket;
+        return `
+            <button type="button" class="cards-view-toggle-btn ${isActive ? 'active' : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-reward-bucket="${escapeHtml(bucket)}">
+                <span class="cards-view-toggle-btn-icon" data-icon="gift" data-icon-size="16" data-icon-stroke="2.4"></span>
+                <span class="point-rule-tab-long">${escapeHtml(tab.label)}${escapeHtml(tab.gap)}<span class="reward-tab-balance">${escapeHtml(tab.balance)}</span></span>
+                <span class="point-rule-tab-short">${escapeHtml(tab.label)}${escapeHtml(tab.gap)}<span class="reward-tab-balance">${escapeHtml(tab.balance)}</span></span>
+            </button>
+        `;
+    }).join('');
+    hydrateIcons(kidRewardBucketTabs);
 }
 
 function renderRules() {
     if (!kidRewardRules) return;
     const visibleRules = rules
         .filter((rule) => rule?.isActive !== false)
-        .filter((rule) => ruleBucket(rule) === activeRewardBucket);
+        .filter((rule) => isRedeemedRewardRule(rule))
+        .filter((rule) => ruleBucket(rule) === activeRewardBucket)
+        .sort((a, b) => {
+            return String(a?.name || '').localeCompare(String(b?.name || ''));
+        });
     if (!visibleRules.length) {
         kidRewardRules.innerHTML = '<div class="point-rule-empty">No rules in this bucket yet.</div>';
         return;
     }
     kidRewardRules.innerHTML = `
-        <div class="point-rule-table kid-reward-rule-table">
+        <div class="point-template-frame parent-reward-template-frame">
             ${visibleRules.map((rule) => {
         const value = rulePointValue(rule);
-        const signClass = rule?.ruleKind === 'redeemed_reward'
+        const isAffordable = canRedeemRule(rule);
+        const signClass = isRedeemedRewardRule(rule)
             ? 'redeemed'
             : (value >= 0 ? 'positive' : 'negative');
+        const progress = ruleRewardProgress(rule);
+        const statusText = progress.remaining <= 0 ? 'Available' : `${progress.remaining} pts to go`;
+        const ariaLabel = `${rule.name || 'Reward'}, ${progress.cost} pts, ${statusText}`;
         return `
-            <div class="point-rule-table-row kid-reward-rule-row" data-rule-id="${escapeHtml(rule.ruleId)}">
-                <div class="point-rule-cell kid-reward-rule-icon">${ruleIconHtml(rule)}</div>
-                <div class="point-rule-cell kid-reward-rule-name">${escapeHtml(rule.name || 'Reward')}</div>
-                <div class="point-rule-cell"><span class="point-rule-delta ${signClass}">${escapeHtml(rulePointsLabel(rule))}</span></div>
-                <div class="point-rule-cell kid-reward-rule-status-cell">${ruleStatusHtml(rule)}</div>
+            <div
+                class="point-template-row parent-reward-template-row parent-reward-template-row--redeem reward-readonly-row ${isAffordable ? 'affordable' : 'locked'}"
+                data-rule-id="${escapeHtml(rule.ruleId)}"
+                aria-disabled="true"
+                aria-label="${escapeHtml(ariaLabel)}"
+                style="--reward-progress: ${escapeHtml(`${progress.percent}%`)};"
+            >
+                <span class="point-rule-emoji">${ruleIconHtml(rule)}</span>
+                <span class="point-template-name">${escapeHtml(rule.name || 'Reward')}</span>
+                <span class="point-rule-delta ${signClass}">${escapeHtml(rulePointsLabel(rule))}</span>
+                <span class="kid-reward-rule-status-cell">${ruleStatusHtml(rule)}</span>
+                ${isAffordable ? '' : '<span class="kid-reward-progress parent-reward-progress" aria-hidden="true"><span></span></span>'}
             </div>
         `;
     }).join('')}
@@ -209,6 +341,7 @@ function renderRules() {
 }
 
 function render() {
+    renderKidRewardsUserSwitcher();
     renderKids();
     renderHistory();
     renderRuleTabs();
@@ -224,6 +357,7 @@ async function loadPointsForSelectedKid() {
     const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=${POINT_HISTORY_LIMIT}`);
     pointData = data || { totalPoints: 0, events: [] };
     pointTotalsByKidId.set(selectedKidId, Number.parseInt(pointData.totalPoints, 10) || 0);
+    rewardBucketTotalsByKidId.set(selectedKidId, normalizeRewardBucketTotals(pointData.rewardBucketTotals));
 }
 
 async function loadPointTotalsForKids() {
@@ -232,6 +366,9 @@ async function loadPointTotalsForKids() {
         .map((item) => [String(item.kidId || ''), Number.parseInt(item.totalPoints, 10) || 0])
         .filter(([kidId]) => kidId);
     pointTotalsByKidId = new Map(entries);
+    rewardBucketTotalsByKidId = new Map((Array.isArray(data.totals) ? data.totals : [])
+        .map((item) => [String(item.kidId || ''), normalizeRewardBucketTotals(item.rewardBucketTotals)])
+        .filter(([kidId]) => kidId));
 }
 
 async function loadInitialData() {
@@ -244,46 +381,20 @@ async function loadInitialData() {
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
     selectedKidId = initialKidId();
     syncSelectedKidNavigation();
-    selectedHistoryDayKey = todayHistoryDayKey();
+    selectedRedeemHistoryDayKey = todayHistoryDayKey();
+    selectedPointHistoryDayKey = todayHistoryDayKey();
     await Promise.all([loadPointTotalsForKids(), loadPointsForSelectedKid()]);
     render();
 }
 
-kidRewardTabs?.addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-kid-id]');
+kidRewardBucketTabs?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-reward-bucket]');
     if (!button) return;
-    const nextKidId = String(button.dataset.kidId || '');
-    if (!nextKidId || nextKidId === selectedKidId) return;
-    selectedKidId = nextKidId;
-    syncSelectedKidNavigation();
-    selectedHistoryDayKey = todayHistoryDayKey();
-    showError('');
-    try {
-        await loadPointsForSelectedKid();
-        render();
-    } catch (error) {
-        showError(error.message || 'Failed to load rewards.');
-    }
-});
-
-kidRewardHistory?.addEventListener('click', (event) => {
-    const dayButton = event.target.closest('[data-history-day]');
-    if (!dayButton) return;
-    const nextDayKey = String(dayButton.dataset.historyDay || '');
-    if (nextDayKey && nextDayKey !== selectedHistoryDayKey) {
-        selectedHistoryDayKey = nextDayKey;
-        renderHistory();
-    }
-});
-
-rewardBucketTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-        const nextBucket = tab.dataset.rewardBucket || 'rewards';
-        if (nextBucket === activeRewardBucket) return;
-        activeRewardBucket = nextBucket;
-        renderRuleTabs();
-        renderRules();
-    });
+    const nextBucket = String(button.dataset.rewardBucket || '').trim();
+    if (!rewardBuckets().includes(nextBucket) || nextBucket === activeRewardBucket) return;
+    activeRewardBucket = nextBucket;
+    renderRuleTabs();
+    renderRules();
 });
 
 loadInitialData().catch((error) => {

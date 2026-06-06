@@ -52,6 +52,17 @@ let currentKidName = '';
 let currentCardFront = '';
 let currentCardBack = '';
 let currentDeckName = '';
+
+function renderKidCardReportUserSwitcher(name) {
+    const container = document.querySelector('[data-family-user-switcher]');
+    if (!container || !window.FamilyUserSwitcher?.renderAuto) return;
+    const label = String(name || '').trim();
+    if (!label) return;
+    container.setAttribute('data-user-name', label);
+    container.setAttribute('data-user-icon', 'user');
+    container.setAttribute('data-user-title', `Switch user from ${label}`);
+    window.FamilyUserSwitcher.renderAuto(container);
+}
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !cardId) {
         window.location.href = '/admin.html';
@@ -75,16 +86,18 @@ async function loadCardReport() {
         }
 
         const data = await response.json();
-        const kidName = data.kid?.name || 'Kid';
+        const kidName = String(data.kid?.name || '').trim();
+        const displayKidName = kidName || '...';
         const card = data.card || {};
         const attempts = Array.isArray(data.attempts) ? data.attempts : [];
         currentKidName = String(kidName || '').trim();
         currentCardFront = String(card.front || '').trim();
         currentCardBack = String(card.back || '').trim();
         currentDeckName = String(card.deck_name || '').trim();
+        renderKidCardReportUserSwitcher(currentKidName);
 
-        pageTitle.textContent = `${kidName} · Card History`;
-        document.title = `${kidName} - Card Report - Kids Daily Chores`;
+        pageTitle.textContent = `${displayKidName} · Card History`;
+        document.title = `${displayKidName} - Card Report - Kids Daily Chores`;
 
         renderHero(card, attempts);
         renderTrend(attempts);

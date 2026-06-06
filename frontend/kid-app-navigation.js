@@ -1,19 +1,29 @@
 (function initKidAppNavigation(window, document) {
     const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
+    const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
     const NAV_ID = 'kidAppNavigation';
     const PAGE_PATHS = {
         home: '/admin.html',
+        log_points: '/point-log.html',
         practice: '/kid-practice-home.html',
-        rewards: '/kid-rewards.html',
+        parent_rewards: '/parent-rewards.html',
+        kid_rewards: '/kid-rewards.html',
+        settings: '/parent-settings.html',
     };
-    const ITEMS = [
+    const PARENT_ITEMS = [
         { key: 'home', label: 'Home', icon: 'home' },
+        { key: 'log_points', label: 'Log Points', icon: 'clipboard-list' },
+        { key: 'rewards', label: 'Rewards', icon: 'gift', path: PAGE_PATHS.parent_rewards },
+        { key: 'settings', label: 'Settings', icon: 'settings' },
+    ];
+    const KID_ITEMS = [
         { key: 'practice', label: 'Practice', icon: 'graduation-cap' },
-        { key: 'rewards', label: 'Rewards', icon: 'gift' },
+        { key: 'rewards', label: 'Rewards', icon: 'gift', path: PAGE_PATHS.kid_rewards },
     ];
 
     const state = {
         kidId: readKidIdFromUrl() || readLastViewedKidId(),
+        suppressed: false,
     };
 
     function readKidIdFromUrl() {
@@ -23,6 +33,64 @@
         } catch (error) {
             return '';
         }
+    }
+
+    function readCurrentUserMode() {
+        try {
+            if (!window.sessionStorage) return '';
+            const mode = String(window.sessionStorage.getItem(CURRENT_USER_MODE_STORAGE_KEY) || '').trim().toLowerCase();
+            return mode === 'kid' || mode === 'parent' ? mode : '';
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function persistCurrentUserMode(mode) {
+        const normalized = String(mode || '').trim().toLowerCase();
+        if (normalized !== 'kid' && normalized !== 'parent') return;
+        try {
+            if (window.sessionStorage) {
+                window.sessionStorage.setItem(CURRENT_USER_MODE_STORAGE_KEY, normalized);
+            }
+        } catch (error) {
+            // best-effort identity mode memory
+        }
+    }
+
+    function isParentOnlyPage() {
+        const path = window.location.pathname || '';
+        return document.body.classList.contains('parent-admin-page')
+            || path.endsWith('/admin.html')
+            || path.endsWith('/point-log.html')
+            || path.endsWith('/point-rules.html')
+            || path.endsWith('/parent-rewards.html')
+            || path.endsWith('/parent-settings.html');
+    }
+
+    function navigationMode() {
+        if (isParentOnlyPage()) return 'parent';
+        return readCurrentUserMode() === 'kid' ? 'kid' : 'parent';
+    }
+
+    function isOfflinePracticePage() {
+        const path = window.location.pathname || '';
+        if (!path.endsWith('/kid-practice-home.html') && !path.endsWith('/kid-practice.html')) {
+            return false;
+        }
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            return String(params.get('offline') || '').trim() === '1';
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function shouldSuppressNavigation() {
+        return state.suppressed || isOfflinePracticePage();
+    }
+
+    function itemsForMode() {
+        return navigationMode() === 'kid' ? KID_ITEMS : PARENT_ITEMS;
     }
 
     function readLastViewedKidId() {
@@ -47,19 +115,25 @@
     function activeKey() {
         const path = window.location.pathname || '';
         if (path.endsWith('/kid-practice-home.html')) return 'practice';
+        if (path.endsWith('/point-log.html')) return 'log_points';
+        if (
+            path.endsWith('/parent-settings.html')
+            || path.endsWith('/point-rules.html')
+        ) return 'settings';
         if (
             path.endsWith('/kid-rewards.html')
-            || path.endsWith('/point-log.html')
-            || path.endsWith('/point-rules.html')
+            || path.endsWith('/parent-rewards.html')
         ) return 'rewards';
         return 'home';
     }
 
     function hrefFor(item) {
         if (item.key === 'home') return PAGE_PATHS.home;
+        if (item.key === 'settings') return PAGE_PATHS.settings;
+        const basePath = item.path || PAGE_PATHS[item.key];
         const kidId = String(state.kidId || '').trim();
-        if (!kidId) return PAGE_PATHS[item.key];
-        return `${PAGE_PATHS[item.key]}?id=${encodeURIComponent(kidId)}`;
+        if (!kidId) return basePath;
+        return `${basePath}?id=${encodeURIComponent(kidId)}`;
     }
 
     function iconHtml(name) {
@@ -71,7 +145,78 @@
         });
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function kidName(kid) {
+        return String(kid?.name || '').trim() || '...';
+    }
+
+    function renderKidSelector(container, kids, options = {}) {
+        if (!container) return;
+        const list = Array.isArray(kids) ? kids : [];
+        const hideWhenLessThan = Number.isInteger(options.hideWhenLessThan)
+            ? options.hideWhenLessThan
+            : 2;
+        if (list.length < hideWhenLessThan) {
+            container.innerHTML = '';
+            container.classList.add('hidden');
+            container.onclick = null;
+            return;
+        }
+        const selectedKidId = String(options.selectedKidId || state.kidId || '').trim();
+        container.innerHTML = list.map((kid) => {
+            const id = String(kid?.id || '');
+            const isActive = id === selectedKidId;
+            const extraClass = typeof options.classNameForKid === 'function'
+                ? String(options.classNameForKid(kid) || '')
+                : '';
+            const metaHtml = typeof options.metaHtmlForKid === 'function'
+                ? String(options.metaHtmlForKid(kid) || '')
+                : '';
+            const disabled = typeof options.isDisabledKid === 'function' && options.isDisabledKid(kid);
+            const href = typeof options.hrefForKid === 'function'
+                ? String(options.hrefForKid(kid) || '')
+                : '';
+            const tagName = href && !isActive && !disabled ? 'a' : 'button';
+            const actionAttr = tagName === 'a'
+                ? ` href="${escapeHtml(href)}"`
+                : ' type="button"';
+            return `
+                <${tagName}${actionAttr} class="kid-nav-card${isActive ? ' active' : ''}${extraClass ? ` ${escapeHtml(extraClass)}` : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-kid-id="${escapeHtml(id)}"${disabled && tagName === 'button' ? ' disabled aria-disabled="true"' : ''}${disabled && tagName === 'a' ? ' aria-disabled="true"' : ''}>
+                    ${typeof window.icon === 'function' ? window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 }) : ''}
+                    <span>${escapeHtml(kidName(kid))}</span>
+                    ${metaHtml}
+                </${tagName}>
+            `;
+        }).join('');
+        container.classList.remove('hidden');
+        container.onclick = (event) => {
+            const button = event.target && event.target.closest
+                ? event.target.closest('[data-kid-id]')
+                : null;
+            if (!button || button.disabled) return;
+            const kidId = String(button.getAttribute('data-kid-id') || '').trim();
+            const kid = list.find((item) => String(item?.id || '') === kidId);
+            if (!kidId || !kid) return;
+            if (options.persist !== false) setKidId(kidId);
+            if (typeof options.onSelect === 'function') {
+                options.onSelect(kidId, kid, event);
+            }
+        };
+    }
+
     function render() {
+        if (shouldSuppressNavigation()) {
+            removeNav();
+            return;
+        }
         let nav = document.getElementById(NAV_ID);
         if (!nav) {
             nav = document.createElement('nav');
@@ -82,7 +227,13 @@
         }
         placeNav(nav);
         const active = activeKey();
-        nav.innerHTML = ITEMS.map((item) => {
+        const mode = navigationMode();
+        const items = itemsForMode();
+        nav.classList.toggle('kid-app-nav--kid-mode', mode === 'kid');
+        nav.classList.toggle('kid-app-nav--parent-mode', mode !== 'kid');
+        nav.style.setProperty('--kid-app-nav-count', String(items.length));
+        nav.setAttribute('aria-label', mode === 'kid' ? 'Kid navigation' : 'Parent navigation');
+        nav.innerHTML = items.map((item) => {
             const isActive = item.key === active;
             return `
                 <a class="kid-app-nav__item${isActive ? ' is-active' : ''}" href="${hrefFor(item)}"${isActive ? ' aria-current="page"' : ''}>
@@ -91,6 +242,18 @@
                 </a>
             `;
         }).join('');
+    }
+
+    function removeNav() {
+        const nav = document.getElementById(NAV_ID);
+        if (nav && nav.parentNode) {
+            nav.parentNode.removeChild(nav);
+        }
+        document.body.classList.remove('has-kid-app-nav');
+        const headerRow = document.querySelector('.page-header-with-back .page-header-row');
+        if (headerRow) {
+            headerRow.classList.remove('kid-app-nav-row');
+        }
     }
 
     function placeNav(nav) {
@@ -139,7 +302,19 @@
         return String(state.kidId || '').trim();
     }
 
+    function setSuppressed(value) {
+        state.suppressed = Boolean(value);
+        if (state.suppressed) {
+            removeNav();
+            return;
+        }
+        render();
+    }
+
     function boot() {
+        if (isParentOnlyPage()) {
+            persistCurrentUserMode('parent');
+        }
         const urlKidId = readKidIdFromUrl();
         if (urlKidId) {
             state.kidId = urlKidId;
@@ -150,9 +325,13 @@
 
     window.KidAppNavigation = {
         getKidId,
+        getMode: navigationMode,
+        remove: removeNav,
         render,
+        renderKidSelector,
         setKidId,
         setKids,
+        setSuppressed,
     };
 
     if (document.readyState === 'loading') {

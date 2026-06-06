@@ -13,6 +13,10 @@
         return `${delta > 0 ? '+' : ''}${delta}`;
     }
 
+    function isRedeemedRewardKind(kind) {
+        return String(kind || '') === 'redeemed_reward';
+    }
+
     function dateKeyInTimezone(date, timezone) {
         if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
         const tz = String(timezone || '').trim();
@@ -99,19 +103,36 @@
         });
     }
 
+    function updateDayLabel(container, label) {
+        const host = container?.closest?.('.point-history-section')?.querySelector?.('[data-point-history-day-label]');
+        if (!host) return;
+        host.textContent = label || '';
+        host.classList.toggle('hidden', !label);
+    }
+
     function historyIconHtml(rule, delta) {
         const triggerKey = String(rule?.triggerKey || '').trim();
         if (rule?.ruleKind === 'in_app_chore' && triggerKey && typeof window.subjectIcon === 'function') {
             return window.subjectIcon(triggerKey, { size: 30 });
         }
+        if (isRedeemedRewardKind(rule?.ruleKind) && !rule?.emoji) {
+            return `<span class="point-rule-emoji">${icon('gift', { size: 18 })}</span>`;
+        }
         return `<span class="point-rule-emoji">${escapeHtml(rule?.emoji || (delta < 0 ? '-' : '+'))}</span>`;
     }
 
-    function renderWeekStrip(events, selectedDayKey, timezone) {
+    function shouldIncludeEvent(event, mode) {
+        const isRedeemed = isRedeemedRewardKind(event?.rule?.ruleKind);
+        if (mode === 'redeemed') return isRedeemed;
+        return !isRedeemed;
+    }
+
+    function renderWeekStrip(events, selectedDayKey, timezone, mode) {
         const totalsByDay = new Map();
         events.forEach((event) => {
             const dayKey = dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone);
             if (!dayKey) return;
+            if (!shouldIncludeEvent(event, mode)) return;
             const delta = Number.parseInt(event.pointsDelta, 10) || 0;
             totalsByDay.set(dayKey, (totalsByDay.get(dayKey) || 0) + delta);
         });
@@ -151,25 +172,28 @@
         const events = Array.isArray(opts.events) ? opts.events : [];
         const timezone = String(opts.familyTimezone || '').trim();
         if (!timezone) {
+            updateDayLabel(container, '');
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyTimezone || 'Family timezone is not configured.')}</div>`;
             return '';
         }
         const selectedDayKey = String(opts.selectedDayKey || dateKeyInTimezone(new Date(), timezone));
+        updateDayLabel(container, historyDayHeading(selectedDayKey, timezone));
         const showDelete = opts.showDelete !== false;
+        const mode = opts.mode === 'redeemed' ? 'redeemed' : 'points';
         if (!selectedKidId) {
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyNoKid || 'Select a kid to see point history.')}</div>`;
             return selectedDayKey;
         }
-        const selectedEvents = events.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === selectedDayKey);
+        const scopedEvents = events.filter((event) => shouldIncludeEvent(event, mode));
+        const selectedEvents = scopedEvents.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === selectedDayKey);
         const selectedListHtml = selectedEvents.length
             ? `
             <section class="point-history-group">
-                <h3>${escapeHtml(historyDayHeading(selectedDayKey, timezone))}</h3>
                 <div class="point-history-group-list">
                     ${selectedEvents.map((event) => {
                 const rule = event.rule || {};
                 const delta = Number.parseInt(event.pointsDelta, 10) || 0;
-                const deltaClass = rule?.ruleKind === 'redeemed_reward'
+                const deltaClass = isRedeemedRewardKind(rule?.ruleKind)
                     ? 'redeemed'
                     : (delta >= 0 ? 'positive' : 'negative');
                 const note = String(event.note || '').trim();
@@ -189,7 +213,7 @@
                     </div>
                     <div class="point-rule-delta ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
                     ${showDelete ? `
-                    <button type="button" class="semantic-outline-btn semantic-outline-btn--red point-history-delete" data-history-action="delete" aria-label="Delete point event">
+                    <button type="button" class="semantic-outline-btn semantic-outline-btn--red point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
                         ${icon('trash', { size: 16 })}
                     </button>
                     ` : ''}
@@ -201,11 +225,10 @@
         `
             : `
             <section class="point-history-group">
-                <h3>${escapeHtml(historyDayHeading(selectedDayKey, timezone))}</h3>
                 <div class="point-empty">${escapeHtml(opts.emptyDay || 'No point events for this day.')}</div>
             </section>
         `;
-        container.innerHTML = `${renderWeekStrip(events, selectedDayKey, timezone)}${selectedListHtml}`;
+        container.innerHTML = `${renderWeekStrip(scopedEvents, selectedDayKey, timezone, mode)}${selectedListHtml}`;
         if (typeof window.hydrateIcons === 'function') {
             window.hydrateIcons(container);
         }

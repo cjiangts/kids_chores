@@ -7,14 +7,14 @@ CREATE TABLE IF NOT EXISTS point_rule (
   emoji VARCHAR,
   rule_kind VARCHAR NOT NULL,
   trigger_key VARCHAR,
-  points_delta INTEGER,
-  rating_1_points INTEGER,
-  rating_2_points INTEGER,
-  rating_3_points INTEGER,
+  max_point INTEGER,
+  reward_type VARCHAR,
   is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 ALTER TABLE point_rule ADD COLUMN IF NOT EXISTS trigger_key VARCHAR;
+ALTER TABLE point_rule ADD COLUMN IF NOT EXISTS max_point INTEGER;
+ALTER TABLE point_rule ADD COLUMN IF NOT EXISTS reward_type VARCHAR;
 
 DROP TABLE IF EXISTS point_rule_app_trigger;
 
