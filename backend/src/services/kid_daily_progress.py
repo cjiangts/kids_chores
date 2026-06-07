@@ -33,6 +33,7 @@ from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
     DECK_CATEGORY_BEHAVIOR_TYPE_IV,
     SESSION_RESULT_PARTIAL,
+    SESSION_RESULT_WRONG_UNRESOLVED,
 )
 from src.services.deck_source_merge import get_type_iv_total_daily_target_for_category
 from src.services.family_auth import (
@@ -496,7 +497,7 @@ def get_kid_today_session_status_by_deck_category(
                 s.completed_at,
                 s.started_at,
                 COUNT(sr.id) AS answer_count,
-                COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count
+                COALESCE(SUM(CASE WHEN sr.correct = ? OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
             WHERE s.type IN ({placeholders})
@@ -520,6 +521,7 @@ def get_kid_today_session_status_by_deck_category(
             ORDER BY COALESCE(s.completed_at, s.started_at) ASC, s.id ASC
             """,
             [
+                SESSION_RESULT_WRONG_UNRESOLVED,
                 SESSION_RESULT_PARTIAL,
                 *keys,
                 day_start_utc,

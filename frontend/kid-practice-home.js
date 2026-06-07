@@ -470,8 +470,8 @@ function buildCategoryCardInnerHtml({
         statusPillLabels.push(`${progressModel.redoCount} to fix`);
     }
     if (progressModel.unseenCount > 0) {
-        statusPillItems.push(`<span class="practice-row-status-pill unseen">${escapeHtmlLocal(String(progressModel.unseenCount))} unseen</span>`);
-        statusPillLabels.push(`${progressModel.unseenCount} unseen`);
+        statusPillItems.push(`<span class="practice-row-status-pill unseen">${escapeHtmlLocal(String(progressModel.unseenCount))} to do</span>`);
+        statusPillLabels.push(`${progressModel.unseenCount} to do`);
     }
     const statusPillsHtml = progressModel.targetCount > 0
         && statusPillItems.length > 0
