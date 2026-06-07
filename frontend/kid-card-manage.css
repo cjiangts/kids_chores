@@ -51,8 +51,8 @@
         }
 
         .manage-popup-btn-title {
-            font-size: 1rem;
-            font-weight: 700;
+            font-size: 0.9rem;
+            font-weight: 600;
             color: #2a345d;
             margin: 0;
             line-height: 1.25;
@@ -60,7 +60,7 @@
 
         .manage-popup-btn-meta {
             margin: 0;
-            font-size: 0.84rem;
+            font-size: 0.8rem;
             color: #5872a8;
             text-decoration: none;
             line-height: 1.35;
@@ -1601,7 +1601,7 @@
             display: inline-block;
             margin: 0;
             white-space: nowrap;
-            font-size: 1rem;
+            font-size: 0.78rem;
             font-weight: 600;
             color: #2a345d;
             line-height: 1.2;
@@ -1616,8 +1616,8 @@
         }
 
         .queue-session-count-icon svg {
-            width: 22px;
-            height: 22px;
+            width: 16px;
+            height: 16px;
         }
 
         .queue-stepper {
@@ -1639,8 +1639,8 @@
             border: 0;
             background: transparent;
             color: #2f3c7e;
-            width: 34px;
-            height: 34px;
+            width: 26px;
+            height: 20px;
             cursor: pointer;
             padding: 0;
             line-height: 1;
@@ -1665,14 +1665,14 @@
             width: 44px;
             min-width: 44px;
             max-width: 56px;
-            height: 34px;
+            height: 20px;
             margin: 0;
             border: 0;
             border-left: 1px solid #d4ddf0;
             border-right: 1px solid #d4ddf0;
             border-radius: 0;
             text-align: center;
-            font-size: 0.95rem;
+            font-size: 0.8rem;
             font-weight: 600;
             color: #2a345d;
             padding: 0;
@@ -1717,7 +1717,7 @@
             background: #ffffff;
             border: 1px solid rgba(99, 102, 241, 0.18);
             border-radius: 14px;
-            padding: 0.5rem 0.55rem 0.5rem 0.9rem;
+            padding: 0.3rem 0.55rem 0.3rem 0.9rem;
             box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.08);
         }
 
@@ -1743,9 +1743,9 @@
             justify-content: center;
             gap: 0.4rem;
             min-width: 110px;
-            min-height: 34px;
+            min-height: 20px;
             padding: 0 1rem;
-            font-size: 0.95rem;
+            font-size: 0.78rem;
             font-weight: 600;
             border-radius: 10px;
             line-height: 1;
@@ -4276,8 +4276,8 @@
             background: transparent;
             box-shadow: none;
             color: rgba(255, 255, 255, 0.92);
-            font-size: 0.95rem;
-            font-weight: 600;
+            font-size: 0.85rem;
+            font-weight: 500;
             line-height: 1.1;
             letter-spacing: 0.01em;
             text-decoration: none;
@@ -4327,7 +4327,7 @@
             border: 0;
             box-shadow: 0 6px 16px rgba(15, 20, 60, 0.22);
             color: #2a345d;
-            font-weight: 700;
+            font-weight: 600;
             cursor: default;
         }
 

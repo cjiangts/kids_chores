@@ -3,9 +3,14 @@
    set it. Default falls back to 48px when no ancestor declares it. */
 
 .subject-icon {
-    display: inline-flex;
+    /* Center a bare text run ("ABC") reliably across engines. inline-flex left-aligns
+       the anonymous text item, and WebKit/Safari centers grid text differently than
+       Chrome — so combine grid centering with text-align as a backstop: whether the
+       text item shrinks-to-fit (grid centers it) or stretches (text-align centers it). */
+    display: inline-grid;
     align-items: center;
-    justify-content: center;
+    justify-items: center;
+    text-align: center;
     width:  var(--subj-size, 48px);
     height: var(--subj-size, 48px);
     border-radius: calc(var(--subj-size, 48px) * 0.28);
@@ -21,7 +26,6 @@
 /* Multi-character labels (e.g. "ABC") need a smaller font so they fit. */
 .subject-icon--multi {
     font-size: calc(var(--subj-size, 48px) * 0.32);
-    letter-spacing: 0.5px;
 }
 
 /* Flat tone palette: pale tinted background + bold foreground for text/SVG. */
