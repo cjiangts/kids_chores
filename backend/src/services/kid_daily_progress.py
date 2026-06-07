@@ -448,6 +448,7 @@ def get_kid_today_session_status_by_deck_category(
             'status': 'not_started',
             'sessionId': None,
             'wrongCount': 0,
+            'mistakeCount': 0,
             'earnedPoints': 0,
         }
         for key in keys
@@ -497,7 +498,8 @@ def get_kid_today_session_status_by_deck_category(
                 s.completed_at,
                 s.started_at,
                 COUNT(sr.id) AS answer_count,
-                COALESCE(SUM(CASE WHEN sr.correct = ? OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count
+                COALESCE(SUM(CASE WHEN sr.correct = ? OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count,
+                COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS mistake_count
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
             WHERE s.type IN ({placeholders})
@@ -523,6 +525,7 @@ def get_kid_today_session_status_by_deck_category(
             [
                 SESSION_RESULT_WRONG_UNRESOLVED,
                 SESSION_RESULT_PARTIAL,
+                SESSION_RESULT_PARTIAL,
                 *keys,
                 day_start_utc,
                 day_end_utc,
@@ -540,6 +543,7 @@ def get_kid_today_session_status_by_deck_category(
             completed_at = row[3]
             answer_count = max(0, int(row[5] or 0))
             wrong_count = max(0, int(row[6] or 0))
+            mistake_count = max(0, int(row[7] or 0))
             done = (
                 completed_at is not None
                 and (planned_count <= 0 or answer_count >= planned_count)
@@ -549,6 +553,7 @@ def get_kid_today_session_status_by_deck_category(
                 'status': 'done' if done else 'in_progress',
                 'sessionId': session_id,
                 'wrongCount': wrong_count,
+                'mistakeCount': mistake_count,
                 'earnedPoints': points_by_key.get(category_key, 0),
             }
         return status_by_key

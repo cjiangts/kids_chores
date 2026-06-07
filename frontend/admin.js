@@ -73,6 +73,7 @@ const adminOffAppLoadingKidIds = new Set();
 const adminOffAppDraftByKey = new Map();
 const adminOffAppSavingKeys = new Set();
 const adminOffAppEditingKeys = new Set();
+let inAppUnaddedExpanded = false;
 let pullTodaySessionsAdminTimer = 0;
 
 // =====================================================================
@@ -647,9 +648,28 @@ function renderMatrix() {
             </tr>
         </thead>
     `;
+    const visibleRows = [];
+    const unaddedRows = [];
+    rows.forEach((row) => {
+        const isUnadded = matrixKids.every((kid) => !getEffectiveKidCategoryOptedIn(kid, row.categoryKey));
+        if (isUnadded) {
+            unaddedRows.push(row);
+        } else {
+            visibleRows.push(row);
+        }
+    });
+    const renderedRows = inAppUnaddedExpanded ? rows : visibleRows;
+    const toggleRowHtml = unaddedRows.length > 0
+        ? buildUnaddedSubjectToggleRow(
+            unaddedRows.length,
+            inAppUnaddedExpanded,
+            matrixKids.length + 1 + (showTodayStatusColumn ? 1 : 0),
+        )
+        : '';
     const bodyHtml = `
         <tbody>
-            ${rows.map((row) => buildMatrixRow(row, matrixKids, { showTodayStatusColumn })).join('')}
+            ${renderedRows.map((row) => buildMatrixRow(row, matrixKids, { showTodayStatusColumn })).join('')}
+            ${toggleRowHtml}
         </tbody>
     `;
     adminMatrix.innerHTML = headerHtml + bodyHtml;
@@ -671,6 +691,7 @@ function renderAdminKidTabs(kids) {
             selectedKidId: selectedAdminKidId,
             onSelect: (kidId) => {
                 selectedAdminKidId = kidId;
+                inAppUnaddedExpanded = false;
                 persistLastViewedKidId(kidId);
                 renderMatrix();
             },
@@ -1240,6 +1261,28 @@ function buildTodayColumnHeader(kid) {
     `;
 }
 
+function buildUnaddedSubjectToggleRow(count, expanded, colSpan) {
+    const safeCount = Math.max(0, Number.parseInt(count, 10) || 0);
+    if (safeCount <= 0) return '';
+    const iconName = expanded ? 'chevron-up' : 'chevron-down';
+    const iconHtml = (typeof window.icon === 'function')
+        ? window.icon(iconName, { size: 18, strokeWidth: 2.6 })
+        : '';
+    const label = expanded
+        ? 'Hide chores not added'
+        : `${safeCount} more chore${safeCount === 1 ? '' : 's'} not added`;
+    return `
+        <tr class="admin-matrix-unadded-toggle-row">
+            <td colspan="${Math.max(1, Number.parseInt(colSpan, 10) || 1)}">
+                <button type="button" class="admin-matrix-unadded-toggle" data-unadded-subject-toggle aria-expanded="${expanded ? 'true' : 'false'}">
+                    <span class="admin-matrix-unadded-toggle-icon" aria-hidden="true">${iconHtml}</span>
+                    <span>${escapeHtml(label)}</span>
+                </button>
+            </td>
+        </tr>
+    `;
+}
+
 function buildMatrixRow(row, kids, options = {}) {
     const subjectIconHtml = renderCategorySubjectIcon(row.categoryKey);
     const cellsHtml = kids.map((kid) => buildMatrixCell(row, kid)).join('');
@@ -1281,7 +1324,7 @@ function buildTodayStatusCell(row, kid) {
         in_progress: 'In Progress',
         done: 'Done',
     };
-    const wrongCount = Math.max(0, Number.parseInt(statusInfo.wrongCount ?? statusInfo.wrong_count, 10) || 0);
+    const mistakeCount = Math.max(0, Number.parseInt(statusInfo.mistakeCount ?? statusInfo.mistake_count, 10) || 0);
     const earnedPoints = Number.parseInt(statusInfo.earnedPoints ?? statusInfo.earned_points, 10) || 0;
     const label = status === 'done'
         ? String(earnedPoints)
@@ -1296,12 +1339,16 @@ function buildTodayStatusCell(row, kid) {
     const leadingIconHtml = leadingIconName && typeof window.icon === 'function'
         ? window.icon(leadingIconName, { size: 15, strokeWidth: 2.8 })
         : '';
-    const mainHtml = `${leadingIconHtml}<span>${escapeHtml(label)}</span>`;
+    const resultPhrase = mistakeCount > 0 ? `${mistakeCount} wrong` : 'all right';
+    const resultLabelHtml = status === 'done'
+        ? `<span class="${mistakeCount > 0 ? 'admin-today-pill-wrong' : 'admin-today-pill-allright'}">${resultPhrase}</span>`
+        : '';
+    const mainHtml = `${leadingIconHtml}<span>${escapeHtml(label)}</span>${resultLabelHtml}`;
     const viewIconHtml = (typeof window.icon === 'function') ? window.icon('eye', { size: 14, strokeWidth: 2.4 }) : '';
     if (Number.isInteger(sessionId) && sessionId > 0) {
         const href = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(sessionId)}`;
         const ariaLabel = status === 'done'
-            ? `Done, ${earnedPoints} points, ${wrongCount} wrong. View latest session.`
+            ? `Done, ${earnedPoints} points, ${resultPhrase}. View latest session.`
             : `${label}. View session.`;
         const resultClass = status === 'done' ? 'is-credited' : 'is-review';
         return `
@@ -1412,6 +1459,13 @@ function bindMatrixInteractions(rows, kids) {
     adminMatrix.querySelectorAll('[data-session-link]').forEach((link) => {
         link.addEventListener('click', (event) => {
             persistLastViewedKidId(event.currentTarget.getAttribute('data-kid-id') || '');
+        });
+    });
+    adminMatrix.querySelectorAll('[data-unadded-subject-toggle]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            inAppUnaddedExpanded = !inAppUnaddedExpanded;
+            renderMatrix();
         });
     });
     adminMatrix.querySelectorAll('[data-subject-menu-trigger]').forEach((btn) => {
