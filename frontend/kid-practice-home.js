@@ -278,23 +278,6 @@ function renderOfflineHeaderActions() {
     `;
 }
 
-function renderStarTokenSetHtml(starCount, { starClass, overflowClass }) {
-    const safeCount = Math.max(0, Number.parseInt(starCount, 10) || 0);
-    if (safeCount <= 0) {
-        return '';
-    }
-    const starIconHtml = icon('star', { size: 16, fill: 'currentColor' });
-    if (safeCount <= 5) {
-        return Array.from({ length: safeCount }, () => (
-            `<span class="${starClass}" aria-hidden="true">${starIconHtml}</span>`
-        )).join('');
-    }
-    return `
-        <span class="${starClass}" aria-hidden="true">${starIconHtml}</span>
-        <span class="${overflowClass}" aria-label="${safeCount} stars">x${safeCount}</span>
-    `;
-}
-
 function readKidFromPracticeNavigationCache() {
     try {
         const raw = window.sessionStorage.getItem(PRACTICE_NAV_CACHE_KEY);
@@ -361,6 +344,7 @@ function buildCategoryProgressModel({
     dailyTargetByCategory,
     dailyTriedByCategory,
     dailyRightByCategory,
+    todaySessionStatusByCategory,
     practiceTargetByCategory,
 }) {
     const starsModel = buildCategoryStarsModel({
@@ -434,6 +418,8 @@ function buildCategoryProgressModel({
     const isFullyComplete = targetCount > 0
         ? (isTypeIIIRecordedComplete || (seenCount > 0 && unseenCount <= 0 && redoCount <= 0))
         : Boolean(starsModel.isDoneToday && latestPercentValue >= 100);
+    const sessionStatus = todaySessionStatusByCategory?.[categoryKey] || {};
+    const earnedPoints = Number.parseInt(sessionStatus?.earnedPoints ?? sessionStatus?.earned_points, 10) || 0;
     const hasStarted = isFullyComplete || isReview || fillPercent > 0 || seenCount > 0;
 
     let actionLabel = 'Start';
@@ -465,6 +451,7 @@ function buildCategoryProgressModel({
         masteredPercent,
         redoPercent,
         unseenPercent,
+        earnedPoints,
         isFullyComplete,
         isReview,
         isDoneToday: starsModel.isDoneToday,
@@ -476,64 +463,53 @@ function buildCategoryCardInnerHtml({
     displayName,
     progressModel,
 }) {
-    let rightBadgeHtml = '';
-    if (progressModel.isFullyComplete) {
-        rightBadgeHtml = renderStarTokenSetHtml(Math.max(1, progressModel.starCount), {
-            starClass: 'practice-row-token-star',
-            overflowClass: 'practice-row-token-overflow',
-        });
+    const statusPillItems = [];
+    const statusPillLabels = [];
+    if (progressModel.redoCount > 0) {
+        statusPillItems.push(`<span class="practice-row-status-pill redo">${escapeHtmlLocal(String(progressModel.redoCount))} to fix</span>`);
+        statusPillLabels.push(`${progressModel.redoCount} to fix`);
     }
-
-    const subTextHtml = progressModel.targetCount > 0
-        ? `<div class="practice-row-sub practice-row-legend">
-            <span class="practice-row-legend-item">
-                <span class="practice-row-legend-dot mastered" aria-hidden="true"></span>
-                ${escapeHtmlLocal(String(progressModel.masteredCount))} mastered
-            </span>
-            <span class="practice-row-legend-item">
-                <span class="practice-row-legend-dot redo" aria-hidden="true"></span>
-                ${escapeHtmlLocal(String(progressModel.redoCount))} to fix
-            </span>
-            <span class="practice-row-legend-item">
-                <span class="practice-row-legend-dot unseen" aria-hidden="true"></span>
-                ${escapeHtmlLocal(String(progressModel.unseenCount))} unseen
-            </span>
+    if (progressModel.unseenCount > 0) {
+        statusPillItems.push(`<span class="practice-row-status-pill unseen">${escapeHtmlLocal(String(progressModel.unseenCount))} unseen</span>`);
+        statusPillLabels.push(`${progressModel.unseenCount} unseen`);
+    }
+    const statusPillsHtml = progressModel.targetCount > 0
+        && statusPillItems.length > 0
+        ? `<div class="practice-row-status-pills" aria-label="${escapeHtmlLocal(statusPillLabels.join(', '))}">
+            ${statusPillItems.join('')}
         </div>`
+        : '';
+    const subTextHtml = progressModel.targetCount > 0
+        ? ''
         : `<div class="practice-row-sub">${escapeHtmlLocal(progressModel.subText)}</div>`;
 
-    const percentValue = progressModel.targetCount > 0
-        ? Math.max(0, Math.min(100, Math.round(progressModel.fillPercent)))
-        : 0;
-    const percentHtml = progressModel.targetCount > 0
-        ? `<span class="practice-row-percent">${percentValue}%</span>`
-        : '';
-
     const tileHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
-    const actionIconName = { Start: 'play', Review: 'refresh-cw', Resume: 'circle-arrow-right' }[progressModel.actionLabel] || 'play';
-    const actionIconHtml = (typeof window.icon === 'function') ? window.icon(actionIconName, { size: 17, strokeWidth: 2.4 }) : '';
-    const percentLineHtml = percentHtml
-        ? `<div class="practice-row-percent-line">${percentHtml}</div>`
-        : '';
+    const actionLabel = progressModel.isFullyComplete
+        ? formatDonePointsStatus(progressModel.earnedPoints)
+        : progressModel.actionLabel;
+    const actionIconName = progressModel.isFullyComplete
+        ? 'check'
+        : ({ Start: 'play', Review: 'refresh-cw', Resume: 'circle-arrow-right' }[progressModel.actionLabel] || 'play');
+    const actionIconHtml = (typeof window.icon === 'function') ? window.icon(actionIconName, { size: 18, strokeWidth: 2.4 }) : '';
     return `
         <span class="practice-row-tile" aria-hidden="true">${tileHtml}</span>
         <div class="practice-row-content">
             <div class="practice-row-head">
                 <h3>${escapeHtmlLocal(displayName)}</h3>
-                <div class="practice-row-right">${rightBadgeHtml}</div>
+                ${statusPillsHtml}
             </div>
             ${subTextHtml}
             <div class="practice-row-progress-line">
-                <div class="practice-row-progress">
+                <div class="practice-row-progress" aria-hidden="true">
                     <span class="practice-row-seg mastered" style="width:${progressModel.masteredPercent}%"></span>
                     <span class="practice-row-seg redo" style="width:${progressModel.redoPercent}%"></span>
                     <span class="practice-row-seg unseen" style="width:${progressModel.unseenPercent}%"></span>
                 </div>
             </div>
-            ${percentLineHtml}
         </div>
-        <span class="practice-row-chevron" aria-hidden="true">
+        <span class="practice-row-chevron${progressModel.isFullyComplete ? ' is-done' : ''}" aria-hidden="true">
             ${actionIconHtml}
-            <span class="practice-row-action-label">${escapeHtmlLocal(progressModel.actionLabel)}</span>
+            <span class="practice-row-action-label">${escapeHtmlLocal(actionLabel)}</span>
         </span>
     `;
 }
@@ -549,6 +525,7 @@ function renderPracticeOptionCard({
     dailyTargetByCategory,
     dailyTriedByCategory,
     dailyRightByCategory,
+    todaySessionStatusByCategory,
     practiceTargetByCategory,
 }) {
     if (!button) {
@@ -563,6 +540,7 @@ function renderPracticeOptionCard({
         dailyTargetByCategory,
         dailyTriedByCategory,
         dailyRightByCategory,
+        todaySessionStatusByCategory,
         practiceTargetByCategory,
     });
     button.innerHTML = buildCategoryCardInnerHtml({
@@ -644,6 +622,12 @@ function renderOffAppTaskIcon(chore) {
         return `<span class="off-app-task-emoji" aria-hidden="true">${escapeHtmlLocal(emoji)}</span>`;
     }
     return `<span class="off-app-task-fallback-icon" aria-hidden="true">${icon('clipboard-check', { size: 22 })}</span>`;
+}
+
+function formatDonePointsStatus(pointsValue) {
+    const points = Number.parseInt(pointsValue, 10);
+    if (!Number.isInteger(points) || points === 0) return 'Done';
+    return `Done ${points > 0 ? '+' : ''}${points}`;
 }
 
 function formatCreditedOffAppStatus(event) {
@@ -771,6 +755,7 @@ function renderPracticeOptionButtons({
     dailyTargetByCategory,
     dailyTriedByCategory,
     dailyRightByCategory,
+    todaySessionStatusByCategory,
 }) {
     clearPracticeOptionButtons();
     let renderedCount = 0;
@@ -796,11 +781,8 @@ function renderPracticeOptionButtons({
         button.type = 'button';
         button.className = 'practice-option redesign-practice-option';
         button.setAttribute('data-category-key', key);
-        button.addEventListener('click', () => {
-            runDynamicPracticeByBehavior(key, behaviorType, Boolean(meta.has_chinese_specific_logic));
-        });
 
-        renderPracticeOptionCard({
+        const model = renderPracticeOptionCard({
             button,
             categoryKey: key,
             behaviorType,
@@ -811,8 +793,17 @@ function renderPracticeOptionButtons({
             dailyTargetByCategory,
             dailyTriedByCategory,
             dailyRightByCategory,
+            todaySessionStatusByCategory,
             practiceTargetByCategory,
         });
+        button.disabled = Boolean(model?.isFullyComplete);
+        if (model?.isFullyComplete) {
+            button.setAttribute('aria-disabled', 'true');
+        } else {
+            button.addEventListener('click', () => {
+                runDynamicPracticeByBehavior(key, behaviorType, Boolean(meta.has_chinese_specific_logic));
+            });
+        }
 
         practiceChooser.appendChild(button);
         renderedCount += 1;
@@ -834,6 +825,7 @@ function renderPracticeOptions() {
     const dailyTargetByCategory = getCategoryValueMap(currentKid?.dailyTargetByDeckCategory);
     const dailyTriedByCategory = getCategoryValueMap(currentKid?.dailyTriedByDeckCategory);
     const dailyRightByCategory = getCategoryValueMap(currentKid?.dailyRightByDeckCategory);
+    const todaySessionStatusByCategory = getCategoryRawValueMap(currentKid?.todaySessionStatusByDeckCategory);
     const practiceTargetByCategory = getCategoryValueMap(currentKid?.practiceTargetByDeckCategory);
     const typeIChineseKey = resolveChinesePracticeCategoryKey(currentKid, activeChineseCategoryKey);
     activeChineseCategoryKey = typeIChineseKey;
@@ -856,6 +848,7 @@ function renderPracticeOptions() {
         dailyTargetByCategory,
         dailyTriedByCategory,
         dailyRightByCategory,
+        todaySessionStatusByCategory,
     });
     if (inAppPracticeSection) {
         inAppPracticeSection.classList.toggle('hidden', renderedOptionCount <= 0);

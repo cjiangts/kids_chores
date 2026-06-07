@@ -30,6 +30,7 @@ const adminMatrix = document.getElementById('adminMatrix');
 const adminKidTabs = document.getElementById('adminKidTabs');
 const adminOffAppPanel = document.getElementById('adminOffAppPanel');
 const adminOffAppList = document.getElementById('adminOffAppList');
+const pullTodaySessionsAdminBtn = document.getElementById('pullTodaySessionsAdminBtn');
 const adminEmptyState = document.getElementById('adminEmptyState');
 const getEditToggleBtn = () => document.getElementById('editToggleBtn');
 const kidModal = document.getElementById('kidModal');
@@ -78,6 +79,7 @@ const adminOffAppLoadingKidIds = new Set();
 const adminOffAppDraftByKey = new Map();
 const adminOffAppSavingKeys = new Set();
 const adminOffAppEditingKeys = new Set();
+let pullTodaySessionsAdminTimer = 0;
 
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
@@ -128,6 +130,11 @@ function bindEvents() {
         kidForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             await createKid();
+        });
+    }
+    if (pullTodaySessionsAdminBtn) {
+        pullTodaySessionsAdminBtn.addEventListener('click', () => {
+            void pullTodaySessionsForSelectedAdminKid();
         });
     }
     if (adminOptinPanel) {
@@ -389,6 +396,50 @@ async function loadKids(options = {}) {
     }
 }
 
+function setAdminPullTodayButton(label = 'Pull latest in-app scores', { busy = false } = {}) {
+    if (!pullTodaySessionsAdminBtn) return;
+    const hasSelectedKid = Boolean(
+        selectedAdminKidId
+        && (Array.isArray(currentKids) ? currentKids : []).some((kid) => String(kid?.id || '') === selectedAdminKidId),
+    );
+    pullTodaySessionsAdminBtn.disabled = busy || !hasSelectedKid;
+    pullTodaySessionsAdminBtn.setAttribute('aria-label', label);
+    pullTodaySessionsAdminBtn.title = label;
+    pullTodaySessionsAdminBtn.innerHTML = (typeof window.icon === 'function')
+        ? window.icon('refresh-cw', { size: 17 })
+        : '<span class="icon" data-icon="refresh-cw" data-icon-size="17"></span>';
+}
+
+async function pullTodaySessionsForSelectedAdminKid() {
+    const kidId = String(selectedAdminKidId || '').trim();
+    if (!kidId) return;
+    if (pullTodaySessionsAdminTimer) {
+        clearTimeout(pullTodaySessionsAdminTimer);
+        pullTodaySessionsAdminTimer = 0;
+    }
+    setAdminPullTodayButton('Pulling latest in-app scores', { busy: true });
+    showError('');
+    try {
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points/pull-today-sessions`, {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json().catch(() => ({}));
+        await loadKids();
+        const count = Number.parseInt(result.awardedCount, 10) || 0;
+        setAdminPullTodayButton(count > 0 ? `Added ${count}` : 'Up to date');
+        pullTodaySessionsAdminTimer = setTimeout(() => {
+            setAdminPullTodayButton();
+            pullTodaySessionsAdminTimer = 0;
+        }, 1400);
+    } catch (error) {
+        showError(error.message || 'Failed to pull latest in-app scores.');
+        setAdminPullTodayButton();
+    }
+}
+
 async function loadOffAppReviewPending() {
     const list = Array.isArray(currentKids) ? currentKids : [];
     if (!list.length) {
@@ -635,6 +686,7 @@ function renderMatrix() {
         adminOptinPanel.classList.add('hidden');
         renderAdminKidTabs(list);
         renderAdminOffAppSection(list);
+        setAdminPullTodayButton();
         if (kidsLoaded) adminEmptyState.classList.remove('hidden');
         else adminEmptyState.classList.add('hidden');
         return;
@@ -642,6 +694,7 @@ function renderMatrix() {
     adminEmptyState.classList.add('hidden');
     adminOptinPanel.classList.remove('hidden');
     ensureSelectedAdminKidId(list);
+    setAdminPullTodayButton();
     renderAdminKidTabs(list);
 
     const rows = getCategoryRowsForFamily(list);
@@ -785,7 +838,9 @@ function clampAdminOffAppPoints(value, maxPoint) {
 }
 
 function adminOffAppReviewKey(reviewKind, id) {
-    const normalizedKind = reviewKind === 'event' ? 'event' : 'pending';
+    const normalizedKind = reviewKind === 'event'
+        ? 'event'
+        : (reviewKind === 'direct' ? 'direct' : 'pending');
     const normalizedId = Number.parseInt(id, 10);
     return Number.isInteger(normalizedId) && normalizedId > 0 ? `${normalizedKind}:${normalizedId}` : '';
 }
@@ -793,7 +848,9 @@ function adminOffAppReviewKey(reviewKind, id) {
 function getAdminOffAppDraft(reviewKind, reviewItem, chore) {
     const key = adminOffAppReviewKey(
         reviewKind,
-        reviewKind === 'event' ? reviewItem?.eventId : reviewItem?.pendingId,
+        reviewKind === 'event'
+            ? reviewItem?.eventId
+            : (reviewKind === 'direct' ? chore?.ruleId : reviewItem?.pendingId),
     );
     if (key && adminOffAppDraftByKey.has(key)) {
         return adminOffAppDraftByKey.get(key);
@@ -837,11 +894,14 @@ function isAdminOffAppDraftDirty(draft) {
     return currentPoints !== initialPoints || String(draft.note || '') !== String(draft.initialNote || '');
 }
 
-function buildAdminOffAppActionButtonContent(isDirty) {
-    const iconName = isDirty ? 'check' : 'x';
-    const label = isDirty ? 'Save' : 'Cancel';
-    const iconHtml = (typeof window.icon === 'function') ? window.icon(iconName, { size: 15, strokeWidth: 2.7 }) : '';
-    return `${iconHtml}<span>${label}</span>`;
+function buildAdminOffAppSaveButtonContent() {
+    const iconHtml = (typeof window.icon === 'function') ? window.icon('check', { size: 15, strokeWidth: 2.7 }) : '';
+    return `${iconHtml}<span>Save</span>`;
+}
+
+function buildAdminOffAppCancelButtonContent() {
+    const iconHtml = (typeof window.icon === 'function') ? window.icon('x', { size: 15, strokeWidth: 2.7 }) : '';
+    return `${iconHtml}<span>Cancel</span>`;
 }
 
 function updateAdminOffAppSaveButtonState(reviewKey) {
@@ -852,16 +912,17 @@ function updateAdminOffAppSaveButtonState(reviewKey) {
     if (!button) return;
     const isSaving = adminOffAppSavingKeys.has(key);
     const isDirty = isAdminOffAppDraftDirty(draft);
-    button.disabled = isSaving;
-    button.classList.toggle('admin-off-app-grade-btn--cancel', !isDirty && !isSaving);
-    button.setAttribute('aria-label', isDirty ? 'Save off-app chore grade' : 'Cancel editing off-app chore grade');
-    button.innerHTML = buildAdminOffAppActionButtonContent(isDirty);
+    button.disabled = isSaving || !isDirty;
+    button.setAttribute('aria-label', 'Save off-app chore grade');
+    button.innerHTML = buildAdminOffAppSaveButtonContent();
 }
 
 function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
     const id = reviewKind === 'event'
         ? Number.parseInt(reviewItem?.eventId, 10)
-        : Number.parseInt(reviewItem?.pendingId, 10);
+        : (reviewKind === 'direct'
+            ? Number.parseInt(chore?.ruleId, 10)
+            : Number.parseInt(reviewItem?.pendingId, 10));
     const reviewKey = adminOffAppReviewKey(reviewKind, id);
     if (!reviewKey) {
         return '<span class="admin-off-app-status admin-off-app-status--pending">Reviewing</span>';
@@ -873,9 +934,14 @@ function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
     return `
         <div class="admin-off-app-grade" data-off-app-review-key="${escapeHtml(reviewKey)}" data-off-app-review-kind="${escapeHtml(reviewKind)}">
             <input class="admin-off-app-note-input" type="text" value="${escapeHtml(note)}" placeholder="Note" data-off-app-note-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Note for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
-            <button type="button" class="admin-off-app-grade-btn${!isDirty && !isSaving ? ' admin-off-app-grade-btn--cancel' : ''}" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="${isDirty ? 'Save off-app chore grade' : 'Cancel editing off-app chore grade'}"${isSaving ? ' disabled' : ''}>
-                ${buildAdminOffAppActionButtonContent(isDirty)}
-            </button>
+            <span class="admin-off-app-grade-actions">
+                <button type="button" class="admin-off-app-grade-btn" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="Save off-app chore grade"${(isSaving || !isDirty) ? ' disabled' : ''}>
+                    ${buildAdminOffAppSaveButtonContent()}
+                </button>
+                <button type="button" class="admin-off-app-grade-btn admin-off-app-grade-btn--cancel" data-off-app-grade-cancel data-review-key="${escapeHtml(reviewKey)}" aria-label="Cancel editing off-app chore grade"${isSaving ? ' disabled' : ''}>
+                    ${buildAdminOffAppCancelButtonContent()}
+                </button>
+            </span>
         </div>
     `;
 }
@@ -883,7 +949,9 @@ function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
 function buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) {
     const id = reviewKind === 'event'
         ? Number.parseInt(reviewItem?.eventId, 10)
-        : Number.parseInt(reviewItem?.pendingId, 10);
+        : (reviewKind === 'direct'
+            ? Number.parseInt(chore?.ruleId, 10)
+            : Number.parseInt(reviewItem?.pendingId, 10));
     const reviewKey = adminOffAppReviewKey(reviewKind, id);
     if (!reviewKey) return '';
     const draft = getAdminOffAppDraft(reviewKind, reviewItem, chore);
@@ -941,7 +1009,7 @@ function buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) {
     return `<span class="admin-off-app-note-preview">${escapeHtml(note)}</span>`;
 }
 
-function buildAdminOffAppStatusHtml(chore, pending, kidId) {
+function buildAdminOffAppStatusHtml(chore, pending, kidId, directReviewKey = '') {
     const creditedEvent = chore?.creditedEvent && typeof chore.creditedEvent === 'object'
         ? chore.creditedEvent
         : null;
@@ -951,8 +1019,14 @@ function buildAdminOffAppStatusHtml(chore, pending, kidId) {
     if (pending) {
         return buildAdminOffAppGradeFormHtml(chore, 'pending', pending);
     }
-    const readyHtml = (typeof window.icon === 'function') ? window.icon('clipboard-check', { size: 15, strokeWidth: 2.4 }) : '';
-    return `<span class="admin-off-app-status admin-off-app-status--ready">${readyHtml}<span>Not Started</span></span>`;
+    const readyHtml = (typeof window.icon === 'function') ? window.icon('play', { size: 15, strokeWidth: 2.8 }) : '';
+    const editHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 13, strokeWidth: 2.5 }) : '';
+    return `
+        <button type="button" class="admin-off-app-status admin-off-app-status--ready" data-off-app-edit data-review-key="${escapeHtml(directReviewKey)}" aria-label="Log result for ${escapeHtml(String(chore?.name || 'task'))}">
+            <span class="admin-off-app-status-main">${readyHtml}<span>Not Started</span></span>
+            <span class="admin-off-app-status-edit" aria-hidden="true">${editHtml}</span>
+        </button>
+    `;
 }
 
 function buildAdminOffAppRow(chore, state, kidId) {
@@ -961,12 +1035,14 @@ function buildAdminOffAppRow(chore, state, kidId) {
     const name = String(chore?.name || '').trim() || 'Task';
     const pending = state.pendingByRuleId.get(ruleId) || null;
     const creditedEvent = chore?.creditedEvent && typeof chore.creditedEvent === 'object' ? chore.creditedEvent : null;
-    const reviewKind = pending ? 'pending' : (chore?.creditedToday || creditedEvent ? 'event' : '');
-    const reviewItem = pending || creditedEvent || null;
+    const reviewKind = pending ? 'pending' : (chore?.creditedToday || creditedEvent ? 'event' : 'direct');
+    const reviewItem = pending || creditedEvent || chore;
     const isReviewable = Boolean(reviewKind && reviewItem);
     const reviewId = reviewKind === 'event'
         ? Number.parseInt(reviewItem?.eventId, 10)
-        : Number.parseInt(reviewItem?.pendingId, 10);
+        : (reviewKind === 'direct'
+            ? ruleId
+            : Number.parseInt(reviewItem?.pendingId, 10));
     const reviewKey = isReviewable ? adminOffAppReviewKey(reviewKind, reviewId) : '';
     const isEditing = Boolean(reviewKey && adminOffAppEditingKeys.has(reviewKey));
     return `
@@ -974,12 +1050,14 @@ function buildAdminOffAppRow(chore, state, kidId) {
             <span class="admin-off-app-tile" aria-hidden="true">${renderAdminOffAppIcon(chore)}</span>
             <span class="admin-off-app-title-wrap">
                 <span class="admin-off-app-name">${escapeHtml(name)}</span>
-                ${isReviewable && !isEditing ? buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) : ''}
+                ${isReviewable && reviewKind !== 'direct' && !isEditing ? buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) : ''}
             </span>
             ${isReviewable && isEditing ? buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) : ''}
-            ${isReviewable
-                ? (isEditing ? buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) : buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem))
-                : buildAdminOffAppStatusHtml(chore, pending, kidId)}
+            ${isReviewable && isEditing
+                ? buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem)
+                : (reviewKind === 'direct'
+                    ? buildAdminOffAppStatusHtml(chore, pending, kidId, reviewKey)
+                    : buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem))}
         </div>
     `;
 }
@@ -1004,7 +1082,7 @@ function handleAdminOffAppInput(event) {
 
 function handleAdminOffAppClick(event) {
     const target = event.target && event.target.closest
-        ? event.target.closest('[data-off-app-edit], [data-off-app-point-step], [data-off-app-grade-submit]')
+        ? event.target.closest('[data-off-app-edit], [data-off-app-point-step], [data-off-app-grade-submit], [data-off-app-grade-cancel]')
         : null;
     if (!target) return;
     const reviewKey = target.getAttribute('data-review-key') || '';
@@ -1029,13 +1107,13 @@ function handleAdminOffAppClick(event) {
         renderAdminOffAppSection(currentKids);
         return;
     }
+    if (target.hasAttribute('data-off-app-grade-cancel')) {
+        adminOffAppDraftByKey.delete(reviewKey);
+        adminOffAppEditingKeys.delete(reviewKey);
+        renderAdminOffAppSection(currentKids);
+        return;
+    }
     if (target.hasAttribute('data-off-app-grade-submit')) {
-        const draft = adminOffAppDraftByKey.get(reviewKey);
-        if (!isAdminOffAppDraftDirty(draft)) {
-            adminOffAppEditingKeys.delete(reviewKey);
-            renderAdminOffAppSection(currentKids);
-            return;
-        }
         void submitAdminOffAppGrade(reviewKey);
     }
 }
@@ -1060,13 +1138,17 @@ async function submitAdminOffAppGrade(reviewKey) {
     renderAdminOffAppSection(currentKids);
     try {
         const isEventUpdate = reviewKind === 'event';
+        const isDirectCreate = reviewKind === 'direct';
         const url = isEventUpdate
             ? `${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events/${encodeURIComponent(reviewId)}`
-            : `${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores/pending/${encodeURIComponent(reviewId)}/review`;
+            : (isDirectCreate
+                ? `${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events`
+                : `${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores/pending/${encodeURIComponent(reviewId)}/review`);
         const response = await fetch(url, {
             method: isEventUpdate ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                ...(isDirectCreate ? { ruleId: reviewId } : {}),
                 pointsDelta,
                 note: String(draft.note || '').trim(),
             }),
@@ -1231,7 +1313,7 @@ function buildTodayColumnHeader(kid) {
 }
 
 function buildMatrixRow(row, kids, options = {}) {
-    const subjectIconHtml = renderCategorySubjectIcon(row.categoryKey, { size: 36 });
+    const subjectIconHtml = renderCategorySubjectIcon(row.categoryKey);
     const cellsHtml = kids.map((kid) => buildMatrixCell(row, kid)).join('');
     const showTodayStatusColumn = Boolean(options?.showTodayStatusColumn);
     const todayStatusCellHtml = showTodayStatusColumn ? buildTodayStatusCell(row, kids[0]) : '';
@@ -1267,21 +1349,61 @@ function buildTodayStatusCell(row, kid) {
     const rawStatus = String(statusInfo.status || 'not_started').trim().toLowerCase();
     const status = rawStatus === 'done' || rawStatus === 'in_progress' ? rawStatus : 'not_started';
     const labelByStatus = {
-        not_started: 'Not started',
-        in_progress: 'In progress',
+        not_started: 'Not Started',
+        in_progress: 'In Progress',
         done: 'Done',
     };
     const wrongCount = Math.max(0, Number.parseInt(statusInfo.wrongCount ?? statusInfo.wrong_count, 10) || 0);
+    const earnedPoints = Number.parseInt(statusInfo.earnedPoints ?? statusInfo.earned_points, 10) || 0;
     const label = status === 'done'
-        ? `Done · ${wrongCount} wrong`
+        ? String(earnedPoints)
         : (labelByStatus[status] || labelByStatus.not_started);
     const sessionId = Number.parseInt(statusInfo.sessionId ?? statusInfo.session_id, 10);
-    const className = `admin-matrix-status admin-matrix-status--${status}`;
+    const leadingIconNameByStatus = {
+        not_started: 'play',
+        in_progress: 'clock',
+        done: 'check',
+    };
+    const leadingIconName = leadingIconNameByStatus[status] || '';
+    const leadingIconHtml = leadingIconName && typeof window.icon === 'function'
+        ? window.icon(leadingIconName, { size: 15, strokeWidth: 2.8 })
+        : '';
+    const mainHtml = `${leadingIconHtml}<span>${escapeHtml(label)}</span>`;
+    const viewIconHtml = (typeof window.icon === 'function') ? window.icon('eye', { size: 14, strokeWidth: 2.4 }) : '';
     if (Number.isInteger(sessionId) && sessionId > 0) {
         const href = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(sessionId)}`;
-        return `<td class="admin-matrix-status-cell"><a href="${escapeHtml(href)}" class="${className} admin-matrix-status--link" data-session-link data-kid-id="${escapeHtml(kidId)}">${escapeHtml(label)}</a></td>`;
+        const ariaLabel = status === 'done'
+            ? `Done, ${earnedPoints} points, ${wrongCount} wrong. View latest session.`
+            : `${label}. View session.`;
+        const resultClass = status === 'done' ? 'is-credited' : 'is-review';
+        return `
+            <td class="admin-matrix-status-cell">
+                <a href="${escapeHtml(href)}" class="admin-off-app-result-pill ${resultClass} admin-today-pill admin-today-pill--${escapeHtml(status)}" data-session-link data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(ariaLabel)}">
+                    <span class="admin-off-app-result-pill-main">${mainHtml}</span>
+                    <span class="admin-off-app-result-pill-edit" aria-hidden="true">${viewIconHtml}</span>
+                </a>
+            </td>
+        `;
     }
-    return `<td class="admin-matrix-status-cell"><span class="${className}">${escapeHtml(label)}</span></td>`;
+    if (status === 'not_started') {
+        return `
+            <td class="admin-matrix-status-cell">
+                <span class="admin-off-app-status admin-off-app-status--ready admin-today-pill admin-today-pill--not_started">
+                    <span class="admin-off-app-status-main">${mainHtml}</span>
+                    <span class="admin-off-app-status-edit" aria-hidden="true"></span>
+                </span>
+            </td>
+        `;
+    }
+    const resultClass = status === 'done' ? 'is-credited' : 'is-review';
+    return `
+        <td class="admin-matrix-status-cell">
+            <span class="admin-off-app-result-pill ${resultClass} admin-today-pill admin-today-pill--${escapeHtml(status)}">
+                <span class="admin-off-app-result-pill-main">${mainHtml}</span>
+                <span class="admin-off-app-result-pill-edit" aria-hidden="true"></span>
+            </span>
+        </td>
+    `;
 }
 
 function buildRowOptInCheckbox(row, kid) {

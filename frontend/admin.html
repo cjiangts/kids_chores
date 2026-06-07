@@ -17,8 +17,12 @@
             --admin-chore-edit-size: 32px;
             --admin-chore-edit-top: 0.82rem;
             --admin-chore-edit-right: 1rem;
-            --admin-chore-edit-reserve: calc(var(--admin-chore-edit-size) + 0.85rem);
+            --admin-chore-action-gap: 0.28rem;
+            --admin-chore-edit-reserve: calc(var(--admin-chore-edit-size) + var(--admin-chore-edit-size) + var(--admin-chore-action-gap) + 0.25rem);
             --admin-chore-header-height: 42px;
+            --admin-chore-pill-height: 36px;
+            --admin-chore-pill-width: 146px;
+            --admin-chore-pill-font-size: 0.9rem;
             position: relative;
             background: #fff;
             border-radius: 16px;
@@ -148,35 +152,45 @@
         .parent-admin-page .admin-matrix tbody tr:last-child td {
             border-bottom: none;
         }
+        .parent-admin-page .admin-matrix tbody th:first-child {
+            padding-left: 0;
+        }
         .parent-admin-page .admin-matrix th.admin-matrix-subject-head {
             text-align: left;
             font-size: 0.95rem;
             color: #1f2950;
             font-weight: 400;
-            min-width: 132px;
+            min-width: 120px;
             white-space: nowrap;
         }
         .parent-admin-page .admin-chore-group-title {
             display: inline-flex;
             align-items: center;
-            gap: 0.35rem;
+            gap: 0.42rem;
             vertical-align: middle;
-            color: #6c7794;
-            font-size: 0.78rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
+            color: #252c54;
+            font-size: 0.82rem;
+            font-weight: 650;
+            text-transform: none;
+            letter-spacing: 0;
         }
         .parent-admin-page .admin-chore-group-title-icon {
             display: inline-flex;
             align-items: center;
-            color: #6c7794;
+            color: #6b5cf6;
             line-height: 0;
         }
-        .parent-admin-page .admin-chore-panel-edit-link {
+        .parent-admin-page .admin-chore-panel-actions {
             position: absolute;
             top: var(--admin-chore-edit-top);
             right: var(--admin-chore-edit-right);
+            display: inline-flex;
+            align-items: center;
+            gap: var(--admin-chore-action-gap);
+            z-index: 2;
+        }
+        .parent-admin-page .admin-chore-panel-action {
+            position: absolute;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -188,13 +202,22 @@
             color: #526fd4;
             line-height: 1;
             text-decoration: none;
-            z-index: 2;
+            padding: 0;
+            cursor: pointer;
+            font: inherit;
         }
-        .parent-admin-page .admin-chore-panel-edit-link:hover,
-        .parent-admin-page .admin-chore-panel-edit-link:focus-visible {
+        .parent-admin-page .admin-chore-panel-actions .admin-chore-panel-action {
+            position: static;
+        }
+        .parent-admin-page .admin-chore-panel-action:hover,
+        .parent-admin-page .admin-chore-panel-action:focus-visible {
             background: #f7faff;
             border-color: #b9c9f8;
             outline: none;
+        }
+        .parent-admin-page .admin-chore-panel-action:disabled {
+            opacity: 0.58;
+            cursor: progress;
         }
         .parent-admin-page .admin-matrix-subject-head .admin-panel-menu-btn {
             vertical-align: middle;
@@ -210,12 +233,16 @@
         .parent-admin-page .admin-matrix-status-head {
             text-align: center;
             min-width: 106px;
-            color: #6c7794;
+            color: #252c54;
             font-size: 0.78rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
+            font-weight: 620;
+            text-transform: none;
+            letter-spacing: 0;
             white-space: nowrap;
+        }
+        .parent-admin-page .admin-matrix-status-head {
+            min-width: var(--admin-chore-pill-width);
+            text-align: right;
         }
         .parent-admin-page .admin-matrix-column-head-link {
             display: inline-flex;
@@ -242,14 +269,26 @@
             line-height: 0;
         }
         .parent-admin-page .admin-matrix-today-head-link {
-            color: #2f4cb5;
-            text-decoration: underline;
-            text-decoration-thickness: 1px;
-            text-underline-offset: 4px;
+            width: max(62px, calc(var(--admin-chore-pill-width) - var(--admin-chore-edit-reserve) + 0.22rem));
+            box-sizing: border-box;
+            justify-content: center;
+            gap: 0;
+            padding: 0.3rem 0.42rem;
+            border: 1px solid #d8d3ff;
+            border-radius: 999px;
+            background: #f4f1ff;
+            color: #6b5cf6;
+            text-decoration: none;
+        }
+        .parent-admin-page .admin-matrix-today-head-link .admin-matrix-column-head-icon {
+            display: none;
         }
         .parent-admin-page .admin-matrix-today-head-link:hover,
         .parent-admin-page .admin-matrix-today-head-link:focus-visible {
-            color: #1f3f9a;
+            background: #ece8ff;
+            border-color: #bfb6ff;
+            color: #5748e8;
+            box-shadow: 0 3px 8px rgba(107, 92, 246, 0.16);
         }
         .parent-admin-page .admin-matrix-column-head-label {
             font: inherit;
@@ -404,6 +443,7 @@
             display: flex;
             align-items: center;
             gap: 0.4rem;
+            min-width: 0;
         }
         .parent-admin-page .admin-matrix-row-check {
             appearance: none;
@@ -449,13 +489,31 @@
             outline: none;
         }
         .parent-admin-page .admin-matrix-subject-tile {
-            --subj-size: 28px;
-            flex: 0 0 28px;
+            --subj-size: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 38px;
+        }
+        .parent-admin-page .admin-matrix-subject-tile .subject-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            font-size: 1.18rem;
+            font-weight: 700;
+        }
+        .parent-admin-page .admin-matrix-subject-tile .subject-icon--multi {
+            font-size: 0.68rem;
         }
         .parent-admin-page .admin-matrix-subject-name {
             font-weight: 400;
             color: #1f2950;
-            line-height: 1.2;
+            font-size: 0.94rem;
+            line-height: 1.3;
+            min-width: 0;
+            white-space: normal;
+            overflow-wrap: normal;
+            word-break: normal;
         }
         .parent-admin-page .admin-matrix-subject-menu-btn {
             appearance: none;
@@ -517,22 +575,46 @@
             text-align: center;
         }
         .parent-admin-page .admin-matrix-status-cell {
-            text-align: center;
+            text-align: right;
         }
         .parent-admin-page .admin-matrix-status {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            min-width: 116px;
-            min-height: 28px;
-            padding: 0.24rem 0.55rem;
-            border-radius: 9px;
+            justify-content: flex-start;
+            width: var(--admin-chore-pill-width);
+            min-width: var(--admin-chore-pill-width);
+            min-height: var(--admin-chore-pill-height);
+            padding: 0;
+            border-radius: 999px;
             border: 1px solid transparent;
-            font-size: 0.76rem;
-            font-weight: 650;
-            line-height: 1.1;
+            font-size: var(--admin-chore-pill-font-size);
+            font-weight: 400;
+            line-height: 1.3;
             text-decoration: none;
             white-space: nowrap;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .parent-admin-page .admin-matrix-status-main,
+        .parent-admin-page .admin-matrix-status-view {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: inherit;
+            line-height: 1;
+        }
+        .parent-admin-page .admin-matrix-status-main {
+            width: calc(100% - 34px);
+            flex: 0 0 calc(100% - 34px);
+            min-width: 0;
+            justify-content: flex-start;
+            gap: 0.35rem;
+            padding: 0 0.7rem;
+        }
+        .parent-admin-page .admin-matrix-status-view {
+            width: 34px;
+            flex: 0 0 34px;
+            opacity: 0.9;
         }
         .parent-admin-page .admin-matrix-status--not_started {
             background: #f0f2f7;
@@ -567,8 +649,8 @@
             white-space: nowrap;
         }
         .parent-admin-page .admin-off-app-panel {
-            --admin-off-app-pill-height: 36px;
-            --admin-off-app-pill-width: 146px;
+            --admin-off-app-pill-height: var(--admin-chore-pill-height);
+            --admin-off-app-pill-width: var(--admin-chore-pill-width);
             margin-top: 0.9rem;
         }
         .parent-admin-page .admin-off-app-header {
@@ -645,6 +727,8 @@
             line-height: 1.2;
         }
         .parent-admin-page .admin-off-app-status {
+            appearance: none;
+            -webkit-appearance: none;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -657,17 +741,50 @@
             border: 1px solid #d8def0;
             background: #f4f6ff;
             color: #50608f;
-            font-size: 0.82rem;
-            font-weight: 700;
-            line-height: 1;
+            font-size: 0.9rem;
+            font-weight: 400;
+            line-height: 1.3;
             text-decoration: none;
             white-space: nowrap;
             box-sizing: border-box;
+            font-family: inherit;
         }
         .parent-admin-page .admin-off-app-status--ready {
             background: #fff;
             border-color: #d8def0;
             color: #50608f;
+            cursor: pointer;
+            justify-content: flex-start;
+            gap: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .parent-admin-page .admin-off-app-status--ready:hover,
+        .parent-admin-page .admin-off-app-status--ready:focus-visible {
+            background: #f4f6ff;
+            outline: none;
+            transform: translateY(-1px);
+        }
+        .parent-admin-page .admin-off-app-status-main,
+        .parent-admin-page .admin-off-app-status-edit {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: inherit;
+            line-height: 1;
+        }
+        .parent-admin-page .admin-off-app-status-main {
+            gap: 0.35rem;
+            width: calc(100% - 34px);
+            flex: 0 0 calc(100% - 34px);
+            min-width: 0;
+            padding: 0 0.7rem;
+            justify-content: flex-start;
+        }
+        .parent-admin-page .admin-off-app-status-edit {
+            width: 34px;
+            flex: 0 0 34px;
+            opacity: 0.9;
         }
         .parent-admin-page .admin-off-app-status--pending {
             background: #fff7ed;
@@ -701,6 +818,7 @@
             font: inherit;
             border: 0;
             background: transparent;
+            text-decoration: none;
         }
         .parent-admin-page .admin-off-app-result-pill.is-credited {
             border: 1px solid #9bcfa9;
@@ -719,14 +837,17 @@
             justify-content: center;
             color: inherit;
             line-height: 1;
+            text-decoration: none;
         }
         .parent-admin-page .admin-off-app-result-pill-main {
             gap: 0.32rem;
             flex: 1 1 auto;
             min-width: 0;
             padding: 0 0.7rem;
-            font-size: 0.88rem;
-            font-weight: 850;
+            font-size: 0.9rem;
+            font-weight: 400;
+            line-height: 1.3;
+            justify-content: flex-start;
         }
         .parent-admin-page .admin-off-app-result-pill-edit {
             width: 34px;
@@ -743,6 +864,27 @@
             opacity: 0.7;
             cursor: progress;
         }
+        .parent-admin-page .admin-today-pill {
+            --admin-off-app-pill-height: var(--admin-chore-pill-height);
+            --admin-off-app-pill-width: var(--admin-chore-pill-width);
+            --admin-off-app-mobile-btn-font-size: var(--admin-chore-pill-font-size);
+            font-size: var(--admin-chore-pill-font-size);
+            text-decoration: none;
+            vertical-align: middle;
+        }
+        .parent-admin-page .admin-today-pill:not(a):not(button) {
+            cursor: default;
+        }
+        .parent-admin-page .admin-today-pill--in_progress.is-review {
+            border-color: #f2d987;
+            background: #fff3c8;
+            color: #9b6a05;
+        }
+        .parent-admin-page .admin-today-pill--not_started.admin-off-app-status--ready:hover,
+        .parent-admin-page .admin-today-pill--not_started.admin-off-app-status--ready:focus-visible {
+            background: #fff;
+            transform: none;
+        }
         .parent-admin-page .admin-off-app-grade {
             grid-column: auto;
             display: grid;
@@ -751,6 +893,14 @@
             gap: 0.45rem;
             min-width: 0;
             width: 100%;
+        }
+        .parent-admin-page .admin-off-app-grade-actions {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.35rem;
+            min-width: 0;
+            justify-self: end;
         }
         .parent-admin-page .admin-off-app-point-stepper {
             display: inline-flex;
@@ -1015,10 +1165,12 @@
                 --admin-chore-edit-top: 0.76rem;
                 --admin-chore-edit-right: 0.9rem;
                 --admin-chore-header-height: 40px;
+                --admin-chore-pill-height: 34px;
+                --admin-chore-pill-width: 136px;
             }
 
             .parent-admin-page .admin-matrix th.admin-matrix-subject-head {
-                min-width: 132px;
+                min-width: 120px;
                 font-size: 0.85rem;
             }
             .parent-admin-page .admin-panel-menu-btn {
@@ -1044,11 +1196,15 @@
                 min-width: 92px;
                 font-size: 0.72rem;
             }
+            .parent-admin-page .admin-matrix-status-head {
+                min-width: var(--admin-chore-pill-width);
+            }
             .parent-admin-page .admin-matrix-status {
-                min-width: 104px;
-                min-height: 26px;
-                font-size: 0.68rem;
-                padding: 0.2rem 0.42rem;
+                width: var(--admin-chore-pill-width);
+                min-width: var(--admin-chore-pill-width);
+                min-height: var(--admin-chore-pill-height);
+                font-size: var(--admin-chore-pill-font-size);
+                padding: 0 0.7rem;
             }
             .parent-admin-page .admin-matrix-kid-avatar {
                 width: 20px;
@@ -1063,11 +1219,21 @@
                 font-size: 0.75rem;
             }
             .parent-admin-page .admin-matrix-subject-tile {
-                --subj-size: 30px;
-                flex: 0 0 30px;
+                --subj-size: 34px;
+                flex: 0 0 34px;
+            }
+            .parent-admin-page .admin-matrix-subject-tile .subject-icon {
+                width: 34px;
+                height: 34px;
+                border-radius: 10px;
+                font-size: 1.04rem;
+            }
+            .parent-admin-page .admin-matrix-subject-tile .subject-icon--multi {
+                font-size: 0.62rem;
             }
             .parent-admin-page .admin-matrix-subject-name {
-                font-size: 0.85rem;
+                font-size: 0.94rem;
+                line-height: 1.3;
             }
             .parent-admin-page .admin-matrix-subject-menu-btn {
                 margin-left: auto;
@@ -1086,7 +1252,7 @@
                 --admin-off-app-pill-height: 34px;
                 --admin-off-app-pill-width: 136px;
             }
-            .parent-admin-page .admin-chore-panel-edit-link {
+            .parent-admin-page .admin-chore-panel-action {
                 width: var(--admin-chore-edit-size);
                 height: var(--admin-chore-edit-size);
             }
@@ -1102,7 +1268,10 @@
                 width: var(--admin-off-app-pill-width);
                 min-width: var(--admin-off-app-pill-width);
                 padding: 0 0.7rem;
-                font-size: 0.82rem;
+                font-size: 0.9rem;
+            }
+            .parent-admin-page .admin-off-app-status--ready {
+                padding: 0;
             }
             .parent-admin-page .admin-off-app-row.is-editing {
                 --admin-off-app-action-width: 104px;
@@ -1122,9 +1291,11 @@
                 grid-template-columns: minmax(0, 1fr) auto;
                 gap: 0.4rem;
             }
+            .parent-admin-page .admin-off-app-grade-actions {
+                gap: 0.32rem;
+            }
             .parent-admin-page .admin-off-app-grade-btn {
                 grid-column: auto;
-                width: var(--admin-off-app-action-width);
                 padding: 0 0.58rem;
             }
             .parent-admin-page .admin-off-app-row.is-editing .admin-off-app-step-btn {
@@ -1139,8 +1310,13 @@
         }
 
         @media (max-width: 430px) {
+            .parent-admin-page .admin-optin-panel {
+                --admin-chore-pill-width: 132px;
+                --admin-chore-pill-font-size: 0.78rem;
+            }
             .parent-admin-page .admin-off-app-panel {
                 --admin-off-app-pill-width: 132px;
+                --admin-off-app-mobile-btn-font-size: 0.78rem;
             }
             .parent-admin-page .admin-off-app-row.is-editing {
                 --admin-off-app-action-width: 92px;
@@ -1148,10 +1324,22 @@
             .parent-admin-page .admin-off-app-grade {
                 grid-template-columns: minmax(0, 1fr) auto;
             }
+            .parent-admin-page .admin-off-app-status,
+            .parent-admin-page .admin-off-app-result-pill-main,
+            .parent-admin-page .admin-off-app-grade-btn {
+                font-size: var(--admin-off-app-mobile-btn-font-size);
+            }
+            .parent-admin-page .admin-off-app-grade-actions {
+                gap: 0.25rem;
+            }
             .parent-admin-page .admin-off-app-grade-btn {
                 grid-column: auto;
-                width: var(--admin-off-app-action-width);
-                padding: 0 0.5rem;
+                width: 34px;
+                min-width: 34px;
+                padding: 0;
+            }
+            .parent-admin-page .admin-off-app-grade-btn span {
+                display: none;
             }
             .parent-admin-page .admin-off-app-point-stepper {
                 width: var(--admin-off-app-action-width);
@@ -1185,7 +1373,10 @@
             <section id="adminKidTabs" class="kid-nav-group hidden" role="tablist" aria-label="Kids"></section>
 
             <div id="adminOptinPanel" class="admin-optin-panel hidden">
-                <a href="/point-rules.html?kind=in_app_chore" class="admin-chore-panel-edit-link" aria-label="Edit in-app chores" title="Edit In-App Chores"><span class="icon" data-icon="pencil" data-icon-size="15"></span></a>
+                <div class="admin-chore-panel-actions">
+                    <button id="pullTodaySessionsAdminBtn" type="button" class="admin-chore-panel-action" aria-label="Pull latest in-app scores" title="Pull latest in-app scores"><span class="icon" data-icon="refresh-cw" data-icon-size="17"></span></button>
+                    <a href="/point-rules.html?kind=in_app_chore" class="admin-chore-panel-action admin-chore-panel-edit-link" aria-label="Edit in-app chores" title="Edit In-App Chores"><span class="icon" data-icon="pencil" data-icon-size="15"></span></a>
+                </div>
                 <div id="adminMatrixWrap" class="admin-matrix-wrap">
                     <table id="adminMatrix" class="admin-matrix"></table>
                 </div>
@@ -1193,7 +1384,9 @@
             </div>
 
             <div id="adminOffAppPanel" class="admin-optin-panel admin-off-app-panel hidden">
-                <a href="/point-rules.html?kind=off_app_chore" class="admin-chore-panel-edit-link" aria-label="Edit off-app chores" title="Edit Off-App Chores"><span class="icon" data-icon="pencil" data-icon-size="15"></span></a>
+                <div class="admin-chore-panel-actions">
+                    <a href="/point-rules.html?kind=off_app_chore" class="admin-chore-panel-action admin-chore-panel-edit-link" aria-label="Edit off-app chores" title="Edit Off-App Chores"><span class="icon" data-icon="pencil" data-icon-size="15"></span></a>
+                </div>
                 <div class="admin-off-app-header">
                     <div class="admin-chore-group-title"><span class="admin-chore-group-title-icon icon" data-icon="clipboard-check" data-icon-size="16" data-icon-stroke="2"></span> Off-App Chores</div>
                 </div>

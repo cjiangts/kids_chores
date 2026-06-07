@@ -105,6 +105,12 @@ function ruleCost(rule) {
     return Math.abs(maxPoint);
 }
 
+function compareRewardRulesByCost(a, b) {
+    const costDiff = ruleCost(a) - ruleCost(b);
+    if (costDiff !== 0) return costDiff;
+    return String(a?.name || '').localeCompare(String(b?.name || ''));
+}
+
 function ruleRewardProgress(rule) {
     const cost = ruleCost(rule);
     const balance = selectedRewardBucketBalance(rewardType(rule));
@@ -216,7 +222,7 @@ function renderRules() {
     if (!parentRewardRules) return;
     const visible = rewardRules
         .filter((rule) => rewardType(rule) === activeRewardType)
-        .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+        .sort(compareRewardRulesByCost);
     if (!visible.length) {
         parentRewardRules.innerHTML = `<div class="point-rule-empty">No ${escapeHtml(rewardTypeLabel(activeRewardType).toLowerCase())} rewards yet.</div>`;
         return;

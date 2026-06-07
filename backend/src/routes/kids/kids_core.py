@@ -158,65 +158,76 @@ def get_kids():
         if is_admin_view:
             family_timezone = metadata.get_family_timezone(family_id)
             kids_with_admin_summary = []
-            for kid in kids:
-                conn = None
-                try:
-                    conn = get_kid_connection_for(kid, read_only=True)
-                except Exception:
+            shared_conn = None
+            try:
+                shared_conn = get_shared_decks_connection(read_only=True)
+            except Exception:
+                shared_conn = None
+            try:
+                for kid in kids:
                     conn = None
-                try:
-                    opted_in_category_keys = get_kid_opted_in_deck_category_keys(
-                        kid,
-                        category_meta_by_key=category_meta_by_key,
-                        conn=conn,
-                    )
-                    practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
-                        kid,
-                        opted_in_category_keys,
-                        category_meta_by_key,
-                        conn=conn,
-                    )
-                    (
-                        _today_counts,
-                        _today_started_counts,
-                        today_star_tiers,
-                        _today_latest_percent,
-                        _today_latest_target_count,
-                        _today_latest_tried_count,
-                        _today_latest_right_count,
-                        ungraded_count,
-                    ) = get_kid_dashboard_stats(
-                        kid,
-                        category_meta_by_key=category_meta_by_key,
-                        type_iii_category_keys=type_iii_category_keys,
-                        include_ungraded_count=include_admin_review_counts,
-                        conn=conn,
-                        family_timezone=family_timezone,
-                    )
-                    daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
-                        opted_in_category_keys,
-                        today_star_tiers=today_star_tiers,
-                    )
-                    today_session_status_by_deck_category = get_kid_today_session_status_by_deck_category(
-                        kid,
-                        opted_in_category_keys,
-                        conn=conn,
-                        family_timezone=family_timezone,
-                    )
-                    kids_with_admin_summary.append({
-                        **kid,
-                        'typeIIIToReviewCount': ungraded_count,
-                        'optedInDeckCategoryKeys': opted_in_category_keys,
-                        'practiceTargetByDeckCategory': practice_target_by_deck_category,
-                        'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
-                        'todaySessionStatusByDeckCategory': today_session_status_by_deck_category,
-                        **({'deckCategoryMetaByKey': category_meta_by_key} if include_admin_category_meta else {}),
-                        'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
-                        'familyTimezone': family_timezone,
-                    })
-                finally:
-                    if conn is not None:
-                        conn.close()
+                    try:
+                        conn = get_kid_connection_for(kid, read_only=True)
+                    except Exception:
+                        conn = None
+                    try:
+                        opted_in_category_keys = get_kid_opted_in_deck_category_keys(
+                            kid,
+                            category_meta_by_key=category_meta_by_key,
+                            conn=conn,
+                        )
+                        practice_target_by_deck_category = get_kid_practice_target_by_deck_category(
+                            kid,
+                            opted_in_category_keys,
+                            category_meta_by_key,
+                            conn=conn,
+                        )
+                        (
+                            _today_counts,
+                            _today_started_counts,
+                            today_star_tiers,
+                            _today_latest_percent,
+                            _today_latest_target_count,
+                            _today_latest_tried_count,
+                            _today_latest_right_count,
+                            ungraded_count,
+                        ) = get_kid_dashboard_stats(
+                            kid,
+                            category_meta_by_key=category_meta_by_key,
+                            type_iii_category_keys=type_iii_category_keys,
+                            include_ungraded_count=include_admin_review_counts,
+                            conn=conn,
+                            family_timezone=family_timezone,
+                        )
+                        daily_star_tiers_by_deck_category = get_kid_daily_star_tiers_by_deck_category(
+                            opted_in_category_keys,
+                            today_star_tiers=today_star_tiers,
+                        )
+                        today_session_status_by_deck_category = get_kid_today_session_status_by_deck_category(
+                            kid,
+                            opted_in_category_keys,
+                            conn=conn,
+                            family_timezone=family_timezone,
+                            shared_conn=shared_conn,
+                            family_id=family_id,
+                        )
+                        kids_with_admin_summary.append({
+                            **kid,
+                            'typeIIIToReviewCount': ungraded_count,
+                            'optedInDeckCategoryKeys': opted_in_category_keys,
+                            'practiceTargetByDeckCategory': practice_target_by_deck_category,
+                            'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
+                            'todaySessionStatusByDeckCategory': today_session_status_by_deck_category,
+                            **({'deckCategoryMetaByKey': category_meta_by_key} if include_admin_category_meta else {}),
+                            'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
+                            'familyTimezone': family_timezone,
+                        })
+                    finally:
+                        if conn is not None:
+                            conn.close()
+            finally:
+                if shared_conn is not None:
+                    shared_conn.close()
 
             return jsonify(kids_with_admin_summary), 200
 
@@ -417,6 +428,7 @@ def get_kid(kid_id):
             if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
         }
         conn = None
+        today_session_status_by_deck_category = {}
         try:
             conn = get_kid_connection_for(kid, read_only=True)
         except Exception:
@@ -460,6 +472,22 @@ def get_kid(kid_id):
                 category_meta_by_key,
                 conn=conn,
             )
+            shared_conn = None
+            try:
+                shared_conn = get_shared_decks_connection(read_only=True)
+                today_session_status_by_deck_category = get_kid_today_session_status_by_deck_category(
+                    kid,
+                    opted_in_category_keys,
+                    conn=conn,
+                    family_timezone=family_timezone,
+                    shared_conn=shared_conn,
+                    family_id=family_id,
+                )
+            except Exception:
+                today_session_status_by_deck_category = {}
+            finally:
+                if shared_conn is not None:
+                    shared_conn.close()
         finally:
             if conn is not None:
                 conn.close()
@@ -511,6 +539,7 @@ def get_kid(kid_id):
             'dailyTargetByDeckCategory': daily_target_by_deck_category,
             'dailyTriedByDeckCategory': daily_tried_by_deck_category,
             'dailyRightByDeckCategory': daily_right_by_deck_category,
+            'todaySessionStatusByDeckCategory': today_session_status_by_deck_category,
             'practiceTargetByDeckCategory': practice_target_by_deck_category,
             'deckCategoryMetaByKey': category_meta_by_key,
         }

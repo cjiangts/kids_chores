@@ -1,6 +1,7 @@
 const API_BASE = `${window.location.origin}/api`;
 const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
 const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
+const TRUSTED_PARENT_BROWSER_STORAGE_KEY = 'trusted_parent_browser_v1';
 
 const bubbleGrid = document.getElementById('userBubbleGrid');
 const errorMessage = document.getElementById('errorMessage');
@@ -70,7 +71,8 @@ function renderBubbles() {
             if (bubble.dataset.userMode === 'kid') {
                 return;
             }
-            persistCurrentUserMode(bubble.dataset.userMode);
+            event.preventDefault();
+            void enterParentModeWithPassword(bubble.getAttribute('href') || '/admin.html');
         });
     });
     bubbleGrid.querySelectorAll('[data-offline-trash-kid-id]').forEach((button) => {
@@ -402,6 +404,140 @@ async function logoutFamily() {
         // Still clear the current page; the server will re-check auth next load.
     }
     window.location.href = '/family-login.html';
+}
+
+async function enterParentModeWithPassword(href = '/admin.html') {
+    showError('');
+    const targetHref = String(href || '/admin.html').trim() || '/admin.html';
+    if (await enterParentModeWithTrustedBrowser(targetHref)) {
+        return;
+    }
+    if (window.PracticeManageCommon && typeof window.PracticeManageCommon.requestWithPasswordDialog === 'function') {
+        const result = await window.PracticeManageCommon.requestWithPasswordDialog(
+            'parent mode',
+            (password, inputResult) => fetch(`${API_BASE}/family-auth/confirm-password`, {
+                method: 'POST',
+                headers: window.PracticeManageCommon.buildPasswordHeaders(password, true),
+                body: JSON.stringify({
+                    confirmPassword: password,
+                    trustBrowser: Boolean(inputResult && inputResult.trustBrowser),
+                    browserLabel: parseTrustedBrowserLabel(),
+                }),
+            }),
+            { trustOptionLabel: 'Trust this browser for parent mode' },
+        );
+        if (result.cancelled) return;
+        if (!result.ok) {
+            showError(result.error || 'Could not enter parent mode.');
+            return;
+        }
+        storeTrustedBrowser(result.payload && result.payload.trustedBrowser);
+        persistCurrentUserMode('parent');
+        window.location.href = targetHref;
+        return;
+    }
+
+    const password = window.prompt('Enter family password to enter parent mode:');
+    if (!password) return;
+    try {
+        const response = await fetch(`${API_BASE}/family-auth/confirm-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Confirm-Password': password,
+            },
+            body: JSON.stringify({ confirmPassword: password }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `Password check failed (${response.status})`);
+        }
+        persistCurrentUserMode('parent');
+        window.location.href = targetHref;
+    } catch (error) {
+        showError(error.message || 'Could not enter parent mode.');
+    }
+}
+
+async function enterParentModeWithTrustedBrowser(targetHref) {
+    const trusted = readTrustedBrowser();
+    if (!trusted || !trusted.token) {
+        return false;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/family-auth/trusted-browsers/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trustedBrowserToken: trusted.token }),
+        });
+        if (!response.ok) {
+            clearTrustedBrowser();
+            return false;
+        }
+        persistCurrentUserMode('parent');
+        window.location.href = targetHref;
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+function parseTrustedBrowserLabel() {
+    if (window.OfflineCommon && typeof window.OfflineCommon.parseDeviceLabel === 'function') {
+        return window.OfflineCommon.parseDeviceLabel();
+    }
+    try {
+        const ua = String(navigator.userAgent || '');
+        if (/iPad/i.test(ua)) return 'iPad Browser';
+        if (/iPhone/i.test(ua)) return 'iPhone Browser';
+        if (/Mac OS X|Macintosh/i.test(ua)) return 'Mac Browser';
+        if (/Windows/i.test(ua)) return 'Windows Browser';
+    } catch (error) {
+        // ignore
+    }
+    return 'Trusted browser';
+}
+
+function readTrustedBrowser() {
+    try {
+        if (!window.localStorage) return null;
+        const raw = window.localStorage.getItem(TRUSTED_PARENT_BROWSER_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const token = String(parsed?.token || '').trim();
+        if (!token) return null;
+        return {
+            id: String(parsed?.id || ''),
+            token,
+            label: String(parsed?.label || ''),
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
+function storeTrustedBrowser(trustedBrowser) {
+    if (!trustedBrowser || !trustedBrowser.token) return;
+    try {
+        if (!window.localStorage) return;
+        window.localStorage.setItem(TRUSTED_PARENT_BROWSER_STORAGE_KEY, JSON.stringify({
+            id: String(trustedBrowser.id || ''),
+            token: String(trustedBrowser.token || ''),
+            label: String(trustedBrowser.label || parseTrustedBrowserLabel()),
+        }));
+    } catch (error) {
+        // best-effort trust token storage
+    }
+}
+
+function clearTrustedBrowser() {
+    try {
+        if (window.localStorage) {
+            window.localStorage.removeItem(TRUSTED_PARENT_BROWSER_STORAGE_KEY);
+        }
+    } catch (error) {
+        // ignore
+    }
 }
 
 function persistCurrentUserMode(mode) {

@@ -1596,10 +1596,11 @@ async function handleCardsGridClick(event) {
 function renderKidCardManageUserSwitcher(name) {
     const container = document.querySelector('[data-family-user-switcher]');
     if (!container || !window.FamilyUserSwitcher?.renderAuto) return;
-    const label = String(name || '').trim();
+    const isKidMode = window.KidAppNavigation?.getMode?.() === 'kid';
+    const label = isKidMode ? String(name || '').trim() : 'Parent';
     if (!label) return;
     container.setAttribute('data-user-name', label);
-    container.setAttribute('data-user-icon', 'user');
+    container.setAttribute('data-user-icon', isKidMode ? 'user' : 'user-cog');
     container.setAttribute('data-user-title', `Switch user from ${label}`);
     window.FamilyUserSwitcher.renderAuto(container);
 }

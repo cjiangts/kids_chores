@@ -176,6 +176,12 @@ function ruleCost(rule) {
     return Math.abs(rulePointValue(rule));
 }
 
+function compareRewardRulesByCost(a, b) {
+    const costDiff = ruleCost(a) - ruleCost(b);
+    if (costDiff !== 0) return costDiff;
+    return String(a?.name || '').localeCompare(String(b?.name || ''));
+}
+
 function ruleRewardProgress(rule) {
     const cost = ruleCost(rule);
     const balance = selectedRewardBucketBalance(ruleBucket(rule));
@@ -275,6 +281,24 @@ function renderHistory() {
     });
 }
 
+function handleHistoryDayClick(event, historyKind) {
+    const dayButton = event.target.closest('[data-history-day]');
+    if (!dayButton) return;
+    const nextDayKey = String(dayButton.dataset.historyDay || '');
+    if (!nextDayKey) return;
+    if (historyKind === 'redeemed') {
+        if (nextDayKey !== selectedRedeemHistoryDayKey) {
+            selectedRedeemHistoryDayKey = nextDayKey;
+            renderHistory();
+        }
+        return;
+    }
+    if (nextDayKey !== selectedPointHistoryDayKey) {
+        selectedPointHistoryDayKey = nextDayKey;
+        renderHistory();
+    }
+}
+
 function renderRuleTabs() {
     if (!kidRewardBucketTabs) return;
     const buckets = rewardBuckets();
@@ -301,9 +325,7 @@ function renderRules() {
         .filter((rule) => rule?.isActive !== false)
         .filter((rule) => isRedeemedRewardRule(rule))
         .filter((rule) => ruleBucket(rule) === activeRewardBucket)
-        .sort((a, b) => {
-            return String(a?.name || '').localeCompare(String(b?.name || ''));
-        });
+        .sort(compareRewardRulesByCost);
     if (!visibleRules.length) {
         kidRewardRules.innerHTML = '<div class="point-rule-empty">No rules in this bucket yet.</div>';
         return;
@@ -395,6 +417,14 @@ kidRewardBucketTabs?.addEventListener('click', (event) => {
     activeRewardBucket = nextBucket;
     renderRuleTabs();
     renderRules();
+});
+
+kidRedeemHistory?.addEventListener('click', (event) => {
+    handleHistoryDayClick(event, 'redeemed');
+});
+
+kidPointHistory?.addEventListener('click', (event) => {
+    handleHistoryDayClick(event, 'points');
 });
 
 loadInitialData().catch((error) => {

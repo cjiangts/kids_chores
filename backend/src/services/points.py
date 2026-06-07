@@ -640,8 +640,20 @@ def apply_direct_rule_event(kid_conn, shared_conn, family_id, rule_id, *, points
     rule = get_family_rule(shared_conn, family_id, rule_id)
     if not rule or not rule['isActive']:
         raise ValueError('Rule not found')
-    if rule['ruleKind'] not in {RULE_KIND_BONUS_EVENT, RULE_KIND_DEDUCTION_EVENT, RULE_KIND_REDEEMED_REWARD}:
-        raise ValueError('Only bonus_event, deduction_event, and redeemed_reward rules can be applied directly')
+    if rule['ruleKind'] not in {
+        RULE_KIND_OFF_APP_CHORE,
+        RULE_KIND_BONUS_EVENT,
+        RULE_KIND_DEDUCTION_EVENT,
+        RULE_KIND_REDEEMED_REWARD,
+    }:
+        raise ValueError('Only off_app_chore, bonus_event, deduction_event, and redeemed_reward rules can be applied directly')
+    if rule['ruleKind'] == RULE_KIND_OFF_APP_CHORE:
+        enabled = kid_conn.execute(
+            "SELECT 1 FROM kid_off_app_chore WHERE rule_id = ?",
+            [rule['ruleId']],
+        ).fetchone()
+        if not enabled:
+            raise ValueError('Off-app chore is not enabled for this kid')
     points_delta = _event_delta_for_rule(rule, points_delta=points_delta, field_name='points')
     bucket = reward_type_for_rule(rule)
     if bucket:

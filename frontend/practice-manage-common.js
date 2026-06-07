@@ -129,6 +129,20 @@ window.PracticeManageCommon = {
                 margin-bottom: 0.8rem;
                 box-sizing: border-box;
             }
+            .pwd-trust-row {
+                display: flex;
+                align-items: center;
+                gap: 0.45rem;
+                margin: -0.25rem 0 0.8rem;
+                color: #495057;
+                font-size: 0.9rem;
+                line-height: 1.25;
+            }
+            .pwd-trust-row input {
+                width: 16px;
+                height: 16px;
+                flex: 0 0 auto;
+            }
             .pwd-message {
                 margin: 0 0 0.8rem 0;
                 color: #c92a2a;
@@ -162,6 +176,7 @@ window.PracticeManageCommon = {
     _showPasswordInputDialog(actionLabel = 'this action', options = {}) {
         this._ensurePasswordDialogStyles();
         const warningMessage = String(options.warningMessage || '').trim();
+        const trustOptionLabel = String(options.trustOptionLabel || '').trim();
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.className = 'pwd-overlay';
@@ -170,6 +185,7 @@ window.PracticeManageCommon = {
                     <h3 class="pwd-title">Enter family password to confirm ${escapeHtml(actionLabel)}:</h3>
                     ${warningMessage ? `<p class="pwd-warning">${escapeHtml(warningMessage)}</p>` : ''}
                     <input class="pwd-input" type="password" autocomplete="current-password" />
+                    ${trustOptionLabel ? `<label class="pwd-trust-row"><input class="pwd-trust-input" type="checkbox" /> <span>${escapeHtml(trustOptionLabel)}</span></label>` : ''}
                     <div class="pwd-actions">
                         <button type="button" class="pwd-btn cancel">Close</button>
                         <button type="button" class="pwd-btn confirm">Confirm</button>
@@ -179,6 +195,7 @@ window.PracticeManageCommon = {
             document.body.appendChild(overlay);
 
             const input = overlay.querySelector('.pwd-input');
+            const trustInput = overlay.querySelector('.pwd-trust-input');
             const cancelBtn = overlay.querySelector('.pwd-btn.cancel');
             const confirmBtn = overlay.querySelector('.pwd-btn.confirm');
 
@@ -188,11 +205,11 @@ window.PracticeManageCommon = {
             };
 
             cancelBtn.addEventListener('click', () => close({ cancelled: true }));
-            confirmBtn.addEventListener('click', () => close({ cancelled: false, password: String(input.value || '').trim() }));
+            confirmBtn.addEventListener('click', () => close({ cancelled: false, password: String(input.value || '').trim(), trustBrowser: Boolean(trustInput && trustInput.checked) }));
             input.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    close({ cancelled: false, password: String(input.value || '').trim() });
+                    close({ cancelled: false, password: String(input.value || '').trim(), trustBrowser: Boolean(trustInput && trustInput.checked) });
                 } else if (event.key === 'Escape') {
                     event.preventDefault();
                     close({ cancelled: true });
@@ -258,7 +275,7 @@ window.PracticeManageCommon = {
 
         let response;
         try {
-            response = await requestFactory(password);
+            response = await requestFactory(password, inputResult);
         } catch (error) {
             return { ok: false, error: error?.message || 'Request failed' };
         }

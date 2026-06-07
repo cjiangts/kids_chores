@@ -72,12 +72,15 @@
         const deltaText = delta === 0 && isRewardRule(rule)
             ? rewardTypeLabel(rewardType(rule))
             : `${rewardPrefix}${formatDelta(delta)}`;
+        const checkHtml = typeof window.icon === 'function'
+            ? window.icon('check', { size: 13, strokeWidth: 3 })
+            : '';
         return `
             <${tag}${type}${role} class="${classes}"${data}>
                 <span class="point-rule-emoji">${iconHtml(rule, delta)}</span>
                 <span class="point-template-name">${escapeHtml(rule?.name || 'Rule')}</span>
                 <span class="point-rule-delta ${deltaClassForRule(rule)}">${escapeHtml(deltaText)}</span>
-                ${isActive && options.showCheck !== false ? '<span class="point-template-check" aria-hidden="true">✓</span>' : ''}
+                ${isActive && options.showCheck !== false ? `<span class="point-template-check" aria-hidden="true">${checkHtml}</span>` : ''}
             </${tag}>
         `;
     }

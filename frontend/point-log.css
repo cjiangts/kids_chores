@@ -72,9 +72,14 @@
     background: #22a56a;
     box-shadow: 0 2px 6px rgba(36, 131, 88, 0.25);
     color: #ffffff;
-    font-size: 0.72rem;
-    font-weight: 900;
     line-height: 1;
+}
+
+.point-template-check .icon,
+.point-template-check svg {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
 }
 
 .point-rule-emoji {
@@ -301,6 +306,13 @@
     font-size: 0.88rem;
 }
 
+.point-apply-icon,
+.point-apply-icon.icon {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+}
+
 .point-apply-btn:disabled {
     cursor: not-allowed;
     opacity: 0.58;
@@ -419,10 +431,15 @@
         line-height: 1;
     }
 
-    .point-log-actions .point-apply-btn::before {
-        content: "\2713";
-        font-size: 1rem;
-        font-weight: 900;
+    .point-log-actions .point-apply-label {
+        display: none;
+    }
+
+    .point-log-actions .point-apply-icon,
+    .point-log-actions .point-apply-icon.icon,
+    .point-log-actions .point-apply-btn svg {
+        width: 18px;
+        height: 18px;
     }
 }
 
@@ -440,21 +457,21 @@
 .point-panel-title {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.56rem;
     width: 100%;
-    margin-bottom: 0.55rem;
-    color: #6c7794;
+    margin-bottom: 0.72rem;
+    color: #6b5cf6;
 }
 
 .manage-page .settings-section .point-panel-title h2 {
     margin: 0;
     margin-bottom: 0;
-    color: inherit;
-    font-size: 0.78rem;
-    font-weight: 560;
-    letter-spacing: 0.06em;
-    line-height: 1.1;
-    text-transform: uppercase;
+    color: #252c54;
+    font-size: 0.9rem;
+    font-weight: 650;
+    letter-spacing: 0;
+    line-height: 1.12;
+    text-transform: none;
 }
 
 .point-panel-title-icon {
@@ -473,10 +490,10 @@
     margin-left: auto;
     color: inherit;
     font-size: 0.78rem;
-    font-weight: 560;
-    letter-spacing: 0.06em;
-    line-height: 1.1;
-    text-transform: uppercase;
+    font-weight: 620;
+    letter-spacing: 0;
+    line-height: 1.12;
+    text-transform: none;
     white-space: nowrap;
 }
 
@@ -503,8 +520,12 @@
 }
 
 .point-week-strip {
+    --point-week-name-row: 0.74rem;
+    --point-week-total-row: 0.86rem;
+    --point-week-mark-row: 12px;
+    --point-week-row-gap: 0.16rem;
     display: grid;
-    grid-template-columns: minmax(78px, 1fr) repeat(7, minmax(42px, 0.72fr));
+    grid-template-columns: minmax(84px, 1fr) repeat(7, minmax(42px, 0.72fr));
     align-items: stretch;
     margin: 0 0 0.58rem;
     border: 1px solid #d9dfef;
@@ -514,24 +535,70 @@
 }
 
 .point-week-label {
-    display: flex;
+    display: grid;
+    grid-template-rows: var(--point-week-name-row) var(--point-week-total-row) var(--point-week-mark-row);
+    align-content: center;
+    justify-items: center;
+    gap: var(--point-week-row-gap);
+    padding: 0.48rem 0.56rem;
+    color: #6b5cf6;
+    font-size: 0.66rem;
+    font-weight: 620;
+    line-height: 1;
+    text-align: center;
+}
+
+.point-week-label-text {
+    display: block;
+    white-space: nowrap;
+}
+
+.point-week-nav {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.48rem 0.56rem;
-    color: #1f2950;
-    font-size: 0.82rem;
-    font-weight: 680;
-    line-height: 1.15;
-    text-align: center;
+    grid-row: 2 / 4;
+    gap: 0.34rem;
+}
+
+.point-week-nav-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #cfd7ee;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #6b5cf6;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: inherit;
+    line-height: 1;
+    padding: 0;
+}
+
+.point-week-nav-btn .icon {
+    display: block;
+    width: 14px;
+    height: 14px;
+}
+
+.point-week-nav-btn:disabled {
+    color: #aeb6c9;
+    cursor: default;
+    opacity: 0.62;
 }
 
 .point-week-day {
     appearance: none;
     -webkit-appearance: none;
     display: grid;
+    grid-template-rows: var(--point-week-name-row) var(--point-week-total-row) var(--point-week-mark-row);
     align-content: center;
     justify-items: center;
-    gap: 0.16rem;
+    gap: var(--point-week-row-gap);
     min-width: 0;
     min-height: 58px;
     border: 0;
@@ -792,13 +859,26 @@
     }
 
     .point-week-strip {
-        grid-template-columns: minmax(58px, 0.9fr) repeat(7, minmax(31px, 1fr));
+        --point-week-name-row: 0.64rem;
+        --point-week-total-row: 0.76rem;
+        --point-week-mark-row: 10px;
+        --point-week-row-gap: 0.14rem;
+        grid-template-columns: minmax(70px, 1.04fr) repeat(7, minmax(29px, 1fr));
         margin-bottom: 0.48rem;
     }
 
     .point-week-label {
-        padding: 0.38rem 0.34rem;
-        font-size: 0.72rem;
+        padding: 0.38rem 0.3rem;
+        font-size: 0.64rem;
+    }
+
+    .point-week-nav {
+        gap: 0.3rem;
+    }
+
+    .point-week-nav-btn {
+        width: 25px;
+        height: 25px;
     }
 
     .point-week-day {

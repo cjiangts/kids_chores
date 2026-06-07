@@ -436,6 +436,8 @@ def get_kid_today_session_status_by_deck_category(
     *,
     conn=None,
     family_timezone=None,
+    shared_conn=None,
+    family_id=None,
 ):
     keys = [normalize_shared_deck_tag(key) for key in list(opted_in_category_keys or [])]
     keys = [key for key in keys if key]
@@ -445,6 +447,7 @@ def get_kid_today_session_status_by_deck_category(
             'status': 'not_started',
             'sessionId': None,
             'wrongCount': 0,
+            'earnedPoints': 0,
         }
         for key in keys
     }
@@ -472,6 +475,17 @@ def get_kid_today_session_status_by_deck_category(
         day_end_local = day_start_local + timedelta(days=1)
         day_start_utc = day_start_local.astimezone(timezone.utc).replace(tzinfo=None)
         day_end_utc = day_end_local.astimezone(timezone.utc).replace(tzinfo=None)
+        points_by_key = _get_today_in_app_points_by_deck_category(
+            local_conn,
+            shared_conn,
+            family_id or kid.get('familyId'),
+            keys,
+            day_start_utc,
+            day_end_utc,
+        )
+        for key, points in points_by_key.items():
+            if key in status_by_key:
+                status_by_key[key]['earnedPoints'] = points
         placeholders = ', '.join(['?'] * len(keys))
         rows = local_conn.execute(
             f"""
@@ -524,11 +538,16 @@ def get_kid_today_session_status_by_deck_category(
             completed_at = row[3]
             answer_count = max(0, int(row[5] or 0))
             wrong_count = max(0, int(row[6] or 0))
-            done = completed_at is not None and (planned_count <= 0 or answer_count >= planned_count)
+            done = (
+                completed_at is not None
+                and (planned_count <= 0 or answer_count >= planned_count)
+                and wrong_count <= 0
+            )
             status_by_key[category_key] = {
                 'status': 'done' if done else 'in_progress',
                 'sessionId': session_id,
                 'wrongCount': wrong_count,
+                'earnedPoints': points_by_key.get(category_key, 0),
             }
         return status_by_key
     except Exception:
@@ -537,6 +556,72 @@ def get_kid_today_session_status_by_deck_category(
         if owns_conn and local_conn is not None:
             local_conn.close()
 
+
+def _get_today_in_app_points_by_deck_category(
+    kid_conn,
+    shared_conn,
+    family_id,
+    category_keys,
+    day_start_utc,
+    day_end_utc,
+):
+    if kid_conn is None or shared_conn is None:
+        return {}
+    keys = [normalize_shared_deck_tag(key) for key in list(category_keys or [])]
+    keys = [key for key in keys if key]
+    if not keys:
+        return {}
+    try:
+        family_id_int = int(family_id or 0)
+    except (TypeError, ValueError):
+        family_id_int = 0
+    if family_id_int <= 0:
+        return {}
+    try:
+        rows = shared_conn.execute(
+            """
+            SELECT rule_id, trigger_key
+            FROM point_rule
+            WHERE family_id = ?
+              AND rule_kind = 'in_app_chore'
+              AND trigger_key IS NOT NULL
+              AND trigger_key <> ''
+            """,
+            [family_id_int],
+        ).fetchall()
+    except Exception:
+        return {}
+    rule_to_key = {}
+    allowed_keys = set(keys)
+    for row in rows:
+        rule_id = int(row[0] or 0)
+        key = normalize_shared_deck_tag(row[1])
+        if rule_id > 0 and key in allowed_keys:
+            rule_to_key[rule_id] = key
+    if not rule_to_key:
+        return {}
+    placeholders = ', '.join(['?'] * len(rule_to_key))
+    try:
+        event_rows = kid_conn.execute(
+            f"""
+            SELECT rule_id, COALESCE(SUM(points_delta), 0)
+            FROM point_event
+            WHERE rule_id IN ({placeholders})
+              AND created_at >= ?
+              AND created_at < ?
+            GROUP BY rule_id
+            """,
+            [*rule_to_key.keys(), day_start_utc, day_end_utc],
+        ).fetchall()
+    except Exception:
+        return {}
+    points_by_key = defaultdict(int)
+    for row in event_rows:
+        rule_id = int(row[0] or 0)
+        key = rule_to_key.get(rule_id)
+        if key:
+            points_by_key[key] += int(row[1] or 0)
+    return dict(points_by_key)
 
 # =====================================================================
 # === 4. Per-category projections of dashboard stats

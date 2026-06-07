@@ -8,17 +8,19 @@ canonical via `_normalize`.
 
 Layout (search for `# === N. ` banner markers to jump between sections):
 
-    1. Module config + normalization helpers (password/timezone/super-family)
+    1. Module config + normalization helpers (password/timezone/super-family/trusted browsers)
     2. File I/O primitives (`_with_file_lock`, `_write_metadata_atomic`,
        `_mutate_metadata`, `load_metadata`)
     3. Kid CRUD (list, get, add, delete, update)
     4. Family lookup + auth (list, get, by-username, register, authenticate,
-       verify password, is_super_family)
+       verify password, is_super_family, trusted browsers)
     5. Family lifecycle (delete, update password)
     6. Family settings (timezone get/set)
 """
 import json
 import os
+import hashlib
+import secrets
 import tempfile
 import threading
 from datetime import datetime
@@ -52,6 +54,7 @@ def _normalize(data: Dict) -> Dict:
             **family,
             'familyTimezone': timezone_name,
             'superFamily': super_family,
+            'trustedBrowsers': _normalize_trusted_browsers(family.get('trustedBrowsers')),
         }
         data['families'][i] = normalized_family
     normalized_kids = []
@@ -94,6 +97,48 @@ def _normalize_super_family_flag(value) -> bool:
     if text in {'0', 'false', 'no', 'n', 'off'}:
         return False
     return False
+
+
+def _normalize_trusted_browsers(value) -> List[Dict]:
+    """Return canonical trusted browser entries without exposing token hashes."""
+    if not isinstance(value, list):
+        return []
+    entries = []
+    seen_ids = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        entry_id = str(item.get('id') or '').strip()
+        token_hash = str(item.get('tokenHash') or '').strip()
+        if not entry_id or not token_hash or entry_id in seen_ids:
+            continue
+        seen_ids.add(entry_id)
+        label = str(item.get('label') or '').strip()[:80] or 'Trusted browser'
+        created_at = str(item.get('createdAt') or '').strip()
+        last_used_at = str(item.get('lastUsedAt') or '').strip()
+        entries.append({
+            'id': entry_id,
+            'label': label,
+            'tokenHash': token_hash,
+            'createdAt': created_at,
+            'lastUsedAt': last_used_at,
+        })
+    return entries
+
+
+def _hash_trusted_browser_token(token: str) -> str:
+    """Hash one browser trust token for metadata storage."""
+    return hashlib.sha256(str(token or '').encode('utf-8')).hexdigest()
+
+
+def _public_trusted_browser_entry(entry: Dict) -> Dict:
+    """Project one trusted-browser entry for API responses."""
+    return {
+        'id': str(entry.get('id') or ''),
+        'label': str(entry.get('label') or 'Trusted browser'),
+        'createdAt': str(entry.get('createdAt') or ''),
+        'lastUsedAt': str(entry.get('lastUsedAt') or ''),
+    }
 
 
 # =====================================================================
@@ -362,6 +407,104 @@ def is_super_family(family_id: str) -> bool:
     return _normalize_super_family_flag(family.get('superFamily'))
 
 
+def list_trusted_browsers(family_id: str) -> List[Dict]:
+    """List trusted browsers for one family without token hashes."""
+    family = get_family_by_id(str(family_id or ''))
+    if not family:
+        return []
+    return [_public_trusted_browser_entry(entry) for entry in _normalize_trusted_browsers(family.get('trustedBrowsers'))]
+
+
+def add_trusted_browser(family_id: str, label: str) -> Optional[Dict]:
+    """Create and persist a trusted browser token for one family."""
+    family_id = str(family_id or '').strip()
+    if not family_id:
+        return None
+    clean_label = str(label or '').strip()[:80] or 'Trusted browser'
+    token = secrets.token_urlsafe(32)
+    token_hash = _hash_trusted_browser_token(token)
+    entry_id = secrets.token_urlsafe(9)
+    now = datetime.now().isoformat()
+
+    def _op(data: Dict):
+        families = data.get('families', [])
+        for i, family in enumerate(families):
+            if str(family.get('id')) != family_id:
+                continue
+            entries = _normalize_trusted_browsers(family.get('trustedBrowsers'))
+            entry = {
+                'id': entry_id,
+                'label': clean_label,
+                'tokenHash': token_hash,
+                'createdAt': now,
+                'lastUsedAt': now,
+            }
+            entries.append(entry)
+            families[i] = {**family, 'trustedBrowsers': entries}
+            data['families'] = families
+            return {**_public_trusted_browser_entry(entry), 'token': token}
+        return None
+
+    return _mutate_metadata(_op)
+
+
+def verify_trusted_browser(family_id: str, token: str) -> Optional[Dict]:
+    """Verify one trusted browser token and update last-used time."""
+    family_id = str(family_id or '').strip()
+    clean_token = str(token or '').strip()
+    if not family_id or not clean_token:
+        return None
+    token_hash = _hash_trusted_browser_token(clean_token)
+    now = datetime.now().isoformat()
+
+    def _op(data: Dict):
+        families = data.get('families', [])
+        for i, family in enumerate(families):
+            if str(family.get('id')) != family_id:
+                continue
+            entries = _normalize_trusted_browsers(family.get('trustedBrowsers'))
+            matched = None
+            for j, entry in enumerate(entries):
+                if str(entry.get('tokenHash') or '') != token_hash:
+                    continue
+                updated = {**entry, 'lastUsedAt': now}
+                entries[j] = updated
+                matched = updated
+                break
+            if matched is None:
+                return None
+            families[i] = {**family, 'trustedBrowsers': entries}
+            data['families'] = families
+            return _public_trusted_browser_entry(matched)
+        return None
+
+    return _mutate_metadata(_op)
+
+
+def delete_trusted_browser(family_id: str, browser_id: str) -> bool:
+    """Delete one trusted browser entry for a family."""
+    family_id = str(family_id or '').strip()
+    browser_id = str(browser_id or '').strip()
+    if not family_id or not browser_id:
+        return False
+
+    def _op(data: Dict):
+        families = data.get('families', [])
+        for i, family in enumerate(families):
+            if str(family.get('id')) != family_id:
+                continue
+            entries = _normalize_trusted_browsers(family.get('trustedBrowsers'))
+            next_entries = [entry for entry in entries if str(entry.get('id') or '') != browser_id]
+            if len(next_entries) == len(entries):
+                return False
+            families[i] = {**family, 'trustedBrowsers': next_entries}
+            data['families'] = families
+            return True
+        return False
+
+    return _mutate_metadata(_op)
+
+
 # =====================================================================
 # === 5. Family lifecycle (delete + password update)
 # =====================================================================
@@ -414,7 +557,8 @@ def update_family_password(family_id: str, current_password: str, new_password: 
                 return False
             families[i] = {
                 **family,
-                'password': generate_password_hash(new_password, method=PASSWORD_HASH_METHOD)
+                'password': generate_password_hash(new_password, method=PASSWORD_HASH_METHOD),
+                'trustedBrowsers': [],
             }
             data['families'] = families
             return True

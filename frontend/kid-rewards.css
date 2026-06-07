@@ -14,23 +14,26 @@
 }
 
 .kid-reward-rule-status {
+    --reward-status-pill-width: 7.8rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 28px;
+    width: var(--reward-status-pill-width);
+    max-width: 100%;
+    box-sizing: border-box;
     border-radius: 999px;
-    padding: 0.18rem 0.56rem;
+    padding: 0.22rem 0.5rem;
     background: #edf1f8;
     color: #66718f;
     font-size: 0.82rem;
     font-weight: 560;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
 .kid-reward-rule-status.available {
     background: #eaf8ef;
     color: #16a34a;
-    font-weight: 760;
 }
 
 .kid-reward-rule-status.muted {
@@ -39,9 +42,13 @@
 }
 
 .kid-reward-confirm-btn {
+    --reward-status-pill-width: 7.8rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: var(--reward-status-pill-width);
+    max-width: 100%;
+    box-sizing: border-box;
     min-height: 30px;
     border: 1px solid #8fd2a7;
     border-radius: 999px;
@@ -175,10 +182,13 @@
 
 @media (max-width: 700px) {
     .kid-reward-rule-status {
+        --reward-status-pill-width: 7rem;
         font-size: 0.74rem;
+        padding: 0.18rem 0.42rem;
     }
 
     .kid-reward-confirm-btn {
+        --reward-status-pill-width: 7rem;
         min-height: 28px;
         font-size: 0.72rem;
         padding: 0 0.52rem;

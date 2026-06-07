@@ -222,6 +222,18 @@ function selectedRule() {
     return rules.find((rule) => Number(rule.ruleId) === Number(selectedRuleId)) || null;
 }
 
+function checkIconHtml(size = 17, strokeWidth = 2.7) {
+    if (typeof window.icon === 'function') {
+        return window.icon('check', { className: 'point-apply-icon icon', size, strokeWidth });
+    }
+    return '';
+}
+
+function setSubmitButtonLabel(label) {
+    if (!submitPointLogBtn) return;
+    submitPointLogBtn.innerHTML = `${checkIconHtml()}<span class="point-apply-label">${escapeHtml(label)}</span>`;
+}
+
 function hasActiveSelection() {
     return Boolean(selectedRule());
 }
@@ -368,12 +380,12 @@ function updateSubmitState() {
     const cannotAfford = cannotAffordSelectedReward();
     submitPointLogBtn.disabled = !canSubmit || cannotAfford;
     if (!name) {
-        submitPointLogBtn.textContent = 'Confirm';
+        setSubmitButtonLabel('Confirm');
         return;
     }
-    submitPointLogBtn.textContent = rule
+    setSubmitButtonLabel(rule
         ? `Confirm ${formatDelta(signedPointValueForRule(rule, hasPositivePoints ? points : 1))}`
-        : `Create ${activeMode === 'deduction' ? '-' : '+'}${hasPositivePoints ? points : 1}`;
+        : `Create ${activeMode === 'deduction' ? '-' : '+'}${hasPositivePoints ? points : 1}`);
 }
 
 function render() {

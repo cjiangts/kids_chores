@@ -94,21 +94,21 @@ body.practice-home-redesign {
 .practice-home-redesign .practice-home-card-title {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.42rem;
     min-width: 0;
-    color: #6c7794;
-    font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    line-height: 1.1;
-    text-transform: uppercase;
+    color: #252c54;
+    font-size: 0.82rem;
+    font-weight: 650;
+    letter-spacing: 0;
+    line-height: 1.12;
+    text-transform: none;
 }
 
 .practice-home-redesign .practice-home-card-icon {
     display: inline-flex;
     align-items: center;
     flex: 0 0 auto;
-    color: inherit;
+    color: #6b5cf6;
     line-height: 0;
 }
 
@@ -199,7 +199,7 @@ body.practice-home-redesign {
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    padding: 14px 4px;
+    padding: 10px 4px;
     text-align: left;
     transition: background-color 0.18s ease;
 }
@@ -212,17 +212,26 @@ body.practice-home-redesign {
     background: rgba(111, 125, 240, 0.06);
 }
 
+.practice-home-redesign .redesign-practice-option:disabled {
+    color: inherit;
+    cursor: default;
+}
+
+.practice-home-redesign .redesign-practice-option:disabled:hover {
+    background: transparent;
+}
+
 .practice-home-redesign .practice-row-tile {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 56px;
-    height: 56px;
+    width: 42px;
+    height: 42px;
 }
 
 .practice-home-redesign .practice-row-tile-emoji {
-    font-size: 2.6rem;
+    font-size: 1.7rem;
     line-height: 1;
 }
 
@@ -231,27 +240,34 @@ body.practice-home-redesign {
 }
 
 .practice-home-redesign .practice-row-chevron {
-    flex: 0 0 auto;
+    flex: 0 0 136px;
     display: inline-flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    width: 56px;
-    height: 56px;
-    padding: 4px;
+    gap: 7px;
+    width: 136px;
+    min-width: 136px;
+    padding: 8px 12px;
     box-sizing: border-box;
-    border-radius: 14px;
-    background: linear-gradient(180deg, #6f7df0, #8a7ce8);
-    color: #fff;
-    box-shadow: 0 3px 8px rgba(111, 125, 240, 0.28);
+    border: 1px solid #7057d9;
+    border-radius: 10px;
+    background: #fff;
+    color: #7057d9;
+    box-shadow: none;
 }
 
 .practice-home-redesign .practice-row-action-label {
-    font-size: 0.72rem;
-    font-weight: 500;
+    font-size: 0.86rem;
+    font-weight: 800;
     line-height: 1;
-    color: #fff;
+    color: inherit;
+}
+
+.practice-home-redesign .practice-row-chevron.is-done {
+    border-color: #d8def0;
+    background: #f4f6ff;
+    color: #7057d9;
 }
 
 .practice-home-redesign .practice-row-head {
@@ -273,6 +289,39 @@ body.practice-home-redesign {
     white-space: nowrap;
 }
 
+.practice-home-redesign .practice-row-status-pills {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    flex: 0 0 auto;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.practice-home-redesign .practice-row-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 20px;
+    border-radius: 999px;
+    padding: 0 0.44rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.practice-home-redesign .practice-row-status-pill.redo {
+    background: #fff3c7;
+    color: #9a6500;
+}
+
+.practice-home-redesign .practice-row-status-pill.unseen {
+    background: #edf1f8;
+    color: #66718f;
+}
+
 .practice-home-redesign .practice-row-right {
     display: inline-flex;
     align-items: center;
@@ -289,48 +338,8 @@ body.practice-home-redesign {
     line-height: 1.2;
 }
 
-.practice-home-redesign .practice-row-legend {
-    display: flex;
-    align-items: center;
-    gap: 0.2rem 0.55rem;
-    flex-wrap: wrap;
-}
-
-.practice-home-redesign .practice-row-legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.34rem;
-    white-space: nowrap;
-}
-
-.practice-home-redesign .practice-row-legend-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 999px;
-    flex: 0 0 auto;
-}
-
-.practice-home-redesign .practice-row-legend-dot.mastered {
-    background: #4d85f3;
-}
-
-.practice-home-redesign .practice-row-legend-dot.redo {
-    background: #f3b53f;
-    background-image: repeating-linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.7) 0px,
-        rgba(255, 255, 255, 0.7) 4px,
-        transparent 4px,
-        transparent 8px
-    );
-}
-
-.practice-home-redesign .practice-row-legend-dot.unseen {
-    background: #cfd5e7;
-}
-
 .practice-home-redesign .practice-row-progress-line {
-    margin-top: 8px;
+    margin-top: 9px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -338,23 +347,11 @@ body.practice-home-redesign {
 
 .practice-home-redesign .practice-row-progress {
     flex: 1 1 auto;
-    height: 11px;
+    height: 4px;
     border-radius: 999px;
     background: #e4e8f7;
     overflow: hidden;
     display: flex;
-}
-
-.practice-home-redesign .practice-row-percent-line {
-    margin-top: 4px;
-    text-align: right;
-}
-
-.practice-home-redesign .practice-row-percent {
-    font-size: 0.82rem;
-    font-weight: 800;
-    color: #4b5a70;
-    line-height: 1;
 }
 
 .practice-home-redesign .practice-row-seg {
@@ -363,43 +360,15 @@ body.practice-home-redesign {
 }
 
 .practice-home-redesign .practice-row-seg.mastered {
-    background: linear-gradient(90deg, #8b5cf6, #3b82f6, #22c55e);
+    background: #7057d9;
 }
 
 .practice-home-redesign .practice-row-seg.redo {
-    background: #f3b53f;
-    background-image: repeating-linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.65) 0px,
-        rgba(255, 255, 255, 0.65) 6px,
-        transparent 6px,
-        transparent 12px
-    );
+    background: #e0a11a;
 }
 
 .practice-home-redesign .practice-row-seg.unseen {
     background: #e4e8f7;
-}
-
-.practice-home-redesign .practice-row-token-star {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #f3b53f;
-    text-shadow: 0 1px 2px rgba(178, 121, 0, 0.25);
-}
-
-.practice-home-redesign .practice-row-token-overflow {
-    display: inline-flex;
-    align-items: center;
-    line-height: 1;
-    margin-left: 2px;
-    font-size: 0.9rem;
-    font-weight: 800;
-    color: #4b5a70;
 }
 
 .practice-home-redesign .redesign-summary-strip {
@@ -736,37 +705,45 @@ body.practice-home-redesign {
     }
 
     .practice-home-redesign .redesign-practice-option {
-        padding: 12px 2px;
-        gap: 10px;
+        padding: 10px 4px;
+        gap: 12px;
     }
 
     .practice-home-redesign .practice-row-tile {
-        width: 48px;
-        height: 48px;
+        width: 42px;
+        height: 42px;
     }
 
     .practice-home-redesign .practice-row-tile-emoji {
-        font-size: 2.15rem;
+        font-size: 1.7rem;
     }
 
     .practice-home-redesign .practice-row-chevron {
-        width: 48px;
-        height: 48px;
-        padding: 4px;
-        border-radius: 12px;
+        width: 136px;
+        min-width: 136px;
+        flex-basis: 136px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        gap: 7px;
     }
 
     .practice-home-redesign .practice-row-chevron .icon {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
     }
 
     .practice-home-redesign .practice-row-action-label {
-        font-size: 0.68rem;
+        font-size: 0.86rem;
     }
 
     .practice-home-redesign .practice-row-head h3 {
         font-size: 0.94rem;
+    }
+
+    .practice-home-redesign .practice-row-status-pill {
+        min-height: 19px;
+        padding: 0 0.36rem;
+        font-size: 0.68rem;
     }
 
     .practice-home-redesign .redesign-summary-strip {
@@ -840,33 +817,30 @@ body.practice-home-redesign {
     }
 
     .practice-home-redesign .practice-row-tile {
-        width: 42px;
-        height: 42px;
+        width: 34px;
+        height: 34px;
     }
 
     .practice-home-redesign .practice-row-tile-emoji {
-        font-size: 1.85rem;
-    }
-
-    .practice-home-redesign .practice-row-percent {
-        font-size: 0.72rem;
+        font-size: 1.35rem;
     }
 
     .practice-home-redesign .practice-row-chevron {
-        width: 54px;
-        height: 42px;
-        padding: 3px;
-        border-radius: 11px;
-        gap: 2px;
+        width: 104px;
+        min-width: 104px;
+        flex-basis: 104px;
+        padding: 7px 8px;
+        border-radius: 10px;
+        gap: 5px;
     }
 
     .practice-home-redesign .practice-row-chevron .icon {
-        width: 14px;
-        height: 14px;
+        width: 18px;
+        height: 18px;
     }
 
     .practice-home-redesign .practice-row-action-label {
-        font-size: 0.64rem;
+        font-size: 0.72rem;
     }
 
     .practice-home-redesign .redesign-summary-label {
@@ -878,8 +852,17 @@ body.practice-home-redesign {
         font-size: 0.79rem;
     }
 
-    .practice-home-redesign .practice-row-sub,
-    .practice-home-redesign .practice-row-legend {
+    .practice-home-redesign .practice-row-sub {
         font-size: 0.72rem;
+    }
+
+    .practice-home-redesign .practice-row-status-pills {
+        gap: 4px;
+    }
+
+    .practice-home-redesign .practice-row-status-pill {
+        min-height: 18px;
+        padding: 0 0.3rem;
+        font-size: 0.64rem;
     }
 }

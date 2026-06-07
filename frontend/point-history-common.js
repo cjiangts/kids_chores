@@ -67,13 +67,27 @@
         return new Date(hasTimezone ? text : `${text}Z`);
     }
 
-    function currentWeekDayKeys(timezone) {
-        const todayKey = dateKeyInTimezone(new Date(), timezone);
-        const today = dateFromDayKey(todayKey);
-        if (!today) return [];
-        const mondayOffset = (today.getUTCDay() + 6) % 7;
-        const mondayKey = addDaysToDayKey(todayKey, -mondayOffset);
+    function weekStartKey(dayKey) {
+        const day = dateFromDayKey(dayKey);
+        if (!day) return '';
+        const mondayOffset = (day.getUTCDay() + 6) % 7;
+        return addDaysToDayKey(dayKey, -mondayOffset);
+    }
+
+    function weekDayKeysForSelectedDay(selectedDayKey) {
+        const mondayKey = weekStartKey(selectedDayKey);
+        if (!mondayKey) return [];
         return Array.from({ length: 7 }, (_, index) => addDaysToDayKey(mondayKey, index));
+    }
+
+    function weekLabel(selectedDayKey, timezone) {
+        const selectedStart = weekStartKey(selectedDayKey);
+        const currentStart = weekStartKey(dateKeyInTimezone(new Date(), timezone));
+        const diffWeeks = Math.round(daysBetweenDayKeys(selectedStart, currentStart) / 7);
+        if (diffWeeks === 0) return 'This week';
+        if (diffWeeks === 1) return 'Last week';
+        if (diffWeeks > 1) return `-${diffWeeks} weeks`;
+        return `+${Math.abs(diffWeeks)} weeks`;
     }
 
     function historyDayHeading(dayKey, timezone) {
@@ -136,10 +150,24 @@
             const delta = Number.parseInt(event.pointsDelta, 10) || 0;
             totalsByDay.set(dayKey, (totalsByDay.get(dayKey) || 0) + delta);
         });
+        const selectedWeekStart = weekStartKey(selectedDayKey);
+        const currentWeekStart = weekStartKey(dateKeyInTimezone(new Date(), timezone));
+        const canGoNext = selectedWeekStart && currentWeekStart
+            ? daysBetweenDayKeys(selectedWeekStart, currentWeekStart) > 0
+            : false;
+        const previousWeekDayKey = addDaysToDayKey(selectedDayKey, -7);
+        const nextWeekDayKey = addDaysToDayKey(selectedDayKey, 7);
+        const labelText = weekLabel(selectedDayKey, timezone);
         return `
-            <div class="point-week-strip" role="tablist" aria-label="This week's point history">
-                <div class="point-week-label">This week</div>
-                ${currentWeekDayKeys(timezone).map((dayKey) => {
+            <div class="point-week-strip" role="tablist" aria-label="${escapeHtml(labelText)} point history">
+                <div class="point-week-label">
+                    <span class="point-week-label-text">${escapeHtml(labelText)}</span>
+                    <span class="point-week-nav" aria-label="Week navigation">
+                        <button type="button" class="point-week-nav-btn" data-history-day="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 14, strokeWidth: 2.9 })}</button>
+                        <button type="button" class="point-week-nav-btn" data-history-day="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 14, strokeWidth: 2.9 })}</button>
+                    </span>
+                </div>
+                ${weekDayKeysForSelectedDay(selectedDayKey).map((dayKey) => {
             const day = dateFromDayKey(dayKey);
             const hasEvents = totalsByDay.has(dayKey);
             const total = totalsByDay.get(dayKey) || 0;
@@ -153,7 +181,7 @@
                     role="tab"
                     aria-selected="${isActive ? 'true' : 'false'}"
                     data-history-day="${escapeHtml(dayKey)}"
-                    ${hasEvents ? '' : 'disabled'}
+                    ${hasEvents || isActive ? '' : 'disabled'}
                 >
                     <span class="point-week-day-name">${escapeHtml(day ? day.toLocaleDateString([], { timeZone: 'UTC', weekday: 'short' }) : '')}</span>
                     <span class="point-week-day-total ${valueClass}">${escapeHtml(value)}</span>

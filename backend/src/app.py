@@ -10,7 +10,7 @@ Layout inside `create_app()` (search for `# === N. ` banner markers):
     1. App config + auth helper closures
     2. Request lifecycle hooks (before_request, after_request)
     3. Blueprint registration
-    4. Family-auth routes (status/register/login/logout)
+    4. Family-auth routes (status/register/login/logout/confirm-password/trusted browsers)
     5. Parent-auth + parent-settings (password, timezone)
     6. Super-family admin (list/delete families)
     7. Health + static frontend serving
@@ -280,6 +280,51 @@ def create_app():
         session.pop('family_username', None)
         session.pop(SESSION_AUTH_TOKEN_KEY, None)
         return {'authenticated': False}, 200
+
+    @app.route('/api/family-auth/confirm-password', methods=['POST'])
+    def family_auth_confirm_password():
+        auth_err = require_critical_password()
+        if auth_err:
+            return auth_err
+        payload = request.get_json(silent=True) or {}
+        result = {'ok': True}
+        if bool(payload.get('trustBrowser')):
+            family_id = str(session.get('family_id') or '')
+            label = str(payload.get('browserLabel') or '').strip()
+            trusted = metadata.add_trusted_browser(family_id, label)
+            if trusted:
+                result['trustedBrowser'] = trusted
+        return result, 200
+
+    @app.route('/api/family-auth/trusted-browsers/verify', methods=['POST'])
+    def family_auth_verify_trusted_browser():
+        auth_err = require_family_auth()
+        if auth_err:
+            return auth_err
+        payload = request.get_json(silent=True) or {}
+        token = str(payload.get('trustedBrowserToken') or '')
+        trusted = metadata.verify_trusted_browser(str(session.get('family_id') or ''), token)
+        if not trusted:
+            return {'ok': False, 'error': 'Trusted browser not recognized'}, 403
+        return {'ok': True, 'trustedBrowser': trusted}, 200
+
+    @app.route('/api/family-auth/trusted-browsers', methods=['GET'])
+    def family_auth_list_trusted_browsers():
+        auth_err = require_family_auth()
+        if auth_err:
+            return auth_err
+        browsers = metadata.list_trusted_browsers(str(session.get('family_id') or ''))
+        return {'trustedBrowsers': browsers}, 200
+
+    @app.route('/api/family-auth/trusted-browsers/<browser_id>', methods=['DELETE'])
+    def family_auth_delete_trusted_browser(browser_id):
+        auth_err = require_family_auth()
+        if auth_err:
+            return auth_err
+        deleted = metadata.delete_trusted_browser(str(session.get('family_id') or ''), browser_id)
+        if not deleted:
+            return {'error': 'Trusted browser not found'}, 404
+        return {'deleted': True, 'browserId': str(browser_id or '')}, 200
 
     # =================================================================
     # === 5. Parent-auth + parent-settings routes

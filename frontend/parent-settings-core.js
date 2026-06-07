@@ -7,8 +7,9 @@
  *   3. Header user switcher + change-password dialog
  *   4. Timezone picker (load, save, pill selection, formatting)
  *   5. Password change submit
- *   6. Family role + super-family account list + delete
- *   7. Toast / status message helpers (global, password, timezone)
+ *   6. Trusted browser list
+ *   7. Family role + super-family account list + delete
+ *   8. Toast / status message helpers (global, password, timezone)
  */
 
 // =====================================================================
@@ -16,6 +17,7 @@
 // =====================================================================
 
 const API_BASE = `${window.location.origin}/api`;
+const TRUSTED_PARENT_BROWSER_STORAGE_KEY = 'trusted_parent_browser_v1';
 
 const passwordForm = document.getElementById('passwordForm');
 const currentPasswordInput = document.getElementById('currentPassword');
@@ -50,6 +52,10 @@ const familyStorageSummary = document.getElementById('familyStorageSummary');
 const familyAccountsEmpty = document.getElementById('familyAccountsEmpty');
 const familyAdminError = document.getElementById('familyAdminError');
 const familyAdminSuccess = document.getElementById('familyAdminSuccess');
+const trustedBrowsersList = document.getElementById('trustedBrowsersList');
+const trustedBrowsersEmpty = document.getElementById('trustedBrowsersEmpty');
+const trustedBrowsersError = document.getElementById('trustedBrowsersError');
+const trustedBrowsersSuccess = document.getElementById('trustedBrowsersSuccess');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const passwordError = document.getElementById('passwordError');
@@ -95,6 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadFamilyRole();
     initializeTimezoneOptions();
     await loadTimezoneSettings();
+    await loadTrustedBrowsers();
     if (isSuperFamily) {
         loadBackupInfo();
         loadFamilyAccounts();
@@ -256,6 +263,20 @@ if (familyAccountsList) {
             return;
         }
         await deleteFamilyAccount(familyId, familyUsername);
+    });
+}
+
+if (trustedBrowsersList) {
+    trustedBrowsersList.addEventListener('click', async (event) => {
+        const target = getClosestEventTarget(event, 'button[data-action="delete-trusted-browser"][data-browser-id]');
+        if (!target) {
+            return;
+        }
+        const browserId = String(target.getAttribute('data-browser-id') || '').trim();
+        if (!browserId) {
+            return;
+        }
+        await deleteTrustedBrowser(browserId);
     });
 }
 
@@ -462,7 +483,134 @@ async function changePassword() {
 }
 
 // =====================================================================
-// === 6. Family role + super-family account list + delete
+// === 6. Trusted browser list
+// =====================================================================
+
+function readLocalTrustedBrowser() {
+    try {
+        if (!window.localStorage) return null;
+        const raw = window.localStorage.getItem(TRUSTED_PARENT_BROWSER_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const id = String(parsed?.id || '').trim();
+        return id ? { id } : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function clearLocalTrustedBrowser() {
+    try {
+        if (window.localStorage) {
+            window.localStorage.removeItem(TRUSTED_PARENT_BROWSER_STORAGE_KEY);
+        }
+    } catch (error) {
+        // ignore
+    }
+}
+
+function formatTrustedBrowserTime(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return 'Unknown time';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return 'Unknown time';
+    return `${date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })} ${date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+async function loadTrustedBrowsers() {
+    if (!trustedBrowsersList || !trustedBrowsersEmpty) return;
+    showTrustedBrowsersError('');
+    showTrustedBrowsersSuccess('');
+    try {
+        const response = await fetch(`${API_BASE}/family-auth/trusted-browsers`);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        renderTrustedBrowsers(payload.trustedBrowsers);
+    } catch (error) {
+        renderTrustedBrowsers([]);
+        showTrustedBrowsersError(error.message || 'Failed to load trusted browsers.');
+    }
+}
+
+function renderTrustedBrowsers(items) {
+    if (!trustedBrowsersList || !trustedBrowsersEmpty) return;
+    const browsers = Array.isArray(items) ? items : [];
+    if (browsers.length === 0) {
+        trustedBrowsersList.innerHTML = '';
+        trustedBrowsersEmpty.classList.remove('hidden');
+        return;
+    }
+    trustedBrowsersEmpty.classList.add('hidden');
+    const localTrusted = readLocalTrustedBrowser();
+    trustedBrowsersList.innerHTML = browsers.map((browser) => {
+        const browserId = String(browser?.id || '').trim();
+        const label = String(browser?.label || 'Trusted browser').trim() || 'Trusted browser';
+        const isCurrent = Boolean(localTrusted && localTrusted.id === browserId);
+        const currentText = isCurrent ? ' · This browser' : '';
+        const createdAt = formatTrustedBrowserTime(browser?.createdAt);
+        const lastUsedAt = formatTrustedBrowserTime(browser?.lastUsedAt);
+        return `
+            <div class="trusted-browser-card">
+                <div>
+                    <div class="trusted-browser-title">
+                        <span class="icon" data-icon="monitor" data-icon-size="18" data-icon-stroke="2.2"></span>
+                        <span>${escapeHtml(label)}${escapeHtml(currentText)}</span>
+                    </div>
+                    <div class="trusted-browser-meta">Trusted ${escapeHtml(createdAt)} · Last used ${escapeHtml(lastUsedAt)}</div>
+                </div>
+                <button type="button" class="semantic-outline-btn semantic-outline-btn--red trusted-browser-delete" data-action="delete-trusted-browser" data-browser-id="${escapeHtml(browserId)}" aria-label="${escapeHtml(`Remove ${label}`)}">
+                    ${window.icon('trash', { size: 17 })}
+                    <span>Remove</span>
+                </button>
+            </div>
+        `;
+    }).join('');
+    if (typeof window.hydrateIcons === 'function') {
+        window.hydrateIcons(trustedBrowsersList);
+    }
+}
+
+async function deleteTrustedBrowser(browserId) {
+    if (!browserId) return;
+    showTrustedBrowsersError('');
+    showTrustedBrowsersSuccess('');
+    try {
+        const response = await fetch(`${API_BASE}/family-auth/trusted-browsers/${encodeURIComponent(browserId)}`, {
+            method: 'DELETE',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        const localTrusted = readLocalTrustedBrowser();
+        if (localTrusted && localTrusted.id === browserId) {
+            clearLocalTrustedBrowser();
+        }
+        await loadTrustedBrowsers();
+        showTrustedBrowsersSuccess('Trusted browser removed.');
+    } catch (error) {
+        showTrustedBrowsersError(error.message || 'Failed to remove trusted browser.');
+    }
+}
+
+function showTrustedBrowsersError(message) {
+    if (!trustedBrowsersError) return;
+    const text = String(message || '').trim();
+    trustedBrowsersError.textContent = text;
+    trustedBrowsersError.classList.toggle('hidden', !text);
+}
+
+function showTrustedBrowsersSuccess(message) {
+    if (!trustedBrowsersSuccess) return;
+    const text = String(message || '').trim();
+    trustedBrowsersSuccess.textContent = text;
+    trustedBrowsersSuccess.classList.toggle('hidden', !text);
+}
+
+// =====================================================================
+// === 7. Family role + super-family account list + delete
 // =====================================================================
 
 async function loadFamilyRole() {
@@ -656,7 +804,7 @@ async function deleteFamilyAccount(familyId, familyUsername) {
 }
 
 // =====================================================================
-// === 7. Toast / status message helpers (global, password, timezone)
+// === 8. Toast / status message helpers (global, password, timezone)
 // =====================================================================
 
 function showFamilyAdminError(message) {

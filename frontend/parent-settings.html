@@ -244,6 +244,53 @@
             margin-bottom: 1rem;
         }
 
+        .trusted-browser-list {
+            display: grid;
+            gap: 0.55rem;
+            margin-top: 0.35rem;
+        }
+
+        .trusted-browser-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 0.75rem;
+            border: 1px solid #d9dfef;
+            border-radius: 10px;
+            background: #fcfdff;
+            padding: 0.72rem 0.8rem;
+        }
+
+        .trusted-browser-title {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
+            color: #2f3c7e;
+            font-size: 0.95rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .trusted-browser-title span:last-child {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .trusted-browser-meta {
+            margin-top: 0.2rem;
+            color: #66718f;
+            font-size: 0.82rem;
+            line-height: 1.25;
+        }
+
+        .trusted-browser-delete {
+            min-height: 34px;
+            padding: 0 0.65rem;
+        }
+
         .warning-note {
             color: #8a2f2f;
             font-weight: 600;
@@ -422,6 +469,15 @@
             .family-account-card-action {
                 margin-left: 0;
             }
+
+            .trusted-browser-card {
+                grid-template-columns: minmax(0, 1fr);
+                align-items: stretch;
+            }
+
+            .trusted-browser-delete {
+                justify-self: start;
+            }
         }
 
         @media (max-width: 520px) {
@@ -487,6 +543,17 @@
                         <div id="timezoneCurrentNote" class="tz-current-note hidden"></div>
                         <div id="timezoneError" class="error hidden"></div>
                         <div id="timezoneSuccess" class="success hidden"></div>
+                    </div>
+                </section>
+
+                <section class="settings-card settings-section">
+                    <div class="settings-card-body">
+                        <h2><span class="icon" data-icon="shield-check" data-icon-size="22"></span> Trusted Browsers</h2>
+                        <div class="settings-note">Browsers in this list can enter parent mode without re-entering the family password.</div>
+                        <div id="trustedBrowsersEmpty" class="settings-note hidden">No trusted browsers yet.</div>
+                        <div id="trustedBrowsersList" class="trusted-browser-list"></div>
+                        <div id="trustedBrowsersError" class="error hidden"></div>
+                        <div id="trustedBrowsersSuccess" class="success hidden"></div>
                     </div>
                 </section>
 
