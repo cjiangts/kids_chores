@@ -59,7 +59,9 @@ from src.routes.kids import (
     uuid,
     with_preview_session_count_for_category,
 )
+from src.db.shared_deck_db import get_shared_decks_connection
 from src.services.family_auth import get_kid_connection_for, get_kid_for_family
+from src.services.points import pull_in_app_chore_events_for_today
 from src.services.kid_category_resolve import (
     resolve_kid_type_i_category_with_mode,
     resolve_kid_type_ii_category_with_mode,
@@ -1101,6 +1103,46 @@ def start_type_i_practice_session_internal(
     return payload, 200
 
 def complete_session_internal(kid, kid_id, session_type, data):
+    """Complete a session, then auto-award any newly-earned in-app-chore points.
+
+    All four practice/complete routes and offline sync replay funnel through
+    here, so this is the one place to credit points the moment a session
+    becomes done — no waiting on the parent's manual refresh. The pull is
+    idempotent (skips sessions already credited), so the manual refresh stays a
+    safe fallback and can never double-credit.
+    """
+    payload, status_code = _complete_session_and_save(kid, kid_id, session_type, data)
+    if status_code == 200:
+        _auto_award_in_app_chore_points(kid, session_type)
+    return payload, status_code
+
+
+def _auto_award_in_app_chore_points(kid, session_type):
+    family_id = str(kid.get('familyId') or '').strip()
+    if not family_id:
+        return
+    # Best-effort: a points failure must never fail an already-saved session;
+    # the parent's manual refresh will reconcile if this ever doesn't run.
+    # Scoped to the completed subject — finishing one category can only change
+    # that category's done-state, so there's no need to re-scan the others.
+    try:
+        kid_conn = get_kid_connection_for(kid)
+        shared_conn = get_shared_decks_connection(read_only=True)
+        try:
+            pull_in_app_chore_events_for_today(
+                kid_conn,
+                shared_conn,
+                family_id,
+                trigger_keys=[session_type],
+            )
+        finally:
+            shared_conn.close()
+            kid_conn.close()
+    except Exception:
+        pass
+
+
+def _complete_session_and_save(kid, kid_id, session_type, data):
     """Complete a session by saving all answers in one batch."""
     pending_session_id = data.get('pendingSessionId')
     if not pending_session_id:

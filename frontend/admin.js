@@ -30,7 +30,6 @@ const adminMatrix = document.getElementById('adminMatrix');
 const adminKidTabs = document.getElementById('adminKidTabs');
 const adminOffAppPanel = document.getElementById('adminOffAppPanel');
 const adminOffAppList = document.getElementById('adminOffAppList');
-const pullTodaySessionsAdminBtn = document.getElementById('pullTodaySessionsAdminBtn');
 const adminEmptyState = document.getElementById('adminEmptyState');
 const getEditToggleBtn = () => document.getElementById('editToggleBtn');
 const errorMessage = document.getElementById('errorMessage');
@@ -74,7 +73,6 @@ const adminOffAppDraftByKey = new Map();
 const adminOffAppSavingKeys = new Set();
 const adminOffAppEditingKeys = new Set();
 let inAppUnaddedExpanded = false;
-let pullTodaySessionsAdminTimer = 0;
 
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
@@ -103,11 +101,6 @@ async function loadAuthStatus() {
 }
 
 function bindEvents() {
-    if (pullTodaySessionsAdminBtn) {
-        pullTodaySessionsAdminBtn.addEventListener('click', () => {
-            void pullTodaySessionsForSelectedAdminKid();
-        });
-    }
     if (adminOptinPanel) {
         adminOptinPanel.addEventListener('click', (e) => {
             const btn = e.target && e.target.closest ? e.target.closest('#editToggleBtn') : null;
@@ -361,50 +354,6 @@ async function loadKids(options = {}) {
     }
 }
 
-function setAdminPullTodayButton(label = 'Pull latest in-app scores', { busy = false } = {}) {
-    if (!pullTodaySessionsAdminBtn) return;
-    const hasSelectedKid = Boolean(
-        selectedAdminKidId
-        && (Array.isArray(currentKids) ? currentKids : []).some((kid) => String(kid?.id || '') === selectedAdminKidId),
-    );
-    pullTodaySessionsAdminBtn.disabled = busy || !hasSelectedKid;
-    pullTodaySessionsAdminBtn.setAttribute('aria-label', label);
-    pullTodaySessionsAdminBtn.title = label;
-    pullTodaySessionsAdminBtn.innerHTML = (typeof window.icon === 'function')
-        ? window.icon('refresh-cw', { size: 17 })
-        : '<span class="icon" data-icon="refresh-cw" data-icon-size="17"></span>';
-}
-
-async function pullTodaySessionsForSelectedAdminKid() {
-    const kidId = String(selectedAdminKidId || '').trim();
-    if (!kidId) return;
-    if (pullTodaySessionsAdminTimer) {
-        clearTimeout(pullTodaySessionsAdminTimer);
-        pullTodaySessionsAdminTimer = 0;
-    }
-    setAdminPullTodayButton('Pulling latest in-app scores', { busy: true });
-    showError('');
-    try {
-        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points/pull-today-sessions`, {
-            method: 'POST',
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const result = await response.json().catch(() => ({}));
-        await loadKids();
-        const count = Number.parseInt(result.awardedCount, 10) || 0;
-        setAdminPullTodayButton(count > 0 ? `Added ${count}` : 'Up to date');
-        pullTodaySessionsAdminTimer = setTimeout(() => {
-            setAdminPullTodayButton();
-            pullTodaySessionsAdminTimer = 0;
-        }, 1400);
-    } catch (error) {
-        showError(error.message || 'Failed to pull latest in-app scores.');
-        setAdminPullTodayButton();
-    }
-}
-
 async function loadOffAppReviewPending() {
     const list = Array.isArray(currentKids) ? currentKids : [];
     if (!list.length) {
@@ -615,7 +564,6 @@ function renderMatrix() {
         adminOptinPanel.classList.add('hidden');
         renderAdminKidTabs(list);
         renderAdminOffAppSection(list);
-        setAdminPullTodayButton();
         if (kidsLoaded) adminEmptyState.classList.remove('hidden');
         else adminEmptyState.classList.add('hidden');
         return;
@@ -623,7 +571,6 @@ function renderMatrix() {
     adminEmptyState.classList.add('hidden');
     adminOptinPanel.classList.remove('hidden');
     ensureSelectedAdminKidId(list);
-    setAdminPullTodayButton();
     renderAdminKidTabs(list);
 
     const rows = getCategoryRowsForFamily(list);
@@ -666,6 +613,7 @@ function renderMatrix() {
             matrixKids.length + 1 + (showTodayStatusColumn ? 1 : 0),
         )
         : '';
+    adminOptinPanel.classList.toggle('has-unadded-toggle', unaddedRows.length > 0);
     const bodyHtml = `
         <tbody>
             ${renderedRows.map((row) => buildMatrixRow(row, matrixKids, { showTodayStatusColumn })).join('')}
@@ -919,7 +867,7 @@ function buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) {
 
 function formatAdminOffAppPillPoints(points) {
     const value = Number.parseInt(points, 10);
-    return Number.isInteger(value) ? String(value) : '0';
+    return Number.isInteger(value) ? `+${value}` : '+0';
 }
 
 function buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem) {
@@ -1325,9 +1273,11 @@ function buildTodayStatusCell(row, kid) {
         done: 'Done',
     };
     const mistakeCount = Math.max(0, Number.parseInt(statusInfo.mistakeCount ?? statusInfo.mistake_count, 10) || 0);
+    const ungradedCount = Math.max(0, Number.parseInt(statusInfo.ungradedCount ?? statusInfo.ungraded_count, 10) || 0);
+    const needsReview = status === 'done' && row.behaviorType === 'type_iii' && ungradedCount > 0;
     const earnedPoints = Number.parseInt(statusInfo.earnedPoints ?? statusInfo.earned_points, 10) || 0;
     const label = status === 'done'
-        ? String(earnedPoints)
+        ? `+${earnedPoints}`
         : (labelByStatus[status] || labelByStatus.not_started);
     const sessionId = Number.parseInt(statusInfo.sessionId ?? statusInfo.session_id, 10);
     const leadingIconNameByStatus = {
@@ -1335,13 +1285,16 @@ function buildTodayStatusCell(row, kid) {
         in_progress: 'clock',
         done: 'check',
     };
-    const leadingIconName = leadingIconNameByStatus[status] || '';
+    const leadingIconName = needsReview ? 'clipboard-check' : (leadingIconNameByStatus[status] || '');
     const leadingIconHtml = leadingIconName && typeof window.icon === 'function'
         ? window.icon(leadingIconName, { size: 15, strokeWidth: 2.8 })
         : '';
-    const resultPhrase = mistakeCount > 0 ? `${mistakeCount} wrong` : 'all right';
+    const resultPhrase = needsReview ? 'review' : (mistakeCount > 0 ? `${mistakeCount} wrong` : 'all good');
+    const resultClassName = needsReview
+        ? 'admin-today-pill-review'
+        : (mistakeCount > 0 ? 'admin-today-pill-wrong' : 'admin-today-pill-allright');
     const resultLabelHtml = status === 'done'
-        ? `<span class="${mistakeCount > 0 ? 'admin-today-pill-wrong' : 'admin-today-pill-allright'}">${resultPhrase}</span>`
+        ? `<span class="admin-today-pill-sep" aria-hidden="true">·</span><span class="${resultClassName}">${resultPhrase}</span>`
         : '';
     const mainHtml = `${leadingIconHtml}<span>${escapeHtml(label)}</span>${resultLabelHtml}`;
     const viewIconHtml = (typeof window.icon === 'function') ? window.icon('eye', { size: 14, strokeWidth: 2.4 }) : '';
@@ -1350,7 +1303,7 @@ function buildTodayStatusCell(row, kid) {
         const ariaLabel = status === 'done'
             ? `Done, ${earnedPoints} points, ${resultPhrase}. View latest session.`
             : `${label}. View session.`;
-        const resultClass = status === 'done' ? 'is-credited' : 'is-review';
+        const resultClass = status === 'done' && !needsReview ? 'is-credited' : 'is-review';
         return `
             <td class="admin-matrix-status-cell">
                 <a href="${escapeHtml(href)}" class="admin-off-app-result-pill ${resultClass} admin-today-pill admin-today-pill--${escapeHtml(status)}" data-session-link data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(ariaLabel)}">
@@ -1370,7 +1323,7 @@ function buildTodayStatusCell(row, kid) {
             </td>
         `;
     }
-    const resultClass = status === 'done' ? 'is-credited' : 'is-review';
+    const resultClass = status === 'done' && !needsReview ? 'is-credited' : 'is-review';
     return `
         <td class="admin-matrix-status-cell">
             <span class="admin-off-app-result-pill ${resultClass} admin-today-pill admin-today-pill--${escapeHtml(status)}">

@@ -75,6 +75,7 @@ from src.services.practice_mode import (
     is_drill_session_practice_mode,
     normalize_session_practice_mode,
 )
+from src.services.points import delete_in_app_chore_events_for_session
 from src.services.session_delete import delete_session_with_recompute
 from src.services.shared_deck_category import (
     get_session_behavior_type,
@@ -210,6 +211,7 @@ def get_kids():
                             family_timezone=family_timezone,
                             shared_conn=shared_conn,
                             family_id=family_id,
+                            category_meta_by_key=category_meta_by_key,
                         )
                         kids_with_admin_summary.append({
                             **kid,
@@ -482,6 +484,7 @@ def get_kid(kid_id):
                     family_timezone=family_timezone,
                     shared_conn=shared_conn,
                     family_id=family_id,
+                    category_meta_by_key=category_meta_by_key,
                 )
             except Exception:
                 today_session_status_by_deck_category = {}
@@ -1024,11 +1027,13 @@ def delete_kid_report_session(kid_id, session_id):
         conn = get_kid_connection_for(kid)
         try:
             session_row = conn.execute(
-                "SELECT id FROM sessions WHERE id = ?",
+                "SELECT type, completed_at FROM sessions WHERE id = ?",
                 [session_id_int],
             ).fetchone()
             if session_row is None:
                 return jsonify({'error': 'Session not found'}), 404
+            session_type = session_row[0]
+            session_completed_at = session_row[1]
 
             kid_audio_dir = get_kid_type3_audio_dir(kid)
             delete_session_with_recompute(
@@ -1036,6 +1041,24 @@ def delete_kid_report_session(kid_id, session_id):
                 session_id_int,
                 kid_audio_dir=kid_audio_dir,
             )
+
+            # Drop the in-app-chore points auto-awarded for this session — they
+            # carry no session FK, so deleting the session would otherwise orphan
+            # them. The parent's manual refresh would not re-create them (the
+            # source session is gone), so the cleanup must happen here.
+            family_id = str(kid.get('familyId') or '').strip()
+            if family_id and session_completed_at is not None:
+                shared_conn = get_shared_decks_connection(read_only=True)
+                try:
+                    delete_in_app_chore_events_for_session(
+                        conn,
+                        shared_conn,
+                        family_id,
+                        session_type,
+                        session_completed_at,
+                    )
+                finally:
+                    shared_conn.close()
         finally:
             conn.close()
         return jsonify({'message': 'Session deleted'}), 200

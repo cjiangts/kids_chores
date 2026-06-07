@@ -246,6 +246,122 @@
     filter: grayscale(0.18);
 }
 
+.offline-hub-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.user-bubble.is-offline-hub-card {
+    cursor: pointer;
+    border: 2px solid #6ea8fe;
+    background:
+        radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.92), transparent 38%),
+        linear-gradient(145deg, #f6faff, #e7f0ff);
+    color: #1b3a6b;
+    overflow: hidden;
+}
+
+.offline-hub-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: min(100%, 184px);
+}
+
+.offline-hub-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.18rem;
+    max-width: 100%;
+    min-height: 22px;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(110, 168, 254, 0.16);
+    border: 1px solid rgba(110, 168, 254, 0.42);
+    color: #1b3a6b;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.offline-hub-chip .icon {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+    stroke-width: 2.3;
+}
+
+.offline-hub-chip span {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.offline-hub-chip--device {
+    max-width: 100%;
+    font-weight: 750;
+}
+
+.offline-hub-chip-divider {
+    width: 3px;
+    height: 3px;
+    margin: 0 0.03rem;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.45;
+    flex: 0 0 auto;
+}
+
+.offline-hub-sync-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.45rem 1.1rem;
+    border: 1px solid rgba(47, 95, 184, 0.4);
+    border-radius: 999px;
+    background: #ffffff;
+    color: #2f5fb8;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.offline-hub-sync-btn:hover,
+.offline-hub-sync-btn:focus-visible {
+    background: #eef4ff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(77, 132, 227, 0.18);
+}
+
+.offline-hub-sync-btn.is-busy,
+.offline-hub-sync-btn:disabled {
+    opacity: 0.7;
+    cursor: progress;
+}
+
+.offline-sync-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.3rem;
+    padding: 0.08rem 0.4rem;
+    margin-left: 0.1rem;
+    background: rgba(47, 95, 184, 0.12);
+    color: inherit;
+    border-radius: 999px;
+    font-size: 0.78em;
+    font-weight: 700;
+    line-height: 1;
+}
+
 .user-bubble.is-offline-info-card {
     width: 232px;
     min-height: 0;

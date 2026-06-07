@@ -351,10 +351,10 @@ function updatePageTitle() {
     const kidName = String(state.currentKid?.name || '').trim();
     const categoryName = getCurrentCategoryDisplayName();
     if (kidName && categoryName) {
-        document.title = `${kidName} - ${categoryName} Practice - Kids Daily Chores`;
+        document.title = `${kidName} - ${categoryName} Practice - The mommy app`;
         return;
     }
-    document.title = 'Practice Session - Kids Daily Chores';
+    document.title = 'Practice Session - The mommy app';
 }
 
 function isSessionInProgress() {

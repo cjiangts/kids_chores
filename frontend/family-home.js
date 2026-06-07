@@ -16,6 +16,7 @@ let offlineSelectionMode = false;
 const offlineSelectedKidIds = new Set();
 let offlineOwnedKidIds = new Set();
 let familyHomeRefreshing = false;
+let offlineHubMode = false;
 
 document.addEventListener('DOMContentLoaded', bootFamilyHome);
 logoutBtn.addEventListener('click', logoutFamily);
@@ -30,6 +31,10 @@ if (offlineModeBtn) {
 }
 
 async function bootFamilyHome() {
+    // When this device owns offline packs it is in offline mode — family-home
+    // is the hub for switching between downloaded kids and syncing them. Render
+    // straight from local packs without touching the network.
+    if (await tryBootOfflineHub()) return;
     try {
         const [status, kids] = await Promise.all([
             fetchJson(`${API_BASE}/family-auth/status`),
@@ -318,12 +323,10 @@ async function downloadSelectedOffline() {
     }
 
     if (firstSuccess) {
-        const offlineKid = currentKids.find((entry) => String(entry?.id || '') === String(firstSuccess.kidId));
-        persistLastViewedKidId(firstSuccess.kidId);
-        persistCurrentUserMode('kid');
-        persistCurrentUserName(String(offlineKid?.name || 'Kid'));
+        // Land on the offline hub (this same page re-boots into hub mode) so the
+        // parent can pick any downloaded kid, not just the first.
         setLabel('Entering offline...');
-        window.location.href = `/kid-practice-home.html?id=${encodeURIComponent(firstSuccess.kidId)}`;
+        window.location.href = '/family-home.html';
         return;
     }
 
@@ -333,6 +336,202 @@ async function downloadSelectedOffline() {
     }
     if (cancelBtn) cancelBtn.disabled = false;
     setLabel(ids.length === 1 ? 'Try again' : `Try again (${ids.length})`);
+}
+
+async function tryBootOfflineHub() {
+    if (!window.OfflineStorage) return false;
+    let packs = [];
+    try {
+        packs = await window.OfflineStorage.listAllPacks();
+    } catch (_) {
+        return false;
+    }
+    if (!Array.isArray(packs) || packs.length === 0) return false;
+
+    offlineHubMode = true;
+    offlineOwnedKidIds = new Set(packs.map((p) => String(p.kidId)));
+    currentKids = packs.map((p) => ({
+        id: String(p.kidId),
+        name: String(p?.packEnvelope?.kidInfo?.name || p?.packEnvelope?.kid_name || 'Kid').trim() || 'Kid',
+        acquiredAtUtc: String(p?.packEnvelope?.acquired_at_utc || ''),
+    }));
+    if (offlineModeBtn) offlineModeBtn.classList.add('hidden');
+    if (logoutBtn) logoutBtn.classList.add('hidden');
+    if (familyHomeTitle) familyHomeTitle.textContent = 'Offline practice';
+    await renderOfflineHubBubbles();
+    return true;
+}
+
+async function renderOfflineHubBubbles() {
+    const meta = await Promise.all(currentKids.map((kid) => buildOfflineHubKidMeta(kid)));
+    bubbleGrid.classList.remove('is-offline-selecting');
+    bubbleGrid.innerHTML = currentKids.map((kid, i) => renderOfflineHubBubble(kid, i, meta[i])).join('');
+    if (offlineActionFooter) {
+        offlineActionFooter.classList.add('hidden');
+        offlineActionFooter.innerHTML = '';
+    }
+    bubbleGrid.querySelectorAll('[data-kid-id]').forEach((bubble) => {
+        bubble.addEventListener('click', () => {
+            goPracticeOffline(bubble.dataset.kidId);
+        });
+        bubble.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            bubble.click();
+        });
+    });
+    bubbleGrid.querySelectorAll('[data-offline-sync-kid-id]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void syncOneOfflineKid(button.dataset.offlineSyncKidId);
+        });
+    });
+}
+
+async function buildOfflineHubKidMeta(kid) {
+    const id = String(kid?.id || '').trim();
+    const pendingCount = await countPendingAnswersForKid(id);
+    let totalBytes = 0;
+    if (window.OfflineStorage) {
+        try {
+            const stats = await window.OfflineStorage.getPackStats(id);
+            totalBytes = Math.max(0, Number(stats?.totalBytes) || 0);
+        } catch (_) {
+            // best-effort size readout
+        }
+    }
+    const deviceLabel = (window.OfflineCommon && typeof window.OfflineCommon.parseDeviceLabel === 'function')
+        ? window.OfflineCommon.parseDeviceLabel()
+        : 'This device';
+    return {
+        pendingCount,
+        sizeText: formatOfflineBytes(totalBytes),
+        deviceLabel,
+        acquiredText: formatOfflineLockTime(kid?.acquiredAtUtc),
+    };
+}
+
+function renderOfflineHubBubble(kid, index, meta) {
+    const id = String(kid?.id || '').trim();
+    const name = String(kid?.name || 'Kid').trim() || 'Kid';
+    const info = meta || {};
+    const count = Math.max(0, Number.parseInt(info.pendingCount, 10) || 0);
+    const countBadge = count > 0
+        ? `<span class="offline-sync-count" aria-label="${count} answers pending">${count}</span>`
+        : '';
+    const deviceLabel = String(info.deviceLabel || 'This device');
+    const sizeText = String(info.sizeText || '');
+    const acquiredText = String(info.acquiredText || '');
+    return `
+        <div class="offline-hub-item">
+            <div class="user-bubble user-bubble--tone-${index % 4} is-offline-hub-card" role="button" tabindex="0" data-kid-id="${escapeHtml(id)}" aria-label="${escapeHtml(`${name} offline practice`)}">
+                <span class="user-bubble-avatar" aria-hidden="true"><span class="user-bubble-initials">${escapeHtml(initialsFor(name))}</span></span>
+                <span class="user-bubble-name">${escapeHtml(name)}</span>
+                <span class="offline-hub-info">
+                    <span class="offline-hub-chip offline-hub-chip--device" title="${escapeHtml(`${deviceLabel} · ${sizeText}`)}">
+                        ${iconHtml('monitor', 13)}<span>${escapeHtml(deviceLabel)}</span><span class="offline-hub-chip-divider" aria-hidden="true"></span><span>${escapeHtml(sizeText)}</span>
+                    </span>
+                    <span class="offline-hub-chip" title="${escapeHtml(acquiredText)}">
+                        ${iconHtml('clock', 13)}<span>${escapeHtml(acquiredText)}</span>
+                    </span>
+                </span>
+            </div>
+            <button type="button" class="offline-hub-sync-btn" data-offline-sync-kid-id="${escapeHtml(id)}" aria-label="${escapeHtml(`Sync ${name}'s practice results`)}" title="Sync practice results">
+                ${iconHtml('refresh-ccw', 18)}<span>Sync</span>${countBadge}
+            </button>
+        </div>
+    `;
+}
+
+function goPracticeOffline(kidId) {
+    const id = String(kidId || '').trim();
+    if (!id) return;
+    const kid = currentKids.find((item) => String(item?.id || '') === id);
+    persistLastViewedKidId(id);
+    persistCurrentUserMode('kid');
+    persistCurrentUserName(String(kid?.name || 'Kid'));
+    window.location.href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
+}
+
+async function countPendingAnswersForKid(kidId) {
+    if (!window.OfflineStorage) return 0;
+    try {
+        const rows = await window.OfflineStorage.listPendingResults(kidId);
+        let total = 0;
+        for (const row of rows) {
+            total += Array.isArray(row?.answers) ? row.answers.length : 0;
+        }
+        return total;
+    } catch (_) {
+        return 0;
+    }
+}
+
+async function syncOneOfflineKid(kidId) {
+    const id = String(kidId || '').trim();
+    if (!id) return;
+    if (!window.OfflineCommon || !window.OfflineStorage) {
+        showError('Offline tools are not available. Please reload and try again.');
+        return;
+    }
+    const button = bubbleGrid.querySelector(`[data-offline-sync-kid-id="${id}"]`);
+    if (button) {
+        button.disabled = true;
+        button.classList.add('is-busy');
+    }
+    const restoreButton = () => {
+        if (!button) return;
+        button.disabled = false;
+        button.classList.remove('is-busy');
+    };
+    try {
+        const localPack = await window.OfflineStorage.loadPack(id);
+        const rows = await window.OfflineStorage.listPendingResults(id);
+        const queuedThumbDownCount = Array.isArray(localPack?.packEnvelope?.thumbDownEvents)
+            ? localPack.packEnvelope.thumbDownEvents.length
+            : 0;
+        const result = (rows.length === 0 && queuedThumbDownCount === 0)
+            ? await window.OfflineCommon.releasePack(id)
+            : await window.OfflineCommon.syncPack(id);
+        if (!result || !result.ok) {
+            const errText = (result && (result.error || (result.response && result.response.error))) || 'Sync failed';
+            restoreButton();
+            window.alert(
+                `Could not sync this pack:\n${errText}\n\n`
+                + 'Your practice results are still saved on this device — reconnect and tap Sync again.',
+            );
+            return;
+        }
+        const resp = result.response || {};
+        if (resp.conflict_warning) {
+            const totalAnswers = Number(resp.discarded_answer_count) || 0;
+            const forceReleased = String(resp.conflict_warning) === 'lock_expired_or_released';
+            const headline = forceReleased
+                ? 'The server has dropped this offline pack — most likely because someone clicked the trash button on the family home, or the pack expired at midnight.'
+                : 'Another device has taken over this offline pack since this device went offline.';
+            window.alert(
+                `${headline}\n\n`
+                + `${totalAnswers} practice answer${totalAnswers === 1 ? '' : 's'} from this device `
+                + 'had to be discarded. Nothing on the server changed.',
+            );
+        }
+        // sync/release already deleted the local pack. When the last one is gone
+        // the device is no longer offline — reload into the normal online home.
+        await refreshOfflineOwnedKidIds();
+        if (offlineOwnedKidIds.size === 0) {
+            window.location.reload();
+            return;
+        }
+        await tryBootOfflineHub();
+    } catch (error) {
+        restoreButton();
+        const msg = (error && error.message) ? String(error.message) : String(error);
+        window.alert(
+            `Sync error: ${msg}\n\n`
+            + 'Your practice results are still saved on this device — reconnect and tap Sync again.',
+        );
+    }
 }
 
 async function refreshOfflineOwnedKidIds() {

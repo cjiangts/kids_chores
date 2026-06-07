@@ -75,6 +75,7 @@ body.practice-home-redesign {
 
 .practice-home-redesign .practice-home-card {
     overflow: hidden;
+    padding-top: 0.9rem;
 }
 
 .practice-home-redesign .practice-home-card.hidden {

@@ -3,9 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="manifest" href="site.webmanifest">
+    <script src="idle-home-redirect.js"></script>
     <script src="offline-redirect-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kids Daily Chores</title>
+    <title>The mommy app</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="subject-icons.css">
@@ -20,15 +25,26 @@
             --admin-chore-action-gap: 0.28rem;
             --admin-chore-edit-reserve: calc(var(--admin-chore-edit-size) + var(--admin-chore-edit-size) + var(--admin-chore-action-gap) + 0.25rem);
             --admin-chore-header-height: 42px;
-            --admin-chore-pill-height: 36px;
-            --admin-chore-pill-width: 146px;
-            --admin-chore-pill-font-size: 0.9rem;
+            --admin-pill-height: 36px;
+            --admin-pill-width: 146px;
+            --admin-pill-font-size: 0.9rem;
+            --admin-pill-font-weight: 400;
+            --admin-pill-line-height: 1.2;
+            --admin-chore-pill-height: var(--admin-pill-height);
+            --admin-chore-pill-width: var(--admin-pill-width);
+            --admin-chore-pill-font-size: var(--admin-pill-font-size);
+            --admin-off-app-pill-height: var(--admin-pill-height);
+            --admin-off-app-pill-width: var(--admin-pill-width);
+            --admin-off-app-mobile-btn-font-size: var(--admin-pill-font-size);
             position: relative;
             background: #fff;
             border-radius: 16px;
             border: 1px solid rgba(125, 138, 184, 0.18);
             box-shadow: 0 2px 10px rgba(54, 71, 138, 0.08);
             padding: 0.7rem 1rem 1.1rem;
+        }
+        .parent-admin-page .admin-optin-panel.has-unadded-toggle {
+            padding-bottom: 0.55rem;
         }
         .parent-admin-page .admin-panel-menu-btn {
             appearance: none;
@@ -156,7 +172,7 @@
             padding-left: 0;
         }
         .parent-admin-page .admin-matrix-unadded-toggle-row td {
-            padding: 0.62rem 0 0.08rem;
+            padding: 0.26rem 0 0;
             text-align: left;
         }
         .parent-admin-page .admin-matrix-unadded-toggle {
@@ -164,18 +180,18 @@
             -webkit-appearance: none;
             display: inline-flex;
             align-items: center;
-            gap: 0.42rem;
-            min-height: 30px;
-            padding: 0.14rem 0.42rem 0.14rem 0;
+            gap: 0.34rem;
+            min-height: 20px;
+            padding: 0 0.34rem 0 0;
             border: 0;
             border-radius: 8px;
             background: transparent;
             color: #5f3ff0;
             font: inherit;
-            font-size: 0.92rem;
-            font-weight: 750;
+            font-size: 0.94rem;
+            font-weight: 400;
             letter-spacing: 0;
-            line-height: 1.2;
+            line-height: 1.1;
             cursor: pointer;
         }
         .parent-admin-page .admin-matrix-unadded-toggle:hover,
@@ -188,9 +204,9 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
-            flex: 0 0 24px;
+            width: 20px;
+            height: 20px;
+            flex: 0 0 20px;
             color: currentColor;
         }
         .parent-admin-page .admin-matrix th.admin-matrix-subject-head {
@@ -259,7 +275,7 @@
         }
         .parent-admin-page .admin-matrix-subject-head .admin-panel-menu-btn {
             vertical-align: middle;
-            margin-left: 0.05rem;
+            margin-left: 0.03rem;
             padding: 0.15rem;
         }
         .parent-admin-page .admin-matrix-kid-head {
@@ -619,15 +635,15 @@
             display: inline-flex;
             align-items: center;
             justify-content: flex-start;
-            width: var(--admin-chore-pill-width);
-            min-width: var(--admin-chore-pill-width);
-            min-height: var(--admin-chore-pill-height);
+            width: var(--admin-pill-width);
+            min-width: var(--admin-pill-width);
+            min-height: var(--admin-pill-height);
             padding: 0;
             border-radius: 999px;
             border: 1px solid transparent;
-            font-size: var(--admin-chore-pill-font-size);
-            font-weight: 400;
-            line-height: 1.3;
+            font-size: var(--admin-pill-font-size);
+            font-weight: var(--admin-pill-font-weight);
+            line-height: var(--admin-pill-line-height);
             text-decoration: none;
             white-space: nowrap;
             box-sizing: border-box;
@@ -687,8 +703,6 @@
             white-space: nowrap;
         }
         .parent-admin-page .admin-off-app-panel {
-            --admin-off-app-pill-height: var(--admin-chore-pill-height);
-            --admin-off-app-pill-width: var(--admin-chore-pill-width);
             margin-top: 0.9rem;
         }
         .parent-admin-page .admin-off-app-header {
@@ -764,33 +778,41 @@
             font-size: 0.78rem;
             line-height: 1.2;
         }
+        .parent-admin-page .admin-matrix-value,
+        .parent-admin-page .admin-off-app-status,
+        .parent-admin-page .admin-off-app-result-pill,
+        .parent-admin-page .admin-off-app-grade-btn {
+            font-family: inherit;
+            font-size: var(--admin-pill-font-size);
+            font-weight: var(--admin-pill-font-weight);
+            line-height: var(--admin-pill-line-height);
+        }
         .parent-admin-page .admin-off-app-status {
+            --admin-pill-bg: #fff;
+            --admin-pill-border: #d8def0;
+            --admin-pill-color: #50608f;
             appearance: none;
             -webkit-appearance: none;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 0.35rem;
-            width: var(--admin-off-app-pill-width);
-            min-width: var(--admin-off-app-pill-width);
-            min-height: var(--admin-off-app-pill-height);
+            width: var(--admin-pill-width);
+            min-width: var(--admin-pill-width);
+            min-height: var(--admin-pill-height);
             padding: 0 0.82rem;
             border-radius: 999px;
-            border: 1px solid #d8def0;
-            background: #f4f6ff;
-            color: #50608f;
-            font-size: 0.9rem;
-            font-weight: 400;
-            line-height: 1.3;
+            border: 1px solid var(--admin-pill-border);
+            background: var(--admin-pill-bg);
+            color: var(--admin-pill-color);
             text-decoration: none;
             white-space: nowrap;
             box-sizing: border-box;
-            font-family: inherit;
         }
         .parent-admin-page .admin-off-app-status--ready {
-            background: #fff;
-            border-color: #d8def0;
-            color: #50608f;
+            --admin-pill-bg: #fff;
+            --admin-pill-border: #d8def0;
+            --admin-pill-color: #50608f;
             cursor: pointer;
             justify-content: flex-start;
             gap: 0;
@@ -799,7 +821,7 @@
         }
         .parent-admin-page .admin-off-app-status--ready:hover,
         .parent-admin-page .admin-off-app-status--ready:focus-visible {
-            background: #f4f6ff;
+            background: var(--admin-pill-bg);
             outline: none;
             transform: translateY(-1px);
         }
@@ -825,48 +847,52 @@
             opacity: 0.9;
         }
         .parent-admin-page .admin-off-app-status--pending {
-            background: #fff7ed;
-            border-color: #fdba74;
-            color: #c2410c;
+            --admin-pill-bg: #fff7e6;
+            --admin-pill-border: #f3c77b;
+            --admin-pill-color: #9b5a05;
         }
         .parent-admin-page a.admin-off-app-status--pending:hover,
         .parent-admin-page a.admin-off-app-status--pending:focus-visible {
-            background: #ffedd5;
+            background: var(--admin-pill-bg);
             outline: none;
             transform: translateY(-1px);
         }
         .parent-admin-page .admin-off-app-status--credited {
-            background: #f2efff;
-            border-color: #d9d0ff;
-            color: #7057d9;
+            --admin-pill-bg: #e8f3ea;
+            --admin-pill-border: #9bcfa9;
+            --admin-pill-color: #1d6c30;
         }
         .parent-admin-page .admin-off-app-result-pill {
+            --admin-pill-bg: #fff;
+            --admin-pill-border: #d8def0;
+            --admin-pill-color: #50608f;
             appearance: none;
             -webkit-appearance: none;
             display: inline-flex;
             align-items: stretch;
             justify-self: end;
-            width: var(--admin-off-app-pill-width);
-            min-width: var(--admin-off-app-pill-width);
-            min-height: var(--admin-off-app-pill-height);
+            width: var(--admin-pill-width);
+            min-width: var(--admin-pill-width);
+            min-height: var(--admin-pill-height);
             border-radius: 999px;
             overflow: hidden;
             white-space: nowrap;
             cursor: pointer;
-            font: inherit;
-            border: 0;
-            background: transparent;
+            color: var(--admin-pill-color);
+            border: 1px solid var(--admin-pill-border);
+            background: var(--admin-pill-bg);
             text-decoration: none;
+            box-sizing: border-box;
         }
         .parent-admin-page .admin-off-app-result-pill.is-credited {
-            border: 1px solid #9bcfa9;
-            background: #e8f3ea;
-            color: #1d6c30;
+            --admin-pill-bg: #e8f3ea;
+            --admin-pill-border: #9bcfa9;
+            --admin-pill-color: #1d6c30;
         }
         .parent-admin-page .admin-off-app-result-pill.is-review {
-            border: 1px solid #f3c77b;
-            background: #fff7e6;
-            color: #9b5a05;
+            --admin-pill-bg: #fff7e6;
+            --admin-pill-border: #f3c77b;
+            --admin-pill-color: #9b5a05;
         }
         .parent-admin-page .admin-off-app-result-pill-main,
         .parent-admin-page .admin-off-app-result-pill-edit {
@@ -882,20 +908,29 @@
             flex: 1 1 auto;
             min-width: 0;
             padding: 0 0.7rem;
-            font-size: 0.9rem;
-            font-weight: 400;
-            line-height: 1.3;
+            font-size: inherit;
+            font-weight: inherit;
+            line-height: inherit;
             justify-content: flex-start;
         }
         .parent-admin-page .admin-today-pill-wrong,
+        .parent-admin-page .admin-today-pill-review,
         .parent-admin-page .admin-today-pill-allright {
-            margin-left: 0.28rem;
-            font-size: 0.72rem;
-            font-weight: 600;
+            margin-left: 0.05rem;
+            font-size: inherit;
+            font-weight: inherit;
             white-space: nowrap;
+        }
+        .parent-admin-page .admin-today-pill-sep {
+            margin-left: 0.025rem;
+            color: currentColor;
+            opacity: 0.55;
         }
         .parent-admin-page .admin-today-pill-wrong {
             color: #b3471b;
+        }
+        .parent-admin-page .admin-today-pill-review {
+            color: #9b6a05;
         }
         .parent-admin-page .admin-today-pill-allright {
             color: #2f8a45;
@@ -907,7 +942,7 @@
         }
         .parent-admin-page .admin-off-app-result-pill:hover:not(:disabled),
         .parent-admin-page .admin-off-app-result-pill:focus-visible {
-            background: rgba(255, 255, 255, 0.42);
+            background: var(--admin-pill-bg);
             outline: none;
         }
         .parent-admin-page .admin-off-app-result-pill.is-saving,
@@ -916,10 +951,6 @@
             cursor: progress;
         }
         .parent-admin-page .admin-today-pill {
-            --admin-off-app-pill-height: var(--admin-chore-pill-height);
-            --admin-off-app-pill-width: var(--admin-chore-pill-width);
-            --admin-off-app-mobile-btn-font-size: var(--admin-chore-pill-font-size);
-            font-size: var(--admin-chore-pill-font-size);
             text-decoration: none;
             vertical-align: middle;
         }
@@ -927,9 +958,9 @@
             cursor: default;
         }
         .parent-admin-page .admin-today-pill--in_progress.is-review {
-            border-color: #f2d987;
-            background: #fff3c8;
-            color: #9b6a05;
+            --admin-pill-bg: #fff7e6;
+            --admin-pill-border: #f3c77b;
+            --admin-pill-color: #9b5a05;
         }
         .parent-admin-page .admin-today-pill--not_started.admin-off-app-status--ready:hover,
         .parent-admin-page .admin-today-pill--not_started.admin-off-app-status--ready:focus-visible {
@@ -1034,21 +1065,18 @@
             align-items: center;
             justify-content: center;
             gap: 0.3rem;
-            min-height: var(--admin-off-app-pill-height);
+            min-height: var(--admin-pill-height);
             padding: 0 0.85rem;
             border: 1px solid #9bcfa9;
             border-radius: 999px;
             background: #e8f3ea;
             color: #1d6c30;
-            font: inherit;
-            font-size: 0.82rem;
-            font-weight: 800;
             cursor: pointer;
             white-space: nowrap;
         }
         .parent-admin-page .admin-off-app-grade-btn:hover:not(:disabled),
         .parent-admin-page .admin-off-app-grade-btn:focus-visible {
-            background: #d6ebda;
+            background: #e8f3ea;
             outline: none;
         }
         .parent-admin-page .admin-off-app-grade-btn--cancel {
@@ -1084,11 +1112,9 @@
             align-items: center;
             justify-content: center;
             min-width: 56px;
-            min-height: 34px;
+            min-height: var(--admin-pill-height);
             padding: 0.32rem 0.6rem;
             border-radius: 10px;
-            font-weight: 600;
-            font-size: 0.95rem;
             background: #e8f3ea;
             color: #1d6c30;
             border: 1px solid transparent;
@@ -1209,8 +1235,12 @@
                 --admin-chore-edit-top: 0.76rem;
                 --admin-chore-edit-right: 0.9rem;
                 --admin-chore-header-height: 40px;
-                --admin-chore-pill-height: 34px;
-                --admin-chore-pill-width: 136px;
+                --admin-pill-height: 34px;
+                --admin-pill-width: 136px;
+                --admin-pill-font-size: 0.8rem;
+            }
+            .parent-admin-page .admin-optin-panel.has-unadded-toggle {
+                padding-bottom: 0.42rem;
             }
 
             /* iPhone-12 fit: tighten cell padding so the subject 3-dot menu sits closer to the opt-in checkbox */
@@ -1250,7 +1280,7 @@
                 font-size: 0.72rem;
             }
             .parent-admin-page .admin-matrix-status-head {
-                min-width: var(--admin-chore-pill-width);
+                min-width: var(--admin-pill-width);
             }
             /* Keep the Today pill clear of the cards-value pill (the tight cell padding above pulled them together) */
             .parent-admin-page .admin-matrix .admin-matrix-status-head,
@@ -1258,10 +1288,10 @@
                 padding-left: 0.55rem;
             }
             .parent-admin-page .admin-matrix-status {
-                width: var(--admin-chore-pill-width);
-                min-width: var(--admin-chore-pill-width);
-                min-height: var(--admin-chore-pill-height);
-                font-size: var(--admin-chore-pill-font-size);
+                width: var(--admin-pill-width);
+                min-width: var(--admin-pill-width);
+                min-height: var(--admin-pill-height);
+                font-size: var(--admin-pill-font-size);
                 padding: 0 0.7rem;
             }
             .parent-admin-page .admin-matrix-kid-avatar {
@@ -1293,23 +1323,29 @@
                 font-size: 0.74rem;
                 line-height: 1.3;
             }
+            .parent-admin-page .admin-matrix-unadded-toggle-row td {
+                padding-top: 0.2rem;
+            }
+            .parent-admin-page .admin-matrix-unadded-toggle {
+                min-height: 18px;
+                font-size: 0.74rem;
+            }
+            .parent-admin-page .admin-matrix-unadded-toggle-icon {
+                width: 18px;
+                height: 18px;
+                flex-basis: 18px;
+            }
             .parent-admin-page .admin-matrix-subject-menu-btn {
                 margin-left: auto;
             }
             .parent-admin-page .admin-matrix-value {
                 min-width: 42px;
-                min-height: var(--admin-chore-pill-height);
-                font-size: var(--admin-chore-pill-font-size);
-                font-weight: 400;
+                min-height: var(--admin-pill-height);
                 padding: 0.22rem 0.32rem;
             }
             .parent-admin-page .admin-off-app-row {
                 gap: 0.5rem;
                 min-height: 48px;
-            }
-            .parent-admin-page .admin-off-app-panel {
-                --admin-off-app-pill-height: 34px;
-                --admin-off-app-pill-width: 136px;
             }
             .parent-admin-page .admin-chore-panel-action {
                 width: var(--admin-chore-edit-size);
@@ -1324,10 +1360,9 @@
                 font-size: 1.25rem;
             }
             .parent-admin-page .admin-off-app-status {
-                width: var(--admin-off-app-pill-width);
-                min-width: var(--admin-off-app-pill-width);
+                width: var(--admin-pill-width);
+                min-width: var(--admin-pill-width);
                 padding: 0 0.7rem;
-                font-size: 0.9rem;
             }
             .parent-admin-page .admin-off-app-status--ready {
                 padding: 0;
@@ -1370,12 +1405,16 @@
 
         @media (max-width: 430px) {
             .parent-admin-page .admin-optin-panel {
-                --admin-chore-pill-width: 132px;
-                --admin-chore-pill-font-size: 0.78rem;
+                --admin-pill-width: 132px;
+                --admin-pill-font-size: 0.72rem;
             }
-            .parent-admin-page .admin-off-app-panel {
-                --admin-off-app-pill-width: 132px;
-                --admin-off-app-mobile-btn-font-size: 0.78rem;
+            .parent-admin-page .admin-today-pill-wrong,
+            .parent-admin-page .admin-today-pill-review,
+            .parent-admin-page .admin-today-pill-allright {
+                margin-left: 0;
+            }
+            .parent-admin-page .admin-today-pill-sep {
+                margin-left: 0;
             }
             .parent-admin-page .admin-off-app-row.is-editing {
                 --admin-off-app-action-width: 92px;
@@ -1386,7 +1425,9 @@
             .parent-admin-page .admin-off-app-status,
             .parent-admin-page .admin-off-app-result-pill-main,
             .parent-admin-page .admin-off-app-grade-btn {
-                font-size: var(--admin-off-app-mobile-btn-font-size);
+                font-size: var(--admin-pill-font-size);
+                font-weight: var(--admin-pill-font-weight);
+                line-height: var(--admin-pill-line-height);
             }
             .parent-admin-page .admin-off-app-grade-actions {
                 gap: 0.25rem;
@@ -1423,7 +1464,7 @@
     <div class="container">
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
-                <h1><span class="page-title-icon" aria-hidden="true">🧸</span> Kids Daily Chores</h1>
+                <h1><span class="page-title-icon" aria-hidden="true">🧸</span> The mommy app</h1>
                 <div class="page-header-actions" data-family-user-switcher></div>
             </div>
         </header>
@@ -1433,7 +1474,6 @@
 
             <div id="adminOptinPanel" class="admin-optin-panel hidden">
                 <div class="admin-chore-panel-actions">
-                    <button id="pullTodaySessionsAdminBtn" type="button" class="admin-chore-panel-action" aria-label="Pull latest in-app scores" title="Pull latest in-app scores"><span class="icon" data-icon="refresh-cw" data-icon-size="17"></span></button>
                     <a href="/point-rules.html?kind=in_app_chore" class="admin-chore-panel-action admin-chore-panel-edit-link" aria-label="Edit in-app chores" title="Edit In-App Chores"><span class="icon" data-icon="pencil" data-icon-size="15"></span></a>
                 </div>
                 <div id="adminMatrixWrap" class="admin-matrix-wrap">
@@ -1494,7 +1534,7 @@
         <div class="modal-content pwa-install-modal">
             <img src="apple-touch-icon.png" alt="" class="pwa-install-icon">
             <h2>Install App</h2>
-            <p class="pwa-install-desc">Add Kids Daily Chores to your home screen for easy fullscreen access.</p>
+            <p class="pwa-install-desc">Add The mommy app to your home screen for easy fullscreen access.</p>
             <p class="pwa-install-step">Press <strong>"Share"</strong> <svg class="pwa-install-share-icon" width="17" height="17" viewBox="0 0 50 50"><path fill="#007AFF" d="M25 1L15 12h7v18h6V12h7L25 1z"/><path fill="#007AFF" d="M10 22v22h30V22h-6v16H16V22h-6z"/></svg> below</p>
             <p class="pwa-install-step">Then <strong>"Add to Home Screen"</strong> <span class="pwa-install-plus-icon">+</span></p>
             <button type="button" id="pwaInstallDismiss" class="btn-primary pwa-install-dismiss">Dismiss</button>

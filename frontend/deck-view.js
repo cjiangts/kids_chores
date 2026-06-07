@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
     if (!isSuperFamily) {
-        document.title = 'View Deck - Kids Daily Chores';
+        document.title = 'View Deck - The mommy app';
         const pageHeading = document.querySelector('.page-header-row h1');
         if (pageHeading) {
             pageHeading.innerHTML = '<span class="icon page-title-icon" data-icon="book-open" data-icon-size="28"></span> View Deck';

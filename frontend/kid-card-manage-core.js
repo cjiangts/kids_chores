@@ -697,10 +697,10 @@ function updatePageTitle() {
     const displayName = getCurrentCategoryDisplayName() || 'Card';
     const kidName = String(currentKidName || '').trim();
     if (kidName) {
-        document.title = `${kidName} - ${displayName} Management - Kids Daily Chores`;
+        document.title = `${kidName} - ${displayName} Management - The mommy app`;
         return;
     }
-    document.title = `${displayName} Management - Kids Daily Chores`;
+    document.title = `${displayName} Management - The mommy app`;
 }
 
 function applyCategoryUiText() {

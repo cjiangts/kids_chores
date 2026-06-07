@@ -164,6 +164,7 @@ def create_app():
             or path.endswith('.jpeg')
             or path.endswith('.svg')
             or path.endswith('.ico')
+            or path.endswith('.webmanifest')
             or path.startswith('/fonts/')
         )
 

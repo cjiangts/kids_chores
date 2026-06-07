@@ -61,10 +61,10 @@ async function loadKid() {
             : 'Type-II';
         const kidName = String(kid.name || '').trim();
         kidNameEl.textContent = `${kidName}'s ${activeCategoryDisplayName} Sheets`;
-        document.title = `${kidName} - ${activeCategoryDisplayName} Sheets - Kids Daily Chores`;
+        document.title = `${kidName} - ${activeCategoryDisplayName} Sheets - The mommy app`;
     } catch (error) {
         console.error('Error loading kid:', error);
-        document.title = 'Practice Sheets - Kids Daily Chores';
+        document.title = 'Practice Sheets - The mommy app';
     }
 }
 

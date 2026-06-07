@@ -135,8 +135,8 @@ function escapeHtmlLocal(text) {
 function updatePageTitle() {
     const kidName = String(currentKid?.name || '').trim();
     document.title = kidName
-        ? `${kidName} - Practice Home - Kids Daily Chores`
-        : 'Practice Home - Kids Daily Chores';
+        ? `${kidName} - Practice Home - The mommy app`
+        : 'Practice Home - The mommy app';
 }
 
 function openProgressReport() {
@@ -187,18 +187,14 @@ function cacheKidForPracticeNavigation() {
 // =====================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
-        // If this device owns an offline pack, recover by routing to that kid's
-        // offline practice home instead of bouncing to '/', which (when the SW
-        // shell falls back to this very page) would loop forever.
+        // If this device owns an offline pack, recover by routing to the offline
+        // hub (family-home) instead of bouncing to '/', which (when the SW shell
+        // falls back to this very page) would loop forever.
         let ownedIds = [];
         if (window.OfflineStorage) {
             try { ownedIds = await window.OfflineStorage.listOwnedKidIds(); } catch (_) { /* ignore */ }
         }
-        if (ownedIds.length > 0) {
-            window.location.replace(`/kid-practice-home.html?id=${encodeURIComponent(ownedIds[0])}`);
-        } else {
-            window.location.replace('/index.html');
-        }
+        window.location.replace(ownedIds.length > 0 ? '/family-home.html' : '/index.html');
         return;
     }
 
@@ -256,14 +252,6 @@ function applyKidPayload(kid) {
     if (window.FamilyUserSwitcher && typeof window.FamilyUserSwitcher.renderAuto === 'function') {
         window.FamilyUserSwitcher.renderAuto(document.getElementById('practiceHomeHeaderActions'));
     }
-}
-
-function renderOfflineHeaderActions() {
-    const headerActions = document.getElementById('practiceHomeHeaderActions');
-    if (!headerActions) return;
-    headerActions.innerHTML = `
-        <button type="button" id="offlineSyncBtn" class="back-btn btn-secondary page-header-back-btn offline-sync-btn" aria-label="Sync practice results" title="Sync practice results"></button>
-    `;
 }
 
 function readKidFromPracticeNavigationCache() {
@@ -1030,11 +1018,6 @@ async function bootstrapOfflinePracticeHome(pack) {
 
     applyKidPayload(kidInfo);
 
-    renderOfflineHeaderActions();
-    await renderSyncButtonContents();
-    const syncBtn = document.getElementById('offlineSyncBtn');
-    if (syncBtn) syncBtn.addEventListener('click', () => handleOfflineSyncClick());
-
     renderPracticeOptions();
 
     // Dim subjects whose pack wasn't downloaded (offlineGuardOrError handles
@@ -1194,114 +1177,3 @@ function isPackExpired(envelope) {
     return !!(d && d.getTime() <= Date.now());
 }
 
-async function countPendingAnswersAcrossOwnedKids() {
-    if (!window.OfflineStorage) return 0;
-    try {
-        const ownedIds = await window.OfflineStorage.listOwnedKidIds();
-        let total = 0;
-        for (const id of ownedIds) {
-            const rows = await window.OfflineStorage.listPendingResults(id);
-            for (const row of rows) {
-                total += Array.isArray(row?.answers) ? row.answers.length : 0;
-            }
-        }
-        return total;
-    } catch (_) {
-        return 0;
-    }
-}
-
-async function renderSyncButtonContents() {
-    const btn = document.getElementById('offlineSyncBtn');
-    if (!btn) return;
-    const pendingCount = await countPendingAnswersAcrossOwnedKids();
-    const iconHtml = (typeof window.icon === 'function') ? window.icon('refresh-ccw', { size: 18 }) : '';
-    const countHtml = pendingCount > 0
-        ? `<span class="offline-sync-count" aria-label="${pendingCount} answers pending">${pendingCount}</span>`
-        : '';
-    btn.innerHTML = `${iconHtml}<span>Sync</span>${countHtml}`;
-}
-
-async function handleOfflineSyncClick() {
-    const btn = document.getElementById('offlineSyncBtn');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span>Syncing…</span>';
-    }
-    const restoreBtn = async () => {
-        if (!btn) return;
-        btn.disabled = false;
-        await renderSyncButtonContents();
-    };
-    try {
-        let ownedIds = [];
-        if (window.OfflineStorage) {
-            try {
-                ownedIds = await window.OfflineStorage.listOwnedKidIds();
-            } catch (_) { /* ignore */ }
-        }
-        const targetIds = Array.from(new Set([String(kidId), ...ownedIds.map((v) => String(v))])).filter(Boolean);
-
-        const failures = [];
-        const discards = [];
-        for (const targetId of targetIds) {
-            const localPack = window.OfflineStorage
-                ? await window.OfflineStorage.loadPack(targetId)
-                : null;
-            const rows = window.OfflineStorage
-                ? await window.OfflineStorage.listPendingResults(targetId)
-                : [];
-            const pendingCount = rows.length;
-            const queuedThumbDownCount = Array.isArray(localPack?.packEnvelope?.thumbDownEvents)
-                ? localPack.packEnvelope.thumbDownEvents.length
-                : 0;
-            const result = (pendingCount === 0 && queuedThumbDownCount === 0)
-                ? await window.OfflineCommon.releasePack(targetId)
-                : await window.OfflineCommon.syncPack(targetId);
-            if (!result || !result.ok) {
-                const errText = (result && (result.error || (result.response && result.response.error))) || 'Sync failed';
-                failures.push({ kidId: targetId, error: errText });
-                continue;
-            }
-            const resp = result.response || {};
-            if (resp.conflict_warning) {
-                discards.push({
-                    kidId: targetId,
-                    reason: String(resp.conflict_warning || ''),
-                    sessions: Number(resp.discarded_session_count) || 0,
-                    answers: Number(resp.discarded_answer_count) || 0,
-                });
-            }
-        }
-
-        if (failures.length > 0) {
-            const msg = failures.map((f) => `kid ${f.kidId}: ${f.error}`).join('\n');
-            window.alert(
-                `Could not sync ${failures.length} pack(s):\n${msg}\n\n`
-                + 'Your practice results are still saved on this device — reconnect and tap Sync again.',
-            );
-            await restoreBtn();
-            return;
-        }
-        if (discards.length > 0) {
-            const totalAnswers = discards.reduce((sum, d) => sum + d.answers, 0);
-            const anyForceReleased = discards.some((d) => d.reason === 'lock_expired_or_released');
-            const headline = anyForceReleased
-                ? 'The server has dropped this offline pack — most likely because someone clicked the trash button on the family home, or the pack expired at midnight.'
-                : 'Another device has taken over this offline pack since this device went offline.';
-            window.alert(
-                `${headline}\n\n`
-                + `${totalAnswers} practice answer${totalAnswers === 1 ? '' : 's'} from this device `
-                + `had to be discarded. Nothing on the server changed.`,
-            );
-        }
-        window.location.href = '/admin.html';
-    } catch (e) {
-        const msg = (e && e.message) ? String(e.message) : String(e);
-        window.alert(
-            `Sync error: ${msg}\n\n`
-            + 'Your practice results are still saved on this device — reconnect and tap Sync again.',
-        );
-        await restoreBtn();
-    }
-}

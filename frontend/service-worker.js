@@ -29,12 +29,23 @@
 
 const SHELL_CACHE = 'offline-shell';
 const RUNTIME_CACHE = 'offline-runtime';
-const SHELL_BUILD_MARKER = 'point-log-max-point-form-20260606';
+const SHELL_BUILD_MARKER = 'offline-hub-idle-home-redirect-20260607';
 
 const SHELL_URLS = [
     '/kid-practice.html',
     '/kid-practice-home.html',
+    '/family-home.html',
+    '/family-home.css',
+    '/family-home.js',
     '/index.html',
+    '/apple-touch-icon.png',
+    '/favicon-16x16.png',
+    '/favicon-32x32.png',
+    '/favicon.ico',
+    '/icon-192.png',
+    '/icon-512.png',
+    '/site.webmanifest',
+    '/idle-home-redirect.js',
     '/offline-redirect-guard.js',
     '/styles.css',
     '/subject-icons.css',
@@ -133,7 +144,7 @@ self.addEventListener('fetch', (event) => {
             if (isOfflineModeRequest) {
                 const shellHit = await shellCache.match(req, { ignoreSearch: true });
                 if (shellHit) return shellHit;
-                const fallback = await shellCache.match('/kid-practice-home.html');
+                const fallback = await shellCache.match('/family-home.html');
                 if (fallback) return fallback;
                 return fetch(req);
             }
@@ -144,7 +155,7 @@ self.addEventListener('fetch', (event) => {
             } catch (_) {
                 const shellHit = await shellCache.match(req, { ignoreSearch: true });
                 if (shellHit) return shellHit;
-                const fallback = await shellCache.match('/kid-practice-home.html');
+                const fallback = await shellCache.match('/family-home.html');
                 if (fallback) return fallback;
                 throw _;
             }
@@ -153,7 +164,7 @@ self.addEventListener('fetch', (event) => {
             return await fetch(req);
         } catch (e) {
             // Fall back to whatever we have, otherwise rethrow.
-            const fallback = await shellCache.match('/kid-practice-home.html');
+            const fallback = await shellCache.match('/family-home.html');
             if (fallback) return fallback;
             throw e;
         }

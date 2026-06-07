@@ -439,6 +439,7 @@ def get_kid_today_session_status_by_deck_category(
     family_timezone=None,
     shared_conn=None,
     family_id=None,
+    category_meta_by_key=None,
 ):
     keys = [normalize_shared_deck_tag(key) for key in list(opted_in_category_keys or [])]
     keys = [key for key in keys if key]
@@ -449,6 +450,7 @@ def get_kid_today_session_status_by_deck_category(
             'sessionId': None,
             'wrongCount': 0,
             'mistakeCount': 0,
+            'ungradedCount': 0,
             'earnedPoints': 0,
         }
         for key in keys
@@ -488,6 +490,11 @@ def get_kid_today_session_status_by_deck_category(
         for key, points in points_by_key.items():
             if key in status_by_key:
                 status_by_key[key]['earnedPoints'] = points
+        effective_category_meta_by_key = (
+            category_meta_by_key
+            if isinstance(category_meta_by_key, dict)
+            else get_shared_deck_category_meta_by_key()
+        )
         placeholders = ', '.join(['?'] * len(keys))
         rows = local_conn.execute(
             f"""
@@ -499,7 +506,8 @@ def get_kid_today_session_status_by_deck_category(
                 s.started_at,
                 COUNT(sr.id) AS answer_count,
                 COALESCE(SUM(CASE WHEN sr.correct = ? OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count,
-                COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS mistake_count
+                COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS mistake_count,
+                COALESCE(SUM(CASE WHEN sr.correct = 0 THEN 1 ELSE 0 END), 0) AS ungraded_count
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
             WHERE s.type IN ({placeholders})
@@ -544,16 +552,25 @@ def get_kid_today_session_status_by_deck_category(
             answer_count = max(0, int(row[5] or 0))
             wrong_count = max(0, int(row[6] or 0))
             mistake_count = max(0, int(row[7] or 0))
-            done = (
+            ungraded_count = max(0, int(row[8] or 0))
+            session_behavior_type = get_session_behavior_type(
+                category_key,
+                category_meta_by_key=effective_category_meta_by_key,
+            )
+            has_completed_all_planned = (
                 completed_at is not None
                 and (planned_count <= 0 or answer_count >= planned_count)
-                and wrong_count <= 0
             )
+            if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III:
+                done = has_completed_all_planned
+            else:
+                done = has_completed_all_planned and wrong_count <= 0
             status_by_key[category_key] = {
                 'status': 'done' if done else 'in_progress',
                 'sessionId': session_id,
                 'wrongCount': wrong_count,
                 'mistakeCount': mistake_count,
+                'ungradedCount': ungraded_count,
                 'earnedPoints': points_by_key.get(category_key, 0),
             }
         return status_by_key

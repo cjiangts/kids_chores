@@ -822,19 +822,28 @@ def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category
     ]
 
 
-def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id):
+def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trigger_keys=None):
     rules = list_family_rules(
         shared_conn,
         family_id,
         rule_kind=RULE_KIND_IN_APP_CHORE,
         include_inactive=False,
     )
+    allowed_keys = None
+    if trigger_keys is not None:
+        allowed_keys = {
+            normalize_shared_deck_tag(key)
+            for key in trigger_keys
+            if normalize_shared_deck_tag(key)
+        }
     awarded = []
     skipped_count = 0
     kid_conn.execute('BEGIN TRANSACTION')
     try:
         for rule in rules:
             if rule.get('maxPoint') is None:
+                continue
+            if allowed_keys is not None and normalize_shared_deck_tag(rule.get('triggerKey')) not in allowed_keys:
                 continue
             points_delta = _event_delta_for_rule(rule)
             sessions = list_app_category_strictly_done_sessions_today(
@@ -865,3 +874,42 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id):
         'awardedCount': len(awarded),
         'skippedCount': skipped_count,
     }
+
+
+def delete_in_app_chore_events_for_session(kid_conn, shared_conn, family_id, session_type, completed_at):
+    """Remove in-app-chore point_events auto-awarded for one deleted session.
+
+    Auto-awarded events have no session FK; they are matched the same way the
+    award pairs them — an in-app-chore rule whose trigger is the session's
+    category, with created_at equal to the session's completed_at. Returns the
+    number of point_events removed.
+    """
+    if completed_at is None:
+        return 0
+    key = normalize_shared_deck_tag(session_type)
+    if not key:
+        return 0
+    rules = list_family_rules(
+        shared_conn,
+        family_id,
+        rule_kind=RULE_KIND_IN_APP_CHORE,
+        include_inactive=True,
+    )
+    rule_ids = [
+        int(rule['ruleId'])
+        for rule in rules
+        if rule.get('ruleId') is not None
+        and normalize_shared_deck_tag(rule.get('triggerKey')) == key
+    ]
+    if not rule_ids:
+        return 0
+    placeholders = ', '.join(['?'] * len(rule_ids))
+    rows = kid_conn.execute(
+        f"""
+        DELETE FROM point_event
+        WHERE created_at = ? AND rule_id IN ({placeholders})
+        RETURNING event_id
+        """,
+        [completed_at, *rule_ids],
+    ).fetchall()
+    return len(rows)
