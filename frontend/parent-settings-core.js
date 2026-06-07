@@ -60,6 +60,12 @@ const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const passwordError = document.getElementById('passwordError');
 const passwordSuccess = document.getElementById('passwordSuccess');
+const kidsManageList = document.getElementById('kidsManageList');
+const addKidForm = document.getElementById('addKidForm');
+const addKidNameInput = document.getElementById('addKidNameInput');
+const addKidBtn = document.getElementById('addKidBtn');
+const kidsManageError = document.getElementById('kidsManageError');
+const kidsManageSuccess = document.getElementById('kidsManageSuccess');
 let pendingRestorePassword = null;
 let isSuperFamily = false;
 
@@ -102,6 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeTimezoneOptions();
     await loadTimezoneSettings();
     await loadTrustedBrowsers();
+    await loadKidsManage();
     if (isSuperFamily) {
         loadBackupInfo();
         loadFamilyAccounts();
@@ -277,6 +284,36 @@ if (trustedBrowsersList) {
             return;
         }
         await deleteTrustedBrowser(browserId);
+    });
+}
+
+if (addKidForm) {
+    addKidForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await addKid(addKidNameInput ? addKidNameInput.value : '');
+    });
+}
+
+if (kidsManageList) {
+    kidsManageList.addEventListener('click', (event) => {
+        const askBtn = getClosestEventTarget(event, 'button[data-action="ask-delete-kid"]');
+        if (askBtn) {
+            openKidDeleteConfirm(askBtn.closest('.kids-manage-row'));
+            return;
+        }
+        const cancelBtn = getClosestEventTarget(event, 'button[data-action="cancel-delete-kid"]');
+        if (cancelBtn) {
+            closeKidDeleteConfirm(cancelBtn.closest('.kids-manage-row'));
+            showKidsManageError('');
+        }
+    });
+    kidsManageList.addEventListener('submit', async (event) => {
+        const form = getClosestEventTarget(event, 'form[data-action="confirm-delete-form"]');
+        if (!form) {
+            return;
+        }
+        event.preventDefault();
+        await confirmDeleteKid(form.closest('.kids-manage-row'));
     });
 }
 
@@ -548,20 +585,24 @@ function renderTrustedBrowsers(items) {
         const browserId = String(browser?.id || '').trim();
         const label = String(browser?.label || 'Trusted browser').trim() || 'Trusted browser';
         const isCurrent = Boolean(localTrusted && localTrusted.id === browserId);
-        const currentText = isCurrent ? ' · This browser' : '';
+        const currentDot = isCurrent
+            ? '<span class="trusted-browser-current-dot" title="This browser" aria-label="This browser"></span>'
+            : '';
         const createdAt = formatTrustedBrowserTime(browser?.createdAt);
         const lastUsedAt = formatTrustedBrowserTime(browser?.lastUsedAt);
         return `
             <div class="trusted-browser-card">
-                <div>
-                    <div class="trusted-browser-title">
-                        <span class="icon" data-icon="monitor" data-icon-size="18" data-icon-stroke="2.2"></span>
-                        <span>${escapeHtml(label)}${escapeHtml(currentText)}</span>
-                    </div>
-                    <div class="trusted-browser-meta">Trusted ${escapeHtml(createdAt)} · Last used ${escapeHtml(lastUsedAt)}</div>
+                <div class="trusted-browser-title">
+                    <span class="icon" data-icon="monitor" data-icon-size="16" data-icon-stroke="2.2"></span>
+                    <span class="trusted-browser-name">${escapeHtml(label)}</span>
+                    ${currentDot}
+                </div>
+                <div class="trusted-browser-times">
+                    <span class="trusted-browser-meta">Trusted ${escapeHtml(createdAt)}</span>
+                    <span class="trusted-browser-meta">Last used ${escapeHtml(lastUsedAt)}</span>
                 </div>
                 <button type="button" class="semantic-outline-btn semantic-outline-btn--red trusted-browser-delete" data-action="delete-trusted-browser" data-browser-id="${escapeHtml(browserId)}" aria-label="${escapeHtml(`Remove ${label}`)}">
-                    ${window.icon('trash', { size: 17 })}
+                    ${window.icon('trash', { size: 15 })}
                     <span>Remove</span>
                 </button>
             </div>
@@ -801,6 +842,194 @@ async function deleteFamilyAccount(familyId, familyUsername) {
     }
     showFamilyAdminSuccess(`Deleted family "${familyUsername || familyId}".`);
     await loadFamilyAccounts();
+}
+
+// =====================================================================
+// === 7b. Children — inline add / remove (remove needs password)
+// =====================================================================
+
+async function loadKidsManage() {
+    if (!kidsManageList) {
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/kids?view=practice_nav`);
+        const payload = await response.json().catch(() => ([]));
+        if (!response.ok) {
+            showKidsManageError((payload && payload.error) || `Failed to load children (HTTP ${response.status})`);
+            return;
+        }
+        renderKidsManage(Array.isArray(payload) ? payload : []);
+    } catch (error) {
+        console.error('Error loading children:', error);
+        showKidsManageError('Failed to load children.');
+    }
+}
+
+function renderKidsManage(kids) {
+    if (!kidsManageList) {
+        return;
+    }
+    if (!Array.isArray(kids) || kids.length === 0) {
+        kidsManageList.innerHTML = '';
+        return;
+    }
+    kidsManageList.innerHTML = kids.map((kid) => {
+        const kidId = String(kid.id || '');
+        const name = String(kid.name || '');
+        return `
+            <div class="kids-manage-row" data-kid-id="${escapeHtml(kidId)}">
+                <span class="kids-manage-name">${escapeHtml(name)}</span>
+                <div class="kids-manage-row-action">
+                    <button type="button" class="semantic-outline-btn semantic-outline-btn--red" data-action="ask-delete-kid">${icon('trash', { size: 18 })} Remove</button>
+                </div>
+                <form class="kids-manage-confirm" data-action="confirm-delete-form">
+                    <input type="password" class="kids-manage-input kids-manage-pw" placeholder="Password" autocomplete="current-password">
+                    <button type="submit" class="semantic-outline-btn semantic-outline-btn--red" data-action="confirm-delete-kid">Delete</button>
+                    <button type="button" class="semantic-outline-btn" data-action="cancel-delete-kid">Cancel</button>
+                </form>
+            </div>
+        `;
+    }).join('');
+}
+
+function openKidDeleteConfirm(row) {
+    if (!row || !kidsManageList) {
+        return;
+    }
+    kidsManageList.querySelectorAll('.kids-manage-row.is-confirming').forEach((other) => {
+        if (other !== row) {
+            closeKidDeleteConfirm(other);
+        }
+    });
+    row.classList.add('is-confirming');
+    const pw = row.querySelector('.kids-manage-pw');
+    if (pw) {
+        pw.value = '';
+        pw.focus();
+    }
+}
+
+function closeKidDeleteConfirm(row) {
+    if (!row) {
+        return;
+    }
+    row.classList.remove('is-confirming');
+    const pw = row.querySelector('.kids-manage-pw');
+    if (pw) {
+        pw.value = '';
+    }
+}
+
+async function addKid(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) {
+        showKidsManageError('Please enter a name.');
+        return;
+    }
+    showKidsManageError('');
+    showKidsManageSuccess('');
+    if (addKidBtn) {
+        addKidBtn.disabled = true;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/kids`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: trimmed }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showKidsManageError(payload.error || `Failed to add child (HTTP ${response.status})`);
+            return;
+        }
+        if (addKidNameInput) {
+            addKidNameInput.value = '';
+        }
+        showKidsManageSuccess(`Added ${trimmed}.`);
+        await loadKidsManage();
+    } catch (error) {
+        console.error('Error adding kid:', error);
+        showKidsManageError('Failed to add child.');
+    } finally {
+        if (addKidBtn) {
+            addKidBtn.disabled = false;
+        }
+    }
+}
+
+async function confirmDeleteKid(row) {
+    if (!row) {
+        return;
+    }
+    const kidId = String(row.getAttribute('data-kid-id') || '').trim();
+    const pwInput = row.querySelector('.kids-manage-pw');
+    const password = String((pwInput && pwInput.value) || '').trim();
+    if (!kidId) {
+        return;
+    }
+    if (!password) {
+        showKidsManageError('Password is required to remove a child.');
+        if (pwInput) {
+            pwInput.focus();
+        }
+        return;
+    }
+    if (!window.PracticeManageCommon || typeof window.PracticeManageCommon.buildPasswordHeaders !== 'function') {
+        showKidsManageError('Password support is unavailable.');
+        return;
+    }
+    showKidsManageError('');
+    showKidsManageSuccess('');
+    const confirmBtn = row.querySelector('[data-action="confirm-delete-kid"]');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}`, {
+            method: 'DELETE',
+            headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            // 400/403 are wrong/missing password — keep the row open so they can retry.
+            showKidsManageError(payload.error || `Failed to remove child (HTTP ${response.status})`);
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+            }
+            if (pwInput) {
+                pwInput.focus();
+                pwInput.select();
+            }
+            return;
+        }
+        showKidsManageSuccess('Child removed.');
+        await loadKidsManage();
+    } catch (error) {
+        console.error('Error deleting kid:', error);
+        showKidsManageError('Failed to remove child.');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+        }
+    }
+}
+
+function showKidsManageError(message) {
+    if (!kidsManageError) {
+        return;
+    }
+    const text = String(message || '').trim();
+    kidsManageError.textContent = text;
+    kidsManageError.classList.toggle('hidden', !text);
+}
+
+function showKidsManageSuccess(message) {
+    if (!kidsManageSuccess) {
+        return;
+    }
+    const text = String(message || '').trim();
+    kidsManageSuccess.textContent = text;
+    kidsManageSuccess.classList.toggle('hidden', !text);
 }
 
 // =====================================================================

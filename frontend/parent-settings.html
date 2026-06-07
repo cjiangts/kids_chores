@@ -244,6 +244,31 @@
             margin-bottom: 1rem;
         }
 
+        .backup-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .backup-header-row .backup-info {
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 520px) {
+            .parent-settings-page .backup-actions-row .btn-secondary {
+                flex: 1 1 100%;
+                width: 100%;
+            }
+
+            .tz-dropdown {
+                max-width: none;
+                width: 100%;
+            }
+        }
+
         .trusted-browser-list {
             display: grid;
             gap: 0.55rem;
@@ -252,43 +277,60 @@
 
         .trusted-browser-card {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-columns: minmax(0, 1fr) auto auto;
             align-items: center;
-            gap: 0.75rem;
+            column-gap: 0.7rem;
             border: 1px solid #d9dfef;
             border-radius: 10px;
             background: #fcfdff;
-            padding: 0.72rem 0.8rem;
+            padding: 0.5rem 0.7rem;
         }
 
         .trusted-browser-title {
             display: flex;
             align-items: center;
-            gap: 0.45rem;
+            gap: 0.35rem;
             min-width: 0;
             color: #2f3c7e;
-            font-size: 0.95rem;
+            font-size: 0.76rem;
             font-weight: 700;
             line-height: 1.2;
         }
 
-        .trusted-browser-title span:last-child {
+        .trusted-browser-name {
             min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            white-space: normal;
+        }
+
+        .trusted-browser-current-dot {
+            flex: 0 0 auto;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2f9e44;
+            box-shadow: 0 0 0 3px rgba(47, 158, 68, 0.18);
+        }
+
+        .trusted-browser-times {
+            display: flex;
+            flex-direction: column;
+            gap: 0.05rem;
             white-space: nowrap;
         }
 
         .trusted-browser-meta {
-            margin-top: 0.2rem;
             color: #66718f;
-            font-size: 0.82rem;
-            line-height: 1.25;
+            font-size: 0.72rem;
+            line-height: 1.3;
         }
 
         .trusted-browser-delete {
-            min-height: 34px;
-            padding: 0 0.65rem;
+            align-self: center;
+            min-height: 28px;
+            font-size: 0.8rem;
+            padding: 0 0.6rem;
         }
 
         .warning-note {
@@ -312,6 +354,96 @@
 
         .success.hidden {
             display: none;
+        }
+
+        .kids-manage-list {
+            display: grid;
+            gap: 0.5rem;
+            margin-top: 0.35rem;
+        }
+
+        .kids-manage-list:empty {
+            margin-top: 0;
+        }
+
+        .kids-manage-row {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            flex-wrap: wrap;
+            border: 1px solid #d9dfef;
+            border-radius: 10px;
+            background: #fcfdff;
+            padding: 0.4rem 0.7rem;
+        }
+
+        .kids-manage-name {
+            font-weight: 700;
+            color: #2f3c7e;
+            font-size: 0.85rem;
+        }
+
+        .kids-manage-row .semantic-outline-btn {
+            min-height: 28px;
+            font-size: 0.8rem;
+            padding: 0 0.6rem;
+        }
+
+        .kids-manage-row-action {
+            margin-left: auto;
+        }
+
+        .kids-manage-row.is-confirming .kids-manage-row-action {
+            display: none;
+        }
+
+        .kids-manage-confirm {
+            display: none;
+            margin-left: auto;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .kids-manage-row.is-confirming .kids-manage-confirm {
+            display: flex;
+        }
+
+        .kids-manage-add {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .kids-manage-input {
+            flex: 1 1 200px;
+            min-width: 0;
+            height: 40px;
+            padding: 0 0.8rem;
+            border: 1px solid #d4ddf0;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            color: #2f3c7e;
+            background: #fff;
+        }
+
+        .kids-manage-input:focus {
+            outline: none;
+            border-color: #9ab5f3;
+            box-shadow: 0 0 0 3px rgba(122, 154, 240, 0.18);
+        }
+
+        .kids-manage-pw {
+            flex: 0 1 150px;
+            height: 30px;
+            font-size: 0.85rem;
+        }
+
+        .kids-manage-add .btn-primary {
+            width: auto;
+            flex: 0 0 auto;
         }
 
         .family-accounts-list {
@@ -469,15 +601,6 @@
             .family-account-card-action {
                 margin-left: 0;
             }
-
-            .trusted-browser-card {
-                grid-template-columns: minmax(0, 1fr);
-                align-items: stretch;
-            }
-
-            .trusted-browser-delete {
-                justify-self: start;
-            }
         }
 
         @media (max-width: 520px) {
@@ -524,6 +647,22 @@
             <div class="settings-grid">
                 <section class="settings-card settings-section">
                     <div class="settings-card-body">
+                        <h2><span class="icon" data-icon="users" data-icon-size="22"></span> Children</h2>
+                        <div id="kidsManageList" class="kids-manage-list"></div>
+                        <form id="addKidForm" class="kids-manage-add" autocomplete="off">
+                            <input type="text" id="addKidNameInput" class="kids-manage-input" placeholder="New child's name" maxlength="50" autocomplete="off" required>
+                            <button type="submit" id="addKidBtn" class="btn-primary">
+                                <span class="btn-icon" aria-hidden="true"><span class="icon" data-icon="plus" data-icon-size="20"></span></span>
+                                <span class="btn-label">Add</span>
+                            </button>
+                        </form>
+                        <div id="kidsManageError" class="error hidden"></div>
+                        <div id="kidsManageSuccess" class="success hidden"></div>
+                    </div>
+                </section>
+
+                <section class="settings-card settings-section">
+                    <div class="settings-card-body">
                         <h2><span class="icon" data-icon="clock" data-icon-size="22"></span> Timezone Setting</h2>
                         <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
                         <div class="tz-dropdown">
@@ -553,8 +692,11 @@
 
                 <section id="backupSettingsCard" class="settings-card settings-section">
                     <div class="settings-card-body">
-                        <h2><span class="icon" data-icon="save" data-icon-size="22"></span> Backup & Restore</h2>
-                        <div class="settings-row">
+                        <div class="backup-header-row">
+                            <h2><span class="icon" data-icon="save" data-icon-size="22"></span> Backup & Restore</h2>
+                            <span id="backupInfo" class="settings-note backup-info"></span>
+                        </div>
+                        <div class="settings-row backup-actions-row">
                             <button id="downloadBackupBtn" class="btn-secondary">
                                 <span class="btn-icon" aria-hidden="true">
                                     <span class="icon" data-icon="download" data-icon-size="20"></span>
@@ -568,7 +710,6 @@
                                 <span class="btn-label">Restore Backup</span>
                             </button>
                             <input type="file" id="backupFileInput" accept=".zip" class="hidden">
-                            <span id="backupInfo" class="settings-note"></span>
                         </div>
                     </div>
                 </section>

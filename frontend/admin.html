@@ -1101,17 +1101,6 @@
             border-color: #3f57b8;
             color: #fff;
         }
-        .parent-admin-page .admin-optin-edit-btn--add-kid {
-            background: #34b89c;
-            color: #fff;
-            border-color: #34b89c;
-            box-shadow: 0 2px 6px rgba(52, 184, 156, 0.28);
-        }
-        .parent-admin-page .admin-optin-edit-btn--add-kid:hover:not(:disabled) {
-            background: #2a9b83;
-            border-color: #2a9b83;
-            color: #fff;
-        }
         .parent-admin-page .admin-matrix.is-editable .admin-matrix-value {
             border-color: rgba(79, 107, 217, 0.55);
             border-width: 1.5px;
@@ -1414,24 +1403,8 @@
 
             <div id="adminEmptyState" class="admin-empty-state hidden">
                 <h3>No kids yet</h3>
-                <p>Add your first learner to get started.</p>
-                <button type="button" class="btn-secondary admin-empty-state-btn" data-action="add-kid"><span class="icon" data-icon="user-round-plus" data-icon-size="16"></span> Add Kid</button>
-            </div>
-
-            <!-- New Kid Form Modal -->
-            <div id="kidModal" class="modal hidden">
-                <div class="modal-content">
-                    <h2><span class="icon" data-icon="user-round-plus" data-icon-size="22"></span> Add Kid</h2>
-                    <form id="kidForm">
-                        <div class="form-group">
-                            <input type="text" id="kidName" required placeholder="Enter kid's name">
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" id="kidFormSaveBtn" class="btn-primary" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span> <span class="btn-label">Save</span></button>
-                            <button type="button" id="cancelBtn" class="btn-secondary"><span class="icon" data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span> Close</button>
-                        </div>
-                    </form>
-                </div>
+                <p>Add your first learner in Family Settings to get started.</p>
+                <a href="/parent-settings.html" class="btn-secondary admin-empty-state-btn"><span class="icon" data-icon="settings" data-icon-size="16"></span> Go to Settings</a>
             </div>
 
             <div id="errorMessage" class="error hidden"></div>

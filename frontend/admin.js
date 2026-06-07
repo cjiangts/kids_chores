@@ -33,12 +33,7 @@ const adminOffAppList = document.getElementById('adminOffAppList');
 const pullTodaySessionsAdminBtn = document.getElementById('pullTodaySessionsAdminBtn');
 const adminEmptyState = document.getElementById('adminEmptyState');
 const getEditToggleBtn = () => document.getElementById('editToggleBtn');
-const kidModal = document.getElementById('kidModal');
-const kidForm = document.getElementById('kidForm');
-const cancelBtn = document.getElementById('cancelBtn');
 const errorMessage = document.getElementById('errorMessage');
-const kidNameInput = document.getElementById('kidName');
-const kidFormSaveBtn = document.getElementById('kidFormSaveBtn');
 
 const {
     normalizeCategoryKey,
@@ -57,7 +52,6 @@ const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
 const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
 const PARENT_NAV_CACHE_TTL_MS = 2 * 60 * 1000;
 
-let isCreatingKid = false;
 let currentKids = [];
 let kidsLoaded = false;
 let selectedAdminKidId = '';
@@ -108,30 +102,6 @@ async function loadAuthStatus() {
 }
 
 function bindEvents() {
-    document.addEventListener('click', (event) => {
-        const trigger = event.target && event.target.closest
-            ? event.target.closest('[data-action="add-kid"]')
-            : null;
-        if (!trigger) return;
-        kidModal.classList.remove('hidden');
-        syncKidFormSaveBtn();
-    });
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-            kidModal.classList.add('hidden');
-            kidForm.reset();
-            syncKidFormSaveBtn();
-        });
-    }
-    if (kidNameInput) {
-        kidNameInput.addEventListener('input', syncKidFormSaveBtn);
-    }
-    if (kidForm) {
-        kidForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await createKid();
-        });
-    }
     if (pullTodaySessionsAdminBtn) {
         pullTodaySessionsAdminBtn.addEventListener('click', () => {
             void pullTodaySessionsForSelectedAdminKid();
@@ -159,12 +129,6 @@ function bindEvents() {
     if (adminOffAppPanel) {
         adminOffAppPanel.addEventListener('click', handleAdminOffAppClick);
         adminOffAppPanel.addEventListener('input', handleAdminOffAppInput);
-    }
-}
-
-function syncKidFormSaveBtn() {
-    if (kidFormSaveBtn) {
-        kidFormSaveBtn.disabled = !kidNameInput || !kidNameInput.value.trim();
     }
 }
 
@@ -489,42 +453,6 @@ async function loadTypeIIIReviewPending() {
             .filter(Boolean));
     } catch (error) {
         typeIIIReviewPendingByKidId = new Map();
-    }
-}
-
-async function createKid() {
-    if (isCreatingKid) return;
-    const submitBtn = kidForm.querySelector('button[type="submit"]');
-    try {
-        isCreatingKid = true;
-        showError(null);
-        const name = document.getElementById('kidName').value;
-        submitBtn.disabled = true;
-        const submitLabel = submitBtn.querySelector('.btn-label');
-        if (submitLabel) submitLabel.textContent = 'Creating...';
-        if (kidNameInput) kidNameInput.disabled = true;
-        const response = await fetch(`${API_BASE}/kids`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name }),
-        });
-        if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            const message = payload?.error || `HTTP error! status: ${response.status}`;
-            throw new Error(message);
-        }
-        kidModal.classList.add('hidden');
-        kidForm.reset();
-        await loadKids();
-    } catch (error) {
-        console.error('Error creating kid:', error);
-        showError(error?.message || 'Failed to create kid. Please try again.');
-    } finally {
-        isCreatingKid = false;
-        submitBtn.disabled = false;
-        const submitLabel = submitBtn.querySelector('.btn-label');
-        if (submitLabel) submitLabel.textContent = 'Save';
-        if (kidNameInput) kidNameInput.disabled = false;
     }
 }
 
