@@ -53,16 +53,6 @@ let currentCardFront = '';
 let currentCardBack = '';
 let currentDeckName = '';
 
-function renderKidCardReportUserSwitcher(name) {
-    const container = document.querySelector('[data-family-user-switcher]');
-    if (!container || !window.FamilyUserSwitcher?.renderAuto) return;
-    const label = String(name || '').trim();
-    if (!label) return;
-    container.setAttribute('data-user-name', label);
-    container.setAttribute('data-user-icon', 'user');
-    container.setAttribute('data-user-title', `Switch user from ${label}`);
-    window.FamilyUserSwitcher.renderAuto(container);
-}
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId || !cardId) {
         window.location.href = '/admin.html';
@@ -94,7 +84,6 @@ async function loadCardReport() {
         currentCardFront = String(card.front || '').trim();
         currentCardBack = String(card.back || '').trim();
         currentDeckName = String(card.deck_name || '').trim();
-        renderKidCardReportUserSwitcher(currentKidName);
 
         pageTitle.textContent = `${displayKidName} · Card History`;
         document.title = `${displayKidName} - Card Report - Kids Daily Chores`;

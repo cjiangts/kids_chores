@@ -9,17 +9,6 @@ const errorMessage = document.getElementById('errorMessage');
 const kidNavGroup = document.getElementById('kidNavGroup');
 let cachedKidsForNav = [];
 
-function renderKidReportUserSwitcher(name) {
-    const container = document.querySelector('[data-family-user-switcher]');
-    if (!container || !window.FamilyUserSwitcher?.renderAuto) return;
-    const label = String(name || '').trim();
-    if (!label) return;
-    container.setAttribute('data-user-name', label);
-    container.setAttribute('data-user-icon', 'user');
-    container.setAttribute('data-user-title', `Switch user from ${label}`);
-    window.FamilyUserSwitcher.renderAuto(container);
-}
-
 const reportRenderer = window.KidReportCommon.createReport({
     elements: {
         summaryGrid: document.getElementById('summaryGrid'),
@@ -65,8 +54,6 @@ async function loadKidNav() {
 function renderKidNav() {
     if (!kidNavGroup) return;
     const kids = Array.isArray(cachedKidsForNav) ? cachedKidsForNav : [];
-    const activeKid = kids.find((kid) => String(kid?.id || '') === String(kidId));
-    renderKidReportUserSwitcher(activeKid?.name);
     if (kids.length < 2) {
         kidNavGroup.classList.add('hidden');
         kidNavGroup.innerHTML = '';

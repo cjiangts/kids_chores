@@ -1,5 +1,7 @@
 (function initFamilyUserSwitcher(window, document) {
     const DEFAULT_HREF = '/family-home.html';
+    const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
+    const CURRENT_USER_NAME_STORAGE_KEY = 'family_current_user_name_v1';
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -19,6 +21,38 @@
         });
     }
 
+    function isParentOnlyPage() {
+        const path = window.location.pathname || '';
+        return document.body.classList.contains('parent-admin-page')
+            || path.endsWith('/admin.html')
+            || path.endsWith('/point-log.html')
+            || path.endsWith('/point-rules.html')
+            || path.endsWith('/parent-rewards.html')
+            || path.endsWith('/parent-settings.html');
+    }
+
+    function readSession(key) {
+        try {
+            if (!window.sessionStorage) return '';
+            return String(window.sessionStorage.getItem(key) || '').trim();
+        } catch (error) {
+            return '';
+        }
+    }
+
+    // The switcher always reflects the current user held in cache — never a
+    // per-page override. Parent-only pages are always the parent.
+    function currentUser() {
+        if (isParentOnlyPage()) {
+            return { name: 'Parent', icon: 'user-cog' };
+        }
+        const mode = readSession(CURRENT_USER_MODE_STORAGE_KEY).toLowerCase();
+        if (mode === 'kid') {
+            return { name: readSession(CURRENT_USER_NAME_STORAGE_KEY) || 'Kid', icon: 'user' };
+        }
+        return { name: 'Parent', icon: 'user-cog' };
+    }
+
     function render(container, options = {}) {
         if (!container) return;
         const name = String(options.name || '').trim() || 'Parent';
@@ -36,11 +70,12 @@
 
     function renderAuto(container) {
         if (!container) return;
+        const user = currentUser();
         render(container, {
-            name: container.getAttribute('data-user-name') || 'Parent',
-            icon: container.getAttribute('data-user-icon') || 'user-cog',
+            name: user.name,
+            icon: user.icon,
             href: container.getAttribute('data-user-href') || DEFAULT_HREF,
-            title: container.getAttribute('data-user-title') || 'Switch user from Parent',
+            title: `Switch user from ${user.name}`,
         });
     }
 
@@ -54,5 +89,5 @@
         boot();
     }
 
-    window.FamilyUserSwitcher = { render, renderAuto, boot };
+    window.FamilyUserSwitcher = { render, renderAuto, boot, currentUser };
 })(window, document);

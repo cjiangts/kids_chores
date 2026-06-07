@@ -21,7 +21,6 @@ let activeCategoryDisplayName = 'Type-II';
 const kidNameEl = document.getElementById('kidName');
 const errorMessage = document.getElementById('errorMessage');
 const sheetList = document.getElementById('sheetList');
-const kidWritingSheetsUserSwitcher = document.querySelector('[data-family-user-switcher]');
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
@@ -63,21 +62,10 @@ async function loadKid() {
         const kidName = String(kid.name || '').trim();
         kidNameEl.textContent = `${kidName}'s ${activeCategoryDisplayName} Sheets`;
         document.title = `${kidName} - ${activeCategoryDisplayName} Sheets - Kids Daily Chores`;
-        renderKidWritingSheetsUserSwitcher(kidName);
     } catch (error) {
         console.error('Error loading kid:', error);
         document.title = 'Practice Sheets - Kids Daily Chores';
     }
-}
-
-function renderKidWritingSheetsUserSwitcher(name) {
-    if (!kidWritingSheetsUserSwitcher || !window.FamilyUserSwitcher?.renderAuto) return;
-    const label = String(name || '').trim();
-    if (!label) return;
-    kidWritingSheetsUserSwitcher.setAttribute('data-user-name', label);
-    kidWritingSheetsUserSwitcher.setAttribute('data-user-icon', 'user');
-    kidWritingSheetsUserSwitcher.setAttribute('data-user-title', `Switch user from ${label}`);
-    window.FamilyUserSwitcher.renderAuto(kidWritingSheetsUserSwitcher);
 }
 
 async function loadSheets() {

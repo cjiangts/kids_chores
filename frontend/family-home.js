@@ -1,6 +1,7 @@
 const API_BASE = `${window.location.origin}/api`;
 const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
 const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
+const CURRENT_USER_NAME_STORAGE_KEY = 'family_current_user_name_v1';
 const TRUSTED_PARENT_BROWSER_STORAGE_KEY = 'trusted_parent_browser_v1';
 
 const bubbleGrid = document.getElementById('userBubbleGrid');
@@ -103,6 +104,7 @@ function renderBubbles() {
             }
             persistLastViewedKidId(id);
             persistCurrentUserMode('kid');
+            persistCurrentUserName(String(kid?.name || 'Kid'));
             window.location.href = id ? `/kid-practice-home.html?id=${encodeURIComponent(id)}` : '/kid-practice-home.html';
         });
         bubble.addEventListener('keydown', (event) => {
@@ -316,7 +318,10 @@ async function downloadSelectedOffline() {
     }
 
     if (firstSuccess) {
+        const offlineKid = currentKids.find((entry) => String(entry?.id || '') === String(firstSuccess.kidId));
         persistLastViewedKidId(firstSuccess.kidId);
+        persistCurrentUserMode('kid');
+        persistCurrentUserName(String(offlineKid?.name || 'Kid'));
         setLabel('Entering offline...');
         window.location.href = `/kid-practice-home.html?id=${encodeURIComponent(firstSuccess.kidId)}`;
         return;
@@ -433,6 +438,7 @@ async function enterParentModeWithPassword(href = '/admin.html') {
         }
         storeTrustedBrowser(result.payload && result.payload.trustedBrowser);
         persistCurrentUserMode('parent');
+        persistCurrentUserName('Parent');
         window.location.href = targetHref;
         return;
     }
@@ -453,6 +459,7 @@ async function enterParentModeWithPassword(href = '/admin.html') {
             throw new Error(payload.error || `Password check failed (${response.status})`);
         }
         persistCurrentUserMode('parent');
+        persistCurrentUserName('Parent');
         window.location.href = targetHref;
     } catch (error) {
         showError(error.message || 'Could not enter parent mode.');
@@ -475,6 +482,7 @@ async function enterParentModeWithTrustedBrowser(targetHref) {
             return false;
         }
         persistCurrentUserMode('parent');
+        persistCurrentUserName('Parent');
         window.location.href = targetHref;
         return true;
     } catch (error) {
@@ -549,6 +557,18 @@ function persistCurrentUserMode(mode) {
         }
     } catch (error) {
         // best-effort identity mode memory
+    }
+}
+
+function persistCurrentUserName(name) {
+    const normalized = String(name || '').trim();
+    if (!normalized) return;
+    try {
+        if (window.sessionStorage) {
+            window.sessionStorage.setItem(CURRENT_USER_NAME_STORAGE_KEY, normalized);
+        }
+    } catch (error) {
+        // best-effort identity name memory
     }
 }
 

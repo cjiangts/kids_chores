@@ -7,7 +7,6 @@ const kidRedeemHistory = document.getElementById('kidRedeemHistory');
 const kidPointHistory = document.getElementById('kidPointHistory');
 const kidRewardRules = document.getElementById('kidRewardRules');
 const kidRewardBucketTabs = document.getElementById('kidRewardBucketTabs');
-const kidRewardsUserSwitcher = document.querySelector('[data-family-user-switcher]');
 const params = new URLSearchParams(window.location.search);
 const requestedKidId = String(params.get('id') || params.get('kidId') || '').trim();
 
@@ -56,16 +55,6 @@ function kidName(kid) {
     return String(kid?.name || kid?.id || '').trim();
 }
 
-function renderKidRewardsUserSwitcher() {
-    if (!kidRewardsUserSwitcher || !window.FamilyUserSwitcher?.renderAuto) return;
-    const selectedKid = kids.find((item) => String(item?.id || '') === selectedKidId);
-    const name = kidName(selectedKid);
-    if (!name) return;
-    kidRewardsUserSwitcher.setAttribute('data-user-name', name);
-    kidRewardsUserSwitcher.setAttribute('data-user-icon', 'user');
-    kidRewardsUserSwitcher.setAttribute('data-user-title', `Switch user from ${name}`);
-    window.FamilyUserSwitcher.renderAuto(kidRewardsUserSwitcher);
-}
 
 function selectedFamilyTimezone() {
     const kid = kids.find((item) => String(item?.id || '') === selectedKidId);
@@ -363,7 +352,6 @@ function renderRules() {
 }
 
 function render() {
-    renderKidRewardsUserSwitcher();
     renderKids();
     renderHistory();
     renderRuleTabs();

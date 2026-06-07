@@ -21,7 +21,6 @@ const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLo
 
 const pageTitleEl = document.getElementById('pageTitle');
 const errorMessage = document.getElementById('errorMessage');
-const kidWritingSheetManageUserSwitcher = document.querySelector('[data-family-user-switcher]');
 
 const chineseGenerateSection = document.getElementById('chineseGenerateSection');
 const mathGenerateSection = document.getElementById('mathGenerateSection');
@@ -157,23 +156,12 @@ function updatePageText() {
     }
 }
 
-function renderKidWritingSheetManageUserSwitcher(name) {
-    if (!kidWritingSheetManageUserSwitcher || !window.FamilyUserSwitcher?.renderAuto) return;
-    const label = String(name || '').trim();
-    if (!label) return;
-    kidWritingSheetManageUserSwitcher.setAttribute('data-user-name', label);
-    kidWritingSheetManageUserSwitcher.setAttribute('data-user-icon', 'user');
-    kidWritingSheetManageUserSwitcher.setAttribute('data-user-title', `Switch user from ${label}`);
-    window.FamilyUserSwitcher.renderAuto(kidWritingSheetManageUserSwitcher);
-}
-
 async function loadKidInfo() {
     const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}`);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Failed to load kid (HTTP ${response.status})`);
     const kid = payload;
     activeKidName = String(kid?.name || '').trim();
-    renderKidWritingSheetManageUserSwitcher(activeKidName);
     const categoryMetaMap = window.DeckCategoryCommon.getDeckCategoryMetaMap(kid);
 
     /* Try math (type_iv) first if the requested category is type_iv */

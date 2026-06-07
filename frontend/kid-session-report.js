@@ -69,17 +69,6 @@ let liveDurationBackfillBound = false;
 let currentAnswers = [];
 let currentKidName = '';
 
-function renderKidSessionReportUserSwitcher(name) {
-    const container = document.querySelector('[data-family-user-switcher]');
-    if (!container || !window.FamilyUserSwitcher?.renderAuto) return;
-    const label = String(name || '').trim();
-    if (!label) return;
-    container.setAttribute('data-user-name', label);
-    container.setAttribute('data-user-icon', 'user');
-    container.setAttribute('data-user-title', `Switch user from ${label}`);
-    window.FamilyUserSwitcher.renderAuto(container);
-}
-
 // =====================================================================
 // === 1. DOM refs + bootstrap
 // =====================================================================
@@ -180,7 +169,6 @@ async function loadSessionDetail() {
         const kidName = String(data.kid?.name || '').trim();
         const displayKidName = kidName || '...';
         currentKidName = kidName;
-        renderKidSessionReportUserSwitcher(currentKidName);
         const session = data.session || {};
         currentSessionType = normalizeCategoryKey(session.type);
         currentSessionBehaviorType = normalizeBehaviorType(session.behavior_type);

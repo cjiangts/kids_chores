@@ -1593,18 +1593,6 @@ async function handleCardsGridClick(event) {
 // =====================================================================
 // === 7. Kid info + decks loaders + queue settings save
 // =====================================================================
-function renderKidCardManageUserSwitcher(name) {
-    const container = document.querySelector('[data-family-user-switcher]');
-    if (!container || !window.FamilyUserSwitcher?.renderAuto) return;
-    const isKidMode = window.KidAppNavigation?.getMode?.() === 'kid';
-    const label = isKidMode ? String(name || '').trim() : 'Parent';
-    if (!label) return;
-    container.setAttribute('data-user-name', label);
-    container.setAttribute('data-user-icon', isKidMode ? 'user' : 'user-cog');
-    container.setAttribute('data-user-title', `Switch user from ${label}`);
-    window.FamilyUserSwitcher.renderAuto(container);
-}
-
 function applyKidInfo(kid) {
     const categoryMetaMap = getDeckCategoryMetaMap(kid);
     const categoryMeta = categoryMetaMap[categoryKey] || {};
@@ -1636,7 +1624,6 @@ function applyKidInfo(kid) {
     currentChineseBackContent = String(categoryMeta && categoryMeta.chinese_back_content ? categoryMeta.chinese_back_content : '').trim().toLowerCase();
     currentCategoryDisplayName = displayName;
     currentKidName = String(kid.name || '').trim();
-    renderKidCardManageUserSwitcher(currentKidName);
     applyCategoryUiText();
 
     window.PracticeManageCommon.applyKidManageTabVisibility({

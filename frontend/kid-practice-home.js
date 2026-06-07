@@ -253,20 +253,8 @@ function applyKidPayload(kid) {
         titleIcon.textContent = '🎓';
     }
     updatePageTitle();
-    renderCurrentKidSwitchButton();
-}
-
-function renderCurrentKidSwitchButton(extraHtml = '') {
-    const headerActions = document.getElementById('practiceHomeHeaderActions');
-    if (!headerActions) return;
-    const name = String(currentKid?.name || '').trim() || '...';
-    headerActions.setAttribute('data-family-user-switcher', '');
-    headerActions.setAttribute('data-user-name', name);
-    headerActions.setAttribute('data-user-icon', 'user');
-    headerActions.setAttribute('data-user-title', `Switch user from ${name}`);
     if (window.FamilyUserSwitcher && typeof window.FamilyUserSwitcher.renderAuto === 'function') {
-        window.FamilyUserSwitcher.renderAuto(headerActions);
-        if (extraHtml) headerActions.insertAdjacentHTML('beforeend', extraHtml);
+        window.FamilyUserSwitcher.renderAuto(document.getElementById('practiceHomeHeaderActions'));
     }
 }
 

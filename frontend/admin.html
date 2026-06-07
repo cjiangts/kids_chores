@@ -1046,6 +1046,10 @@
             background: #eceff5;
             color: #6c7794;
         }
+        /* View mode: hide the "Off" pill but keep its box so the checkbox stays aligned with opted-in rows */
+        .parent-admin-page span.admin-matrix-value.is-off {
+            visibility: hidden;
+        }
         .parent-admin-page button.admin-matrix-value {
             appearance: none;
             -webkit-appearance: none;
@@ -1169,9 +1173,18 @@
                 --admin-chore-pill-width: 136px;
             }
 
+            /* iPhone-12 fit: tighten cell padding so the subject 3-dot menu sits closer to the opt-in checkbox */
+            .parent-admin-page .admin-matrix th,
+            .parent-admin-page .admin-matrix td {
+                padding-left: 0.15rem;
+                padding-right: 0.15rem;
+            }
             .parent-admin-page .admin-matrix th.admin-matrix-subject-head {
-                min-width: 120px;
+                min-width: 84px;
                 font-size: 0.85rem;
+            }
+            .parent-admin-page .admin-matrix-subject-cell {
+                gap: 0.28rem;
             }
             .parent-admin-page .admin-panel-menu-btn {
                 margin-left: auto;
@@ -1193,11 +1206,16 @@
             }
             .parent-admin-page .admin-matrix-cards-head,
             .parent-admin-page .admin-matrix-status-head {
-                min-width: 92px;
+                min-width: 80px;
                 font-size: 0.72rem;
             }
             .parent-admin-page .admin-matrix-status-head {
                 min-width: var(--admin-chore-pill-width);
+            }
+            /* Keep the Today pill clear of the cards-value pill (the tight cell padding above pulled them together) */
+            .parent-admin-page .admin-matrix .admin-matrix-status-head,
+            .parent-admin-page .admin-matrix .admin-matrix-status-cell {
+                padding-left: 0.55rem;
             }
             .parent-admin-page .admin-matrix-status {
                 width: var(--admin-chore-pill-width);
@@ -1232,17 +1250,18 @@
                 font-size: 0.62rem;
             }
             .parent-admin-page .admin-matrix-subject-name {
-                font-size: 0.94rem;
+                font-size: 0.74rem;
                 line-height: 1.3;
             }
             .parent-admin-page .admin-matrix-subject-menu-btn {
                 margin-left: auto;
             }
             .parent-admin-page .admin-matrix-value {
-                min-width: 50px;
-                min-height: 30px;
-                font-size: 0.85rem;
-                padding: 0.22rem 0.4rem;
+                min-width: 42px;
+                min-height: var(--admin-chore-pill-height);
+                font-size: var(--admin-chore-pill-font-size);
+                font-weight: 400;
+                padding: 0.22rem 0.32rem;
             }
             .parent-admin-page .admin-off-app-row {
                 gap: 0.5rem;
