@@ -2,6 +2,7 @@
     const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
     const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
     const NAV_ID = 'kidAppNavigation';
+    const MOBILE_NAV_QUERY = '(max-width: 899px)';
     const PAGE_PATHS = {
         home: '/admin.html',
         log_points: '/point-log.html',
@@ -256,9 +257,23 @@
         }
     }
 
+    function isMobileNavLayout() {
+        try {
+            return Boolean(window.matchMedia && window.matchMedia(MOBILE_NAV_QUERY).matches);
+        } catch (error) {
+            return false;
+        }
+    }
+
     function placeNav(nav) {
         const headerRow = document.querySelector('.page-header-with-back .page-header-row');
-        if (!headerRow) {
+        // On mobile the nav is a fixed bottom bar — keep it as a direct child of
+        // <body> so iOS WebKit pins it to the viewport instead of trapping it
+        // inside the (flex) header and letting it drift while the page scrolls.
+        // The in-header placement is desktop-only (centered pill needs the
+        // relatively-positioned header row as its containing block).
+        if (!headerRow || isMobileNavLayout()) {
+            if (headerRow) headerRow.classList.remove('kid-app-nav-row');
             if (nav.parentNode !== document.body) {
                 document.body.appendChild(nav);
             }
@@ -311,6 +326,21 @@
         render();
     }
 
+    function watchViewport() {
+        try {
+            if (!window.matchMedia) return;
+            const mq = window.matchMedia(MOBILE_NAV_QUERY);
+            const handler = () => render();
+            if (typeof mq.addEventListener === 'function') {
+                mq.addEventListener('change', handler);
+            } else if (typeof mq.addListener === 'function') {
+                mq.addListener(handler);
+            }
+        } catch (error) {
+            // best-effort responsive re-homing of the nav
+        }
+    }
+
     function boot() {
         if (isParentOnlyPage()) {
             persistCurrentUserMode('parent');
@@ -321,6 +351,7 @@
             persistLastViewedKidId(urlKidId);
         }
         render();
+        watchViewport();
     }
 
     window.KidAppNavigation = {

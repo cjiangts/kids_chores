@@ -301,6 +301,30 @@ function persistCurrentFamilyNavigationPointer(familyId) {
 // =====================================================================
 // === 3. Kid CRUD + cache + load
 // =====================================================================
+
+// Transient failures (mobile network blips, Railway cold-start 502/503) are
+// common; retry a couple times with backoff before surfacing an error so a
+// single hiccup doesn't pop the scary dialog. 4xx won't recover — fail fast.
+async function fetchOkWithRetry(url, { retries = 3, delayMs = 500 } = {}) {
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) return response;
+            if (response.status >= 400 && response.status < 500) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            lastError = new Error(`HTTP ${response.status}`);
+        } catch (error) {
+            lastError = error;
+        }
+        if (attempt < retries) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 1)));
+        }
+    }
+    throw lastError || new Error('Request failed');
+}
+
 async function loadKids(options = {}) {
     const preferNavigationCache = Boolean(options?.preferNavigationCache);
     let usedNavigationCache = false;
@@ -319,15 +343,9 @@ async function loadKids(options = {}) {
             adminOptinPanel.classList.add('hidden');
         }
         const [kidsResponse, categoriesResponse] = await Promise.all([
-            fetch(`${API_BASE}/kids?view=admin_compact`),
-            fetch(`${API_BASE}/shared-decks/categories`),
+            fetchOkWithRetry(`${API_BASE}/kids?view=admin_compact`),
+            fetchOkWithRetry(`${API_BASE}/shared-decks/categories`),
         ]);
-        if (!kidsResponse.ok) {
-            throw new Error(`HTTP error! status: ${kidsResponse.status}`);
-        }
-        if (!categoriesResponse.ok) {
-            throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
-        }
         const kids = await kidsResponse.json();
         const categoryData = await categoriesResponse.json().catch(() => ({}));
         adminCategoryMetaByKey = buildCategoryMetaByKey(categoryData.categories);
@@ -348,7 +366,7 @@ async function loadKids(options = {}) {
         if (!usedNavigationCache) {
             currentKids = [];
             kidsLoaded = true;
-            showError('Failed to load kids. Make sure the backend server is running on port 5001.');
+            showError('Couldn’t reach the server. Check your connection and tap Home again.');
             renderAll();
         }
     }
