@@ -117,39 +117,6 @@ def delete_point_rule(rule_id):
     return jsonify({'rule': rule}), 200
 
 
-@points_bp.route('/points/kid-totals', methods=['GET'])
-def get_kid_point_totals():
-    family_id, error = _family_id_or_response()
-    if error:
-        return error
-    rows = []
-    for kid in metadata.get_all_kids(family_id=family_id):
-        kid_id = str(kid.get('id') or '')
-        if not kid_id:
-            continue
-        kid_conn = None
-        shared_conn = None
-        try:
-            kid_conn = get_kid_connection_for(kid, read_only=True)
-            shared_conn = get_shared_decks_connection(read_only=True)
-            total = get_point_total(kid_conn)
-            reward_bucket_totals = get_reward_bucket_totals(kid_conn, shared_conn, family_id)
-        except Exception:
-            total = 0
-            reward_bucket_totals = {}
-        finally:
-            if shared_conn is not None:
-                shared_conn.close()
-            if kid_conn is not None:
-                kid_conn.close()
-        rows.append({
-            'kidId': kid_id,
-            'totalPoints': total,
-            'rewardBucketTotals': reward_bucket_totals,
-        })
-    return jsonify({'totals': rows}), 200
-
-
 @points_bp.route('/kids/<kid_id>/points', methods=['GET'])
 def get_kid_points(kid_id):
     kid, family_id, error = _kid_or_response(kid_id)

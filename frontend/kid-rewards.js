@@ -370,17 +370,6 @@ async function loadPointsForSelectedKid() {
     rewardBucketTotalsByKidId.set(selectedKidId, normalizeRewardBucketTotals(pointData.rewardBucketTotals));
 }
 
-async function loadPointTotalsForKids() {
-    const data = await fetchJson(`${API_BASE}/points/kid-totals`);
-    const entries = (Array.isArray(data.totals) ? data.totals : [])
-        .map((item) => [String(item.kidId || ''), Number.parseInt(item.totalPoints, 10) || 0])
-        .filter(([kidId]) => kidId);
-    pointTotalsByKidId = new Map(entries);
-    rewardBucketTotalsByKidId = new Map((Array.isArray(data.totals) ? data.totals : [])
-        .map((item) => [String(item.kidId || ''), normalizeRewardBucketTotals(item.rewardBucketTotals)])
-        .filter(([kidId]) => kidId));
-}
-
 async function loadInitialData() {
     showError('');
     const [kidsData, rulesData] = await Promise.all([
@@ -393,7 +382,7 @@ async function loadInitialData() {
     syncSelectedKidNavigation();
     selectedRedeemHistoryDayKey = todayHistoryDayKey();
     selectedPointHistoryDayKey = todayHistoryDayKey();
-    await Promise.all([loadPointTotalsForKids(), loadPointsForSelectedKid()]);
+    await loadPointsForSelectedKid();
     render();
 }
 

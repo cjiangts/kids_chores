@@ -65,8 +65,6 @@ let activeMode = requestedMode || readStoredPointLogMode() || 'bonus';
 let selectedRuleId = 0;
 let pointDraft = { emoji: '', name: '', points: '', note: '' };
 let pointData = { totalPoints: 0, events: [] };
-let pointTotalsByKidId = new Map();
-let rewardBucketTotalsByKidId = new Map();
 let pullTodayStatusTimer = 0;
 let selectedHistoryDayKey = '';
 
@@ -145,8 +143,6 @@ function deltaClassForRule(rule) {
 }
 
 function selectedBalance() {
-    const fromTotals = pointTotalsByKidId.get(selectedKidId);
-    if (fromTotals !== undefined) return Number.parseInt(fromTotals, 10) || 0;
     return Number.parseInt(pointData.totalPoints, 10) || 0;
 }
 
@@ -182,7 +178,7 @@ function rewardBucketLabel(bucket) {
 function selectedRewardBucketBalance(rule = selectedRule()) {
     const bucket = rewardBucketForRule(rule);
     if (!bucket) return selectedBalance();
-    const totals = rewardBucketTotalsByKidId.get(selectedKidId) || normalizeRewardBucketTotals(pointData.rewardBucketTotals);
+    const totals = normalizeRewardBucketTotals(pointData.rewardBucketTotals);
     return Number.parseInt(totals?.[bucket], 10) || 0;
 }
 
@@ -310,7 +306,7 @@ function renderKids() {
             clearDraft();
             showError('');
             try {
-                await Promise.all([loadPointsForSelectedKid(), loadPointTotalsForKids()]);
+                await loadPointsForSelectedKid();
                 render();
             } catch (error) {
                 showError(error.message || 'Failed to load points.');
@@ -406,22 +402,6 @@ async function loadPointsForSelectedKid() {
     }
     const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=${POINT_HISTORY_LIMIT}`);
     pointData = data || { totalPoints: 0, events: [] };
-    rewardBucketTotalsByKidId.set(selectedKidId, normalizeRewardBucketTotals(pointData.rewardBucketTotals));
-}
-
-async function loadPointTotalsForKids() {
-    const data = await fetchJson(`${API_BASE}/points/kid-totals`);
-    const entries = (Array.isArray(data.totals) ? data.totals : [])
-        .map((item) => [String(item.kidId || ''), Number.parseInt(item.totalPoints, 10) || 0])
-        .filter(([kidId]) => kidId);
-    pointTotalsByKidId = new Map(entries);
-    rewardBucketTotalsByKidId = new Map((Array.isArray(data.totals) ? data.totals : [])
-        .map((item) => [String(item.kidId || ''), normalizeRewardBucketTotals(item.rewardBucketTotals)])
-        .filter(([kidId]) => kidId));
-    const selectedTotal = pointTotalsByKidId.get(selectedKidId);
-    if (selectedTotal !== undefined) {
-        pointData = { ...pointData, totalPoints: selectedTotal };
-    }
 }
 
 async function loadInitialData() {
@@ -437,12 +417,12 @@ async function loadInitialData() {
     rememberPointLogMode(activeMode);
     selectedHistoryDayKey = todayHistoryDayKey();
     clearDraft();
-    await Promise.all([loadPointsForSelectedKid(), loadPointTotalsForKids()]);
+    await loadPointsForSelectedKid();
     render();
 }
 
 async function refreshAfterMutation() {
-    await Promise.all([loadPointsForSelectedKid(), loadPointTotalsForKids()]);
+    await loadPointsForSelectedKid();
     render();
 }
 
