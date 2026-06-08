@@ -149,8 +149,8 @@ function updatePageText() {
     const displayName = String(activeCategoryDisplayName || modeLabel).trim() || modeLabel;
     const kidName = String(activeKidName || '').trim();
     document.title = kidName
-        ? `${kidName} - Printable work sheets (${displayName}) - The mommy app`
-        : `Printable work sheets (${displayName}) - The mommy app`;
+        ? `${kidName} - Printable work sheets (${displayName}) - The Mommy App`
+        : `Printable work sheets (${displayName}) - The Mommy App`;
     if (pageTitleEl) {
         pageTitleEl.textContent = `Printable work sheets (${displayName})`;
     }

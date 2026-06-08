@@ -135,8 +135,8 @@ function escapeHtmlLocal(text) {
 function updatePageTitle() {
     const kidName = String(currentKid?.name || '').trim();
     document.title = kidName
-        ? `${kidName} - Practice Home - The mommy app`
-        : 'Practice Home - The mommy app';
+        ? `${kidName} - Practice Home - The Mommy App`
+        : 'Practice Home - The Mommy App';
 }
 
 function openProgressReport() {

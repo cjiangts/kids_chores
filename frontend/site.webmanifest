@@ -1,14 +1,14 @@
 {
-  "name": "The mommy app",
+  "name": "The Mommy App",
   "short_name": "Mommy",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/icon-192.png?v=mommy-icon2-20260607",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-512.png?v=mommy-icon2-20260607",
       "sizes": "512x512",
       "type": "image/png"
     }

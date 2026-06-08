@@ -86,7 +86,7 @@ async function loadCardReport() {
         currentDeckName = String(card.deck_name || '').trim();
 
         pageTitle.textContent = `${displayKidName} · Card History`;
-        document.title = `${displayKidName} - Card Report - The mommy app`;
+        document.title = `${displayKidName} - Card Report - The Mommy App`;
 
         renderHero(card, attempts);
         renderTrend(attempts);
@@ -96,7 +96,7 @@ async function loadCardReport() {
     } catch (error) {
         console.error('Error loading card report:', error);
         showError('Failed to load card report.');
-        document.title = 'Card Report - The mommy app';
+        document.title = 'Card Report - The Mommy App';
     }
 }
 

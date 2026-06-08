@@ -29,7 +29,7 @@
 
 const SHELL_CACHE = 'offline-shell';
 const RUNTIME_CACHE = 'offline-runtime';
-const SHELL_BUILD_MARKER = 'offline-hub-idle-home-redirect-20260607';
+const SHELL_BUILD_MARKER = 'favicon-mommy-icon2-20260607';
 
 const SHELL_URLS = [
     '/kid-practice.html',

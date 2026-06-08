@@ -982,6 +982,63 @@
             padding-bottom: 9rem;
         }
 
+        @media (max-width: 899px) {
+            body.has-kid-app-nav .cards-selection-bar {
+                bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+                gap: 0.42rem;
+                border-radius: 14px;
+                padding: 0.58rem 0.75rem 0.68rem;
+            }
+
+            body.has-kid-app-nav .cards-selection-bar-info {
+                gap: 0.5rem;
+            }
+
+            body.has-kid-app-nav .cards-selection-count {
+                font-size: 0.95rem;
+                font-weight: 650;
+            }
+
+            body.has-kid-app-nav .cards-selection-link {
+                font-size: 0.82rem;
+                font-weight: 600;
+                padding: 0.12rem 0.04rem;
+            }
+
+            body.has-kid-app-nav .cards-selection-close-btn {
+                width: 26px;
+                height: 26px;
+                border-radius: 7px;
+            }
+
+            body.has-kid-app-nav .cards-selection-close-btn span {
+                width: 16px;
+                height: 16px;
+            }
+
+            body.has-kid-app-nav .cards-selection-bar-actions {
+                gap: 0.45rem;
+            }
+
+            body.has-kid-app-nav .cards-selection-action-btn {
+                min-height: 38px;
+                gap: 0.34rem;
+                border-radius: 10px;
+                padding: 0.5rem 0.65rem;
+                font-size: 0.84rem;
+                font-weight: 600;
+            }
+
+            body.has-kid-app-nav .cards-selection-action-icon {
+                width: 16px;
+                height: 16px;
+            }
+
+            body.has-kid-app-nav.cards-select-mode {
+                padding-bottom: calc(11.5rem + env(safe-area-inset-bottom, 0px));
+            }
+        }
+
         .cards-bulk-action-message-wrap {
             display: flex;
             justify-content: flex-end;

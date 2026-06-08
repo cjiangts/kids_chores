@@ -87,7 +87,7 @@ function applyModeChrome() {
     valueColumnHeader.textContent = cfg.valueHeader;
     searchInput.placeholder = cfg.searchPlaceholder;
     csvEditor.placeholder = cfg.csvPlaceholder;
-    document.title = `${cfg.title} - The mommy app`;
+    document.title = `${cfg.title} - The Mommy App`;
     const h1 = document.querySelector('h1');
     if (h1) {
         h1.innerHTML = `<span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span> ${escapeHtml(cfg.title)}`;
@@ -107,7 +107,7 @@ function applySuperVisibility() {
             h1.innerHTML = `<span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span> ${escapeHtml(cfg.viewTitle)}`;
             if (typeof hydrateIcons === 'function') hydrateIcons(h1);
         }
-        document.title = `${cfg.viewTitle} - The mommy app`;
+        document.title = `${cfg.viewTitle} - The Mommy App`;
     }
 }
 

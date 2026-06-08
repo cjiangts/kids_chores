@@ -593,13 +593,14 @@
     content: "";
     position: absolute;
     right: 35px;
-    top: 39px;
+    top: 50%;
     width: 9px;
     height: 9px;
     border-top: 2px solid color-mix(in srgb, var(--bubble-accent) 56%, #ffffff);
     border-right: 2px solid color-mix(in srgb, var(--bubble-accent) 56%, #ffffff);
     opacity: 0;
-    transform: rotate(45deg) translate(-5px, 5px);
+    transform: translate(-5px, -50%) rotate(45deg);
+    transform-origin: center;
     transition: opacity 0.18s ease, transform 0.18s ease;
     pointer-events: none;
 }
@@ -620,7 +621,7 @@
 .user-bubble:hover::after,
 .user-bubble:focus-visible::after {
     opacity: 1;
-    transform: rotate(45deg) translate(0, 0);
+    transform: translate(0, -50%) rotate(45deg);
 }
 
 .user-bubble:active {

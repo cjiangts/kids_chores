@@ -182,7 +182,7 @@ async function loadSessionDetail() {
             Number.parseInt(session.drill_speed_target_ms, 10) || 0
         );
         pageTitle.textContent = `${displayKidName} · Session`;
-        document.title = `${displayKidName} - Session #${session.id || sessionId} - The mommy app`;
+        document.title = `${displayKidName} - Session #${session.id || sessionId} - The Mommy App`;
 
         const answers = Array.isArray(data.answers) ? data.answers : [];
         currentAnswers = answers;
@@ -195,7 +195,7 @@ async function loadSessionDetail() {
     } catch (error) {
         console.error('Error loading session detail:', error);
         showError('Failed to load session detail.');
-        document.title = 'Session Detail - The mommy app';
+        document.title = 'Session Detail - The Mommy App';
     }
 }
 

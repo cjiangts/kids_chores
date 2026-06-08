@@ -38,7 +38,7 @@ async function bootFamilyHome() {
     try {
         const [status, kids] = await Promise.all([
             fetchJson(`${API_BASE}/family-auth/status`),
-            fetchJson(`${API_BASE}/kids?view=admin_compact`),
+            fetchJson(`${API_BASE}/kids?view=family_home`),
         ]);
         if (!status.authenticated) {
             window.location.href = '/family-login.html?next=/family-home.html';
@@ -551,7 +551,7 @@ async function refreshFamilyHomeSnapshot() {
     if (familyHomeRefreshing) return;
     familyHomeRefreshing = true;
     try {
-        const kids = await fetchJson(`${API_BASE}/kids?view=admin_compact`);
+        const kids = await fetchJson(`${API_BASE}/kids?view=family_home`);
         currentKids = Array.isArray(kids) ? kids : [];
         await refreshOfflineOwnedKidIds();
         renderBubbles();

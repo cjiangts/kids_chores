@@ -117,6 +117,22 @@ def get_kids():
                 }
                 for kid in kids
             ]), 200
+        if view == 'family_home':
+            # The family-home user picker only needs id/name + offline-lock badge.
+            # Skip the per-kid DB opens + dashboard stats the admin matrix needs.
+            offline_lock_by_kid = {
+                str(entry.get('kid_id') or ''): entry
+                for entry in get_locks_for_family(family_id)
+                if entry.get('kid_id') is not None
+            }
+            return jsonify([
+                {
+                    'id': kid.get('id'),
+                    'name': kid.get('name'),
+                    'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
+                }
+                for kid in kids
+            ]), 200
 
         is_super = is_super_family_id(family_id)
         all_category_meta_by_key = get_shared_deck_category_meta_by_key()

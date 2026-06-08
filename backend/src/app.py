@@ -155,8 +155,11 @@ def create_app():
         if path.startswith('/api/family-auth/'):
             return None
 
-        public_frontend_paths = {'/', '/index.html', '/family-login.html', '/family-register.html'}
-        public_assets = (
+        # Public static assets are served regardless of auth, so short-circuit
+        # them before is_family_authenticated() — that call re-reads/parses the
+        # whole metadata file under a process-wide lock, and a single page load
+        # pulls in ~15 of these assets. Skipping it here is the bulk of the win.
+        if (
             path.endswith('.css')
             or path.endswith('.js')
             or path.endswith('.png')
@@ -166,12 +169,15 @@ def create_app():
             or path.endswith('.ico')
             or path.endswith('.webmanifest')
             or path.startswith('/fonts/')
-        )
+            or path == '/robots.txt'
+        ):
+            return None
 
+        public_frontend_paths = {'/', '/index.html', '/family-login.html', '/family-register.html'}
         if not is_family_authenticated():
             if path.startswith('/api/'):
                 return jsonify({'error': 'Family login required'}), 401
-            if path in public_frontend_paths or public_assets:
+            if path in public_frontend_paths:
                 return None
             next_path = request.full_path if request.query_string else request.path
             if next_path.endswith('?'):
@@ -603,6 +609,11 @@ def create_app():
     @app.route('/health', methods=['GET'])
     def health():
         return {'status': 'healthy'}, 200
+
+    @app.route('/robots.txt', methods=['GET'])
+    def robots_txt():
+        # Private, login-gated family app — nothing to crawl or index.
+        return app.response_class('User-agent: *\nDisallow: /\n', mimetype='text/plain')
 
     frontend_dir = os.path.join(PROJECT_ROOT, 'frontend')
 

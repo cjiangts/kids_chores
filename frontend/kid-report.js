@@ -91,11 +91,11 @@ async function loadReport() {
         const sessions = Array.isArray(data.sessions) ? data.sessions : [];
         reportRenderer.setData({ sessions, familyTimezone: data.family_timezone });
         reportTitle.textContent = 'View Reports';
-        document.title = 'View Reports - The mommy app';
+        document.title = 'View Reports - The Mommy App';
     } catch (error) {
         console.error('Error loading report:', error);
         showError('Failed to load practice report.');
-        document.title = 'View Reports - The mommy app';
+        document.title = 'View Reports - The Mommy App';
     }
 }
 
