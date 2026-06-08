@@ -708,32 +708,32 @@ async function handleRebuildDatabases() {
     rebuildDbBtn.disabled = true;
     if (label) label.textContent = 'Rebuilding…';
     if (rebuildDbResult) rebuildDbResult.classList.add('hidden');
-    showFamilyAdminError('');
-    showFamilyAdminSuccess('');
+    showError('');
     try {
         const response = await fetch(`${API_BASE}/parent-settings/rebuild-databases`, { method: 'POST' });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
-            showFamilyAdminError(result.error || `Rebuild failed (HTTP ${response.status})`);
+            showError(result.error || `Rebuild failed (HTTP ${response.status})`);
             return;
         }
         const kids = Array.isArray(result.kids) ? result.kids : [];
-        const failures = kids.filter((k) => k && k.error);
-        const reclaimed = formatBytes(result.totalReclaimedBytes);
-        const summary = `Rebuilt ${kids.length - failures.length}/${kids.length} databases · reclaimed ${reclaimed} `
-            + `(${formatBytes(result.totalOldBytes)} → ${formatBytes(result.totalNewBytes)})`
-            + (failures.length ? ` · ${failures.length} failed` : '');
+        const kidFailures = kids.filter((k) => k && k.error).length;
+        const sharedFailed = Boolean(result.sharedDecks && result.sharedDecks.error);
+        const dbCount = kids.length + 1; // kid DBs + the shared decks DB
+        const okCount = (kids.length - kidFailures) + (sharedFailed ? 0 : 1);
+        const failed = kidFailures + (sharedFailed ? 1 : 0);
         if (rebuildDbResult) {
-            rebuildDbResult.textContent = summary;
+            rebuildDbResult.textContent = `Rebuilt ${okCount}/${dbCount} databases · reclaimed ${formatBytes(result.totalReclaimedBytes)} `
+                + `(${formatBytes(result.totalOldBytes)} → ${formatBytes(result.totalNewBytes)})`
+                + (failed ? ` · ${failed} failed` : '');
             rebuildDbResult.classList.remove('hidden');
         }
-        showFamilyAdminSuccess('Databases rebuilt.');
         loadFamilyAccounts();
     } catch (error) {
-        showFamilyAdminError(error.message || 'Rebuild failed.');
+        showError(error.message || 'Rebuild failed.');
     } finally {
         rebuildDbBtn.disabled = false;
-        if (label) label.textContent = originalText || 'Rebuild databases';
+        if (label) label.textContent = originalText || 'Rebuild Databases';
     }
 }
 

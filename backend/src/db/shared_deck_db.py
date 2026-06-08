@@ -4,6 +4,8 @@ from typing import Optional
 
 import duckdb
 
+from src.db.duckdb_maintenance import compact_duckdb_file
+
 DATA_DIR = os.path.join(os.path.dirname(__file__), '../../data')
 SHARED_DB_FILE_NAME = 'shared_decks.duckdb'
 SHARED_DB_PATH = os.path.abspath(os.path.join(DATA_DIR, SHARED_DB_FILE_NAME))
@@ -56,3 +58,8 @@ def get_shared_decks_connection(read_only: bool = False) -> duckdb.DuckDBPyConne
     if not os.path.exists(SHARED_DB_PATH):
         init_shared_decks_database()
     return _connect_shared_db()
+
+
+def rebuild_shared_decks_database() -> dict:
+    """Compact the shared decks DuckDB file (reclaims dead space). See compact_duckdb_file."""
+    return compact_duckdb_file(SHARED_DB_PATH)

@@ -29,7 +29,7 @@ from src.routes.kids import (
 from src.routes.backup import backup_bp
 from src.routes.points import points_bp
 from src.db import metadata, kid_db
-from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection
+from src.db.shared_deck_db import init_shared_decks_database, get_shared_decks_connection, rebuild_shared_decks_database
 from src.startup_backfills import ensure_kid_db_schema
 from src.audio_cleanup import start_kid_audio_cleanup_scheduler
 from src.security_rate_limit import (
@@ -559,8 +559,18 @@ def create_app():
                 entry['error'] = str(exc)
             results.append(entry)
 
+        shared = {}
+        try:
+            shared = rebuild_shared_decks_database()
+            total_old += int(shared['old_bytes'])
+            total_new += int(shared['new_bytes'])
+        except Exception as exc:
+            app.logger.warning('rebuild failed for shared decks DB: %s', exc)
+            shared = {'error': str(exc)}
+
         return jsonify({
             'kids': results,
+            'sharedDecks': shared,
             'totalOldBytes': total_old,
             'totalNewBytes': total_new,
             'totalReclaimedBytes': max(0, total_old - total_new),
