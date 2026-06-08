@@ -726,6 +726,15 @@
                         <div id="familyStorageSummary" class="settings-note hidden"></div>
                         <div id="familyAccountsEmpty" class="settings-note hidden">No family accounts found.</div>
                         <div id="familyAccountsList" class="family-accounts-list"></div>
+                        <div class="settings-db-maintenance">
+                            <h3 class="settings-subhead"><span class="icon" data-icon="database" data-icon-size="18"></span> Database maintenance</h3>
+                            <p class="settings-note">Rebuilds every kid's database file to reclaim space DuckDB leaves behind, which speeds up loads. Safe — no practice data is changed.</p>
+                            <button type="button" id="rebuildDbBtn" class="btn-secondary">
+                                <span class="btn-icon" aria-hidden="true"><span class="icon" data-icon="hard-drive" data-icon-size="20"></span></span>
+                                <span class="btn-label">Rebuild databases</span>
+                            </button>
+                            <div id="rebuildDbResult" class="settings-note hidden"></div>
+                        </div>
                         <div id="familyAdminError" class="error hidden"></div>
                         <div id="familyAdminSuccess" class="success hidden"></div>
                     </div>

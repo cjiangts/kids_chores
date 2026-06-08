@@ -1,6 +1,7 @@
 """DuckDB connection manager for individual kid databases"""
 import duckdb
 import os
+import uuid
 from typing import Optional
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '../../data')
@@ -87,3 +88,46 @@ def delete_kid_database_by_path(db_file_path: str) -> bool:
         os.remove(db_path)
         return True
     return False
+
+
+def rebuild_kid_database_by_path(db_file_path: str) -> dict:
+    """Compact a kid DuckDB file by copying it into a fresh one, then swap it in.
+
+    DuckDB never shrinks a file on its own — high-frequency UPDATE/DELETE (per
+    answer EMA, retries, session deletes) leaves dead row-groups that VACUUM /
+    CHECKPOINT do not reclaim. `COPY FROM DATABASE` rebuilds schema + sequences
+    + indexes + data into a clean file; we then atomically replace the original.
+    Returns {old_bytes, new_bytes, reclaimed_bytes}.
+    """
+    db_path = get_absolute_db_path(db_file_path)
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Database not found at {db_file_path}")
+    old_bytes = os.path.getsize(db_path)
+    tmp_path = f"{db_path}.rebuild-{uuid.uuid4().hex}.tmp"
+
+    def _q(path):
+        return path.replace("'", "''")
+
+    conn = duckdb.connect()
+    try:
+        conn.execute("SET TimeZone='UTC'")
+        conn.execute(f"ATTACH '{_q(db_path)}' AS old_db (READ_ONLY)")
+        conn.execute(f"ATTACH '{_q(tmp_path)}' AS new_db")
+        conn.execute("COPY FROM DATABASE old_db TO new_db")
+        conn.execute("CHECKPOINT new_db")
+    except Exception:
+        conn.close()
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
+    conn.close()
+
+    new_bytes = os.path.getsize(tmp_path)
+    # Atomic on the same filesystem; existing open handles keep the old inode
+    # until they close, new connections get the compacted file.
+    os.replace(tmp_path, db_path)
+    return {
+        'old_bytes': old_bytes,
+        'new_bytes': new_bytes,
+        'reclaimed_bytes': max(0, old_bytes - new_bytes),
+    }

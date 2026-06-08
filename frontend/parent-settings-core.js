@@ -52,6 +52,8 @@ const familyStorageSummary = document.getElementById('familyStorageSummary');
 const familyAccountsEmpty = document.getElementById('familyAccountsEmpty');
 const familyAdminError = document.getElementById('familyAdminError');
 const familyAdminSuccess = document.getElementById('familyAdminSuccess');
+const rebuildDbBtn = document.getElementById('rebuildDbBtn');
+const rebuildDbResult = document.getElementById('rebuildDbResult');
 const trustedBrowsersList = document.getElementById('trustedBrowsersList');
 const trustedBrowsersEmpty = document.getElementById('trustedBrowsersEmpty');
 const trustedBrowsersError = document.getElementById('trustedBrowsersError');
@@ -271,6 +273,10 @@ if (familyAccountsList) {
         }
         await deleteFamilyAccount(familyId, familyUsername);
     });
+}
+
+if (rebuildDbBtn) {
+    rebuildDbBtn.addEventListener('click', handleRebuildDatabases);
 }
 
 if (trustedBrowsersList) {
@@ -689,6 +695,45 @@ async function loadFamilyRole() {
         }
         showFamilyAdminError('');
         showFamilyAdminSuccess('');
+    }
+}
+
+async function handleRebuildDatabases() {
+    if (!rebuildDbBtn) return;
+    if (!window.confirm('Rebuild all kid databases? This compacts the files to reclaim space. Practice data is preserved.')) {
+        return;
+    }
+    const label = rebuildDbBtn.querySelector('.btn-label');
+    const originalText = label ? label.textContent : '';
+    rebuildDbBtn.disabled = true;
+    if (label) label.textContent = 'Rebuilding…';
+    if (rebuildDbResult) rebuildDbResult.classList.add('hidden');
+    showFamilyAdminError('');
+    showFamilyAdminSuccess('');
+    try {
+        const response = await fetch(`${API_BASE}/parent-settings/rebuild-databases`, { method: 'POST' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showFamilyAdminError(result.error || `Rebuild failed (HTTP ${response.status})`);
+            return;
+        }
+        const kids = Array.isArray(result.kids) ? result.kids : [];
+        const failures = kids.filter((k) => k && k.error);
+        const reclaimed = formatBytes(result.totalReclaimedBytes);
+        const summary = `Rebuilt ${kids.length - failures.length}/${kids.length} databases · reclaimed ${reclaimed} `
+            + `(${formatBytes(result.totalOldBytes)} → ${formatBytes(result.totalNewBytes)})`
+            + (failures.length ? ` · ${failures.length} failed` : '');
+        if (rebuildDbResult) {
+            rebuildDbResult.textContent = summary;
+            rebuildDbResult.classList.remove('hidden');
+        }
+        showFamilyAdminSuccess('Databases rebuilt.');
+        loadFamilyAccounts();
+    } catch (error) {
+        showFamilyAdminError(error.message || 'Rebuild failed.');
+    } finally {
+        rebuildDbBtn.disabled = false;
+        if (label) label.textContent = originalText || 'Rebuild databases';
     }
 }
 

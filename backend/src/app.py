@@ -529,6 +529,43 @@ def create_app():
             }
         }, 200
 
+    @app.route('/api/parent-settings/rebuild-databases', methods=['POST'])
+    def rebuild_kid_databases():
+        auth_err = require_super_family_auth()
+        if auth_err:
+            return auth_err
+
+        results = []
+        total_old = 0
+        total_new = 0
+        for kid in metadata.get_all_kids():
+            db_rel = str(kid.get('dbFilePath') or '').strip()
+            entry = {
+                'kidId': kid.get('id'),
+                'kidName': kid.get('name'),
+                'familyId': kid.get('familyId'),
+            }
+            if not db_rel:
+                entry['error'] = 'missing dbFilePath'
+                results.append(entry)
+                continue
+            try:
+                stats = kid_db.rebuild_kid_database_by_path(db_rel)
+                total_old += int(stats['old_bytes'])
+                total_new += int(stats['new_bytes'])
+                entry.update(stats)
+            except Exception as exc:
+                app.logger.warning('rebuild failed for kid %s: %s', kid.get('id'), exc)
+                entry['error'] = str(exc)
+            results.append(entry)
+
+        return jsonify({
+            'kids': results,
+            'totalOldBytes': total_old,
+            'totalNewBytes': total_new,
+            'totalReclaimedBytes': max(0, total_old - total_new),
+        }), 200
+
     @app.route('/api/parent-settings/families/<family_id>', methods=['DELETE'])
     def delete_family_account(family_id):
         auth_err = require_super_family_auth()
