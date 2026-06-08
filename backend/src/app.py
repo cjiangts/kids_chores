@@ -673,7 +673,14 @@ def create_app():
     @app.route('/<path:path>')
     def serve_frontend(path):
         if os.path.exists(os.path.join(frontend_dir, path)):
-            return send_from_directory(frontend_dir, path)
+            response = send_from_directory(frontend_dir, path)
+            # Fonts never change — cache them immutably so the browser stops
+            # re-fetching (and even re-validating). If a font ever changes, ship
+            # it under a new filename. Other assets (js/css/html) change per
+            # deploy and keep Flask's default revalidate behavior.
+            if path.startswith('fonts/') or path.lower().endswith(('.ttf', '.woff', '.woff2', '.otf')):
+                response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+            return response
         return send_from_directory(frontend_dir, 'index.html')
 
     return app
