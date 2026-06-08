@@ -1,4 +1,6 @@
 (function () {
+    const DEFAULT_RECENT_LIMIT = 20;
+
     function escapeHtml(value) {
         return String(value || '')
             .replace(/&/g, '&amp;')
@@ -100,6 +102,21 @@
         return `${date.toLocaleDateString([], { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' })} (${diffDays} days ago)`;
     }
 
+    function compactDayLabel(dayKey, timezone) {
+        const date = dateFromDayKey(dayKey);
+        if (!date) return '';
+        const todayKey = dateKeyInTimezone(new Date(), timezone);
+        const diffDays = daysBetweenDayKeys(dayKey, todayKey);
+        if (diffDays === 0) return 'Today';
+        if (diffDays === 1) return 'Yesterday';
+        return date.toLocaleDateString([], {
+            timeZone: 'UTC',
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+        });
+    }
+
     function daysBetweenDayKeys(fromKey, toKey) {
         const from = dateFromDayKey(fromKey);
         const to = dateFromDayKey(toKey);
@@ -120,8 +137,37 @@
     function updateDayLabel(container, label) {
         const host = container?.closest?.('.point-history-section')?.querySelector?.('[data-point-history-day-label]');
         if (!host) return;
-        host.textContent = label || '';
+        if (!host.dataset.pointHistoryClearBound) {
+            host.dataset.pointHistoryClearBound = '1';
+            host.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-history-clear-filter]');
+                if (!button) return;
+                event.preventDefault();
+                container.dispatchEvent(new CustomEvent('point-history-clear-filter', { bubbles: true }));
+            });
+        }
+        host.innerHTML = label
+            ? `<button type="button" class="point-history-filter-chip" data-history-clear-filter aria-label="Clear date filter">${escapeHtml(label)}<span class="point-history-filter-chip-x" aria-hidden="true">×</span></button>`
+            : '';
         host.classList.toggle('hidden', !label);
+    }
+
+    function bindWeekNavigation(container) {
+        if (!container || container.dataset.pointHistoryWeekNavBound) return;
+        container.dataset.pointHistoryWeekNavBound = '1';
+        container.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-history-week-anchor]');
+            if (!button) return;
+            const anchorDayKey = String(button.dataset.historyWeekAnchor || '').trim();
+            if (!anchorDayKey) return;
+            event.preventDefault();
+            event.stopPropagation();
+            container.dataset.pointHistoryWeekAnchorDayKey = anchorDayKey;
+            render(container, {
+                ...(container.__pointHistoryLastOptions || {}),
+                weekAnchorDayKey: anchorDayKey,
+            });
+        });
     }
 
     function historyIconHtml(rule, delta) {
@@ -141,7 +187,7 @@
         return !isRedeemed;
     }
 
-    function renderWeekStrip(events, selectedDayKey, timezone, mode) {
+    function renderWeekStrip(events, anchorDayKey, activeDayKey, timezone, mode) {
         const totalsByDay = new Map();
         events.forEach((event) => {
             const dayKey = dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone);
@@ -150,28 +196,28 @@
             const delta = Number.parseInt(event.pointsDelta, 10) || 0;
             totalsByDay.set(dayKey, (totalsByDay.get(dayKey) || 0) + delta);
         });
-        const selectedWeekStart = weekStartKey(selectedDayKey);
+        const selectedWeekStart = weekStartKey(anchorDayKey);
         const currentWeekStart = weekStartKey(dateKeyInTimezone(new Date(), timezone));
         const canGoNext = selectedWeekStart && currentWeekStart
             ? daysBetweenDayKeys(selectedWeekStart, currentWeekStart) > 0
             : false;
-        const previousWeekDayKey = addDaysToDayKey(selectedDayKey, -7);
-        const nextWeekDayKey = addDaysToDayKey(selectedDayKey, 7);
-        const labelText = weekLabel(selectedDayKey, timezone);
+        const previousWeekDayKey = addDaysToDayKey(anchorDayKey, -7);
+        const nextWeekDayKey = addDaysToDayKey(anchorDayKey, 7);
+        const labelText = weekLabel(anchorDayKey, timezone);
         return `
             <div class="point-week-strip" role="tablist" aria-label="${escapeHtml(labelText)} point history">
                 <div class="point-week-label">
                     <span class="point-week-label-text">${escapeHtml(labelText)}</span>
                     <span class="point-week-nav" aria-label="Week navigation">
-                        <button type="button" class="point-week-nav-btn" data-history-day="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 14, strokeWidth: 2.9 })}</button>
-                        <button type="button" class="point-week-nav-btn" data-history-day="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 14, strokeWidth: 2.9 })}</button>
+                        <button type="button" class="point-week-nav-btn" data-history-week-anchor="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 14, strokeWidth: 2.9 })}</button>
+                        <button type="button" class="point-week-nav-btn" data-history-week-anchor="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 14, strokeWidth: 2.9 })}</button>
                     </span>
                 </div>
-                ${weekDayKeysForSelectedDay(selectedDayKey).map((dayKey) => {
+                ${weekDayKeysForSelectedDay(anchorDayKey).map((dayKey) => {
             const day = dateFromDayKey(dayKey);
             const hasEvents = totalsByDay.has(dayKey);
             const total = totalsByDay.get(dayKey) || 0;
-            const isActive = dayKey === selectedDayKey;
+            const isActive = Boolean(activeDayKey) && dayKey === activeDayKey;
             const valueClass = total < 0 ? 'negative' : (total > 0 ? 'positive' : 'empty');
             const value = total === 0 ? '-' : formatDelta(total);
             return `
@@ -193,41 +239,27 @@
         `;
     }
 
-    function render(container, options) {
-        if (!container) return '';
-        const opts = options || {};
-        const selectedKidId = String(opts.selectedKidId || '').trim();
-        const events = Array.isArray(opts.events) ? opts.events : [];
-        const timezone = String(opts.familyTimezone || '').trim();
-        if (!timezone) {
-            updateDayLabel(container, '');
-            container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyTimezone || 'Family timezone is not configured.')}</div>`;
-            return '';
-        }
-        const selectedDayKey = String(opts.selectedDayKey || dateKeyInTimezone(new Date(), timezone));
-        updateDayLabel(container, historyDayHeading(selectedDayKey, timezone));
-        const showDelete = opts.showDelete !== false;
-        const mode = opts.mode === 'redeemed' ? 'redeemed' : 'points';
-        if (!selectedKidId) {
-            container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyNoKid || 'Select a kid to see point history.')}</div>`;
-            return selectedDayKey;
-        }
-        const scopedEvents = events.filter((event) => shouldIncludeEvent(event, mode));
-        const selectedEvents = scopedEvents.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === selectedDayKey);
-        const selectedListHtml = selectedEvents.length
-            ? `
-            <section class="point-history-group">
-                <div class="point-history-group-list">
-                    ${selectedEvents.map((event) => {
-                const rule = event.rule || {};
-                const delta = Number.parseInt(event.pointsDelta, 10) || 0;
-                const deltaClass = isRedeemedRewardKind(rule?.ruleKind)
-                    ? 'redeemed'
-                    : (delta >= 0 ? 'positive' : 'negative');
-                const note = String(event.note || '').trim();
-                const timeLabel = formatHistoryTime(event.createdAt, timezone);
-                return `
-                <div class="point-history-row${showDelete ? '' : ' no-delete'}" data-event-id="${escapeHtml(event.eventId)}">
+    function sortEventsNewestFirst(events) {
+        return [...events].sort((a, b) => {
+            const bTime = parseHistoryDate(b?.createdAt).getTime();
+            const aTime = parseHistoryDate(a?.createdAt).getTime();
+            const safeB = Number.isFinite(bTime) ? bTime : 0;
+            const safeA = Number.isFinite(aTime) ? aTime : 0;
+            return safeB - safeA;
+        });
+    }
+
+    function eventRowHtml(event, opts, timezone, showDelete, extraClass = '') {
+        const rule = event.rule || {};
+        const delta = Number.parseInt(event.pointsDelta, 10) || 0;
+        const deltaClass = isRedeemedRewardKind(rule?.ruleKind)
+            ? 'redeemed'
+            : (delta >= 0 ? 'positive' : 'negative');
+        const note = String(event.note || '').trim();
+        const timeLabel = formatHistoryTime(event.createdAt, timezone);
+        const className = `point-history-row${showDelete ? '' : ' no-delete'}${extraClass ? ` ${extraClass}` : ''}`;
+        return `
+                <div class="${escapeHtml(className)}" data-event-id="${escapeHtml(event.eventId)}">
                     <span class="point-history-time">${escapeHtml(timeLabel)}</span>
                     <span class="point-history-node" aria-hidden="true"></span>
                     <div class="point-history-icon">${historyIconHtml(rule, delta)}</div>
@@ -247,20 +279,70 @@
                     ` : ''}
                 </div>
             `;
-            }).join('')}
+    }
+
+    function renderEventList(events, opts, timezone, showDelete, showDayBoundaries) {
+        let previousDayKey = '';
+        return events.map((event, index) => {
+            const dayKey = dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone);
+            const nextDayKey = dateKeyInTimezone(parseHistoryDate(events[index + 1]?.createdAt), timezone);
+            const extraClass = showDayBoundaries && dayKey && dayKey !== nextDayKey ? 'is-day-last' : '';
+            const boundary = showDayBoundaries && dayKey && dayKey !== previousDayKey
+                ? `<div class="point-history-day-boundary"><span class="point-history-day-boundary-label">${escapeHtml(compactDayLabel(dayKey, timezone))}</span></div>`
+                : '';
+            if (dayKey) previousDayKey = dayKey;
+            return `${boundary}${eventRowHtml(event, opts, timezone, showDelete, extraClass)}`;
+        }).join('');
+    }
+
+    function render(container, options) {
+        if (!container) return '';
+        const opts = options || {};
+        bindWeekNavigation(container);
+        container.__pointHistoryLastOptions = opts;
+        const selectedKidId = String(opts.selectedKidId || '').trim();
+        const events = Array.isArray(opts.events) ? opts.events : [];
+        const timezone = String(opts.familyTimezone || '').trim();
+        if (!timezone) {
+            updateDayLabel(container, '');
+            container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyTimezone || 'Family timezone is not configured.')}</div>`;
+            return '';
+        }
+        const activeDayKey = String(opts.selectedDayKey || '').trim();
+        const requestedAnchorDayKey = String(opts.weekAnchorDayKey || container.dataset.pointHistoryWeekAnchorDayKey || '').trim();
+        const anchorDayKey = requestedAnchorDayKey || activeDayKey || dateKeyInTimezone(new Date(), timezone);
+        if (anchorDayKey) {
+            container.dataset.pointHistoryWeekAnchorDayKey = anchorDayKey;
+        }
+        updateDayLabel(container, activeDayKey ? compactDayLabel(activeDayKey, timezone) : '');
+        const showDelete = opts.showDelete !== false;
+        const mode = opts.mode === 'redeemed' ? 'redeemed' : 'points';
+        if (!selectedKidId) {
+            container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyNoKid || 'Select a kid to see point history.')}</div>`;
+            return activeDayKey;
+        }
+        const scopedEvents = sortEventsNewestFirst(events.filter((event) => shouldIncludeEvent(event, mode)));
+        const selectedEvents = activeDayKey
+            ? scopedEvents.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === activeDayKey)
+            : scopedEvents.slice(0, Number.parseInt(opts.recentLimit, 10) > 0 ? Number.parseInt(opts.recentLimit, 10) : DEFAULT_RECENT_LIMIT);
+        const selectedListHtml = selectedEvents.length
+            ? `
+            <section class="point-history-group">
+                <div class="point-history-group-list">
+                    ${renderEventList(selectedEvents, opts, timezone, showDelete, true)}
                 </div>
             </section>
         `
             : `
             <section class="point-history-group">
-                <div class="point-empty">${escapeHtml(opts.emptyDay || 'No point events for this day.')}</div>
+                <div class="point-empty">${escapeHtml(activeDayKey ? (opts.emptyDay || 'No point events for this day.') : (opts.emptyRecent || 'No recent point activity.'))}</div>
             </section>
         `;
-        container.innerHTML = `${renderWeekStrip(scopedEvents, selectedDayKey, timezone, mode)}${selectedListHtml}`;
+        container.innerHTML = `${renderWeekStrip(scopedEvents, anchorDayKey, activeDayKey, timezone, mode)}${selectedListHtml}`;
         if (typeof window.hydrateIcons === 'function') {
             window.hydrateIcons(container);
         }
-        return selectedDayKey;
+        return activeDayKey;
     }
 
     window.PointHistoryCommon = {

@@ -237,8 +237,8 @@ function renderKids() {
             if (!kidId || kidId === selectedKidId) return;
             selectedKidId = kidId;
             syncSelectedKidNavigation();
-            selectedRedeemHistoryDayKey = todayHistoryDayKey();
-            selectedPointHistoryDayKey = todayHistoryDayKey();
+            selectedRedeemHistoryDayKey = '';
+            selectedPointHistoryDayKey = '';
             showError('');
             try {
                 await loadPointsForSelectedKid();
@@ -276,16 +276,12 @@ function handleHistoryDayClick(event, historyKind) {
     const nextDayKey = String(dayButton.dataset.historyDay || '');
     if (!nextDayKey) return;
     if (historyKind === 'redeemed') {
-        if (nextDayKey !== selectedRedeemHistoryDayKey) {
-            selectedRedeemHistoryDayKey = nextDayKey;
-            renderHistory();
-        }
+        selectedRedeemHistoryDayKey = nextDayKey === selectedRedeemHistoryDayKey ? '' : nextDayKey;
+        renderHistory();
         return;
     }
-    if (nextDayKey !== selectedPointHistoryDayKey) {
-        selectedPointHistoryDayKey = nextDayKey;
-        renderHistory();
-    }
+    selectedPointHistoryDayKey = nextDayKey === selectedPointHistoryDayKey ? '' : nextDayKey;
+    renderHistory();
 }
 
 function renderRuleTabs() {
@@ -380,8 +376,8 @@ async function loadInitialData() {
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
     selectedKidId = initialKidId();
     syncSelectedKidNavigation();
-    selectedRedeemHistoryDayKey = todayHistoryDayKey();
-    selectedPointHistoryDayKey = todayHistoryDayKey();
+    selectedRedeemHistoryDayKey = '';
+    selectedPointHistoryDayKey = '';
     await loadPointsForSelectedKid();
     render();
 }
@@ -402,6 +398,16 @@ kidRedeemHistory?.addEventListener('click', (event) => {
 
 kidPointHistory?.addEventListener('click', (event) => {
     handleHistoryDayClick(event, 'points');
+});
+
+kidRedeemHistory?.addEventListener('point-history-clear-filter', () => {
+    selectedRedeemHistoryDayKey = '';
+    renderHistory();
+});
+
+kidPointHistory?.addEventListener('point-history-clear-filter', () => {
+    selectedPointHistoryDayKey = '';
+    renderHistory();
 });
 
 loadInitialData().catch((error) => {

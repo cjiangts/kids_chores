@@ -302,7 +302,7 @@ function renderKids() {
             if (!kidId || kidId === selectedKidId) return;
             selectedKidId = kidId;
             syncSelectedKidNavigation();
-            selectedHistoryDayKey = todayHistoryDayKey();
+            selectedHistoryDayKey = '';
             clearDraft();
             showError('');
             try {
@@ -415,7 +415,7 @@ async function loadInitialData() {
     selectedKidId = initialKidId();
     syncSelectedKidNavigation();
     rememberPointLogMode(activeMode);
-    selectedHistoryDayKey = todayHistoryDayKey();
+    selectedHistoryDayKey = '';
     clearDraft();
     await loadPointsForSelectedKid();
     render();
@@ -560,10 +560,9 @@ pointHistory.addEventListener('click', async (event) => {
     const dayButton = event.target.closest('[data-history-day]');
     if (dayButton) {
         const nextDayKey = String(dayButton.dataset.historyDay || '');
-        if (nextDayKey && nextDayKey !== selectedHistoryDayKey) {
-            selectedHistoryDayKey = nextDayKey;
-            renderHistory();
-        }
+        if (!nextDayKey) return;
+        selectedHistoryDayKey = nextDayKey === selectedHistoryDayKey ? '' : nextDayKey;
+        renderHistory();
         return;
     }
 
@@ -583,6 +582,11 @@ pointHistory.addEventListener('click', async (event) => {
         showError(error.message || 'Failed to delete point event.');
         button.disabled = false;
     }
+});
+
+pointHistory.addEventListener('point-history-clear-filter', () => {
+    selectedHistoryDayKey = '';
+    renderHistory();
 });
 
 pullTodaySessionsBtn?.addEventListener('click', async () => {

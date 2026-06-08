@@ -158,7 +158,7 @@ function renderKids() {
             if (!kidId || kidId === selectedKidId) return;
             selectedKidId = kidId;
             selectedRewardRuleId = 0;
-            selectedHistoryDayKey = todayHistoryDayKey();
+            selectedHistoryDayKey = '';
             if (window.KidAppNavigation?.setKidId) {
                 window.KidAppNavigation.setKidId(kidId);
             }
@@ -301,7 +301,7 @@ async function loadRewards() {
     if (window.KidAppNavigation?.setKidId && selectedKidId) {
         window.KidAppNavigation.setKidId(selectedKidId);
     }
-    selectedHistoryDayKey = todayHistoryDayKey();
+    selectedHistoryDayKey = '';
     selectedRewardRuleId = 0;
     rewardRules = (Array.isArray(rulesData.rules) ? rulesData.rules : [])
         .filter((rule) => String(rule?.ruleKind || '') === 'redeemed_reward');
@@ -340,7 +340,7 @@ async function redeemSelectedReward() {
         }),
     });
     selectedRewardRuleId = 0;
-    selectedHistoryDayKey = todayHistoryDayKey();
+    selectedHistoryDayKey = '';
     await refreshAfterMutation();
 }
 
@@ -384,10 +384,9 @@ parentRewardHistory?.addEventListener('click', async (event) => {
     const dayButton = event.target.closest('[data-history-day]');
     if (dayButton) {
         const nextDayKey = String(dayButton.dataset.historyDay || '');
-        if (nextDayKey && nextDayKey !== selectedHistoryDayKey) {
-            selectedHistoryDayKey = nextDayKey;
-            renderHistory();
-        }
+        if (!nextDayKey) return;
+        selectedHistoryDayKey = nextDayKey === selectedHistoryDayKey ? '' : nextDayKey;
+        renderHistory();
         return;
     }
 
@@ -407,6 +406,11 @@ parentRewardHistory?.addEventListener('click', async (event) => {
         showError(error.message || 'Failed to undo reward redemption.');
         button.disabled = false;
     }
+});
+
+parentRewardHistory?.addEventListener('point-history-clear-filter', () => {
+    selectedHistoryDayKey = '';
+    renderHistory();
 });
 
 document.addEventListener('DOMContentLoaded', () => {
