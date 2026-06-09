@@ -1,5 +1,5 @@
 const API_BASE = `${window.location.origin}/api`;
-const POINT_HISTORY_LIMIT = 200;
+const POINT_HISTORY_LIMIT = 500;
 
 const parentRewardsError = document.getElementById('parentRewardsError');
 const parentRewardKids = document.getElementById('parentRewardKids');
@@ -204,18 +204,23 @@ function renderTabs() {
 }
 
 function rewardStatusHtml(rule) {
-    const isSelected = Number(rule.ruleId) === Number(selectedRewardRuleId);
     const { remaining } = ruleRewardProgress(rule);
-    if (isSelected && remaining <= 0) {
-        return '<button type="button" class="kid-reward-confirm-btn" data-reward-action="confirm">Confirm</button>';
-    }
-    if (isSelected) {
-        return `<span class="kid-reward-rule-status muted">${escapeHtml(`Need ${remaining} pts`)}</span>`;
-    }
     if (remaining <= 0) {
         return '<span class="kid-reward-rule-status available">Available</span>';
     }
     return `<span class="kid-reward-rule-status muted">${escapeHtml(`${remaining} pts to go`)}</span>`;
+}
+
+function rewardNoteEditorHtml() {
+    const checkIcon = typeof window.icon === 'function'
+        ? window.icon('check', { size: 18, strokeWidth: 2.6 })
+        : '✓';
+    return `
+        <div class="reward-note-editor" data-reward-note-editor>
+            <input type="text" class="reward-note-input" data-reward-note-input placeholder="Add a note (optional)" maxlength="200" autocomplete="off">
+            <button type="button" class="reward-note-confirm-btn" data-reward-action="confirm" aria-label="Confirm redemption">${checkIcon}</button>
+        </div>
+    `;
 }
 
 function renderRules() {
@@ -248,6 +253,7 @@ function renderRules() {
                 <span class="point-template-name">${escapeHtml(rule?.name || 'Reward')}</span>
                 <span class="point-rule-delta redeemed">${escapeHtml(`${ruleCost(rule)} pts`)}</span>
                 <span class="kid-reward-rule-status-cell">${rewardStatusHtml(rule)}</span>
+                ${isSelected ? rewardNoteEditorHtml() : ''}
                 ${isAffordable ? '' : '<span class="kid-reward-progress parent-reward-progress" aria-hidden="true"><span></span></span>'}
             </div>
         `;
@@ -324,7 +330,7 @@ async function refreshAfterMutation() {
     render();
 }
 
-async function redeemSelectedReward() {
+async function redeemSelectedReward(note = '') {
     const rule = selectedRewardRule();
     if (!rule || !selectedKidId) return;
     if (!canRedeemRule(rule)) {
@@ -332,12 +338,17 @@ async function redeemSelectedReward() {
         return;
     }
     showError('');
+    const trimmedNote = String(note || '').trim();
+    const body = {
+        ruleId: rule.ruleId,
+        pointsDelta: ruleCost(rule),
+    };
+    if (trimmedNote) {
+        body.note = trimmedNote;
+    }
     await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events`, {
         method: 'POST',
-        body: JSON.stringify({
-            ruleId: rule.ruleId,
-            pointsDelta: ruleCost(rule),
-        }),
+        body: JSON.stringify(body),
     });
     selectedRewardRuleId = 0;
     selectedHistoryDayKey = '';
@@ -353,15 +364,19 @@ parentRewardTabs?.addEventListener('click', (event) => {
 parentRewardRules?.addEventListener('click', async (event) => {
     const confirmButton = event.target.closest('[data-reward-action="confirm"]');
     if (confirmButton) {
+        const noteInput = confirmButton.closest('[data-reward-note-editor]')?.querySelector('[data-reward-note-input]');
+        const note = noteInput ? noteInput.value : '';
         confirmButton.disabled = true;
         try {
-            await redeemSelectedReward();
+            await redeemSelectedReward(note);
         } catch (error) {
             showError(error.message || 'Failed to redeem reward.');
             confirmButton.disabled = false;
         }
         return;
     }
+    // Clicks inside the note editor must not toggle the row selection away.
+    if (event.target.closest('[data-reward-note-editor]')) return;
     const row = event.target.closest('[data-rule-id]');
     if (!row) return;
     if (row.classList.contains('locked')) return;
@@ -369,9 +384,20 @@ parentRewardRules?.addEventListener('click', async (event) => {
     selectedRewardRuleId = Number(selectedRewardRuleId) === ruleId ? 0 : ruleId;
     showError('');
     renderRules();
+    if (selectedRewardRuleId) {
+        parentRewardRules.querySelector(`[data-rule-id="${selectedRewardRuleId}"] [data-reward-note-input]`)?.focus();
+    }
 });
 
 parentRewardRules?.addEventListener('keydown', (event) => {
+    const noteInput = event.target.closest?.('[data-reward-note-input]');
+    if (noteInput) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            noteInput.closest('[data-reward-note-editor]')?.querySelector('[data-reward-action="confirm"]')?.click();
+        }
+        return;
+    }
     if (event.target.closest?.('[data-reward-action="confirm"]')) return;
     if (event.key !== 'Enter' && event.key !== ' ') return;
     const row = event.target.closest('[data-rule-id]');
@@ -411,6 +437,22 @@ parentRewardHistory?.addEventListener('click', async (event) => {
 parentRewardHistory?.addEventListener('point-history-clear-filter', () => {
     selectedHistoryDayKey = '';
     renderHistory();
+});
+
+parentRewardHistory?.addEventListener('point-history-edit-note', async (event) => {
+    const detail = event.detail || {};
+    const eventId = Number.parseInt(detail.eventId, 10);
+    if (!(eventId > 0) || !selectedKidId) return;
+    showError('');
+    try {
+        await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events/${eventId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ pointsDelta: detail.pointsDelta, note: detail.note }),
+        });
+        await refreshAfterMutation();
+    } catch (error) {
+        showError(error.message || 'Failed to update note.');
+    }
 });
 
 document.addEventListener('DOMContentLoaded', () => {

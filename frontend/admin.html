@@ -770,13 +770,15 @@
             font-weight: 400;
         }
         .parent-admin-page .admin-off-app-note-preview {
+            display: block;
             min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            overflow: visible;
+            text-overflow: clip;
+            white-space: normal;
+            overflow-wrap: anywhere;
             color: #7c86a3;
             font-size: 0.78rem;
-            line-height: 1.2;
+            line-height: 1.18;
         }
         .parent-admin-page .admin-matrix-value,
         .parent-admin-page .admin-off-app-status,

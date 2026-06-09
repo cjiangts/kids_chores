@@ -1,5 +1,5 @@
 const API_BASE = `${window.location.origin}/api`;
-const POINT_HISTORY_LIMIT = 200;
+const POINT_HISTORY_LIMIT = 500;
 
 const kidRewardTabs = document.getElementById('kidRewardTabs');
 const kidRewardsError = document.getElementById('kidRewardsError');

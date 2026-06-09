@@ -1,6 +1,6 @@
 const API_BASE = `${window.location.origin}/api`;
 const POINT_LOG_MODE_STORAGE_KEY = 'point_log_last_mode_v1';
-const POINT_HISTORY_LIMIT = 200;
+const POINT_HISTORY_LIMIT = 500;
 
 const kidTabs = document.getElementById('kidTabs');
 const logError = document.getElementById('logError');
@@ -587,6 +587,22 @@ pointHistory.addEventListener('click', async (event) => {
 pointHistory.addEventListener('point-history-clear-filter', () => {
     selectedHistoryDayKey = '';
     renderHistory();
+});
+
+pointHistory.addEventListener('point-history-edit-note', async (event) => {
+    const detail = event.detail || {};
+    const eventId = Number.parseInt(detail.eventId, 10);
+    if (!(eventId > 0) || !selectedKidId) return;
+    showError('');
+    try {
+        await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events/${eventId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ pointsDelta: detail.pointsDelta, note: detail.note }),
+        });
+        await refreshAfterMutation();
+    } catch (error) {
+        showError(error.message || 'Failed to update note.');
+    }
 });
 
 pullTodaySessionsBtn?.addEventListener('click', async () => {
