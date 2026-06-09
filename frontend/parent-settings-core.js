@@ -63,6 +63,7 @@ const errorMessage = document.getElementById('errorMessage');
 const passwordError = document.getElementById('passwordError');
 const passwordSuccess = document.getElementById('passwordSuccess');
 const kidsManageList = document.getElementById('kidsManageList');
+const kidAvatarPreviews = new Map();
 const addKidForm = document.getElementById('addKidForm');
 const addKidNameInput = document.getElementById('addKidNameInput');
 const addKidBtn = document.getElementById('addKidBtn');
@@ -302,6 +303,11 @@ if (addKidForm) {
 
 if (kidsManageList) {
     kidsManageList.addEventListener('click', (event) => {
+        const avatarBtn = getClosestEventTarget(event, 'button[data-action="set-avatar"]');
+        if (avatarBtn) {
+            openAvatarEditorForRow(avatarBtn.closest('.kids-manage-row'));
+            return;
+        }
         const askBtn = getClosestEventTarget(event, 'button[data-action="ask-delete-kid"]');
         if (askBtn) {
             openKidDeleteConfirm(askBtn.closest('.kids-manage-row'));
@@ -922,10 +928,18 @@ function renderKidsManage(kids) {
     kidsManageList.innerHTML = kids.map((kid) => {
         const kidId = String(kid.id || '');
         const name = String(kid.name || '');
+        const tone = avatarToneIndex(kidId || name);
+        const preview = kidAvatarPreviews.get(kidId) || String(kid.avatarUrl || '').trim();
+        const avatarInner = preview
+            ? `<img src="${escapeHtml(preview)}" alt="" class="kids-manage-avatar-img">`
+            : escapeHtml(avatarInitial(name));
+        const avatarVariant = preview ? 'kids-manage-avatar--photo' : `kid-initial-avatar--tone-${tone}`;
         return `
             <div class="kids-manage-row" data-kid-id="${escapeHtml(kidId)}">
+                <span class="kids-manage-avatar kid-initial-avatar ${avatarVariant}" data-kid-avatar>${avatarInner}</span>
                 <span class="kids-manage-name">${escapeHtml(name)}</span>
                 <div class="kids-manage-row-action">
+                    <button type="button" class="semantic-outline-btn" data-action="set-avatar">${icon('image', { size: 18 })} Photo</button>
                     <button type="button" class="semantic-outline-btn semantic-outline-btn--red" data-action="ask-delete-kid">${icon('trash', { size: 18 })} Remove</button>
                 </div>
                 <form class="kids-manage-confirm" data-action="confirm-delete-form">
@@ -936,6 +950,61 @@ function renderKidsManage(kids) {
             </div>
         `;
     }).join('');
+}
+
+function avatarInitial(name) {
+    const trimmed = String(name || '').trim();
+    return trimmed ? trimmed[0].toUpperCase() : '?';
+}
+
+function avatarToneIndex(value, toneCount = 6) {
+    const s = String(value || '');
+    let hash = 0;
+    for (let i = 0; i < s.length; i += 1) {
+        hash = ((hash << 5) - hash) + s.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash) % toneCount;
+}
+
+function applyAvatarPreview(row, dataUrl) {
+    const holder = row && row.querySelector('[data-kid-avatar]');
+    if (!holder) {
+        return;
+    }
+    Array.from(holder.classList).forEach((cls) => {
+        if (cls.indexOf('kid-initial-avatar--tone-') === 0) {
+            holder.classList.remove(cls);
+        }
+    });
+    holder.classList.add('kids-manage-avatar--photo');
+    holder.innerHTML = `<img src="${escapeHtml(dataUrl)}" alt="" class="kids-manage-avatar-img">`;
+}
+
+function openAvatarEditorForRow(row) {
+    if (!row || !window.AvatarEditor) {
+        return;
+    }
+    const kidId = String(row.getAttribute('data-kid-id') || '').trim();
+    const name = String(row.querySelector('.kids-manage-name')?.textContent || '').trim();
+    window.AvatarEditor.open({
+        title: name ? `${name}'s photo` : 'Set photo',
+        outputSize: 256,
+        onSave: async ({ dataUrl }) => {
+            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/avatar`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageBase64: dataUrl }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.error || `Failed to save photo (HTTP ${response.status})`);
+            }
+            const url = data.avatarUrl || dataUrl;
+            kidAvatarPreviews.set(kidId, url);
+            applyAvatarPreview(row, url);
+        },
+    });
 }
 
 function openKidDeleteConfirm(row) {

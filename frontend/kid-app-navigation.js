@@ -159,6 +159,12 @@
         return String(kid?.name || '').trim() || '...';
     }
 
+    function kidNavCardIconHtml(kid) {
+        return typeof window.icon === 'function'
+            ? window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 })
+            : '';
+    }
+
     function renderKidSelector(container, kids, options = {}) {
         if (!container) return;
         const list = Array.isArray(kids) ? kids : [];
@@ -191,7 +197,7 @@
                 : ' type="button"';
             return `
                 <${tagName}${actionAttr} class="kid-nav-card${isActive ? ' active' : ''}${extraClass ? ` ${escapeHtml(extraClass)}` : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-kid-id="${escapeHtml(id)}"${disabled && tagName === 'button' ? ' disabled aria-disabled="true"' : ''}${disabled && tagName === 'a' ? ' aria-disabled="true"' : ''}>
-                    ${typeof window.icon === 'function' ? window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 }) : ''}
+                    ${kidNavCardIconHtml(kid)}
                     <span>${escapeHtml(kidName(kid))}</span>
                     ${metaHtml}
                 </${tagName}>

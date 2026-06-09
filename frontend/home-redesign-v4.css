@@ -1,9 +1,5 @@
 /* Shared redesign styles for kid-practice-home and admin/parent-settings action grids. */
 
-body.practice-home-redesign {
-    padding: 18px;
-}
-
 .redesign-error {
     margin-top: 12px;
 }
@@ -701,10 +697,6 @@ body.practice-home-redesign {
 }
 
 @media (max-width: 760px) {
-    body.practice-home-redesign {
-        padding: 12px;
-    }
-
     .practice-home-redesign .redesign-practice-option {
         padding: 10px 4px;
         gap: 12px;

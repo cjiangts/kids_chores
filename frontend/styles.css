@@ -156,6 +156,11 @@
 .icon--large { width: 28px; height: 28px; }
 
 .family-user-switcher {
+    --family-user-switcher-stroke: rgba(255, 255, 255, 0.36);
+    --family-user-switcher-media-size: 54px;
+    --family-user-switcher-media-offset-y: -12px;
+    --family-user-switcher-media-offset-x: -8px;
+    --family-user-switcher-icon-padding: 13px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -163,7 +168,7 @@
     min-width: 0;
     min-height: 42px;
     padding: 0.3rem 1rem 0.3rem 0.38rem;
-    border: 1px solid rgba(255, 255, 255, 0.36);
+    border: 1px solid var(--family-user-switcher-stroke);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.18);
     color: #fff;
@@ -181,15 +186,18 @@
     background: #fff;
     color: #5f49ec;
     outline: none;
-    transform: translateY(-1px);
     box-shadow: 0 12px 24px rgba(31, 45, 98, 0.18);
 }
 
 .family-user-switcher__icon {
+    position: relative;
+    z-index: 1;
     flex: 0 0 auto;
-    width: 30px;
-    height: 30px;
-    padding: 6px;
+    width: var(--family-user-switcher-media-size);
+    height: var(--family-user-switcher-media-size);
+    margin: var(--family-user-switcher-media-offset-y) 0 var(--family-user-switcher-media-offset-y) var(--family-user-switcher-media-offset-x);
+    padding: var(--family-user-switcher-icon-padding);
+    border: 2px solid var(--family-user-switcher-stroke);
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.96);
     color: #6f7df0;
@@ -197,6 +205,14 @@
         0 6px 14px rgba(31, 45, 98, 0.16),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
     box-sizing: border-box;
+}
+
+.family-user-switcher__avatar {
+    padding: 0;
+    object-fit: cover;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(31, 45, 98, 0.24);
 }
 
 .family-user-switcher__label {
@@ -314,9 +330,17 @@ body {
     padding: 20px;
 }
 
+body.app-shell-page {
+    padding: 18px;
+}
+
 @media (max-width: 760px) {
     body {
         padding: 6px;
+    }
+
+    body.app-shell-page {
+        padding: 12px;
     }
 }
 
@@ -1517,6 +1541,10 @@ header p {
     color: #fff;
 }
 
+.kid-shell-header {
+    margin-bottom: 20px;
+}
+
 .page-header-with-back .page-header-row {
     display: flex;
     align-items: flex-start;
@@ -1550,6 +1578,13 @@ header p {
     font-weight: 500;
     font-size: 1.25rem;
     line-height: 1;
+}
+
+.kid-initial-avatar--photo {
+    background-color: #fff;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .kid-initial-avatar--tone-0 { background: linear-gradient(135deg, #8b5cf6, #6f55d8); }
@@ -1731,6 +1766,14 @@ header p {
         margin-bottom: 20px;
     }
 
+    .page-header-with-back.page-header-with-actions:has(.family-user-switcher__icon) {
+        margin-bottom: 18px;
+    }
+
+    .page-header-with-back.page-header-with-actions:has(.family-user-switcher__icon) .page-header-row {
+        padding-top: 0.18rem;
+    }
+
     .page-header-with-back .page-header-row {
         align-items: flex-start;
         gap: 0.5rem;
@@ -1782,16 +1825,14 @@ header p {
     }
 
     .page-header-with-back .page-header-actions .family-user-switcher {
+        --family-user-switcher-media-size: 47px;
+        --family-user-switcher-media-offset-y: -7px;
+        --family-user-switcher-media-offset-x: -6px;
+        --family-user-switcher-icon-padding: 11px;
         max-width: 42vw;
         min-height: 38px;
         padding: 0.25rem 0.72rem 0.25rem 0.34rem;
         font-size: 0.86rem;
-    }
-
-    .page-header-with-back .page-header-actions .family-user-switcher__icon {
-        width: 28px;
-        height: 28px;
-        padding: 5px;
     }
 
     .parent-admin-page .page-header-actions .page-header-back-btn {

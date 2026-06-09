@@ -1,6 +1,6 @@
 window.PracticeUiCommon = {
     formatKidPracticeTitle(kidName) {
-        return `${String(kidName || '').trim()}'s Practice`;
+        return 'Practice';
     },
 
     getKidInitial(name) {
@@ -27,10 +27,18 @@ window.PracticeUiCommon = {
             return;
         }
         const name = String(kid?.name || '');
+        const avatarUrl = String(kid?.avatarUrl || '').trim();
+        if (avatarUrl) {
+            el.className = 'page-title-icon kid-initial-avatar kid-initial-avatar--photo';
+            el.textContent = '';
+            el.style.backgroundImage = `url("${avatarUrl.replace(/"/g, '%22')}")`;
+            return;
+        }
         const initial = window.PracticeUiCommon.getKidInitial(name);
         const tone = window.PracticeUiCommon.hashStringToToneIndex(kid?.id || name);
         el.className = `page-title-icon kid-initial-avatar kid-initial-avatar--tone-${tone}`;
         el.textContent = initial;
+        el.style.backgroundImage = '';
     },
 
     shuffleCards(cardsList) {

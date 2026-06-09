@@ -650,6 +650,15 @@
     height: 40px;
 }
 
+.user-bubble-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    background: #fff;
+    display: block;
+}
+
 .user-bubble-initials {
     font-size: 2.05rem;
     font-weight: 800;
@@ -692,23 +701,23 @@
 }
 
 .user-bubble--tone-0 {
-    --bubble-accent: #4d84e3;
-    --bubble-accent-strong: #3b66c2;
+    --bubble-accent: #6f7df0;
+    --bubble-accent-strong: #5f49ec;
 }
 
 .user-bubble--tone-1 {
-    --bubble-accent: #ec5fa1;
-    --bubble-accent-strong: #c83f86;
+    --bubble-accent: #6f7df0;
+    --bubble-accent-strong: #5f49ec;
 }
 
 .user-bubble--tone-2 {
-    --bubble-accent: #34b89c;
-    --bubble-accent-strong: #1e8a73;
+    --bubble-accent: #6f7df0;
+    --bubble-accent-strong: #5f49ec;
 }
 
 .user-bubble--tone-3 {
-    --bubble-accent: #7b63c7;
-    --bubble-accent-strong: #5740a3;
+    --bubble-accent: #6f7df0;
+    --bubble-accent-strong: #5f49ec;
 }
 
 .family-home-error {

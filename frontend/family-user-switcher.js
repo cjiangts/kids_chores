@@ -2,6 +2,7 @@
     const DEFAULT_HREF = '/family-home.html';
     const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
     const CURRENT_USER_NAME_STORAGE_KEY = 'family_current_user_name_v1';
+    const CURRENT_USER_AVATAR_STORAGE_KEY = 'family_current_user_avatar_v1';
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -48,9 +49,17 @@
         }
         const mode = readSession(CURRENT_USER_MODE_STORAGE_KEY).toLowerCase();
         if (mode === 'kid') {
-            return { name: readSession(CURRENT_USER_NAME_STORAGE_KEY) || 'Kid', icon: 'user' };
+            return {
+                name: readSession(CURRENT_USER_NAME_STORAGE_KEY) || 'Kid',
+                icon: 'user',
+                avatarUrl: readSession(CURRENT_USER_AVATAR_STORAGE_KEY),
+            };
         }
         return { name: 'Parent', icon: 'user-cog' };
+    }
+
+    function avatarHtml(url) {
+        return `<img class="family-user-switcher__icon family-user-switcher__avatar" src="${escapeHtml(url)}" alt="" loading="lazy">`;
     }
 
     function render(container, options = {}) {
@@ -58,11 +67,12 @@
         const name = String(options.name || '').trim() || 'Parent';
         const href = String(options.href || DEFAULT_HREF);
         const iconName = String(options.icon || 'user');
+        const avatarUrl = String(options.avatarUrl || '').trim();
         const title = String(options.title || `Switch user from ${name}`);
         const extraClass = String(options.className || '').trim();
         container.innerHTML = `
             <a class="family-user-switcher${extraClass ? ` ${escapeHtml(extraClass)}` : ''}" href="${escapeHtml(href)}" aria-label="${escapeHtml(title)}" title="${escapeHtml(title)}">
-                ${iconHtml(iconName)}
+                ${avatarUrl ? avatarHtml(avatarUrl) : iconHtml(iconName)}
                 <span class="family-user-switcher__label">${escapeHtml(name)}</span>
             </a>
         `;
@@ -74,6 +84,7 @@
         render(container, {
             name: user.name,
             icon: user.icon,
+            avatarUrl: user.avatarUrl,
             href: container.getAttribute('data-user-href') || DEFAULT_HREF,
             title: `Switch user from ${user.name}`,
         });

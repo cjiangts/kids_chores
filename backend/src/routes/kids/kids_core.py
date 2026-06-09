@@ -28,6 +28,8 @@ from src.routes.kids_constants import (
     SESSION_RESULT_RETRY_FIXED_FIRST,
     TYPE_I_NON_CHINESE_DECK_MIX_FIELD,
 )
+from flask import send_file
+from src.services import kid_avatar
 from src.services.kid_category_config import get_category_orphan_deck_name
 from src.routes.kids import (
     datetime,
@@ -104,6 +106,7 @@ def get_kids():
                 {
                     'id': kid.get('id'),
                     'name': kid.get('name'),
+                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                 }
                 for kid in kids
             ]), 200
@@ -114,6 +117,7 @@ def get_kids():
                     'id': kid.get('id'),
                     'name': kid.get('name'),
                     'familyTimezone': family_timezone,
+                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                 }
                 for kid in kids
             ]), 200
@@ -130,6 +134,7 @@ def get_kids():
                     'id': kid.get('id'),
                     'name': kid.get('name'),
                     'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
+                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                 }
                 for kid in kids
             ]), 200
@@ -160,6 +165,7 @@ def get_kids():
                         **kid,
                         'optedInDeckCategoryKeys': opted_in_category_keys,
                         'deckCategoryMetaByKey': category_meta_by_key,
+                        'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                     })
                 finally:
                     if conn is not None:
@@ -239,6 +245,7 @@ def get_kids():
                             **({'deckCategoryMetaByKey': category_meta_by_key} if include_admin_category_meta else {}),
                             'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
                             'familyTimezone': family_timezone,
+                            'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                         })
                     finally:
                         if conn is not None:
@@ -330,6 +337,7 @@ def get_kids():
                     'practiceTargetByDeckCategory': practice_target_by_deck_category,
                     'deckCategoryMetaByKey': category_meta_by_key,
                     'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
+                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                 }
                 kids_with_progress.append(kid_with_progress)
             finally:
@@ -561,6 +569,7 @@ def get_kid(kid_id):
             'todaySessionStatusByDeckCategory': today_session_status_by_deck_category,
             'practiceTargetByDeckCategory': practice_target_by_deck_category,
             'deckCategoryMetaByKey': category_meta_by_key,
+            'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
         }
 
         return jsonify(kid_with_progress), 200
@@ -1659,6 +1668,7 @@ def delete_kid(kid_id):
         type3_audio_dir = get_kid_type3_audio_dir(kid)
         if os.path.exists(type3_audio_dir):
             shutil.rmtree(type3_audio_dir, ignore_errors=True)
+        kid_avatar.delete_avatar(family_id, kid.get('id'), clear_metadata=False)
 
         # Delete from metadata
         metadata.delete_kid(kid_id, family_id=family_id)
@@ -1666,6 +1676,57 @@ def delete_kid(kid_id):
         return jsonify({'message': 'Kid deleted successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# === 7. Kid avatar — GET / PUT / DELETE /kids/<id>/avatar
+@kids_bp.route('/kids/<kid_id>/avatar', methods=['GET'])
+def get_kid_avatar(kid_id):
+    """Serve a kid's cropped avatar PNG (family-scoped, immutably cacheable)."""
+    family_id = current_family_id()
+    if not family_id:
+        return jsonify({'error': 'Family login required'}), 401
+    kid = get_kid_for_family(kid_id)
+    if not kid:
+        return jsonify({'error': 'Kid not found'}), 404
+    path = kid_avatar.avatar_path(family_id, kid.get('id'))
+    if not os.path.exists(path):
+        return jsonify({'error': 'No avatar'}), 404
+    response = send_file(path, mimetype='image/png')
+    response.headers['Cache-Control'] = 'private, max-age=31536000, immutable'
+    return response
+
+
+@kids_bp.route('/kids/<kid_id>/avatar', methods=['PUT'])
+def put_kid_avatar(kid_id):
+    """Save a kid's cropped avatar from a base64 PNG data URL."""
+    family_id = current_family_id()
+    if not family_id:
+        return jsonify({'error': 'Family login required'}), 401
+    kid = get_kid_for_family(kid_id)
+    if not kid:
+        return jsonify({'error': 'Kid not found'}), 404
+    payload = request.get_json(silent=True) or {}
+    try:
+        version = kid_avatar.save_avatar(family_id, kid.get('id'), payload.get('imageBase64'))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({
+        'avatarUrl': f"/api/kids/{kid.get('id')}/avatar?v={version}",
+        'avatarUpdatedAt': version,
+    }), 200
+
+
+@kids_bp.route('/kids/<kid_id>/avatar', methods=['DELETE'])
+def delete_kid_avatar(kid_id):
+    """Remove a kid's avatar."""
+    family_id = current_family_id()
+    if not family_id:
+        return jsonify({'error': 'Family login required'}), 401
+    kid = get_kid_for_family(kid_id)
+    if not kid:
+        return jsonify({'error': 'Kid not found'}), 404
+    kid_avatar.delete_avatar(family_id, kid.get('id'))
+    return jsonify({'message': 'Avatar removed'}), 200
 
 
 # Card routes

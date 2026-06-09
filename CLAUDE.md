@@ -18,7 +18,7 @@ Scan/         (not source)
 | URL prefix | File | Routes |
 |---|---|---|
 | `/shared-decks/...` | [routes/kids/shared_decks.py](backend/src/routes/kids/shared_decks.py) | 23 |
-| `/kids` (CRUD) + `/kids/<id>/report/*` + `/kids/<id>/deck-categories` | [routes/kids/kids_core.py](backend/src/routes/kids/kids_core.py) | 13 |
+| `/kids` (CRUD) + `/kids/<id>/report/*` + `/kids/<id>/deck-categories` + `/kids/<id>/avatar` | [routes/kids/kids_core.py](backend/src/routes/kids/kids_core.py) | 16 |
 | `/kids/<id>/cards*` + `/kids/<id>/<scope>/shared-decks/*` + `/kids/<id>/<scope>/decks` + `/kids/<id>/type4/shared-decks/*` | [routes/kids/kid_decks.py](backend/src/routes/kids/kid_decks.py) | 14 |
 | `/kids/<id>/type2/cards*` + `/type2/audio/*` + `/cards/audio/*` + `/type2/chinese-print-sheets*` | [routes/kids/type2.py](backend/src/routes/kids/type2.py) | 12 |
 | `/kids/<id>/type4/print-config` + `/type4/math-sheets*` | [routes/kids/type4.py](backend/src/routes/kids/type4.py) | 8 |
@@ -48,6 +48,7 @@ Other blueprints:
   - [kid_category_config.py](backend/src/services/kid_category_config.py) — kid/category config hydration + orphan-deck lookups
   - [kid_category_resolve.py](backend/src/services/kid_category_resolve.py) — resolve raw category-key arg → (key, mode)
   - [kid_card_queries.py](backend/src/services/kid_card_queries.py) — kid-DB card readers reused across routes
+  - [kid_avatar.py](backend/src/services/kid_avatar.py) — per-kid avatar PNG storage under `data/families/` (backed up via DATA_DIR zip) + versioned `avatarUrl` builder
   - [kid_daily_progress.py](backend/src/services/kid_daily_progress.py) — daily-progress section + category stats
   - [deck_source_merge.py](backend/src/services/deck_source_merge.py) — source-deck merging, card-count summaries
   - [practice_priority.py](backend/src/services/practice_priority.py) — practice-priority preview scoring (pure; caller supplies session behavior type)

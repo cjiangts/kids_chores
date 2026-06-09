@@ -2,6 +2,7 @@ const API_BASE = `${window.location.origin}/api`;
 const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
 const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
 const CURRENT_USER_NAME_STORAGE_KEY = 'family_current_user_name_v1';
+const CURRENT_USER_AVATAR_STORAGE_KEY = 'family_current_user_avatar_v1';
 const TRUSTED_PARENT_BROWSER_STORAGE_KEY = 'trusted_parent_browser_v1';
 
 const bubbleGrid = document.getElementById('userBubbleGrid');
@@ -110,6 +111,7 @@ function renderBubbles() {
             persistLastViewedKidId(id);
             persistCurrentUserMode('kid');
             persistCurrentUserName(String(kid?.name || 'Kid'));
+            persistCurrentUserAvatar(kid?.avatarUrl);
             window.location.href = id ? `/kid-practice-home.html?id=${encodeURIComponent(id)}` : '/kid-practice-home.html';
         });
         bubble.addEventListener('keydown', (event) => {
@@ -173,7 +175,7 @@ function renderKidBubble(kid, index) {
         <${tagName} class="user-bubble user-bubble--tone-${index % 4}${offlineClass}${selectedClass}${lockedClass}${offlineInfoClass}${ownedClass}${disabledClass}"${hrefAttr} data-user-mode="kid" data-kid-id="${escapeHtml(id)}" aria-label="${escapeHtml(locked ? `${name} is offline` : (offlineSelectionMode ? `${name} offline practice` : `${name} practice home`))}"${interactiveAttrs}${disabledAttrs}>
             ${offlineSelectionMode ? checkHtml : ''}
             ${lockedBadgeHtml}
-            <span class="user-bubble-avatar" aria-hidden="true"><span class="user-bubble-initials">${escapeHtml(initialsFor(name))}</span></span>
+            <span class="user-bubble-avatar" aria-hidden="true">${kidBubbleAvatarInner(kid, name)}</span>
             <span class="user-bubble-name">${escapeHtml(name)}</span>
             ${roleText ? `<span class="user-bubble-role">${escapeHtml(roleText)}</span>` : ''}
             ${lockInfoHtml}
@@ -451,6 +453,7 @@ function goPracticeOffline(kidId) {
     persistLastViewedKidId(id);
     persistCurrentUserMode('kid');
     persistCurrentUserName(String(kid?.name || 'Kid'));
+    persistCurrentUserAvatar(kid?.avatarUrl);
     window.location.href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
 }
 
@@ -638,6 +641,7 @@ async function enterParentModeWithPassword(href = '/admin.html') {
         storeTrustedBrowser(result.payload && result.payload.trustedBrowser);
         persistCurrentUserMode('parent');
         persistCurrentUserName('Parent');
+        persistCurrentUserAvatar('');
         window.location.href = targetHref;
         return;
     }
@@ -659,6 +663,7 @@ async function enterParentModeWithPassword(href = '/admin.html') {
         }
         persistCurrentUserMode('parent');
         persistCurrentUserName('Parent');
+        persistCurrentUserAvatar('');
         window.location.href = targetHref;
     } catch (error) {
         showError(error.message || 'Could not enter parent mode.');
@@ -682,6 +687,7 @@ async function enterParentModeWithTrustedBrowser(targetHref) {
         }
         persistCurrentUserMode('parent');
         persistCurrentUserName('Parent');
+        persistCurrentUserAvatar('');
         window.location.href = targetHref;
         return true;
     } catch (error) {
@@ -771,6 +777,20 @@ function persistCurrentUserName(name) {
     }
 }
 
+function persistCurrentUserAvatar(avatarUrl) {
+    const normalized = String(avatarUrl || '').trim();
+    try {
+        if (!window.sessionStorage) return;
+        if (normalized) {
+            window.sessionStorage.setItem(CURRENT_USER_AVATAR_STORAGE_KEY, normalized);
+        } else {
+            window.sessionStorage.removeItem(CURRENT_USER_AVATAR_STORAGE_KEY);
+        }
+    } catch (error) {
+        // best-effort identity avatar memory
+    }
+}
+
 async function fetchJson(url, options) {
     const response = await fetch(url, options);
     const data = await response.json().catch(() => ({}));
@@ -790,6 +810,14 @@ function initialsFor(name) {
     if (!parts.length) return '?';
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function kidBubbleAvatarInner(kid, name) {
+    const avatarUrl = String(kid && kid.avatarUrl || '').trim();
+    if (avatarUrl) {
+        return `<img class="user-bubble-avatar-img" src="${escapeHtml(avatarUrl)}" alt="" loading="lazy">`;
+    }
+    return `<span class="user-bubble-initials">${escapeHtml(initialsFor(name))}</span>`;
 }
 
 function formatOfflineLockTime(value) {
