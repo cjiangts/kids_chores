@@ -633,7 +633,7 @@ function renderOffAppTaskRow(chore) {
         : (isPending ? 'Reviewing' : "I'm done");
     const actionIcon = isCreditedToday
         ? 'check'
-        : (isPending ? 'clock' : 'check');
+        : (isPending ? 'clock' : 'circle-check');
     const classes = [
         'off-app-task-row',
         isChecked ? 'is-checked' : '',

@@ -216,8 +216,8 @@
             const hasEvents = totalsByDay.has(dayKey);
             const total = totalsByDay.get(dayKey) || 0;
             const isActive = Boolean(activeDayKey) && dayKey === activeDayKey;
-            const valueClass = total < 0 ? 'negative' : (total > 0 ? 'positive' : 'empty');
-            const value = total === 0 ? '-' : formatDelta(total);
+            const valueClass = total < 0 ? 'negative' : (total > 0 ? 'positive' : (hasEvents ? 'neutral' : 'empty'));
+            const value = !hasEvents ? '-' : (total === 0 ? '0' : formatDelta(total));
             return `
                 <button
                     type="button"

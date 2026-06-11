@@ -79,6 +79,7 @@ const sessionSettingsForm = document.getElementById('sessionSettingsForm');
 const sessionCardCountInput = document.getElementById('sessionCardCount');
 const sessionCardCountLabel = document.getElementById('sessionCardCountLabel');
 const openDeckOptInModalBtn = document.getElementById('openDeckOptInModalBtn');
+const openDeckOptInActionBtn = document.getElementById('openDeckOptInActionBtn');
 const deckTreeModal = document.getElementById('deckTreeModal');
 const deckTreeContainer = document.getElementById('deckTreeContainer');
 const deckTreeSearchInput = document.getElementById('deckTreeSearchInput');
@@ -133,9 +134,7 @@ const sortMenuBtn = document.getElementById('sortMenuBtn');
 const sortMenuBtnLabel = document.getElementById('sortMenuBtnLabel');
 const sortMenuPopover = document.getElementById('sortMenuPopover');
 const sortDirectionToggleGroup = document.getElementById('sortDirectionToggleGroup');
-const sortDirectionToggleBtns = sortDirectionToggleGroup
-    ? Array.from(sortDirectionToggleGroup.querySelectorAll('.sort-direction-toggle-btn'))
-    : [];
+const sortDirectionToggleBtns = sortDirectionToggleGroup ? [sortDirectionToggleGroup] : [];
 const cardSearchInput = document.getElementById('cardSearchInput');
 const cardFocusBanner = document.getElementById('cardFocusBanner');
 const cardFocusBannerText = document.getElementById('cardFocusBannerText');
@@ -158,8 +157,7 @@ const cardsQueueLegend = document.getElementById('cardsQueueLegend');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardsToolbar = document.querySelector('.cards-toolbar');
 const cardsViewControl = document.querySelector('.cards-view-control');
-const cardViewModeCompactBtn = document.getElementById('cardViewModeCompactBtn');
-const cardViewModeExpandBtn = document.getElementById('cardViewModeExpandBtn');
+const cardViewModeToggleBtn = document.getElementById('cardViewModeToggleBtn');
 const queueSettingsSaveBtn = document.getElementById('queueSettingsSaveBtn');
 const drillSpeedSettingsGroup = document.getElementById('drillSpeedSettingsGroup');
 const drillSpeedTargetInput = document.getElementById('drillSpeedTargetInput');
@@ -310,9 +308,15 @@ function syncCardSortDirectionButton() {
     const direction = getCurrentCardSortDirection();
     const activeKey = direction === CARD_SORT_DIRECTION_ASC ? 'asc' : 'desc';
     sortDirectionToggleBtns.forEach((btn) => {
-        const isActive = btn.dataset.sortDirection === activeKey;
-        btn.classList.toggle('active', isActive);
-        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        btn.classList.add('active');
+        btn.dataset.sortDirection = activeKey;
+        btn.setAttribute('aria-pressed', direction === CARD_SORT_DIRECTION_DESC ? 'true' : 'false');
+        btn.setAttribute('aria-label', direction === CARD_SORT_DIRECTION_DESC ? 'Highest first' : 'Lowest first');
+        btn.title = direction === CARD_SORT_DIRECTION_DESC ? 'Highest first' : 'Lowest first';
+        btn.innerHTML = icon(
+            direction === CARD_SORT_DIRECTION_ASC ? 'arrow-up-narrow-wide' : 'arrow-down-wide-narrow',
+            { className: 'sort-direction-toggle-btn-icon', size: 18, strokeWidth: 2.3 },
+        );
     });
 }
 
@@ -708,7 +712,13 @@ function applyCategoryUiText() {
     const showOrphanEditor = supportsPersonalDeckEditor();
     const showType4DeckTargetBlock = isType4Behavior();
     if (sessionCardCountLabel) {
-        sessionCardCountLabel.textContent = 'Cards / day';
+        sessionCardCountLabel.textContent = 'Daily Targets';
+    }
+    if (openDeckOptInModalBtn) {
+        openDeckOptInModalBtn.classList.toggle('hidden', showType4DeckTargetBlock);
+    }
+    if (openDeckOptInActionBtn) {
+        openDeckOptInActionBtn.classList.toggle('hidden', !showType4DeckTargetBlock);
     }
     if (queueSettingsSubgroup) {
         queueSettingsSubgroup.classList.toggle('hidden', showType4DeckTargetBlock);
@@ -722,6 +732,10 @@ function applyCategoryUiText() {
     if (openPrintableSheetsBtn) {
         const supportsPrintableSheets = isType4Behavior() || (isType2Behavior() && isChineseSpecificLogic);
         openPrintableSheetsBtn.classList.toggle('hidden', !supportsPrintableSheets);
+        const printableTitleEl = openPrintableSheetsBtn.querySelector('.manage-popup-btn-title');
+        if (printableTitleEl) {
+            printableTitleEl.textContent = 'Worksheets';
+        }
         if (supportsPrintableSheets) {
             const printParams = new URLSearchParams();
             printParams.set('id', String(kidId || ''));

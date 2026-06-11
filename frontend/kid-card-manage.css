@@ -77,11 +77,9 @@
             text-decoration: none;
         }
 
-        #openDeckOptInModalBtn .manage-popup-btn-emoji { color: #6366f1; }
+        #openDeckOptInActionBtn .manage-popup-btn-emoji { color: #6366f1; }
         #openPrintableSheetsBtn .manage-popup-btn-emoji { color: #22a45a; }
         #openType4DeckCountsModalBtn .manage-popup-btn-emoji { color: #f59e0b; }
-        #openPersonalDeckModalBtn .manage-popup-btn-emoji { color: #2c5fd9; }
-
         .manage-popup-modal {
             z-index: 1300;
         }
@@ -692,11 +690,6 @@
             margin-bottom: 0.25rem;
         }
 
-        .cards-view-control > .card-view-mode-group {
-            margin-left: auto;
-            flex: 0 0 auto;
-        }
-
         .manage-page .deck-setup-section,
         body.manage-page .deck-setup-section {
             background: transparent;
@@ -738,7 +731,7 @@
         }
 
         .queue-settings-subgroup {
-            margin: 0;
+            margin: 0.5rem 0 0.58rem;
         }
 
         .settings-subgroup {
@@ -750,42 +743,59 @@
             box-shadow: var(--dashboard-chip-shadow);
         }
 
-        .card-view-mode-group {
-            display: inline-flex;
-            align-items: stretch;
-            gap: 0;
-            background: #eef0f8;
-            border-radius: 999px;
-            padding: 3px;
-            border: 1px solid #d8def0;
-        }
-
+        .toolbar-icon-toggle-btn,
         .card-view-mode-btn {
+            appearance: none;
+            -webkit-appearance: none;
             border: 0;
-            background: transparent;
+            background: #fff;
+            border: 1px solid #dce3f3;
             color: #4a5688;
-            padding: 0.32rem 0.6rem;
-            border-radius: 999px;
+            width: 42px;
+            height: 34px;
+            border-radius: 8px;
             cursor: pointer;
             line-height: 1;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            transition: background-color 0.15s ease, color 0.15s ease;
+            padding: 0;
+            flex: 0 0 auto;
+            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.04);
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
         }
 
+        .toolbar-icon-toggle-btn .icon,
         .card-view-mode-btn .icon {
             display: block;
         }
 
+        .toolbar-icon-toggle-btn:hover,
         .card-view-mode-btn:hover {
+            border-color: #9ab5f3;
+            background: #f6f9ff;
             color: #2f3c7e;
         }
 
+        .toolbar-icon-toggle-btn.active,
         .card-view-mode-btn.active {
-            background: #ffffff;
-            color: #2f3c7e;
-            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.12);
+            background: #fff;
+            border-color: #b9c4ee;
+            color: #6366f1;
+            box-shadow: 0 2px 5px rgba(31, 45, 98, 0.08);
+        }
+
+        .toolbar-icon-toggle-btn.active:hover,
+        .card-view-mode-btn.active:hover {
+            background: #f6f7ff;
+            border-color: #aebaf0;
+            color: #5558e8;
+        }
+
+        .toolbar-icon-toggle-btn:disabled,
+        .card-view-mode-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.58;
         }
 
         .toolbar-control-block {
@@ -813,16 +823,18 @@
             align-items: center;
             justify-content: center;
             gap: 0.4rem;
-            border: 1px solid #c5d2ee;
-            background: #eef2ff;
-            color: #2f3c7e;
-            border-radius: 10px;
+            border: 1px solid #dce3f3;
+            background: #fff;
+            color: #4a5688;
+            border-radius: 8px;
             height: 34px;
             padding: 0 0.75rem;
             font-size: 0.92rem;
             font-weight: 600;
             line-height: 1;
             cursor: pointer;
+            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.04);
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
         }
 
         .cards-select-mode-btn-icon {
@@ -833,16 +845,29 @@
         }
 
         .cards-select-mode-btn:hover {
-            background: #e0e7ff;
             border-color: #9ab5f3;
-            color: #274ca2;
+            background: #f6f9ff;
+            color: #2f3c7e;
         }
 
         .cards-select-mode-btn.active {
+            background: #fff;
+            border-color: #b9c4ee;
+            color: #6366f1;
+            box-shadow: 0 2px 5px rgba(31, 45, 98, 0.08);
+        }
+
+        #cardsSelectModeBtn.active {
             background: #4b5fc4;
             border-color: #4b5fc4;
             color: #fff;
             box-shadow: 0 2px 6px rgba(75, 95, 196, 0.3);
+        }
+
+        #cardsSelectModeBtn.active:hover {
+            background: #4354b8;
+            border-color: #4354b8;
+            color: #fff;
         }
 
         .cards-selection-bar {
@@ -1050,7 +1075,7 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 0.22rem 0.5rem;
-            margin: 0;
+            margin: 0 0 0 0.35rem;
             color: #69758e;
             font-size: 0.72rem;
             line-height: 1.2;
@@ -1123,7 +1148,7 @@
 
         .manage-page .cards-toolbar {
             display: grid;
-            grid-template-columns: minmax(160px, 1.4fr) minmax(80px, 1fr) auto;
+            grid-template-columns: minmax(0, 1fr) auto;
             align-items: end;
             column-gap: 0.52rem;
             row-gap: 0.55rem;
@@ -1213,6 +1238,7 @@
         }
 
         .manage-page .cards-toolbar .filter-menu {
+            grid-column: 1 / 2;
             min-width: 0;
             max-width: none;
             flex: 1 1 auto;
@@ -1223,8 +1249,23 @@
         }
 
         .manage-page .cards-toolbar .cards-search-wrap {
+            grid-column: 1 / 2;
             width: 100%;
             min-width: 160px;
+        }
+
+        .manage-page .cards-toolbar .cards-import-decks-btn {
+            grid-column: 2 / 3;
+            justify-self: stretch;
+            min-width: 98px;
+            width: 100%;
+        }
+
+        .manage-page .cards-toolbar .cards-add-card-btn {
+            grid-column: 2 / 3;
+            justify-self: stretch;
+            min-width: 98px;
+            width: 100%;
         }
 
         .manage-page .cards-toolbar .search-bar-input {
@@ -1403,64 +1444,21 @@
             flex-wrap: nowrap;
         }
 
-        .sort-direction-toggle-group {
-            display: inline-flex;
-            align-items: stretch;
-            background: #eef2ff;
-            border: 1px solid #c5d2ee;
-            border-radius: 999px;
-            padding: 3px;
-            gap: 2px;
-            height: 34px;
-            flex: 0 0 auto;
-        }
-
         .sort-direction-toggle-btn {
-            appearance: none;
-            -webkit-appearance: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: 0;
-            background: transparent;
-            color: #6b7494;
-            border-radius: 999px;
-            padding: 0 0.55rem;
-            min-width: 36px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            line-height: 1;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+            color: #2f3c7e;
         }
 
         .sort-direction-toggle-btn-icon {
             display: inline-flex;
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             flex: 0 0 auto;
         }
 
-        .sort-direction-toggle-btn:hover:not(.active) {
-            color: #2f3c7e;
-        }
-
-        .sort-direction-toggle-btn.active {
-            background: #fff;
-            color: #2f3c7e;
-            box-shadow: 0 1px 2px rgba(28, 42, 82, 0.08);
-        }
-
         @media (max-width: 600px) {
-            .sort-direction-toggle-group {
-                height: 32px;
-            }
-
             .sort-direction-toggle-btn {
-                padding: 0 0.45rem;
-                min-width: 32px;
-                font-size: 0.85rem;
+                width: 38px;
+                height: 32px;
             }
         }
 
@@ -1485,6 +1483,7 @@
             .cards-queue-legend {
                 gap: 0.18rem 0.42rem;
                 font-size: 0.68rem;
+                margin-left: 0.25rem;
             }
         }
 
@@ -1496,22 +1495,28 @@
                 gap: 0.42rem;
             }
 
-            .cards-view-control .card-view-mode-btn {
-                padding: 0.24rem 0.42rem;
-            }
-
             .manage-page .cards-toolbar {
                 grid-template-columns: minmax(0, 1fr) max-content;
                 gap: 0.5rem;
             }
 
             .manage-page .cards-toolbar .filter-menu {
-                grid-column: 1 / -1;
+                grid-column: 1 / 2;
                 max-width: none;
             }
 
-            .manage-page .cards-toolbar .cards-select-mode-btn {
+            .manage-page .cards-toolbar .cards-import-decks-btn {
                 grid-column: 2 / 3;
+                justify-self: end;
+            }
+
+            .manage-page .cards-toolbar .cards-add-card-btn {
+                grid-column: 2 / 3;
+                justify-self: end;
+            }
+
+            .manage-page .cards-toolbar #cardsSelectModeBtn {
+                grid-column: auto;
             }
 
             .manage-page .toolbar-control-block {
@@ -1591,10 +1596,10 @@
                 gap: 0.32rem;
             }
 
-            .sort-direction-toggle-btn {
-                padding: 0 0.4rem;
-                min-width: 32px;
-                font-size: 0.85rem;
+            .toolbar-icon-toggle-btn,
+            .card-view-mode-btn {
+                width: 38px;
+                height: 32px;
             }
         }
 
@@ -1613,10 +1618,6 @@
                 gap: 0.3rem;
             }
 
-            .cards-view-control .card-view-mode-btn {
-                padding: 0.18rem 0.32rem;
-            }
-
             .manage-page .cards-toolbar .search-bar-input,
             .manage-page .cards-toolbar .sort-menu-btn {
                 height: 32px;
@@ -1624,20 +1625,60 @@
                 font-size: 0.88rem;
             }
 
-            .manage-page .cards-toolbar .sort-direction-toggle-group {
+            .manage-page .cards-toolbar .toolbar-icon-toggle-btn,
+            .manage-page .cards-toolbar .card-view-mode-btn {
+                width: 36px;
                 height: 32px;
-            }
-
-            .manage-page .cards-toolbar .sort-direction-toggle-btn {
-                padding: 0 0.35rem;
-                min-width: 30px;
-                font-size: 0.82rem;
             }
         }
 
         .queue-settings-form {
-            display: grid;
-            gap: 0.35rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 0.7rem;
+        }
+
+        .queue-field {
+            flex: 0 1 auto;
+            min-width: 170px;
+            margin: 0;
+            padding: 0.05rem 0.7rem 0.5rem;
+            border: 1px solid #d8def0;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: none;
+        }
+
+        .queue-field-legend {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.34rem;
+            padding: 0 0.4rem;
+            margin-left: 0.1rem;
+            color: #2a345d;
+            font-size: 0.78rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .queue-field-legend-icon {
+            display: inline-flex;
+            align-items: center;
+            color: #6366f1;
+        }
+
+        .queue-field-legend-icon svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .queue-field-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            padding-top: 0.15rem;
         }
 
         .queue-settings-row {
@@ -1680,10 +1721,11 @@
         .queue-stepper {
             display: inline-flex;
             align-items: center;
-            border: 1px solid #d4ddf0;
-            border-radius: 10px;
-            background: #fff;
-            overflow: hidden;
+            gap: 0.38rem;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            overflow: visible;
             flex: 0 0 auto;
         }
 
@@ -1694,22 +1736,27 @@
             align-items: center;
             justify-content: center;
             border: 0;
-            background: transparent;
+            background: #fff;
+            border: 1px solid #d4ddf0;
             color: #2f3c7e;
             width: 26px;
-            height: 20px;
+            height: 26px;
+            border-radius: 999px;
             cursor: pointer;
             padding: 0;
             line-height: 1;
         }
 
         .queue-stepper-btn svg {
-            width: 16px;
-            height: 16px;
+            display: block;
+            width: 15px;
+            height: 15px;
+            margin: auto;
         }
 
         .queue-stepper-btn:hover:not(:disabled) {
             background: #eef3ff;
+            border-color: #9ab5f3;
             color: #1d3a96;
         }
 
@@ -1719,17 +1766,15 @@
         }
 
         .manage-page .queue-stepper input[type="number"] {
-            width: 44px;
-            min-width: 44px;
+            width: 50px;
+            min-width: 50px;
             max-width: 56px;
-            height: 20px;
+            height: 28px;
             margin: 0;
             border: 0;
-            border-left: 1px solid #d4ddf0;
-            border-right: 1px solid #d4ddf0;
             border-radius: 0;
             text-align: center;
-            font-size: 0.8rem;
+            font-size: 0.94rem;
             font-weight: 600;
             color: #2a345d;
             padding: 0;
@@ -1794,55 +1839,53 @@
             text-overflow: ellipsis;
         }
 
-        .queue-save-pill {
+        .manage-page .queue-save-pill {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.4rem;
-            min-width: 110px;
-            min-height: 20px;
-            padding: 0 1rem;
-            font-size: 0.78rem;
-            font-weight: 600;
-            border-radius: 10px;
+            gap: 0;
+            width: 30px;
+            min-width: 30px;
+            height: 30px;
+            min-height: 30px;
+            padding: 0;
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
             line-height: 1;
+            flex: 0 0 auto;
+            box-shadow: none;
         }
 
         .queue-save-pill-icon {
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             flex: 0 0 auto;
-            display: none;
+            display: inline-flex;
         }
 
         .queue-save-pill[data-state="saved"] {
-            background: #eef2ff;
-            color: #2f3c7e;
-            border: 1px solid #c5d2ee;
+            color: #167047;
+            background: transparent;
+            border: 0;
             cursor: default;
         }
 
-        .queue-save-pill[data-state="saved"] .queue-save-pill-icon {
-            display: inline-flex;
-            color: #2f3c7e;
-        }
-
         .queue-save-pill[data-state="dirty"] {
-            background: #4f7df0;
-            color: #fff;
-            border: 1px solid #4f7df0;
+            background: transparent;
+            color: #167047;
+            border: 0;
             cursor: pointer;
         }
 
         .queue-save-pill[data-state="dirty"]:hover {
-            background: #3d6ad6;
-            border-color: #3d6ad6;
+            background: #eafaf0;
         }
 
         .queue-save-pill[data-state="saving"] {
-            background: #eef2ff;
             color: #6b7494;
-            border: 1px solid #c5d2ee;
+            background: transparent;
+            border: 0;
             cursor: wait;
         }
 
@@ -1923,10 +1966,12 @@
                 height: 18px;
             }
 
-            .queue-save-pill {
-                min-width: 90px;
-                padding: 0 0.7rem;
-                font-size: 0.85rem;
+            .manage-page .queue-save-pill {
+                width: 30px;
+                min-width: 30px;
+                height: 28px;
+                min-height: 28px;
+                padding: 0;
             }
 
             .type4-deck-count-row {
@@ -4397,7 +4442,7 @@
         }
 
         @media (max-width: 640px) {
-            /* Default layout — applies to 3 tabs: icon-left tile, label wraps to 2 lines */
+            /* Default layout before compacting: icon-left tile, label wraps to 2 lines */
             .kid-card-manage-page .tab-nav .manage-tab {
                 position: relative;
                 flex: 1 1 0;
@@ -4476,12 +4521,12 @@
                 text-overflow: ellipsis;
             }
 
-            /* 4+ tabs: icon-only tiles (label dropped to fit) */
-            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(4)) {
+            /* 3+ tabs: icon-only tiles (label dropped to fit) */
+            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(3)) {
                 padding: 0.18rem;
             }
 
-            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(4)) .manage-tab {
+            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(3)) .manage-tab {
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
@@ -4491,23 +4536,29 @@
                 min-height: 0;
             }
 
-            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(4)) .manage-tab .manage-tab-emoji .subject-icon {
+            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(3)) .manage-tab .manage-tab-emoji .subject-icon {
                 --subj-size: 26px !important;
             }
 
-            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(4)) .manage-tab .manage-tab-label {
+            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(3)) .manage-tab .manage-tab-label {
                 display: none;
             }
         }
 
         body.cards-view-mode-stats .cards-toolbar,
         body.cards-view-mode-stats .cards-view-control,
+        body.cards-view-mode-stats .queue-actions-layout,
+        body.cards-view-mode-stats .deck-setup-actions,
+        body.cards-view-mode-stats #queueSettingsSubgroup,
         body.cards-view-mode-stats #cardsQueueLegend,
         body.cards-view-mode-stats .cards-bulk-action-message-wrap,
         body.cards-view-mode-stats #cardsGrid,
         body.cards-view-mode-stats #cardFocusBanner,
         body.cards-view-mode-report .cards-toolbar,
         body.cards-view-mode-report .cards-view-control,
+        body.cards-view-mode-report .queue-actions-layout,
+        body.cards-view-mode-report .deck-setup-actions,
+        body.cards-view-mode-report #queueSettingsSubgroup,
         body.cards-view-mode-report #cardsQueueLegend,
         body.cards-view-mode-report .cards-bulk-action-message-wrap,
         body.cards-view-mode-report #cardsGrid,
@@ -4523,26 +4574,29 @@
         }
 
         .kid-card-manage-page .summary-stats-row {
-            display: grid;
-            grid-auto-flow: column;
-            grid-auto-columns: minmax(0, 1fr);
-            gap: 0.55rem;
-            margin-bottom: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 0.55rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e9f4;
         }
         .kid-card-manage-page .summary-stat-card {
             display: flex;
             align-items: center;
-            gap: 0.6rem;
-            background: #ffffff;
-            border: 1px solid #eef0f6;
-            border-radius: 12px;
-            padding: 0.6rem 0.7rem;
-            box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
+            gap: 0.42rem;
+            background: #eef0fd;
+            border: 1px solid #e3e6fb;
+            border-radius: 999px;
+            padding: 0.42rem 0.72rem;
+            box-shadow: none;
             min-width: 0;
         }
         .kid-card-manage-page .summary-stat-icon {
-            width: 34px;
-            height: 34px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -4550,8 +4604,8 @@
             flex: 0 0 auto;
         }
         .kid-card-manage-page .summary-stat-icon svg {
-            width: 17px;
-            height: 17px;
+            width: 14px;
+            height: 14px;
         }
         .kid-card-manage-page .summary-stat-icon-purple {
             background: rgba(139, 92, 246, 0.16);
@@ -4566,29 +4620,33 @@
             color: #3b82f6;
         }
         .kid-card-manage-page .summary-stat-body {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 0.34rem;
             min-width: 0;
         }
         .kid-card-manage-page .summary-stat-label {
-            font-size: 0.7rem;
-            color: #6b7299;
+            font-size: 0.78rem;
+            color: #2a345d;
             font-weight: 500;
             line-height: 1.2;
+            white-space: nowrap;
         }
         .kid-card-manage-page .summary-stat-value {
-            font-size: 1.18rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: #2f3c7e;
-            margin-top: 0.1rem;
+            margin-top: 0;
             line-height: 1.1;
         }
 
         .cards-report-view .daily-chart-wrap {
-            background: var(--section-surface-bg);
-            border: 1px solid var(--section-surface-border-muted);
-            border-radius: var(--section-surface-radius-lg);
-            padding: 0.85rem 0.85rem 1rem;
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            padding: 0.35rem 0 0.7rem;
             margin-bottom: var(--section-stack-gap);
-            box-shadow: var(--section-surface-shadow-subtle);
+            box-shadow: none;
         }
         .cards-report-view .daily-chart-header {
             display: flex;
@@ -4614,20 +4672,30 @@
             text-align: center;
         }
         .cards-report-view .daily-chart-page-btn {
-            border: 0;
-            background: transparent;
-            color: #2f3c7e;
-            font-size: 1.1rem;
+            appearance: none;
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            border: 1px solid #cfd7ee;
+            background: rgba(255, 255, 255, 0.92);
+            color: #6b5cf6;
+            font-size: 1.35rem;
+            font-weight: 600;
             line-height: 1;
-            padding: 0.2rem 0.5rem;
+            padding: 0;
             cursor: pointer;
-            border-radius: 6px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .cards-report-view .daily-chart-page-btn:hover:not(:disabled) {
-            background: rgba(47, 60, 126, 0.08);
+            background: #f7f7ff;
+            border-color: #b9c4ee;
         }
         .cards-report-view .daily-chart-page-btn:disabled {
-            opacity: 0.3;
+            color: #aeb6c9;
+            opacity: 0.62;
             cursor: default;
         }
         .cards-report-view .daily-chart-legend {
@@ -5209,27 +5277,27 @@
             .cards-report-view .session-result { font-size: 0.76rem; }
             .cards-report-view .session-retries { font-size: 0.7rem; }
             .kid-card-manage-page .summary-stats-row {
-                gap: 0.45rem;
-                margin-bottom: 0.7rem;
+                gap: 0.34rem;
+                margin-bottom: 0.48rem;
+                padding-bottom: 0.45rem;
             }
             .kid-card-manage-page .summary-stat-card {
-                padding: 0.5rem 0.6rem;
-                gap: 0.5rem;
-                border-radius: 11px;
+                padding: 0.36rem 0.58rem;
+                gap: 0.34rem;
             }
             .kid-card-manage-page .summary-stat-icon {
-                width: 30px;
-                height: 30px;
+                width: 20px;
+                height: 20px;
             }
             .kid-card-manage-page .summary-stat-icon svg {
-                width: 15px;
-                height: 15px;
+                width: 13px;
+                height: 13px;
             }
             .kid-card-manage-page .summary-stat-label {
-                font-size: 0.64rem;
+                font-size: 0.72rem;
             }
             .kid-card-manage-page .summary-stat-value {
-                font-size: 1.02rem;
+                font-size: 0.82rem;
             }
             .cards-report-view .sessions-shell-title {
                 font-size: 0.98rem;
@@ -5237,8 +5305,23 @@
             }
         }
 
-        .distribution-card {
-            margin-bottom: 0.8rem;
+        #cardsStatsView > .cards-distribution-card {
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 0;
+        }
+
+        #cardsStatsView > .daily-progress-card {
+            margin-bottom: 0;
+        }
+
+        #cardsStatsView > .distribution-card {
+            margin-top: 0.9rem;
+            margin-bottom: 0;
+            padding-top: 0.8rem;
+            border-top: 1px solid #e5e9f4;
         }
 
         .distribution-card > .cards-distribution-tabs {
@@ -5290,7 +5373,7 @@
         }
 
         .daily-progress-card {
-            margin-bottom: 0.8rem;
+            margin-bottom: 0;
         }
 
         .daily-progress-card .cards-distribution-card-head {
@@ -5575,4 +5658,275 @@
 
         body.cards-view-mode-stats .cards-view-control {
             display: none !important;
+        }
+
+        /* ===========================================================
+         * BRIGHT TRIAL (test field) — brighter/airier surfaces.
+         * Scoped to this page only. If approved, promote these to the
+         * shared classes in styles.css to apply site-wide.
+         * =========================================================== */
+
+        /* Main content frame: hazy lavender (#f5f7ff) -> crisp white */
+        .kid-card-manage-page .settings-section:not(.deck-setup-section) {
+            background: #ffffff;
+            border-color: #ececf6;
+            box-shadow: 0 10px 26px rgba(31, 45, 98, 0.1);
+        }
+
+        /* Kid + subject selector bars: lighter fill, brighter edge,
+         * much softer shadow so they read airy instead of frosted-gray */
+        .kid-card-manage-page .kid-nav-group {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.42);
+            box-shadow: 0 6px 16px rgba(31, 45, 98, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+        }
+
+        /* Cards / Stats / Sessions: underline tab bar — flat tabs spread
+         * across the frame; active tab gets a colored label + underline
+         * instead of a filled pill / gray well. */
+        .kid-card-manage-page .cards-view-toggle-group,
+        .kid-card-manage-page .cards-view-toggle-group-centered {
+            display: flex;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            gap: 0;
+            padding: 0;
+            background: transparent;
+            border: 0;
+            border-bottom: 1px solid #e7e9f4;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .kid-card-manage-page .cards-view-toggle-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 0.65rem 0.5rem;
+            background: transparent;
+            color: #5b6478;
+            border-radius: 0;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -1px;
+            box-shadow: none;
+            font-weight: 600;
+        }
+
+        .kid-card-manage-page .cards-view-toggle-btn:hover:not(.active) {
+            background: transparent;
+            color: #3b4252;
+        }
+
+        .kid-card-manage-page .cards-view-toggle-btn.active {
+            background: transparent;
+            color: #6366f1;
+            border-bottom-color: #6366f1;
+            box-shadow: none;
+        }
+
+        .kid-card-manage-page {
+            --manage-toolbar-font-size: 0.85rem;
+            --manage-toolbar-font-weight: 500;
+        }
+
+        .kid-card-manage-page .cards-view-toggle-btn,
+        .kid-card-manage-page .deck-setup-actions .manage-popup-btn-title,
+        .kid-card-manage-page .queue-field-legend,
+        .kid-card-manage-page.manage-page .queue-stepper input[type="number"],
+        .kid-card-manage-page.manage-page .cards-toolbar .search-bar-input,
+        .kid-card-manage-page .sort-menu-btn,
+        .kid-card-manage-page .cards-select-mode-btn {
+            font-size: var(--manage-toolbar-font-size);
+            font-weight: var(--manage-toolbar-font-weight);
+            letter-spacing: 0;
+        }
+
+        /* Deck-setup quick actions (now under the tabs): compact tinted pills,
+         * icon + title only — drop the subtitle + chevron — so they read like
+         * the demo's quick-actions and stand out on the white card. */
+        .kid-card-manage-page .deck-setup-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin: 0.36rem 0 0.6rem;
+        }
+
+        .kid-card-manage-page .deck-setup-actions .manage-popup-card-btn {
+            width: auto;
+            flex: 0 0 auto;
+            justify-content: flex-start;
+            min-height: 0;
+            gap: 0.4rem;
+            padding: 0.42rem 0.7rem;
+            border-radius: 999px;
+            background: #eef0fd;
+            border: 1px solid #e3e6fb;
+            box-shadow: none;
+        }
+
+        .kid-card-manage-page .deck-setup-actions .manage-popup-btn-text {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .kid-card-manage-page .deck-setup-actions .manage-popup-btn-emoji .icon {
+            width: 18px;
+            height: 18px;
+        }
+
+        .kid-card-manage-page .deck-setup-actions .manage-popup-btn-title {
+            font-size: var(--manage-toolbar-font-size);
+            font-weight: var(--manage-toolbar-font-weight);
+            white-space: nowrap;
+        }
+
+        .kid-card-manage-page .deck-setup-actions .manage-popup-btn-meta,
+        .kid-card-manage-page .deck-setup-actions .manage-popup-btn-chevron {
+            display: none;
+        }
+
+        .kid-card-manage-page .queue-actions-layout {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            margin: 0.55rem 0 0.6rem;
+            position: relative;
+        }
+
+        .kid-card-manage-page .queue-actions-layout #queueSettingsSubgroup,
+        .kid-card-manage-page .queue-actions-layout .deck-setup-actions {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex: 0 1 auto;
+            min-width: 0;
+            margin: 0;
+            position: relative;
+            padding-top: 0;
+        }
+
+        .kid-card-manage-page .queue-actions-layout .deck-setup-actions:not(:has(> .manage-popup-card-btn:not(.hidden))) {
+            display: none;
+        }
+
+        .kid-card-manage-page .queue-actions-layout .queue-field-legend {
+            font-size: 0.78rem;
+        }
+
+        @media (min-width: 760px) {
+            .kid-card-manage-page .queue-actions-layout {
+                flex-wrap: nowrap;
+                margin: 0.62rem 0 0.58rem;
+            }
+
+            .kid-card-manage-page .deck-setup-actions {
+                display: inline-flex;
+                flex-wrap: nowrap;
+                align-items: flex-start;
+                vertical-align: top;
+                margin: 0;
+            }
+
+            .kid-card-manage-page #queueSettingsSubgroup {
+                display: inline-block;
+                vertical-align: top;
+                margin: 0;
+            }
+
+            .kid-card-manage-page #queueSettingsSubgroup .queue-settings-form {
+                flex-wrap: nowrap;
+            }
+        }
+
+        @media (max-width: 759px) {
+            .kid-card-manage-page .queue-actions-layout {
+                flex-wrap: nowrap;
+                align-items: center;
+                justify-content: center;
+                gap: 0.55rem;
+                margin: 0.45rem 0 0.62rem;
+            }
+
+            .kid-card-manage-page #queueSettingsSubgroup .queue-settings-form {
+                flex-direction: row;
+                flex-wrap: nowrap;
+                align-items: center;
+                justify-content: center;
+                gap: 0.48rem;
+            }
+
+            .kid-card-manage-page #queueSettingsSubgroup .queue-field {
+                flex: 0 1 170px;
+                min-width: 150px;
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+
+            .kid-card-manage-page .deck-setup-actions {
+                flex-direction: column;
+                align-items: stretch;
+                justify-content: center;
+                gap: 0.4rem;
+            }
+
+            .kid-card-manage-page .deck-setup-actions .manage-popup-card-btn {
+                justify-content: center;
+                width: 100%;
+            }
+        }
+
+        body.kid-card-manage-page.type4-manage .queue-actions-layout {
+            width: 100%;
+            margin-top: 0.55rem;
+        }
+
+        body.kid-card-manage-page.type4-manage .queue-actions-layout .deck-setup-actions {
+            display: flex;
+            flex-flow: row nowrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.38rem;
+            width: auto;
+            margin: 0;
+        }
+
+        body.kid-card-manage-page.type4-manage .deck-setup-actions .manage-popup-card-btn {
+            width: auto;
+            min-width: 0;
+            min-height: 0;
+            align-items: center;
+            justify-content: center;
+            padding: 0.42rem 0.62rem;
+            border-radius: 999px;
+            background: #eef0fd;
+            border: 1px solid #e3e6fb;
+            box-shadow: none;
+        }
+
+        body.kid-card-manage-page.type4-manage .deck-setup-actions .manage-popup-btn-text {
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 0.38rem;
+            min-width: 0;
+            width: auto;
+        }
+
+        body.kid-card-manage-page.type4-manage .deck-setup-actions .manage-popup-btn-emoji {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.kid-card-manage-page.type4-manage .deck-setup-actions .manage-popup-btn-title {
+            white-space: nowrap;
+            line-height: 1;
+        }
+
+        body.kid-card-manage-page.type4-manage .deck-setup-actions .manage-popup-btn-meta {
+            display: none;
         }

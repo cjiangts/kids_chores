@@ -1351,17 +1351,14 @@ function isSortMenuOpen() {
 function renderCardViewModeButtons() {
     const isCompact = currentCardViewMode === 'short';
     const lockToCompact = isCardsSelectModeOn;
-    if (cardViewModeCompactBtn) {
-        cardViewModeCompactBtn.innerHTML = icon('layout-grid', { size: 16 });
-        cardViewModeCompactBtn.classList.toggle('active', isCompact);
-        cardViewModeCompactBtn.setAttribute('aria-pressed', isCompact ? 'true' : 'false');
-        cardViewModeCompactBtn.disabled = lockToCompact;
-    }
-    if (cardViewModeExpandBtn) {
-        cardViewModeExpandBtn.innerHTML = icon('rows-3', { size: 16 });
-        cardViewModeExpandBtn.classList.toggle('active', !isCompact);
-        cardViewModeExpandBtn.setAttribute('aria-pressed', isCompact ? 'false' : 'true');
-        cardViewModeExpandBtn.disabled = lockToCompact;
+    if (cardViewModeToggleBtn) {
+        const label = isCompact ? 'Compact view selected' : 'Switch to compact view';
+        cardViewModeToggleBtn.innerHTML = icon('layout-grid', { size: 18 });
+        cardViewModeToggleBtn.classList.toggle('active', isCompact);
+        cardViewModeToggleBtn.setAttribute('aria-pressed', isCompact ? 'true' : 'false');
+        cardViewModeToggleBtn.setAttribute('aria-label', label);
+        cardViewModeToggleBtn.title = label;
+        cardViewModeToggleBtn.disabled = lockToCompact;
     }
 }
 
@@ -1485,14 +1482,17 @@ function setQueueSettingsSaveButton(state, labelText) {
     if (!queueSettingsSaveBtn) {
         return;
     }
-    queueSettingsSaveBtn.dataset.state = state;
-    queueSettingsSaveBtn.disabled = state !== 'dirty';
-    const labelEl = queueSettingsSaveBtn.querySelector('.queue-save-pill-label');
-    if (labelEl) {
-        labelEl.textContent = labelText;
-    } else {
-        queueSettingsSaveBtn.textContent = labelText;
-    }
+    // Each fieldset (Cards/day, Speed target) has its own ✓ save button; they
+    // all submit the same form, so reflect one shared saved/dirty/saving state.
+    document.querySelectorAll('.queue-save-pill').forEach((btn) => {
+        btn.dataset.state = state;
+        btn.disabled = state !== 'dirty';
+        btn.title = labelText;
+        const labelEl = btn.querySelector('.queue-save-pill-label');
+        if (labelEl) {
+            labelEl.textContent = labelText;
+        }
+    });
 }
 
 function updateQueueSettingsSaveButtonState() {

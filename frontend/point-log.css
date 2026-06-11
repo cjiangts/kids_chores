@@ -758,6 +758,10 @@
     color: #e24b65;
 }
 
+.point-week-day-total.neutral {
+    color: #5e6886;
+}
+
 .point-week-day-total.empty {
     color: #a3abc0;
 }
@@ -775,6 +779,10 @@
 
 .point-week-day-mark.negative {
     background: #f26f8a;
+}
+
+.point-week-day-mark.neutral {
+    background: #7b86a3;
 }
 
 .point-week-day.active .point-week-day-mark {

@@ -217,10 +217,9 @@ function renderStatsView() {
     const practiced = cards.filter((card) => getCardPracticeCount(card) > 0);
     const uniqueCount = practiced.length;
     const attemptTotal = practiced.reduce((sum, card) => sum + getCardPracticeCount(card), 0);
-    const bankCount = cards.length;
     if (!practiced.length) {
         container.innerHTML = `
-            ${renderStatsSummary(uniqueCount, attemptTotal, bankCount)}
+            ${renderStatsSummary(uniqueCount, attemptTotal)}
             <div class="cards-view-placeholder">Practice a few cards to unlock card distributions.</div>
         `;
         return;
@@ -249,7 +248,7 @@ function renderStatsView() {
     const dailyProgress = buildDailyProgressChart(currentDailyProgressRows, currentFamilyTimezone);
     const dailyProgressView = dailyProgress ? clipDailyProgressView(dailyProgress, currentDailyProgressViewDays) : null;
     container.innerHTML = `
-        ${renderStatsSummary(uniqueCount, attemptTotal, bankCount)}
+        ${renderStatsSummary(uniqueCount, attemptTotal)}
         ${dailyProgressView ? renderDailyProgressPanel(dailyProgressView) : ''}
         <div class="cards-distribution-card distribution-card">
             <div class="cards-distribution-card-head">
@@ -263,7 +262,7 @@ function renderStatsView() {
     `;
 }
 
-function renderStatsSummary(uniqueCount, attemptTotal, bankCount) {
+function renderStatsSummary(uniqueCount, attemptTotal) {
     const iconSvg = (name) => (typeof window !== 'undefined' && typeof window.icon === 'function')
         ? window.icon(name, { strokeWidth: 2, className: '' })
         : '';
@@ -278,7 +277,6 @@ function renderStatsSummary(uniqueCount, attemptTotal, bankCount) {
     `;
     return `
         <div class="summary-stats-row">
-            ${tile('blue', 'layers', 'Cards in Bank', bankCount)}
             ${tile('purple', 'check', 'Practiced Cards', uniqueCount)}
             ${tile('green', 'bar-chart-3', 'Practiced Counts', attemptTotal)}
         </div>
@@ -899,4 +897,3 @@ function renderDailyProgressPanel(chart) {
         </div>
     `;
 }
-

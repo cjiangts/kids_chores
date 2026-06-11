@@ -330,17 +330,9 @@ body {
     padding: 20px;
 }
 
-body.app-shell-page {
-    padding: 18px;
-}
-
 @media (max-width: 760px) {
     body {
         padding: 6px;
-    }
-
-    body.app-shell-page {
-        padding: 12px;
     }
 }
 
@@ -1541,10 +1533,6 @@ header p {
     color: #fff;
 }
 
-.kid-shell-header {
-    margin-bottom: 20px;
-}
-
 .page-header-with-back .page-header-row {
     display: flex;
     align-items: flex-start;
@@ -2670,10 +2658,6 @@ footer {
 }
 
 @media (max-width: 760px) {
-    body.report-page {
-        padding: 10px;
-    }
-
     .report-page .container {
         max-width: none;
     }
@@ -2715,10 +2699,6 @@ footer {
 }
 
 @media (max-width: 520px) {
-    body.report-page {
-        padding: 6px;
-    }
-
     .report-page .summary-shell,
     .report-page .summary-grid {
         margin-bottom: var(--section-stack-gap-mobile);

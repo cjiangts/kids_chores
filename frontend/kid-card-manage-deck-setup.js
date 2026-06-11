@@ -32,23 +32,31 @@ function renderDeckSetupActionButtons() {
     const optedCount = stagedOptedDeckIdSet.size + (Boolean(orphanDeck) && stagedIncludeOrphanInQueue ? 1 : 0);
     if (openDeckOptInModalBtn) {
         const optInMeta = `${optedCount} / ${totalDecks + (orphanDeck ? 1 : 0)} decks opted in`;
+        openDeckOptInModalBtn.title = optInMeta;
         openDeckOptInModalBtn.innerHTML = `
+            <span class="cards-select-mode-btn-icon" aria-hidden="true">${icon('pencil', { size: 16, strokeWidth: 2.4 })}</span>
+            <span class="cards-select-mode-btn-label">Decks</span>
+        `;
+    }
+    if (openDeckOptInActionBtn) {
+        const optInMeta = `${optedCount} / ${totalDecks + (orphanDeck ? 1 : 0)} decks opted in`;
+        openDeckOptInActionBtn.title = optInMeta;
+        openDeckOptInActionBtn.setAttribute('aria-label', 'Manage Deck Opt-in');
+        openDeckOptInActionBtn.innerHTML = `
             <span class="manage-popup-btn-text">
                 <span class="manage-popup-btn-emoji" aria-hidden="true">${icon('layers', { size: 24 })}</span>
-                <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
+                <span class="manage-popup-btn-title">Decks</span>
                 <span class="manage-popup-btn-meta">${escapeHtml(optInMeta)}</span>
             </span>
             <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
         `;
     }
     if (openPersonalDeckModalBtn) {
+        openPersonalDeckModalBtn.title = 'Add Cards';
+        openPersonalDeckModalBtn.setAttribute('aria-label', 'Add Cards');
         openPersonalDeckModalBtn.innerHTML = `
-            <span class="manage-popup-btn-text">
-                <span class="manage-popup-btn-emoji" aria-hidden="true">${icon('pencil', { size: 24 })}</span>
-                <span class="manage-popup-btn-title">Personal Deck Editor</span>
-                <span class="manage-popup-btn-meta">Add your own cards</span>
-            </span>
-            <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
+            <span class="cards-select-mode-btn-icon" aria-hidden="true">${icon('pencil', { size: 16, strokeWidth: 2.4 })}</span>
+            <span class="cards-select-mode-btn-label">Cards</span>
         `;
     }
 }

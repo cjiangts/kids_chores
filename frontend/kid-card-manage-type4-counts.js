@@ -86,7 +86,7 @@ function renderType4DeckTargetControls() {
     }
     if (openType4DeckCountsModalBtn) {
         openType4DeckCountsModalBtn.disabled = hasPendingChanges || sourceCount <= 0 || isType4DeckCountsSaving;
-        const titleText = isType4DeckCountsSaving ? 'Saving...' : 'Deck Counts';
+        const titleText = isType4DeckCountsSaving ? 'Saving...' : 'Counts';
         const metaText = 'Set cards per day per deck';
         openType4DeckCountsModalBtn.innerHTML = `
             <span class="manage-popup-btn-text">

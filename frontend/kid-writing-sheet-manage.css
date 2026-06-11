@@ -2,10 +2,6 @@
             --math-mono-font: 'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace;
         }
 
-        .worksheet-manage-page .container {
-            max-width: 960px;
-        }
-
         .type2-sheet-layout {
             display: flex;
             flex-direction: column;

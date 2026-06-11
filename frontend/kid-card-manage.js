@@ -36,6 +36,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (openDeckOptInModalBtn) {
         openDeckOptInModalBtn.addEventListener('click', openDeckTreeModal);
     }
+    if (openDeckOptInActionBtn) {
+        openDeckOptInActionBtn.addEventListener('click', openDeckTreeModal);
+    }
     if (cancelDeckTreeModalBtn) {
         cancelDeckTreeModalBtn.addEventListener('click', closeDeckTreeModal);
     }
@@ -335,23 +338,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     sortDirectionToggleBtns.forEach((btn) => {
         btn.addEventListener('click', () => {
-            const next = btn.dataset.sortDirection === 'asc'
-                ? CARD_SORT_DIRECTION_ASC
-                : CARD_SORT_DIRECTION_DESC;
-            if (next === getCurrentCardSortDirection()) {
-                return;
-            }
+            const next = getCurrentCardSortDirection() === CARD_SORT_DIRECTION_ASC
+                ? CARD_SORT_DIRECTION_DESC
+                : CARD_SORT_DIRECTION_ASC;
             setCurrentCardSortDirection(next);
             syncCardSortDirectionButton();
             resetAndDisplayCards(currentCards);
         });
     });
     renderCardViewModeButtons();
-    if (cardViewModeCompactBtn) {
-        cardViewModeCompactBtn.addEventListener('click', () => setCardViewMode('short'));
-    }
-    if (cardViewModeExpandBtn) {
-        cardViewModeExpandBtn.addEventListener('click', () => setCardViewMode('long'));
+    if (cardViewModeToggleBtn) {
+        cardViewModeToggleBtn.addEventListener('click', () => {
+            setCardViewMode(currentCardViewMode === 'short' ? 'long' : 'short');
+        });
     }
     // === 9. Card search + focus-banner clear + cards-selection toolbar ===
     if (cardSearchInput) {

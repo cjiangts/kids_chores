@@ -39,15 +39,60 @@
         <div id="errorMessage" class="error hidden"></div>
         <div id="successMessage" class="success hidden"></div>
 
-        <section class="settings-section settings-main-section cards-section deck-setup-section">
+        <section class="settings-section settings-main-section cards-section">
+                <div class="cards-header-row">
+                <div class="cards-view-toggle-group cards-view-toggle-group-centered" role="group" aria-label="Cards view mode">
+                    <button type="button" class="cards-view-toggle-btn active" data-cards-view-toggle="queue"><span class="cards-view-toggle-btn-icon" data-icon="layout-grid" data-icon-size="16" data-icon-stroke="2.4"></span>Cards</button>
+                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="stats"><span class="cards-view-toggle-btn-icon" data-icon="bar-chart-3" data-icon-size="16" data-icon-stroke="2.4"></span>Stats</button>
+                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="report"><span class="cards-view-toggle-btn-icon" data-icon="history" data-icon-size="16" data-icon-stroke="2.4"></span>Sessions</button>
+                </div>
+            </div>
+            <div class="queue-actions-layout">
+                <div id="queueSettingsSubgroup" class="queue-settings-subgroup">
+                    <form id="sessionSettingsForm" class="queue-settings-form">
+                        <fieldset class="queue-field">
+                            <legend class="queue-field-legend">
+                                <span class="queue-field-legend-icon" aria-hidden="true"><span data-icon="calendar" data-icon-stroke="2"></span></span>
+                                <span id="sessionCardCountLabel">Daily Targets</span>
+                            </legend>
+                            <div class="queue-field-controls">
+                                <div class="queue-stepper">
+                                    <button type="button" class="queue-stepper-btn" data-session-count-step="-1" aria-label="Decrease cards per day"><span data-icon="minus"></span></button>
+                                    <input type="number" id="sessionCardCount" min="0" step="1" required>
+                                    <button type="button" class="queue-stepper-btn" data-session-count-step="1" aria-label="Increase cards per day"><span data-icon="plus"></span></button>
+                                </div>
+                                <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn queue-save-pill" data-state="saved" aria-label="Save cards per day" disabled>
+                                    <span class="queue-save-pill-icon" data-icon="check" data-icon-size="18" data-icon-stroke="2.6"></span>
+                                </button>
+                            </div>
+                        </fieldset>
+
+                        <fieldset id="drillSpeedSettingsGroup" class="queue-field queue-drill-speed-group hidden">
+                            <legend class="queue-field-legend">
+                                <span class="queue-field-legend-icon" aria-hidden="true"><span data-icon="clock" data-icon-stroke="2"></span></span>
+                                <span>Speed Target (s)</span>
+                            </legend>
+                            <div class="queue-field-controls">
+                                <div class="queue-stepper">
+                                    <button type="button" class="queue-stepper-btn" data-drill-speed-step="-1" aria-label="Decrease speed target"><span data-icon="minus"></span></button>
+                                    <input type="number" id="drillSpeedTargetInput" min="0.5" max="30" step="0.5" required>
+                                    <button type="button" class="queue-stepper-btn" data-drill-speed-step="1" aria-label="Increase speed target"><span data-icon="plus"></span></button>
+                                </div>
+                                <button type="submit" class="settings-save-btn queue-save-pill" data-state="saved" aria-label="Save speed target" disabled>
+                                    <span class="queue-save-pill-icon" data-icon="check" data-icon-size="18" data-icon-stroke="2.6"></span>
+                                </button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div>
                 <div class="deck-setup-actions">
-                    <button id="openDeckOptInModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn">
+                    <button id="openDeckOptInActionBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
                         <span class="manage-popup-btn-text">
                             <span class="manage-popup-btn-emoji" aria-hidden="true">
                                 <span class="icon" data-icon="layers" data-icon-size="24"></span>
                             </span>
-                            <span class="manage-popup-btn-title">Manage Deck Opt-in</span>
-                            <span class="manage-popup-btn-meta">0 decks available to opt in</span>
+                            <span class="manage-popup-btn-title">Decks</span>
+                            <span class="manage-popup-btn-meta">0 decks opted in</span>
                         </span>
                         <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </button>
@@ -56,7 +101,7 @@
                             <span class="manage-popup-btn-emoji" aria-hidden="true">
                                 <span class="icon" data-icon="printer" data-icon-size="24"></span>
                             </span>
-                            <span class="manage-popup-btn-title">Printable Sheets</span>
+                            <span class="manage-popup-btn-title">Worksheets</span>
                             <span class="manage-popup-btn-meta">Print practice worksheets</span>
                         </span>
                         <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
@@ -66,87 +111,11 @@
                             <span class="manage-popup-btn-emoji" aria-hidden="true">
                                 <span class="icon" data-icon="target" data-icon-size="24"></span>
                             </span>
-                            <span class="manage-popup-btn-title">Deck Counts</span>
+                            <span class="manage-popup-btn-title">Counts</span>
                             <span class="manage-popup-btn-meta">Cards per day per deck</span>
                         </span>
                         <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </button>
-                    <button id="openPersonalDeckModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
-                        <span class="manage-popup-btn-text">
-                            <span class="manage-popup-btn-emoji" aria-hidden="true">
-                                <span class="icon" data-icon="pencil" data-icon-size="24"></span>
-                            </span>
-                            <span class="manage-popup-btn-title">Personal Deck Editor</span>
-                            <span class="manage-popup-btn-meta">Add your own cards</span>
-                        </span>
-                        <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
-                    </button>
-                </div>
-                <div id="queueSettingsSubgroup" class="queue-settings-subgroup">
-                    <form id="sessionSettingsForm" class="queue-settings-form">
-                    <div class="queue-controls-row">
-                        <div class="queue-settings-actions">
-                            <div class="form-group queue-session-count-group">
-                                <span class="queue-session-count-icon" aria-hidden="true">
-                                    <span data-icon="calendar" data-icon-stroke="2"></span>
-                                </span>
-                                <label id="sessionCardCountLabel" for="sessionCardCount">Cards per day</label>
-                                <div class="queue-stepper">
-                                    <button type="button" class="queue-stepper-btn" data-session-count-step="-1" aria-label="Decrease cards per day">
-                                        <span data-icon="minus"></span>
-                                    </button>
-                                    <input
-                                        type="number"
-                                        id="sessionCardCount"
-                                        min="0"
-                                        step="1"
-                                        required
-                                    >
-                                    <button type="button" class="queue-stepper-btn" data-session-count-step="1" aria-label="Increase cards per day">
-                                        <span data-icon="plus"></span>
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="drillSpeedSettingsGroup" class="form-group queue-session-count-group queue-drill-speed-group hidden">
-                                <span class="queue-session-count-icon" aria-hidden="true">
-                                    <span data-icon="clock" data-icon-stroke="2"></span>
-                                </span>
-                                <label for="drillSpeedTargetInput">Speed target (s)</label>
-                                <div class="queue-stepper">
-                                    <button type="button" class="queue-stepper-btn" data-drill-speed-step="-1" aria-label="Decrease speed target">
-                                        <span data-icon="minus"></span>
-                                    </button>
-                                    <input
-                                        type="number"
-                                        id="drillSpeedTargetInput"
-                                        min="0.5"
-                                        max="30"
-                                        step="0.5"
-                                        required
-                                    >
-                                    <button type="button" class="queue-stepper-btn" data-drill-speed-step="1" aria-label="Increase speed target">
-                                        <span data-icon="plus"></span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="queue-save-row">
-                            <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn queue-save-pill" data-state="saved" disabled>
-                                <span class="queue-save-pill-icon" data-icon="check" data-icon-stroke="2.6"></span>
-                                <span class="queue-save-pill-label">Saved</span>
-                            </button>
-                        </div>
-                    </div>
-                </form>
-                </div>
-        </section>
-
-        <section class="settings-section settings-main-section cards-section">
-                <div class="cards-header-row">
-                <div class="cards-view-toggle-group cards-view-toggle-group-centered" role="group" aria-label="Cards view mode">
-                    <button type="button" class="cards-view-toggle-btn active" data-cards-view-toggle="queue"><span class="cards-view-toggle-btn-icon" data-icon="layout-grid" data-icon-size="16" data-icon-stroke="2.4"></span>Cards</button>
-                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="stats"><span class="cards-view-toggle-btn-icon" data-icon="bar-chart-3" data-icon-size="16" data-icon-stroke="2.4"></span>Stats</button>
-                    <button type="button" class="cards-view-toggle-btn" data-cards-view-toggle="report"><span class="cards-view-toggle-btn-icon" data-icon="history" data-icon-size="16" data-icon-stroke="2.4"></span>Sessions</button>
                 </div>
             </div>
             <div class="cards-toolbar">
@@ -158,6 +127,10 @@
                     </button>
                     <div id="sourceDeckFilterPopover" class="sort-menu-popover hidden" role="menu" aria-hidden="true"></div>
                 </div>
+                <button id="openDeckOptInModalBtn" type="button" class="cards-select-mode-btn cards-import-decks-btn" aria-label="Import Decks" title="Import Decks">
+                    <span class="cards-select-mode-btn-icon" data-icon="pencil" data-icon-size="16" data-icon-stroke="2.4" aria-hidden="true"></span>
+                    <span class="cards-select-mode-btn-label">Decks</span>
+                </button>
                 <div class="search-bar cards-search-wrap">
                     <input
                         type="text"
@@ -167,14 +140,16 @@
                         aria-label="Search cards"
                     >
                 </div>
-                <button id="cardsSelectModeBtn" type="button" class="cards-select-mode-btn" aria-pressed="false" aria-label="Select cards" title="Select cards">
-                    <span class="cards-select-mode-btn-icon" data-icon="box-select" data-icon-stroke="2"></span>
-                    <span class="cards-select-mode-btn-label">Select</span>
-                </button>
+                <button
+                    id="openPersonalDeckModalBtn"
+                    type="button"
+                    class="cards-select-mode-btn cards-add-card-btn hidden"
+                    aria-label="Add Cards"
+                    title="Add Cards"
+                ><span class="cards-select-mode-btn-icon" data-icon="pencil" data-icon-size="16" data-icon-stroke="2.4"></span><span class="cards-select-mode-btn-label">Cards</span></button>
                 <div class="sort-control-group">
                     <div class="sort-menu">
                         <button id="sortMenuBtn" type="button" class="sort-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Sort by">
-                            <span class="sort-menu-btn-icon" data-icon="align-left" data-icon-stroke="2"></span>
                             <span id="sortMenuBtnLabel" class="sort-menu-btn-label">Sort by: Practice Priority</span>
                             <span class="sort-menu-btn-caret" data-icon="chevron-down"></span>
                         </button>
@@ -189,24 +164,27 @@
                             <option value="thumb_downs" data-label="Thumb-Downs" data-type2-only="1">Sort by: Thumb-Downs</option>
                         </select>
                     </div>
-                    <div id="sortDirectionToggleGroup" class="sort-direction-toggle-group" role="group" aria-label="Sort direction">
-                        <button
-                            type="button"
-                            class="sort-direction-toggle-btn active"
-                            data-sort-direction="desc"
-                            aria-pressed="true"
-                            aria-label="Highest first"
-                            title="Highest first"
-                        ><span class="sort-direction-toggle-btn-icon" data-icon="arrow-down-wide-narrow" data-icon-size="16" data-icon-stroke="2.2"></span></button>
-                        <button
-                            type="button"
-                            class="sort-direction-toggle-btn"
-                            data-sort-direction="asc"
-                            aria-pressed="false"
-                            aria-label="Lowest first"
-                            title="Lowest first"
-                        ><span class="sort-direction-toggle-btn-icon" data-icon="arrow-up-narrow-wide" data-icon-size="16" data-icon-stroke="2.2"></span></button>
-                    </div>
+                    <button
+                        id="sortDirectionToggleGroup"
+                        type="button"
+                        class="toolbar-icon-toggle-btn sort-direction-toggle-btn active"
+                        data-sort-direction="desc"
+                        aria-pressed="true"
+                        aria-label="Highest first"
+                        title="Highest first"
+                    ><span class="sort-direction-toggle-btn-icon" data-icon="arrow-down-wide-narrow" data-icon-size="18" data-icon-stroke="2.3"></span></button>
+                    <button
+                        type="button"
+                        id="cardViewModeToggleBtn"
+                        class="toolbar-icon-toggle-btn card-view-mode-btn"
+                        data-card-view-mode-toggle
+                        title="Compact view"
+                        aria-label="Compact view"
+                        aria-pressed="false"
+                    ></button>
+                    <button id="cardsSelectModeBtn" type="button" class="cards-select-mode-btn" aria-pressed="false" aria-label="Select cards" title="Select cards">
+                        <span class="cards-select-mode-btn-label">Select</span>
+                    </button>
                 </div>
             </div>
             <div class="cards-view-control">
@@ -216,10 +194,6 @@
                     <span class="cards-queue-legend-item learning"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Learning</span>
                     <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
                     <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
-                </div>
-                <div class="card-view-mode-group" role="group" aria-label="Card view mode">
-                    <button type="button" id="cardViewModeCompactBtn" class="card-view-mode-btn" data-card-view-mode="short" title="Compact pill/tile view" aria-label="Compact view" aria-pressed="false"></button>
-                    <button type="button" id="cardViewModeExpandBtn" class="card-view-mode-btn active" data-card-view-mode="long" title="Detailed expanded view" aria-label="Detailed view" aria-pressed="true"></button>
                 </div>
             </div>
                 <div class="cards-bulk-action-message-wrap">
