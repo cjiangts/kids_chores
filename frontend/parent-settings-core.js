@@ -613,9 +613,8 @@ function renderTrustedBrowsers(items) {
                     <span class="trusted-browser-meta">Trusted ${escapeHtml(createdAt)}</span>
                     <span class="trusted-browser-meta">Last used ${escapeHtml(lastUsedAt)}</span>
                 </div>
-                <button type="button" class="semantic-outline-btn semantic-outline-btn--red trusted-browser-delete" data-action="delete-trusted-browser" data-browser-id="${escapeHtml(browserId)}" aria-label="${escapeHtml(`Remove ${label}`)}">
-                    ${window.icon('trash', { size: 15 })}
-                    <span>Remove</span>
+                <button type="button" class="semantic-outline-btn semantic-outline-btn--red paradigm-icon-action-btn" data-action="delete-trusted-browser" data-browser-id="${escapeHtml(browserId)}" aria-label="${escapeHtml(`Remove ${label}`)}">
+                    ${window.icon('trash', { size: 16 })}
                 </button>
             </div>
         `;
@@ -837,7 +836,7 @@ function renderFamilyAccounts(families, sharedStorage) {
             : 'Last active: unknown';
         const canDelete = Boolean(family.canDelete);
         const deleteButton = canDelete
-            ? `<button type="button" class="semantic-outline-btn semantic-outline-btn--red" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}">${icon('trash', { size: 18 })} Delete</button>`
+            ? `<button type="button" class="semantic-outline-btn semantic-outline-btn--red paradigm-icon-action-btn" data-action="delete-family" data-family-id="${escapeHtml(familyId)}" data-family-username="${escapeHtml(username)}" aria-label="${escapeHtml(`Delete ${username || familyId}`)}">${icon('trash', { size: 16 })}</button>`
             : '<span class="family-account-protected">Protected</span>';
         const flagsHtml = badgeText
             ? `<span class="family-account-card-flags">${escapeHtml(badgeText)}</span>`
@@ -939,13 +938,13 @@ function renderKidsManage(kids) {
                 <span class="kids-manage-avatar kid-initial-avatar ${avatarVariant}" data-kid-avatar>${avatarInner}</span>
                 <span class="kids-manage-name">${escapeHtml(name)}</span>
                 <div class="kids-manage-row-action">
-                    <button type="button" class="semantic-outline-btn" data-action="set-avatar">${icon('image', { size: 18 })} Photo</button>
-                    <button type="button" class="semantic-outline-btn semantic-outline-btn--red" data-action="ask-delete-kid">${icon('trash', { size: 18 })} Remove</button>
+                    <button type="button" class="semantic-outline-btn paradigm-icon-action-btn" data-action="set-avatar" aria-label="${escapeHtml(`Set photo for ${name}`)}">${icon('image', { size: 16 })}</button>
+                    <button type="button" class="semantic-outline-btn semantic-outline-btn--red paradigm-icon-action-btn" data-action="ask-delete-kid" aria-label="${escapeHtml(`Remove ${name}`)}">${icon('trash', { size: 16 })}</button>
                 </div>
                 <form class="kids-manage-confirm" data-action="confirm-delete-form">
                     <input type="password" class="kids-manage-input kids-manage-pw" placeholder="Password" autocomplete="current-password">
-                    <button type="submit" class="semantic-outline-btn semantic-outline-btn--red" data-action="confirm-delete-kid">Delete</button>
-                    <button type="button" class="semantic-outline-btn" data-action="cancel-delete-kid">Cancel</button>
+                    <button type="submit" class="semantic-outline-btn semantic-outline-btn--red parent-settings-inline-btn" data-action="confirm-delete-kid">Delete</button>
+                    <button type="button" class="semantic-outline-btn parent-settings-inline-btn" data-action="cancel-delete-kid">Cancel</button>
                 </form>
             </div>
         `;

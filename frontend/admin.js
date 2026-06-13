@@ -124,6 +124,7 @@ function bindEvents() {
         adminOffAppPanel.addEventListener('click', handleAdminOffAppClick);
         adminOffAppPanel.addEventListener('input', handleAdminOffAppInput);
     }
+    window.addEventListener('resize', syncAdminStatusColumnWidth);
 }
 
 // =====================================================================
@@ -594,6 +595,7 @@ function renderMatrix() {
     const rows = getCategoryRowsForFamily(list);
     if (rows.length === 0) {
         adminMatrix.innerHTML = `<tbody><tr><td class="admin-empty-state">No subjects available.</td></tr></tbody>`;
+        syncAdminStatusColumnWidth();
         renderAdminOffAppSection(list);
         const eb = getEditToggleBtn();
         if (eb) eb.disabled = true;
@@ -607,7 +609,7 @@ function renderMatrix() {
     const headerHtml = `
         <thead>
             <tr>
-                <th class="admin-matrix-subject-head"><span class="admin-chore-group-title"><span class="admin-chore-group-title-icon" aria-hidden="true">${(typeof window.icon === 'function') ? window.icon('smartphone', { size: 16, strokeWidth: 2 }) : ''}</span>In-App Chores</span></th>
+                <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${(typeof window.icon === 'function') ? window.icon('smartphone', { strokeWidth: 2 }) : ''}</span><span class="paradigm-panel-heading">In-App Chores</span></span></th>
                 ${matrixKids.map((kid) => buildKidColumnHeader(kid)).join('')}
                 ${showTodayStatusColumn ? buildTodayColumnHeader(matrixKids[0]) : ''}
             </tr>
@@ -642,6 +644,8 @@ function renderMatrix() {
     if (typeof window.hydrateIcons === 'function') {
         window.hydrateIcons(adminMatrix);
     }
+    syncAdminStatusColumnWidth();
+    window.requestAnimationFrame(syncAdminStatusColumnWidth);
     renderAdminOffAppSection(list);
 
     bindMatrixInteractions(rows, matrixKids);
@@ -840,7 +844,7 @@ function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
             : Number.parseInt(reviewItem?.pendingId, 10));
     const reviewKey = adminOffAppReviewKey(reviewKind, id);
     if (!reviewKey) {
-        return '<span class="admin-off-app-status admin-off-app-status--pending">Reviewing</span>';
+        return '<span class="admin-off-app-status admin-off-app-status--pending paradigm-status-pill">Reviewing</span>';
     }
     const draft = getAdminOffAppDraft(reviewKind, reviewItem, chore);
     const note = String(draft?.note || '');
@@ -908,7 +912,7 @@ function buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem) {
         ? `${reviewHtml}<span>Review</span>`
         : `${checkHtml}<span>${escapeHtml(points)}</span>`;
     return `
-        <button type="button" class="admin-off-app-result-pill${isPendingReview ? ' is-review' : ' is-credited'}${isSaving ? ' is-saving' : ''}" data-off-app-edit data-review-key="${escapeHtml(reviewKey)}" aria-label="${isPendingReview ? `Review ${escapeHtml(taskName)}` : `Edit ${escapeHtml(points)} points for ${escapeHtml(taskName)}`}"${isSaving ? ' disabled' : ''}>
+        <button type="button" class="admin-off-app-result-pill paradigm-status-pill${isPendingReview ? ' is-review' : ' is-credited'}${isSaving ? ' is-saving' : ''}" data-off-app-edit data-review-key="${escapeHtml(reviewKey)}" aria-label="${isPendingReview ? `Review ${escapeHtml(taskName)}` : `Edit ${escapeHtml(points)} points for ${escapeHtml(taskName)}`}"${isSaving ? ' disabled' : ''}>
             <span class="admin-off-app-result-pill-main">${mainContent}</span>
             <span class="admin-off-app-result-pill-edit" aria-hidden="true">
                 ${editHtml}
@@ -924,27 +928,18 @@ function buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) {
     return `<span class="admin-off-app-note-preview">${escapeHtml(note)}</span>`;
 }
 
-function buildAdminOffAppStatusHtml(chore, pending, kidId, directReviewKey = '') {
-    const creditedEvent = chore?.creditedEvent && typeof chore.creditedEvent === 'object'
-        ? chore.creditedEvent
-        : null;
-    if (chore?.creditedToday || creditedEvent) {
-        return buildAdminOffAppGradeFormHtml(chore, 'event', creditedEvent || chore?.creditedEvent);
-    }
-    if (pending) {
-        return buildAdminOffAppGradeFormHtml(chore, 'pending', pending);
-    }
+function buildAdminOffAppStatusHtml(chore, directReviewKey = '') {
     const readyHtml = (typeof window.icon === 'function') ? window.icon('play', { size: 15, strokeWidth: 2.8 }) : '';
     const editHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 13, strokeWidth: 2.5 }) : '';
     return `
-        <button type="button" class="admin-off-app-status admin-off-app-status--ready" data-off-app-edit data-review-key="${escapeHtml(directReviewKey)}" aria-label="Log result for ${escapeHtml(String(chore?.name || 'task'))}">
+        <button type="button" class="admin-off-app-status admin-off-app-status--ready paradigm-status-pill" data-off-app-edit data-review-key="${escapeHtml(directReviewKey)}" aria-label="Log result for ${escapeHtml(String(chore?.name || 'task'))}">
             <span class="admin-off-app-status-main">${readyHtml}<span>Not Started</span></span>
             <span class="admin-off-app-status-edit" aria-hidden="true">${editHtml}</span>
         </button>
     `;
 }
 
-function buildAdminOffAppRow(chore, state, kidId) {
+function buildAdminOffAppRow(chore, state) {
     const ruleId = Number.parseInt(chore?.ruleId, 10);
     if (!Number.isInteger(ruleId) || ruleId <= 0) return '';
     const name = String(chore?.name || '').trim() || 'Task';
@@ -960,21 +955,61 @@ function buildAdminOffAppRow(chore, state, kidId) {
             : Number.parseInt(reviewItem?.pendingId, 10));
     const reviewKey = isReviewable ? adminOffAppReviewKey(reviewKind, reviewId) : '';
     const isEditing = Boolean(reviewKey && adminOffAppEditingKeys.has(reviewKey));
-    return `
-        <div class="admin-off-app-row${isReviewable ? ' is-reviewable' : ''}${isEditing ? ' is-editing' : ''}" data-off-app-rule-id="${ruleId}">
-            <span class="admin-off-app-tile" aria-hidden="true">${renderAdminOffAppIcon(chore)}</span>
-            <span class="admin-off-app-title-wrap">
-                <span class="admin-off-app-name">${escapeHtml(name)}</span>
-                ${isReviewable && reviewKind !== 'direct' && !isEditing ? buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) : ''}
+    const stepperHtml = isReviewable && isEditing ? buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) : '';
+    const taskCellHtml = `
+        <th class="admin-off-app-name-cell" scope="row">
+            <span class="admin-off-app-task-cell">
+                <span class="admin-off-app-tile" aria-hidden="true">${renderAdminOffAppIcon(chore)}</span>
+                <span class="admin-off-app-title-wrap">
+                    <span class="admin-off-app-title-line">
+                        <span class="admin-off-app-name">${escapeHtml(name)}</span>
+                        ${stepperHtml}
+                    </span>
+                    ${isReviewable && reviewKind !== 'direct' && !isEditing ? buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) : ''}
+                </span>
             </span>
-            ${isReviewable && isEditing ? buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) : ''}
-            ${isReviewable && isEditing
-                ? buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem)
-                : (reviewKind === 'direct'
-                    ? buildAdminOffAppStatusHtml(chore, pending, kidId, reviewKey)
-                    : buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem))}
-        </div>
+        </th>
     `;
+    const actionCellHtml = reviewKind === 'direct'
+        ? buildAdminOffAppStatusHtml(chore, reviewKey)
+        : buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem);
+    const editRowHtml = isReviewable && isEditing
+        ? `
+            <tr class="admin-off-app-row admin-off-app-edit-row is-reviewable is-editing" data-off-app-rule-id="${ruleId}">
+                <td class="admin-off-app-edit-cell" colspan="2">
+                    ${buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem)}
+                </td>
+            </tr>
+        `
+        : '';
+    return `
+        <tr class="admin-off-app-row${isReviewable ? ' is-reviewable' : ''}${isEditing ? ' is-editing' : ''}" data-off-app-rule-id="${ruleId}">
+            ${taskCellHtml}
+            <td class="admin-off-app-action-cell paradigm-status-column">
+                ${actionCellHtml}
+            </td>
+        </tr>
+        ${editRowHtml}
+    `;
+}
+
+function buildAdminOffAppTable(bodyHtml) {
+    const iconHtml = (typeof window.icon === 'function') ? window.icon('clipboard-check', { strokeWidth: 2 }) : '';
+    return `
+        <table class="admin-matrix admin-off-app-matrix">
+            <thead>
+                <tr>
+                    <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${iconHtml}</span><span class="paradigm-panel-heading">Off-App Chores</span></span></th>
+                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column"></th>
+                </tr>
+            </thead>
+            <tbody>${bodyHtml}</tbody>
+        </table>
+    `;
+}
+
+function buildAdminOffAppMessageRow(message) {
+    return `<tr><td class="admin-off-app-empty" colspan="2">${escapeHtml(message)}</td></tr>`;
 }
 
 function handleAdminOffAppInput(event) {
@@ -1097,22 +1132,39 @@ function renderAdminOffAppSection(kids) {
     adminOffAppPanel.classList.remove('hidden');
     const state = adminOffAppByKidId.get(kidId);
     if (!state) {
-        adminOffAppList.innerHTML = '<div class="admin-off-app-empty">Loading off-app chores...</div>';
+        adminOffAppList.innerHTML = buildAdminOffAppTable(buildAdminOffAppMessageRow('Loading off-app chores...'));
         void loadAdminOffAppChores(kidId);
         return;
     }
     if (state.error) {
-        adminOffAppList.innerHTML = `<div class="admin-off-app-empty">${escapeHtml(state.error)}</div>`;
+        adminOffAppList.innerHTML = buildAdminOffAppTable(buildAdminOffAppMessageRow(state.error));
         return;
     }
     const chores = Array.isArray(state.chores)
         ? state.chores.filter((chore) => chore && chore.isActive !== false)
         : [];
     if (chores.length <= 0) {
-        adminOffAppList.innerHTML = '<div class="admin-off-app-empty">No off-app chores enabled.</div>';
+        adminOffAppList.innerHTML = buildAdminOffAppTable(buildAdminOffAppMessageRow('No off-app chores enabled.'));
         return;
     }
-    adminOffAppList.innerHTML = chores.map((chore) => buildAdminOffAppRow(chore, state, kidId)).join('');
+    adminOffAppList.innerHTML = buildAdminOffAppTable(
+        chores.map((chore) => buildAdminOffAppRow(chore, state)).join(''),
+    );
+}
+
+function syncAdminStatusColumnWidth() {
+    if (!adminMatrix) return;
+    const statusCell = adminMatrix.querySelector('tbody td.paradigm-status-column')
+        || adminMatrix.querySelector('thead .admin-matrix-status-head');
+    const width = statusCell ? Math.ceil(statusCell.getBoundingClientRect().width) : 0;
+    [adminOptinPanel, adminOffAppPanel].forEach((panel) => {
+        if (!panel) return;
+        if (width > 0) {
+            panel.style.setProperty('--admin-status-column-width', `${width}px`);
+        } else {
+            panel.style.removeProperty('--admin-status-column-width');
+        }
+    });
 }
 
 function buildKidColumnHeader(kid) {
@@ -1121,7 +1173,9 @@ function buildKidColumnHeader(kid) {
     if (!editMode) {
         return `
             <th class="admin-matrix-kid-head admin-matrix-cards-head" data-kid-id="${escapeHtml(kidId)}">
-                <span class="admin-matrix-column-head-label">Cards/day</span>
+                <span class="paradigm-panel-title paradigm-panel-title--inline">
+                    <span class="paradigm-panel-heading">Cards/day</span>
+                </span>
             </th>
         `;
     }
@@ -1216,13 +1270,9 @@ function buildTodayColumnHeader(kid) {
     const kidId = String(kid?.id || '');
     const name = String(kid?.name || '').trim() || 'this child';
     const href = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
-    const iconHtml = (typeof window.icon === 'function') ? window.icon('external-link', { size: 11, strokeWidth: 2.5 }) : '';
     return `
-        <th class="admin-matrix-status-head">
-            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-today-head-link" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} today's report">
-                <span class="admin-matrix-column-head-icon" aria-hidden="true">${iconHtml}</span>
-                <span class="admin-matrix-column-head-label">Today</span>
-            </a>
+        <th class="admin-matrix-status-head paradigm-status-column">
+            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-today-head-link" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} today's report">Today</a>
         </th>
     `;
 }
@@ -1257,14 +1307,14 @@ function buildMatrixRow(row, kids, options = {}) {
     const showSubjectMenu = isSuperFamily;
     const moreIconHtml = (showSubjectMenu && typeof window.icon === 'function') ? window.icon('more-vertical', { size: 16 }) : '';
     const subjectMenuBtnHtml = showSubjectMenu
-        ? `<button type="button" class="admin-matrix-subject-menu-btn" data-subject-menu-trigger data-category-key="${escapeHtml(row.categoryKey)}" data-chinese-back-content="${escapeHtml(row.chineseBackContent || '')}" data-behavior-type="${escapeHtml(row.behaviorType || '')}" aria-label="Subject options for ${escapeHtml(row.displayName)}">${moreIconHtml}</button>`
+        ? `<button type="button" class="paradigm-subject-menu" data-subject-menu-trigger data-category-key="${escapeHtml(row.categoryKey)}" data-chinese-back-content="${escapeHtml(row.chineseBackContent || '')}" data-behavior-type="${escapeHtml(row.behaviorType || '')}" aria-label="Subject options for ${escapeHtml(row.displayName)}">${moreIconHtml}</button>`
         : '';
     return `
         <tr data-category-key="${escapeHtml(row.categoryKey)}">
             <th scope="row">
-                <div class="admin-matrix-subject-cell">
-                    <span class="admin-matrix-subject-tile" aria-hidden="true">${subjectIconHtml}</span>
-                    <span class="admin-matrix-subject-name">${escapeHtml(row.displayName)}</span>
+                <div class="paradigm-subject-cell">
+                    <span class="paradigm-subject-icon" aria-hidden="true">${subjectIconHtml}</span>
+                    <span class="paradigm-subject-name">${escapeHtml(row.displayName)}</span>
                     ${subjectMenuBtnHtml}
                 </div>
             </th>
@@ -1277,7 +1327,7 @@ function buildMatrixRow(row, kids, options = {}) {
 function buildTodayStatusCell(row, kid) {
     const kidId = String(kid?.id || '');
     if (!getEffectiveKidCategoryOptedIn(kid, row.categoryKey)) {
-        return '<td class="admin-matrix-status-cell"></td>';
+        return '<td class="paradigm-status-column"></td>';
     }
     const statusMap = (kid && typeof kid.todaySessionStatusByDeckCategory === 'object')
         ? kid.todaySessionStatusByDeckCategory || {}
@@ -1323,8 +1373,8 @@ function buildTodayStatusCell(row, kid) {
             : `${label}. View session.`;
         const resultClass = status === 'done' && !needsReview ? 'is-credited' : 'is-review';
         return `
-            <td class="admin-matrix-status-cell">
-                <a href="${escapeHtml(href)}" class="admin-off-app-result-pill ${resultClass} admin-today-pill admin-today-pill--${escapeHtml(status)}" data-session-link data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(ariaLabel)}">
+            <td class="paradigm-status-column">
+                <a href="${escapeHtml(href)}" class="admin-off-app-result-pill ${resultClass} admin-today-pill paradigm-status-pill admin-today-pill--${escapeHtml(status)}" data-session-link data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(ariaLabel)}">
                     <span class="admin-off-app-result-pill-main">${mainHtml}</span>
                     <span class="admin-off-app-result-pill-edit" aria-hidden="true">${viewIconHtml}</span>
                 </a>
@@ -1333,8 +1383,8 @@ function buildTodayStatusCell(row, kid) {
     }
     if (status === 'not_started') {
         return `
-            <td class="admin-matrix-status-cell">
-                <span class="admin-off-app-status admin-off-app-status--ready admin-today-pill admin-today-pill--not_started">
+            <td class="paradigm-status-column">
+                <span class="admin-off-app-status admin-off-app-status--ready admin-today-pill paradigm-status-pill admin-today-pill--not_started">
                     <span class="admin-off-app-status-main">${mainHtml}</span>
                     <span class="admin-off-app-status-edit" aria-hidden="true"></span>
                 </span>
@@ -1343,8 +1393,8 @@ function buildTodayStatusCell(row, kid) {
     }
     const resultClass = status === 'done' && !needsReview ? 'is-credited' : 'is-review';
     return `
-        <td class="admin-matrix-status-cell">
-            <span class="admin-off-app-result-pill ${resultClass} admin-today-pill admin-today-pill--${escapeHtml(status)}">
+        <td class="paradigm-status-column">
+            <span class="admin-off-app-result-pill ${resultClass} admin-today-pill paradigm-status-pill admin-today-pill--${escapeHtml(status)}">
                 <span class="admin-off-app-result-pill-main">${mainHtml}</span>
                 <span class="admin-off-app-result-pill-edit" aria-hidden="true"></span>
             </span>

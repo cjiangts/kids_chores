@@ -13,6 +13,7 @@
     <title>Create Deck - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="paradigm.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
     <style>
@@ -245,7 +246,7 @@
             text-align: left;
             cursor: pointer;
             padding: 0.68rem 0.75rem;
-            transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
 
         #firstTagToggle .first-tag-option--with-icon {
@@ -270,7 +271,6 @@
 
         #firstTagToggle .first-tag-option:hover {
             border-color: #4f83ff;
-            transform: translateY(-1px);
         }
 
         #firstTagToggle .first-tag-option.active {
@@ -289,7 +289,6 @@
 
         #firstTagToggle.category-locked .first-tag-option {
             cursor: default;
-            transform: none;
         }
 
         #firstTagToggle .first-tag-option.lock-hidden {

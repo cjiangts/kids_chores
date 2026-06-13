@@ -13,6 +13,7 @@
     <title>Rewards - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="paradigm.css">
     <link rel="stylesheet" href="home-redesign-v4.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
@@ -36,8 +37,8 @@
             <section id="parentRewardKids" class="kid-nav-group hidden" role="tablist" aria-label="Kids"></section>
             <div id="parentRewardsError" class="error hidden"></div>
 
-            <section class="settings-card settings-section parent-reward-catalog-section">
-                <div class="settings-card-body parent-reward-catalog-body">
+            <section class="settings-card settings-section point-rule-list-section">
+                <div class="settings-card-body">
                     <div class="point-log-mode-row">
                         <div id="parentRewardTabs" class="cards-view-toggle-group cards-view-toggle-group-centered" role="tablist" aria-label="Reward types"></div>
                         <a id="parentRewardRulesLink" href="/point-rules.html?kind=redeemed_reward" class="point-rules-link" aria-label="Open reward rules" title="Rules"><span class="icon" data-icon="pencil" data-icon-size="17"></span><span class="point-rules-link-text">Rules</span></a>
@@ -48,10 +49,10 @@
 
             <section class="settings-card settings-section point-history-section">
                 <div class="settings-card-body">
-                    <div class="point-panel-title">
-                        <span class="point-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="18"></span></span>
-                        <h2>Redeem Activity</h2>
-                        <span class="point-history-current-day" data-point-history-day-label></span>
+                    <div class="paradigm-panel-title">
+                        <span class="paradigm-panel-title-icon"><span class="icon" data-icon="history"></span></span>
+                        <h2 class="paradigm-panel-heading">Redeem Activity</h2>
+                        <span class="paradigm-panel-meta point-history-current-day" data-point-history-day-label></span>
                     </div>
                     <div id="parentRewardHistory" class="point-history"></div>
                 </div>

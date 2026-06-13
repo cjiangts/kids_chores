@@ -177,7 +177,7 @@
     line-height: 1;
     text-decoration: none;
     box-shadow: 0 8px 18px rgba(31, 45, 98, 0.12);
-    transition: background 0.18s ease, box-shadow 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    transition: background 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -589,7 +589,6 @@ h3:has(.icon) {
 
 .back-btn:hover {
     background: #f4f6fc;
-    transform: translateY(-1px);
 }
 
 .practice-page .practice-container {
@@ -636,13 +635,12 @@ h3:has(.icon) {
     cursor: pointer;
     min-width: 72px;
     line-height: 1;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .audio-play-btn:hover {
     background: #f4f8ff;
     border-color: #7eabf8;
-    transform: translateY(-1px);
 }
 
 .audio-speed-btn {
@@ -661,7 +659,7 @@ h3:has(.icon) {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .audio-speed-btn:hover {
@@ -846,10 +844,6 @@ h3:has(.icon) {
     transition: all 0.2s;
 }
 
-.practice-page .control-btn:hover {
-    transform: translateY(-1px);
-}
-
 .practice-page button,
 .practice-page a,
 .practice-page .flashcard,
@@ -860,7 +854,6 @@ h3:has(.icon) {
 .practice-page .control-btn:disabled {
     opacity: 0.65;
     cursor: not-allowed;
-    transform: none;
 }
 
 .practice-page .session-pause-btn {
@@ -1287,62 +1280,6 @@ h3:has(.icon) {
     margin-top: 0;
 }
 
-/* Shared segmented view toggle */
-.cards-view-toggle-group {
-    display: inline-flex;
-    align-items: stretch;
-    gap: 0.25rem;
-    background: #ffffff;
-    border-radius: 14px;
-    padding: 4px;
-    border: 1px solid #e3e7f3;
-    box-shadow: 0 1px 2px rgba(31, 45, 98, 0.06);
-}
-
-.cards-view-toggle-group-centered {
-    align-self: center;
-    justify-self: center;
-    width: max-content;
-    max-width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.cards-view-toggle-btn {
-    border: 0;
-    background: transparent;
-    color: #2f3c7e;
-    font-size: 0.92rem;
-    font-weight: 560;
-    padding: 0.55rem 1.4rem;
-    border-radius: 10px;
-    cursor: pointer;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
-}
-
-.cards-view-toggle-btn-icon {
-    display: inline-flex;
-    align-items: center;
-    color: currentColor;
-}
-
-.point-rule-tab-short { display: none; }
-
-.cards-view-toggle-btn:hover:not(.active) {
-    background: #f3f5fc;
-}
-
-.cards-view-toggle-btn.active {
-    background: #6366f1;
-    color: #ffffff;
-    box-shadow: 0 6px 14px rgba(99, 102, 241, 0.32);
-}
-
 /* Shared point/reward typography */
 .point-template-name,
 .point-selection-title,
@@ -1370,48 +1307,6 @@ h3:has(.icon) {
 }
 
 @media (max-width: 700px) {
-    .cards-view-toggle-group {
-        display: flex;
-        width: 100%;
-        gap: 0.18rem;
-        padding: 3px;
-    }
-
-    .cards-view-toggle-group-centered {
-        width: 100%;
-        margin-left: 0;
-        margin-right: 0;
-    }
-
-    .cards-view-toggle-btn {
-        flex: 1 1 0;
-        min-width: 0;
-        flex-direction: row;
-        gap: 0.28rem;
-        min-height: 36px;
-        padding: 0.24rem 0.24rem;
-        font-size: 0.72rem;
-        line-height: 1.05;
-        white-space: nowrap;
-        overflow-wrap: normal;
-        text-align: center;
-    }
-
-    .cards-view-toggle-btn > span:not(.cards-view-toggle-btn-icon) {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .cards-view-toggle-group-compact .cards-view-toggle-btn {
-        flex-direction: row;
-        gap: 0.28rem;
-        min-height: 34px;
-        padding: 0.22rem 0.24rem;
-        white-space: nowrap;
-    }
-
     .point-template-name,
     .point-selection-title,
     .point-history-title,
@@ -1421,14 +1316,6 @@ h3:has(.icon) {
         font-size: 0.82rem;
     }
 
-    .point-rule-tab-long { display: none; }
-    .point-rule-tab-short { display: inline; }
-
-    .cards-view-toggle-btn-icon,
-    .cards-view-toggle-btn-icon svg {
-        width: 14px;
-        height: 14px;
-    }
 }
 
 /* === 7. Sheet item cards ================================================= */
@@ -1450,7 +1337,7 @@ h3:has(.icon) {
     line-height: 1.2;
     text-decoration: none;
     white-space: nowrap;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .semantic-outline-btn--blue,
@@ -1463,7 +1350,6 @@ h3:has(.icon) {
 .sheet-item .print-btn:hover {
     background: #f4f8ff;
     border-color: #7eabf8;
-    transform: translateY(-1px);
 }
 
 .sheet-item .print-btn {
@@ -1478,7 +1364,6 @@ h3:has(.icon) {
 .sheet-item .done-btn:hover {
     background: #f3fbf5;
     border-color: #74c589;
-    transform: translateY(-1px);
 }
 
 .semantic-outline-btn--red,
@@ -1495,7 +1380,6 @@ h3:has(.icon) {
 .sheet-item .delete-btn:hover {
     background: #fff6f5;
     border-color: #e78b82;
-    transform: translateY(-1px);
 }
 
 .sheet-item .clone-btn {
@@ -1506,7 +1390,6 @@ h3:has(.icon) {
 .sheet-item .clone-btn:hover {
     background: #faf6ff;
     border-color: #ba95f8;
-    transform: translateY(-1px);
 }
 
 header {
@@ -1657,7 +1540,6 @@ header p {
 
 .btn-primary:hover {
     background: #45a049;
-    transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -1678,7 +1560,6 @@ header p {
     color: #8e9ab1;
     border: 1px solid #d5dceb;
     cursor: not-allowed;
-    transform: none;
     box-shadow: none;
     opacity: 1;
 }
@@ -1688,7 +1569,6 @@ header p {
 .btn-danger:disabled:hover,
 .back-btn:disabled:hover {
     background: #e6ebf3;
-    transform: none;
 }
 
 .semantic-outline-btn--green {
@@ -1699,7 +1579,6 @@ header p {
 .semantic-outline-btn--green:hover {
     background: #f3fbf5;
     border-color: #74c589;
-    transform: translateY(-1px);
 }
 
 .btn-danger {
@@ -1709,7 +1588,6 @@ header p {
 
 .btn-danger:hover {
     background: #da190b;
-    transform: translateY(-1px);
 }
 
 .submit-btn {
@@ -1910,7 +1788,6 @@ header p {
 }
 
 .kid-card:hover {
-    transform: translateY(-5px);
     box-shadow: 0 8px 12px rgba(0,0,0,0.2);
 }
 
@@ -2588,7 +2465,6 @@ footer {
 
 .admin-link:hover {
     background: rgba(255, 255, 255, 0.3);
-    transform: translateY(-2px);
 }
 
 /* === 13. Report page ==================================================== */

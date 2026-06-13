@@ -174,14 +174,14 @@
                     <div class="summary-stat-icon summary-stat-icon-purple" aria-hidden="true">${calendarSvg}</div>
                     <div class="summary-stat-body">
                         <div class="summary-stat-label">Total Sessions</div>
-                        <div class="summary-stat-value">${escapeHtml(String(totals.count))}</div>
+                        <div class="summary-stat-value summary-stat-value-purple">${escapeHtml(String(totals.count))}</div>
                     </div>
                 </div>
                 <div class="summary-stat-card">
                     <div class="summary-stat-icon summary-stat-icon-green" aria-hidden="true">${clockSvg}</div>
                     <div class="summary-stat-body">
                         <div class="summary-stat-label">Active Minutes</div>
-                        <div class="summary-stat-value">${escapeHtml(totals.activeMinutes.toFixed(1))}</div>
+                        <div class="summary-stat-value summary-stat-value-green">${escapeHtml(totals.activeMinutes.toFixed(1))}</div>
                     </div>
                 </div>
             `;

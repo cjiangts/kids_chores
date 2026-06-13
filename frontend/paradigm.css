@@ -1,0 +1,787 @@
+/*
+ * paradigm.css — the shared "new color paradigm" extracted from the
+ * kid-card-manage experiment. One canonical value per role so every page
+ * can adopt the look by referencing these tokens (and, later, the promoted
+ * paradigm component classes) instead of copying magic hex.
+ *
+ * Phase 1: consolidated the structural palette (accent / heading ink /
+ * borders / bright surface) that was fragmented across ~25 near-duplicate
+ * hexes. Tints, muted-grey text hierarchy, and semantic state colors
+ * (success / danger / warning / queue-status / chart series) are
+ * intentionally left as literals for now — they encode state/meaning and
+ * are not the cross-page "look".
+ */
+
+:root {
+    /* Accent — interactive indigo */
+    --p-accent: #6366f1;               /* the dominant accent (active, focus, links) */
+    --p-accent-strong: #4b5fc4;        /* filled indigo: selection bar, active select-mode */
+    --p-accent-strong-hover: #4354b8;
+    --p-accent-border: #9ab5f3;        /* control hover border */
+    --p-accent-border-soft: #b9c4ee;   /* active/selected light border */
+
+    /* Ink — strong heading / label navy */
+    --p-ink-title: #2f3c7e;
+
+    /* Borders — light */
+    --p-border: #c0cae2;               /* control / surface border — visible enough to carry separation now that shadows are gone */
+    --p-border-soft: #e3e6fb;          /* panel divider / soft edge */
+
+    /* Bright surface — the paradigm's signature airy white panel */
+    --p-surface: #fff;
+    --p-surface-border: #ececf6;
+    --p-surface-radius: 12px;
+    --p-surface-padding-x: 0.55rem;
+    --p-surface-padding: 0 var(--p-surface-padding-x) var(--p-surface-padding-x);
+    --p-surface-padding-mobile: 0 var(--p-surface-padding-x) var(--p-surface-padding-x);
+    --p-surface-shadow: 0 10px 26px rgba(31, 45, 98, 0.1);
+
+    /* Panel title row */
+    --paradigm-panel-title-icon-size: 18px;
+    --paradigm-panel-title-action-size: 34px;
+    --paradigm-panel-title-height: 44px;
+
+    /* Compact status column / pill */
+    --paradigm-status-column-width: 70px;
+    --paradigm-status-column-padding-left: 0;
+
+    /* Shared toolbar typography, promoted from Manage Cards. */
+    --cards-view-toggle-font-size: 0.85rem;
+    --cards-view-toggle-font-weight: 500;
+}
+
+@media (max-width: 600px) {
+    :root {
+        --paradigm-status-column-width: 70px;
+    }
+}
+
+@media (max-width: 430px) {
+    :root {
+        --paradigm-status-column-width: 70px;
+    }
+}
+
+/*
+ * Paradigm components — promoted from the kid-card-manage trial and de-scoped
+ * so every page inherits the look. This file loads after styles.css, so these
+ * override the legacy defaults by source order.
+ */
+
+/* Content panel: hazy lavender -> crisp, airy white. */
+.manage-page .settings-section:not(.deck-setup-section),
+.paradigm-settings-panel {
+    background: var(--p-surface);
+    border: 1px solid var(--p-surface-border);
+    padding: var(--p-surface-padding);
+    border-radius: var(--p-surface-radius);
+    box-shadow: var(--p-surface-shadow);
+    margin-bottom: var(--section-stack-gap);
+}
+
+@media (max-width: 520px) {
+    .manage-page .settings-section:not(.deck-setup-section),
+    .paradigm-settings-panel {
+        padding: var(--p-surface-padding-mobile);
+        margin-bottom: var(--section-stack-gap-mobile);
+    }
+}
+
+/* Action-card toolbar stacked above a settings section: same gap as the section below it. */
+.manage-page .family-settings-actions {
+    margin-bottom: var(--section-stack-gap);
+}
+
+@media (max-width: 520px) {
+    .manage-page .family-settings-actions {
+        margin-bottom: var(--section-stack-gap-mobile);
+    }
+}
+
+/* Panel title row: icon + compact title + optional right-side meta/action. */
+.paradigm-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: var(--paradigm-panel-title-height);
+    margin: 0;
+    color: var(--p-accent);
+}
+
+.paradigm-panel-title--inline {
+    display: inline-flex;
+    width: auto;
+    min-height: 0;
+    margin: 0;
+}
+
+.manage-page .settings-section .paradigm-panel-title h2,
+.manage-page .settings-section .paradigm-panel-heading,
+.paradigm-panel-title .paradigm-panel-heading {
+    margin: 0;
+    margin-bottom: 0;
+    color: var(--p-ink-title);
+    font-size: 0.84rem;
+    font-weight: 620;
+    letter-spacing: 0;
+    line-height: 1.12;
+    text-transform: none;
+}
+
+.paradigm-panel-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--paradigm-panel-title-icon-size);
+    height: var(--paradigm-panel-title-icon-size);
+    flex: 0 0 var(--paradigm-panel-title-icon-size);
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    line-height: 0;
+}
+
+.paradigm-panel-title-icon .icon,
+.paradigm-panel-title-icon svg {
+    width: var(--paradigm-panel-title-icon-size);
+    height: var(--paradigm-panel-title-icon-size);
+    flex: 0 0 var(--paradigm-panel-title-icon-size);
+}
+
+.paradigm-panel-meta {
+    margin-left: auto;
+    color: inherit;
+    font-size: 0.78rem;
+    font-weight: 620;
+    letter-spacing: 0;
+    line-height: 1.12;
+    text-transform: none;
+    white-space: nowrap;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.paradigm-panel-action {
+    margin-left: auto;
+}
+
+.paradigm-panel-meta:not(.hidden) + .paradigm-panel-action {
+    margin-left: 0;
+}
+
+.paradigm-panel-action--circle {
+    width: var(--paradigm-panel-title-action-size);
+    min-width: var(--paradigm-panel-title-action-size);
+    height: var(--paradigm-panel-title-action-size);
+    min-height: var(--paradigm-panel-title-action-size);
+    border-radius: 999px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.paradigm-panel-action--circle .icon,
+.paradigm-panel-action--circle svg {
+    width: 16px;
+    height: 16px;
+}
+
+.paradigm-panel-action--circle.semantic-outline-btn {
+    background: var(--p-surface);
+    border-color: var(--p-border-soft);
+    color: var(--p-accent);
+    box-shadow: none;
+}
+
+.paradigm-panel-action--circle.semantic-outline-btn:hover,
+.paradigm-panel-action--circle.semantic-outline-btn:focus-visible {
+    background: #f8fbff;
+    border-color: var(--p-accent-border-soft);
+    color: var(--p-accent);
+    outline: none;
+}
+
+.paradigm-icon-action-btn {
+    align-self: center;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 700px) {
+    .paradigm-icon-action-btn {
+        width: 28px;
+        min-width: 28px;
+        height: 28px;
+        min-height: 28px;
+    }
+}
+
+/* Shared number stepper: circular +/- controls with a plain numeric value. */
+.queue-stepper,
+.point-log-stepper,
+.admin-off-app-point-stepper {
+    --paradigm-stepper-btn-size: 26px;
+    --paradigm-stepper-control-height: var(--paradigm-stepper-btn-size);
+    --paradigm-stepper-value-width: 50px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    min-width: 0;
+    min-height: var(--paradigm-stepper-control-height);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--p-ink-title);
+    overflow: visible;
+}
+
+.point-log-stepper {
+    --paradigm-stepper-value-width: 42px;
+}
+
+@media (min-width: 521px) {
+    .point-log-stepper {
+        --paradigm-stepper-btn-size: 30px;
+        --paradigm-stepper-control-height: var(--control-height, 38px);
+    }
+}
+
+.admin-off-app-point-stepper {
+    --paradigm-stepper-value-width: 38px;
+}
+
+.queue-stepper-btn,
+.point-log-stepper-btn,
+.admin-off-app-step-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--paradigm-stepper-btn-size);
+    min-width: var(--paradigm-stepper-btn-size);
+    height: var(--paradigm-stepper-btn-size);
+    min-height: var(--paradigm-stepper-btn-size);
+    padding: 0;
+    border: 1px solid var(--p-border);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--p-ink-title);
+    cursor: pointer;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: none;
+}
+
+.queue-stepper-btn:hover:not(:disabled),
+.queue-stepper-btn:focus-visible:not(:disabled),
+.point-log-stepper-btn:hover:not(:disabled),
+.point-log-stepper-btn:focus-visible:not(:disabled),
+.admin-off-app-step-btn:hover:not(:disabled),
+.admin-off-app-step-btn:focus-visible:not(:disabled) {
+    background: #eef3ff;
+    border-color: var(--p-accent-border);
+    color: #1d3a96;
+    outline: none;
+}
+
+.queue-stepper-btn:disabled,
+.point-log-stepper-btn:disabled,
+.admin-off-app-step-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.queue-stepper-btn .icon,
+.queue-stepper-btn svg,
+.point-log-stepper-btn .icon,
+.point-log-stepper-btn svg,
+.admin-off-app-step-btn .icon,
+.admin-off-app-step-btn svg {
+    display: block;
+    width: 15px;
+    height: 15px;
+    margin: auto;
+}
+
+.manage-page .queue-stepper input[type="number"],
+.point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]),
+.point-log-stepper-input,
+.admin-off-app-points-input {
+    width: var(--paradigm-stepper-value-width);
+    min-width: var(--paradigm-stepper-value-width);
+    max-width: calc(var(--paradigm-stepper-value-width) + 6px);
+    height: var(--paradigm-stepper-control-height);
+    min-height: var(--paradigm-stepper-control-height);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--p-ink-title);
+    font: inherit;
+    font-size: 0.94rem;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    outline: none;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.manage-page .queue-stepper input[type="number"]:focus,
+.point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]):focus,
+.point-log-form .point-log-stepper-input:focus,
+.admin-off-app-points-input:focus {
+    border: 0;
+    border-radius: 0;
+    background: #f7faff;
+    box-shadow: none;
+}
+
+.manage-page .queue-stepper input[type="number"]:disabled,
+.point-log-stepper-input:disabled,
+.admin-off-app-points-input:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+}
+
+.manage-page .queue-stepper input[type="number"]::-webkit-outer-spin-button,
+.manage-page .queue-stepper input[type="number"]::-webkit-inner-spin-button,
+.point-log-stepper-input::-webkit-outer-spin-button,
+.point-log-stepper-input::-webkit-inner-spin-button,
+.admin-off-app-points-input::-webkit-outer-spin-button,
+.admin-off-app-points-input::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+}
+
+.paradigm-status-column {
+    min-width: var(--paradigm-status-column-width);
+    padding-left: var(--paradigm-status-column-padding-left);
+}
+
+.paradigm-status-pill {
+    width: 100%;
+}
+
+/* Subject row: leading icon (left) | centered name | trailing menu (right). */
+.paradigm-subject-cell {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.paradigm-subject-icon {
+    --subj-size: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.paradigm-subject-icon .subject-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    font-size: 1.18rem;
+    font-weight: 700;
+}
+
+.paradigm-subject-icon .subject-icon--multi {
+    font-size: 0.68rem;
+}
+
+.paradigm-subject-name {
+    min-width: 0;
+    text-align: center;
+    font-weight: 400;
+    color: var(--p-ink-title);
+    font-size: 0.94rem;
+    line-height: 1.3;
+}
+
+.paradigm-subject-menu {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem;
+    background: none;
+    border: 0;
+    color: #6c7794;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 0;
+}
+
+.paradigm-subject-menu:hover,
+.paradigm-subject-menu:focus-visible {
+    background: #f3f5fb;
+    color: var(--p-accent);
+    outline: none;
+}
+
+@media (max-width: 600px) {
+    .paradigm-subject-cell {
+        gap: 0.28rem;
+    }
+
+    .paradigm-subject-icon {
+        --subj-size: 34px;
+    }
+
+    .paradigm-subject-icon .subject-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 1.04rem;
+    }
+
+    .paradigm-subject-icon .subject-icon--multi {
+        font-size: 0.62rem;
+    }
+
+    .paradigm-subject-name {
+        font-size: 0.74rem;
+    }
+}
+
+/* Lightweight panel heading: existing h2 + icon markup, same icon/text scale. */
+.manage-page .settings-section h2:has(> .icon),
+.deck-panel h2:has(> .icon),
+.deck-section-title:has(> .icon) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--p-ink-title);
+    font-size: 0.84rem;
+    font-weight: 620;
+    letter-spacing: 0;
+    line-height: 1.12;
+    text-transform: none;
+}
+
+.manage-page .settings-section h2:has(> .icon) > .icon,
+.manage-page .settings-section h2:has(> .icon) > svg,
+.deck-panel h2:has(> .icon) > .icon,
+.deck-panel h2:has(> .icon) > svg,
+.deck-section-title:has(> .icon) > .icon,
+.deck-section-title:has(> .icon) > svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    color: var(--p-accent);
+}
+
+/* Kid + subject selector bars: lighter fill, brighter edge, airier shadow. */
+.kid-nav-group {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.42);
+    box-shadow: 0 6px 16px rgba(31, 45, 98, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+/* View switcher: underline tab bar instead of a filled pill / gray well. */
+.cards-view-toggle-group,
+.cards-view-toggle-group-centered {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    min-height: var(--paradigm-panel-title-height);
+    margin: 0;
+    gap: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--p-border-soft);
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.cards-view-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: var(--paradigm-panel-title-height);
+    padding: 0.65rem 0.5rem;
+    border: 0;
+    background: transparent;
+    color: #5b6478;
+    border-radius: 0;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    box-shadow: none;
+    cursor: pointer;
+    font-size: var(--cards-view-toggle-font-size);
+    font-weight: var(--cards-view-toggle-font-weight);
+    letter-spacing: 0;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.cards-view-toggle-btn > span:not(.cards-view-toggle-btn-icon) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cards-view-toggle-btn-icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    color: currentColor;
+}
+
+span.cards-view-toggle-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+svg.cards-view-toggle-btn-icon,
+.cards-view-toggle-btn-icon svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+}
+
+.point-rule-tab-short {
+    display: none;
+}
+
+.cards-view-toggle-btn:hover:not(.active) {
+    background: transparent;
+    color: var(--p-ink-title);
+}
+
+.cards-view-toggle-btn.active {
+    background: transparent;
+    color: var(--p-accent);
+    border-bottom-color: var(--p-accent);
+    box-shadow: none;
+}
+
+@media (max-width: 700px) {
+    .cards-view-toggle-btn {
+        gap: 0.28rem;
+        min-height: 36px;
+        padding: 0.24rem;
+        font-size: 0.72rem;
+        line-height: 1.05;
+        overflow-wrap: normal;
+    }
+
+    .cards-view-toggle-btn-icon,
+    svg.cards-view-toggle-btn-icon,
+    .cards-view-toggle-btn-icon svg {
+        width: 14px;
+        height: 14px;
+        flex-basis: 14px;
+    }
+
+    .point-rule-tab-long {
+        display: none;
+    }
+
+    .point-rule-tab-short {
+        display: inline;
+    }
+}
+
+/* Shared compact menu select, promoted from Manage Cards deck filter. */
+.sort-menu,
+.tz-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    flex: 1 1 auto;
+    max-width: 320px;
+}
+
+.sort-menu-btn,
+.tz-dropdown-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    padding: 0 0.7rem;
+    border: 1px solid var(--p-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--p-ink-title);
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    text-align: left;
+}
+
+.sort-menu-btn:hover,
+.sort-menu-btn[aria-expanded="true"],
+.tz-dropdown-btn:hover,
+.tz-dropdown-btn[aria-expanded="true"] {
+    border-color: var(--p-accent-border);
+    background: #f6f9ff;
+}
+
+.sort-menu-btn:disabled,
+.tz-dropdown-btn:disabled {
+    cursor: progress;
+    opacity: 0.6;
+}
+
+.sort-menu-btn-icon,
+.sort-menu-btn-caret,
+.tz-dropdown-btn-icon,
+.tz-dropdown-btn-caret {
+    flex: 0 0 auto;
+    color: #5f6b8a;
+}
+
+.sort-menu-btn-icon,
+.tz-dropdown-btn-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.sort-menu-btn-caret,
+.tz-dropdown-btn-caret {
+    width: 14px;
+    height: 14px;
+}
+
+.sort-menu-btn-label,
+.tz-dropdown-btn-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sort-menu-popover,
+.tz-dropdown-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 0.3rem;
+    border: 1px solid rgba(28, 42, 82, 0.12);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(28, 42, 82, 0.16);
+}
+
+.sort-menu-item,
+.tz-dropdown-item {
+    appearance: none;
+    -webkit-appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--p-ink-title);
+    cursor: pointer;
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.sort-menu-item:hover:not(:disabled),
+.sort-menu-item.selected,
+.tz-dropdown-item:hover:not(:disabled),
+.tz-dropdown-item.selected {
+    background: #eef3ff;
+}
+
+.sort-menu-item:disabled,
+.tz-dropdown-item:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.sort-menu-item.selected,
+.tz-dropdown-item.selected {
+    color: #1d3a96;
+}
+
+.sort-menu-item-check,
+.tz-dropdown-item-check {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    color: #1d3a96;
+    visibility: hidden;
+}
+
+.sort-menu-item.selected .sort-menu-item-check,
+.tz-dropdown-item.selected .tz-dropdown-item-check {
+    visibility: visible;
+}
+
+.sort-menu-item-label,
+.tz-dropdown-item-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sort-menu-item-count,
+.tz-dropdown-item-sub {
+    flex: 0 0 auto;
+    margin-left: 0.6rem;
+    color: #6b7494;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.sort-menu-item-count {
+    min-width: 1.6rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    text-align: center;
+}
+
+.sort-menu-item.selected .sort-menu-item-count {
+    color: #1d3a96;
+    background: var(--p-border-soft);
+}
+
+.tz-dropdown-item.selected .tz-dropdown-item-sub {
+    color: #4d63a8;
+}

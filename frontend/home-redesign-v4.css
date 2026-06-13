@@ -22,17 +22,15 @@
     text-decoration: none;
     cursor: pointer;
     box-shadow: 0 8px 18px rgba(111, 125, 240, 0.32);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+    transition: box-shadow 0.18s ease, filter 0.18s ease;
 }
 
 .admin-start-practice-btn:hover {
     filter: brightness(1.04);
-    transform: translateY(-1px);
     box-shadow: 0 12px 22px rgba(111, 125, 240, 0.38);
 }
 
 .admin-start-practice-btn:active {
-    transform: translateY(0);
     box-shadow: 0 6px 14px rgba(111, 125, 240, 0.32);
 }
 
@@ -47,7 +45,6 @@
     color: #fff;
     cursor: not-allowed;
     box-shadow: none;
-    transform: none;
     filter: none;
     pointer-events: none;
 }
@@ -71,42 +68,16 @@
 
 .practice-home-redesign .practice-home-card {
     overflow: hidden;
-    padding-top: 0.9rem;
-}
-
-.practice-home-redesign .practice-home-card.hidden {
-    display: none;
-}
-
-.practice-home-redesign .practice-home-card-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    border-bottom: 1px solid rgba(31, 45, 98, 0.1);
-    margin-bottom: 0;
-    padding-bottom: 12px;
 }
 
 .practice-home-redesign .practice-home-card-title {
     display: inline-flex;
     align-items: center;
-    gap: 0.42rem;
     min-width: 0;
-    color: #252c54;
-    font-size: 0.82rem;
-    font-weight: 650;
-    letter-spacing: 0;
-    line-height: 1.12;
-    text-transform: none;
 }
 
 .practice-home-redesign .practice-home-card-icon {
-    display: inline-flex;
-    align-items: center;
     flex: 0 0 auto;
-    color: #6b5cf6;
-    line-height: 0;
 }
 
 .practice-current-kid-btn {
@@ -125,7 +96,7 @@
     line-height: 1;
     text-decoration: none;
     box-shadow: 0 8px 18px rgba(31, 45, 98, 0.12);
-    transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    transition: background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .practice-current-kid-btn:hover,
@@ -133,7 +104,6 @@
     background: #fff;
     color: #5f49ec;
     outline: none;
-    transform: translateY(-1px);
     box-shadow: 0 12px 24px rgba(31, 45, 98, 0.18);
 }
 
@@ -377,10 +347,6 @@
     gap: 8px;
 }
 
-.practice-home-redesign .practice-home-card-head .redesign-summary-strip {
-    flex: 0 1 auto;
-}
-
 .practice-home-redesign .practice-summary-pill {
     display: inline-flex;
     align-items: center;
@@ -400,7 +366,6 @@
 }
 
 .practice-home-redesign .practice-summary-pill:hover {
-    transform: translateY(-1px);
     border-color: rgba(125, 138, 184, 0.3);
     background: #fff;
     box-shadow: 0 5px 12px rgba(54, 71, 138, 0.11);
@@ -409,7 +374,6 @@
 .practice-home-redesign .practice-summary-pill.is-static,
 .practice-home-redesign .practice-summary-pill.is-static:hover {
     cursor: default;
-    transform: none;
 }
 
 .practice-home-redesign .practice-summary-pill-icon {
@@ -562,23 +526,20 @@
     color: inherit;
     text-align: left;
     font: inherit;
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    transition: box-shadow 0.12s ease;
 }
 .admin-action-card:hover {
-    transform: translateY(-1px);
     box-shadow: 0 6px 16px rgba(54, 71, 138, 0.14);
 }
 .admin-action-card.is-static,
 .admin-action-card.is-static:hover {
     cursor: default;
-    transform: none;
     box-shadow: 0 2px 10px rgba(54, 71, 138, 0.08);
 }
 .admin-action-card:disabled,
 .admin-action-card.is-disabled {
     opacity: 0.55;
     cursor: not-allowed;
-    transform: none;
     box-shadow: 0 2px 10px rgba(54, 71, 138, 0.08);
 }
 .admin-action-card-icon {
@@ -743,19 +704,6 @@
 
     .practice-home-redesign .redesign-summary-strip {
         gap: 8px;
-    }
-
-    .practice-home-redesign .practice-home-card-head {
-        align-items: center;
-        flex-direction: row;
-        flex-wrap: nowrap;
-    }
-
-    .practice-home-redesign .practice-home-card-head .redesign-summary-strip {
-        flex: 0 0 auto;
-        flex-wrap: nowrap;
-        margin-left: auto;
-        width: auto;
     }
 
     .admin-start-practice-btn {

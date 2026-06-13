@@ -271,10 +271,10 @@
                     </div>
                     <div class="point-rule-delta ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
                     ${showDelete ? `
-                    <button type="button" class="semantic-outline-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit note')}">
+                    <button type="button" class="semantic-outline-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit note')}">
                         ${icon('pencil', { size: 15 })}
                     </button>
-                    <button type="button" class="semantic-outline-btn semantic-outline-btn--red point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
+                    <button type="button" class="semantic-outline-btn semantic-outline-btn--red paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
                         ${icon('trash', { size: 16 })}
                     </button>
                     ` : ''}

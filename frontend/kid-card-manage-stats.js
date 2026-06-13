@@ -271,7 +271,7 @@ function renderStatsSummary(uniqueCount, attemptTotal) {
             <div class="summary-stat-icon summary-stat-icon-${iconColor}" aria-hidden="true">${iconSvg(iconName)}</div>
             <div class="summary-stat-body">
                 <div class="summary-stat-label">${escapeHtml(label)}</div>
-                <div class="summary-stat-value">${escapeHtml(String(value))}</div>
+                <div class="summary-stat-value summary-stat-value-${iconColor}">${escapeHtml(String(value))}</div>
             </div>
         </div>
     `;

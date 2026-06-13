@@ -233,7 +233,7 @@ function renderRules() {
         return;
     }
     parentRewardRules.innerHTML = `
-        <div class="point-template-frame parent-reward-template-frame">
+        <div class="point-template-frame point-template-frame--stacked parent-reward-template-frame">
             ${visible.map((rule) => {
         const isAffordable = canRedeemRule(rule);
         const isSelected = isAffordable && Number(rule.ruleId) === Number(selectedRewardRuleId);
@@ -242,7 +242,7 @@ function renderRules() {
         const ariaLabel = `${rule?.name || 'Reward'}, ${progress.cost} pts, ${statusText}`;
         return `
             <div
-                class="point-template-row parent-reward-template-row parent-reward-template-row--redeem ${isSelected ? 'active' : ''} ${isAffordable ? 'affordable' : 'locked'}"
+                class="point-template-row point-template-row--redeem parent-reward-template-row parent-reward-template-row--redeem ${isSelected ? 'active' : ''} ${isAffordable ? 'affordable' : 'locked'}"
                 ${isAffordable ? 'role="button" tabindex="0"' : 'aria-disabled="true"'}
                 aria-selected="${isSelected ? 'true' : 'false'}"
                 data-rule-id="${escapeHtml(rule.ruleId)}"

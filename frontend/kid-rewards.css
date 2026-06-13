@@ -115,26 +115,12 @@
     background: linear-gradient(90deg, #8aa3ff 0%, #28b77b 100%);
 }
 
-.parent-reward-catalog-section {
-    margin-bottom: 0;
-    padding-top: 0.9rem;
-    padding-bottom: 0.95rem;
-}
-
-.parent-reward-catalog-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.72rem;
-    padding-top: 0;
-}
-
 .parent-reward-list {
     display: block;
     width: 100%;
 }
 
 .reward-tab-balance {
-    font-size: 0.84em;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.01em;
@@ -145,28 +131,8 @@
     cursor: default;
 }
 
-.parent-reward-template-frame {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.72rem;
-    width: 100%;
-}
-
-.parent-reward-template-row {
-    width: 100%;
-    min-width: 0;
-    min-height: 50px;
-    cursor: default;
-}
-
 .parent-reward-template-row--redeem {
-    grid-template-columns: 34px minmax(0, 1fr) minmax(76px, auto) minmax(88px, auto);
-    width: 100%;
-    min-width: 0;
-    border-radius: 8px;
     cursor: pointer;
-    overflow: hidden;
-    padding-bottom: 0.5rem;
 }
 
 .parent-reward-template-row--redeem.reward-readonly-row {
@@ -175,17 +141,6 @@
 
 .parent-reward-template-row--redeem.locked {
     cursor: default;
-}
-
-.parent-reward-template-row--redeem.active {
-    border-color: #b9bdf2;
-    background: #f6f7ff;
-    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.2);
-}
-
-.parent-reward-template-row--redeem > * {
-    position: relative;
-    z-index: 1;
 }
 
 .parent-reward-progress {
@@ -202,7 +157,6 @@
     background: #e0a11a;
 }
 
-
 @media (max-width: 700px) {
     .kid-reward-rule-status {
         --reward-status-pill-width: 7rem;
@@ -215,19 +169,4 @@
         padding: 0.18rem 0.42rem;
     }
 
-    .parent-reward-catalog-body {
-        gap: 0.62rem;
-        padding-top: 0;
-    }
-
-    .parent-reward-template-frame {
-        gap: 0.5rem;
-    }
-
-    .parent-reward-template-row--redeem {
-        grid-template-columns: 30px minmax(0, 1fr) minmax(66px, auto) minmax(72px, auto);
-        gap: 0.34rem;
-        min-height: 48px;
-        padding: 0.38rem 0.42rem 0.42rem;
-    }
 }

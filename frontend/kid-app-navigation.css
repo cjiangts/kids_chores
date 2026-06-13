@@ -24,7 +24,7 @@
     text-decoration: none;
     line-height: 1;
     border-radius: 999px;
-    transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -33,10 +33,6 @@
     color: #6d56e9;
     background: rgba(109, 86, 233, 0.08);
     outline: none;
-}
-
-.kid-app-nav__item:active {
-    transform: translateY(1px);
 }
 
 .kid-app-nav__item.is-active {

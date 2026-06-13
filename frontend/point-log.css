@@ -43,6 +43,34 @@
     min-width: min(100%, 11rem);
 }
 
+.point-template-frame--stacked {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    width: 100%;
+}
+
+.point-template-row--redeem {
+    grid-template-columns: 34px minmax(0, 1fr) minmax(76px, auto) minmax(88px, auto);
+    width: 100%;
+    min-width: 0;
+    min-height: 50px;
+    border: 0;
+    border-radius: 0;
+    border-bottom: 1px solid var(--section-surface-border-muted);
+    background: none;
+    padding: 0.5rem 0.3rem;
+}
+
+.point-template-row--redeem:last-child {
+    border-bottom: 0;
+}
+
+.point-template-row--redeem > * {
+    position: relative;
+    z-index: 1;
+}
+
 .point-template-row:hover,
 .point-template-row.active {
     background: #f8fbff;
@@ -53,6 +81,11 @@
     background: #f7fcf8;
     box-shadow: inset 0 0 0 1px rgba(36, 131, 88, 0.18);
     z-index: 1;
+}
+
+.point-template-row--redeem.active {
+    background: #f6f7ff;
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.2);
 }
 
 .point-template-check {
@@ -142,17 +175,17 @@
 
 .point-log-mode-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.6rem;
 }
 
 .point-log-mode-row .cards-view-toggle-group {
-    grid-column: 2;
+    grid-column: 1;
 }
 
 .point-rules-link {
-    grid-column: 3;
+    grid-column: 2;
     justify-self: end;
     display: inline-flex;
     align-items: center;
@@ -199,85 +232,6 @@
 
 .point-log-emoji-placeholder {
     display: none;
-}
-
-.point-log-stepper {
-    display: grid;
-    grid-template-columns: 34px minmax(36px, 1fr) 34px;
-    align-items: stretch;
-    min-height: var(--control-height);
-    height: var(--control-height);
-    border: 1px solid var(--control-border-color);
-    border-radius: var(--control-radius);
-    background: var(--control-bg);
-    color: var(--control-text);
-    overflow: hidden;
-}
-
-.point-log-stepper:focus-within {
-    border-color: var(--control-border-focus);
-    box-shadow: 0 0 0 2px rgba(79, 131, 255, 0.12);
-}
-
-.point-log-stepper-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-width: 0;
-    min-height: 0;
-    border: 0;
-    background: transparent;
-    color: #8792b2;
-    cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.point-log-stepper-btn:first-child {
-    border-right: 1px solid #e1e6f0;
-}
-
-.point-log-stepper-btn:last-child {
-    border-left: 1px solid #e1e6f0;
-}
-
-.point-log-stepper-btn:hover,
-.point-log-stepper-btn:focus-visible {
-    background: #f4f6ff;
-    color: #5f63ee;
-}
-
-.point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]),
-.point-log-stepper-input {
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    color: #1f2a4d;
-    font-size: 0.98rem;
-    font-weight: 800;
-    text-align: center;
-    outline: none;
-    appearance: textfield;
-    -moz-appearance: textfield;
-}
-
-.point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]):focus,
-.point-log-form .point-log-stepper-input:focus {
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-}
-
-.point-log-stepper-input::-webkit-outer-spin-button,
-.point-log-stepper-input::-webkit-inner-spin-button {
-    margin: 0;
-    -webkit-appearance: none;
 }
 
 .point-log-form .form-group {
@@ -342,19 +296,7 @@
     }
 
     .point-log-mode-row {
-        grid-template-columns: minmax(0, 1fr) 36px;
         gap: 0.36rem;
-    }
-
-    .point-log-mode-row .cards-view-toggle-group {
-        grid-column: 1;
-        min-width: 0;
-        max-width: 100%;
-        justify-self: stretch;
-    }
-
-    .point-rules-link {
-        grid-column: 2;
     }
 
     .point-log-form {
@@ -387,7 +329,7 @@
         white-space: nowrap;
     }
 
-    .point-log-form .form-group input:not([type="checkbox"]):not([type="radio"]) {
+    .point-log-form .form-group input:not([type="checkbox"]):not([type="radio"]):not(.point-log-stepper-input) {
         min-height: var(--point-log-mobile-control-height);
         height: var(--point-log-mobile-control-height);
         border-color: #d6dcf2;
@@ -399,7 +341,7 @@
         padding: 0 0.72rem;
     }
 
-    .point-log-form .form-group input:not([type="checkbox"]):not([type="radio"])::placeholder {
+    .point-log-form .form-group input:not([type="checkbox"]):not([type="radio"]):not(.point-log-stepper-input)::placeholder {
         color: #8a91a4;
         font-weight: 480;
         opacity: 1;
@@ -443,32 +385,6 @@
 
     .point-log-emoji-group input:focus + .point-log-emoji-placeholder {
         color: rgba(107, 92, 246, 0.34);
-    }
-
-    .point-log-stepper {
-        grid-template-columns: 32px minmax(30px, 1fr) 32px;
-        min-height: var(--point-log-mobile-control-height);
-        height: var(--point-log-mobile-control-height);
-        border-color: #d6dcf2;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.94);
-        box-shadow: 0 3px 12px rgba(48, 58, 120, 0.05);
-    }
-
-    .point-log-stepper-btn .icon,
-    .point-log-stepper-btn svg {
-        width: 16px;
-        height: 16px;
-    }
-
-    .point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]),
-    .point-log-stepper-input {
-        height: 100%;
-        min-height: 0;
-        font-size: 0.94rem;
-        font-weight: 600;
-        padding: 0;
-        box-shadow: none;
     }
 
     .point-log-entry-row #noteGroup {
@@ -523,57 +439,6 @@
         gap: 0.4rem 0.38rem;
     }
 
-    .point-log-stepper {
-        grid-template-columns: 28px minmax(26px, 1fr) 28px;
-    }
-}
-
-.point-panel-title {
-    display: flex;
-    align-items: center;
-    gap: 0.56rem;
-    width: 100%;
-    min-height: 26px;
-    max-height: 26px;
-    margin-bottom: 0.72rem;
-    color: #6b5cf6;
-}
-
-.manage-page .settings-section .point-panel-title h2 {
-    margin: 0;
-    margin-bottom: 0;
-    color: #252c54;
-    font-size: 0.9rem;
-    font-weight: 650;
-    letter-spacing: 0;
-    line-height: 1.12;
-    text-transform: none;
-}
-
-.point-panel-title-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: auto;
-    height: auto;
-    border-radius: 0;
-    background: transparent;
-    color: inherit;
-    line-height: 0;
-}
-
-.point-history-current-day {
-    margin-left: auto;
-    color: inherit;
-    font-size: 0.78rem;
-    font-weight: 620;
-    letter-spacing: 0;
-    line-height: 1.12;
-    text-transform: none;
-    white-space: nowrap;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
 }
 
 .point-history-filter-chip {
@@ -616,23 +481,6 @@
     line-height: 1;
 }
 
-.point-pull-sessions-btn {
-    margin-left: 0;
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
-    min-height: 34px;
-    border-radius: 999px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.point-history-current-day.hidden + .point-pull-sessions-btn {
-    margin-left: auto;
-}
-
 .point-pull-sessions-btn:disabled {
     cursor: not-allowed;
     opacity: 0.62;
@@ -659,7 +507,7 @@
     align-content: center;
     justify-items: center;
     gap: var(--point-week-row-gap);
-    padding: 0.48rem 0.56rem;
+    padding: 0.34rem 0.56rem;
     color: #6b5cf6;
     font-size: 0.66rem;
     font-weight: 620;
@@ -719,7 +567,6 @@
     justify-items: center;
     gap: var(--point-week-row-gap);
     min-width: 0;
-    min-height: 58px;
     border: 0;
     border-left: 1px solid rgba(217, 223, 239, 0.72);
     background: transparent;
@@ -938,27 +785,11 @@
 .point-history-edit {
     grid-column: 6 / 7;
     grid-row: 1 / 3;
-    align-self: center;
-    width: 30px;
-    height: 30px;
-    min-height: 30px;
-    padding: 0;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
 }
 
 .point-history-delete {
     grid-column: 7 / 8;
     grid-row: 1 / 3;
-    align-self: center;
-    width: 30px;
-    height: 30px;
-    min-height: 30px;
-    padding: 0;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
 }
 
 .point-history-note-editor {
@@ -1062,6 +893,14 @@
         padding: 0.22rem 0.34rem 0.22rem 0.26rem;
     }
 
+    .point-template-row--redeem {
+        grid-template-columns: 30px minmax(0, 1fr) minmax(66px, auto) minmax(72px, auto);
+        gap: 0.34rem;
+        min-width: 0;
+        min-height: 48px;
+        padding: 0.42rem 0.25rem;
+    }
+
     .point-rule-emoji {
         width: 26px;
         height: 26px;
@@ -1103,7 +942,7 @@
     }
 
     .point-week-label {
-        padding: 0.38rem 0.3rem;
+        padding: 0.28rem 0.3rem;
         font-size: 0.64rem;
     }
 
@@ -1117,7 +956,6 @@
     }
 
     .point-week-day {
-        min-height: 50px;
         padding: 0.28rem 0.08rem;
     }
 
@@ -1154,21 +992,6 @@
 
     .point-history-icon {
         width: 28px;
-    }
-
-    .point-pull-sessions-btn {
-        width: 32px;
-        min-width: 32px;
-        height: 32px;
-        min-height: 32px;
-        padding: 0;
-    }
-
-    .point-history-edit,
-    .point-history-delete {
-        width: 28px;
-        height: 28px;
-        min-height: 28px;
     }
 
     .point-history-note-editor {

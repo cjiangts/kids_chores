@@ -12,6 +12,7 @@
     <title>Practice Home - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="paradigm.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="home-redesign-v4.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
@@ -35,23 +36,23 @@
         <div class="practice-home-container">
             <div id="errorMessage" class="error redesign-error hidden"></div>
             <div id="practiceSection" class="practice-home-section-stack hidden">
-                <section id="inAppPracticeSection" class="section-surface section-surface-lg practice-home-card">
-                    <div class="practice-home-card-head">
-                        <div class="practice-home-card-title">
-                            <span class="practice-home-card-icon practice-home-card-icon--in-app" aria-hidden="true"><span data-icon="smartphone" data-icon-size="16"></span></span>
-                            <span>In-App Chores</span>
+                <section id="inAppPracticeSection" class="settings-card settings-section point-history-section paradigm-settings-panel practice-home-card">
+                    <div class="settings-card-body">
+                        <div class="paradigm-panel-title">
+                            <span class="practice-home-card-icon paradigm-panel-title-icon practice-home-card-icon--in-app" aria-hidden="true"><span data-icon="smartphone"></span></span>
+                            <h2 class="practice-home-card-title paradigm-panel-heading">In-App Chores</h2>
                         </div>
+                        <div id="practiceChooser" class="redesign-practice-grid"></div>
                     </div>
-                    <div id="practiceChooser" class="redesign-practice-grid"></div>
                 </section>
-                <section id="offAppPracticeSection" class="section-surface section-surface-lg practice-home-card hidden">
-                    <div class="practice-home-card-head">
-                        <div class="practice-home-card-title">
-                            <span class="practice-home-card-icon practice-home-card-icon--off-app" aria-hidden="true"><span data-icon="clipboard-check" data-icon-size="16"></span></span>
-                            <span>Off-App Chores</span>
+                <section id="offAppPracticeSection" class="settings-card settings-section point-history-section paradigm-settings-panel practice-home-card hidden">
+                    <div class="settings-card-body">
+                        <div class="paradigm-panel-title">
+                            <span class="practice-home-card-icon paradigm-panel-title-icon practice-home-card-icon--off-app" aria-hidden="true"><span data-icon="clipboard-check"></span></span>
+                            <h2 class="practice-home-card-title paradigm-panel-heading">Off-App Chores</h2>
                         </div>
+                        <div id="offAppChooser" class="off-app-task-list"></div>
                     </div>
-                    <div id="offAppChooser" class="off-app-task-list"></div>
                 </section>
             </div>
         </div>

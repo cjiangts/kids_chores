@@ -13,32 +13,17 @@
     <title>Family Settings - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="paradigm.css">
     <link rel="stylesheet" href="home-redesign-v4.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
     <link rel="stylesheet" href="avatar-editor.css">
     <style>
-        .settings-grid {
-            display: grid;
-            gap: var(--section-stack-gap);
-        }
-
-        .parent-settings-page .settings-section {
-            margin-bottom: 0;
-        }
-
-        .parent-settings-page .settings-row {
+        .settings-row {
             display: flex;
             gap: 0.75rem;
             flex-wrap: wrap;
             align-items: center;
             flex-direction: row;
-        }
-
-        .parent-settings-page .settings-row .form-group {
-            flex: 1;
-            margin-bottom: 0;
-            min-width: 220px;
-            width: auto;
         }
 
         .parent-settings-page .settings-row .btn-secondary {
@@ -51,20 +36,6 @@
             border-radius: 0;
             padding: 0;
             box-shadow: none;
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-        }
-
-        .settings-card h2 {
-            margin: 0;
-        }
-
-        .settings-row {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            align-items: center;
         }
 
         .settings-note {
@@ -73,146 +44,7 @@
         }
 
         .tz-dropdown {
-            position: relative;
-            display: flex;
-            align-items: center;
-            min-width: 0;
-            max-width: 320px;
             margin-top: 0.25rem;
-        }
-
-        .tz-dropdown-btn {
-            appearance: none;
-            -webkit-appearance: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            width: 100%;
-            min-width: 0;
-            border: 1px solid #d4ddf0;
-            background: #fff;
-            color: #2f3c7e;
-            border-radius: 10px;
-            height: 40px;
-            padding: 0 0.8rem;
-            font-size: 0.95rem;
-            font-weight: 600;
-            line-height: 1;
-            cursor: pointer;
-            text-align: left;
-        }
-
-        .tz-dropdown-btn-icon {
-            width: 16px;
-            height: 16px;
-            flex: 0 0 auto;
-            color: #5f6b8a;
-        }
-
-        .tz-dropdown-btn-label {
-            flex: 1 1 auto;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .tz-dropdown-btn-caret {
-            width: 14px;
-            height: 14px;
-            flex: 0 0 auto;
-            color: #5f6b8a;
-        }
-
-        .tz-dropdown-btn:hover,
-        .tz-dropdown-btn[aria-expanded="true"] {
-            border-color: #9ab5f3;
-            background: #f6f9ff;
-        }
-
-        .tz-dropdown-btn:disabled {
-            cursor: progress;
-            opacity: 0.6;
-        }
-
-        .tz-dropdown-popover {
-            position: absolute;
-            top: calc(100% + 6px);
-            left: 0;
-            right: 0;
-            z-index: 30;
-            display: flex;
-            flex-direction: column;
-            background: #fff;
-            border: 1px solid rgba(28, 42, 82, 0.12);
-            border-radius: 10px;
-            box-shadow: 0 8px 24px rgba(28, 42, 82, 0.16);
-            padding: 0.3rem;
-            max-height: 320px;
-            overflow-y: auto;
-        }
-
-        .tz-dropdown-item {
-            appearance: none;
-            -webkit-appearance: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border: 0;
-            background: transparent;
-            text-align: left;
-            padding: 0.6rem 0.7rem;
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: #2f3c7e;
-            border-radius: 6px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .tz-dropdown-item:hover:not(:disabled) {
-            background: #eef3ff;
-        }
-
-        .tz-dropdown-item:disabled {
-            cursor: not-allowed;
-            opacity: 0.55;
-        }
-
-        .tz-dropdown-item.selected {
-            background: #eef3ff;
-            color: #1d3a96;
-        }
-
-        .tz-dropdown-item-check {
-            width: 14px;
-            height: 14px;
-            flex: 0 0 auto;
-            color: #1d3a96;
-            visibility: hidden;
-        }
-
-        .tz-dropdown-item.selected .tz-dropdown-item-check {
-            visibility: visible;
-        }
-
-        .tz-dropdown-item-label {
-            flex: 1 1 auto;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .tz-dropdown-item-sub {
-            flex: 0 0 auto;
-            margin-left: 0.6rem;
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: #6b7494;
-        }
-
-        .tz-dropdown-item.selected .tz-dropdown-item-sub {
-            color: #4d63a8;
         }
 
         .tz-current-note {
@@ -221,46 +53,15 @@
             margin-bottom: 0.35rem;
         }
 
-        .inline-row {
-            display: flex;
-            gap: 0.75rem;
-            align-items: end;
-            flex-wrap: wrap;
-        }
-
-        .inline-row .form-group {
-            margin: 0;
-            min-width: 220px;
-            flex: 1;
-        }
-
-        .actions-row {
-            margin-top: 0.85rem;
-            flex-wrap: nowrap;
-            gap: 0.5rem;
-        }
-
-        .actions-row > button {
-            flex: 1 1 0;
-            min-width: 0;
-        }
-
         .family-settings-actions {
-            grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-            margin-bottom: 1rem;
-        }
-
-        .backup-header-row {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
+            gap: 0.6rem;
             flex-wrap: wrap;
         }
 
-        .backup-header-row .backup-info {
-            margin: 0;
-            white-space: nowrap;
+        .family-settings-actions .admin-action-card {
+            flex: 1 1 145px;
+            min-width: 0;
         }
 
         @media (max-width: 520px) {
@@ -276,20 +77,20 @@
         }
 
         .trusted-browser-list {
-            display: grid;
-            gap: 0.55rem;
             margin-top: 0.35rem;
         }
 
         .trusted-browser-card {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto auto;
+            display: flex;
             align-items: center;
-            column-gap: 0.7rem;
-            border: 1px solid #d9dfef;
-            border-radius: 10px;
-            background: #fcfdff;
-            padding: 0.5rem 0.7rem;
+            gap: 0.7rem;
+            flex-wrap: wrap;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid #e3e6fb;
+        }
+
+        .trusted-browser-card:last-child {
+            border-bottom: 0;
         }
 
         .trusted-browser-title {
@@ -332,22 +133,15 @@
             line-height: 1.3;
         }
 
-        .trusted-browser-delete {
+        .trusted-browser-card .trusted-browser-times {
+            margin-left: auto;
+        }
+
+        .parent-settings-inline-btn {
             align-self: center;
             min-height: 28px;
             font-size: 0.8rem;
             padding: 0 0.6rem;
-        }
-
-        .warning-note {
-            color: #8a2f2f;
-            font-weight: 600;
-        }
-
-        .settings-status {
-            margin-top: 0.45rem;
-            color: #4b5a70;
-            font-size: 0.9rem;
         }
 
         .success {
@@ -363,8 +157,6 @@
         }
 
         .kids-manage-list {
-            display: grid;
-            gap: 0.5rem;
             margin-top: 0.35rem;
         }
 
@@ -377,10 +169,12 @@
             align-items: center;
             gap: 0.7rem;
             flex-wrap: wrap;
-            border: 1px solid #d9dfef;
-            border-radius: 10px;
-            background: #fcfdff;
-            padding: 0.4rem 0.7rem;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid #e3e6fb;
+        }
+
+        .kids-manage-row:last-child {
+            border-bottom: 0;
         }
 
         .kids-manage-avatar {
@@ -408,12 +202,6 @@
             font-weight: 700;
             color: #2f3c7e;
             font-size: 0.85rem;
-        }
-
-        .kids-manage-row .semantic-outline-btn {
-            min-height: 28px;
-            font-size: 0.8rem;
-            padding: 0 0.6rem;
         }
 
         .kids-manage-row-action {
@@ -474,16 +262,16 @@
         }
 
         .family-accounts-list {
-            display: grid;
-            gap: 0.85rem;
             margin-top: 0.85rem;
         }
 
         .family-account-card {
-            background: var(--dashboard-chip-bg);
-            border-radius: 12px;
-            box-shadow: var(--dashboard-chip-shadow);
-            padding: 0.95rem 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e3e6fb;
+        }
+
+        .family-account-card:last-child {
+            border-bottom: 0;
         }
 
         .family-account-card-top {
@@ -513,9 +301,11 @@
         }
 
         .family-account-card-lines {
-            display: grid;
-            gap: 0.18rem;
             margin-top: 0.45rem;
+        }
+
+        .family-account-card-lines .settings-note + .settings-note {
+            margin-top: 0.18rem;
         }
 
         .family-account-card-action {
@@ -629,18 +419,6 @@
                 margin-left: 0;
             }
         }
-
-        @media (max-width: 520px) {
-            .family-settings-actions {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                margin-bottom: 6px;
-                gap: 6px;
-            }
-
-            .settings-grid {
-                gap: var(--section-stack-gap-mobile);
-            }
-        }
     </style>
 </head>
 <body class="manage-page parent-settings-page">
@@ -656,7 +434,7 @@
         </header>
 
         <main>
-            <div class="family-settings-actions admin-action-grid" role="toolbar" aria-label="Family settings actions">
+            <div class="family-settings-actions" role="toolbar" aria-label="Family settings actions">
                 <button type="button" id="openChangePasswordBtn" class="admin-action-card">
                     <span class="admin-action-card-icon admin-action-card-icon--violet" aria-hidden="true">
                         <span class="icon" data-icon="key" data-icon-size="22"></span>
@@ -671,95 +449,106 @@
                 </a>
             </div>
 
-            <div class="settings-grid">
-                <section class="settings-card settings-section">
-                    <div class="settings-card-body">
-                        <h2><span class="icon" data-icon="users" data-icon-size="22"></span> Children</h2>
-                        <div id="kidsManageList" class="kids-manage-list"></div>
-                        <form id="addKidForm" class="kids-manage-add" autocomplete="off">
-                            <input type="text" id="addKidNameInput" class="kids-manage-input" placeholder="New child's name" maxlength="50" autocomplete="off" required>
-                            <button type="submit" id="addKidBtn" class="btn-primary">
-                                <span class="btn-icon" aria-hidden="true"><span class="icon" data-icon="plus" data-icon-size="20"></span></span>
-                                <span class="btn-label">Add</span>
-                            </button>
-                        </form>
-                        <div id="kidsManageError" class="error hidden"></div>
-                        <div id="kidsManageSuccess" class="success hidden"></div>
+            <section class="settings-card settings-section">
+                <div class="settings-card-body">
+                    <div class="paradigm-panel-title">
+                        <span class="paradigm-panel-title-icon"><span class="icon" data-icon="users"></span></span>
+                        <h2 class="paradigm-panel-heading">Children</h2>
                     </div>
-                </section>
+                    <div id="kidsManageList" class="kids-manage-list"></div>
+                    <form id="addKidForm" class="kids-manage-add" autocomplete="off">
+                        <input type="text" id="addKidNameInput" class="kids-manage-input" placeholder="New child's name" maxlength="50" autocomplete="off" required>
+                        <button type="submit" id="addKidBtn" class="btn-primary">
+                            <span class="btn-icon" aria-hidden="true"><span class="icon" data-icon="plus" data-icon-size="20"></span></span>
+                            <span class="btn-label">Add</span>
+                        </button>
+                    </form>
+                    <div id="kidsManageError" class="error hidden"></div>
+                    <div id="kidsManageSuccess" class="success hidden"></div>
+                </div>
+            </section>
 
-                <section class="settings-card settings-section">
-                    <div class="settings-card-body">
-                        <h2><span class="icon" data-icon="clock" data-icon-size="22"></span> Timezone Setting</h2>
-                        <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
-                        <div class="tz-dropdown">
-                            <button id="timezoneMenuBtn" type="button" class="tz-dropdown-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Time zone">
-                                <span class="tz-dropdown-btn-icon" data-icon="clock" data-icon-stroke="2"></span>
-                                <span id="timezoneMenuBtnLabel" class="tz-dropdown-btn-label">Select…</span>
-                                <span class="tz-dropdown-btn-caret" data-icon="chevron-down"></span>
-                            </button>
-                            <div id="timezoneMenuPopover" class="tz-dropdown-popover hidden" role="menu" aria-hidden="true"></div>
-                        </div>
-                        <div id="timezoneCurrentNote" class="tz-current-note hidden"></div>
-                        <div id="timezoneError" class="error hidden"></div>
-                        <div id="timezoneSuccess" class="success hidden"></div>
+            <section class="settings-card settings-section">
+                <div class="settings-card-body">
+                    <div class="paradigm-panel-title">
+                        <span class="paradigm-panel-title-icon"><span class="icon" data-icon="clock"></span></span>
+                        <h2 class="paradigm-panel-heading">Timezone Setting</h2>
                     </div>
-                </section>
+                    <div class="settings-note">Daily stars and daily completion reset at local midnight in this time zone.</div>
+                    <div class="tz-dropdown">
+                        <button id="timezoneMenuBtn" type="button" class="tz-dropdown-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Time zone">
+                            <span class="tz-dropdown-btn-icon" data-icon="clock" data-icon-stroke="2"></span>
+                            <span id="timezoneMenuBtnLabel" class="tz-dropdown-btn-label">Select…</span>
+                            <span class="tz-dropdown-btn-caret" data-icon="chevron-down"></span>
+                        </button>
+                        <div id="timezoneMenuPopover" class="tz-dropdown-popover hidden" role="menu" aria-hidden="true"></div>
+                    </div>
+                    <div id="timezoneCurrentNote" class="tz-current-note hidden"></div>
+                    <div id="timezoneError" class="error hidden"></div>
+                    <div id="timezoneSuccess" class="success hidden"></div>
+                </div>
+            </section>
 
-                <section class="settings-card settings-section">
-                    <div class="settings-card-body">
-                        <h2><span class="icon" data-icon="shield-check" data-icon-size="22"></span> Trusted Browsers</h2>
-                        <div class="settings-note">Browsers in this list can enter parent mode without re-entering the family password.</div>
-                        <div id="trustedBrowsersEmpty" class="settings-note hidden">No trusted browsers yet.</div>
-                        <div id="trustedBrowsersList" class="trusted-browser-list"></div>
-                        <div id="trustedBrowsersError" class="error hidden"></div>
-                        <div id="trustedBrowsersSuccess" class="success hidden"></div>
+            <section class="settings-card settings-section">
+                <div class="settings-card-body">
+                    <div class="paradigm-panel-title">
+                        <span class="paradigm-panel-title-icon"><span class="icon" data-icon="shield-check"></span></span>
+                        <h2 class="paradigm-panel-heading">Trusted Browsers</h2>
                     </div>
-                </section>
+                    <div class="settings-note">Browsers in this list can enter parent mode without re-entering the family password.</div>
+                    <div id="trustedBrowsersEmpty" class="settings-note hidden">No trusted browsers yet.</div>
+                    <div id="trustedBrowsersList" class="trusted-browser-list"></div>
+                    <div id="trustedBrowsersError" class="error hidden"></div>
+                    <div id="trustedBrowsersSuccess" class="success hidden"></div>
+                </div>
+            </section>
 
-                <section id="backupSettingsCard" class="settings-card settings-section">
-                    <div class="settings-card-body">
-                        <div class="backup-header-row">
-                            <h2><span class="icon" data-icon="save" data-icon-size="22"></span> Backup & Restore</h2>
-                            <span id="backupInfo" class="settings-note backup-info"></span>
-                        </div>
-                        <div class="settings-row backup-actions-row">
-                            <button id="downloadBackupBtn" class="btn-secondary">
-                                <span class="btn-icon" aria-hidden="true">
-                                    <span class="icon" data-icon="download" data-icon-size="20"></span>
-                                </span>
-                                <span class="btn-label">Download Backup</span>
-                            </button>
-                            <button id="restoreBackupBtn" class="btn-secondary">
-                                <span class="btn-icon" aria-hidden="true">
-                                    <span class="icon" data-icon="upload" data-icon-size="20"></span>
-                                </span>
-                                <span class="btn-label">Restore Backup</span>
-                            </button>
-                            <button id="rebuildDbBtn" class="btn-secondary">
-                                <span class="btn-icon" aria-hidden="true">
-                                    <span class="icon" data-icon="refresh-cw" data-icon-size="20"></span>
-                                </span>
-                                <span class="btn-label">Rebuild Databases</span>
-                            </button>
-                            <input type="file" id="backupFileInput" accept=".zip" class="hidden">
-                        </div>
-                        <div id="rebuildDbResult" class="settings-note hidden"></div>
+            <section id="backupSettingsCard" class="settings-card settings-section">
+                <div class="settings-card-body">
+                    <div class="paradigm-panel-title">
+                        <span class="paradigm-panel-title-icon"><span class="icon" data-icon="save"></span></span>
+                        <h2 class="paradigm-panel-heading">Backup & Restore</h2>
+                        <span id="backupInfo" class="paradigm-panel-meta settings-note backup-info"></span>
                     </div>
-                </section>
+                    <div class="settings-row backup-actions-row">
+                        <button id="downloadBackupBtn" class="btn-secondary">
+                            <span class="btn-icon" aria-hidden="true">
+                                <span class="icon" data-icon="download" data-icon-size="20"></span>
+                            </span>
+                            <span class="btn-label">Download Backup</span>
+                        </button>
+                        <button id="restoreBackupBtn" class="btn-secondary">
+                            <span class="btn-icon" aria-hidden="true">
+                                <span class="icon" data-icon="upload" data-icon-size="20"></span>
+                            </span>
+                            <span class="btn-label">Restore Backup</span>
+                        </button>
+                        <button id="rebuildDbBtn" class="btn-secondary">
+                            <span class="btn-icon" aria-hidden="true">
+                                <span class="icon" data-icon="refresh-cw" data-icon-size="20"></span>
+                            </span>
+                            <span class="btn-label">Rebuild Databases</span>
+                        </button>
+                        <input type="file" id="backupFileInput" accept=".zip" class="hidden">
+                    </div>
+                    <div id="rebuildDbResult" class="settings-note hidden"></div>
+                </div>
+            </section>
 
-                <section id="familyAdminCard" class="settings-card settings-section hidden">
-                    <div class="settings-card-body">
-                        <h2><span class="icon" data-icon="users" data-icon-size="22"></span> Manage Families</h2>
-                        <p class="settings-note">Super-family can delete non-super families.</p>
-                        <div id="familyStorageSummary" class="settings-note hidden"></div>
-                        <div id="familyAccountsEmpty" class="settings-note hidden">No family accounts found.</div>
-                        <div id="familyAccountsList" class="family-accounts-list"></div>
-                        <div id="familyAdminError" class="error hidden"></div>
-                        <div id="familyAdminSuccess" class="success hidden"></div>
+            <section id="familyAdminCard" class="settings-card settings-section hidden">
+                <div class="settings-card-body">
+                    <div class="paradigm-panel-title">
+                        <span class="paradigm-panel-title-icon"><span class="icon" data-icon="users"></span></span>
+                        <h2 class="paradigm-panel-heading">Manage Families</h2>
                     </div>
-                </section>
-            </div>
+                    <p class="settings-note">Super-family can delete non-super families.</p>
+                    <div id="familyStorageSummary" class="settings-note hidden"></div>
+                    <div id="familyAccountsEmpty" class="settings-note hidden">No family accounts found.</div>
+                    <div id="familyAccountsList" class="family-accounts-list"></div>
+                    <div id="familyAdminError" class="error hidden"></div>
+                    <div id="familyAdminSuccess" class="success hidden"></div>
+                </div>
+            </section>
 
             <div id="successMessage" class="success hidden"></div>
             <div id="errorMessage" class="error hidden"></div>

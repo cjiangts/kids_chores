@@ -200,13 +200,11 @@
     color: #8e9ab1;
     cursor: not-allowed;
     opacity: 1;
-    transform: none;
 }
 
 .point-rule-actions .semantic-outline-btn:disabled:hover {
     background: #e6ebf3;
     border-color: #d5dceb;
-    transform: none;
 }
 
 .point-rule-empty {
