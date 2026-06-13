@@ -139,7 +139,8 @@ body.has-kid-app-nav {
         font-size: 0.95em;
     }
 
-    .page-header-with-back .page-header-row.kid-app-nav-row .page-header-actions {
+    .page-header-with-back .page-header-row.kid-app-nav-row > .page-header-actions,
+    .page-header-with-back .page-header-row.kid-app-nav-row > .page-header-end {
         position: relative;
         z-index: 2;
         flex: 0 1 auto;

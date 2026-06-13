@@ -207,8 +207,8 @@
                 <div class="point-week-label">
                     <span class="point-week-label-text">${escapeHtml(labelText)}</span>
                     <span class="point-week-nav" aria-label="Week navigation">
-                        <button type="button" class="point-week-nav-btn" data-history-week-anchor="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 14, strokeWidth: 2.9 })}</button>
-                        <button type="button" class="point-week-nav-btn" data-history-week-anchor="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 14, strokeWidth: 2.9 })}</button>
+                        <button type="button" class="paradigm-pager-btn" data-history-week-anchor="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 14, strokeWidth: 2.9 })}</button>
+                        <button type="button" class="paradigm-pager-btn" data-history-week-anchor="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 14, strokeWidth: 2.9 })}</button>
                     </span>
                 </div>
                 ${weekDayKeysForSelectedDay(anchorDayKey).map((dayKey) => {
@@ -255,16 +255,16 @@
             : (delta >= 0 ? 'positive' : 'negative');
         const note = String(event.note || '').trim();
         const timeLabel = formatHistoryTime(event.createdAt, timezone);
-        const className = `point-history-row${showDelete ? '' : ' no-delete'}${extraClass ? ` ${extraClass}` : ''}`;
+        const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${extraClass ? ` ${extraClass}` : ''}`;
         return `
                 <div class="${escapeHtml(className)}" data-event-id="${escapeHtml(event.eventId)}" data-points-delta="${escapeHtml(delta)}">
-                    <span class="point-history-time">${escapeHtml(timeLabel)}</span>
-                    <span class="point-history-node" aria-hidden="true"></span>
-                    <div class="point-history-icon">${historyIconHtml(rule, delta)}</div>
-                    <div class="point-history-main">
-                        <div class="point-history-title">${escapeHtml(rule.name || 'Point event')}</div>
+                    <span class="point-history-time activity-timeline-time">${escapeHtml(timeLabel)}</span>
+                    <span class="point-history-node activity-timeline-node" aria-hidden="true"></span>
+                    <div class="point-history-icon activity-timeline-icon">${historyIconHtml(rule, delta)}</div>
+                    <div class="point-history-main activity-timeline-main">
+                        <div class="point-history-title activity-timeline-title">${escapeHtml(rule.name || 'Point event')}</div>
                         ${note ? `
-                        <div class="point-history-note">
+                        <div class="point-history-note activity-timeline-note">
                             ${escapeHtml(note)}
                         </div>
                         ` : ''}
@@ -368,7 +368,7 @@
             const nextDayKey = dateKeyInTimezone(parseHistoryDate(events[index + 1]?.createdAt), timezone);
             const extraClass = showDayBoundaries && dayKey && dayKey !== nextDayKey ? 'is-day-last' : '';
             const boundary = showDayBoundaries && dayKey && dayKey !== previousDayKey
-                ? `<div class="point-history-day-boundary"><span class="point-history-day-boundary-label">${escapeHtml(compactDayLabel(dayKey, timezone))}</span></div>`
+                ? `<div class="point-history-day-boundary activity-timeline-day-boundary"><span class="point-history-day-boundary-label activity-timeline-day-boundary-label">${escapeHtml(compactDayLabel(dayKey, timezone))}</span></div>`
                 : '';
             if (dayKey) previousDayKey = dayKey;
             return `${boundary}${eventRowHtml(event, opts, timezone, showDelete, extraClass)}`;
@@ -416,14 +416,14 @@
             : scopedEvents.filter((event) => isEventInWeek(event, anchorDayKey, timezone));
         const selectedListHtml = selectedEvents.length
             ? `
-            <section class="point-history-group">
-                <div class="point-history-group-list">
+            <section class="point-history-group activity-timeline-group">
+                <div class="point-history-group-list activity-timeline-list">
                     ${renderEventList(selectedEvents, opts, timezone, showDelete, true)}
                 </div>
             </section>
         `
             : `
-            <section class="point-history-group">
+            <section class="point-history-group activity-timeline-group">
                 <div class="point-empty">${escapeHtml(activeDayKey ? (opts.emptyDay || 'No point events for this day.') : (opts.emptyWeek || opts.emptyRecent || 'No point activity for this week.'))}</div>
             </section>
         `;

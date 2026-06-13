@@ -466,7 +466,7 @@
                             <div class="day-group-summary">${dayTotals.count} ${dayTotals.count === 1 ? 'session' : 'sessions'} · ${dayTotals.activeMinutes.toFixed(1)} min</div>
                             ${toggleBtn}
                         </div>
-                        <div class="day-group-body">${cards}</div>
+                        <div class="day-group-body activity-timeline-list">${cards}</div>
                     </div>
                 `;
             }).join('');
@@ -483,12 +483,15 @@
             const result = getSessionResultMeta(session);
             const retries = safeNum(session.retry_count);
             const iconHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
+            const isHighlighted = highlightSessionId && String(session?.id || '') === highlightSessionId;
             return `
-                <a href="${escapeHtml(sessionUrl)}" class="session-card">
-                    <div class="session-icon">${iconHtml}</div>
-                    <div class="session-info">
-                        <div class="session-title">${escapeHtml(displayName)}</div>
-                        <div class="session-sub">${escapeHtml(subParts.join(' · '))}</div>
+                <a href="${escapeHtml(sessionUrl)}" class="session-card activity-timeline-row${isHighlighted ? ' session-card-highlighted' : ''}" data-session-id="${escapeHtml(session?.id || '')}">
+                    <span class="session-time activity-timeline-time">${escapeHtml(time)}</span>
+                    <span class="session-node activity-timeline-node" aria-hidden="true"></span>
+                    <div class="session-icon activity-timeline-icon">${iconHtml}</div>
+                    <div class="session-info activity-timeline-main">
+                        <div class="session-title activity-timeline-title">${escapeHtml(displayName)}</div>
+                        <div class="session-sub activity-timeline-note">${escapeHtml(subParts.filter((part) => part !== time).join(' · '))}</div>
                     </div>
                     <div class="session-stats">
                         <div class="session-mins">${totalMins}<span class="session-mins-unit">min</span></div>

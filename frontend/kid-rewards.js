@@ -1,7 +1,7 @@
 const API_BASE = `${window.location.origin}/api`;
 const POINT_HISTORY_LIMIT = 500;
 
-const kidRewardTabs = document.getElementById('kidRewardTabs');
+const kidRewardAvatarSwitcher = document.getElementById('kidRewardAvatarSwitcher');
 const kidRewardsError = document.getElementById('kidRewardsError');
 const kidRedeemHistory = document.getElementById('kidRedeemHistory');
 const kidPointHistory = document.getElementById('kidPointHistory');
@@ -225,13 +225,13 @@ function ruleStatusHtml(rule) {
 }
 
 function renderKids() {
-    if (!kidRewardTabs) return;
-    if (isKidUserMode() || !window.KidAppNavigation?.renderKidSelector) {
-        kidRewardTabs.innerHTML = '';
-        kidRewardTabs.classList.add('hidden');
+    if (!kidRewardAvatarSwitcher) return;
+    if (isKidUserMode() || !window.KidAppNavigation?.renderKidAvatarSwitcher) {
+        kidRewardAvatarSwitcher.innerHTML = '';
+        kidRewardAvatarSwitcher.classList.add('hidden');
         return;
     }
-    window.KidAppNavigation.renderKidSelector(kidRewardTabs, kids, {
+    window.KidAppNavigation.renderKidAvatarSwitcher(kidRewardAvatarSwitcher, kids, {
         selectedKidId,
         onSelect: async (kidId) => {
             if (!kidId || kidId === selectedKidId) return;

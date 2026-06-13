@@ -70,7 +70,7 @@ const {
 const categoryKey = normalizeCategoryKey(params.get('categoryKey'));
 
 const kidNameEl = document.getElementById('kidName');
-const kidNavGroup = document.getElementById('kidNavGroup');
+const kidAvatarSwitcher = document.getElementById('kidAvatarSwitcher');
 let cachedKidsForNav = [];
 const errorMessage = document.getElementById('errorMessage');
 const successMessage = document.getElementById('successMessage');
@@ -661,20 +661,20 @@ async function loadKidsAndApplyKidInfo() {
 }
 
 function renderKidNav() {
-    if (!kidNavGroup) {
+    if (!kidAvatarSwitcher) {
         return;
     }
     const kids = Array.isArray(cachedKidsForNav) ? cachedKidsForNav : [];
-    if (window.KidAppNavigation?.renderKidSelector) {
-        window.KidAppNavigation.renderKidSelector(kidNavGroup, kids, {
+    if (window.KidAppNavigation?.renderKidAvatarSwitcher) {
+        window.KidAppNavigation.renderKidAvatarSwitcher(kidAvatarSwitcher, kids, {
             selectedKidId: String(kidId || ''),
             hrefForKid: (kid) => buildKidCardManageHref(String(kid?.id || ''), kid),
             persist: false,
         });
         return;
     }
-    kidNavGroup.classList.add('hidden');
-    kidNavGroup.innerHTML = '';
+    kidAvatarSwitcher.classList.add('hidden');
+    kidAvatarSwitcher.innerHTML = '';
 }
 
 function buildKidCardManageHref(targetKidId, targetKid) {

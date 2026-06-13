@@ -528,36 +528,6 @@
     gap: 0.34rem;
 }
 
-.point-week-nav-btn {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 28px;
-    height: 28px;
-    border: 1px solid #cfd7ee;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.92);
-    color: #6b5cf6;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font: inherit;
-    line-height: 1;
-    padding: 0;
-}
-
-.point-week-nav-btn .icon {
-    display: block;
-    width: 14px;
-    height: 14px;
-}
-
-.point-week-nav-btn:disabled {
-    color: #aeb6c9;
-    cursor: default;
-    opacity: 0.62;
-}
-
 .point-week-day {
     appearance: none;
     -webkit-appearance: none;
@@ -950,7 +920,7 @@
         gap: 0.3rem;
     }
 
-    .point-week-nav-btn {
+    .paradigm-pager-btn {
         width: 25px;
         height: 25px;
     }

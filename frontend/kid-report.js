@@ -6,7 +6,7 @@ const from = String(params.get('from') || '').trim().toLowerCase();
 
 const reportTitle = document.getElementById('reportTitle');
 const errorMessage = document.getElementById('errorMessage');
-const kidNavGroup = document.getElementById('kidNavGroup');
+const kidAvatarSwitcher = document.getElementById('kidAvatarSwitcher');
 let cachedKidsForNav = [];
 
 const reportRenderer = window.KidReportCommon.createReport({
@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadKidNav() {
-    if (!kidNavGroup) return;
+    if (!kidAvatarSwitcher) return;
     try {
         const response = await fetch(`${API_BASE}/kids?view=practice_nav`);
         if (!response.ok) return;
@@ -52,25 +52,13 @@ async function loadKidNav() {
 }
 
 function renderKidNav() {
-    if (!kidNavGroup) return;
+    if (!kidAvatarSwitcher) return;
     const kids = Array.isArray(cachedKidsForNav) ? cachedKidsForNav : [];
-    if (kids.length < 2) {
-        kidNavGroup.classList.add('hidden');
-        kidNavGroup.innerHTML = '';
-        return;
-    }
-    const userIconSvg = window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 });
-    kidNavGroup.innerHTML = kids.map((kid) => {
-        const id = String(kid?.id || '').trim();
-        const name = String(kid?.name || '').trim() || '...';
-        const isActive = id === String(kidId);
-        if (isActive) {
-            return `<span class="kid-nav-card active" role="tab" aria-selected="true">${userIconSvg}<span>${escapeHtml(name)}</span></span>`;
-        }
-        const href = buildKidReportHref(id);
-        return `<a class="kid-nav-card" role="tab" aria-selected="false" href="${escapeHtml(href)}">${userIconSvg}<span>${escapeHtml(name)}</span></a>`;
-    }).join('');
-    kidNavGroup.classList.remove('hidden');
+    window.KidAppNavigation?.renderKidAvatarSwitcher?.(kidAvatarSwitcher, kids, {
+        selectedKidId: String(kidId || ''),
+        hrefForKid: (kid) => buildKidReportHref(String(kid?.id || '')),
+        persist: false,
+    });
 }
 
 function buildKidReportHref(targetKidId) {

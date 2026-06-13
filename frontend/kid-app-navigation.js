@@ -159,13 +159,34 @@
         return String(kid?.name || '').trim() || '...';
     }
 
-    function kidNavCardIconHtml(kid) {
-        return typeof window.icon === 'function'
-            ? window.icon('user', { className: 'kid-nav-card-icon', strokeWidth: 2 })
-            : '';
+    function getKidInitial(name) {
+        const trimmed = String(name || '').trim();
+        if (!trimmed) return '?';
+        return String.fromCodePoint(trimmed.codePointAt(0)).toUpperCase();
     }
 
-    function renderKidSelector(container, kids, options = {}) {
+    function hashStringToToneIndex(value, toneCount = 6) {
+        const s = String(value || '');
+        let hash = 0;
+        for (let i = 0; i < s.length; i += 1) {
+            hash = ((hash << 5) - hash) + s.charCodeAt(i);
+            hash |= 0;
+        }
+        const m = Math.max(1, toneCount);
+        return ((hash % m) + m) % m;
+    }
+
+    function kidAvatarHtml(kid) {
+        const avatarUrl = String(kid?.avatarUrl || '').trim();
+        if (avatarUrl) {
+            return `<span class="kid-initial-avatar kid-initial-avatar--photo" style="background-image:url('${avatarUrl.replace(/'/g, '%27')}')" aria-hidden="true"></span>`;
+        }
+        const initial = getKidInitial(kid?.name);
+        const tone = hashStringToToneIndex(kid?.id || kid?.name);
+        return `<span class="kid-initial-avatar kid-initial-avatar--tone-${tone}" aria-hidden="true">${escapeHtml(initial)}</span>`;
+    }
+
+    function renderKidAvatarSwitcher(container, kids, options = {}) {
         if (!container) return;
         const list = Array.isArray(kids) ? kids : [];
         const hideWhenLessThan = Number.isInteger(options.hideWhenLessThan)
@@ -181,36 +202,28 @@
         container.innerHTML = list.map((kid) => {
             const id = String(kid?.id || '');
             const isActive = id === selectedKidId;
-            const extraClass = typeof options.classNameForKid === 'function'
-                ? String(options.classNameForKid(kid) || '')
-                : '';
-            const metaHtml = typeof options.metaHtmlForKid === 'function'
-                ? String(options.metaHtmlForKid(kid) || '')
-                : '';
-            const disabled = typeof options.isDisabledKid === 'function' && options.isDisabledKid(kid);
             const href = typeof options.hrefForKid === 'function'
                 ? String(options.hrefForKid(kid) || '')
                 : '';
-            const tagName = href && !isActive && !disabled ? 'a' : 'button';
+            const tagName = href && !isActive ? 'a' : 'button';
             const actionAttr = tagName === 'a'
                 ? ` href="${escapeHtml(href)}"`
                 : ' type="button"';
             return `
-                <${tagName}${actionAttr} class="kid-nav-card${isActive ? ' active' : ''}${extraClass ? ` ${escapeHtml(extraClass)}` : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-kid-id="${escapeHtml(id)}"${disabled && tagName === 'button' ? ' disabled aria-disabled="true"' : ''}${disabled && tagName === 'a' ? ' aria-disabled="true"' : ''}>
-                    ${kidNavCardIconHtml(kid)}
-                    <span>${escapeHtml(kidName(kid))}</span>
-                    ${metaHtml}
+                <${tagName}${actionAttr} class="kid-avatar-switcher-item${isActive ? ' active' : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-kid-id="${escapeHtml(id)}">
+                    ${kidAvatarHtml(kid)}
+                    <span class="kid-avatar-switcher-name">${escapeHtml(kidName(kid))}</span>
                 </${tagName}>
             `;
         }).join('');
         container.classList.remove('hidden');
         container.onclick = (event) => {
-            const button = event.target && event.target.closest
+            const item = event.target && event.target.closest
                 ? event.target.closest('[data-kid-id]')
                 : null;
-            if (!button || button.disabled) return;
-            const kidId = String(button.getAttribute('data-kid-id') || '').trim();
-            const kid = list.find((item) => String(item?.id || '') === kidId);
+            if (!item) return;
+            const kidId = String(item.getAttribute('data-kid-id') || '').trim();
+            const kid = list.find((entry) => String(entry?.id || '') === kidId);
             if (!kidId || !kid) return;
             if (options.persist !== false) setKidId(kidId);
             if (typeof options.onSelect === 'function') {
@@ -286,7 +299,9 @@
             return;
         }
         headerRow.classList.add('kid-app-nav-row');
-        const actions = headerRow.querySelector('.page-header-actions');
+        const actions = Array.from(headerRow.children).find((el) => (
+            el.classList.contains('page-header-end') || el.classList.contains('page-header-actions')
+        ));
         if (actions && nav.nextSibling !== actions) {
             headerRow.insertBefore(nav, actions);
             return;
@@ -365,7 +380,7 @@
         getMode: navigationMode,
         remove: removeNav,
         render,
-        renderKidSelector,
+        renderKidAvatarSwitcher,
         setKidId,
         setKids,
         setSuppressed,

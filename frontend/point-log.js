@@ -2,7 +2,7 @@ const API_BASE = `${window.location.origin}/api`;
 const POINT_LOG_MODE_STORAGE_KEY = 'point_log_last_mode_v1';
 const POINT_HISTORY_LIMIT = 500;
 
-const kidTabs = document.getElementById('kidTabs');
+const kidAvatarSwitcher = document.getElementById('kidAvatarSwitcher');
 const logError = document.getElementById('logError');
 const pointLogForm = document.getElementById('pointLogForm');
 const pointEmoji = document.getElementById('pointEmoji');
@@ -295,8 +295,8 @@ function stepPoints(delta) {
 }
 
 function renderKids() {
-    if (!window.KidAppNavigation?.renderKidSelector) return;
-    window.KidAppNavigation.renderKidSelector(kidTabs, kids, {
+    if (!window.KidAppNavigation?.renderKidAvatarSwitcher) return;
+    window.KidAppNavigation.renderKidAvatarSwitcher(kidAvatarSwitcher, kids, {
         selectedKidId,
         onSelect: async (kidId) => {
             if (!kidId || kidId === selectedKidId) return;

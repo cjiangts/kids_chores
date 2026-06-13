@@ -2,7 +2,7 @@ const API_BASE = `${window.location.origin}/api`;
 const POINT_HISTORY_LIMIT = 500;
 
 const parentRewardsError = document.getElementById('parentRewardsError');
-const parentRewardKids = document.getElementById('parentRewardKids');
+const parentRewardAvatarSwitcher = document.getElementById('parentRewardAvatarSwitcher');
 const parentRewardTabs = document.getElementById('parentRewardTabs');
 const parentRewardRules = document.getElementById('parentRewardRules');
 const parentRewardHistory = document.getElementById('parentRewardHistory');
@@ -151,8 +151,8 @@ function initialKidId() {
 }
 
 function renderKids() {
-    if (!parentRewardKids || !window.KidAppNavigation?.renderKidSelector) return;
-    window.KidAppNavigation.renderKidSelector(parentRewardKids, kids, {
+    if (!parentRewardAvatarSwitcher || !window.KidAppNavigation?.renderKidAvatarSwitcher) return;
+    window.KidAppNavigation.renderKidAvatarSwitcher(parentRewardAvatarSwitcher, kids, {
         selectedKidId,
         onSelect: async (kidId) => {
             if (!kidId || kidId === selectedKidId) return;

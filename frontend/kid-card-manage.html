@@ -29,11 +29,12 @@
                     <span class="page-title-icon" aria-hidden="true">📁</span>
                     <span id="kidName">Manage Cards</span>
                 </h1>
-                <div class="page-header-actions" data-family-user-switcher></div>
+                <div class="page-header-end">
+                    <div id="kidAvatarSwitcher" class="kid-avatar-switcher hidden" role="tablist" aria-label="Kids"></div>
+                    <div class="page-header-actions" data-family-user-switcher></div>
+                </div>
             </div>
         </header>
-
-        <div class="kid-nav-group hidden" id="kidNavGroup" role="tablist" aria-label="Kids"></div>
 
         <div class="tab-nav kid-nav-group"></div>
 
@@ -214,9 +215,9 @@
                     <div class="daily-chart-wrap">
                         <div class="daily-chart-header">
                             <div class="daily-chart-pager">
-                                <button id="reportDailyChartOlderBtn" type="button" class="daily-chart-page-btn" aria-label="Older" disabled>‹</button>
+                                <button id="reportDailyChartOlderBtn" type="button" class="paradigm-pager-btn" aria-label="Older" disabled><span data-icon="chevron-left" data-icon-size="14" data-icon-stroke="2.9"></span></button>
                                 <div id="reportDailyChartPageLabel" class="daily-chart-page-label" role="status" aria-label="Loading kid records"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></div>
-                                <button id="reportDailyChartNewerBtn" type="button" class="daily-chart-page-btn" aria-label="Newer" disabled>›</button>
+                                <button id="reportDailyChartNewerBtn" type="button" class="paradigm-pager-btn" aria-label="Newer" disabled><span data-icon="chevron-right" data-icon-size="14" data-icon-stroke="2.9"></span></button>
                             </div>
                         </div>
                         <div id="reportDailyChartLegend" class="daily-chart-legend" style="display:none"></div>

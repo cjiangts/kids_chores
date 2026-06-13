@@ -27,7 +27,7 @@ const API_BASE = `${window.location.origin}/api`;
 // DOM Elements
 const adminOptinPanel = document.getElementById('adminOptinPanel');
 const adminMatrix = document.getElementById('adminMatrix');
-const adminKidTabs = document.getElementById('adminKidTabs');
+const adminKidAvatarSwitcher = document.getElementById('adminKidAvatarSwitcher');
 const adminOffAppPanel = document.getElementById('adminOffAppPanel');
 const adminOffAppList = document.getElementById('adminOffAppList');
 const adminEmptyState = document.getElementById('adminEmptyState');
@@ -655,9 +655,9 @@ function renderMatrix() {
 }
 
 function renderAdminKidTabs(kids) {
-    if (!adminKidTabs) return;
-    if (window.KidAppNavigation && typeof window.KidAppNavigation.renderKidSelector === 'function') {
-        window.KidAppNavigation.renderKidSelector(adminKidTabs, kids, {
+    if (!adminKidAvatarSwitcher) return;
+    if (window.KidAppNavigation && typeof window.KidAppNavigation.renderKidAvatarSwitcher === 'function') {
+        window.KidAppNavigation.renderKidAvatarSwitcher(adminKidAvatarSwitcher, kids, {
             selectedKidId: selectedAdminKidId,
             onSelect: (kidId) => {
                 selectedAdminKidId = kidId;
@@ -668,8 +668,8 @@ function renderAdminKidTabs(kids) {
         });
         return;
     }
-    adminKidTabs.innerHTML = '';
-    adminKidTabs.classList.add('hidden');
+    adminKidAvatarSwitcher.innerHTML = '';
+    adminKidAvatarSwitcher.classList.add('hidden');
 }
 
 function ensureSelectedAdminKidId(kids) {
