@@ -1069,12 +1069,15 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
             const slowLegendHtml = (isType2Behavior() || isType3Behavior())
                 ? ''
                 : '<span class="cards-queue-legend-item slow"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Slow</span>';
+            const worksheetLegendHtml = isType2Behavior()
+                ? '<span class="cards-queue-legend-item worksheet"><span class="cards-queue-legend-dot" aria-hidden="true"></span>In worksheet</span>'
+                : '';
             cardsQueueLegend.innerHTML = `
                 ${missedLegendHtml}
                 ${slowLegendHtml}
                 <span class="cards-queue-legend-item learning"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Learning</span>
                 <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
-                <span class="cards-queue-legend-item worksheet"><span class="cards-queue-legend-dot" aria-hidden="true"></span>In worksheet</span>
+                ${worksheetLegendHtml}
                 <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
             `;
         }

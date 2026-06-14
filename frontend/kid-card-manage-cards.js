@@ -315,9 +315,9 @@ function buildCardMarkup(card, options = {}) {
                 ${metaHtml}
             </div>
             <div class="card-actions">
-                <a class="card-report-link" href="${buildCardReportHref(card)}">${icon('history', { size: 16 })}<span>History</span></a>
+                <a class="paradigm-btn" href="${buildCardReportHref(card)}">${icon('history', { size: 16 })}<span>History</span></a>
                 ${supportsSkipControl ? `<a
-                    class="card-report-link"
+                    class="paradigm-btn"
                     href="#"
                     data-action="toggle-skip"
                     data-card-id="${card.id}"
@@ -464,7 +464,7 @@ function buildExpandedCardDeleteButtonMarkup(card) {
     return `
         <button
             type="button"
-            class="expanded-card-delete-btn"
+            class="paradigm-btn is-danger"
             data-action="delete-personal-card"
             data-card-id="${escapeHtml(cardId)}"
             title="${escapeHtml(title)}"

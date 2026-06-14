@@ -1126,29 +1126,6 @@ h3:has(.icon) {
     color: #999;
 }
 
-.manage-page .card-report-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    margin-top: 0.55rem;
-    padding: 0.35rem 0.62rem;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 400;
-    color: #24468f;
-    background: #fff;
-    border: 1px solid #cfdcfb;
-    text-decoration: none;
-}
-
-.manage-page .card-report-link:hover {
-    background: #f7faff;
-}
-
-.manage-page .card-actions .card-report-link {
-    margin-top: 0;
-}
 
 /* Shared point/reward typography */
 .point-template-name,

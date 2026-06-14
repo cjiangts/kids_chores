@@ -7,7 +7,7 @@
         }
 
         .manage-popup-btn {
-            min-height: 34px;
+            min-height: var(--paradigm-button-height);
             padding: 0.38rem 0.72rem;
             font-size: 0.9rem;
         }
@@ -746,7 +746,7 @@
             border: 1px solid var(--p-border);
             color: #4a5688;
             width: 42px;
-            height: 34px;
+            height: var(--paradigm-button-height);
             border-radius: 8px;
             cursor: pointer;
             line-height: 1;
@@ -808,43 +808,11 @@
             white-space: nowrap;
         }
 
-        .cards-select-mode-btn {
-            appearance: none;
-            -webkit-appearance: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            border: 1px solid var(--p-border);
-            background: #fff;
-            color: #4a5688;
-            border-radius: 8px;
-            height: 34px;
-            padding: 0 0.75rem;
-            font-size: 0.92rem;
-            font-weight: 600;
-            line-height: 1;
-            cursor: pointer;
-            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-        }
-
         .cards-select-mode-btn-icon {
             display: inline-flex;
             width: 18px;
             height: 18px;
             flex: 0 0 auto;
-        }
-
-        .cards-select-mode-btn:hover {
-            border-color: var(--p-accent-border);
-            background: #f6f9ff;
-            color: var(--p-ink-title);
-        }
-
-        .cards-select-mode-btn.active {
-            background: #fff;
-            border-color: var(--p-accent-border-soft);
-            color: var(--p-accent);
         }
 
         #cardsSelectModeBtn.active {
@@ -949,47 +917,11 @@
             gap: 0.55rem;
         }
 
-        .cards-selection-action-btn {
-            appearance: none;
-            -webkit-appearance: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.45rem;
-            border: 0;
-            background: #fff;
-            color: var(--p-ink-title);
-            border-radius: 12px;
-            padding: 0.7rem 0.9rem;
-            font-size: 0.95rem;
-            font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            min-height: 44px;
-        }
-
         .cards-selection-action-icon {
             width: 18px;
             height: 18px;
             display: inline-flex;
             flex: 0 0 auto;
-        }
-
-        .cards-selection-action-btn:hover:not(:disabled) {
-            background: #f0f3ff;
-        }
-
-        .cards-selection-action-btn:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-        }
-
-        .cards-selection-action-btn.is-danger {
-            color: #c0392b;
-        }
-
-        .cards-selection-action-btn.is-danger:hover:not(:disabled) {
-            background: #fdecea;
         }
 
         body.cards-select-mode {
@@ -1127,8 +1059,8 @@
         }
 
         .manage-page .cards-toolbar .search-bar-input {
-            min-height: 34px;
-            height: 34px;
+            min-height: var(--paradigm-button-height);
+            height: var(--paradigm-button-height);
             padding-top: 0.35rem;
             padding-bottom: 0.35rem;
             font-size: 0.92rem;
@@ -1145,6 +1077,7 @@
             align-items: end;
             column-gap: 0.52rem;
             row-gap: 0.55rem;
+            margin-top: -0.15rem;
             margin-bottom: 0.4rem;
         }
 
@@ -1446,12 +1379,6 @@
                 gap: 0.35rem;
             }
 
-            .manage-page .cards-toolbar .cards-select-mode-btn {
-                height: 34px;
-                padding: 0 0.6rem;
-                font-size: 0.88rem;
-            }
-
             .manage-page .cards-toolbar .search-bar-input,
             .manage-page .cards-toolbar .sort-menu-btn {
                 height: 32px;
@@ -1488,8 +1415,8 @@
             display: inline-flex;
             align-items: center;
             gap: 0.34rem;
-            padding: 0 0.4rem;
-            margin-left: 0.1rem;
+            padding: 0;
+            margin: 0;
             color: var(--p-ink-title);
             font-size: 0.78rem;
             font-weight: 700;
@@ -2196,7 +2123,6 @@
 
         .expanded-detail-card {
             text-align: left;
-            padding: 0.82rem 0.88rem 0.8rem;
             border-radius: 18px;
             overflow: hidden;
         }
@@ -3282,18 +3208,6 @@
             min-width: 0;
         }
 
-        .expanded-detail-card .card-actions .card-report-link,
-        .expanded-detail-card .card-actions .expanded-card-delete-btn {
-            min-height: 38px;
-            padding: 0.45rem 0.7rem;
-            border-radius: 12px;
-            font-size: 0.88rem;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-        }
 
         .expanded-detail-card.type4-card .expanded-card-hero {
             grid-template-columns: minmax(0, 1fr);
@@ -3508,35 +3422,6 @@
             color: #667085;
         }
 
-        .expanded-card-delete-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 74px;
-            height: 30px;
-            padding: 0 12px;
-            border: 1px solid #e6b0b6;
-            border-radius: 999px;
-            background: #fff1f3;
-            color: #b42318;
-            font-size: 0.78rem;
-            font-weight: 700;
-            line-height: 1;
-            cursor: pointer;
-        }
-
-        .expanded-card-delete-btn:hover {
-            background: #ffe4e8;
-            border-color: #dc8f99;
-        }
-
-        .expanded-card-delete-btn:disabled {
-            opacity: 0.45;
-            background: #f4f5f7;
-            border-color: #d0d5dd;
-            color: #98a2b3;
-            cursor: not-allowed;
-        }
 
         .type2-prompt-row {
             display: flex;
@@ -3642,7 +3527,7 @@
         @media (max-width: 680px) {
             .expanded-card-hero {
                 grid-template-columns: fit-content(84px) minmax(0, 1fr);
-                gap: 0.45rem;
+                gap: 0.25rem;
                 align-items: start;
             }
 
@@ -3683,7 +3568,7 @@
             }
 
             .expanded-detail-card {
-                padding: 0.68rem 0.72rem 0.7rem;
+                padding: 0.5rem 0.6rem !important;
                 border-radius: 16px;
             }
 
@@ -3911,10 +3796,10 @@
 
             .expanded-detail-card .card-actions .card-report-link,
             .expanded-detail-card .card-actions .expanded-card-delete-btn {
-                min-height: 34px;
-                padding: 0.36rem 0.45rem;
-                border-radius: 10px;
-                font-size: 0.78rem;
+                height: var(--paradigm-button-height);
+                padding: 0 0.6rem;
+                border-radius: 8px;
+                font-size: 0.8rem;
             }
         }
 
@@ -4382,6 +4267,7 @@
             font-size: 0.74rem;
             color: #4a5688;
             font-weight: 600;
+            margin: 0 0 0.55rem;
         }
 
         .daily-progress-legend-item {
@@ -4717,7 +4603,7 @@
             align-items: center;
             justify-content: center;
             gap: 0.55rem;
-            margin: 0.55rem 0 0.6rem;
+            margin: 0.55rem 0 0.75rem;
             position: relative;
         }
 
@@ -4744,7 +4630,7 @@
         @media (min-width: 760px) {
             .kid-card-manage-page .queue-actions-layout {
                 flex-wrap: nowrap;
-                margin: 0.62rem 0 0.58rem;
+                margin: 0.62rem 0 0.73rem;
             }
 
             .kid-card-manage-page .deck-setup-actions {

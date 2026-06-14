@@ -835,14 +835,14 @@ function renderDailyProgressPanel(chart) {
         <div class="${cardClasses.join(' ')}">
             <div class="cards-distribution-card-head">
                 <div class="cards-distribution-card-title">${escapeHtml(String(chart?.title || 'Daily Progress'))}</div>
-                <div class="daily-progress-legend">
-                    <span class="daily-progress-legend-item practiced"><span class="daily-progress-legend-swatch"></span>Practiced (${escapeHtml(String(lastPoint.practiced))})</span>
-                    <span class="daily-progress-legend-item learned"><span class="daily-progress-legend-swatch"></span>Learned (${escapeHtml(String(lastPoint.learned))})</span>
-                    ${hasCrData ? `<span class="daily-progress-legend-item correctness-rate"><span class="daily-progress-legend-swatch"></span>Cumulative correct (${escapeHtml(lastCrLabel)})</span>` : ''}
-                    ${hasRtData ? `<span class="daily-progress-legend-item response-time"><span class="daily-progress-legend-swatch"></span>Avg correct response (${escapeHtml(lastRtLabel)})</span>` : ''}
-                </div>
             </div>
             ${controlsHtml}
+            <div class="daily-progress-legend">
+                <span class="daily-progress-legend-item practiced"><span class="daily-progress-legend-swatch"></span>Practiced <span style="color: #2f66e6;">${escapeHtml(String(lastPoint.practiced))}</span></span>
+                <span class="daily-progress-legend-item learned"><span class="daily-progress-legend-swatch"></span>Learned <span style="color: #16a34a;">${escapeHtml(String(lastPoint.learned))}</span></span>
+                ${hasCrData ? `<span class="daily-progress-legend-item correctness-rate"><span class="daily-progress-legend-swatch"></span>Cumulative correct <span style="color: #db2777;">${escapeHtml(lastCrLabel)}</span></span>` : ''}
+                ${hasRtData ? `<span class="daily-progress-legend-item response-time"><span class="daily-progress-legend-swatch"></span>Avg correct time <span style="color: #d97706;">${escapeHtml(lastRtLabel)}</span></span>` : ''}
+            </div>
             <div class="daily-progress-chart">
                 <div class="daily-progress-y-label">Cards</div>
                 <div class="daily-progress-y-axis">

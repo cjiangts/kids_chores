@@ -38,7 +38,8 @@
 
     /* Panel title row */
     --paradigm-panel-title-icon-size: 18px;
-    --paradigm-panel-title-action-size: 34px;
+    --paradigm-button-height: 32px;
+    --paradigm-panel-title-action-size: var(--paradigm-button-height);
     --paradigm-panel-title-height: 44px;
 
     /* Compact status column / pill */
@@ -950,6 +951,48 @@ svg.cards-view-toggle-btn-icon,
     max-width: 320px;
 }
 
+/* Shared button base class */
+.paradigm-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    height: var(--paradigm-button-height);
+    padding: 0 0.75rem;
+    border: 1px solid var(--p-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--p-ink-title);
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    text-decoration: none;
+}
+
+.paradigm-btn:hover:not(:disabled) {
+    border-color: var(--p-accent-border);
+    background: #f6f9ff;
+}
+
+.paradigm-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.paradigm-btn.is-danger {
+    color: #c0392b;
+}
+
+.paradigm-btn.is-danger:hover:not(:disabled) {
+    border-color: #f08080;
+    background: #fdecea;
+}
+
 .sort-menu-btn,
 .tz-dropdown-btn {
     appearance: none;
@@ -959,7 +1002,7 @@ svg.cards-view-toggle-btn-icon,
     gap: 0.5rem;
     width: 100%;
     min-width: 0;
-    height: 34px;
+    height: var(--paradigm-button-height);
     padding: 0 0.7rem;
     border: 1px solid var(--p-border);
     border-radius: 8px;

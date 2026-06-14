@@ -400,10 +400,10 @@ function renderTrend(attempts) {
         .filter(([key]) => presentCorrectness.has(key))
         .map(([key, label]) => `<span><span class="trend-legend-dot ${key}"></span>${label}</span>`);
     if (showAvgLine) {
-        legendParts.push(`<span><span class="trend-legend-line"></span>Avg ${escapeHtml(finalAvgLabel)}</span>`);
+        legendParts.push(`<span><span class="trend-legend-line"></span>Avg <span style="color: #5b6acf;">${escapeHtml(finalAvgLabel)}</span></span>`);
     }
     if (showEmaLine) {
-        legendParts.push(`<span><span class="trend-legend-line ema"></span>EMA ${escapeHtml(finalEmaLabel)}</span>`);
+        legendParts.push(`<span><span class="trend-legend-line ema"></span>EMA <span style="color: #e07a3d;">${escapeHtml(finalEmaLabel)}</span></span>`);
     }
     if (trendLegend) {
         trendLegend.innerHTML = legendParts.join('');
