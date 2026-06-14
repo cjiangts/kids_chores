@@ -142,7 +142,7 @@
         return window.icon(name, {
             className: 'kid-app-nav__icon',
             size: 24,
-            strokeWidth: 2.35,
+            strokeWidth: 2,
         });
     }
 

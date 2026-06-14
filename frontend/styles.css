@@ -1294,9 +1294,9 @@ header p {
     margin-bottom: 0;
 }
 
-.page-header-with-back.page-header-with-actions:has(.family-user-switcher__icon) .page-header-row {
+.page-header-with-back.page-header-with-actions .page-header-row {
     box-sizing: border-box;
-    min-height: 52px;
+    min-height: 72px;
 }
 
 .page-header-with-back .page-header-row h1 {
@@ -1519,9 +1519,9 @@ header p {
         margin-bottom: 14px;
     }
 
-    .page-header-with-back.page-header-with-actions:has(.family-user-switcher__icon) .page-header-row {
+    .page-header-with-back.page-header-with-actions .page-header-row {
         box-sizing: border-box;
-        min-height: 58px;
+        min-height: 64px;
         padding-top: 0.18rem;
     }
 

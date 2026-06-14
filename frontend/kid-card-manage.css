@@ -998,7 +998,7 @@
 
         @media (max-width: 899px) {
             body.has-kid-app-nav .cards-selection-bar {
-                bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+                bottom: calc(82px + env(safe-area-inset-bottom, 0px));
                 gap: 0.42rem;
                 border-radius: 14px;
                 padding: 0.58rem 0.75rem 0.68rem;
@@ -1049,7 +1049,7 @@
             }
 
             body.has-kid-app-nav.cards-select-mode {
-                padding-bottom: calc(11.5rem + env(safe-area-inset-bottom, 0px));
+                padding-bottom: calc(12.1rem + env(safe-area-inset-bottom, 0px));
             }
         }
 

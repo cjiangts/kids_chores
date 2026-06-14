@@ -28,17 +28,23 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-.kid-app-nav__item:hover,
-.kid-app-nav__item:focus-visible {
-    color: #6d56e9;
-    background: rgba(109, 86, 233, 0.08);
-    outline: none;
-}
-
 .kid-app-nav__item.is-active {
     color: #6d56e9;
     background: transparent;
     box-shadow: none;
+}
+
+.kid-app-nav__item:focus-visible {
+    color: #6d56e9;
+    outline: 2px solid rgba(109, 86, 233, 0.42);
+    outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .kid-app-nav__item:hover:not(.is-active) {
+        color: #6d56e9;
+        background: rgba(109, 86, 233, 0.04);
+    }
 }
 
 .kid-app-nav__icon {
@@ -51,7 +57,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 700;
+    font-weight: 500;
 }
 
 body.has-kid-app-nav {
@@ -59,6 +65,10 @@ body.has-kid-app-nav {
 }
 
 @media (max-width: 899px) {
+    body.has-kid-app-nav {
+        padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    }
+
     .parent-admin-page .page-header-with-back .page-header-row h1 {
         font-size: clamp(0.95rem, 4vw, 1.15rem);
         line-height: 1;
@@ -73,8 +83,8 @@ body.has-kid-app-nav {
         left: 0;
         right: 0;
         bottom: 0;
-        min-height: calc(62px + env(safe-area-inset-bottom, 0px));
-        padding: 0.38rem 1rem calc(0.38rem + env(safe-area-inset-bottom, 0px));
+        min-height: calc(72px + env(safe-area-inset-bottom, 0px));
+        padding: 0.38rem 1rem calc(0.92rem + env(safe-area-inset-bottom, 0px));
         border-right: 0;
         border-bottom: 0;
         border-left: 0;
@@ -89,13 +99,13 @@ body.has-kid-app-nav {
     }
 
     .kid-app-nav__icon {
-        width: 21px;
-        height: 21px;
+        width: 24px;
+        height: 24px;
     }
 
     .kid-app-nav__label {
         max-width: 100%;
-        font-size: 0.72rem;
+        font-size: 0.66rem;
     }
 }
 
@@ -105,18 +115,18 @@ body.has-kid-app-nav {
     }
 
     .page-header-with-back .page-header-row.kid-app-nav-row {
-        --kid-app-nav-desktop-width: clamp(420px, 34vw, 560px);
+        --kid-app-nav-desktop-width: clamp(320px, 24vw, 390px);
         --kid-app-nav-side-gap: 1rem;
         position: relative;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
-        min-height: 50px;
+        min-height: 72px;
     }
 
     .page-header-with-back .page-header-row.kid-app-nav-row:has(.kid-app-nav--kid-mode) {
-        --kid-app-nav-desktop-width: clamp(250px, 20vw, 340px);
+        --kid-app-nav-desktop-width: clamp(190px, 14vw, 240px);
     }
 
     .page-header-with-back .page-header-row.kid-app-nav-row h1 {
@@ -170,11 +180,11 @@ body.has-kid-app-nav {
     }
 
     .kid-app-nav__icon {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
     }
 
     .kid-app-nav__label {
-        font-size: 0.68rem;
+        font-size: 0.62rem;
     }
 }
