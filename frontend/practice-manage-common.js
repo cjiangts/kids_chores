@@ -1325,7 +1325,10 @@ window.PracticeManageCommon = {
                 }
                 const anchor = document.createElement('a');
                 const isActive = routePath === currentRoutePath && key === currentCategoryKey;
-                anchor.className = `${isActive ? 'btn-primary' : 'btn-secondary'} manage-tab`;
+                anchor.className = `manage-tab${isActive ? ' active' : ''}`;
+                if (isActive) {
+                    anchor.setAttribute('aria-current', 'page');
+                }
                 const qs = new URLSearchParams();
                 if (effectiveKidId) {
                     qs.set('id', effectiveKidId);
@@ -1478,7 +1481,7 @@ window.PracticeManageCommon = {
                         <label>Submitted answer</label>
                         <input type="text" class="validate-test-submitted" placeholder="e.g. 5/6">
                     </div>
-                    <button type="button" class="btn-secondary validate-test-btn">Validate</button>
+                    <button type="button" class="paradigm-btn validate-test-btn">Validate</button>
                 </div>
                 <div class="validate-test-result"></div>
             </div>

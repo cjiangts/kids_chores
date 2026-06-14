@@ -222,12 +222,15 @@ function checkIconHtml(size = 17, strokeWidth = 2.7) {
     if (typeof window.icon === 'function') {
         return window.icon('check', { className: 'point-apply-icon icon', size, strokeWidth });
     }
-    return '';
+    return '<span class="point-apply-icon icon" data-icon="check" data-icon-size="17" data-icon-stroke="2.7"></span>';
 }
 
 function setSubmitButtonLabel(label) {
     if (!submitPointLogBtn) return;
-    submitPointLogBtn.innerHTML = `${checkIconHtml()}<span class="point-apply-label">${escapeHtml(label)}</span>`;
+    submitPointLogBtn.setAttribute('aria-label', label);
+    submitPointLogBtn.title = label;
+    submitPointLogBtn.innerHTML = checkIconHtml();
+    if (window.hydrateIcons) window.hydrateIcons(submitPointLogBtn);
 }
 
 function hasActiveSelection() {

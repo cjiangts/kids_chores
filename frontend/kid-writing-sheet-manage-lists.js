@@ -28,9 +28,9 @@ async function loadChineseSheets() {
 }
 
 function sheetActionButton(action, sheetId, iconName, label, tone) {
-    const toneClass = tone ? ` semantic-outline-btn--${tone}` : '';
+    const toneClass = tone === 'red' ? ' is-danger' : '';
     const iconHtml = typeof window.icon === 'function' ? window.icon(iconName, { size: 16 }) : escapeHtml(label);
-    return `<button type="button" class="semantic-outline-btn${toneClass} paradigm-icon-action-btn" data-sheet-action="${action}" data-sheet-id="${sheetId}" aria-label="${escapeHtml(label)}">${iconHtml}</button>`;
+    return `<button type="button" class="paradigm-icon-btn${toneClass} paradigm-icon-action-btn" data-sheet-action="${action}" data-sheet-id="${sheetId}" aria-label="${escapeHtml(label)}">${iconHtml}</button>`;
 }
 
 function formatSheetDay(value) {
@@ -56,7 +56,7 @@ function renderChineseSheets(sheets) {
         const safeSheetId = Number.isInteger(sheetId) && sheetId > 0 ? sheetId : 0;
         const cardLabels = Array.isArray(sheet && sheet.card_labels) ? sheet.card_labels : [];
         const answersHtml = cardLabels.length > 0
-            ? cardLabels.map((label) => `<span class="sheet-card-pill">${escapeHtml(label)}</span>`).join('')
+            ? cardLabels.map((label) => `<span class="sheet-card-pill paradigm-pill">${escapeHtml(label)}</span>`).join('')
             : '<span class="sheet-card-empty">(no cards)</span>';
         const isDone = String(sheet && sheet.status || '').trim().toLowerCase() === 'done';
         const isPending = !isDone;
@@ -173,7 +173,7 @@ function renderMathSheets(sheets) {
         });
         const rowPillsHtml = cardTotals.size > 0
             ? Array.from(cardTotals.entries()).map(([name, total]) =>
-                `<span class="sheet-card-pill">${escapeHtml(name)}${total > 0 ? ` · ${total}` : ''}</span>`
+                `<span class="sheet-card-pill paradigm-pill">${escapeHtml(name)}${total > 0 ? ` · ${total}` : ''}</span>`
             ).join('')
             : '<span class="sheet-card-empty">(no rows)</span>';
         const problemCount = Number.parseInt(sheet && sheet.problem_count, 10) || 0;

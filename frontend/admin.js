@@ -815,12 +815,12 @@ function isAdminOffAppDraftDirty(draft) {
 
 function buildAdminOffAppSaveButtonContent() {
     const iconHtml = (typeof window.icon === 'function') ? window.icon('check', { size: 15, strokeWidth: 2.7 }) : '';
-    return `${iconHtml}<span>Save</span>`;
+    return iconHtml;
 }
 
 function buildAdminOffAppCancelButtonContent() {
     const iconHtml = (typeof window.icon === 'function') ? window.icon('x', { size: 15, strokeWidth: 2.7 }) : '';
-    return `${iconHtml}<span>Cancel</span>`;
+    return iconHtml;
 }
 
 function updateAdminOffAppSaveButtonState(reviewKey) {
@@ -854,10 +854,10 @@ function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
         <div class="admin-off-app-grade" data-off-app-review-key="${escapeHtml(reviewKey)}" data-off-app-review-kind="${escapeHtml(reviewKind)}">
             <input class="admin-off-app-note-input" type="text" value="${escapeHtml(note)}" placeholder="Note" data-off-app-note-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Note for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
             <span class="admin-off-app-grade-actions">
-                <button type="button" class="admin-off-app-grade-btn" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="Save off-app chore grade"${(isSaving || !isDirty) ? ' disabled' : ''}>
+                <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="Save off-app chore grade"${(isSaving || !isDirty) ? ' disabled' : ''}>
                     ${buildAdminOffAppSaveButtonContent()}
                 </button>
-                <button type="button" class="admin-off-app-grade-btn admin-off-app-grade-btn--cancel" data-off-app-grade-cancel data-review-key="${escapeHtml(reviewKey)}" aria-label="Cancel editing off-app chore grade"${isSaving ? ' disabled' : ''}>
+                <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-off-app-grade-cancel data-review-key="${escapeHtml(reviewKey)}" aria-label="Cancel editing off-app chore grade"${isSaving ? ' disabled' : ''}>
                     ${buildAdminOffAppCancelButtonContent()}
                 </button>
             </span>

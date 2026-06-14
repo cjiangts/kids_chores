@@ -422,7 +422,7 @@
 
                 <div class="bank-filters">
                     <div class="search-bar bank-search-wrap">
-                        <input type="text" id="searchInput" class="search-bar-input" placeholder="Search..." />
+                        <input type="text" id="searchInput" class="paradigm-search-input" placeholder="Search..." />
                     </div>
                     <div class="bank-filter-group" id="filterVerifiedGroup">
                         <button type="button" data-value="unverified"><span class="icon" data-icon="circle-x" data-icon-size="16"></span> Used &amp; Unverified</button>
@@ -434,16 +434,16 @@
                 </div>
 
                 <div id="bankAdminActions" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-                    <button type="button" id="refreshUsedBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;"><span class="icon" data-icon="rotate-ccw" data-icon-size="16"></span> <span class="btn-label">Refresh Used</span></button>
-                    <button type="button" id="forceSyncBacksBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;"><span class="icon" data-icon="upload" data-icon-size="16"></span> <span class="btn-label">Force Sync Backs</span></button>
-                    <button type="button" id="csvToggleBtn" class="btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.7rem;"><span class="icon" data-icon="align-left" data-icon-size="16"></span> <span class="btn-label">Show CSV</span></button>
+                    <button type="button" id="refreshUsedBtn" class="paradigm-btn"><span class="icon" data-icon="rotate-ccw" data-icon-size="16"></span> <span class="btn-label">Refresh Used</span></button>
+                    <button type="button" id="forceSyncBacksBtn" class="paradigm-btn"><span class="icon" data-icon="upload" data-icon-size="16"></span> <span class="btn-label">Force Sync Backs</span></button>
+                    <button type="button" id="csvToggleBtn" class="paradigm-btn"><span class="icon" data-icon="align-left" data-icon-size="16"></span> <span class="btn-label">Show CSV</span></button>
                 </div>
 
                 <div class="csv-editor-section" id="csvEditorSection">
                     <div class="csv-editor-toolbar">
-                        <button type="button" id="csvCopyClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="copy-plus" data-icon-size="16"></span> <span class="btn-label">Copy &amp; Clear Box</span></button>
-                        <button type="button" id="csvClearBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="undo-2" data-icon-size="16"></span> <span class="btn-label">Clear Changes</span></button>
-                        <button type="button" id="csvPreviewBtn" class="btn-secondary" style="font-size:0.82rem;padding:0.25rem 0.6rem;"><span class="icon" data-icon="eye" data-icon-size="16"></span> Preview</button>
+                        <button type="button" id="csvCopyClearBtn" class="paradigm-btn"><span class="icon" data-icon="copy-plus" data-icon-size="16"></span> <span class="btn-label">Copy &amp; Clear Box</span></button>
+                        <button type="button" id="csvClearBtn" class="paradigm-btn"><span class="icon" data-icon="undo-2" data-icon-size="16"></span> <span class="btn-label">Clear Changes</span></button>
+                        <button type="button" id="csvPreviewBtn" class="paradigm-btn"><span class="icon" data-icon="eye" data-icon-size="16"></span> Preview</button>
                     </div>
                     <textarea id="csvEditor" class="csv-editor-textarea" spellcheck="false" placeholder="Char,Pinyin,English"></textarea>
                 </div>

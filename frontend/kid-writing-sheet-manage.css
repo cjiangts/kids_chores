@@ -235,15 +235,11 @@
         }
 
         .sheet-card-pill {
-            display: inline-flex;
-            align-items: center;
             border: 1px solid #b8c5ff;
             background: #edf2ff;
             color: #2f3c7e;
             border-radius: 999px;
-            padding: 0.16rem 0.56rem;
-            font-size: 0.9rem;
-            line-height: 1.2;
+            padding: 0 0.56rem;
         }
 
         .sheet-card-empty {

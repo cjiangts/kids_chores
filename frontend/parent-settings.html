@@ -26,10 +26,6 @@
             flex-direction: row;
         }
 
-        .parent-settings-page .settings-row .btn-secondary {
-            width: auto;
-        }
-
         .settings-card-body {
             background: transparent;
             border: 0;
@@ -65,11 +61,6 @@
         }
 
         @media (max-width: 520px) {
-            .parent-settings-page .backup-actions-row .btn-secondary {
-                flex: 1 1 100%;
-                width: 100%;
-            }
-
             .tz-dropdown {
                 max-width: none;
                 width: 100%;
@@ -135,13 +126,6 @@
 
         .trusted-browser-card .trusted-browser-times {
             margin-left: auto;
-        }
-
-        .parent-settings-inline-btn {
-            align-self: center;
-            min-height: 28px;
-            font-size: 0.8rem;
-            padding: 0 0.6rem;
         }
 
         .success {
@@ -235,30 +219,10 @@
         .kids-manage-input {
             flex: 1 1 200px;
             min-width: 0;
-            height: 40px;
-            padding: 0 0.8rem;
-            border: 1px solid #d4ddf0;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            color: #2f3c7e;
-            background: #fff;
-        }
-
-        .kids-manage-input:focus {
-            outline: none;
-            border-color: #9ab5f3;
-            box-shadow: 0 0 0 3px rgba(122, 154, 240, 0.18);
         }
 
         .kids-manage-pw {
             flex: 0 1 150px;
-            height: 30px;
-            font-size: 0.85rem;
-        }
-
-        .kids-manage-add .btn-primary {
-            width: auto;
-            flex: 0 0 auto;
         }
 
         .family-accounts-list {
@@ -457,10 +421,9 @@
                     </div>
                     <div id="kidsManageList" class="kids-manage-list"></div>
                     <form id="addKidForm" class="kids-manage-add" autocomplete="off">
-                        <input type="text" id="addKidNameInput" class="kids-manage-input" placeholder="New child's name" maxlength="50" autocomplete="off" required>
-                        <button type="submit" id="addKidBtn" class="btn-primary">
-                            <span class="btn-icon" aria-hidden="true"><span class="icon" data-icon="plus" data-icon-size="20"></span></span>
-                            <span class="btn-label">Add</span>
+                        <input type="text" id="addKidNameInput" class="paradigm-input kids-manage-input" placeholder="New child's name" maxlength="50" autocomplete="off" required>
+                        <button type="submit" id="addKidBtn" class="paradigm-icon-btn" aria-label="Add child" title="Add child">
+                            <span class="icon" data-icon="plus" data-icon-size="16"></span>
                         </button>
                     </form>
                     <div id="kidsManageError" class="error hidden"></div>
@@ -511,19 +474,19 @@
                         <span id="backupInfo" class="paradigm-panel-meta settings-note backup-info"></span>
                     </div>
                     <div class="settings-row backup-actions-row">
-                        <button id="downloadBackupBtn" class="btn-secondary">
+                        <button id="downloadBackupBtn" class="paradigm-btn">
                             <span class="btn-icon" aria-hidden="true">
                                 <span class="icon" data-icon="download" data-icon-size="20"></span>
                             </span>
                             <span class="btn-label">Download Backup</span>
                         </button>
-                        <button id="restoreBackupBtn" class="btn-secondary">
+                        <button id="restoreBackupBtn" class="paradigm-btn">
                             <span class="btn-icon" aria-hidden="true">
                                 <span class="icon" data-icon="upload" data-icon-size="20"></span>
                             </span>
                             <span class="btn-label">Restore Backup</span>
                         </button>
-                        <button id="rebuildDbBtn" class="btn-secondary">
+                        <button id="rebuildDbBtn" class="paradigm-btn">
                             <span class="btn-icon" aria-hidden="true">
                                 <span class="icon" data-icon="refresh-cw" data-icon-size="20"></span>
                             </span>
@@ -593,13 +556,13 @@
                 <div id="passwordError" class="error hidden"></div>
                 <div id="passwordSuccess" class="success hidden"></div>
                 <div class="password-modal-actions">
-                    <button type="submit" id="changePasswordBtn" class="btn-primary">
+                    <button type="submit" id="changePasswordBtn" class="paradigm-btn">
                         <span class="btn-icon" aria-hidden="true">
                             <span class="icon" data-icon="check" data-icon-size="20"></span>
                         </span>
                         <span class="btn-label">Update Password</span>
                     </button>
-                    <button type="button" id="closeChangePasswordBtn" class="btn-secondary">
+                    <button type="button" id="closeChangePasswordBtn" class="paradigm-btn">
                         <span class="btn-icon" aria-hidden="true">
                             <span class="icon" data-icon="x" data-icon-size="20"></span>
                         </span>

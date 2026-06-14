@@ -46,7 +46,7 @@
                 <h2 id="avatarEditorTitle">${iconHtml('image', { size: 22 })} <span class="avatar-editor-title-text">Set photo</span></h2>
 
                 <div class="avatar-editor-pick" data-avatar-pick>
-                    <button type="button" class="btn-secondary" data-avatar-choose>${iconHtml('image', { size: 18 })} <span>Choose image</span></button>
+                    <button type="button" class="paradigm-btn" data-avatar-choose>${iconHtml('image', { size: 18 })} <span>Choose image</span></button>
                     <p class="avatar-editor-hint">PNG or JPG. Drag to reposition and pinch / scroll to zoom.</p>
                 </div>
 
@@ -66,9 +66,9 @@
                 <div class="avatar-editor-error error hidden" data-avatar-error></div>
 
                 <div class="avatar-editor-actions">
-                    <button type="button" class="btn-primary" data-avatar-save disabled>${iconHtml('check', { size: 18 })} <span>Save</span></button>
-                    <button type="button" class="btn-secondary avatar-editor-rechoose hidden" data-avatar-rechoose>${iconHtml('image', { size: 18 })} <span>Choose different</span></button>
-                    <button type="button" class="btn-secondary" data-avatar-cancel>${iconHtml('x', { size: 18 })} <span>Cancel</span></button>
+                    <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-avatar-save aria-label="Save" title="Save" disabled>${iconHtml('check', { size: 18 })}</button>
+                    <button type="button" class="paradigm-btn avatar-editor-rechoose hidden" data-avatar-rechoose>${iconHtml('image', { size: 18 })} <span>Choose different</span></button>
+                    <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-avatar-cancel aria-label="Cancel" title="Cancel">${iconHtml('x', { size: 18 })}</button>
                 </div>
             </div>
         `;

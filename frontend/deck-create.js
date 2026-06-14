@@ -73,10 +73,7 @@ const DEFAULT_TYPE4_GENERATOR_CODE = `def generate(rng):
     a = rng.randint(10, 99)
     b = rng.randint(10, 99)
     answer = str(a + b)
-    return {
-        "prompt": f"{a} + {b}",
-        "answer": answer,
-        "distractors": [str(a + b - 1), str(a + b + 1)],
+ return {"prompt": f"{a} + {b}","answer": answer,"distractors": [str(a + b - 1), str(a + b + 1)],
     }`;
 
 // =====================================================================

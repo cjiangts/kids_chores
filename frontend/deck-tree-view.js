@@ -251,7 +251,7 @@
                     const cls = isSelected ? 'opt-in' : 'opt-out';
                     const sign = isSelected ? '+' : '-';
                     orphanBadge = `
-                        <span class="deck-tree-badge ${cls}">
+                        <span class="deck-tree-badge paradigm-pill ${cls}">
                             <span class="deck-tree-badge-chunk"><span data-icon="layout-grid" data-icon-size="11" data-icon-stroke="2.4"></span>${sign}${orphanCount.toLocaleString()}</span>
                         </span>
                     `;
@@ -443,11 +443,11 @@
                 html += `<span class="deck-tree-progress" aria-hidden="true"><span class="deck-tree-progress-fill" style="width:${pct}%"></span></span>`;
                 if (this.onBranchEdit) {
                     const labelAttr = escapeHtml(node.label || node.tag);
-                    html += `<button type="button" class="deck-tree-branch-edit-btn" data-tree-branch-edit data-tree-tag="${escapeHtml(node.tag)}" data-tree-tag-label="${labelAttr}" data-tree-depth="${depth}" aria-label="Rename folder"><span data-icon="pencil" data-icon-size="13" data-icon-stroke="2.2"></span><span class="deck-tree-branch-edit-btn-label">Rename</span></button>`;
+                    html += `<button type="button" class="paradigm-icon-btn deck-tree-branch-edit-btn" data-tree-branch-edit data-tree-tag="${escapeHtml(node.tag)}" data-tree-tag-label="${labelAttr}" data-tree-depth="${depth}" aria-label="Rename folder"><span data-icon="pencil" data-icon-size="16" data-icon-stroke="2.2"></span></button>`;
                 }
                 if (this.onBranchNewDeck) {
                     const labelAttr = escapeHtml(node.label || node.tag);
-                    html += `<button type="button" class="deck-tree-branch-newdeck-btn" data-tree-branch-newdeck data-tree-tag="${escapeHtml(node.tag)}" data-tree-tag-label="${labelAttr}" data-tree-depth="${depth}" aria-label="Create new deck in folder"><span data-icon="plus" data-icon-size="13" data-icon-stroke="2.4"></span><span class="deck-tree-branch-newdeck-btn-label">New deck</span></button>`;
+                    html += `<button type="button" class="paradigm-icon-btn deck-tree-branch-newdeck-btn" data-tree-branch-newdeck data-tree-tag="${escapeHtml(node.tag)}" data-tree-tag-label="${labelAttr}" data-tree-depth="${depth}" aria-label="Create new deck in folder"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.4"></span></button>`;
                 }
                 html += `</div></div>`;
                 html += `<div class="deck-tree-children${isExpanded ? '' : ' collapsed'}">`;
@@ -486,7 +486,7 @@
 
             const showLeafActionBtn = this.onLeafClick && action === 'leaf';
             const leafActionBtn = showLeafActionBtn
-                ? `<button type="button" class="deck-tree-leaf-action-btn" data-tree-leaf-action data-tree-deck-id="${escapeHtml(deckIdStr)}" aria-label="Edit deck"><span data-icon="pencil" data-icon-size="13" data-icon-stroke="2.2"></span><span class="deck-tree-leaf-action-btn-label">Edit</span></button>`
+                ? `<button type="button" class="paradigm-icon-btn deck-tree-leaf-action-btn" data-tree-leaf-action data-tree-deck-id="${escapeHtml(deckIdStr)}" aria-label="Edit deck"><span data-icon="pencil" data-icon-size="16" data-icon-stroke="2.2"></span></button>`
                 : '';
 
             let html = '';
@@ -552,7 +552,7 @@
             const cls = nowIn ? 'opt-in' : 'opt-out';
             const sign = nowIn ? '+' : '-';
             return `
-                <span class="deck-tree-badge ${cls}">
+                <span class="deck-tree-badge paradigm-pill ${cls}">
                     <span class="deck-tree-badge-chunk"><span data-icon="layout-grid" data-icon-size="11" data-icon-stroke="2.4"></span>${sign}${cardCount.toLocaleString()}</span>
                 </span>
             `;
@@ -583,7 +583,7 @@
                 }
             });
             const buildBadge = (cls, sign, decks, cards) => `
-                <span class="deck-tree-badge ${cls}">
+                <span class="deck-tree-badge paradigm-pill ${cls}">
                     <span class="deck-tree-badge-chunk"><span data-icon="layers" data-icon-size="11" data-icon-stroke="2.4"></span>${sign}${decks}</span>
                     <span class="deck-tree-badge-chunk"><span data-icon="layout-grid" data-icon-size="11" data-icon-stroke="2.4"></span>${sign}${cards.toLocaleString()}</span>
                 </span>

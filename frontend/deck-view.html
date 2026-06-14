@@ -358,7 +358,7 @@
             background: #f4f7ff;
         }
 
-        .deck-rename-inline-btn.btn-secondary {
+        .deck-rename-inline-btn.paradigm-btn {
             padding: 0.2rem 0.55rem;
             font-size: 0.82rem;
             line-height: 1;
@@ -381,9 +381,9 @@
             margin: 0;
         }
 
-        .rename-tags-head .btn-secondary,
-        .rename-tags-actions .btn-secondary,
-        .rename-add-tag-row .btn-secondary {
+        .rename-tags-head .paradigm-btn,
+        .rename-tags-actions .paradigm-btn,
+        .rename-add-tag-row .paradigm-btn {
             padding: 0.45rem 0.9rem;
             min-height: 40px;
         }
@@ -427,7 +427,7 @@
             min-width: 0;
         }
 
-        .rename-add-tag-row .btn-secondary {
+        .rename-add-tag-row .paradigm-btn {
             flex: 0 0 auto;
             white-space: nowrap;
         }
@@ -516,7 +516,7 @@
                         <span class="deck-meta-row-head">
                             <strong>Tags:</strong>
                             <span id="deckTagsText"></span>
-                            <button type="button" id="renameDeckTagsBtn" class="btn-secondary deck-rename-inline-btn"><span class="icon" data-icon="pencil" data-icon-size="16"></span> Rename</button>
+                            <button type="button" id="renameDeckTagsBtn" class="paradigm-btn deck-rename-inline-btn"><span class="icon" data-icon="pencil" data-icon-size="16"></span> Rename</button>
                         </span>
                     </div>
                     <div class="deck-meta-row"><strong>Behavior:</strong> <span id="deckBehaviorText"></span></div>
@@ -531,8 +531,8 @@
                     <p id="deckEditHelp" class="deck-edit-help">Edit cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>
                     <textarea id="cardsInput" class="deck-edit-textarea" placeholder="1+1,2&#10;2+3,5"></textarea>
                     <div class="deck-edit-row">
-                        <button type="button" id="previewCsvBtn" class="btn-primary"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Preview Changes</span></button>
-                        <button type="button" id="resetCsvBtn" class="btn-secondary"><span data-icon="rotate-ccw" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Reset</span></button>
+                        <button type="button" id="previewCsvBtn" class="paradigm-btn"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Preview Changes</span></button>
+                        <button type="button" id="resetCsvBtn" class="paradigm-btn"><span data-icon="rotate-ccw" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Reset</span></button>
                     </div>
                 </div>
                 <div id="type4DeckEditor" class="hidden">
@@ -548,11 +548,11 @@
                     <textarea id="type4GeneratorCodeText" class="deck-edit-textarea input-mono" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
                     <div id="type4GeneratorCodeEditor" class="hidden" style="width:100%;min-height:200px;border:1px solid #cfd7ea;border-radius:8px;margin-bottom:0.7rem;"></div>
                     <div class="deck-edit-row">
-                        <button type="button" id="saveType4GeneratorBtn" class="btn-primary"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Generator</span></button>
+                        <button type="button" id="saveType4GeneratorBtn" class="paradigm-btn"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Generator</span></button>
                     </div>
                     <div class="type4-preview-head">
                         <strong>Example results</strong>
-                        <button type="button" id="regenType4ExamplesBtn" class="btn-secondary"><span data-icon="sparkles" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Generate Example</span></button>
+                        <button type="button" id="regenType4ExamplesBtn" class="paradigm-btn"><span data-icon="sparkles" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Generate Example</span></button>
                     </div>
                     <div id="type4PreviewExamples" class="type4-preview-list">
                         <p class="muted-help-text">Click Generate Example to preview this deck.</p>
@@ -561,8 +561,8 @@
                     <div class="type4-cell-design-panel">
                         <div class="type4-preview-head">
                             <strong>Printable Cell</strong>
-                            <button type="button" id="openType4CellDesignBtn" class="btn-secondary"><span data-icon="layout-grid" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Design Cell</span></button>
-                            <button type="button" id="clearType4CellDesignBtn" class="btn-secondary hidden"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Clear</span></button>
+                            <button type="button" id="openType4CellDesignBtn" class="paradigm-btn"><span data-icon="layout-grid" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Design Cell</span></button>
+                            <button type="button" id="clearType4CellDesignBtn" class="paradigm-btn hidden"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Clear</span></button>
                         </div>
                         <p id="type4CellDesignStatusText" class="muted-help-text">No printable cell design saved yet.</p>
                         <div id="type4CellDesignPreview" class="type4-cell-design-preview hidden"></div>
@@ -591,7 +591,7 @@
                     </table>
                 </div>
                 <div class="deck-edit-row" style="margin-top:0.7rem;">
-                    <button type="button" id="applyCsvBtn" class="btn-primary"><span data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Apply Changes</span></button>
+                    <button type="button" id="applyCsvBtn" class="paradigm-btn"><span data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Apply Changes</span></button>
                 </div>
             </section>
 
@@ -604,7 +604,7 @@
         <div class="modal-content rename-tags-modal" role="dialog" aria-modal="true" aria-labelledby="renameTagsModalTitle">
             <div class="rename-tags-head">
                 <h2 id="renameTagsModalTitle"><span class="icon" data-icon="pencil" data-icon-size="22"></span> Rename Tags</h2>
-                <button type="button" id="closeRenameTagsModalBtn" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Close</span></button>
+                <button type="button" id="closeRenameTagsModalBtn" class="paradigm-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Close</span></button>
             </div>
             <div class="rename-tags-grid">
                 <div class="rename-tags-meta-row">
@@ -619,7 +619,7 @@
                             id="renameNewTagInput"
                             placeholder="e.g. unit3, week8, >100"
                         >
-                        <button type="button" id="renameAddTagBtn" class="btn-secondary"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Add Tag</span></button>
+                        <button type="button" id="renameAddTagBtn" class="paradigm-btn"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Add Tag</span></button>
                     </div>
                     <div id="renameTagsContainer" class="deck-tags" style="margin-top:0.3rem;"></div>
                 </div>
@@ -632,8 +632,8 @@
                 <div id="renameTagsError" class="error hidden"></div>
             </div>
             <div class="rename-tags-actions">
-                <button type="button" id="saveRenameTagsBtn" class="btn-primary"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Tags</span></button>
-                <button type="button" id="cancelRenameTagsBtn" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Cancel</span></button>
+                <button type="button" id="saveRenameTagsBtn" class="paradigm-btn"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Tags</span></button>
+                <button type="button" id="cancelRenameTagsBtn" class="paradigm-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Cancel</span></button>
             </div>
         </div>
     </div>
@@ -669,8 +669,8 @@
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:1rem;">
-                <button type="button" id="cellDesignCancelBtn" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Cancel</span></button>
-                <button type="button" id="cellDesignSaveBtn" class="btn-primary"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Cell Design</span></button>
+                <button type="button" id="cellDesignCancelBtn" class="paradigm-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Cancel</span></button>
+                <button type="button" id="cellDesignSaveBtn" class="paradigm-btn"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Cell Design</span></button>
             </div>
         </div>
     </div>

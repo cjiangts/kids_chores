@@ -215,13 +215,13 @@ function rulePointsLabel(rule) {
 
 function ruleStatusHtml(rule) {
     if (!isRedeemedRewardRule(rule)) {
-        return '<span class="kid-reward-rule-status muted">Rule</span>';
+        return '<span class="kid-reward-rule-status paradigm-pill muted">Rule</span>';
     }
     const { remaining } = ruleRewardProgress(rule);
     if (remaining <= 0) {
-        return '<span class="kid-reward-rule-status available">Available</span>';
+        return '<span class="kid-reward-rule-status paradigm-pill available">Available</span>';
     }
-    return `<span class="kid-reward-rule-status muted">${escapeHtml(`${remaining} pts to go`)}</span>`;
+    return `<span class="kid-reward-rule-status paradigm-pill muted">${escapeHtml(`${remaining} pts to go`)}</span>`;
 }
 
 function renderKids() {
@@ -336,7 +336,7 @@ function renderRules() {
             >
                 <span class="point-rule-emoji">${ruleIconHtml(rule)}</span>
                 <span class="point-template-name">${escapeHtml(rule.name || 'Reward')}</span>
-                <span class="point-rule-delta ${signClass}">${escapeHtml(rulePointsLabel(rule))}</span>
+                <span class="point-rule-delta paradigm-pill ${signClass}">${escapeHtml(rulePointsLabel(rule))}</span>
                 <span class="kid-reward-rule-status-cell">${ruleStatusHtml(rule)}</span>
                 ${isAffordable ? '' : '<span class="kid-reward-progress parent-reward-progress" aria-hidden="true"><span></span></span>'}
             </div>

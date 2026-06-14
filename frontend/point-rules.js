@@ -185,7 +185,7 @@ function inputCell(label, field, value, extraClass = '', type = 'text') {
     return `
         <div class="point-rule-cell">
             <input
-                class="point-rule-input ${escapeHtml(extraClass)}"
+                class="paradigm-input point-rule-input ${escapeHtml(extraClass)}"
                 type="${escapeHtml(type)}"
                 data-field="${escapeHtml(field)}"
                 value="${escapeHtml(value ?? '')}"
@@ -202,7 +202,7 @@ function rewardTypeCell(rule) {
     return `
         <div class="point-rule-cell">
             <input
-                class="point-rule-input reward-type"
+                class="paradigm-input point-rule-input reward-type"
                 type="text"
                 data-field="rewardType"
                 value="${escapeHtml(value)}"
@@ -227,7 +227,7 @@ function offAppNameCell(rule) {
     return `
         <div class="point-rule-cell point-rule-name-stack">
             <input
-                class="point-rule-input name"
+                class="paradigm-input point-rule-input name"
                 type="text"
                 data-field="name"
                 value="${escapeHtml(rule?.name || '')}"
@@ -308,7 +308,7 @@ function actionCell(rule) {
     const isNew = !rule;
     return `
         <div class="point-rule-actions">
-            <button type="button" class="${isNew ? 'btn-primary' : 'semantic-outline-btn'}" data-rule-action="save" disabled>
+            <button type="button" class="paradigm-btn" data-rule-action="save" disabled>
                 ${icon(isNew ? 'plus' : 'save', { size: 17 })}
                 ${isNew ? 'Add' : 'Save'}
             </button>

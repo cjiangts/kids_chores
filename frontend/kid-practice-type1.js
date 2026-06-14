@@ -788,16 +788,16 @@ async function endType1Session(endedEarly = false) {
         if (state.drillActive) {
             resultSummary.innerHTML = buildDrillEndSummary(endedEarly);
         } else {
-            resultSummary.textContent = state.hasChineseSpecificLogic
+            resultSummary.innerHTML = state.hasChineseSpecificLogic
                 ? (
                     endedEarly
-                        ? `Ended early · Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
-                        : `Known: ${state.rightCount} · Need practice: ${state.wrongCount}`
+                        ? `Ended early · <span class="result-known">Known: ${state.rightCount}</span> · <span class="result-need-practice">Need practice: ${state.wrongCount}</span>`
+                        : `<span class="result-known">Known: ${state.rightCount}</span> · <span class="result-need-practice">Need practice: ${state.wrongCount}</span>`
                 )
                 : (
                     endedEarly
-                        ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
-                        : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
+                        ? `Ended early · <span class="result-right">Right: ${state.rightCount}</span> · <span class="result-wrong">Wrong: ${state.wrongCount}</span>`
+                        : `<span class="result-right">Right: ${state.rightCount}</span> · <span class="result-wrong">Wrong: ${state.wrongCount}</span>`
                 );
         }
         window.PracticeSession.clearSessionStart(state.activePendingSessionId);

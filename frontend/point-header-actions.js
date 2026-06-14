@@ -36,7 +36,7 @@
         }
         host.classList.remove('hidden');
         host.innerHTML = `
-            <a href="/point-log.html" class="back-btn btn-secondary page-header-back-btn">
+            <a href="/point-log.html" class="back-btn paradigm-btn page-header-back-btn">
                 ${iconHtml('pencil')}
                 <span>Log Points</span>
             </a>

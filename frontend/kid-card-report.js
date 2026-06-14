@@ -511,7 +511,7 @@ function renderHistory(attempts) {
         const itemTimestamp = item.session_completed_at || item.session_started_at || item.timestamp;
         const daysAgoLabel = formatDaysAgo(itemTimestamp);
         const isToday = daysAgoLabel === 'today';
-        const daysAgoBadge = daysAgoLabel ? `<span class="history-days-badge${isToday ? ' is-today' : ''}">${escapeHtml(daysAgoLabel)}</span>` : '';
+        const daysAgoBadge = daysAgoLabel ? `<span class="history-days-badge paradigm-pill${isToday ? ' is-today' : ''}">${escapeHtml(daysAgoLabel)}</span>` : '';
         const sessionUrl = buildSessionReportUrl(item);
         const chevronHtml = sessionUrl ? '<span class="history-chevron" aria-hidden="true">›</span>' : '';
         const isCurrentSession = currentSessionId !== null
@@ -572,15 +572,15 @@ function renderHistory(attempts) {
                     <div class="history-type4-details">
                         <span class="history-details-main">
                             <span class="history-detail-group">
-                                <span class="history-type4-submitted-label">Question:</span> <span class="history-type4-pill question-pill">${escapeHtml(prompt)}</span>
-                                <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill answer-pill">${escapeHtml(answer)}</span>
+                                <span class="history-type4-submitted-label">Question:</span> <span class="history-type4-pill paradigm-pill question-pill">${escapeHtml(prompt)}</span>
+                                <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill paradigm-pill answer-pill">${escapeHtml(answer)}</span>
                             </span>
                             <span class="history-detail-group submitted-group">
                                 <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
                             </span>
                         </span>
                         <span class="history-detail-group history-time-group">
-                            <span class="history-time-badge">${escapeHtml(responseTimeLabel)}</span>
+                            <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
                             ${daysAgoBadge}
                         </span>
                     </div>
@@ -607,12 +607,12 @@ function renderHistory(attempts) {
                 <div class="history-type4-details">
                     <span class="history-details-main">
                         <span class="history-detail-group">
-                            <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill answer-pill">${escapeHtml(answer)}</span>
+                            <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill paradigm-pill answer-pill">${escapeHtml(answer)}</span>
                         </span>
                         ${submittedGroupHtml}
                     </span>
                     <span class="history-detail-group history-time-group">
-                        <span class="history-time-badge">${escapeHtml(responseTimeLabel)}</span>
+                        <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
                         ${daysAgoBadge}
                     </span>
                 </div>
@@ -775,7 +775,7 @@ function renderPromptAudioAssistMarker() {
 function getType4AttemptSubmittedPills(item) {
     const submittedAnswers = getLoggedSubmittedAnswers(item);
     if (submittedAnswers.length === 0) {
-        return '<span class="history-type4-pill tried-pill">-</span>';
+        return '<span class="history-type4-pill paradigm-pill tried-pill">-</span>';
     }
     const grades = getLoggedSubmittedGrades(item);
     const hasGrades = grades.length > 0;
@@ -797,7 +797,7 @@ function getType4AttemptSubmittedPills(item) {
                     cls = 'partial-pill';
                 }
             }
-            return `<span class="history-type4-pill ${cls}">${escapeHtml(a)}</span>`;
+            return `<span class="history-type4-pill paradigm-pill ${cls}">${escapeHtml(a)}</span>`;
         })
         .join('');
 }
@@ -805,7 +805,7 @@ function getType4AttemptSubmittedPills(item) {
 function getType1AttemptSubmittedPills(item) {
     const submittedAnswers = getLoggedSubmittedAnswers(item);
     if (submittedAnswers.length === 0) {
-        return '<span class="history-type4-pill tried-pill">n/a</span>';
+        return '<span class="history-type4-pill paradigm-pill tried-pill">n/a</span>';
     }
     const grades = getLoggedSubmittedGrades(item);
     return submittedAnswers
@@ -819,7 +819,7 @@ function getType1AttemptSubmittedPills(item) {
             const displayText = isIdk ? "I don't know" : answer;
             return `
                 <span class="history-type4-pill-wrap${audioAssistHtml ? ' has-audio-assist' : ''}">
-                    <span class="history-type4-pill ${cls}${isIdk ? ' idk-pill' : ''}">${escapeHtml(displayText)}</span>
+                    <span class="history-type4-pill paradigm-pill ${cls}${isIdk ? ' idk-pill' : ''}">${escapeHtml(displayText)}</span>
                     ${audioAssistHtml}
                 </span>
             `;

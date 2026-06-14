@@ -269,12 +269,12 @@
                         </div>
                         ` : ''}
                     </div>
-                    <div class="point-rule-delta ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
+                    <div class="point-rule-delta paradigm-pill ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
                     ${showDelete ? `
-                    <button type="button" class="semantic-outline-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit note')}">
+                    <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit note')}">
                         ${icon('pencil', { size: 15 })}
                     </button>
-                    <button type="button" class="semantic-outline-btn semantic-outline-btn--red paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
+                    <button type="button" class="paradigm-icon-btn is-danger paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
                         ${icon('trash', { size: 16 })}
                     </button>
                     ` : ''}
@@ -294,9 +294,9 @@
         editor.className = 'point-history-note-editor';
         editor.dataset.pointHistoryNoteEditor = '1';
         editor.innerHTML = `
-            <input type="text" class="point-history-note-input" maxlength="200" placeholder="Add a note (optional)" autocomplete="off">
-            <button type="button" class="point-history-note-save" data-history-note-save aria-label="Save note">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
-            <button type="button" class="point-history-note-cancel" data-history-note-cancel aria-label="Cancel">${icon('x', { size: 16, strokeWidth: 2.6 })}</button>
+            <input type="text" class="paradigm-input point-history-note-input" maxlength="200" placeholder="Add a note (optional)" autocomplete="off">
+            <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm point-history-note-save" data-history-note-save aria-label="Save note">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
+            <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel point-history-note-cancel" data-history-note-cancel aria-label="Cancel">${icon('x', { size: 16, strokeWidth: 2.6 })}</button>
         `;
         row.appendChild(editor);
         const input = editor.querySelector('.point-history-note-input');

@@ -269,11 +269,11 @@ function renderCategories(categories) {
             const isSharing = sharingCategoryKeys.has(key);
             const isDeleting = deletingCategoryKeys.has(key);
             const shareButton = sharedWithNonSuper
-                ? `<button type="button" class="btn-secondary" disabled>Shared</button>`
-                : `<button type="button" class="btn-primary" data-action="share-category" data-category-key="${escapeHtml(key)}" ${isSharing || isDeleting ? 'disabled' : ''}>${isSharing ? 'Sharing...' : 'Share to Non-super'}</button>`;
+                ? `<button type="button" class="paradigm-btn" disabled>Shared</button>`
+                : `<button type="button" class="paradigm-btn" data-action="share-category" data-category-key="${escapeHtml(key)}" ${isSharing || isDeleting ? 'disabled' : ''}>${isSharing ? 'Sharing...' : 'Share to Non-super'}</button>`;
             const deleteButton = sharedWithNonSuper
                 ? ''
-                : `<button type="button" class="btn-secondary category-delete-btn" data-action="delete-category" data-category-key="${escapeHtml(key)}" ${isDeleting || isSharing ? 'disabled' : ''}>${isDeleting ? 'Deleting...' : 'Delete'}</button>`;
+                : `<button type="button" class="paradigm-btn is-danger category-delete-btn" data-action="delete-category" data-category-key="${escapeHtml(key)}" ${isDeleting || isSharing ? 'disabled' : ''}>${isDeleting ? 'Deleting...' : 'Delete'}</button>`;
             const iconHtml = renderCategorySubjectIcon(key, { size: 32 });
             return `
                 <tr>

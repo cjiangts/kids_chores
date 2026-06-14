@@ -39,8 +39,17 @@
     /* Panel title row */
     --paradigm-panel-title-icon-size: 18px;
     --paradigm-button-height: 32px;
-    --paradigm-panel-title-action-size: var(--paradigm-button-height);
+    --paradigm-panel-title-action-size: 34px;
     --paradigm-panel-title-height: 44px;
+    --paradigm-input-height: 34px;
+    --paradigm-input-font-size: 0.86rem;
+    --paradigm-input-font-weight: 480;
+    --paradigm-search-input-height: var(--paradigm-button-height);
+    --paradigm-search-input-radius: 8px;
+    --paradigm-search-input-font-size: 0.85rem;
+    --paradigm-search-input-font-weight: 500;
+    --paradigm-decision-btn-size: var(--paradigm-input-height);
+    --paradigm-decision-btn-icon-size: 16px;
 
     /* Compact status column / pill */
     --paradigm-status-column-width: 70px;
@@ -49,11 +58,20 @@
     /* Shared toolbar typography, promoted from Manage Cards. */
     --cards-view-toggle-font-size: 0.85rem;
     --cards-view-toggle-font-weight: 500;
+
+    /* Non-clickable status/label pill — the one cross-page "format".
+     * Only height + font sizing/weight are unified here; each page keeps
+     * its own padding/shape/width (layout) and background/text (color). */
+    --p-pill-height: 20px;
+    --p-pill-font-size: 0.75rem;
+    --p-pill-font-weight: 450;
 }
 
 @media (max-width: 600px) {
     :root {
         --paradigm-status-column-width: 70px;
+        --p-pill-height: 18px;
+        --p-pill-font-size: 0.7rem;
     }
 }
 
@@ -68,6 +86,166 @@
  * so every page inherits the look. This file loads after styles.css, so these
  * override the legacy defaults by source order.
  */
+
+.paradigm-input {
+    width: 100%;
+    min-width: 0;
+    height: var(--paradigm-input-height);
+    min-height: var(--paradigm-input-height);
+    box-sizing: border-box;
+    border: 1px solid var(--paradigm-input-border, #cdd7ee);
+    border-radius: var(--paradigm-input-radius, 999px);
+    background: var(--paradigm-input-bg, #fff);
+    color: var(--paradigm-input-color, #2f3c7e);
+    font-family: inherit;
+    font-size: var(--paradigm-input-font-size);
+    font-weight: var(--paradigm-input-font-weight);
+    line-height: 1;
+    padding: var(--paradigm-input-padding, 0 0.72rem);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.paradigm-input::placeholder {
+    color: var(--paradigm-input-placeholder, #8d98b6);
+    opacity: 1;
+}
+
+.paradigm-input:focus {
+    border-color: var(--p-accent-border);
+    box-shadow: 0 0 0 3px rgba(122, 154, 240, 0.18);
+}
+
+.search-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.paradigm-search-input {
+    width: 100%;
+    min-width: 0;
+    height: var(--paradigm-search-input-height);
+    min-height: var(--paradigm-search-input-height);
+    box-sizing: border-box;
+    border: 1px solid var(--paradigm-search-input-border, #d2d9eb);
+    border-radius: var(--paradigm-search-input-radius);
+    background: var(--paradigm-search-input-bg, #fff);
+    color: var(--paradigm-search-input-color, #2f3c7e);
+    font-family: inherit;
+    font-size: var(--paradigm-search-input-font-size);
+    font-weight: var(--paradigm-search-input-font-weight);
+    line-height: 1;
+    padding: 0 2.1rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.paradigm-search-input::placeholder {
+    color: #8d98b6;
+    opacity: 1;
+}
+
+.paradigm-search-input:focus {
+    border-color: var(--p-accent-border);
+    box-shadow: 0 0 0 3px rgba(122, 154, 240, 0.18);
+}
+
+.search-bar-icon {
+    position: absolute;
+    left: 0.72rem;
+    top: 50%;
+    width: 15px;
+    height: 15px;
+    color: #8a96b5;
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.search-bar-clear {
+    position: absolute;
+    right: 0.42rem;
+    top: 50%;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #8a96b5;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.search-bar-clear:hover,
+.search-bar-clear:focus-visible {
+    background: #eef2ff;
+    color: var(--p-ink-title);
+    outline: none;
+}
+
+.paradigm-decision-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.42rem;
+    white-space: nowrap;
+}
+
+.paradigm-decision-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--paradigm-decision-btn-size);
+    min-width: var(--paradigm-decision-btn-size);
+    height: var(--paradigm-decision-btn-size);
+    min-height: var(--paradigm-decision-btn-size);
+    padding: 0;
+    border: 1px solid var(--p-border);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--p-ink-title);
+    cursor: pointer;
+    line-height: 1;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.paradigm-decision-btn .icon,
+.paradigm-decision-btn svg {
+    width: var(--paradigm-decision-btn-icon-size);
+    height: var(--paradigm-decision-btn-icon-size);
+}
+
+.paradigm-decision-btn--confirm {
+    border-color: #a6d9b3;
+    background: #eaf8ef;
+    color: #2f8f46;
+}
+
+.paradigm-decision-btn--confirm:hover:not(:disabled),
+.paradigm-decision-btn--confirm:focus-visible:not(:disabled) {
+    border-color: #8acb9c;
+    background: #dff4e7;
+    outline: none;
+}
+
+.paradigm-decision-btn--cancel {
+    color: #4a5d86;
+}
+
+.paradigm-decision-btn--cancel:hover:not(:disabled),
+.paradigm-decision-btn--cancel:focus-visible:not(:disabled) {
+    border-color: var(--p-accent-border);
+    background: #f6f9ff;
+    outline: none;
+}
+
+.paradigm-decision-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
 
 /* Content panel: hazy lavender -> crisp, airy white. */
 .manage-page .settings-section:not(.deck-setup-section),
@@ -198,7 +376,6 @@ fieldset.paradigm-form-field {
     line-height: 1.15;
 }
 
-.paradigm-compact-form .form-group input:not([type="checkbox"]):not([type="radio"]),
 .paradigm-compact-form .form-group select {
     min-height: 36px;
     padding: 0.42rem 0.62rem;
@@ -391,6 +568,7 @@ fieldset.paradigm-form-field {
 }
 
 .paradigm-panel-action--circle {
+    --paradigm-icon-btn-size: var(--paradigm-panel-title-action-size);
     width: var(--paradigm-panel-title-action-size);
     min-width: var(--paradigm-panel-title-action-size);
     height: var(--paradigm-panel-title-action-size);
@@ -408,27 +586,13 @@ fieldset.paradigm-form-field {
     height: 16px;
 }
 
-.paradigm-panel-action--circle.semantic-outline-btn {
-    background: var(--p-surface);
-    border-color: var(--p-border-soft);
-    color: var(--p-accent);
-    box-shadow: none;
-}
-
-.paradigm-panel-action--circle.semantic-outline-btn:hover,
-.paradigm-panel-action--circle.semantic-outline-btn:focus-visible {
-    background: #f8fbff;
-    border-color: var(--p-accent-border-soft);
-    color: var(--p-accent);
-    outline: none;
-}
-
 .paradigm-icon-action-btn {
+    --paradigm-icon-btn-size: var(--paradigm-panel-title-action-size);
     align-self: center;
-    width: 30px;
-    min-width: 30px;
-    height: 30px;
-    min-height: 30px;
+    width: var(--paradigm-panel-title-action-size);
+    min-width: var(--paradigm-panel-title-action-size);
+    height: var(--paradigm-panel-title-action-size);
+    min-height: var(--paradigm-panel-title-action-size);
     padding: 0;
     display: inline-flex;
     align-items: center;
@@ -442,25 +606,16 @@ fieldset.paradigm-form-field {
     gap: 0.35rem;
 }
 
-@media (max-width: 700px) {
-    .paradigm-icon-action-btn {
-        width: 28px;
-        min-width: 28px;
-        height: 28px;
-        min-height: 28px;
-    }
-}
-
 /* Shared number stepper: circular +/- controls with a plain numeric value. */
 .queue-stepper,
 .point-log-stepper,
 .admin-off-app-point-stepper {
-    --paradigm-stepper-btn-size: 26px;
+    --paradigm-stepper-btn-size: var(--paradigm-input-height);
     --paradigm-stepper-control-height: var(--paradigm-stepper-btn-size);
-    --paradigm-stepper-value-width: 50px;
+    --paradigm-stepper-value-width: 36px;
     display: inline-flex;
     align-items: center;
-    gap: 0.38rem;
+    gap: 0.18rem;
     min-width: 0;
     min-height: var(--paradigm-stepper-control-height);
     border: 0;
@@ -472,18 +627,11 @@ fieldset.paradigm-form-field {
 }
 
 .point-log-stepper {
-    --paradigm-stepper-value-width: 42px;
-}
-
-@media (min-width: 521px) {
-    .point-log-stepper {
-        --paradigm-stepper-btn-size: 30px;
-        --paradigm-stepper-control-height: var(--control-height, 38px);
-    }
+    --paradigm-stepper-value-width: 30px;
 }
 
 .admin-off-app-point-stepper {
-    --paradigm-stepper-value-width: 38px;
+    --paradigm-stepper-value-width: 30px;
 }
 
 .queue-stepper-btn,
@@ -596,6 +744,22 @@ fieldset.paradigm-form-field {
 .paradigm-status-column {
     min-width: var(--paradigm-status-column-width);
     padding-left: var(--paradigm-status-column-padding-left);
+}
+
+/* Non-clickable status/label pill base. Owns ONLY the unified format —
+ * height, font-size, font-weight (plus the inline-flex centering that makes
+ * the fixed height work). Layout (padding, border-radius, width, gap) and
+ * color (background, text, border) belong to the per-page class. */
+.paradigm-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: var(--p-pill-height);
+    font-size: var(--p-pill-font-size);
+    font-weight: var(--p-pill-font-weight);
+    line-height: 1;
+    white-space: nowrap;
 }
 
 .paradigm-status-pill {
@@ -965,13 +1129,14 @@ svg.cards-view-toggle-btn-icon,
     border-radius: 8px;
     background: #fff;
     color: var(--p-ink-title);
-    font-size: 0.92rem;
-    font-weight: 600;
+    font-size: 0.8rem;
+    font-weight: 450;
     font-family: inherit;
     line-height: 1;
     cursor: pointer;
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .paradigm-btn:hover:not(:disabled) {
@@ -993,6 +1158,70 @@ svg.cards-view-toggle-btn-icon,
     background: #fdecea;
 }
 
+.paradigm-icon-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--paradigm-icon-btn-size, var(--paradigm-panel-title-action-size));
+    min-width: var(--paradigm-icon-btn-size, var(--paradigm-panel-title-action-size));
+    height: var(--paradigm-icon-btn-size, var(--paradigm-panel-title-action-size));
+    min-height: var(--paradigm-icon-btn-size, var(--paradigm-panel-title-action-size));
+    padding: 0;
+    border: 1px solid var(--p-border-soft);
+    border-radius: 999px;
+    background: var(--p-surface);
+    color: var(--p-accent);
+    cursor: pointer;
+    line-height: 1;
+    text-decoration: none;
+    box-shadow: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.paradigm-icon-btn:hover:not(:disabled),
+.paradigm-icon-btn:focus-visible:not(:disabled) {
+    background: #f8fbff;
+    border-color: var(--p-accent-border-soft);
+    color: var(--p-accent);
+    outline: none;
+}
+
+.paradigm-icon-btn:disabled,
+.paradigm-icon-btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.paradigm-icon-btn.is-danger {
+    color: #c0392b;
+}
+
+.paradigm-icon-btn.is-danger:hover:not(:disabled),
+.paradigm-icon-btn.is-danger:focus-visible:not(:disabled) {
+    border-color: #f08080;
+    background: #fdecea;
+}
+
+.point-template-row:not(.point-template-row--redeem) {
+    min-height: var(--paradigm-input-height);
+    height: var(--paradigm-input-height);
+    font-size: var(--paradigm-input-font-size);
+    font-weight: var(--paradigm-input-font-weight);
+    line-height: 1;
+    padding: 0 0.42rem 0 0.34rem;
+}
+
+.point-template-row:not(.point-template-row--redeem) .point-template-name {
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+.point-template-row:not(.point-template-row--redeem) .point-rule-delta {
+    padding: 0 0.46rem;
+}
+
 .sort-menu-btn,
 .tz-dropdown-btn {
     appearance: none;
@@ -1008,8 +1237,8 @@ svg.cards-view-toggle-btn-icon,
     border-radius: 8px;
     background: #fff;
     color: var(--p-ink-title);
-    font-size: 0.92rem;
-    font-weight: 600;
+    font-size: 0.8rem;
+    font-weight: 450;
     line-height: 1;
     cursor: pointer;
     text-align: left;

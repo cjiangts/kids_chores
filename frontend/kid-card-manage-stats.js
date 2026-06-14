@@ -251,9 +251,7 @@ function renderStatsView() {
         ${renderStatsSummary(uniqueCount, attemptTotal)}
         ${dailyProgressView ? renderDailyProgressPanel(dailyProgressView) : ''}
         <div class="cards-distribution-card distribution-card">
-            <div class="cards-distribution-card-head">
-                <div class="cards-distribution-card-title">Distribution</div>
-            </div>
+            <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon">${(typeof window !== 'undefined' && typeof window.ICON_PATHS === 'object' && window.ICON_PATHS['layout-grid']) ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${window.ICON_PATHS['layout-grid']}</svg>` : ''}</span><span class="paradigm-panel-heading">Distribution</span></h2>
             <div class="cards-distribution-tabs" role="tablist">${tabsHtml}</div>
             <div class="distribution-card-body">
                 ${renderDistributionPanel(activeTab.build())}
@@ -831,11 +829,15 @@ function renderDailyProgressPanel(chart) {
     const cardClasses = ['cards-distribution-card', 'daily-progress-card'];
     if (hasRtData) cardClasses.push('has-response-time');
     if (hasCrData) cardClasses.push('has-correctness-rate');
+    const awardIconPath = (typeof window !== 'undefined' && typeof window.ICON_PATHS === 'object')
+        ? window.ICON_PATHS['award']
+        : '';
+    const awardSvg = awardIconPath
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${awardIconPath}</svg>`
+        : '';
     return `
         <div class="${cardClasses.join(' ')}">
-            <div class="cards-distribution-card-head">
-                <div class="cards-distribution-card-title">${escapeHtml(String(chart?.title || 'Daily Progress'))}</div>
-            </div>
+            <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon">${awardSvg}</span><span class="paradigm-panel-heading">${escapeHtml(String(chart?.title || 'Daily Progress'))}</span></h2>
             ${controlsHtml}
             <div class="daily-progress-legend">
                 <span class="daily-progress-legend-item practiced"><span class="daily-progress-legend-swatch"></span>Practiced <span style="color: #2f66e6;">${escapeHtml(String(lastPoint.practiced))}</span></span>

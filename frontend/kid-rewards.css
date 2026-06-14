@@ -7,20 +7,13 @@
 
 .kid-reward-rule-status {
     --reward-status-pill-width: 7.8rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: var(--reward-status-pill-width);
     max-width: 100%;
-    box-sizing: border-box;
     border-radius: 999px;
-    padding: 0.22rem 0.5rem;
+    padding: 0 0.5rem;
     background: #edf1f8;
     color: #66718f;
-    font-size: 0.82rem;
-    font-weight: 560;
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
 
 .kid-reward-rule-status.available {
@@ -45,50 +38,6 @@
 .reward-note-input {
     flex: 1 1 auto;
     min-width: 0;
-    box-sizing: border-box;
-    border: 1px solid #cdd0f6;
-    border-radius: 8px;
-    padding: 0.42rem 0.6rem;
-    font: inherit;
-    font-size: 0.85rem;
-    color: #2f3b52;
-    background: #fff;
-}
-
-.reward-note-input::placeholder {
-    color: #9aa6bf;
-}
-
-.reward-note-input:focus {
-    outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
-}
-
-.reward-note-confirm-btn {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 34px;
-    border: none;
-    border-radius: 8px;
-    background: #4CAF50;
-    color: #fff;
-    cursor: pointer;
-    line-height: 1;
-}
-
-.reward-note-confirm-btn:hover,
-.reward-note-confirm-btn:focus-visible {
-    background: #45a049;
-    outline: none;
-}
-
-.reward-note-confirm-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
 }
 
 .kid-reward-progress {
@@ -156,13 +105,7 @@
 @media (max-width: 700px) {
     .kid-reward-rule-status {
         --reward-status-pill-width: 7rem;
-        font-size: 0.74rem;
-        padding: 0.18rem 0.42rem;
-    }
-
-    .kid-rewards-page .point-rule-delta {
-        font-size: 0.74rem;
-        padding: 0.18rem 0.42rem;
+        padding: 0 0.42rem;
     }
 
 }

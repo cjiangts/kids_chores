@@ -118,8 +118,7 @@
     margin-top: 1rem;
 }
 
-.avatar-editor-actions .btn-primary,
-.avatar-editor-actions .btn-secondary {
+.avatar-editor-actions .avatar-editor-rechoose {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;

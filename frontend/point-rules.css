@@ -75,16 +75,9 @@
 }
 
 .point-rule-input {
-    width: 100%;
-    min-height: var(--control-height);
-    border: 1px solid var(--control-border-color);
-    border-radius: var(--control-radius);
-    background: var(--control-bg);
-    color: var(--control-text);
-    font: inherit;
-    font-size: 0.95rem;
-    padding: 0 0.65rem;
-    box-sizing: border-box;
+    --paradigm-input-radius: 8px;
+    --paradigm-input-font-size: 0.95rem;
+    --paradigm-input-padding: 0 0.65rem;
 }
 
 .point-rule-name-stack {
@@ -188,13 +181,12 @@
     min-width: 0;
 }
 
-.point-rule-actions .btn-primary,
-.point-rule-actions .semantic-outline-btn {
+.point-rule-actions .paradigm-btn {
     min-height: 38px;
     white-space: nowrap;
 }
 
-.point-rule-actions .semantic-outline-btn:disabled {
+.point-rule-actions .paradigm-btn:disabled {
     background: #e6ebf3;
     border-color: #d5dceb;
     color: #8e9ab1;
@@ -202,7 +194,7 @@
     opacity: 1;
 }
 
-.point-rule-actions .semantic-outline-btn:disabled:hover {
+.point-rule-actions .paradigm-btn:disabled:hover {
     background: #e6ebf3;
     border-color: #d5dceb;
 }
@@ -259,26 +251,23 @@
     }
 
     .point-rule-input {
-        min-height: 34px;
-        height: 34px;
-        border-radius: 8px;
-        padding: 0 0.5rem;
-        font-size: 0.9rem;
+        --paradigm-input-padding: 0 0.5rem;
+        --paradigm-input-font-size: 0.9rem;
     }
 
     .point-rule-input.emoji {
         text-align: center;
-        padding: 0 0.25rem;
+        --paradigm-input-padding: 0 0.25rem;
     }
 
     .point-rule-input.points {
         text-align: center;
-        padding: 0 0.25rem;
+        --paradigm-input-padding: 0 0.25rem;
     }
 
     .point-rule-input.reward-type {
-        padding: 0 0.25rem;
-        font-size: 0.78rem;
+        --paradigm-input-padding: 0 0.25rem;
+        --paradigm-input-font-size: 0.78rem;
     }
 
     .point-rule-name-stack {
@@ -306,8 +295,7 @@
         justify-content: center;
     }
 
-    .point-rule-actions .btn-primary,
-    .point-rule-actions .semantic-outline-btn {
+    .point-rule-actions .paradigm-btn {
         width: 38px;
         min-width: 38px;
         height: 34px;
@@ -316,13 +304,11 @@
         justify-content: center;
     }
 
-    .point-rule-actions .btn-primary .icon,
-    .point-rule-actions .semantic-outline-btn .icon {
+    .point-rule-actions .paradigm-btn .icon {
         margin: 0;
     }
 
-    .point-rule-actions .btn-primary,
-    .point-rule-actions .semantic-outline-btn {
+    .point-rule-actions .paradigm-btn {
         font-size: 0;
         gap: 0;
     }
@@ -399,9 +385,7 @@
     }
 
     .point-rule-input {
-        min-height: 32px;
-        height: 32px;
-        font-size: 0.86rem;
+        --paradigm-input-font-size: 0.86rem;
     }
 
     .point-rule-active input {
@@ -409,8 +393,7 @@
         height: 17px;
     }
 
-    .point-rule-actions .btn-primary,
-    .point-rule-actions .semantic-outline-btn {
+    .point-rule-actions .paradigm-btn {
         width: 34px;
         min-width: 34px;
         height: 32px;

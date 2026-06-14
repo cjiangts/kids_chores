@@ -446,11 +446,11 @@ function buildCategoryCardInnerHtml({
     const statusPillItems = [];
     const statusPillLabels = [];
     if (progressModel.redoCount > 0) {
-        statusPillItems.push(`<span class="practice-row-status-pill redo">${escapeHtmlLocal(String(progressModel.redoCount))} to fix</span>`);
+        statusPillItems.push(`<span class="practice-row-status-pill paradigm-pill redo">${escapeHtmlLocal(String(progressModel.redoCount))} to fix</span>`);
         statusPillLabels.push(`${progressModel.redoCount} to fix`);
     }
     if (progressModel.unseenCount > 0) {
-        statusPillItems.push(`<span class="practice-row-status-pill unseen">${escapeHtmlLocal(String(progressModel.unseenCount))} to do</span>`);
+        statusPillItems.push(`<span class="practice-row-status-pill paradigm-pill unseen">${escapeHtmlLocal(String(progressModel.unseenCount))} to do</span>`);
         statusPillLabels.push(`${progressModel.unseenCount} to do`);
     }
     const statusPillsHtml = progressModel.targetCount > 0
@@ -636,7 +636,7 @@ function renderOffAppTaskRow(chore) {
         ? (isPending ? 'Canceling...' : 'Saving...')
         : (isCreditedToday
             ? formatCreditedOffAppStatus(creditedEvent)
-            : (isPending ? 'Undo Review' : "I'm done"));
+            : (isPending ? 'Undo' : "I'm done"));
     const actionIcon = isPending
         ? 'rotate-ccw'
         : (isCreditedToday ? 'check' : 'circle-check');

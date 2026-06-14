@@ -154,18 +154,9 @@
     position: relative;
 }
 
-.manage-popup-modal .manage-modal-action-row > .btn-primary {
+.manage-popup-modal .manage-modal-action-row > .paradigm-btn {
     width: 100%;
     margin-left: 0;
-}
-
-.manage-popup-modal .manage-modal-action-row > .manage-modal-close-btn,
-.manage-popup-modal .manage-modal-action-row > .manage-modal-icon-btn {
-    width: var(--control-height, 38px);
-    min-width: var(--control-height, 38px);
-    height: var(--control-height, 38px);
-    min-height: var(--control-height, 38px);
-    padding: 0;
 }
 
 .manage-popup-modal .manage-modal-action-row .apply-btn-label:empty {
@@ -197,43 +188,6 @@
     align-items: center;
     flex: 1 1 auto;
     min-width: 0;
-}
-
-.deck-tree-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.3rem;
-    height: 34px;
-    flex: 0 0 auto;
-    padding: 0 0.55rem;
-    border: 1px solid #d7dbe3;
-    border-radius: 8px;
-    background: #fff;
-    color: #666;
-    font-size: 0.78rem;
-    font-weight: 600;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
-}
-
-.deck-tree-icon-btn:hover {
-    background: #f0f3ff;
-    border-color: #b8c4e0;
-    color: #333;
-}
-
-.deck-tree-icon-btn.deck-tree-icon-btn-primary {
-    background: #ecfaf0;
-    border-color: #b6dcc4;
-    color: #1d6b39;
-}
-
-.deck-tree-icon-btn.deck-tree-icon-btn-primary:hover {
-    background: #d3f4dc;
-    border-color: #8dc99e;
-    color: #134a26;
 }
 
 .deck-tree-node {
@@ -442,77 +396,17 @@
 }
 
 .deck-tree-leaf-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.22rem 0.55rem;
     margin-left: 0.4rem;
-    border: 1px solid #c9d4ec;
-    background: #f3f6fc;
-    color: #2c4079;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    flex: 0 0 auto;
-    white-space: nowrap;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.deck-tree-leaf-action-btn:hover {
-    background: #e0e7ff;
-    border-color: #a8b6e0;
-    color: #1d2c5e;
 }
 
 .deck-tree-branch-edit-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.22rem 0.55rem;
     margin-left: 0.4rem;
-    border: 1px solid #c9d4ec;
-    background: #f3f6fc;
-    color: #2c4079;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    flex: 0 0 auto;
-    white-space: nowrap;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
     z-index: 1;
-}
-
-.deck-tree-branch-edit-btn:hover {
-    background: #e0e7ff;
-    border-color: #a8b6e0;
-    color: #1d2c5e;
 }
 
 .deck-tree-branch-newdeck-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.22rem 0.55rem;
     margin-left: 0.4rem;
-    border: 1px solid #b6dcc4;
-    background: #ecfaf0;
-    color: #1d6b39;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    flex: 0 0 auto;
-    white-space: nowrap;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
     z-index: 1;
-}
-
-.deck-tree-branch-newdeck-btn:hover {
-    background: #d3f4dc;
-    border-color: #8dc99e;
-    color: #134a26;
 }
 
 /* ── Branch progress bar ── */
@@ -541,17 +435,11 @@
 }
 
 .deck-tree-badge {
-    display: inline-flex;
-    align-items: center;
     gap: 0.35rem;
-    font-size: 0.7rem;
-    font-weight: 600;
     letter-spacing: 0.02em;
-    padding: 0.18rem 0.42rem;
+    padding: 0 0.42rem;
     border-radius: 999px;
-    white-space: nowrap;
     flex: 0 0 auto;
-    line-height: 1;
 }
 
 .deck-tree-badge-chunk {
@@ -654,25 +542,6 @@
         height: calc(90dvh - 8px);
         max-height: calc(90dvh - 8px);
         margin-top: 8px;
-    }
-
-    .deck-tree-icon-btn-label {
-        display: none;
-    }
-
-    .deck-tree-icon-btn {
-        padding: 0 0.45rem;
-    }
-
-    .deck-tree-branch-edit-btn-label,
-    .deck-tree-branch-newdeck-btn-label {
-        display: none;
-    }
-
-    .deck-tree-branch-edit-btn,
-    .deck-tree-branch-newdeck-btn {
-        gap: 0;
-        padding: 0.28rem 0.4rem;
     }
 
     .deck-tree-search-wrap {

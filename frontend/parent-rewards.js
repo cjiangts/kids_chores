@@ -206,9 +206,9 @@ function renderTabs() {
 function rewardStatusHtml(rule) {
     const { remaining } = ruleRewardProgress(rule);
     if (remaining <= 0) {
-        return '<span class="kid-reward-rule-status available">Available</span>';
+        return '<span class="kid-reward-rule-status paradigm-pill available">Available</span>';
     }
-    return `<span class="kid-reward-rule-status muted">${escapeHtml(`${remaining} pts to go`)}</span>`;
+    return `<span class="kid-reward-rule-status paradigm-pill muted">${escapeHtml(`${remaining} pts to go`)}</span>`;
 }
 
 function rewardNoteEditorHtml() {
@@ -217,8 +217,8 @@ function rewardNoteEditorHtml() {
         : '✓';
     return `
         <div class="reward-note-editor" data-reward-note-editor>
-            <input type="text" class="reward-note-input" data-reward-note-input placeholder="Add a note (optional)" maxlength="200" autocomplete="off">
-            <button type="button" class="reward-note-confirm-btn" data-reward-action="confirm" aria-label="Confirm redemption">${checkIcon}</button>
+            <input type="text" class="paradigm-input reward-note-input" data-reward-note-input placeholder="Add a note (optional)" maxlength="200" autocomplete="off">
+            <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-reward-action="confirm" aria-label="Confirm redemption">${checkIcon}</button>
         </div>
     `;
 }
@@ -251,7 +251,7 @@ function renderRules() {
             >
                 <span class="point-rule-emoji">${ruleIconHtml(rule)}</span>
                 <span class="point-template-name">${escapeHtml(rule?.name || 'Reward')}</span>
-                <span class="point-rule-delta redeemed">${escapeHtml(`${ruleCost(rule)} pts`)}</span>
+                <span class="point-rule-delta paradigm-pill redeemed">${escapeHtml(`${ruleCost(rule)} pts`)}</span>
                 <span class="kid-reward-rule-status-cell">${rewardStatusHtml(rule)}</span>
                 ${isSelected ? rewardNoteEditorHtml() : ''}
                 ${isAffordable ? '' : '<span class="kid-reward-progress parent-reward-progress" aria-hidden="true"><span></span></span>'}

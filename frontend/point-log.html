@@ -52,13 +52,13 @@
                             <div class="form-group point-log-emoji-group">
                                 <label for="pointEmoji">Emoji</label>
                                 <div class="point-log-emoji-field">
-                                    <input id="pointEmoji" type="text" autocomplete="off" inputmode="text" maxlength="8" placeholder=" ">
+                                    <input id="pointEmoji" class="paradigm-input" type="text" autocomplete="off" inputmode="text" maxlength="8" placeholder=" ">
                                     <span class="point-log-emoji-placeholder" aria-hidden="true">🙂</span>
                                 </div>
                             </div>
                             <div class="form-group point-log-name-group">
                                 <label for="pointRuleName">Name</label>
-                                <input id="pointRuleName" type="text" autocomplete="off" placeholder="What happened?">
+                                <input id="pointRuleName" class="paradigm-input" type="text" autocomplete="off" placeholder="What happened?">
                             </div>
                             <div class="form-group point-log-points-group">
                                 <label for="pointPoints">Points</label>
@@ -74,10 +74,10 @@
                             </div>
                             <div id="noteGroup" class="form-group">
                                 <label for="pointNote">Note <span>(optional)</span></label>
-                                <input id="pointNote" type="text" autocomplete="off" placeholder="Add note (optional)">
+                                <input id="pointNote" class="paradigm-input" type="text" autocomplete="off" placeholder="Add note (optional)">
                             </div>
                             <div class="point-log-actions">
-                                <button id="submitPointLogBtn" type="submit" class="btn-primary point-apply-btn" disabled><span class="point-apply-icon icon" data-icon="check" data-icon-size="17" data-icon-stroke="2.7"></span><span class="point-apply-label">Confirm</span></button>
+                                <button id="submitPointLogBtn" type="submit" class="paradigm-decision-btn paradigm-decision-btn--confirm point-apply-btn" aria-label="Confirm" disabled><span class="point-apply-icon icon" data-icon="check" data-icon-size="17" data-icon-stroke="2.7"></span></button>
                             </div>
                         </div>
                     </form>
@@ -94,7 +94,7 @@
                         <span class="paradigm-panel-title-icon"><span class="icon" data-icon="clock" data-icon-stroke="2.7"></span></span>
                         <h2 class="paradigm-panel-heading">Recent Activity</h2>
                         <span class="paradigm-panel-meta point-history-current-day" data-point-history-day-label></span>
-                        <button id="pullTodaySessionsBtn" type="button" class="semantic-outline-btn paradigm-panel-action paradigm-panel-action--circle point-pull-sessions-btn" aria-label="Pull today" title="Pull today"><span class="icon" data-icon="refresh-cw"></span></button>
+                        <button id="pullTodaySessionsBtn" type="button" class="paradigm-icon-btn paradigm-panel-action paradigm-panel-action--circle point-pull-sessions-btn" aria-label="Pull today" title="Pull today"><span class="icon" data-icon="refresh-cw"></span></button>
                     </div>
                     <div id="pointHistory" class="point-history"></div>
                 </div>

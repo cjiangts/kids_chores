@@ -63,8 +63,8 @@
                                     <input type="number" id="sessionCardCount" min="0" step="1" required>
                                     <button type="button" class="queue-stepper-btn" data-session-count-step="1" aria-label="Increase cards per day"><span data-icon="plus"></span></button>
                                 </div>
-                                <button id="queueSettingsSaveBtn" type="submit" class="settings-save-btn queue-save-pill" data-state="saved" aria-label="Save cards per day" disabled>
-                                    <span class="queue-save-pill-icon" data-icon="check" data-icon-size="18" data-icon-stroke="2.6"></span>
+                                <button id="queueSettingsSaveBtn" type="submit" class="paradigm-decision-btn paradigm-decision-btn--confirm queue-save-pill" data-state="saved" aria-label="Save cards per day" disabled>
+                                    <span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.7"></span>
                                 </button>
                             </div>
                         </fieldset>
@@ -80,8 +80,8 @@
                                     <input type="number" id="drillSpeedTargetInput" min="0.5" max="30" step="0.5" required>
                                     <button type="button" class="queue-stepper-btn" data-drill-speed-step="1" aria-label="Increase speed target"><span data-icon="plus"></span></button>
                                 </div>
-                                <button type="submit" class="settings-save-btn queue-save-pill" data-state="saved" aria-label="Save speed target" disabled>
-                                    <span class="queue-save-pill-icon" data-icon="check" data-icon-size="18" data-icon-stroke="2.6"></span>
+                                <button type="submit" class="paradigm-decision-btn paradigm-decision-btn--confirm queue-save-pill" data-state="saved" aria-label="Save speed target" disabled>
+                                    <span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.7"></span>
                                 </button>
                             </div>
                         </fieldset>
@@ -137,7 +137,7 @@
                     <input
                         type="text"
                         id="cardSearchInput"
-                        class="search-bar-input"
+                        class="paradigm-search-input"
                         placeholder="Search cards..."
                         aria-label="Search cards"
                     >
@@ -238,18 +238,18 @@
                 </div>
                 <div class="deck-tree-search-row">
                     <div class="search-bar deck-tree-search-wrap">
-                        <input id="deckTreeSearchInput" type="text" class="search-bar-input" placeholder="Search decks or card content...">
+                        <input id="deckTreeSearchInput" type="text" class="paradigm-search-input" placeholder="Search decks or card content...">
                     </div>
-                    <button id="deckTreeExpandAllBtn" type="button" class="deck-tree-icon-btn" title="Expand all" aria-label="Expand all"><span data-icon="chevrons-up-down" data-icon-size="14" data-icon-stroke="2.2"></span><span class="deck-tree-icon-btn-label">Expand</span></button>
-                    <button id="deckTreeCollapseAllBtn" type="button" class="deck-tree-icon-btn" title="Collapse all" aria-label="Collapse all"><span data-icon="chevrons-down-up" data-icon-size="14" data-icon-stroke="2.2"></span><span class="deck-tree-icon-btn-label">Collapse</span></button>
+                    <button id="deckTreeExpandAllBtn" type="button" class="paradigm-icon-btn" title="Expand all" aria-label="Expand all"><span data-icon="chevrons-up-down" data-icon-size="14" data-icon-stroke="2.2"></span></button>
+                    <button id="deckTreeCollapseAllBtn" type="button" class="paradigm-icon-btn" title="Collapse all" aria-label="Collapse all"><span data-icon="chevrons-down-up" data-icon-size="14" data-icon-stroke="2.2"></span></button>
                 </div>
             </div>
             <div class="manage-popup-modal-body">
                 <div id="deckTreeContainer" class="deck-tree-container"></div>
                 <div class="deck-v2-actions deck-tree-actions">
                     <div class="deck-v2-action-row deck-tree-action-row-primary manage-modal-action-row">
-                        <button id="cancelDeckTreeModalBtn" type="button" class="btn-secondary manage-modal-close-btn deck-tree-close-btn" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span></button>
-                        <button id="applyDeckTreeChangesBtn" type="button" class="btn-primary" aria-label="Apply deck changes" title="Apply deck changes" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="apply-btn-label"></span></button>
+                        <button id="cancelDeckTreeModalBtn" type="button" class="paradigm-icon-btn manage-modal-close-btn deck-tree-close-btn" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span></button>
+                        <button id="applyDeckTreeChangesBtn" type="button" class="paradigm-btn" aria-label="Apply deck changes" title="Apply deck changes" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="apply-btn-label"></span></button>
                     </div>
                     <div id="deckTreeChangeMessage" class="success hidden"></div>
                 </div>
@@ -267,7 +267,7 @@
                     <div class="type4-deck-counts-toolbar-label">Apply same count to all</div>
                     <div class="type4-deck-counts-toolbar-controls">
                         <input id="type4DeckCountsApplyAllInput" type="number" class="type4-deck-count-input" min="0" max="1000" step="1" value="10">
-                        <button id="applyType4DeckCountsToAllBtn" type="button" class="btn-secondary type4-deck-counts-apply-btn">Apply to all</button>
+                        <button id="applyType4DeckCountsToAllBtn" type="button" class="paradigm-btn type4-deck-counts-apply-btn">Apply to all</button>
                     </div>
                 </div>
                 <div class="type4-deck-counts-scroll">
@@ -279,8 +279,8 @@
                 </div>
                 <div class="deck-v2-actions">
                     <div class="deck-v2-action-row">
-                        <button id="saveType4DeckCountsBtn" type="button" class="btn-primary" disabled>Save</button>
-                        <button id="cancelType4DeckCountsModalBtn" type="button" class="btn-secondary">Close</button>
+                        <button id="saveType4DeckCountsBtn" type="button" class="paradigm-btn" disabled>Save</button>
+                        <button id="cancelType4DeckCountsModalBtn" type="button" class="paradigm-btn">Close</button>
                     </div>
                     <div id="type4DeckCountsMessage" class="success hidden"></div>
                 </div>
@@ -296,7 +296,7 @@
                     <div id="type4GeneratorDeckText" class="type4-generator-deck-text"></div>
                 </div>
                 <div class="manage-popup-title-actions">
-                    <button id="closeType4GeneratorModalBtn" type="button" class="btn-secondary manage-popup-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Close</span></button>
+                    <button id="closeType4GeneratorModalBtn" type="button" class="paradigm-btn manage-popup-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Close</span></button>
                 </div>
             </div>
             <div class="manage-popup-modal-body">
@@ -353,9 +353,9 @@
                             <span id="addCardStatusText" class="status-toast-text"></span>
                             <button id="addCardStatusDismissBtn" type="button" class="status-toast-dismiss" aria-label="Dismiss">&times;</button>
                         </div>
-                        <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary manage-modal-close-btn" aria-label="Close" title="Close"><span class="icon" data-icon="x" data-icon-size="18"></span></button>
-                        <button type="submit" id="addReadingBtn" class="btn-primary" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
-                        <button id="personalDeckBackBtn" type="button" class="btn-secondary manage-modal-icon-btn hidden" aria-label="Back" title="Back"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span></button>
+                        <button id="cancelPersonalDeckModalBtn" type="button" class="paradigm-icon-btn manage-modal-close-btn" aria-label="Close" title="Close"><span class="icon" data-icon="x" data-icon-size="18"></span></button>
+                        <button type="submit" id="addReadingBtn" class="paradigm-btn" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
+                        <button id="personalDeckBackBtn" type="button" class="paradigm-icon-btn manage-modal-icon-btn hidden" aria-label="Back" title="Back"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span></button>
                     </div>
                 </form>
             </div>

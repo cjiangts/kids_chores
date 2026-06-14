@@ -267,16 +267,8 @@
 }
 
 .practice-home-redesign .practice-row-status-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 20px;
     border-radius: 999px;
     padding: 0 0.44rem;
-    font-size: 0.72rem;
-    font-weight: 650;
-    line-height: 1;
-    white-space: nowrap;
 }
 
 .practice-home-redesign .practice-row-status-pill.redo {
@@ -710,9 +702,7 @@
     }
 
     .practice-home-redesign .practice-row-status-pill {
-        min-height: 19px;
         padding: 0 0.36rem;
-        font-size: 0.68rem;
     }
 
     .practice-home-redesign .redesign-summary-strip {
@@ -817,8 +807,6 @@
     }
 
     .practice-home-redesign .practice-row-status-pill {
-        min-height: 18px;
         padding: 0 0.3rem;
-        font-size: 0.64rem;
     }
 }

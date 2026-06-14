@@ -43,7 +43,7 @@
     function enhance(input, options) {
         if (!input || input.dataset.searchBarEnhanced === '1') return;
         input.dataset.searchBarEnhanced = '1';
-        input.classList.add('search-bar-input');
+        input.classList.add('paradigm-search-input');
 
         const wrap = ensureWrap(input);
         ensureIcon(wrap, input);

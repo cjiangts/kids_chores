@@ -30,8 +30,7 @@
             margin-bottom: 0;
         }
 
-        .deck-row .btn-secondary,
-        .deck-row .btn-primary {
+        .deck-row .paradigm-btn {
             white-space: nowrap;
         }
 
@@ -45,7 +44,7 @@
             min-width: 0;
         }
 
-        .add-tag-row .btn-secondary {
+        .add-tag-row .paradigm-btn {
             flex: 0 0 auto;
         }
 
@@ -270,7 +269,7 @@
                         <div class="deck-row add-tag-row">
                             <input type="text" id="newTagInput" list="existingTagOptions" placeholder="e.g. grade3, unit1, maliping">
                             <datalist id="existingTagOptions"></datalist>
-                            <button type="button" id="addTagBtn" class="btn-secondary"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.2"></span><span>Add Tag</span></button>
+ <button type="button" id="addTagBtn" class="paradigm-btn"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.2"></span><span>Add Tag</span></button>
                         </div>
                         <div id="tagsContainer" class="deck-tags" style="margin-top:0.3rem;"></div>
                     </div>
@@ -323,19 +322,16 @@
             pass
         return 0
 
-    return {
-        "prompt": f"{f1} + {f2} = ?",
-        "answer": str(result),
-        "validate": validate,
+ return {"prompt": f"{f1} + {f2} = ?","answer": str(result),"validate": validate,
     }</textarea>
                             <div id="type4GeneratorCodeEditor" class="type4-code-editor hidden" aria-hidden="true"></div>
                         </div>
                     </div>
                 </div>
                 <div class="deck-row mt-07">
-                    <button type="button" id="previewBtn" class="btn-primary"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label-full">Preview Deck</span><span class="btn-label-short">Preview</span></button>
-                    <button type="button" id="clearCsvBtn" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Clear</span></button>
-                    <button type="button" id="copyExampleBtn" class="btn-secondary"><span data-icon="clipboard-list" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label-full">Copy Example</span><span class="btn-label-short">Copy</span></button>
+ <button type="button" id="previewBtn" class="paradigm-btn"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label-full">Preview Deck</span><span class="btn-label-short">Preview</span></button>
+ <button type="button" id="clearCsvBtn" class="paradigm-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Clear</span></button>
+ <button type="button" id="copyExampleBtn" class="paradigm-btn"><span data-icon="clipboard-list" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label-full">Copy Example</span><span class="btn-label-short">Copy</span></button>
                 </div>
             </section>
 
@@ -346,7 +342,7 @@
                 </h2>
                 <div class="deck-review-head">
                     <div id="reviewMeta"></div>
-                    <button type="button" id="createDeckBtn" class="btn-primary"><span data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Confirm &amp; Create Deck</span></button>
+ <button type="button" id="createDeckBtn" class="paradigm-btn"><span data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Confirm &amp; Create Deck</span></button>
                 </div>
                 <div id="dedupeSummary" class="deck-dedupe hidden"></div>
                 <div id="reviewTableWrap" class="deck-review-table-wrap">
@@ -369,7 +365,7 @@
                     <pre id="type4ReviewCode" class="type4-review-code input-mono"></pre>
                     <div class="type4-review-examples-head">
                         <strong>Example results:</strong>
-                        <button type="button" id="regenType4ExamplesBtn" class="btn-secondary"><span data-icon="refresh-cw" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Regen Example</span></button>
+ <button type="button" id="regenType4ExamplesBtn" class="paradigm-btn"><span data-icon="refresh-cw" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Regen Example</span></button>
                     </div>
                     <div id="type4ReviewExamples"></div>
                     <div id="type4ValidateTestContainer" class="hidden"></div>
