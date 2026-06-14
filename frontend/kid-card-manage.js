@@ -47,9 +47,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             await applyDeckTreeChanges();
         });
     }
-    if (deckTreeClearBtn) {
-        deckTreeClearBtn.addEventListener('click', resetTreeToBaseline);
-    }
     if (deckTreeInfoBtn) {
         deckTreeInfoBtn.addEventListener('click', () => {
             const existing = document.querySelector('.deck-tree-info-popover');
@@ -145,29 +142,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // === 4. Personal-deck modal + add-card status dismiss ===
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.addEventListener('click', () => {
-            setPersonalDeckMode('edit');
+            resetPersonalDeckModal();
             setManageModalOpen(personalDeckModal, true);
         });
     }
     if (cancelPersonalDeckModalBtn) {
         cancelPersonalDeckModalBtn.addEventListener('click', () => {
-            setManageModalOpen(personalDeckModal, false);
+            closePersonalDeckModal();
         });
     }
     if (personalDeckBackBtn) {
         personalDeckBackBtn.addEventListener('click', () => {
             setPersonalDeckMode('edit');
-        });
-    }
-    if (clearPersonalDeckBtn) {
-        clearPersonalDeckBtn.addEventListener('click', () => {
-            if (!chineseCharInput) {
-                return;
-            }
-            chineseCharInput.value = '';
-            chineseCharInput.dispatchEvent(new Event('input', { bubbles: true }));
-            showStatusMessage('');
-            chineseCharInput.focus();
         });
     }
     const addCardStatusDismissBtn = document.getElementById('addCardStatusDismissBtn');
@@ -202,7 +188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         if (isModalOpen(personalDeckModal)) {
-            setManageModalOpen(personalDeckModal, false);
+            closePersonalDeckModal();
             return;
         }
         if (isModalOpen(deckTreeModal)) {

@@ -10,7 +10,7 @@
     <script src="idle-home-redirect.js"></script>
     <script src="offline-redirect-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Printable Work Sheets - The Mommy App</title>
+    <title>Sheets - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="paradigm.css">
@@ -21,9 +21,9 @@
     <div class="container">
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
-                <h1>
-                    <span class="page-title-icon" aria-hidden="true">🖨️</span>
-                    <span id="pageTitle">Printable work sheets (Chinese Writing)</span>
+                <h1 class="paradigm-kid-page-title">
+                    <span class="page-title-icon kid-initial-avatar paradigm-kid-title-avatar paradigm-kid-title-avatar--pending" aria-hidden="true"></span>
+                    <span id="pageTitle">Chinese Writing Sheets</span>
                 </h1>
                 <div class="page-header-actions" data-family-user-switcher></div>
             </div>
@@ -32,39 +32,28 @@
         <div id="errorMessage" class="error hidden"></div>
 
         <div class="type2-sheet-layout">
-            <div id="chineseGenerateSection" class="sheet-subgroup sheet-subgroup-generate">
-                <div class="sheet-subgroup-head">
-                    <h3>Generate Practice Sheet（生成田字格）</h3>
-                </div>
-                <div class="sheet-build-actions">
-                    <button type="button" id="buildChineseSheetBtn" class="settings-save-btn" disabled>
-                        <span class="sheet-build-btn-title">Build Writing Sheet</span>
-                        <span class="sheet-build-btn-meta" id="buildChineseSheetBtnMeta">Choose which characters go where</span>
-                    </button>
-                </div>
-                <div id="sheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
-            </div>
-
-            <!-- Math mode generate section -->
-            <div id="mathGenerateSection" class="sheet-subgroup sheet-subgroup-generate hidden">
-                <div class="sheet-subgroup-head">
-                    <h3>Build Math Sheet</h3>
-                </div>
-                <p id="mathBuildInfo" class="sheet-subgroup-note hidden"></p>
-                <div class="sheet-build-actions">
-                    <button type="button" id="buildSheetBtn" class="settings-save-btn" disabled>Build Vertical Sheet</button>
-                    <button type="button" id="buildInlineSheetBtn" class="settings-save-btn" disabled>Build Inline Sheet</button>
-                </div>
-                <div id="mathSheetErrorMessage" class="error hidden" style="margin-top:0.8rem;"></div>
-            </div>
-
-            <div id="sheetHistorySection" class="sheet-subgroup sheet-subgroup-generate">
-                <div class="sheet-subgroup-head">
-                    <h3 id="sheetHistoryTitle">Practice Sheets</h3>
-                </div>
+            <section id="sheetHistorySection" class="paradigm-settings-panel">
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="18"></span></span>
+                    <span id="sheetHistoryTitle" class="paradigm-panel-heading">Practice Sheets</span>
+                    <span class="paradigm-row-action-group paradigm-panel-action" aria-label="Build sheets">
+                        <button type="button" id="buildChineseSheetBtn" class="semantic-outline-btn paradigm-panel-action--circle" title="Build writing sheet" aria-label="Build writing sheet" aria-disabled="true">
+                            <span class="icon" data-icon="plus" data-icon-size="16"></span>
+                        </button>
+                        <button type="button" id="buildSheetBtn" class="semantic-outline-btn paradigm-panel-action--circle hidden" title="Build vertical sheet" aria-label="Build vertical sheet" disabled>
+                            <span class="icon" data-icon="layout-grid" data-icon-size="16"></span>
+                        </button>
+                        <button type="button" id="buildInlineSheetBtn" class="semantic-outline-btn paradigm-panel-action--circle hidden" title="Build inline sheet" aria-label="Build inline sheet" disabled>
+                            <span class="icon" data-icon="rows-3" data-icon-size="16"></span>
+                        </button>
+                    </span>
+                </h2>
+                <div id="sheetBuildHint" class="sheet-build-hint hidden" role="status" aria-live="polite"></div>
+                <div id="sheetErrorMessage" class="error hidden"></div>
+                <div id="mathSheetErrorMessage" class="error hidden"></div>
                 <p id="sheetHistoryNote" class="sheet-subgroup-note hidden"></p>
                 <div id="sheetList" class="sheet-list"></div>
-            </div>
+            </section>
         </div>
     </div>
 
@@ -240,6 +229,7 @@
     <script src="kid-app-navigation.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
+    <script src="practice-ui-common.js"></script>
     <script src="math-rendering-common.js"></script>
     <script src="kid-writing-sheet-manage-core.js"></script>
     <script src="kid-writing-sheet-manage-lists.js"></script>

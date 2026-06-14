@@ -14,38 +14,6 @@
             }
         }
 
-        .sheet-subgroup {
-            border: 1px solid #e4d2a3;
-            border-radius: 12px;
-            background: #fff8e8;
-            padding: 0.85rem 0.95rem;
-        }
-
-        .sheet-subgroup-generate {
-            border-color: #cfdcf9;
-            background: #f6f9ff;
-        }
-
-        .sheet-subgroup-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-bottom: 0.45rem;
-        }
-
-        .sheet-subgroup-head h3 {
-            margin: 0;
-            color: #4f3b0f;
-            font-size: 1.12rem;
-            line-height: 1.3;
-        }
-
-        .sheet-subgroup-generate .sheet-subgroup-head h3 {
-            color: #24457e;
-        }
-
         .sheet-subgroup-note {
             margin: 0;
             color: #6c5a2f;
@@ -53,39 +21,34 @@
             line-height: 1.4;
         }
 
-        .sheet-subgroup-generate .sheet-subgroup-note {
-            color: #47628f;
+        #sheetHistorySection {
+            position: relative;
         }
 
-        .sheet-build-actions {
-            margin-top: 0.8rem;
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
+        #buildChineseSheetBtn[aria-disabled="true"] {
+            cursor: help;
+            opacity: 0.52;
         }
 
-        .sheet-build-actions .settings-save-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
-            flex: 1 1 260px;
-            min-width: 0;
-            white-space: normal;
-            text-align: left;
-            line-height: 1.25;
-        }
-
-        .sheet-build-btn-title {
-            display: block;
+        .sheet-build-hint {
+            position: absolute;
+            top: 2.75rem;
+            right: var(--p-surface-padding-x, 1rem);
+            z-index: 4;
+            width: min(260px, calc(100% - 1.4rem));
+            padding: 0.55rem 0.7rem;
+            border: 1px solid var(--p-border-soft);
+            border-radius: 10px;
+            background: #fff;
+            color: #35466f;
+            box-shadow: 0 10px 22px rgba(46, 58, 92, 0.16);
+            font-size: 0.82rem;
             font-weight: 600;
+            line-height: 1.35;
         }
 
-        .sheet-build-btn-meta {
-            display: block;
-            margin-top: 0.18rem;
-            font-size: 0.84rem;
-            color: #5872a8;
+        .sheet-build-hint.hidden {
+            display: none;
         }
 
         .sheet-builder-head {
@@ -187,37 +150,31 @@
             opacity: 1;
         }
 
-        .sheet-list {
-            display: grid;
-            gap: 0.9rem;
-            margin-top: 0.6rem;
-        }
-
         .sheet-item {
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-            padding: 1rem;
+            padding: 0.46rem 0;
+            border-top: 1px solid var(--p-border-soft);
         }
 
         .sheet-head {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             gap: 10px;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0;
         }
 
-        .sheet-head-left {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
+        .sheet-head-main {
+            display: flex;
+            align-items: baseline;
+            gap: 0.3rem;
+            min-width: 0;
             flex-wrap: wrap;
         }
 
         .sheet-head-right {
             display: inline-flex;
-            align-items: center;
+            align-items: flex-start;
+            justify-content: flex-end;
             gap: 0.45rem;
         }
 
@@ -275,7 +232,6 @@
             flex-wrap: wrap;
             align-items: center;
             gap: 0.38rem;
-            margin-bottom: 0.7rem;
         }
 
         .sheet-card-pill {
@@ -298,39 +254,9 @@
 
         .sheet-meta {
             color: #666;
-            font-size: 0.84rem;
-            margin-bottom: 0.65rem;
+            font-size: 0.82rem;
+            font-weight: 400;
             line-height: 1.35;
-        }
-
-        .sheet-actions {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr);
-            gap: 0.45rem;
-        }
-
-        .sheet-actions.preview {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .sheet-actions.pending {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-
-        .sheet-actions button {
-            width: 100%;
-        }
-
-        .sheet-item .delete-btn {
-            margin-left: 0;
-        }
-
-        .sheet-item .print-btn {
-            margin-right: 0;
-        }
-
-        .sheet-item .clone-btn {
-            margin: 0;
         }
 
         .math-deck-row {

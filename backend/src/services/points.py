@@ -730,13 +730,16 @@ def review_pending_off_app_chore(kid_conn, shared_conn, family_id, pending_id, r
     if not pending_row:
         raise KeyError('Pending off-app chore not found')
     rule_id = int(pending_row[1] or 0)
+    submitted_at = pending_row[2]
     rule = get_family_rule(shared_conn, family_id, rule_id)
     if not rule or rule['ruleKind'] != RULE_KIND_OFF_APP_CHORE:
         raise ValueError('Off-app chore rule not found')
     points_delta_value = _event_delta_for_rule(rule, points_delta=points_delta)
     kid_conn.execute('BEGIN TRANSACTION')
     try:
-        event = insert_point_event(kid_conn, rule_id, points_delta_value, note=note)
+        event = insert_point_event(
+            kid_conn, rule_id, points_delta_value, note=note, created_at=submitted_at,
+        )
         kid_conn.execute(
             "DELETE FROM pending_off_app_chore WHERE pending_id = ?",
             [int(pending_id or 0)],

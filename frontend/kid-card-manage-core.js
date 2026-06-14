@@ -84,7 +84,6 @@ const deckTreeModal = document.getElementById('deckTreeModal');
 const deckTreeContainer = document.getElementById('deckTreeContainer');
 const deckTreeSearchInput = document.getElementById('deckTreeSearchInput');
 const deckTreeCounter = document.getElementById('deckTreeCounter');
-const deckTreeClearBtn = document.getElementById('deckTreeClearBtn');
 const deckTreeInfoBtn = document.getElementById('deckTreeInfoBtn');
 const applyDeckTreeChangesBtn = document.getElementById('applyDeckTreeChangesBtn');
 const cancelDeckTreeModalBtn = document.getElementById('cancelDeckTreeModalBtn');
@@ -121,12 +120,12 @@ const addCardForm = document.getElementById('addCardForm');
 const chineseCharInput = document.getElementById('chineseChar');
 const addReadingBtn = document.getElementById('addReadingBtn');
 const addCardStatusMessage = document.getElementById('addCardStatusMessage');
+const personalDeckActionRow = document.getElementById('personalDeckActionRow');
 const personalDeckEditWrap = document.getElementById('personalDeckEditWrap');
 const personalDeckPreviewWrap = document.getElementById('personalDeckPreviewWrap');
 const personalDeckPreviewTableBody = document.getElementById('personalDeckPreviewTableBody');
 const personalDeckPreviewSummary = document.getElementById('personalDeckPreviewSummary');
 const personalDeckBackBtn = document.getElementById('personalDeckBackBtn');
-const clearPersonalDeckBtn = document.getElementById('clearPersonalDeckBtn');
 let personalDeckMode = 'edit';
 
 const viewOrderSelect = document.getElementById('viewOrderSelect');
@@ -547,10 +546,10 @@ function renderPersonalDeckPreviewTable(rows, options = {}) {
 function setPersonalDeckMode(mode) {
     personalDeckMode = mode === 'preview' ? 'preview' : 'edit';
     const isPreview = personalDeckMode === 'preview';
+    if (personalDeckActionRow) personalDeckActionRow.classList.toggle('is-preview', isPreview);
     if (personalDeckEditWrap) personalDeckEditWrap.classList.toggle('hidden', isPreview);
     if (personalDeckPreviewWrap) personalDeckPreviewWrap.classList.toggle('hidden', !isPreview);
     if (personalDeckBackBtn) personalDeckBackBtn.classList.toggle('hidden', !isPreview);
-    if (clearPersonalDeckBtn) clearPersonalDeckBtn.classList.toggle('hidden', isPreview);
     if (chineseCharInput) chineseCharInput.required = !isPreview;
     if (addReadingBtn) {
         if (isPreview) {
@@ -563,6 +562,24 @@ function setPersonalDeckMode(mode) {
     if (!isPreview) {
         showStatusMessage('');
     }
+}
+
+function resetPersonalDeckModal() {
+    if (addCardForm) {
+        addCardForm.reset();
+    } else if (chineseCharInput) {
+        chineseCharInput.value = '';
+    }
+    if (personalDeckPreviewTableBody) personalDeckPreviewTableBody.innerHTML = '';
+    if (personalDeckPreviewSummary) personalDeckPreviewSummary.textContent = '';
+    showStatusMessage('');
+    setPersonalDeckMode('edit');
+    updateAddReadingButtonCount();
+}
+
+function closePersonalDeckModal() {
+    resetPersonalDeckModal();
+    setManageModalOpen(personalDeckModal, false);
 }
 
 // =====================================================================
@@ -746,7 +763,7 @@ function applyCategoryUiText() {
         }
     }
     if (!showOrphanEditor) {
-        setManageModalOpen(personalDeckModal, false);
+        closePersonalDeckModal();
     }
     if (personalDeckModalNote) {
         personalDeckModalNote.textContent = '';

@@ -27,6 +27,19 @@ async function loadChineseSheets() {
     renderChineseSheets(Array.isArray(data.sheets) ? data.sheets : []);
 }
 
+function sheetActionButton(action, sheetId, iconName, label, tone) {
+    const toneClass = tone ? ` semantic-outline-btn--${tone}` : '';
+    const iconHtml = typeof window.icon === 'function' ? window.icon(iconName, { size: 16 }) : escapeHtml(label);
+    return `<button type="button" class="semantic-outline-btn${toneClass} paradigm-icon-action-btn" data-sheet-action="${action}" data-sheet-id="${sheetId}" aria-label="${escapeHtml(label)}">${iconHtml}</button>`;
+}
+
+function formatSheetDay(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString();
+}
+
 function renderChineseSheets(sheets) {
     if (!sheetList) return;
     if (!Array.isArray(sheets) || sheets.length === 0) {
@@ -49,18 +62,16 @@ function renderChineseSheets(sheets) {
         const isPending = !isDone;
         const statusClass = isDone ? 'done' : 'pending';
         const statusLabel = isDone ? 'done' : 'practicing';
-        const printedDay = formatDate(sheet && sheet.created_at);
-        const deleteBtnHtml = isPending ? `<button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>` : '';
+        const printedDay = formatSheetDay(sheet && sheet.created_at);
+        const actionBtns = [
+            sheetActionButton('print', safeSheetId, 'printer', 'Print sheet', 'blue'),
+            isPending ? sheetActionButton('done', safeSheetId, 'check', 'Mark sheet done', 'green') : '',
+            isPending ? sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red') : '',
+        ].join('');
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div>Sheet #${safeSheetId}</div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span></div></div>
-                <div class="sheet-meta">Printed: ${escapeHtml(printedDay)}</div>
+                <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">Sheet #${safeSheetId} · ${escapeHtml(printedDay)}</span></div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span><div class="paradigm-row-action-group">${actionBtns}</div></div></div>
                 <div class="sheet-cards">${answersHtml}</div>
-                <div class="sheet-actions ${isPending ? 'pending' : 'done'}">
-                    <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">Print</button>
-                    ${isPending ? `<button type="button" class="done-btn" data-sheet-action="done" data-sheet-id="${safeSheetId}">Done</button>` : ''}
-                    ${deleteBtnHtml}
-                </div>
             </article>`;
     }).join('');
 }
@@ -107,21 +118,13 @@ function renderMathBuildInfo() {
     const designedDecks = getDesignedMathDecks().length;
     const printableSummary = `${designedDecks} of ${totalDecks} opted-in deck${totalDecks === 1 ? '' : 's'} printable.`;
     const inlineSummary = `${totalDecks} opted-in deck${totalDecks === 1 ? '' : 's'} available to print inline.`;
-    if (mathBuildInfoEl) {
-        mathBuildInfoEl.textContent = '';
-        mathBuildInfoEl.classList.add('hidden');
-    }
     if (buildSheetBtn) {
-        buildSheetBtn.innerHTML = `
-            <span class="sheet-build-btn-title">Build Vertical Sheet</span>
-            <span class="sheet-build-btn-meta">${escapeHtml(printableSummary)}</span>
-        `;
+        buildSheetBtn.title = `Build vertical sheet. ${printableSummary}`;
+        buildSheetBtn.setAttribute('aria-label', `Build vertical sheet. ${printableSummary}`);
     }
     if (buildInlineSheetBtn) {
-        buildInlineSheetBtn.innerHTML = `
-            <span class="sheet-build-btn-title">Build Inline Sheet</span>
-            <span class="sheet-build-btn-meta">${escapeHtml(inlineSummary)}</span>
-        `;
+        buildInlineSheetBtn.title = `Build inline sheet. ${inlineSummary}`;
+        buildInlineSheetBtn.setAttribute('aria-label', `Build inline sheet. ${inlineSummary}`);
     }
 }
 
@@ -178,21 +181,21 @@ function renderMathSheets(sheets) {
             1,
             Number.parseInt(sheet && (sheet.repeat_count ?? sheet.page_count), 10) || 1,
         );
-        const cloneBtnHtml = `<button type="button" class="clone-btn" data-sheet-action="clone" data-sheet-id="${safeSheetId}">Clone</button>`;
+        const cloneBtnHtml = sheetActionButton('clone', safeSheetId, 'copy-plus', 'Clone sheet', '');
         const incorrectCount = Number.isInteger(sheet && sheet.incorrect_count)
             ? Number(sheet.incorrect_count)
             : null;
         let actionBtns = '';
         if (isPreview) {
             actionBtns = `
-                <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">Preview</button>
-                <button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>
+                ${sheetActionButton('print', safeSheetId, 'eye', 'Preview sheet', 'blue')}
+                ${sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red')}
                 ${cloneBtnHtml}`;
         } else if (isPending) {
             actionBtns = `
-                <button type="button" class="print-btn" data-sheet-action="print" data-sheet-id="${safeSheetId}">View</button>
-                <button type="button" class="done-btn" data-sheet-action="done" data-sheet-id="${safeSheetId}">Done</button>
-                <button type="button" class="delete-btn" data-sheet-action="delete" data-sheet-id="${safeSheetId}">Delete</button>
+                ${sheetActionButton('print', safeSheetId, 'eye', 'View sheet', 'blue')}
+                ${sheetActionButton('done', safeSheetId, 'check', 'Mark sheet done', 'green')}
+                ${sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red')}
                 ${cloneBtnHtml}`;
         } else if (isDone) {
             actionBtns = cloneBtnHtml;
@@ -204,16 +207,14 @@ function renderMathSheets(sheets) {
         )
             ? `Incorrect: ${incorrectCount} / ${problemCount} · Correct rate: ${Math.round(((problemCount - incorrectCount) / problemCount) * 100)}%`
             : '';
-        const printedDay = formatDate(sheet && sheet.created_at);
+        const printedDay = formatSheetDay(sheet && sheet.created_at);
         const sheetMetaHtml = accuracyLine
-            ? `Printed: ${escapeHtml(printedDay)}<br>${escapeHtml(accuracyLine)}`
-            : `Printed: ${escapeHtml(printedDay)}`;
+            ? `${escapeHtml(printedDay)} · ${escapeHtml(accuracyLine)}`
+            : escapeHtml(printedDay);
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div class="sheet-head-left"><div>Sheet #${safeSheetId}</div><span class="sheet-layout-tag">${layoutLabel}</span><span class="sheet-problem-tag">${problemCount} problem${problemCount === 1 ? '' : 's'}</span><span class="sheet-repeat-tag">x${repeatCount}</span></div></div>
-                <div class="sheet-meta">${sheetMetaHtml}</div>
+                <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">Sheet #${safeSheetId} · ${sheetMetaHtml}</span><span class="sheet-layout-tag">${layoutLabel}</span><span class="sheet-problem-tag">${problemCount} problem${problemCount === 1 ? '' : 's'}</span><span class="sheet-repeat-tag">x${repeatCount}</span></div>${actionBtns ? `<div class="paradigm-row-action-group">${actionBtns}</div>` : ''}</div>
                 <div class="sheet-cards">${rowPillsHtml}</div>
-                ${actionBtns ? `<div class="sheet-actions ${statusClass}">${actionBtns}</div>` : ''}
             </article>`;
     }).join('');
 }

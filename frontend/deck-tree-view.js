@@ -695,20 +695,26 @@
             const labelEl = this.applyButton.querySelector('.apply-btn-label');
             if (!labelEl) return;
             if (!hasPending) {
-                labelEl.textContent = 'Apply';
+                labelEl.textContent = '';
+                this.applyButton.setAttribute('aria-label', 'Apply deck changes');
+                this.applyButton.title = 'Apply deck changes';
                 return;
             }
             const fmtDelta = (inN, outN) => {
                 const parts = [];
                 if (inN > 0) parts.push(`+${inN.toLocaleString()}`);
                 if (outN > 0) parts.push(`-${outN.toLocaleString()}`);
-                return parts.join(' ');
+                return parts.join(' ') || '0';
             };
             const deckLabel = (deckIn + deckOut) === 1 ? 'deck' : 'decks';
             const cardLabel = (cardIn + cardOut) === 1 ? 'card' : 'cards';
             const deckChunk = `<span class="apply-btn-chunk"><span data-icon="layers" data-icon-size="14" data-icon-stroke="2.4"></span>${fmtDelta(deckIn, deckOut)} ${deckLabel}</span>`;
             const cardChunk = `<span class="apply-btn-chunk"><span data-icon="layout-grid" data-icon-size="14" data-icon-stroke="2.4"></span>${fmtDelta(cardIn, cardOut)} ${cardLabel}</span>`;
-            labelEl.innerHTML = `Apply (${deckChunk} · ${cardChunk})`;
+            const textDeckDelta = fmtDelta(deckIn, deckOut);
+            const textCardDelta = fmtDelta(cardIn, cardOut);
+            labelEl.innerHTML = `(${deckChunk} · ${cardChunk})`;
+            this.applyButton.setAttribute('aria-label', `Apply deck changes (${textDeckDelta} ${deckLabel}; ${textCardDelta} ${cardLabel})`);
+            this.applyButton.title = `Apply deck changes (${textDeckDelta} ${deckLabel}; ${textCardDelta} ${cardLabel})`;
             if (window.hydrateIcons) window.hydrateIcons(labelEl);
         }
 

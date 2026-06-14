@@ -60,7 +60,13 @@ async function loadKid() {
             ? window.DeckCategoryCommon.getCategoryDisplayName(activeCategoryKey, categoryMetaMap)
             : 'Type-II';
         const kidName = String(kid.name || '').trim();
-        kidNameEl.textContent = `${kidName}'s ${activeCategoryDisplayName} Sheets`;
+        window.PracticeUiCommon?.applyKidPageTitle({
+            titleEl: kidNameEl?.closest('h1'),
+            iconEl: kidNameEl?.closest('h1')?.querySelector('.page-title-icon'),
+            labelEl: kidNameEl,
+            kid,
+            label: `${activeCategoryDisplayName} Sheets`,
+        });
         document.title = `${kidName} - ${activeCategoryDisplayName} Sheets - The Mommy App`;
     } catch (error) {
         console.error('Error loading kid:', error);

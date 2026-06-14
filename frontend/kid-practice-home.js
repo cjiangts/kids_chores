@@ -247,7 +247,11 @@ function applyKidPayload(kid) {
     if (titleIcon) {
         titleIcon.className = 'page-title-icon';
         titleIcon.textContent = '🎓';
+        titleIcon.style.backgroundImage = '';
+        titleIcon.removeAttribute('aria-hidden');
     }
+    kidNameEl.closest('h1')?.classList.remove('paradigm-kid-page-title');
+    kidNameEl.closest('h1')?.removeAttribute('aria-label');
     updatePageTitle();
     if (window.FamilyUserSwitcher && typeof window.FamilyUserSwitcher.renderAuto === 'function') {
         window.FamilyUserSwitcher.renderAuto(document.getElementById('practiceHomeHeaderActions'));
@@ -628,27 +632,33 @@ function renderOffAppTaskRow(chore) {
     const isChecked = isPending || isCreditedToday;
     const isSaving = Number.parseInt(offAppChoreState.savingRuleId, 10) === ruleId;
     const name = String(chore?.name || '').trim() || 'Task';
-    const statusText = isCreditedToday
-        ? formatCreditedOffAppStatus(creditedEvent)
-        : (isPending ? 'Reviewing' : "I'm done");
-    const actionIcon = isCreditedToday
-        ? 'check'
-        : (isPending ? 'clock' : 'circle-check');
+    const statusText = isSaving
+        ? (isPending ? 'Canceling...' : 'Saving...')
+        : (isCreditedToday
+            ? formatCreditedOffAppStatus(creditedEvent)
+            : (isPending ? 'Undo Review' : "I'm done"));
+    const actionIcon = isPending
+        ? 'rotate-ccw'
+        : (isCreditedToday ? 'check' : 'circle-check');
     const classes = [
         'off-app-task-row',
         isChecked ? 'is-checked' : '',
+        isPending ? 'is-pending-review' : '',
         isCreditedToday ? 'is-credited' : '',
         isSaving ? 'is-saving' : '',
     ].filter(Boolean).join(' ');
-    const disabled = (isSaving || isPending || isCreditedToday) ? ' disabled' : '';
+    const disabled = (isSaving || isCreditedToday) ? ' disabled' : '';
     const ariaPressed = isChecked ? 'true' : 'false';
+    const ariaLabel = isPending
+        ? `Cancel ${name} review request`
+        : (isCreditedToday ? `${name} already reviewed today` : `Mark ${name} done`);
     return `
-        <button type="button" class="${classes}" data-off-app-rule-id="${ruleId}" aria-pressed="${ariaPressed}"${disabled}>
+        <button type="button" class="${classes}" data-off-app-rule-id="${ruleId}" aria-pressed="${ariaPressed}" aria-label="${escapeHtmlLocal(ariaLabel)}"${disabled}>
             <span class="off-app-task-tile">${renderOffAppTaskIcon(chore)}</span>
             <span class="off-app-task-name">${escapeHtmlLocal(name)}</span>
             <span class="off-app-task-action">
                 ${icon(actionIcon, { size: 18 })}
-                <span>${isSaving ? 'Saving...' : escapeHtmlLocal(statusText)}</span>
+                <span>${escapeHtmlLocal(statusText)}</span>
             </span>
         </button>
     `;
@@ -696,12 +706,13 @@ async function handleOffAppTaskToggle(ruleIdValue) {
     }
     const pending = offAppChoreState.pendingByRuleId.get(ruleId) || null;
     if (pending) {
-        showError('This task is waiting for parent review.');
+        await cancelOffAppPendingTask(ruleId, pending);
         return;
     }
 
     offAppChoreState = { ...offAppChoreState, savingRuleId: ruleId };
     renderPracticeOptions();
+    let postRenderMessage = '';
     try {
         const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores/${ruleId}/submit`, {
             method: 'POST',
@@ -713,11 +724,50 @@ async function handleOffAppTaskToggle(ruleIdValue) {
         offAppChoreState = { ...offAppChoreState, savingRuleId: null };
         await loadOffAppChores();
     } catch (error) {
-        showError(error.message || 'Could not check off this task.');
+        postRenderMessage = error.message || 'Could not check off this task.';
         void loadOffAppChores();
     } finally {
         offAppChoreState = { ...offAppChoreState, savingRuleId: null };
         renderPracticeOptions();
+        if (postRenderMessage) {
+            showError(postRenderMessage);
+        }
+    }
+}
+
+async function cancelOffAppPendingTask(ruleId, pending) {
+    const pendingId = Number.parseInt(pending?.pendingId, 10);
+    if (!Number.isInteger(pendingId) || pendingId <= 0) {
+        showError('This review request could not be canceled. I refreshed the list.');
+        void loadOffAppChores();
+        return;
+    }
+
+    offAppChoreState = { ...offAppChoreState, savingRuleId: ruleId };
+    renderPracticeOptions();
+    let postRenderMessage = '';
+    try {
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores/pending/${pendingId}`, {
+            method: 'DELETE',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const raceMessage = response.status === 404 || response.status === 400
+                ? 'This task may already have been reviewed. I refreshed it.'
+                : '';
+            throw new Error(raceMessage || payload.error || `HTTP ${response.status}`);
+        }
+        offAppChoreState = { ...offAppChoreState, savingRuleId: null };
+        await loadOffAppChores();
+    } catch (error) {
+        postRenderMessage = error.message || 'Could not cancel this review request.';
+        await loadOffAppChores();
+    } finally {
+        offAppChoreState = { ...offAppChoreState, savingRuleId: null };
+        renderPracticeOptions();
+        if (postRenderMessage) {
+            showError(postRenderMessage);
+        }
     }
 }
 
@@ -1176,4 +1226,3 @@ function isPackExpired(envelope) {
     const d = window.OfflineCommon && window.OfflineCommon.parseIsoUtc(envelope.expires_at_utc);
     return !!(d && d.getTime() <= Date.now());
 }
-

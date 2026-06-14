@@ -69,16 +69,6 @@ body.has-kid-app-nav {
         padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     }
 
-    .parent-admin-page .page-header-with-back .page-header-row h1 {
-        font-size: clamp(0.95rem, 4vw, 1.15rem);
-        line-height: 1;
-        white-space: nowrap;
-    }
-
-    .parent-admin-page .page-header-with-back .page-header-row h1 .page-title-icon {
-        font-size: 0.95em;
-    }
-
     .kid-app-nav {
         left: 0;
         right: 0;

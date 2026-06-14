@@ -195,6 +195,7 @@
                     <span class="cards-queue-legend-item slow"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Slow</span>
                     <span class="cards-queue-legend-item learning"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Learning</span>
                     <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
+                    <span class="cards-queue-legend-item worksheet"><span class="cards-queue-legend-dot" aria-hidden="true"></span>In worksheet</span>
                     <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
                 </div>
             </div>
@@ -246,12 +247,9 @@
             <div class="manage-popup-modal-body">
                 <div id="deckTreeContainer" class="deck-tree-container"></div>
                 <div class="deck-v2-actions deck-tree-actions">
-                    <div class="deck-v2-action-row deck-tree-action-row-primary">
-                        <button id="applyDeckTreeChangesBtn" type="button" class="btn-primary" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="apply-btn-label">Apply</span></button>
-                    </div>
-                    <div class="deck-v2-action-row deck-tree-action-row-secondary">
-                        <button id="deckTreeClearBtn" type="button" class="btn-secondary"><span data-icon="undo-2" data-icon-size="16" data-icon-stroke="2.2"></span><span>Undo All</span></button>
-                        <button id="cancelDeckTreeModalBtn" type="button" class="btn-secondary"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Close</span></button>
+                    <div class="deck-v2-action-row deck-tree-action-row-primary manage-modal-action-row">
+                        <button id="cancelDeckTreeModalBtn" type="button" class="btn-secondary manage-modal-close-btn deck-tree-close-btn" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span></button>
+                        <button id="applyDeckTreeChangesBtn" type="button" class="btn-primary" aria-label="Apply deck changes" title="Apply deck changes" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="apply-btn-label"></span></button>
                     </div>
                     <div id="deckTreeChangeMessage" class="success hidden"></div>
                 </div>
@@ -350,15 +348,14 @@
                             </table>
                         </div>
                     </div>
-                    <div class="orphan-editor-action-row">
+                    <div id="personalDeckActionRow" class="orphan-editor-action-row manage-modal-action-row">
                         <div id="addCardStatusMessage" class="status-toast hidden" role="status" aria-live="polite">
                             <span id="addCardStatusText" class="status-toast-text"></span>
                             <button id="addCardStatusDismissBtn" type="button" class="status-toast-dismiss" aria-label="Dismiss">&times;</button>
                         </div>
-                        <button type="submit" id="addReadingBtn" class="submit-btn" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
-                        <button id="clearPersonalDeckBtn" type="button" class="btn-secondary"><span class="icon" data-icon="trash" data-icon-size="18"></span> Clear</button>
-                        <button id="personalDeckBackBtn" type="button" class="btn-secondary hidden"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</button>
-                        <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary"><span class="icon" data-icon="x" data-icon-size="18"></span> Close</button>
+                        <button id="cancelPersonalDeckModalBtn" type="button" class="btn-secondary manage-modal-close-btn" aria-label="Close" title="Close"><span class="icon" data-icon="x" data-icon-size="18"></span></button>
+                        <button type="submit" id="addReadingBtn" class="btn-primary" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
+                        <button id="personalDeckBackBtn" type="button" class="btn-secondary manage-modal-icon-btn hidden" aria-label="Back" title="Back"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span></button>
                     </div>
                 </form>
             </div>

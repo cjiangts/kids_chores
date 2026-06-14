@@ -3,23 +3,22 @@
     align-self: flex-start;
     display: inline-flex;
     align-items: center;
-    gap: 0.38rem;
+    gap: 0.4rem;
     padding: 0.5rem 0.95rem;
-    border-radius: 10px;
+    border-radius: 8px;
     font-weight: 500;
     text-decoration: none;
     white-space: nowrap;
-    background: #f4f7ff;
-    color: #2f3c7e;
-    border: 1.5px solid #99a8d4;
-    box-shadow: 0 1px 2px rgba(47, 60, 126, 0.08);
+    background: #fff;
+    color: var(--p-ink-title);
+    border: 1px solid var(--p-border);
+    transition: border-color 120ms, background 120ms, color 120ms;
 }
 
 .report-hero-action:hover {
-    background: #e4ebff;
-    border-color: #6b7eb8;
-    color: #2f3c7e;
-    box-shadow: 0 2px 6px rgba(47, 60, 126, 0.16);
+    background: #f6f9ff;
+    border-color: var(--p-accent-border);
+    color: var(--p-accent);
 }
 
 .report-hero-action svg {

@@ -1463,7 +1463,6 @@ function updateBuildInlineSheetButton() {
 // =====================================================================
 
 const buildChineseSheetBtn = document.getElementById('buildChineseSheetBtn');
-const buildChineseSheetBtnMeta = document.getElementById('buildChineseSheetBtnMeta');
 const chineseSheetPaperSizeSelect = document.getElementById('chineseSheetPaperSize');
 let chineseSheetRows = [];       /* { cardId, character, emptyCount, scale } */
 let currentChineseSheetScale = 0.5;
@@ -1550,12 +1549,14 @@ function getAvailableChineseCharacters(excludedRowIndex) {
 function updateBuildChineseSheetButton() {
     if (!buildChineseSheetBtn) return;
     const candidateCount = Array.isArray(state2Cards) ? state2Cards.length : 0;
-    buildChineseSheetBtn.disabled = candidateCount === 0;
-    if (buildChineseSheetBtnMeta) {
-        buildChineseSheetBtnMeta.textContent = candidateCount > 0
-            ? `${candidateCount} candidate character${candidateCount === 1 ? '' : 's'} available`
-            : 'No candidate characters available';
-    }
+    buildChineseSheetBtn.disabled = false;
+    buildChineseSheetBtn.setAttribute('aria-disabled', candidateCount === 0 ? 'true' : 'false');
+    const label = candidateCount > 0
+        ? `Build writing sheet. ${candidateCount} candidate character${candidateCount === 1 ? '' : 's'} available`
+        : 'Build writing sheet. No candidate characters available';
+    buildChineseSheetBtn.title = label;
+    buildChineseSheetBtn.setAttribute('aria-label', label);
+    if (candidateCount > 0 && typeof hideSheetBuildHint === 'function') hideSheetBuildHint();
 }
 
 function renderChineseSheetBuilderContent(scale) {

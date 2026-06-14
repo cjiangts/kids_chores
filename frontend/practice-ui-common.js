@@ -27,18 +27,38 @@ window.PracticeUiCommon = {
             return;
         }
         const name = String(kid?.name || '');
-        const avatarUrl = String(kid?.avatarUrl || '').trim();
+        const avatarUrl = String(kid?.avatarUrl || kid?.avatar_url || '').trim();
         if (avatarUrl) {
-            el.className = 'page-title-icon kid-initial-avatar kid-initial-avatar--photo';
+            el.className = 'page-title-icon kid-initial-avatar paradigm-kid-title-avatar kid-initial-avatar--photo';
             el.textContent = '';
             el.style.backgroundImage = `url("${avatarUrl.replace(/"/g, '%22')}")`;
             return;
         }
         const initial = window.PracticeUiCommon.getKidInitial(name);
         const tone = window.PracticeUiCommon.hashStringToToneIndex(kid?.id || name);
-        el.className = `page-title-icon kid-initial-avatar kid-initial-avatar--tone-${tone}`;
+        el.className = `page-title-icon kid-initial-avatar paradigm-kid-title-avatar kid-initial-avatar--tone-${tone}`;
         el.textContent = initial;
         el.style.backgroundImage = '';
+    },
+
+    applyKidPageTitle({ titleEl, iconEl, labelEl, kid, label }) {
+        const safeLabel = String(label || '').trim();
+        if (titleEl) {
+            titleEl.classList.add('paradigm-kid-page-title');
+            const kidName = String(kid?.name || '').trim();
+            if (kidName && safeLabel) {
+                titleEl.setAttribute('aria-label', `${kidName} ${safeLabel}`);
+            } else {
+                titleEl.removeAttribute('aria-label');
+            }
+        }
+        window.PracticeUiCommon.applyKidInitialAvatar(iconEl, kid);
+        if (iconEl) {
+            iconEl.setAttribute('aria-hidden', 'true');
+        }
+        if (labelEl) {
+            labelEl.textContent = safeLabel;
+        }
     },
 
     shuffleCards(cardsList) {

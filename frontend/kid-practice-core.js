@@ -714,8 +714,13 @@ function applyKidInfoPayload(kidPayload) {
         throw new Error('No practice subject is available for this kid.');
     }
 
-    kidNameEl.textContent = window.PracticeUiCommon.formatKidPracticeTitle(state.currentKid.name);
-    window.PracticeUiCommon.applyKidInitialAvatar(document.getElementById('kidTitleIcon'), state.currentKid);
+    window.PracticeUiCommon.applyKidPageTitle({
+        titleEl: kidNameEl?.closest('h1'),
+        iconEl: document.getElementById('kidTitleIcon'),
+        labelEl: kidNameEl,
+        kid: state.currentKid,
+        label: window.PracticeUiCommon.formatKidPracticeTitle(state.currentKid.name),
+    });
     setStartTitle(`Ready for ${state.categoryDisplayName}?`);
     updatePageTitle();
 }

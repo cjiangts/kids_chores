@@ -117,6 +117,13 @@
     color: var(--p-accent);
 }
 
+h2.paradigm-panel-title,
+.manage-page .settings-section h2.paradigm-panel-title {
+    display: flex;
+    margin: 0;
+    margin-bottom: 0;
+}
+
 .paradigm-panel-title--inline {
     display: inline-flex;
     width: auto;
@@ -155,6 +162,209 @@
     width: var(--paradigm-panel-title-icon-size);
     height: var(--paradigm-panel-title-icon-size);
     flex: 0 0 var(--paradigm-panel-title-icon-size);
+}
+
+/* Compact form + choice rows: shared settings-page density. */
+.paradigm-form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem 0.65rem;
+}
+
+.paradigm-form-span-full {
+    grid-column: 1 / -1;
+}
+
+.paradigm-compact-form .form-group,
+.paradigm-form-field {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+fieldset.paradigm-form-field {
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.paradigm-compact-form .form-group label,
+.paradigm-form-field > legend {
+    display: block;
+    margin-bottom: 0.28rem;
+    color: var(--p-ink-title);
+    font-size: 0.84rem;
+    font-weight: 620;
+    line-height: 1.15;
+}
+
+.paradigm-compact-form .form-group input:not([type="checkbox"]):not([type="radio"]),
+.paradigm-compact-form .form-group select {
+    min-height: 36px;
+    padding: 0.42rem 0.62rem;
+    font-size: 0.9rem;
+}
+
+.paradigm-choice-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.36rem;
+    margin-top: 0;
+}
+
+.paradigm-choice-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.paradigm-choice-option {
+    display: block;
+    position: relative;
+    min-width: 0;
+}
+
+.paradigm-choice-option input[type="radio"],
+.paradigm-choice-option input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.paradigm-choice-label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    width: 100%;
+    min-height: 36px;
+    border: 1px solid #c8d1e1;
+    border-radius: 8px;
+    padding: 0.45rem 0.62rem;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.paradigm-choice-label:hover {
+    border-color: var(--p-accent-border);
+}
+
+.paradigm-choice-option input:checked + .paradigm-choice-label {
+    border-color: var(--p-accent-border);
+    background: #f7faff;
+}
+
+.paradigm-choice-title {
+    flex: 0 0 auto;
+    color: #233044;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.paradigm-choice-desc {
+    min-width: 0;
+    color: #4b5a70;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+/* Shared first-tag subject picker used by deck creation flows. */
+.paradigm-first-tag-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.35rem;
+    max-height: 300px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: 0;
+    background: transparent;
+    padding: 0;
+}
+
+.paradigm-first-tag-grid .first-tag-option {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #233044;
+    text-align: left;
+    cursor: pointer;
+    padding: 0.2rem 0;
+}
+
+.paradigm-first-tag-grid .first-tag-option--with-icon {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.paradigm-first-tag-grid .first-tag-option-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+}
+
+.paradigm-first-tag-grid .first-tag-option--with-icon .first-tag-option-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.paradigm-first-tag-grid .first-tag-option:hover {
+    color: #172554;
+}
+
+.paradigm-first-tag-grid .first-tag-option.active {
+    background: transparent;
+}
+
+.paradigm-first-tag-grid.category-locked .first-tag-option {
+    cursor: default;
+}
+
+.paradigm-first-tag-grid .first-tag-option.lock-hidden {
+    display: none;
+}
+
+.category-preselect-note {
+    margin-top: 0.38rem;
+    color: #4b5a70;
+    font-size: 0.83rem;
+}
+
+.first-tag-option-title {
+    display: block;
+    margin-bottom: 0.18rem;
+    color: #233044;
+    font-size: 0.95rem;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.first-tag-option-desc {
+    display: block;
+    color: #4b5a70;
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 980px) {
+    .paradigm-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 680px) {
+    .paradigm-form-grid,
+    .paradigm-choice-grid--two {
+        grid-template-columns: 1fr;
+    }
+
+    .paradigm-choice-label {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.12rem;
+    }
 }
 
 .paradigm-panel-meta {
@@ -222,6 +432,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+.paradigm-row-action-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
 }
 
 @media (max-width: 700px) {
@@ -313,15 +530,13 @@
 }
 
 .queue-stepper-btn .icon,
-.queue-stepper-btn svg,
 .point-log-stepper-btn .icon,
-.point-log-stepper-btn svg,
-.admin-off-app-step-btn .icon,
-.admin-off-app-step-btn svg {
+.admin-off-app-step-btn .icon {
     display: block;
     width: 15px;
     height: 15px;
     margin: auto;
+    stroke-width: 2.6;
 }
 
 .manage-page .queue-stepper input[type="number"],
@@ -573,6 +788,20 @@
 
 .kid-avatar-switcher-item.active .kid-avatar-switcher-name {
     border-bottom-color: #fff;
+}
+
+.paradigm-kid-page-title {
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.paradigm-kid-title-avatar {
+    flex: 0 0 auto;
+    box-shadow: 0 6px 14px rgba(31, 45, 98, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.paradigm-kid-title-avatar--pending {
+    visibility: hidden;
 }
 
 @media (max-width: 760px) {
@@ -1745,4 +1974,35 @@ svg.cards-view-toggle-btn-icon,
     .cards-report-view .session-mins { font-size: 0.8rem; }
     .cards-report-view .session-result { font-size: 0.64rem; }
     .cards-report-view .session-retries { font-size: 0.62rem; }
+}
+
+.paradigm-outline-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 1px solid var(--p-border);
+    background: #fff;
+    color: var(--p-ink-title);
+    border-radius: 8px;
+    padding: 0.5rem 0.95rem;
+    font-weight: 500;
+    font-size: 0.85rem;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms, color 120ms;
+}
+
+.paradigm-outline-btn:hover {
+    border-color: var(--p-accent-border);
+    background: #f6f9ff;
+    color: var(--p-accent);
+}
+
+.paradigm-outline-btn:active {
+    border-color: var(--p-accent);
+    background: #ecf2ff;
 }

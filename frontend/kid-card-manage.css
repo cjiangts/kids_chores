@@ -1109,6 +1109,10 @@
             background: #8c68cf;
         }
 
+        .cards-queue-legend-item.worksheet .cards-queue-legend-dot {
+            background: #2ba879;
+        }
+
         .cards-queue-legend-item.not-included .cards-queue-legend-dot {
             background: #fff;
             box-shadow: inset 0 0 0 1px rgba(28, 42, 82, 0.16);
@@ -1948,6 +1952,13 @@
             color: var(--pill-accent);
         }
 
+        .card-compact-pill.in-worksheet {
+            --pill-accent: #1f7a5c;
+            border-color: #acdcca;
+            background: #edf9f4;
+            color: var(--pill-accent);
+        }
+
         .card-compact-pill.chinese {
             font-family: var(--font-kaiti);
             font-size: 1.28rem;
@@ -1959,14 +1970,6 @@
         .card-compact-pill.chinese .card-compact-pill-text {
             font-family: var(--font-kaiti);
             font-weight: 400;
-        }
-
-        .orphan-editor-action-row {
-            display: flex;
-            gap: 0.55rem;
-            align-items: center;
-            flex-wrap: nowrap;
-            position: relative;
         }
 
         .status-toast {
@@ -2025,22 +2028,8 @@
             background: rgba(0, 0, 0, 0.06);
         }
 
-        .orphan-editor-action-row .submit-btn {
-            margin: 0;
-            flex: 1 1 auto;
-            min-width: 0;
-        }
-
-        .orphan-editor-action-row .btn-secondary {
-            flex: 0 0 auto;
-        }
-
-        .orphan-editor-action-row .submit-btn,
-        .orphan-editor-action-row .btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.35rem;
+        #personalDeckActionRow.is-preview {
+            grid-template-columns: var(--control-height, 38px) minmax(0, 1fr) var(--control-height, 38px);
         }
 
         #personalDeckEditWrap,
@@ -2312,6 +2301,12 @@
             border-color: #cdbbf0;
             background: #f4efff;
             color: #6441a8;
+        }
+
+        .expanded-card-preview.in-worksheet {
+            border-color: #acdcca;
+            background: #edf9f4;
+            color: #1f7a5c;
         }
 
         .expanded-card-preview.skipped .expanded-card-preview-text {

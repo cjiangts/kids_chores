@@ -18,35 +18,6 @@
     <link rel="stylesheet" href="kid-app-navigation.css">
     <style>
 
-
-        .deck-panel h2 {
-            margin-bottom: var(--card-section-title-margin-bottom);
-        }
-
-        .deck-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-            gap: 0.8rem;
-        }
-
-        .first-tag-field {
-            grid-column: 1 / -1;
-        }
-
-        fieldset.form-group {
-            border: 0;
-            padding: 0;
-            margin: 0;
-            min-width: 0;
-        }
-
-        fieldset.form-group legend {
-            font-size: 0.92rem;
-            font-weight: 600;
-            color: #2f3c7e;
-            margin-bottom: 0.35rem;
-        }
-
         .deck-row {
             display: flex;
             gap: 0.6rem;
@@ -225,98 +196,6 @@
             font-weight: 700;
         }
 
-        #firstTagToggle {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 0.55rem;
-            border: 1px solid #d7deee;
-            border-radius: 10px;
-            background: #fbfcff;
-            padding: 0.55rem;
-            max-height: 300px;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-
-        #firstTagToggle .first-tag-option {
-            border: 1px solid #c8d1e1;
-            border-radius: 10px;
-            background: #fff;
-            color: #233044;
-            text-align: left;
-            cursor: pointer;
-            padding: 0.68rem 0.75rem;
-            transition: border-color 0.18s ease, box-shadow 0.18s ease;
-        }
-
-        #firstTagToggle .first-tag-option--with-icon {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
-
-        #firstTagToggle .first-tag-option-icon {
-            display: inline-flex;
-            flex: 0 0 auto;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #firstTagToggle .first-tag-option--with-icon .first-tag-option-text {
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-            flex: 1 1 auto;
-        }
-
-        #firstTagToggle .first-tag-option:hover {
-            border-color: #4f83ff;
-        }
-
-        #firstTagToggle .first-tag-option.active {
-            border-color: #4f83ff;
-            box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.16);
-            background: #f7faff;
-        }
-
-        #firstTagToggle.category-locked {
-            border: none;
-            background: transparent;
-            padding: 0;
-            max-height: none;
-            overflow: visible;
-        }
-
-        #firstTagToggle.category-locked .first-tag-option {
-            cursor: default;
-        }
-
-        #firstTagToggle .first-tag-option.lock-hidden {
-            display: none;
-        }
-
-        .category-preselect-note {
-            margin-top: 0.38rem;
-            font-size: 0.83rem;
-            color: #4b5a70;
-        }
-
-        .first-tag-option-title {
-            display: block;
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #233044;
-            margin-bottom: 0.18rem;
-            word-break: break-word;
-        }
-
-        .first-tag-option-desc {
-            display: block;
-            font-size: 0.82rem;
-            line-height: 1.35;
-            color: #4b5a70;
-        }
-
         .type4-editor-grid {
             display: grid;
             gap: 0.8rem;
@@ -378,14 +257,13 @@
         </header>
 
         <main>
-            <section class="deck-panel settings-section">
-                <h2><span class="icon" data-icon="info" data-icon-size="22"></span> 1) Deck Metadata</h2>
-                <div class="deck-grid">
-                    <fieldset class="form-group first-tag-field">
-                        <div id="firstTagToggle" aria-label="First tag">
-                            <span class="settings-note app-spinner-block" role="status" aria-label="Loading subjects"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></span>
-                        </div>
-                    </fieldset>
+            <section class="deck-panel settings-section paradigm-settings-panel">
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="info" data-icon-size="18"></span></span>
+                    <span class="paradigm-panel-heading">1) Deck Metadata</span>
+                </h2>
+                <div id="firstTagToggle" class="paradigm-first-tag-grid" aria-label="First tag">
+                    <span class="settings-note app-spinner-block" role="status" aria-label="Loading subjects"><span class="app-spinner app-spinner--small" aria-hidden="true"></span></span>
                 </div>
                 <div class="add-tag-group">
                     <div class="form-group" style="margin-bottom:0;">
@@ -401,8 +279,11 @@
                 </div>
             </section>
 
-            <section id="step2Section" class="deck-panel settings-section hidden">
-                <h2><span class="icon" data-icon="layers" data-icon-size="22"></span> <span id="cardsInputSectionTitle">2) Deck Content</span></h2>
+            <section id="step2Section" class="deck-panel settings-section paradigm-settings-panel hidden">
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="layers" data-icon-size="18"></span></span>
+                    <span id="cardsInputSectionTitle" class="paradigm-panel-heading">2) Deck Content</span>
+                </h2>
                 <div id="staticCardsEditor">
                     <p id="cardsInputHelpText" class="muted-help-text">Format: one card per line as <code>front,back</code>. Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>
                     <textarea id="cardsCsv" class="deck-csv-textarea input-mono" placeholder="1+1,2&#10;2+3,5"></textarea>
@@ -458,8 +339,11 @@
                 </div>
             </section>
 
-            <section id="reviewSection" class="deck-panel settings-section hidden">
-                <h2><span class="icon" data-icon="check" data-icon-size="22"></span> 3) Review & Confirm</h2>
+            <section id="reviewSection" class="deck-panel settings-section paradigm-settings-panel hidden">
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="check" data-icon-size="18"></span></span>
+                    <span class="paradigm-panel-heading">3) Review &amp; Confirm</span>
+                </h2>
                 <div class="deck-review-head">
                     <div id="reviewMeta"></div>
                     <button type="button" id="createDeckBtn" class="btn-primary"><span data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Confirm &amp; Create Deck</span></button>

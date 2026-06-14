@@ -167,7 +167,6 @@ async function loadSessionDetail() {
 
         const data = await response.json();
         const kidName = String(data.kid?.name || '').trim();
-        const displayKidName = kidName || '...';
         currentKidName = kidName;
         const session = data.session || {};
         currentSessionType = normalizeCategoryKey(session.type);
@@ -181,8 +180,14 @@ async function loadSessionDetail() {
             0,
             Number.parseInt(session.drill_speed_target_ms, 10) || 0
         );
-        pageTitle.textContent = `${displayKidName} · Session`;
-        document.title = `${displayKidName} - Session #${session.id || sessionId} - The Mommy App`;
+        window.PracticeUiCommon?.applyKidPageTitle({
+            titleEl: pageTitle?.closest('h1'),
+            iconEl: pageTitle?.closest('h1')?.querySelector('.page-title-icon'),
+            labelEl: pageTitle,
+            kid: data.kid,
+            label: 'Session',
+        });
+        document.title = `${kidName || 'Kid'} - Session #${session.id || sessionId} - The Mommy App`;
 
         const answers = Array.isArray(data.answers) ? data.answers : [];
         currentAnswers = answers;
@@ -195,7 +200,7 @@ async function loadSessionDetail() {
     } catch (error) {
         console.error('Error loading session detail:', error);
         showError('Failed to load session detail.');
-        document.title = 'Session Detail - The Mommy App';
+        document.title = 'Session - The Mommy App';
     }
 }
 
@@ -238,9 +243,8 @@ function renderSummaryHero(metaHtml) {
     const actionHtml = window.ReportHeroAction.renderActionLinkHtml({
         id: 'subjectActionBtn',
         href: buildSessionHistoryHref(),
-        label: 'Session History',
+        label: 'history',
         leadingIcon: 'history',
-        trailingIcon: 'arrow-right',
     });
     return `
         <div class="session-summary-hero">

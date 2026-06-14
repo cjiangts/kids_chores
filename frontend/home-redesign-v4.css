@@ -486,6 +486,19 @@
     color: #50608f;
 }
 
+.practice-home-redesign .off-app-task-row.is-pending-review .off-app-task-action {
+    border-color: #7057d9;
+    background: #fff;
+    color: #7057d9;
+}
+
+.practice-home-redesign .off-app-task-row.is-pending-review:hover .off-app-task-action,
+.practice-home-redesign .off-app-task-row.is-pending-review:focus-visible .off-app-task-action {
+    background: #f7f4ff;
+    border-color: #5f49ec;
+    color: #5f49ec;
+}
+
 .practice-home-redesign .off-app-task-row.is-credited .off-app-task-action {
     border-color: #8fd2a7;
     background: #eaf8ef;

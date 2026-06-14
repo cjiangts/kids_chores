@@ -207,6 +207,9 @@ function buildExpandedCardPreviewMarkup(card, options = {}) {
     if (card && card.skip_practice) {
         classes.push('skipped');
     }
+    if (isCardInPendingWorksheet(card)) {
+        classes.push('in-worksheet');
+    }
     const queueHighlight = String(options.queueHighlight || '').trim().toLowerCase();
     if (queueHighlight) {
         classes.push(`queue-${queueHighlight}`);
@@ -362,6 +365,9 @@ function buildCompactCardMarkup(card, options = {}) {
     if (card && card.skip_practice) {
         classes.push('skipped');
     }
+    if (isCardInPendingWorksheet(card)) {
+        classes.push('in-worksheet');
+    }
     if (isChineseSpecificLogic) {
         classes.push('chinese');
     }
@@ -401,16 +407,19 @@ function buildCompactCardMarkup(card, options = {}) {
                             )
                     )
             ));
+    const worksheetHint = isCardInPendingWorksheet(card)
+        ? ' • In worksheet practice'
+        : '';
     const scoreHint = Number.isFinite(scoreValue)
         ? ` • Priority score: ${formatPracticePriorityScore(scoreValue)}`
         : '';
     const action = isCardsSelectModeOn ? 'toggle-select' : 'expand-compact';
     const titleAttr = isCardsSelectModeOn
         ? escapeHtml(`${isSelected ? 'Deselect' : 'Select'} • Front: ${text}`)
-        : escapeHtml(`Open details • Front: ${text}${highlightHint}${scoreHint}`);
+        : escapeHtml(`Open details • Front: ${text}${worksheetHint}${highlightHint}${scoreHint}`);
     const ariaLabel = isCardsSelectModeOn
         ? escapeHtml(`${isSelected ? 'Deselect' : 'Select'} card: ${text}`)
-        : escapeHtml(`Open card details: ${text}${highlightHint}${scoreHint}`);
+        : escapeHtml(`Open card details: ${text}${worksheetHint}${highlightHint}${scoreHint}`);
     const selectAttrs = isCardsSelectModeOn
         ? ` aria-pressed="${isSelected ? 'true' : 'false'}" data-select-card-id="${escapeHtml(cardId)}"`
         : '';

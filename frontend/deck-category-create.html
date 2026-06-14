@@ -18,112 +18,11 @@
     <link rel="stylesheet" href="kid-app-navigation.css">
     <style>
 
-
-        .deck-panel h2 {
-            margin-bottom: var(--card-section-title-margin-bottom);
-        }
-
-        .deck-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.8rem;
-        }
-
         .deck-row {
             display: flex;
             gap: 0.6rem;
             align-items: end;
             flex-wrap: wrap;
-        }
-
-        .field-behavior {
-            grid-column: 1 / -1;
-        }
-
-        .field-chinese-logic {
-            grid-column: 1 / -1;
-        }
-
-        fieldset.form-group {
-            border: 0;
-            padding: 0;
-            margin: 0;
-            min-width: 0;
-        }
-
-        fieldset.form-group legend {
-            font-size: 0.92rem;
-            font-weight: 600;
-            color: #2f3c7e;
-            margin-bottom: 0.35rem;
-        }
-
-        .behavior-picker {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 0.55rem;
-            margin-top: 0.2rem;
-        }
-
-        .logic-picker {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.55rem;
-            margin-top: 0.2rem;
-        }
-
-        .behavior-option input[type="radio"] {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .behavior-option-label {
-            display: block;
-            border: 1px solid #c8d1e1;
-            border-radius: 10px;
-            padding: 0.65rem 0.75rem;
-            background: #fff;
-            cursor: pointer;
-            transition: border-color 0.18s ease, box-shadow 0.18s ease;
-        }
-
-        .behavior-option-label:hover {
-            border-color: #4f83ff;
-        }
-
-        .behavior-option input[type="radio"]:checked + .behavior-option-label {
-            border-color: #4f83ff;
-            box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.16);
-            background: #f7faff;
-        }
-
-        .behavior-option-title {
-            font-weight: 700;
-            color: #233044;
-            margin-bottom: 0.2rem;
-        }
-
-        .behavior-option-desc {
-            font-size: 0.86rem;
-            color: #4b5a70;
-            line-height: 1.35;
-        }
-
-        @media (max-width: 980px) {
-            .deck-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-
-        @media (max-width: 680px) {
-            .deck-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .logic-picker {
-                grid-template-columns: 1fr;
-            }
         }
 
         .category-emoji-cell {
@@ -231,86 +130,89 @@
         </header>
 
         <main>
-            <section class="deck-panel settings-section">
-                <h2><span class="icon" data-icon="plus" data-icon-size="22"></span> New Subject</h2>
-                <form id="createCategoryForm">
-                    <div class="deck-grid">
-                        <div class="form-group">
+            <section class="deck-panel settings-section paradigm-settings-panel">
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="plus" data-icon-size="18"></span></span>
+                    <span class="paradigm-panel-heading">New Subject</span>
+                </h2>
+                <form id="createCategoryForm" class="paradigm-compact-form">
+                    <div class="paradigm-form-grid">
+                        <div class="form-group paradigm-form-field">
                             <label for="categoryKeyInput">Subject key</label>
                             <input type="text" id="categoryKeyInput" placeholder="e.g. science_reading" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group paradigm-form-field">
                             <label for="displayNameInput">Display name</label>
                             <input type="text" id="displayNameInput" placeholder="e.g. Science Reading">
                         </div>
-                        <fieldset class="form-group field-behavior">
+                        <fieldset class="form-group paradigm-form-field paradigm-form-span-full">
                             <legend>Behavior type</legend>
-                            <div class="behavior-picker" id="behaviorTypePicker">
-                                <label class="behavior-option">
+                            <div class="paradigm-choice-grid" id="behaviorTypePicker">
+                                <label class="paradigm-choice-option">
                                     <input type="radio" name="behaviorType" value="type_i" checked required>
-                                    <span class="behavior-option-label">
-                                        <span class="behavior-option-title">Type I</span>
-                                        <span class="behavior-option-desc">Front text -> Done -> Back text -> Right/Wrong</span>
+                                    <span class="paradigm-choice-label">
+                                        <span class="paradigm-choice-title">Type I</span>
+                                        <span class="paradigm-choice-desc">Front text -> Done -> Back text -> Right/Wrong</span>
                                     </span>
                                 </label>
-                                <label class="behavior-option">
+                                <label class="paradigm-choice-option">
                                     <input type="radio" name="behaviorType" value="type_ii" required>
-                                    <span class="behavior-option-label">
-                                        <span class="behavior-option-title">Type II</span>
-                                        <span class="behavior-option-desc">Prompt front as audio -> Done -> Back text -> Right/Wrong</span>
+                                    <span class="paradigm-choice-label">
+                                        <span class="paradigm-choice-title">Type II</span>
+                                        <span class="paradigm-choice-desc">Prompt front as audio -> Done -> Back text -> Right/Wrong</span>
                                     </span>
                                 </label>
-                                <label class="behavior-option">
+                                <label class="paradigm-choice-option">
                                     <input type="radio" name="behaviorType" value="type_iii" required>
-                                    <span class="behavior-option-label">
-                                        <span class="behavior-option-title">Type III</span>
-                                        <span class="behavior-option-desc">Front + Back shown -> kid recording workflow</span>
+                                    <span class="paradigm-choice-label">
+                                        <span class="paradigm-choice-title">Type III</span>
+                                        <span class="paradigm-choice-desc">Front + Back shown -> kid recording workflow</span>
                                     </span>
                                 </label>
-                                <label class="behavior-option">
+                                <label class="paradigm-choice-option">
                                     <input type="radio" name="behaviorType" value="type_iv" required>
-                                    <span class="behavior-option-label">
-                                        <span class="behavior-option-title">Type IV</span>
-                                        <span class="behavior-option-desc">Dynamic Type IV deck -> typed answer -> backend auto-grading</span>
+                                    <span class="paradigm-choice-label">
+                                        <span class="paradigm-choice-title">Type IV</span>
+                                        <span class="paradigm-choice-desc">Dynamic Type IV deck -> typed answer -> backend auto-grading</span>
                                     </span>
                                 </label>
                             </div>
                         </fieldset>
-                        <fieldset class="form-group field-chinese-logic">
+                        <fieldset class="form-group paradigm-form-field paradigm-form-span-full">
                             <legend>Chinese-specific logic</legend>
-                            <div class="logic-picker" id="chineseLogicPicker">
-                                <label class="behavior-option">
+                            <div class="paradigm-choice-grid paradigm-choice-grid--two" id="chineseLogicPicker">
+                                <label class="paradigm-choice-option">
                                     <input type="radio" name="hasChineseSpecificLogic" value="false" checked required>
-                                    <span class="behavior-option-label">
-                                        <span class="behavior-option-title">No</span>
-                                        <span class="behavior-option-desc">Use generic behavior flow only.</span>
+                                    <span class="paradigm-choice-label">
+                                        <span class="paradigm-choice-title">No</span>
+                                        <span class="paradigm-choice-desc">Use generic behavior flow only.</span>
                                     </span>
                                 </label>
-                                <label class="behavior-option">
+                                <label class="paradigm-choice-option">
                                     <input type="radio" name="hasChineseSpecificLogic" value="true" required>
-                                    <span class="behavior-option-label">
-                                        <span class="behavior-option-title">Yes</span>
-                                        <span class="behavior-option-desc">Enable Chinese-specific behavior differences.</span>
+                                    <span class="paradigm-choice-label">
+                                        <span class="paradigm-choice-title">Yes</span>
+                                        <span class="paradigm-choice-desc">Enable Chinese-specific behavior differences.</span>
                                     </span>
                                 </label>
                             </div>
                             <p id="chineseLogicNote" class="category-preselect-note hidden"></p>
                         </fieldset>
-                        <fieldset class="form-group field-chinese-logic hidden" id="chineseBackContentFieldset">
+                        <fieldset class="form-group paradigm-form-field paradigm-form-span-full hidden" id="chineseBackContentFieldset">
                             <legend>Chinese back-of-card content</legend>
-                            <div class="logic-picker" id="chineseBackContentPicker">
-                                <label class="behavior-option">
+                            <div class="paradigm-choice-grid paradigm-choice-grid--two" id="chineseBackContentPicker">
+                                <label class="paradigm-choice-option">
                                     <input type="radio" name="chineseBackContent" value="pinyin">
-                                    <span class="behavior-option-label">
-                                        <span class="behavior-option-title">Pinyin</span>
-                                        <span class="behavior-option-desc">Character deck: single char, back = pinyin.</span>
+                                    <span class="paradigm-choice-label">
+                                        <span class="paradigm-choice-title">Pinyin</span>
+                                        <span class="paradigm-choice-desc">Character deck: single char, back = pinyin.</span>
                                     </span>
                                 </label>
-                                <label class="behavior-option">
+                                <label class="paradigm-choice-option">
                                     <input type="radio" name="chineseBackContent" value="english">
-                                    <span class="behavior-option-label">
-                                        <span class="behavior-option-title">English</span>
-                                        <span class="behavior-option-desc">Vocabulary deck: 1+ chars, back = english meaning.</span>
+                                    <span class="paradigm-choice-label">
+                                        <span class="paradigm-choice-title">English</span>
+                                        <span class="paradigm-choice-desc">Vocabulary deck: 1+ chars, back = english meaning.</span>
                                     </span>
                                 </label>
                             </div>
@@ -322,8 +224,11 @@
                 </form>
             </section>
 
-            <section class="deck-panel settings-section">
-                <h2><span class="icon" data-icon="folder" data-icon-size="22"></span> Existing Subjects</h2>
+            <section class="deck-panel settings-section paradigm-settings-panel">
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="folder" data-icon-size="18"></span></span>
+                    <span class="paradigm-panel-heading">Existing Subjects</span>
+                </h2>
                 <div id="emptyState" class="deck-empty hidden">No subjects found.</div>
                 <div id="tableWrap" class="shared-report-table-wrap">
                     <table class="shared-report-table">

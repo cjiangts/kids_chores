@@ -880,9 +880,9 @@ function buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) {
     const safePoints = clampAdminOffAppPoints(points, maxPoint);
     return `
         <div class="admin-off-app-point-stepper" aria-label="Points" data-off-app-review-key="${escapeHtml(reviewKey)}">
-            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="-1" data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Decrease points"${(isSaving || safePoints <= 1) ? ' disabled' : ''}>-</button>
+            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="-1" data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Decrease points"${(isSaving || safePoints <= 1) ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('minus') : '-'}</button>
             <input class="admin-off-app-points-input" type="number" inputmode="numeric" min="1" max="${maxPoint}" value="${safePoints}" data-off-app-points-input data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Points for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
-            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="1" data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Increase points"${(isSaving || safePoints >= maxPoint) ? ' disabled' : ''}>+</button>
+            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="1" data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Increase points"${(isSaving || safePoints >= maxPoint) ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('plus') : '+'}</button>
         </div>
     `;
 }
@@ -1270,9 +1270,10 @@ function buildTodayColumnHeader(kid) {
     const kidId = String(kid?.id || '');
     const name = String(kid?.name || '').trim() || 'this child';
     const href = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
+    const calendarIcon = (typeof window.icon === 'function') ? window.icon('calendar', { size: 13, strokeWidth: 2.2 }) : '';
     return `
         <th class="admin-matrix-status-head paradigm-status-column">
-            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-today-head-link" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} today's report">Today</a>
+            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-today-head-link" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} today's report">${calendarIcon}<span>Today</span></a>
         </th>
     `;
 }

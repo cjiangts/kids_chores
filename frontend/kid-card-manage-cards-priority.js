@@ -245,6 +245,17 @@ function usesPracticePriorityDisplay() {
     return supportsPracticePriorityPreview() && !isType4Behavior();
 }
 
+function isCardInPendingWorksheet(card) {
+    if (!card) {
+        return false;
+    }
+    if (Boolean(card.pending_sheet)) {
+        return true;
+    }
+    const writingState = Number.parseInt(card.writing_state, 10);
+    return Number.isInteger(writingState) && writingState === 3;
+}
+
 function compareCardIdentity(a, b) {
     const aId = Number.parseInt(a && a.id, 10);
     const bId = Number.parseInt(b && b.id, 10);
@@ -315,6 +326,11 @@ function comparePracticeQueueCards(a, b, direction) {
     const bSkipped = Boolean(b && b.skip_practice);
     if (aSkipped !== bSkipped) {
         return aSkipped ? 1 : -1;
+    }
+    const aInWorksheet = isCardInPendingWorksheet(a);
+    const bInWorksheet = isCardInPendingWorksheet(b);
+    if (aInWorksheet !== bInWorksheet) {
+        return aInWorksheet ? 1 : -1;
     }
     const aRaw = Number(a && a.practice_priority_order);
     const bRaw = Number(b && b.practice_priority_order);
@@ -841,7 +857,7 @@ function getPracticePriorityRankText(card) {
         return '';
     }
     const activeCount = Array.isArray(sortedCards)
-        ? sortedCards.filter((queueCard) => !queueCard.skip_practice).length
+        ? sortedCards.filter((queueCard) => !queueCard.skip_practice && !isCardInPendingWorksheet(queueCard)).length
         : 0;
     return `Rank #${order}${activeCount > 0 ? ` of ${activeCount}` : ''}`;
 }
@@ -966,7 +982,7 @@ function getQueueHighlightMap(cards) {
     if (usesPracticePriorityDisplay()) {
         const orderedQueueCards = window.PracticeManageCommon.sortCardsForView(
             (Array.isArray(cards) ? cards : []).filter((card) => {
-                if (!card || card.skip_practice) {
+                if (!card || card.skip_practice || isCardInPendingWorksheet(card)) {
                     return false;
                 }
                 const rawOrder = Number(card.practice_priority_order);
@@ -996,7 +1012,7 @@ function getQueueHighlightMap(cards) {
 
     const orderedQueueCards = window.PracticeManageCommon.sortCardsForView(
         (Array.isArray(cards) ? cards : []).filter((card) => {
-            if (!card || card.skip_practice) {
+            if (!card || card.skip_practice || isCardInPendingWorksheet(card)) {
                 return false;
             }
             const rawOrder = Number(card.next_session_order);
@@ -1058,6 +1074,7 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
                 ${slowLegendHtml}
                 <span class="cards-queue-legend-item learning"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Learning</span>
                 <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
+                <span class="cards-queue-legend-item worksheet"><span class="cards-queue-legend-dot" aria-hidden="true"></span>In worksheet</span>
                 <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
             `;
         }

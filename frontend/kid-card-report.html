@@ -10,7 +10,7 @@
     <script src="idle-home-redirect.js"></script>
     <script src="offline-redirect-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Card Report - The Mommy App</title>
+    <title>Card History - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="paradigm.css">
@@ -185,6 +185,7 @@
             margin: 0;
         }
 
+
         .chart-card-subhead {
             font-size: 0.78rem;
             color: #6a7596;
@@ -199,12 +200,6 @@
             display: none;
         }
 
-        .chart-card-head .trend-legend {
-            margin-bottom: 0;
-            margin-left: auto;
-            justify-content: flex-end;
-            flex-wrap: wrap;
-        }
 
         .history-item.current-session-item {
             border-color: #b7c2ec;
@@ -212,7 +207,7 @@
         }
 
         .trend-numberline {
-            padding: 0.4rem 2.4rem 0 0.4rem;
+            padding: 0 1.2rem 0 0;
         }
 
         .trend-numberline-stage {
@@ -322,7 +317,7 @@
             gap: 0.35rem;
             font-size: 0.78rem;
             color: #666;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0;
         }
 
         .trend-legend-dot {
@@ -776,9 +771,9 @@
     <div class="container">
         <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
-                <h1>
-                    <span class="page-title-icon" aria-hidden="true">📊</span>
-                    <span id="pageTitle">Card Report</span>
+                <h1 class="paradigm-kid-page-title">
+                    <span class="page-title-icon kid-initial-avatar paradigm-kid-title-avatar paradigm-kid-title-avatar--pending" aria-hidden="true"></span>
+                    <span id="pageTitle">Card History</span>
                 </h1>
                 <div class="page-header-actions" data-family-user-switcher></div>
             </div>
@@ -790,15 +785,12 @@
             <div id="cardReportHero"></div>
         </section>
 
-        <section class="paradigm-settings-panel section-stack">
-            <div class="chart-card-head">
-                <div>
-                    <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon"><span class="icon" data-icon="bar-chart-3" data-icon-size="22"></span></span><span class="paradigm-panel-heading">Speed Over Time</span></h2>
-                    <div class="chart-card-subhead">Each dot = one attempt</div>
-                </div>
-                <div id="trendLegend" class="trend-legend"></div>
+        <section class="paradigm-settings-panel section-stack" style="display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.55rem; min-width: 0;">
+                <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon"><span class="icon" data-icon="bar-chart-3" data-icon-size="22"></span></span><span class="paradigm-panel-heading">Speed Over Time</span></h2>
+                <div id="trendPeriodBtns" class="trend-period-btns" style="flex-wrap: nowrap; margin: 0;"></div>
             </div>
-            <div id="trendPeriodBtns" class="trend-period-btns" hidden></div>
+            <div id="trendLegend" class="trend-legend"></div>
             <div id="trendChart" class="chart-wrap"></div>
             <div id="trendFootnote" class="chart-card-subhead trend-footnote"></div>
         </section>
@@ -819,6 +811,7 @@
     <script src="lesson-reading-duration-backfill.js"></script>
     <script src="audio-history-common.js"></script>
     <script src="report-hero-action-common.js"></script>
+    <script src="practice-ui-common.js"></script>
     <script src="kid-card-report.js"></script>
 </body>
 </html>

@@ -836,6 +836,7 @@ def get_kid_report(kid_id):
             'kid': {
                 'id': kid.get('id'),
                 'name': kid.get('name'),
+                'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
             },
             'family_timezone': family_timezone,
             'sessions': sessions
@@ -1001,6 +1002,7 @@ def get_kid_report_session_detail(kid_id, session_id):
             'kid': {
                 'id': kid.get('id'),
                 'name': kid.get('name'),
+                'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
             },
             'session': {
                 'id': int(session_row[0]),
@@ -1312,6 +1314,7 @@ def get_kid_report_card_detail(kid_id, card_id):
             'kid': {
                 'id': kid.get('id'),
                 'name': kid.get('name'),
+                'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
             },
             'card': {
                 'id': int(card_row[0]),

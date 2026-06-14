@@ -77,7 +77,6 @@ async function loadCardReport() {
 
         const data = await response.json();
         const kidName = String(data.kid?.name || '').trim();
-        const displayKidName = kidName || '...';
         const card = data.card || {};
         const attempts = Array.isArray(data.attempts) ? data.attempts : [];
         currentKidName = String(kidName || '').trim();
@@ -85,8 +84,14 @@ async function loadCardReport() {
         currentCardBack = String(card.back || '').trim();
         currentDeckName = String(card.deck_name || '').trim();
 
-        pageTitle.textContent = `${displayKidName} · Card History`;
-        document.title = `${displayKidName} - Card Report - The Mommy App`;
+        window.PracticeUiCommon?.applyKidPageTitle({
+            titleEl: pageTitle?.closest('h1'),
+            iconEl: pageTitle?.closest('h1')?.querySelector('.page-title-icon'),
+            labelEl: pageTitle,
+            kid: data.kid,
+            label: 'Card History',
+        });
+        document.title = `${kidName || 'Kid'} - Card History - The Mommy App`;
 
         renderHero(card, attempts);
         renderTrend(attempts);
@@ -96,7 +101,7 @@ async function loadCardReport() {
     } catch (error) {
         console.error('Error loading card report:', error);
         showError('Failed to load card report.');
-        document.title = 'Card Report - The Mommy App';
+        document.title = 'Card History - The Mommy App';
     }
 }
 
@@ -176,9 +181,8 @@ function renderHero(card, attempts) {
     const manageBtnHtml = window.ReportHeroAction.renderActionLinkHtml({
         id: 'cardStatsBtn',
         href: buildCardStatsHref(card),
-        label: 'Card Stats',
+        label: 'stats',
         leadingIcon: 'bar-chart-3',
-        trailingIcon: 'arrow-right',
     });
 
     cardReportHero.innerHTML = `

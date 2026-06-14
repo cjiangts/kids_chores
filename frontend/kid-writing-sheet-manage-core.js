@@ -22,13 +22,11 @@ const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLo
 const pageTitleEl = document.getElementById('pageTitle');
 const errorMessage = document.getElementById('errorMessage');
 
-const chineseGenerateSection = document.getElementById('chineseGenerateSection');
-const mathGenerateSection = document.getElementById('mathGenerateSection');
 const sheetHistorySection = document.getElementById('sheetHistorySection');
 const sheetHistoryTitle = document.getElementById('sheetHistoryTitle');
 const sheetHistoryNote = document.getElementById('sheetHistoryNote');
+const sheetBuildHint = document.getElementById('sheetBuildHint');
 const mathDeckRowsEl = document.getElementById('mathDeckRows');
-const mathBuildInfoEl = document.getElementById('mathBuildInfo');
 const mathSheetErrorMessage = document.getElementById('mathSheetErrorMessage');
 
 const sheetList = document.getElementById('sheetList');
@@ -42,9 +40,11 @@ let state2Cards = [];
 
 /* 'chinese' or 'math' */
 let pageMode = 'chinese';
+let activeKid = null;
 let mathPrintConfigDecks = [];
 let mathSheetsById = new Map();
 let canDesignMathCells = false;
+let sheetBuildHintTimer = 0;
 
 /* ── Shared utilities ── */
 
@@ -93,6 +93,24 @@ function showMathSheetError(message) {
     if (!text) { mathSheetErrorMessage.textContent = ''; mathSheetErrorMessage.classList.add('hidden'); return; }
     mathSheetErrorMessage.textContent = text;
     mathSheetErrorMessage.classList.remove('hidden');
+}
+
+function hideSheetBuildHint() {
+    if (!sheetBuildHint) return;
+    window.clearTimeout(sheetBuildHintTimer);
+    sheetBuildHintTimer = 0;
+    sheetBuildHint.textContent = '';
+    sheetBuildHint.classList.add('hidden');
+}
+
+function showSheetBuildHint(message) {
+    if (!sheetBuildHint) return;
+    const text = String(message || '').trim();
+    if (!text) { hideSheetBuildHint(); return; }
+    sheetBuildHint.textContent = text;
+    sheetBuildHint.classList.remove('hidden');
+    window.clearTimeout(sheetBuildHintTimer);
+    sheetBuildHintTimer = window.setTimeout(hideSheetBuildHint, 3600);
 }
 
 function formatDate(value) {
@@ -149,11 +167,15 @@ function updatePageText() {
     const displayName = String(activeCategoryDisplayName || modeLabel).trim() || modeLabel;
     const kidName = String(activeKidName || '').trim();
     document.title = kidName
-        ? `${kidName} - Printable work sheets (${displayName}) - The Mommy App`
-        : `Printable work sheets (${displayName}) - The Mommy App`;
-    if (pageTitleEl) {
-        pageTitleEl.textContent = `Printable work sheets (${displayName})`;
-    }
+        ? `${kidName} - ${displayName} Sheets - The Mommy App`
+        : `${displayName} Sheets - The Mommy App`;
+    window.PracticeUiCommon?.applyKidPageTitle({
+        titleEl: pageTitleEl?.closest('h1'),
+        iconEl: pageTitleEl?.closest('h1')?.querySelector('.page-title-icon'),
+        labelEl: pageTitleEl,
+        kid: activeKid,
+        label: `${displayName} Sheets`,
+    });
 }
 
 async function loadKidInfo() {
@@ -161,6 +183,7 @@ async function loadKidInfo() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Failed to load kid (HTTP ${response.status})`);
     const kid = payload;
+    activeKid = kid;
     activeKidName = String(kid?.name || '').trim();
     const categoryMetaMap = window.DeckCategoryCommon.getDeckCategoryMetaMap(kid);
 
@@ -185,18 +208,23 @@ async function loadKidInfo() {
 }
 
 function applyPageMode() {
+    const buildChineseBtn = document.getElementById('buildChineseSheetBtn');
+    const buildVerticalBtn = document.getElementById('buildSheetBtn');
+    const buildInlineBtn = document.getElementById('buildInlineSheetBtn');
     if (pageMode === 'math') {
-        if (chineseGenerateSection) chineseGenerateSection.classList.add('hidden');
-        if (mathGenerateSection) mathGenerateSection.classList.remove('hidden');
         if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
         if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Sheets';
         if (sheetHistoryNote) sheetHistoryNote.classList.add('hidden');
+        buildChineseBtn?.classList.add('hidden');
+        buildVerticalBtn?.classList.remove('hidden');
+        buildInlineBtn?.classList.remove('hidden');
     } else {
-        if (chineseGenerateSection) chineseGenerateSection.classList.remove('hidden');
-        if (mathGenerateSection) mathGenerateSection.classList.add('hidden');
         if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
         if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Practice Sheets';
         if (sheetHistoryNote) sheetHistoryNote.classList.add('hidden');
+        buildChineseBtn?.classList.remove('hidden');
+        buildVerticalBtn?.classList.add('hidden');
+        buildInlineBtn?.classList.add('hidden');
     }
 }
 
@@ -217,7 +245,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncMathPaperSizeSelects();
 
     /* Chinese Sheet Builder */
-    if (buildChineseSheetBtn) buildChineseSheetBtn.addEventListener('click', openChineseSheetBuilder);
+    if (buildChineseSheetBtn) {
+        buildChineseSheetBtn.addEventListener('click', () => {
+            if (!Array.isArray(state2Cards) || state2Cards.length === 0) {
+                showSheetBuildHint('No candidate characters available yet. Practice Chinese Writing first, then printable characters will appear here.');
+                return;
+            }
+            hideSheetBuildHint();
+            openChineseSheetBuilder();
+        });
+    }
     document.getElementById('chineseSheetCloseBtn')?.addEventListener('click', closeChineseSheetBuilder);
     document.getElementById('cwGlobalScaleDown')?.addEventListener('click', () => updateChineseSheetGlobalScale(-1));
     document.getElementById('cwGlobalScaleUp')?.addEventListener('click', () => updateChineseSheetGlobalScale(1));
