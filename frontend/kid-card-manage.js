@@ -67,9 +67,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             setTimeout(() => document.addEventListener('click', dismiss), 0);
         });
     }
-    if (deckTreeSearchInput) {
-        window.SearchBar.enhance(deckTreeSearchInput);
-    }
     const deckTreeExpandAllBtn = document.getElementById('deckTreeExpandAllBtn');
     const deckTreeCollapseAllBtn = document.getElementById('deckTreeCollapseAllBtn');
     if (deckTreeExpandAllBtn) {
@@ -340,7 +337,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     // === 9. Card search + focus-banner clear + cards-selection toolbar ===
     if (cardSearchInput) {
-        window.SearchBar.enhance(cardSearchInput);
         cardSearchInput.addEventListener('input', () => {
             resetAndDisplayCards(currentCards);
         });

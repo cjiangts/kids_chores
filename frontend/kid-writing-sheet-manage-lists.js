@@ -60,7 +60,7 @@ function renderChineseSheets(sheets) {
             : '<span class="sheet-card-empty">(no cards)</span>';
         const isDone = String(sheet && sheet.status || '').trim().toLowerCase() === 'done';
         const isPending = !isDone;
-        const statusClass = isDone ? 'done' : 'pending';
+        const statusClass = isDone ? 'sheet-status-pill--done' : 'sheet-status-pill--pending';
         const statusLabel = isDone ? 'done' : 'practicing';
         const printedDay = formatSheetDay(sheet && sheet.created_at);
         const actionBtns = [
@@ -70,7 +70,7 @@ function renderChineseSheets(sheets) {
         ].join('');
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">Sheet #${safeSheetId} · ${escapeHtml(printedDay)}</span></div><div class="sheet-head-right"><span class="status ${statusClass}">${statusLabel}</span><div class="paradigm-row-action-group">${actionBtns}</div></div></div>
+                <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">Sheet #${safeSheetId} · ${escapeHtml(printedDay)}</span></div><div class="sheet-head-right"><span class="paradigm-pill sheet-status-pill ${statusClass}">${statusLabel}</span><div class="paradigm-row-action-group">${actionBtns}</div></div></div>
                 <div class="sheet-cards">${answersHtml}</div>
             </article>`;
     }).join('');
@@ -161,7 +161,6 @@ function renderMathSheets(sheets) {
         const isPreview = status === 'preview';
         const isPending = status === 'pending';
         const isDone = status === 'done';
-        const statusClass = isDone ? 'done' : (isPreview ? 'preview' : 'pending');
         const layoutKey = String(sheet && sheet.layout_format || '').trim().toLowerCase() === 'inline' ? 'inline' : 'vertical';
         const layoutLabel = layoutKey === 'inline' ? 'Inline' : 'Vertical';
         const layoutRows = Array.isArray(sheet && sheet.layout_rows) ? sheet.layout_rows : [];

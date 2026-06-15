@@ -18,17 +18,6 @@
     <link rel="stylesheet" href="kid-app-navigation.css">
     <style>
 
-        .deck-row {
-            display: flex;
-            gap: 0.6rem;
-            align-items: end;
-            flex-wrap: wrap;
-        }
-
-        .deck-row .paradigm-btn {
-            white-space: nowrap;
-        }
-
         @media (max-width: 520px) {
             .deck-review-table {
                 width: 100%;
@@ -190,7 +179,7 @@
                     <pre id="existingTreeText" class="existing-tree-text"></pre>
                 </details>
                 <textarea id="bulkDeckInput" class="deck-bulk-textarea input-mono"></textarea>
-                <div class="deck-row mt-07">
+                <div class="paradigm-input-action-row">
                     <button type="button" id="previewBtn" class="paradigm-btn"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label-full">Preview Bulk Create</span><span class="btn-label-short">Preview</span></button>
                     <button type="button" id="clearInputBtn" class="paradigm-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span>Clear</span></button>
                     <button type="button" id="copyExampleBtn" class="paradigm-btn"><span data-icon="clipboard-list" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label-full">Copy Example</span><span class="btn-label-short">Copy</span></button>

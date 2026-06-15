@@ -556,17 +556,11 @@
                 <div id="passwordError" class="error hidden"></div>
                 <div id="passwordSuccess" class="success hidden"></div>
                 <div class="password-modal-actions">
-                    <button type="submit" id="changePasswordBtn" class="paradigm-btn">
-                        <span class="btn-icon" aria-hidden="true">
-                            <span class="icon" data-icon="check" data-icon-size="20"></span>
-                        </span>
-                        <span class="btn-label">Update Password</span>
+                    <button type="button" id="closeChangePasswordBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close">
+                        <span class="icon" data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span>
                     </button>
-                    <button type="button" id="closeChangePasswordBtn" class="paradigm-btn">
-                        <span class="btn-icon" aria-hidden="true">
-                            <span class="icon" data-icon="x" data-icon-size="20"></span>
-                        </span>
-                        <span class="btn-label">Close</span>
+                    <button type="submit" id="changePasswordBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Update password" title="Update password">
+                        <span class="icon" data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span>
                     </button>
                 </div>
             </form>

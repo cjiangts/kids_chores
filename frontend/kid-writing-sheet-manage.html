@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="paradigm.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
+    <link rel="stylesheet" href="type4-cell-design-common.css">
     <link rel="stylesheet" href="kid-writing-sheet-manage.css">
 </head>
 <body class="practice-page manage-page worksheet-manage-page">
@@ -100,15 +101,15 @@
                         </div>
                         <div id="chineseSheetPickerOptions" class="sb-picker-options sb-picker-options-bubbles"></div>
                         <div class="sb-picker-actions">
-                            <button type="button" id="chineseSheetPickerFillBtn" class="paradigm-btn hidden">Fill page</button>
-                            <button type="button" id="chineseSheetPickerCancelBtn" class="paradigm-btn">Cancel</button>
+                            <button type="button" id="chineseSheetPickerFillBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm hidden" aria-label="Fill page" title="Fill page"><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+                            <button type="button" id="chineseSheetPickerCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
                         </div>
                     </div>
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="chineseSheetDoneBtn" class="paradigm-btn" disabled>Done</button>
-                <button type="button" id="chineseSheetCloseBtn" class="paradigm-btn">Close</button>
+                <button type="button" id="chineseSheetCloseBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+                <button type="button" id="chineseSheetDoneBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Done" title="Done" disabled><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
             </div>
         </div>
     </div>
@@ -145,8 +146,8 @@
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:1rem;">
-                <button type="button" id="cellDesignSaveBtn" class="paradigm-btn">Save Cell Design</button>
-                <button type="button" id="cellDesignCancelBtn" class="paradigm-btn">Cancel</button>
+                <button type="button" id="cellDesignCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+                <button type="button" id="cellDesignSaveBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Save cell design" title="Save cell design"><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
             </div>
         </div>
     </div>
@@ -176,14 +177,14 @@
                         <p class="sb-picker-note">Pick one of the card designs you already prepared.</p>
                         <div id="sheetBuilderPickerOptions" class="sb-picker-options"></div>
                         <div class="sb-picker-actions">
-                            <button type="button" id="sheetBuilderPickerCancelBtn" class="paradigm-btn">Cancel</button>
+                            <button type="button" id="sheetBuilderPickerCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
                         </div>
                     </div>
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="sheetBuilderDoneBtn" class="paradigm-btn" disabled>Done</button>
-                <button type="button" id="sheetBuilderCloseBtn" class="paradigm-btn">Close</button>
+                <button type="button" id="sheetBuilderCloseBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+                <button type="button" id="sheetBuilderDoneBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Done" title="Done" disabled><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
             </div>
         </div>
     </div>
@@ -212,14 +213,14 @@
                         <h3 class="sb-picker-title">Choose Deck</h3>
                         <div id="inlineSheetPickerOptions" class="sb-picker-options"></div>
                         <div class="sb-picker-actions">
-                            <button type="button" id="inlineSheetPickerCancelBtn" class="paradigm-btn">Cancel</button>
+                            <button type="button" id="inlineSheetPickerCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
                         </div>
                     </div>
                 </div>
             </div>
             <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="inlineSheetDoneBtn" class="paradigm-btn" disabled>Done</button>
-                <button type="button" id="inlineSheetCloseBtn" class="paradigm-btn">Close</button>
+                <button type="button" id="inlineSheetCloseBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+                <button type="button" id="inlineSheetDoneBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Done" title="Done" disabled><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
             </div>
         </div>
     </div>

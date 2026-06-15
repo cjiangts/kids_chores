@@ -25,14 +25,14 @@ function renderDeckTagsHtml(tags, tagLabels) {
         return '-';
     }
     const labelList = Array.isArray(tagLabels) ? tagLabels : [];
-    return `<span class="deck-tags">${tagList.map((tag, index) => {
+    return tagList.map((tag, index) => {
         const normalizedTag = String(tag || '').trim();
         const parsed = deckCategoryCommon.parseDeckTagInput(labelList[index]);
         const text = parsed.tag === normalizedTag && parsed.label
             ? parsed.label
             : normalizedTag;
-        return `<span class="deck-tag">${escapeHtml(text)}</span>`;
-    }).join('')}</span>`;
+        return `<span class="shared-tag-filter-chip">${escapeHtml(text)}</span>`;
+    }).join('');
 }
 
 function initializeType4GeneratorEditor(containerId, initialValue, onChange) {

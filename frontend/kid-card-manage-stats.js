@@ -606,9 +606,9 @@ function renderDailyProgressMetricBtns({ rtHasData, crHasData, activeMetric }) {
     ];
     const buttonsHtml = opts.map((o) => {
         const active = o.metric === activeMetric ? ' active' : '';
-        return `<button type="button" class="daily-progress-metric-btn${active}" data-progress-metric="${o.metric}">${o.label}</button>`;
+        return `<button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${active}" data-progress-metric="${o.metric}">${o.label}</button>`;
     }).join('');
-    return `<div class="daily-progress-metric-btns">${buttonsHtml}</div>`;
+    return `<div class="daily-progress-metric-btns paradigm-chip-toggle-group">${buttonsHtml}</div>`;
 }
 
 function renderDailyProgressPeriodBtns(fullSpanDays) {
@@ -624,9 +624,9 @@ function renderDailyProgressPeriodBtns(fullSpanDays) {
     const opts = [...presets.map((d) => ({ days: d, label: `${d}d` })), { days: 0, label: 'All' }];
     const buttonsHtml = opts.map((o) => {
         const active = o.days === currentDailyProgressViewDays ? ' active' : '';
-        return `<button type="button" class="daily-progress-period-btn${active}" data-progress-period-days="${o.days}">${o.label}</button>`;
+        return `<button type="button" class="daily-progress-period-btn paradigm-chip-toggle${active}" data-progress-period-days="${o.days}">${o.label}</button>`;
     }).join('');
-    return `<div class="daily-progress-period-btns">${buttonsHtml}</div>`;
+    return `<div class="daily-progress-period-btns paradigm-chip-toggle-group">${buttonsHtml}</div>`;
 }
 
 function clipDailyProgressView(chart, viewDays) {
@@ -849,14 +849,14 @@ function renderDailyProgressPanel(chart) {
                 <div class="daily-progress-y-label">Cards</div>
                 <div class="daily-progress-y-axis">
                     ${yTicks.map((tick) => `
-                        <div class="daily-progress-y-tick" style="bottom:${positionForValue(tick).toFixed(2)}%">${escapeHtml(String(tick))}</div>
+                        <div class="daily-progress-y-tick paradigm-chart-axis-label" style="bottom:${positionForValue(tick).toFixed(2)}%">${escapeHtml(String(tick))}</div>
                     `).join('')}
                 </div>
                 ${hasRtData ? `
                     <div class="daily-progress-y-label daily-progress-y-label-right">Response</div>
                     <div class="daily-progress-y-axis daily-progress-y-axis-right">
                         ${rtTicks.map((tick) => `
-                            <div class="daily-progress-y-tick" style="bottom:${positionForRt(tick).toFixed(2)}%">${escapeHtml(formatRtTick(tick))}</div>
+                            <div class="daily-progress-y-tick paradigm-chart-axis-label" style="bottom:${positionForRt(tick).toFixed(2)}%">${escapeHtml(formatRtTick(tick))}</div>
                         `).join('')}
                     </div>
                 ` : ''}
@@ -864,17 +864,17 @@ function renderDailyProgressPanel(chart) {
                     <div class="daily-progress-y-label daily-progress-y-label-correctness">Correct</div>
                     <div class="daily-progress-y-axis daily-progress-y-axis-correctness">
                         ${crTicks.map((tick) => `
-                            <div class="daily-progress-y-tick" style="bottom:${positionForCr(tick).toFixed(2)}%">${escapeHtml(formatCrTick(tick))}</div>
+                            <div class="daily-progress-y-tick paradigm-chart-axis-label" style="bottom:${positionForCr(tick).toFixed(2)}%">${escapeHtml(formatCrTick(tick))}</div>
                         `).join('')}
                     </div>
                 ` : ''}
                 <div class="daily-progress-plot">
                     <div class="daily-progress-grid">
                         ${yTicks.map((tick) => `
-                            <div class="daily-progress-grid-line" style="bottom:${positionForValue(tick).toFixed(2)}%"></div>
+                            <div class="daily-progress-grid-line paradigm-chart-grid-line" style="bottom:${positionForValue(tick).toFixed(2)}%"></div>
                         `).join('')}
                         ${xTicks.map((tick) => `
-                            <div class="daily-progress-grid-line-vertical" style="left:${positionForDay(tick + 1).toFixed(2)}%"></div>
+                            <div class="daily-progress-grid-line-vertical paradigm-chart-grid-line" style="left:${positionForDay(tick + 1).toFixed(2)}%"></div>
                         `).join('')}
                     </div>
                     <svg class="daily-progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -887,7 +887,7 @@ function renderDailyProgressPanel(chart) {
                         ${xTicks.map((tick) => {
                             const isLast = tick === totalDays - 1;
                             return `
-                            <div class="daily-progress-x-tick${isLast ? ' is-today' : ''}" style="left:${positionForDay(tick + 1).toFixed(2)}%">${escapeHtml(String(tick))}d${isLast ? '<div class="daily-progress-x-tick-today">(today)</div>' : ''}</div>
+                            <div class="daily-progress-x-tick paradigm-chart-axis-label${isLast ? ' is-today' : ''}" style="left:${positionForDay(tick + 1).toFixed(2)}%">${escapeHtml(String(tick))}d${isLast ? '<div class="daily-progress-x-tick-today">(today)</div>' : ''}</div>
                         `;
                         }).join('')}
                     </div>

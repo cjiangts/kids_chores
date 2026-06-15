@@ -184,6 +184,10 @@
             overflow: hidden;
         }
 
+        .type4-deck-counts-modal-body .deck-v2-action-row {
+            justify-content: flex-end;
+        }
+
         .type4-deck-counts-scroll {
             flex: 1 1 auto;
             min-height: 0;
@@ -4179,33 +4183,12 @@
 
         .daily-progress-period-btns,
         .daily-progress-metric-btns {
-            display: flex;
-            flex-wrap: wrap;
             gap: 0.3rem;
         }
 
         .daily-progress-period-btns {
             justify-content: flex-end;
             margin-left: auto;
-        }
-
-        .daily-progress-period-btn,
-        .daily-progress-metric-btn {
-            background: #fff;
-            border: 1px solid var(--p-border);
-            border-radius: 999px;
-            padding: 0.2rem 0.65rem;
-            font-size: 0.74rem;
-            font-weight: 600;
-            color: #4a5688;
-            cursor: pointer;
-            line-height: 1.2;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .daily-progress-period-btn:hover,
-        .daily-progress-metric-btn:hover {
-            background: #f4f6fc;
         }
 
         .daily-progress-period-btn.active {
@@ -4271,10 +4254,6 @@
             position: absolute;
             right: 0.35rem;
             transform: translateY(50%);
-            color: #7480a9;
-            font-size: 0.66rem;
-            font-weight: 600;
-            line-height: 1;
         }
 
         .daily-progress-y-axis-right .daily-progress-y-tick {
@@ -4317,14 +4296,16 @@
             position: absolute;
             left: 0;
             right: 0;
-            border-top: 1px dashed var(--p-border-soft);
+            border-top-width: 1px;
+            border-top-style: dashed;
         }
 
         .daily-progress-grid-line-vertical {
             position: absolute;
             top: 0;
             bottom: 0;
-            border-left: 1px dashed var(--p-border-soft);
+            border-left-width: 1px;
+            border-left-style: dashed;
             transform: translateX(-0.5px);
         }
 
@@ -4374,10 +4355,6 @@
         .daily-progress-x-tick {
             position: absolute;
             transform: translateX(-50%);
-            color: #5b6787;
-            font-size: 0.66rem;
-            font-weight: 700;
-            line-height: 1;
             white-space: nowrap;
             text-align: center;
         }
@@ -4385,8 +4362,6 @@
         .daily-progress-x-tick-today {
             margin-top: 0.18rem;
             color: #d97706;
-            font-size: 0.62rem;
-            font-weight: 700;
         }
 
         .daily-progress-x-tick.is-today {

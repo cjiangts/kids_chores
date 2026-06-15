@@ -50,6 +50,10 @@
     --paradigm-search-input-font-weight: 500;
     --paradigm-decision-btn-size: var(--paradigm-input-height);
     --paradigm-decision-btn-icon-size: 16px;
+    --paradigm-chip-toggle-height: 25px;
+    --paradigm-chip-toggle-font-size: 0.74rem;
+    --paradigm-chip-toggle-font-weight: 600;
+    --paradigm-chip-toggle-padding-x: 0.65rem;
 
     /* Compact status column / pill */
     --paradigm-status-column-width: 70px;
@@ -142,6 +146,13 @@
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.paradigm-search-input::-webkit-search-cancel-button,
+.paradigm-search-input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+}
+
 .paradigm-search-input::placeholder {
     color: #8d98b6;
     opacity: 1;
@@ -167,8 +178,12 @@
     position: absolute;
     right: 0.42rem;
     top: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 24px;
     height: 24px;
+    padding: 0;
     border: 0;
     border-radius: 999px;
     background: transparent;
@@ -177,11 +192,25 @@
     transform: translateY(-50%);
 }
 
+.search-bar-clear .icon,
+.search-bar-clear svg {
+    width: 14px;
+    height: 14px;
+}
+
 .search-bar-clear:hover,
 .search-bar-clear:focus-visible {
     background: #eef2ff;
     color: var(--p-ink-title);
     outline: none;
+}
+
+.paradigm-search-hit {
+    border-radius: 4px;
+    background: rgba(255, 220, 98, 0.55);
+    color: inherit;
+    font-weight: 700;
+    padding: 0 0.08em;
 }
 
 .paradigm-decision-group {
@@ -243,6 +272,56 @@
 }
 
 .paradigm-decision-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.paradigm-chip-toggle-group {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.paradigm-chip-toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: var(--paradigm-chip-toggle-height);
+    border: 1px solid var(--p-border);
+    border-radius: 999px;
+    background: #fff;
+    color: #4a5688;
+    padding: 0 var(--paradigm-chip-toggle-padding-x);
+    font: inherit;
+    font-size: var(--paradigm-chip-toggle-font-size);
+    font-weight: var(--paradigm-chip-toggle-font-weight);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.paradigm-chip-toggle:hover:not(:disabled):not(.active),
+.paradigm-chip-toggle:focus-visible:not(:disabled):not(.active) {
+    border-color: var(--p-accent-border);
+    background: #f4f6fc;
+    outline: none;
+}
+
+.paradigm-chip-toggle.active,
+.paradigm-chip-toggle[aria-pressed="true"] {
+    border-color: var(--p-accent);
+    background: var(--p-accent);
+    color: #fff;
+}
+
+.paradigm-chip-toggle:disabled {
     opacity: 0.55;
     cursor: not-allowed;
 }
@@ -332,7 +411,7 @@ h2.paradigm-panel-title,
     flex: 0 0 var(--paradigm-panel-title-icon-size);
     border-radius: 0;
     background: transparent;
-    color: inherit;
+    color: var(--p-accent);
     line-height: 0;
 }
 
@@ -606,6 +685,42 @@ fieldset.paradigm-form-field {
     gap: 0.35rem;
 }
 
+.paradigm-row-action-group--stretch {
+    display: flex;
+    width: 100%;
+}
+
+.paradigm-row-action-group--stretch .paradigm-input {
+    flex: 1 1 auto;
+}
+
+/* Action row immediately after a large input area such as a textarea/editor. */
+.paradigm-input-action-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: end;
+    flex-wrap: wrap;
+    margin-top: 0.35rem;
+}
+
+.paradigm-input-action-row .paradigm-btn {
+    white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+    .paradigm-input-action-row {
+        flex-wrap: nowrap;
+    }
+
+    .paradigm-input-action-row .btn-label-full {
+        display: none;
+    }
+
+    .paradigm-input-action-row .btn-label-short {
+        display: inline;
+    }
+}
+
 /* Shared number stepper: circular +/- controls with a plain numeric value. */
 .queue-stepper,
 .point-log-stepper,
@@ -764,6 +879,43 @@ fieldset.paradigm-form-field {
 
 .paradigm-status-pill {
     width: 100%;
+}
+
+/* Shared chart primitives: grid/axis styling only, no chart-specific colors or data labels. */
+.paradigm-chart-grid-line {
+    stroke: #e3e9f8;
+    border-color: #e3e9f8;
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
+    vector-effect: non-scaling-stroke;
+}
+
+.paradigm-chart-axis-line {
+    stroke: #d4dced;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.paradigm-chart-axis-label {
+    color: #7480a9;
+    fill: #7480a9;
+    font-size: 10.56px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
+}
+
+.paradigm-chart-value-label {
+    color: #7480a9;
+    fill: #7480a9;
+    font-size: 10.56px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1;
+}
+
+.paradigm-chart-value-label-bg {
+    fill: rgba(255, 255, 255, 0.94);
 }
 
 /* Subject row: leading icon (left) | centered name | trailing menu (right). */
@@ -1469,6 +1621,19 @@ svg.cards-view-toggle-btn-icon,
     width: 30px;
 }
 
+.point-rule-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #f1f5ff;
+    color: #526fd4;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
 .activity-timeline-main {
     grid-column: 4 / 5;
     grid-row: 1 / 3;
@@ -1477,19 +1642,39 @@ svg.cards-view-toggle-btn-icon,
 }
 
 .activity-timeline-title {
+    display: block;
     overflow: hidden;
+    color: #1f2950;
+    font-size: 0.94rem;
+    font-weight: 400;
+    line-height: 1.3;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .activity-timeline-note {
+    display: block;
     min-width: 0;
     overflow: visible;
-    color: #66718f;
+    color: #7c86a3;
+    font-size: 0.78rem;
+    font-weight: 400;
     text-overflow: clip;
     white-space: normal;
     overflow-wrap: anywhere;
     line-height: 1.18;
+}
+
+@media (max-width: 700px) {
+    .activity-timeline-icon {
+        width: 28px;
+    }
+
+    .point-rule-emoji {
+        width: 26px;
+        height: 26px;
+        font-size: 0.82rem;
+    }
 }
 
 /* ============================================================

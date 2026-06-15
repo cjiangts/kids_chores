@@ -60,7 +60,6 @@ const renameDeckTagsBtn = document.getElementById('renameDeckTagsBtn');
 const cloneDeckBtn = document.getElementById('cloneDeckBtn');
 const deleteDeckBtn = document.getElementById('deleteDeckBtn');
 const renameTagsModal = document.getElementById('renameTagsModal');
-const closeRenameTagsModalBtn = document.getElementById('closeRenameTagsModalBtn');
 const cancelRenameTagsBtn = document.getElementById('cancelRenameTagsBtn');
 const saveRenameTagsBtn = document.getElementById('saveRenameTagsBtn');
 const renameFixedFirstTag = document.getElementById('renameFixedFirstTag');
@@ -192,9 +191,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         deleteDeckBtn.addEventListener('click', () => {
             void deleteDeck();
         });
-    }
-    if (closeRenameTagsModalBtn) {
-        closeRenameTagsModalBtn.addEventListener('click', closeRenameTagsModal);
     }
     if (cancelRenameTagsBtn) {
         cancelRenameTagsBtn.addEventListener('click', closeRenameTagsModal);
@@ -759,13 +755,9 @@ function setRenameBusy(isBusy) {
     isRenamingTags = Boolean(isBusy);
     if (saveRenameTagsBtn) {
         saveRenameTagsBtn.disabled = isRenamingTags;
-        setBtnLabel(saveRenameTagsBtn, isRenamingTags ? 'Saving...' : 'Save Tags');
     }
     if (cancelRenameTagsBtn) {
         cancelRenameTagsBtn.disabled = isRenamingTags;
-    }
-    if (closeRenameTagsModalBtn) {
-        closeRenameTagsModalBtn.disabled = isRenamingTags;
     }
     if (renameNewTagInput) {
         renameNewTagInput.disabled = isRenamingTags;
@@ -899,11 +891,11 @@ function renderRenameExtraTags() {
         const label = deckCategoryCommon.formatDeckTagLabel(item.tag, item.comment);
         const tag = String(item.tag || '').trim();
         return `
-            <span class="deck-tag">
+            <span class="shared-tag-filter-chip">
                 ${escapeHtml(label)}
                 <button
                     type="button"
-                    class="rename-tag-remove-btn"
+                    class="shared-tag-filter-chip-remove"
                     data-remove-rename-tag="${escapeHtml(tag)}"
                     aria-label="Remove ${escapeHtml(label)}"
                 >${icon('x', { size: 14 })}</button>
@@ -1001,8 +993,8 @@ function setRenameNameStatus(text, state) {
         return;
     }
     renameNameStatus.textContent = String(text || '').trim();
-    renameNameStatus.classList.remove('ok', 'error', 'note');
-    renameNameStatus.classList.add(state);
+    renameNameStatus.classList.remove('is-ok', 'is-error', 'is-note');
+    renameNameStatus.classList.add(`is-${state}`);
     if (saveRenameTagsBtn && !isRenamingTags) {
         saveRenameTagsBtn.disabled = state !== 'ok';
     }
@@ -1747,9 +1739,6 @@ async function saveType4CellDesign() {
     };
 
     saveBtn.disabled = true;
-    const labelEl = saveBtn.querySelector('.btn-label');
-    const oldText = labelEl ? labelEl.textContent : saveBtn.textContent;
-    setBtnLabel(saveBtn, 'Saving...');
     showError('');
     showSuccess('');
     try {
@@ -1778,7 +1767,6 @@ async function saveType4CellDesign() {
         showError(error.message || 'Failed to save printable cell design.');
     } finally {
         saveBtn.disabled = false;
-        setBtnLabel(saveBtn, oldText);
     }
 }
 

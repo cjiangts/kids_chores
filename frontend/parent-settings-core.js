@@ -943,8 +943,8 @@ function renderKidsManage(kids) {
                 </div>
                 <form class="kids-manage-confirm" data-action="confirm-delete-form">
                     <input type="password" class="paradigm-input kids-manage-input kids-manage-pw" placeholder="Password" autocomplete="current-password">
-                    <button type="submit" class="paradigm-btn is-danger" data-action="confirm-delete-kid">Delete</button>
-                    <button type="button" class="paradigm-btn" data-action="cancel-delete-kid">Cancel</button>
+                    <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-action="cancel-delete-kid" aria-label="Cancel delete" title="Cancel">${icon('x', { size: 18, strokeWidth: 2.7 })}</button>
+                    <button type="submit" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-action="confirm-delete-kid" aria-label="${escapeHtml(`Confirm deleting ${name}`)}" title="Confirm">${icon('check', { size: 18, strokeWidth: 2.7 })}</button>
                 </form>
             </div>
         `;

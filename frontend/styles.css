@@ -262,6 +262,10 @@ body {
     padding: 20px;
 }
 
+body.modal-open {
+    overflow: hidden;
+}
+
 @media (max-width: 760px) {
     body {
         padding: 6px;
@@ -1976,6 +1980,44 @@ header p {
     display: flex;
     gap: 10px;
     margin-top: 20px;
+}
+
+.form-actions.paradigm-decision-group {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.centered-text {
+    text-align: center;
+}
+
+.shared-ace-editor {
+    width: 100%;
+    min-height: 200px;
+    border: 1px solid #cfd7ea;
+    border-radius: 8px;
+    margin-bottom: 0.7rem;
+}
+
+.diff-row-added { background: #e6ffed; }
+.diff-row-updated { background: #fff8e1; }
+.diff-row-removed { background: #ffeef0; }
+.diff-row-removed td { text-decoration: line-through; color: #999; }
+
+.inline-validation-status.is-ok {
+    color: #2b8a3e;
+}
+
+.inline-validation-status.is-error {
+    color: #c92a2a;
+}
+
+.inline-validation-status.is-note {
+    color: #555;
+}
+
+.inline-validation-status:empty {
+    display: none;
 }
 
 /* === 12. Practice progress + error + empty state + admin link =========== */

@@ -572,6 +572,368 @@ def list_point_events(kid_conn, shared_conn, family_id, *, limit=100):
     return [_event_row_to_payload(row, lookup) for row in rows]
 
 
+def _month_key_for_created_at(value, timezone_name):
+    dt = _utc_naive(value)
+    if dt is None:
+        return ''
+    tz_name = str(timezone_name or '').strip() or 'UTC'
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = timezone.utc
+    local_dt = dt.replace(tzinfo=timezone.utc).astimezone(tz)
+    return f'{local_dt.year:04d}-{local_dt.month:02d}'
+
+
+def _next_month_key(month_key):
+    try:
+        year_text, month_text = str(month_key or '').split('-', 1)
+        year = int(year_text)
+        month = int(month_text)
+    except (TypeError, ValueError):
+        return ''
+    if month >= 12:
+        return f'{year + 1:04d}-01'
+    return f'{year:04d}-{month + 1:02d}'
+
+
+def _month_keys_between(start_key, end_key):
+    if not start_key or not end_key:
+        return []
+    keys = []
+    current = start_key
+    guard = 0
+    while current and current <= end_key and guard < 600:
+        keys.append(current)
+        current = _next_month_key(current)
+        guard += 1
+    return keys
+
+
+def _normalize_stats_granularity(value):
+    normalized = str(value or '').strip().lower()
+    if normalized in {'day', 'daily'}:
+        return 'daily'
+    if normalized in {'week', 'weekly'}:
+        return 'weekly'
+    return 'monthly'
+
+
+def _local_dt_for_created_at(value, timezone_name):
+    dt = _utc_naive(value)
+    if dt is None:
+        return None
+    tz_name = str(timezone_name or '').strip() or 'UTC'
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = timezone.utc
+    return dt.replace(tzinfo=timezone.utc).astimezone(tz)
+
+
+def _stats_period_key_for_created_at(value, timezone_name, granularity):
+    local_dt = _local_dt_for_created_at(value, timezone_name)
+    if local_dt is None:
+        return ''
+    if granularity == 'daily':
+        return local_dt.date().isoformat()
+    if granularity == 'weekly':
+        week_start = local_dt.date() - timedelta(days=local_dt.weekday())
+        return week_start.isoformat()
+    return f'{local_dt.year:04d}-{local_dt.month:02d}'
+
+
+def _next_stats_period_key(period_key, granularity):
+    try:
+        if granularity == 'daily':
+            next_date = datetime.fromisoformat(str(period_key or '')).date() + timedelta(days=1)
+            return next_date.isoformat()
+        if granularity == 'weekly':
+            next_date = datetime.fromisoformat(str(period_key or '')).date() + timedelta(days=7)
+            return next_date.isoformat()
+    except (TypeError, ValueError):
+        return ''
+    return _next_month_key(period_key)
+
+
+def _stats_period_keys_between(start_key, end_key, granularity):
+    if granularity == 'monthly':
+        return _month_keys_between(start_key, end_key)
+    if not start_key or not end_key:
+        return []
+    keys = []
+    current = start_key
+    guard = 0
+    max_guard = 5000 if granularity == 'daily' else 1000
+    while current and current <= end_key and guard < max_guard:
+        keys.append(current)
+        current = _next_stats_period_key(current, granularity)
+        guard += 1
+    return keys
+
+
+def _format_stats_period_label(period_key, granularity):
+    if granularity == 'monthly':
+        return _format_month_label(period_key)
+    try:
+        dt = datetime.fromisoformat(str(period_key or ''))
+    except (TypeError, ValueError):
+        return str(period_key or '')
+    names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    month = names[dt.month - 1] if 1 <= dt.month <= 12 else f'{dt.month:02d}'
+    if granularity == 'weekly':
+        return f'{month} {dt.day}'
+    return f'{month} {dt.day}'
+
+
+def _reward_bucket_label(bucket):
+    label = str(bucket or '').replace('_', ' ').replace('-', ' ').strip()
+    return ' '.join(part.capitalize() for part in label.split()) or 'Reward'
+
+
+def _reward_scope_key(bucket):
+    normalized = normalize_reward_type(bucket)
+    return f'reward:{normalized}' if normalized else ''
+
+
+def _reward_tab_key(bucket):
+    normalized = normalize_reward_type(bucket)
+    safe = ''.join(ch if ch.isalnum() else '_' for ch in normalized).strip('_')
+    return f'reward_{safe or "bucket"}'
+
+
+def _event_scope_keys(rule, delta=0):
+    bucket = reward_type_for_rule(rule)
+    if bucket:
+        scope_key = _reward_scope_key(bucket)
+        if scope_key:
+            return {scope_key}
+    keys = {'points'}
+    if int(delta or 0) >= 0:
+        keys.add('earn')
+    else:
+        keys.add('loss')
+    return keys
+
+
+def _default_rule_payload(rule_id):
+    return {
+        'ruleId': int(rule_id or 0),
+        'familyId': 0,
+        'name': 'Point event',
+        'emoji': '',
+        'ruleKind': '',
+        'triggerKey': '',
+        'maxPoint': None,
+        'rewardType': '',
+        'isActive': False,
+    }
+
+
+def _stats_event_payload(row, rule):
+    return {
+        'eventId': int(row[0] or 0),
+        'ruleId': int(row[1] or 0),
+        'pointsDelta': int(row[2] or 0),
+        'note': str(row[3] or ''),
+        'createdAt': _utc_isoformat(row[4]),
+        'rule': rule,
+    }
+
+
+def _format_month_label(month_key):
+    try:
+        year, month = str(month_key or '').split('-', 1)
+        month_index = int(month) - 1
+    except (TypeError, ValueError):
+        return str(month_key or '')
+    names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    label = names[month_index] if 0 <= month_index < len(names) else str(month)
+    return f'{label} {year}'
+
+
+def get_kid_point_stats(kid_conn, shared_conn, family_id, *, timezone_name='UTC', granularity='monthly'):
+    granularity = _normalize_stats_granularity(granularity)
+    rows = kid_conn.execute(
+        """
+        SELECT event_id, rule_id, points_delta, note, created_at
+        FROM point_event
+        ORDER BY created_at ASC, event_id ASC
+        """
+    ).fetchall()
+    rule_ids = [int(row[1] or 0) for row in rows]
+    lookup = _load_rule_lookup(shared_conn, family_id, rule_ids)
+    reward_buckets = set()
+    reward_rules = list_family_rules(
+        shared_conn,
+        family_id,
+        rule_kind=RULE_KIND_REDEEMED_REWARD,
+        include_inactive=True,
+    )
+    for rule in reward_rules:
+        bucket = reward_type_for_rule(rule)
+        if bucket:
+            reward_buckets.add(bucket)
+    for rule in lookup.values():
+        bucket = reward_type_for_rule(rule)
+        if bucket:
+            reward_buckets.add(bucket)
+    reward_buckets = sorted(reward_buckets, key=_reward_bucket_label)
+    current_period = _stats_period_key_for_created_at(_utc_now_naive(), timezone_name, granularity)
+    event_period_keys = [_stats_period_key_for_created_at(row[4], timezone_name, granularity) for row in rows]
+    first_period = min([key for key in event_period_keys if key] or [current_period])
+    period_keys = _stats_period_keys_between(first_period, current_period, granularity) or [current_period]
+
+    scope_entries = {
+        'points': {
+            'key': 'points',
+            'label': 'Points',
+            'rewardBucket': '',
+            'periods': {period: 0 for period in period_keys},
+            'items': {},
+        },
+        'earn': {
+            'key': 'earn',
+            'label': 'Earn',
+            'rewardBucket': '',
+            'periods': {period: 0 for period in period_keys},
+            'items': {},
+        },
+        'loss': {
+            'key': 'loss',
+            'label': 'Loss',
+            'rewardBucket': '',
+            'periods': {period: 0 for period in period_keys},
+            'items': {},
+        },
+    }
+    reward_scope_keys = []
+    for bucket in reward_buckets:
+        scope_key = _reward_scope_key(bucket)
+        if not scope_key:
+            continue
+        reward_scope_keys.append(scope_key)
+        scope_entries[scope_key] = {
+            'key': _reward_tab_key(bucket),
+            'label': _reward_bucket_label(bucket),
+            'rewardBucket': bucket,
+            'periods': {period: 0 for period in period_keys},
+            'items': {},
+        }
+
+    for row in rows:
+        rule_id = int(row[1] or 0)
+        rule = lookup.get(rule_id) or _default_rule_payload(rule_id)
+        period_key = _stats_period_key_for_created_at(row[4], timezone_name, granularity)
+        if not period_key:
+            continue
+        if period_key not in period_keys:
+            period_keys.append(period_key)
+            period_keys.sort()
+            for entry in scope_entries.values():
+                entry['periods'].setdefault(period_key, 0)
+        delta = int(row[2] or 0)
+        event_payload = _stats_event_payload(row, rule)
+        for scope_key in _event_scope_keys(rule, delta):
+            entry = scope_entries.get(scope_key)
+            if not entry:
+                continue
+            entry['periods'][period_key] = entry['periods'].get(period_key, 0) + delta
+            item_key = str(rule_id or 0)
+            item = entry['items'].setdefault(item_key, {
+                'ruleId': rule_id,
+                'name': str(rule.get('name') or 'Point event'),
+                'emoji': str(rule.get('emoji') or ''),
+                'ruleKind': str(rule.get('ruleKind') or ''),
+                'triggerKey': str(rule.get('triggerKey') or ''),
+                'rewardType': str(rule.get('rewardType') or ''),
+                'totalPoints': 0,
+                'eventCount': 0,
+                'periods': {period: 0 for period in period_keys},
+                'latest': [],
+            })
+            item['periods'].setdefault(period_key, 0)
+            item['periods'][period_key] += delta
+            item['totalPoints'] += delta
+            item['eventCount'] += 1
+            item['latest'].append(event_payload)
+
+    period_keys_sorted = sorted(period_keys)
+    wallet_base_balance_by_period = {}
+    wallet_base_balance = 0
+    for period_key in period_keys_sorted:
+        wallet_base_balance += int(scope_entries['points']['periods'].get(period_key, 0) or 0)
+        wallet_base_balance_by_period[period_key] = wallet_base_balance
+
+    result_tabs = []
+    for scope_key in ['points', 'earn', 'loss', *reward_scope_keys]:
+        entry = scope_entries[scope_key]
+        balance = 0
+        trend = []
+        is_reward_entry = bool(entry.get('rewardBucket'))
+        for period_key in period_keys_sorted:
+            value = int(entry['periods'].get(period_key, 0) or 0)
+            balance += value
+            display_balance = (
+                int(wallet_base_balance_by_period.get(period_key, 0) or 0) + balance
+                if is_reward_entry
+                else balance
+            )
+            trend.append({
+                'period': period_key,
+                'label': _format_stats_period_label(period_key, granularity),
+                'value': value,
+                'balance': display_balance,
+            })
+        items = []
+        for item in entry['items'].values():
+            item_balance = 0
+            item_trend = []
+            for period_key in sorted(period_keys):
+                value = int(item['periods'].get(period_key, 0) or 0)
+                item_balance += value
+                item_trend.append({
+                    'period': period_key,
+                    'label': _format_stats_period_label(period_key, granularity),
+                    'value': value,
+                    'balance': item_balance,
+                })
+            latest = sorted(
+                item['latest'],
+                key=lambda event: str(event.get('createdAt') or ''),
+                reverse=True,
+            )[:8]
+            items.append({
+                'ruleId': item['ruleId'],
+                'name': item['name'],
+                'emoji': item['emoji'],
+                'ruleKind': item['ruleKind'],
+                'triggerKey': item['triggerKey'],
+                'rewardType': item['rewardType'],
+                'totalPoints': item['totalPoints'],
+                'eventCount': item['eventCount'],
+                'trend': item_trend,
+                'latest': latest,
+            })
+        items.sort(key=lambda item: (abs(int(item.get('totalPoints') or 0)), item.get('eventCount') or 0), reverse=True)
+        result_tabs.append({
+            'key': entry['key'],
+            'label': entry['label'],
+            'rewardBucket': entry['rewardBucket'],
+            'totalPoints': int(trend[-1]['balance'] if is_reward_entry and trend else balance),
+            'trend': trend,
+            'topItems': items,
+        })
+
+    return {
+        'granularity': granularity,
+        'timezone': str(timezone_name or ''),
+        'tabs': result_tabs,
+    }
+
+
 def get_point_total(kid_conn):
     row = kid_conn.execute(
         "SELECT COALESCE(SUM(points_delta), 0) FROM point_event"

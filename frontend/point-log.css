@@ -109,19 +109,6 @@
     flex: 0 0 auto;
 }
 
-.point-rule-emoji {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: #f1f5ff;
-    color: #526fd4;
-    font-size: 0.92rem;
-    line-height: 1;
-}
-
 .point-template-name {
     overflow-wrap: anywhere;
     white-space: nowrap;
@@ -545,18 +532,9 @@
     --point-history-time-width: 3.25rem;
     --point-history-column-gap: 0.28rem;
     --point-history-line-center: calc(var(--point-history-time-width) + var(--point-history-column-gap) + 5px);
-    position: relative;
-    display: grid;
-}
-
-.point-history-group-list::before {
-    content: '';
-    position: absolute;
-    top: 0.4rem;
-    bottom: 0.45rem;
-    left: calc(var(--point-history-line-center) - 0.5px);
-    width: 1px;
-    background: #d8deee;
+    --activity-time-width: var(--point-history-time-width);
+    --activity-column-gap: var(--point-history-column-gap);
+    --activity-line-center: var(--point-history-line-center);
 }
 
 .point-history-day-boundary {
@@ -582,96 +560,11 @@
 }
 
 .point-history-row {
-    display: grid;
-    align-items: center;
-    position: relative;
     grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) auto auto auto;
-    gap: 0.42rem var(--point-history-column-gap);
-    padding: 0.42rem 0 0.42rem 0;
 }
 
 .point-history-row.no-delete {
     grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) auto;
-}
-
-.point-history-row::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: calc(var(--point-history-line-center) + 12px);
-    height: 1px;
-    background: var(--section-surface-border-muted);
-}
-
-.point-history-row:last-child::after,
-.point-history-row.is-day-last::after {
-    display: none;
-}
-
-.point-history-node {
-    grid-column: 2 / 3;
-    grid-row: 1 / 3;
-    align-self: center;
-    z-index: 1;
-    justify-self: start;
-    width: 8px;
-    height: 8px;
-    margin-left: 1px;
-    border-radius: 999px;
-    background: #b8c0d8;
-}
-
-.point-history-time {
-    grid-column: 1 / 2;
-    grid-row: 1 / 3;
-    align-self: center;
-    justify-self: end;
-    color: #66718f;
-    font-size: 0.72rem;
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
-}
-
-.point-history-icon {
-    grid-column: 3 / 4;
-    grid-row: 1 / 3;
-    align-self: center;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-}
-
-.point-history-main {
-    grid-column: 4 / 5;
-    grid-row: 1 / 3;
-    min-width: 0;
-    align-self: center;
-}
-
-.point-history-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.point-history-icon .point-rule-emoji {
-    width: 30px;
-    height: 30px;
-    font-size: 0.95rem;
-}
-
-.point-history-note {
-    min-width: 0;
-    overflow: visible;
-    color: #66718f;
-    text-overflow: clip;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    line-height: 1.18;
 }
 
 .point-history-row > .point-rule-delta {
@@ -743,12 +636,6 @@
         padding: 0.42rem 0.25rem;
     }
 
-    .point-rule-emoji {
-        width: 26px;
-        height: 26px;
-        font-size: 0.82rem;
-    }
-
     .point-template-name {
         line-height: 1.12;
     }
@@ -809,7 +696,7 @@
 
     .point-history-row {
         grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) auto auto auto;
-        gap: 0.28rem var(--point-history-column-gap);
+        gap: 0.28rem var(--activity-column-gap);
         padding: 0.38rem 0;
     }
 
@@ -822,11 +709,11 @@
         --point-history-column-gap: 0.22rem;
     }
 
-    .point-history-time {
+    .point-history-time.activity-timeline-time {
         font-size: 0.66rem;
     }
 
-    .point-history-icon {
+    .point-history-icon.activity-timeline-icon {
         width: 28px;
     }
 

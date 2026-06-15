@@ -83,6 +83,13 @@ window.PracticeManageCommon = {
     // --- 2a. Password dialogs --------------------------------------------------
     _passwordDialogStyleInjected: false,
 
+    _dialogIcon(name, size = 18) {
+        if (typeof window.icon === 'function') {
+            return window.icon(name, { size, strokeWidth: 2.7 });
+        }
+        return name === 'check' ? '✓' : '×';
+    },
+
     _ensurePasswordDialogStyles() {
         if (this._passwordDialogStyleInjected) return;
         const style = document.createElement('style');
@@ -154,19 +161,17 @@ window.PracticeManageCommon = {
                 gap: 0.5rem;
             }
             .pwd-btn {
-                border: 0;
-                border-radius: 8px;
-                padding: 0.5rem 0.75rem;
-                font-size: 0.9rem;
+                width: var(--paradigm-panel-title-action-size, 34px);
+                min-width: var(--paradigm-panel-title-action-size, 34px);
+                height: var(--paradigm-panel-title-action-size, 34px);
+                min-height: var(--paradigm-panel-title-action-size, 34px);
+                padding: 0;
+                border-radius: 999px;
                 cursor: pointer;
             }
-            .pwd-btn.cancel {
-                background: #f1f3f5;
-                color: #495057;
-            }
-            .pwd-btn.confirm {
-                background: #2f9e44;
-                color: #fff;
+            .pwd-btn svg {
+                width: 18px;
+                height: 18px;
             }
         `;
         document.head.appendChild(style);
@@ -187,8 +192,8 @@ window.PracticeManageCommon = {
                     <input class="pwd-input" type="password" autocomplete="current-password" />
                     ${trustOptionLabel ? `<label class="pwd-trust-row"><input class="pwd-trust-input" type="checkbox" /> <span>${escapeHtml(trustOptionLabel)}</span></label>` : ''}
                     <div class="pwd-actions">
-                        <button type="button" class="pwd-btn cancel">Close</button>
-                        <button type="button" class="pwd-btn confirm">Confirm</button>
+                        <button type="button" class="pwd-btn cancel paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close">${this._dialogIcon('x')}</button>
+                        <button type="button" class="pwd-btn confirm paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Confirm" title="Confirm">${this._dialogIcon('check')}</button>
                     </div>
                 </div>
             `;
@@ -229,7 +234,7 @@ window.PracticeManageCommon = {
                     <h3 class="pwd-title">Enter family password to confirm ${escapeHtml(actionLabel)}:</h3>
                     <p class="pwd-message">${escapeHtml(message || 'Invalid password')}</p>
                     <div class="pwd-actions">
-                        <button type="button" class="pwd-btn cancel">OK</button>
+                        <button type="button" class="pwd-btn cancel paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close">${this._dialogIcon('x')}</button>
                     </div>
                 </div>
             `;

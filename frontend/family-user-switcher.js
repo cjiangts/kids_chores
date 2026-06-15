@@ -29,6 +29,7 @@
             || path.endsWith('/point-log.html')
             || path.endsWith('/point-rules.html')
             || path.endsWith('/parent-rewards.html')
+            || path.endsWith('/stats.html')
             || path.endsWith('/parent-settings.html');
     }
 

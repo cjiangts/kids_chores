@@ -12,6 +12,7 @@ from src.services.points import (
     deactivate_family_rule,
     delete_point_event,
     get_reward_bucket_totals,
+    get_kid_point_stats,
     get_point_total,
     list_latest_point_events_today_by_rule,
     list_enabled_off_app_chores,
@@ -140,6 +141,32 @@ def get_kid_points(kid_id):
         'totalPoints': total,
         'rewardBucketTotals': reward_bucket_totals,
         'events': events,
+    }), 200
+
+
+@points_bp.route('/kids/<kid_id>/stats', methods=['GET'])
+def get_kid_stats(kid_id):
+    kid, family_id, error = _kid_or_response(kid_id)
+    if error:
+        return error
+    timezone_name = metadata.get_family_timezone(family_id)
+    granularity = request.args.get('granularity') or 'monthly'
+    kid_conn = get_kid_connection_for(kid, read_only=True)
+    shared_conn = get_shared_decks_connection(read_only=True)
+    try:
+        stats = get_kid_point_stats(
+            kid_conn,
+            shared_conn,
+            family_id,
+            timezone_name=timezone_name,
+            granularity=granularity,
+        )
+    finally:
+        shared_conn.close()
+        kid_conn.close()
+    return jsonify({
+        'kidId': str(kid.get('id') or ''),
+        **stats,
     }), 200
 
 

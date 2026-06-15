@@ -410,9 +410,6 @@ async function dismissThumbsForKey(key, cell) {
     }
 }
 
-if (window.SearchBar) {
-    window.SearchBar.enhance(searchInput);
-}
 searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {

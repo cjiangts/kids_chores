@@ -16,483 +16,7 @@
     <link rel="stylesheet" href="paradigm.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
-    <style>
-        :root {
-            --math-mono-font: 'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace;
-        }
-
-        body.modal-open {
-            overflow: hidden;
-        }
-
-
-        .deck-meta-row {
-            margin: 0.35rem 0;
-            color: #333;
-        }
-
-        .deck-meta-row-head {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .deck-tags {
-            display: inline-flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-        }
-
-        .deck-tag {
-            background: #eef3ff;
-            color: #2f3c7e;
-            border-radius: 999px;
-            padding: 0.2rem 0.55rem;
-            font-size: 0.82rem;
-        }
-
-        .deck-empty {
-            color: #666;
-            font-size: 0.95rem;
-            padding: 0.4rem 0;
-        }
-
-        .deck-edit-help {
-            color: #555;
-            margin-bottom: 0.7rem;
-            line-height: 1.35;
-        }
-
-        .deck-edit-textarea {
-            width: 100%;
-            min-height: 130px;
-            resize: vertical;
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 0.9rem;
-            border: 1px solid #cfd7ea;
-            border-radius: 8px;
-            padding: 0.65rem 0.7rem;
-            margin-bottom: 0.7rem;
-        }
-
-        .deck-edit-row {
-            display: flex;
-            gap: 0.55rem;
-            flex-wrap: wrap;
-        }
-
-        .type4-preview-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.6rem;
-            flex-wrap: wrap;
-            margin-top: 0.8rem;
-            margin-bottom: 0.45rem;
-        }
-
-        .type4-preview-list {
-            display: grid;
-            gap: 0.55rem;
-        }
-
-        .type4-preview-item {
-            border: 1px solid #d7deee;
-            border-radius: 10px;
-            background: #fbfcff;
-            padding: 0.65rem 0.75rem;
-        }
-
-        .type4-preview-item code {
-            word-break: break-word;
-        }
-
-        .type4-cell-design-panel {
-            margin-top: 1rem;
-            padding-top: 0.9rem;
-            border-top: 1px solid #e4e9f2;
-        }
-
-        .type4-cell-design-preview {
-            border: 1px solid #d8e0f5;
-            border-radius: 12px;
-            background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
-            min-height: 120px;
-            padding: 0.85rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: auto;
-        }
-
-        .type4-cell-design-preview-card {
-            position: relative;
-            border: 2px dashed #667eea;
-            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
-            overflow: hidden;
-            flex: 0 0 auto;
-        }
-
-        .type4-cell-design-preview-offset {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: max-content;
-        }
-
-        .math-cell-v {
-            --v-row-width-ch: 6;
-            --v-gap-ch: 3;
-            border: none;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            justify-content: flex-start;
-            width: calc(var(--v-row-width-ch) * 1ch);
-            color: #222;
-            font-family: var(--math-mono-font);
-            font-size: 1.56rem;
-            line-height: 1.18;
-            letter-spacing: 0;
-            font-variant-numeric: tabular-nums lining-nums;
-            font-feature-settings: 'tnum' 1, 'lnum' 1;
-            font-variant-ligatures: none;
-            font-kerning: none;
-        }
-
-        .v-row {
-            display: block;
-            white-space: pre;
-            min-height: 1.18em;
-            width: 100%;
-        }
-
-        .v-row-top {
-            text-align: right;
-        }
-
-        .v-row-op {
-            display: flex;
-            align-items: baseline;
-            justify-content: flex-end;
-            white-space: normal;
-        }
-
-        .v-op {
-            flex: 0 0 1ch;
-            width: 1ch;
-            text-align: center;
-        }
-
-        .v-gap {
-            flex: 0 0 calc(var(--v-gap-ch) * 1ch);
-            width: calc(var(--v-gap-ch) * 1ch);
-            min-width: calc(var(--v-gap-ch) * 1ch);
-        }
-
-        .v-row-bottom-num {
-            flex: 0 0 auto;
-            text-align: right;
-            white-space: pre;
-        }
-
-        .v-line {
-            width: 100%;
-            border-top: 2px solid currentColor;
-            margin-top: 0.08em;
-        }
-
-        .math-cell-div {
-            border: none;
-            display: inline-flex;
-            flex-direction: column;
-            align-items: flex-start;
-            width: max-content;
-            color: #222;
-            font-family: var(--math-mono-font);
-            font-size: 1.56rem;
-            line-height: 1.18;
-            letter-spacing: 0;
-            font-variant-numeric: tabular-nums lining-nums;
-            font-feature-settings: 'tnum' 1, 'lnum' 1;
-            font-variant-ligatures: none;
-            font-kerning: none;
-        }
-
-        .div-main-row {
-            display: flex;
-            align-items: baseline;
-            white-space: pre;
-        }
-
-        .div-divisor {
-            padding-right: 0.08em;
-        }
-
-        .div-dividend {
-            position: relative;
-            padding: 0.18em 0.18em 0 0.15em;
-            margin-left: 0.55em;
-            border-top: 2px solid currentColor;
-        }
-
-        .div-bracket-svg {
-            position: absolute;
-            right: calc(100% - 1px);
-            top: -2px;
-            width: 0.55em;
-            height: 1.35em;
-            overflow: visible;
-        }
-
-        .math-cell-v-fallback {
-            border: none;
-            text-align: left;
-            font-family: var(--math-mono-font);
-            font-size: 1.34rem;
-            line-height: 1.24;
-            font-variant-numeric: tabular-nums lining-nums;
-            font-feature-settings: 'tnum' 1, 'lnum' 1;
-        }
-
-        #cellDesignCanvas {
-            display: flex;
-            justify-content: center;
-            padding: 0.5rem 0 0.25rem;
-        }
-
-        #cellDesignBox {
-            position: absolute;
-            border: 2px dashed #667eea;
-            overflow: hidden;
-            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
-            min-width: 0;
-            min-height: 0;
-        }
-
-        #cellDesignContent {
-            position: absolute;
-            left: 0;
-            top: 0;
-        }
-
-        #cellDesignStage {
-            position: relative;
-            width: min(344px, calc(100vw - 120px));
-            height: min(552px, calc(100vh - 220px));
-            min-width: 300px;
-            min-height: 320px;
-            border: 1px solid #d8e0f5;
-            border-radius: 16px;
-            background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65);
-            touch-action: manipulation;
-        }
-
-        #cellDesignWorkArea {
-            position: absolute;
-            inset: 46px 52px;
-        }
-
-        .cell-design-side-controls {
-            position: absolute;
-            display: flex;
-            gap: 0.35rem;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .cell-design-side-controls.top {
-            top: 6px;
-            left: 50%;
-            transform: translateX(-50%);
-            flex-direction: row;
-        }
-
-        .cell-design-side-controls.bottom {
-            bottom: 6px;
-            left: 50%;
-            transform: translateX(-50%);
-            flex-direction: row;
-        }
-
-        .cell-design-side-controls.left {
-            left: 6px;
-            top: 50%;
-            transform: translateY(-50%);
-            flex-direction: column;
-        }
-
-        .cell-design-side-controls.right {
-            right: 6px;
-            top: 50%;
-            transform: translateY(-50%);
-            flex-direction: column;
-        }
-
-        .cell-design-edge-btn {
-            width: 34px;
-            height: 34px;
-            border: 1px solid #bfd0f7;
-            border-radius: 999px;
-            background: #eef4ff;
-            color: #2e56a1;
-            font-size: 1rem;
-            font-weight: 700;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(73, 103, 166, 0.08);
-        }
-
-        .cell-design-edge-btn:hover {
-            background: #e2ecff;
-        }
-
-        .cell-design-edge-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            background: #f4f7ff;
-        }
-
-        .deck-rename-inline-btn.paradigm-btn {
-            padding: 0.2rem 0.55rem;
-            font-size: 0.82rem;
-            line-height: 1;
-            min-height: 0;
-        }
-
-        .rename-tags-modal {
-            width: min(500px, calc(100vw - 2rem));
-        }
-
-        .rename-tags-head {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.8rem;
-            margin-bottom: 0.45rem;
-        }
-
-        .rename-tags-head h2 {
-            margin: 0;
-        }
-
-        .rename-tags-head .paradigm-btn,
-        .rename-tags-actions .paradigm-btn,
-        .rename-add-tag-row .paradigm-btn {
-            padding: 0.45rem 0.9rem;
-            min-height: 40px;
-        }
-
-        .rename-tags-grid {
-            display: grid;
-            gap: 0.45rem;
-        }
-
-        .rename-tags-grid .form-group {
-            margin-bottom: 0;
-        }
-
-        .rename-tags-meta-row {
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            flex-wrap: wrap;
-        }
-
-        .rename-tags-meta-row label,
-        .rename-tags-grid label {
-            margin: 0;
-        }
-
-        .rename-tags-fixed-tag {
-            display: inline-flex;
-            align-items: center;
-            min-height: 34px;
-        }
-
-        .rename-add-tag-row {
-            display: flex;
-            flex-wrap: nowrap;
-            align-items: center;
-            gap: 0.45rem;
-        }
-
-        .rename-add-tag-row input {
-            flex: 1 1 auto;
-            min-width: 0;
-        }
-
-        .rename-add-tag-row .paradigm-btn {
-            flex: 0 0 auto;
-            white-space: nowrap;
-        }
-
-
-        .rename-tag-remove-btn {
-            border: 0;
-            background: transparent;
-            cursor: pointer;
-            color: #2f3c7e;
-            font-size: 0.92rem;
-            line-height: 1;
-            padding: 0;
-        }
-
-        .rename-name-status {
-            font-size: 0.84rem;
-        }
-
-        .rename-name-status.ok {
-            color: #2b8a3e;
-        }
-
-        .rename-name-status.error {
-            color: #c92a2a;
-            background: none;
-            padding: 0;
-            margin: 0;
-            border-radius: 0;
-        }
-
-        .rename-name-status.note {
-            color: #555;
-        }
-
-        .rename-name-status:empty {
-            display: none;
-        }
-
-        .rename-name-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.6rem;
-            flex-wrap: wrap;
-        }
-
-        .rename-name-row code {
-            word-break: break-word;
-        }
-
-        .rename-tags-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.55rem;
-            flex-wrap: wrap;
-            margin-top: 0.7rem;
-        }
-
-        .diff-row-added { background: #e6ffed; }
-        .diff-row-updated { background: #fff8e1; }
-        .diff-row-removed { background: #ffeef0; }
-        .diff-row-removed td { text-decoration: line-through; color: #999; }
-
-    </style>
+    <link rel="stylesheet" href="type4-cell-design-common.css">
 </head>
 <body class="manage-page">
     <div class="container deck-page">
@@ -508,36 +32,42 @@
 
         <main>
             <section class="deck-panel settings-section">
-                <h2 class="deck-section-title"><span class="icon" data-icon="info" data-icon-size="22"></span> Deck Metadata</h2>
-                <div id="deckMeta" class="hidden">
-                    <div class="deck-meta-row"><strong>Deck ID:</strong> <span id="deckIdText"></span></div>
-                    <div class="deck-meta-row"><strong>Name:</strong> <code id="deckNameText"></code></div>
-                    <div class="deck-meta-row">
-                        <span class="deck-meta-row-head">
-                            <strong>Tags:</strong>
-                            <span id="deckTagsText"></span>
-                            <button type="button" id="renameDeckTagsBtn" class="paradigm-btn deck-rename-inline-btn"><span class="icon" data-icon="pencil" data-icon-size="16"></span> Rename</button>
-                        </span>
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="info" data-icon-size="18"></span></span>
+                    <span class="paradigm-panel-heading">Deck Metadata</span>
+                </h2>
+                <div id="deckMeta" class="paradigm-form-grid paradigm-compact-form hidden">
+                    <div class="form-group paradigm-form-field"><label>Deck ID</label><span id="deckIdText"></span></div>
+                    <div class="form-group paradigm-form-field"><label>Name</label><code id="deckNameText"></code></div>
+                    <div class="form-group paradigm-form-field paradigm-form-span-full">
+                        <label>Tags</label>
+                        <div class="paradigm-row-action-group">
+                            <span id="deckTagsText" class="shared-tag-filter-chips"></span>
+                            <button type="button" id="renameDeckTagsBtn" class="paradigm-icon-btn paradigm-panel-action--circle" aria-label="Rename tags" title="Rename tags"><span class="icon" data-icon="pencil" data-icon-size="16"></span></button>
+                        </div>
                     </div>
-                    <div class="deck-meta-row"><strong>Behavior:</strong> <span id="deckBehaviorText"></span></div>
-                    <div class="deck-meta-row"><strong>Created:</strong> <span id="deckCreatedAtText"></span></div>
-                    <div class="deck-meta-row"><strong>Cards:</strong> <span id="cardCountText"></span></div>
+                    <div class="form-group paradigm-form-field"><label>Behavior</label><span id="deckBehaviorText"></span></div>
+                    <div class="form-group paradigm-form-field"><label>Created</label><span id="deckCreatedAtText"></span></div>
+                    <div class="form-group paradigm-form-field"><label>Cards</label><span id="cardCountText"></span></div>
                 </div>
             </section>
 
             <section class="deck-panel settings-section">
-                <h2 class="deck-section-title"><span class="icon" data-icon="pencil" data-icon-size="22"></span> <span id="editorSectionTitle">Edit Cards</span></h2>
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="pencil" data-icon-size="18"></span></span>
+                    <span id="editorSectionTitle" class="paradigm-panel-heading">Edit Cards</span>
+                </h2>
                 <div id="staticDeckEditor">
-                    <p id="deckEditHelp" class="deck-edit-help">Edit cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>
-                    <textarea id="cardsInput" class="deck-edit-textarea" placeholder="1+1,2&#10;2+3,5"></textarea>
-                    <div class="deck-edit-row">
+                    <p id="deckEditHelp" class="muted-help-text">Edit cards as <code>front,back</code> (one per line). Spaces around <code>front</code>/<code>back</code> are automatically trimmed.</p>
+                    <textarea id="cardsInput" class="deck-csv-textarea input-mono" placeholder="1+1,2&#10;2+3,5"></textarea>
+                    <div class="paradigm-input-action-row">
                         <button type="button" id="previewCsvBtn" class="paradigm-btn"><span data-icon="eye" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Preview Changes</span></button>
                         <button type="button" id="resetCsvBtn" class="paradigm-btn"><span data-icon="rotate-ccw" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Reset</span></button>
                     </div>
                 </div>
                 <div id="type4DeckEditor" class="hidden">
-                    <div class="deck-meta-row"><strong>Representative label:</strong> <span id="type4RepresentativeLabelText"></span></div>
-                    <label class="toggle-row" for="type4IsMultichoiceOnlyInput" style="margin:0.65rem 0 0.8rem;">
+                    <p class="muted-help-text"><strong>Representative label:</strong> <span id="type4RepresentativeLabelText"></span></p>
+                    <label class="toggle-row mt-07" for="type4IsMultichoiceOnlyInput">
                         <input type="checkbox" id="type4IsMultichoiceOnlyInput">
                         <span class="toggle-copy">
                             <strong>Always multiple choice</strong>
@@ -545,9 +75,9 @@
                         </span>
                         <span class="toggle-switch"></span>
                     </label>
-                    <textarea id="type4GeneratorCodeText" class="deck-edit-textarea input-mono" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
-                    <div id="type4GeneratorCodeEditor" class="hidden" style="width:100%;min-height:200px;border:1px solid #cfd7ea;border-radius:8px;margin-bottom:0.7rem;"></div>
-                    <div class="deck-edit-row">
+                    <textarea id="type4GeneratorCodeText" class="deck-csv-textarea input-mono" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+                    <div id="type4GeneratorCodeEditor" class="shared-ace-editor hidden"></div>
+                    <div class="paradigm-input-action-row">
                         <button type="button" id="saveType4GeneratorBtn" class="paradigm-btn"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Generator</span></button>
                     </div>
                     <div class="type4-preview-head">
@@ -566,7 +96,7 @@
                         </div>
                         <p id="type4CellDesignStatusText" class="muted-help-text">No printable cell design saved yet.</p>
                         <div id="type4CellDesignPreview" class="type4-cell-design-preview hidden"></div>
-                        <p class="muted-help-text" style="margin-top:0.7rem;">
+                        <p class="muted-help-text mt-07">
                             Printable Worksheets (Math Problems) uses this saved cell when building sheets.
                         </p>
                     </div>
@@ -574,8 +104,11 @@
             </section>
 
             <section id="cardsSection" class="deck-panel settings-section">
-                <h2 class="deck-section-title"><span class="icon" data-icon="layers" data-icon-size="22"></span> Cards</h2>
-                <div id="emptyState" class="deck-empty hidden">No cards in this deck.</div>
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon"><span class="icon" data-icon="layers" data-icon-size="18"></span></span>
+                    <span class="paradigm-panel-heading">Cards</span>
+                </h2>
+                <div id="emptyState" class="muted-help-text hidden">No cards in this deck.</div>
                 <div id="tableWrap" class="deck-table-wrap hidden">
                     <table class="deck-table">
                         <thead>
@@ -590,7 +123,7 @@
                         <tbody id="cardsTableBody"></tbody>
                     </table>
                 </div>
-                <div class="deck-edit-row" style="margin-top:0.7rem;">
+                <div class="paradigm-input-action-row">
                     <button type="button" id="applyCsvBtn" class="paradigm-btn"><span data-icon="check" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Apply Changes</span></button>
                 </div>
             </section>
@@ -601,47 +134,46 @@
     </div>
 
     <div id="renameTagsModal" class="modal hidden" aria-hidden="true">
-        <div class="modal-content rename-tags-modal" role="dialog" aria-modal="true" aria-labelledby="renameTagsModalTitle">
-            <div class="rename-tags-head">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="renameTagsModalTitle">
+            <div class="paradigm-panel-title">
                 <h2 id="renameTagsModalTitle"><span class="icon" data-icon="pencil" data-icon-size="22"></span> Rename Tags</h2>
-                <button type="button" id="closeRenameTagsModalBtn" class="paradigm-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Close</span></button>
             </div>
-            <div class="rename-tags-grid">
-                <div class="rename-tags-meta-row">
+            <div class="paradigm-form-grid paradigm-compact-form">
+                <div class="form-group paradigm-form-field">
                     <label>Subject</label>
-                    <div id="renameFixedFirstTag" class="deck-tag rename-tags-fixed-tag"></div>
+                    <div id="renameFixedFirstTag" class="shared-tag-filter-chip"></div>
                 </div>
-                <div class="form-group">
+                <div class="form-group paradigm-form-field paradigm-form-span-full">
                     <label for="renameNewTagInput">Add tag</label>
-                    <div class="deck-row rename-add-tag-row">
+                    <div class="paradigm-row-action-group paradigm-row-action-group--stretch">
                         <input
                             type="text"
                             id="renameNewTagInput"
+                            class="paradigm-input"
                             placeholder="e.g. unit3, week8, >100"
                         >
                         <button type="button" id="renameAddTagBtn" class="paradigm-btn"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Add Tag</span></button>
                     </div>
-                    <div id="renameTagsContainer" class="deck-tags" style="margin-top:0.3rem;"></div>
+                    <div id="renameTagsContainer" class="shared-tag-filter-chips"></div>
                 </div>
-                <div class="rename-name-row">
-                    <div class="deck-meta-name">
-                        <strong>Name:</strong> <code id="renameDeckNamePreview"></code>
-                    </div>
-                    <div id="renameNameStatus" class="rename-name-status note"></div>
+                <div class="form-group paradigm-form-field paradigm-form-span-full">
+                    <label>Name</label>
+                    <code id="renameDeckNamePreview"></code>
+                    <div id="renameNameStatus" class="muted-help-text inline-validation-status"></div>
                 </div>
                 <div id="renameTagsError" class="error hidden"></div>
             </div>
-            <div class="rename-tags-actions">
-                <button type="button" id="saveRenameTagsBtn" class="paradigm-btn"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Tags</span></button>
-                <button type="button" id="cancelRenameTagsBtn" class="paradigm-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Cancel</span></button>
+            <div class="form-actions paradigm-decision-group">
+                <button type="button" id="cancelRenameTagsBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+                <button type="button" id="saveRenameTagsBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Save tags" title="Save tags"><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
             </div>
         </div>
     </div>
 
     <div id="cellDesignModal" class="modal hidden" aria-hidden="true">
-        <div class="modal-content" style="max-width:720px; padding:1.2rem 1.4rem;">
-            <div style="margin-bottom:0.8rem; text-align:center;">
-                <span id="cellDesignDimensions" style="font-size:0.95rem; color:#555; font-weight:600;"></span>
+        <div class="modal-content modal-large">
+            <div class="muted-help-text centered-text">
+                <span id="cellDesignDimensions"></span>
             </div>
             <div id="cellDesignCanvas">
                 <div id="cellDesignStage">
@@ -668,9 +200,9 @@
                     </div>
                 </div>
             </div>
-            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:1rem;">
-                <button type="button" id="cellDesignCancelBtn" class="paradigm-btn"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Cancel</span></button>
-                <button type="button" id="cellDesignSaveBtn" class="paradigm-btn"><span data-icon="save" data-icon-size="16" data-icon-stroke="2.2"></span><span class="btn-label">Save Cell Design</span></button>
+            <div class="form-actions paradigm-decision-group">
+                <button type="button" id="cellDesignCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+                <button type="button" id="cellDesignSaveBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Save cell design" title="Save cell design"><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
             </div>
         </div>
     </div>

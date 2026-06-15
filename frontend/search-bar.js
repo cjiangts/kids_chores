@@ -1,5 +1,5 @@
-// Shared search-bar component: wraps an existing <input> with a magnifying-glass icon and a clear (×) button.
-// Usage: SearchBar.enhance(inputEl, { onClear })
+// Shared search-bar component: wraps an existing input with search and clear icons.
+// Usage: SearchBar.enhance(inputEl, { onClear }) or SearchBar.enhanceAll(rootEl)
 //   - Wraps the input in a `.search-bar` container if not already.
 //   - Adds `.search-bar-icon` (search) on the left and `.search-bar-clear` (x) on the right.
 //   - Toggles clear-button visibility based on input value; clicking clears the value, fires an 'input' event, and refocuses the input.
@@ -41,7 +41,8 @@
     }
 
     function enhance(input, options) {
-        if (!input || input.dataset.searchBarEnhanced === '1') return;
+        if (!input) return;
+        if (input.dataset.searchBarEnhanced === '1') return;
         input.dataset.searchBarEnhanced = '1';
         input.classList.add('paradigm-search-input');
 
@@ -62,9 +63,7 @@
             input.value = '';
             sync();
             input.dispatchEvent(new Event('input', { bubbles: true }));
-            if (options && typeof options.onClear === 'function') {
-                options.onClear();
-            }
+            if (typeof options?.onClear === 'function') options.onClear();
             input.focus();
         });
 
@@ -72,5 +71,18 @@
         if (window.hydrateIcons) window.hydrateIcons(wrap);
     }
 
-    window.SearchBar = { enhance };
+    function enhanceAll(root) {
+        const scope = root || document;
+        if (scope.matches && scope.matches('.paradigm-search-input')) {
+            enhance(scope);
+        }
+        scope.querySelectorAll?.('.paradigm-search-input').forEach((input) => enhance(input));
+    }
+
+    window.SearchBar = { enhance, enhanceAll };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => enhanceAll(document));
+    } else {
+        enhanceAll(document);
+    }
 })();
