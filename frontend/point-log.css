@@ -38,9 +38,11 @@
     background: transparent;
 }
 
-.point-log-workbench .point-template-row:not(.active):not(.point-template-row--redeem):hover {
-    border-color: #d9dfef;
-    background: #fff;
+@media (hover: hover) {
+    .point-log-workbench .point-template-row:not(.active):not(.point-template-row--redeem):hover {
+        border-color: #d9dfef;
+        background: #fff;
+    }
 }
 
 .point-template-row {
@@ -92,8 +94,10 @@
     z-index: 1;
 }
 
-.point-template-row:hover {
-    background: #f8fbff;
+@media (hover: hover) {
+    .point-template-row:hover {
+        background: #f8fbff;
+    }
 }
 
 .point-template-check {
@@ -637,6 +641,7 @@
     .point-log-workbench .point-template-row:not(.point-template-row--redeem) {
         min-width: 0;
         gap: 0.3rem;
+        border-radius: 8px;
         padding-left: 0;
         padding-right: 0;
     }
