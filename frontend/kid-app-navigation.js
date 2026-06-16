@@ -22,6 +22,7 @@
     const KID_ITEMS = [
         { key: 'practice', label: 'Practice', icon: 'graduation-cap' },
         { key: 'rewards', label: 'Rewards', icon: 'gift', path: PAGE_PATHS.kid_rewards },
+        { key: 'stats', label: 'Stats', icon: 'bar-chart-3' },
     ];
 
     const state = {
@@ -67,7 +68,6 @@
             || path.endsWith('/point-log.html')
             || path.endsWith('/point-rules.html')
             || path.endsWith('/parent-rewards.html')
-            || path.endsWith('/stats.html')
             || path.endsWith('/parent-settings.html');
     }
 

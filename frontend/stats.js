@@ -19,7 +19,7 @@ const requestedKidId = String(params.get('id') || params.get('kidId') || '').tri
 let kids = [];
 let selectedKidId = '';
 let statsData = { tabs: [] };
-let activeTabKey = readStoredTab() || 'points';
+let activeTabKey = readStoredTab() || 'earn';
 let showBalance = false;
 let selectedGranularity = 'monthly';
 let expandedRuleId = '';
@@ -152,9 +152,8 @@ function deltaClass(value) {
 }
 
 function tabIconName(tabKey) {
-    if (tabKey === 'points') return 'zap';
-    if (tabKey === 'earn') return 'trending-up';
-    if (tabKey === 'loss') return 'trending-down';
+    if (tabKey === 'earn') return 'thumbs-up';
+    if (tabKey === 'loss') return 'thumbs-down';
     return 'gift';
 }
 
@@ -371,6 +370,13 @@ function chartSvg(points, options = {}) {
 
 function renderKids() {
     if (!window.KidAppNavigation?.renderKidAvatarSwitcher) return;
+    if (window.KidAppNavigation.getMode?.() === 'kid') {
+        if (statsKidAvatarSwitcher) {
+            statsKidAvatarSwitcher.innerHTML = '';
+            statsKidAvatarSwitcher.classList.add('hidden');
+        }
+        return;
+    }
     window.KidAppNavigation.renderKidAvatarSwitcher(statsKidAvatarSwitcher, kids, {
         selectedKidId,
         onSelect: async (kidId) => {
@@ -396,7 +402,8 @@ function renderKids() {
 function renderTabs() {
     const tabs = Array.isArray(statsData.tabs) ? statsData.tabs : [];
     if (!tabs.some((tab) => tab.key === activeTabKey)) {
-        activeTabKey = tabs[0]?.key || 'points';
+        activeTabKey = tabs[0]?.key || 'earn';
+        rememberTab(activeTabKey);
     }
     statsTabs.innerHTML = tabs.map((tab) => {
         const isActive = tab.key === activeTabKey;
@@ -493,7 +500,7 @@ function itemSummaryHtml(item, isExpanded) {
 
 function renderTopItems() {
     const tab = activeTab();
-    const shouldShowTopItems = tab?.key !== 'points';
+    const shouldShowTopItems = Boolean(tab);
     statsTopItemsHeading?.classList.toggle('hidden', !shouldShowTopItems);
     statsTopItems?.classList.toggle('hidden', !shouldShowTopItems);
     if (!shouldShowTopItems) {

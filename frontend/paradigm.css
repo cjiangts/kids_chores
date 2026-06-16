@@ -260,6 +260,19 @@
     outline: none;
 }
 
+.paradigm-decision-btn--all {
+    border-color: var(--p-accent-border);
+    background: #eef1ff;
+    color: var(--p-accent);
+}
+
+.paradigm-decision-btn--all:hover:not(:disabled),
+.paradigm-decision-btn--all:focus-visible:not(:disabled) {
+    border-color: var(--p-accent);
+    background: #e4e8ff;
+    outline: none;
+}
+
 .paradigm-decision-btn--cancel {
     color: #4a5d86;
 }
@@ -950,7 +963,7 @@ fieldset.paradigm-form-field {
     min-width: 0;
     text-align: center;
     font-weight: 400;
-    color: var(--p-ink-title);
+    color: #1f2950;
     font-size: 0.94rem;
     line-height: 1.3;
 }
@@ -1365,11 +1378,6 @@ svg.cards-view-toggle-btn-icon,
     padding: 0 0.42rem 0 0.34rem;
 }
 
-.point-template-row:not(.point-template-row--redeem) .point-template-name {
-    font-size: inherit;
-    font-weight: inherit;
-}
-
 .point-template-row:not(.point-template-row--redeem) .point-rule-delta {
     padding: 0 0.46rem;
 }
@@ -1668,6 +1676,10 @@ svg.cards-view-toggle-btn-icon,
 @media (max-width: 700px) {
     .activity-timeline-icon {
         width: 28px;
+    }
+
+    .activity-timeline-title {
+        font-size: 0.85rem;
     }
 
     .point-rule-emoji {

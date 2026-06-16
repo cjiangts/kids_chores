@@ -10,6 +10,7 @@ const pointRuleName = document.getElementById('pointRuleName');
 const pointPoints = document.getElementById('pointPoints');
 const pointNote = document.getElementById('pointNote');
 const submitPointLogBtn = document.getElementById('submitPointLogBtn');
+const applyAllPointLogBtn = document.getElementById('applyAllPointLogBtn');
 const templateList = document.getElementById('templateList');
 const selectionPanel = document.getElementById('selectionPanel');
 const pointHistory = document.getElementById('pointHistory');
@@ -378,6 +379,11 @@ function updateSubmitState() {
     const canSubmit = Boolean(selectedKidId && hasPositivePoints && (rule || canCreate));
     const cannotAfford = cannotAffordSelectedReward();
     submitPointLogBtn.disabled = !canSubmit || cannotAfford;
+    if (applyAllPointLogBtn) {
+        applyAllPointLogBtn.classList.toggle('hidden', kids.length <= 1);
+        const canSubmitAll = Boolean(hasPositivePoints && (rule || canCreate));
+        applyAllPointLogBtn.disabled = !canSubmitAll;
+    }
     if (!name) {
         setSubmitButtonLabel('Confirm');
         return;
@@ -530,27 +536,54 @@ pointLogForm.addEventListener('click', (event) => {
     stepPoints(delta);
 });
 
+async function resolveSubmitRule() {
+    syncDraftFromInputs({ preserveSelection: true });
+    let rule = draftRuleForSubmit();
+    if (!rule) {
+        rule = await createAdhocRuleFromDraft();
+    } else if (Number(rule.ruleId) === Number(selectedRuleId)) {
+        rule = await saveSelectedRuleFromDraft(rule);
+    }
+    return rule;
+}
+
+async function awardDraftToKid(kidId, rule) {
+    await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events`, {
+        method: 'POST',
+        body: JSON.stringify({
+            ruleId: rule.ruleId,
+            pointsDelta: Number.parseInt(pointDraft.points, 10),
+            note: pointDraft.note,
+        }),
+    });
+}
+
 pointLogForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     submitPointLogBtn.disabled = true;
     showError('');
     try {
-        syncDraftFromInputs({ preserveSelection: true });
-        let rule = draftRuleForSubmit();
         if (!selectedKidId) return;
-        if (!rule) {
-            rule = await createAdhocRuleFromDraft();
-        } else if (Number(rule.ruleId) === Number(selectedRuleId)) {
-            rule = await saveSelectedRuleFromDraft(rule);
+        const rule = await resolveSubmitRule();
+        await awardDraftToKid(selectedKidId, rule);
+        clearDraft();
+        await refreshAfterMutation();
+    } catch (error) {
+        showError(error.message || 'Failed to log points.');
+        updateSubmitState();
+    }
+});
+
+applyAllPointLogBtn?.addEventListener('click', async () => {
+    if (!kids.length) return;
+    applyAllPointLogBtn.disabled = true;
+    submitPointLogBtn.disabled = true;
+    showError('');
+    try {
+        const rule = await resolveSubmitRule();
+        for (const kid of kids) {
+            await awardDraftToKid(String(kid?.id || ''), rule);
         }
-        await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events`, {
-            method: 'POST',
-            body: JSON.stringify({
-                ruleId: rule.ruleId,
-                pointsDelta: Number.parseInt(pointDraft.points, 10),
-                note: pointDraft.note,
-            }),
-        });
         clearDraft();
         await refreshAfterMutation();
     } catch (error) {

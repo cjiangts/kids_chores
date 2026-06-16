@@ -962,7 +962,7 @@ function buildAdminOffAppRow(chore, state) {
                 <span class="admin-off-app-tile" aria-hidden="true">${renderAdminOffAppIcon(chore)}</span>
                 <span class="admin-off-app-title-wrap">
                     <span class="admin-off-app-title-line">
-                        <span class="admin-off-app-name">${escapeHtml(name)}</span>
+                        <span class="admin-off-app-name activity-timeline-title">${escapeHtml(name)}</span>
                         ${stepperHtml}
                     </span>
                     ${isReviewable && reviewKind !== 'direct' && !isEditing ? buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) : ''}

@@ -335,7 +335,7 @@ function renderRules() {
                 style="--reward-progress: ${escapeHtml(`${progress.percent}%`)};"
             >
                 <span class="point-rule-emoji">${ruleIconHtml(rule)}</span>
-                <span class="point-template-name">${escapeHtml(rule.name || 'Reward')}</span>
+                <span class="point-template-name activity-timeline-title">${escapeHtml(rule.name || 'Reward')}</span>
                 <span class="point-rule-delta paradigm-pill ${signClass}">${escapeHtml(rulePointsLabel(rule))}</span>
                 <span class="kid-reward-rule-status-cell">${ruleStatusHtml(rule)}</span>
                 ${isAffordable ? '' : '<span class="kid-reward-progress parent-reward-progress" aria-hidden="true"><span></span></span>'}

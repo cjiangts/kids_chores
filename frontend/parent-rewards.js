@@ -215,10 +215,17 @@ function rewardNoteEditorHtml() {
     const checkIcon = typeof window.icon === 'function'
         ? window.icon('check', { size: 18, strokeWidth: 2.6 })
         : '✓';
+    const usersIcon = typeof window.icon === 'function'
+        ? window.icon('users', { size: 17, strokeWidth: 2.4 })
+        : '👥';
+    const allKidsButton = kids.length > 1
+        ? `<button type="button" class="paradigm-decision-btn paradigm-decision-btn--all" data-reward-action="confirm-all" aria-label="Redeem for all kids">${usersIcon}</button>`
+        : '';
     return `
         <div class="reward-note-editor" data-reward-note-editor>
             <input type="text" class="paradigm-input reward-note-input" data-reward-note-input placeholder="Add a note (optional)" maxlength="200" autocomplete="off">
             <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-reward-action="confirm" aria-label="Confirm redemption">${checkIcon}</button>
+            ${allKidsButton}
         </div>
     `;
 }
@@ -250,7 +257,7 @@ function renderRules() {
                 style="--reward-progress: ${escapeHtml(`${progress.percent}%`)};"
             >
                 <span class="point-rule-emoji">${ruleIconHtml(rule)}</span>
-                <span class="point-template-name">${escapeHtml(rule?.name || 'Reward')}</span>
+                <span class="point-template-name activity-timeline-title">${escapeHtml(rule?.name || 'Reward')}</span>
                 <span class="point-rule-delta paradigm-pill redeemed">${escapeHtml(`${ruleCost(rule)} pts`)}</span>
                 <span class="kid-reward-rule-status-cell">${rewardStatusHtml(rule)}</span>
                 ${isSelected ? rewardNoteEditorHtml() : ''}
@@ -330,6 +337,27 @@ async function refreshAfterMutation() {
     render();
 }
 
+function redemptionBody(rule, note) {
+    const body = { ruleId: rule.ruleId, pointsDelta: ruleCost(rule) };
+    const trimmedNote = String(note || '').trim();
+    if (trimmedNote) {
+        body.note = trimmedNote;
+    }
+    return body;
+}
+
+async function postRedemption(kidId, body) {
+    await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+
+function resetAfterRedeem() {
+    selectedRewardRuleId = 0;
+    selectedHistoryDayKey = '';
+}
+
 async function redeemSelectedReward(note = '') {
     const rule = selectedRewardRule();
     if (!rule || !selectedKidId) return;
@@ -338,20 +366,35 @@ async function redeemSelectedReward(note = '') {
         return;
     }
     showError('');
-    const trimmedNote = String(note || '').trim();
-    const body = {
-        ruleId: rule.ruleId,
-        pointsDelta: ruleCost(rule),
-    };
-    if (trimmedNote) {
-        body.note = trimmedNote;
+    await postRedemption(selectedKidId, redemptionBody(rule, note));
+    resetAfterRedeem();
+    await refreshAfterMutation();
+}
+
+async function redeemRewardForAllKids(note = '') {
+    const rule = selectedRewardRule();
+    if (!rule) return;
+    showError('');
+    const type = rewardType(rule);
+    const cost = ruleCost(rule);
+    const balances = await Promise.all(kids.map(async (kid) => {
+        const kidId = String(kid?.id || '');
+        const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points?limit=1`);
+        const totals = normalizeRewardBucketTotals(data?.rewardBucketTotals);
+        rewardBucketTotalsByKidId.set(kidId, totals);
+        return { kid, balance: Number.parseInt(totals?.[type], 10) || 0 };
+    }));
+    const shortfall = balances.filter((entry) => entry.balance < cost);
+    if (shortfall.length) {
+        const names = shortfall.map((entry) => String(entry.kid?.name || '').trim() || 'a kid').join(', ');
+        showError(`Not enough ${rewardTypeLabel(type)} points for: ${names}.`);
+        return;
     }
-    await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-    });
-    selectedRewardRuleId = 0;
-    selectedHistoryDayKey = '';
+    const body = redemptionBody(rule, note);
+    for (const entry of balances) {
+        await postRedemption(String(entry.kid?.id || ''), body);
+    }
+    resetAfterRedeem();
     await refreshAfterMutation();
 }
 
@@ -362,16 +405,19 @@ parentRewardTabs?.addEventListener('click', (event) => {
 });
 
 parentRewardRules?.addEventListener('click', async (event) => {
-    const confirmButton = event.target.closest('[data-reward-action="confirm"]');
-    if (confirmButton) {
-        const noteInput = confirmButton.closest('[data-reward-note-editor]')?.querySelector('[data-reward-note-input]');
+    const actionButton = event.target.closest('[data-reward-action="confirm"], [data-reward-action="confirm-all"]');
+    if (actionButton) {
+        const editor = actionButton.closest('[data-reward-note-editor]');
+        const noteInput = editor?.querySelector('[data-reward-note-input]');
         const note = noteInput ? noteInput.value : '';
-        confirmButton.disabled = true;
+        const isAll = actionButton.dataset.rewardAction === 'confirm-all';
+        editor?.querySelectorAll('[data-reward-action]').forEach((btn) => { btn.disabled = true; });
         try {
-            await redeemSelectedReward(note);
+            await (isAll ? redeemRewardForAllKids(note) : redeemSelectedReward(note));
         } catch (error) {
             showError(error.message || 'Failed to redeem reward.');
-            confirmButton.disabled = false;
+        } finally {
+            editor?.querySelectorAll('[data-reward-action]').forEach((btn) => { btn.disabled = false; });
         }
         return;
     }

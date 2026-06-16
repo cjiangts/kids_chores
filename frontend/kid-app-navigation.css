@@ -11,10 +11,6 @@
     box-shadow: 0 16px 34px rgba(31, 45, 98, 0.18);
 }
 
-.kid-app-nav.kid-app-nav--kid-mode {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .kid-app-nav__item {
     display: flex;
     align-items: center;
@@ -117,7 +113,7 @@ body.has-kid-app-nav {
     }
 
     .page-header-with-back .page-header-row.kid-app-nav-row:has(.kid-app-nav--kid-mode) {
-        --kid-app-nav-desktop-width: clamp(190px, 14vw, 240px);
+        --kid-app-nav-desktop-width: clamp(270px, 18vw, 330px);
     }
 
     .page-header-with-back .page-header-row.kid-app-nav-row h1 {

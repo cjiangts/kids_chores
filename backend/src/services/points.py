@@ -709,12 +709,9 @@ def _event_scope_keys(rule, delta=0):
         scope_key = _reward_scope_key(bucket)
         if scope_key:
             return {scope_key}
-    keys = {'points'}
     if int(delta or 0) >= 0:
-        keys.add('earn')
-    else:
-        keys.add('loss')
-    return keys
+        return {'earn'}
+    return {'loss'}
 
 
 def _default_rule_payload(rule_id):
@@ -787,13 +784,6 @@ def get_kid_point_stats(kid_conn, shared_conn, family_id, *, timezone_name='UTC'
     period_keys = _stats_period_keys_between(first_period, current_period, granularity) or [current_period]
 
     scope_entries = {
-        'points': {
-            'key': 'points',
-            'label': 'Points',
-            'rewardBucket': '',
-            'periods': {period: 0 for period in period_keys},
-            'items': {},
-        },
         'earn': {
             'key': 'earn',
             'label': 'Earn',
@@ -864,11 +854,14 @@ def get_kid_point_stats(kid_conn, shared_conn, family_id, *, timezone_name='UTC'
     wallet_base_balance_by_period = {}
     wallet_base_balance = 0
     for period_key in period_keys_sorted:
-        wallet_base_balance += int(scope_entries['points']['periods'].get(period_key, 0) or 0)
+        wallet_base_balance += (
+            int(scope_entries['earn']['periods'].get(period_key, 0) or 0)
+            + int(scope_entries['loss']['periods'].get(period_key, 0) or 0)
+        )
         wallet_base_balance_by_period[period_key] = wallet_base_balance
 
     result_tabs = []
-    for scope_key in ['points', 'earn', 'loss', *reward_scope_keys]:
+    for scope_key in ['earn', 'loss', *reward_scope_keys]:
         entry = scope_entries[scope_key]
         balance = 0
         trend = []

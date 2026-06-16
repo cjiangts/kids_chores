@@ -1064,7 +1064,6 @@ h3:has(.icon) {
 
 
 /* Shared point/reward typography */
-.point-template-name,
 .point-selection-title,
 .point-history-title,
 .point-history-note,
@@ -1090,7 +1089,6 @@ h3:has(.icon) {
 }
 
 @media (max-width: 700px) {
-    .point-template-name,
     .point-selection-title,
     .point-history-title,
     .point-history-note,
