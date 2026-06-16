@@ -377,6 +377,10 @@ function collapseAllDeckTree() {
     if (deckTreeViewInstance) deckTreeViewInstance.collapseAll();
 }
 
+function toggleDeckTreeExpansion() {
+    if (deckTreeViewInstance) deckTreeViewInstance.toggleAllExpansion();
+}
+
 
 // =====================================================================
 // === 6. Stage + apply deck membership changes

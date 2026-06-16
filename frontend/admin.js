@@ -929,7 +929,7 @@ function buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) {
 }
 
 function buildAdminOffAppStatusHtml(chore, directReviewKey = '') {
-    const readyHtml = (typeof window.icon === 'function') ? window.icon('play', { size: 15, strokeWidth: 2.8 }) : '';
+    const readyHtml = (typeof window.icon === 'function') ? window.icon('circle-dashed', { size: 15, strokeWidth: 2.8 }) : '';
     const editHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 13, strokeWidth: 2.5 }) : '';
     return `
         <button type="button" class="admin-off-app-status admin-off-app-status--ready paradigm-status-pill" data-off-app-edit data-review-key="${escapeHtml(directReviewKey)}" aria-label="Log result for ${escapeHtml(String(chore?.name || 'task'))}">
@@ -1350,7 +1350,7 @@ function buildTodayStatusCell(row, kid) {
         : (labelByStatus[status] || labelByStatus.not_started);
     const sessionId = Number.parseInt(statusInfo.sessionId ?? statusInfo.session_id, 10);
     const leadingIconNameByStatus = {
-        not_started: 'play',
+        not_started: 'circle-dashed',
         in_progress: 'clock',
         done: 'check',
     };
@@ -1912,16 +1912,10 @@ function closeDeckBrowseModal() {
 document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('closeDeckBrowseModalBtn');
     if (closeBtn) closeBtn.addEventListener('click', closeDeckBrowseModal);
-    const expandBtn = document.getElementById('deckBrowseExpandAllBtn');
-    if (expandBtn) {
-        expandBtn.addEventListener('click', () => {
-            if (deckBrowseTreeView) deckBrowseTreeView.expandAll();
-        });
-    }
-    const collapseBtn = document.getElementById('deckBrowseCollapseAllBtn');
-    if (collapseBtn) {
-        collapseBtn.addEventListener('click', () => {
-            if (deckBrowseTreeView) deckBrowseTreeView.collapseAll();
+    const expansionToggleBtn = document.getElementById('deckBrowseExpansionToggleBtn');
+    if (expansionToggleBtn) {
+        expansionToggleBtn.addEventListener('click', () => {
+            if (deckBrowseTreeView) deckBrowseTreeView.toggleAllExpansion();
         });
     }
     const newDeckBtn = document.getElementById('deckBrowseNewDeckBtn');

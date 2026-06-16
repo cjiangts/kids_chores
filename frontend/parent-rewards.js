@@ -43,6 +43,19 @@ async function fetchJson(url, options = {}) {
     return data;
 }
 
+function kidName(kid) {
+    return String(kid?.name || kid?.id || '').trim();
+}
+
+function selectedKidName() {
+    const kid = kids.find((item) => String(item?.id || '') === selectedKidId);
+    return kidName(kid) || 'this kid';
+}
+
+function historyEventName(row, fallback = 'this reward') {
+    return String(row?.querySelector('.point-history-title')?.textContent || '').trim() || fallback;
+}
+
 function rewardType(rule) {
     return window.PointRuleTemplateCommon.rewardType(rule);
 }
@@ -467,6 +480,7 @@ parentRewardHistory?.addEventListener('click', async (event) => {
     const row = button.closest('[data-event-id]');
     const eventId = Number.parseInt(row?.dataset.eventId || '', 10);
     if (!(eventId > 0)) return;
+    if (!window.confirm(`Undo "${historyEventName(row)}" for ${selectedKidName()}?`)) return;
     button.disabled = true;
     showError('');
     try {

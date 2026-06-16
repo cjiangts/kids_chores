@@ -1372,8 +1372,8 @@
         .queue-field-controls {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.6rem;
+            justify-content: center;
+            gap: 0.59rem;
             padding-top: 0.34rem;
         }
 
@@ -4459,8 +4459,28 @@
         }
 
         .kid-card-manage-page .queue-actions-layout .queue-field-legend {
-            font-size: 0.7rem;
-            font-weight: 420;
+            font-size: 0.72rem;
+            font-weight: 400;
+        }
+
+        .kid-card-manage-page .queue-actions-layout .queue-stepper,
+        .kid-card-manage-page .queue-actions-layout .queue-save-pill {
+            --paradigm-stepper-btn-size: 26px;
+            --paradigm-stepper-control-height: 26px;
+            --paradigm-stepper-value-width: 26px;
+            --paradigm-decision-btn-size: 26px;
+            --paradigm-decision-btn-icon-size: 12px;
+        }
+
+        .kid-card-manage-page .queue-actions-layout .queue-stepper-btn .icon,
+        .kid-card-manage-page .queue-actions-layout .queue-stepper-btn svg {
+            width: 11px;
+            height: 11px;
+        }
+
+        .kid-card-manage-page .queue-actions-layout .queue-stepper input[type="number"] {
+            font-size: 0.78rem;
+            font-weight: 600;
         }
 
         @media (min-width: 760px) {

@@ -67,13 +67,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             setTimeout(() => document.addEventListener('click', dismiss), 0);
         });
     }
-    const deckTreeExpandAllBtn = document.getElementById('deckTreeExpandAllBtn');
-    const deckTreeCollapseAllBtn = document.getElementById('deckTreeCollapseAllBtn');
-    if (deckTreeExpandAllBtn) {
-        deckTreeExpandAllBtn.addEventListener('click', expandAllDeckTree);
-    }
-    if (deckTreeCollapseAllBtn) {
-        deckTreeCollapseAllBtn.addEventListener('click', collapseAllDeckTree);
+    const deckTreeExpansionToggleBtn = document.getElementById('deckTreeExpansionToggleBtn');
+    if (deckTreeExpansionToggleBtn) {
+        deckTreeExpansionToggleBtn.addEventListener('click', toggleDeckTreeExpansion);
     }
     // === 3. Type-IV deck-counts + generator preview modal wiring ===
     if (openType4DeckCountsModalBtn) {

@@ -293,6 +293,19 @@
             this.expandedLeafDeckIds.clear();
         }
 
+        toggleAllExpansion() {
+            if (this.isFullyExpanded()) {
+                this.collapseAll();
+            } else {
+                this.expandAll();
+            }
+        }
+
+        isFullyExpanded() {
+            if (!this.container) return false;
+            return !this.container.querySelector('.deck-tree-children.collapsed');
+        }
+
         // ── Tree building ─────────────────────────────────────────────────────
 
         // -----------------------------------------------------------------

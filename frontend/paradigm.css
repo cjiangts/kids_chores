@@ -1367,6 +1367,7 @@ svg.cards-view-toggle-btn-icon,
 .paradigm-icon-btn.is-danger:focus-visible:not(:disabled) {
     border-color: #f08080;
     background: #fdecea;
+    color: #c0392b;
 }
 
 .point-template-row:not(.point-template-row--redeem) {

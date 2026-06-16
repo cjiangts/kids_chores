@@ -48,6 +48,7 @@
         .bank-search-wrap {
             flex: 1;
             min-width: 160px;
+            margin-top: 0.5rem;
         }
 
         .bank-filter-group {
@@ -199,33 +200,7 @@
         }
 
         .bank-pagination {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            justify-content: center;
             margin-top: 0.75rem;
-            font-size: 0.85rem;
-            color: #444;
-        }
-
-        .bank-pagination button {
-            padding: 0.3rem 0.7rem;
-            border: 1px solid #bbc2cc;
-            border-radius: 6px;
-            background: #fff;
-            cursor: pointer;
-            font-weight: 500;
-            color: #444;
-            transition: background 0.15s;
-        }
-
-        .bank-pagination button:hover:not(:disabled) {
-            background: #f0f4fa;
-        }
-
-        .bank-pagination button:disabled {
-            opacity: 0.35;
-            cursor: default;
         }
 
         .bank-save-bar {
@@ -384,13 +359,7 @@
             }
 
             .bank-pagination {
-                font-size: 0.7rem;
-                gap: 0.3rem;
                 margin-top: 0.45rem;
-            }
-            .bank-pagination button {
-                padding: 0.22rem 0.5rem;
-                font-size: 0.7rem;
             }
 
             .csv-editor-textarea {
@@ -448,10 +417,12 @@
                     <textarea id="csvEditor" class="csv-editor-textarea" spellcheck="false" placeholder="Char,Pinyin,English"></textarea>
                 </div>
 
-                <div class="bank-pagination">
-                    <button id="prevPageBtn" disabled><span class="icon" data-icon="arrow-left" data-icon-size="16"></span> Prev</button>
-                    <span id="pageInfo"></span>
-                    <button id="nextPageBtn">Next <span class="icon" data-icon="arrow-right" data-icon-size="16"></span></button>
+                <div class="bank-pagination cards-report-view">
+                    <div class="daily-chart-pager">
+                        <button id="prevPageBtn" type="button" class="paradigm-pager-btn" aria-label="Older" disabled><span data-icon="chevron-left" data-icon-size="14" data-icon-stroke="2.9"></span></button>
+                        <div id="pageInfo" class="daily-chart-page-label"></div>
+                        <button id="nextPageBtn" type="button" class="paradigm-pager-btn" aria-label="Newer"><span data-icon="chevron-right" data-icon-size="14" data-icon-stroke="2.9"></span></button>
+                    </div>
                 </div>
 
                 <div style="overflow-x:auto;">

@@ -104,6 +104,15 @@ function kidName(kid) {
     return String(kid?.name || kid?.id || '').trim();
 }
 
+function selectedKidName() {
+    const kid = kids.find((item) => String(item?.id || '') === selectedKidId);
+    return kidName(kid) || 'this kid';
+}
+
+function historyEventName(row, fallback = 'this point event') {
+    return String(row?.querySelector('.point-history-title')?.textContent || '').trim() || fallback;
+}
+
 function selectedFamilyTimezone() {
     const kid = kids.find((item) => String(item?.id || '') === selectedKidId);
     return String(kid?.familyTimezone || '').trim();
@@ -323,6 +332,8 @@ function renderModeTabs() {
     modeTabs.forEach((tab) => {
         tab.classList.toggle('active', tab.dataset.mode === activeMode);
     });
+    pointLogForm.classList.toggle('is-bonus', activeMode === 'bonus');
+    pointLogForm.classList.toggle('is-deduction', activeMode === 'deduction');
     if (pointRulesLink) {
         const ruleKind = activeMode === 'deduction' ? 'deduction_event' : 'bonus_event';
         pointRulesLink.href = `/point-rules.html?kind=${encodeURIComponent(ruleKind)}`;
@@ -607,6 +618,7 @@ pointHistory.addEventListener('click', async (event) => {
     const row = button.closest('[data-event-id]');
     const eventId = Number.parseInt(row?.dataset.eventId || '', 10);
     if (!(eventId > 0)) return;
+    if (!window.confirm(`Delete "${historyEventName(row)}" for ${selectedKidName()}?`)) return;
     button.disabled = true;
     showError('');
     try {
