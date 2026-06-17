@@ -71,9 +71,13 @@ const renameNameStatus = document.getElementById('renameNameStatus');
 const renameTagsError = document.getElementById('renameTagsError');
 const deckEditHelp = document.getElementById('deckEditHelp');
 const deckCategoryCommon = window.DeckCategoryCommon;
+const deckCreateCommon = window.DeckCreateCommon;
 
 if (!deckCategoryCommon) {
     throw new Error('deck-category-common.js is required for deck-view');
+}
+if (!deckCreateCommon) {
+    throw new Error('deck-create-common.js is required for deck-view');
 }
 
 let deckId = 0;
@@ -401,11 +405,16 @@ function renderDeck(payload) {
     }
     if (!isTypeIV && cardsInput) {
         const hasChinese = Boolean(currentDeck && currentDeck.has_chinese_specific_logic);
-        if (isChineseType1Deck()) {
+        if (deckCreateCommon.isChineseCharactersDeckMode(currentDeck)) {
             if (deckEditHelp) {
                 deckEditHelp.innerHTML = 'Enter characters separated by spaces. Multi-character input like 你好 is auto-split. Backs are auto-generated.';
             }
             cardsInput.placeholder = '一二三四五六七八九十';
+        } else if (deckCreateCommon.isChineseVocabularyDeckMode(currentDeck)) {
+            if (deckEditHelp) {
+                deckEditHelp.innerHTML = 'Enter Chinese words separated by spaces or punctuation. Backs are auto-generated.';
+            }
+            cardsInput.placeholder = '称象 人前 将军 名字 曹操 运到 带着 儿子 喜欢 办法';
         } else if (behaviorType === 'type_ii' && hasChinese) {
             cardsInput.placeholder = '上,上面的上\n不,不要的不\n走,走路的走';
         } else if (behaviorType === 'type_iii' && hasChinese) {
@@ -497,22 +506,14 @@ function updateCloneDeckButton(deck, isTypeIV) {
 // === 3. Card CSV preview / apply
 // =====================================================================
 function parseCardsCsvInput(rawText) {
+    if (isChineseType1Deck()) {
+        return deckCreateCommon.parseChineseAutoBackText(rawText, currentDeck);
+    }
     const lines = String(rawText || '').split(/\r\n|\r|\n/);
     const cards = [];
-    const chineseMode = isChineseType1Deck();
     lines.forEach((line, index) => {
         const text = String(line || '').trim();
         if (!text) {
-            return;
-        }
-        if (chineseMode) {
-            const tokens = text.split(/\s+/);
-            tokens.forEach((tok) => {
-                const chars = Array.from(tok);
-                chars.forEach((ch) => {
-                    if (ch) cards.push({ front: ch, back: '' });
-                });
-            });
             return;
         }
         const commaIndex = text.indexOf(',');
@@ -527,9 +528,7 @@ function parseCardsCsvInput(rawText) {
         cards.push({ front, back });
     });
     if (cards.length === 0) {
-        throw new Error(chineseMode
-            ? 'No characters found. Enter characters separated by spaces.'
-            : 'No cards parsed. Paste at least one "front,back" line.');
+        throw new Error('No cards parsed. Paste at least one "front,back" line.');
     }
     return cards;
 }

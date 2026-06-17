@@ -786,50 +786,6 @@ function parseCardsCsv(csvText) {
     return cards;
 }
 
-function parseChineseCharacterText(rawText) {
-    const text = String(rawText || '');
-    const lines = text.split(/\r\n|\r|\n/);
-    const cards = [];
-
-    lines.forEach((lineText, index) => {
-        const line = index + 1;
-        const chars = String(lineText || '').match(/\p{Script=Han}/gu);
-        if (!chars) {
-            return;
-        }
-        chars.forEach((char) => {
-            cards.push({ front: String(char), back: '', line });
-        });
-    });
-
-    if (cards.length === 0) {
-        throw new Error('No Chinese characters found. Paste text that contains Chinese characters.');
-    }
-    return cards;
-}
-
-function parseChineseVocabularyText(rawText) {
-    const text = String(rawText || '');
-    const lines = text.split(/\r\n|\r|\n/);
-    const cards = [];
-
-    lines.forEach((lineText, index) => {
-        const line = index + 1;
-        const words = String(lineText || '').match(/\p{Script=Han}+/gu);
-        if (!words) {
-            return;
-        }
-        words.forEach((word) => {
-            cards.push({ front: String(word), back: '', line });
-        });
-    });
-
-    if (cards.length === 0) {
-        throw new Error('No Chinese words found. Paste text that contains Chinese characters.');
-    }
-    return cards;
-}
-
 async function parseCardsForCurrentMode() {
     if (!isChineseAutoBackDeckMode()) {
         return parseCardsCsv(cardsCsvInput.value);
@@ -837,9 +793,7 @@ async function parseCardsForCurrentMode() {
 
     const isVocab = isChineseVocabularyDeckMode();
     const backContent = isVocab ? 'english' : 'pinyin';
-    const cards = isVocab
-        ? parseChineseVocabularyText(cardsCsvInput.value)
-        : parseChineseCharacterText(cardsCsvInput.value);
+    const cards = deckCreateCommon.parseChineseAutoBackText(cardsCsvInput.value, getCurrentDeckCategory());
     const uniqueTexts = [];
     const seen = new Set();
     cards.forEach((card) => {

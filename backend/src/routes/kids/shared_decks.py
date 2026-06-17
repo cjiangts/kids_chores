@@ -1023,6 +1023,11 @@ def get_shared_deck_details(deck_id):
                 return jsonify({'error': 'Deck not found'}), 404
             behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
             chinese_type_i = is_shared_deck_chinese_type_i(conn, deck_row[2])
+            chinese_back_content = (
+                get_shared_deck_chinese_back_content(conn, deck_row[2])
+                if chinese_type_i
+                else ''
+            )
             cards = get_shared_deck_cards(conn, deck_id)
             generator_definition = (
                 get_shared_deck_generator_definition(conn, deck_id)
@@ -1042,6 +1047,7 @@ def get_shared_deck_details(deck_id):
                 'created_at': deck_row[4].isoformat() if deck_row[4] else None,
                 'behavior_type': behavior_type,
                 'has_chinese_specific_logic': chinese_type_i,
+                'chinese_back_content': chinese_back_content,
             },
             'card_count': len(cards),
             'cards': cards,
@@ -1918,4 +1924,3 @@ def create_shared_deck():
         if 'unique' in err and 'front' in err:
             return jsonify({'error': 'Shared deck DB schema mismatch on card uniqueness. Expected UNIQUE(deck_id, front).'}), 409
         return jsonify({'error': str(e)}), 500
-

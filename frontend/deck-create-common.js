@@ -105,6 +105,54 @@
         return isChineseAutoBackDeckMode(category) && getChineseBackContent(category) === 'english';
     }
 
+    function dedupeChineseCardsByFront(cards) {
+        const seen = new Set();
+        return cards.filter((card) => {
+            const front = String(card && card.front ? card.front : '').trim();
+            if (!front || seen.has(front)) {
+                return false;
+            }
+            seen.add(front);
+            return true;
+        });
+    }
+
+    function parseChineseCharacterText(rawText) {
+        const lines = String(rawText || '').split(/\r\n|\r|\n/);
+        const cards = [];
+        lines.forEach((lineText, index) => {
+            const chars = String(lineText || '').match(/\p{Script=Han}/gu);
+            if (chars) {
+                chars.forEach((char) => cards.push({ front: String(char), back: '', line: index + 1 }));
+            }
+        });
+        if (cards.length === 0) {
+            throw new Error('No Chinese characters found. Paste text that contains Chinese characters.');
+        }
+        return dedupeChineseCardsByFront(cards);
+    }
+
+    function parseChineseVocabularyText(rawText) {
+        const lines = String(rawText || '').split(/\r\n|\r|\n/);
+        const cards = [];
+        lines.forEach((lineText, index) => {
+            const words = String(lineText || '').match(/\p{Script=Han}+/gu);
+            if (words) {
+                words.forEach((word) => cards.push({ front: String(word), back: '', line: index + 1 }));
+            }
+        });
+        if (cards.length === 0) {
+            throw new Error('No Chinese words found. Paste text that contains Chinese characters.');
+        }
+        return dedupeChineseCardsByFront(cards);
+    }
+
+    function parseChineseAutoBackText(rawText, category) {
+        return isChineseVocabularyDeckMode(category)
+            ? parseChineseVocabularyText(rawText)
+            : parseChineseCharacterText(rawText);
+    }
+
     function isChineseWritingDeckMode(category) {
         return Boolean(
             category
@@ -353,6 +401,7 @@
         isChineseAutoBackDeckMode,
         isChineseCharactersDeckMode,
         isChineseVocabularyDeckMode,
+        parseChineseAutoBackText,
         getChineseBackContent,
         isChineseWritingDeckMode,
         isChineseLessonReadingDeckMode,
