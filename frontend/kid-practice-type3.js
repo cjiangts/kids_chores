@@ -297,18 +297,14 @@ function fitRecordingCanvas() {
 }
 async function stopAndCaptureRecording() {
     return new Promise((resolve, reject) => {
-        if (!state.mediaRecorder || state.mediaRecorder.state !== 'recording') {
+        if (!state.mediaRecorder || state.mediaRecorder.state === 'inactive') {
             resolve(null);
             return;
         }
 
         const recorder = state.mediaRecorder;
         let resolved = false;
-        recorder.onstop = () => {
-            if (resolved) {
-                return;
-            }
-            resolved = true;
+        const finishWithBlob = () => {
             const finalMimeType = recorder.mimeType || state.recordingMimeType || 'audio/webm';
             const blob = state.recordingChunks.length > 0
                 ? new Blob(state.recordingChunks, { type: finalMimeType })
@@ -319,6 +315,13 @@ async function stopAndCaptureRecording() {
             state.mediaStream = null;
             state.mediaRecorder = null;
             resolve({ blob, mimeType: finalMimeType });
+        };
+        recorder.onstop = () => {
+            if (resolved) {
+                return;
+            }
+            resolved = true;
+            window.setTimeout(finishWithBlob, 120);
         };
         recorder.onerror = () => {
             if (resolved) {

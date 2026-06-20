@@ -143,7 +143,7 @@ window.AudioCommon = {
      */
     gracefulStopRecorder(recorder, graceMs = 280) {
         return new Promise((resolve, reject) => {
-            if (!recorder || recorder.state !== 'recording') {
+            if (!recorder || recorder.state === 'inactive') {
                 resolve();
                 return;
             }
@@ -168,7 +168,7 @@ window.AudioCommon = {
 
             const waitMs = Math.max(0, Number(graceMs) || 280);
             window.setTimeout(() => {
-                if (recorder.state !== 'recording') {
+                if (recorder.state === 'inactive') {
                     finishResolve();
                     return;
                 }
