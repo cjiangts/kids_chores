@@ -1113,11 +1113,13 @@ def complete_session_internal(kid, kid_id, session_type, data):
     """
     payload, status_code = _complete_session_and_save(kid, kid_id, session_type, data)
     if status_code == 200:
-        _auto_award_in_app_chore_points(kid, session_type)
+        _auto_award_in_app_chore_points(
+            kid, session_type, _parse_client_completed_at(data.get('completedAt'))
+        )
     return payload, status_code
 
 
-def _auto_award_in_app_chore_points(kid, session_type):
+def _auto_award_in_app_chore_points(kid, session_type, completed_at_utc=None):
     family_id = str(kid.get('familyId') or '').strip()
     if not family_id:
         return
@@ -1125,6 +1127,9 @@ def _auto_award_in_app_chore_points(kid, session_type):
     # the parent's manual refresh will reconcile if this ever doesn't run.
     # Scoped to the completed subject — finishing one category can only change
     # that category's done-state, so there's no need to re-scan the others.
+    # Scoped to the session's own day (= today for live play, the original
+    # practice day for replayed offline sessions) so backdated offline syncs
+    # still credit the day the kid actually finished, not the sync day.
     try:
         kid_conn = get_kid_connection_for(kid)
         shared_conn = get_shared_decks_connection(read_only=True)
@@ -1134,12 +1139,39 @@ def _auto_award_in_app_chore_points(kid, session_type):
                 shared_conn,
                 family_id,
                 trigger_keys=[session_type],
+                at_utc=completed_at_utc,
             )
         finally:
             shared_conn.close()
             kid_conn.close()
     except Exception:
         pass
+
+
+def _parse_client_completed_at(raw_completed_at):
+    if raw_completed_at is None:
+        return None
+    if isinstance(raw_completed_at, (int, float)):
+        try:
+            value = float(raw_completed_at)
+            return datetime.fromtimestamp(value / 1000.0 if value > 100000000000 else value, tz=timezone.utc).replace(tzinfo=None)
+        except Exception:
+            return None
+    if isinstance(raw_completed_at, str):
+        text = raw_completed_at.strip()
+        if not text:
+            return None
+        try:
+            if text.replace('.', '', 1).isdigit():
+                value = float(text)
+                return datetime.fromtimestamp(value / 1000.0 if value > 100000000000 else value, tz=timezone.utc).replace(tzinfo=None)
+            parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
+            if parsed.tzinfo is None:
+                return parsed.replace(tzinfo=timezone.utc).replace(tzinfo=None)
+            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        except Exception:
+            return None
+    return None
 
 
 def _complete_session_and_save(kid, kid_id, session_type, data):
@@ -1158,7 +1190,10 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
     if len(answers) == 0:
         return {'error': 'answers do not match this pending session'}, 400
     started_at_utc = parse_client_started_at(data.get('startedAt'), pending)
-    completed_at_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    completed_at_utc = (
+        _parse_client_completed_at(data.get('completedAt'))
+        or datetime.now(timezone.utc).replace(tzinfo=None)
+    )
 
     conn = get_kid_connection_for(kid)
     planned_count = int(pending.get('planned_count') or 0)
@@ -1549,11 +1584,11 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
                     wrong_count += 1
                 result_row = conn.execute(
                     """
-                    INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO session_results (session_id, card_id, correct, response_time_ms, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
                     RETURNING id
                     """,
-                    [continue_source_session_id, card_id, correct_value, response_time_ms]
+                    [continue_source_session_id, card_id, correct_value, response_time_ms, completed_at_utc]
                 ).fetchone()
                 result_id = int(result_row[0])
                 update_card_correct_time_ema(conn, card_id, correct_value, response_time_ms)
@@ -1665,11 +1700,11 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
                 wrong_count += 1
             result_row = conn.execute(
                 """
-                INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO session_results (session_id, card_id, correct, response_time_ms, timestamp)
+                VALUES (?, ?, ?, ?, ?)
                 RETURNING id
                 """,
-                [session_id, card_id, correct_value, response_time_ms]
+                [session_id, card_id, correct_value, response_time_ms, completed_at_utc]
             ).fetchone()
             result_id = int(result_row[0])
             update_card_correct_time_ema(conn, card_id, correct_value, response_time_ms)

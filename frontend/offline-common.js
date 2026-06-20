@@ -408,6 +408,7 @@
 
         const sessions = [];
         for (const row of pendingResults) {
+            const createdAtTs = Number(row.createdAtTs) || 0;
             const entry = {
                 pendingSessionId: row.pendingSessionId,
                 sessionType: row.sessionType,
@@ -415,6 +416,7 @@
                 answers: row.answers,
                 startedAt: row.startedAt,
                 createdAtTs: row.createdAtTs,
+                completedAt: row.completedAt || (createdAtTs > 0 ? new Date(createdAtTs * 1000).toISOString() : null),
             };
             const audioRows = await window.OfflineStorage.listAudioForSession(kidId, row.sessionId);
             if (audioRows.length > 0) {
@@ -659,15 +661,18 @@
                     const pendingPayload = body.practiceMode
                         ? { ...basePending, practice_mode: String(body.practiceMode) }
                         : basePending;
+                    const completedAtTs = Date.now() / 1000;
+                    const startedAt = existingRow?.startedAt || body.startedAt || sourceSession.startedAtUtc;
                     await window.OfflineStorage.savePendingResult(targetId, pendingSessionId, {
                         pendingSessionId,
                         sessionType: sourceSession.categoryKey,
                         pendingPayload,
                         answers: mergedAnswers,
-                        startedAt: sourceSession.startedAtUtc,
+                        startedAt,
+                        completedAt: new Date(completedAtTs * 1000).toISOString(),
                         createdAtTs: (existingRow && Number.isFinite(Number(existingRow.createdAtTs)))
                             ? Number(existingRow.createdAtTs)
-                            : (Date.now() / 1000),
+                            : completedAtTs,
                     });
                     // Type-IV completion screen reads wrong_count/answer_count
                     // from the response. Server isn't reachable offline, so

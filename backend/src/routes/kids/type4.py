@@ -989,8 +989,8 @@ def complete_type_iv_session_internal(
                     wrong_count += 1
                 result_row = conn.execute(
                     """
-                    INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO session_results (session_id, card_id, correct, response_time_ms, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
                     RETURNING id
                     """,
                     [
@@ -998,6 +998,7 @@ def complete_type_iv_session_internal(
                         representative_card_id,
                         correct_value,
                         int(answer['response_time_ms'] or 0),
+                        completed_at_utc,
                     ],
                 ).fetchone()
                 update_card_correct_time_ema(
@@ -1107,8 +1108,8 @@ def complete_type_iv_session_internal(
                 wrong_count += 1
             result_row = conn.execute(
                 """
-                INSERT INTO session_results (session_id, card_id, correct, response_time_ms)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO session_results (session_id, card_id, correct, response_time_ms, timestamp)
+                VALUES (?, ?, ?, ?, ?)
                 RETURNING id
                 """,
                 [
@@ -1116,6 +1117,7 @@ def complete_type_iv_session_internal(
                     representative_card_id,
                     correct_value,
                     int(answer['response_time_ms'] or 0),
+                    completed_at_utc,
                 ],
             ).fetchone()
             update_card_correct_time_ema(

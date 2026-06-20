@@ -9,7 +9,7 @@
  *                        kidId, sessionId, cardId, mimeType, filename, audioBuffer }
  *   - pendingResults:  { storageKey: 'kid_<id>::session_<sid>',
  *                        kidId, sessionId, sessionType, pendingSessionId,
- *                        pendingPayload, answers, startedAt, createdAtTs }
+ *                        pendingPayload, answers, startedAt, completedAt, createdAtTs }
  *
  * Public API exposed on window.OfflineStorage.
  */
@@ -210,6 +210,7 @@
             pendingPayload: resultData.pendingPayload || null,
             answers: Array.isArray(resultData.answers) ? resultData.answers : [],
             startedAt: resultData.startedAt || null,
+            completedAt: resultData.completedAt || null,
             createdAtTs: Number(resultData.createdAtTs || 0),
         };
         await asPromise(store.put(entry));

@@ -402,6 +402,7 @@ def _replay_completed_session(
     pending_session_id = session_entry.get('pendingSessionId')
     session_type = session_entry.get('sessionType')
     started_at = session_entry.get('startedAt')
+    completed_at = session_entry.get('completedAt')
     if not pending_payload or not isinstance(pending_payload, dict):
         return {'error': 'missing pendingPayload'}, 400
     if not pending_session_id or not session_type:
@@ -444,6 +445,8 @@ def _replay_completed_session(
     }
     if started_at:
         complete_data['startedAt'] = started_at
+    if completed_at:
+        complete_data['completedAt'] = completed_at
     if is_type_iii_session_type(session_type):
         complete_data['_uploaded_type3_audio_by_card'] = _decode_type3_audio_uploads(session_entry)
     try:

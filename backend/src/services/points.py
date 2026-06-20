@@ -442,10 +442,14 @@ def set_enabled_off_app_chores(kid_conn, shared_conn, family_id, rule_ids):
     return list_enabled_off_app_chores(kid_conn, shared_conn, family_id)
 
 
-def _family_day_bounds_utc(family_id):
+def _family_day_bounds_utc(family_id, at_utc=None):
     family_timezone = metadata.get_family_timezone(str(family_id))
     tzinfo = ZoneInfo(family_timezone)
-    start_local = datetime.now(tzinfo).replace(hour=0, minute=0, second=0, microsecond=0)
+    if at_utc is None:
+        ref_local = datetime.now(tzinfo)
+    else:
+        ref_local = at_utc.replace(tzinfo=timezone.utc).astimezone(tzinfo)
+    start_local = ref_local.replace(hour=0, minute=0, second=0, microsecond=0)
     end_local = start_local + timedelta(days=1)
     return (
         start_local.astimezone(timezone.utc).replace(tzinfo=None),
@@ -1132,11 +1136,11 @@ def cancel_pending_off_app_chore(kid_conn, shared_conn, family_id, pending_id):
     return pending
 
 
-def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category_key, *, limit=None):
+def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category_key, *, limit=None, at_utc=None):
     key = normalize_shared_deck_tag(category_key)
     if not key:
         return []
-    day_start_utc, day_end_utc = _family_day_bounds_utc(family_id)
+    day_start_utc, day_end_utc = _family_day_bounds_utc(family_id, at_utc)
     limit_clause = ''
     params = [
         key,
@@ -1180,7 +1184,7 @@ def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category
     ]
 
 
-def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trigger_keys=None):
+def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trigger_keys=None, at_utc=None):
     rules = list_family_rules(
         shared_conn,
         family_id,
@@ -1208,6 +1212,7 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trig
                 kid_conn,
                 family_id,
                 rule.get('triggerKey'),
+                at_utc=at_utc,
             )
             for session in sessions:
                 completed_at = session.get('completedAt')
