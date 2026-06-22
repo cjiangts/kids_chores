@@ -28,6 +28,11 @@
     flex-wrap: nowrap;
 }
 
+.stats-page .stats-range-controls {
+    flex-wrap: nowrap;
+    margin-left: auto;
+}
+
 .stats-page .stats-switch {
     display: inline-flex;
     align-items: center;

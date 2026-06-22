@@ -57,11 +57,10 @@
                                 <button type="button" class="paradigm-chip-toggle" data-stats-granularity="weekly" aria-pressed="false">Weekly</button>
                                 <button type="button" class="paradigm-chip-toggle" data-stats-granularity="monthly" aria-pressed="false">Monthly</button>
                             </div>
-                            <label id="statsBalanceControl" class="stats-switch">
-                                <span>Balance</span>
-                                <input id="statsBalanceToggle" type="checkbox" aria-label="Show cumulative balance" checked>
-                                <span class="stats-switch-track" aria-hidden="true"></span>
-                            </label>
+                            <div id="statsRangeControls" class="stats-range-controls paradigm-chip-toggle-group" role="group" aria-label="Stats date range">
+                                <button type="button" class="paradigm-chip-toggle active" data-stats-range="14d" aria-pressed="true">14d</button>
+                                <button type="button" class="paradigm-chip-toggle" data-stats-range="all" aria-pressed="false">All</button>
+                            </div>
                         </div>
                     </div>
 

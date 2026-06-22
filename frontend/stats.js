@@ -4,9 +4,8 @@ const STATS_TAB_STORAGE_KEY = 'stats_last_tab_v1';
 const statsKidAvatarSwitcher = document.getElementById('statsKidAvatarSwitcher');
 const statsError = document.getElementById('statsError');
 const statsTabs = document.getElementById('statsTabs');
-const statsBalanceControl = document.getElementById('statsBalanceControl');
-const statsBalanceToggle = document.getElementById('statsBalanceToggle');
 const statsPeriodControls = document.getElementById('statsPeriodControls');
+const statsRangeControls = document.getElementById('statsRangeControls');
 const statsTrendSubtitle = document.getElementById('statsTrendSubtitle');
 const statsTrendMeta = document.getElementById('statsTrendMeta');
 const statsTrendChart = document.getElementById('statsTrendChart');
@@ -20,8 +19,8 @@ let kids = [];
 let selectedKidId = '';
 let statsData = { tabs: [] };
 let activeTabKey = readStoredTab() || 'earn';
-let showBalance = true;
 let selectedGranularity = 'daily';
+let selectedTrendRange = '14d';
 let expandedRuleId = '';
 let topItemSearch = '';
 let itemSearch = '';
@@ -30,6 +29,7 @@ let statsLoadRequestId = 0;
 let statsResizeTimer = 0;
 
 const DEFAULT_STATS_GRANULARITY = 'daily';
+const DEFAULT_STATS_RANGE = '14d';
 const LATEST_ROWS_DEFAULT_LIMIT = 5;
 
 function escapeHtml(value) {
@@ -233,6 +233,24 @@ function syncGranularityControl() {
     });
 }
 
+function normalizeTrendRange(value) {
+    return String(value || '').trim().toLowerCase() === 'all' ? 'all' : DEFAULT_STATS_RANGE;
+}
+
+function syncRangeControl() {
+    statsRangeControls?.querySelectorAll('[data-stats-range]').forEach((button) => {
+        const isActive = normalizeTrendRange(button.dataset.statsRange) === selectedTrendRange;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+}
+
+function trendForSelectedRange(trend) {
+    const points = Array.isArray(trend) ? trend : [];
+    if (selectedTrendRange === 'all') return points;
+    return points.slice(-14);
+}
+
 function measuredChartWidth(node, fallback = 640) {
     const width = Math.floor(Number(node?.getBoundingClientRect?.().width) || 0);
     return width > 0 ? width : fallback;
@@ -256,8 +274,8 @@ function formatSignedCompactNumber(value, digits = 1) {
     return number > 0 ? `+${text}` : text;
 }
 
-function trendSummaryHtml(tab) {
-    const trend = Array.isArray(tab?.trend) ? tab.trend : [];
+function trendSummaryHtml(trend) {
+    trend = Array.isArray(trend) ? trend : [];
     if (!trend.length) return '';
     const total = trend.reduce((sum, point) => sum + (Number.parseInt(point?.value, 10) || 0), 0);
     const count = trend.length;
@@ -413,11 +431,8 @@ function renderTabs() {
 function renderTrend() {
     const tab = activeTab();
     const isRewardTab = Boolean(tab?.rewardBucket);
-    const useBalance = isRewardTab && showBalance;
-    statsBalanceControl?.classList.toggle('hidden', !isRewardTab);
-    if (statsBalanceToggle) {
-        statsBalanceToggle.checked = useBalance;
-    }
+    const useBalance = isRewardTab;
+    const trend = trendForSelectedRange(tab?.trend || []);
     const periodLabel = granularityLabel(selectedGranularity);
     let label = `${useBalance ? 'Cumulative balance' : `${periodLabel} points`}`;
     if (isRewardTab) {
@@ -429,9 +444,9 @@ function renderTrend() {
         ? `${tab.label} wallet balance`
         : label;
     if (statsTrendMeta) {
-        statsTrendMeta.innerHTML = trendSummaryHtml(tab);
+        statsTrendMeta.innerHTML = trendSummaryHtml(trend);
     }
-    statsTrendChart.innerHTML = chartSvg(tab?.trend || [], {
+    statsTrendChart.innerHTML = chartSvg(trend, {
         label,
         empty: 'No point events yet.',
         container: statsTrendChart,
@@ -544,6 +559,7 @@ function renderTopItems() {
 function render() {
     renderKids();
     renderTabs();
+    syncRangeControl();
     renderTrend();
     renderTopItems();
     hydrateIcons(document);
@@ -600,11 +616,6 @@ statsTabs?.addEventListener('click', (event) => {
     render();
 });
 
-statsBalanceToggle?.addEventListener('change', () => {
-    showBalance = Boolean(statsBalanceToggle.checked);
-    renderTrend();
-});
-
 statsTopItemSearchInput?.addEventListener('input', () => {
     topItemSearch = String(statsTopItemSearchInput.value || '');
     expandedRuleId = '';
@@ -632,6 +643,16 @@ statsPeriodControls?.addEventListener('click', async (event) => {
         syncGranularityControl();
         showError(error.message || 'Failed to load stats.');
     }
+});
+
+statsRangeControls?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-stats-range]');
+    if (!button) return;
+    const nextRange = normalizeTrendRange(button.dataset.statsRange);
+    if (nextRange === selectedTrendRange) return;
+    selectedTrendRange = nextRange;
+    syncRangeControl();
+    renderTrend();
 });
 
 statsTopItems?.addEventListener('click', (event) => {

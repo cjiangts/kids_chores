@@ -243,7 +243,7 @@ function renderSummaryHero(metaHtml) {
     const actionHtml = window.ReportHeroAction.renderActionLinkHtml({
         id: 'subjectActionBtn',
         href: buildSessionHistoryHref(),
-        label: 'history',
+        label: 'sessions',
         leadingIcon: 'history',
     });
     return `
@@ -793,7 +793,7 @@ function renderAnswerList(container, cards, options = {}) {
                 <div class="answer-head-actions">
                     ${promptAudioBadgeHtml}
                     ${typeIII ? renderGradingControls(item) : ''}
-                    ${!reportHref ? '' : `<a class="answer-report-btn" href="${reportHref}"><span>Go to History</span>${window.icon ? window.icon('arrow-right', { size: 14, strokeWidth: 2.4 }) : ''}</a>`}
+                    ${!reportHref ? '' : `<a class="answer-report-btn paradigm-btn" href="${reportHref}">${window.icon ? window.icon('arrow-right', { size: 14, strokeWidth: 2.4 }) : ''}<span>History</span></a>`}
                 </div>
             `;
         const typeIIIDetailsHtml = (!compact && typeIII) ? renderTypeIIIAnswerDetails(item) : '';
@@ -995,19 +995,19 @@ function renderGradingControls(item) {
     }
     const graded = String(item?.grade_status || '').toLowerCase();
     if (graded === 'pass' || graded === 'fail') {
-        const clearIcon = window.icon ? window.icon('undo-2', { size: 14, strokeWidth: 2.4 }) : '';
+        const clearIcon = window.icon ? window.icon('undo-2', { size: 18, strokeWidth: 2.6 }) : '';
         return `
             <div class="grade-row">
-                <button class="grade-btn" data-result-id="${resultId}" data-grade="clear">${clearIcon}<span>Clear grade</span></button>
+                <button class="grade-btn paradigm-decision-btn" data-result-id="${resultId}" data-grade="clear">${clearIcon}</button>
             </div>
         `;
     }
-    const passIcon = window.icon ? window.icon('check', { size: 14, strokeWidth: 2.4 }) : '';
-    const failIcon = window.icon ? window.icon('x', { size: 14, strokeWidth: 2.4 }) : '';
+    const passIcon = window.icon ? window.icon('check', { size: 18, strokeWidth: 2.7 }) : '';
+    const failIcon = window.icon ? window.icon('x', { size: 18, strokeWidth: 2.7 }) : '';
     return `
         <div class="grade-row">
-            <button class="grade-btn" data-result-id="${resultId}" data-grade="pass">${passIcon}<span>Pass</span></button>
-            <button class="grade-btn" data-result-id="${resultId}" data-grade="fail">${failIcon}<span>Fail</span></button>
+            <button class="grade-btn paradigm-decision-btn paradigm-decision-btn--confirm" data-result-id="${resultId}" data-grade="pass">${passIcon}</button>
+            <button class="grade-btn paradigm-decision-btn paradigm-decision-btn--cancel" data-result-id="${resultId}" data-grade="fail">${failIcon}</button>
         </div>
     `;
 }
