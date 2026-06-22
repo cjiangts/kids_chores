@@ -510,6 +510,10 @@
     color: #a3abc0;
 }
 
+.point-week-day-total.redeemed {
+    color: #9a6500;
+}
+
 .point-week-day-mark {
     width: 6px;
     height: 6px;
@@ -529,10 +533,18 @@
     background: #7b86a3;
 }
 
+.point-week-day-mark.redeemed {
+    background: #e0a11a;
+}
+
 .point-week-day.active .point-week-day-mark {
     width: 22px;
     height: 4px;
     background: #6b5cf6;
+}
+
+.point-week-day.active .point-week-day-mark.redeemed {
+    background: #9a6500;
 }
 
 .point-history-group {

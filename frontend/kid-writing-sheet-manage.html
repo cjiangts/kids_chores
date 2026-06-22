@@ -66,24 +66,28 @@
                     <h2 style="margin:0;">Build Writing Sheet</h2>
                 </div>
                 <div style="display:inline-flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
-                    <span class="sheet-builder-paper-control">
+                    <span class="sheet-builder-paper-control queue-stepper">
                         <span>Size</span>
-                        <button type="button" id="cwGlobalScaleDown" class="cell-design-edge-btn" style="width:28px;height:28px;font-size:0.92rem;" title="Smaller">-</button>
-                        <span id="cwGlobalScaleLabel" style="min-width:36px; text-align:center;">130%</span>
-                        <button type="button" id="cwGlobalScaleUp" class="cell-design-edge-btn" style="width:28px;height:28px;font-size:0.92rem;" title="Larger">+</button>
+                        <button type="button" id="cwGlobalScaleDown" class="queue-stepper-btn" title="Smaller"><span data-icon="minus"></span></button>
+                        <span id="cwGlobalScaleLabel" class="point-log-stepper-input">130%</span>
+                        <button type="button" id="cwGlobalScaleUp" class="queue-stepper-btn" title="Larger"><span data-icon="plus"></span></button>
                     </span>
-                    <span class="sheet-builder-paper-control">
+                    <span class="sheet-builder-paper-control queue-stepper">
                         <span>Practice</span>
-                        <button type="button" id="cwEmptyCountDown" class="cell-design-edge-btn" style="width:28px;height:28px;font-size:0.92rem;" title="Fewer practice boxes">-</button>
-                        <span id="cwEmptyCountLabel" style="min-width:20px; text-align:center;">1</span>
-                        <button type="button" id="cwEmptyCountUp" class="cell-design-edge-btn" style="width:28px;height:28px;font-size:0.92rem;" title="More practice boxes">+</button>
+                        <button type="button" id="cwEmptyCountDown" class="queue-stepper-btn" title="Fewer practice boxes"><span data-icon="minus"></span></button>
+                        <span id="cwEmptyCountLabel" class="point-log-stepper-input">1</span>
+                        <button type="button" id="cwEmptyCountUp" class="queue-stepper-btn" title="More practice boxes"><span data-icon="plus"></span></button>
                     </span>
                     <label class="sheet-builder-paper-control" for="chineseSheetPaperSize">
                         <span>Paper</span>
-                        <select id="chineseSheetPaperSize">
-                            <option value="letter">8.5 x 11 (US Letter)</option>
-                            <option value="a4">8.27 x 11.69 (A4)</option>
-                        </select>
+                        <span class="tz-dropdown sheet-builder-paper-select">
+                            <span class="tz-dropdown-btn-icon" data-icon="printer" data-icon-stroke="2"></span>
+                            <select id="chineseSheetPaperSize" class="tz-dropdown-btn">
+                                <option value="letter">8.5 x 11 (US Letter)</option>
+                                <option value="a4">8.27 x 11.69 (A4)</option>
+                            </select>
+                            <span class="tz-dropdown-btn-caret" data-icon="chevron-down"></span>
+                        </span>
                     </label>
                 </div>
             </div>
@@ -94,14 +98,13 @@
                 <div id="chineseSheetPicker" class="sb-picker-backdrop hidden" aria-hidden="true">
                     <div class="sb-picker-card">
                         <h3 class="sb-picker-title" id="chineseSheetPickerTitle">Choose Character</h3>
-                        <p class="sb-picker-note">Pick a character for this row.</p>
                         <div class="sb-picker-legend" aria-label="Character source legend">
                             <span class="sb-picker-legend-item"><span class="sb-picker-legend-dot reason-new" aria-hidden="true"></span>Newly added</span>
                             <span class="sb-picker-legend-item"><span class="sb-picker-legend-dot reason-failed" aria-hidden="true"></span>Last failed</span>
                         </div>
                         <div id="chineseSheetPickerOptions" class="sb-picker-options sb-picker-options-bubbles"></div>
                         <div class="sb-picker-actions">
-                            <button type="button" id="chineseSheetPickerFillBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm hidden" aria-label="Fill page" title="Fill page"><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+                            <button type="button" id="chineseSheetPickerFillBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm hidden"><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
                             <button type="button" id="chineseSheetPickerCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
                         </div>
                     </div>

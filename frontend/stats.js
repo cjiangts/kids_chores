@@ -20,8 +20,8 @@ let kids = [];
 let selectedKidId = '';
 let statsData = { tabs: [] };
 let activeTabKey = readStoredTab() || 'earn';
-let showBalance = false;
-let selectedGranularity = 'monthly';
+let showBalance = true;
+let selectedGranularity = 'daily';
 let expandedRuleId = '';
 let topItemSearch = '';
 let itemSearch = '';
@@ -29,8 +29,7 @@ let showAllLatestRows = false;
 let statsLoadRequestId = 0;
 let statsResizeTimer = 0;
 
-const AUTO_GRANULARITY_CANDIDATES = ['daily', 'weekly', 'monthly'];
-const AUTO_GRANULARITY_MAX_POINTS = 15;
+const DEFAULT_STATS_GRANULARITY = 'daily';
 const LATEST_ROWS_DEFAULT_LIMIT = 5;
 
 function escapeHtml(value) {
@@ -216,7 +215,7 @@ function normalizeGranularity(value) {
     if (normalized === 'day' || normalized === 'daily') return 'daily';
     if (normalized === 'week' || normalized === 'weekly') return 'weekly';
     if (normalized === 'month' || normalized === 'monthly') return 'monthly';
-    return 'monthly';
+    return DEFAULT_STATS_GRANULARITY;
 }
 
 function granularityLabel(value) {
@@ -232,13 +231,6 @@ function syncGranularityControl() {
         button.classList.toggle('active', isActive);
         button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
-}
-
-function statsTrendPointCount(data) {
-    const tabs = Array.isArray(data?.tabs) ? data.tabs : [];
-    return Math.max(0, ...tabs.map((tab) => (
-        Array.isArray(tab?.trend) ? tab.trend.length : 0
-    )));
 }
 
 function measuredChartWidth(node, fallback = 640) {
@@ -421,19 +413,19 @@ function renderTabs() {
 function renderTrend() {
     const tab = activeTab();
     const isRewardTab = Boolean(tab?.rewardBucket);
+    const useBalance = isRewardTab && showBalance;
     statsBalanceControl?.classList.toggle('hidden', !isRewardTab);
-    if (!isRewardTab && showBalance) {
-        showBalance = false;
-        if (statsBalanceToggle) statsBalanceToggle.checked = false;
+    if (statsBalanceToggle) {
+        statsBalanceToggle.checked = useBalance;
     }
     const periodLabel = granularityLabel(selectedGranularity);
-    let label = `${showBalance ? 'Cumulative balance' : `${periodLabel} points`}`;
+    let label = `${useBalance ? 'Cumulative balance' : `${periodLabel} points`}`;
     if (isRewardTab) {
-        label = `${tab.label} ${showBalance ? 'balance' : `${periodLabel.toLowerCase()} net points`}`;
+        label = `${tab.label} ${useBalance ? 'balance' : `${periodLabel.toLowerCase()} net points`}`;
     } else if (tab?.key === 'earn' || tab?.key === 'loss') {
-        label = `${showBalance ? `Cumulative ${tab.label.toLowerCase()}` : `${periodLabel} ${tab.label.toLowerCase()}`}`;
+        label = `${periodLabel} ${tab.label.toLowerCase()}`;
     }
-    statsTrendSubtitle.textContent = isRewardTab && showBalance
+    statsTrendSubtitle.textContent = useBalance
         ? `${tab.label} wallet balance`
         : label;
     if (statsTrendMeta) {
@@ -443,7 +435,7 @@ function renderTrend() {
         label,
         empty: 'No point events yet.',
         container: statsTrendChart,
-        useBalance: isRewardTab && showBalance,
+        useBalance,
     });
 }
 
@@ -567,28 +559,18 @@ async function fetchStatsForGranularity(granularity) {
     };
 }
 
-async function loadStatsForSelectedKid(granularity) {
+async function loadStatsForSelectedKid(granularity = DEFAULT_STATS_GRANULARITY) {
     if (!selectedKidId) {
         statsData = { tabs: [] };
         return;
     }
     const requestId = ++statsLoadRequestId;
-    const candidates = granularity
-        ? [normalizeGranularity(granularity)]
-        : AUTO_GRANULARITY_CANDIDATES;
-    let selectedResult = null;
-    for (const candidate of candidates) {
-        const result = await fetchStatsForGranularity(candidate);
-        if (requestId !== statsLoadRequestId) {
-            return false;
-        }
-        selectedResult = result;
-        if (candidate === 'monthly' || statsTrendPointCount(result.data) <= AUTO_GRANULARITY_MAX_POINTS) {
-            break;
-        }
+    const result = await fetchStatsForGranularity(granularity);
+    if (requestId !== statsLoadRequestId) {
+        return false;
     }
-    statsData = selectedResult?.data || { tabs: [] };
-    selectedGranularity = normalizeGranularity(selectedResult?.granularity || candidates[candidates.length - 1]);
+    statsData = result?.data || { tabs: [] };
+    selectedGranularity = normalizeGranularity(result?.granularity || granularity);
     syncGranularityControl();
     return true;
 }

@@ -47,19 +47,19 @@
                             <span class="paradigm-panel-heading">Trend</span>
                             <span id="statsTrendMeta" class="stats-trend-meta"></span>
                         </h2>
-                        <p id="statsTrendSubtitle" class="hidden">Monthly points</p>
+                        <p id="statsTrendSubtitle" class="hidden">Daily points</p>
                     </div>
 
                     <div class="stats-toolbar">
                         <div class="stats-toolbar-end">
                             <div id="statsPeriodControls" class="stats-period-controls paradigm-chip-toggle-group" role="group" aria-label="Stats granularity">
-                                <button type="button" class="paradigm-chip-toggle" data-stats-granularity="daily" aria-pressed="false">Daily</button>
+                                <button type="button" class="paradigm-chip-toggle active" data-stats-granularity="daily" aria-pressed="true">Daily</button>
                                 <button type="button" class="paradigm-chip-toggle" data-stats-granularity="weekly" aria-pressed="false">Weekly</button>
-                                <button type="button" class="paradigm-chip-toggle active" data-stats-granularity="monthly" aria-pressed="true">Monthly</button>
+                                <button type="button" class="paradigm-chip-toggle" data-stats-granularity="monthly" aria-pressed="false">Monthly</button>
                             </div>
                             <label id="statsBalanceControl" class="stats-switch">
                                 <span>Balance</span>
-                                <input id="statsBalanceToggle" type="checkbox" aria-label="Show cumulative balance">
+                                <input id="statsBalanceToggle" type="checkbox" aria-label="Show cumulative balance" checked>
                                 <span class="stats-switch-track" aria-hidden="true"></span>
                             </label>
                         </div>

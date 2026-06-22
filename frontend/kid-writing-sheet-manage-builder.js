@@ -775,10 +775,7 @@ function renderSheetBuilderContent(scale) {
 function updateSheetBuilderDoneBtn() {
     const doneBtn = document.getElementById('sheetBuilderDoneBtn');
     if (!doneBtn) return;
-    const totalQuestions = sheetRows.reduce((sum, row) => sum + getSheetRowMetrics(row).colCount, 0);
-    const hasRows = sheetRows.length > 0;
-    doneBtn.disabled = !hasRows;
-    doneBtn.textContent = hasRows ? `Done (${totalQuestions} question${totalQuestions === 1 ? '' : 's'})` : 'Done';
+    doneBtn.disabled = sheetRows.length === 0;
 }
 
 function renderSheetBuilderPickerOptions() {
@@ -1266,26 +1263,13 @@ function renderInlineSheetBuilderContent(scale) {
     html += '</div>';
     a4El.innerHTML = html;
 
-    updateInlineSheetDoneBtn(pageLayout);
+    updateInlineSheetDoneBtn();
 }
 
-function updateInlineSheetDoneBtn(pageLayout) {
+function updateInlineSheetDoneBtn() {
     const doneBtn = document.getElementById('inlineSheetDoneBtn');
     if (!doneBtn) return;
-    const totalQuestions = inlineSheetRows.reduce((sum, row) => {
-        const m = getInlineRowMetrics(row);
-        return sum + (m.colCount * m.repeatCount);
-    }, 0);
-    const hasRows = inlineSheetRows.length > 0;
-    doneBtn.disabled = !hasRows;
-    if (!hasRows) {
-        doneBtn.textContent = 'Done';
-    } else {
-        const pageCount = pageLayout ? pageLayout.pageCount : 1;
-        doneBtn.textContent = pageCount > 1
-            ? `Done (${totalQuestions} questions · ${pageCount} pages)`
-            : `Done (${totalQuestions} questions)`;
-    }
+    doneBtn.disabled = inlineSheetRows.length === 0;
 }
 
 function openPreparedInlineSheetBuilder(rows = [], paperSize = currentMathPaperSize) {
@@ -1650,13 +1634,7 @@ function renderChineseSheetBuilderContent(scale) {
 function updateChineseSheetDoneBtn() {
     const doneBtn = document.getElementById('chineseSheetDoneBtn');
     if (!doneBtn) return;
-    const totalEmpty = chineseSheetRows.reduce((sum, row) => {
-        const cells = buildChineseRowCells(row);
-        return sum + cells.filter((c) => c.type === 'empty').length;
-    }, 0);
-    const hasRows = chineseSheetRows.length > 0;
-    doneBtn.disabled = !hasRows;
-    doneBtn.textContent = hasRows ? `Done (${totalEmpty} characters)` : 'Done';
+    doneBtn.disabled = chineseSheetRows.length === 0;
 }
 
 function openChineseSheetBuilder() {
@@ -1729,7 +1707,6 @@ function renderChineseSheetPickerOptions() {
         fillCount = countFillPageCards();
     }
     if (fillBtn) {
-        fillBtn.textContent = fillCount > 1 ? `Fill page (top ${fillCount})` : 'Fill page';
         fillBtn.classList.toggle('hidden', fillCount <= 1);
     }
     if (available.length === 0) {
@@ -1906,7 +1883,7 @@ async function saveChineseSheetFromBuilder() {
         return;
     }
     const doneBtn = document.getElementById('chineseSheetDoneBtn');
-    if (doneBtn) { doneBtn.disabled = true; doneBtn.textContent = 'Saving...'; }
+    if (doneBtn) doneBtn.disabled = true;
 
     try {
         showSheetError('');

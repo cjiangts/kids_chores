@@ -73,14 +73,12 @@
             font-weight: 700;
         }
 
-        .sheet-builder-paper-control select {
-            border: 1px solid #b8c8e6;
-            border-radius: 9px;
-            background: #fff;
-            color: #24457e;
-            padding: 0.42rem 0.7rem;
-            font: inherit;
-        }
+        .sheet-builder-paper-control .point-log-stepper-input { display: inline-flex; align-items: center; justify-content: center; }
+        .sheet-builder-paper-select { flex: 0 0 210px; }
+        .sheet-builder-paper-select .tz-dropdown-btn { appearance: none; -webkit-appearance: none; padding: 0 2rem 0 2.1rem; }
+        .sheet-builder-paper-select :is(.tz-dropdown-btn-icon, .tz-dropdown-btn-caret) { position: absolute; pointer-events: none; z-index: 1; }
+        .sheet-builder-paper-select .tz-dropdown-btn-icon { left: 0.7rem; }
+        .sheet-builder-paper-select .tz-dropdown-btn-caret { right: 0.7rem; }
 
         .sheet-manage-btn {
             border: 1px solid #b9cdf9;
