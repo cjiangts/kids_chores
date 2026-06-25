@@ -32,8 +32,7 @@
                 'family_current_user_name_v1',
                 'family_current_user_avatar_v1',
                 'parent_admin_last_kid_id_v1',
-                'family_last_kid_url_v1',
-                'trusted_parent_browser_v1'
+                'family_last_kid_url_v1'
             ].forEach(function (key) {
                 try { localStorage.removeItem(key); } catch (_) { /* ignore */ }
             });
