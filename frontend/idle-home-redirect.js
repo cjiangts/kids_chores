@@ -17,6 +17,36 @@
         return String(window.location.pathname || '/');
     }
 
+    function clearDockUserState() {
+        try {
+            var standalone = Boolean(window.navigator && window.navigator.standalone)
+                || Boolean(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+            if (!standalone) return;
+            var startedKey = 'dock_app_session_started_v1';
+            var freshEntry = !document.referrer || sessionStorage.getItem(startedKey) !== '1';
+            if (!freshEntry) return;
+            try { sessionStorage.clear(); } catch (_) { /* ignore */ }
+            try { sessionStorage.setItem(startedKey, '1'); } catch (_) { /* ignore */ }
+            [
+                'family_current_user_mode_v1',
+                'family_current_user_name_v1',
+                'family_current_user_avatar_v1',
+                'parent_admin_last_kid_id_v1',
+                'family_last_kid_url_v1',
+                'trusted_parent_browser_v1'
+            ].forEach(function (key) {
+                try { localStorage.removeItem(key); } catch (_) { /* ignore */ }
+            });
+            if (currentPath() !== HOME_PATH) {
+                window.location.replace(HOME_PATH);
+            }
+        } catch (_) {
+            // Best-effort reset only.
+        }
+    }
+
+    clearDockUserState();
+
     function shouldRun() {
         if (timeoutMs <= 0) return false;
         return !ignoredPaths[currentPath()];
