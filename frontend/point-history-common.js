@@ -180,6 +180,7 @@
     }
 
     function shouldIncludeEvent(event, mode) {
+        if (mode === 'all') return true;
         const isRedeemed = isRedeemedRewardKind(event?.rule?.ruleKind);
         if (mode === 'redeemed') return isRedeemed;
         return !isRedeemed;
@@ -243,19 +244,22 @@
             const aTime = parseHistoryDate(a?.createdAt).getTime();
             const safeB = Number.isFinite(bTime) ? bTime : 0;
             const safeA = Number.isFinite(aTime) ? aTime : 0;
-            return safeB - safeA;
+            if (safeB !== safeA) return safeB - safeA;
+            return (Number.parseInt(b?.eventId, 10) || 0) - (Number.parseInt(a?.eventId, 10) || 0);
         });
     }
 
     function eventRowHtml(event, opts, timezone, showDelete, extraClass = '') {
         const rule = event.rule || {};
         const delta = Number.parseInt(event.pointsDelta, 10) || 0;
+        const balanceAfter = Number.parseInt(event.balanceAfter, 10);
+        const showBalance = opts.showBalance && Number.isFinite(balanceAfter);
         const deltaClass = isRedeemedRewardKind(rule?.ruleKind)
             ? 'redeemed'
             : (delta >= 0 ? 'positive' : 'negative');
         const note = String(event.note || '').trim();
         const timeLabel = formatHistoryTime(event.createdAt, timezone);
-        const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${extraClass ? ` ${extraClass}` : ''}`;
+        const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${extraClass ? ` ${extraClass}` : ''}`;
         return `
                 <div class="${escapeHtml(className)}" data-event-id="${escapeHtml(event.eventId)}" data-points-delta="${escapeHtml(delta)}">
                     <span class="point-history-time activity-timeline-time">${escapeHtml(timeLabel)}</span>
@@ -270,6 +274,7 @@
                         ` : ''}
                     </div>
                     <div class="point-rule-delta paradigm-pill ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
+                    ${showBalance ? `<div class="point-rule-delta paradigm-pill balance" aria-label="${escapeHtml(`Balance after event: ${balanceAfter} points`)}">${escapeHtml(`${balanceAfter} pts`)}</div>` : ''}
                     ${showDelete ? `
                     <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit note')}">
                         ${icon('pencil', { size: 15 })}
@@ -405,7 +410,7 @@
         }
         updateDayLabel(container, activeDayKey ? compactDayLabel(activeDayKey, timezone) : '');
         const showDelete = opts.showDelete !== false;
-        const mode = opts.mode === 'redeemed' ? 'redeemed' : 'points';
+        const mode = opts.mode === 'redeemed' ? 'redeemed' : (opts.mode === 'all' ? 'all' : 'points');
         if (!selectedKidId) {
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyNoKid || 'Select a kid to see point history.')}</div>`;
             return activeDayKey;

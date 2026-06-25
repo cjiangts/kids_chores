@@ -102,6 +102,71 @@
     background: #e0a11a;
 }
 
+@media (min-width: 900px) {
+    .kid-rewards-page .point-log-layout {
+        display: grid;
+        grid-template-columns: minmax(21rem, 27rem) minmax(32rem, 46rem);
+        align-items: start;
+        justify-content: center;
+        gap: 1rem;
+        max-width: 76rem;
+        margin-inline: auto;
+    }
+
+    .kid-rewards-page .point-log-layout > .error {
+        grid-column: 1 / -1;
+    }
+
+    .kid-rewards-page .point-rule-list-section,
+    .kid-rewards-page .point-history-section {
+        margin-bottom: 0;
+    }
+
+    .kid-rewards-page .point-rule-list-section {
+        position: sticky;
+        top: 1rem;
+    }
+
+    .kid-rewards-page .point-history-group-list {
+        --point-history-time-width: 3.25rem;
+        --point-history-column-gap: 0.24rem;
+    }
+
+    .kid-rewards-page .point-history-row,
+    .kid-rewards-page .point-history-row.has-balance.no-delete {
+        grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) auto auto;
+    }
+
+    .kid-rewards-page .activity-timeline-title {
+        font-size: 0.95rem;
+    }
+
+    .kid-rewards-page .parent-reward-template-row {
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+    }
+
+    .kid-rewards-page .parent-reward-template-row .kid-reward-rule-status-cell {
+        grid-column: 2 / -1;
+        justify-content: stretch;
+    }
+
+    .kid-rewards-page .kid-reward-rule-status {
+        width: 100%;
+    }
+
+    .kid-rewards-page .parent-reward-progress {
+        grid-column: 2 / -1;
+    }
+
+    .kid-rewards-page .cards-view-toggle-group {
+        justify-content: stretch;
+    }
+
+    .kid-rewards-page .cards-view-toggle-btn {
+        flex: 1 1 0;
+    }
+}
+
 @media (max-width: 700px) {
     .kid-reward-rule-status {
         --reward-status-pill-width: 7rem;

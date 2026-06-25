@@ -3,7 +3,6 @@ const POINT_HISTORY_LIMIT = 500;
 
 const kidRewardAvatarSwitcher = document.getElementById('kidRewardAvatarSwitcher');
 const kidRewardsError = document.getElementById('kidRewardsError');
-const kidRedeemHistory = document.getElementById('kidRedeemHistory');
 const kidPointHistory = document.getElementById('kidPointHistory');
 const kidRewardRules = document.getElementById('kidRewardRules');
 const kidRewardBucketTabs = document.getElementById('kidRewardBucketTabs');
@@ -13,12 +12,10 @@ const requestedKidId = String(params.get('id') || params.get('kidId') || '').tri
 let kids = [];
 let selectedKidId = '';
 let pointData = { totalPoints: 0, events: [] };
-let pointTotalsByKidId = new Map();
 let rewardBucketTotalsByKidId = new Map();
 let rules = [];
 let activeRewardBucket = '';
-let selectedRedeemHistoryDayKey = '';
-let selectedPointHistoryDayKey = '';
+let selectedHistoryDayKey = '';
 
 function escapeHtml(value) {
     return String(value || '')
@@ -59,19 +56,6 @@ function kidName(kid) {
 function selectedFamilyTimezone() {
     const kid = kids.find((item) => String(item?.id || '') === selectedKidId);
     return String(kid?.familyTimezone || '').trim();
-}
-
-function todayHistoryDayKey() {
-    return window.PointHistoryCommon.dateKeyInTimezone(new Date(), selectedFamilyTimezone());
-}
-
-function formatDelta(value) {
-    const delta = Number.parseInt(value, 10) || 0;
-    return `${delta > 0 ? '+' : ''}${delta}`;
-}
-
-function selectedBalance() {
-    return Number.parseInt(pointTotalsByKidId.get(selectedKidId), 10) || 0;
 }
 
 function normalizeRewardBucketTotals(value) {
@@ -237,8 +221,7 @@ function renderKids() {
             if (!kidId || kidId === selectedKidId) return;
             selectedKidId = kidId;
             syncSelectedKidNavigation();
-            selectedRedeemHistoryDayKey = '';
-            selectedPointHistoryDayKey = '';
+            selectedHistoryDayKey = '';
             showError('');
             try {
                 await loadPointsForSelectedKid();
@@ -251,36 +234,41 @@ function renderKids() {
 }
 
 function renderHistory() {
-    selectedRedeemHistoryDayKey = window.PointHistoryCommon.render(kidRedeemHistory, {
+    selectedHistoryDayKey = window.PointHistoryCommon.render(kidPointHistory, {
         selectedKidId,
-        events: Array.isArray(pointData.events) ? pointData.events : [],
-        selectedDayKey: selectedRedeemHistoryDayKey,
+        events: kidActivityEventsWithBalance(),
+        selectedDayKey: selectedHistoryDayKey,
         familyTimezone: selectedFamilyTimezone(),
         showDelete: false,
-        mode: 'redeemed',
-        emptyDay: 'No rewards redeemed for this day.',
-    });
-    selectedPointHistoryDayKey = window.PointHistoryCommon.render(kidPointHistory, {
-        selectedKidId,
-        events: Array.isArray(pointData.events) ? pointData.events : [],
-        selectedDayKey: selectedPointHistoryDayKey,
-        familyTimezone: selectedFamilyTimezone(),
-        showDelete: false,
+        showBalance: true,
+        mode: 'all',
         emptyDay: 'No point activity for this day.',
     });
 }
 
-function handleHistoryDayClick(event, historyKind) {
+function kidActivityEventsWithBalance() {
+    const events = Array.isArray(pointData.events) ? pointData.events : [];
+    let balance = selectedRewardBucketBalance(activeRewardBucket);
+    return events
+        .filter((event) => !isRedeemedRewardRule(event?.rule) || ruleBucket(event.rule) === activeRewardBucket)
+        .sort((a, b) => {
+            const timeDiff = new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
+            return timeDiff || ((Number.parseInt(b?.eventId, 10) || 0) - (Number.parseInt(a?.eventId, 10) || 0));
+        })
+        .map((event) => {
+            const delta = Number.parseInt(event?.pointsDelta, 10) || 0;
+            const result = { ...event, balanceAfter: balance };
+            balance -= delta;
+            return result;
+        });
+}
+
+function handleHistoryDayClick(event) {
     const dayButton = event.target.closest('[data-history-day]');
     if (!dayButton) return;
     const nextDayKey = String(dayButton.dataset.historyDay || '');
     if (!nextDayKey) return;
-    if (historyKind === 'redeemed') {
-        selectedRedeemHistoryDayKey = nextDayKey === selectedRedeemHistoryDayKey ? '' : nextDayKey;
-        renderHistory();
-        return;
-    }
-    selectedPointHistoryDayKey = nextDayKey === selectedPointHistoryDayKey ? '' : nextDayKey;
+    selectedHistoryDayKey = nextDayKey === selectedHistoryDayKey ? '' : nextDayKey;
     renderHistory();
 }
 
@@ -349,9 +337,9 @@ function renderRules() {
 
 function render() {
     renderKids();
-    renderHistory();
     renderRuleTabs();
     renderRules();
+    renderHistory();
     hydrateIcons(document);
 }
 
@@ -362,7 +350,6 @@ async function loadPointsForSelectedKid() {
     }
     const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=${POINT_HISTORY_LIMIT}`);
     pointData = data || { totalPoints: 0, events: [] };
-    pointTotalsByKidId.set(selectedKidId, Number.parseInt(pointData.totalPoints, 10) || 0);
     rewardBucketTotalsByKidId.set(selectedKidId, normalizeRewardBucketTotals(pointData.rewardBucketTotals));
 }
 
@@ -376,8 +363,7 @@ async function loadInitialData() {
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
     selectedKidId = initialKidId();
     syncSelectedKidNavigation();
-    selectedRedeemHistoryDayKey = '';
-    selectedPointHistoryDayKey = '';
+    selectedHistoryDayKey = '';
     await loadPointsForSelectedKid();
     render();
 }
@@ -390,23 +376,15 @@ kidRewardBucketTabs?.addEventListener('click', (event) => {
     activeRewardBucket = nextBucket;
     renderRuleTabs();
     renderRules();
-});
-
-kidRedeemHistory?.addEventListener('click', (event) => {
-    handleHistoryDayClick(event, 'redeemed');
-});
-
-kidPointHistory?.addEventListener('click', (event) => {
-    handleHistoryDayClick(event, 'points');
-});
-
-kidRedeemHistory?.addEventListener('point-history-clear-filter', () => {
-    selectedRedeemHistoryDayKey = '';
     renderHistory();
 });
 
+kidPointHistory?.addEventListener('click', (event) => {
+    handleHistoryDayClick(event);
+});
+
 kidPointHistory?.addEventListener('point-history-clear-filter', () => {
-    selectedPointHistoryDayKey = '';
+    selectedHistoryDayKey = '';
     renderHistory();
 });
 
