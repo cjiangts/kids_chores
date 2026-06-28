@@ -91,14 +91,12 @@ def _event_delta_for_rule(rule, *, points_delta=None, field_name='pointsDelta'):
     max_point = rule.get('maxPoint')
     if points_delta is None:
         if max_point is None:
-            raise ValueError('Rule maxPoint is not configured')
+            raise ValueError('Rule default points is not configured')
         amount = int(max_point)
     else:
         amount = _coerce_int(points_delta, field_name=field_name)
     if amount <= 0:
         raise ValueError(f'{field_name} must be positive')
-    if max_point is not None and amount > int(max_point):
-        raise ValueError(f'{field_name} cannot exceed rule max point')
     return _event_sign_for_rule_kind(rule.get('ruleKind')) * amount
 
 
@@ -189,11 +187,11 @@ def _normalize_rule_payload(payload, *, existing=None):
 
     max_point = _coerce_int(
         data.get('maxPoint', base.get('maxPoint')),
-        field_name='maxPoint',
+        field_name='Default points',
         required=False,
     )
     if max_point is not None and max_point <= 0:
-        raise ValueError('maxPoint must be positive')
+        raise ValueError('Default points must be positive')
 
     reward_type = None
     if rule_kind == RULE_KIND_REDEEMED_REWARD:

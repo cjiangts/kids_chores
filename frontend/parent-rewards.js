@@ -118,6 +118,10 @@ function ruleCost(rule) {
     return Math.abs(maxPoint);
 }
 
+function normalizeRewardPoints(value) {
+    return Math.max(1, Number.parseInt(value, 10) || 1);
+}
+
 function compareRewardRulesByCost(a, b) {
     const costDiff = ruleCost(a) - ruleCost(b);
     if (costDiff !== 0) return costDiff;
@@ -216,15 +220,27 @@ function renderTabs() {
     }
 }
 
-function rewardStatusHtml(rule) {
-    const { remaining } = ruleRewardProgress(rule);
+function rewardStatusPillHtml(remaining) {
     if (remaining <= 0) {
         return '<span class="kid-reward-rule-status paradigm-pill available">Available</span>';
     }
     return `<span class="kid-reward-rule-status paradigm-pill muted">${escapeHtml(`${remaining} pts to go`)}</span>`;
 }
 
-function rewardNoteEditorHtml() {
+function rewardPointStepperHtml(rule) {
+    const points = normalizeRewardPoints(ruleCost(rule));
+    const minusIcon = typeof window.icon === 'function' ? window.icon('minus') : '-';
+    const plusIcon = typeof window.icon === 'function' ? window.icon('plus') : '+';
+    return `
+        <span class="point-log-stepper" data-reward-point-stepper>
+            <button type="button" class="point-log-stepper-btn" data-reward-point-step="-1" aria-label="Decrease reward points">${minusIcon}</button>
+            <input class="point-log-stepper-input" type="number" inputmode="numeric" min="1" value="${escapeHtml(points)}" data-reward-points-input aria-label="Reward points">
+            <button type="button" class="point-log-stepper-btn" data-reward-point-step="1" aria-label="Increase reward points">${plusIcon}</button>
+        </span>
+    `;
+}
+
+function rewardNoteEditorHtml(rule) {
     const checkIcon = typeof window.icon === 'function'
         ? window.icon('check', { size: 18, strokeWidth: 2.6 })
         : '✓';
@@ -256,14 +272,15 @@ function renderRules() {
         <div class="point-template-frame point-template-frame--stacked parent-reward-template-frame">
             ${visible.map((rule) => {
         const isAffordable = canRedeemRule(rule);
-        const isSelected = isAffordable && Number(rule.ruleId) === Number(selectedRewardRuleId);
+        const isSelected = Number(rule.ruleId) === Number(selectedRewardRuleId);
         const progress = ruleRewardProgress(rule);
         const statusText = progress.remaining <= 0 ? 'Available' : `${progress.remaining} pts to go`;
         const ariaLabel = `${rule?.name || 'Reward'}, ${progress.cost} pts, ${statusText}`;
         return `
             <div
                 class="point-template-row point-template-row--redeem parent-reward-template-row parent-reward-template-row--redeem ${isSelected ? 'active' : ''} ${isAffordable ? 'affordable' : 'locked'}"
-                ${isAffordable ? 'role="button" tabindex="0"' : 'aria-disabled="true"'}
+                role="button"
+                tabindex="0"
                 aria-selected="${isSelected ? 'true' : 'false'}"
                 data-rule-id="${escapeHtml(rule.ruleId)}"
                 aria-label="${escapeHtml(ariaLabel)}"
@@ -271,10 +288,12 @@ function renderRules() {
             >
                 <span class="point-rule-emoji">${ruleIconHtml(rule)}</span>
                 <span class="point-template-name activity-timeline-title">${escapeHtml(rule?.name || 'Reward')}</span>
-                <span class="point-rule-delta paradigm-pill redeemed">${escapeHtml(`${ruleCost(rule)} pts`)}</span>
-                <span class="kid-reward-rule-status-cell">${rewardStatusHtml(rule)}</span>
-                ${isSelected ? rewardNoteEditorHtml() : ''}
-                ${isAffordable ? '' : '<span class="kid-reward-progress parent-reward-progress" aria-hidden="true"><span></span></span>'}
+                ${isSelected
+                    ? rewardPointStepperHtml(rule)
+                    : `<span class="point-rule-delta paradigm-pill redeemed">${escapeHtml(`${progress.cost} pts`)}</span>`}
+                <span class="kid-reward-rule-status-cell">${rewardStatusPillHtml(progress.remaining)}</span>
+                ${isSelected ? rewardNoteEditorHtml(rule) : ''}
+                <span class="kid-reward-progress parent-reward-progress" aria-hidden="true"><span></span></span>
             </div>
         `;
     }).join('')}
@@ -350,8 +369,12 @@ async function refreshAfterMutation() {
     render();
 }
 
-function redemptionBody(rule, note) {
-    const body = { ruleId: rule.ruleId, pointsDelta: ruleCost(rule) };
+function currentRewardPoints(rule) {
+    return normalizeRewardPoints(parentRewardRules?.querySelector('[data-reward-points-input]')?.value || ruleCost(rule));
+}
+
+function redemptionBody(rule, note, points = currentRewardPoints(rule)) {
+    const body = { ruleId: rule.ruleId, pointsDelta: normalizeRewardPoints(points) };
     const trimmedNote = String(note || '').trim();
     if (trimmedNote) {
         body.note = trimmedNote;
@@ -374,10 +397,6 @@ function resetAfterRedeem() {
 async function redeemSelectedReward(note = '') {
     const rule = selectedRewardRule();
     if (!rule || !selectedKidId) return;
-    if (!canRedeemRule(rule)) {
-        showError('Not enough points for this reward bucket.');
-        return;
-    }
     showError('');
     await postRedemption(selectedKidId, redemptionBody(rule, note));
     resetAfterRedeem();
@@ -389,7 +408,7 @@ async function redeemRewardForAllKids(note = '') {
     if (!rule) return;
     showError('');
     const type = rewardType(rule);
-    const cost = ruleCost(rule);
+    const cost = currentRewardPoints(rule);
     const balances = await Promise.all(kids.map(async (kid) => {
         const kidId = String(kid?.id || '');
         const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points?limit=1`);
@@ -403,7 +422,7 @@ async function redeemRewardForAllKids(note = '') {
         showError(`Not enough ${rewardTypeLabel(type)} points for: ${names}.`);
         return;
     }
-    const body = redemptionBody(rule, note);
+    const body = redemptionBody(rule, note, cost);
     for (const entry of balances) {
         await postRedemption(String(entry.kid?.id || ''), body);
     }
@@ -418,6 +437,28 @@ parentRewardTabs?.addEventListener('click', (event) => {
 });
 
 parentRewardRules?.addEventListener('click', async (event) => {
+    const stepButton = event.target.closest('[data-reward-point-step]');
+    if (stepButton) {
+        const input = stepButton.closest('[data-reward-point-stepper]')?.querySelector('[data-reward-points-input]');
+        if (!input) return;
+        const current = Number.parseInt(input.value, 10);
+        const step = Number.parseInt(stepButton.dataset.rewardPointStep || '', 10);
+        const points = normalizeRewardPoints((Number.isInteger(current) ? current : ruleCost(selectedRewardRule())) + (Number.isInteger(step) ? step : 0));
+        input.value = String(points);
+        const row = input.closest('[data-rule-id]');
+        const statusCell = row?.querySelector('.kid-reward-rule-status-cell');
+        if (statusCell) {
+            const balance = selectedRewardBucketBalance(activeRewardType);
+            const remaining = Math.max(points - balance, 0);
+            const progress = points > 0 ? Math.min(Math.max(balance / points, 0), 1) : 1;
+            row?.style.setProperty('--reward-progress', `${Math.round(progress * 100)}%`);
+            row?.classList.toggle('affordable', remaining <= 0);
+            row?.classList.toggle('locked', remaining > 0);
+            statusCell.innerHTML = rewardStatusPillHtml(remaining);
+        }
+        input.focus();
+        return;
+    }
     const actionButton = event.target.closest('[data-reward-action="confirm"], [data-reward-action="confirm-all"]');
     if (actionButton) {
         const editor = actionButton.closest('[data-reward-note-editor]');
@@ -438,7 +479,6 @@ parentRewardRules?.addEventListener('click', async (event) => {
     if (event.target.closest('[data-reward-note-editor]')) return;
     const row = event.target.closest('[data-rule-id]');
     if (!row) return;
-    if (row.classList.contains('locked')) return;
     const ruleId = Number.parseInt(row.dataset.ruleId || '', 10) || 0;
     selectedRewardRuleId = Number(selectedRewardRuleId) === ruleId ? 0 : ruleId;
     showError('');
@@ -449,15 +489,15 @@ parentRewardRules?.addEventListener('click', async (event) => {
 });
 
 parentRewardRules?.addEventListener('keydown', (event) => {
-    const noteInput = event.target.closest?.('[data-reward-note-input]');
-    if (noteInput) {
+    const editorInput = event.target.closest?.('[data-reward-note-input], [data-reward-points-input]');
+    if (editorInput) {
         if (event.key === 'Enter') {
             event.preventDefault();
-            noteInput.closest('[data-reward-note-editor]')?.querySelector('[data-reward-action="confirm"]')?.click();
+            editorInput.closest('[data-reward-note-editor]')?.querySelector('[data-reward-action="confirm"]')?.click();
         }
         return;
     }
-    if (event.target.closest?.('[data-reward-action="confirm"]')) return;
+    if (event.target.closest?.('[data-reward-action]')) return;
     if (event.key !== 'Enter' && event.key !== ' ') return;
     const row = event.target.closest('[data-rule-id]');
     if (!row) return;

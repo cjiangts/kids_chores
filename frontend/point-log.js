@@ -342,12 +342,13 @@ function renderModeTabs() {
 
 function templateRow(rule) {
     const isActive = Number(rule.ruleId) === Number(selectedRuleId);
+    const draftPoints = Number.parseInt(pointDraft.points, 10);
     const displayRule = isActive
         ? {
             ...rule,
             emoji: String(pointDraft.emoji || rule.emoji || '').trim(),
             name: String(pointDraft.name || rule.name || '').trim(),
-            maxPoint: Math.max(ruleMaxPoint(rule), Number.parseInt(pointDraft.points, 10) || 0) || rule.maxPoint,
+            maxPoint: Number.isInteger(draftPoints) && draftPoints > 0 ? draftPoints : rule.maxPoint,
         }
         : rule;
     return window.PointRuleTemplateCommon.renderRuleRow(displayRule, { active: isActive });
@@ -481,17 +482,14 @@ async function saveSelectedRuleFromDraft(rule) {
     const emoji = String(pointDraft.emoji || '').trim();
     const points = Number.parseInt(pointDraft.points, 10);
     if (!name || !emoji || !Number.isInteger(points) || points <= 0) return rule;
-    const nextMaxPoint = Math.max(ruleMaxPoint(rule), points);
     const didChange = name !== String(rule.name || '').trim()
-        || emoji !== String(rule.emoji || '').trim()
-        || nextMaxPoint !== ruleMaxPoint(rule);
+        || emoji !== String(rule.emoji || '').trim();
     if (!didChange) return rule;
     const data = await fetchJson(`${API_BASE}/points/rules/${encodeURIComponent(rule.ruleId)}`, {
         method: 'PUT',
         body: JSON.stringify({
             name,
             emoji,
-            maxPoint: nextMaxPoint,
         }),
     });
     const updatedRule = data.rule || rule;

@@ -743,17 +743,13 @@ function renderAdminOffAppIcon(chore) {
     return (typeof window.icon === 'function') ? window.icon('clipboard-check', { size: 21 }) : '';
 }
 
-function adminOffAppMaxPoint(chore, reviewItem) {
+function adminOffAppDefaultPoints(chore, reviewItem) {
     const rule = (reviewItem?.rule && typeof reviewItem.rule === 'object') ? reviewItem.rule : chore;
-    const maxPoint = Number.parseInt(rule?.maxPoint, 10);
-    return Number.isInteger(maxPoint) && maxPoint > 0 ? maxPoint : 1;
+    return Math.max(1, Number.parseInt(rule?.maxPoint, 10) || 1);
 }
 
-function clampAdminOffAppPoints(value, maxPoint) {
-    const parsed = Number.parseInt(value, 10);
-    const safeMax = Math.max(1, Number.parseInt(maxPoint, 10) || 1);
-    const safeValue = Number.isInteger(parsed) ? parsed : 1;
-    return Math.min(safeMax, Math.max(1, safeValue));
+function normalizeAdminOffAppPoints(value) {
+    return Math.max(1, Number.parseInt(value, 10) || 1);
 }
 
 function adminOffAppReviewKey(reviewKind, id) {
@@ -774,19 +770,15 @@ function getAdminOffAppDraft(reviewKind, reviewItem, chore) {
     if (key && adminOffAppDraftByKey.has(key)) {
         return adminOffAppDraftByKey.get(key);
     }
-    const maxPoint = adminOffAppMaxPoint(chore, reviewItem);
+    const defaultPoints = adminOffAppDefaultPoints(chore, reviewItem);
     const eventPoints = Number.parseInt(reviewItem?.pointsDelta, 10);
-    const initialPoints = clampAdminOffAppPoints(
-        Number.isInteger(eventPoints) ? eventPoints : maxPoint,
-        maxPoint,
-    );
+    const initialPoints = normalizeAdminOffAppPoints(Number.isInteger(eventPoints) ? eventPoints : defaultPoints);
     const initialNote = String(reviewItem?.note || '');
     const draft = {
         pointsDelta: initialPoints,
         note: initialNote,
         initialPointsDelta: initialPoints,
         initialNote,
-        maxPoint,
         isNewReview: reviewKind !== 'event',
     };
     if (key) adminOffAppDraftByKey.set(key, draft);
@@ -799,7 +791,7 @@ function setAdminOffAppDraftValue(reviewKey, patch) {
     const previous = adminOffAppDraftByKey.get(key) || { pointsDelta: 0, note: '' };
     const next = { ...previous, ...(patch || {}) };
     if (Object.prototype.hasOwnProperty.call(patch || {}, 'pointsDelta')) {
-        next.pointsDelta = clampAdminOffAppPoints(next.pointsDelta, next.maxPoint);
+        next.pointsDelta = normalizeAdminOffAppPoints(next.pointsDelta);
     }
     adminOffAppDraftByKey.set(key, next);
     return next;
@@ -875,14 +867,13 @@ function buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) {
     if (!reviewKey) return '';
     const draft = getAdminOffAppDraft(reviewKind, reviewItem, chore);
     const points = Number.parseInt(draft?.pointsDelta, 10);
-    const maxPoint = Number.parseInt(draft?.maxPoint, 10) || adminOffAppMaxPoint(chore, reviewItem);
     const isSaving = adminOffAppSavingKeys.has(reviewKey);
-    const safePoints = clampAdminOffAppPoints(points, maxPoint);
+    const safePoints = normalizeAdminOffAppPoints(points);
     return `
         <div class="admin-off-app-point-stepper" aria-label="Points" data-off-app-review-key="${escapeHtml(reviewKey)}">
-            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="-1" data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Decrease points"${(isSaving || safePoints <= 1) ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('minus') : '-'}</button>
-            <input class="admin-off-app-points-input" type="number" inputmode="numeric" min="1" max="${maxPoint}" value="${safePoints}" data-off-app-points-input data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Points for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
-            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="1" data-review-key="${escapeHtml(reviewKey)}" data-max-point="${maxPoint}" aria-label="Increase points"${(isSaving || safePoints >= maxPoint) ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('plus') : '+'}</button>
+            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="-1" data-review-key="${escapeHtml(reviewKey)}" aria-label="Decrease points"${(isSaving || safePoints <= 1) ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('minus') : '-'}</button>
+            <input class="admin-off-app-points-input" type="number" inputmode="numeric" min="1" value="${safePoints}" data-off-app-points-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Points for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
+            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="1" data-review-key="${escapeHtml(reviewKey)}" aria-label="Increase points"${isSaving ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('plus') : '+'}</button>
         </div>
     `;
 }
@@ -1017,8 +1008,7 @@ function handleAdminOffAppInput(event) {
     if (!target || !target.matches) return;
     const reviewKey = target.getAttribute('data-review-key') || '';
     if (target.matches('[data-off-app-points-input]')) {
-        const maxPoint = Number.parseInt(target.getAttribute('data-max-point'), 10) || 1;
-        const points = clampAdminOffAppPoints(target.value, maxPoint);
+        const points = normalizeAdminOffAppPoints(target.value);
         target.value = String(points);
         setAdminOffAppDraftValue(reviewKey, { pointsDelta: points });
         updateAdminOffAppSaveButtonState(reviewKey);
@@ -1043,13 +1033,11 @@ function handleAdminOffAppClick(event) {
     }
     if (target.hasAttribute('data-off-app-point-step')) {
         const step = Number.parseInt(target.getAttribute('data-off-app-point-step'), 10);
-        const maxPoint = Number.parseInt(target.getAttribute('data-max-point'), 10) || 1;
         const row = target.closest('.admin-off-app-row');
         const input = row?.querySelector('[data-off-app-points-input]');
         const current = Number.parseInt(input?.value, 10);
-        const nextPoints = clampAdminOffAppPoints(
-            (Number.isInteger(current) ? current : maxPoint) + (Number.isInteger(step) ? step : 0),
-            maxPoint,
+        const nextPoints = normalizeAdminOffAppPoints(
+            (Number.isInteger(current) ? current : 1) + (Number.isInteger(step) ? step : 0),
         );
         if (input) input.value = String(nextPoints);
         setAdminOffAppDraftValue(reviewKey, { pointsDelta: nextPoints });
@@ -1078,8 +1066,7 @@ async function submitAdminOffAppGrade(reviewKey) {
         return;
     }
     const draft = adminOffAppDraftByKey.get(normalizedReviewKey) || { pointsDelta: 0, note: '' };
-    const maxPoint = Number.parseInt(draft.maxPoint, 10) || 1;
-    const pointsDelta = clampAdminOffAppPoints(draft.pointsDelta, maxPoint);
+    const pointsDelta = normalizeAdminOffAppPoints(draft.pointsDelta);
     if (!Number.isInteger(pointsDelta) || pointsDelta <= 0) {
         showError('Enter a positive point value before grading.');
         return;

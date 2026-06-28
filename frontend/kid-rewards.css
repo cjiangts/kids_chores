@@ -40,6 +40,28 @@
     min-width: 0;
 }
 
+.parent-reward-template-row.active .reward-note-editor {
+    grid-column: 1 / -1;
+    grid-row: 3;
+}
+
+.parent-reward-template-row.active .parent-reward-progress {
+    grid-column: 2 / -1;
+    grid-row: 2;
+}
+
+.parent-reward-template-row.active .point-template-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.parent-reward-template-row [data-reward-point-stepper] {
+    justify-self: end;
+}
+
 .kid-reward-progress {
     grid-column: 2 / -1;
     display: block;
@@ -97,9 +119,13 @@
     opacity: 0.95;
 }
 
-.parent-reward-progress span,
-.parent-reward-template-row--redeem.affordable .parent-reward-progress span {
+.parent-reward-progress span {
     background: #e0a11a;
+}
+
+.parent-reward-template-row--redeem.affordable .parent-reward-progress span {
+    width: 100%;
+    background: #28b77b;
 }
 
 @media (min-width: 900px) {
@@ -142,16 +168,11 @@
     }
 
     .kid-rewards-page .parent-reward-template-row {
-        grid-template-columns: 30px minmax(0, 1fr) auto;
-    }
-
-    .kid-rewards-page .parent-reward-template-row .kid-reward-rule-status-cell {
-        grid-column: 2 / -1;
-        justify-content: stretch;
+        grid-template-columns: 30px minmax(4.5rem, 1fr) auto minmax(6.6rem, auto);
     }
 
     .kid-rewards-page .kid-reward-rule-status {
-        width: 100%;
+        width: var(--reward-status-pill-width);
     }
 
     .kid-rewards-page .parent-reward-progress {

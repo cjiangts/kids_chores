@@ -334,7 +334,7 @@ function renderRuleRow(rule) {
     if (isRewardCatalog) {
         cells.push(rewardTypeCell(rule));
     }
-    cells.push(inputCell('Max point', 'maxPoint', rule?.maxPoint ?? '', 'points', 'number'));
+    cells.push(inputCell('Default points', 'maxPoint', rule?.maxPoint ?? '', 'points', 'number'));
     cells.push(activeCell(rule));
     cells.push(actionCell(rule));
     return `
@@ -356,7 +356,7 @@ function renderAppDailyRow(category) {
     const defaultName = categoryLabel(category);
     const cells = [
         subjectCell(category),
-        inputCell('Max point', 'maxPoint', rule?.maxPoint ?? '', 'points', 'number'),
+        inputCell('Default points', 'maxPoint', rule?.maxPoint ?? '', 'points', 'number'),
         activeCell(rule),
         actionCell(rule),
     ];
@@ -384,7 +384,7 @@ function renderRuleHeader() {
             <div class="point-rule-table-row header in-app">
                 ${[
                     headerCell('Subject'),
-                    headerCell('Max point', 'Max'),
+                    headerCell('Default points', 'Pts'),
                     headerCell('Active', 'On'),
                     headerCell('Actions', ''),
                 ].join('')}
@@ -397,7 +397,7 @@ function renderRuleHeader() {
         ? [
             ['Emoji', 'Emoji'],
             ['Name', 'Name'],
-            ['Max point', 'Max'],
+            ['Default points', 'Pts'],
             ['Active', 'On'],
             ['Actions', ''],
         ]
@@ -406,14 +406,14 @@ function renderRuleHeader() {
                 ['Emoji', 'Emoji'],
                 ['Name', 'Name'],
                 ['Reward type', 'Type'],
-                ['Max point', 'Max'],
+                ['Default points', 'Pts'],
                 ['Active', 'On'],
                 ['Actions', ''],
             ]
         : [
             ['Emoji', 'Emoji'],
             ['Name', 'Name'],
-            ['Max point', 'Max'],
+            ['Default points', 'Pts'],
             ['Active', 'On'],
             ['Actions', ''],
         ];
