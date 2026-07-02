@@ -24,13 +24,14 @@ let selectedTrendRange = '14d';
 let expandedRuleId = '';
 let topItemSearch = '';
 let itemSearch = '';
-let showAllLatestRows = false;
+let visibleLatestRowCount = 5;
 let statsLoadRequestId = 0;
 let statsResizeTimer = 0;
 
 const DEFAULT_STATS_GRANULARITY = 'daily';
 const DEFAULT_STATS_RANGE = '14d';
 const LATEST_ROWS_DEFAULT_LIMIT = 5;
+const LATEST_ROWS_INCREMENT = 5;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -397,7 +398,7 @@ function renderKids() {
             topItemSearch = '';
             if (statsTopItemSearchInput) statsTopItemSearchInput.value = '';
             itemSearch = '';
-            showAllLatestRows = false;
+            visibleLatestRowCount = LATEST_ROWS_DEFAULT_LIMIT;
             showError('');
             try {
                 await loadStatsForSelectedKid();
@@ -467,7 +468,8 @@ function latestRowsHtml(item) {
     if (!filtered.length) {
         return `<div class="stats-empty">${escapeHtml(query ? 'No matching events.' : 'No recent events.')}</div>`;
     }
-    const visible = showAllLatestRows ? filtered : filtered.slice(0, LATEST_ROWS_DEFAULT_LIMIT);
+    const visibleLimit = Math.max(LATEST_ROWS_DEFAULT_LIMIT, Number.parseInt(visibleLatestRowCount, 10) || 0);
+    const visible = filtered.slice(0, visibleLimit);
     const showMoreHtml = filtered.length > visible.length
         ? `<button type="button" class="stats-show-more" data-stats-show-more>Show more</button>`
         : '';
@@ -499,7 +501,7 @@ function itemSummaryHtml(item, isExpanded) {
                 <span class="activity-timeline-title">${escapeHtml(item.name || 'Point event')}</span>
                 <span class="activity-timeline-note">${escapeHtml(formatPoints(total))} · ${escapeHtml(formatRecordCount(recordCount))}</span>
             </span>
-            <span class="stats-sparkline" aria-hidden="true">${chartSvg(item.trend || [], { compact: true })}</span>
+            <span class="stats-sparkline" aria-hidden="true">${chartSvg(trendForSelectedRange(item.trend || []), { compact: true })}</span>
             <span class="stats-chevron icon" data-icon="${isExpanded ? 'chevron-up' : 'chevron-down'}" data-icon-size="17" data-icon-stroke="2.6" aria-hidden="true"></span>
         </button>
     `;
@@ -515,7 +517,7 @@ function renderTopItems() {
         topItemSearch = '';
         if (statsTopItemSearchInput) statsTopItemSearchInput.value = '';
         itemSearch = '';
-        showAllLatestRows = false;
+        visibleLatestRowCount = LATEST_ROWS_DEFAULT_LIMIT;
         if (statsTopItems) statsTopItems.innerHTML = '';
         return;
     }
@@ -538,7 +540,7 @@ function renderTopItems() {
                 ${itemSummaryHtml(item, isExpanded)}
                 ${isExpanded ? `
                     <div class="stats-item-detail">
-                        <div class="stats-item-chart">${chartSvg(item.trend || [], {
+                        <div class="stats-item-chart">${chartSvg(trendForSelectedRange(item.trend || []), {
             label: `${item.name || 'Point event'} trend`,
             width: expandedItemChartWidth(),
         })}</div>
@@ -612,7 +614,7 @@ statsTabs?.addEventListener('click', (event) => {
     topItemSearch = '';
     if (statsTopItemSearchInput) statsTopItemSearchInput.value = '';
     itemSearch = '';
-    showAllLatestRows = false;
+    visibleLatestRowCount = LATEST_ROWS_DEFAULT_LIMIT;
     render();
 });
 
@@ -620,7 +622,7 @@ statsTopItemSearchInput?.addEventListener('input', () => {
     topItemSearch = String(statsTopItemSearchInput.value || '');
     expandedRuleId = '';
     itemSearch = '';
-    showAllLatestRows = false;
+    visibleLatestRowCount = LATEST_ROWS_DEFAULT_LIMIT;
     renderTopItems();
 });
 
@@ -633,7 +635,7 @@ statsPeriodControls?.addEventListener('click', async (event) => {
     topItemSearch = '';
     if (statsTopItemSearchInput) statsTopItemSearchInput.value = '';
     itemSearch = '';
-    showAllLatestRows = false;
+    visibleLatestRowCount = LATEST_ROWS_DEFAULT_LIMIT;
     showError('');
     try {
         const applied = await loadStatsForSelectedKid(nextGranularity);
@@ -653,12 +655,13 @@ statsRangeControls?.addEventListener('click', (event) => {
     selectedTrendRange = nextRange;
     syncRangeControl();
     renderTrend();
+    renderTopItems();
 });
 
 statsTopItems?.addEventListener('click', (event) => {
     const showMoreButton = event.target.closest('[data-stats-show-more]');
     if (showMoreButton) {
-        showAllLatestRows = true;
+        visibleLatestRowCount += LATEST_ROWS_INCREMENT;
         renderTopItems();
         return;
     }
@@ -667,7 +670,7 @@ statsTopItems?.addEventListener('click', (event) => {
     const nextRuleId = String(button.dataset.statsRuleId || '').trim();
     expandedRuleId = nextRuleId === expandedRuleId ? '' : nextRuleId;
     itemSearch = '';
-    showAllLatestRows = false;
+    visibleLatestRowCount = LATEST_ROWS_DEFAULT_LIMIT;
     renderTopItems();
 });
 
@@ -675,7 +678,7 @@ statsTopItems?.addEventListener('input', (event) => {
     const input = event.target.closest('[data-stats-item-search]');
     if (!input) return;
     itemSearch = String(input.value || '');
-    showAllLatestRows = false;
+    visibleLatestRowCount = LATEST_ROWS_DEFAULT_LIMIT;
     renderTopItems();
     const nextInput = statsTopItems.querySelector('[data-stats-item-search]');
     if (nextInput) {

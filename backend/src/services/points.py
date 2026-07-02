@@ -900,7 +900,7 @@ def get_kid_point_stats(kid_conn, shared_conn, family_id, *, timezone_name='UTC'
                 item['latest'],
                 key=lambda event: str(event.get('createdAt') or ''),
                 reverse=True,
-            )[:8]
+            )
             items.append({
                 'ruleId': item['ruleId'],
                 'name': item['name'],
