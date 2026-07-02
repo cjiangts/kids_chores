@@ -132,7 +132,7 @@ function currentRulesForMode() {
 }
 
 function filteredRulesForMode() {
-    const query = String(pointDraft.name || '').trim().toLowerCase();
+    const query = selectedRuleId ? '' : String(pointDraft.name || '').trim().toLowerCase();
     const modeRules = currentRulesForMode();
     const filtered = query
         ? modeRules.filter((rule) => String(rule?.name || '').toLowerCase().includes(query))
@@ -643,11 +643,12 @@ pointHistory.addEventListener('point-history-edit-note', async (event) => {
     try {
         await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events/${eventId}`, {
             method: 'PATCH',
-            body: JSON.stringify({ pointsDelta: detail.pointsDelta, note: detail.note }),
+            body: JSON.stringify({ pointsDelta: detail.pointsDelta, note: detail.note, createdAt: detail.createdAt }),
         });
+        pointHistory.__pointHistoryTimeDraft = null;
         await refreshAfterMutation();
     } catch (error) {
-        showError(error.message || 'Failed to update note.');
+        showError(error.message || (detail.createdAt ? 'Failed to update time.' : 'Failed to update note.'));
     }
 });
 

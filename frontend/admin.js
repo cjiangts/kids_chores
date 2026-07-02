@@ -947,40 +947,42 @@ function buildAdminOffAppRow(chore, state) {
     const reviewKey = isReviewable ? adminOffAppReviewKey(reviewKind, reviewId) : '';
     const isEditing = Boolean(reviewKey && adminOffAppEditingKeys.has(reviewKey));
     const stepperHtml = isReviewable && isEditing ? buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) : '';
-    const taskCellHtml = `
-        <th class="admin-off-app-name-cell" scope="row">
-            <span class="admin-off-app-task-cell">
-                <span class="admin-off-app-tile" aria-hidden="true">${renderAdminOffAppIcon(chore)}</span>
-                <span class="admin-off-app-title-wrap">
-                    <span class="admin-off-app-title-line">
-                        <span class="admin-off-app-name activity-timeline-title">${escapeHtml(name)}</span>
-                        ${stepperHtml}
-                    </span>
-                    ${isReviewable && reviewKind !== 'direct' && !isEditing ? buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) : ''}
+    const taskContentHtml = `
+        <span class="admin-off-app-task-cell">
+            <span class="admin-off-app-tile" aria-hidden="true">${renderAdminOffAppIcon(chore)}</span>
+            <span class="admin-off-app-title-wrap">
+                <span class="admin-off-app-title-line">
+                    <span class="admin-off-app-name activity-timeline-title">${escapeHtml(name)}</span>
+                    ${stepperHtml}
                 </span>
+                ${isReviewable && reviewKind !== 'direct' && !isEditing ? buildAdminOffAppNotePreviewHtml(reviewKind, reviewItem, chore) : ''}
             </span>
-        </th>
+        </span>
     `;
     const actionCellHtml = reviewKind === 'direct'
         ? buildAdminOffAppStatusHtml(chore, reviewKey)
         : buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem);
-    const editRowHtml = isReviewable && isEditing
-        ? `
-            <tr class="admin-off-app-row admin-off-app-edit-row is-reviewable is-editing" data-off-app-rule-id="${ruleId}">
-                <td class="admin-off-app-edit-cell" colspan="2">
-                    ${buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem)}
-                </td>
+    if (isReviewable && isEditing) {
+        return `
+            <tr class="admin-off-app-row is-reviewable is-editing paradigm-editing-row" data-off-app-rule-id="${ruleId}">
+                <th class="admin-off-app-name-cell" scope="row" colspan="2">
+                    <div class="admin-off-app-edit-stack">
+                        ${taskContentHtml}
+                        ${buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem)}
+                    </div>
+                </th>
             </tr>
-        `
-        : '';
+        `;
+    }
     return `
-        <tr class="admin-off-app-row${isReviewable ? ' is-reviewable' : ''}${isEditing ? ' is-editing' : ''}" data-off-app-rule-id="${ruleId}">
-            ${taskCellHtml}
+        <tr class="admin-off-app-row${isReviewable ? ' is-reviewable' : ''}" data-off-app-rule-id="${ruleId}">
+            <th class="admin-off-app-name-cell" scope="row">
+                ${taskContentHtml}
+            </th>
             <td class="admin-off-app-action-cell paradigm-status-column">
                 ${actionCellHtml}
             </td>
         </tr>
-        ${editRowHtml}
     `;
 }
 

@@ -480,15 +480,13 @@
         .parent-admin-page .admin-off-app-action-cell {
             width: var(--admin-status-column-width, var(--paradigm-status-column-width));
         }
-        .parent-admin-page .admin-off-app-row.is-editing :is(.admin-off-app-action-cell, .admin-off-app-name-cell) {
-            padding-bottom: 0.18rem;
-            border-bottom: 0;
+        .parent-admin-page .admin-off-app-edit-stack {
+            display: grid;
+            gap: 0.42rem;
+            min-width: 0;
         }
-        .parent-admin-page .admin-off-app-row.is-editing .admin-off-app-action-cell :is(.admin-off-app-status, .admin-off-app-result-pill) {
-            display: none;
-        }
-        .parent-admin-page .admin-off-app-edit-cell {
-            padding-top: 0;
+        .parent-admin-page .admin-off-app-row.paradigm-editing-row > :first-child {
+            padding-left: 0.45rem;
         }
         .parent-admin-page .admin-off-app-task-cell {
             display: grid;

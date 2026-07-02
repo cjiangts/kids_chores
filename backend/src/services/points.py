@@ -544,16 +544,17 @@ def insert_point_event(kid_conn, rule_id, points_delta, *, note=None, created_at
     return _event_row_to_payload(row)
 
 
-def update_point_event(kid_conn, event_id, *, points_delta, note=None):
+def update_point_event(kid_conn, event_id, *, points_delta, note=None, created_at=None):
     points_delta_value = _coerce_int(points_delta, field_name='pointsDelta')
+    created_at_value = _utc_naive(created_at)
     row = kid_conn.execute(
         """
         UPDATE point_event
-        SET points_delta = ?, note = ?
+        SET points_delta = ?, note = ?, created_at = COALESCE(?, created_at)
         WHERE event_id = ?
         RETURNING event_id, rule_id, points_delta, note, created_at
         """,
-        [points_delta_value, str(note or '').strip() or None, int(event_id or 0)],
+        [points_delta_value, str(note or '').strip() or None, created_at_value, int(event_id or 0)],
     ).fetchone()
     return _event_row_to_payload(row)
 

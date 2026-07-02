@@ -278,7 +278,7 @@ function renderRules() {
         const ariaLabel = `${rule?.name || 'Reward'}, ${progress.cost} pts, ${statusText}`;
         return `
             <div
-                class="point-template-row point-template-row--redeem parent-reward-template-row parent-reward-template-row--redeem ${isSelected ? 'active' : ''} ${isAffordable ? 'affordable' : 'locked'}"
+                class="point-template-row point-template-row--redeem parent-reward-template-row parent-reward-template-row--redeem ${isSelected ? 'active paradigm-editing-row' : ''} ${isAffordable ? 'affordable' : 'locked'}"
                 role="button"
                 tabindex="0"
                 aria-selected="${isSelected ? 'true' : 'false'}"
@@ -547,11 +547,12 @@ parentRewardHistory?.addEventListener('point-history-edit-note', async (event) =
     try {
         await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/events/${eventId}`, {
             method: 'PATCH',
-            body: JSON.stringify({ pointsDelta: detail.pointsDelta, note: detail.note }),
+            body: JSON.stringify({ pointsDelta: detail.pointsDelta, note: detail.note, createdAt: detail.createdAt }),
         });
+        parentRewardHistory.__pointHistoryTimeDraft = null;
         await refreshAfterMutation();
     } catch (error) {
-        showError(error.message || 'Failed to update note.');
+        showError(error.message || (detail.createdAt ? 'Failed to update time.' : 'Failed to update note.'));
     }
 });
 

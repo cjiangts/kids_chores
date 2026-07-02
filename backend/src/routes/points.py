@@ -223,6 +223,7 @@ def patch_kid_point_event(kid_id, event_id):
             event_id,
             points_delta=payload.get('pointsDelta'),
             note=payload.get('note'),
+            created_at=payload.get('createdAt'),
         )
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400

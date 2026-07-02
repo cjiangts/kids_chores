@@ -1370,6 +1370,21 @@ svg.cards-view-toggle-btn-icon,
     color: #c0392b;
 }
 
+:is(.paradigm-editing-row, .point-template-row.paradigm-editing-row, tr.paradigm-editing-row) {
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--p-accent) 5%, transparent);
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--p-accent) 48%, transparent);
+}
+
+tr.paradigm-editing-row > :is(th, td) {
+    background: color-mix(in srgb, var(--p-accent) 5%, transparent);
+}
+
+tr.paradigm-editing-row > :first-child {
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--p-accent) 48%, transparent);
+    padding-left: var(--paradigm-editing-row-table-indent, 0.9rem);
+}
+
 .point-template-row:not(.point-template-row--redeem) {
     min-height: var(--paradigm-input-height);
     height: var(--paradigm-input-height);

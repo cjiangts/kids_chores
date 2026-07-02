@@ -132,6 +132,13 @@
         });
     }
 
+    function shiftIsoHours(value, hours) {
+        const date = parseHistoryDate(value);
+        if (Number.isNaN(date.getTime())) return '';
+        date.setTime(date.getTime() + (Number.parseInt(hours, 10) || 0) * 3600000);
+        return date.toISOString();
+    }
+
     function updateDayLabel(container, label) {
         const host = container?.closest?.('.point-history-section')?.querySelector?.('[data-point-history-day-label]');
         if (!host) return;
@@ -259,10 +266,13 @@
             : (delta >= 0 ? 'positive' : 'negative');
         const note = String(event.note || '').trim();
         const timeLabel = formatHistoryTime(event.createdAt, timezone);
-        const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${extraClass ? ` ${extraClass}` : ''}`;
+        const isEditingTime = showDelete && Number.parseInt(opts.timeEditEventId, 10) === Number.parseInt(event.eventId, 10);
+        const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${extraClass ? ` ${extraClass}` : ''}`;
         return `
-                <div class="${escapeHtml(className)}" data-event-id="${escapeHtml(event.eventId)}" data-points-delta="${escapeHtml(delta)}">
-                    <span class="point-history-time activity-timeline-time">${escapeHtml(timeLabel)}</span>
+                <div class="${escapeHtml(className)}" data-event-id="${escapeHtml(event.eventId)}" data-points-delta="${escapeHtml(delta)}" data-created-at="${escapeHtml(event.createdAt)}" data-note="${escapeHtml(note)}">
+                    ${showDelete
+                ? `<button type="button" class="point-history-time activity-timeline-time point-history-time-btn" data-history-action="edit-time" aria-label="${escapeHtml(`Adjust event time from ${timeLabel}`)}">${escapeHtml(timeLabel)}</button>`
+                : `<span class="point-history-time activity-timeline-time">${escapeHtml(timeLabel)}</span>`}
                     <span class="point-history-node activity-timeline-node" aria-hidden="true"></span>
                     <div class="point-history-icon activity-timeline-icon">${historyIconHtml(rule, delta)}</div>
                     <div class="point-history-main activity-timeline-main">
@@ -275,7 +285,7 @@
                     </div>
                     <div class="point-rule-delta paradigm-pill ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
                     ${showBalance ? `<div class="point-rule-delta paradigm-pill balance" aria-label="${escapeHtml(`Balance after event: ${balanceAfter} points`)}">${escapeHtml(`${balanceAfter} pts`)}</div>` : ''}
-                    ${showDelete ? `
+                    ${showDelete && !isEditingTime ? `
                     <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit note')}">
                         ${icon('pencil', { size: 15 })}
                     </button>
@@ -283,8 +293,31 @@
                         ${icon('trash', { size: 16 })}
                     </button>
                     ` : ''}
+                    ${isEditingTime ? `
+                    <div class="point-history-time-editor">
+                        <button type="button" class="paradigm-decision-btn" data-history-time-step="-1" aria-label="Move event one hour earlier">${icon('minus')}</button>
+                        <span class="activity-timeline-time">${escapeHtml(timeLabel)}</span>
+                        <button type="button" class="paradigm-decision-btn" data-history-time-step="1" aria-label="Move event one hour later">${icon('plus')}</button>
+                        <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-history-time-save aria-label="Save time">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
+                        <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-history-time-cancel aria-label="Cancel time edit">${icon('x', { size: 16, strokeWidth: 2.6 })}</button>
+                    </div>
+                    ` : ''}
                 </div>
             `;
+    }
+
+    function keepDraftRowInView(container, beforeTop, focusSelector = '') {
+        const eventId = Number.parseInt(container?.__pointHistoryTimeDraft?.eventId, 10);
+        if (!(eventId > 0) || !Number.isFinite(beforeTop)) return;
+        const row = container.querySelector(`[data-event-id="${eventId}"]`);
+        if (!row) return;
+        const delta = row.getBoundingClientRect().top - beforeTop;
+        if (Math.abs(delta) > 1) {
+            window.scrollBy(0, delta);
+        }
+        if (focusSelector) {
+            row.querySelector(focusSelector)?.focus?.({ preventScroll: true });
+        }
     }
 
     function openNoteEditor(row) {
@@ -292,7 +325,7 @@
         const main = row.querySelector('.point-history-main');
         if (!main) return;
         row.dataset.noteEditing = '1';
-        row.classList.add('is-editing-note');
+        row.classList.add('is-editing-note', 'paradigm-editing-row');
         const noteEl = main.querySelector('.point-history-note');
         const currentNote = noteEl ? noteEl.textContent.trim() : '';
         const editor = document.createElement('div');
@@ -315,7 +348,7 @@
     function closeNoteEditor(row) {
         if (!row) return;
         row.dataset.noteEditing = '';
-        row.classList.remove('is-editing-note');
+        row.classList.remove('is-editing-note', 'paradigm-editing-row');
         row.querySelector('[data-point-history-note-editor]')?.remove();
     }
 
@@ -331,26 +364,76 @@
         }));
     }
 
-    function bindNoteEditing(container) {
-        if (!container || container.dataset.pointHistoryNoteEditBound) return;
-        container.dataset.pointHistoryNoteEditBound = '1';
+    function bindEditing(container) {
+        if (!container || container.dataset.pointHistoryEditBound) return;
+        container.dataset.pointHistoryEditBound = '1';
         container.addEventListener('click', (event) => {
-            const editBtn = event.target.closest('[data-history-action="edit-note"]');
+            const target = event.target;
+            const editBtn = target.closest('[data-history-action="edit-note"]');
             if (editBtn) {
                 event.preventDefault();
+                container.__pointHistoryTimeDraft = null;
                 openNoteEditor(editBtn.closest('[data-event-id]'));
                 return;
             }
-            const saveBtn = event.target.closest('[data-history-note-save]');
-            if (saveBtn) {
+            const noteSaveBtn = target.closest('[data-history-note-save]');
+            if (noteSaveBtn) {
                 event.preventDefault();
-                commitNoteEditor(container, saveBtn.closest('[data-event-id]'));
+                commitNoteEditor(container, noteSaveBtn.closest('[data-event-id]'));
                 return;
             }
-            const cancelBtn = event.target.closest('[data-history-note-cancel]');
-            if (cancelBtn) {
+            const noteCancelBtn = target.closest('[data-history-note-cancel]');
+            if (noteCancelBtn) {
                 event.preventDefault();
-                closeNoteEditor(cancelBtn.closest('[data-event-id]'));
+                closeNoteEditor(noteCancelBtn.closest('[data-event-id]'));
+                return;
+            }
+            const timeBtn = target.closest('[data-history-action="edit-time"]');
+            if (timeBtn) {
+                event.preventDefault();
+                const row = timeBtn.closest('[data-event-id]');
+                closeNoteEditor(row);
+                container.__pointHistoryTimeDraft = {
+                    eventId: Number.parseInt(row?.dataset.eventId || '', 10),
+                    createdAt: row?.dataset.createdAt || '',
+                };
+                render(container, container.__pointHistoryLastOptions || {});
+                return;
+            }
+            const stepBtn = event.target.closest('[data-history-time-step]');
+            if (stepBtn) {
+                event.preventDefault();
+                const draft = container.__pointHistoryTimeDraft;
+                if (!draft?.eventId) return;
+                const beforeTop = stepBtn.closest('[data-event-id]')?.getBoundingClientRect().top;
+                const step = stepBtn.dataset.historyTimeStep;
+                draft.createdAt = shiftIsoHours(draft.createdAt, step);
+                render(container, container.__pointHistoryLastOptions || {});
+                keepDraftRowInView(container, beforeTop, `[data-history-time-step="${step}"]`);
+                return;
+            }
+            const timeSaveBtn = target.closest('[data-history-time-save]');
+            if (timeSaveBtn) {
+                event.preventDefault();
+                const row = timeSaveBtn.closest('[data-event-id]');
+                const draft = container.__pointHistoryTimeDraft;
+                if (!draft?.eventId) return;
+                container.dispatchEvent(new CustomEvent('point-history-edit-note', {
+                    bubbles: true,
+                    detail: {
+                        eventId: draft.eventId,
+                        createdAt: draft.createdAt,
+                        pointsDelta: Number.parseInt(row?.dataset.pointsDelta || '', 10),
+                        note: row?.dataset.note || '',
+                    },
+                }));
+                return;
+            }
+            const timeCancelBtn = target.closest('[data-history-time-cancel]');
+            if (timeCancelBtn) {
+                event.preventDefault();
+                container.__pointHistoryTimeDraft = null;
+                render(container, container.__pointHistoryLastOptions || {});
             }
         });
         container.addEventListener('keydown', (event) => {
@@ -392,10 +475,16 @@
         if (!container) return '';
         const opts = options || {};
         bindWeekNavigation(container);
-        bindNoteEditing(container);
+        bindEditing(container);
         container.__pointHistoryLastOptions = opts;
         const selectedKidId = String(opts.selectedKidId || '').trim();
-        const events = Array.isArray(opts.events) ? opts.events : [];
+        const timeDraft = container.__pointHistoryTimeDraft || null;
+        const sourceEvents = Array.isArray(opts.events) ? opts.events : [];
+        const events = timeDraft?.eventId
+            ? sourceEvents.map((event) => (Number.parseInt(event?.eventId, 10) === timeDraft.eventId
+                ? { ...event, createdAt: timeDraft.createdAt }
+                : event))
+            : sourceEvents;
         const timezone = String(opts.familyTimezone || '').trim();
         if (!timezone) {
             updateDayLabel(container, '');
@@ -419,11 +508,12 @@
         const selectedEvents = activeDayKey
             ? scopedEvents.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === activeDayKey)
             : scopedEvents.filter((event) => isEventInWeek(event, anchorDayKey, timezone));
+        const rowOpts = timeDraft?.eventId ? { ...opts, timeEditEventId: timeDraft.eventId } : opts;
         const selectedListHtml = selectedEvents.length
             ? `
             <section class="point-history-group activity-timeline-group">
                 <div class="point-history-group-list activity-timeline-list">
-                    ${renderEventList(selectedEvents, opts, timezone, showDelete, true)}
+                    ${renderEventList(selectedEvents, rowOpts, timezone, showDelete, true)}
                 </div>
             </section>
         `
