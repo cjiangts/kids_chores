@@ -139,6 +139,41 @@
         return date.toISOString();
     }
 
+    function pointMagnitude(value, fallback = 1) {
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isInteger(parsed)) return Math.max(1, Math.abs(parsed));
+        return Math.max(1, Math.abs(Number.parseInt(fallback, 10) || 1));
+    }
+
+    function signedPointsDelta(row) {
+        const originalDelta = Number.parseInt(row?.dataset.pointsDelta || '', 10) || 0;
+        const sign = originalDelta < 0 ? -1 : 1;
+        const input = row?.querySelector?.('.point-history-points-input');
+        return sign * pointMagnitude(input?.value, originalDelta);
+    }
+
+    function refreshPointStepper(row) {
+        const input = row?.querySelector?.('.point-history-points-input');
+        if (!input) return;
+        const value = pointMagnitude(input.value, row?.dataset.pointsDelta);
+        input.value = String(value);
+        const minus = row.querySelector('[data-history-point-step="-1"]');
+        if (minus) minus.disabled = value <= 1;
+        const nextDelta = signedPointsDelta(row);
+        const originalDelta = Number.parseInt(row?.dataset.pointsDelta || '', 10) || 0;
+        const deltaPill = row.querySelector('.point-history-metrics .point-rule-delta:not(.balance)');
+        if (deltaPill) {
+            deltaPill.textContent = `${formatDelta(nextDelta)} pts`;
+        }
+        const balancePill = row.querySelector('.point-history-metrics .point-rule-delta.balance');
+        const originalBalanceAfter = Number.parseInt(row?.dataset.balanceAfter || '', 10);
+        if (balancePill && Number.isFinite(originalBalanceAfter)) {
+            const nextBalanceAfter = originalBalanceAfter + (nextDelta - originalDelta);
+            balancePill.textContent = `${nextBalanceAfter} pts`;
+            balancePill.setAttribute('aria-label', `Balance after event: ${nextBalanceAfter} points`);
+        }
+    }
+
     function updateDayLabel(container, label) {
         const host = container?.closest?.('.point-history-section')?.querySelector?.('[data-point-history-day-label]');
         if (!host) return;
@@ -269,7 +304,7 @@
         const isEditingTime = showDelete && Number.parseInt(opts.timeEditEventId, 10) === Number.parseInt(event.eventId, 10);
         const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${extraClass ? ` ${extraClass}` : ''}`;
         return `
-                <div class="${escapeHtml(className)}" data-event-id="${escapeHtml(event.eventId)}" data-points-delta="${escapeHtml(delta)}" data-created-at="${escapeHtml(event.createdAt)}" data-note="${escapeHtml(note)}">
+                <div class="${escapeHtml(className)}" data-event-id="${escapeHtml(event.eventId)}" data-points-delta="${escapeHtml(delta)}" data-balance-after="${Number.isFinite(balanceAfter) ? escapeHtml(balanceAfter) : ''}" data-created-at="${escapeHtml(event.createdAt)}" data-note="${escapeHtml(note)}">
                     ${showDelete
                 ? `<button type="button" class="point-history-time activity-timeline-time point-history-time-btn" data-history-action="edit-time" aria-label="${escapeHtml(`Adjust event time from ${timeLabel}`)}">${escapeHtml(timeLabel)}</button>`
                 : `<span class="point-history-time activity-timeline-time">${escapeHtml(timeLabel)}</span>`}
@@ -283,15 +318,19 @@
                         </div>
                         ` : ''}
                     </div>
-                    <div class="point-rule-delta paradigm-pill ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
-                    ${showBalance ? `<div class="point-rule-delta paradigm-pill balance" aria-label="${escapeHtml(`Balance after event: ${balanceAfter} points`)}">${escapeHtml(`${balanceAfter} pts`)}</div>` : ''}
+                    <div class="point-history-metrics">
+                        <div class="point-rule-delta paradigm-pill ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
+                        ${showBalance ? `<div class="point-rule-delta paradigm-pill balance" aria-label="${escapeHtml(`Balance after event: ${balanceAfter} points`)}">${escapeHtml(`${balanceAfter} pts`)}</div>` : ''}
+                    </div>
                     ${showDelete && !isEditingTime ? `
-                    <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit note')}">
-                        ${icon('pencil', { size: 15 })}
-                    </button>
-                    <button type="button" class="paradigm-icon-btn is-danger paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
-                        ${icon('trash', { size: 16 })}
-                    </button>
+                    <div class="point-history-actions">
+                        <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit point activity')}">
+                            ${icon('pencil', { size: 15 })}
+                        </button>
+                        <button type="button" class="paradigm-icon-btn is-danger paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
+                            ${icon('trash', { size: 16 })}
+                        </button>
+                    </div>
                     ` : ''}
                     ${isEditingTime ? `
                     <div class="point-history-time-editor">
@@ -328,10 +367,17 @@
         row.classList.add('is-editing-note', 'paradigm-editing-row');
         const noteEl = main.querySelector('.point-history-note');
         const currentNote = noteEl ? noteEl.textContent.trim() : '';
+        const currentDelta = Number.parseInt(row.dataset.pointsDelta || '', 10) || 0;
+        const currentPoints = pointMagnitude(currentDelta);
         const editor = document.createElement('div');
         editor.className = 'point-history-note-editor';
         editor.dataset.pointHistoryNoteEditor = '1';
         editor.innerHTML = `
+            <div class="point-history-point-stepper" aria-label="Points">
+                <button type="button" class="point-history-step-btn" data-history-point-step="-1" aria-label="Decrease points"${currentPoints <= 1 ? ' disabled' : ''}>${icon('minus')}</button>
+                <input class="point-history-points-input" type="number" inputmode="numeric" min="1" value="${escapeHtml(currentPoints)}" aria-label="Points for this event">
+                <button type="button" class="point-history-step-btn" data-history-point-step="1" aria-label="Increase points">${icon('plus')}</button>
+            </div>
             <input type="text" class="paradigm-input point-history-note-input" maxlength="200" placeholder="Add a note (optional)" autocomplete="off">
             <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm point-history-note-save" data-history-note-save aria-label="Save note">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
             <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel point-history-note-cancel" data-history-note-cancel aria-label="Cancel">${icon('x', { size: 16, strokeWidth: 2.6 })}</button>
@@ -355,7 +401,7 @@
     function commitNoteEditor(container, row) {
         if (!container || !row) return;
         const eventId = Number.parseInt(row.dataset.eventId || '', 10);
-        const pointsDelta = Number.parseInt(row.dataset.pointsDelta || '', 10);
+        const pointsDelta = signedPointsDelta(row);
         const input = row.querySelector('.point-history-note-input');
         if (!(eventId > 0) || !input) return;
         container.dispatchEvent(new CustomEvent('point-history-edit-note', {
@@ -374,6 +420,18 @@
                 event.preventDefault();
                 container.__pointHistoryTimeDraft = null;
                 openNoteEditor(editBtn.closest('[data-event-id]'));
+                return;
+            }
+            const pointStepBtn = target.closest('[data-history-point-step]');
+            if (pointStepBtn) {
+                event.preventDefault();
+                const row = pointStepBtn.closest('[data-event-id]');
+                const input = row?.querySelector?.('.point-history-points-input');
+                if (!input) return;
+                const step = Number.parseInt(pointStepBtn.dataset.historyPointStep, 10) || 0;
+                input.value = String(Math.max(1, pointMagnitude(input.value, row?.dataset.pointsDelta) + step));
+                refreshPointStepper(row);
+                input.focus({ preventScroll: true });
                 return;
             }
             const noteSaveBtn = target.closest('[data-history-note-save]');
@@ -436,8 +494,13 @@
                 render(container, container.__pointHistoryLastOptions || {});
             }
         });
+        container.addEventListener('input', (event) => {
+            const input = event.target.closest?.('.point-history-points-input');
+            if (!input) return;
+            refreshPointStepper(input.closest('[data-event-id]'));
+        });
         container.addEventListener('keydown', (event) => {
-            const input = event.target.closest?.('.point-history-note-input');
+            const input = event.target.closest?.('.point-history-note-input, .point-history-points-input');
             if (!input) return;
             if (event.key === 'Enter') {
                 event.preventDefault();

@@ -737,7 +737,8 @@ fieldset.paradigm-form-field {
 /* Shared number stepper: circular +/- controls with a plain numeric value. */
 .queue-stepper,
 .point-log-stepper,
-.admin-off-app-point-stepper {
+.admin-off-app-point-stepper,
+.point-history-point-stepper {
     --paradigm-stepper-btn-size: var(--paradigm-input-height);
     --paradigm-stepper-control-height: var(--paradigm-stepper-btn-size);
     --paradigm-stepper-value-width: 36px;
@@ -758,13 +759,15 @@ fieldset.paradigm-form-field {
     --paradigm-stepper-value-width: 30px;
 }
 
-.admin-off-app-point-stepper {
+.admin-off-app-point-stepper,
+.point-history-point-stepper {
     --paradigm-stepper-value-width: 30px;
 }
 
 .queue-stepper-btn,
 .point-log-stepper-btn,
-.admin-off-app-step-btn {
+.admin-off-app-step-btn,
+.point-history-step-btn {
     appearance: none;
     -webkit-appearance: none;
     display: inline-flex;
@@ -792,7 +795,9 @@ fieldset.paradigm-form-field {
 .point-log-stepper-btn:hover:not(:disabled),
 .point-log-stepper-btn:focus-visible:not(:disabled),
 .admin-off-app-step-btn:hover:not(:disabled),
-.admin-off-app-step-btn:focus-visible:not(:disabled) {
+.admin-off-app-step-btn:focus-visible:not(:disabled),
+.point-history-step-btn:hover:not(:disabled),
+.point-history-step-btn:focus-visible:not(:disabled) {
     background: #eef3ff;
     border-color: var(--p-accent-border);
     color: #1d3a96;
@@ -801,14 +806,16 @@ fieldset.paradigm-form-field {
 
 .queue-stepper-btn:disabled,
 .point-log-stepper-btn:disabled,
-.admin-off-app-step-btn:disabled {
+.admin-off-app-step-btn:disabled,
+.point-history-step-btn:disabled {
     cursor: not-allowed;
     opacity: 0.4;
 }
 
 .queue-stepper-btn .icon,
 .point-log-stepper-btn .icon,
-.admin-off-app-step-btn .icon {
+.admin-off-app-step-btn .icon,
+.point-history-step-btn .icon {
     display: block;
     width: 15px;
     height: 15px;
@@ -819,7 +826,8 @@ fieldset.paradigm-form-field {
 .manage-page .queue-stepper input[type="number"],
 .point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]),
 .point-log-stepper-input,
-.admin-off-app-points-input {
+.admin-off-app-points-input,
+.point-history-points-input {
     width: var(--paradigm-stepper-value-width);
     min-width: var(--paradigm-stepper-value-width);
     max-width: calc(var(--paradigm-stepper-value-width) + 6px);
@@ -845,7 +853,8 @@ fieldset.paradigm-form-field {
 .manage-page .queue-stepper input[type="number"]:focus,
 .point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]):focus,
 .point-log-form .point-log-stepper-input:focus,
-.admin-off-app-points-input:focus {
+.admin-off-app-points-input:focus,
+.point-history-points-input:focus {
     border: 0;
     border-radius: 0;
     background: #f7faff;
@@ -854,7 +863,8 @@ fieldset.paradigm-form-field {
 
 .manage-page .queue-stepper input[type="number"]:disabled,
 .point-log-stepper-input:disabled,
-.admin-off-app-points-input:disabled {
+.admin-off-app-points-input:disabled,
+.point-history-points-input:disabled {
     cursor: not-allowed;
     opacity: 0.62;
 }
@@ -864,7 +874,9 @@ fieldset.paradigm-form-field {
 .point-log-stepper-input::-webkit-outer-spin-button,
 .point-log-stepper-input::-webkit-inner-spin-button,
 .admin-off-app-points-input::-webkit-outer-spin-button,
-.admin-off-app-points-input::-webkit-inner-spin-button {
+.admin-off-app-points-input::-webkit-inner-spin-button,
+.point-history-points-input::-webkit-outer-spin-button,
+.point-history-points-input::-webkit-inner-spin-button {
     margin: 0;
     -webkit-appearance: none;
 }
@@ -1098,13 +1110,40 @@ fieldset.paradigm-form-field {
     transition: box-shadow 0.18s ease;
 }
 
+.kid-avatar-switcher-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.03rem;
+    max-width: 76px;
+    min-width: 0;
+    padding-bottom: 2px;
+    border-bottom: 2px solid transparent;
+}
+
 .kid-avatar-switcher-name {
-    max-width: 72px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    padding-bottom: 2px;
-    border-bottom: 2px solid transparent;
+}
+
+.kid-avatar-switcher-points {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: inherit;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0.82;
+    font-variant-numeric: tabular-nums;
+}
+
+.kid-avatar-switcher-points[hidden] {
+    display: none;
 }
 
 .kid-avatar-switcher-item.active {
@@ -1116,7 +1155,7 @@ fieldset.paradigm-form-field {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 6px 14px rgba(31, 45, 98, 0.2);
 }
 
-.kid-avatar-switcher-item.active .kid-avatar-switcher-name {
+.kid-avatar-switcher-item.active .kid-avatar-switcher-text {
     border-bottom-color: #fff;
 }
 
@@ -1153,7 +1192,15 @@ fieldset.paradigm-form-field {
     }
 
     .kid-avatar-switcher-name {
-        max-width: 58px;
+        max-width: 100%;
+    }
+
+    .kid-avatar-switcher-text {
+        max-width: 62px;
+    }
+
+    .kid-avatar-switcher-points {
+        font-size: 0.63rem;
     }
 }
 

@@ -78,6 +78,23 @@ def reward_type_for_rule(rule):
     return normalize_reward_type(rule.get('rewardType')) or None
 
 
+def get_default_reward_type(conn, family_id):
+    row = conn.execute(
+        """
+        SELECT reward_type
+        FROM point_rule
+        WHERE family_id = ?
+          AND rule_kind = ?
+          AND reward_type IS NOT NULL
+          AND TRIM(reward_type) <> ''
+        ORDER BY rule_id ASC
+        LIMIT 1
+        """,
+        [_family_id_int(family_id), RULE_KIND_REDEEMED_REWARD],
+    ).fetchone()
+    return normalize_reward_type(row[0]) if row else ''
+
+
 def _event_sign_for_rule_kind(rule_kind):
     normalized = normalize_rule_kind(rule_kind)
     if normalized in {RULE_KIND_DEDUCTION_EVENT, RULE_KIND_REDEEMED_REWARD}:
@@ -232,7 +249,7 @@ def get_family_rule(conn, family_id, rule_id):
     return _rule_row_to_payload(row)
 
 
-def list_family_rules(conn, family_id, *, rule_kind=None, include_inactive=True):
+def list_family_rules(conn, family_id, *, rule_kind=None, include_inactive=True, default_reward_type_only=True):
     family_id_int = _family_id_int(family_id)
     filters = ['family_id = ?']
     params = [family_id_int]
@@ -244,6 +261,16 @@ def list_family_rules(conn, family_id, *, rule_kind=None, include_inactive=True)
         params.append(normalized_kind)
     if not include_inactive:
         filters.append('is_active = TRUE')
+    default_reward_type = ''
+    if default_reward_type_only and (not normalized_kind or normalized_kind == RULE_KIND_REDEEMED_REWARD):
+        default_reward_type = get_default_reward_type(conn, family_id_int)
+        if default_reward_type:
+            if normalized_kind == RULE_KIND_REDEEMED_REWARD:
+                filters.append('reward_type = ?')
+                params.append(default_reward_type)
+            else:
+                filters.append('(rule_kind <> ? OR reward_type = ?)')
+                params.extend([RULE_KIND_REDEEMED_REWARD, default_reward_type])
     rows = conn.execute(
         f"""
         SELECT
@@ -766,6 +793,7 @@ def get_kid_point_stats(kid_conn, shared_conn, family_id, *, timezone_name='UTC'
     rule_ids = [int(row[1] or 0) for row in rows]
     lookup = _load_rule_lookup(shared_conn, family_id, rule_ids)
     reward_buckets = set()
+    default_reward_type = get_default_reward_type(shared_conn, family_id)
     reward_rules = list_family_rules(
         shared_conn,
         family_id,
@@ -774,11 +802,11 @@ def get_kid_point_stats(kid_conn, shared_conn, family_id, *, timezone_name='UTC'
     )
     for rule in reward_rules:
         bucket = reward_type_for_rule(rule)
-        if bucket:
+        if bucket and bucket == default_reward_type:
             reward_buckets.add(bucket)
     for rule in lookup.values():
         bucket = reward_type_for_rule(rule)
-        if bucket:
+        if bucket and bucket == default_reward_type:
             reward_buckets.add(bucket)
     reward_buckets = sorted(reward_buckets, key=_reward_bucket_label)
     current_period = _stats_period_key_for_created_at(_utc_now_naive(), timezone_name, granularity)
@@ -948,6 +976,7 @@ def get_reward_bucket_totals(kid_conn, shared_conn, family_id):
     lookup = _load_rule_lookup(shared_conn, family_id, rule_ids)
     base_points = 0
     buckets = set()
+    default_reward_type = get_default_reward_type(shared_conn, family_id)
     reward_rules = list_family_rules(
         shared_conn,
         family_id,
@@ -956,7 +985,7 @@ def get_reward_bucket_totals(kid_conn, shared_conn, family_id):
     )
     for rule in reward_rules:
         bucket = reward_type_for_rule(rule)
-        if bucket:
+        if bucket and bucket == default_reward_type:
             buckets.add(bucket)
     redeemed_by_bucket = {bucket: 0 for bucket in buckets}
     for row in rows:
@@ -965,10 +994,12 @@ def get_reward_bucket_totals(kid_conn, shared_conn, family_id):
         rule_id = int(row[0] or 0)
         delta = int(row[1] or 0)
         bucket = reward_type_for_rule(lookup.get(rule_id, {}))
-        if bucket:
+        if bucket and bucket == default_reward_type:
             buckets.add(bucket)
             redeemed_by_bucket.setdefault(bucket, 0)
             redeemed_by_bucket[bucket] += delta
+        elif bucket:
+            continue
         else:
             base_points += delta
     return {
@@ -1018,7 +1049,12 @@ def apply_direct_rule_event(kid_conn, shared_conn, family_id, rule_id, *, points
         bucket_totals = get_reward_bucket_totals(kid_conn, shared_conn, family_id)
         current_bucket_total = int(bucket_totals.get(bucket, {}).get('totalPoints') or 0)
         if current_bucket_total + points_delta < 0:
-            raise ValueError('Not enough points for this reward bucket')
+            reward_cost = abs(int(points_delta or 0))
+            shortfall = max(reward_cost - current_bucket_total, 0)
+            raise ValueError(
+                f'This kid has {current_bucket_total} pts. '
+                f'This reward costs {reward_cost} pts, so they need {shortfall} more pts.'
+            )
     return insert_point_event(
         kid_conn,
         rule['ruleId'],

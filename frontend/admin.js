@@ -1424,7 +1424,7 @@ function buildMatrixCell(row, kid) {
         }
         const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
         const cardsPerDay = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
-        const params = new URLSearchParams({ id: kidId, categoryKey: row.categoryKey });
+        const params = new URLSearchParams({ id: kidId, categoryKey: row.categoryKey, view: 'queue' });
         const href = `/kid-card-manage.html?${params.toString()}`;
         const editIconHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 12, strokeWidth: 2.5 }) : '';
         return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap">${rowCheckboxHtml}<a class="admin-matrix-value admin-matrix-value--link" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a></div></td>`;

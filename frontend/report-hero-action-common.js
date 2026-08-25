@@ -27,5 +27,15 @@ window.ReportHeroAction = (() => {
         return `<a${idAttr} class="report-hero-action paradigm-btn" href="${escAttr(href || '#')}">${lead}<span>${escText(label)}</span>${trail}</a>`;
     }
 
-    return { renderActionLinkHtml };
+    function renderActionGroupHtml(items) {
+        const list = Array.isArray(items) ? items : [];
+        if (!list.length) return '';
+        return `
+            <div class="report-hero-action-group">
+                ${list.map((item) => renderActionLinkHtml(item)).join('')}
+            </div>
+        `;
+    }
+
+    return { renderActionLinkHtml, renderActionGroupHtml };
 })();

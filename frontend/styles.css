@@ -154,6 +154,26 @@
     white-space: nowrap;
 }
 
+.family-user-switcher__points {
+    display: inline;
+    flex: 0 0 auto;
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.family-user-switcher__points[hidden] {
+    display: none;
+}
+
+.family-user-switcher:hover .family-user-switcher__points,
+.family-user-switcher:focus-visible .family-user-switcher__points {
+    color: inherit;
+}
+
 .shared-tag-filter-chips {
     display: flex;
     flex-wrap: wrap;

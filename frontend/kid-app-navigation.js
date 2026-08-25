@@ -1,21 +1,20 @@
 (function initKidAppNavigation(window, document) {
+    const API_BASE = `${window.location.origin}/api`;
     const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
     const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
     const NAV_ID = 'kidAppNavigation';
     const MOBILE_NAV_QUERY = '(max-width: 899px)';
     const PAGE_PATHS = {
         home: '/admin.html',
-        log_points: '/point-log.html',
+        rewards: '/point-log.html?tab=rewards',
         practice: '/kid-practice-home.html',
-        parent_rewards: '/parent-rewards.html',
         kid_rewards: '/kid-rewards.html',
         stats: '/stats.html',
         settings: '/parent-settings.html',
     };
     const PARENT_ITEMS = [
         { key: 'home', label: 'Home', icon: 'home' },
-        { key: 'log_points', label: 'Log Points', icon: 'clipboard-list' },
-        { key: 'rewards', label: 'Rewards', icon: 'gift', path: PAGE_PATHS.parent_rewards },
+        { key: 'rewards', label: 'Rewards', icon: 'gift' },
         { key: 'stats', label: 'Stats', icon: 'bar-chart-3' },
         { key: 'settings', label: 'Settings', icon: 'settings' },
     ];
@@ -29,6 +28,7 @@
         kidId: readKidIdFromUrl() || readLastViewedKidId(),
         suppressed: false,
     };
+    let kidAvatarPointsRequestId = 0;
 
     function readKidIdFromUrl() {
         try {
@@ -119,7 +119,7 @@
     function activeKey() {
         const path = window.location.pathname || '';
         if (path.endsWith('/kid-practice-home.html')) return 'practice';
-        if (path.endsWith('/point-log.html')) return 'log_points';
+        if (path.endsWith('/point-log.html')) return 'rewards';
         if (path.endsWith('/stats.html')) return 'stats';
         if (
             path.endsWith('/parent-settings.html')
@@ -138,7 +138,7 @@
         const basePath = item.path || PAGE_PATHS[item.key];
         const kidId = String(state.kidId || '').trim();
         if (!kidId) return basePath;
-        return `${basePath}?id=${encodeURIComponent(kidId)}`;
+        return `${basePath}${basePath.includes('?') ? '&' : '?'}id=${encodeURIComponent(kidId)}`;
     }
 
     function iconHtml(name) {
@@ -159,8 +159,71 @@
             .replace(/'/g, '&#039;');
     }
 
+    function escapeCssIdent(value) {
+        if (window.CSS && typeof window.CSS.escape === 'function') {
+            return window.CSS.escape(String(value ?? ''));
+        }
+        return String(value ?? '').replace(/["\\]/g, '\\$&');
+    }
+
     function kidName(kid) {
         return String(kid?.name || '').trim() || '...';
+    }
+
+    function normalizeRewardBucketTotals(value) {
+        const source = value && typeof value === 'object' ? value : {};
+        const result = {};
+        Object.entries(source).forEach(([bucket, entry]) => {
+            const normalized = String(bucket || '').trim().toLowerCase();
+            if (!normalized) return;
+            result[normalized] = Number.parseInt(entry?.totalPoints ?? entry ?? 0, 10) || 0;
+        });
+        return result;
+    }
+
+    function currentBalanceFromPointData(data) {
+        const rewardTotals = normalizeRewardBucketTotals(data?.rewardBucketTotals);
+        const firstRewardBucket = Object.keys(rewardTotals)[0];
+        if (firstRewardBucket) return rewardTotals[firstRewardBucket];
+        if (data && Object.prototype.hasOwnProperty.call(data, 'totalPoints')) {
+            return Number.parseInt(data.totalPoints, 10) || 0;
+        }
+        return null;
+    }
+
+    function formatPoints(value) {
+        return `${Number.parseInt(value, 10) || 0} pts`;
+    }
+
+    async function fetchKidPointBalance(kidId) {
+        const normalizedKidId = String(kidId || '').trim();
+        if (!normalizedKidId) return null;
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/points?limit=1`, {
+            headers: { Accept: 'application/json' },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+        return currentBalanceFromPointData(data);
+    }
+
+    function hydrateKidAvatarPoints(container, kids, requestId) {
+        const list = Array.isArray(kids) ? kids : [];
+        list.forEach(async (kid) => {
+            const id = String(kid?.id || '').trim();
+            if (!id) return;
+            try {
+                const balance = await fetchKidPointBalance(id);
+                if (kidAvatarPointsRequestId !== requestId || balance === null) return;
+                const target = container.querySelector(`[data-kid-avatar-points="${escapeCssIdent(id)}"]`);
+                if (!target) return;
+                target.textContent = formatPoints(balance);
+                target.hidden = false;
+            } catch (error) {
+                if (kidAvatarPointsRequestId !== requestId) return;
+                const target = container.querySelector(`[data-kid-avatar-points="${escapeCssIdent(id)}"]`);
+                if (target) target.hidden = true;
+            }
+        });
     }
 
     function getKidInitial(name) {
@@ -193,6 +256,7 @@
     function renderKidAvatarSwitcher(container, kids, options = {}) {
         if (!container) return;
         const list = Array.isArray(kids) ? kids : [];
+        const showPoints = options.showPoints !== false;
         const hideWhenLessThan = Number.isInteger(options.hideWhenLessThan)
             ? options.hideWhenLessThan
             : 2;
@@ -216,11 +280,18 @@
             return `
                 <${tagName}${actionAttr} class="kid-avatar-switcher-item${isActive ? ' active' : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-kid-id="${escapeHtml(id)}">
                     ${kidAvatarHtml(kid)}
-                    <span class="kid-avatar-switcher-name">${escapeHtml(kidName(kid))}</span>
+                    <span class="kid-avatar-switcher-text">
+                        <span class="kid-avatar-switcher-name">${escapeHtml(kidName(kid))}</span>
+                        ${showPoints ? `<span class="kid-avatar-switcher-points" data-kid-avatar-points="${escapeHtml(id)}" hidden></span>` : ''}
+                    </span>
                 </${tagName}>
             `;
         }).join('');
         container.classList.remove('hidden');
+        if (showPoints) {
+            kidAvatarPointsRequestId += 1;
+            hydrateKidAvatarPoints(container, list, kidAvatarPointsRequestId);
+        }
         container.onclick = (event) => {
             const item = event.target && event.target.closest
                 ? event.target.closest('[data-kid-id]')

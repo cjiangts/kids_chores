@@ -109,7 +109,7 @@ def _delete_metadata_rows(conn, result_ids):
 
 
 def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RETENTION_DAYS):
-    """Delete old type-III kid recordings when a newer recording exists for the same card."""
+    """Delete type-III kid recordings older than the retention window."""
     log = _logger(logger)
     lock_handle = _acquire_cleanup_lock()
     if lock_handle is None:
@@ -165,7 +165,6 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
 
             audio_dir = _kid_type3_audio_dir(kid)
             metadata_delete_result_ids = []
-            newer_existing_cards = set()
             conn = None
             try:
                 conn = kid_db.get_kid_connection_by_path(db_file_path)
@@ -182,7 +181,6 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
                     if (
                         recorded_at is not None
                         and recorded_at < cutoff
-                        and card_id in newer_existing_cards
                     ):
                         stats['candidateFiles'] += 1
                         if audio_path is None:
@@ -211,9 +209,6 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
                             stats['missingFiles'] += 1
                             metadata_delete_result_ids.append(result_id)
                             continue
-
-                    if file_exists:
-                        newer_existing_cards.add(card_id)
 
                 if metadata_delete_result_ids:
                     stats['deletedMetadataRows'] += _delete_metadata_rows(

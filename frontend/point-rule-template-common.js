@@ -66,12 +66,9 @@
             isActive ? 'active' : '',
             extraClass,
         ].filter(Boolean).join(' ');
-        const rewardPrefix = isRewardRule(rule)
-            ? `${rewardTypeLabel(rewardType(rule))} · `
-            : '';
         const deltaText = delta === 0 && isRewardRule(rule)
             ? rewardTypeLabel(rewardType(rule))
-            : `${rewardPrefix}${formatDelta(delta)}`;
+            : formatDelta(delta);
         const checkHtml = typeof window.icon === 'function'
             ? window.icon('check', { size: 13, strokeWidth: 3 })
             : '';

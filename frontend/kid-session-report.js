@@ -240,12 +240,24 @@ function renderSummaryHero(metaHtml) {
     const iconHtml = hasIcon ? window.subjectIcon(key, { size: 44 }) : '';
     const subjectIconHtml = window.icon ? window.icon('book-open', { size: 12, strokeWidth: 2.4 }) : '';
     const subjectMetaHtml = `<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${subjectIconHtml}</span><span class="report-hero-meta-value">${escapeHtml(title)}</span></span>`;
-    const actionHtml = window.ReportHeroAction.renderActionLinkHtml({
-        id: 'subjectActionBtn',
-        href: buildSessionHistoryHref(),
-        label: 'sessions',
-        leadingIcon: 'history',
-    });
+    const actionHtml = window.ReportHeroAction.renderActionGroupHtml([
+        {
+            href: buildCardManageHref('queue'),
+            label: 'Cards',
+            leadingIcon: 'layout-grid',
+        },
+        {
+            href: buildCardManageHref('stats'),
+            label: 'Stats',
+            leadingIcon: 'bar-chart-3',
+        },
+        {
+            id: 'subjectActionBtn',
+            href: buildCardManageHref('report', { highlightSessionId: sessionId }),
+            label: 'sessions',
+            leadingIcon: 'history',
+        },
+    ]);
     return `
         <div class="session-summary-hero">
             ${iconHtml ? `<div class="session-summary-hero-icon">${iconHtml}</div>` : ''}
@@ -257,12 +269,15 @@ function renderSummaryHero(metaHtml) {
     `;
 }
 
-function buildSessionHistoryHref() {
+function buildCardManageHref(view, extraParams = {}) {
     const qs = new URLSearchParams();
     qs.set('id', String(kidId || ''));
     if (currentSessionType) qs.set('categoryKey', String(currentSessionType));
-    qs.set('view', 'report');
-    if (sessionId) qs.set('highlightSessionId', String(sessionId));
+    qs.set('view', String(view || 'queue'));
+    Object.entries(extraParams || {}).forEach(([key, value]) => {
+        const normalized = String(value || '').trim();
+        if (normalized) qs.set(key, normalized);
+    });
     return `/kid-card-manage.html?${qs.toString()}`;
 }
 

@@ -24,17 +24,22 @@ const requestedMode = normalizePointLogMode(initialParams.get('mode') || initial
 const MODE_META = {
     bonus: {
         title: 'Bonus Event Rules',
-        empty: 'No active bonus event rules yet. Add Bonus Events from Rules.',
+        empty: 'No active earn rules yet. Add Earn from Rules.',
     },
     deduction: {
         title: 'Deduction Event Rules',
-        empty: 'No active deduction event rules yet. Add Deduction Events from Rules.',
+        empty: 'No active loss rules yet. Add Loss from Rules.',
+    },
+    rewards: {
+        title: 'Reward Rules',
+        empty: 'No active reward rules yet. Add rewards from Rules.',
     },
 };
 
 function normalizePointLogMode(value) {
     const raw = String(value || '').trim().toLowerCase().replace(/_/g, '-');
     if (raw === 'deduction' || raw === 'deduction-events') return 'deduction';
+    if (raw === 'rewards' || raw === 'reward' || raw === 'redeemed-reward') return 'rewards';
     if (raw === 'bonus' || raw === 'bonus-events') return 'bonus';
     return '';
 }
@@ -64,6 +69,7 @@ let rules = [];
 let selectedKidId = '';
 let activeMode = requestedMode || readStoredPointLogMode() || 'bonus';
 let selectedRuleId = 0;
+let activeRewardType = '';
 let pointDraft = { emoji: '', name: '', points: '', note: '' };
 let pointData = { totalPoints: 0, events: [] };
 let pullTodayStatusTimer = 0;
@@ -109,6 +115,18 @@ function selectedKidName() {
     return kidName(kid) || 'this kid';
 }
 
+function kidNameById(kidId) {
+    const kid = kids.find((item) => String(item?.id || '') === String(kidId || ''));
+    return kidName(kid) || 'This kid';
+}
+
+function pointErrorForKid(kidId, error) {
+    const message = String(error?.message || '').trim();
+    if (!message) return 'Failed to log points.';
+    const name = kidNameById(kidId);
+    return message.replace(/^This kid\b/, name);
+}
+
 function historyEventName(row, fallback = 'this point event') {
     return String(row?.querySelector('.point-history-title')?.textContent || '').trim() || fallback;
 }
@@ -127,6 +145,7 @@ function currentRulesForMode() {
         if (!rule.isActive) return false;
         if (activeMode === 'bonus') return rule.ruleKind === 'bonus_event';
         if (activeMode === 'deduction') return rule.ruleKind === 'deduction_event';
+        if (activeMode === 'rewards') return rule.ruleKind === 'redeemed_reward' && (!activeRewardType || rewardType(rule) === activeRewardType);
         return false;
     });
 }
@@ -158,16 +177,24 @@ function selectedBalance() {
 
 function normalizeRewardBucketTotals(value) {
     const source = value && typeof value === 'object' ? value : {};
-    const totalFor = (bucket) => Number.parseInt(source[bucket]?.totalPoints ?? source[bucket] ?? 0, 10) || 0;
-    return {
-        small: totalFor('small'),
-        big: totalFor('big'),
-    };
+    const result = {};
+    Object.entries(source).forEach(([bucket, entry]) => {
+        const normalized = String(bucket || '').trim().toLowerCase();
+        if (!normalized) return;
+        result[normalized] = Number.parseInt(entry?.totalPoints ?? entry ?? 0, 10) || 0;
+    });
+    return result;
 }
 
-function rewardBucketForRule(rule) {
-    if (!window.PointRuleTemplateCommon.isRewardRule(rule)) return '';
-    return window.PointRuleTemplateCommon.rewardType(rule);
+function selectedRewardBucketBalance(bucket = activeRewardType) {
+    const normalized = String(bucket || '').trim().toLowerCase();
+    if (!normalized) return selectedBalance();
+    const totals = normalizeRewardBucketTotals(pointData.rewardBucketTotals);
+    return Number.parseInt(totals?.[normalized], 10) || 0;
+}
+
+function isRedeemedRewardRule(rule) {
+    return String(rule?.ruleKind || '') === 'redeemed_reward';
 }
 
 function signedPointValueForRule(rule, points) {
@@ -179,17 +206,6 @@ function signedPointValueForRule(rule, points) {
 function ruleMaxPoint(rule) {
     const maxPoint = Number.parseInt(rule?.maxPoint, 10);
     return Number.isInteger(maxPoint) && maxPoint > 0 ? maxPoint : 0;
-}
-
-function rewardBucketLabel(bucket) {
-    return window.PointRuleTemplateCommon.rewardTypeLabel(bucket);
-}
-
-function selectedRewardBucketBalance(rule = selectedRule()) {
-    const bucket = rewardBucketForRule(rule);
-    if (!bucket) return selectedBalance();
-    const totals = normalizeRewardBucketTotals(pointData.rewardBucketTotals);
-    return Number.parseInt(totals?.[bucket], 10) || 0;
 }
 
 function rememberedKidId() {
@@ -218,6 +234,8 @@ function formatPointsTotal(value) {
 
 function setPullTodayButton(label = 'Pull Today', { busy = false } = {}) {
     if (!pullTodaySessionsBtn) return;
+    pullTodaySessionsBtn.classList.toggle('hidden', activeMode === 'rewards');
+    if (activeMode === 'rewards') return;
     pullTodaySessionsBtn.disabled = busy || !selectedKidId;
     pullTodaySessionsBtn.setAttribute('aria-label', label);
     pullTodaySessionsBtn.title = label;
@@ -307,6 +325,22 @@ function stepPoints(delta) {
     }
 }
 
+function rewardType(rule) {
+    return window.PointRuleTemplateCommon.rewardType(rule);
+}
+
+function defaultRewardTypeFromRules() {
+    const firstRule = rules.find((rule) => (
+        String(rule?.ruleKind || '') === 'redeemed_reward'
+        && String(rule?.rewardType || '').trim()
+    ));
+    return rewardType(firstRule);
+}
+
+function rewardTabLabel() {
+    return 'Redeem';
+}
+
 function renderKids() {
     if (!window.KidAppNavigation?.renderKidAvatarSwitcher) return;
     window.KidAppNavigation.renderKidAvatarSwitcher(kidAvatarSwitcher, kids, {
@@ -330,13 +364,27 @@ function renderKids() {
 
 function renderModeTabs() {
     modeTabs.forEach((tab) => {
-        tab.classList.toggle('active', tab.dataset.mode === activeMode);
+        const mode = String(tab.dataset.mode || '');
+        tab.classList.toggle('active', mode === activeMode);
+        const label = mode === 'bonus'
+            ? 'Earn'
+            : (mode === 'deduction' ? 'Loss' : rewardTabLabel());
+        tab.querySelectorAll('.point-rule-tab-long, .point-rule-tab-short').forEach((node) => {
+            node.textContent = label;
+        });
     });
     pointLogForm.classList.toggle('is-bonus', activeMode === 'bonus');
     pointLogForm.classList.toggle('is-deduction', activeMode === 'deduction');
+    pointLogForm.classList.toggle('is-rewards', activeMode === 'rewards');
     if (pointRulesLink) {
-        const ruleKind = activeMode === 'deduction' ? 'deduction_event' : 'bonus_event';
-        pointRulesLink.href = `/point-rules.html?kind=${encodeURIComponent(ruleKind)}`;
+        if (activeMode === 'rewards') {
+            const params = new URLSearchParams({ kind: 'redeemed_reward' });
+            if (activeRewardType) params.set('rewardType', activeRewardType);
+            pointRulesLink.href = `/point-rules.html?${params.toString()}`;
+        } else {
+            const ruleKind = activeMode === 'deduction' ? 'deduction_event' : 'bonus_event';
+            pointRulesLink.href = `/point-rules.html?kind=${encodeURIComponent(ruleKind)}`;
+        }
     }
 }
 
@@ -371,14 +419,44 @@ function renderSelectionPanel() {
 }
 
 function renderHistory() {
-    const events = Array.isArray(pointData.events) ? pointData.events : [];
+    const title = document.getElementById('pointHistoryTitle');
+    const titleIcon = document.getElementById('pointHistoryTitleIcon');
+    if (title) title.textContent = 'Recent Activity';
+    if (titleIcon) {
+        titleIcon.dataset.icon = 'clock';
+        titleIcon.dataset.iconStroke = '2.7';
+    }
     selectedHistoryDayKey = window.PointHistoryCommon.render(pointHistory, {
         selectedKidId,
-        events,
+        events: activityEventsWithBalance(),
         selectedDayKey: selectedHistoryDayKey,
         familyTimezone: selectedFamilyTimezone(),
         showDelete: true,
+        showBalance: true,
+        mode: 'all',
+        emptyDay: 'No point activity for this day.',
     });
+}
+
+function activityEventsWithBalance() {
+    const events = Array.isArray(pointData.events) ? pointData.events : [];
+    const rewardBucket = activeRewardType || defaultRewardTypeFromRules();
+    let balance = selectedRewardBucketBalance(rewardBucket);
+    return [...events]
+        .filter((event) => {
+            const rule = event?.rule || {};
+            return !isRedeemedRewardRule(rule) || rewardType(rule) === rewardBucket;
+        })
+        .sort((a, b) => {
+            const timeDiff = new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
+            return timeDiff || ((Number.parseInt(b?.eventId, 10) || 0) - (Number.parseInt(a?.eventId, 10) || 0));
+        })
+        .map((event) => {
+            const delta = Number.parseInt(event?.pointsDelta, 10) || 0;
+            const result = { ...event, balanceAfter: balance };
+            balance -= delta;
+            return result;
+        });
 }
 
 function updateSubmitState() {
@@ -402,10 +480,13 @@ function updateSubmitState() {
     }
     setSubmitButtonLabel(rule
         ? `Confirm ${formatDelta(signedPointValueForRule(rule, hasPositivePoints ? points : 1))}`
-        : `Create ${activeMode === 'deduction' ? '-' : '+'}${hasPositivePoints ? points : 1}`);
+        : `Create ${activeMode === 'deduction' || activeMode === 'rewards' ? '-' : '+'}${hasPositivePoints ? points : 1}`);
 }
 
 function render() {
+    if (!activeRewardType) {
+        activeRewardType = defaultRewardTypeFromRules();
+    }
     renderKids();
     renderModeTabs();
     renderTemplates();
@@ -434,6 +515,7 @@ async function loadInitialData() {
     kids = Array.isArray(kidsData) ? kidsData : [];
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
     selectedKidId = initialKidId();
+    activeRewardType = defaultRewardTypeFromRules();
     syncSelectedKidNavigation();
     rememberPointLogMode(activeMode);
     selectedHistoryDayKey = '';
@@ -457,15 +539,22 @@ async function createAdhocRuleFromDraft() {
     if (!Number.isInteger(points) || points <= 0) {
         throw new Error('Enter positive points before creating a new rule.');
     }
+    const ruleKind = activeMode === 'deduction'
+        ? 'deduction_event'
+        : (activeMode === 'rewards' ? 'redeemed_reward' : 'bonus_event');
+    const payload = {
+        name,
+        emoji,
+        ruleKind,
+        maxPoint: points,
+        isActive: true,
+    };
+    if (ruleKind === 'redeemed_reward') {
+        payload.rewardType = activeRewardType || defaultRewardTypeFromRules() || 'reward';
+    }
     const data = await fetchJson(`${API_BASE}/points/rules`, {
         method: 'POST',
-        body: JSON.stringify({
-            name,
-            emoji,
-            ruleKind: activeMode === 'deduction' ? 'deduction_event' : 'bonus_event',
-            maxPoint: points,
-            isActive: true,
-        }),
+        body: JSON.stringify(payload),
     });
     const rule = data.rule || null;
     if (!rule?.ruleId) {
@@ -504,13 +593,14 @@ modeTabs.forEach((tab) => {
         if (nextMode === activeMode) return;
         activeMode = nextMode;
         rememberPointLogMode(activeMode);
+        selectedHistoryDayKey = '';
         clearDraft();
         showError('');
         render();
     });
 });
 
-templateList.addEventListener('click', async (event) => {
+templateList.addEventListener('click', (event) => {
     const ruleButton = event.target.closest('[data-rule-id]');
     if (ruleButton) {
         const ruleId = Number.parseInt(ruleButton.dataset.ruleId || '', 10) || 0;
@@ -557,14 +647,18 @@ async function resolveSubmitRule() {
 }
 
 async function awardDraftToKid(kidId, rule) {
-    await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events`, {
-        method: 'POST',
-        body: JSON.stringify({
-            ruleId: rule.ruleId,
-            pointsDelta: Number.parseInt(pointDraft.points, 10),
-            note: pointDraft.note,
-        }),
-    });
+    try {
+        await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events`, {
+            method: 'POST',
+            body: JSON.stringify({
+                ruleId: rule.ruleId,
+                pointsDelta: Number.parseInt(pointDraft.points, 10),
+                note: pointDraft.note,
+            }),
+        });
+    } catch (error) {
+        throw new Error(pointErrorForKid(kidId, error));
+    }
 }
 
 pointLogForm.addEventListener('submit', async (event) => {

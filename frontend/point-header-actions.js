@@ -28,7 +28,7 @@
         return `<span class="icon" data-icon="${name}" data-icon-size="18"></span>`;
     }
 
-    function renderLogPoints(host) {
+    function renderRewards(host) {
         if (isKidUserMode()) {
             host.innerHTML = '';
             host.classList.add('hidden');
@@ -36,9 +36,9 @@
         }
         host.classList.remove('hidden');
         host.innerHTML = `
-            <a href="/point-log.html" class="back-btn paradigm-btn page-header-back-btn">
-                ${iconHtml('pencil')}
-                <span>Log Points</span>
+            <a href="/point-log.html?tab=rewards" class="back-btn paradigm-btn page-header-back-btn">
+                ${iconHtml('gift')}
+                <span>Rewards</span>
             </a>
         `;
         if (typeof window.hydrateIcons === 'function') {
@@ -47,7 +47,7 @@
     }
 
     function boot() {
-        document.querySelectorAll('[data-point-header-action="log-points"]').forEach(renderLogPoints);
+        document.querySelectorAll('[data-point-header-action="log-points"]').forEach(renderRewards);
     }
 
     if (document.readyState === 'loading') {

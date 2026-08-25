@@ -10,7 +10,7 @@
     <script src="idle-home-redirect.js"></script>
     <script src="offline-redirect-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Log Points - The Mommy App</title>
+    <title>Rewards - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="paradigm.css">
@@ -24,8 +24,8 @@
         <header class="page-header-with-back page-header-with-actions point-log-header">
             <div class="page-header-row">
                 <h1>
-                    <span class="page-title-icon" aria-hidden="true">📝</span>
-                    Log Points
+                    <span class="page-title-icon" aria-hidden="true">🎁</span>
+                    Rewards
                 </h1>
                 <div class="page-header-end">
                     <div id="kidAvatarSwitcher" class="kid-avatar-switcher hidden" role="tablist" aria-label="Kids"></div>
@@ -41,10 +41,11 @@
                 <div class="settings-card-body">
                     <div class="point-log-mode-row">
                         <div class="cards-view-toggle-group cards-view-toggle-group-centered" role="group" aria-label="Point log modes">
-                            <button type="button" class="cards-view-toggle-btn active" data-mode="bonus"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-up" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Bonus Events</span><span class="point-rule-tab-short">Bonus</span></button>
-                            <button type="button" class="cards-view-toggle-btn" data-mode="deduction"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-down" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Deduction Events</span><span class="point-rule-tab-short">Deduction</span></button>
+                            <button type="button" class="cards-view-toggle-btn active" data-mode="bonus"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-up" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Earn</span><span class="point-rule-tab-short">Earn</span></button>
+                            <button type="button" class="cards-view-toggle-btn" data-mode="deduction"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-down" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Loss</span><span class="point-rule-tab-short">Loss</span></button>
+                            <button type="button" class="cards-view-toggle-btn" data-mode="rewards"><span class="cards-view-toggle-btn-icon" data-icon="gift" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Redeem</span><span class="point-rule-tab-short">Redeem</span></button>
                         </div>
-                        <a href="/point-rules.html" class="point-rules-link" aria-label="Open rules" title="Rules"><span class="icon" data-icon="pencil" data-icon-size="17"></span><span class="point-rules-link-text">Rules</span></a>
+                        <a href="/point-rules.html?kind=redeemed_reward" class="point-rules-link" aria-label="Open reward rules" title="Rules"><span class="icon" data-icon="pencil" data-icon-size="17"></span><span class="point-rules-link-text">Rules</span></a>
                     </div>
 
                     <form id="pointLogForm" class="point-log-form paradigm-editing-row">
@@ -92,8 +93,8 @@
             <section class="settings-card settings-section point-history-section">
                 <div class="settings-card-body">
                     <div class="paradigm-panel-title">
-                        <span class="paradigm-panel-title-icon"><span class="icon" data-icon="clock" data-icon-stroke="2.7"></span></span>
-                        <h2 class="paradigm-panel-heading">Recent Activity</h2>
+                        <span class="paradigm-panel-title-icon"><span id="pointHistoryTitleIcon" class="icon" data-icon="clock" data-icon-stroke="2.7"></span></span>
+                        <h2 id="pointHistoryTitle" class="paradigm-panel-heading">Recent Activity</h2>
                         <span class="paradigm-panel-meta point-history-current-day" data-point-history-day-label></span>
                         <button id="pullTodaySessionsBtn" type="button" class="paradigm-icon-btn paradigm-panel-action paradigm-panel-action--circle point-pull-sessions-btn" aria-label="Pull today" title="Pull today"><span class="icon" data-icon="refresh-cw"></span></button>
                     </div>

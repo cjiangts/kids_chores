@@ -6,6 +6,21 @@
     border: 1px solid var(--p-border);
 }
 
+.report-hero-action-group {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 0.42rem;
+    max-width: min(100%, 24rem);
+    margin-left: auto;
+}
+
+.report-hero-action-group .report-hero-action {
+    align-self: auto;
+}
+
 .report-hero-action:hover {
     background: #f6f9ff;
     border-color: var(--p-accent-border);
@@ -19,6 +34,18 @@
 }
 
 @media (max-width: 480px) {
+    .report-hero-action-group {
+        flex-basis: 100%;
+        justify-content: stretch;
+        margin-left: 0;
+    }
+
+    .report-hero-action-group .report-hero-action {
+        flex: 1 1 0;
+        min-width: 0;
+        justify-content: center;
+    }
+
     .report-hero-action {
         font-size: 0.85rem;
     }
