@@ -479,16 +479,16 @@
 }
 
 .practice-home-redesign .off-app-task-row.is-pending-review .off-app-task-action {
-    border-color: #7057d9;
-    background: #fff;
-    color: #7057d9;
+    border-color: #f3c77b;
+    background: #fff7e6;
+    color: #9b5a05;
 }
 
 .practice-home-redesign .off-app-task-row.is-pending-review:hover .off-app-task-action,
 .practice-home-redesign .off-app-task-row.is-pending-review:focus-visible .off-app-task-action {
-    background: #f7f4ff;
-    border-color: #5f49ec;
-    color: #5f49ec;
+    background: #fff7e6;
+    border-color: #e0a94c;
+    color: #8a4d04;
 }
 
 .practice-home-redesign .off-app-task-row.is-credited .off-app-task-action {

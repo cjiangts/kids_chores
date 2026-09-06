@@ -194,7 +194,11 @@ async function loadSessionDetail() {
         currentSession = session;
         renderSummary(session, answers);
         renderAnswerSections(answers);
-        renderSpeedDistribution(answers);
+        if (shouldShowSpeedDistribution()) {
+            renderSpeedDistribution(answers);
+        } else {
+            hideSpeedDistribution();
+        }
         const deleteBtn = document.getElementById('deleteSessionBtn');
         if (deleteBtn) deleteBtn.hidden = false;
     } catch (error) {
@@ -214,20 +218,24 @@ function renderSummary(session, answers) {
     const drillCardCounts = currentSessionIsDrill ? countDrillCardOutcomes(answers) : null;
     const modeLabel = formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '';
     const showModeMeta = currentSessionBehaviorType !== BEHAVIOR_TYPE_II && currentSessionBehaviorType !== BEHAVIOR_TYPE_III;
-    const summaryFooterHtml = drillCardCounts
-        ? renderDrillSummaryOutcomes(drillCardCounts, totalActiveMs)
-        : renderStandardSummaryOutcomes(counts, totalActiveMs);
     const metaItems = [];
     if (startedDate) metaItems.push({ icon: 'calendar', value: `Started ${startedDate}` });
     if (relativeDay) metaItems.push({ icon: 'history', value: relativeDay });
     if (showModeMeta && modeLabel) metaItems.push({ icon: 'target', value: `${modeLabel} mode` });
+    metaItems.push(...buildSummaryOutcomeMetaItems({
+        counts,
+        drillCardCounts,
+        totalActiveMs,
+    }));
     const metaHtml = metaItems.map((item) => {
-        const iconHtml = window.icon ? window.icon(item.icon, { size: 12, strokeWidth: 2.4 }) : '';
-        return `<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${iconHtml}</span><span class="report-hero-meta-value">${escapeHtml(item.value)}</span></span>`;
+        const iconHtml = item.iconHtml || (window.icon ? window.icon(item.icon, { size: 12, strokeWidth: 2.4 }) : '');
+        const className = item.className ? ` ${escapeHtml(item.className)}` : '';
+        const ariaLabel = item.ariaLabel ? ` aria-label="${escapeHtml(item.ariaLabel)}"` : '';
+        const valueHtml = item.valueHtml || escapeHtml(item.value);
+        return `<span class="report-hero-meta-item${className}"${ariaLabel}><span class="report-hero-meta-icon">${iconHtml}</span><span class="report-hero-meta-value">${valueHtml}</span></span>`;
     }).join('');
     summaryCard.innerHTML = `
         ${renderSummaryHero(metaHtml)}
-        ${summaryFooterHtml}
     `;
 }
 
@@ -281,7 +289,51 @@ function buildCardManageHref(view, extraParams = {}) {
     return `/kid-card-manage.html?${qs.toString()}`;
 }
 
-const SUMMARY_ACTIVE_TIME_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>';
+const SUMMARY_ACTIVE_TIME_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>';
+
+function buildSummaryOutcomeMetaItems({ counts, drillCardCounts, totalActiveMs }) {
+    const source = drillCardCounts
+        ? {
+            right: drillCardCounts.passed,
+            wrong: (drillCardCounts.fixed || 0) + (drillCardCounts.wrong || 0),
+            rightLabel: 'Passed',
+        }
+        : {
+            right: counts?.right,
+            wrong: (counts?.fixed || 0) + (counts?.wrong || 0),
+            rightLabel: 'Right',
+        };
+    return [
+        {
+            className: 'session-summary-meta-stat session-summary-meta-time',
+            ariaLabel: `Active Time ${formatActiveMinutes(totalActiveMs)}`,
+            iconHtml: SUMMARY_ACTIVE_TIME_ICON,
+            valueHtml: `Active Time <span id="summaryActiveTimeValue">${escapeHtml(formatActiveMinutes(totalActiveMs))}</span>`,
+        },
+        buildSummaryCountMetaItem({
+            tone: 'right',
+            iconName: 'check',
+            label: source.rightLabel,
+            value: source.right,
+        }),
+        buildSummaryCountMetaItem({
+            tone: 'wrong',
+            iconName: 'x',
+            label: 'Wrong or fixed',
+            value: source.wrong,
+        }),
+    ];
+}
+
+function buildSummaryCountMetaItem({ tone, iconName, iconHtml, label, value }) {
+    const count = safeNum(value);
+    return {
+        className: `session-summary-meta-stat session-summary-meta-count session-summary-meta-${tone}`,
+        ariaLabel: `${label} ${count}`,
+        iconHtml: iconHtml || (window.icon ? window.icon(iconName, { size: 12, strokeWidth: 2.6, className: '' }) : ''),
+        valueHtml: `<span class="session-summary-meta-number">${count}</span>`,
+    };
+}
 
 function buildActiveTimeItem(totalActiveMs) {
     return {
@@ -417,13 +469,17 @@ function renderAnswerSections(answers) {
             rightSectionHint.textContent = '';
             rightSectionHint.style.display = 'none';
         } else {
-            rightSectionHint.textContent = 'Tap a card to view details. The small number on top shows how many times it was retried.';
+            rightSectionHint.textContent = buildCardsPracticedSpeedHint(answers);
             rightSectionHint.style.display = '';
         }
     }
     if (drillProgressSection) drillProgressSection.style.display = 'none';
     const compact = !isTypeIIIReviewSession();
-    renderAnswerList(rightList, answers, { compact, keepSingleGroupOrder: false });
+    renderAnswerList(rightList, answers, {
+        compact,
+        keepSingleGroupOrder: false,
+        sortCorrectBySpeed: !isTypeIIIReviewSession(),
+    });
 }
 
 function groupAnswersByCard(answers) {
@@ -598,15 +654,13 @@ function getResponseTimeCapMs() {
 function renderSpeedDistribution(answers) {
     if (!speedDistributionSection || !speedDistributionBody) return;
     if (currentSessionIsDrill) {
-        speedDistributionSection.style.display = 'none';
-        speedDistributionBody.innerHTML = '';
+        hideSpeedDistribution();
         return;
     }
     const list = Array.isArray(answers) ? answers : [];
     const rated = list.filter((item) => Number(item?.response_time_ms) > 0);
     if (rated.length === 0) {
-        speedDistributionSection.style.display = 'none';
-        speedDistributionBody.innerHTML = '';
+        hideSpeedDistribution();
         return;
     }
     speedDistributionSection.style.display = '';
@@ -654,6 +708,19 @@ function renderSpeedDistribution(answers) {
             renderSpeedDistribution(currentAnswers);
         });
     });
+}
+
+function hideSpeedDistribution() {
+    if (speedDistributionSection) {
+        speedDistributionSection.style.display = 'none';
+    }
+    if (speedDistributionBody) {
+        speedDistributionBody.innerHTML = '';
+    }
+}
+
+function shouldShowSpeedDistribution() {
+    return false;
 }
 
 
@@ -754,6 +821,23 @@ function getAnswerSortRank(item) {
     return 3;
 }
 
+function sortStandardAnswersByOutcomeAndSpeed(a, b) {
+    const aClass = getAnswerBarClassByScore(a?.correct_score);
+    const bClass = getAnswerBarClassByScore(b?.correct_score);
+    const aRight = aClass === 'right';
+    const bRight = bClass === 'right';
+    if (aRight !== bRight) {
+        return aRight ? 1 : -1;
+    }
+    if (!aRight) {
+        const rankDiff = getAnswerSortRank(a) - getAnswerSortRank(b);
+        if (rankDiff !== 0) {
+            return rankDiff;
+        }
+    }
+    return (Number(b?.response_time_ms) || 0) - (Number(a?.response_time_ms) || 0);
+}
+
 function renderAnswerList(container, cards, options = {}) {
     if (!Array.isArray(cards) || cards.length === 0) {
         container.innerHTML = `<div style="color:#666;font-size:0.86rem;">No cards.</div>`;
@@ -763,8 +847,12 @@ function renderAnswerList(container, cards, options = {}) {
     const typeIII = isTypeIIIReviewSession();
     const compact = !!options.compact;
     const keepSingleGroupOrder = options.keepSingleGroupOrder !== false;
+    const sortCorrectBySpeed = !!options.sortCorrectBySpeed && !typeIII;
     const reportFrom = getCardReportFromSession();
     const sorted = [...cards].sort((a, b) => {
+        if (sortCorrectBySpeed) {
+            return sortStandardAnswersByOutcomeAndSpeed(a, b);
+        }
         if (!keepSingleGroupOrder) {
             const rankDiff = getAnswerSortRank(a) - getAnswerSortRank(b);
             if (rankDiff !== 0) {
@@ -796,6 +884,9 @@ function renderAnswerList(container, cards, options = {}) {
             ? `${linkTitleBase} • Read-aloud used`
             : linkTitleBase;
         const promptAudioBadgeHtml = usedPromptAudio ? renderPromptAudioAssistBadge() : '';
+        const timeBadgeHtml = compact && !typeIII
+            ? renderCompactResponseTimeBadge(rawMs)
+            : '';
         const headerActionsHtml = compact
             ? `
                 ${retryCount > 0 ? `
@@ -848,6 +939,7 @@ function renderAnswerList(container, cards, options = {}) {
                 ${typeIIIDetailsHtml}
                 ${detailBodyHtml}
                 ${audioBlockHtml}
+                ${timeBadgeHtml}
                 ${typeIII ? '' : renderGradingControls(item)}
             </${tagName}>
         `;
@@ -863,6 +955,23 @@ function renderAnswerList(container, cards, options = {}) {
     }
     window.AudioHistoryCommon.attachPlayers(container);
     syncRenderedResponseTimeBars();
+}
+
+function buildCardsPracticedSpeedHint(answers) {
+    const times = (Array.isArray(answers) ? answers : [])
+        .map((item) => Math.max(0, Number(item?.response_time_ms) || 0))
+        .filter((value) => value > 0);
+    if (times.length === 0) {
+        return 'Tap a card to view details. The small number on top shows how many times it was retried.';
+    }
+    const slowest = Math.max(...times);
+    const fastest = Math.min(...times);
+    return `Slowest ${formatResponseTime(slowest)} · Fastest ${formatResponseTime(fastest)}`;
+}
+
+function renderCompactResponseTimeBadge(ms) {
+    const seconds = Math.max(1, Math.round(Math.max(0, Number(ms) || 0) / 1000));
+    return `<span class="answer-compact-time-badge" aria-label="Response time ${seconds}s">${seconds}s</span>`;
 }
 
 function getAnswerBarClassByScore(correctScore) {
@@ -1089,7 +1198,7 @@ document.addEventListener('click', async (event) => {
             if (currentSession) {
                 renderSummary(currentSession, currentAnswers);
             }
-            renderSpeedDistribution(currentAnswers);
+            hideSpeedDistribution();
         }
     } catch (error) {
         console.error('Error saving grade:', error);

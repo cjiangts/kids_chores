@@ -392,7 +392,7 @@
             width: 22px;
             height: 22px;
             padding: 0;
-            margin: 0 0.05rem 0 0;
+            margin: 0;
             border: 0;
             border-radius: 6px;
             background: transparent;
@@ -476,6 +476,23 @@
             color: #071545;
             font-weight: 400;
             text-align: left;
+        }
+        .parent-admin-page .admin-off-app-opt-head,
+        .parent-admin-page .admin-off-app-opt-cell {
+            width: 42px;
+            min-width: 42px;
+            text-align: center;
+        }
+        .parent-admin-page .admin-off-app-opt-cell {
+            padding-left: 0.15rem;
+            padding-right: 0.15rem;
+        }
+        .parent-admin-page .admin-off-app-row-check {
+            margin: 0;
+        }
+        .parent-admin-page .admin-off-app-row-check:disabled {
+            cursor: progress;
+            opacity: 0.55;
         }
         .parent-admin-page .admin-off-app-action-cell {
             width: var(--admin-status-column-width, var(--paradigm-status-column-width));
@@ -747,6 +764,7 @@
         }
         /* View mode: hide the "Off" pill but keep its box so the checkbox stays aligned with opted-in rows */
         .parent-admin-page span.admin-matrix-value.is-off {
+            min-width: 56px;
             visibility: hidden;
         }
         .parent-admin-page button.admin-matrix-value {
@@ -900,6 +918,9 @@
                 min-width: 42px;
                 min-height: var(--admin-pill-height);
                 padding: 0 0.32rem;
+            }
+            .parent-admin-page span.admin-matrix-value.is-off {
+                min-width: calc(1.7em + 12px + 0.4rem + 0.32rem + 0.46rem + 2px);
             }
             .parent-admin-page .admin-off-app-tile {
                 width: 34px;

@@ -52,9 +52,6 @@ function rememberRuleKind(kind) {
 let activeRuleKind = requestedRuleKind() || readStoredRuleKind() || 'in_app_chore';
 let rules = [];
 let categories = [];
-let kids = [];
-let enabledOffAppRuleIdsByKidId = new Map();
-let offAppOptInsLoaded = false;
 
 function escapeHtml(value) {
     return String(value || '')
@@ -116,62 +113,19 @@ async function fetchJson(url, options = {}) {
 
 async function loadAll() {
     showError('');
-    const [rulesData, categoryData, kidsData] = await Promise.all([
+    const [rulesData, categoryData] = await Promise.all([
         fetchJson(`${API_BASE}/points/rules?includeInactive=1`),
         fetchJson(`${API_BASE}/shared-decks/categories`),
-        fetchJson(`${API_BASE}/kids?view=reward_nav`),
     ]);
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
     categories = Array.isArray(categoryData.categories) ? categoryData.categories : [];
-    kids = Array.isArray(kidsData) ? kidsData : [];
-    offAppOptInsLoaded = false;
-    if (activeRuleKind === 'off_app_chore') {
-        await loadOffAppChoreOptIns();
-    }
     render();
-}
-
-async function loadOffAppChoreOptIns() {
-    enabledOffAppRuleIdsByKidId = new Map();
-    if (!kids.length) {
-        offAppOptInsLoaded = true;
-        return;
-    }
-    const entries = await Promise.all(kids.map(async (kid) => {
-        const kidId = String(kid?.id || '').trim();
-        if (!kidId) {
-            return null;
-        }
-        const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores`);
-        const choreIds = (Array.isArray(data.chores) ? data.chores : [])
-            .map((chore) => Number.parseInt(chore.ruleId, 10))
-            .filter((ruleId) => ruleId > 0);
-        return [kidId, new Set(choreIds)];
-    }));
-    entries.forEach((entry) => {
-        if (entry) {
-            enabledOffAppRuleIdsByKidId.set(entry[0], entry[1]);
-        }
-    });
-    offAppOptInsLoaded = true;
-}
-
-async function ensureOffAppOptInsLoaded() {
-    if (offAppOptInsLoaded || activeRuleKind !== 'off_app_chore') {
-        return;
-    }
-    await loadOffAppChoreOptIns();
 }
 
 async function setActiveRuleKind(kind) {
     activeRuleKind = normalizeRuleKind(kind) || 'in_app_chore';
     rememberRuleKind(activeRuleKind);
     showError('');
-    try {
-        await ensureOffAppOptInsLoaded();
-    } catch (error) {
-        showError(error.message || 'Failed to load kid task opt-ins.');
-    }
     render();
 }
 
@@ -221,60 +175,6 @@ function rewardTypeDatalist() {
             `).join('')}
         </datalist>
     `;
-}
-
-function offAppNameCell(rule) {
-    return `
-        <div class="point-rule-cell point-rule-name-stack">
-            <input
-                class="paradigm-input point-rule-input name"
-                type="text"
-                data-field="name"
-                value="${escapeHtml(rule?.name || '')}"
-                autocomplete="off"
-            >
-            ${renderKidOptIns(rule)}
-        </div>
-    `;
-}
-
-function renderKidOptIns(rule) {
-    const ruleId = Number.parseInt(rule?.ruleId || '', 10);
-    if (!(ruleId > 0)) {
-        return '';
-    }
-    if (!kids.length) {
-        return '';
-    }
-    const disabled = !rule?.isActive ? 'disabled' : '';
-    return `
-        <div class="point-rule-kid-opt-ins" aria-label="Kid opt-ins">
-            ${kids.map((kid) => {
-                const kidId = String(kid?.id || '').trim();
-                const name = kidName(kid);
-                const checked = isOffAppChoreEnabledForKid(kidId, ruleId) ? 'checked' : '';
-                const checkIcon = checked ? icon('check', { className: 'point-rule-kid-check', size: 13 }) : '';
-                return `
-                    <label class="point-rule-kid-chip ${checked ? 'active' : ''} ${disabled ? 'disabled' : ''}" title="${escapeHtml(name)}">
-                        <input
-                            type="checkbox"
-                            data-kid-task-toggle
-                            data-kid-id="${escapeHtml(kidId)}"
-                            data-rule-id="${escapeHtml(ruleId)}"
-                            ${checked}
-                            ${disabled}
-                        >
-                        ${checkIcon}
-                        <span>${escapeHtml(name)}</span>
-                    </label>
-                `;
-            }).join('')}
-        </div>
-    `;
-}
-
-function isOffAppChoreEnabledForKid(kidId, ruleId) {
-    return enabledOffAppRuleIdsByKidId.get(String(kidId || ''))?.has(Number(ruleId)) || false;
 }
 
 function activeCell(rule) {
@@ -329,7 +229,7 @@ function renderRuleRow(rule) {
     ].filter(Boolean).join(' ');
     const cells = [
         inputCell('Emoji', 'emoji', rule?.emoji || '', 'emoji'),
-        isOffApp ? offAppNameCell(rule) : inputCell('Name', 'name', rule?.name || '', 'name'),
+        inputCell('Name', 'name', rule?.name || '', 'name'),
     ];
     if (isRewardCatalog) {
         cells.push(rewardTypeCell(rule));
@@ -567,32 +467,6 @@ function categoryLabel(category) {
     return category.display_name || category.category_key || '';
 }
 
-function kidName(kid) {
-    return String(kid?.name || kid?.id || 'Kid').trim() || 'Kid';
-}
-
-async function setKidOffAppChoreEnabled(kidId, ruleId, enabled) {
-    const normalizedKidId = String(kidId || '').trim();
-    const normalizedRuleId = Number.parseInt(ruleId, 10);
-    if (!normalizedKidId || !(normalizedRuleId > 0)) {
-        return;
-    }
-    const nextRuleIds = new Set(enabledOffAppRuleIdsByKidId.get(normalizedKidId) || []);
-    if (enabled) {
-        nextRuleIds.add(normalizedRuleId);
-    } else {
-        nextRuleIds.delete(normalizedRuleId);
-    }
-    const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/off-app-chores`, {
-        method: 'PUT',
-        body: JSON.stringify({ ruleIds: Array.from(nextRuleIds) }),
-    });
-    const savedIds = (Array.isArray(data.chores) ? data.chores : [])
-        .map((chore) => Number.parseInt(chore.ruleId, 10))
-        .filter((savedRuleId) => savedRuleId > 0);
-    enabledOffAppRuleIdsByKidId.set(normalizedKidId, new Set(savedIds));
-}
-
 function render() {
     renderRuleTabs();
     renderRules();
@@ -612,25 +486,6 @@ ruleList.addEventListener('click', (event) => {
     const action = button.dataset.ruleAction;
     if (action === 'save') {
         saveRuleRow(row);
-    }
-});
-
-ruleList.addEventListener('change', async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    if (!target.matches('[data-kid-task-toggle]')) return;
-    showError('');
-    const kidId = target.dataset.kidId || '';
-    const ruleId = Number.parseInt(target.dataset.ruleId || '', 10);
-    const previousChecked = !target.checked;
-    target.disabled = true;
-    try {
-        await setKidOffAppChoreEnabled(kidId, ruleId, target.checked);
-        renderRules();
-    } catch (error) {
-        target.checked = previousChecked;
-        showError(error.message || 'Failed to save kid task opt-in.');
-        renderRules();
     }
 });
 

@@ -55,6 +55,7 @@ let currentKids = [];
 let kidsLoaded = false;
 let selectedAdminKidId = '';
 let adminCategoryMetaByKey = {};
+let adminOffAppRuleCatalog = [];
 let currentFamilyId = '';
 let editMode = false;
 let editState = null;
@@ -71,8 +72,10 @@ const adminOffAppByKidId = new Map();
 const adminOffAppLoadingKidIds = new Set();
 const adminOffAppDraftByKey = new Map();
 const adminOffAppSavingKeys = new Set();
+const adminOffAppToggleSavingKeys = new Set();
 const adminOffAppEditingKeys = new Set();
 let inAppUnaddedExpanded = false;
+let offAppUnaddedExpanded = false;
 
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
@@ -343,13 +346,16 @@ async function loadKids(options = {}) {
         if (!usedNavigationCache && adminOptinPanel) {
             adminOptinPanel.classList.add('hidden');
         }
-        const [kidsResponse, categoriesResponse] = await Promise.all([
+        const [kidsResponse, categoriesResponse, pointRulesResponse] = await Promise.all([
             fetchOkWithRetry(`${API_BASE}/kids?view=admin_compact`),
             fetchOkWithRetry(`${API_BASE}/shared-decks/categories`),
+            fetchOkWithRetry(`${API_BASE}/points/rules?includeInactive=0`),
         ]);
         const kids = await kidsResponse.json();
         const categoryData = await categoriesResponse.json().catch(() => ({}));
+        const pointRulesData = await pointRulesResponse.json().catch(() => ({}));
         adminCategoryMetaByKey = buildCategoryMetaByKey(categoryData.categories);
+        adminOffAppRuleCatalog = normalizeAdminOffAppRuleCatalog(pointRulesData.rules);
         currentKids = Array.isArray(kids) ? kids : [];
         kidsLoaded = true;
         cacheKidsForParentNavigation(currentKids);
@@ -576,13 +582,15 @@ function pickKidWithOffAppReview(kids) {
 // =====================================================================
 // === 5. Opt-in matrix render
 // =====================================================================
-function renderMatrix() {
+function renderMatrix(options = {}) {
+    const shouldRenderOffApp = options.renderOffApp !== false;
+    const shouldRenderKidTabs = options.renderKidTabs !== false;
     if (!adminMatrix || !adminOptinPanel || !adminEmptyState) return;
     const list = Array.isArray(currentKids) ? currentKids : [];
     if (list.length === 0) {
         adminOptinPanel.classList.add('hidden');
-        renderAdminKidTabs(list);
-        renderAdminOffAppSection(list);
+        if (shouldRenderKidTabs) renderAdminKidTabs(list);
+        if (shouldRenderOffApp) renderAdminOffAppSection(list);
         if (kidsLoaded) adminEmptyState.classList.remove('hidden');
         else adminEmptyState.classList.add('hidden');
         return;
@@ -590,13 +598,13 @@ function renderMatrix() {
     adminEmptyState.classList.add('hidden');
     adminOptinPanel.classList.remove('hidden');
     ensureSelectedAdminKidId(list);
-    renderAdminKidTabs(list);
+    if (shouldRenderKidTabs) renderAdminKidTabs(list);
 
     const rows = getCategoryRowsForFamily(list);
     if (rows.length === 0) {
         adminMatrix.innerHTML = `<tbody><tr><td class="admin-empty-state">No subjects available.</td></tr></tbody>`;
         syncAdminStatusColumnWidth();
-        renderAdminOffAppSection(list);
+        if (shouldRenderOffApp) renderAdminOffAppSection(list);
         const eb = getEditToggleBtn();
         if (eb) eb.disabled = true;
         return;
@@ -646,7 +654,7 @@ function renderMatrix() {
     }
     syncAdminStatusColumnWidth();
     window.requestAnimationFrame(syncAdminStatusColumnWidth);
-    renderAdminOffAppSection(list);
+    if (shouldRenderOffApp) renderAdminOffAppSection(list);
 
     bindMatrixInteractions(rows, matrixKids);
     if (openSubjectMenuKey) {
@@ -692,6 +700,13 @@ function normalizeAdminOffAppChorePayload(payload) {
     const chores = Array.isArray(payload?.chores) ? payload.chores : [];
     const pendingItems = Array.isArray(payload?.pending) ? payload.pending : [];
     const pendingByRuleId = new Map();
+    const enabledRuleIds = new Set();
+    chores.forEach((chore) => {
+        const ruleId = Number.parseInt(chore?.ruleId, 10);
+        if (Number.isInteger(ruleId) && ruleId > 0) {
+            enabledRuleIds.add(ruleId);
+        }
+    });
     pendingItems.forEach((pending) => {
         const ruleId = Number.parseInt(pending?.ruleId, 10);
         if (Number.isInteger(ruleId) && ruleId > 0) {
@@ -707,7 +722,38 @@ function normalizeAdminOffAppChorePayload(payload) {
             pendingByRuleId.set(ruleId, chore.pending);
         }
     });
-    return { chores, pendingByRuleId };
+    return { chores, pendingByRuleId, enabledRuleIds };
+}
+
+function normalizeAdminOffAppRuleCatalog(rules) {
+    return (Array.isArray(rules) ? rules : [])
+        .filter((rule) => String(rule?.ruleKind || '') === 'off_app_chore' && rule?.isActive !== false)
+        .sort((a, b) => (Number.parseInt(a?.ruleId, 10) || 0) - (Number.parseInt(b?.ruleId, 10) || 0));
+}
+
+function adminOffAppRowsForState(state) {
+    const enabledChores = Array.isArray(state?.chores) ? state.chores : [];
+    const enabledByRuleId = new Map(enabledChores
+        .map((chore) => [Number.parseInt(chore?.ruleId, 10), chore])
+        .filter(([ruleId]) => Number.isInteger(ruleId) && ruleId > 0));
+    const enabledRuleIds = state?.enabledRuleIds instanceof Set
+        ? state.enabledRuleIds
+        : new Set(enabledByRuleId.keys());
+    const catalog = adminOffAppRuleCatalog.length ? adminOffAppRuleCatalog : enabledChores;
+    return catalog.map((rule) => {
+        const ruleId = Number.parseInt(rule?.ruleId, 10);
+        const enabled = enabledRuleIds.has(ruleId);
+        const enabledChore = enabledByRuleId.get(ruleId) || {};
+        const pending = state?.pendingByRuleId?.get?.(ruleId) || enabledChore.pending || null;
+        return {
+            ...rule,
+            ...enabledChore,
+            pending,
+            enabled,
+            creditedToday: Boolean(enabledChore.creditedToday),
+            creditedEvent: enabledChore.creditedEvent || null,
+        };
+    });
 }
 
 async function loadAdminOffAppChores(kidId) {
@@ -715,23 +761,63 @@ async function loadAdminOffAppChores(kidId) {
     if (!normalizedKidId || adminOffAppLoadingKidIds.has(normalizedKidId)) return;
     adminOffAppLoadingKidIds.add(normalizedKidId);
     try {
-        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/off-app-chores`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const normalized = normalizeAdminOffAppChorePayload(await response.json());
-        adminOffAppByKidId.set(normalizedKidId, {
-            chores: normalized.chores,
-            pendingByRuleId: normalized.pendingByRuleId,
-            error: '',
-        });
+        adminOffAppByKidId.set(normalizedKidId, await fetchAdminOffAppChoreState(normalizedKidId));
     } catch (error) {
         adminOffAppByKidId.set(normalizedKidId, {
             chores: [],
             pendingByRuleId: new Map(),
+            enabledRuleIds: new Set(),
             error: 'Failed to load off-app chores.',
         });
     } finally {
         adminOffAppLoadingKidIds.delete(normalizedKidId);
         renderMatrix();
+    }
+}
+
+async function fetchAdminOffAppChoreState(kidId) {
+    const normalizedKidId = String(kidId || '').trim();
+    const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/off-app-chores`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const normalized = normalizeAdminOffAppChorePayload(await response.json());
+    return {
+        chores: normalized.chores,
+        pendingByRuleId: normalized.pendingByRuleId,
+        enabledRuleIds: normalized.enabledRuleIds,
+        error: '',
+    };
+}
+
+async function setSelectedAdminOffAppChoreEnabled(ruleId, enabled) {
+    const normalizedRuleId = Number.parseInt(ruleId, 10);
+    const selectedKid = getSelectedAdminKids(currentKids)[0] || null;
+    const kidId = String(selectedKid?.id || '').trim();
+    const state = adminOffAppByKidId.get(kidId);
+    if (!kidId || !(normalizedRuleId > 0) || !state) return;
+    const savingKey = `toggle:${normalizedRuleId}`;
+    if (adminOffAppToggleSavingKeys.has(savingKey)) return;
+    const nextRuleIds = new Set(state.enabledRuleIds instanceof Set ? state.enabledRuleIds : []);
+    if (enabled) nextRuleIds.add(normalizedRuleId);
+    else nextRuleIds.delete(normalizedRuleId);
+    adminOffAppToggleSavingKeys.add(savingKey);
+    renderAdminOffAppSection(currentKids);
+    try {
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/off-app-chores`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ruleIds: Array.from(nextRuleIds) }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        adminOffAppByKidId.set(kidId, await fetchAdminOffAppChoreState(kidId));
+        showError('');
+    } catch (error) {
+        showError(error.message || 'Failed to save off-app chore setting.');
+    } finally {
+        adminOffAppToggleSavingKeys.delete(savingKey);
+        renderAdminOffAppSection(currentKids);
     }
 }
 
@@ -930,6 +1016,22 @@ function buildAdminOffAppStatusHtml(chore, directReviewKey = '') {
     `;
 }
 
+function buildAdminOffAppOptInCell(chore) {
+    const ruleId = Number.parseInt(chore?.ruleId, 10);
+    const enabled = Boolean(chore?.enabled);
+    const savingKey = `toggle:${ruleId}`;
+    const isSaving = adminOffAppToggleSavingKeys.has(savingKey);
+    const name = String(chore?.name || 'off-app chore').trim() || 'off-app chore';
+    const label = enabled ? `Remove ${name}` : `Add ${name}`;
+    return `
+        <td class="admin-off-app-opt-cell admin-matrix-cell">
+            <button type="button" role="checkbox" class="admin-matrix-row-check admin-off-app-row-check${enabled ? ' is-checked' : ''}" data-off-app-opt-toggle data-rule-id="${escapeHtml(ruleId)}" aria-checked="${enabled ? 'true' : 'false'}" aria-label="${escapeHtml(label)}"${isSaving ? ' disabled' : ''}>
+                <span class="admin-matrix-row-check-box" aria-hidden="true">${enabled && typeof window.icon === 'function' ? window.icon('check', { size: 13, strokeWidth: 3 }) : ''}</span>
+            </button>
+        </td>
+    `;
+}
+
 function buildAdminOffAppRow(chore, state) {
     const ruleId = Number.parseInt(chore?.ruleId, 10);
     if (!Number.isInteger(ruleId) || ruleId <= 0) return '';
@@ -965,7 +1067,7 @@ function buildAdminOffAppRow(chore, state) {
     if (isReviewable && isEditing) {
         return `
             <tr class="admin-off-app-row is-reviewable is-editing paradigm-editing-row" data-off-app-rule-id="${ruleId}">
-                <th class="admin-off-app-name-cell" scope="row" colspan="2">
+                <th class="admin-off-app-name-cell" scope="row" colspan="3">
                     <div class="admin-off-app-edit-stack">
                         ${taskContentHtml}
                         ${buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem)}
@@ -979,6 +1081,7 @@ function buildAdminOffAppRow(chore, state) {
             <th class="admin-off-app-name-cell" scope="row">
                 ${taskContentHtml}
             </th>
+            ${buildAdminOffAppOptInCell(chore)}
             <td class="admin-off-app-action-cell paradigm-status-column">
                 ${actionCellHtml}
             </td>
@@ -993,6 +1096,7 @@ function buildAdminOffAppTable(bodyHtml) {
             <thead>
                 <tr>
                     <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${iconHtml}</span><span class="paradigm-panel-heading">Off-App Chores</span></span></th>
+                    <th class="admin-off-app-opt-head"></th>
                     <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column"></th>
                 </tr>
             </thead>
@@ -1002,7 +1106,7 @@ function buildAdminOffAppTable(bodyHtml) {
 }
 
 function buildAdminOffAppMessageRow(message) {
-    return `<tr><td class="admin-off-app-empty" colspan="2">${escapeHtml(message)}</td></tr>`;
+    return `<tr><td class="admin-off-app-empty" colspan="3">${escapeHtml(message)}</td></tr>`;
 }
 
 function handleAdminOffAppInput(event) {
@@ -1024,9 +1128,22 @@ function handleAdminOffAppInput(event) {
 
 function handleAdminOffAppClick(event) {
     const target = event.target && event.target.closest
-        ? event.target.closest('[data-off-app-edit], [data-off-app-point-step], [data-off-app-grade-submit], [data-off-app-grade-cancel]')
+        ? event.target.closest('[data-off-app-opt-toggle], [data-unadded-subject-toggle], [data-off-app-edit], [data-off-app-point-step], [data-off-app-grade-submit], [data-off-app-grade-cancel]')
         : null;
     if (!target) return;
+    if (target.hasAttribute('data-unadded-subject-toggle')) {
+        event.preventDefault();
+        offAppUnaddedExpanded = !offAppUnaddedExpanded;
+        renderAdminOffAppSection(currentKids);
+        return;
+    }
+    if (target.hasAttribute('data-off-app-opt-toggle')) {
+        event.preventDefault();
+        const ruleId = Number.parseInt(target.getAttribute('data-rule-id') || '', 10);
+        const enabled = target.getAttribute('aria-checked') !== 'true';
+        void setSelectedAdminOffAppChoreEnabled(ruleId, enabled);
+        return;
+    }
     const reviewKey = target.getAttribute('data-review-key') || '';
     if (target.hasAttribute('data-off-app-edit')) {
         adminOffAppEditingKeys.add(reviewKey);
@@ -1129,15 +1246,27 @@ function renderAdminOffAppSection(kids) {
         adminOffAppList.innerHTML = buildAdminOffAppTable(buildAdminOffAppMessageRow(state.error));
         return;
     }
-    const chores = Array.isArray(state.chores)
-        ? state.chores.filter((chore) => chore && chore.isActive !== false)
-        : [];
+    const chores = adminOffAppRowsForState(state).filter((chore) => chore && chore.isActive !== false);
     if (chores.length <= 0) {
-        adminOffAppList.innerHTML = buildAdminOffAppTable(buildAdminOffAppMessageRow('No off-app chores enabled.'));
+        adminOffAppList.innerHTML = buildAdminOffAppTable(buildAdminOffAppMessageRow('No off-app chores available.'));
         return;
     }
+    const visibleChores = [];
+    const unaddedChores = [];
+    chores.forEach((chore) => {
+        if (chore?.enabled) {
+            visibleChores.push(chore);
+        } else {
+            unaddedChores.push(chore);
+        }
+    });
+    const renderedChores = offAppUnaddedExpanded ? chores : visibleChores;
+    const toggleRowHtml = unaddedChores.length > 0
+        ? buildUnaddedSubjectToggleRow(unaddedChores.length, offAppUnaddedExpanded, 3)
+        : '';
+    adminOffAppPanel.classList.toggle('has-unadded-toggle', unaddedChores.length > 0);
     adminOffAppList.innerHTML = buildAdminOffAppTable(
-        chores.map((chore) => buildAdminOffAppRow(chore, state)).join(''),
+        `${renderedChores.map((chore) => buildAdminOffAppRow(chore, state)).join('')}${toggleRowHtml}`,
     );
 }
 
@@ -1420,14 +1549,14 @@ function buildMatrixCell(row, kid) {
 
     if (!editMode) {
         if (!baselineOptedIn) {
-            return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap">${rowCheckboxHtml}<span class="admin-matrix-value is-off">Off</span></div></td>`;
+            return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap"><span class="admin-matrix-value is-off">Off</span>${rowCheckboxHtml}</div></td>`;
         }
         const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
         const cardsPerDay = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
         const params = new URLSearchParams({ id: kidId, categoryKey: row.categoryKey, view: 'queue' });
         const href = `/kid-card-manage.html?${params.toString()}`;
         const editIconHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 12, strokeWidth: 2.5 }) : '';
-        return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap">${rowCheckboxHtml}<a class="admin-matrix-value admin-matrix-value--link" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a></div></td>`;
+        return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap"><a class="admin-matrix-value admin-matrix-value--link" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a>${rowCheckboxHtml}</div></td>`;
     }
 
     const valueClass = optedIn ? 'admin-matrix-value' : 'admin-matrix-value is-off';
@@ -1435,8 +1564,8 @@ function buildMatrixCell(row, kid) {
     return `
         <td class="admin-matrix-cell">
             <div class="admin-matrix-value-wrap">
-                ${rowCheckboxHtml}
                 <button type="button" class="${valueClass}" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-pressed="${optedIn ? 'true' : 'false'}">${label}</button>
+                ${rowCheckboxHtml}
             </div>
         </td>
     `;
@@ -1476,7 +1605,7 @@ function bindMatrixInteractions(rows, kids) {
         btn.addEventListener('click', (event) => {
             event.preventDefault();
             inAppUnaddedExpanded = !inAppUnaddedExpanded;
-            renderMatrix();
+            renderMatrix({ renderOffApp: false, renderKidTabs: false });
         });
     });
     adminMatrix.querySelectorAll('[data-subject-menu-trigger]').forEach((btn) => {
