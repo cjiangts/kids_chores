@@ -970,8 +970,9 @@ function buildCardsPracticedSpeedHint(answers) {
 }
 
 function renderCompactResponseTimeBadge(ms) {
-    const seconds = Math.max(1, Math.round(Math.max(0, Number(ms) || 0) / 1000));
-    return `<span class="answer-compact-time-badge" aria-label="Response time ${seconds}s">${seconds}s</span>`;
+    const seconds = Math.max(0, Number(ms) || 0) / 1000;
+    const label = `${seconds.toFixed(1)}s`;
+    return `<span class="answer-compact-time-badge" aria-label="Response time ${label}">${label}</span>`;
 }
 
 function getAnswerBarClassByScore(correctScore) {
