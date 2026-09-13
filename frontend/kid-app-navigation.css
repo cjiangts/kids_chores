@@ -63,14 +63,14 @@ body.has-kid-app-nav {
 
 @media (max-width: 899px) {
     body.has-kid-app-nav {
-        padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: calc(106px + env(safe-area-inset-bottom, 0px));
     }
 
     .kid-app-nav {
         left: 0;
         right: 0;
         bottom: 0;
-        min-height: calc(72px + env(safe-area-inset-bottom, 0px));
+        min-height: calc(86px + env(safe-area-inset-bottom, 0px));
         padding: 0.38rem 1rem calc(0.92rem + env(safe-area-inset-bottom, 0px));
         border-right: 0;
         border-bottom: 0;

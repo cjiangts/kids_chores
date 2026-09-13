@@ -83,66 +83,52 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: 0.55rem;
+            align-items: stretch;
+            gap: 0.38rem;
             min-width: 0;
         }
 
-        .card-report-hero-stats {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.42rem;
-        }
-
-        .hero-stat {
-            background: #eef0f8;
-            border-radius: 10px;
-            padding: 0.4rem 0.45rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.12rem;
-            min-width: 0;
-        }
-
-        .hero-stat-iconbox {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255, 255, 255, 0.7);
-            color: #5b6787;
-        }
-
-        .hero-stat-iconbox svg {
+        .card-report-hero-content .report-hero-meta-row {
             display: block;
         }
 
-        .hero-stat-value {
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #2f3c7e;
-            line-height: 1.1;
+        .card-report-hero-content .report-hero-meta {
+            align-items: center;
+        }
+
+        .card-report-hero-action-row {
+            display: flex;
+            justify-content: flex-end;
+            min-width: 0;
+        }
+
+        .card-report-meta-stat {
+            gap: 0.18rem;
+        }
+
+        .card-report-meta-stat .report-hero-meta-icon,
+        .card-report-meta-stat .report-hero-meta-value {
+            color: currentColor;
+        }
+
+        .card-report-meta-stat .report-hero-meta-icon svg {
+            width: 13px;
+            height: 13px;
+            stroke: currentColor;
+        }
+
+        .card-report-meta-right {
+            color: #2f9e5e;
+        }
+
+        .card-report-meta-wrong {
+            color: #c34a4a;
+        }
+
+        .card-report-meta-number {
+            font-weight: 800;
             font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
-
-        .hero-stat-label {
-            font-size: 0.7rem;
-            color: #5b6787;
-            line-height: 1.15;
-        }
-
-        .hero-stat--right { background: #e6f8ea; }
-        .hero-stat--right .hero-stat-iconbox { background: rgba(255, 255, 255, 0.85); color: #2f9e44; }
-        .hero-stat--fixed { background: #fff5dc; }
-        .hero-stat--fixed .hero-stat-iconbox { background: rgba(255, 255, 255, 0.85); color: #b07a00; }
-        .hero-stat--wrong { background: #fdeaea; }
-        .hero-stat--wrong .hero-stat-iconbox { background: rgba(255, 255, 255, 0.85); color: #d63636; }
-        .hero-stat--pending { background: #e0f2fe; }
-        .hero-stat--pending .hero-stat-iconbox { background: rgba(255, 255, 255, 0.85); color: #0369a1; }
 
         @media (max-width: 560px) {
             .card-report-hero {
@@ -158,17 +144,12 @@
             .card-report-hero-icon-text.size-lg { font-size: 1.5rem; }
             .card-report-hero-icon-text.size-md { font-size: 1.05rem; }
             .card-report-hero-icon-text.size-sm { font-size: 0.82rem; }
-            .card-report-hero-stats {
-                gap: 0.34rem;
+            .card-report-hero-action-row {
+                justify-content: stretch;
             }
-            .hero-stat {
-                padding: 0.34rem 0.38rem;
-            }
-            .hero-stat-value {
-                font-size: 0.96rem;
-            }
-            .hero-stat-label {
-                font-size: 0.66rem;
+            .card-report-hero-action-row .report-hero-action {
+                flex: 1 1 auto;
+                justify-content: center;
             }
         }
 
@@ -579,11 +560,6 @@
             margin-top: 0;
         }
 
-        .history-type4-submitted-label {
-            font-size: 0.72rem;
-            color: #888;
-        }
-
         .history-type4-pill-wrap {
             position: relative;
             display: inline-flex;
@@ -658,38 +634,8 @@
             align-items: flex-start;
         }
 
-        .type3-history-item .history-title-stack,
         .type3-history-item .answer-head-actions {
             min-width: 0;
-        }
-
-        .answer-type3-details {
-            margin-top: 0;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: baseline;
-            gap: 0.18rem 0.32rem;
-        }
-
-        .answer-type3-back {
-            color: #33406f;
-            font-size: 0.82rem;
-            line-height: 1.25;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-
-        .answer-type3-sep {
-            color: #a2abc6;
-            font-size: 0.74rem;
-            line-height: 1;
-        }
-
-        .answer-type3-source {
-            color: #6a7596;
-            font-size: 0.76rem;
-            line-height: 1.25;
-            font-weight: 600;
         }
 
         .answer-report-link {
@@ -706,19 +652,6 @@
         @media (max-width: 560px) {
             .history-head-row {
                 align-items: flex-start;
-            }
-
-            .answer-type3-back {
-                font-size: 0.76rem;
-                line-height: 1.2;
-            }
-
-            .answer-type3-source {
-                font-size: 0.7rem;
-            }
-
-            .answer-type3-sep {
-                font-size: 0.68rem;
             }
         }
 

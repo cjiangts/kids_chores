@@ -211,6 +211,34 @@ function compactPeriodLabel(label) {
     return parts[0] || text;
 }
 
+function chartValueLabelIndexes(values, plotWidth) {
+    const count = Array.isArray(values) ? values.length : 0;
+    if (count <= 0) return new Set();
+    if (count <= 14) {
+        return new Set(values.map((_, index) => index));
+    }
+    return chartKeyPointIndexes(values);
+}
+
+function chartKeyPointIndexes(values) {
+    const count = Array.isArray(values) ? values.length : 0;
+    const indexes = new Set();
+    if (count <= 0) return indexes;
+    let minIndex = 0;
+    let maxIndex = 0;
+    values.forEach((point, index) => {
+        const value = Number.parseInt(point?.displayValue, 10) || 0;
+        const minValue = Number.parseInt(values[minIndex]?.displayValue, 10) || 0;
+        const maxValue = Number.parseInt(values[maxIndex]?.displayValue, 10) || 0;
+        if (value < minValue) minIndex = index;
+        if (value > maxValue) maxIndex = index;
+    });
+    indexes.add(minIndex);
+    indexes.add(maxIndex);
+    indexes.add(count - 1);
+    return indexes;
+}
+
 function normalizeGranularity(value) {
     const normalized = String(value || '').trim().toLowerCase();
     if (normalized === 'day' || normalized === 'daily') return 'daily';
@@ -346,15 +374,23 @@ function chartSvg(points, options = {}) {
     const labelIndexes = values
         .map((point, index) => index)
         .filter((index) => index === values.length - 1 || index % labelStep === 0);
+    const valueLabelIndexes = compact ? new Set() : chartValueLabelIndexes(values, plotWidth);
+    const dotIndexes = compact || values.length <= 14
+        ? null
+        : chartKeyPointIndexes(values);
 
     return `
         <svg class="${compact ? 'stats-sparkline-svg' : 'stats-chart-svg'}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(options.label || 'Point trend')}">
             ${areaPath ? `<path class="stats-area" d="${areaPath}"></path>` : ''}
             <path class="stats-line" d="${linePath}"></path>
-            ${values.map((point, index) => `
+            ${values.map((point, index) => {
+        if (dotIndexes && !dotIndexes.has(index)) return '';
+        return `
                 <circle class="stats-dot" cx="${xFor(index).toFixed(2)}" cy="${yFor(point.displayValue).toFixed(2)}" r="${compact ? 2 : 4}"></circle>
-            `).join('')}
+            `;
+    }).join('')}
             ${compact ? '' : values.map((point, index) => {
+        if (!valueLabelIndexes.has(index)) return '';
         const value = Number.parseInt(point.displayValue, 10) || 0;
         const text = value.toLocaleString();
         const labelWidth = Math.max(18, text.length * 6.2 + 8);

@@ -136,35 +136,17 @@ function renderHero(card, attempts) {
     const labelClasses = ['card-report-hero-icon-text', sizeClass];
     if (isChineseLikeText(labelText)) labelClasses.push('chinese-specific');
 
-    const counts = { right: 0, fixed: 0, wrong: 0, half: 0, pending: 0 };
+    const counts = { right: 0, fixed: 0, wrong: 0 };
     attempts.forEach((item) => {
         const correctness = resolveCorrectness(item);
-        counts[correctness] = (counts[correctness] || 0) + 1;
+        if (Object.prototype.hasOwnProperty.call(counts, correctness)) {
+            counts[correctness] += 1;
+        }
     });
-
-    const total = attempts.length;
-
-    const isType3 = attempts.some(isType3Attempt);
-    const middleStat = isType3
-        ? { key: 'pending', icon: 'help', value: String(counts.pending), label: 'ungraded' }
-        : { key: 'fixed', icon: 'rotate-ccw', value: String(counts.fixed), label: 'fixed' };
-    const stats = [
-        { key: 'attempts', icon: 'layers', value: String(total), label: 'attempts' },
-        { key: 'right', icon: 'check', value: String(counts.right), label: 'right' },
-        middleStat,
-        { key: 'wrong', icon: 'x', value: String(counts.wrong), label: 'wrong' },
-    ];
-
-    const statsHtml = stats.map((s) => `
-        <div class="hero-stat hero-stat--${s.key}">
-            <span class="hero-stat-iconbox">${window.icon ? window.icon(s.icon, { size: 14, strokeWidth: 2.4 }) : ''}</span>
-            <span class="hero-stat-value">${escapeHtml(s.value)}</span>
-            <span class="hero-stat-label">${escapeHtml(s.label)}</span>
-        </div>
-    `).join('');
 
     const subjectName = resolveSubjectDisplayName(attempts);
     const sourceDeckLabel = formatSourceDeckLabel(currentDeckName);
+    const hasType3Attempts = attempts.some(isType3Attempt);
     const metaBits = [];
     if (subjectName) {
         const subjectIcon = window.icon ? window.icon('book-open', { size: 12, strokeWidth: 2.4 }) : '';
@@ -174,6 +156,11 @@ function renderHero(card, attempts) {
         const deckIcon = window.icon ? window.icon('layers', { size: 12, strokeWidth: 2.4 }) : '';
         metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${deckIcon}</span><span class="report-hero-meta-value">${escapeHtml(sourceDeckLabel)}</span></span>`);
     }
+    if (hasType3Attempts && currentCardBack) {
+        const pageIcon = window.icon ? window.icon('file-text', { size: 12, strokeWidth: 2.4 }) : '';
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${pageIcon}</span><span class="report-hero-meta-value">${escapeHtml(currentCardBack)}</span></span>`);
+    }
+    metaBits.push(...buildCardReportStatMetaItems(counts));
     const metaHtml = metaBits.length
         ? `<div class="report-hero-meta">${metaBits.join('')}</div>`
         : '';
@@ -193,11 +180,42 @@ function renderHero(card, attempts) {
             <div class="card-report-hero-content">
                 <div class="report-hero-meta-row">
                     ${metaHtml}
+                </div>
+                <div class="card-report-hero-action-row">
                     ${manageBtnHtml}
                 </div>
-                <div class="card-report-hero-stats">${statsHtml}</div>
             </div>
         </div>
+    `;
+}
+
+function buildCardReportStatMetaItems(counts) {
+    const rightCount = safeNum(counts?.right);
+    const wrongCount = safeNum(counts?.fixed) + safeNum(counts?.wrong);
+    return [
+        buildCardReportStatMetaItem({
+            tone: 'right',
+            iconName: 'check',
+            value: rightCount,
+            label: 'Right',
+        }),
+        buildCardReportStatMetaItem({
+            tone: 'wrong',
+            iconName: 'x',
+            value: wrongCount,
+            label: 'Wrong or fixed',
+        }),
+    ];
+}
+
+function buildCardReportStatMetaItem({ tone, iconName, value, label }) {
+    const iconHtml = window.icon ? window.icon(iconName, { size: 12, strokeWidth: 2.6, className: '' }) : '';
+    const count = safeNum(value);
+    return `
+        <span class="report-hero-meta-item card-report-meta-stat card-report-meta-${tone}" aria-label="${escapeHtml(label)} ${count}">
+            <span class="report-hero-meta-icon">${iconHtml}</span>
+            <span class="report-hero-meta-value"><span class="card-report-meta-number">${count}</span></span>
+        </span>
     `;
 }
 
@@ -521,17 +539,6 @@ function renderHistory(attempts) {
         const toneClass = correctness ? ` tone-${correctness}` : '';
         if (isType3Attempt(item)) {
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
-            const sourceDeckLabel = formatSourceDeckLabel(currentDeckName);
-            const detailBits = [];
-            if (currentCardBack) {
-                detailBits.push(`<span class="answer-type3-back">${escapeHtml(currentCardBack)}</span>`);
-            }
-            if (sourceDeckLabel) {
-                detailBits.push(`<span class="answer-type3-source">Source: ${escapeHtml(sourceDeckLabel)}</span>`);
-            }
-            const detailHtml = detailBits.length
-                ? `<div class="answer-type3-details">${detailBits.join('<span class="answer-type3-sep" aria-hidden="true">·</span>')}</div>`
-                : '';
             const lessonReadingAudioAttrs = from === 'lesson-reading'
                 ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
                 : '';
@@ -546,8 +553,9 @@ function renderHistory(attempts) {
             return `
                 <div class="history-item type3-history-item${currentSessionClass}${toneClass}"${resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : ''}>
                     <div class="history-head-row">
-                        <div class="history-title-stack">
-                            ${detailHtml}
+                        <div class="history-status-side">
+                            <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
+                            ${daysAgoBadge}
                         </div>
                         <div class="answer-head-actions">
                             ${goToSessionButtonHtml}
@@ -558,8 +566,6 @@ function renderHistory(attempts) {
             `;
         }
         if (isType4Attempt(item)) {
-            const prompt = getType4AttemptPrompt(item);
-            const answer = getType4AttemptAnswer(item) || '-';
             const submittedPills = getType4AttemptSubmittedPills(item);
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
             const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
@@ -571,12 +577,8 @@ function renderHistory(attempts) {
                 ${itemOpen}
                     <div class="history-type4-details">
                         <span class="history-details-main">
-                            <span class="history-detail-group">
-                                <span class="history-type4-submitted-label">Question:</span> <span class="history-type4-pill paradigm-pill question-pill">${escapeHtml(prompt)}</span>
-                                <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill paradigm-pill answer-pill">${escapeHtml(answer)}</span>
-                            </span>
                             <span class="history-detail-group submitted-group">
-                                <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
+                                ${submittedPills}
                             </span>
                         </span>
                         <span class="history-detail-group history-time-group">
@@ -591,11 +593,8 @@ function renderHistory(attempts) {
         const answer = getType1AttemptAnswer(item) || 'n/a';
         const isType2 = String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_II;
         const submittedPills = getType1AttemptSubmittedPills(item);
-        const submittedGroupHtml = isType2
-            ? ''
-            : `<span class="history-detail-group submitted-group">
-                            <span class="history-type4-submitted-label">Submitted:</span> ${submittedPills}
-                        </span>`;
+        const answerPillHtml = `<span class="history-type4-pill paradigm-pill answer-pill">${escapeHtml(answer)}</span>`;
+        const mainPillsHtml = isType2 ? answerPillHtml : submittedPills;
         const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
         const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
         const itemOpen = sessionUrl
@@ -606,10 +605,9 @@ function renderHistory(attempts) {
             ${itemOpen}
                 <div class="history-type4-details">
                     <span class="history-details-main">
-                        <span class="history-detail-group">
-                            <span class="history-type4-submitted-label">Answer:</span> <span class="history-type4-pill paradigm-pill answer-pill">${escapeHtml(answer)}</span>
+                        <span class="history-detail-group submitted-group">
+                            ${mainPillsHtml}
                         </span>
-                        ${submittedGroupHtml}
                     </span>
                     <span class="history-detail-group history-time-group">
                         <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
@@ -726,10 +724,6 @@ function isType3Attempt(item) {
 // =====================================================================
 // === 7. Attempt prompt / answer / logged-choice accessors
 // =====================================================================
-
-function getType4AttemptPrompt(item) {
-    return String(item?.materialized_prompt || currentCardFront || 'Problem').trim() || 'Problem';
-}
 
 function getType4AttemptAnswer(item) {
     return String(item?.materialized_answer || '').trim();
