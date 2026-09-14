@@ -1,9 +1,3 @@
-.stats-page .stats-layout {
-    display: grid;
-    gap: var(--section-stack-gap);
-    align-items: start;
-}
-
 .stats-page .stats-workbench {
     display: grid;
     gap: 0;

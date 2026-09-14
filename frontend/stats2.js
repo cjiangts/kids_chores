@@ -13,6 +13,7 @@ let kids = [];
 let pointsByKid = new Map();
 let selectedHighlightKidId = '';
 let expandedHighlightKind = '';
+let showAllHighlightKind = '';
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -88,6 +89,10 @@ function formatSignedPoints(value) {
 function formatPercent(value) {
     const number = Math.round(Number(value) || 0);
     return `${number > 0 ? '+' : ''}${number}%`;
+}
+
+function sameStatValue(a, b) {
+    return Math.abs((Number(a) || 0) - (Number(b) || 0)) < 0.0001;
 }
 
 function normalizeRewardBucketTotals(value) {
@@ -205,12 +210,13 @@ function renderBalanceRace(rows) {
     const max = Math.max(1, ...sorted.map((row) => Math.max(0, row.total)));
     const leader = sorted[0];
     const lead = leader && sorted[1] ? leader.total - sorted[1].total : 0;
+    const hasLeader = Boolean(leader) && lead > 0;
     stats2BalanceRace.innerHTML = `
         <div class="stats2-racer-list">
             ${sorted.map((row, index) => `
                 <div class="stats2-racer-row" style="--kid-color: ${escapeHtml(colorForKid(row.kid))}">
-                    ${avatar(row.kid, index === 0)}
-                    <div>
+                    ${avatar(row.kid, hasLeader && index === 0)}
+                    <div class="stats2-racer-meta">
                         <div class="stats2-name">${escapeHtml(row.kid.name)}</div>
                         <div class="stats2-score">${escapeHtml(formatPoints(row.total))}</div>
                     </div>
@@ -220,8 +226,8 @@ function renderBalanceRace(rows) {
         </div>
         <div class="stats2-lead">
             <div>
-                <strong>${escapeHtml(leader?.kid?.name || 'Leader')} leads</strong>
-                <span>${lead > 0 ? `by ${escapeHtml(formatPoints(lead))}` : 'tied for now'}</span>
+                <strong>${hasLeader ? `${escapeHtml(leader.kid.name)} leads` : 'All tied'}</strong>
+                <span>${hasLeader ? `by ${escapeHtml(formatPoints(lead))}` : 'tied for now'}</span>
             </div>
         </div>
     `;
@@ -229,14 +235,16 @@ function renderBalanceRace(rows) {
 
 function renderRaceCard(theme, icon, title, rows, getter, formatter, higherWins = true) {
     const winner = [...rows].sort((a, b) => higherWins ? getter(b) - getter(a) : getter(a) - getter(b))[0];
+    const winningValue = winner ? getter(winner) : null;
+    const hasWinner = winner && rows.filter((row) => sameStatValue(getter(row), winningValue)).length === 1;
     return `
         <article class="stats2-race-card stats2-race-card--${escapeHtml(theme)}">
             <div class="stats2-card-title"><span aria-hidden="true">${escapeHtml(icon)}</span>${escapeHtml(title)}</div>
             <div class="stats2-card-racers">
                 ${rows.map((row) => `
-                    <div class="stats2-mini-racer${winner?.kid?.id === row.kid.id ? ' is-leader' : ''}" style="--kid-color: ${escapeHtml(colorForKid(row.kid))}">
-                        ${avatar(row.kid, winner?.kid?.id === row.kid.id)}
-                        <div><div class="stats2-name">${escapeHtml(row.kid.name)}</div><div class="stats2-score">${escapeHtml(formatter(getter(row)))}</div></div>
+                    <div class="stats2-mini-racer${hasWinner && winner.kid.id === row.kid.id ? ' is-leader' : ''}" style="--kid-color: ${escapeHtml(colorForKid(row.kid))}">
+                        ${avatar(row.kid, hasWinner && winner.kid.id === row.kid.id)}
+                        <div class="stats2-mini-racer-meta"><div class="stats2-name">${escapeHtml(row.kid.name)}</div><div class="stats2-score">${escapeHtml(formatter(getter(row)))}</div></div>
                     </div>
                 `).join('')}
             </div>
@@ -259,34 +267,44 @@ function renderSummaryPanel(kind, title, items) {
     const isExpanded = expandedHighlightKind === kind;
     return `
         <article class="stats2-highlight-card stats2-highlight-card--${escapeHtml(kind)}${isExpanded ? ' is-expanded' : ''}" data-highlight-kind="${escapeHtml(kind)}">
-            <div class="stats2-highlight-icon" aria-hidden="true">${escapeHtml(kind === 'earn' ? '🏆' : kind === 'loss' ? '📉' : '🎁')}</div>
-            <div class="stats2-highlight-main">
-                <div class="stats2-highlight-kicker">${escapeHtml(title)}</div>
-                <div class="stats2-highlight-title">${escapeHtml(first?.name || 'No activity yet')}</div>
-                <div class="stats2-highlight-sub">${escapeHtml(first ? `${first.count} ${first.count === 1 ? 'activity' : 'activities'}` : '0 activities')}</div>
-                ${isExpanded && items.length ? renderHighlightList(items) : ''}
+            <div class="stats2-highlight-summary">
+                <div class="stats2-highlight-icon" aria-hidden="true">${escapeHtml(kind === 'earn' ? '🏆' : kind === 'loss' ? '📉' : '🎁')}</div>
+                <div class="stats2-highlight-main">
+                    <div class="stats2-highlight-kicker">${escapeHtml(title)}</div>
+                    <div class="stats2-highlight-title">${escapeHtml(first?.name || 'No activity yet')}</div>
+                    <div class="stats2-highlight-sub">${escapeHtml(first ? `${first.count} ${first.count === 1 ? 'time' : 'times'}` : '0 times')}</div>
+                </div>
+                <div class="stats2-highlight-value">${escapeHtml(topValue)}<span class="icon" data-icon="${isExpanded ? 'chevron-up' : 'chevron-right'}" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span></div>
             </div>
-            <div class="stats2-highlight-value">${escapeHtml(topValue)}<span class="icon" data-icon="${isExpanded ? 'chevron-up' : 'chevron-right'}" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span></div>
+            ${isExpanded && items.length ? renderHighlightList(kind, items) : ''}
         </article>
     `;
 }
 
-function renderHighlightList(items) {
+function renderHighlightList(kind, items) {
     const max = Math.max(1, ...items.map((item) => Math.abs(item.points)));
+    const visibleItems = showAllHighlightKind === kind ? items : items.slice(0, 4);
+    const label = kind === 'earn' ? 'earning' : kind === 'loss' ? 'loss' : 'spending';
     return `
         <div class="stats2-earning-list">
-            ${items.slice(0, 4).map((item, index) => `
+            ${visibleItems.map((item, index) => `
                 <div class="stats2-earning-row">
                     <span class="stats2-rank">${index + 1}</span>
                     <span class="stats2-earning-emoji" aria-hidden="true">${escapeHtml(item.emoji)}</span>
                     <span>
                         <span class="stats2-earning-name">${escapeHtml(item.name)}</span>
-                        <span class="stats2-highlight-sub">${escapeHtml(`${item.count} ${item.count === 1 ? 'activity' : 'activities'}`)}</span>
+                        <span class="stats2-highlight-sub">${escapeHtml(`${item.count} ${item.count === 1 ? 'time' : 'times'}`)}</span>
                     </span>
-                    <span class="stats2-earning-bar" aria-hidden="true"><span style="--bar-width: ${Math.round((Math.abs(item.points) / max) * 100)}%"></span></span>
+                    <span class="stats2-earning-bar" aria-hidden="true"><span class="${item.count > 1 ? 'is-segmented' : ''}" style="--bar-width: ${Math.round((Math.abs(item.points) / max) * 100)}%; --bar-segments: ${Math.min(24, Math.max(1, Number.parseInt(item.count, 10) || 1))}"></span></span>
                     <strong>${escapeHtml(formatSignedPoints(item.points))}</strong>
                 </div>
             `).join('')}
+            ${items.length > visibleItems.length ? `
+                <button type="button" class="stats2-show-all-items" data-highlight-show-all="${escapeHtml(kind)}">
+                    <span>${escapeHtml(`Show all ${items.length} ${label} items`)}</span>
+                    <span class="icon" data-icon="chevron-right" data-icon-size="17" data-icon-stroke="2.6" aria-hidden="true"></span>
+                </button>
+            ` : ''}
         </div>
     `;
 }
@@ -306,6 +324,7 @@ function renderHighlights() {
         renderSummaryPanel('loss', 'Biggest Loss', lossItems),
         renderSummaryPanel('spend', 'Biggest Spend', spendItems),
     ].join('');
+    window.hydrateIcons?.(stats2Highlights);
 }
 
 function render() {
@@ -326,14 +345,24 @@ stats2HighlightTabs?.addEventListener('click', (event) => {
     if (!button) return;
     selectedHighlightKidId = String(button.dataset.highlightKid || '');
     expandedHighlightKind = '';
+    showAllHighlightKind = '';
     renderHighlights();
 });
 
 stats2Highlights?.addEventListener('click', (event) => {
-    const card = event.target.closest('[data-highlight-kind]');
+    const showAllButton = event.target.closest('[data-highlight-show-all]');
+    if (showAllButton && stats2Highlights.contains(showAllButton)) {
+        showAllHighlightKind = String(showAllButton.dataset.highlightShowAll || '');
+        renderHighlights();
+        return;
+    }
+    const summary = event.target.closest('.stats2-highlight-summary');
+    if (!summary || !stats2Highlights.contains(summary)) return;
+    const card = summary.closest('[data-highlight-kind]');
     if (!card) return;
     const kind = String(card.dataset.highlightKind || '');
     expandedHighlightKind = expandedHighlightKind === kind ? '' : kind;
+    showAllHighlightKind = '';
     renderHighlights();
 });
 
