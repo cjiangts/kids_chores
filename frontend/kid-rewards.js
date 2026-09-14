@@ -97,10 +97,25 @@ function renderHistory() {
     });
 }
 
+function currentRewardBucketEntry() {
+    const [bucket, entry] = Object.entries(pointData.rewardBucketTotals || {})
+        .find(([key]) => String(key || '').trim()) || [];
+    return {
+        bucket: String(bucket || '').trim().toLowerCase(),
+        balance: bucket ? Number.parseInt(entry?.totalPoints ?? entry ?? 0, 10) || 0 : Number.parseInt(pointData.totalPoints, 10) || 0,
+    };
+}
+
 function kidActivityEventsWithBalance() {
     const events = Array.isArray(pointData.events) ? pointData.events : [];
-    let balance = Number.parseInt(pointData.totalPoints, 10) || 0;
+    const rewardBucket = currentRewardBucketEntry();
+    let balance = rewardBucket.balance;
     return [...events]
+        .filter((event) => {
+            const rule = event?.rule || {};
+            return String(rule?.ruleKind || '') !== 'redeemed_reward'
+                || String(rule?.rewardType || '').trim().toLowerCase() === rewardBucket.bucket;
+        })
         .sort((a, b) => {
             const timeDiff = new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
             return timeDiff || ((Number.parseInt(b?.eventId, 10) || 0) - (Number.parseInt(a?.eventId, 10) || 0));

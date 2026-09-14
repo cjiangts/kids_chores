@@ -161,7 +161,7 @@
 .stats2-name {
     color: #243062;
     font-size: 0.82rem;
-    font-weight: 620;
+    font-weight: 560;
     line-height: 1.1;
 }
 
@@ -287,13 +287,6 @@
     background: none;
 }
 
-.stats2-board-note {
-    color: var(--p-accent);
-    font-size: 0.82rem;
-    font-weight: 650;
-    white-space: nowrap;
-}
-
 .stats2-highlight-tabs {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -348,7 +341,7 @@
 
 .stats2-highlight-summary {
     display: grid;
-    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
     gap: 0.65rem;
     align-items: start;
 }
@@ -368,11 +361,11 @@
 .stats2-highlight-icon {
     display: grid;
     place-items: center;
-    width: 52px;
-    height: 52px;
+    width: 42px;
+    height: 42px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.62);
-    font-size: 1.55rem;
+    font-size: 1.18rem;
 }
 
 .stats2-highlight-main {
@@ -381,9 +374,9 @@
 
 .stats2-highlight-kicker {
     color: #0f8e60;
-    font-size: 0.82rem;
-    font-weight: 760;
-    line-height: 1.1;
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.15;
 }
 
 .stats2-highlight-card--loss .stats2-highlight-kicker {
@@ -395,11 +388,11 @@
 }
 
 .stats2-highlight-title {
-    margin-top: 0.12rem;
-    color: #10134f;
-    font-size: 1rem;
-    font-weight: 760;
-    line-height: 1.08;
+    margin-top: 0.08rem;
+    color: #243062;
+    font-size: 0.82rem;
+    font-weight: 620;
+    line-height: 1.1;
 }
 
 .stats2-highlight-sub {
@@ -416,9 +409,9 @@
     align-items: center;
     gap: 0.36rem;
     color: #0f8e60;
-    font-size: 1.05rem;
-    font-weight: 820;
-    line-height: 1.05;
+    font-size: 0.78rem;
+    font-weight: 720;
+    line-height: 1;
     white-space: nowrap;
     z-index: 1;
 }
@@ -515,8 +508,14 @@
 }
 
 .stats2-earning-emoji {
+    display: grid;
+    place-items: center;
     font-size: 1.25rem;
     line-height: 1;
+}
+
+.stats2-earning-emoji .subject-icon {
+    --subj-size: 24px;
 }
 
 .stats2-earning-name {
@@ -678,15 +677,11 @@
     .stats2-highlight-icon {
         width: 42px;
         height: 42px;
-        font-size: 1.25rem;
+        font-size: 1.18rem;
     }
 
     .stats2-highlight-title {
-        font-size: 0.9rem;
-    }
-
-    .stats2-highlight-value {
-        font-size: 0.9rem;
+        font-size: 0.82rem;
     }
 
     .stats2-earning-row {

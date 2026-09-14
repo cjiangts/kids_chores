@@ -142,6 +142,14 @@ function eventsForWeek(points, startKey, endKey, timezone) {
     });
 }
 
+function ruleIconHtml(rule, kind) {
+    const triggerKey = String(rule?.triggerKey || '').trim();
+    if (rule?.ruleKind === 'in_app_chore' && triggerKey && typeof window.subjectIcon === 'function') {
+        return window.subjectIcon(triggerKey, { size: 24 });
+    }
+    return escapeHtml(rule?.emoji || (kind === 'earn' ? '⭐' : kind === 'loss' ? '📉' : '🎁'));
+}
+
 function ruleSummaryItems(events, kind) {
     const byRule = new Map();
     events.forEach((event) => {
@@ -155,7 +163,7 @@ function ruleSummaryItems(events, kind) {
         const key = String(rule.ruleId || event.ruleId || rule.name || event.note || 'event');
         const item = byRule.get(key) || {
             name: String(rule.name || event.note || 'Point event'),
-            emoji: String(rule.emoji || (kind === 'earn' ? '⭐' : kind === 'loss' ? '📉' : '🎁')),
+            iconHtml: ruleIconHtml(rule, kind),
             points: 0,
             count: 0,
         };
@@ -285,12 +293,17 @@ function renderHighlightList(kind, items) {
     const max = Math.max(1, ...items.map((item) => Math.abs(item.points)));
     const visibleItems = showAllHighlightKind === kind ? items : items.slice(0, 4);
     const label = kind === 'earn' ? 'earning' : kind === 'loss' ? 'loss' : 'spending';
+    let rank = 0;
+    let previousPoints = null;
     return `
         <div class="stats2-earning-list">
-            ${visibleItems.map((item, index) => `
+            ${visibleItems.map((item, index) => {
+                if (!sameStatValue(item.points, previousPoints)) rank = index + 1;
+                previousPoints = item.points;
+                return `
                 <div class="stats2-earning-row">
-                    <span class="stats2-rank">${index + 1}</span>
-                    <span class="stats2-earning-emoji" aria-hidden="true">${escapeHtml(item.emoji)}</span>
+                    <span class="stats2-rank">${rank}</span>
+                    <span class="stats2-earning-emoji" aria-hidden="true">${item.iconHtml}</span>
                     <span>
                         <span class="stats2-earning-name">${escapeHtml(item.name)}</span>
                         <span class="stats2-highlight-sub">${escapeHtml(`${item.count} ${item.count === 1 ? 'time' : 'times'}`)}</span>
@@ -298,7 +311,7 @@ function renderHighlightList(kind, items) {
                     <span class="stats2-earning-bar" aria-hidden="true"><span class="${item.count > 1 ? 'is-segmented' : ''}" style="--bar-width: ${Math.round((Math.abs(item.points) / max) * 100)}%; --bar-segments: ${Math.min(24, Math.max(1, Number.parseInt(item.count, 10) || 1))}"></span></span>
                     <strong>${escapeHtml(formatSignedPoints(item.points))}</strong>
                 </div>
-            `).join('')}
+            `; }).join('')}
             ${items.length > visibleItems.length ? `
                 <button type="button" class="stats2-show-all-items" data-highlight-show-all="${escapeHtml(kind)}">
                     <span>${escapeHtml(`Show all ${items.length} ${label} items`)}</span>
