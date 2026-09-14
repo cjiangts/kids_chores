@@ -9,7 +9,7 @@
         rewards: '/point-log.html?tab=rewards',
         practice: '/kid-practice-home.html',
         kid_rewards: '/kid-rewards.html',
-        stats: '/stats.html',
+        stats: '/stats2.html',
         settings: '/parent-settings.html',
     };
     const PARENT_ITEMS = [
@@ -120,7 +120,7 @@
         const path = window.location.pathname || '';
         if (path.endsWith('/kid-practice-home.html')) return 'practice';
         if (path.endsWith('/point-log.html')) return 'rewards';
-        if (path.endsWith('/stats.html')) return 'stats';
+        if (path.endsWith('/stats.html') || path.endsWith('/stats2.html')) return 'stats';
         if (
             path.endsWith('/parent-settings.html')
             || path.endsWith('/point-rules.html')

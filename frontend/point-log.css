@@ -444,7 +444,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.58rem;
+    gap: 0.72rem;
     min-width: 0;
     padding: 0.62rem 0.72rem;
 }
@@ -452,7 +452,7 @@
 .point-week-title {
     min-width: 0;
     color: #5f54f0;
-    font-size: 1.05rem;
+    font-size: 0.98rem;
     font-weight: 780;
     line-height: 1.05;
     white-space: nowrap;
@@ -632,6 +632,11 @@
     border-radius: 999px;
     background: rgba(107, 92, 246, 0.10);
     color: #6b5cf6;
+}
+
+.point-day-summary-emoji {
+    font-size: 1.28rem;
+    line-height: 1;
 }
 
 .point-day-summary-copy {
@@ -834,10 +839,11 @@
     .point-week-title-card {
         min-height: 48px;
         padding: 0.4rem 0.42rem;
+        gap: 0.52rem;
     }
 
     .point-week-title {
-        font-size: 0.86rem;
+        font-size: 0.78rem;
     }
 
     .point-week-nav {
@@ -911,7 +917,7 @@
     }
 
     .point-week-title {
-        font-size: 0.8rem;
+        font-size: 0.74rem;
     }
 
     .point-week-metric-value {

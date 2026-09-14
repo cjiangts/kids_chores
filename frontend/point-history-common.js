@@ -293,11 +293,20 @@
         `;
     }
 
+    function moodEmojiForSummary(summary) {
+        const earned = Math.max(0, Number.parseInt(summary?.earned, 10) || 0);
+        const lost = Math.abs(Math.min(0, Number.parseInt(summary?.lost, 10) || 0));
+        if (earned > lost) return '😊';
+        if (earned < lost) return '😢';
+        return '😐';
+    }
+
     function renderDaySummary(summary, dayKey, timezone) {
         const label = compactDayLabel(dayKey, timezone);
+        const moodEmoji = moodEmojiForSummary(summary);
         return `
             <div class="point-day-summary" aria-live="polite">
-                <span class="point-day-summary-icon">${icon('calendar', { size: 24, strokeWidth: 2.4 })}</span>
+                <span class="point-day-summary-icon point-day-summary-emoji" aria-label="Daily mood">${escapeHtml(moodEmoji)}</span>
                 <div class="point-day-summary-copy">
                     <div class="point-day-summary-line">
                         <strong>${escapeHtml(label)}:</strong>
@@ -649,13 +658,16 @@
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyTimezone || 'Family timezone is not configured.')}</div>`;
             return '';
         }
-        const activeDayKey = String(opts.selectedDayKey || '').trim();
+        const requestedActiveDayKey = String(opts.selectedDayKey || '').trim();
+        const todayDayKey = dateKeyInTimezone(new Date(), timezone);
         const requestedAnchorDayKey = String(opts.weekAnchorDayKey || container.dataset.pointHistoryWeekAnchorDayKey || '').trim();
-        const anchorDayKey = requestedAnchorDayKey || activeDayKey || dateKeyInTimezone(new Date(), timezone);
+        const anchorDayKey = requestedAnchorDayKey || requestedActiveDayKey || todayDayKey;
         if (anchorDayKey) {
             container.dataset.pointHistoryWeekAnchorDayKey = anchorDayKey;
         }
-        const displayedActiveDayKey = weekDayKeysForSelectedDay(anchorDayKey).includes(activeDayKey) ? activeDayKey : '';
+        const weekDayKeys = weekDayKeysForSelectedDay(anchorDayKey);
+        const activeDayKey = requestedActiveDayKey || (weekDayKeys.includes(todayDayKey) ? todayDayKey : '');
+        const displayedActiveDayKey = weekDayKeys.includes(activeDayKey) ? activeDayKey : '';
         const showDelete = opts.showDelete !== false;
         const mode = opts.mode === 'redeemed' ? 'redeemed' : (opts.mode === 'all' ? 'all' : 'points');
         if (!selectedKidId) {
