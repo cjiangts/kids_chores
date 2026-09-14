@@ -418,82 +418,43 @@
 
 }
 
-.point-history-filter-chip {
-    appearance: none;
-    -webkit-appearance: none;
-    border: 1px solid rgba(107, 92, 246, 0.22);
-    border-radius: 999px;
-    background: rgba(246, 244, 255, 0.92);
-    color: #6b5cf6;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.28rem;
-    height: 22px;
-    min-height: 22px;
-    padding: 0 0.32rem 0 0.58rem;
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 660;
-    line-height: 1;
-    white-space: nowrap;
-}
-
-.point-history-filter-chip:hover,
-.point-history-filter-chip:focus-visible {
-    background: #fff;
-    border-color: rgba(107, 92, 246, 0.42);
-}
-
-.point-history-filter-chip-x {
-    width: 15px;
-    height: 15px;
-    border-radius: 999px;
-    background: rgba(107, 92, 246, 0.12);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 760;
-    line-height: 1;
-}
-
-.point-pull-sessions-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.62;
-}
-
-.point-week-strip {
-    --point-week-name-row: 0.74rem;
-    --point-week-total-row: 0.86rem;
-    --point-week-mark-row: 12px;
-    --point-week-row-gap: 0.16rem;
+.point-week-hero {
     display: grid;
-    grid-template-columns: minmax(84px, 1fr) repeat(7, minmax(42px, 0.72fr));
+    gap: 0.52rem;
+    margin-bottom: 0.72rem;
+    padding-top: 0.52rem;
+}
+
+.point-week-hero-top {
+    display: grid;
+    grid-template-columns: minmax(9.8rem, 1.35fr) repeat(3, minmax(6.5rem, 1fr));
+    gap: 0.56rem;
     align-items: stretch;
-    margin: 0 0 0.58rem;
-    border: 1px solid #d9dfef;
+}
+
+.point-week-title-card,
+.point-week-metric,
+.point-day-summary {
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.72);
-    overflow: hidden;
+    border: 1px solid rgba(217, 223, 239, 0.64);
+    background: #f6f8ff;
 }
 
-.point-week-label {
-    display: grid;
-    grid-template-rows: var(--point-week-name-row) var(--point-week-total-row) var(--point-week-mark-row);
-    align-content: center;
-    justify-items: center;
-    gap: var(--point-week-row-gap);
-    padding: 0.34rem 0.56rem;
-    color: #6b5cf6;
-    font-size: 0.66rem;
-    font-weight: 620;
-    line-height: 1;
-    text-align: center;
+.point-week-title-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.58rem;
+    min-width: 0;
+    padding: 0.62rem 0.72rem;
 }
 
-.point-week-label-text {
-    display: block;
+.point-week-title {
+    min-width: 0;
+    color: #5f54f0;
+    font-size: 1.05rem;
+    font-weight: 780;
+    line-height: 1.05;
     white-space: nowrap;
 }
 
@@ -501,18 +462,76 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    grid-row: 2 / 4;
     gap: 0.34rem;
+    flex: 0 0 auto;
+}
+
+.point-week-metric {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 0.46rem;
+    row-gap: 0.08rem;
+    align-items: center;
+    min-width: 0;
+    padding: 0.55rem 0.65rem;
+}
+
+.point-week-metric.earned {
+    background: #eaf8ef;
+    color: #12834f;
+}
+
+.point-week-metric.lost {
+    background: #fff0f3;
+    color: #df2646;
+}
+
+.point-week-metric.spent {
+    background: #fff5df;
+    color: #c47b00;
+}
+
+.point-week-metric-icon {
+    grid-row: 1 / 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.point-week-metric-label {
+    font-size: 0.76rem;
+    font-weight: 650;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.point-week-metric-value {
+    font-size: 1.15rem;
+    font-weight: 780;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.point-week-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    align-items: stretch;
+    border: 1px solid #d9dfef;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.74);
+    overflow: hidden;
 }
 
 .point-week-day {
     appearance: none;
     -webkit-appearance: none;
     display: grid;
-    grid-template-rows: var(--point-week-name-row) var(--point-week-total-row) var(--point-week-mark-row);
+    grid-template-rows: auto auto 8px;
     align-content: center;
     justify-items: center;
-    gap: var(--point-week-row-gap);
+    gap: 0.18rem;
     min-width: 0;
     border: 0;
     border-left: 1px solid rgba(217, 223, 239, 0.72);
@@ -520,7 +539,11 @@
     color: #5e6886;
     cursor: pointer;
     font: inherit;
-    padding: 0.34rem 0.2rem;
+    padding: 0.46rem 0.26rem;
+}
+
+.point-week-day:first-child {
+    border-left: 0;
 }
 
 .point-week-day:disabled {
@@ -529,7 +552,17 @@
 }
 
 .point-week-day.active {
-    background: rgba(246, 248, 255, 0.88);
+    outline: 2px solid rgba(107, 92, 246, 0.62);
+    outline-offset: -2px;
+    background: rgba(246, 248, 255, 0.94);
+}
+
+.point-week-day.active:first-child {
+    border-radius: 7px 0 0 7px;
+}
+
+.point-week-day.active:last-child {
+    border-radius: 0 7px 7px 0;
 }
 
 .point-week-day-name {
@@ -539,62 +572,99 @@
 }
 
 .point-week-day-total {
+    color: #5e6886;
     font-size: 0.86rem;
     font-weight: 640;
     line-height: 1;
-}
-
-.point-week-day-total.positive {
-    color: #1c8a59;
-}
-
-.point-week-day-total.negative {
-    color: #e24b65;
-}
-
-.point-week-day-total.neutral {
-    color: #5e6886;
 }
 
 .point-week-day-total.empty {
     color: #a3abc0;
 }
 
-.point-week-day-total.redeemed {
-    color: #9a6500;
-}
-
-.point-week-day-mark {
-    width: 6px;
+.point-week-day-bar {
+    display: flex;
+    align-items: stretch;
+    width: min(86%, 4.8rem);
     height: 6px;
     border-radius: 999px;
-    background: #aeb6c9;
+    background: #edf1f8;
+    overflow: hidden;
 }
 
-.point-week-day-mark.positive {
+.point-week-day-bar.empty span {
+    width: 100%;
+    background: #d9dfef;
+}
+
+.point-week-day-bar-segment {
+    min-width: 7px;
+    flex: 1 1 auto;
+}
+
+.point-week-day-bar-segment.earned {
     background: #35b56f;
 }
 
-.point-week-day-mark.negative {
+.point-week-day-bar-segment.lost {
     background: #f26f8a;
 }
 
-.point-week-day-mark.neutral {
-    background: #7b86a3;
-}
-
-.point-week-day-mark.redeemed {
+.point-week-day-bar-segment.spent {
     background: #e0a11a;
 }
 
-.point-week-day.active .point-week-day-mark {
-    width: 22px;
-    height: 4px;
-    background: #6b5cf6;
+.point-day-summary {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.68rem;
+    align-items: center;
+    padding: 0.72rem 0.82rem;
+    color: #243062;
 }
 
-.point-week-day.active .point-week-day-mark.redeemed {
-    background: #9a6500;
+.point-day-summary-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    background: rgba(107, 92, 246, 0.10);
+    color: #6b5cf6;
+}
+
+.point-day-summary-copy {
+    display: grid;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.point-day-summary-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.26rem 0.42rem;
+    font-size: 0.94rem;
+    font-weight: 650;
+    line-height: 1.22;
+}
+
+.point-day-summary-line strong {
+    color: #17245a;
+    font-weight: 780;
+}
+
+.point-day-summary-line .positive {
+    color: #12834f;
+}
+
+.point-day-summary-line .negative {
+    color: #df2646;
+}
+
+.point-day-summary-line .redeemed {
+    color: #c47b00;
 }
 
 .point-history-group {
@@ -750,6 +820,105 @@
     display: none !important;
 }
 
+@media (max-width: 860px) {
+    .point-week-hero {
+        gap: 0.42rem;
+        margin-bottom: 0.58rem;
+    }
+
+    .point-week-hero-top {
+        grid-template-columns: minmax(9.85rem, 1.82fr) repeat(3, minmax(0, 0.8fr));
+        gap: var(--p-surface-padding-x, 0.55rem);
+    }
+
+    .point-week-title-card {
+        min-height: 48px;
+        padding: 0.4rem 0.42rem;
+    }
+
+    .point-week-title {
+        font-size: 0.86rem;
+    }
+
+    .point-week-nav {
+        gap: 0.22rem;
+    }
+
+    .point-week-metric {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: 1fr 1fr;
+        column-gap: 0.22rem;
+        row-gap: 0;
+        justify-items: stretch;
+        min-height: 48px;
+        padding: 0.3rem 0.42rem;
+        text-align: right;
+    }
+
+    .point-week-metric-icon {
+        grid-row: 1 / 3;
+    }
+
+    .point-week-metric-icon .icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    .point-week-metric-label {
+        font-size: 0.56rem;
+        justify-self: end;
+        align-self: end;
+    }
+
+    .point-week-metric-value {
+        font-size: 0.78rem;
+        justify-self: end;
+        align-self: start;
+    }
+
+    .point-week-day {
+        grid-template-rows: auto auto 7px;
+        gap: 0.12rem;
+        padding: 0.32rem 0.06rem;
+    }
+
+    .point-week-day-name {
+        font-size: 0.64rem;
+    }
+
+    .point-week-day-total {
+        font-size: 0.76rem;
+    }
+
+    .point-week-day-bar {
+        width: 84%;
+        height: 5px;
+    }
+}
+
+@media (max-width: 360px) {
+    .point-week-hero-top {
+        grid-template-columns: minmax(9.35rem, 1.68fr) repeat(3, minmax(0, 0.8fr));
+        gap: var(--p-surface-padding-x, 0.55rem);
+    }
+
+    .point-week-title-card {
+        padding-inline: 0.34rem;
+    }
+
+    .point-week-metric {
+        padding-inline: 0.34rem;
+    }
+
+    .point-week-title {
+        font-size: 0.8rem;
+    }
+
+    .point-week-metric-value {
+        font-size: 0.7rem;
+    }
+}
+
 @media (max-width: 700px) {
     .point-log-workbench .point-template-frame {
         display: grid;
@@ -796,43 +965,20 @@
         gap: 0.35rem;
     }
 
-    .point-week-strip {
-        --point-week-name-row: 0.64rem;
-        --point-week-total-row: 0.76rem;
-        --point-week-mark-row: 10px;
-        --point-week-row-gap: 0.14rem;
-        grid-template-columns: minmax(70px, 1.04fr) repeat(7, minmax(29px, 1fr));
-        margin-bottom: 0.48rem;
+    .point-day-summary {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 0.5rem;
+        padding: 0.56rem 0.58rem;
     }
 
-    .point-week-label {
-        padding: 0.28rem 0.3rem;
-        font-size: 0.64rem;
+    .point-day-summary-icon {
+        width: 32px;
+        height: 32px;
     }
 
-    .point-week-nav {
-        gap: 0.3rem;
-    }
-
-    .paradigm-pager-btn {
-        width: 25px;
-        height: 25px;
-    }
-
-    .point-week-day {
-        padding: 0.28rem 0.08rem;
-    }
-
-    .point-week-day-name {
-        font-size: 0.64rem;
-    }
-
-    .point-week-day-total {
-        font-size: 0.76rem;
-    }
-
-    .point-week-day.active .point-week-day-mark {
-        width: 18px;
+    .point-day-summary-line {
+        gap: 0.16rem 0.3rem;
+        font-size: 0.8rem;
     }
 
     .point-history-row {

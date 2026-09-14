@@ -14,7 +14,6 @@ const applyAllPointLogBtn = document.getElementById('applyAllPointLogBtn');
 const templateList = document.getElementById('templateList');
 const selectionPanel = document.getElementById('selectionPanel');
 const pointHistory = document.getElementById('pointHistory');
-const pullTodaySessionsBtn = document.getElementById('pullTodaySessionsBtn');
 const pointRulesLink = document.querySelector('.point-rules-link');
 const modeTabs = Array.from(document.querySelectorAll('[data-mode]'));
 const initialParams = new URLSearchParams(window.location.search);
@@ -72,7 +71,6 @@ let selectedRuleId = 0;
 let activeRewardType = '';
 let pointDraft = { emoji: '', name: '', points: '', note: '' };
 let pointData = { totalPoints: 0, events: [] };
-let pullTodayStatusTimer = 0;
 let selectedHistoryDayKey = '';
 
 function escapeHtml(value) {
@@ -230,16 +228,6 @@ function cannotAffordSelectedReward() {
 
 function formatPointsTotal(value) {
     return `${formatDelta(value)} pts`;
-}
-
-function setPullTodayButton(label = 'Pull Today', { busy = false } = {}) {
-    if (!pullTodaySessionsBtn) return;
-    pullTodaySessionsBtn.classList.toggle('hidden', activeMode === 'rewards');
-    if (activeMode === 'rewards') return;
-    pullTodaySessionsBtn.disabled = busy || !selectedKidId;
-    pullTodaySessionsBtn.setAttribute('aria-label', label);
-    pullTodaySessionsBtn.title = label;
-    pullTodaySessionsBtn.innerHTML = icon('refresh-cw', { size: 16 });
 }
 
 function selectedRule() {
@@ -419,13 +407,6 @@ function renderSelectionPanel() {
 }
 
 function renderHistory() {
-    const title = document.getElementById('pointHistoryTitle');
-    const titleIcon = document.getElementById('pointHistoryTitleIcon');
-    if (title) title.textContent = 'Recent Activity';
-    if (titleIcon) {
-        titleIcon.dataset.icon = 'clock';
-        titleIcon.dataset.iconStroke = '2.7';
-    }
     selectedHistoryDayKey = window.PointHistoryCommon.render(pointHistory, {
         selectedKidId,
         events: activityEventsWithBalance(),
@@ -493,7 +474,6 @@ function render() {
     renderSelectionPanel();
     renderHistory();
     updateSubmitState();
-    setPullTodayButton();
     hydrateIcons(document);
 }
 
@@ -724,11 +704,6 @@ pointHistory.addEventListener('click', async (event) => {
     }
 });
 
-pointHistory.addEventListener('point-history-clear-filter', () => {
-    selectedHistoryDayKey = '';
-    renderHistory();
-});
-
 pointHistory.addEventListener('point-history-edit-note', async (event) => {
     const detail = event.detail || {};
     const eventId = Number.parseInt(detail.eventId, 10);
@@ -743,31 +718,6 @@ pointHistory.addEventListener('point-history-edit-note', async (event) => {
         await refreshAfterMutation();
     } catch (error) {
         showError(error.message || (detail.createdAt ? 'Failed to update time.' : 'Failed to update note.'));
-    }
-});
-
-pullTodaySessionsBtn?.addEventListener('click', async () => {
-    if (!selectedKidId) return;
-    if (pullTodayStatusTimer) {
-        clearTimeout(pullTodayStatusTimer);
-        pullTodayStatusTimer = 0;
-    }
-    setPullTodayButton('Pulling', { busy: true });
-    showError('');
-    try {
-        const result = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points/pull-today-sessions`, {
-            method: 'POST',
-        });
-        await refreshAfterMutation();
-        const count = Number.parseInt(result.awardedCount, 10) || 0;
-        setPullTodayButton(count > 0 ? `Added ${count}` : 'Up to date');
-        pullTodayStatusTimer = setTimeout(() => {
-            setPullTodayButton();
-            pullTodayStatusTimer = 0;
-        }, 1400);
-    } catch (error) {
-        showError(error.message || 'Failed to pull today sessions.');
-        setPullTodayButton();
     }
 });
 

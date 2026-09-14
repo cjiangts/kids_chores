@@ -90,16 +90,6 @@
         return `+${Math.abs(diffWeeks)} weeks`;
     }
 
-    function historyDayHeading(dayKey, timezone) {
-        const date = dateFromDayKey(dayKey);
-        if (!date) return 'Selected day';
-        const todayKey = dateKeyInTimezone(new Date(), timezone);
-        const diffDays = daysBetweenDayKeys(dayKey, todayKey);
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Yesterday (1 day ago)';
-        return `${date.toLocaleDateString([], { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' })} (${diffDays} days ago)`;
-    }
-
     function compactDayLabel(dayKey, timezone) {
         const date = dateFromDayKey(dayKey);
         if (!date) return '';
@@ -174,24 +164,6 @@
         }
     }
 
-    function updateDayLabel(container, label) {
-        const host = container?.closest?.('.point-history-section')?.querySelector?.('[data-point-history-day-label]');
-        if (!host) return;
-        if (!host.dataset.pointHistoryClearBound) {
-            host.dataset.pointHistoryClearBound = '1';
-            host.addEventListener('click', (event) => {
-                const button = event.target.closest('[data-history-clear-filter]');
-                if (!button) return;
-                event.preventDefault();
-                container.dispatchEvent(new CustomEvent('point-history-clear-filter', { bubbles: true }));
-            });
-        }
-        host.innerHTML = label
-            ? `<button type="button" class="point-history-filter-chip" data-history-clear-filter aria-label="Clear date filter">${escapeHtml(label)}<span class="point-history-filter-chip-x" aria-hidden="true">×</span></button>`
-            : '';
-        host.classList.toggle('hidden', !label);
-    }
-
     function bindWeekNavigation(container) {
         if (!container || container.dataset.pointHistoryWeekNavBound) return;
         container.dataset.pointHistoryWeekNavBound = '1';
@@ -228,15 +200,129 @@
         return !isRedeemed;
     }
 
-    function renderWeekStrip(events, anchorDayKey, activeDayKey, timezone, mode) {
-        const totalsByDay = new Map();
+    function emptyPointSummary() {
+        return {
+            earned: 0,
+            lost: 0,
+            spent: 0,
+            wins: 0,
+            losses: 0,
+            redeemed: 0,
+        };
+    }
+
+    function pointSummaryForEvents(events) {
+        return events.reduce((summary, event) => {
+            const delta = Number.parseInt(event?.pointsDelta, 10) || 0;
+            const isRedeemed = isRedeemedRewardKind(event?.rule?.ruleKind);
+            if (isRedeemed) {
+                summary.spent += delta;
+                summary.redeemed += 1;
+            } else if (delta > 0) {
+                summary.earned += delta;
+                summary.wins += 1;
+            } else if (delta < 0) {
+                summary.lost += delta;
+                summary.losses += 1;
+            }
+            return summary;
+        }, emptyPointSummary());
+    }
+
+    function summaryTotal(summary) {
+        return (Number.parseInt(summary?.earned, 10) || 0)
+            + (Number.parseInt(summary?.lost, 10) || 0)
+            + (Number.parseInt(summary?.spent, 10) || 0);
+    }
+
+    function signedZero(value, direction) {
+        const amount = Number.parseInt(value, 10) || 0;
+        if (amount === 0) return direction === 'negative' ? '-0' : '+0';
+        return formatDelta(amount);
+    }
+
+    function plural(value, singular, pluralLabel) {
+        const count = Number.parseInt(value, 10) || 0;
+        return `${count} ${count === 1 ? singular : pluralLabel}`;
+    }
+
+    function valueClassForSummary(summary) {
+        const total = summaryTotal(summary);
+        if (total > 0) return 'positive';
+        if (total < 0) return summary.spent < 0 && summary.lost === 0 ? 'redeemed' : 'negative';
+        return summary.redeemed > 0 ? 'redeemed' : 'neutral';
+    }
+
+    function daySummariesForWeek(events, anchorDayKey, timezone, mode) {
+        const result = new Map();
         events.forEach((event) => {
+            if (!shouldIncludeEvent(event, mode)) return;
+            if (!isEventInWeek(event, anchorDayKey, timezone)) return;
             const dayKey = dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone);
             if (!dayKey) return;
-            if (!shouldIncludeEvent(event, mode)) return;
-            const delta = Number.parseInt(event.pointsDelta, 10) || 0;
-            totalsByDay.set(dayKey, (totalsByDay.get(dayKey) || 0) + delta);
+            if (!result.has(dayKey)) result.set(dayKey, []);
+            result.get(dayKey).push(event);
         });
+        return new Map(Array.from(result.entries()).map(([dayKey, dayEvents]) => [dayKey, pointSummaryForEvents(dayEvents)]));
+    }
+
+    function renderSummaryBar(summary) {
+        const parts = [
+            ['earned', Math.max(0, Number.parseInt(summary?.earned, 10) || 0)],
+            ['lost', Math.abs(Math.min(0, Number.parseInt(summary?.lost, 10) || 0))],
+            ['spent', Math.abs(Math.min(0, Number.parseInt(summary?.spent, 10) || 0))],
+        ].filter(([, value]) => value > 0);
+        const total = parts.reduce((sum, [, value]) => sum + value, 0);
+        if (!total) {
+            return '<span class="point-week-day-bar empty" aria-hidden="true"><span></span></span>';
+        }
+        return `
+            <span class="point-week-day-bar" aria-hidden="true">
+                ${parts.map(([key, value]) => `<span class="point-week-day-bar-segment ${escapeHtml(key)}" style="flex-basis: ${escapeHtml(`${Math.max(10, Math.round((value / total) * 100))}%`)}"></span>`).join('')}
+            </span>
+        `;
+    }
+
+    function renderMetricCard(kind, iconName, label, value, valueDirection) {
+        return `
+            <div class="point-week-metric ${escapeHtml(kind)}">
+                <span class="point-week-metric-icon">${icon(iconName, { size: 24, strokeWidth: 2.6 })}</span>
+                <span class="point-week-metric-label">${escapeHtml(label)}</span>
+                <span class="point-week-metric-value">${escapeHtml(signedZero(value, valueDirection))}</span>
+            </div>
+        `;
+    }
+
+    function renderDaySummary(summary, dayKey, timezone) {
+        const label = compactDayLabel(dayKey, timezone);
+        return `
+            <div class="point-day-summary" aria-live="polite">
+                <span class="point-day-summary-icon">${icon('calendar', { size: 24, strokeWidth: 2.4 })}</span>
+                <div class="point-day-summary-copy">
+                    <div class="point-day-summary-line">
+                        <strong>${escapeHtml(label)}:</strong>
+                        <span class="positive">${escapeHtml(plural(summary.wins, 'win', 'wins'))}</span>
+                        <span aria-hidden="true">•</span>
+                        <span class="negative">${escapeHtml(plural(summary.losses, 'loss', 'losses'))}</span>
+                        <span aria-hidden="true">•</span>
+                        <span class="redeemed">${escapeHtml(plural(summary.redeemed, 'redeemed', 'redeemed'))}</span>
+                    </div>
+                    <div class="point-day-summary-line">
+                        <span class="positive">${escapeHtml(`${signedZero(summary.earned, 'positive')} earned`)}</span>
+                        <span aria-hidden="true">•</span>
+                        <span class="negative">${escapeHtml(`${signedZero(summary.lost, 'negative')} lost`)}</span>
+                        <span aria-hidden="true">•</span>
+                        <span class="redeemed">${escapeHtml(`${signedZero(summary.spent, 'negative')} spent`)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderWeekHero(events, anchorDayKey, activeDayKey, timezone, mode) {
+        const weekEvents = events.filter((event) => shouldIncludeEvent(event, mode) && isEventInWeek(event, anchorDayKey, timezone));
+        const summariesByDay = daySummariesForWeek(events, anchorDayKey, timezone, mode);
+        const weekSummary = pointSummaryForEvents(weekEvents);
         const selectedWeekStart = weekStartKey(anchorDayKey);
         const currentWeekStart = weekStartKey(dateKeyInTimezone(new Date(), timezone));
         const canGoNext = selectedWeekStart && currentWeekStart
@@ -245,21 +331,29 @@
         const previousWeekDayKey = addDaysToDayKey(anchorDayKey, -7);
         const nextWeekDayKey = addDaysToDayKey(anchorDayKey, 7);
         const labelText = weekLabel(anchorDayKey, timezone);
+        const activeSummary = activeDayKey ? (summariesByDay.get(activeDayKey) || emptyPointSummary()) : null;
         return `
-            <div class="point-week-strip" role="tablist" aria-label="${escapeHtml(labelText)} point history">
-                <div class="point-week-label">
-                    <span class="point-week-label-text">${escapeHtml(labelText)}</span>
-                    <span class="point-week-nav" aria-label="Week navigation">
-                        <button type="button" class="paradigm-pager-btn" data-history-week-anchor="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 14, strokeWidth: 2.9 })}</button>
-                        <button type="button" class="paradigm-pager-btn" data-history-week-anchor="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 14, strokeWidth: 2.9 })}</button>
-                    </span>
+            <section class="point-week-hero" aria-label="${escapeHtml(labelText)} point summary">
+                <div class="point-week-hero-top">
+                    <div class="point-week-title-card">
+                        <span class="point-week-title">${escapeHtml(labelText)}</span>
+                        <span class="point-week-nav" aria-label="Week navigation">
+                            <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle point-week-nav-btn" data-history-week-anchor="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 16, strokeWidth: 2.9 })}</button>
+                            <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle point-week-nav-btn" data-history-week-anchor="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 16, strokeWidth: 2.9 })}</button>
+                        </span>
+                    </div>
+                    ${renderMetricCard('earned', 'award', 'Earned', weekSummary.earned, 'positive')}
+                    ${renderMetricCard('lost', 'thumbs-down', 'Lost', weekSummary.lost, 'negative')}
+                    ${renderMetricCard('spent', 'gift', 'Spent', weekSummary.spent, 'negative')}
                 </div>
-                ${weekDayKeysForSelectedDay(anchorDayKey).map((dayKey) => {
+                <div class="point-week-days" role="tablist" aria-label="${escapeHtml(labelText)} days">
+                    ${weekDayKeysForSelectedDay(anchorDayKey).map((dayKey) => {
             const day = dateFromDayKey(dayKey);
-            const hasEvents = totalsByDay.has(dayKey);
-            const total = totalsByDay.get(dayKey) || 0;
+            const summary = summariesByDay.get(dayKey) || emptyPointSummary();
+            const total = summaryTotal(summary);
+            const hasEvents = summariesByDay.has(dayKey);
             const isActive = Boolean(activeDayKey) && dayKey === activeDayKey;
-            const valueClass = mode === 'redeemed' && hasEvents ? 'redeemed' : (total < 0 ? 'negative' : (total > 0 ? 'positive' : (hasEvents ? 'neutral' : 'empty')));
+            const valueClass = hasEvents ? valueClassForSummary(summary) : 'empty';
             const value = !hasEvents ? '-' : (total === 0 ? '0' : formatDelta(total));
             return `
                 <button
@@ -272,11 +366,13 @@
                 >
                     <span class="point-week-day-name">${escapeHtml(day ? day.toLocaleDateString([], { timeZone: 'UTC', weekday: 'short' }) : '')}</span>
                     <span class="point-week-day-total ${valueClass}">${escapeHtml(value)}</span>
-                    <span class="point-week-day-mark ${valueClass}" aria-hidden="true"></span>
+                    ${renderSummaryBar(summary)}
                 </button>
             `;
         }).join('')}
-            </div>
+                </div>
+                ${activeSummary ? renderDaySummary(activeSummary, activeDayKey, timezone) : ''}
+            </section>
         `;
     }
 
@@ -550,7 +646,6 @@
             : sourceEvents;
         const timezone = String(opts.familyTimezone || '').trim();
         if (!timezone) {
-            updateDayLabel(container, '');
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyTimezone || 'Family timezone is not configured.')}</div>`;
             return '';
         }
@@ -560,16 +655,16 @@
         if (anchorDayKey) {
             container.dataset.pointHistoryWeekAnchorDayKey = anchorDayKey;
         }
-        updateDayLabel(container, activeDayKey ? compactDayLabel(activeDayKey, timezone) : '');
+        const displayedActiveDayKey = weekDayKeysForSelectedDay(anchorDayKey).includes(activeDayKey) ? activeDayKey : '';
         const showDelete = opts.showDelete !== false;
         const mode = opts.mode === 'redeemed' ? 'redeemed' : (opts.mode === 'all' ? 'all' : 'points');
         if (!selectedKidId) {
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyNoKid || 'Select a kid to see point history.')}</div>`;
-            return activeDayKey;
+            return displayedActiveDayKey;
         }
         const scopedEvents = sortEventsNewestFirst(events.filter((event) => shouldIncludeEvent(event, mode)));
-        const selectedEvents = activeDayKey
-            ? scopedEvents.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === activeDayKey)
+        const selectedEvents = displayedActiveDayKey
+            ? scopedEvents.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === displayedActiveDayKey)
             : scopedEvents.filter((event) => isEventInWeek(event, anchorDayKey, timezone));
         const rowOpts = timeDraft?.eventId ? { ...opts, timeEditEventId: timeDraft.eventId } : opts;
         const selectedListHtml = selectedEvents.length
@@ -582,14 +677,14 @@
         `
             : `
             <section class="point-history-group activity-timeline-group">
-                <div class="point-empty">${escapeHtml(activeDayKey ? (opts.emptyDay || 'No point events for this day.') : (opts.emptyWeek || opts.emptyRecent || 'No point activity for this week.'))}</div>
+                <div class="point-empty">${escapeHtml(displayedActiveDayKey ? (opts.emptyDay || 'No point events for this day.') : (opts.emptyWeek || opts.emptyRecent || 'No point activity for this week.'))}</div>
             </section>
         `;
-        container.innerHTML = `${renderWeekStrip(scopedEvents, anchorDayKey, activeDayKey, timezone, mode)}${selectedListHtml}`;
+        container.innerHTML = `${renderWeekHero(scopedEvents, anchorDayKey, displayedActiveDayKey, timezone, mode)}${selectedListHtml}`;
         if (typeof window.hydrateIcons === 'function') {
             window.hydrateIcons(container);
         }
-        return activeDayKey;
+        return displayedActiveDayKey;
     }
 
     window.PointHistoryCommon = {
