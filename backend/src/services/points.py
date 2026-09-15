@@ -376,11 +376,10 @@ def update_family_rule(conn, family_id, rule_id, payload):
     return _rule_row_to_payload(row)
 
 
-def deactivate_family_rule(conn, family_id, rule_id):
+def delete_family_rule(conn, family_id, rule_id):
     row = conn.execute(
         """
-        UPDATE point_rule
-        SET is_active = FALSE
+        DELETE FROM point_rule
         WHERE family_id = ? AND rule_id = ?
         RETURNING
           rule_id,

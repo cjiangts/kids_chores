@@ -21,16 +21,29 @@
 
 .point-rule-table {
     display: grid;
-    gap: 0;
+    gap: 0.34rem;
+    --point-rule-columns: 74px minmax(120px, 1fr) minmax(52px, 66px) 60px 58px minmax(210px, auto);
+}
+
+.point-rule-table--in-app {
+    --point-rule-columns: 74px minmax(130px, 1fr) minmax(72px, 104px) 70px 58px minmax(160px, auto);
+}
+
+.point-rule-table--off-app {
+    --point-rule-columns: 74px minmax(120px, 1fr) minmax(52px, 66px) 60px 58px minmax(210px, auto);
+}
+
+.point-rule-table--reward {
+    --point-rule-columns: 74px minmax(120px, 1fr) minmax(52px, 66px) 60px 58px minmax(210px, auto);
 }
 
 .point-rule-table-row {
     display: grid;
-    grid-template-columns: 74px minmax(180px, 1fr) minmax(96px, 130px) 92px minmax(160px, auto);
+    grid-template-columns: var(--point-rule-columns);
     gap: 0.5rem;
     align-items: center;
-    border-bottom: 1px solid var(--section-surface-border-muted);
-    padding: 0.45rem 0;
+    border-bottom: 0;
+    padding: 0.18rem 0;
     background: transparent;
 }
 
@@ -39,15 +52,15 @@
 }
 
 .point-rule-table-row.in-app {
-    grid-template-columns: minmax(180px, 1fr) minmax(96px, 130px) 92px minmax(160px, auto);
+    grid-template-columns: var(--point-rule-columns);
 }
 
 .point-rule-table-row.off-app {
-    grid-template-columns: 74px minmax(180px, 1fr) minmax(96px, 130px) 92px minmax(160px, auto);
+    grid-template-columns: var(--point-rule-columns);
 }
 
 .point-rule-table-row.reward {
-    grid-template-columns: 74px minmax(160px, 1fr) minmax(96px, 118px) minmax(96px, 130px) 92px minmax(160px, auto);
+    grid-template-columns: var(--point-rule-columns);
 }
 
 .point-rule-table-row.off-app .point-rule-active,
@@ -58,19 +71,44 @@
 .point-rule-table-row.header {
     border-bottom: 1px solid var(--section-surface-border-muted);
     background: transparent;
-    padding: 0 0 0.3rem;
+    padding: 0 0 0.18rem;
+    margin-bottom: 0.04rem;
+}
+
+.point-rule-table-row.header > div {
+    text-align: center;
 }
 
 .point-rule-header-short {
     display: none;
 }
 
-.point-rule-table-row.inactive {
+.point-rule-table-row.inactive .point-rule-cell {
     opacity: 0.58;
+}
+
+.point-rule-table-row.inactive .point-rule-logged-count,
+.point-rule-table-row.inactive .point-rule-actions {
+    opacity: 1;
 }
 
 .point-rule-cell {
     min-width: 0;
+}
+
+.point-rule-table-row:not(.header) .point-rule-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.point-rule-table-row:not(.header) .point-rule-cell .point-rule-input {
+    width: 100%;
+}
+
+.point-rule-table-row:not(.header) .point-rule-subject-icon,
+.point-rule-table-row:not(.header) .point-rule-subject-name {
+    justify-self: center;
 }
 
 .point-rule-input {
@@ -93,6 +131,37 @@
     height: 18px;
 }
 
+.point-rule-logged-count {
+    color: #66718f;
+    font-size: 0.82rem;
+    font-weight: 720;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.point-rule-logged-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    border: 1px solid #cfd8ef;
+    border-radius: 8px;
+    background: #fff;
+    color: #526fd4;
+    font-weight: 760;
+    text-decoration: none;
+}
+
+.point-rule-logged-link:hover,
+.point-rule-logged-link:focus-visible {
+    background: #f7f9ff;
+    border-color: #b8c5ec;
+    color: #3f4fc6;
+    outline: none;
+}
+
 .point-rule-subject {
     display: inline-flex;
     align-items: center;
@@ -103,17 +172,61 @@
     min-width: 0;
 }
 
+.point-rule-subject-icon {
+    display: grid;
+    place-items: center;
+}
+
+.point-rule-subject-name {
+    color: var(--paradigm-list-item-name-color);
+    font-size: var(--paradigm-list-item-name-font-size);
+    font-weight: var(--paradigm-list-item-name-font-weight);
+    line-height: var(--paradigm-list-item-name-line-height);
+    text-align: center;
+}
+
 .point-rule-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto auto;
     align-items: center;
     justify-content: flex-end;
     gap: 0.42rem;
     min-width: 0;
 }
 
+.point-rule-table-row.in-app .point-rule-actions {
+    grid-template-columns: auto;
+}
+
+.point-rule-action-spacer {
+    width: 38px;
+    min-width: 38px;
+}
+
 .point-rule-actions .paradigm-btn {
     min-height: 38px;
     white-space: nowrap;
+}
+
+.point-rule-delete-btn {
+    background: #fff0f6;
+    border-color: #ffd0e2;
+    color: #d72525;
+}
+
+.point-rule-delete-btn:hover {
+    background: #ffe2ee;
+    border-color: #ffbad4;
+    color: #b8164c;
+}
+
+.point-rule-delete-btn:disabled,
+.point-rule-delete-btn:disabled:hover {
+    background: #e6ebf3;
+    border-color: #d5dceb;
+    color: #8e9ab1;
+    cursor: not-allowed;
+    opacity: 1;
 }
 
 .point-rule-actions .paradigm-btn:disabled {
@@ -151,24 +264,37 @@
 @media (max-width: 860px) {
     .point-rule-table {
         gap: 0;
+        --point-rule-columns: 42px minmax(0, 1fr) 42px 28px 36px 80px;
+    }
+
+    .point-rule-table--in-app {
+        --point-rule-columns: 42px minmax(0, 1fr) 48px 28px 36px 38px;
+    }
+
+    .point-rule-table--off-app {
+        --point-rule-columns: 42px minmax(0, 1fr) 42px 28px 36px 80px;
+    }
+
+    .point-rule-table--reward {
+        --point-rule-columns: 42px minmax(0, 1fr) 42px 28px 36px 80px;
     }
 
     .point-rule-table-row {
-        grid-template-columns: 42px minmax(0, 1fr) 68px 30px 38px;
+        grid-template-columns: var(--point-rule-columns);
         gap: 0.35rem;
-        padding: 0.35rem 0;
+        padding: 0.14rem 0;
     }
 
     .point-rule-table-row.in-app {
-        grid-template-columns: minmax(0, 1fr) 64px 30px 38px;
+        grid-template-columns: var(--point-rule-columns);
     }
 
     .point-rule-table-row.off-app {
-        grid-template-columns: 42px minmax(0, 1fr) 68px 30px 38px;
+        grid-template-columns: var(--point-rule-columns);
     }
 
     .point-rule-table-row.reward {
-        grid-template-columns: 42px minmax(0, 1fr) 58px 64px 30px 38px;
+        grid-template-columns: var(--point-rule-columns);
     }
 
     .point-rule-table-row.off-app .point-rule-active,
@@ -195,13 +321,19 @@
         --paradigm-input-padding: 0 0.25rem;
     }
 
-    .point-rule-input.reward-type {
-        --paradigm-input-padding: 0 0.25rem;
-        --paradigm-input-font-size: 0.78rem;
+    .point-rule-logged-count {
+        font-size: 0.72rem;
+    }
+
+    .point-rule-logged-link {
+        width: 38px;
+        min-width: 38px;
+        min-height: 34px;
     }
 
     .point-rule-actions {
         justify-content: center;
+        gap: 0.24rem;
     }
 
     .point-rule-actions .paradigm-btn {
@@ -240,6 +372,22 @@
 }
 
 @media (max-width: 480px) {
+    .point-rule-table {
+        --point-rule-columns: 38px minmax(0, 1fr) 36px 26px 30px 70px;
+    }
+
+    .point-rule-table--in-app {
+        --point-rule-columns: 38px minmax(0, 1fr) 40px 26px 30px 34px;
+    }
+
+    .point-rule-table--off-app {
+        --point-rule-columns: 38px minmax(0, 1fr) 36px 26px 30px 70px;
+    }
+
+    .point-rule-table--reward {
+        --point-rule-columns: 38px minmax(0, 1fr) 36px 26px 30px 70px;
+    }
+
     .point-rule-table-row.header,
     .point-rule-table-row.header.in-app,
     .point-rule-table-row.header.off-app,
@@ -271,21 +419,21 @@
     }
 
     .point-rule-table-row {
-        grid-template-columns: 38px minmax(0, 1fr) 58px 28px 34px;
+        grid-template-columns: var(--point-rule-columns);
         gap: 0.3rem;
-        padding: 0.32rem 0;
+        padding: 0.12rem 0;
     }
 
     .point-rule-table-row.in-app {
-        grid-template-columns: minmax(0, 1fr) 56px 28px 34px;
+        grid-template-columns: var(--point-rule-columns);
     }
 
     .point-rule-table-row.off-app {
-        grid-template-columns: 38px minmax(0, 1fr) 56px 28px 34px;
+        grid-template-columns: var(--point-rule-columns);
     }
 
     .point-rule-table-row.reward {
-        grid-template-columns: 38px minmax(0, 1fr) 50px 56px 28px 34px;
+        grid-template-columns: var(--point-rule-columns);
     }
 
     .point-rule-table-row.off-app .point-rule-active,
@@ -303,9 +451,21 @@
     }
 
     .point-rule-actions .paradigm-btn {
-        width: 34px;
-        min-width: 34px;
+        width: 32px;
+        min-width: 32px;
         height: 32px;
         min-height: 32px;
+    }
+
+    .point-rule-action-spacer {
+        width: 32px;
+        min-width: 32px;
+    }
+
+    .point-rule-logged-link {
+        width: 30px;
+        min-width: 30px;
+        min-height: 32px;
+        border-radius: 8px;
     }
 }

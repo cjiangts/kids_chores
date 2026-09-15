@@ -9,7 +9,7 @@ from src.services.points import (
     cancel_pending_off_app_chore,
     count_pending_off_app_chores,
     create_family_rule,
-    deactivate_family_rule,
+    delete_family_rule,
     delete_point_event,
     get_reward_bucket_totals,
     get_kid_point_stats,
@@ -47,6 +47,28 @@ def _kid_or_response(kid_id):
     return kid, family_id, None
 
 
+def _point_rule_activity_counts_for_family(family_id):
+    counts = {}
+    for kid in metadata.get_all_kids(family_id=family_id):
+        kid_conn = get_kid_connection_for(kid, read_only=True)
+        try:
+            rows = kid_conn.execute(
+                """
+                SELECT rule_id, COUNT(*)
+                FROM point_event
+                GROUP BY rule_id
+                """
+            ).fetchall()
+        finally:
+            kid_conn.close()
+        for rule_id, count in rows:
+            key = str(int(rule_id or 0))
+            if key == '0':
+                continue
+            counts[key] = counts.get(key, 0) + int(count or 0)
+    return counts
+
+
 @points_bp.route('/points/rules', methods=['GET'])
 def get_point_rules():
     family_id, error = _family_id_or_response()
@@ -67,6 +89,15 @@ def get_point_rules():
     finally:
         conn.close()
     return jsonify({'rules': rules}), 200
+
+
+@points_bp.route('/points/rules/activity-counts', methods=['GET'])
+def get_point_rule_activity_counts():
+    family_id, error = _family_id_or_response()
+    if error:
+        return error
+    counts = _point_rule_activity_counts_for_family(family_id)
+    return jsonify({'counts': counts}), 200
 
 
 @points_bp.route('/points/rules', methods=['POST'])
@@ -108,14 +139,17 @@ def delete_point_rule(rule_id):
     family_id, error = _family_id_or_response()
     if error:
         return error
+    logged_count = _point_rule_activity_counts_for_family(family_id).get(str(int(rule_id or 0)), 0)
+    if logged_count > 0:
+        return jsonify({'error': 'Rule has logged activity and cannot be deleted', 'loggedCount': logged_count}), 409
     conn = get_shared_decks_connection()
     try:
-        rule = deactivate_family_rule(conn, family_id, rule_id)
+        rule = delete_family_rule(conn, family_id, rule_id)
     finally:
         conn.close()
     if not rule:
         return jsonify({'error': 'Rule not found'}), 404
-    return jsonify({'rule': rule}), 200
+    return jsonify({'deleted': True, 'rule': rule}), 200
 
 
 @points_bp.route('/kids/<kid_id>/points', methods=['GET'])

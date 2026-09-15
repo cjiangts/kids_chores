@@ -52,6 +52,7 @@ function rememberRuleKind(kind) {
 let activeRuleKind = requestedRuleKind() || readStoredRuleKind() || 'in_app_chore';
 let rules = [];
 let categories = [];
+let ruleActivityCounts = {};
 
 function escapeHtml(value) {
     return String(value || '')
@@ -113,12 +114,14 @@ async function fetchJson(url, options = {}) {
 
 async function loadAll() {
     showError('');
-    const [rulesData, categoryData] = await Promise.all([
+    const [rulesData, categoryData, countData] = await Promise.all([
         fetchJson(`${API_BASE}/points/rules?includeInactive=1`),
         fetchJson(`${API_BASE}/shared-decks/categories`),
+        fetchJson(`${API_BASE}/points/rules/activity-counts`),
     ]);
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
     categories = Array.isArray(categoryData.categories) ? categoryData.categories : [];
+    ruleActivityCounts = countData.counts && typeof countData.counts === 'object' ? countData.counts : {};
     render();
 }
 
@@ -150,33 +153,6 @@ function inputCell(label, field, value, extraClass = '', type = 'text') {
     `;
 }
 
-function rewardTypeCell(rule) {
-    const type = rule ? rewardType(rule) : '';
-    const value = type ? rewardTypeLabel(type) : '';
-    return `
-        <div class="point-rule-cell">
-            <input
-                class="paradigm-input point-rule-input reward-type"
-                type="text"
-                data-field="rewardType"
-                value="${escapeHtml(value)}"
-                list="rewardTypeSuggestions"
-                autocomplete="off"
-            >
-        </div>
-    `;
-}
-
-function rewardTypeDatalist() {
-    return `
-        <datalist id="rewardTypeSuggestions">
-            ${rewardTypeSuggestions().map((type) => `
-                <option value="${escapeHtml(rewardTypeLabel(type))}"></option>
-            `).join('')}
-        </datalist>
-    `;
-}
-
 function activeCell(rule) {
     const checked = !rule || rule.isActive ? 'checked' : '';
     return `
@@ -189,29 +165,74 @@ function activeCell(rule) {
     `;
 }
 
-function subjectCell(category) {
+function loggedCountCell(rule) {
+    const ruleId = String(rule?.ruleId || '').trim();
+    const count = ruleId ? (Number.parseInt(ruleActivityCounts[ruleId], 10) || 0) : 0;
+    const href = count > 0 ? pointActivityReportHrefForRule(rule) : '';
+    return `
+        <div class="point-rule-cell point-rule-logged-count" aria-label="${escapeHtml(`${count} logged activities`)}">
+            ${href ? `
+                <a class="point-rule-logged-link" href="${escapeHtml(href)}" aria-label="${escapeHtml(`View ${count} logged activities for ${rule?.name || 'rule'}`)}">${count.toLocaleString()}</a>
+            ` : count.toLocaleString()}
+        </div>
+    `;
+}
+
+function pointActivityReportHrefForRule(rule) {
+    const ruleId = String(rule?.ruleId || '').trim();
+    if (!ruleId) return '';
+    const qs = new URLSearchParams();
+    qs.set('ruleId', ruleId);
+    qs.set('kind', pointActivityKindForRule(rule));
+    if (rule?.name) qs.set('name', String(rule.name));
+    return `/point-activity-report.html?${qs.toString()}`;
+}
+
+function pointActivityKindForRule(rule) {
+    const ruleKind = String(rule?.ruleKind || '').trim();
+    if (ruleKind === 'deduction_event') return 'loss';
+    if (ruleKind === 'redeemed_reward') return 'spend';
+    return 'earn';
+}
+
+function subjectIconCell(category) {
     const categoryKey = String(category?.category_key || '').trim();
     const subjectIconHtml = typeof window.subjectIcon === 'function'
         ? window.subjectIcon(categoryKey, { size: 32 })
         : '';
     return `
         <div class="point-rule-cell">
-            <div class="point-rule-subject">
-                ${subjectIconHtml}
-                <span>${escapeHtml(categoryLabel(category))}</span>
-            </div>
+            <div class="point-rule-subject-icon">${subjectIconHtml}</div>
+        </div>
+    `;
+}
+
+function subjectNameCell(category) {
+    return `
+        <div class="point-rule-cell">
+            <div class="point-rule-subject-name">${escapeHtml(categoryLabel(category))}</div>
         </div>
     `;
 }
 
 function actionCell(rule) {
     const isNew = !rule;
+    const canDelete = Boolean(rule?.ruleId) && activeRuleKind !== 'in_app_chore';
+    const needsDeleteSlot = activeRuleKind !== 'in_app_chore';
+    const loggedCount = rule?.ruleId ? (Number.parseInt(ruleActivityCounts[String(rule.ruleId)], 10) || 0) : 0;
+    const deleteDisabled = loggedCount > 0;
     return `
         <div class="point-rule-actions">
             <button type="button" class="paradigm-btn" data-rule-action="save" disabled>
                 ${icon(isNew ? 'plus' : 'save', { size: 17 })}
                 ${isNew ? 'Add' : 'Save'}
             </button>
+            ${canDelete ? `
+                <button type="button" class="paradigm-btn point-rule-delete-btn" data-rule-action="delete" ${deleteDisabled ? 'disabled' : ''} aria-label="${escapeHtml(deleteDisabled ? `${rule.name || 'Rule'} has logged activity and cannot be deleted` : `Delete ${rule.name || 'rule'}`)}">
+                    ${icon('trash', { size: 17 })}
+                    Delete
+                </button>
+            ` : (needsDeleteSlot ? '<span class="point-rule-action-spacer" aria-hidden="true"></span>' : '')}
         </div>
     `;
 }
@@ -231,14 +252,12 @@ function renderRuleRow(rule) {
         inputCell('Emoji', 'emoji', rule?.emoji || '', 'emoji'),
         inputCell('Name', 'name', rule?.name || '', 'name'),
     ];
-    if (isRewardCatalog) {
-        cells.push(rewardTypeCell(rule));
-    }
     cells.push(inputCell('Default points', 'maxPoint', rule?.maxPoint ?? '', 'points', 'number'));
     cells.push(activeCell(rule));
+    cells.push(loggedCountCell(rule));
     cells.push(actionCell(rule));
     return `
-        <div class="${rowClasses}" data-rule-id="${escapeHtml(rule?.ruleId || '')}">
+        <div class="${rowClasses}" data-rule-id="${escapeHtml(rule?.ruleId || '')}" data-reward-type="${escapeHtml(rule?.rewardType || '')}">
             ${cells.join('')}
         </div>
     `;
@@ -255,9 +274,11 @@ function renderAppDailyRow(category) {
     ].filter(Boolean).join(' ');
     const defaultName = categoryLabel(category);
     const cells = [
-        subjectCell(category),
+        subjectIconCell(category),
+        subjectNameCell(category),
         inputCell('Default points', 'maxPoint', rule?.maxPoint ?? '', 'points', 'number'),
         activeCell(rule),
+        loggedCountCell(rule),
         actionCell(rule),
     ];
     return `
@@ -283,9 +304,11 @@ function renderRuleHeader() {
         return `
             <div class="point-rule-table-row header in-app">
                 ${[
+                    headerCell('Emoji'),
                     headerCell('Subject'),
                     headerCell('Default points', 'Pts'),
                     headerCell('Active', 'On'),
+                    headerCell('Logged', 'Log'),
                     headerCell('Actions', ''),
                 ].join('')}
             </div>
@@ -299,15 +322,16 @@ function renderRuleHeader() {
             ['Name', 'Name'],
             ['Default points', 'Pts'],
             ['Active', 'On'],
+            ['Logged', 'Log'],
             ['Actions', ''],
         ]
         : isRewardCatalog
             ? [
                 ['Emoji', 'Emoji'],
                 ['Name', 'Name'],
-                ['Reward type', 'Type'],
                 ['Default points', 'Pts'],
                 ['Active', 'On'],
+                ['Logged', 'Log'],
                 ['Actions', ''],
             ]
         : [
@@ -315,6 +339,7 @@ function renderRuleHeader() {
             ['Name', 'Name'],
             ['Default points', 'Pts'],
             ['Active', 'On'],
+            ['Logged', 'Log'],
             ['Actions', ''],
         ];
     return `
@@ -351,7 +376,7 @@ function renderRules() {
             return;
         }
         ruleList.innerHTML = `
-            <div class="point-rule-table">
+            <div class="point-rule-table point-rule-table--in-app">
                 ${renderRuleHeader()}
                 ${categories.map(renderAppDailyRow).join('')}
             </div>
@@ -362,13 +387,15 @@ function renderRules() {
     }
 
     const visibleRules = getRuleKindRules();
+    const tableKindClass = activeRuleKind === 'off_app_chore'
+        ? 'point-rule-table--off-app'
+        : (activeRuleKind === 'redeemed_reward' ? 'point-rule-table--reward' : 'point-rule-table--standard');
     ruleList.innerHTML = `
-        <div class="point-rule-table">
+        <div class="point-rule-table ${tableKindClass}">
             ${renderRuleHeader()}
             ${renderRuleRow(null)}
             ${visibleRules.map(renderRuleRow).join('')}
         </div>
-        ${activeRuleKind === 'redeemed_reward' ? rewardTypeDatalist() : ''}
     `;
     hydrateIcons(ruleList);
     initializeRowSaveStates();
@@ -392,7 +419,7 @@ function collectPayloadFromRow(row) {
         payload.triggerKey = String(row.dataset.categoryKey || '').trim();
     }
     if (activeRuleKind === 'redeemed_reward') {
-        payload.rewardType = getValue('rewardType');
+        payload.rewardType = String(row.dataset.rewardType || '').trim() || 'reward';
     }
     payload.maxPoint = getValue('maxPoint') ? getNumber('maxPoint') : null;
     return payload;
@@ -458,6 +485,20 @@ async function saveRuleRow(row) {
     }
 }
 
+async function deleteRuleRow(row) {
+    if (activeRuleKind === 'in_app_chore') return;
+    const ruleId = Number.parseInt(row?.dataset.ruleId || '', 10);
+    if (!(ruleId > 0)) return;
+    try {
+        await fetchJson(`${API_BASE}/points/rules/${ruleId}`, {
+            method: 'DELETE',
+        });
+        await loadAll();
+    } catch (error) {
+        showError(error.message || 'Failed to delete rule.');
+    }
+}
+
 function getTriggeredRuleForCategory(categoryKey) {
     const key = String(categoryKey || '').trim();
     return rules.find((rule) => rule.ruleKind === 'in_app_chore' && rule.triggerKey === key) || null;
@@ -486,6 +527,8 @@ ruleList.addEventListener('click', (event) => {
     const action = button.dataset.ruleAction;
     if (action === 'save') {
         saveRuleRow(row);
+    } else if (action === 'delete') {
+        deleteRuleRow(row);
     }
 });
 
