@@ -104,8 +104,8 @@ function formatSignedPoints(value) {
 }
 
 function formatPercent(value) {
-    const number = Math.round(Number(value) || 0);
-    return `${number > 0 ? '+' : ''}${number}%`;
+    const number = Math.abs(Math.round(Number(value) || 0));
+    return `${number}%`;
 }
 
 function pointPillClassForKind(kind, value) {
@@ -139,13 +139,6 @@ function currentBalance(points) {
     const firstRewardBucket = Object.keys(rewardTotals)[0];
     if (firstRewardBucket) return rewardTotals[firstRewardBucket];
     return Number.parseInt(points?.totalPoints, 10) || 0;
-}
-
-function percentChange(current, previous) {
-    const now = Number.parseInt(current, 10) || 0;
-    const before = Number.parseInt(previous, 10) || 0;
-    if (before <= 0) return now > 0 ? 100 : 0;
-    return ((now - before) / before) * 100;
 }
 
 function percentRatio(current, previous) {
@@ -194,6 +187,8 @@ function ruleSummaryItems(events, kind) {
         if (!isEarn && !isLoss && !isSpend) return;
         const key = String(rule.ruleId || event.ruleId || rule.name || event.note || 'event');
         const item = byRule.get(key) || {
+            ruleId: String(rule.ruleId || event.ruleId || ''),
+            kind,
             name: String(rule.name || event.note || 'Point event'),
             iconHtml: ruleIconHtml(rule, kind),
             points: 0,
@@ -206,6 +201,15 @@ function ruleSummaryItems(events, kind) {
     return [...byRule.values()].sort((a, b) => Math.abs(b.points) - Math.abs(a.points));
 }
 
+function pointActivityReportHref(item, kind) {
+    const qs = new URLSearchParams();
+    if (item?.ruleId) qs.set('ruleId', String(item.ruleId));
+    qs.set('kind', kind);
+    qs.set('kidId', selectedHighlightKidId);
+    if (item?.name) qs.set('name', String(item.name));
+    return `/point-activity-report.html?${qs.toString()}`;
+}
+
 function avatar(kid, crowned = false) {
     const name = String(kid?.name || 'Kid').trim();
     const url = String(kid?.avatarUrl || '').trim();
@@ -216,9 +220,7 @@ function avatar(kid, crowned = false) {
 }
 
 function colorForKid(kid) {
-    const colors = ['#6b5cf6', '#f65b91', '#18a66a', '#e0a11a'];
-    const index = kids.findIndex((item) => String(item.id) === String(kid?.id));
-    return colors[Math.max(0, index) % colors.length];
+    return '#6b5cf6';
 }
 
 function weekTimeLeftLabel(now, timezone) {
@@ -250,7 +252,7 @@ function rowsForThisWeek() {
             total: currentBalance(points),
             earned: current.earned,
             lost: current.lost,
-            earnedChange: percentChange(current.earned, last.earned),
+            earnedRatio: percentRatio(current.earned, last.earned),
             lostRatio: percentRatio(current.lost, last.lost),
         };
     });
@@ -355,7 +357,7 @@ function renderHighlightList(kind, items) {
                 if (!sameStatValue(item.points, previousPoints)) rank = index + 1;
                 previousPoints = item.points;
                 return `
-                <div class="stats2-earning-row">
+                <a class="stats2-earning-row stats2-earning-link" href="${escapeHtml(pointActivityReportHref(item, kind))}" aria-label="${escapeHtml(`${item.name} activity history`)}">
                     <span class="stats2-rank">${rank}</span>
                     <span class="stats2-earning-emoji" aria-hidden="true">${item.iconHtml}</span>
                     <span>
@@ -364,7 +366,8 @@ function renderHighlightList(kind, items) {
                     </span>
                     <span class="stats2-earning-bar" aria-hidden="true"><span class="${item.count > 1 ? 'is-segmented' : ''}" style="--bar-width: ${Math.round((Math.abs(item.points) / max) * 100)}%; --bar-segments: ${Math.min(24, Math.max(1, Number.parseInt(item.count, 10) || 1))}"></span></span>
                     <span class="stats2-earning-points point-rule-delta paradigm-pill ${pointPillClassForKind(kind, item.points)}">${escapeHtml(formatSignedPoints(item.points))}</span>
-                </div>
+                    <span class="stats2-earning-chevron icon" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.6" aria-hidden="true"></span>
+                </a>
             `; }).join('')}
             ${items.length > visibleItems.length ? `
                 <button type="button" class="stats2-show-all-items" data-highlight-show-all="${escapeHtml(kind)}">
@@ -400,7 +403,7 @@ function render() {
     stats2RaceCards.innerHTML = [
         renderRaceCard('earned', 'thumbs-up', 'Most earned this week', rows, (row) => row.earned, formatSignedPoints),
         renderRaceCard('lost', 'thumbs-down', 'Fewest points lost', rows, (row) => row.lost, (value) => `-${Number.parseInt(value, 10) || 0} pts`, false),
-        renderRaceCard('improved', 'trending-up', 'Earned vs last week', rows, (row) => row.earnedChange, formatPercent),
+        renderRaceCard('improved', 'trending-up', 'Earned vs last week', rows, (row) => row.earnedRatio, formatPercent),
         renderRaceCard('closest', 'trending-down', 'Lost vs last week', rows, (row) => row.lostRatio, formatPercent, false),
     ].join('');
     renderHighlights();
