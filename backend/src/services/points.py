@@ -586,7 +586,7 @@ def update_point_event(kid_conn, event_id, *, points_delta, note=None, created_a
 
 
 def list_point_events(kid_conn, shared_conn, family_id, *, limit=100):
-    safe_limit = max(1, min(500, int(limit or 100)))
+    safe_limit = max(1, min(5000, int(limit or 100)))
     rows = kid_conn.execute(
         """
         SELECT event_id, rule_id, points_delta, note, created_at
