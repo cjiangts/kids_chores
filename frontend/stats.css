@@ -201,7 +201,7 @@
     appearance: none;
     -webkit-appearance: none;
     display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) clamp(112px, 15vw, 150px) 20px;
+    grid-template-columns: var(--activity-timeline-icon-size) minmax(0, 1fr) clamp(112px, 15vw, 150px) 20px;
     align-items: center;
     gap: 0.36rem;
     width: 100%;
@@ -319,30 +319,8 @@
 }
 
 .stats-page .stats-delta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     min-width: 38px;
-    min-height: 22px;
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 640;
-    line-height: 1;
-}
-
-.stats-page .stats-delta--positive {
-    background: #e7f7ed;
-    color: #218248;
-}
-
-.stats-page .stats-delta--negative {
-    background: #fff0eb;
-    color: #c04f28;
-}
-
-.stats-page .stats-delta--neutral {
-    background: #eef2f8;
-    color: #61708d;
+    justify-self: center;
 }
 
 .stats-page .stats-empty {
@@ -415,7 +393,7 @@
     }
 
     .stats-page .stats-item-summary {
-        grid-template-columns: 36px minmax(0, 1fr) minmax(86px, 0.32fr) 18px;
+        grid-template-columns: var(--activity-timeline-icon-size) minmax(0, 1fr) minmax(86px, 0.32fr) 18px;
         gap: 0.34rem;
         min-height: 50px;
         padding: 0.34rem 0.42rem;
@@ -433,7 +411,5 @@
 
     .stats-page .stats-delta {
         min-width: 34px;
-        min-height: 20px;
-        font-size: 0.72rem;
     }
 }

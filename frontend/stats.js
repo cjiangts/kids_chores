@@ -151,6 +151,11 @@ function deltaClass(value) {
     return 'neutral';
 }
 
+function deltaPillClass(value) {
+    const cls = deltaClass(value);
+    return cls === 'neutral' ? 'balance' : cls;
+}
+
 function tabIconName(tabKey) {
     if (tabKey === 'earn') return 'thumbs-up';
     if (tabKey === 'loss') return 'thumbs-down';
@@ -167,7 +172,7 @@ function isSubjectRuleItem(item) {
 
 function ruleIconHtml(item) {
     if (isSubjectRuleItem(item)) {
-        return window.subjectIcon(String(item.triggerKey || '').trim(), { size: 30 });
+        return window.subjectIcon(String(item.triggerKey || '').trim());
     }
     const emoji = String(item?.emoji || '').trim();
     const kind = String(item?.ruleKind || '').trim();
@@ -517,7 +522,7 @@ function latestRowsHtml(item) {
         return `
                 <div class="stats-latest-row">
                     <span class="stats-latest-date">${escapeHtml(formatEventDate(event.createdAt))}</span>
-                    <span class="stats-delta stats-delta--${deltaClass(delta)}">${escapeHtml(formatDelta(delta))}</span>
+                    <span class="stats-delta point-rule-delta paradigm-pill ${deltaPillClass(delta)}">${escapeHtml(formatDelta(delta))}</span>
                     <span class="stats-latest-note">${highlightQueryHtml(note, query)}</span>
                 </div>
             `;

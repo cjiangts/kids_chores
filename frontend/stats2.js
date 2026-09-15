@@ -49,6 +49,23 @@ function dayKey(date, timezone) {
     return `${map.year}-${map.month}-${map.day}`;
 }
 
+function localTimeParts(date, timezone) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone || undefined,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(date);
+    const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return {
+        hour: Number.parseInt(map.hour, 10) || 0,
+        minute: Number.parseInt(map.minute, 10) || 0,
+        second: Number.parseInt(map.second, 10) || 0,
+    };
+}
+
 function dateFromKey(key) {
     const [year, month, day] = String(key || '').split('-').map(Number);
     return year && month && day ? new Date(Date.UTC(year, month - 1, day)) : null;
@@ -89,6 +106,21 @@ function formatSignedPoints(value) {
 function formatPercent(value) {
     const number = Math.round(Number(value) || 0);
     return `${number > 0 ? '+' : ''}${number}%`;
+}
+
+function pointPillClassForKind(kind, value) {
+    const number = Number.parseInt(value, 10) || 0;
+    if (kind === 'spend') return number < 0 ? 'redeemed' : 'balance';
+    if (kind === 'loss') return number < 0 ? 'negative' : 'balance';
+    if (number > 0) return 'positive';
+    if (number < 0) return 'negative';
+    return 'balance';
+}
+
+function racePillClass(theme) {
+    if (theme === 'lost' || theme === 'closest') return 'negative';
+    if (theme === 'earned' || theme === 'improved') return 'positive';
+    return 'balance';
 }
 
 function sameStatValue(a, b) {
@@ -145,7 +177,7 @@ function eventsForWeek(points, startKey, endKey, timezone) {
 function ruleIconHtml(rule, kind) {
     const triggerKey = String(rule?.triggerKey || '').trim();
     if (rule?.ruleKind === 'in_app_chore' && triggerKey && typeof window.subjectIcon === 'function') {
-        return window.subjectIcon(triggerKey, { size: 24 });
+        return window.subjectIcon(triggerKey);
     }
     return escapeHtml(rule?.emoji || (kind === 'earn' ? '⭐' : kind === 'loss' ? '📉' : '🎁'));
 }
@@ -189,15 +221,26 @@ function colorForKid(kid) {
     return colors[Math.max(0, index) % colors.length];
 }
 
+function weekTimeLeftLabel(now, timezone) {
+    const currentKey = dayKey(now, timezone);
+    const dayIndex = dateFromKey(currentKey)?.getUTCDay() ?? 1;
+    const daysLeft = Math.max(0, 6 - ((dayIndex + 6) % 7));
+    if (daysLeft > 0) return `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`;
+    const local = localTimeParts(now, timezone);
+    if (!local) return '0 hours left';
+    const elapsedSeconds = (local.hour * 3600) + (local.minute * 60) + local.second;
+    const hoursLeft = Math.max(0, Math.ceil((86400 - elapsedSeconds) / 3600));
+    return `${hoursLeft} ${hoursLeft === 1 ? 'hour' : 'hours'} left`;
+}
+
 function rowsForThisWeek() {
     const timezone = String(kids.find((kid) => kid.familyTimezone)?.familyTimezone || '').trim();
-    const start = weekStart(dayKey(new Date(), timezone));
+    const now = new Date();
+    const start = weekStart(dayKey(now, timezone));
     const next = addDays(start, 7);
     const previous = addDays(start, -7);
-    const dayIndex = dateFromKey(dayKey(new Date(), timezone))?.getUTCDay() ?? 1;
-    const daysLeft = Math.max(0, 6 - ((dayIndex + 6) % 7));
     stats2WeekMeta.textContent = weekLabel(start);
-    stats2DaysLeft.innerHTML = `<span class="icon" data-icon="calendar-days" data-icon-size="14" data-icon-stroke="2.5" aria-hidden="true"></span><span>${escapeHtml(`${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`)}</span>`;
+    stats2DaysLeft.innerHTML = `<span class="icon" data-icon="calendar" data-icon-size="13" data-icon-stroke="2.2" aria-hidden="true"></span><span>${escapeHtml(weekTimeLeftLabel(now, timezone))}</span>`;
     return kids.map((kid) => {
         const points = pointsByKid.get(String(kid.id)) || {};
         const current = periodSummary(points.events, start, next, timezone);
@@ -226,7 +269,7 @@ function renderBalanceRace(rows) {
                     ${avatar(row.kid, hasLeader && index === 0)}
                     <div class="stats2-racer-meta">
                         <div class="stats2-name">${escapeHtml(row.kid.name)}</div>
-                        <div class="stats2-score">${escapeHtml(formatPoints(row.total))}</div>
+                        <div class="stats2-score point-rule-delta paradigm-pill balance">${escapeHtml(formatPoints(row.total))}</div>
                     </div>
                     <div class="stats2-progress" aria-hidden="true"><span style="--race-width: ${Math.max(8, Math.round((Math.max(0, row.total) / max) * 100))}%"></span></div>
                 </div>
@@ -241,18 +284,24 @@ function renderBalanceRace(rows) {
     `;
 }
 
-function renderRaceCard(theme, icon, title, rows, getter, formatter, higherWins = true) {
+function raceCardIconHtml(iconName) {
+    return typeof window.icon === 'function'
+        ? window.icon(iconName, { className: 'stats2-card-title-icon icon', size: 16, strokeWidth: 2.5 })
+        : `<span class="stats2-card-title-icon icon" data-icon="${escapeHtml(iconName)}" data-icon-size="16" data-icon-stroke="2.5"></span>`;
+}
+
+function renderRaceCard(theme, iconName, title, rows, getter, formatter, higherWins = true) {
     const winner = [...rows].sort((a, b) => higherWins ? getter(b) - getter(a) : getter(a) - getter(b))[0];
     const winningValue = winner ? getter(winner) : null;
     const hasWinner = winner && rows.filter((row) => sameStatValue(getter(row), winningValue)).length === 1;
     return `
         <article class="stats2-race-card stats2-race-card--${escapeHtml(theme)}">
-            <div class="stats2-card-title"><span aria-hidden="true">${escapeHtml(icon)}</span>${escapeHtml(title)}</div>
+            <div class="stats2-card-title"><span class="stats2-card-title-icon-wrap" aria-hidden="true">${raceCardIconHtml(iconName)}</span>${escapeHtml(title)}</div>
             <div class="stats2-card-racers">
                 ${rows.map((row) => `
                     <div class="stats2-mini-racer${hasWinner && winner.kid.id === row.kid.id ? ' is-leader' : ''}" style="--kid-color: ${escapeHtml(colorForKid(row.kid))}">
                         ${avatar(row.kid, hasWinner && winner.kid.id === row.kid.id)}
-                        <div class="stats2-mini-racer-meta"><div class="stats2-name">${escapeHtml(row.kid.name)}</div><div class="stats2-score">${escapeHtml(formatter(getter(row)))}</div></div>
+                        <div class="stats2-mini-racer-meta"><div class="stats2-name">${escapeHtml(row.kid.name)}</div><div class="stats2-score point-rule-delta paradigm-pill ${racePillClass(theme, getter(row))}">${escapeHtml(formatter(getter(row)))}</div></div>
                     </div>
                 `).join('')}
             </div>
@@ -272,17 +321,22 @@ function renderHighlightTabs() {
 function renderSummaryPanel(kind, title, items) {
     const first = items[0];
     const topValue = first ? formatSignedPoints(first.points) : '0 pts';
-    const isExpanded = expandedHighlightKind === kind;
+    const canExpand = Boolean(first);
+    const isExpanded = canExpand && expandedHighlightKind === kind;
+    const iconHtml = first ? first.iconHtml : '';
+    const expandHtml = canExpand
+        ? `<span class="icon" data-icon="${isExpanded ? 'chevron-up' : 'chevron-right'}" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span>`
+        : '';
     return `
-        <article class="stats2-highlight-card stats2-highlight-card--${escapeHtml(kind)}${isExpanded ? ' is-expanded' : ''}" data-highlight-kind="${escapeHtml(kind)}">
+        <article class="stats2-highlight-card stats2-highlight-card--${escapeHtml(kind)}${isExpanded ? ' is-expanded' : ''}${canExpand ? '' : ' is-empty'}" data-highlight-kind="${escapeHtml(kind)}" data-highlight-expandable="${canExpand ? '1' : '0'}">
             <div class="stats2-highlight-summary">
-                <div class="stats2-highlight-icon" aria-hidden="true">${escapeHtml(kind === 'earn' ? '🏆' : kind === 'loss' ? '📉' : '🎁')}</div>
+                <div class="stats2-highlight-icon" aria-hidden="true">${iconHtml}</div>
                 <div class="stats2-highlight-main">
                     <div class="stats2-highlight-kicker">${escapeHtml(title)}</div>
                     <div class="stats2-highlight-title">${escapeHtml(first?.name || 'No activity yet')}</div>
                     <div class="stats2-highlight-sub">${escapeHtml(first ? `${first.count} ${first.count === 1 ? 'time' : 'times'}` : '0 times')}</div>
                 </div>
-                <div class="stats2-highlight-value">${escapeHtml(topValue)}<span class="icon" data-icon="${isExpanded ? 'chevron-up' : 'chevron-right'}" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span></div>
+                <div class="stats2-highlight-value"><span class="point-rule-delta paradigm-pill ${pointPillClassForKind(kind, first?.points)}">${escapeHtml(topValue)}</span>${expandHtml}</div>
             </div>
             ${isExpanded && items.length ? renderHighlightList(kind, items) : ''}
         </article>
@@ -309,13 +363,13 @@ function renderHighlightList(kind, items) {
                         <span class="stats2-highlight-sub">${escapeHtml(`${item.count} ${item.count === 1 ? 'time' : 'times'}`)}</span>
                     </span>
                     <span class="stats2-earning-bar" aria-hidden="true"><span class="${item.count > 1 ? 'is-segmented' : ''}" style="--bar-width: ${Math.round((Math.abs(item.points) / max) * 100)}%; --bar-segments: ${Math.min(24, Math.max(1, Number.parseInt(item.count, 10) || 1))}"></span></span>
-                    <strong>${escapeHtml(formatSignedPoints(item.points))}</strong>
+                    <span class="stats2-earning-points point-rule-delta paradigm-pill ${pointPillClassForKind(kind, item.points)}">${escapeHtml(formatSignedPoints(item.points))}</span>
                 </div>
             `; }).join('')}
             ${items.length > visibleItems.length ? `
                 <button type="button" class="stats2-show-all-items" data-highlight-show-all="${escapeHtml(kind)}">
                     <span>${escapeHtml(`Show all ${items.length} ${label} items`)}</span>
-                    <span class="icon" data-icon="chevron-right" data-icon-size="17" data-icon-stroke="2.6" aria-hidden="true"></span>
+                    <span class="icon" data-icon="chevron-right" data-icon-stroke="2.6" aria-hidden="true"></span>
                 </button>
             ` : ''}
         </div>
@@ -344,10 +398,10 @@ function render() {
     const rows = rowsForThisWeek();
     renderBalanceRace(rows);
     stats2RaceCards.innerHTML = [
-        renderRaceCard('earned', '🏆', 'Most earned this week', rows, (row) => row.earned, formatSignedPoints),
-        renderRaceCard('lost', '🛡️', 'Fewest points lost', rows, (row) => row.lost, (value) => `-${Number.parseInt(value, 10) || 0} pts`, false),
-        renderRaceCard('improved', '📈', 'Earned vs last week', rows, (row) => row.earnedChange, formatPercent),
-        renderRaceCard('closest', '📉', 'Lost vs last week', rows, (row) => row.lostRatio, formatPercent, false),
+        renderRaceCard('earned', 'thumbs-up', 'Most earned this week', rows, (row) => row.earned, formatSignedPoints),
+        renderRaceCard('lost', 'thumbs-down', 'Fewest points lost', rows, (row) => row.lost, (value) => `-${Number.parseInt(value, 10) || 0} pts`, false),
+        renderRaceCard('improved', 'trending-up', 'Earned vs last week', rows, (row) => row.earnedChange, formatPercent),
+        renderRaceCard('closest', 'trending-down', 'Lost vs last week', rows, (row) => row.lostRatio, formatPercent, false),
     ].join('');
     renderHighlights();
     window.hydrateIcons?.(document);
@@ -373,6 +427,7 @@ stats2Highlights?.addEventListener('click', (event) => {
     if (!summary || !stats2Highlights.contains(summary)) return;
     const card = summary.closest('[data-highlight-kind]');
     if (!card) return;
+    if (String(card.dataset.highlightExpandable || '') !== '1') return;
     const kind = String(card.dataset.highlightKind || '');
     expandedHighlightKind = expandedHighlightKind === kind ? '' : kind;
     showAllHighlightKind = '';

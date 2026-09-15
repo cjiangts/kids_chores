@@ -185,7 +185,7 @@
     function historyIconHtml(rule, delta) {
         const triggerKey = String(rule?.triggerKey || '').trim();
         if (rule?.ruleKind === 'in_app_chore' && triggerKey && typeof window.subjectIcon === 'function') {
-            return window.subjectIcon(triggerKey, { size: 30 });
+            return window.subjectIcon(triggerKey);
         }
         if (isRedeemedRewardKind(rule?.ruleKind) && !rule?.emoji) {
             return `<span class="point-rule-emoji">${icon('gift', { size: 18 })}</span>`;
@@ -286,7 +286,7 @@
     function renderMetricCard(kind, iconName, label, value, valueDirection) {
         return `
             <div class="point-week-metric ${escapeHtml(kind)}">
-                <span class="point-week-metric-icon">${icon(iconName, { size: 24, strokeWidth: 2.6 })}</span>
+                <span class="point-week-metric-icon">${icon(iconName, { size: 20, strokeWidth: 2.4 })}</span>
                 <span class="point-week-metric-label">${escapeHtml(label)}</span>
                 <span class="point-week-metric-value">${escapeHtml(signedZero(value, valueDirection))}</span>
             </div>
@@ -309,7 +309,7 @@
                 <span class="point-day-summary-icon point-day-summary-emoji" aria-label="Daily mood">${escapeHtml(moodEmoji)}</span>
                 <div class="point-day-summary-copy">
                     <div class="point-day-summary-line">
-                        <strong>${escapeHtml(label)}:</strong>
+                        <span>${escapeHtml(label)}:</span>
                         <span class="positive">${escapeHtml(plural(summary.wins, 'win', 'wins'))}</span>
                         <span aria-hidden="true">•</span>
                         <span class="negative">${escapeHtml(plural(summary.losses, 'loss', 'losses'))}</span>
@@ -351,7 +351,7 @@
                             <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle point-week-nav-btn" data-history-week-anchor="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 16, strokeWidth: 2.9 })}</button>
                         </span>
                     </div>
-                    ${renderMetricCard('earned', 'award', 'Earned', weekSummary.earned, 'positive')}
+                    ${renderMetricCard('earned', 'thumbs-up', 'Earned', weekSummary.earned, 'positive')}
                     ${renderMetricCard('lost', 'thumbs-down', 'Lost', weekSummary.lost, 'negative')}
                     ${renderMetricCard('spent', 'gift', 'Spent', weekSummary.spent, 'negative')}
                 </div>

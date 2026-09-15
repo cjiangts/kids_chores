@@ -124,33 +124,33 @@
             -webkit-appearance: none;
             display: inline-flex;
             align-items: center;
-            gap: 0.34rem;
-            min-height: 20px;
+            gap: var(--paradigm-disclosure-link-gap);
+            min-height: var(--paradigm-disclosure-link-min-height);
             padding: 0 0.34rem 0 0;
             border: 0;
             border-radius: 8px;
             background: transparent;
-            color: #5f3ff0;
+            color: var(--paradigm-disclosure-link-color);
             font: inherit;
-            font-size: 0.94rem;
-            font-weight: 400;
+            font-size: var(--paradigm-disclosure-link-font-size);
+            font-weight: var(--paradigm-disclosure-link-font-weight);
             letter-spacing: 0;
-            line-height: 1.1;
+            line-height: var(--paradigm-disclosure-link-line-height);
             cursor: pointer;
         }
         .parent-admin-page .admin-matrix-unadded-toggle:hover,
         .parent-admin-page .admin-matrix-unadded-toggle:focus-visible {
-            color: #4f2fd4;
-            background: #f5f1ff;
+            color: var(--paradigm-disclosure-link-hover-color);
+            background: var(--paradigm-disclosure-link-hover-bg);
             outline: none;
         }
         .parent-admin-page .admin-matrix-unadded-toggle-icon {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 20px;
-            height: 20px;
-            flex: 0 0 20px;
+            width: var(--paradigm-disclosure-link-icon-box-size);
+            height: var(--paradigm-disclosure-link-icon-box-size);
+            flex: 0 0 var(--paradigm-disclosure-link-icon-box-size);
             color: currentColor;
         }
         .parent-admin-page .admin-matrix th.admin-matrix-subject-head {
@@ -906,13 +906,13 @@
                 padding-top: 0.2rem;
             }
             .parent-admin-page .admin-matrix-unadded-toggle {
-                min-height: 18px;
-                font-size: 0.74rem;
+                min-height: var(--paradigm-disclosure-link-min-height);
+                font-size: var(--paradigm-disclosure-link-font-size);
             }
             .parent-admin-page .admin-matrix-unadded-toggle-icon {
-                width: 18px;
-                height: 18px;
-                flex-basis: 18px;
+                width: var(--paradigm-disclosure-link-icon-box-size);
+                height: var(--paradigm-disclosure-link-icon-box-size);
+                flex-basis: var(--paradigm-disclosure-link-icon-box-size);
             }
             .parent-admin-page .admin-matrix-value {
                 min-width: 42px;
