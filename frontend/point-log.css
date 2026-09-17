@@ -3,6 +3,15 @@
     gap: 0.95rem;
 }
 
+.point-log-entry-content {
+    display: grid;
+    gap: 0.95rem;
+}
+
+.point-log-workbench.is-mode-unselected .point-log-entry-content {
+    display: none;
+}
+
 .point-template-list,
 .point-history {
     display: grid;
@@ -150,14 +159,12 @@
 }
 
 .point-log-mode-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: block;
     align-items: center;
-    gap: 0.6rem;
 }
 
 .point-log-mode-row .cards-view-toggle-group {
-    grid-column: 1;
+    width: 100%;
 }
 
 .point-log-mode-row .cards-view-toggle-btn {
@@ -190,37 +197,6 @@
 .point-log-mode-row [data-mode="rewards"] .point-rule-tab-short {
     color: #d89a00;
     stroke: currentColor;
-}
-
-.point-rules-link {
-    grid-column: 2;
-    justify-self: end;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
-    border: 1px solid #cfdcfb;
-    border-radius: 999px;
-    background: #ffffff;
-    color: #526fd4;
-    line-height: 1;
-    padding: 0;
-    text-decoration: none;
-    box-shadow: 0 2px 7px rgba(54, 71, 138, 0.06);
-}
-
-.point-rules-link:hover,
-.point-rules-link:focus-visible {
-    background: #f7faff;
-    border-color: #b9c9f8;
-    outline: none;
-}
-
-.point-rules-link-text {
-    display: none;
 }
 
 .point-log-entry-row {

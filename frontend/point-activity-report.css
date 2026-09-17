@@ -59,6 +59,11 @@
     flex-wrap: wrap;
 }
 
+.point-activity-rules-link {
+    flex: 0 0 auto;
+    margin-left: 0.08rem;
+}
+
 .point-activity-type {
     display: inline-flex;
     align-items: center;

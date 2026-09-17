@@ -1,5 +1,4 @@
 const API_BASE = `${window.location.origin}/api`;
-const POINT_LOG_MODE_STORAGE_KEY = 'point_log_last_mode_v1';
 const POINT_HISTORY_LIMIT = 500;
 
 const kidAvatarSwitcher = document.getElementById('kidAvatarSwitcher');
@@ -14,11 +13,10 @@ const applyAllPointLogBtn = document.getElementById('applyAllPointLogBtn');
 const templateList = document.getElementById('templateList');
 const selectionPanel = document.getElementById('selectionPanel');
 const pointHistory = document.getElementById('pointHistory');
-const pointRulesLink = document.querySelector('.point-rules-link');
+const pointLogWorkbench = document.querySelector('.point-log-workbench');
 const modeTabs = Array.from(document.querySelectorAll('[data-mode]'));
 const initialParams = new URLSearchParams(window.location.search);
 const requestedKidId = String(initialParams.get('kidId') || initialParams.get('id') || '').trim();
-const requestedMode = normalizePointLogMode(initialParams.get('mode') || initialParams.get('tab'));
 
 const MODE_META = {
     bonus: {
@@ -35,38 +33,10 @@ const MODE_META = {
     },
 };
 
-function normalizePointLogMode(value) {
-    const raw = String(value || '').trim().toLowerCase().replace(/_/g, '-');
-    if (raw === 'deduction' || raw === 'deduction-events') return 'deduction';
-    if (raw === 'rewards' || raw === 'reward' || raw === 'redeemed-reward') return 'rewards';
-    if (raw === 'bonus' || raw === 'bonus-events') return 'bonus';
-    return '';
-}
-
-function readStoredPointLogMode() {
-    try {
-        if (!window.sessionStorage) return '';
-        return normalizePointLogMode(window.sessionStorage.getItem(POINT_LOG_MODE_STORAGE_KEY));
-    } catch (error) {
-        return '';
-    }
-}
-
-function rememberPointLogMode(mode) {
-    const normalized = normalizePointLogMode(mode);
-    if (!normalized) return;
-    try {
-        if (!window.sessionStorage) return;
-        window.sessionStorage.setItem(POINT_LOG_MODE_STORAGE_KEY, normalized);
-    } catch (error) {
-        // best-effort UI memory
-    }
-}
-
 let kids = [];
 let rules = [];
 let selectedKidId = '';
-let activeMode = requestedMode || readStoredPointLogMode() || 'bonus';
+let activeMode = '';
 let selectedRuleId = 0;
 let activeRewardType = '';
 let pointDraft = { emoji: '', name: '', points: '', note: '' };
@@ -364,16 +334,7 @@ function renderModeTabs() {
     pointLogForm.classList.toggle('is-bonus', activeMode === 'bonus');
     pointLogForm.classList.toggle('is-deduction', activeMode === 'deduction');
     pointLogForm.classList.toggle('is-rewards', activeMode === 'rewards');
-    if (pointRulesLink) {
-        if (activeMode === 'rewards') {
-            const params = new URLSearchParams({ kind: 'redeemed_reward' });
-            if (activeRewardType) params.set('rewardType', activeRewardType);
-            pointRulesLink.href = `/point-rules.html?${params.toString()}`;
-        } else {
-            const ruleKind = activeMode === 'deduction' ? 'deduction_event' : 'bonus_event';
-            pointRulesLink.href = `/point-rules.html?kind=${encodeURIComponent(ruleKind)}`;
-        }
-    }
+    pointLogWorkbench?.classList.toggle('is-mode-unselected', !activeMode);
 }
 
 function templateRow(rule) {
@@ -391,6 +352,11 @@ function templateRow(rule) {
 }
 
 function renderTemplates() {
+    if (!activeMode) {
+        templateList.classList.remove('has-selection');
+        templateList.innerHTML = '';
+        return;
+    }
     templateList.classList.toggle('has-selection', hasActiveSelection());
     const modeRules = filteredRulesForMode();
     if (!modeRules.length) {
@@ -465,7 +431,7 @@ function updateSubmitState() {
 }
 
 function render() {
-    if (!activeRewardType) {
+    if (activeMode && !activeRewardType) {
         activeRewardType = defaultRewardTypeFromRules();
     }
     renderKids();
@@ -497,7 +463,6 @@ async function loadInitialData() {
     selectedKidId = initialKidId();
     activeRewardType = defaultRewardTypeFromRules();
     syncSelectedKidNavigation();
-    rememberPointLogMode(activeMode);
     selectedHistoryDayKey = '';
     clearDraft();
     await loadPointsForSelectedKid();
@@ -572,7 +537,6 @@ modeTabs.forEach((tab) => {
         const nextMode = tab.dataset.mode || 'bonus';
         if (nextMode === activeMode) return;
         activeMode = nextMode;
-        rememberPointLogMode(activeMode);
         selectedHistoryDayKey = '';
         clearDraft();
         showError('');

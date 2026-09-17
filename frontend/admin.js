@@ -56,6 +56,7 @@ let kidsLoaded = false;
 let selectedAdminKidId = '';
 let adminCategoryMetaByKey = {};
 let adminOffAppRuleCatalog = [];
+let adminInAppRuleByTriggerKey = new Map();
 let currentFamilyId = '';
 let editMode = false;
 let editState = null;
@@ -356,6 +357,7 @@ async function loadKids(options = {}) {
         const pointRulesData = await pointRulesResponse.json().catch(() => ({}));
         adminCategoryMetaByKey = buildCategoryMetaByKey(categoryData.categories);
         adminOffAppRuleCatalog = normalizeAdminOffAppRuleCatalog(pointRulesData.rules);
+        adminInAppRuleByTriggerKey = buildAdminInAppRuleMap(pointRulesData.rules);
         currentKids = Array.isArray(kids) ? kids : [];
         kidsLoaded = true;
         cacheKidsForParentNavigation(currentKids);
@@ -499,6 +501,25 @@ function getCategoryRowsForFamily(kids) {
         }))
         .sort((a, b) => a.displayName.localeCompare(b.displayName));
     return rows;
+}
+
+function buildAdminInAppRuleMap(rules) {
+    const ruleByTriggerKey = new Map();
+    (Array.isArray(rules) ? rules : []).forEach((rule) => {
+        if (String(rule?.ruleKind || '') !== 'in_app_chore') return;
+        const triggerKey = normalizeCategoryKey(rule?.triggerKey);
+        const ruleId = Number.parseInt(rule?.ruleId, 10);
+        if (!triggerKey || !Number.isInteger(ruleId) || ruleId <= 0 || ruleByTriggerKey.has(triggerKey)) return;
+        ruleByTriggerKey.set(triggerKey, rule);
+    });
+    return ruleByTriggerKey;
+}
+
+function adminPointActivityReportHref(ruleId) {
+    const normalizedRuleId = Number.parseInt(ruleId, 10);
+    return Number.isInteger(normalizedRuleId) && normalizedRuleId > 0
+        ? `/point-activity-report.html?ruleId=${encodeURIComponent(normalizedRuleId)}`
+        : '';
 }
 
 function buildEditStateFromKids(kids) {
@@ -1049,9 +1070,14 @@ function buildAdminOffAppRow(chore, state) {
     const reviewKey = isReviewable ? adminOffAppReviewKey(reviewKind, reviewId) : '';
     const isEditing = Boolean(reviewKey && adminOffAppEditingKeys.has(reviewKey));
     const stepperHtml = isReviewable && isEditing ? buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) : '';
+    const reportHref = adminPointActivityReportHref(ruleId);
+    const taskIconHtml = renderAdminOffAppIcon(chore);
+    const taskTileHtml = reportHref
+        ? `<a class="admin-off-app-tile admin-point-report-icon" href="${escapeHtml(reportHref)}" aria-label="View all activity for ${escapeHtml(name)}" title="View activity history">${taskIconHtml}</a>`
+        : `<span class="admin-off-app-tile" aria-hidden="true">${taskIconHtml}</span>`;
     const taskContentHtml = `
         <span class="admin-off-app-task-cell">
-            <span class="admin-off-app-tile" aria-hidden="true">${renderAdminOffAppIcon(chore)}</span>
+            ${taskTileHtml}
             <span class="admin-off-app-title-wrap">
                 <span class="admin-off-app-title-line">
                     <span class="admin-off-app-name activity-timeline-title">${escapeHtml(name)}</span>
@@ -1289,13 +1315,7 @@ function buildKidColumnHeader(kid) {
     const kidId = String(kid?.id || '');
     const name = String(kid?.name || '');
     if (!editMode) {
-        return `
-            <th class="admin-matrix-kid-head admin-matrix-cards-head" data-kid-id="${escapeHtml(kidId)}">
-                <span class="paradigm-panel-title paradigm-panel-title--inline">
-                    <span class="paradigm-panel-heading">Cards/day</span>
-                </span>
-            </th>
-        `;
+        return `<th class="admin-matrix-kid-head admin-matrix-cards-head" data-kid-id="${escapeHtml(kidId)}"></th>`;
     }
     const initial = getKidInitial(name);
     const tone = hashStringToIndex(kidId || name, KID_AVATAR_TONE_COUNT);
@@ -1387,11 +1407,17 @@ function buildKidRingSegmentsHtml({ total, complete, inProgress }) {
 function buildTodayColumnHeader(kid) {
     const kidId = String(kid?.id || '');
     const name = String(kid?.name || '').trim() || 'this child';
+    const statusMap = (kid && typeof kid.todaySessionStatusByDeckCategory === 'object')
+        ? kid.todaySessionStatusByDeckCategory || {}
+        : {};
+    const completedSessionCount = Object.values(statusMap).filter((statusInfo) => (
+        String(statusInfo?.status || '').trim().toLowerCase() === 'done'
+    )).length;
     const href = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
     const calendarIcon = (typeof window.icon === 'function') ? window.icon('calendar', { size: 13, strokeWidth: 2.2 }) : '';
     return `
         <th class="admin-matrix-status-head paradigm-status-column">
-            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-today-head-link" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} today's report">${calendarIcon}<span>Today</span></a>
+            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-today-head-link" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(`${name}: ${completedSessionCount} completed sessions today`)}">${calendarIcon}<span class="admin-matrix-today-count">${completedSessionCount}</span><span>Today</span></a>
         </th>
     `;
 }
@@ -1420,6 +1446,11 @@ function buildUnaddedSubjectToggleRow(count, expanded, colSpan) {
 
 function buildMatrixRow(row, kids, options = {}) {
     const subjectIconHtml = renderCategorySubjectIcon(row.categoryKey);
+    const inAppRule = adminInAppRuleByTriggerKey.get(row.categoryKey);
+    const reportHref = adminPointActivityReportHref(inAppRule?.ruleId);
+    const subjectIcon = reportHref
+        ? `<a class="paradigm-subject-icon admin-point-report-icon" href="${escapeHtml(reportHref)}" aria-label="View all activity for ${escapeHtml(row.displayName)}" title="View activity history">${subjectIconHtml}</a>`
+        : `<span class="paradigm-subject-icon" aria-hidden="true">${subjectIconHtml}</span>`;
     const cellsHtml = kids.map((kid) => buildMatrixCell(row, kid)).join('');
     const showTodayStatusColumn = Boolean(options?.showTodayStatusColumn);
     const todayStatusCellHtml = showTodayStatusColumn ? buildTodayStatusCell(row, kids[0]) : '';
@@ -1432,7 +1463,7 @@ function buildMatrixRow(row, kids, options = {}) {
         <tr data-category-key="${escapeHtml(row.categoryKey)}">
             <th scope="row">
                 <div class="paradigm-subject-cell">
-                    <span class="paradigm-subject-icon" aria-hidden="true">${subjectIconHtml}</span>
+                    ${subjectIcon}
                     <span class="paradigm-subject-name">${escapeHtml(row.displayName)}</span>
                     ${subjectMenuBtnHtml}
                 </div>

@@ -232,6 +232,23 @@ function typeBadge(rule) {
     return { label: 'Bonus earn', icon: 'thumbs-up', tone: 'earn' };
 }
 
+function pointRulesHref(rule) {
+    const ruleKind = String(rule?.ruleKind || '').trim();
+    const kindByRuleKind = {
+        in_app_chore: 'in_app_chore',
+        off_app_chore: 'off_app_chore',
+        bonus_event: 'bonus_event',
+        deduction_event: 'deduction_event',
+        redeemed_reward: 'redeemed_reward',
+    };
+    const kind = kindByRuleKind[ruleKind] || 'bonus_event';
+    const params = new URLSearchParams({ kind });
+    if (kind === 'redeemed_reward' && String(rule?.rewardType || '').trim()) {
+        params.set('rewardType', String(rule.rewardType).trim());
+    }
+    return `/point-rules.html?${params.toString()}`;
+}
+
 function typeBadgeHtml(rule) {
     const badge = typeBadge(rule);
     const iconMarkup = typeof window.icon === 'function'
@@ -264,6 +281,7 @@ function renderHero() {
     const events = visibleEvents();
     const rule = currentRule || {};
     const title = String(rule.name || 'Point activity').trim();
+    const rulesHref = pointRulesHref(rule);
     const filterLabel = selectedKidId
         ? `${kids.find((kid) => String(kid.id) === selectedKidId)?.name || 'Kid'} only`
         : 'Showing combined total';
@@ -278,6 +296,7 @@ function renderHero() {
                     <div class="point-activity-title-row">
                         <h2 class="point-activity-title">${escapeHtml(title)}</h2>
                         ${typeBadgeHtml(rule)}
+                        <a class="paradigm-icon-btn paradigm-panel-action--circle point-activity-rules-link" href="${escapeHtml(rulesHref)}" aria-label="Edit point rules" title="Edit rules"><span class="icon" data-icon="pencil" data-icon-size="14" data-icon-stroke="2.5" aria-hidden="true"></span></a>
                     </div>
                     <button type="button" class="report-hero-meta-item point-activity-filter" data-point-filter="combined" ${selectedKidId ? '' : 'disabled'}>
                         <span class="report-hero-meta-icon"><span class="icon" data-icon="users" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span></span>
