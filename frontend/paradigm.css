@@ -1689,21 +1689,6 @@ tr.paradigm-editing-row > :first-child {
     padding: 0.42rem 0;
 }
 
-.activity-timeline-row::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: calc(var(--activity-line-center) + 12px);
-    height: 1px;
-    background: var(--section-surface-border-muted);
-}
-
-.activity-timeline-row:last-child::after,
-.activity-timeline-row.is-day-last::after {
-    display: none;
-}
-
 .activity-timeline-time {
     grid-column: 1 / 2;
     grid-row: 1 / 3;

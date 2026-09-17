@@ -171,10 +171,6 @@
     transition: background-color 0.18s ease;
 }
 
-.practice-home-redesign .redesign-practice-option + .redesign-practice-option {
-    border-top: 1px solid rgba(31, 45, 98, 0.1);
-}
-
 .practice-home-redesign .redesign-practice-option:hover {
     background: rgba(111, 125, 240, 0.06);
 }
@@ -399,17 +395,12 @@
     width: 100%;
     padding: 10px 4px;
     border: 0;
-    border-top: 1px solid rgba(31, 45, 98, 0.1);
     background: transparent;
     color: #071545;
     text-align: left;
     font: inherit;
     cursor: pointer;
     transition: background-color 0.18s ease;
-}
-
-.practice-home-redesign .off-app-task-row:first-child {
-    border-top: 0;
 }
 
 .practice-home-redesign .off-app-task-row:hover {

@@ -41,10 +41,18 @@
                     <div class="stats-heading">
                         <div class="stats2-race-heading">
                             <span class="stats2-heading-emoji" aria-hidden="true">🏆</span>
-                            <h2 class="paradigm-panel-heading">This Week's Race</h2>
+                            <h2 id="stats2RaceTitle" class="paradigm-panel-heading">This Week's Race</h2>
                             <p id="stats2WeekMeta" class="stats2-week-range"></p>
                         </div>
-                        <span id="stats2DaysLeft" class="stats2-days-left"></span>
+                        <div class="stats2-week-controls">
+                            <button type="button" id="stats2PreviousWeek" class="paradigm-icon-btn stats2-week-nav" aria-label="Previous week">
+                                <span class="icon" data-icon="chevron-left" data-icon-size="16" data-icon-stroke="2.7" aria-hidden="true"></span>
+                            </button>
+                            <button type="button" id="stats2NextWeek" class="paradigm-icon-btn stats2-week-nav" aria-label="Next week">
+                                <span class="icon" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.7" aria-hidden="true"></span>
+                            </button>
+                            <span id="stats2DaysLeft" class="stats2-days-left"></span>
+                        </div>
                     </div>
                     <div id="stats2BalanceRace" class="stats2-balance-race"></div>
                     <div class="stats-heading stats-heading--items">
@@ -62,7 +70,7 @@
                     <div class="stats-heading">
                         <div class="stats2-board-heading">
                             <span class="stats2-heading-emoji" aria-hidden="true">✨</span>
-                            <h2 class="paradigm-panel-heading">This Week's Highlights</h2>
+                            <h2 id="stats2HighlightsTitle" class="paradigm-panel-heading">This Week's Highlights</h2>
                         </div>
                     </div>
                     <div id="stats2HighlightTabs" class="stats2-highlight-tabs"></div>

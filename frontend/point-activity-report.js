@@ -3,10 +3,10 @@ const POINT_ACTIVITY_HISTORY_LIMIT = 5000;
 
 const params = new URLSearchParams(window.location.search);
 const requestedRuleId = String(params.get('ruleId') || '').trim();
-const requestedName = String(params.get('name') || '').trim();
-const requestedKind = String(params.get('kind') || '').trim();
 const pointActivityHero = document.getElementById('pointActivityHero');
 const pointActivityCalendar = document.getElementById('pointActivityCalendar');
+const pointActivityLogPanel = document.getElementById('pointActivityLogPanel');
+const pointActivityLog = document.getElementById('pointActivityLog');
 const pointActivityError = document.getElementById('pointActivityError');
 const pageTitle = document.getElementById('pageTitle');
 
@@ -16,6 +16,7 @@ let selectedKidId = '';
 let currentRule = null;
 let displayedMonthKey = '';
 let selectedCalendarDayKey = '';
+let activityLogQuery = '';
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -185,6 +186,17 @@ function timeLabel(value) {
     });
 }
 
+function logDateLabel(value) {
+    const timezone = familyTimezone();
+    const date = parseDate(value);
+    if (Number.isNaN(date.getTime()) || !timezone) return '';
+    return date.toLocaleDateString([], {
+        timeZone: timezone,
+        month: 'short',
+        day: 'numeric',
+    });
+}
+
 function activeDayCount(events) {
     const timezone = familyTimezone();
     if (!timezone) return 0;
@@ -205,10 +217,10 @@ function iconHtml(rule) {
 
 function typeBadge(rule) {
     const ruleKind = String(rule?.ruleKind || '').trim();
-    if (ruleKind === 'deduction_event' || requestedKind === 'loss') {
+    if (ruleKind === 'deduction_event') {
         return { label: 'Loss', icon: 'thumbs-down', tone: 'loss' };
     }
-    if (ruleKind === 'redeemed_reward' || requestedKind === 'spend') {
+    if (ruleKind === 'redeemed_reward') {
         return { label: 'Redeem', icon: 'gift', tone: 'redeem' };
     }
     if (ruleKind === 'in_app_chore') {
@@ -251,7 +263,7 @@ function renderHero() {
     const allEvents = allActivityEvents();
     const events = visibleEvents();
     const rule = currentRule || {};
-    const title = String(rule.name || requestedName || 'Point activity').trim();
+    const title = String(rule.name || 'Point activity').trim();
     const filterLabel = selectedKidId
         ? `${kids.find((kid) => String(kid.id) === selectedKidId)?.name || 'Kid'} only`
         : 'Showing combined total';
@@ -315,6 +327,17 @@ function calendarTotalsByDay(events) {
     return totals;
 }
 
+function calendarNoteDays(events) {
+    const timezone = familyTimezone();
+    const days = new Set();
+    events.forEach((event) => {
+        const key = dayKey(parseDate(event?.createdAt), timezone);
+        if (!key || key.slice(0, 7) !== displayedMonthKey || !String(event?.note || '').trim()) return;
+        days.add(key);
+    });
+    return days;
+}
+
 function calendarLevel(total, maxTotal) {
     const absTotal = Math.abs(total);
     if (absTotal <= 0) return 0;
@@ -322,9 +345,10 @@ function calendarLevel(total, maxTotal) {
     return Math.min(5, Math.max(1, Math.ceil((absTotal / max) * 5)));
 }
 
-function calendarCellHtml(dayNumber, totals, maxTotal) {
+function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
     const key = `${displayedMonthKey}-${String(dayNumber).padStart(2, '0')}`;
     const hasTotal = totals.has(key);
+    const hasNote = noteDays.has(key);
     const total = totals.get(key) || 0;
     const absTotal = Math.abs(total);
     const level = calendarLevel(total, maxTotal);
@@ -335,9 +359,10 @@ function calendarCellHtml(dayNumber, totals, maxTotal) {
         ? `type="button" data-calendar-day="${escapeHtml(key)}" aria-label="${escapeHtml(`${shortDateLabel(key)} ${absTotal.toLocaleString()} points`)}"`
         : '';
     return `
-        <${tagName} class="point-activity-day${hasTotal ? ` has-total level-${level}` : ''}${selectedCalendarDayKey === key ? ' active' : ''} tone-${escapeHtml(calendarTone)}" ${attrs}>
+        <${tagName} class="point-activity-day${hasTotal ? ` has-total level-${level}` : ''}${hasNote ? ' has-note' : ''}${selectedCalendarDayKey === key ? ' active' : ''} tone-${escapeHtml(calendarTone)}" ${attrs}>
             <span class="point-activity-day-number">${dayNumber}</span>
             <span class="point-activity-day-total">${hasTotal ? escapeHtml(absTotal.toLocaleString()) : '0'}</span>
+            ${hasNote ? '<span class="point-activity-day-note-dot" aria-hidden="true"></span>' : ''}
         </${tagName}>
     `;
 }
@@ -381,10 +406,11 @@ function renderCalendar() {
     const leadingBlanks = firstDay ? weekdayIndexMondayFirst(firstDay) : 0;
     const totalDays = daysInMonth(displayedMonthKey);
     const totals = calendarTotalsByDay(visibleEvents());
+    const noteDays = calendarNoteDays(visibleEvents());
     const maxTotal = Math.max(1, ...[...totals.values()].map((value) => Math.abs(value)));
     const cells = [
         ...Array.from({ length: leadingBlanks }, () => '<div class="point-activity-day is-blank" aria-hidden="true"></div>'),
-        ...Array.from({ length: totalDays }, (_, index) => calendarCellHtml(index + 1, totals, maxTotal)),
+        ...Array.from({ length: totalDays }, (_, index) => calendarCellHtml(index + 1, totals, noteDays, maxTotal)),
     ];
 
     pointActivityCalendar.innerHTML = `
@@ -414,17 +440,77 @@ function renderCalendar() {
     window.hydrateIcons?.(pointActivityCalendar);
 }
 
+function isInAppChore() {
+    return String(currentRule?.ruleKind || '') === 'in_app_chore';
+}
+
+function renderActivityLog() {
+    if (!pointActivityLogPanel || !pointActivityLog) return;
+    if (isInAppChore()) {
+        pointActivityLogPanel.classList.add('hidden');
+        pointActivityLog.innerHTML = '';
+        return;
+    }
+
+    pointActivityLogPanel.classList.remove('hidden');
+    const query = activityLogQuery.trim().toLocaleLowerCase();
+    const events = visibleEvents()
+        .filter((event) => {
+            const note = String(event?.note || '').trim();
+            if (!note) return false;
+            return !query || note.toLocaleLowerCase().includes(query);
+        })
+        .sort((a, b) => parseDate(b?.createdAt).getTime() - parseDate(a?.createdAt).getTime());
+    const allCount = visibleEvents().length;
+
+    pointActivityLog.innerHTML = `
+        <div class="point-activity-log-head">
+            <h2 class="paradigm-panel-title">
+                <span class="paradigm-panel-title-icon"><span class="icon" data-icon="clipboard-list" data-icon-size="20" data-icon-stroke="2.4" aria-hidden="true"></span></span>
+                <span class="paradigm-panel-heading">Note Log</span>
+            </h2>
+            <div class="point-activity-log-tools">
+                <label class="point-activity-log-search">
+                    <span class="icon" data-icon="search" data-icon-size="16" data-icon-stroke="2.4" aria-hidden="true"></span>
+                    <input type="search" data-activity-log-search value="${escapeHtml(activityLogQuery)}" placeholder="Search notes" aria-label="Search parent notes">
+                </label>
+            </div>
+        </div>
+        <div class="point-activity-log-list">
+            ${events.length ? events.map((event) => {
+                const kid = event?.kid || {};
+                const note = String(event?.note || '').trim();
+                return `
+                    <article class="point-activity-log-row" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                        <time class="point-activity-log-time" datetime="${escapeHtml(event?.createdAt || '')}">
+                            <span class="point-activity-log-date">${escapeHtml(logDateLabel(event?.createdAt))}</span>
+                            <span class="point-activity-log-clock">${escapeHtml(timeLabel(event?.createdAt))}</span>
+                        </time>
+                        <span class="point-activity-log-name">${escapeHtml(kid?.name || 'Kid')}</span>
+                        <span class="point-activity-log-note">${escapeHtml(note || '-')}</span>
+                        <span class="point-rule-delta paradigm-pill ${escapeHtml(pointPillClass(currentRule || event?.rule || {}))}">${escapeHtml(formatSignedPoints(event?.pointsDelta))}</span>
+                    </article>
+                `;
+            }).join('') : `
+                <div class="point-activity-log-empty">${escapeHtml(query ? 'No parent notes match your search.' : (allCount ? 'No parent notes yet.' : 'No activity logged yet.'))}</div>
+            `}
+        </div>
+    `;
+    window.hydrateIcons?.(pointActivityLog);
+}
+
 function render() {
     renderHero();
     renderCalendar();
+    renderActivityLog();
     window.hydrateIcons?.(document);
 }
 
-function resolveCurrentRule() {
-    currentRule = allActivityEvents().find((event) => isSameRule(event))?.rule || null;
-    if (!currentRule && requestedName) {
-        currentRule = { name: requestedName };
-    }
+function resolveCurrentRule(rules) {
+    currentRule = (Array.isArray(rules) ? rules : [])
+        .find((rule) => String(rule?.ruleId || '') === requestedRuleId)
+        || allActivityEvents().find((event) => isSameRule(event))?.rule
+        || null;
 }
 
 async function loadInitialData() {
@@ -433,13 +519,17 @@ async function loadInitialData() {
         return;
     }
     showError('');
-    kids = await fetchJson(`${API_BASE}/kids?view=reward_nav`);
+    const [loadedKids, ruleData] = await Promise.all([
+        fetchJson(`${API_BASE}/kids?view=reward_nav`),
+        fetchJson(`${API_BASE}/points/rules?includeInactive=1`),
+    ]);
+    kids = loadedKids;
     const entries = await Promise.all(kids.map(async (kid) => [
         String(kid.id),
         await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kid.id)}/points?limit=${POINT_ACTIVITY_HISTORY_LIMIT}`),
     ]));
     pointDataByKid = new Map(entries);
-    resolveCurrentRule();
+    resolveCurrentRule(ruleData?.rules);
     render();
 }
 
@@ -472,6 +562,14 @@ pointActivityCalendar?.addEventListener('click', (event) => {
     displayedMonthKey = addMonths(displayedMonthKey, button.dataset.calendarMonth || 0);
     selectedCalendarDayKey = '';
     render();
+});
+
+pointActivityLog?.addEventListener('input', (event) => {
+    const input = event.target.closest('[data-activity-log-search]');
+    if (!input || !pointActivityLog.contains(input)) return;
+    activityLogQuery = String(input.value || '');
+    renderActivityLog();
+    pointActivityLog.querySelector('[data-activity-log-search]')?.focus();
 });
 
 loadInitialData().catch((error) => {

@@ -122,6 +122,21 @@
         });
     }
 
+    function historyHour(value, timezone) {
+        const date = parseHistoryDate(value);
+        if (Number.isNaN(date.getTime())) return 0;
+        try {
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: String(timezone || '').trim(),
+                hour: '2-digit',
+                hourCycle: 'h23',
+            }).formatToParts(date);
+            return Number.parseInt(parts.find((part) => part.type === 'hour')?.value, 10) || 0;
+        } catch (error) {
+            return 0;
+        }
+    }
+
     function shiftIsoHours(value, hours) {
         const date = parseHistoryDate(value);
         if (Number.isNaN(date.getTime())) return '';
@@ -191,6 +206,13 @@
             return `<span class="point-rule-emoji">${icon('gift', { size: 18 })}</span>`;
         }
         return `<span class="point-rule-emoji">${escapeHtml(rule?.emoji || (delta < 0 ? '-' : '+'))}</span>`;
+    }
+
+    function pointActivityReportHref(event) {
+        const rule = event?.rule || {};
+        const ruleId = String(event?.ruleId || rule?.ruleId || '').trim();
+        if (!ruleId) return '';
+        return `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId)}`;
     }
 
     function shouldIncludeEvent(event, mode) {
@@ -396,6 +418,17 @@
         });
     }
 
+    function sortEventsOldestFirst(events) {
+        return [...events].sort((a, b) => {
+            const aTime = parseHistoryDate(a?.createdAt).getTime();
+            const bTime = parseHistoryDate(b?.createdAt).getTime();
+            const safeA = Number.isFinite(aTime) ? aTime : 0;
+            const safeB = Number.isFinite(bTime) ? bTime : 0;
+            if (safeA !== safeB) return safeA - safeB;
+            return (Number.parseInt(a?.eventId, 10) || 0) - (Number.parseInt(b?.eventId, 10) || 0);
+        });
+    }
+
     function eventRowHtml(event, opts, timezone, showDelete, extraClass = '') {
         const rule = event.rule || {};
         const delta = Number.parseInt(event.pointsDelta, 10) || 0;
@@ -408,13 +441,18 @@
         const timeLabel = formatHistoryTime(event.createdAt, timezone);
         const isEditingTime = showDelete && Number.parseInt(opts.timeEditEventId, 10) === Number.parseInt(event.eventId, 10);
         const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${extraClass ? ` ${extraClass}` : ''}`;
+        const reportHref = pointActivityReportHref(event);
+        const iconHtml = historyIconHtml(rule, delta);
+        const activityIcon = reportHref
+            ? `<a class="point-history-icon activity-timeline-icon point-history-icon-link" href="${escapeHtml(reportHref)}" aria-label="${escapeHtml(`View all activity for ${rule.name || 'this point rule'}`)}">${iconHtml}</a>`
+            : `<div class="point-history-icon activity-timeline-icon">${iconHtml}</div>`;
         return `
                 <div class="${escapeHtml(className)}" data-event-id="${escapeHtml(event.eventId)}" data-points-delta="${escapeHtml(delta)}" data-balance-after="${Number.isFinite(balanceAfter) ? escapeHtml(balanceAfter) : ''}" data-created-at="${escapeHtml(event.createdAt)}" data-note="${escapeHtml(note)}">
                     ${showDelete
                 ? `<button type="button" class="point-history-time activity-timeline-time point-history-time-btn" data-history-action="edit-time" aria-label="${escapeHtml(`Adjust event time from ${timeLabel}`)}">${escapeHtml(timeLabel)}</button>`
                 : `<span class="point-history-time activity-timeline-time">${escapeHtml(timeLabel)}</span>`}
                     <span class="point-history-node activity-timeline-node" aria-hidden="true"></span>
-                    <div class="point-history-icon activity-timeline-icon">${historyIconHtml(rule, delta)}</div>
+                    ${activityIcon}
                     <div class="point-history-main activity-timeline-main">
                         <div class="point-history-title activity-timeline-title">${escapeHtml(rule.name || 'Point event')}</div>
                         ${note ? `
@@ -631,6 +669,35 @@
         }).join('');
     }
 
+    function renderTwoColumnEventList(events, opts, timezone, showDelete) {
+        const groups = [];
+        events.forEach((event) => {
+            const dayKey = dateKeyInTimezone(parseHistoryDate(event?.createdAt), timezone);
+            const current = groups[groups.length - 1];
+            if (!current || current.dayKey !== dayKey) {
+                groups.push({ dayKey, events: [event] });
+                return;
+            }
+            current.events.push(event);
+        });
+        return groups.map((group) => {
+            const leftEvents = sortEventsOldestFirst(group.events.filter((event) => historyHour(event?.createdAt, timezone) < 12));
+            const rightEvents = sortEventsOldestFirst(group.events.filter((event) => historyHour(event?.createdAt, timezone) >= 12));
+            const boundary = group.dayKey
+                ? `<div class="point-history-day-boundary activity-timeline-day-boundary"><span class="point-history-day-boundary-label activity-timeline-day-boundary-label">${escapeHtml(compactDayLabel(group.dayKey, timezone))}</span><span class="point-history-period-marker point-history-period-marker--am" aria-label="AM">${icon('sun', { size: 15, strokeWidth: 2.4 })}</span><span class="point-history-period-marker point-history-period-marker--pm" aria-label="PM">${icon('moon', { size: 15, strokeWidth: 2.4 })}</span></div>`
+                : '';
+            return `${boundary}
+                <div class="point-history-day-columns">
+                    <div class="point-history-day-column point-history-day-column--am">
+                        ${leftEvents.map((event) => eventRowHtml(event, opts, timezone, showDelete)).join('')}
+                    </div>
+                    <div class="point-history-day-column point-history-day-column--pm">
+                        ${rightEvents.map((event) => eventRowHtml(event, opts, timezone, showDelete)).join('')}
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
     function isEventInWeek(event, weekAnchorDayKey, timezone) {
         const eventDayKey = dateKeyInTimezone(parseHistoryDate(event?.createdAt), timezone);
         const weekStart = weekStartKey(weekAnchorDayKey);
@@ -683,7 +750,9 @@
             ? `
             <section class="point-history-group activity-timeline-group">
                 <div class="point-history-group-list activity-timeline-list">
-                    ${renderEventList(selectedEvents, rowOpts, timezone, showDelete, true)}
+                    ${opts.splitHistoryColumns
+                ? renderTwoColumnEventList(selectedEvents, rowOpts, timezone, showDelete)
+                : renderEventList(selectedEvents, rowOpts, timezone, showDelete, true)}
                 </div>
             </section>
         `

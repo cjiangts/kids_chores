@@ -100,6 +100,8 @@ const ICON_PATHS = {
     'lock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     'unlock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
     'refresh-ccw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/>',
+    'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+    'moon': '<path d="M20.8 14.7A9 9 0 1 1 9.3 3.2 7 7 0 0 0 20.8 14.7Z"/>',
 
     // Subject-tile glyphs (math). Chinese/spelling subjects render as text labels instead.
     'subj-math-basic': '<path d="M4 7h5"/><path d="M6.5 4.5v5"/><path d="M15 7h5"/><path d="M4 15l5 5"/><path d="M9 15l-5 5"/><path d="M15 16h5"/><path d="M15 19h5"/>',

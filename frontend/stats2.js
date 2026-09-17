@@ -1,19 +1,24 @@
 const API_BASE = `${window.location.origin}/api`;
-const POINT_HISTORY_LIMIT = 1000;
+const POINT_HISTORY_LIMIT = 5000;
 
 const stats2Error = document.getElementById('stats2Error');
+const stats2RaceTitle = document.getElementById('stats2RaceTitle');
 const stats2WeekMeta = document.getElementById('stats2WeekMeta');
 const stats2DaysLeft = document.getElementById('stats2DaysLeft');
+const stats2PreviousWeek = document.getElementById('stats2PreviousWeek');
+const stats2NextWeek = document.getElementById('stats2NextWeek');
 const stats2BalanceRace = document.getElementById('stats2BalanceRace');
 const stats2RaceCards = document.getElementById('stats2RaceCards');
 const stats2HighlightTabs = document.getElementById('stats2HighlightTabs');
 const stats2Highlights = document.getElementById('stats2Highlights');
+const stats2HighlightsTitle = document.getElementById('stats2HighlightsTitle');
 
 let kids = [];
 let pointsByKid = new Map();
 let selectedHighlightKidId = '';
 let expandedHighlightKind = '';
 let showAllHighlightKind = '';
+let selectedStatsWeekStart = '';
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -127,18 +132,24 @@ function sameStatValue(a, b) {
     return Math.abs((Number(a) || 0) - (Number(b) || 0)) < 0.0001;
 }
 
-function normalizeRewardBucketTotals(value) {
-    const source = value && typeof value === 'object' ? value : {};
-    return Object.fromEntries(Object.entries(source)
-        .map(([bucket, entry]) => [String(bucket || '').trim().toLowerCase(), Number.parseInt(entry?.totalPoints ?? entry ?? 0, 10) || 0])
-        .filter(([bucket]) => bucket));
-}
-
-function currentBalance(points) {
-    const rewardTotals = normalizeRewardBucketTotals(points?.rewardBucketTotals);
-    const firstRewardBucket = Object.keys(rewardTotals)[0];
-    if (firstRewardBucket) return rewardTotals[firstRewardBucket];
-    return Number.parseInt(points?.totalPoints, 10) || 0;
+function balanceAtWeekEnd(points, endKey, timezone) {
+    const rewardTotals = points?.rewardBucketTotals && typeof points.rewardBucketTotals === 'object'
+        ? points.rewardBucketTotals
+        : {};
+    const [bucket, bucketEntry] = Object.entries(rewardTotals)[0] || [];
+    const normalizedBucket = String(bucket || '').trim().toLowerCase();
+    const currentTotal = Number.parseInt(bucketEntry?.totalPoints, 10);
+    if (!normalizedBucket || !Number.isFinite(currentTotal)) {
+        return Number.parseInt(points?.totalPoints, 10) || 0;
+    }
+    const laterDelta = (points?.events || []).reduce((sum, event) => {
+        const eventKey = dayKey(parseDate(event?.createdAt), timezone);
+        if (!eventKey || eventKey < endKey) return sum;
+        const rewardType = String(event?.rule?.rewardType || '').trim().toLowerCase();
+        if (rewardType && rewardType !== normalizedBucket) return sum;
+        return sum + (Number.parseInt(event?.pointsDelta, 10) || 0);
+    }, 0);
+    return currentTotal - laterDelta;
 }
 
 function percentRatio(current, previous) {
@@ -201,13 +212,9 @@ function ruleSummaryItems(events, kind) {
     return [...byRule.values()].sort((a, b) => Math.abs(b.points) - Math.abs(a.points));
 }
 
-function pointActivityReportHref(item, kind) {
-    const qs = new URLSearchParams();
-    if (item?.ruleId) qs.set('ruleId', String(item.ruleId));
-    qs.set('kind', kind);
-    qs.set('kidId', selectedHighlightKidId);
-    if (item?.name) qs.set('name', String(item.name));
-    return `/point-activity-report.html?${qs.toString()}`;
+function pointActivityReportHref(item) {
+    const ruleId = String(item?.ruleId || '').trim();
+    return `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId)}`;
 }
 
 function avatar(kid, crowned = false) {
@@ -235,21 +242,43 @@ function weekTimeLeftLabel(now, timezone) {
     return `${hoursLeft} ${hoursLeft === 1 ? 'hour' : 'hours'} left`;
 }
 
-function rowsForThisWeek() {
+function currentWeekStart(timezone) {
+    return weekStart(dayKey(new Date(), timezone));
+}
+
+function selectedWeekStart(timezone) {
+    const currentStart = currentWeekStart(timezone);
+    if (!selectedStatsWeekStart || selectedStatsWeekStart > currentStart) {
+        selectedStatsWeekStart = currentStart;
+    }
+    return selectedStatsWeekStart;
+}
+
+function updateWeekControls(start, timezone) {
+    const currentStart = currentWeekStart(timezone);
+    const isCurrentWeek = start === currentStart;
+    if (stats2RaceTitle) stats2RaceTitle.textContent = isCurrentWeek ? "This Week's Race" : "Week's Race";
+    if (stats2HighlightsTitle) stats2HighlightsTitle.textContent = isCurrentWeek ? "This Week's Highlights" : "Week's Highlights";
+    stats2WeekMeta.textContent = weekLabel(start);
+    stats2DaysLeft.innerHTML = isCurrentWeek
+        ? `<span class="icon" data-icon="calendar" data-icon-size="13" data-icon-stroke="2.2" aria-hidden="true"></span><span>${escapeHtml(weekTimeLeftLabel(new Date(), timezone))}</span>`
+        : `<span class="icon" data-icon="circle-check" data-icon-size="13" data-icon-stroke="2.2" aria-hidden="true"></span><span>Completed</span>`;
+    if (stats2NextWeek) stats2NextWeek.disabled = isCurrentWeek;
+}
+
+function rowsForSelectedWeek() {
     const timezone = String(kids.find((kid) => kid.familyTimezone)?.familyTimezone || '').trim();
-    const now = new Date();
-    const start = weekStart(dayKey(now, timezone));
+    const start = selectedWeekStart(timezone);
     const next = addDays(start, 7);
     const previous = addDays(start, -7);
-    stats2WeekMeta.textContent = weekLabel(start);
-    stats2DaysLeft.innerHTML = `<span class="icon" data-icon="calendar" data-icon-size="13" data-icon-stroke="2.2" aria-hidden="true"></span><span>${escapeHtml(weekTimeLeftLabel(now, timezone))}</span>`;
+    updateWeekControls(start, timezone);
     return kids.map((kid) => {
         const points = pointsByKid.get(String(kid.id)) || {};
         const current = periodSummary(points.events, start, next, timezone);
         const last = periodSummary(points.events, previous, start, timezone);
         return {
             kid,
-            total: currentBalance(points),
+            total: balanceAtWeekEnd(points, next, timezone),
             earned: current.earned,
             lost: current.lost,
             earnedRatio: percentRatio(current.earned, last.earned),
@@ -258,7 +287,7 @@ function rowsForThisWeek() {
     });
 }
 
-function renderBalanceRace(rows) {
+function renderBalanceRace(rows, isCompletedWeek) {
     const sorted = [...rows].sort((a, b) => b.total - a.total);
     const max = Math.max(1, ...sorted.map((row) => Math.max(0, row.total)));
     const leader = sorted[0];
@@ -279,8 +308,8 @@ function renderBalanceRace(rows) {
         </div>
         <div class="stats2-lead">
             <div>
-                <strong>${hasLeader ? `${escapeHtml(leader.kid.name)} leads` : 'All tied'}</strong>
-                <span>${hasLeader ? `by ${escapeHtml(formatPoints(lead))}` : 'tied for now'}</span>
+                <strong>${hasLeader ? `${escapeHtml(leader.kid.name)} ${isCompletedWeek ? 'wins' : 'leads'}` : 'All tied'}</strong>
+                ${isCompletedWeek ? '' : `<span>${hasLeader ? `by ${escapeHtml(formatPoints(lead))}` : 'tied for now'}</span>`}
             </div>
         </div>
     `;
@@ -357,7 +386,7 @@ function renderHighlightList(kind, items) {
                 if (!sameStatValue(item.points, previousPoints)) rank = index + 1;
                 previousPoints = item.points;
                 return `
-                <a class="stats2-earning-row stats2-earning-link" href="${escapeHtml(pointActivityReportHref(item, kind))}" aria-label="${escapeHtml(`${item.name} activity history`)}">
+                <a class="stats2-earning-row stats2-earning-link" href="${escapeHtml(pointActivityReportHref(item))}" aria-label="${escapeHtml(`${item.name} activity history`)}">
                     <span class="stats2-rank">${rank}</span>
                     <span class="stats2-earning-emoji" aria-hidden="true">${item.iconHtml}</span>
                     <span>
@@ -381,7 +410,7 @@ function renderHighlightList(kind, items) {
 
 function renderHighlights() {
     const timezone = String(kids.find((kid) => kid.familyTimezone)?.familyTimezone || '').trim();
-    const start = weekStart(dayKey(new Date(), timezone));
+    const start = selectedWeekStart(timezone);
     const kid = kids.find((item) => String(item.id) === selectedHighlightKidId) || kids[0];
     const points = pointsByKid.get(String(kid?.id)) || {};
     const events = eventsForWeek(points, start, addDays(start, 7), timezone);
@@ -398,8 +427,10 @@ function renderHighlights() {
 }
 
 function render() {
-    const rows = rowsForThisWeek();
-    renderBalanceRace(rows);
+    const timezone = String(kids.find((kid) => kid.familyTimezone)?.familyTimezone || '').trim();
+    const start = selectedWeekStart(timezone);
+    const rows = rowsForSelectedWeek();
+    renderBalanceRace(rows, start !== currentWeekStart(timezone));
     stats2RaceCards.innerHTML = [
         renderRaceCard('earned', 'thumbs-up', 'Most earned this week', rows, (row) => row.earned, formatSignedPoints),
         renderRaceCard('lost', 'thumbs-down', 'Fewest points lost', rows, (row) => row.lost, (value) => `-${Number.parseInt(value, 10) || 0} pts`, false),
@@ -409,6 +440,20 @@ function render() {
     renderHighlights();
     window.hydrateIcons?.(document);
 }
+
+function changeStatsWeek(offset) {
+    const timezone = String(kids.find((kid) => kid.familyTimezone)?.familyTimezone || '').trim();
+    const currentStart = currentWeekStart(timezone);
+    const nextStart = addDays(selectedWeekStart(timezone), offset * 7);
+    if (!nextStart || nextStart > currentStart) return;
+    selectedStatsWeekStart = nextStart;
+    expandedHighlightKind = '';
+    showAllHighlightKind = '';
+    render();
+}
+
+stats2PreviousWeek?.addEventListener('click', () => changeStatsWeek(-1));
+stats2NextWeek?.addEventListener('click', () => changeStatsWeek(1));
 
 stats2HighlightTabs?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-highlight-kid]');

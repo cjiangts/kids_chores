@@ -627,7 +627,10 @@
 }
 
 .point-day-summary-emoji {
-    font-size: 1.28rem;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 1.72rem;
     line-height: 1;
 }
 
@@ -715,6 +718,46 @@
     width: 6px;
     height: 6px;
     margin-left: 2px;
+}
+
+.point-history-icon-link {
+    width: 30px;
+    height: 30px;
+    padding: 2px;
+    box-sizing: border-box;
+    border: 1px solid #cfd7f5;
+    border-radius: 9px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(47, 61, 118, 0.14);
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.point-history-icon-link .subject-icon {
+    --subj-size: 24px;
+}
+
+.point-history-icon-link .point-rule-emoji {
+    width: 24px;
+    height: 24px;
+    font-size: 0.82rem;
+}
+
+.point-history-icon-link:hover {
+    border-color: #8175f7;
+    box-shadow: 0 0 0 3px #ebe9ff, 0 2px 5px rgba(47, 61, 118, 0.16);
+    transform: translateY(-1px);
+}
+
+.point-history-icon-link:active {
+    box-shadow: 0 0 0 2px #ebe9ff;
+    transform: translateY(0) scale(0.96);
+}
+
+.point-history-icon-link:focus-visible {
+    outline: 2px solid #6b5cf6;
+    outline-offset: 2px;
 }
 
 .point-history-row.paradigm-editing-row .point-history-time {
@@ -974,6 +1017,10 @@
         height: 32px;
     }
 
+    .point-day-summary-emoji {
+        font-size: 1.48rem;
+    }
+
     .point-day-summary-line {
         gap: 0.16rem 0.3rem;
     }
@@ -1013,6 +1060,20 @@
 
     .point-history-icon.activity-timeline-icon {
         width: 28px;
+    }
+
+    .point-history-icon-link.activity-timeline-icon {
+        height: 28px;
+    }
+
+    .point-history-icon-link .subject-icon {
+        --subj-size: 22px;
+    }
+
+    .point-history-icon-link .point-rule-emoji {
+        width: 22px;
+        height: 22px;
+        font-size: 0.76rem;
     }
 
     :is(.point-history-note-editor, .point-history-time-editor) {

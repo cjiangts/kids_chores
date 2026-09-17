@@ -92,6 +92,7 @@ function renderHistory() {
         familyTimezone: selectedFamilyTimezone(),
         showDelete: false,
         showBalance: true,
+        splitHistoryColumns: true,
         mode: 'all',
         emptyDay: 'No point activity for this day.',
     });

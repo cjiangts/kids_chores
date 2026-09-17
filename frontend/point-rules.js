@@ -181,18 +181,7 @@ function loggedCountCell(rule) {
 function pointActivityReportHrefForRule(rule) {
     const ruleId = String(rule?.ruleId || '').trim();
     if (!ruleId) return '';
-    const qs = new URLSearchParams();
-    qs.set('ruleId', ruleId);
-    qs.set('kind', pointActivityKindForRule(rule));
-    if (rule?.name) qs.set('name', String(rule.name));
-    return `/point-activity-report.html?${qs.toString()}`;
-}
-
-function pointActivityKindForRule(rule) {
-    const ruleKind = String(rule?.ruleKind || '').trim();
-    if (ruleKind === 'deduction_event') return 'loss';
-    if (ruleKind === 'redeemed_reward') return 'spend';
-    return 'earn';
+    return `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId)}`;
 }
 
 function subjectIconCell(category) {

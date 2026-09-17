@@ -83,6 +83,32 @@
     white-space: nowrap;
 }
 
+.stats2-week-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    min-width: 0;
+}
+
+.stats2-week-nav {
+    --paradigm-icon-btn-size: 30px;
+    flex: 0 0 auto;
+    border: 1px solid #dce2f5;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #6b5cf6;
+}
+
+.stats2-week-nav:hover:not(:disabled) {
+    border-color: #bcb6ff;
+    background: #f4f1ff;
+}
+
+.stats2-week-nav:disabled {
+    cursor: default;
+    opacity: 0.42;
+}
+
 .stats2-balance-race,
 .stats2-race-cards {
     display: grid;
@@ -506,7 +532,6 @@
     margin: 0 -0.7rem -0.7rem;
     padding: 0.1rem 0 0;
     background: #fff;
-    border-top: 1px solid rgba(217, 223, 239, 0.72);
 }
 
 .stats2-earning-row {
@@ -516,7 +541,6 @@
     gap: 0.62rem;
     padding: 0.54rem 0.72rem;
     background: #fff;
-    border-bottom: 1px solid rgba(217, 223, 239, 0.72);
 }
 
 .stats2-earning-link {
@@ -537,10 +561,6 @@
     justify-self: end;
 }
 
-.stats2-earning-row:last-of-type {
-    border-bottom: 0;
-}
-
 .stats2-show-all-items {
     appearance: none;
     -webkit-appearance: none;
@@ -551,7 +571,6 @@
     width: 100%;
     min-height: 2.2rem;
     border: 0;
-    border-top: 1px solid var(--p-border-soft);
     background: var(--p-surface);
     color: var(--paradigm-disclosure-link-color);
     font: inherit;
@@ -661,6 +680,23 @@
 
 .stats2-earning-points {
     justify-self: end;
+}
+
+@media (min-width: 1000px) {
+    .stats2-page main {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+        gap: var(--section-stack-gap);
+    }
+
+    .stats2-page main > .error {
+        grid-column: 1 / -1;
+    }
+
+    .stats2-page main > .section-stack {
+        margin-bottom: 0;
+    }
 }
 
 @media (max-width: 700px) {

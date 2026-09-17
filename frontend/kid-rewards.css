@@ -1,7 +1,7 @@
 @media (min-width: 900px) {
     .kid-rewards-page .point-log-layout {
         display: block;
-        max-width: 46rem;
+        max-width: 64rem;
         margin-inline: auto;
     }
 
@@ -14,12 +14,113 @@
         --point-history-column-gap: 0.24rem;
     }
 
+    .kid-rewards-page .point-history-group-list::before {
+        content: none;
+    }
+
+    .kid-rewards-page .point-history-day-columns {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 1.2rem;
+    }
+
+    .kid-rewards-page .point-history-day-columns::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 1px;
+        background: #d8deee;
+        transform: translateX(-0.5px);
+    }
+
+    .kid-rewards-page .point-history-day-boundary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        align-items: center;
+        min-height: 2rem;
+        padding-inline: 0.55rem;
+        border: 1px solid #e1e6f4;
+        border-radius: 0.58rem;
+        background: #f7f8fe;
+    }
+
+    .kid-rewards-page .point-history-day-boundary-label {
+        position: static;
+        grid-column: 1 / 2;
+        grid-row: 1;
+        justify-self: start;
+        transform: none;
+        border: 0;
+        background: transparent;
+        padding: 0;
+    }
+
+    .kid-rewards-page .point-history-day-column {
+        display: grid;
+        align-content: start;
+    }
+
+    .kid-rewards-page .point-history-period-marker {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        justify-self: center;
+        grid-row: 1;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 999px;
+    }
+
+    .kid-rewards-page .point-history-period-marker--am {
+        grid-column: 1 / 3;
+    }
+
+    .kid-rewards-page .point-history-period-marker--pm {
+        grid-column: 3 / 5;
+    }
+
+    .kid-rewards-page .point-history-period-marker--am {
+        background: #fff4c9;
+        color: #b67800;
+    }
+
+    .kid-rewards-page .point-history-period-marker--pm {
+        background: #edeaff;
+        color: #6859d8;
+    }
+
     .kid-rewards-page .point-history-row,
+    .kid-rewards-page .point-history-row.no-delete,
     .kid-rewards-page .point-history-row.has-balance.no-delete {
-        grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) auto auto;
+        grid-template-columns: var(--point-history-time-width) 30px minmax(0, 1fr) auto;
+    }
+
+    .kid-rewards-page .point-history-node {
+        display: none;
+    }
+
+    .kid-rewards-page .point-history-icon {
+        grid-column: 2 / 3;
+    }
+
+    .kid-rewards-page .point-history-main {
+        grid-column: 3 / 4;
+    }
+
+    .kid-rewards-page .point-history-metrics {
+        grid-column: 4 / 5;
     }
 
     .kid-rewards-page .activity-timeline-title {
         font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 899px) {
+    .kid-rewards-page .point-history-period-marker {
+        display: none;
     }
 }
