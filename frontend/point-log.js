@@ -367,6 +367,17 @@ function renderTemplates() {
     templateList.innerHTML = `<div class="point-template-frame">${modeRules.map(templateRow).join('')}</div>`;
 }
 
+function refreshTemplateSelection(ruleIds) {
+    templateList.classList.toggle('has-selection', hasActiveSelection());
+    [...new Set(ruleIds.filter((ruleId) => Number.isInteger(ruleId) && ruleId > 0))].forEach((ruleId) => {
+        const row = templateList.querySelector(`[data-rule-id="${ruleId}"]`);
+        const rule = rules.find((item) => Number(item?.ruleId) === ruleId);
+        if (!row || !rule) return;
+        row.outerHTML = templateRow(rule);
+    });
+    window.hydrateIcons?.(templateList);
+}
+
 function renderSelectionPanel() {
     selectionPanel.classList.add('hidden');
     selectionPanel.innerHTML = '';
@@ -441,6 +452,14 @@ function render() {
     renderHistory();
     updateSubmitState();
     hydrateIcons(document);
+}
+
+function renderWorkbench() {
+    renderModeTabs();
+    renderTemplates();
+    renderSelectionPanel();
+    updateSubmitState();
+    window.hydrateIcons?.(pointLogWorkbench);
 }
 
 async function loadPointsForSelectedKid() {
@@ -535,12 +554,10 @@ async function saveSelectedRuleFromDraft(rule) {
 modeTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
         const nextMode = tab.dataset.mode || 'bonus';
-        if (nextMode === activeMode) return;
-        activeMode = nextMode;
-        selectedHistoryDayKey = '';
+        activeMode = nextMode === activeMode ? '' : nextMode;
         clearDraft();
         showError('');
-        render();
+        renderWorkbench();
     });
 });
 
@@ -548,15 +565,18 @@ templateList.addEventListener('click', (event) => {
     const ruleButton = event.target.closest('[data-rule-id]');
     if (ruleButton) {
         const ruleId = Number.parseInt(ruleButton.dataset.ruleId || '', 10) || 0;
+        const previousRuleId = Number(selectedRuleId) || 0;
         if (ruleId && Number(ruleId) === Number(selectedRuleId)) {
             clearDraft();
-            render();
+            refreshTemplateSelection([previousRuleId]);
+            updateSubmitState();
             return;
         }
         const rule = rules.find((item) => Number(item.ruleId) === ruleId);
         populateDraftFromRule(rule);
         syncDraftFromInputs({ preserveSelection: true });
-        render();
+        refreshTemplateSelection([previousRuleId, Number(selectedRuleId) || 0]);
+        updateSubmitState();
     }
 });
 

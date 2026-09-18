@@ -12,6 +12,14 @@
     display: none;
 }
 
+.manage-page .point-log-workbench.settings-section.is-mode-unselected {
+    padding-bottom: 0;
+}
+
+.point-log-workbench.is-mode-unselected .cards-view-toggle-group {
+    border-bottom-color: transparent;
+}
+
 .point-template-list,
 .point-history {
     display: grid;
