@@ -1322,7 +1322,6 @@ function buildKidColumnHeader(kid) {
     const savingClass = savingKids.has(kidId) ? ' is-saving' : '';
     const progress = computeKidDailyProgress(kid);
     const ringSegmentsHtml = buildKidRingSegmentsHtml(progress);
-    const reportHref = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
     let avatarContentHtml;
     let avatarModeClass = '';
     if (editMode) {
@@ -1349,11 +1348,7 @@ function buildKidColumnHeader(kid) {
             </button>
         `;
     } else {
-        interactiveHtml = `
-            <a href="${escapeHtml(reportHref)}" class="admin-matrix-kid-head-btn" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(name)} — today's report">
-                ${avatarHtml}
-            </a>
-        `;
+        interactiveHtml = `<span class="admin-matrix-kid-head-static">${avatarHtml}</span>`;
     }
     return `
         <th class="admin-matrix-kid-head${savingClass}" data-kid-id="${escapeHtml(kidId)}">
@@ -1405,19 +1400,11 @@ function buildKidRingSegmentsHtml({ total, complete, inProgress }) {
 }
 
 function buildTodayColumnHeader(kid) {
-    const kidId = String(kid?.id || '');
-    const name = String(kid?.name || '').trim() || 'this child';
-    const statusMap = (kid && typeof kid.todaySessionStatusByDeckCategory === 'object')
-        ? kid.todaySessionStatusByDeckCategory || {}
-        : {};
-    const completedSessionCount = Object.values(statusMap).filter((statusInfo) => (
-        String(statusInfo?.status || '').trim().toLowerCase() === 'done'
-    )).length;
-    const href = `/kid-report.html?id=${encodeURIComponent(kidId)}`;
-    const calendarIcon = (typeof window.icon === 'function') ? window.icon('calendar', { size: 13, strokeWidth: 2.2 }) : '';
+    const href = '/point-activity-report.html?ruleId=0';
+    const phoneIcon = (typeof window.icon === 'function') ? window.icon('smartphone', { size: 14, strokeWidth: 2.5 }) : '';
     return `
-        <th class="admin-matrix-status-head paradigm-status-column">
-            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-today-head-link" data-kid-report data-kid-id="${escapeHtml(kidId)}" aria-label="${escapeHtml(`${name}: ${completedSessionCount} completed sessions today`)}">${calendarIcon}<span class="admin-matrix-today-count">${completedSessionCount}</span><span>Today</span></a>
+        <th class="admin-matrix-status-head admin-matrix-all-report-head paradigm-status-column">
+            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-all-report-link" aria-label="All in-app activity" title="All in-app activity"><span class="admin-matrix-all-report-icon" aria-hidden="true"><span class="admin-matrix-all-report-phone">${phoneIcon}</span><span class="admin-matrix-all-report-label">ALL</span></span></a>
         </th>
     `;
 }
@@ -1649,11 +1636,6 @@ function bindMatrixInteractions(rows, kids) {
             } else {
                 openSubjectMenu(categoryKey, target);
             }
-        });
-    });
-    adminMatrix.querySelectorAll('[data-kid-report]').forEach((link) => {
-        link.addEventListener('click', (event) => {
-            persistLastViewedKidId(event.currentTarget.getAttribute('data-kid-id') || '');
         });
     });
     adminMatrix.querySelectorAll('[data-kid-delete]').forEach((btn) => {

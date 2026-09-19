@@ -139,13 +139,6 @@ function updatePageTitle() {
         : 'Practice Home - The Mommy App';
 }
 
-function openProgressReport() {
-    if (!kidId) {
-        return;
-    }
-    window.location.href = `/kid-report.html?id=${encodeURIComponent(kidId)}&from=kid-home`;
-}
-
 function runDynamicPracticeByBehavior(categoryKey, behaviorType, hasChineseSpecificLogic) {
     if (behaviorType === 'type_iv') {
         goType4Practice(categoryKey);

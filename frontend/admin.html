@@ -195,6 +195,12 @@
         .parent-admin-page .admin-matrix-status-head {
             text-align: left;
         }
+        .parent-admin-page .admin-matrix-all-report-head {
+            padding-top: 0.42rem !important;
+            padding-bottom: 0.42rem !important;
+            text-align: right;
+            vertical-align: middle !important;
+        }
         .parent-admin-page .admin-matrix-column-head-link {
             display: inline-flex;
             align-items: center;
@@ -212,26 +218,51 @@
             color: #2f4cb5;
             outline: none;
         }
-        .parent-admin-page .admin-matrix-today-head-link {
-            width: 100%;
+        .parent-admin-page .admin-matrix-all-report-link {
             box-sizing: border-box;
             justify-content: center;
-            gap: 0.22rem;
-            height: var(--admin-pill-height);
-            min-height: var(--admin-pill-height);
-            padding: 0 0.42rem;
-            border: 1px solid #d8d3ff;
-            border-radius: 999px;
-            background: #f4f1ff;
-            color: #6b5cf6;
-            text-decoration: none;
+            width: 42px;
+            height: 42px;
+            padding: 2px;
+            border: 1px solid #cfd7f5;
+            border-radius: 9px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(47, 61, 118, 0.14);
+            margin-left: auto;
         }
-        .parent-admin-page .admin-matrix-today-head-link:hover,
-        .parent-admin-page .admin-matrix-today-head-link:focus-visible {
-            background: #ece8ff;
-            border-color: #bfb6ff;
-            color: #5748e8;
+        .parent-admin-page .admin-matrix-all-report-link:hover,
+        .parent-admin-page .admin-matrix-all-report-link:focus-visible {
+            border-color: #8175f7;
+            color: #3267d6;
             box-shadow: 0 3px 8px rgba(107, 92, 246, 0.16);
+        }
+        .parent-admin-page .admin-matrix-all-report-icon {
+            display: grid;
+            grid-template-rows: 1fr auto;
+            place-items: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: #eaf0ff;
+            color: #3267d6;
+            line-height: 1;
+        }
+        .parent-admin-page .admin-matrix-all-report-phone {
+            display: inline-flex;
+            align-items: end;
+            height: 19px;
+        }
+        .parent-admin-page .admin-matrix-all-report-phone .icon,
+        .parent-admin-page .admin-matrix-all-report-phone svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+        }
+        .parent-admin-page .admin-matrix-all-report-label {
+            margin-bottom: 4px;
+            font-size: 0.46rem;
+            font-weight: 850;
+            letter-spacing: 0.04em;
         }
         .parent-admin-page .admin-matrix-kid-avatar {
             width: 32px;
@@ -263,6 +294,12 @@
             cursor: pointer;
             color: inherit;
             text-decoration: none;
+        }
+        .parent-admin-page .admin-matrix-kid-head-static {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.18rem;
+            padding: 0.15rem 0.25rem;
         }
         .parent-admin-page .admin-matrix-kid-head-btn:hover,
         .parent-admin-page .admin-matrix-kid-head-btn:focus-visible {
@@ -887,9 +924,9 @@
                 --admin-pill-font-size: 0.8rem;
             }
 
-            .parent-admin-page .admin-matrix-today-head-link {
+            .parent-admin-page .admin-matrix-all-report-link {
                 position: relative;
-                transform: translateY(0.3rem);
+                transform: none;
                 z-index: 1;
             }
 

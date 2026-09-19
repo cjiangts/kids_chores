@@ -137,12 +137,7 @@ function resolveBackHref() {
         const ruleId = String(params.get('ruleId') || '').trim();
         return ruleId ? `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId)}` : '/point-rules.html';
     }
-    const qs = new URLSearchParams();
-    qs.set('id', String(kidId));
-    if (from === 'kid-home') {
-        qs.set('from', 'kid-home');
-    }
-    return `/kid-report.html?${qs.toString()}`;
+    return `/kid-practice-home.html?id=${encodeURIComponent(String(kidId))}`;
 }
 
 async function loadReportTimezone() {

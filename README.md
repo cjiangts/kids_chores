@@ -54,7 +54,6 @@ Categories and behavior types are defined in `shared_decks.duckdb` (`deck_catego
 | Unified practice session | `kid-practice.html/js` | Handles type-I, II, III in one file |
 | Card & deck management | `kid-card-manage.html/js` | Shared manage UI for all behavior types |
 | Writing sheets | `kid-writing-sheets.html/js` | Print/track writing practice sheets |
-| Kid report | `kid-report.html/js` | Daily practice chart per category |
 | Session report | `kid-session-report.html/js` | Per-session card-level detail |
 | Card report | `kid-card-report.html/js` | Per-card attempt history + trend |
 | Deck creation | `deck-create.html/js` | Create single shared deck |

@@ -1787,7 +1787,7 @@ tr.paradigm-editing-row > :first-child {
 
 /* ============================================================
  * Practice report panel — promoted from kid-card-manage's
- * "Sessions" tab (.cards-report-view) so kid-report.html can
+ * "Sessions" tab (.cards-report-view) so report views can
  * reuse the same summary stats / daily chart / session list
  * styling inside a .manage-page .settings-section white panel.
  * ============================================================ */
